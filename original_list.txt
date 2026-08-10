@@ -1,0 +1,808 @@
+Created At: 2026-08-06T16:04:57+03:00
+Completed At: 2026-08-06T16:04:57+03:00
+File Path: `file:///C:/Users/localadmin/WebstormProjects/universal1/expo-app/kit8/components/list/web/ListWebCardsComponent.tsx`
+Total Lines: 883
+Total Bytes: 33552
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import React, { useState, useEffect, useRef } from "react";
+2: // @ts-ignore
+3: import { View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+4: import { useDispatch, useSelector } from "react-redux";
+5: import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+6: import { Card, Text, useTheme } from "react-native-paper";
+7: import * as Crypto from "expo-crypto";
+8: import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+9: import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+10: import {
+11:   CardItem,
+12:   ListWebCardsComponentProps,
+13:   CardThreeDotsMenu,
+14:   CardIconsBottomComponent,
+15:   CardSwipeUnderlayLeftComponent,
+16:   CardSwipeUnderlayRightComponent,
+17:   SwipeableCard,
+18:   ListWebTopBarComponent,
+19: } from "./lib";
+20: import { CardBasicVersion } from "./cards";
+21: import { CreateNewCardBasicForm } from "../forms";
+22: import { SystemMetaData } from "../../../redux/SystemMetaData";
+23: import { DATA_ORIGIN_TYPE, DataOriginType } from "../../../types/origin";
+24: import { DATA_MANIPULATION_TYPE, DataManipulationType } from "../../../types/manipulation";
+25: import TexInputMi from "../../../ui/TexInputMi";
+26: import ButtonMi from "../../../ui/ButtonMi";
+27: import H1Mi from "../../../ui/H1Mi";
+28: 
+29: const uuid = Crypto.randomUUID;
+30: 
+31: const testCardsMode = false
+32: 
+33: const INITIAL_CARDS: CardItem[] = Array.from({ length: 10 }, (_, i) => ({
+34:   id: `card-${i + 1}`,
+35:   title: `Media Post Title ${i + 1}`,
+36:   description: `Detailed description for post card #${i + 1}`,
+37: }));
+38: 
+39: export function ListWebCardsComponent({
+40:   entityName = "mediaPostReusable",
+41:   entityForArchivationName = "mediaPostArchive",
+42:   crudListTitle = "Tasks",
+43:   listOwnerGUID,
+44:   crudCardHeight = 150,
+45:   crudListWidth = 350,
+46:   crudGapBetweenCards = 12,
+47:   CreateNewCardBasicForm: CustomCreateForm,
+48:   CardComponent: CustomCardComponent,
+49: }: ListWebCardsComponentProps) {
+50:   const dispatch = useDispatch();
+51:   const theme = useTheme();
+52:   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+53: 
+54:   // MD3 Colors
+55:   const primaryColor = theme.colors.primary || "#6200ee";
+56:   const primaryLightColor = theme.colors.primaryContainer || "#eaddff";
+57: 
+58:   const entityState = useSelector((state: any) => state[entityName]);
+59:   const entityMetaData = SystemMetaData[entityName];
+60:   const actions = entityMetaData?.actions;
+61: 
+62:   const archiveMetaData = SystemMetaData[entityForArchivationName];
+63:   const archiveActions = archiveMetaData?.actions;
+64: 
+65:   const CardItemComponent = CustomCardComponent || CardBasicVersion;
+66: 
+67:   const [cards, setCards] = useState<CardItem[]>(testCardsMode?INITIAL_CARDS:[]);
+68:   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+69:   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+70:   const [openMenuCardId, setOpenMenuCardId] = useState<string | null>(null);
+71:   const [lastInteractedCardId, setLastInteractedCardId] = useState<string | null>(null);
+72:   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+73: 
+74:   // Create Form States
+75:   const [newTitle, setNewTitle] = useState("");
+76:   const [newDescription, setNewDescription] = useState("");
+77:   const [originUrl, setOriginUrl] = useState("");
+78:   const [dataOriginName, setDataOriginName] = useState<DataOriginType>(DATA_ORIGIN_TYPE.youtube);
+79:   const [dataManipulationName, setDataManipulationName] = useState<DataManipulationType>(DATA_MANIPULATION_TYPE.YOUTUBE_TO_GOOGLE_DRIVE);
+80: 
+81:   const renderCardItem = (card: CardItem, isSelected: boolean, isDragging: boolean, dragHandleProps: any) => {
+82:     const handleCardTouch = (id: string) => {
+83:       setLastInteractedCardId(id);
+84:     };
+85: 
+86:     if (React.isValidElement(CardItemComponent)) {
+87:       return React.cloneElement(CardItemComponent as React.ReactElement<any>, {
+88:         card,
+89:         isSelected,
+90:         isDragging,
+91:         primaryColor,
+92:         onFieldChange: (id: string, field: "title" | "description", val: string) => {
+93:           handleCardTouch(id);
+94:           handleFieldChange(id, field, val);
+95:         },
+96:         onArchive: (id: string) => {
+97:           handleCardTouch(id);
+98:           handleArchive(id);
+99:         },
+100:         onDelete: (id: string) => {
+101:           handleCardTouch(id);
+102:           handleDelete(id);
+103:         },
+104:         onShare: (id: string) => {
+105:           handleCardTouch(id);
+106:           handleShare(id);
+107:         },
+108:         onEdit: (id: string) => {
+109:           handleCardTouch(id);
+110:           setEditingCardId(editingCardId === id ? null : id);
+111:         },
+112:         onMenuOpenStateChange: (isOpen: boolean) => {
+113:           if (isOpen) handleCardTouch(card.id);
+114:           setOpenMenuCardId(isOpen ? card.id : null);
+115:         },
+116:         dragHandleProps,
+117:         crudCardHeight,
+118:       });
+119:     }
+120: 
+121:     return React.createElement(CardItemComponent as React.ComponentType<any>, {
+122:       testID: "cardBasic",
+123:       card,
+124:       isSelected,
+125:       isDragging,
+126:       primaryColor,
+127:       onFieldChange: (id: string, field: "title" | "description", val: string) => {
+128:         handleCardTouch(id);
+129:         handleFieldChange(id, field, val);
+130:       },
+131:       onArchive: (id: string) => {
+132:         handleCardTouch(id);
+133:         handleArchive(id);
+134:       },
+135:       onDelete: (id: string) => {
+136:         handleCardTouch(id);
+137:         handleDelete(id);
+138:       },
+139:       onShare: (id: string) => {
+140:         handleCardTouch(id);
+141:         handleShare(id);
+142:       },
+143:       onEdit: (id: string) => {
+144:         handleCardTouch(id);
+145:         setEditingCardId(editingCardId === id ? null : id);
+146:       },
+147:       onMenuOpenStateChange: (isOpen: boolean) => {
+148:         if (isOpen) handleCardTouch(card.id);
+149:         setOpenMenuCardId(isOpen ? card.id : null);
+150:       },
+151:       dragHandleProps,
+152:       crudCardHeight,
+153:     });
+154:   };
+155: 
+156:   // Scroll Helpers & 50% Screen Height Visibility Checker
+157:   const scrollListContainerToTopOfTheScreen = () => {
+158:     if (scrollContainerRef.current && typeof window !== "undefined") {
+159:       scrollContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+160:     }
+161:   };
+162: 
+163:   const checkVisibilityAndScrollToTopScreen = () => {
+164:     if (scrollContainerRef.current && typeof window !== "undefined") {
+165:       const rect = scrollContainerRef.current.getBoundingClientRect();
+166:       const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+167:       const visibleTop = Math.max(0, rect.top);
+168:       const visibleBottom = Math.min(windowHeight, rect.bottom);
+169:       const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+170: 
+171:       // If the list is visible less than 50% of the screen height
+172:       if (visibleHeight < windowHeight * 0.5) {
+173:         scrollListContainerToTopOfTheScreen();
+174:       }
+175:     }
+176:   };
+177: 
+178:   const handleScrollTop = () => {
+179:     checkVisibilityAndScrollToTopScreen();
+180:     if (scrollContainerRef.current) {
+181:       scrollContainerRef.current.scrollTop = 0;
+182:     }
+183:   };
+184: 
+185:   const handleScrollBottom = () => {
+186:     checkVisibilityAndScrollToTopScreen();
+187:     if (scrollContainerRef.current) {
+188:       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+189:     }
+190:   };
+191: 
+192:   const handleScrollToCurrent = () => {
+193:     if (lastInteractedCardId && typeof document !== "undefined") {
+194:       const cardElement = document.getElementById(`card-container-${lastInteractedCardId}`);
+195:       if (cardElement) {
+196:         cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+197:       }
+198:     }
+199:   };
+200: 
+201:   const handleCreateNewItem = () => {
+202:     setIsCreateFormOpen(true);
+203:     if (scrollContainerRef.current) {
+204:       scrollContainerRef.current.scrollTop = 0;
+205:     }
+206:   };
+207: 
+208:   // Read ONCE on mount using listOwnerGUID as mediaPostOwnerGUID
+209:   useEffect(() => {
+210:     if (actions?.readData && listOwnerGUID) {
+211:       dispatch(actions.readData({
+212:         paginationSize: 50,
+213:         originationCurrentPage: 0,
+214:         readAllFilter: "",
+215:         mediaPostOwnerGUID: listOwnerGUID,
+216:       }));
+217:     }
+218:   }, [actions, entityName, listOwnerGUID, dispatch]);
+219: 
+220:   // Sync Redux entity data to local cards list when server data loads
+221:   useEffect(() => {
+222:     if (entityState?.entityDataFromServer && entityState.entityDataFromServer.length > 0) {
+223:       const mapped = entityState.entityDataFromServer.map((item: any, idx: number) => {
+224:         const json = item?.mediaPostJSON || {};
+225:         return {
+226:           id: item?.mediaPostGUID || `card-${idx + 1}`,
+227:           title: json.mediaPostTitle || item?.title || `Media Post ${idx + 1}`,
+228:           description: json.mediaPostDescription || item?.description || "",
+229:           rawItem: item,
+230:         };
+231:       });
+232:       setCards(mapped);
+233:     }
+234:   }, [entityState?.entityDataFromServer]);
+235: 
+236:   // If listOwnerGUID is empty = list must be invisible and await
+237:   if (!listOwnerGUID || listOwnerGUID.trim() === "") {
+238:     return (
+239:       <View style={styles.container}>
+240:         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+241:           <Text style={{ fontSize: 12, fontWeight: "normal", color: "#666666" }}>
+242:             Reorder & Swipe Cards
+243:           </Text>
+244:           <Text style={{ fontSize: 14, fontWeight: "normal", color: "#333333" }}>
+245:             {entityName}
+246:           </Text>
+247:         </View>
+248:         <View style={{ marginVertical: 40, alignItems: "center" }}>
+249:           <Text style={{ fontSize: 16, color: "#888", fontStyle: "italic" }}>
+250:             Awaiting active user / listOwnerGUID...
+251:           </Text>
+252:         </View>
+253:       </View>
+254:     );
+255:   }
+256: 
+257:   // Drag and drop reordering handler
+258:   const onDragEnd = (result: DropResult) => {
+259:     if (!result.destination) return;
+260:     const items = Array.from(cards);
+261:     const [reorderedItem] = items.splice(result.source.index, 1);
+262:     items.splice(result.destination.index, 0, reorderedItem);
+263:     setCards(items);
+264:   };
+265: 
+266:   // Return native draggableStyle directly to ensure exact 1-to-1 mouse cursor alignment
+267:   const getVerticalDraggableStyle = (draggableStyle: any, isDragging: boolean) => {
+268:     if (!isDragging || !draggableStyle) {
+269:       return draggableStyle;
+270:     }
+271:     return draggableStyle;
+272:   };
+273: 
+274:   // Field change handler (Update Title or Description) with listOwnerGUID
+275:   const handleFieldChange = (id: string, field: "title" | "description", value: string) => {
+276:     setCards((prev) =>
+277:       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+278:     );
+279: 
+280:     if (actions?.updateOne && listOwnerGUID) {
+281:       const sagaField = field === "title" ? "mediaPostTitle" : "mediaPostDescription";
+282:       dispatch(actions.updateOne({
+283:         mediaPostGUID: id,
+284:         mediaPostOwnerGUID: listOwnerGUID,
+285:         field: sagaField,
+286:         value: value,
+287:       }));
+288:     }
+289:   };
+290: 
+291:   // Move Card Up
+292:   const handleMoveUp = (index: number) => {
+293:     if (index <= 0) {
+294:       if (scrollContainerRef.current) {
+295:         scrollContainerRef.current.scrollTop = 0;
+296:       }
+297:       return;
+298:     }
+299:     const newCards = Array.from(cards);
+300:     const temp = newCards[index];
+301:     newCards[index] = newCards[index - 1];
+302:     newCards[index - 1] = temp;
+303:     setCards(newCards);
+304: 
+305:     if (index - 1 === 0 && scrollContainerRef.current) {
+306:       scrollContainerRef.current.scrollTop = 0;
+307:     }
+308:   };
+309: 
+310:   // Move Card Down
+311:   const handleMoveDown = (index: number) => {
+312:     if (index >= cards.length - 1) {
+313:       if (scrollContainerRef.current) {
+314:         scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+315:       }
+316:       return;
+317:     }
+318:     const newCards = Array.from(cards);
+319:     const temp = newCards[index];
+320:     newCards[index] = newCards[index + 1];
+321:     newCards[index + 1] = temp;
+322:     setCards(newCards);
+323: 
+324:     if (index + 1 === cards.length - 1 && scrollContainerRef.current) {
+325:       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+326:     }
+327:   };
+328: 
+329:   // Create post as first item (+ New 1st) with listOwnerGUID
+330:   const handleCreateFirst = (
+331:     originParam?: DataOriginType,
+332:     manipulationParam?: DataManipulationType,
+333:     originUrlParam?: string
+334:   ) => {
+335:     if (!newTitle.trim() && !newDescription.trim()) return;
+336: 
+337:     const originToUse = originParam || dataOriginName;
+338:     const manipulationToUse = manipulationParam || dataManipulationName;
+339:     const urlToUse = originUrlParam !== undefined ? originUrlParam : originUrl;
+340: 
+341:     const newGuid = uuid();
+342:     const newCard: CardItem = {
+343:       id: newGuid,
+344:       title: newTitle.trim() || "Untitled Post",
+345:       description: newDescription.trim() || "",
+346:       rawItem: {
+347:         mediaPostOwnerGUID: listOwnerGUID,
+348:         mediaPostGUID: newGuid,
+349:         orderInList: Date.now(),
+350:         mediaPostJSON: {
+351:           mediaPostTitle: newTitle.trim() || "Untitled Post",
+352:           mediaPostDescription: newDescription.trim() || "",
+353:           mediaPostOrigin: urlToUse,
+354:           mediaPostMIME: "youtube",
+355:           mediaPostOriginType: "url",
+356:           dataOriginName: originToUse,
+357:           dataManipulationName: manipulationToUse,
+358:         },
+359:       },
+360:     };
+361: 
+362:     setCards((prev) => [newCard, ...prev]);
+363: 
+364:     if (actions?.createOne && listOwnerGUID) {
+365:       dispatch(actions.createOne({
+366:         mediaPostOwnerGUID: listOwnerGUID,
+367:         mediaPostGUID: newGuid,
+368:         orderInList: Date.now(),
+369:         mediaPostJSON: {
+370:           mediaPostTitle: newCard.title,
+371:           mediaPostDescription: newCard.description,
+372:           mediaPostOrigin: urlToUse,
+373:           mediaPostMIME: "youtube",
+374:           mediaPostOriginType: "url",
+375:           dataOriginName: originToUse,
+376:           dataManipulationName: manipulationToUse,
+377:         },
+378:       }));
+379:     }
+380: 
+381:     setNewTitle("");
+382:     setNewDescription("");
+383:     setOriginUrl("");
+384:     setIsCreateFormOpen(false);
+385: 
+386:     setTimeout(() => {
+387:       if (scrollContainerRef.current) {
+388:         scrollContainerRef.current.scrollTop = 0;
+389:       }
+390:     }, 100);
+391:   };
+392: 
+393:   // Create post as last item (+ New last) with listOwnerGUID
+394:   const handleCreateLast = (
+395:     originParam?: DataOriginType,
+396:     manipulationParam?: DataManipulationType,
+397:     originUrlParam?: string
+398:   ) => {
+399:     if (!newTitle.trim() && !newDescription.trim()) return;
+400: 
+401:     const originToUse = originParam || dataOriginName;
+402:     const manipulationToUse = manipulationParam || dataManipulationName;
+403:     const urlToUse = originUrlParam !== undefined ? originUrlParam : originUrl;
+404: 
+405:     const newGuid = uuid();
+406:     const newCard: CardItem = {
+407:       id: newGuid,
+408:       title: newTitle.trim() || "Untitled Post",
+409:       description: newDescription.trim() || "",
+410:       rawItem: {
+411:         mediaPostOwnerGUID: listOwnerGUID,
+412:         mediaPostGUID: newGuid,
+413:         orderInList: Date.now(),
+414:         mediaPostJSON: {
+415:           mediaPostTitle: newTitle.trim() || "Untitled Post",
+416:           mediaPostDescription: newDescription.trim() || "",
+417:           mediaPostOrigin: urlToUse,
+418:           mediaPostMIME: "youtube",
+419:           mediaPostOriginType: "url",
+420:           dataOriginName: originToUse,
+421:           dataManipulationName: manipulationToUse,
+422:         },
+423:       },
+424:     };
+425: 
+426:     setCards((prev) => [...prev, newCard]);
+427: 
+428:     if (actions?.createOne && listOwnerGUID) {
+429:       dispatch(actions.createOne({
+430:         mediaPostOwnerGUID: listOwnerGUID,
+431:         mediaPostGUID: newGuid,
+432:         orderInList: Date.now(),
+433:         mediaPostJSON: {
+434:           mediaPostTitle: newCard.title,
+435:           mediaPostDescription: newCard.description,
+436:           mediaPostOrigin: urlToUse,
+437:           mediaPostMIME: "youtube",
+438:           mediaPostOriginType: "url",
+439:           dataOriginName: originToUse,
+440:           dataManipulationName: manipulationToUse,
+441:         },
+442:       }));
+443:     }
+444: 
+445:     setNewTitle("");
+446:     setNewDescription("");
+447:     setOriginUrl("");
+448:     setIsCreateFormOpen(false);
+449: 
+450:     setTimeout(() => {
+451:       if (scrollContainerRef.current) {
+452:         scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+453:       }
+454:     }, 100);
+455:   };
+456: 
+457:   // Archive item handler: adds current post into entityForArchivationName & deletes current post from entityName
+458:   const handleArchive = (id: string) => {
+459:     const targetCard = cards.find((item) => item.id === id);
+460: 
+461:     setCards((prev) => prev.filter((item) => item.id !== id));
+462: 
+463:     if (targetCard && listOwnerGUID) {
+464:       // 1. Add current post into entityForArchivationName (mediaPostArchive)
+465:       if (archiveActions?.createOne) {
+466:         const itemToArchive = targetCard.rawItem
+467:           ? { ...targetCard.rawItem, mediaPostOwnerGUID: listOwnerGUID }
+468:           : {
+469:               mediaPostGUID: targetCard.id,
+470:               mediaPostOwnerGUID: listOwnerGUID,
+471:               orderInList: Date.now(),
+472:               mediaPostJSON: {
+473:                 mediaPostTitle: targetCard.title,
+474:                 mediaPostDescription: targetCard.description,
+475:                 mediaPostMIME: "youtube",
+476:                 mediaPostOriginType: "url",
+477:               },
+478:             };
+479:         dispatch(archiveActions.createOne(itemToArchive));
+480:       }
+481: 
+482:       // 2. Delete current post from entityName (mediaPostReusable)
+483:       if (actions?.deleteOne) {
+484:         dispatch(
+485:           actions.deleteOne({
+486:             mediaPostGUID: id,
+487:             mediaPostOwnerGUID: listOwnerGUID,
+488:           })
+489:         );
+490:       }
+491:     }
+492:     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
+493:   };
+494: 
+495:   // Delete item handler with listOwnerGUID
+496:   const handleDelete = (id: string) => {
+497:     setCards((prev) => prev.filter((item) => item.id !== id));
+498:     if (actions?.deleteOne && listOwnerGUID) {
+499:       dispatch(actions.deleteOne({
+500:         mediaPostGUID: id,
+501:         mediaPostOwnerGUID: listOwnerGUID,
+502:       }));
+503:     }
+504:     console.log(`Deleted item: ${id}`);
+505:   };
+506: 
+507:   // Archive Selected Cards
+508:   const handleArchiveSelected = () => {
+509:     if (selectedIds.length === 0) return;
+510:     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+511:     console.log("Archived selected cards:", selectedIds);
+512:     setSelectedIds([]);
+513:   };
+514: 
+515:   // Delete Selected Cards with listOwnerGUID
+516:   const handleDeleteSelected = () => {
+517:     if (selectedIds.length === 0) return;
+518:     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+519: 
+520:     if (actions?.deleteOne && listOwnerGUID) {
+521:       selectedIds.forEach((id) => {
+522:         dispatch(actions.deleteOne({
+523:           mediaPostGUID: id,
+524:           mediaPostOwnerGUID: listOwnerGUID,
+525:         }));
+526:       });
+527:     }
+528: 
+529:     setSelectedIds([]);
+530:   };
+531: 
+532:   // Share Card Handler
+533:   const handleShare = (id: string) => {
+534:     console.log(`Sharing card: ${id}`);
+535:   };
+536: 
+537:   // Select All Toggle
+538:   const isAllSelected = cards.length > 0 && selectedIds.length === cards.length;
+539:   const handleSelectAll = () => {
+540:     if (isAllSelected) {
+541:       setSelectedIds([]);
+542:     } else {
+543:       setSelectedIds(cards.map((c) => c.id));
+544:     }
+545:   };
+546: 
+547:   return (
+548:     <ScrollView contentContainerStyle={[styles.container, { maxWidth: crudListWidth, width: "100%" }]} keyboardShouldPersistTaps="handled">
+549:       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+550:         <Text style={{ fontSize: 12, fontWeight: "normal", color: theme.colors.onSurfaceVariant || "#666666" }}>
+551:           Reorder & Swipe Cards
+552:         </Text>
+553:         <Text style={{ fontSize: 14, fontWeight: "normal", color: theme.colors.onSurface }}>
+554:           {entityName}
+555:         </Text>
+556:       </View>
+557: 
+558:       {/* Create New Card Form (open via createNewItem top bar icon) */}
+559:       {isCreateFormOpen && (
+560:         <CreateNewCardBasicForm
+561:           newTitle={newTitle}
+562:           onChangeTitle={setNewTitle}
+563:           newDescription={newDescription}
+564:           onChangeDescription={setNewDescription}
+565:           originUrl={originUrl}
+566:           onChangeOriginUrl={setOriginUrl}
+567:           dataOriginName={dataOriginName}
+568:           onChangeDataOriginName={setDataOriginName}
+569:           dataManipulationName={dataManipulationName}
+570:           onChangeDataManipulationName={setDataManipulationName}
+571:           onCreateFirst={handleCreateFirst}
+572:           onCreateLast={handleCreateLast}
+573:           onClose={() => setIsCreateFormOpen(false)}
+574:           primaryColor={primaryColor}
+575:         />
+576:       )}
+577: 
+578:       {/* ListWebTopBarComponent at top of crudListTitle container */}
+579:       <ListWebTopBarComponent
+580:         onCreateNewItem={handleCreateNewItem}
+581:         onScrollToCurrent={handleScrollToCurrent}
+582:         onScrollTop={handleScrollTop}
+583:         onScrollBottom={handleScrollBottom}
+584:         isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
+585:         currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
+586:         primaryColor={primaryColor}
+587:       />
+588: 
+589:       {/* Header Controls Row: Select All Checkbox aligned with Card Checkboxes */}
+590:       <View style={styles.controlsRow}>
+591:         <View style={styles.selectAllRow}>
+592:           {/* Spacer matching 20% thinner left control column for exact vertical alignment */}
+593:           <View style={{ width: 14.5 }} />
+594: 
+595:           {/* Round Header Checkbox */}
+596:           <div title="Select All Cards">
+597:             <TouchableOpacity
+598:               activeOpacity={0.8}
+599:               onPress={handleSelectAll}
+600:               style={[
+601:                 styles.roundCheckbox,
+602:                 isAllSelected
+603:                   ? { backgroundColor: primaryColor, borderColor: primaryColor }
+604:                   : { borderColor: primaryColor },
+605:               ]}
+606:             >
+607:               {isAllSelected && <MaterialIcons name="check" size={16} color="#ffffff" />}
+608:             </TouchableOpacity>
+609:           </div>
+610: 
+611:           {/* 12px Distance / Gap */}
+612:           <View style={{ width: 12 }} />
+613: 
+614:           {/* CRUD List Title Label */}
+615:           <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.colors.onSurface }}>
+616:             {crudListTitle}
+617:           </Text>
+618: 
+619:           {/* Icon Buttons for Archive Selected & Delete Selected with (N) count */}
+620:           {selectedIds.length > 0 && (
+621:             <View style={{ flexDirection: "row", gap: 14, marginLeft: "auto", alignItems: "center" }}>
+622:               {/* Archive Selected Icon with (N) count */}
+623:               <div title={`Archive (${selectedIds.length}) selected cards`} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+624:                 <TouchableOpacity activeOpacity={0.7} onPress={handleArchiveSelected} style={{ flexDirection: "row", alignItems: "center", gap: 4, padding: 4 }}>
+625:                   <MaterialCommunityIcons name="archive-outline" size={24} color="#f57f17" />
+626:                   <span style={{ fontSize: "14px", fontWeight: "bold", color: "#f57f17", fontFamily: "Roboto, sans-serif" }}>
+627:                     ({selectedIds.length})
+628:                   </span>
+629:                 </TouchableOpacity>
+630:               </div>
+631: 
+632:               {/* Delete Selected Icon with (N) count */}
+633:               <div title={`Delete (${selectedIds.length}) selected cards`} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+634:                 <TouchableOpacity activeOpacity={0.7} onPress={handleDeleteSelected} style={{ flexDirection: "row", alignItems: "center", gap: 4, padding: 4 }}>
+635:                   <MaterialCommunityIcons name="delete-outline" size={24} color="#d32f2f" />
+636:                   <span style={{ fontSize: "14px", fontWeight: "bold", color: "#d32f2f", fontFamily: "Roboto, sans-serif" }}>
+637:                     ({selectedIds.length})
+638:                   </span>
+639:                 </TouchableOpacity>
+640:               </div>
+641:             </View>
+642:           )}
+643:         </View>
+644:       </View>
+645: 
+646:       {/* Vertical Drag Drop List */}
+647:       <DragDropContext onDragEnd={onDragEnd}>
+648:         <Droppable
+649:           droppableId="cardsList"
+650:           renderClone={(provided, snapshot, rubric) => {
+651:             const card = cards[rubric.source.index];
+652:             const isSelected = selectedIds.includes(card.id);
+653: 
+654:             return (
+655:               <div
+656:                 ref={provided.innerRef}
+657:                 {...provided.draggableProps}
+658:                 style={{
+659:                   ...getVerticalDraggableStyle(provided.draggableProps.style, snapshot.isDragging),
+660:                   marginBottom: `${crudGapBetweenCards}px`,
+661:                   display: "flex",
+662:                   flexDirection: "row",
+663:                   alignItems: "center",
+664:                   userSelect: "none",
+665:                   zIndex: 99999,
+666:                 }}
+667:               >
+668:                 <View style={styles.leftControlColumn}>
+669:                   <div style={{ cursor: "pointer", padding: "2px" }}>
+670:                     <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
+671:                   </div>
+672:                   <div style={{ margin: "2px 0" }}>
+673:                     <View
+674:                       style={[
+675:                         styles.roundCheckbox,
+676:                         isSelected
+677:                           ? { backgroundColor: primaryColor, borderColor: primaryColor }
+678:                           : { borderColor: primaryColor },
+679:                       ]}
+680:                     >
+681:                       {isSelected && <MaterialIcons name="check" size={16} color="#ffffff" />}
+682:                     </View>
+683:                   </div>
+684:                   <div style={{ cursor: "pointer", padding: "2px" }}>
+685:                     <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
+686:                   </div>
+687:                 </View>
+688:                 <View style={{ width: 12 }} />
+689:                 <View style={{ flex: 1 }}>
+690:                   {renderCardItem(card, isSelected, true, provided.dragHandleProps)}
+691:                 </View>
+692:               </div>
+693:             );
+694:           }}
+695:         >
+696:           {(provided) => (
+697:             <div
+698:               {...provided.droppableProps}
+699:               ref={(el) => {
+700:                 provided.innerRef(el);
+701:                 scrollContainerRef.current = el;
+702:               }}
+703:               style={{
+704:                 height: "600px",
+705:                 overflowY: "auto",
+706:                 border: theme.dark ? "1px solid #444466" : "1px solid #c5b8e0",
+707:                 borderRadius: "8px",
+708:                 padding: "12px",
+709:                 backgroundColor: theme.dark ? (theme.colors.surfaceVariant || "#252538") : primaryLightColor,
+710:                 boxSizing: "border-box",
+711:               }}
+712:             >
+713:               {cards.map((card, index) => {
+714:                 const isSelected = selectedIds.includes(card.id);
+715: 
+716:                 return (
+717:                   <Draggable key={card.id} draggableId={card.id} index={index}>
+718:                     {(draggableProvided, snapshot) => (
+719:                       <div
+720:                         id={`card-container-${card.id}`}
+721:                         ref={draggableProvided.innerRef}
+722:                         {...draggableProvided.draggableProps}
+723:                         onClick={() => setLastInteractedCardId(card.id)}
+724:                         style={{
+725:                           marginBottom: `${crudGapBetweenCards}px`,
+726:                           display: "flex",
+727:                           flexDirection: "row",
+728:                           alignItems: "center",
+729:                           userSelect: "none",
+730:                           position: "relative",
+731:                           ...getVerticalDraggableStyle(draggableProvided.draggableProps.style, snapshot.isDragging),
+732:                         }}
+733:                       >
+734:                         {/* Checkbox Column with MoveCardUp (upper) & MoveCardDown (lower) */}
+735:                         <View style={styles.leftControlColumn}>
+736:                           {/* 1. MoveCardUp button (upper than Card checkbox) - uses primaryColor */}
+737:                           <div title="Move Card Up" style={{ cursor: "pointer", padding: "2px" }}>
+738:                             <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveUp(index)}>
+739:                               <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
+740:                             </TouchableOpacity>
+741:                           </div>
+742: 
+743:                           {/* 2. Round Card Checkbox */}
+744:                           <div title="Select Card" style={{ margin: "2px 0" }}>
+745:                             <TouchableOpacity
+746:                               activeOpacity={0.8}
+747:                               onPress={() =>
+748:                                 setSelectedIds((prev) =>
+749:                                   prev.includes(card.id)
+750:                                     ? prev.filter((i) => i !== card.id)
+751:                                     : [...prev, card.id]
+752:                                 )
+753:                               }
+754:                               style={[
+755:                                 styles.roundCheckbox,
+756:                                 isSelected
+757:                                   ? { backgroundColor: primaryColor, borderColor: primaryColor }
+758:                                   : { borderColor: primaryColor },
+759:                               ]}
+760:                             >
+761:                               {isSelected && <MaterialIcons name="check" size={16} color="#ffffff" />}
+762:                             </TouchableOpacity>
+763:                           </div>
+764: 
+765:                           {/* 3. MoveCardDown button (lower than Card checkbox) - uses primaryColor */}
+766:                           <div title="Move Card Down" style={{ cursor: "pointer", padding: "2px" }}>
+767:                             <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveDown(index)}>
+768:                               <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
+769:                             </TouchableOpacity>
+770:                           </div>
+771:                         </View>
+772: 
+773:                         {/* 12px Distance / Gap between Checkbox Column and Card (twice thinner) */}
+774:                         <View style={{ width: 12 }} />
+775: 
+776:                         {/* Card Component */}
+777:                         <View style={{ flex: 1, position: "relative" }}>
+778:                           <SwipeableCard
+779:                             swipeLeftToRightPercent={25}
+780:                             swipeRightToLeftPercent={25}
+781:                             forceSwipeToLeftPercent={50}
+782:                             forceSwipeToRightPercent={50}
+783:                             onForceSwipeFromRightToLeft={() => handleDelete(card.id)}
+784:                             onForceSwipeFromLeftToRight={() => handleArchive(card.id)}
+785:                             crudCardSwipeUnderlayLeft={
+786:                               <CardSwipeUnderlayLeftComponent
+787:                                 currentIListtem={card}
+788:                                 onArchive={(item) => handleArchive(item.id)}
+789:                                 primaryLightColor={primaryLightColor}
+790:                                 primaryColor={primaryColor}
+791:                                 dragVertical={true}
+792:                                 dragHorizontal={false}
+793:                               />
+794:                             }
+795:                             crudCardSwipeUnderlayRight={
+796:                               <CardSwipeUnderlayRightComponent
+797:                                 currentIListtem={card}
+798:                                 onDelete={(item) => handleDelete(item.id)}
+799:                                 primaryLightColor={primaryLightColor}
+800:                                 primaryColor={primaryColor}
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
