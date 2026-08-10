@@ -45,7 +45,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const mainNavItems: MenuItem[] = [
     { id: 'home', label: t('menu.home'), icon: 'home', route: 'home' },
-    { id: 'developer1', label: 'Developer 1', icon: 'monitor-dashboard', route: 'developer1' },
+    { id: 'developer1', label: 'Developer 1', icon: 'logo_dev', route: 'developer1' },
     { id: 'posts', label: 'Media Posts', icon: 'list_alt', route: 'posts/mediapostcrud' },
     { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'raci/racimember' },
   ];

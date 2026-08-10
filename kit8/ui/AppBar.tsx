@@ -130,7 +130,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
           {!isHome && <Appbar.Action icon="arrow-left" onPress={handleBack} />}
           <Appbar.Content title={title} />
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
-            <IconApp name={visible ? 'close' : 'dots-vertical'} size={22} color={themeColors.text} />
+            <IconApp name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
           </TouchableOpacity>
           {renderRightMenuOverlay()}
         </Appbar.Header>
@@ -181,7 +181,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={openMenu} style={styles.actionBtn}>
-              <IconApp name={visible ? 'close' : 'dots-vertical'} size={22} color={themeColors.text} />
+              <IconApp name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
             </TouchableOpacity>
           </View>
 

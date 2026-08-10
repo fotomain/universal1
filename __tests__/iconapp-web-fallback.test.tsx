@@ -53,13 +53,13 @@ describe('IconApp web fallback', () => {
 
   it('maps generic names to the platform-oriented symbol names when selected', () => {
     expect(getPlatformSymbolName('home')).toBe('house');
-    expect(getPlatformSymbolName('settings')).toBe('gear');
-    expect(getPlatformSymbolName('dots-vertical')).toBe('ellipsis');
+    expect(getPlatformSymbolName('settings')).toBe('settings');
+    expect(getPlatformSymbolName('more_vert')).toBe('more_vert');
   });
 
   it('uses the groups alias for user collections in the left menu', () => {
     expect(getWebFallbackGlyph('groups')).toBe('👥');
-    expect(getPlatformSymbolName('groups')).toBe('person.2');
-    expect(getPlatformSymbolName('account-group')).toBe('person.2');
+    expect(getPlatformSymbolName('groups')).toBe('person_2');
+    expect(getPlatformSymbolName('account-group')).toBe('person_2');
   });
 });

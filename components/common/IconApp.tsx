@@ -1,24 +1,12 @@
 import React from 'react';
 
-import { Host, Icon } from "@expo/ui/jetpack-compose";
-import Home from "@expo/material-symbols/home.xml";
-
-import { Platform, Text, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import {Platform, Text, TouchableOpacity, StyleProp, ViewStyle, ColorValue} from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useDesignSystem } from '../../context/DesignSystemContext';
-import { MaterialSymbol } from "./MaterialSymbol";
+import { MaterialSymbol } from "./iconsvariants/MaterialSymbol";
+import {PlatformOrientedIcon} from "./iconsvariants/PlatformOrientedIcon";
 
-let PaperIcon: any;
-let MaterialCommunityIcons: any;
-let MaterialIcons: any;
-let Ionicons: any;
 
-if (Platform.OS !== 'web') {
-  ({ Icon: PaperIcon } = require('react-native-paper'));
-  MaterialCommunityIcons = require('@expo/vector-icons/MaterialCommunityIcons').default;
-  MaterialIcons = require('@expo/vector-icons/MaterialIcons').default;
-  Ionicons = require('@expo/vector-icons/Ionicons').default;
-}
 
 export interface IconAppProps {
   name: string | any;
@@ -57,7 +45,7 @@ export const getWebFallbackGlyph = (iconName: string): string => {
     arrowleft: '←',
     'arrow-left': '←',
     dotsvertical: '⋮',
-    'dots-vertical': '⋮',
+    'more_vert': '⋮',
     default: '•',
   };
 
@@ -72,17 +60,17 @@ export const getPlatformSymbolName = (rawName: string): string => {
     check: 'checkmark',
     checkmark: 'checkmark',
     home: 'house',
-    settings: 'gear',
-    cog: 'gear',
+    settings: 'settings',
+    cog: 'settings',
     palette: 'paintpalette',
     theme: 'paintpalette',
     search: 'magnifyingglass',
     magnify: 'magnifyingglass',
     user: 'person',
     account: 'person',
-    groups: 'person.2',
-    'account-group': 'person.2',
-    'user-group': 'person.2',
+    groups: 'person_2',
+    'account-group': 'person_2',
+    'user-group': 'person_2',
     login: 'arrow.right',
     logout: 'arrow.left',
     mail: 'envelope',
@@ -91,8 +79,8 @@ export const getPlatformSymbolName = (rawName: string): string => {
     add: 'plus',
     arrowleft: 'arrow.left',
     'arrow-left': 'arrow.left',
-    dotsvertical: 'ellipsis',
-    'dots-vertical': 'ellipsis',
+    dotsvertical: 'more_vert',
+    'more_vert': 'more_vert',
     delete: 'trash',
     share: 'square.and.arrow.up',
     'pencil-outline': 'pencil',
@@ -112,7 +100,7 @@ export const IconApp: React.FC<IconAppProps> = ({
   onPress,
 }) => {
   const { activeSystem, themeColors, iconsVariant } = useDesignSystem();
-  const iconColor = color || themeColors.text;
+  const iconColor:string = color || themeColors.text;
 
   // 1. If name is a function (e.g. icon={() => <MaterialIcons ... />})
   if (typeof name === 'function') {
@@ -148,50 +136,7 @@ export const IconApp: React.FC<IconAppProps> = ({
     return null;
   }
 
-  // Icon name mapping for common cross-library icon names
-  const resolveIconName = (rawName: string) => {
-    switch (rawName.toLowerCase()) {
-      case 'close':
-      case 'x':
-        return 'close';
-      case 'check':
-      case 'checkmark':
-        return 'check';
-      case 'search':
-        return 'magnify';
-      case 'person':
-      case 'user':
-        return 'account';
-      case 'groups':
-      case 'account-group':
-      case 'user-group':
-        return 'groups';
-      case 'lock':
-        return 'lock';
-      case 'email':
-      case 'mail':
-        return 'email';
-      case 'palette':
-      case 'theme':
-        return 'palette';
-      case 'settings':
-      case 'gear':
-        return 'cog';
-      case 'home':
-        return 'home';
-      case 'sun':
-        return 'white-balance-sunny';
-      case 'moon':
-        return 'weather-night';
-      case 'plus':
-      case 'add':
-        return 'plus';
-      default:
-        return rawName;
-    }
-  };
-
-  const resolvedName = name;
+  const resolvedName:string = name;
 
   const renderIcon = () => {
 
@@ -205,27 +150,15 @@ export const IconApp: React.FC<IconAppProps> = ({
       />)
     }
 
-    // if (iconsVariant === 'platformOrientedIcons') {
+    if (iconsVariant === 'platformOrientedIcons') {
       return (
-        <SymbolView
+        <PlatformOrientedIcon
           name={finalName}
           size={size}
           tintColor={iconColor}
-          style={style as any}
-          fallback={
-            <Text
-              style={[
-                { color: iconColor, fontSize: size, lineHeight: size, textAlign: 'center' },
-                style as any,
-              ]}
-            >
-              {getWebFallbackGlyph(resolvedName)}
-            </Text>
-          }
         />
       );
-    // }
-
+    }
 
 
     if (Platform.OS === 'web') {
