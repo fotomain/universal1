@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Surface, Button, useTheme, Text, RadioButton } from 'react-native-paper';
+import React, {useState} from 'react';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {RadioButton, Surface, Text, useTheme} from 'react-native-paper';
+
 import TexInputMi from '../../../ui/TexInputMi';
-import { PronounType } from '../../../types/pronoun';
-import { FormErrorFieldComponent } from './FormErrorFieldComponent';
+import {PronounType} from '../../../types/pronoun';
+import {FormErrorFieldComponent} from './FormErrorFieldComponent';
+import {ButtonPrimaryApp, ButtonSecondaryApp} from "../../../../components/common";
 
 export interface CreateRaciMemberFormProps {
   onCreateLast?: (originParam?: any, manipulationParam?: any, originUrlParam?: string, customJson?: any) => void;
@@ -132,12 +134,14 @@ export function CreateRaciMemberForm({
       </ScrollView>
 
       <View style={styles.buttonRow}>
-        <Button mode="text" onPress={onClose} textColor={theme.colors.onSurfaceVariant}>
-          Cancel
-        </Button>
-        <Button mode="contained" onPress={handleCreate}>
+        {onClose && (
+          <ButtonSecondaryApp onPress={onClose}>
+            Cancel
+          </ButtonSecondaryApp>
+        )}
+        <ButtonPrimaryApp onPress={handleCreate}>
           Create User
-        </Button>
+        </ButtonPrimaryApp>
       </View>
     </Surface>
   );

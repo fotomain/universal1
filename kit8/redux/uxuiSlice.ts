@@ -9,6 +9,7 @@ export interface UxuiState {
   fabAnimationVariant: FABAnimationVariant;
   activeDesignSystem: DesignSystemType;
   iconsVariant: IconsVariant;
+  bottomTabsAreVisible: boolean;
 }
 
 const uxuiInitialState: UxuiState = {
@@ -16,6 +17,7 @@ const uxuiInitialState: UxuiState = {
   fabAnimationVariant: 'defaultFABAnimation',
   activeDesignSystem: 'paper',
   iconsVariant: 'materialIconsOnly',
+  bottomTabsAreVisible: false,
 };
 
 const uxuiSlice = createSlice({
@@ -37,8 +39,11 @@ const uxuiSlice = createSlice({
     setIconsVariant: (state, action: PayloadAction<IconsVariant>) => {
       state.iconsVariant = action.payload;
     },
+    setBottomTabsAreVisible: (state, action: PayloadAction<boolean>) => {
+      state.bottomTabsAreVisible = action.payload;
+    },
   },
 });
 
-export const { setDarkMode, toggleDarkMode, setFabAnimationVariant, setDesignSystem, setIconsVariant } = uxuiSlice.actions;
+export const { setDarkMode, toggleDarkMode, setFabAnimationVariant, setDesignSystem, setIconsVariant, setBottomTabsAreVisible } = uxuiSlice.actions;
 export default uxuiSlice.reducer;

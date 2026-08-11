@@ -3,7 +3,8 @@ import { View, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
-import { useTheme, Surface, Text, Button } from 'react-native-paper';
+import { useTheme, Surface, Text } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../kit8/lib/localSecureStorage';
@@ -130,9 +131,8 @@ export default function SignInScreen() {
           {googleLoading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
           ) : (
-            <Button 
-              mode="outlined" 
-              icon={({ size }) => (
+            <ButtonPrimaryApp 
+              icon={({ size }: { size: number }) => (
                 <Image 
                   source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png' }}
                   style={{ width: size, height: size }}
@@ -140,11 +140,10 @@ export default function SignInScreen() {
                 />
               )}
               onPress={signInWithGoogle} 
-              textColor={theme.colors.onSurface}
               style={{ borderColor: theme.colors.outline }}
             >
               {t('screens.signInWithGoogle')}
-            </Button>
+            </ButtonPrimaryApp>
           )}
         </View>
 
@@ -177,15 +176,13 @@ export default function SignInScreen() {
           {loading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
           ) : (
-            <Button 
-              mode="contained" 
+            <ButtonPrimaryApp 
               onPress={handleEmailSignIn} 
-              buttonColor={theme.colors.primary}
-              textColor={theme.colors.onPrimary}
+              color={theme.colors.primary}
               style={{ marginTop: 8 }}
             >
               {t('menu.signIn')}
-            </Button>
+            </ButtonPrimaryApp>
           )}
         </View>
       </Surface>

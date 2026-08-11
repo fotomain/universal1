@@ -7,6 +7,7 @@ import { DrawerHeaderProps } from '@react-navigation/drawer';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../context/DesignSystemContext';
 import IconApp from '../../components/common/IconApp';
+import ArrowToLeftApp from '../../components/common/ArrowToLeftApp';
 import { useAppSignOut } from '../hooks/useAppSignOut';
 
 export default function AppBar({ route, options }: DrawerHeaderProps) {
@@ -127,7 +128,12 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
       return (
         <Appbar.Header elevated style={{ backgroundColor: themeColors.surface }}>
           <Appbar.Action icon="menu" onPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
-          {!isHome && <Appbar.Action icon="arrow-left" onPress={handleBack} />}
+          {!isHome && (
+            <Appbar.Action
+              icon={(props) => <ArrowToLeftApp size={props.size || 24} color={props.color || themeColors.text} />}
+              onPress={handleBack}
+            />
+          )}
           <Appbar.Content title={title} />
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
             <IconApp name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
@@ -163,7 +169,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
 
             {!isHome && (
               <TouchableOpacity onPress={handleBack} style={styles.actionBtn}>
-                <IconApp name="arrow-left" size={22} color={themeColors.text} />
+                <ArrowToLeftApp size={22} color={themeColors.text} />
               </TouchableOpacity>
             )}
 

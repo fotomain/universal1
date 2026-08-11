@@ -2,7 +2,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useTheme, Surface, Text, Button } from 'react-native-paper';
+import { useTheme, Surface, Text } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 import { useSelector, useDispatch } from 'react-redux';
 import { useAppSignOut } from '../../kit8/hooks/useAppSignOut';
 import { ActiveUserState, clearActiveUser } from '../../kit8/redux/activeUserSlice';
@@ -37,13 +38,12 @@ export default function UserProfileScreen() {
           <Text variant="bodyLarge" style={{ color: theme.colors.onSurface, marginBottom: 24, textAlign: 'center' }}>
             You are currently not signed in.
           </Text>
-          <Button 
-            mode="contained" 
+          <ButtonPrimaryApp 
             onPress={onSignInClick} 
-            buttonColor={theme.colors.primary}
+            color={theme.colors.primary}
           >
             Go to Sign In
-          </Button>
+          </ButtonPrimaryApp>
         </Surface>
       </View>
     );
@@ -71,14 +71,12 @@ export default function UserProfileScreen() {
         </Surface>
 
         <View style={styles.buttonWrapper}>
-          <Button 
-            mode="contained" 
+          <ButtonPrimaryApp 
             onPress={onSignOutClick} 
-            buttonColor={theme.colors.error}
-            textColor={theme.colors.onError}
+            color={theme.colors.error}
           >
             {t('menu.signOut')}
-          </Button>
+          </ButtonPrimaryApp>
         </View>
       </Surface>
     </View>

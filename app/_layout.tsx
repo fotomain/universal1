@@ -1,7 +1,7 @@
+import '../kit8/lib/setup-console';
 import React, {useEffect} from 'react';
 import {Platform} from 'react-native';
 
-import '../kit8/lib/setup-console';
 import {Drawer} from 'expo-router/drawer';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {PaperProvider} from 'react-native-paper';

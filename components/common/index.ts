@@ -10,4 +10,6 @@ export { default as TextAreaApp, TextAreaAppProps } from './TextAreaApp';
 export { default as SelectorFromApp, SelectorFromAppProps, SelectorOption } from './SelectorFromApp';
 export { default as IconApp, IconAppProps } from './IconApp';
 export { default as FABApp, FABAppProps } from './FABApp';
+export { default as ArrowToLeftApp, ArrowToLeftAppProps } from './ArrowToLeftApp';
 export * from './fab';
+export * from './textarea';

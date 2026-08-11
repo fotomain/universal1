@@ -7,8 +7,12 @@ https://youtu.be/nta1YhicoGw
 npx expo start --web
 npm run web
 
+# CLEAR
 taskkill /f /im node.exe
 npm cache clean --force
+
+npx expo start --clear
+rmdir /s .expo
 
 
 

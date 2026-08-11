@@ -1,18 +1,16 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {useRouter} from 'expo-router';
 import Constants from 'expo-constants';
-import { useTranslation } from 'react-i18next';
-import { Text, useTheme, Button, Surface } from 'react-native-paper';
-import { useSelector } from 'react-redux';
+import {useTranslation} from 'react-i18next';
+import {Text, useTheme} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
-import { useWorkPlace } from '../../kit8/providers/WithWorkPlace';
-import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
+import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
+import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
 import BottomTabsRoutingComponent from '../../kit8/components/navigation/BottomTabsRoutingComponent';
-import IconApp from '../../components/common/IconApp';
-import { ButtonApp } from "../../components/common";
 
 const homeComponentsMap = {
   appPosts: HomeAppPostsPage,
@@ -32,15 +30,6 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
         <HomeComponent />
-
-        <ButtonApp
-          icon="list"
-          variant="contained"
-          // style={styles.mediaButton}
-          onPress={() => router.push('/posts/mediapostcrud' as any)}
-        >
-          Media Posts
-        </ButtonApp>
 
         {workPlaceGUID && (
           <Text style={[styles.workplaceText, { color: theme.colors.onSurfaceVariant }]}>

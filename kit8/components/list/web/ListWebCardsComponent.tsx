@@ -783,22 +783,69 @@ export function ListWebCardsComponent({
       </View>
 
       {/* Vertical Drag Drop List */}
+      {/* Business Synergy Optimized Scroller */}
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '700',
+        color: theme.dark ? '#818cf8' : '#6366f1',
+        textAlign: 'right',
+        marginBottom: '4px',
+        letterSpacing: '1px',
+        textTransform: 'uppercase',
+        opacity: 0.7,
+        fontFamily: 'system-ui, sans-serif',
+      }}>
+        📊 KPI-Optimized Drag &amp; Drop Zone • Synergy-Ready •
+      </div>
       <style>{`
         .funny-scrollbar::-webkit-scrollbar {
-          width: 16px;
+          width: 18px;
         }
         .funny-scrollbar::-webkit-scrollbar-track {
-          background: ${theme.dark ? "#33334d" : "#f0e6ff"};
+          background: ${theme.dark ? "#1a1a2e" : "#f0f4ff"};
           border-radius: 10px;
           border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
+          background-image: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 5px,
+            ${theme.dark ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.08)"} 5px,
+            ${theme.dark ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.08)"} 10px
+          );
         }
         .funny-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+          background: linear-gradient(180deg, 
+            #6366f1 0%, 
+            #818cf8 25%, 
+            #a78bfa 50%, 
+            #818cf8 75%, 
+            #6366f1 100%
+          );
           border-radius: 10px;
           border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
+          min-height: 60px;
+          position: relative;
         }
         .funny-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(45deg, #fbc2eb 0%, #a6c1ee 100%);
+          background: linear-gradient(180deg, 
+            #4f46e5 0%, 
+            #6366f1 25%, 
+            #8b5cf6 50%, 
+            #6366f1 75%, 
+            #4f46e5 100%
+          );
+          cursor: pointer;
+        }
+        .funny-scrollbar::-webkit-scrollbar-thumb:active {
+          background: linear-gradient(180deg,
+            #4338ca 0%,
+            #4f46e5 50%,
+            #4338ca 100%
+          );
+          cursor: grabbing;
+        }
+        .funny-scrollbar::-webkit-scrollbar-corner {
+          background: transparent;
         }
       `}</style>
       <DragDropContext onDragEnd={onDragEnd}>

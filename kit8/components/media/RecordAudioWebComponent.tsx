@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Surface, Text, Button, useTheme, Card, IconButton } from 'react-native-paper';
+import { Surface, Text, useTheme, Card, IconButton } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../../components/common';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
@@ -28,13 +29,13 @@ export default function RecordAudioWebComponent() {
 
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
             {!isRecording ? (
-              <Button mode="contained" icon="microphone" buttonColor={theme.colors.error} onPress={() => setIsRecording(true)}>
+              <ButtonPrimaryApp icon="microphone" color={theme.colors.error} onPress={() => setIsRecording(true)}>
                 Start Audio Record
-              </Button>
+              </ButtonPrimaryApp>
             ) : (
-              <Button mode="contained" icon="stop" buttonColor={theme.colors.primary} onPress={() => setIsRecording(false)}>
+              <ButtonPrimaryApp icon="stop" color={theme.colors.primary} onPress={() => setIsRecording(false)}>
                 Stop & Save Audio
-              </Button>
+              </ButtonPrimaryApp>
             )}
           </View>
         </Card.Content>
