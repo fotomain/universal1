@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
-import { Surface, Text } from 'react-native-paper';
-import { useDesignSystem, DesignSystemType } from '../../context/DesignSystemContext';
+import {Alert, Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {Surface, Text} from 'react-native-paper';
+import {DesignSystemType, useDesignSystem} from '../../context/DesignSystemContext';
 import TextApp from '../../components/common/TextApp';
 import TextInputApp from '../../components/common/TextInputApp';
 import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
@@ -60,7 +60,7 @@ const DESIGN_SYSTEMS: SystemOption[] = [
   },
   {
     id: 'googlemd3web',
-    name: 'GoogleMD3Web',
+    name: 'Google Material Desing 3',
     badge: 'M3 Web Only',
     description: 'Official Google Material Design 3 Web components & tokens (Web Only).',
     color: '#4285F4',
