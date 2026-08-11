@@ -151,7 +151,7 @@ export const IconApp: React.FC<IconAppProps> = ({
     if (iconsVariant === 'platformOrientedIcons') {
       return (
           <PlatformOrientedIcon
-            name={finalName}
+            name={resolvedName}
             size={size}
             tintColor={iconColor}
           />

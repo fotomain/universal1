@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
-import { Appbar, Menu, Divider } from 'react-native-paper';
+import { Appbar } from 'react-native-paper';
 import { useNavigation, useRouter, usePathname } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { DrawerHeaderProps } from '@react-navigation/drawer';

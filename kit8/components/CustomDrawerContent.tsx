@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from '@react-navigation/drawer';
-import { Drawer as PaperDrawer, Divider as PaperDivider } from 'react-native-paper';
+import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../context/DesignSystemContext';
 import IconApp from '../../components/common/IconApp';

@@ -1,20 +1,20 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 import { useDesignSystem, DesignSystemType } from '../../context/DesignSystemContext';
 import TextApp from '../../components/common/TextApp';
 import TextInputApp from '../../components/common/TextInputApp';
 import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
 import ButtonSecondaryApp from '../../components/common/ButtonSecondaryApp';
-import IconApp from '../../components/common/IconApp';
+import BrandLogo from './BrandLogo';
 
 interface SystemOption {
   id: DesignSystemType;
   name: string;
   badge: string;
-  icon: string;
   description: string;
   color: string;
+  url: string;
 }
 
 const DESIGN_SYSTEMS: SystemOption[] = [
@@ -22,49 +22,49 @@ const DESIGN_SYSTEMS: SystemOption[] = [
     id: 'paper',
     name: 'React Native Paper',
     badge: 'Material 3',
-    icon: '📄',
     description: 'Google Material Design 3 guidelines for cross-platform apps.',
     color: '#6366f1',
+    url: 'https://callstack.github.io/react-native-paper/',
   },
   {
     id: 'tamagui',
     name: 'Tamagui',
     badge: 'Tamagui v2',
-    icon: '🎨',
     description: 'High-performance universal styles and optimized animations.',
     color: '#ec4899',
+    url: 'https://tamagui.dev/',
   },
   {
     id: 'ant',
     name: 'Ant Design',
     badge: 'Ant Mobile',
-    icon: '🐜',
     description: 'Enterprise-class mobile UI design language from Ant Financial.',
     color: '#10b981',
+    url: 'https://ant.design/',
   },
   {
     id: 'expo',
     name: 'Expo UI',
     badge: 'SwiftUI / Native',
-    icon: '🚀',
     description: 'Modern universal Expo native primitive UI strategy.',
     color: '#f59e0b',
+    url: 'https://expo.dev/',
   },
   {
     id: 'native',
     name: 'React Native Native',
     badge: 'Core Primitives',
-    icon: '📱',
     description: 'Clean standard React Native core components & styling.',
     color: '#8b5cf6',
+    url: 'https://reactnative.dev/',
   },
   {
     id: 'googlemd3web',
     name: 'GoogleMD3Web',
     badge: 'M3 Web Only',
-    icon: '🌐',
     description: 'Official Google Material Design 3 Web components & tokens (Web Only).',
     color: '#4285F4',
+    url: 'https://m3.material.io/',
   },
 ];
 
@@ -133,7 +133,25 @@ export const DesignSystemSelectorComponent: React.FC = () => {
               ]}
             >
               <View style={styles.cardHeader}>
-                <Text style={{ fontSize: 20, marginRight: 8 }}>{item.icon}</Text>
+                {/* Radio button circle */}
+                <View
+                  style={[
+                    styles.radioCircle,
+                    {
+                      borderColor: isActive ? themeColors.primary : themeColors.border,
+                    },
+                  ]}
+                >
+                  {isActive && (
+                    <View
+                      style={[
+                        styles.radioCircleInner,
+                        { backgroundColor: themeColors.primary },
+                      ]}
+                    />
+                  )}
+                </View>
+                <BrandLogo system={item.id} size={28} />
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
@@ -166,6 +184,33 @@ export const DesignSystemSelectorComponent: React.FC = () => {
                     {item.badge}
                   </Text>
                 </View>
+                {/* External link button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    Linking.openURL(item.url).catch(() =>
+                      Alert.alert('Error', 'Could not open link')
+                    );
+                  }}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                  style={{
+                    marginLeft: 8,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: isActive
+                      ? themeColors.primary + '20'
+                      : isDark
+                        ? '#334155'
+                        : '#e2e8f0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 14, color: isActive ? themeColors.primary : themeColors.text }}>
+                    ↗
+                  </Text>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           );
@@ -233,6 +278,20 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   badge: {
     paddingHorizontal: 8,

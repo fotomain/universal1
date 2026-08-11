@@ -1,8 +1,8 @@
 // WebSymbolView.tsx
 import React from 'react';
 import { SymbolView } from 'expo-symbols';
-import { ColorValue } from 'react-native';
-import {PlatformSymbols, resolveSymbolNames} from './symbolConfig';
+
+import {resolveSymbolNames} from './symbolConfig';
 import {MaterialSymbol} from "./MaterialSymbol";
 
 interface WebSymbolViewProps {
