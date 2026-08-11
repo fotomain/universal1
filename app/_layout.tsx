@@ -1,37 +1,40 @@
-import React, { useEffect } from 'react';
-import { Platform, LogBox } from 'react-native';
+import React, {useEffect} from 'react';
+import {Platform} from 'react-native';
 
 import '../kit8/lib/setup-console';
-import { Drawer } from 'expo-router/drawer';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
-import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import {Drawer} from 'expo-router/drawer';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {PaperProvider} from 'react-native-paper';
+import {useMaterial3Theme} from '@pchmn/expo-material3-theme';
+import {useTranslation} from 'react-i18next';
+import {useDispatch, useSelector} from 'react-redux';
 import '../kit8/i18n/i18n';
 import AppBar from '../kit8/ui/AppBar';
 import CustomDrawerContent from '../kit8/components/CustomDrawerContent';
-import { MD3Provider, useMD3Ready } from '../kit8/providers/MD3Provider';
+import {MD3Provider, useMD3Ready} from '../kit8/providers/MD3Provider';
 import SQLiteNativeProvider from '../kit8/providers/SQLiteNativeProvider';
-import WithSupabase, { useSupabase } from '../kit8/providers/WithSupabase';
-import { WithWorkPlace } from '../kit8/providers/WithWorkPlace';
+import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
+import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
-import { setActiveUser, formatTo32CharGUID } from '../kit8/redux/activeUserSlice';
-import { saveUserData } from '../kit8/lib/localSecureStorage';
+import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
+import {saveUserData} from '../kit8/lib/localSecureStorage';
 
-import { CustomLightTheme, CustomDarkTheme } from '../kit8/theme/palettes';
-import { FABProvider } from '../kit8/providers/FABProvider';
-import { FABAppComponent } from '../kit8/components/fab';
-import { useWorkPlace } from '../kit8/providers/WithWorkPlace';
-import { SystemMetaData } from '../kit8/redux/SystemMetaData';
-import { applyThemeFromSupabase } from '../kit8/redux/userThemeSlice';
-import { DesignSystemProvider } from '../context/DesignSystemContext';
+import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
+import {FABProvider} from '../kit8/providers/FABProvider';
+import {FABAppComponent} from '../kit8/components/fab';
+import {SystemMetaData} from '../kit8/redux/SystemMetaData';
+import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
+import {DesignSystemProvider} from '../context/DesignSystemContext';
 import IconApp from '../components/common/IconApp';
+
+const blockError=true
 
 // themeStore-ticket-step4: Theme store sync manager component
 function ThemeStoreSyncManager() {
 
-  return  //TODO
+  if(blockError) {
+    return  //TODO
+  }
 
   const dispatch = useDispatch();
   const { supabase } = useSupabase();

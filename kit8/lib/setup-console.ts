@@ -1,4 +1,4 @@
-import { Platform, LogBox } from 'react-native';
+import {LogBox, Platform} from 'react-native';
 
 if (Platform.OS === 'web') {
   LogBox.ignoreLogs([
@@ -13,16 +13,14 @@ if (Platform.OS === 'web') {
   const originalLog = console.log;
   
   const filterLogs = (args: any[]) => {
-    if (args.length > 0 && typeof args[0] === 'string' && (
-      args[0].includes('Animated: `useNativeDriver`') ||
-      args[0].includes('[Reanimated] Reduced motion setting') ||
-      args[0].includes('"shadow*" style props are deprecated') ||
-      args[0].includes('props.pointerEvents is deprecated') ||
-      args[0].includes('Multiple GoTrueClient instances detected')
-    )) {
-      return true;
-    }
-    return false;
+    return !!(args.length > 0 && typeof args[0] === 'string' && (
+        args[0].includes('Animated: `useNativeDriver`') ||
+        args[0].includes('[Reanimated] Reduced motion setting') ||
+        args[0].includes('"shadow*" style props are deprecated') ||
+        args[0].includes('props.pointerEvents is deprecated') ||
+        args[0].includes('Multiple GoTrueClient instances detected')
+    ));
+
   };
 
   console.warn = (...args) => {

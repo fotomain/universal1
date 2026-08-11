@@ -1,12 +1,12 @@
 import React from "react";
-import { View, StyleSheet, TouchableOpacity, Image, Linking } from "react-native";
-import { Text, IconButton, useTheme } from "react-native-paper";
+import {Image, Linking, StyleSheet, TouchableOpacity, View} from "react-native";
+import {IconButton, Text, useTheme} from "react-native-paper";
 import CardApp from "../../../../components/common/CardApp";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { CardItem } from "../web/lib/types";
-import { CardThreeDotsMenu } from "../web/lib/CardThreeDotsMenu";
-import { CardIconsBottomComponent } from "../web/lib/CardIconsBottomComponent";
-import { FABForCardComponent } from "../../fab/FABForCardComponent";
+import {CardItem} from "../web/lib/types";
+import {CardThreeDotsMenu} from "../web/lib/CardThreeDotsMenu";
+import {CardIconsBottomComponent} from "../web/lib/CardIconsBottomComponent";
+import {FABForCardComponent} from "../../fab/FABForCardComponent";
 
 /**
  * Extracts 11-character YouTube Video ID from standard, shortened, shorts, or embed URLs.
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   playOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.25)",
