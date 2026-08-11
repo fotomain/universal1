@@ -1,31 +1,27 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {useEffect, useRef, useState} from "react";
 // @ts-ignore
-import { View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Card, Text, useTheme } from "react-native-paper";
+import {ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
+import {useDispatch, useSelector} from "react-redux";
+import {DragDropContext, Draggable, Droppable, DropResult} from "@hello-pangea/dnd";
+import {Card, Text, useTheme} from "react-native-paper";
 import * as Crypto from "expo-crypto";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
   CardItem,
-  ListWebCardsComponentProps,
-  CardThreeDotsMenu,
-  CardIconsBottomComponent,
   CardSwipeUnderlayLeftComponent,
   CardSwipeUnderlayRightComponent,
-  SwipeableCard,
+  ListWebCardsComponentProps,
   ListWebTopBarComponent,
+  SwipeableCard,
 } from "./lib";
-import { CardBasicVersion } from "./cards";
-import { CreateNewCardBasicForm } from "../forms";
-import { SystemMetaData } from "../../../redux/SystemMetaData";
-import { DATA_ORIGIN_TYPE, DataOriginType } from "../../../types/origin";
-import { DATA_MANIPULATION_TYPE, DataManipulationType } from "../../../types/manipulation";
-import TexInputMi from "../../../ui/TexInputMi";
-import ButtonMi from "../../../ui/ButtonMi";
-import H1Mi from "../../../ui/H1Mi";
+import {CardBasicVersion} from "./cards";
+import {CreateNewCardBasicForm} from "../forms";
+import {SystemMetaData} from "../../../redux/SystemMetaData";
+import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
+import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
 import IconApp from "../../../../components/common/IconApp";
+import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 
 const _testMode=false
 
@@ -84,17 +80,7 @@ export function ListWebCardsComponent({
   const [lastInteractedCardId, setLastInteractedCardId] = useState<string | null>(null);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
 
-  // Business Funny Scroll state inside component
-  const [scrollPercent, setScrollPercent] = useState(0);
 
-  const handleContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const totalScroll = target.scrollHeight - target.clientHeight;
-    if (totalScroll > 0) {
-      const current = Math.min(100, Math.max(0, Math.round((target.scrollTop / totalScroll) * 100)));
-      setScrollPercent(current);
-    }
-  };
 
   // Create Form States
   const [newTitle, setNewTitle] = useState("");
@@ -655,6 +641,24 @@ export function ListWebCardsComponent({
 
   // Select All Toggle
   const isAllSelected = cards.length > 0 && selectedIds.length === cards.length;
+  const isSomeSelected = selectedIds.length > 0 && !isAllSelected;
+
+  const headerCheckboxBg = (isAllSelected || isSomeSelected) ? primaryColor : "transparent";
+  let headerCheckboxIconColor = "transparent";
+  if (isAllSelected) {
+    headerCheckboxIconColor = (theme.colors.onPrimary && theme.colors.onPrimary !== headerCheckboxBg)
+      ? theme.colors.onPrimary
+      : "#ffffff";
+  } else if (isSomeSelected) {
+    // Intermediate minus state: guarantee icon color is NOT equal to background color
+    headerCheckboxIconColor = (theme.colors.onPrimary && theme.colors.onPrimary !== headerCheckboxBg)
+      ? theme.colors.onPrimary
+      : "#ffffff";
+    if (headerCheckboxIconColor === headerCheckboxBg) {
+      headerCheckboxIconColor = "#ffffff";
+    }
+  }
+
   const handleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds([]);
@@ -754,22 +758,19 @@ export function ListWebCardsComponent({
           <View style={{ width: 14.5 }} />
 
           {/* Round Header Checkbox using IconApp */}
+          <div>{headerCheckboxIconColor}</div>
+          <br/>
+          <div>{headerCheckboxBg}</div>
           <div title="Select All Cards">
             <IconApp
               testID="f0a1b2c3-d4e5-6789-0abc-123456789def"
-              name={isAllSelected ? "check" : selectedIds.length > 0 ? "minus" : "check"}
+              name={isAllSelected ? "check" : isSomeSelected ? "check_indeterminate_small" : "check"}
               size={16}
-              color={
-                isAllSelected || selectedIds.length > 0
-                  ? theme.colors.onPrimary
-                  : "transparent"
-              }
+              color={headerCheckboxIconColor}
               onPress={handleSelectAll}
               style={[
                 styles.roundCheckbox,
-                isAllSelected || selectedIds.length > 0
-                  ? { backgroundColor: primaryColor, borderColor: primaryColor }
-                  : { borderColor: primaryColor, backgroundColor: "transparent" },
+                { backgroundColor: headerCheckboxBg, borderColor: primaryColor },
               ]}
             />
           </div>
@@ -810,117 +811,6 @@ export function ListWebCardsComponent({
       </View>
 
       {/* Vertical Drag Drop List */}
-      {/* Business Funny Scroll-O-Meter Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 14px',
-          marginBottom: '8px',
-          borderRadius: '10px',
-          backgroundColor: theme.dark ? '#1e1b4b' : '#eef2ff',
-          border: `1.5px dashed ${theme.dark ? '#6366f1' : '#818cf8'}`,
-          fontFamily: 'system-ui, sans-serif',
-          userSelect: 'none',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '18px' }}>💼</span>
-          <span
-            style={{
-              fontSize: '12px',
-              fontWeight: '700',
-              color: theme.dark ? '#c7d2fe' : '#3730a3',
-              letterSpacing: '0.3px',
-            }}
-          >
-            {getBusinessMotto(scrollPercent)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '80px',
-              height: '8px',
-              backgroundColor: theme.dark ? '#312e81' : '#c7d2fe',
-              borderRadius: '4px',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                width: `${scrollPercent}%`,
-                height: '100%',
-                backgroundColor: scrollPercent === 100 ? '#10b981' : '#6366f1',
-                transition: 'width 0.2s ease',
-              }}
-            />
-          </div>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: '800',
-              color: scrollPercent === 100 ? '#10b981' : primaryColor,
-              minWidth: '36px',
-              textAlign: 'right',
-            }}
-          >
-            {scrollPercent}%
-          </span>
-        </div>
-      </div>
-
-      <style>{`
-        .funny-scrollbar::-webkit-scrollbar {
-          width: 22px;
-        }
-        .funny-scrollbar::-webkit-scrollbar-track {
-          background: ${theme.dark ? "#111827" : "#f0f4ff"};
-          border-radius: 12px;
-          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
-          background-image: repeating-linear-gradient(
-            -45deg,
-            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 0px,
-            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 10px,
-            transparent 10px,
-            transparent 20px
-          );
-        }
-        .funny-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, 
-            #4f46e5 0%, 
-            #818cf8 25%, 
-            #f59e0b 50%, 
-            #10b981 75%, 
-            #4f46e5 100%
-          );
-          border-radius: 12px;
-          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
-          box-shadow: inset 0 0 6px rgba(255,255,255,0.4), 0 2px 8px rgba(99,102,241,0.4);
-          min-height: 70px;
-          cursor: grab;
-        }
-        .funny-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, 
-            #4338ca 0%, 
-            #6366f1 25%, 
-            #d97706 50%, 
-            #059669 75%, 
-            #4338ca 100%
-          );
-          box-shadow: inset 0 0 8px rgba(255,255,255,0.6), 0 0 14px rgba(99,102,241,0.7);
-          cursor: grab;
-        }
-        .funny-scrollbar::-webkit-scrollbar-thumb:active {
-          background: linear-gradient(180deg,
-            #3730a3 0%,
-            #4f46e5 50%,
-            #3730a3 100%
-          );
-          cursor: grabbing;
-        }
-      `}</style>
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable
           droppableId="cardsList"
@@ -973,22 +863,15 @@ export function ListWebCardsComponent({
           }}
         >
           {(provided) => (
-            <div
-              className="funny-scrollbar"
-              onScroll={handleContainerScroll}
-              {...provided.droppableProps}
-              ref={(el) => {
+            <BusinessFunnyScrollComponent
+              theme={theme}
+              primaryColor={primaryColor}
+              primaryLightColor={primaryLightColor}
+              height="600px"
+              droppableProps={provided.droppableProps}
+              containerRef={(el) => {
                 provided.innerRef(el);
                 scrollContainerRef.current = el;
-              }}
-              style={{
-                height: "600px",
-                overflowY: "auto",
-                border: theme.dark ? "1px solid #444466" : "1px solid #c5b8e0",
-                borderRadius: "8px",
-                padding: "12px",
-                backgroundColor: theme.dark ? (theme.colors.surfaceVariant || "#252538") : primaryLightColor,
-                boxSizing: "border-box",
               }}
             >
               {cards.map((card, index) => {
@@ -1094,7 +977,7 @@ export function ListWebCardsComponent({
                 );
               })}
               {provided.placeholder}
-            </div>
+            </BusinessFunnyScrollComponent>
           )}
         </Droppable>
       </DragDropContext>
