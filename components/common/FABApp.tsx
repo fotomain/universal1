@@ -1,14 +1,7 @@
 import React from 'react';
-import { Platform } from 'react-native';
-import { useDesignSystem } from '../../context/DesignSystemContext';
-import {
-  GoogleMD3WebFAB,
-  PaperFABApp,
-  TamaguiFABApp,
-  AntFABApp,
-  ExpoFABApp,
-  NativeFABApp,
-} from './fab';
+import {Platform} from 'react-native';
+import {useDesignSystem} from '../../context/DesignSystemContext';
+import {AntFABApp, ExpoFABApp, GoogleMD3WebFAB, NativeFABApp, PaperFABApp, TamaguiFABApp,} from './fab';
 
 export interface FABAppProps {
   icon?: string;

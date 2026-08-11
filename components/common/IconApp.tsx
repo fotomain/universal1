@@ -1,11 +1,9 @@
 import React from 'react';
 
-import {Platform, Text, TouchableOpacity, StyleProp, ViewStyle, ColorValue} from 'react-native';
-import { SymbolView } from 'expo-symbols';
-import { useDesignSystem } from '../../context/DesignSystemContext';
-import { MaterialSymbol } from "./iconsvariants/MaterialSymbol";
+import {Platform, StyleProp, Text, TouchableOpacity, ViewStyle} from 'react-native';
+import {useDesignSystem} from '../../context/DesignSystemContext';
+import {MaterialSymbol} from "./iconsvariants/MaterialSymbol";
 import {PlatformOrientedIcon} from "./iconsvariants/PlatformOrientedIcon";
-
 
 
 export interface IconAppProps {
@@ -152,12 +150,11 @@ export const IconApp: React.FC<IconAppProps> = ({
 
     if (iconsVariant === 'platformOrientedIcons') {
       return (
-
-        <PlatformOrientedIcon
-          name={resolvedName}
-          size={size}
-          tintColor={iconColor}
-        />
+          <PlatformOrientedIcon
+            name={finalName}
+            size={size}
+            tintColor={iconColor}
+          />
       );
     }
 

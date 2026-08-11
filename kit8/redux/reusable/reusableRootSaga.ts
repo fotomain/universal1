@@ -1,11 +1,10 @@
-
 import {call, getContext, put, select, takeEvery, takeLatest} from "redux-saga/effects";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
 
 
 export const reusableRootSaga = (p: any) => {
-    const {tableName, actions, doBefore, doArter} = p
+    const {tableName, actions, doBefore, doAfter} = p
 
     function* readAll(action: any) {
         try {
@@ -186,12 +185,12 @@ export const reusableRootSaga = (p: any) => {
                 let updatedJSON = {...prevJSON}
 
                 if(undefined===prevJSON[field]) {
-                    const retUpdage = updateNestedJSONField(prevJSON, field, value)
-                    if("single"===retUpdage.type){
-                        updatedJSON=retUpdage.updatedObject
+                    const retUpdate = updateNestedJSONField(prevJSON, field, value)
+                    if("single"===retUpdate.type){
+                        updatedJSON=retUpdate.updatedObject
                     } else {
-                            console.log("Error 20260430-114248176 field "+field+" has retUpdage.type="+retUpdage.type+" in JDON"+JSON.stringify(existingRow));
-                            throw new Error("Error 20260430-114248176 field "+field+" has retUpdage.type="+retUpdage.type+" in JDON"+JSON.stringify(existingRow));
+                            console.log("Error 20260430-114248176 field "+field+" has retUpdate.type="+retUpdate.type+" in JDON"+JSON.stringify(existingRow));
+                            throw new Error("Error 20260430-114248176 field "+field+" has retUpdate.type="+retUpdate.type+" in JDON"+JSON.stringify(existingRow));
                     }
 
                 } else {
@@ -220,7 +219,7 @@ export const reusableRootSaga = (p: any) => {
             yield put(
                 actions.updateOneSuccess({
                     lastUpdatedData: data,
-                    updateSuccesfull: 1,
+                    updateSuccessful: 1,
                 })
             );
         } catch (e: any) {

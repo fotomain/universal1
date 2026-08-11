@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Surface, Text, Button, useTheme, Card, IconButton, Switch } from 'react-native-paper';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
-import { ActiveUserState } from '../../redux/activeUserSlice';
+import React, {useState} from 'react';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Button, Card, Surface, Text, useTheme} from 'react-native-paper';
+import {useLocalSearchParams, useRouter} from 'expo-router';
+import {useTranslation} from 'react-i18next';
+import {useDispatch, useSelector} from 'react-redux';
+import {ActiveUserState} from '../../redux/activeUserSlice';
 
 export default function RecordVideoNativeComponent() {
   const router = useRouter();
