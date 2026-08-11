@@ -758,9 +758,6 @@ export function ListWebCardsComponent({
           <View style={{ width: 14.5 }} />
 
           {/* Round Header Checkbox using IconApp */}
-          <div>{headerCheckboxIconColor}</div>
-          <br/>
-          <div>{headerCheckboxBg}</div>
           <div title="Select All Cards">
             <IconApp
               testID="f0a1b2c3-d4e5-6789-0abc-123456789def"
@@ -876,7 +873,7 @@ export function ListWebCardsComponent({
             >
               {cards.map((card, index) => {
                 const isSelected = selectedIds.includes(card.id);
-
+                // testID="testScrollDesign"
                 return (
                   <Draggable key={card.id} draggableId={card.id} index={index}>
                     {(draggableProvided, snapshot) => (

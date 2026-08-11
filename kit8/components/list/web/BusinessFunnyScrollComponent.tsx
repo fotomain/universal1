@@ -11,6 +11,7 @@ export interface BusinessFunnyScrollProps {
   droppableProps?: any;
   style?: React.CSSProperties;
   className?: string;
+  testID?: string;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
@@ -33,6 +34,7 @@ export function BusinessFunnyScrollComponent({
   droppableProps,
   style,
   className = "funny-scrollbar",
+  testID = "testScrollDesibn",
   onScroll,
 }: BusinessFunnyScrollProps) {
   const [scrollPercent, setScrollPercent] = useState(0);
@@ -49,9 +51,19 @@ export function BusinessFunnyScrollComponent({
 
   const formattedHeight = typeof height === "number" ? `${height}px` : height;
 
+  const trackBg = theme.dark
+    ? (theme.colors as any).surfaceContainerHighest || theme.colors.surfaceVariant || "#36343b"
+    : (theme.colors as any).surfaceContainerHighest || theme.colors.surfaceVariant || "#e7e0ec";
+
+  const thumbBg = primaryColor || theme.colors.primary || "#6750A4";
+  const thumbHoverBg = theme.dark
+    ? (theme.colors as any).primaryContainer || "#d0bcff"
+    : (theme.colors as any).onPrimaryContainer || "#4f378b";
+  const thumbActiveBg = theme.dark ? "#e8def8" : "#381e72";
+
   return (
     <>
-      {/* Business Funny Scroll-O-Meter Bar */}
+      {/* Material 3 Business Scroll-O-Meter Header Bar */}
       <div
         style={{
           display: "flex",
@@ -59,27 +71,32 @@ export function BusinessFunnyScrollComponent({
           justifyContent: "space-between",
           padding: "8px 14px",
           marginBottom: "8px",
-          borderRadius: "10px",
+          borderRadius: "12px",
           backgroundColor: theme.dark ? "#1e1b4b" : "#eef2ff",
           border: `1.5px dashed ${theme.dark ? "#6366f1" : "#818cf8"}`,
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: "system-ui, -apple-system, Roboto, sans-serif",
           userSelect: "none",
+          flexShrink: 0,
+          boxSizing: "border-box",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "18px" }}>💼</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, marginRight: "12px" }}>
+          <span style={{ fontSize: "18px", flexShrink: 0 }}>💼</span>
           <span
             style={{
               fontSize: "12px",
               fontWeight: "700",
               color: theme.dark ? "#c7d2fe" : "#3730a3",
               letterSpacing: "0.3px",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {getBusinessMotto(scrollPercent)}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
           <div
             style={{
               width: "80px",
@@ -87,6 +104,7 @@ export function BusinessFunnyScrollComponent({
               backgroundColor: theme.dark ? "#312e81" : "#c7d2fe",
               borderRadius: "4px",
               overflow: "hidden",
+              flexShrink: 0,
             }}
           >
             <div
@@ -105,6 +123,7 @@ export function BusinessFunnyScrollComponent({
               color: scrollPercent === 100 ? "#10b981" : primaryColor,
               minWidth: "36px",
               textAlign: "right",
+              flexShrink: 0,
             }}
           >
             {scrollPercent}%
@@ -112,64 +131,65 @@ export function BusinessFunnyScrollComponent({
         </div>
       </div>
 
+      {/* Material Design 3 Custom Scroller Styles for Cards List */}
       <style>{`
+        #${testID},
+        .${className} {
+          scrollbar-width: thin;
+          scrollbar-color: ${thumbBg} ${trackBg};
+        }
+        #${testID}::-webkit-scrollbar-button,
+        .${className}::-webkit-scrollbar-button {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        #${testID}::-webkit-scrollbar,
         .${className}::-webkit-scrollbar {
-          width: 22px;
+          width: 14px;
+          height: 14px;
         }
+        #${testID}::-webkit-scrollbar-track,
         .${className}::-webkit-scrollbar-track {
-          background: ${theme.dark ? "#111827" : "#f0f4ff"};
-          border-radius: 12px;
-          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
-          background-image: repeating-linear-gradient(
-            -45deg,
-            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 0px,
-            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 10px,
-            transparent 10px,
-            transparent 20px
-          );
+          background: ${trackBg};
+          border-radius: 9999px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
+          margin: 4px 0;
         }
+        #${testID}::-webkit-scrollbar-thumb,
         .${className}::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, 
-            #4f46e5 0%, 
-            #818cf8 25%, 
-            #f59e0b 50%, 
-            #10b981 75%, 
-            #4f46e5 100%
-          );
-          border-radius: 12px;
-          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
-          box-shadow: inset 0 0 6px rgba(255,255,255,0.4), 0 2px 8px rgba(99,102,241,0.4);
-          min-height: 70px;
-          cursor: grab;
+          background: ${thumbBg};
+          border-radius: 9999px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
+          min-height: 52px;
+          box-shadow: ${theme.dark ? "0 2px 8px rgba(0,0,0,0.6)" : "0 2px 8px rgba(103,80,164,0.25)"};
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
         }
+        #${testID}::-webkit-scrollbar-thumb:hover,
         .${className}::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, 
-            #4338ca 0%, 
-            #6366f1 25%, 
-            #d97706 50%, 
-            #059669 75%, 
-            #4338ca 100%
-          );
-          box-shadow: inset 0 0 8px rgba(255,255,255,0.6), 0 0 14px rgba(99,102,241,0.7);
-          cursor: grab;
+          background: ${thumbHoverBg};
+          box-shadow: ${theme.dark ? "0 4px 14px rgba(208,188,255,0.4)" : "0 4px 14px rgba(79,55,139,0.4)"};
         }
+        #${testID}::-webkit-scrollbar-thumb:active,
         .${className}::-webkit-scrollbar-thumb:active {
-          background: linear-gradient(180deg,
-            #3730a3 0%,
-            #4f46e5 50%,
-            #3730a3 100%
-          );
+          background: ${thumbActiveBg};
+          box-shadow: ${theme.dark ? "0 6px 18px rgba(232,222,248,0.5)" : "0 6px 18px rgba(56,30,114,0.5)"};
           cursor: grabbing;
         }
       `}</style>
 
       <div
+        testID={testID}
+        data-testid={testID}
+        id={testID}
         className={className}
         onScroll={handleScroll}
         {...droppableProps}
         ref={containerRef}
         style={{
-          height: formattedHeight,
           overflowY: "auto",
           border: theme.dark ? "1px solid #444466" : "1px solid #c5b8e0",
           borderRadius: "8px",
@@ -177,6 +197,11 @@ export function BusinessFunnyScrollComponent({
           backgroundColor: theme.dark ? (theme.colors.surfaceVariant || "#252538") : primaryLightColor,
           boxSizing: "border-box",
           ...style,
+          height: formattedHeight,
+          minHeight: formattedHeight,
+          maxHeight: formattedHeight,
+          flexShrink: 0,
+          flexGrow: 0,
         }}
       >
         {children}

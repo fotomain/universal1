@@ -261,6 +261,44 @@ function RootLayoutContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: paperTheme.colors.background }}>
+      {Platform.OS === 'web' && (
+        <style>{`
+          ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          ::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+          }
+          ::-webkit-scrollbar-track {
+            background: ${darkMode ? "#2b2930" : "#e7e0ec"};
+            border-radius: 9999px;
+            border: 3px solid transparent;
+            background-clip: padding-box;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: ${paperTheme.colors.primary || "#6750A4"};
+            border-radius: 9999px;
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            min-height: 48px;
+            box-shadow: ${darkMode ? "0 2px 6px rgba(0,0,0,0.5)" : "0 2px 6px rgba(0,0,0,0.15)"};
+            cursor: pointer;
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          ::-webkit-scrollbar-thumb:hover {
+            background: ${darkMode ? "#d0bcff" : "#4f378b"};
+            box-shadow: ${darkMode ? "0 4px 10px rgba(0,0,0,0.6)" : "0 4px 10px rgba(0,0,0,0.25)"};
+          }
+          ::-webkit-scrollbar-thumb:active {
+            background: ${darkMode ? "#e8def8" : "#381e72"};
+            box-shadow: ${darkMode ? "0 6px 14px rgba(0,0,0,0.7)" : "0 6px 14px rgba(0,0,0,0.35)"};
+            cursor: grabbing;
+          }
+        `}</style>
+      )}
       <DesignSystemProvider>
         <PaperProvider theme={paperTheme}>
           <FABProvider>

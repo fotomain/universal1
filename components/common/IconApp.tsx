@@ -65,6 +65,9 @@ export const getWebFallbackGlyph = (iconName: string): string => {
     'arrow-left': '←',
     dotsvertical: '⋮',
     'more_vert': '⋮',
+    'crosshairs-gps': '⌖',
+    'format-vertical-align-top': '⤒',
+    'format-vertical-align-bottom': '⤓',
     default: '•',
   };
 
@@ -105,6 +108,13 @@ export const getPlatformSymbolName = (rawName: string): string => {
     'pencil-outline': 'pencil',
     'share-outline': 'square.and.arrow.up',
     'delete-outline': 'trash',
+    'crosshairs-gps': 'location.circle',
+    'crosshairs_gps': 'location.circle',
+    my_location: 'location.circle',
+    'format-vertical-align-top': 'arrow.up.to.line',
+    vertical_align_top: 'arrow.up.to.line',
+    'format-vertical-align-bottom': 'arrow.down.to.line',
+    vertical_align_bottom: 'arrow.down.to.line',
   };
 
   const normalizedKey = rawName.toLowerCase();
