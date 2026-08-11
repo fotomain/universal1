@@ -11,5 +11,7 @@ export { default as SelectorFromApp, SelectorFromAppProps, SelectorOption } from
 export { default as IconApp, IconAppProps } from './IconApp';
 export { default as FABApp, FABAppProps } from './FABApp';
 export { default as ArrowToLeftApp, ArrowToLeftAppProps } from './ArrowToLeftApp';
+export { default as OnOffButtonApp, OnOffButtonAppProps } from './OnOffButtonApp';
 export * from './fab';
 export * from './textarea';
+

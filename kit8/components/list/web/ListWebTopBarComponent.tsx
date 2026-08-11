@@ -1,6 +1,7 @@
 import React from "react";
 import {StyleSheet, View} from "react-native";
 import IconApp from "../../../../components/common/IconApp";
+import OnOffButtonApp from "../../../../components/common/OnOffButtonApp";
 
 let usePaperTheme: any;
 try {
@@ -16,6 +17,8 @@ export interface ListWebTopBarComponentProps {
   onScrollBottom?: () => void;
   isScrollToCurrentEnabled?: boolean;
   currentCardTitle?: string;
+  isSelectionVisible?: boolean;
+  onSelectionVisibleChange?: (isOn: boolean) => void;
   primaryColor?: string;
   style?: any;
   testID?: string;
@@ -28,6 +31,8 @@ export function ListWebTopBarComponent({
   onScrollBottom,
   isScrollToCurrentEnabled = false,
   currentCardTitle = "",
+  isSelectionVisible = false,
+  onSelectionVisibleChange,
   primaryColor = "#2e7d32",
   style,
   testID = "listWebTopBar",
@@ -52,7 +57,7 @@ export function ListWebTopBarComponent({
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor }, style]} testID={testID}>
-      {/* 1. Left Justified Section: Big Plus Symbol Icon */}
+      {/* 1. Left Justified Section: Big Plus Symbol Icon & OnOffButtonApp */}
       <View style={styles.leftSection}>
         <div title="Create New Item">
           <IconApp
@@ -62,6 +67,16 @@ export function ListWebTopBarComponent({
             color={primaryColor}
             onPress={onCreateNewItem}
             style={styles.iconTouchable}
+          />
+        </div>
+
+        {/* OnOffButtonApp right after createNewItem */}
+        <div title={isSelectionVisible ? "Hide Card Selection" : "Show Card Selection"} style={{ marginLeft: 8 }}>
+          <OnOffButtonApp
+            testID="onOffSelectionButton"
+            isOn={isSelectionVisible}
+            onOffCallback={onSelectionVisibleChange}
+            primaryColor={primaryColor}
           />
         </div>
       </View>

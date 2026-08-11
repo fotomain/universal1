@@ -182,7 +182,6 @@ export function BusinessFunnyScrollComponent({
       `}</style>
 
       <div
-        testID={testID}
         data-testid={testID}
         id={testID}
         className={className}
