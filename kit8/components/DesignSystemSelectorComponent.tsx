@@ -19,6 +19,14 @@ interface SystemOption {
 
 const DESIGN_SYSTEMS: SystemOption[] = [
   {
+    id: 'native',
+    name: 'React Native Native',
+    badge: 'Core Primitives',
+    description: 'Clean standard React Native core components & styling.',
+    color: '#8b5cf6',
+    url: 'https://reactnative.dev/',
+  },
+  {
     id: 'paper',
     name: 'React Native Paper',
     badge: 'Material 3',
@@ -49,14 +57,6 @@ const DESIGN_SYSTEMS: SystemOption[] = [
     description: 'Modern universal Expo native primitive UI strategy.',
     color: '#f59e0b',
     url: 'https://expo.dev/',
-  },
-  {
-    id: 'native',
-    name: 'React Native Native',
-    badge: 'Core Primitives',
-    description: 'Clean standard React Native core components & styling.',
-    color: '#8b5cf6',
-    url: 'https://reactnative.dev/',
   },
   {
     id: 'googlemd3web',
