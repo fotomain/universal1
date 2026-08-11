@@ -144,7 +144,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
           <Appbar.Action icon="menu" onPress={handleOpenDrawer} />
           {!isHome && (
             <Appbar.Action
-              icon={(props) => <ArrowToLeftApp size={props.size || 24} color={props.color || themeColors.text} />}
+              icon="arrow-left"
               onPress={handleBack}
             />
           )}

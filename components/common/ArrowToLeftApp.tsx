@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 import { useDesignSystem } from '../../context/DesignSystemContext';
-import { MaterialSymbol } from './iconsvariants/MaterialSymbol';
 import IconApp from './IconApp';
 
 export interface ArrowToLeftAppProps {
@@ -17,24 +16,18 @@ export const ArrowToLeftApp: React.FC<ArrowToLeftAppProps> = ({
   onPress,
   style,
 }) => {
-  const { activeSystem, themeColors } = useDesignSystem();
+  const { themeColors } = useDesignSystem();
   const iconColor = color || themeColors.text;
 
-  const renderIcon = () => {
-    if (activeSystem === 'paper') {
-      return <IconApp testID="f3b98c2d-0e4a-5f67-9b01-234567890b02" name="arrow-left" size={size} color={iconColor} style={style} />;
-    }
-
-    // Fallback to MaterialSymbol for all design systems
-    return (
-      <MaterialSymbol
-        name="arrow_back"
-        size={size}
-        color={iconColor}
-        style={style as any}
-      />
-    );
-  };
+  const renderIcon = () => (
+    <IconApp
+      testID="f3b98c2d-0e4a-5f67-9b01-234567890b02"
+      name="arrow_back"
+      size={size}
+      color={iconColor}
+      style={style}
+    />
+  );
 
   if (onPress) {
     return (
