@@ -25,6 +25,7 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   inputMode?: any;
   style?: any;
+  left?: any;
   right?: any;
 }
 
@@ -47,6 +48,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   keyboardType = 'default',
   autoCapitalize = 'none',
   style,
+  left,
   right,
   ...props
 }) => {
@@ -76,6 +78,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
 
   switch (activeSystem) {
     case 'paper': {
+      const leftProp = left !== undefined
+        ? left
+        : (leftIcon ? (
+            <PaperTextInput.Icon icon={leftIcon === 'search' ? 'magnify' : leftIcon} />
+          ) : undefined);
+
       const rightProp = right !== undefined
         ? right
         : (currentValue.length > 0 && !disabled ? (
@@ -103,6 +111,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             numberOfLines={numberOfLines}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
+            left={leftProp}
             right={rightProp}
             outlineColor={themeColors.border}
             activeOutlineColor={themeColors.primary}
@@ -214,6 +223,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
                 {label}
               </Text>
             )}
+            {leftIcon && <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e18" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -270,6 +280,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               alignItems: 'center',
             }}
           >
+            {leftIcon && <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f19" name={leftIcon} size={18} color="#64748b" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -318,6 +329,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           showError={showError}
           secureTextEntry={secureTextEntry}
           helperText={helperText}
+          leftIcon={leftIcon}
           multiline={multiline}
           numberOfLines={numberOfLines}
           keyboardType={keyboardType}
@@ -351,6 +363,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               paddingVertical: multiline ? 8 : 0,
             }}
           >
+            {leftIcon && <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a20" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}

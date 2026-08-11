@@ -3,7 +3,7 @@ export { default as ButtonPrimaryApp } from './ButtonPrimaryApp';
 export { default as ButtonSecondaryApp } from './ButtonSecondaryApp';
 export { default as ButtonTextApp } from './ButtonTextApp';
 export { default as CardApp, CardAppProps } from './CardApp';
-export { default as TextInputApp, TextInputAppProps } from './TextInputApp';
+export { default as TextInputApp, TextInputAppProps, TextInputApp as InputApp, TextInputAppProps as InputAppProps } from './TextInputApp';
 export { default as SwitchApp, SwitchAppProps } from './SwitchApp';
 export { default as TextApp, TextAppProps } from './TextApp';
 export { default as TextAreaApp, TextAreaAppProps } from './TextAreaApp';

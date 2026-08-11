@@ -123,11 +123,25 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
     );
   };
 
+  const handleOpenDrawer = () => {
+    try {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } catch (e) {
+      try {
+        (navigation as any)?.openDrawer?.();
+      } catch (err) {
+        try {
+          (navigation as any)?.toggleDrawer?.();
+        } catch (e2) {}
+      }
+    }
+  };
+
   switch (activeSystem) {
     case 'paper': {
       return (
         <Appbar.Header elevated style={{ backgroundColor: themeColors.surface }}>
-          <Appbar.Action icon="menu" onPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
+          <Appbar.Action icon="menu" onPress={handleOpenDrawer} />
           {!isHome && (
             <Appbar.Action
               icon={(props) => <ArrowToLeftApp size={props.size || 24} color={props.color || themeColors.text} />}
@@ -160,12 +174,22 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
           ]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity
-              onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-              style={styles.actionBtn}
+            <div
+              onClick={handleOpenDrawer}
+              style={{
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <IconApp testID="cg461790-9nl7-4op6-8yd0-123456789e41" name="menu" size={22} color={themeColors.text} />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleOpenDrawer}
+                style={styles.actionBtn}
+              >
+                <IconApp testID="cg461790-9nl7-4op6-8yd0-123456789e41" name="menu" size={22} color={themeColors.text} onPress={handleOpenDrawer} />
+              </TouchableOpacity>
+            </div>
 
             {!isHome && (
               <TouchableOpacity onPress={handleBack} style={styles.actionBtn}>
