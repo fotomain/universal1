@@ -71,7 +71,7 @@ export const TamaguiTextArea: React.FC<TextAreaSubcomponentProps> = ({
           } as any}
         />
         {currentValue.length > 0 && !disabled && (
-          <IconApp name="close" size={18} color="#888" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
+          <IconApp testID="b3198acd-6ae4-1bc3-5lq7-890123456d28" name="close" size={18} color="#888" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
         )}
       </View>
       {(hasError || helperText) && (

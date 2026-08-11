@@ -92,29 +92,29 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
             ]}
           >
             <TouchableOpacity style={styles.menuRow} onPress={handleSignIn}>
-              <IconApp name="login" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <IconApp testID="ca805134-3hf1-8ij0-2sx4-567890123e35" name="login" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>{t('menu.signIn')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuRow} onPress={handleSignUp}>
-              <IconApp name="account-plus" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <IconApp testID="db916245-4ig2-9jk1-3ty5-678901234f36" name="account-plus" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>{t('menu.signUp')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuRow} onPress={onSignOutClick}>
-              <IconApp name="logout" size={18} color={themeColors.error} style={{ marginRight: 10 }} />
+              <IconApp testID="ec027356-5jh3-0kl2-4uz6-789012345a37" name="logout" size={18} color={themeColors.error} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.error }}>{t('menu.signOut')}</Text>
             </TouchableOpacity>
 
             <View style={{ height: 1, backgroundColor: themeColors.border, marginVertical: 4 }} />
 
             <TouchableOpacity style={styles.menuRow} onPress={handleDesigns}>
-              <IconApp name="palette" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <IconApp testID="fd138467-6ki4-1lm3-5va7-890123456b38" name="palette" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>Kit8 Designs</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuRow} onPress={handleSettings}>
-              <IconApp name="settings" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <IconApp testID="ae249578-7lj5-2mn4-6wb8-901234567c39" name="settings" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>{t('menu.settings')}</Text>
             </TouchableOpacity>
           </View>
@@ -136,7 +136,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
           )}
           <Appbar.Content title={title} />
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
-            <IconApp name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
+            <IconApp testID="bf350689-8mk6-3no5-7xc9-012345678d40" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
           </TouchableOpacity>
           {renderRightMenuOverlay()}
         </Appbar.Header>
@@ -164,7 +164,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
               onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
               style={styles.actionBtn}
             >
-              <IconApp name="menu" size={22} color={themeColors.text} />
+              <IconApp testID="cg461790-9nl7-4op6-8yd0-123456789e41" name="menu" size={22} color={themeColors.text} />
             </TouchableOpacity>
 
             {!isHome && (
@@ -187,7 +187,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={openMenu} style={styles.actionBtn}>
-              <IconApp name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
+              <IconApp testID="dh5728a1-0om8-5pq7-9ze1-234567890f42" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
             </TouchableOpacity>
           </View>
 

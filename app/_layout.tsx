@@ -250,7 +250,7 @@ function RootLayoutContent() {
   const paperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
 
   const renderHomeDrawerIcon = ({ size, color }: { size: number; color: string }) => (
-    <IconApp name="home" size={size} color={color} />
+    <IconApp testID="e2a87b1c-9d3f-4e56-8a90-123456789a01" name="home" size={size} color={color} />
   );
 
   useEffect(() => {

@@ -28,7 +28,7 @@ export const ExpoFABApp: React.FC<ExpoFABAppProps> = ({
   return (
     <PaperFAB
       testID={testID}
-      icon={typeof icon === 'string' ? icon : (() => <IconApp name={icon} color={color} />)}
+      icon={typeof icon === 'string' ? icon : (() => <IconApp testID="ac421356-9fbd-4a56-8ej0-123456789c21" name={icon} color={color} />)}
       label={label}
       onPress={onPress}
       disabled={disabled}

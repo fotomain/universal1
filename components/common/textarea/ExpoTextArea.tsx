@@ -61,7 +61,7 @@ export const ExpoTextArea: React.FC<TextAreaSubcomponentProps> = ({
           } as any}
         />
         {currentValue.length > 0 && !disabled && (
-          <IconApp name="close" size={18} color="#64748b" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
+          <IconApp testID="f19768ab-4ec2-9fa1-3jo5-678901234b26" name="close" size={18} color="#64748b" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
         )}
       </View>
       {(hasError || helperText) && (

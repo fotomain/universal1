@@ -22,7 +22,7 @@ export const ArrowToLeftApp: React.FC<ArrowToLeftAppProps> = ({
 
   const renderIcon = () => {
     if (activeSystem === 'paper') {
-      return <IconApp name="arrow-left" size={size} color={iconColor} style={style} />;
+      return <IconApp testID="f3b98c2d-0e4a-5f67-9b01-234567890b02" name="arrow-left" size={size} color={iconColor} style={style} />;
     }
 
     // Fallback to MaterialSymbol for all design systems

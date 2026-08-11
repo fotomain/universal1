@@ -28,7 +28,7 @@ export const AntFABApp: React.FC<AntFABAppProps> = ({
   return (
     <PaperFAB
       testID={testID}
-      icon={typeof icon === 'string' ? icon : (() => <IconApp name={icon} color={color} />)}
+      icon={typeof icon === 'string' ? icon : (() => <IconApp testID="fb310245-8eac-3f45-7di9-012345678b20" name={icon} color={color} />)}
       label={label}
       onPress={onPress}
       disabled={disabled}

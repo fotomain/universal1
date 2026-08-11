@@ -147,7 +147,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               alignItems: 'center',
             }}
           >
-            {leftIcon && <IconApp name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
+            {leftIcon && <IconApp testID="a68cbdf0-3fb7-8a90-28d4-567890123c15" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -173,7 +173,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               {...(props as any)}
             />
             {currentValue.length > 0 && !disabled && (
-              <IconApp name="close" size={18} color="#888" onPress={handleClear} />
+              <IconApp testID="b79dce01-4ac8-9b01-39e5-678901234d16" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
           {(hasError || helperText) && (
@@ -201,11 +201,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             style={{
               flexDirection: 'row',
               alignItems: isMultiline ? 'flex-start' : 'center',
-              backgroundColor: themeColors.surface,
-              borderBottomWidth: 1,
-              borderBottomColor: hasError ? themeColors.error : isFocused ? themeColors.primary : themeColors.border,
-              paddingVertical: 10,
-              paddingHorizontal: 4,
+              backgroundColor: disabled ? '#f5f5f5' : themeColors.surface,
+              borderWidth: 1,
+              borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : '#d9d9d9',
+              borderRadius: 4,
+              paddingHorizontal: 11,
+              paddingVertical: isMultiline ? 8 : 6,
             }}
           >
             {label && (
@@ -217,7 +218,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               value={currentValue}
               onChangeText={onChangeText}
               placeholder={placeholder}
-              placeholderTextColor={isDark ? '#888' : '#ccc'}
+              placeholderTextColor="#bfbfbf"
               editable={!disabled}
               secureTextEntry={secureTextEntry}
               multiline={multiline}
@@ -228,20 +229,16 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               onBlur={() => setIsFocused(false)}
               style={{
                 flex: 1,
-                fontSize: 16,
+                fontSize: 14,
                 color: themeColors.text,
+                minHeight: isMultiline ? linesCount * 20 : 24,
                 outlineStyle: 'none',
                 borderWidth: 0,
-                paddingVertical: isMultiline ? 2 : 0,
-                marginVertical: 0,
-                minHeight: isMultiline ? linesCount * 22 : 24,
-                lineHeight: 22,
-                textAlignVertical: isMultiline ? 'top' : 'center',
               } as any}
               {...(props as any)}
             />
             {currentValue.length > 0 && !disabled && (
-              <IconApp name="close" size={18} color="#888" onPress={handleClear} />
+              <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e17" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
           {(hasError || helperText) && (
@@ -296,7 +293,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               {...(props as any)}
             />
             {currentValue.length > 0 && !disabled && (
-              <IconApp name="close" size={18} color="#64748b" onPress={handleClear} />
+              <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f18" name="close" size={18} color="#64748b" onPress={handleClear} />
             )}
           </View>
           {(hasError || helperText) && (
@@ -378,7 +375,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               {...(props as any)}
             />
             {currentValue.length > 0 && !disabled && (
-              <IconApp name="close" size={18} color="#888" onPress={handleClear} />
+              <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a19" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
           {(hasError || helperText) && (

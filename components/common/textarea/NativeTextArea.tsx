@@ -62,7 +62,7 @@ export const NativeTextArea: React.FC<TextAreaSubcomponentProps> = ({
           } as any}
         />
         {currentValue.length > 0 && !disabled && (
-          <IconApp name="close" size={18} color="#888" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
+          <IconApp testID="a20879bc-5fd3-0ab2-4kp6-789012345c27" name="close" size={18} color="#888" onPress={onClear} style={{ marginLeft: 8, marginTop: 2 }} />
         )}
       </View>
       {(hasError || helperText) && (

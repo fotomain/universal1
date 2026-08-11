@@ -38,6 +38,15 @@ const INITIAL_CARDS: CardItem[] = Array.from({ length: 10 }, (_, i) => ({
   description: `Detailed description for post card #${i + 1}`,
 }));
 
+const getBusinessMotto = (pct: number): string => {
+  if (pct === 0) return "💼 Initializing Q4 Synergy Protocols... Scroll for Profit!";
+  if (pct < 25) return "📈 Leveraging Core Competencies! (+15% Productivity)";
+  if (pct < 50) return "🚀 Circle Back & Touch Base! Actionable Content Detected!";
+  if (pct < 75) return "🔥 Paradigms Shifted! Maximizing Stakeholder Engagement!";
+  if (pct < 100) return "🎯 Closing the Loop! Final Deliverables in Sight!";
+  return "🎉 100% PROFITABILITY REACHED! Take a Coffee Break! ☕";
+};
+
 export function ListWebCardsComponent({
   entityName = "mediaPostReusable",
   entityForArchivationName = "mediaPostArchive",
@@ -73,6 +82,18 @@ export function ListWebCardsComponent({
   const [openMenuCardId, setOpenMenuCardId] = useState<string | null>(null);
   const [lastInteractedCardId, setLastInteractedCardId] = useState<string | null>(null);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+
+  // Business Funny Scroll state inside component
+  const [scrollPercent, setScrollPercent] = useState(0);
+
+  const handleContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const totalScroll = target.scrollHeight - target.clientHeight;
+    if (totalScroll > 0) {
+      const current = Math.min(100, Math.max(0, Math.round((target.scrollTop / totalScroll) * 100)));
+      setScrollPercent(current);
+    }
+  };
 
   // Create Form States
   const [newTitle, setNewTitle] = useState("");
@@ -783,69 +804,115 @@ export function ListWebCardsComponent({
       </View>
 
       {/* Vertical Drag Drop List */}
-      {/* Business Synergy Optimized Scroller */}
-      <div style={{
-        fontSize: '11px',
-        fontWeight: '700',
-        color: theme.dark ? '#818cf8' : '#6366f1',
-        textAlign: 'right',
-        marginBottom: '4px',
-        letterSpacing: '1px',
-        textTransform: 'uppercase',
-        opacity: 0.7,
-        fontFamily: 'system-ui, sans-serif',
-      }}>
-        📊 KPI-Optimized Drag &amp; Drop Zone • Synergy-Ready •
+      {/* Business Funny Scroll-O-Meter Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 14px',
+          marginBottom: '8px',
+          borderRadius: '10px',
+          backgroundColor: theme.dark ? '#1e1b4b' : '#eef2ff',
+          border: `1.5px dashed ${theme.dark ? '#6366f1' : '#818cf8'}`,
+          fontFamily: 'system-ui, sans-serif',
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '18px' }}>💼</span>
+          <span
+            style={{
+              fontSize: '12px',
+              fontWeight: '700',
+              color: theme.dark ? '#c7d2fe' : '#3730a3',
+              letterSpacing: '0.3px',
+            }}
+          >
+            {getBusinessMotto(scrollPercent)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: '80px',
+              height: '8px',
+              backgroundColor: theme.dark ? '#312e81' : '#c7d2fe',
+              borderRadius: '4px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${scrollPercent}%`,
+                height: '100%',
+                backgroundColor: scrollPercent === 100 ? '#10b981' : '#6366f1',
+                transition: 'width 0.2s ease',
+              }}
+            />
+          </div>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: '800',
+              color: scrollPercent === 100 ? '#10b981' : primaryColor,
+              minWidth: '36px',
+              textAlign: 'right',
+            }}
+          >
+            {scrollPercent}%
+          </span>
+        </div>
       </div>
+
       <style>{`
         .funny-scrollbar::-webkit-scrollbar {
-          width: 18px;
+          width: 22px;
         }
         .funny-scrollbar::-webkit-scrollbar-track {
-          background: ${theme.dark ? "#1a1a2e" : "#f0f4ff"};
-          border-radius: 10px;
-          border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
+          background: ${theme.dark ? "#111827" : "#f0f4ff"};
+          border-radius: 12px;
+          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
           background-image: repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 5px,
-            ${theme.dark ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.08)"} 5px,
-            ${theme.dark ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.08)"} 10px
+            -45deg,
+            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 0px,
+            ${theme.dark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.12)"} 10px,
+            transparent 10px,
+            transparent 20px
           );
         }
         .funny-scrollbar::-webkit-scrollbar-thumb {
           background: linear-gradient(180deg, 
-            #6366f1 0%, 
+            #4f46e5 0%, 
             #818cf8 25%, 
-            #a78bfa 50%, 
-            #818cf8 75%, 
-            #6366f1 100%
+            #f59e0b 50%, 
+            #10b981 75%, 
+            #4f46e5 100%
           );
-          border-radius: 10px;
-          border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
-          min-height: 60px;
-          position: relative;
+          border-radius: 12px;
+          border: 3px solid ${theme.dark ? "#1f2937" : "#ffffff"};
+          box-shadow: inset 0 0 6px rgba(255,255,255,0.4), 0 2px 8px rgba(99,102,241,0.4);
+          min-height: 70px;
+          cursor: grab;
         }
         .funny-scrollbar::-webkit-scrollbar-thumb:hover {
           background: linear-gradient(180deg, 
-            #4f46e5 0%, 
+            #4338ca 0%, 
             #6366f1 25%, 
-            #8b5cf6 50%, 
-            #6366f1 75%, 
-            #4f46e5 100%
+            #d97706 50%, 
+            #059669 75%, 
+            #4338ca 100%
           );
-          cursor: pointer;
+          box-shadow: inset 0 0 8px rgba(255,255,255,0.6), 0 0 14px rgba(99,102,241,0.7);
+          cursor: grab;
         }
         .funny-scrollbar::-webkit-scrollbar-thumb:active {
           background: linear-gradient(180deg,
-            #4338ca 0%,
+            #3730a3 0%,
             #4f46e5 50%,
-            #4338ca 100%
+            #3730a3 100%
           );
           cursor: grabbing;
-        }
-        .funny-scrollbar::-webkit-scrollbar-corner {
-          background: transparent;
         }
       `}</style>
       <DragDropContext onDragEnd={onDragEnd}>
@@ -900,6 +967,7 @@ export function ListWebCardsComponent({
           {(provided) => (
             <div
               className="funny-scrollbar"
+              onScroll={handleContainerScroll}
               {...provided.droppableProps}
               ref={(el) => {
                 provided.innerRef(el);
