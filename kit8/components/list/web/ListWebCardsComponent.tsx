@@ -25,6 +25,7 @@ import { DATA_MANIPULATION_TYPE, DataManipulationType } from "../../../types/man
 import TexInputMi from "../../../ui/TexInputMi";
 import ButtonMi from "../../../ui/ButtonMi";
 import H1Mi from "../../../ui/H1Mi";
+import IconApp from "../../../../components/common/IconApp";
 
 const _testMode=false
 
@@ -752,20 +753,25 @@ export function ListWebCardsComponent({
           {/* Spacer matching 20% thinner left control column for exact vertical alignment */}
           <View style={{ width: 14.5 }} />
 
-          {/* Round Header Checkbox */}
+          {/* Round Header Checkbox using IconApp */}
           <div title="Select All Cards">
-            <TouchableOpacity
-              activeOpacity={0.8}
+            <IconApp
+              testID="f0a1b2c3-d4e5-6789-0abc-123456789def"
+              name={isAllSelected ? "check" : selectedIds.length > 0 ? "minus" : "check"}
+              size={16}
+              color={
+                isAllSelected || selectedIds.length > 0
+                  ? theme.colors.onPrimary
+                  : "transparent"
+              }
               onPress={handleSelectAll}
               style={[
                 styles.roundCheckbox,
-                isAllSelected
+                isAllSelected || selectedIds.length > 0
                   ? { backgroundColor: primaryColor, borderColor: primaryColor }
                   : { borderColor: primaryColor, backgroundColor: "transparent" },
               ]}
-            >
-              {isAllSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-            </TouchableOpacity>
+            />
           </div>
 
           {/* 12px Distance / Gap */}
@@ -941,16 +947,18 @@ export function ListWebCardsComponent({
                     <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
                   </div>
                   <div style={{ margin: "2px 0" }}>
-                    <View
+                    <IconApp
+                      testID={`card-check-clone-${card.id}`}
+                      name="check"
+                      size={16}
+                      color={isSelected ? theme.colors.onPrimary : "transparent"}
                       style={[
                         styles.roundCheckbox,
                         isSelected
                           ? { backgroundColor: primaryColor, borderColor: primaryColor }
                           : { borderColor: primaryColor, backgroundColor: "transparent" },
                       ]}
-                    >
-                      {isSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-                    </View>
+                    />
                   </div>
                   <div style={{ cursor: "pointer", padding: "2px" }}>
                     <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
@@ -1013,10 +1021,13 @@ export function ListWebCardsComponent({
                             </TouchableOpacity>
                           </div>
 
-                          {/* 2. Round Card Checkbox */}
+                          {/* 2. Round Card Checkbox using IconApp */}
                           <div title="Select Card" style={{ margin: "2px 0" }}>
-                            <TouchableOpacity
-                              activeOpacity={0.8}
+                            <IconApp
+                              testID={`card-check-${card.id}`}
+                              name="check"
+                              size={16}
+                              color={isSelected ? theme.colors.onPrimary : "transparent"}
                               onPress={() =>
                                 setSelectedIds((prev) =>
                                   prev.includes(card.id)
@@ -1030,9 +1041,7 @@ export function ListWebCardsComponent({
                                   ? { backgroundColor: primaryColor, borderColor: primaryColor }
                                   : { borderColor: primaryColor, backgroundColor: "transparent" },
                               ]}
-                            >
-                              {isSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-                            </TouchableOpacity>
+                            />
                           </div>
 
                           {/* 3. MoveCardDown button (lower than Card checkbox) - uses primaryColor */}

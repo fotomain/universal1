@@ -59,6 +59,8 @@ export const getWebFallbackGlyph = (iconName: string): string => {
     email: '✉',
     plus: '+',
     add: '+',
+    minus: '−',
+    remove: '−',
     arrowleft: '←',
     'arrow-left': '←',
     dotsvertical: '⋮',
