@@ -2,6 +2,7 @@ import React from "react";
 import {StyleSheet, View} from "react-native";
 import IconApp from "../../../../components/common/IconApp";
 import OnOffButtonApp from "../../../../components/common/OnOffButtonApp";
+import SearchInputApp from "../../../../components/common/SearchInputApp";
 
 let usePaperTheme: any;
 try {
@@ -9,7 +10,7 @@ try {
 } catch (e) {
   usePaperTheme = null;
 }
-#
+
 export interface ListWebTopBarComponentProps {
   onCreateNewItem?: () => void;
   onScrollToCurrent?: () => void;
@@ -19,6 +20,8 @@ export interface ListWebTopBarComponentProps {
   currentCardTitle?: string;
   isSelectionVisible?: boolean;
   onSelectionVisibleChange?: (isOn: boolean) => void;
+  searchText?: string;
+  onSearchTextChange?: (text: string) => void;
   primaryColor?: string;
   style?: any;
   testID?: string;
@@ -33,6 +36,8 @@ export function ListWebTopBarComponent({
   currentCardTitle = "",
   isSelectionVisible = false,
   onSelectionVisibleChange,
+  searchText = "",
+  onSearchTextChange,
   primaryColor = "#2e7d32",
   style,
   testID = "listWebTopBar",
@@ -57,18 +62,31 @@ export function ListWebTopBarComponent({
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor }, style]} testID={testID}>
-      {/* 1. Left Justified Section: Big Plus Symbol Icon & OnOffButtonApp */}
-      <View style={styles.leftSection}>
-        <div title="Create New Item">
-          <IconApp
-            testID="createNewItem"
-            name="add"
-            size={32}
-            color={primaryColor}
-            onPress={onCreateNewItem}
-            style={styles.iconTouchable}
-          />
-        </div>
+      {/* 0. Top Search Bar */}
+      <View style={styles.searchRow}>
+        <SearchInputApp
+          testID="topBarSearchInput"
+          value={searchText}
+          onChangeText={onSearchTextChange}
+          placeholder="Search items..."
+          primaryColor={primaryColor}
+        />
+      </View>
+
+      {/* 1. Actions Bar */}
+      <View style={styles.actionsRow}>
+        {/* Left Justified Section: Big Plus Symbol Icon & OnOffButtonApp */}
+        <View style={styles.leftSection}>
+          <div title="Create New Item">
+            <IconApp
+              testID="createNewItem"
+              name="add"
+              size={32}
+              color={primaryColor}
+              onPress={onCreateNewItem}
+              style={styles.iconTouchable}
+            />
+          </div>
 
         {/* OnOffButtonApp right after createNewItem */}
         <div title={isSelectionVisible ? "Hide Card Selection" : "Show Card Selection"} style={{ marginLeft: 8 }}>
@@ -120,21 +138,30 @@ export function ListWebTopBarComponent({
         </div>
       </View>
     </View>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: "column",
+    width: "100%",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    marginBottom: 8,
+  },
+  searchRow: {
+    width: "100%",
+    marginBottom: 6,
+  },
+  actionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     width: "100%",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    marginBottom: 8,
   },
   leftSection: {
     flexDirection: "row",

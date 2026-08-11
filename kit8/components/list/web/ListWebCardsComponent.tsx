@@ -80,6 +80,18 @@ export function ListWebCardsComponent({
   const [lastInteractedCardId, setLastInteractedCardId] = useState<string | null>(null);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isSelectionVisible, setIsSelectionVisible] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (entityState?.actions?.filterAll) {
+      try {
+        dispatch(entityState.actions.filterAll({ filterText: text }));
+      } catch (e) {
+        // fallback
+      }
+    }
+  };
 
 
 
@@ -751,6 +763,8 @@ export function ListWebCardsComponent({
         currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
         isSelectionVisible={isSelectionVisible}
         onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
+        searchText={searchText}
+        onSearchTextChange={handleSearchChange}
         primaryColor={primaryColor}
       />
 
@@ -878,7 +892,15 @@ export function ListWebCardsComponent({
                 scrollContainerRef.current = el;
               }}
             >
-              {cards.map((card, index) => {
+              {cards
+                .filter((card) => {
+                  if (!searchText || searchText.trim() === "") return true;
+                  const lower = searchText.toLowerCase();
+                  const title = String(card.title || "").toLowerCase();
+                  const description = String(card.description || "").toLowerCase();
+                  return title.includes(lower) || description.includes(lower);
+                })
+                .map((card, index) => {
                 const isSelected = selectedIds.includes(card.id);
                 // testID="testScrollDesign"
                 return (

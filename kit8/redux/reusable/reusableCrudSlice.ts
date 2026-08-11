@@ -69,6 +69,17 @@ export const reusableCrudSlice = (name: string) =>
                 state.readErrorData = action.payload;
             },
 
+            // ===== FILTER ALL (Opportunistic Search)
+            filterAll: (state, action?: any) => {
+                state.isReading = true;
+            },
+            filterAllSuccess: (state, action) => {
+                state.entityDataFromServer = action.payload;
+                state.isReading = false;
+                state.readSuccessful = 1;
+                state.crudMoment = Date.now();
+            },
+
             // ===== UPDATE
             updateOne: (state) => {
                 //anatomy2-optimistic crud

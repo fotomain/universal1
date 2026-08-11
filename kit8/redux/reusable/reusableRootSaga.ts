@@ -24,9 +24,8 @@ export const reusableRootSaga = (p: any) => {
                 //TODO!!! .match({...matchData})
 
             if (readAllFilter) {
-                query = query.ilike(
-                    "mediaPostJSON->>mediaPostTitle",
-                    `%${readAllFilter}%`
+                query = query.or(
+                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%`
                 );
             }
 
@@ -283,8 +282,73 @@ export const reusableRootSaga = (p: any) => {
         }
     }
 
+    // █████████████████████████████ filterAll (Opportunistic Search)
+    function* filterAll(action: any) {
+        try {
+            const filterText = action.payload?.filterText ?? (typeof action.payload === 'string' ? action.payload : "");
+            
+            // 1. Opportunistic search in Redux state
+            const sliceState: any = yield select((state: any) => state[tableName] || {});
+            const reduxStateData = sliceState?.entityDataFromServer || [];
+
+            let filteredData = reduxStateData;
+            if (filterText && filterText.trim() !== "") {
+                const lowerText = filterText.toLowerCase();
+                filteredData = reduxStateData.filter((item: any) => {
+                    const json = item?.mediaPostJSON || item || {};
+                    const title = String(json.mediaPostTitle || item.title || "").toLowerCase();
+                    const description = String(json.mediaPostDescription || item.description || "").toLowerCase();
+                    return title.includes(lowerText) || description.includes(lowerText);
+                });
+            }
+
+            // Immediately dispatch filterAllSuccess to update state opportunistically
+            if (actions.filterAllSuccess) {
+                yield put(actions.filterAllSuccess(filteredData));
+            } else {
+                yield put(actions.readDataSuccess(filteredData));
+            }
+
+            // 2. When filterAll finished -> Run saga readAll from database with {filterText: string}
+            // @ts-ignore
+            const dbAdapters: any = yield getContext("dbAdapters");
+            const supabase: any = dbAdapters?.supabaseAdapter?.supabase;
+
+            if (supabase) {
+                let query = supabase
+                    .from(tableName)
+                    .select("*")
+                    .order("orderInList", { ascending: true });
+
+                if (filterText && filterText.trim() !== "") {
+                    query = query.or(
+                        `mediaPostJSON->>mediaPostTitle.ilike.%${filterText}%,mediaPostJSON->>mediaPostDescription.ilike.%${filterText}%`
+                    );
+                }
+
+                const { data: dbResultData, error } = yield call(() => query);
+
+                if (!error && dbResultData) {
+                    // 3. Compare: if read result data <> redux state data: Update redux state
+                    const dbJson = JSON.stringify(dbResultData);
+                    const reduxJson = JSON.stringify(reduxStateData);
+
+                    if (dbJson !== reduxJson) {
+                        console.log("filterAll: DB result data <> redux state data -> Updating Redux state");
+                        yield put(actions.readDataSuccess(dbResultData));
+                    }
+                }
+            }
+        } catch (e: any) {
+            console.log("filterAll saga error", e);
+        }
+    }
+
     return function* reusableSagas() {
         yield takeLatest(actions.readData, readAll);
+        if (actions.filterAll) {
+            yield takeLatest(actions.filterAll, filterAll);
+        }
         yield takeEvery(actions.readOne, readOne);
         yield takeEvery(actions.createOne, createOne);
         yield takeEvery(actions.updateOne, updateOneFieldOfJson);
