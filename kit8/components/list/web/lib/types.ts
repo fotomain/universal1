@@ -13,7 +13,7 @@ export interface ListWebCardsComponentProps {
   entityName?: string;
   entityForArchivationName?: string;
   crudListTitle?: string;
-  listOwnerGUID?: string;
+  crudListOwnerGUID?: string;
   crudCardHeight?: number;
   crudListWidth?: number;
   crudGapBetweenCards?: number;

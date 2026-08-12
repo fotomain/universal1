@@ -12,7 +12,7 @@ export default function MediaPostCrudScreen() {
     <ListWebCardsComponent
       entityName="mediaPostReusable"
       crudListTitle="Media Posts"
-      listOwnerGUID={listOwnerGUID}
+      crudListOwnerGUID={listOwnerGUID}
       CardComponent={CardFullVersion}
       createNewCardComponent={CreateNewCardBasicForm}
     />
