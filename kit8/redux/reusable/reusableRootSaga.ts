@@ -251,8 +251,16 @@ export const reusableRootSaga = (p: any) => {
 
             if (error) throw error;
 
-            yield put(actions.deleteOneSuccess(data[0]));
-            yield put(showSnackbar({ message: "Post successfully deleted" }));
+            const deletedRecord = (data && data[0]) ? data[0] : action.payload;
+            yield put(actions.deleteOneSuccess(deletedRecord));
+            yield put(
+                showSnackbar({
+                    message: "Post successfully deleted",
+                    actionLabel: "Undo",
+                    undoDeleteData: deletedRecord,
+                    entityName: tableName.replace("Table", "") || "mediaPostReusable",
+                })
+            );
         } catch (e) {
             yield put(actions.deleteOneFailure(e));
         }

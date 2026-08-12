@@ -9,6 +9,8 @@ export interface SnackbarState {
   message: string;
   duration: number;
   actionLabel?: string;
+  undoDeleteData?: any;
+  entityName?: string;
 }
 
 export interface UxuiState {
@@ -29,8 +31,10 @@ const uxuiInitialState: UxuiState = {
   snackbar: {
     visible: false,
     message: '',
-    duration: 3000,
+    duration: 4000,
     actionLabel: 'OK',
+    undoDeleteData: null,
+    entityName: 'mediaPostReusable',
   },
 };
 
@@ -56,28 +60,45 @@ const uxuiSlice = createSlice({
     setBottomTabsAreVisible: (state, action: PayloadAction<boolean>) => {
       state.bottomTabsAreVisible = action.payload;
     },
-    showSnackbar: (state, action: PayloadAction<{ message: string; duration?: number; actionLabel?: string } | string>) => {
+    showSnackbar: (
+      state,
+      action: PayloadAction<
+        | {
+            message: string;
+            duration?: number;
+            actionLabel?: string;
+            undoDeleteData?: any;
+            entityName?: string;
+          }
+        | string
+      >
+    ) => {
       if (!state.snackbar) {
-        state.snackbar = { visible: false, message: '', duration: 3000, actionLabel: 'OK' };
+        state.snackbar = { visible: false, message: '', duration: 4000, actionLabel: 'OK', undoDeleteData: null, entityName: 'mediaPostReusable' };
       }
       state.snackbar.visible = true;
       if (typeof action.payload === 'string') {
         state.snackbar.message = action.payload;
+        state.snackbar.actionLabel = 'OK';
+        state.snackbar.undoDeleteData = null;
+        state.snackbar.entityName = 'mediaPostReusable';
       } else {
         state.snackbar.message = action.payload.message;
         if (action.payload.duration) state.snackbar.duration = action.payload.duration;
-        if (action.payload.actionLabel) state.snackbar.actionLabel = action.payload.actionLabel;
+        state.snackbar.actionLabel = action.payload.actionLabel || (action.payload.undoDeleteData ? 'Undo' : 'OK');
+        state.snackbar.undoDeleteData = action.payload.undoDeleteData !== undefined ? action.payload.undoDeleteData : null;
+        state.snackbar.entityName = action.payload.entityName || 'mediaPostReusable';
       }
     },
     hideSnackbar: (state) => {
       if (!state.snackbar) {
-        state.snackbar = { visible: false, message: '', duration: 3000, actionLabel: 'OK' };
+        state.snackbar = { visible: false, message: '', duration: 4000, actionLabel: 'OK', undoDeleteData: null, entityName: 'mediaPostReusable' };
       }
       state.snackbar.visible = false;
     },
     toggleSnackbar: (state, action: PayloadAction<{ visible?: boolean; message?: string } | boolean | undefined>) => {
       if (!state.snackbar) {
-        state.snackbar = { visible: false, message: '', duration: 3000, actionLabel: 'OK' };
+        state.snackbar = { visible: false, message: '', duration: 4000, actionLabel: 'OK', undoDeleteData: null, entityName: 'mediaPostReusable' };
       }
       if (typeof action.payload === 'boolean') {
         state.snackbar.visible = action.payload;

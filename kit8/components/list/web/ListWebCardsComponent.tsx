@@ -581,8 +581,9 @@ export function ListWebCardsComponent({
     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
   };
 
-  // Delete item handler with listOwnerGUID
+  // Delete item handler with listOwnerGUID & undoDeleteData
   const handleDelete = (id: string) => {
+    const itemToDelete = cards.find((item) => item.id === id);
     setCards((prev) => prev.filter((item) => item.id !== id));
     if (actions?.deleteOne) {
       dispatch(actions.deleteOne({
@@ -590,7 +591,26 @@ export function ListWebCardsComponent({
         ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
       }));
     }
-    dispatch(showSnackbar({ message: "Post successfully deleted" }));
+
+    const undoItemData = (itemToDelete as any)?.rawItem || {
+      mediaPostGUID: id,
+      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      orderInList: Date.now(),
+      mediaPostJSON: {
+        mediaPostTitle: itemToDelete?.title || '',
+        mediaPostDescription: itemToDelete?.description || '',
+        mediaPostImage: itemToDelete?.image || '',
+      },
+    };
+
+    dispatch(
+      showSnackbar({
+        message: "Post successfully deleted",
+        actionLabel: "Undo",
+        undoDeleteData: undoItemData,
+        entityName: entityName || "mediaPostReusable",
+      })
+    );
     console.log(`Deleted item: ${id}`);
   };
 
@@ -602,9 +622,10 @@ export function ListWebCardsComponent({
     setSelectedIds([]);
   };
 
-  // Delete Selected Cards with listOwnerGUID
+  // Delete Selected Cards with listOwnerGUID & undoDeleteData
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
+    const itemsToDelete = cards.filter((item) => selectedIds.includes(item.id));
     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
 
     if (actions?.deleteOne) {
@@ -615,7 +636,26 @@ export function ListWebCardsComponent({
         }));
       });
     }
-    dispatch(showSnackbar({ message: "Post successfully deleted" }));
+
+    const firstUndoData = (itemsToDelete[0] as any)?.rawItem || {
+      mediaPostGUID: itemsToDelete[0]?.id || uuid(),
+      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      orderInList: Date.now(),
+      mediaPostJSON: {
+        mediaPostTitle: itemsToDelete[0]?.title || '',
+        mediaPostDescription: itemsToDelete[0]?.description || '',
+        mediaPostImage: itemsToDelete[0]?.image || '',
+      },
+    };
+
+    dispatch(
+      showSnackbar({
+        message: "Post successfully deleted",
+        actionLabel: "Undo",
+        undoDeleteData: firstUndoData,
+        entityName: entityName || "mediaPostReusable",
+      })
+    );
 
     setSelectedIds([]);
   };
