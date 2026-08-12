@@ -5,7 +5,7 @@ import { useNavigation, useRouter, usePathname } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { DrawerHeaderProps } from '@react-navigation/drawer';
 import { useTranslation } from 'react-i18next';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../providers/DesignSystemContext';
 import IconApp from '../../components/common/IconApp';
 import ArrowToLeftApp from '../../components/common/ArrowToLeftApp';
 import { useAppSignOut } from '../hooks/useAppSignOut';

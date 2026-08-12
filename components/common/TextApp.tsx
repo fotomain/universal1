@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text as RNText, TextStyle } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 
 export interface TextAppProps {
   children: React.ReactNode;

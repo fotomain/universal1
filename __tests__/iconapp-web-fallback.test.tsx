@@ -34,7 +34,7 @@ const mockDesignSystem = {
   },
 };
 
-jest.mock('../context/DesignSystemContext', () => ({
+jest.mock('../kit8/providers/DesignSystemContext', () => ({
   __esModule: true,
   default: require('react').createContext(mockDesignSystem),
   useDesignSystem: () => mockDesignSystem,
