@@ -1,6 +1,6 @@
-import { getBusinessMotto } from '../kit8/components/list/web/BusinessFunnyScrollComponent';
+import { getBusinessMotto } from '../kit8/components/list/web/ListWebScrollWrapper';
 
-describe('BusinessFunnyScrollComponent', () => {
+describe('ListWebScrollWrapper', () => {
   it('calculates correct business mottos based on scroll percentage', () => {
     expect(getBusinessMotto(0)).toContain('Initializing Q4 Synergy Protocols');
     expect(getBusinessMotto(10)).toContain('Leveraging Core Competencies');

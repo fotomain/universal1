@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import { TextInputAppProps } from './TextInputApp';
 import {
   PaperTextArea,

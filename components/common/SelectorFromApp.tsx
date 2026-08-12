@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ViewStyle, ScrollView, Platform } from 'react-native';
 import { Surface, TextInput as PaperTextInput } from 'react-native-paper';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import IconApp from './IconApp';
 import GoogleMD3WebSelector from './googlemd3web/GoogleMD3WebSelector';
 

@@ -53,6 +53,7 @@ export interface CardFullVersionProps {
   dragHandleProps?: any;
   testID?: string;
   crudCardHeight?: number;
+  fabCardNeeded?: boolean;
 }
 
 export const CardFullVersion: React.FC<CardFullVersionProps> = ({
@@ -70,6 +71,7 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
   dragHandleProps,
   testID = "cardFull",
   crudCardHeight,
+  fabCardNeeded = true,
 }) => {
   const paperTheme = useTheme();
   const themePrimary = primaryColor || paperTheme.colors.primary || "#1D827D";
@@ -231,14 +233,16 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
         </View>
 
         {/* FABForCardComponent positioned at the right bottom site of the card */}
-        <FABForCardComponent
-          cardId={card.id}
-          size="small"
-          onViewNow={handleViewNow}
-          onEdit={() => onEdit?.(card.id)}
-          onShare={() => onShare?.(card.id)}
-          onDelete={() => onDelete?.(card.id)}
-        />
+        {fabCardNeeded && (
+          <FABForCardComponent
+            cardId={card.id}
+            size="small"
+            onViewNow={handleViewNow}
+            onEdit={() => onEdit?.(card.id)}
+            onShare={() => onShare?.(card.id)}
+            onDelete={() => onDelete?.(card.id)}
+          />
+        )}
       </View>
 
       {/* CardIconsBottomComponent: Drag handle + archive & delete icons */}

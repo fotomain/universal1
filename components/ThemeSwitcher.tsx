@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { useDesignSystem, DesignSystemType } from '../context/DesignSystemContext';
+import { useDesignSystem, DesignSystemType } from '../kit8/providers/DesignSystemContext';
 
 export interface ThemeSwitcherProps {
   style?: any;

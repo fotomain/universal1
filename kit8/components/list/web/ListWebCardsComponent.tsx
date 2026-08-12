@@ -21,7 +21,7 @@ import {SystemMetaData} from "../../../redux/SystemMetaData";
 import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
 import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
 import IconApp from "../../../../components/common/IconApp";
-import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
+import {ListWebScrollWrapper} from "./ListWebScrollWrapper";
 import {showSnackbar} from "../../../redux/uxuiSlice";
 
 const _testMode=false
@@ -49,16 +49,64 @@ export function ListWebCardsComponent({
   entityName = "mediaPostReusable",
   entityForArchivationName = "mediaPostArchive",
   crudListTitle = "Tasks",
-  listOwnerGUID,
+  crudListOwnerGUID,
   crudCardHeight = 150,
   crudListWidth = 350,
   crudGapBetweenCards = 12,
   createNewCardComponent: CustomCreateForm,
   CardComponent: CustomCardComponent,
+  crudListOptions,
 }: ListWebCardsComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const [dynamicOptions, setDynamicOptions] = useState({
+    listWebTopBarComponentNeeded: true,
+    listWebOnScrollInfoNeeded: true,
+    onOffSelectionButtonNeeded: true,
+    fabCardNeeded: true,
+    searchTextNeeded: true,
+  });
+
+  useEffect(() => {
+    setDynamicOptions({
+      listWebTopBarComponentNeeded: crudListOptions?.listWebTopBarComponentNeeded ?? true,
+      listWebOnScrollInfoNeeded: crudListOptions?.listWebOnScrollInfoNeeded ?? true,
+      onOffSelectionButtonNeeded: crudListOptions?.onOffSelectionButtonNeeded ?? true,
+      fabCardNeeded: crudListOptions?.fabCardNeeded ?? true,
+      searchTextNeeded: crudListOptions?.searchTextNeeded ?? true,
+    });
+  }, [
+    crudListOptions?.listWebTopBarComponentNeeded,
+    crudListOptions?.listWebOnScrollInfoNeeded,
+    crudListOptions?.onOffSelectionButtonNeeded,
+    crudListOptions?.fabCardNeeded,
+    crudListOptions?.searchTextNeeded,
+  ]);
+
+  const lastPressRef = useRef<number>(0);
+  const handleTitleDoublePress = () => {
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    if (now - lastPressRef.current < DOUBLE_PRESS_DELAY) {
+      const isAnyVisible =
+        dynamicOptions.listWebTopBarComponentNeeded ||
+        dynamicOptions.listWebOnScrollInfoNeeded ||
+        dynamicOptions.onOffSelectionButtonNeeded ||
+        dynamicOptions.fabCardNeeded ||
+        dynamicOptions.searchTextNeeded;
+
+      setDynamicOptions({
+        listWebTopBarComponentNeeded: !isAnyVisible,
+        listWebOnScrollInfoNeeded: !isAnyVisible,
+        onOffSelectionButtonNeeded: !isAnyVisible,
+        fabCardNeeded: !isAnyVisible,
+        searchTextNeeded: !isAnyVisible,
+      });
+    }
+    lastPressRef.current = now;
+  };
 
   // MD3 Colors
   const primaryColor = theme.colors.primary || "#6200ee";
@@ -148,6 +196,7 @@ export function ListWebCardsComponent({
         },
         dragHandleProps,
         crudCardHeight,
+        fabCardNeeded: dynamicOptions.fabCardNeeded,
       });
     }
 
@@ -191,6 +240,7 @@ export function ListWebCardsComponent({
       },
       dragHandleProps,
       crudCardHeight,
+      fabCardNeeded: dynamicOptions.fabCardNeeded,
     });
   };
 
@@ -246,17 +296,17 @@ export function ListWebCardsComponent({
     }
   };
 
-  // Read ONCE on mount using listOwnerGUID as mediaPostOwnerGUID
+  // Read ONCE on mount using crudListOwnerGUID as mediaPostOwnerGUID
   useEffect(() => {
-    if (actions?.readData && listOwnerGUID) {
+    if (actions?.readData && crudListOwnerGUID) {
       dispatch(actions.readData({
         paginationSize: 50,
         originationCurrentPage: 0,
         readAllFilter: "",
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
       }));
     }
-  }, [actions, entityName, listOwnerGUID, dispatch]);
+  }, [actions, entityName, crudListOwnerGUID, dispatch]);
 
   // Sync Redux entity data to local cards list when server data loads
   useEffect(() => {
@@ -314,10 +364,10 @@ export function ListWebCardsComponent({
     };
 
     const dispatchOrderUpdate = (id: string, newOrder: number) => {
-      if (actions?.updateOne && listOwnerGUID) {
+      if (actions?.updateOne && crudListOwnerGUID) {
         dispatch(actions.updateOne({
           mediaPostGUID: id,
-          mediaPostOwnerGUID: listOwnerGUID,
+          mediaPostOwnerGUID: crudListOwnerGUID,
           field: "orderInList",
           value: newOrder,
         }));
@@ -346,17 +396,17 @@ export function ListWebCardsComponent({
     return draggableStyle;
   };
 
-  // Field change handler (Update Title or Description) with listOwnerGUID
+  // Field change handler (Update Title or Description) with crudListOwnerGUID
   const handleFieldChange = (id: string, field: "title" | "description", value: string) => {
     setCards((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
 
-    if (actions?.updateOne && listOwnerGUID) {
+    if (actions?.updateOne && crudListOwnerGUID) {
       const sagaField = field === "title" ? "mediaPostTitle" : "mediaPostDescription";
       dispatch(actions.updateOne({
         mediaPostGUID: id,
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
         field: sagaField,
         value: value,
       }));
@@ -409,7 +459,7 @@ export function ListWebCardsComponent({
     }
   };
 
-  // Create post as first item (+ New 1st) with listOwnerGUID
+  // Create post as first item (+ New 1st) with crudListOwnerGUID
   const handleCreateFirst = (
     originParam?: DataOriginType,
     manipulationParam?: DataManipulationType,
@@ -428,7 +478,7 @@ export function ListWebCardsComponent({
       title: newTitle.trim() || "Untitled Post",
       description: newDescription.trim() || "",
       rawItem: {
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
         mediaPostGUID: newGuid,
         orderInList: Date.now(),
         mediaPostJSON: {
@@ -446,9 +496,9 @@ export function ListWebCardsComponent({
 
     setCards((prev) => [newCard, ...prev]);
 
-    if (actions?.createOne && listOwnerGUID) {
+    if (actions?.createOne && crudListOwnerGUID) {
       dispatch(actions.createOne({
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
         mediaPostGUID: newGuid,
         orderInList: Date.now(),
         mediaPostJSON: {
@@ -476,7 +526,7 @@ export function ListWebCardsComponent({
     }, 100);
   };
 
-  // Create post as last item (+ New last) with listOwnerGUID
+  // Create post as last item (+ New last) with crudListOwnerGUID
   const handleCreateLast = (
     originParam?: DataOriginType,
     manipulationParam?: DataManipulationType,
@@ -495,7 +545,7 @@ export function ListWebCardsComponent({
       title: newTitle.trim() || "Untitled Post",
       description: newDescription.trim() || "",
       rawItem: {
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
         mediaPostGUID: newGuid,
         orderInList: Date.now(),
         mediaPostJSON: {
@@ -513,9 +563,9 @@ export function ListWebCardsComponent({
 
     setCards((prev) => [...prev, newCard]);
 
-    if (actions?.createOne && listOwnerGUID) {
+    if (actions?.createOne && crudListOwnerGUID) {
       dispatch(actions.createOne({
-        mediaPostOwnerGUID: listOwnerGUID,
+        mediaPostOwnerGUID: crudListOwnerGUID,
         mediaPostGUID: newGuid,
         orderInList: Date.now(),
         mediaPostJSON: {
@@ -549,14 +599,14 @@ export function ListWebCardsComponent({
 
     setCards((prev) => prev.filter((item) => item.id !== id));
 
-    if (targetCard && listOwnerGUID) {
+    if (targetCard && crudListOwnerGUID) {
       // 1. Add current post into entityForArchivationName (mediaPostArchive)
       if (archiveActions?.createOne) {
         const itemToArchive = targetCard.rawItem
-          ? { ...targetCard.rawItem, mediaPostOwnerGUID: listOwnerGUID }
+          ? { ...targetCard.rawItem, mediaPostOwnerGUID: crudListOwnerGUID }
           : {
               mediaPostGUID: targetCard.id,
-              mediaPostOwnerGUID: listOwnerGUID,
+              mediaPostOwnerGUID: crudListOwnerGUID,
               orderInList: Date.now(),
               mediaPostJSON: {
                 mediaPostTitle: targetCard.title,
@@ -573,7 +623,7 @@ export function ListWebCardsComponent({
         dispatch(
           actions.deleteOne({
             mediaPostGUID: id,
-            mediaPostOwnerGUID: listOwnerGUID,
+            mediaPostOwnerGUID: crudListOwnerGUID,
           })
         );
       }
@@ -581,20 +631,20 @@ export function ListWebCardsComponent({
     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
   };
 
-  // Delete item handler with listOwnerGUID & undoDeleteData
+  // Delete item handler with crudListOwnerGUID & undoDeleteData
   const handleDelete = (id: string) => {
     const itemToDelete = cards.find((item) => item.id === id);
     setCards((prev) => prev.filter((item) => item.id !== id));
     if (actions?.deleteOne) {
       dispatch(actions.deleteOne({
         mediaPostGUID: id,
-        ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+        ...(crudListOwnerGUID ? { mediaPostOwnerGUID: crudListOwnerGUID } : {}),
       }));
     }
 
     const undoItemData = (itemToDelete as any)?.rawItem || {
       mediaPostGUID: id,
-      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      ...(crudListOwnerGUID ? { mediaPostOwnerGUID: crudListOwnerGUID } : {}),
       orderInList: Date.now(),
       mediaPostJSON: {
         mediaPostTitle: itemToDelete?.title || '',
@@ -622,7 +672,7 @@ export function ListWebCardsComponent({
     setSelectedIds([]);
   };
 
-  // Delete Selected Cards with listOwnerGUID & undoDeleteData
+  // Delete Selected Cards with crudListOwnerGUID & undoDeleteData
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
     const itemsToDelete = cards.filter((item) => selectedIds.includes(item.id));
@@ -632,14 +682,14 @@ export function ListWebCardsComponent({
       selectedIds.forEach((id) => {
         dispatch(actions.deleteOne({
           mediaPostGUID: id,
-          ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+          ...(crudListOwnerGUID ? { mediaPostOwnerGUID: crudListOwnerGUID } : {}),
         }));
       });
     }
 
     const firstUndoData = (itemsToDelete[0] as any)?.rawItem || {
       mediaPostGUID: itemsToDelete[0]?.id || uuid(),
-      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      ...(crudListOwnerGUID ? { mediaPostOwnerGUID: crudListOwnerGUID } : {}),
       orderInList: Date.now(),
       mediaPostJSON: {
         mediaPostTitle: itemsToDelete[0]?.title || '',
@@ -723,15 +773,15 @@ export function ListWebCardsComponent({
     }
   };
 
-  // Empty State if no listOwnerGUID is provided
-  if (!listOwnerGUID) {
+  // Empty State if no crudListOwnerGUID is provided
+  if (!crudListOwnerGUID) {
     return (
       <View style={{ flex: 1, padding: 16, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background }}>
         <Card style={{ width: '100%', maxWidth: 400, padding: 24, alignItems: "center", backgroundColor: theme.dark ? (theme.colors.surfaceVariant || "#252538") : "#ffffff" }}>
           <View style={{ alignItems: "center", width: "100%", justifyContent: "center", paddingBottom: 16 }}>
              <MaterialCommunityIcons name="account-search-outline" size={64} color={primaryColor} style={{ marginBottom: 16 }} />
              <Text style={{ fontSize: 18, fontWeight: "bold", color: theme.dark ? "#8892B0" : theme.colors.onSurface, marginBottom: 8 }}>
-               Awaiting active user / listOwnerGUID...
+               Awaiting active user / crudListOwnerGUID...
              </Text>
              <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
                Please select a user from the list to view their {crudListTitle?.toLowerCase()}.
@@ -797,19 +847,23 @@ export function ListWebCardsComponent({
       )}
 
       {/* ListWebTopBarComponent at top of crudListTitle container */}
-      <ListWebTopBarComponent
-        onCreateNewItem={handleCreateNewItem}
-        onScrollToCurrent={handleScrollToCurrent}
-        onScrollTop={handleScrollTop}
-        onScrollBottom={handleScrollBottom}
-        isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
-        currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
-        isSelectionVisible={isSelectionVisible}
-        onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
-        searchText={searchText}
-        onSearchTextChange={handleSearchChange}
-        primaryColor={primaryColor}
-      />
+      {dynamicOptions.listWebTopBarComponentNeeded && (
+        <ListWebTopBarComponent
+          onCreateNewItem={handleCreateNewItem}
+          onScrollToCurrent={handleScrollToCurrent}
+          onScrollTop={handleScrollTop}
+          onScrollBottom={handleScrollBottom}
+          isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
+          currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
+          isSelectionVisible={isSelectionVisible}
+          onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
+          searchText={searchText}
+          onSearchTextChange={handleSearchChange}
+          primaryColor={primaryColor}
+          searchTextNeeded={dynamicOptions.searchTextNeeded}
+          onOffSelectionButtonNeeded={dynamicOptions.onOffSelectionButtonNeeded}
+        />
+      )}
 
       {/* Header Controls Row: Select All Checkbox aligned with Card Checkboxes */}
       <View style={styles.controlsRow}>
@@ -837,10 +891,12 @@ export function ListWebCardsComponent({
           {/* 12px Distance / Gap */}
           {isSelectionVisible && <View style={{ width: 12 }} />}
 
-          {/* CRUD List Title Label */}
-          <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.dark ? "#8892B0" : theme.colors.onSurface }}>
-            {crudListTitle}
-          </Text>
+          {/* CRUD List Title Label with Double Click/Touch toggle */}
+          <TouchableOpacity activeOpacity={0.7} onPress={handleTitleDoublePress}>
+            <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.dark ? "#8892B0" : theme.colors.onSurface }}>
+              {crudListTitle}
+            </Text>
+          </TouchableOpacity>
 
           {/* Icon Buttons for Archive Selected & Delete Selected with (N) count */}
           {selectedIds.length > 0 && (
@@ -924,11 +980,12 @@ export function ListWebCardsComponent({
           }}
         >
           {(provided) => (
-            <BusinessFunnyScrollComponent
+            <ListWebScrollWrapper
               theme={theme}
               primaryColor={primaryColor}
               primaryLightColor={primaryLightColor}
               height="600px"
+              listWebOnScrollInfoNeeded={dynamicOptions.listWebOnScrollInfoNeeded}
               droppableProps={provided.droppableProps}
               containerRef={(el) => {
                 provided.innerRef(el);
@@ -939,10 +996,23 @@ export function ListWebCardsComponent({
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
-                  const title = String(card.title || "").toLowerCase();
-                  const description = String(card.description || "").toLowerCase();
-                  
+
                   const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+
+                  // Posts fields: title, description, origin (mediaPostOrigin / originUrl / origin / url)
+                  const title = String(card.title || rawJson.title || rawJson.mediaPostTitle || "").toLowerCase();
+                  const description = String(card.description || rawJson.description || rawJson.mediaPostDescription || "").toLowerCase();
+                  const origin = String(
+                    rawJson.mediaPostOrigin ||
+                    rawJson.originUrl ||
+                    rawJson.origin ||
+                    rawJson.url ||
+                    (card as any).mediaPostOrigin ||
+                    (card as any).origin ||
+                    ""
+                  ).toLowerCase();
+
+                  // RACI / Author fields: firstName, lastName, email, fullName
                   const firstName = String(
                     rawJson.firstName ||
                     rawJson.mediaPostFirstName ||
@@ -952,6 +1022,7 @@ export function ListWebCardsComponent({
                     card.rawItem?.firstName ||
                     ""
                   ).toLowerCase();
+
                   const lastName = String(
                     rawJson.lastName ||
                     rawJson.mediaPostLastName ||
@@ -962,23 +1033,59 @@ export function ListWebCardsComponent({
                     ""
                   ).toLowerCase();
 
-                  const mediaPostOrigin = String(
-                    rawJson.mediaPostOrigin ||
-                    rawJson.originUrl ||
-                    rawJson.origin ||
-                    rawJson.url ||
-                    (card as any).mediaPostOrigin ||
-                    (card as any).origin ||
+                  const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
+
+                  const email = String(
+                    rawJson.email ||
+                    rawJson.mediaPostEmail ||
+                    rawJson.raciEmail ||
+                    rawJson.userEmail ||
+                    (card as any).email ||
+                    card.rawItem?.email ||
                     ""
                   ).toLowerCase();
 
+                  const isRaciEntity =
+                    (entityName && entityName.toLowerCase().includes("raci")) ||
+                    (crudListTitle && crudListTitle.toLowerCase().includes("raci"));
+
+                  const isPostEntity =
+                    (entityName && (entityName.toLowerCase().includes("post") || entityName.toLowerCase().includes("media"))) ||
+                    (crudListTitle && (crudListTitle.toLowerCase().includes("post") || crudListTitle.toLowerCase().includes("media")));
+
+                  if (isRaciEntity) {
+                    // Search RACI list by first name, last name, full name, email
+                    return (
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower)) ||
+                      (email.length > 0 && email.includes(lower)) ||
+                      title.includes(lower) ||
+                      description.includes(lower)
+                    );
+                  }
+
+                  if (isPostEntity) {
+                    // Search Posts list by title, description, origin (mediaPostOrigin), plus firstName, lastName, fullName
+                    return (
+                      title.includes(lower) ||
+                      description.includes(lower) ||
+                      (origin.length > 0 && origin.includes(lower)) ||
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower))
+                    );
+                  }
+
+                  // Default search across all fields
                   return (
                     title.includes(lower) ||
                     description.includes(lower) ||
+                    (origin.length > 0 && origin.includes(lower)) ||
                     (firstName.length > 0 && firstName.includes(lower)) ||
                     (lastName.length > 0 && lastName.includes(lower)) ||
                     (fullName.length > 0 && fullName.includes(lower)) ||
-                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower))
+                    (email.length > 0 && email.includes(lower))
                   );
                 })
                 .map((card, index) => {
@@ -1086,7 +1193,7 @@ export function ListWebCardsComponent({
                 );
               })}
               {provided.placeholder}
-            </BusinessFunnyScrollComponent>
+            </ListWebScrollWrapper>
           )}
         </Droppable>
       </DragDropContext>

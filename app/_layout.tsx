@@ -24,7 +24,7 @@ import {FABProvider} from '../kit8/providers/FABProvider';
 import {FABAppComponent} from '../kit8/components/fab';
 import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
-import {DesignSystemProvider} from '../context/DesignSystemContext';
+import {DesignSystemProvider} from '../kit8/providers/DesignSystemContext';
 import IconApp from '../components/common/IconApp';
 import SnackbarApp from '../components/common/SnackbarApp';
 
@@ -32,11 +32,6 @@ const blockError=true
 
 // themeStore-ticket-step4: Theme store sync manager component
 function ThemeStoreSyncManager() {
-
-  if(blockError) {
-    return  //TODO
-  }
-
   const dispatch = useDispatch();
   const { supabase } = useSupabase();
   const { workPlaceGUID } = useWorkPlace();
@@ -48,6 +43,7 @@ function ThemeStoreSyncManager() {
 
   // themeStore-ticket-step4: on user sign in - themeStore readOne-must be called to read to store theme in supabase
   useEffect(() => {
+    if (blockError) return;
     if (!userGUID || !workPlaceGUID) return;
 
     const syncThemeOnLogin = async () => {
@@ -97,6 +93,7 @@ function ThemeStoreSyncManager() {
 
   // themeStore-ticket-step3: If themeState changed: themeStore record must be updated
   useEffect(() => {
+    if (blockError) return;
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
@@ -124,6 +121,7 @@ function ThemeStoreSyncManager() {
   // Ignore echo updates whose payload already matches the current local state to avoid a nonstop loop
   // when the app writes the same theme back to Supabase.
   useEffect(() => {
+    if (blockError) return;
     const handleRealtimeUpdate = (event: any) => {
       const payload = event?.detail;
       const updatedRow = payload?.new;
@@ -304,7 +302,7 @@ function RootLayoutContent() {
         <PaperProvider theme={paperTheme}>
           <FABProvider>
             <SupabaseAuthSync />
-            <ThemeStoreSyncManager />
+            {!blockError && <ThemeStoreSyncManager />}
 
             <Drawer
               drawerContent={(props) => <CustomDrawerContent {...props} />}

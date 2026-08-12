@@ -1,7 +1,7 @@
 import React from 'react';
 import {Alert, Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Surface, Text} from 'react-native-paper';
-import {DesignSystemType, useDesignSystem} from '../../context/DesignSystemContext';
+import {DesignSystemType, useDesignSystem} from '../providers/DesignSystemContext';
 import TextApp from '../../components/common/TextApp';
 import TextInputApp from '../../components/common/TextInputApp';
 import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';

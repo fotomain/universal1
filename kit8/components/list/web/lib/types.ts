@@ -5,6 +5,7 @@ export interface CardItem {
   title: string;
   description: string;
   orderInList?: number;
+  image?: string;
   rawItem?: any;
 }
 
@@ -12,12 +13,19 @@ export interface ListWebCardsComponentProps {
   entityName?: string;
   entityForArchivationName?: string;
   crudListTitle?: string;
-  listOwnerGUID?: string;
+  crudListOwnerGUID?: string;
   crudCardHeight?: number;
   crudListWidth?: number;
   crudGapBetweenCards?: number;
   createNewCardComponent?: React.ComponentType<any> | React.ReactElement;
   CardComponent?: React.ComponentType<any> | React.ReactElement;
+  crudListOptions?: {
+    listWebTopBarComponentNeeded?: boolean;
+    listWebOnScrollInfoNeeded?: boolean;
+    onOffSelectionButtonNeeded?: boolean;
+    fabCardNeeded?: boolean;
+    searchTextNeeded?: boolean;
+  };
 }
 
 export interface CardThreeDotsMenuProps {

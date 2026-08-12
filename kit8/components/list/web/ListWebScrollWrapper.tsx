@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { MD3Theme } from "react-native-paper";
+import { ListWebOnScrollInfo } from "./ListWebOnScrollInfo";
 
-export interface BusinessFunnyScrollProps {
+export interface ListWebScrollWrapperProps {
   children: React.ReactNode;
   theme: MD3Theme;
   primaryColor?: string;
@@ -13,6 +14,7 @@ export interface BusinessFunnyScrollProps {
   className?: string;
   testID?: string;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  listWebOnScrollInfoNeeded?: boolean;
 }
 
 export const getBusinessMotto = (pct: number): string => {
@@ -24,7 +26,7 @@ export const getBusinessMotto = (pct: number): string => {
   return "🎉 100% PROFITABILITY REACHED! Take a Coffee Break! ☕";
 };
 
-export function BusinessFunnyScrollComponent({
+export function ListWebScrollWrapper({
   children,
   theme,
   primaryColor = "#6750A4",
@@ -36,7 +38,8 @@ export function BusinessFunnyScrollComponent({
   className = "funny-scrollbar",
   testID = "testScrollDesibn",
   onScroll,
-}: BusinessFunnyScrollProps) {
+  listWebOnScrollInfoNeeded = true,
+}: ListWebScrollWrapperProps) {
   const [scrollPercent, setScrollPercent] = useState(0);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -63,73 +66,9 @@ export function BusinessFunnyScrollComponent({
 
   return (
     <>
-      {/* Material 3 Business Scroll-O-Meter Header Bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 14px",
-          marginBottom: "8px",
-          borderRadius: "12px",
-          backgroundColor: theme.dark ? "#1e1b4b" : "#eef2ff",
-          border: `1.5px dashed ${theme.dark ? "#6366f1" : "#818cf8"}`,
-          fontFamily: "system-ui, -apple-system, Roboto, sans-serif",
-          userSelect: "none",
-          flexShrink: 0,
-          boxSizing: "border-box",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, marginRight: "12px" }}>
-          <span style={{ fontSize: "18px", flexShrink: 0 }}>💼</span>
-          <span
-            style={{
-              fontSize: "12px",
-              fontWeight: "700",
-              color: theme.dark ? "#c7d2fe" : "#3730a3",
-              letterSpacing: "0.3px",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {getBusinessMotto(scrollPercent)}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          <div
-            style={{
-              width: "80px",
-              height: "8px",
-              backgroundColor: theme.dark ? "#312e81" : "#c7d2fe",
-              borderRadius: "4px",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            <div
-              style={{
-                width: `${scrollPercent}%`,
-                height: "100%",
-                backgroundColor: scrollPercent === 100 ? "#10b981" : "#6366f1",
-                transition: "width 0.2s ease",
-              }}
-            />
-          </div>
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: "800",
-              color: scrollPercent === 100 ? "#10b981" : primaryColor,
-              minWidth: "36px",
-              textAlign: "right",
-              flexShrink: 0,
-            }}
-          >
-            {scrollPercent}%
-          </span>
-        </div>
-      </div>
+      {listWebOnScrollInfoNeeded && (
+        <ListWebOnScrollInfo scrollPercent={scrollPercent} theme={theme} primaryColor={primaryColor} />
+      )}
 
       {/* Material Design 3 Custom Scroller Styles for Cards List */}
       <style>{`
@@ -209,4 +148,4 @@ export function BusinessFunnyScrollComponent({
   );
 }
 
-export default BusinessFunnyScrollComponent;
+export default ListWebScrollWrapper;
