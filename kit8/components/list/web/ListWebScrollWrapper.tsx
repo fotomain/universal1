@@ -14,6 +14,7 @@ export interface ListWebScrollWrapperProps {
   className?: string;
   testID?: string;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  listWebOnScrollInfoNeeded?: boolean;
 }
 
 export const getBusinessMotto = (pct: number): string => {
@@ -37,6 +38,7 @@ export function ListWebScrollWrapper({
   className = "funny-scrollbar",
   testID = "testScrollDesibn",
   onScroll,
+  listWebOnScrollInfoNeeded = true,
 }: ListWebScrollWrapperProps) {
   const [scrollPercent, setScrollPercent] = useState(0);
 
@@ -64,7 +66,9 @@ export function ListWebScrollWrapper({
 
   return (
     <>
-      <ListWebOnScrollInfo scrollPercent={scrollPercent} theme={theme} primaryColor={primaryColor} />
+      {listWebOnScrollInfoNeeded && (
+        <ListWebOnScrollInfo scrollPercent={scrollPercent} theme={theme} primaryColor={primaryColor} />
+      )}
 
       {/* Material Design 3 Custom Scroller Styles for Cards List */}
       <style>{`
