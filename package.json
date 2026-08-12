@@ -9,6 +9,8 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@ant-design/icons-react-native": "^2.3.2",
+    "@ant-design/react-native": "^5.4.3",
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
     "@elasticemail/elasticemail-client": "^4.0.26",
     "@emailjs/react-native": "^5.1.0",
@@ -17,6 +19,7 @@
     "@expo-google-fonts/material-symbols-outlined": "^0.4.28",
     "@expo-google-fonts/space-grotesk": "^0.4.0",
     "@expo/config": "^55.0.7",
+    "@expo/metro-config": "~55.0.9",
     "@expo/metro-runtime": "~55.0.10",
     "@expo/ui": "^57.0.9",
     "@expo/vector-icons": "^15.0.3",
@@ -42,7 +45,6 @@
     "@supabase/supabase-js": "^2.86.2",
     "@use-gesture/react": "^10.3.1",
     "ag-grid-react": "^35.1.0",
-    "antd-mobile-rn": "^2.3.3",
     "apisauce": "3.1.1",
     "axios": "^1.13.2",
     "color": "^5.0.2",
@@ -138,6 +140,7 @@
     "setimmediate": "^1.0.5",
     "sql.js": "^1.14.1",
     "sql.js-httpvfs": "^0.8.12",
+    "tamagui": "^2.7.4",
     "typeface-roboto": "^1.1.13",
     "uninstall": "^0.0.0",
     "v": "^0.3.0",
@@ -145,6 +148,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@babel/types": "^7.29.8",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "^29.5.14",
     "@types/leaflet": "^1.9.21",

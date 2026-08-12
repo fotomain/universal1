@@ -12,7 +12,7 @@ export { default as IconApp, IconAppProps } from './IconApp';
 export { default as FABApp, FABAppProps } from './FABApp';
 export { default as ArrowToLeftApp, ArrowToLeftAppProps } from './ArrowToLeftApp';
 export { default as OnOffButtonApp, OnOffButtonAppProps } from './OnOffButtonApp';
-export { default as SearchInputApp, SearchInputAppProps } from './SearchInputApp';
+export { default as SearchTextApp, SearchTextAppProps } from './SearchTextApp';
 export * from './fab';
 export * from './textarea';
 

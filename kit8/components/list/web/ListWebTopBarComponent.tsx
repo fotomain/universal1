@@ -2,7 +2,7 @@ import React from "react";
 import {StyleSheet, View} from "react-native";
 import IconApp from "../../../../components/common/IconApp";
 import OnOffButtonApp from "../../../../components/common/OnOffButtonApp";
-import SearchInputApp from "../../../../components/common/SearchInputApp";
+import SearchTextApp from "../../../../components/common/SearchTextApp";
 
 let usePaperTheme: any;
 try {
@@ -64,7 +64,7 @@ export function ListWebTopBarComponent({
     <View style={[styles.container, { backgroundColor: surfaceColor }, style]} testID={testID}>
       {/* 0. Top Search Bar */}
       <View style={styles.searchRow}>
-        <SearchInputApp
+        <SearchTextApp
           testID="topBarSearchInput"
           value={searchText}
           onChangeText={onSearchTextChange}

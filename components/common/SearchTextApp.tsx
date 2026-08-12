@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import {StyleSheet, View} from "react-native";
 import TextInputApp from "./TextInputApp";
 
 let useDesignSystem: any;
@@ -9,7 +9,7 @@ try {
   useDesignSystem = () => ({ themeColors: { primary: "#6750A4", surface: "#ffffff" } });
 }
 
-export interface SearchInputAppProps {
+export interface SearchTextAppProps {
   value?: string;
   onChangeText?: (text: string) => void;
   placeholder?: string;
@@ -18,14 +18,14 @@ export interface SearchInputAppProps {
   testID?: string;
 }
 
-export function SearchInputApp({
+export function SearchTextApp({
   value = "",
   onChangeText,
   placeholder = "Search items...",
   primaryColor: customPrimaryColor,
   style,
-  testID = "searchInputApp",
-}: SearchInputAppProps) {
+  testID = "SearchTextApp",
+}: SearchTextAppProps) {
   let themeColors: any = { primary: "#6750A4", surface: "#ffffff" };
   try {
     if (useDesignSystem) {
@@ -67,4 +67,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SearchInputApp;
+export default SearchTextApp;

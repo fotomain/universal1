@@ -1,4 +1,4 @@
-import React from 'react';
+import {SearchTextApp, SearchTextAppProps} from '../components/common/SearchTextApp';
 
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });
@@ -16,19 +16,17 @@ jest.mock('../context/DesignSystemContext', () => ({
   }),
 }));
 
-import { SearchInputApp, SearchInputAppProps } from '../components/common/SearchInputApp';
-
-describe('SearchInputApp component export and prop interface', () => {
-  it('exports SearchInputApp as a valid function component', () => {
-    expect(typeof SearchInputApp).toBe('function');
+describe('SearchTextApp component export and prop interface', () => {
+  it('exports SearchTextApp as a valid function component', () => {
+    expect(typeof SearchTextApp).toBe('function');
   });
 
-  it('accepts SearchInputAppProps correctly', () => {
-    const props: SearchInputAppProps = {
+  it('accepts SearchTextAppProps correctly', () => {
+    const props: SearchTextAppProps = {
       value: 'query',
       onChangeText: jest.fn(),
       placeholder: 'Search items...',
-      testID: 'searchInputApp',
+      testID: 'SearchTextApp',
     };
 
     expect(props.value).toBe('query');
