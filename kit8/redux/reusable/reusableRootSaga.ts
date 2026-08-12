@@ -26,7 +26,7 @@ export const reusableRootSaga = (p: any) => {
 
             if (readAllFilter) {
                 query = query.or(
-                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%`
+                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,mediaPostJSON->>originUrl.ilike.%${readAllFilter}%,mediaPostJSON->>firstName.ilike.%${readAllFilter}%,mediaPostJSON->>lastName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>raciLastName.ilike.%${readAllFilter}%`
                 );
             }
 

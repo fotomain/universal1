@@ -938,10 +938,48 @@ export function ListWebCardsComponent({
               {cards
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
-                  const lower = searchText.toLowerCase();
+                  const lower = searchText.toLowerCase().trim();
                   const title = String(card.title || "").toLowerCase();
                   const description = String(card.description || "").toLowerCase();
-                  return title.includes(lower) || description.includes(lower);
+                  
+                  const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+                  const firstName = String(
+                    rawJson.firstName ||
+                    rawJson.mediaPostFirstName ||
+                    rawJson.raciFirstName ||
+                    rawJson.authorFirstName ||
+                    (card as any).firstName ||
+                    card.rawItem?.firstName ||
+                    ""
+                  ).toLowerCase();
+                  const lastName = String(
+                    rawJson.lastName ||
+                    rawJson.mediaPostLastName ||
+                    rawJson.raciLastName ||
+                    rawJson.authorLastName ||
+                    (card as any).lastName ||
+                    card.rawItem?.lastName ||
+                    ""
+                  ).toLowerCase();
+
+                  const mediaPostOrigin = String(
+                    rawJson.mediaPostOrigin ||
+                    rawJson.originUrl ||
+                    rawJson.origin ||
+                    rawJson.url ||
+                    (card as any).mediaPostOrigin ||
+                    (card as any).origin ||
+                    ""
+                  ).toLowerCase();
+
+                  return (
+                    title.includes(lower) ||
+                    description.includes(lower) ||
+                    (firstName.length > 0 && firstName.includes(lower)) ||
+                    (lastName.length > 0 && lastName.includes(lower)) ||
+                    (fullName.length > 0 && fullName.includes(lower)) ||
+                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower))
+                  );
                 })
                 .map((card, index) => {
                 const isSelected = selectedIds.includes(card.id);
