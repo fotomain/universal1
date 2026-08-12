@@ -1,9 +1,9 @@
-import { useDispatch } from 'react-redux';
-import { useRouter } from 'expo-router';
-import { useAuthWithGoogle } from './useAuth';
-import { SystemMetaData } from '../redux/SystemMetaData';
-import { clearActiveUser } from '../redux/activeUserSlice';
-import { saveUserData } from '../lib/localSecureStorage';
+import {useDispatch} from 'react-redux';
+import {useRouter} from 'expo-router';
+import {useAuthWithGoogle} from './useAuth';
+import {SystemMetaData} from '../redux/SystemMetaData';
+import {clearActiveUser} from '../redux/activeUserSlice';
+import {saveUserData} from '../lib/localSecureStorage';
 
 export const useAppSignOut = () => {
   const dispatch = useDispatch();
@@ -21,7 +21,7 @@ export const useAppSignOut = () => {
 
     // 3. Clear Active User state and local storage
     dispatch(clearActiveUser());
-    saveUserData('', '', '', '');
+    saveUserData('', '', '', '').then(r => {});
 
     // 4. Route to signin page
     router.replace('/signin');

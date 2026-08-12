@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Text, Surface, useTheme } from 'react-native-paper';
 import FABApp from '../../../components/common/FABApp';
 import { useSelector } from 'react-redux';
@@ -30,6 +30,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
 
   const selectedFabColor = userTheme?.fabColor;
   const fabAnimationVariant = uxuiState?.fabAnimationVariant || 'defaultFABAnimation';
+  const bottomTabsAreVisible = uxuiState?.bottomTabsAreVisible || false;
   const { registerFAB, notifyFABOpen, notifyFABClose } = useFAB();
 
   const fabIdRef = useRef('app-global-fab');
@@ -49,29 +50,30 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   }, [registerFAB]);
 
   useEffect(() => {
+    const useNative = Platform.OS !== 'web';
     if (fabAnimationVariant === 'reanimatedBasicFABAnimation') {
       if (isOpen) {
         Animated.parallel([
           Animated.spring(animVal, {
             toValue: 1,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
           Animated.timing(opacityAnimVal, {
             toValue: 1,
             duration: 50,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
         ]).start();
       } else {
         Animated.parallel([
           Animated.spring(animVal, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
           Animated.timing(opacityAnimVal, {
             toValue: 0,
             duration: 50,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
         ]).start();
       }
@@ -79,7 +81,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
       // defaultFABAnimation
       Animated.spring(animVal, {
         toValue: isOpen ? 1 : 0,
-        useNativeDriver: true,
+        useNativeDriver: useNative,
         friction: 6,
         tension: 40,
       }).start();
@@ -126,6 +128,9 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
 
   const fabMainColors = getFabMainColors(selectedFabColor);
 
+  // If bottom tabs are visible, raise the FAB higher so it doesn't overlap
+  const bottomOffset = bottomTabsAreVisible ? 80 : 24;
+
   return (
     <View style={styles.fixedWrapper} pointerEvents="box-none">
       {/* Backdrop overlay when open */}
@@ -140,7 +145,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
         />
       )}
 
-      <View style={styles.container} pointerEvents="box-none">
+      <View style={[styles.container, { bottom: bottomOffset }]} pointerEvents="box-none">
         {/* Actions List */}
         {isOpen && (
           <View style={isReanimated ? styles.actionsListReanimated : styles.actionsList}>

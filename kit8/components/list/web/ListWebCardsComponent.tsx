@@ -1,30 +1,28 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {useEffect, useRef, useState} from "react";
 // @ts-ignore
-import { View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Card, Text, useTheme } from "react-native-paper";
+import {ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
+import {useDispatch, useSelector} from "react-redux";
+import {DragDropContext, Draggable, Droppable, DropResult} from "@hello-pangea/dnd";
+import {Card, Text, useTheme} from "react-native-paper";
 import * as Crypto from "expo-crypto";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
   CardItem,
-  ListWebCardsComponentProps,
-  CardThreeDotsMenu,
-  CardIconsBottomComponent,
   CardSwipeUnderlayLeftComponent,
   CardSwipeUnderlayRightComponent,
-  SwipeableCard,
+  ListWebCardsComponentProps,
   ListWebTopBarComponent,
+  SwipeableCard,
 } from "./lib";
-import { CardBasicVersion } from "./cards";
-import { CreateNewCardBasicForm } from "../forms";
-import { SystemMetaData } from "../../../redux/SystemMetaData";
-import { DATA_ORIGIN_TYPE, DataOriginType } from "../../../types/origin";
-import { DATA_MANIPULATION_TYPE, DataManipulationType } from "../../../types/manipulation";
-import TexInputMi from "../../../ui/TexInputMi";
-import ButtonMi from "../../../ui/ButtonMi";
-import H1Mi from "../../../ui/H1Mi";
+import {CardBasicVersion} from "./cards";
+import {CreateNewCardBasicForm} from "../forms";
+import {SystemMetaData} from "../../../redux/SystemMetaData";
+import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
+import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
+import IconApp from "../../../../components/common/IconApp";
+import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
+import {showSnackbar} from "../../../redux/uxuiSlice";
 
 const _testMode=false
 
@@ -37,6 +35,15 @@ const INITIAL_CARDS: CardItem[] = Array.from({ length: 10 }, (_, i) => ({
   title: `Media Post Title ${i + 1}`,
   description: `Detailed description for post card #${i + 1}`,
 }));
+
+const getBusinessMotto = (pct: number): string => {
+  if (pct === 0) return "💼 Initializing Q4 Synergy Protocols... Scroll for Profit!";
+  if (pct < 25) return "📈 Leveraging Core Competencies! (+15% Productivity)";
+  if (pct < 50) return "🚀 Circle Back & Touch Base! Actionable Content Detected!";
+  if (pct < 75) return "🔥 Paradigms Shifted! Maximizing Stakeholder Engagement!";
+  if (pct < 100) return "🎯 Closing the Loop! Final Deliverables in Sight!";
+  return "🎉 100% PROFITABILITY REACHED! Take a Coffee Break! ☕";
+};
 
 export function ListWebCardsComponent({
   entityName = "mediaPostReusable",
@@ -73,6 +80,21 @@ export function ListWebCardsComponent({
   const [openMenuCardId, setOpenMenuCardId] = useState<string | null>(null);
   const [lastInteractedCardId, setLastInteractedCardId] = useState<string | null>(null);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  const [isSelectionVisible, setIsSelectionVisible] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (entityState?.actions?.filterAll) {
+      try {
+        dispatch(entityState.actions.filterAll({ filterText: text }));
+      } catch (e) {
+        // fallback
+      }
+    }
+  };
+
+
 
   // Create Form States
   const [newTitle, setNewTitle] = useState("");
@@ -559,15 +581,36 @@ export function ListWebCardsComponent({
     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
   };
 
-  // Delete item handler with listOwnerGUID
+  // Delete item handler with listOwnerGUID & undoDeleteData
   const handleDelete = (id: string) => {
+    const itemToDelete = cards.find((item) => item.id === id);
     setCards((prev) => prev.filter((item) => item.id !== id));
-    if (actions?.deleteOne && listOwnerGUID) {
+    if (actions?.deleteOne) {
       dispatch(actions.deleteOne({
         mediaPostGUID: id,
-        mediaPostOwnerGUID: listOwnerGUID,
+        ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
       }));
     }
+
+    const undoItemData = (itemToDelete as any)?.rawItem || {
+      mediaPostGUID: id,
+      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      orderInList: Date.now(),
+      mediaPostJSON: {
+        mediaPostTitle: itemToDelete?.title || '',
+        mediaPostDescription: itemToDelete?.description || '',
+        mediaPostImage: itemToDelete?.image || '',
+      },
+    };
+
+    dispatch(
+      showSnackbar({
+        message: "Post successfully deleted",
+        actionLabel: "Undo",
+        undoDeleteData: undoItemData,
+        entityName: entityName || "mediaPostReusable",
+      })
+    );
     console.log(`Deleted item: ${id}`);
   };
 
@@ -579,19 +622,40 @@ export function ListWebCardsComponent({
     setSelectedIds([]);
   };
 
-  // Delete Selected Cards with listOwnerGUID
+  // Delete Selected Cards with listOwnerGUID & undoDeleteData
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
+    const itemsToDelete = cards.filter((item) => selectedIds.includes(item.id));
     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
 
-    if (actions?.deleteOne && listOwnerGUID) {
+    if (actions?.deleteOne) {
       selectedIds.forEach((id) => {
         dispatch(actions.deleteOne({
           mediaPostGUID: id,
-          mediaPostOwnerGUID: listOwnerGUID,
+          ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
         }));
       });
     }
+
+    const firstUndoData = (itemsToDelete[0] as any)?.rawItem || {
+      mediaPostGUID: itemsToDelete[0]?.id || uuid(),
+      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      orderInList: Date.now(),
+      mediaPostJSON: {
+        mediaPostTitle: itemsToDelete[0]?.title || '',
+        mediaPostDescription: itemsToDelete[0]?.description || '',
+        mediaPostImage: itemsToDelete[0]?.image || '',
+      },
+    };
+
+    dispatch(
+      showSnackbar({
+        message: "Post successfully deleted",
+        actionLabel: "Undo",
+        undoDeleteData: firstUndoData,
+        entityName: entityName || "mediaPostReusable",
+      })
+    );
 
     setSelectedIds([]);
   };
@@ -633,6 +697,24 @@ export function ListWebCardsComponent({
 
   // Select All Toggle
   const isAllSelected = cards.length > 0 && selectedIds.length === cards.length;
+  const isSomeSelected = selectedIds.length > 0 && !isAllSelected;
+
+  const headerCheckboxBg = (isAllSelected || isSomeSelected) ? primaryColor : "transparent";
+  let headerCheckboxIconColor = "transparent";
+  if (isAllSelected) {
+    headerCheckboxIconColor = (theme.colors.onPrimary && theme.colors.onPrimary !== headerCheckboxBg)
+      ? theme.colors.onPrimary
+      : "#ffffff";
+  } else if (isSomeSelected) {
+    // Intermediate minus state: guarantee icon color is NOT equal to background color
+    headerCheckboxIconColor = (theme.colors.onPrimary && theme.colors.onPrimary !== headerCheckboxBg)
+      ? theme.colors.onPrimary
+      : "#ffffff";
+    if (headerCheckboxIconColor === headerCheckboxBg) {
+      headerCheckboxIconColor = "#ffffff";
+    }
+  }
+
   const handleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds([]);
@@ -722,6 +804,10 @@ export function ListWebCardsComponent({
         onScrollBottom={handleScrollBottom}
         isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
         currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
+        isSelectionVisible={isSelectionVisible}
+        onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
+        searchText={searchText}
+        onSearchTextChange={handleSearchChange}
         primaryColor={primaryColor}
       />
 
@@ -729,26 +815,27 @@ export function ListWebCardsComponent({
       <View style={styles.controlsRow}>
         <View style={styles.selectAllRow}>
           {/* Spacer matching 20% thinner left control column for exact vertical alignment */}
-          <View style={{ width: 14.5 }} />
+          {isSelectionVisible && <View style={{ width: 14.5 }} />}
 
-          {/* Round Header Checkbox */}
-          <div title="Select All Cards">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleSelectAll}
-              style={[
-                styles.roundCheckbox,
-                isAllSelected
-                  ? { backgroundColor: primaryColor, borderColor: primaryColor }
-                  : { borderColor: primaryColor, backgroundColor: "transparent" },
-              ]}
-            >
-              {isAllSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-            </TouchableOpacity>
-          </div>
+          {/* Round Header Checkbox using IconApp (visible when isSelectionVisible is true) */}
+          {isSelectionVisible && (
+            <div title="Select All Cards">
+              <IconApp
+                testID="f0a1b2c3-d4e5-6789-0abc-123456789def"
+                name={isAllSelected ? "check" : isSomeSelected ? "check_indeterminate_small" : "check"}
+                size={16}
+                color={headerCheckboxIconColor}
+                onPress={handleSelectAll}
+                style={[
+                  styles.roundCheckbox,
+                  { backgroundColor: headerCheckboxBg, borderColor: primaryColor },
+                ]}
+              />
+            </div>
+          )}
 
           {/* 12px Distance / Gap */}
-          <View style={{ width: 12 }} />
+          {isSelectionVisible && <View style={{ width: 12 }} />}
 
           {/* CRUD List Title Label */}
           <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.dark ? "#8892B0" : theme.colors.onSurface }}>
@@ -783,24 +870,6 @@ export function ListWebCardsComponent({
       </View>
 
       {/* Vertical Drag Drop List */}
-      <style>{`
-        .funny-scrollbar::-webkit-scrollbar {
-          width: 16px;
-        }
-        .funny-scrollbar::-webkit-scrollbar-track {
-          background: ${theme.dark ? "#33334d" : "#f0e6ff"};
-          border-radius: 10px;
-          border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
-        }
-        .funny-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
-          border-radius: 10px;
-          border: 3px solid ${theme.dark ? "#252538" : "#ffffff"};
-        }
-        .funny-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(45deg, #fbc2eb 0%, #a6c1ee 100%);
-        }
-      `}</style>
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable
           droppableId="cardsList"
@@ -822,27 +891,31 @@ export function ListWebCardsComponent({
                   zIndex: 99999,
                 }}
               >
-                <View style={styles.leftControlColumn}>
-                  <div style={{ cursor: "pointer", padding: "2px" }}>
-                    <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
-                  </div>
-                  <div style={{ margin: "2px 0" }}>
-                    <View
-                      style={[
-                        styles.roundCheckbox,
-                        isSelected
-                          ? { backgroundColor: primaryColor, borderColor: primaryColor }
-                          : { borderColor: primaryColor, backgroundColor: "transparent" },
-                      ]}
-                    >
-                      {isSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-                    </View>
-                  </div>
-                  <div style={{ cursor: "pointer", padding: "2px" }}>
-                    <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
-                  </div>
-                </View>
-                <View style={{ width: 12 }} />
+                {isSelectionVisible && (
+                  <View style={styles.leftControlColumn}>
+                    <div style={{ cursor: "pointer", padding: "2px" }}>
+                      <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
+                    </div>
+                    <div style={{ margin: "2px 0" }}>
+                      <IconApp
+                        testID={`card-check-clone-${card.id}`}
+                        name="check"
+                        size={16}
+                        color={isSelected ? theme.colors.onPrimary : "transparent"}
+                        style={[
+                          styles.roundCheckbox,
+                          isSelected
+                            ? { backgroundColor: primaryColor, borderColor: primaryColor }
+                            : { borderColor: primaryColor, backgroundColor: "transparent" },
+                        ]}
+                      />
+                    </div>
+                    <div style={{ cursor: "pointer", padding: "2px" }}>
+                      <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
+                    </div>
+                  </View>
+                )}
+                {isSelectionVisible && <View style={{ width: 12 }} />}
                 <View style={{ flex: 1 }}>
                   {renderCardItem(card, isSelected, true, provided.dragHandleProps)}
                 </View>
@@ -851,26 +924,66 @@ export function ListWebCardsComponent({
           }}
         >
           {(provided) => (
-            <div
-              className="funny-scrollbar"
-              {...provided.droppableProps}
-              ref={(el) => {
+            <BusinessFunnyScrollComponent
+              theme={theme}
+              primaryColor={primaryColor}
+              primaryLightColor={primaryLightColor}
+              height="600px"
+              droppableProps={provided.droppableProps}
+              containerRef={(el) => {
                 provided.innerRef(el);
                 scrollContainerRef.current = el;
               }}
-              style={{
-                height: "600px",
-                overflowY: "auto",
-                border: theme.dark ? "1px solid #444466" : "1px solid #c5b8e0",
-                borderRadius: "8px",
-                padding: "12px",
-                backgroundColor: theme.dark ? (theme.colors.surfaceVariant || "#252538") : primaryLightColor,
-                boxSizing: "border-box",
-              }}
             >
-              {cards.map((card, index) => {
-                const isSelected = selectedIds.includes(card.id);
+              {cards
+                .filter((card) => {
+                  if (!searchText || searchText.trim() === "") return true;
+                  const lower = searchText.toLowerCase().trim();
+                  const title = String(card.title || "").toLowerCase();
+                  const description = String(card.description || "").toLowerCase();
+                  
+                  const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+                  const firstName = String(
+                    rawJson.firstName ||
+                    rawJson.mediaPostFirstName ||
+                    rawJson.raciFirstName ||
+                    rawJson.authorFirstName ||
+                    (card as any).firstName ||
+                    card.rawItem?.firstName ||
+                    ""
+                  ).toLowerCase();
+                  const lastName = String(
+                    rawJson.lastName ||
+                    rawJson.mediaPostLastName ||
+                    rawJson.raciLastName ||
+                    rawJson.authorLastName ||
+                    (card as any).lastName ||
+                    card.rawItem?.lastName ||
+                    ""
+                  ).toLowerCase();
 
+                  const mediaPostOrigin = String(
+                    rawJson.mediaPostOrigin ||
+                    rawJson.originUrl ||
+                    rawJson.origin ||
+                    rawJson.url ||
+                    (card as any).mediaPostOrigin ||
+                    (card as any).origin ||
+                    ""
+                  ).toLowerCase();
+
+                  return (
+                    title.includes(lower) ||
+                    description.includes(lower) ||
+                    (firstName.length > 0 && firstName.includes(lower)) ||
+                    (lastName.length > 0 && lastName.includes(lower)) ||
+                    (fullName.length > 0 && fullName.includes(lower)) ||
+                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower))
+                  );
+                })
+                .map((card, index) => {
+                const isSelected = selectedIds.includes(card.id);
+                // testID="testScrollDesign"
                 return (
                   <Draggable key={card.id} draggableId={card.id} index={index}>
                     {(draggableProvided, snapshot) => (
@@ -890,46 +1003,49 @@ export function ListWebCardsComponent({
                         }}
                       >
                         {/* Checkbox Column with MoveCardUp (upper) & MoveCardDown (lower) */}
-                        <View style={styles.leftControlColumn}>
-                          {/* 1. MoveCardUp button (upper than Card checkbox) - uses primaryColor */}
-                          <div title="Move Card Up" style={{ cursor: "pointer", padding: "2px" }}>
-                            <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveUp(index)}>
-                              <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
-                            </TouchableOpacity>
-                          </div>
+                        {isSelectionVisible && (
+                          <View style={styles.leftControlColumn}>
+                            {/* 1. MoveCardUp button (upper than Card checkbox) - uses primaryColor */}
+                            <div title="Move Card Up" style={{ cursor: "pointer", padding: "2px" }}>
+                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveUp(index)}>
+                                <MaterialCommunityIcons name="chevron-up" size={24} color={primaryColor} />
+                              </TouchableOpacity>
+                            </div>
 
-                          {/* 2. Round Card Checkbox */}
-                          <div title="Select Card" style={{ margin: "2px 0" }}>
-                            <TouchableOpacity
-                              activeOpacity={0.8}
-                              onPress={() =>
-                                setSelectedIds((prev) =>
-                                  prev.includes(card.id)
-                                    ? prev.filter((i) => i !== card.id)
-                                    : [...prev, card.id]
-                                )
-                              }
-                              style={[
-                                styles.roundCheckbox,
-                                isSelected
-                                  ? { backgroundColor: primaryColor, borderColor: primaryColor }
-                                  : { borderColor: primaryColor, backgroundColor: "transparent" },
-                              ]}
-                            >
-                              {isSelected && <MaterialIcons name="check" size={16} color={theme.colors.onPrimary} />}
-                            </TouchableOpacity>
-                          </div>
+                            {/* 2. Round Card Checkbox using IconApp */}
+                            <div title="Select Card" style={{ margin: "2px 0" }}>
+                              <IconApp
+                                testID={`card-check-${card.id}`}
+                                name="check"
+                                size={16}
+                                color={isSelected ? theme.colors.onPrimary : "transparent"}
+                                onPress={() =>
+                                  setSelectedIds((prev) =>
+                                    prev.includes(card.id)
+                                      ? prev.filter((i) => i !== card.id)
+                                      : [...prev, card.id]
+                                  )
+                                }
+                                style={[
+                                  styles.roundCheckbox,
+                                  isSelected
+                                    ? { backgroundColor: primaryColor, borderColor: primaryColor }
+                                    : { borderColor: primaryColor, backgroundColor: "transparent" },
+                                ]}
+                              />
+                            </div>
 
-                          {/* 3. MoveCardDown button (lower than Card checkbox) - uses primaryColor */}
-                          <div title="Move Card Down" style={{ cursor: "pointer", padding: "2px" }}>
-                            <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveDown(index)}>
-                              <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
-                            </TouchableOpacity>
-                          </div>
-                        </View>
+                            {/* 3. MoveCardDown button (lower than Card checkbox) - uses primaryColor */}
+                            <div title="Move Card Down" style={{ cursor: "pointer", padding: "2px" }}>
+                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleMoveDown(index)}>
+                                <MaterialCommunityIcons name="chevron-down" size={24} color={primaryColor} />
+                              </TouchableOpacity>
+                            </div>
+                          </View>
+                        )}
 
-                        {/* 12px Distance / Gap between Checkbox Column and Card (twice thinner) */}
-                        <View style={{ width: 12 }} />
+                        {/* 12px Distance / Gap between Checkbox Column and Card */}
+                        {isSelectionVisible && <View style={{ width: 12 }} />}
 
                         {/* Card Component */}
                         <View style={{ flex: 1, position: "relative" }}>
@@ -970,7 +1086,7 @@ export function ListWebCardsComponent({
                 );
               })}
               {provided.placeholder}
-            </div>
+            </BusinessFunnyScrollComponent>
           )}
         </Droppable>
       </DragDropContext>
@@ -1037,3 +1153,4 @@ const styles = StyleSheet.create({
 });
 
 export default ListWebCardsComponent;
+

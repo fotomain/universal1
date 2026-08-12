@@ -151,7 +151,7 @@ export function SelectorFromApp<T extends string = string>({
             <Text style={{ fontSize: 15, color: selectedOption ? themeColors.text : '#9ca3af', fontWeight: '500' }}>
               {selectedLabel}
             </Text>
-            <IconApp name="chevron-down" size={18} color={themeColors.text} />
+            <IconApp testID="a0265d94-7fb1-2a34-6278-901234567c09" name="chevron-down" size={18} color={themeColors.text} />
           </TouchableOpacity>
 
           {menuVisible && (
@@ -187,7 +187,7 @@ export function SelectorFromApp<T extends string = string>({
                     <Text style={{ fontSize: 14, color: isSelected ? themeColors.primary : themeColors.text, fontWeight: isSelected ? '700' : '400' }}>
                       {opt.label}
                     </Text>
-                    {isSelected && <IconApp name="check" size={16} color={themeColors.primary} />}
+                    {isSelected && <IconApp testID="b1376ea5-8ac2-3b45-7389-012345678d10" name="check" size={16} color={themeColors.primary} />}
                   </TouchableOpacity>
                 );
               })}
@@ -223,7 +223,7 @@ export function SelectorFromApp<T extends string = string>({
               <Text style={{ fontSize: 15, color: selectedOption ? themeColors.primary : '#888' }}>
                 {selectedLabel}
               </Text>
-              <IconApp name="chevron-down" size={16} color="#888" />
+              <IconApp testID="c2487fb6-9bd3-4c56-8490-123456789e11" name="chevron-down" size={16} color="#888" />
             </View>
           </TouchableOpacity>
 
@@ -256,7 +256,7 @@ export function SelectorFromApp<T extends string = string>({
                     <Text style={{ fontSize: 15, color: isSelected ? themeColors.primary : themeColors.text, fontWeight: isSelected ? '600' : '400' }}>
                       {opt.label}
                     </Text>
-                    {isSelected && <IconApp name="check" size={16} color={themeColors.primary} />}
+                    {isSelected && <IconApp testID="d3598ac7-0ce4-5d67-95a1-234567890f12" name="check" size={16} color={themeColors.primary} />}
                   </TouchableOpacity>
                 );
               })}
@@ -293,7 +293,7 @@ export function SelectorFromApp<T extends string = string>({
             <Text style={{ fontSize: 15, fontWeight: '600', color: themeColors.text }}>
               {selectedLabel}
             </Text>
-            <IconApp name="chevron-down" size={18} color={themeColors.primary} />
+            <IconApp testID="e46a9bd8-1df5-6e78-06b2-345678901a13" name="chevron-down" size={18} color={themeColors.primary} />
           </TouchableOpacity>
 
           {menuVisible && (
@@ -330,7 +330,7 @@ export function SelectorFromApp<T extends string = string>({
                     <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? '#ffffff' : themeColors.text }}>
                       {opt.label}
                     </Text>
-                    {isSelected && <IconApp name="check" size={16} color="#ffffff" />}
+                    {isSelected && <IconApp testID="f57bace9-2ea6-7f89-17c3-456789012b14" name="check" size={16} color="#ffffff" />}
                   </TouchableOpacity>
                 );
               })}

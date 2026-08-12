@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Switch, Text, useTheme } from 'react-native-paper';
+import { Text, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import SwitchApp from '../../components/common/SwitchApp';
 import { setDarkMode } from '../redux/uxuiSlice';
 import { toggleThemeMode } from '../redux/userThemeSlice';
 import { saveUserTheme } from '../lib/localSecureStorage';
@@ -42,7 +43,6 @@ export default function DarkThemeSwitchComponent({
     }, 100);
   };
 
-
   if (layout === 'column') {
     return (
       <View style={styles.columnContainer}>
@@ -61,11 +61,10 @@ export default function DarkThemeSwitchComponent({
             </Text>
           </View>
         )}
-        <Switch
+        <SwitchApp
           testID={testID}
           value={isDarkMode}
           onValueChange={handleToggle}
-          color={theme.colors.primary}
         />
       </View>
     );
@@ -88,11 +87,10 @@ export default function DarkThemeSwitchComponent({
           </Text>
         </View>
       )}
-      <Switch
+      <SwitchApp
         testID={testID}
         value={isDarkMode}
         onValueChange={handleToggle}
-        color={theme.colors.primary}
       />
     </View>
   );

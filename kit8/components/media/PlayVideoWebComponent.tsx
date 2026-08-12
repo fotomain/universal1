@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Surface, Text, Button, useTheme, Card } from 'react-native-paper';
+import { Surface, Text, useTheme, Card } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../../components/common';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
@@ -42,14 +43,13 @@ export default function PlayVideoWebComponent() {
             </Text>
           </View>
 
-          <Button
-            mode="contained-tonal"
+          <ButtonPrimaryApp
             icon="arrow-left"
             style={{ marginTop: 16 }}
             onPress={() => router.back()}
           >
             {t('screens.back')}
-          </Button>
+          </ButtonPrimaryApp>
         </Card.Content>
       </Card>
     </ScrollView>

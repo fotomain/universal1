@@ -1,5 +1,3 @@
-import { DATA_ORIGIN_TYPE, DataOriginType } from "./origin";
-
 // 1. Add `as const` so TypeScript infers literal string types instead of generic `string`
 export const DATA_MANIPULATION_TYPE = {
     YOUTUBE_TO_GOOGLE_DRIVE: "YOUTUBE_TO_GOOGLE_DRIVE",

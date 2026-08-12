@@ -28,7 +28,7 @@ export const TamaguiFABApp: React.FC<TamaguiFABAppProps> = ({
   return (
     <PaperFAB
       testID={testID}
-      icon={typeof icon === 'string' ? icon : (() => <IconApp name={icon} color={color} />)}
+      icon={typeof icon === 'string' ? icon : (() => <IconApp testID="e086579a-3df1-8e90-2in4-567890123a25" name={icon} color={color} />)}
       label={label}
       onPress={onPress}
       disabled={disabled}

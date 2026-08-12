@@ -20,6 +20,14 @@ const MATERIAL_LEGACY_MAP: Record<string, string> = {
     'expension_panels': 'expand_more',
     'today': 'calendar_today',
     'stars': 'star',
+    'crosshairs-gps': 'my_location',
+    'crosshairs_gps': 'my_location',
+    'arrow-left': 'arrow_back',
+    'arrow_left': 'arrow_back',
+    'format-vertical-align-top': 'vertical_align_top',
+    'format_vertical_align_top': 'vertical_align_top',
+    'format-vertical-align-bottom': 'vertical_align_bottom',
+    'format_vertical_align_bottom': 'vertical_align_bottom',
 };
 
 /**
@@ -32,11 +40,20 @@ export const CORE_SYMBOL_REGISTRY: Record<string, PlatformSymbols> = {
     search: { ios: 'magnifyingglass', android: 'search' },
     settings: { ios: 'gearshape', android: 'settings' },
     menu: { ios: 'line.3.horizontal', android: 'menu' },
+    arrow_back: { ios: 'chevron.left', android: 'arrow_back' },
+    'arrow-left': { ios: 'chevron.left', android: 'arrow_back' },
+    'arrow_left': { ios: 'chevron.left', android: 'arrow_back' },
     // more_vert: { ios: 'ellipsis.vertical', android: 'more_vert' },
     more_horiz: { ios: 'ellipsis', android: 'more_horiz' },
     refresh: { ios: 'arrow.clockwise', android: 'refresh' },
     close: { ios: 'xmark', android: 'close' },
     apps: { ios: 'square.grid.3x3.fill', android: 'apps' },
+    my_location: { ios: 'location.circle', android: 'my_location' },
+    vertical_align_top: { ios: 'arrow.up.to.line', android: 'vertical_align_top' },
+    vertical_align_bottom: { ios: 'arrow.down.to.line', android: 'vertical_align_bottom' },
+    'crosshairs-gps': { ios: 'location.circle', android: 'my_location' },
+    'format-vertical-align-top': { ios: 'arrow.up.to.line', android: 'vertical_align_top' },
+    'format-vertical-align-bottom': { ios: 'arrow.down.to.line', android: 'vertical_align_bottom' },
 
     // --- Users & Profiles ---
     account_circle: { ios: 'person.crop.circle', android: 'account_circle' },

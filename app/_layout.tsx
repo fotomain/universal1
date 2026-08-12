@@ -1,37 +1,41 @@
-import React, { useEffect } from 'react';
-import { Platform, LogBox } from 'react-native';
-
 import '../kit8/lib/setup-console';
-import { Drawer } from 'expo-router/drawer';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
-import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import React, {useEffect} from 'react';
+import {Platform} from 'react-native';
+
+import {Drawer} from 'expo-router/drawer';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {PaperProvider} from 'react-native-paper';
+import {useMaterial3Theme} from '@pchmn/expo-material3-theme';
+import {useTranslation} from 'react-i18next';
+import {useDispatch, useSelector} from 'react-redux';
 import '../kit8/i18n/i18n';
 import AppBar from '../kit8/ui/AppBar';
 import CustomDrawerContent from '../kit8/components/CustomDrawerContent';
-import { MD3Provider, useMD3Ready } from '../kit8/providers/MD3Provider';
+import {MD3Provider, useMD3Ready} from '../kit8/providers/MD3Provider';
 import SQLiteNativeProvider from '../kit8/providers/SQLiteNativeProvider';
-import WithSupabase, { useSupabase } from '../kit8/providers/WithSupabase';
-import { WithWorkPlace } from '../kit8/providers/WithWorkPlace';
+import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
+import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
-import { setActiveUser, formatTo32CharGUID } from '../kit8/redux/activeUserSlice';
-import { saveUserData } from '../kit8/lib/localSecureStorage';
+import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
+import {saveUserData} from '../kit8/lib/localSecureStorage';
 
-import { CustomLightTheme, CustomDarkTheme } from '../kit8/theme/palettes';
-import { FABProvider } from '../kit8/providers/FABProvider';
-import { FABAppComponent } from '../kit8/components/fab';
-import { useWorkPlace } from '../kit8/providers/WithWorkPlace';
-import { SystemMetaData } from '../kit8/redux/SystemMetaData';
-import { applyThemeFromSupabase } from '../kit8/redux/userThemeSlice';
-import { DesignSystemProvider } from '../context/DesignSystemContext';
+import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
+import {FABProvider} from '../kit8/providers/FABProvider';
+import {FABAppComponent} from '../kit8/components/fab';
+import {SystemMetaData} from '../kit8/redux/SystemMetaData';
+import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
+import {DesignSystemProvider} from '../context/DesignSystemContext';
 import IconApp from '../components/common/IconApp';
+import SnackbarApp from '../components/common/SnackbarApp';
+
+const blockError=true
 
 // themeStore-ticket-step4: Theme store sync manager component
 function ThemeStoreSyncManager() {
 
-  return  //TODO
+  if(blockError) {
+    return  //TODO
+  }
 
   const dispatch = useDispatch();
   const { supabase } = useSupabase();
@@ -247,7 +251,7 @@ function RootLayoutContent() {
   const paperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
 
   const renderHomeDrawerIcon = ({ size, color }: { size: number; color: string }) => (
-    <IconApp name="home" size={size} color={color} />
+    <IconApp testID="e2a87b1c-9d3f-4e56-8a90-123456789a01" name="home" size={size} color={color} />
   );
 
   useEffect(() => {
@@ -258,6 +262,44 @@ function RootLayoutContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: paperTheme.colors.background }}>
+      {Platform.OS === 'web' && (
+        <style>{`
+          ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          ::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+          }
+          ::-webkit-scrollbar-track {
+            background: ${darkMode ? "#2b2930" : "#e7e0ec"};
+            border-radius: 9999px;
+            border: 3px solid transparent;
+            background-clip: padding-box;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: ${paperTheme.colors.primary || "#6750A4"};
+            border-radius: 9999px;
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            min-height: 48px;
+            box-shadow: ${darkMode ? "0 2px 6px rgba(0,0,0,0.5)" : "0 2px 6px rgba(0,0,0,0.15)"};
+            cursor: pointer;
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          ::-webkit-scrollbar-thumb:hover {
+            background: ${darkMode ? "#d0bcff" : "#4f378b"};
+            box-shadow: ${darkMode ? "0 4px 10px rgba(0,0,0,0.6)" : "0 4px 10px rgba(0,0,0,0.25)"};
+          }
+          ::-webkit-scrollbar-thumb:active {
+            background: ${darkMode ? "#e8def8" : "#381e72"};
+            box-shadow: ${darkMode ? "0 6px 14px rgba(0,0,0,0.7)" : "0 6px 14px rgba(0,0,0,0.35)"};
+            cursor: grabbing;
+          }
+        `}</style>
+      )}
       <DesignSystemProvider>
         <PaperProvider theme={paperTheme}>
           <FABProvider>
@@ -304,6 +346,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="record/recordaudionative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioNative') }} />
             </Drawer>
             <FABAppComponent />
+            <SnackbarApp />
           </FABProvider>
         </PaperProvider>
       </DesignSystemProvider>

@@ -7,10 +7,8 @@ import TextApp from '../../components/common/TextApp';
 import TextInputApp from '../../components/common/TextInputApp';
 import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
 import ButtonSecondaryApp from '../../components/common/ButtonSecondaryApp';
-import ButtonTextApp from '../../components/common/ButtonTextApp';
 import CardApp from '../../components/common/CardApp';
 import SwitchApp from '../../components/common/SwitchApp';
-import IconApp from '../../components/common/IconApp';
 
 export const DesignSystemDemoComponent: React.FC = () => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
