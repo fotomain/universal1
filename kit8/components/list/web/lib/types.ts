@@ -5,6 +5,7 @@ export interface CardItem {
   title: string;
   description: string;
   orderInList?: number;
+  image?: string;
   rawItem?: any;
 }
 

@@ -1,7 +1,7 @@
 import {createSlice} from "@reduxjs/toolkit";
 
 
-const initialState = {
+const initialState: { entityDataFromServer: any[]; [key: string]: any } = {
     entityDataFromServer: [],
     lastCreatedData: null,
     lastUpdatedData: null,

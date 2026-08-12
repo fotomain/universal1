@@ -50,7 +50,7 @@ describe('SearchTextApp & Field Filter Integration', () => {
         const firstName = String(rawJson.firstName || rawJson.mediaPostFirstName || '').toLowerCase();
         const lastName = String(rawJson.lastName || rawJson.mediaPostLastName || '').toLowerCase();
         const fullName = `${firstName} ${lastName}`.trim();
-        const mediaPostOrigin = String(rawJson.mediaPostOrigin || rawJson.originUrl || '').toLowerCase();
+        const mediaPostOrigin = String(rawJson.mediaPostOrigin || (rawJson as any).originUrl || '').toLowerCase();
 
         return (
           title.includes(lower) ||
