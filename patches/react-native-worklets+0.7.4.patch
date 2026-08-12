@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-worklets/plugin/index.js b/node_modules/react-native-worklets/plugin/index.js
+index 2b70030..130bede 100644
+--- a/node_modules/react-native-worklets/plugin/index.js
++++ b/node_modules/react-native-worklets/plugin/index.js
+@@ -978,7 +978,7 @@ var require_workletFactory = __commonJS({
+           (0, types_12.variableDeclarator)((0, types_12.identifier)("_e"), (0, types_12.arrayExpression)([
+             (0, types_12.newExpression)((0, types_12.memberExpression)((0, types_12.identifier)("global"), (0, types_12.identifier)("Error")), []),
+             (0, types_12.numericLiteral)(lineOffset),
+-            (0, types_12.numericLiteral)(-27)
++            typeof types_12.valueToNode === 'function' ? (0, types_12.valueToNode)(-27) : (0, types_12.unaryExpression)("-", (0, types_12.numericLiteral)(27))
+           ]))
+         ]));
+         statements.push((0, types_12.expressionStatement)((0, types_12.assignmentExpression)("=", (0, types_12.memberExpression)((0, types_12.identifier)(reactName), (0, types_12.identifier)("__stackDetails"), false), (0, types_12.identifier)("_e"))));

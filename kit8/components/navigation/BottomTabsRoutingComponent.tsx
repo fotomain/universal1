@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Surface, Text, useTheme } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, usePathname } from 'expo-router';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { ActiveUserState } from '../../redux/activeUserSlice';
+import { setBottomTabsAreVisible } from '../../redux/uxuiSlice';
 
 export interface TabItem {
   tabIcon: string;
@@ -23,8 +24,16 @@ export default function BottomTabsRoutingComponent(props: BottomTabsRoutingCompo
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
+  const dispatch = useDispatch();
   const { t } = useTranslation();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
+
+  useEffect(() => {
+    dispatch(setBottomTabsAreVisible(true));
+    return () => {
+      dispatch(setBottomTabsAreVisible(false));
+    };
+  }, [dispatch]);
 
   const defaultTabs: TabItem[] = [
     {

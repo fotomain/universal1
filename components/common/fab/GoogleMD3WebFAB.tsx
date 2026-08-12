@@ -75,7 +75,7 @@ export const GoogleMD3WebFAB: React.FC<GoogleMD3WebFABProps> = ({
           }}
         >
           <span slot="icon" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-            <IconApp name={icon} size={getIconSize()} color={color || '#041e49'} />
+            <IconApp testID="bd532467-0ace-5b67-9fk1-234567890d22" name={icon} size={getIconSize()} color={color || '#041e49'} />
           </span>
         </MdFab>
       </div>

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { TextInput as PaperTextInput, Text, Surface, IconButton, useTheme } from 'react-native-paper';
-import { LANGUAGES, LanguageItem, changeAppLanguage } from '../i18n/i18n';
-import { getUserSettings, saveUserSettings } from '../settings/userSettings';
-import { useAuthWithGoogle } from '../hooks/useAuth';
-import { getUserData } from '../lib/localSecureStorage';
+import React, {useEffect, useRef, useState} from 'react';
+import {FlatList, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {IconButton, Surface, Text, TextInput as PaperTextInput, useTheme} from 'react-native-paper';
+import {changeAppLanguage, LanguageItem, LANGUAGES} from '../i18n/i18n';
+import {getUserSettings, saveUserSettings} from '../settings/userSettings';
+import {useAuthWithGoogle} from '../hooks/useAuth';
+import {getUserData} from '../lib/localSecureStorage';
 
 export interface LanguageSelectorProps {
   onSelectLanguage?: () => void;
@@ -33,7 +33,7 @@ export default function LanguageSelectorComponent({ onSelectLanguage }: Language
       const found = LANGUAGES.find(l => l.code === settings.userLanguage) || LANGUAGES[0];
       setCurrentLang(found);
       setInputText(`${found.abbr} - ${found.name}`);
-      changeAppLanguage(found.code);
+      changeAppLanguage(found.code).then(() => {});
     }
     loadSettings();
   }, [googleUser]);

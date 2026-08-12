@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from '@react-navigation/drawer';
-import { Drawer as PaperDrawer, Divider as PaperDivider } from 'react-native-paper';
+import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../context/DesignSystemContext';
 import IconApp from '../../components/common/IconApp';
@@ -64,7 +64,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           <PaperDrawer.Item
             key={item.id}
             label={item.label}
-            icon={(iconProps) => <IconApp name={item.icon} size={iconProps.size} color={iconProps.color} />}
+            icon={(iconProps) => <IconApp testID="c42a9bde-7bf5-2cd4-6mr8-901234567e29" name={item.icon} size={iconProps.size} color={iconProps.color} />}
             active={active}
             onPress={() => navigateAndClose(item.route)}
           />
@@ -90,11 +90,11 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderColor: active ? themeColors.primary : themeColors.border,
             }}
           >
-            <IconApp name={item.icon} size={20} color={active ? '#ffffff' : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="d53b0cef-8ca6-3de5-7ns9-012345678f30" name={item.icon} size={20} color={active ? '#ffffff' : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '700' : '500', color: active ? '#ffffff' : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
-            {active && <IconApp name="check" size={16} color="#ffffff" />}
+            {active && <IconApp testID="e64c1df0-9db7-4ef6-8ot0-123456789a31" name="check" size={16} color="#ffffff" />}
           </TouchableOpacity>
         );
       }
@@ -115,7 +115,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderBottomColor: themeColors.border,
             }}
           >
-            <IconApp name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="f75d2e01-0ec8-5fg7-9pu1-234567890b32" name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '600' : '400', color: active ? themeColors.primary : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
@@ -140,7 +140,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               marginHorizontal: 10,
             }}
           >
-            <IconApp name={item.icon} size={20} color={active ? '#ffffff' : themeColors.primary} style={{ marginRight: 12 }} />
+            <IconApp testID="a86e3f12-1fd9-6gh8-0qv2-345678901c33" name={item.icon} size={20} color={active ? '#ffffff' : themeColors.primary} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: '700', color: active ? '#ffffff' : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
@@ -166,7 +166,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderLeftColor: themeColors.primary,
             }}
           >
-            <IconApp name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="b97f4023-2ge0-7hi9-1rw3-456789012d34" name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '700' : '400', color: active ? themeColors.primary : themeColors.text }}>
               {item.label}
             </Text>

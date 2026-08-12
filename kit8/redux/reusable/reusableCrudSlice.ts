@@ -44,6 +44,14 @@ export const reusableCrudSlice = (name: string) =>
                 state.isCreating = false;
                 state.createSuccessful = 1;
                 state.crudMoment = Date.now();
+                if (action.payload) {
+                    const list = Array.isArray(state.entityDataFromServer) ? [...state.entityDataFromServer] : [];
+                    const idToFind = action.payload.mediaPostGUID || action.payload.id;
+                    const exists = list.some((item: any) => (item.mediaPostGUID || item.id) === idToFind);
+                    if (!exists) {
+                        state.entityDataFromServer = [action.payload, ...list];
+                    }
+                }
             },
             createOneFailure: (state, action) => {
                 state.isCreating = false;
@@ -67,6 +75,17 @@ export const reusableCrudSlice = (name: string) =>
                 state.isReading = false;
                 state.readSuccessful = 0;
                 state.readErrorData = action.payload;
+            },
+
+            // ===== FILTER ALL (Opportunistic Search)
+            filterAll: (state, action?: any) => {
+                state.isReading = true;
+            },
+            filterAllSuccess: (state, action) => {
+                state.entityDataFromServer = action.payload;
+                state.isReading = false;
+                state.readSuccessful = 1;
+                state.crudMoment = Date.now();
             },
 
             // ===== UPDATE
@@ -98,6 +117,12 @@ export const reusableCrudSlice = (name: string) =>
                 state.isDeleting = false;
                 state.deleteSuccessful = 1;
                 state.crudMoment = Date.now();
+                if (action.payload && Array.isArray(state.entityDataFromServer)) {
+                    const deletedId = action.payload.mediaPostGUID || action.payload.id;
+                    state.entityDataFromServer = state.entityDataFromServer.filter(
+                        (item: any) => (item.mediaPostGUID || item.id) !== deletedId
+                    );
+                }
             },
             deleteOneFailure: (state, action) => {
                 state.isDeleting = false;

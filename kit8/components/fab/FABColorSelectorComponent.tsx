@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, Portal, Dialog, TextInput, useTheme, Surface } from 'react-native-paper';
+import { Card, Text, Portal, Dialog, TextInput, useTheme, Surface } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../../components/common';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { setFabColor } from '../../redux/userThemeSlice';
@@ -91,26 +92,22 @@ export const FABColorSelectorComponent: React.FC = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionsRow}>
-          <Button
-            mode="outlined"
+          <ButtonPrimaryApp
             icon="palette-outline"
             onPress={() => {
               setCustomHex(currentFabColor || '#6750A4');
               setDialogVisible(true);
             }}
-            compact
           >
             Custom Hex
-          </Button>
+          </ButtonPrimaryApp>
 
-          <Button
-            mode="text"
+          <ButtonPrimaryApp
             onPress={handleReset}
             disabled={!currentFabColor}
-            compact
           >
             Reset Default
-          </Button>
+          </ButtonPrimaryApp>
         </View>
 
         {/* Live Preview Box */}
@@ -142,8 +139,8 @@ export const FABColorSelectorComponent: React.FC = () => {
             <View style={[styles.dialogPreviewBox, { backgroundColor: customHex || '#6750A4' }]} />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)}>Cancel</Button>
-            <Button onPress={handleSaveCustom}>Save</Button>
+            <ButtonPrimaryApp onPress={() => setDialogVisible(false)}>Cancel</ButtonPrimaryApp>
+            <ButtonPrimaryApp onPress={handleSaveCustom}>Save</ButtonPrimaryApp>
           </Dialog.Actions>
         </Dialog>
       </Portal>

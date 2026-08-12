@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, Platform } from 'react-native';
 // @ts-ignore
 import ReactDOM from 'react-dom';
 import { Text, Surface, useTheme } from 'react-native-paper';
@@ -63,29 +63,30 @@ export const FABForCardComponent: React.FC<FABForCardComponentProps> = ({
   }, [registerFAB]);
 
   useEffect(() => {
+    const useNative = Platform.OS !== 'web';
     if (fabAnimationVariant === 'reanimatedBasicFABAnimation') {
       if (isOpen) {
         Animated.parallel([
           Animated.spring(animVal, {
             toValue: 1,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
           Animated.timing(opacityAnimVal, {
             toValue: 1,
             duration: 50,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
         ]).start();
       } else {
         Animated.parallel([
           Animated.spring(animVal, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
           Animated.timing(opacityAnimVal, {
             toValue: 0,
             duration: 50,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
           }),
         ]).start();
       }
@@ -93,7 +94,7 @@ export const FABForCardComponent: React.FC<FABForCardComponentProps> = ({
       // defaultFABAnimation
       Animated.spring(animVal, {
         toValue: isOpen ? 1 : 0,
-        useNativeDriver: true,
+        useNativeDriver: useNative,
         friction: 6,
         tension: 40,
       }).start();

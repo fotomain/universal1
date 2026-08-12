@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, ScrollView } from 'react-native';
-import { Surface, Text, Button, useTheme, IconButton, TextInput, Switch, Portal, Modal } from 'react-native-paper';
+import { Surface, Text, useTheme, IconButton, TextInput, Switch, Portal, Modal } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../../components/common';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -362,26 +363,26 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
           {/* Primary Action Buttons */}
           <View style={styles.buttonRow}>
             {!isRecording ? (
-              <Button mode="contained" icon="record-rec" onPress={handleStartRecord} buttonColor={theme.colors.error}>
+              <ButtonPrimaryApp icon="record-rec" onPress={handleStartRecord} color={theme.colors.error}>
                 Start Recording
-              </Button>
+              </ButtonPrimaryApp>
             ) : (
               <>
-                <Button mode="contained-tonal" icon={isPaused ? "play" : "pause"} onPress={handleTogglePause}>
+                <ButtonPrimaryApp icon={isPaused ? "play" : "pause"} onPress={handleTogglePause}>
                   {isPaused ? "Resume" : "Pause"}
-                </Button>
-                <Button mode="contained" icon="stop" onPress={stopAndSaveRecording} buttonColor={theme.colors.primary}>
+                </ButtonPrimaryApp>
+                <ButtonPrimaryApp icon="stop" onPress={stopAndSaveRecording} color={theme.colors.primary}>
                   Stop & Save
-                </Button>
+                </ButtonPrimaryApp>
               </>
             )}
           </View>
 
           {isRecording && (
             <View style={{ marginTop: 8 }}>
-              <Button mode="outlined" icon="refresh" onPress={handleStopSaveAndStartNew}>
+              <ButtonPrimaryApp icon="refresh" onPress={handleStopSaveAndStartNew}>
                 Stop, Save & Start New Record
-              </Button>
+              </ButtonPrimaryApp>
             </View>
           )}
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button, useTheme, Chip } from 'react-native-paper';
+import { Card, Text, useTheme, Chip } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWorkPlace } from '../providers/WithWorkPlace';
 import { SystemMetaData } from '../redux/SystemMetaData';
@@ -70,12 +71,12 @@ export default function ThemeSyncStatusComponent() {
         </View>
 
         <View style={styles.buttonRow}>
-          <Button mode="contained-tonal" onPress={handleManualRead} style={styles.btn}>
+          <ButtonPrimaryApp onPress={handleManualRead} style={styles.btn}>
             Read Theme (readOne)
-          </Button>
-          <Button mode="contained" onPress={handleManualCreateOrUpdate} style={styles.btn}>
+          </ButtonPrimaryApp>
+          <ButtonPrimaryApp onPress={handleManualCreateOrUpdate} style={styles.btn}>
             Save Theme (upsertOne)
-          </Button>
+          </ButtonPrimaryApp>
         </View>
 
         {themeStoreState?.isReading ? (

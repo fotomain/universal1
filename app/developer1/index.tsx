@@ -3,7 +3,8 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
-import { Text, useTheme, Button, Surface } from 'react-native-paper';
+import { Text, useTheme, Surface } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 import { useSelector } from 'react-redux';
 import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
@@ -38,40 +39,40 @@ export default function HomeScreen() {
         <Text variant="titleMedium" style={{ fontWeight: 'bold', marginVertical: 8, color: theme.colors.primary }}>
           Video & Audio Features
         </Text>
-        <Button mode="contained" icon="video" style={styles.menuButton} onPress={() => router.push('/record/recordvideoweb?withAudio=true' as any)}>
+        <ButtonPrimaryApp icon="video" style={styles.menuButton} onPress={() => router.push('/record/recordvideoweb?withAudio=true' as any)}>
           1) Record Video Web (With Audio)
-        </Button>
-        <Button mode="contained" icon="video-off" style={styles.menuButton} onPress={() => router.push('/record/recordvideoweb?withAudio=false' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="video-off" style={styles.menuButton} onPress={() => router.push('/record/recordvideoweb?withAudio=false' as any)}>
           2) Record Video Web (Without Audio)
-        </Button>
-        <Button mode="contained-tonal" icon="play-circle" style={styles.menuButton} onPress={() => router.push('/play/playvideoweb' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="play-circle" style={styles.menuButton} onPress={() => router.push('/play/playvideoweb' as any)}>
           Play Video Web
-        </Button>
-        <Button mode="contained-tonal" icon="camera-gopro" style={styles.menuButton} onPress={() => router.push('/record/recordvideonative' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="camera-gopro" style={styles.menuButton} onPress={() => router.push('/record/recordvideonative' as any)}>
           Record Video Native
-        </Button>
-        <Button mode="contained-tonal" icon="video-vintage" style={styles.menuButton} onPress={() => router.push('/play/playvideonative' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="video-vintage" style={styles.menuButton} onPress={() => router.push('/play/playvideonative' as any)}>
           Play Video Native
-        </Button>
-        <Button mode="contained-tonal" icon="microphone" style={styles.menuButton} onPress={() => router.push('/record/recordaudioweb' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="microphone" style={styles.menuButton} onPress={() => router.push('/record/recordaudioweb' as any)}>
           Record Audio Web
-        </Button>
-        <Button mode="contained-tonal" icon="microphone-settings" style={styles.menuButton} onPress={() => router.push('/record/recordaudionative' as any)}>
+        </ButtonPrimaryApp>
+        <ButtonPrimaryApp icon="microphone-settings" style={styles.menuButton} onPress={() => router.push('/record/recordaudionative' as any)}>
           Record Audio Native
-        </Button>
+        </ButtonPrimaryApp>
 
         <Text variant="titleMedium" style={{ fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.primary }}>
           Application Screens
         </Text>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/raci/racimember' as any)}>Users (RACI)</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/sqlite/demo/native')}>{t('menu.sqliteDemo')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/userprofile')}>{t('menu.userProfile')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/about')}>{t('menu.about')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/signup')}>{t('menu.signUp')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/signin')}>{t('menu.signIn')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/posts/mediapostcrud' as any)}>{t('menu.posts')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/feedback')}>{t('menu.feedback')}</Button>
-        <Button mode="contained-tonal" style={styles.menuButton} onPress={() => router.push('/map')}>{t('menu.map')}</Button>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/sqlite/demo/native')}>{t('menu.sqliteDemo')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/userprofile')}>{t('menu.userProfile')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/about')}>{t('menu.about')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/signup')}>{t('menu.signUp')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/signin')}>{t('menu.signIn')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/posts/mediapostcrud' as any)}>{t('menu.posts')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/feedback')}>{t('menu.feedback')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/map')}>{t('menu.map')}</ButtonPrimaryApp>
       </View>
 
       {/* Active User State section rendered at the bottom of the homepage */}

@@ -47,7 +47,7 @@ export const ButtonApp: React.FC<ButtonAppProps> = ({
             typeof icon === 'function' || React.isValidElement(icon)
               ? (icon as any)
               : typeof icon === 'string'
-              ? (props) => <IconApp name={icon} size={props.size} color={props.color} />
+              ? (props) => <IconApp testID="a4c09d3e-1f5b-6a78-0c12-345678901c03" name={icon} size={props.size} color={props.color} />
               : undefined
           }
           buttonColor={variant === 'contained' ? btnColor : undefined}
@@ -98,7 +98,7 @@ export const ButtonApp: React.FC<ButtonAppProps> = ({
             <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
-              {icon && <IconApp name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
+              {icon && <IconApp testID="b5d10e4f-2a6c-7b89-1d23-456789012d04" name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
               <Text
                 style={{
                   color: disabled
@@ -158,7 +158,7 @@ export const ButtonApp: React.FC<ButtonAppProps> = ({
             <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
           ) : (
             <>
-              {icon && <IconApp name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
+              {icon && <IconApp testID="c6e21f50-3b7d-8c90-2e34-567890123e05" name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
               <Text
                 style={{
                   color: disabled
@@ -211,7 +211,7 @@ export const ButtonApp: React.FC<ButtonAppProps> = ({
             <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
           ) : (
             <>
-              {icon && <IconApp name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
+              {icon && <IconApp testID="d7f32a61-4c8e-9d01-3f45-678901234f06" name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
               <Text
                 style={{
                   color: isContained ? '#ffffff' : btnColor,
@@ -283,7 +283,7 @@ export const ButtonApp: React.FC<ButtonAppProps> = ({
             <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
-              {icon && <IconApp name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
+              {icon && <IconApp testID="e8043b72-5d9f-0e12-4056-789012345a07" name={icon} size={18} color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />}
               <Text
                 style={{
                   color: isContained ? '#ffffff' : btnColor,

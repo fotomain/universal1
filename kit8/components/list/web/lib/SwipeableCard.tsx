@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
-import { View, StyleSheet, PanResponder, Animated, TouchableOpacity } from "react-native";
-import { SwipeableCardProps } from "./types";
+import React, {useEffect, useRef, useState} from "react";
+import {Animated, PanResponder, StyleSheet, TouchableOpacity, View} from "react-native";
+import {SwipeableCardProps} from "./types";
 
 export const SwipeableCard: React.FC<SwipeableCardProps> = ({
   children,
@@ -191,11 +191,11 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
     >
       <div ref={wrapperRef} style={{ position: "relative", width: "100%" }}>
         {/* Underlay Component Container */}
-        <View style={StyleSheet.absoluteFillObject}>
+        <View style={StyleSheet.absoluteFill}>
           <TouchableOpacity
             activeOpacity={1}
             onPress={resetSwipe}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           >
             {activeDirection === "left" && crudCardSwipeUnderlayLeft}
             {activeDirection === "right" && crudCardSwipeUnderlayRight}

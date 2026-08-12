@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Button, Card, Text, Portal, Dialog, TextInput } from 'react-native-paper';
+import { Card, Text, Portal, Dialog, TextInput } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateThemeColor, resetTheme } from '../redux/userThemeSlice';
 import { saveUserTheme } from '../lib/localSecureStorage';
@@ -73,19 +74,18 @@ export default function ModifyThemeColorsComponent() {
           {mainColorItems.map((item) => (
             <View key={item.key} style={styles.colorRow}>
               <Text style={styles.colorLabel}>{item.label}</Text>
-              <Button
-                mode="outlined"
+              <ButtonPrimaryApp
                 onPress={() => openColorPicker(item.key)}
                 style={[styles.colorButton, { backgroundColor: theme.colors?.[item.key] || '#000' }]}
               >
                 <Text style={{ color: '#fff' }}>{theme.colors?.[item.key] || 'N/A'}</Text>
-              </Button>
+              </ButtonPrimaryApp>
             </View>
           ))}
 
-          <Button mode="contained" onPress={handleResetTheme} style={styles.resetButton}>
+          <ButtonPrimaryApp onPress={handleResetTheme} style={styles.resetButton}>
             Reset to Default
-          </Button>
+          </ButtonPrimaryApp>
         </Card.Content>
       </Card>
 
@@ -103,8 +103,8 @@ export default function ModifyThemeColorsComponent() {
             <View style={[styles.previewBox, { backgroundColor: colorValue }]} />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)}>Cancel</Button>
-            <Button onPress={handleSaveColor}>Save</Button>
+            <ButtonPrimaryApp onPress={() => setDialogVisible(false)}>Cancel</ButtonPrimaryApp>
+            <ButtonPrimaryApp onPress={handleSaveColor}>Save</ButtonPrimaryApp>
           </Dialog.Actions>
         </Dialog>
       </Portal>

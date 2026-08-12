@@ -2,7 +2,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useTheme, Surface, Text, Button } from 'react-native-paper';
+import { useTheme, Surface, Text } from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../components/common';
 
 export default function StopScreen() {
   const router = useRouter();
@@ -41,24 +42,20 @@ export default function StopScreen() {
 
         <View style={styles.buttonContainer}>
           {showGoToSignIn && (
-            <Button 
-              mode="contained" 
+            <ButtonPrimaryApp 
               onPress={handleGoToSignIn} 
-              buttonColor={theme.colors.primary}
-              textColor={theme.colors.onPrimary}
+              color={theme.colors.primary}
               style={{ marginVertical: 4 }}
             >
               {t('screens.goToSignIn')}
-            </Button>
+            </ButtonPrimaryApp>
           )}
-          <Button 
-            mode="outlined" 
+          <ButtonPrimaryApp 
             onPress={handleBack} 
-            textColor={theme.colors.onSurface}
             style={{ marginVertical: 4, borderColor: theme.colors.outline }}
           >
             {t('screens.back')}
-          </Button>
+          </ButtonPrimaryApp>
         </View>
       </Surface>
     </View>

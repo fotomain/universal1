@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
-import {Button, Card, Surface, Text, useTheme} from 'react-native-paper';
+import {Card, Surface, Text, useTheme} from 'react-native-paper';
+import { ButtonPrimaryApp } from '../../../components/common';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 import {useTranslation} from 'react-i18next';
 import {useDispatch, useSelector} from 'react-redux';
@@ -90,13 +91,13 @@ export default function RecordVideoNativeComponent() {
             </Text>
 
             {!isRecording ? (
-              <Button mode="contained" icon="camera" buttonColor={theme.colors.error} onPress={handleStartRecordNative}>
+              <ButtonPrimaryApp icon="camera" color={theme.colors.error} onPress={handleStartRecordNative}>
                 Start Native Recording
-              </Button>
+              </ButtonPrimaryApp>
             ) : (
-              <Button mode="contained" icon="stop" buttonColor={theme.colors.primary} onPress={handleStopRecordNative}>
+              <ButtonPrimaryApp icon="stop" color={theme.colors.primary} onPress={handleStopRecordNative}>
                 Stop & Save Native Post
-              </Button>
+              </ButtonPrimaryApp>
             )}
           </View>
         </Card.Content>

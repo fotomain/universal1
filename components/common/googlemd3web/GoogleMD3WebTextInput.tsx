@@ -70,7 +70,20 @@ export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: 
             '--md-outlined-text-field-input-text-color': themeColors.text,
             fontFamily: 'Roboto, system-ui, sans-serif',
           }}
-        />
+        >
+          {currentValue.length > 0 && !disabled && (
+            <div
+              slot="trailing-icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onChangeText) onChangeText('');
+              }}
+              style={{ cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+            >
+              <IconApp name="close" size={18} color="#757575" />
+            </div>
+          )}
+        </MdOutlinedTextField>
       </div>
     );
   }

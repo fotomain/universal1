@@ -28,7 +28,7 @@ export const NativeFABApp: React.FC<NativeFABAppProps> = ({
   return (
     <PaperFAB
       testID={testID}
-      icon={typeof icon === 'string' ? icon : (() => <IconApp name={icon} color={color} />)}
+      icon={typeof icon === 'string' ? icon : (() => <IconApp testID="ce643578-1bdf-6c78-0gl2-345678901e23" name={icon} color={color} />)}
       label={label}
       onPress={onPress}
       disabled={disabled}
