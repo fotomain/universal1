@@ -7,6 +7,7 @@ import { mediaPostExample } from '../redux/lib/mediaPostExample';
 import H1Mi from '../ui/H1Mi';
 import TexInputMi from '../ui/TexInputMi';
 import ButtonMi from '../ui/ButtonMi';
+import { showSnackbar } from '../redux/uxuiSlice';
 
 const uuid = Crypto.randomUUID;
 
@@ -144,6 +145,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                 handleRead();
             }, 500);
         }
+        dispatch(showSnackbar({ message: "Post successfully deleted" }));
     };
 
     const posts = entityState?.entityDataFromServer || [];

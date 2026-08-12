@@ -22,6 +22,7 @@ import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
 import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
 import IconApp from "../../../../components/common/IconApp";
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
+import {showSnackbar} from "../../../redux/uxuiSlice";
 
 const _testMode=false
 
@@ -583,12 +584,13 @@ export function ListWebCardsComponent({
   // Delete item handler with listOwnerGUID
   const handleDelete = (id: string) => {
     setCards((prev) => prev.filter((item) => item.id !== id));
-    if (actions?.deleteOne && listOwnerGUID) {
+    if (actions?.deleteOne) {
       dispatch(actions.deleteOne({
         mediaPostGUID: id,
-        mediaPostOwnerGUID: listOwnerGUID,
+        ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
       }));
     }
+    dispatch(showSnackbar({ message: "Post successfully deleted" }));
     console.log(`Deleted item: ${id}`);
   };
 
@@ -605,14 +607,15 @@ export function ListWebCardsComponent({
     if (selectedIds.length === 0) return;
     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
 
-    if (actions?.deleteOne && listOwnerGUID) {
+    if (actions?.deleteOne) {
       selectedIds.forEach((id) => {
         dispatch(actions.deleteOne({
           mediaPostGUID: id,
-          mediaPostOwnerGUID: listOwnerGUID,
+          ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
         }));
       });
     }
+    dispatch(showSnackbar({ message: "Post successfully deleted" }));
 
     setSelectedIds([]);
   };

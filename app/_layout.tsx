@@ -26,6 +26,7 @@ import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
 import {DesignSystemProvider} from '../context/DesignSystemContext';
 import IconApp from '../components/common/IconApp';
+import SnackbarApp from '../components/common/SnackbarApp';
 
 const blockError=true
 
@@ -345,6 +346,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="record/recordaudionative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioNative') }} />
             </Drawer>
             <FABAppComponent />
+            <SnackbarApp />
           </FABProvider>
         </PaperProvider>
       </DesignSystemProvider>

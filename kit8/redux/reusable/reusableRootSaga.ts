@@ -1,6 +1,7 @@
 import {call, getContext, put, select, takeEvery, takeLatest} from "redux-saga/effects";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
+import {showSnackbar} from "../uxuiSlice";
 
 
 export const reusableRootSaga = (p: any) => {
@@ -251,6 +252,7 @@ export const reusableRootSaga = (p: any) => {
             if (error) throw error;
 
             yield put(actions.deleteOneSuccess(data[0]));
+            yield put(showSnackbar({ message: "Post successfully deleted" }));
         } catch (e) {
             yield put(actions.deleteOneFailure(e));
         }

@@ -14,6 +14,4 @@ export { default as ArrowToLeftApp, ArrowToLeftAppProps } from './ArrowToLeftApp
 export { default as OnOffButtonApp, OnOffButtonAppProps } from './OnOffButtonApp';
 export { default as SearchTextApp, SearchTextAppProps } from './SearchTextApp';
 export * from './fab';
-export * from './textarea';
-
-
+export { default as SnackbarApp, SnackbarAppProps } from './SnackbarApp';
