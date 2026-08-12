@@ -939,10 +939,23 @@ export function ListWebCardsComponent({
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
-                  const title = String(card.title || "").toLowerCase();
-                  const description = String(card.description || "").toLowerCase();
-                  
+
                   const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+
+                  // Posts fields: title, description, origin (mediaPostOrigin / originUrl / origin / url)
+                  const title = String(card.title || rawJson.title || rawJson.mediaPostTitle || "").toLowerCase();
+                  const description = String(card.description || rawJson.description || rawJson.mediaPostDescription || "").toLowerCase();
+                  const origin = String(
+                    rawJson.mediaPostOrigin ||
+                    rawJson.originUrl ||
+                    rawJson.origin ||
+                    rawJson.url ||
+                    (card as any).mediaPostOrigin ||
+                    (card as any).origin ||
+                    ""
+                  ).toLowerCase();
+
+                  // RACI / Author fields: firstName, lastName, email, fullName
                   const firstName = String(
                     rawJson.firstName ||
                     rawJson.mediaPostFirstName ||
@@ -952,6 +965,7 @@ export function ListWebCardsComponent({
                     card.rawItem?.firstName ||
                     ""
                   ).toLowerCase();
+
                   const lastName = String(
                     rawJson.lastName ||
                     rawJson.mediaPostLastName ||
@@ -962,23 +976,59 @@ export function ListWebCardsComponent({
                     ""
                   ).toLowerCase();
 
-                  const mediaPostOrigin = String(
-                    rawJson.mediaPostOrigin ||
-                    rawJson.originUrl ||
-                    rawJson.origin ||
-                    rawJson.url ||
-                    (card as any).mediaPostOrigin ||
-                    (card as any).origin ||
+                  const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
+
+                  const email = String(
+                    rawJson.email ||
+                    rawJson.mediaPostEmail ||
+                    rawJson.raciEmail ||
+                    rawJson.userEmail ||
+                    (card as any).email ||
+                    card.rawItem?.email ||
                     ""
                   ).toLowerCase();
 
+                  const isRaciEntity =
+                    (entityName && entityName.toLowerCase().includes("raci")) ||
+                    (crudListTitle && crudListTitle.toLowerCase().includes("raci"));
+
+                  const isPostEntity =
+                    (entityName && (entityName.toLowerCase().includes("post") || entityName.toLowerCase().includes("media"))) ||
+                    (crudListTitle && (crudListTitle.toLowerCase().includes("post") || crudListTitle.toLowerCase().includes("media")));
+
+                  if (isRaciEntity) {
+                    // Search RACI list by first name, last name, full name, email
+                    return (
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower)) ||
+                      (email.length > 0 && email.includes(lower)) ||
+                      title.includes(lower) ||
+                      description.includes(lower)
+                    );
+                  }
+
+                  if (isPostEntity) {
+                    // Search Posts list by title, description, origin (mediaPostOrigin), plus firstName, lastName, fullName
+                    return (
+                      title.includes(lower) ||
+                      description.includes(lower) ||
+                      (origin.length > 0 && origin.includes(lower)) ||
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower))
+                    );
+                  }
+
+                  // Default search across all fields
                   return (
                     title.includes(lower) ||
                     description.includes(lower) ||
+                    (origin.length > 0 && origin.includes(lower)) ||
                     (firstName.length > 0 && firstName.includes(lower)) ||
                     (lastName.length > 0 && lastName.includes(lower)) ||
                     (fullName.length > 0 && fullName.includes(lower)) ||
-                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower))
+                    (email.length > 0 && email.includes(lower))
                   );
                 })
                 .map((card, index) => {
