@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { DesignSystemType, IconsVariant, setDesignSystem, setIconsVariant, toggleDarkMode } from '../kit8/redux/uxuiSlice';
-import { toggleThemeMode } from '../kit8/redux/userThemeSlice';
-import tamaguiConfig from '../tamagui.config';
-import loadMaterialWebCdn from '../components/common/googlemd3web/loadMaterialWebCdn';
+import { DesignSystemType, IconsVariant, setDesignSystem, setIconsVariant, toggleDarkMode } from '../redux/uxuiSlice';
+import { toggleThemeMode } from '../redux/userThemeSlice';
+import tamaguiConfig from '../../tamagui.config';
+import loadMaterialWebCdn from '../../components/common/googlemd3web/loadMaterialWebCdn';
 
 export type { DesignSystemType, IconsVariant };
 

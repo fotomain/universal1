@@ -4,7 +4,7 @@ import { SwitchAppProps } from '../../SwitchApp';
 
 let useDesignSystem: any;
 try {
-  useDesignSystem = require('../../../../context/DesignSystemContext').useDesignSystem;
+  useDesignSystem = require('../../../../kit8/providers/DesignSystemContext').useDesignSystem;
 } catch (e) {
   useDesignSystem = () => ({ themeColors: { primary: '#4630Eb', text: '#000000' }, isDark: false });
 }

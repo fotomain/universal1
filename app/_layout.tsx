@@ -24,7 +24,7 @@ import {FABProvider} from '../kit8/providers/FABProvider';
 import {FABAppComponent} from '../kit8/components/fab';
 import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
-import {DesignSystemProvider} from '../context/DesignSystemContext';
+import {DesignSystemProvider} from '../kit8/providers/DesignSystemContext';
 import IconApp from '../components/common/IconApp';
 import SnackbarApp from '../components/common/SnackbarApp';
 

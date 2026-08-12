@@ -12,7 +12,7 @@ try {
 
 let useDesignSystem: any;
 try {
-  useDesignSystem = require('../../../../context/DesignSystemContext').useDesignSystem;
+  useDesignSystem = require('../../../../kit8/providers/DesignSystemContext').useDesignSystem;
 } catch (e) {
   useDesignSystem = () => ({ themeColors: { primary: '#1677ff', text: '#000000d9', border: '#f0f0f0' } });
 }

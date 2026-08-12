@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import IconApp from './IconApp';
 
 export interface ArrowToLeftAppProps {

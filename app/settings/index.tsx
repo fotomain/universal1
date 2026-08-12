@@ -6,7 +6,7 @@ import ModifyThemeColorsComponent from '../../kit8/components/ModifyThemeColorsC
 import { FABColorSelectorComponent, FABAnimationSelectorComponent } from '../../kit8/components/fab';
 import ThemeSyncStatusComponent from '../../kit8/components/ThemeSyncStatusComponent';
 import DesignSystemSelectorComponent from '../../kit8/components/DesignSystemSelectorComponent';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
