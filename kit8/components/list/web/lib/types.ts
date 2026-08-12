@@ -19,6 +19,13 @@ export interface ListWebCardsComponentProps {
   crudGapBetweenCards?: number;
   createNewCardComponent?: React.ComponentType<any> | React.ReactElement;
   CardComponent?: React.ComponentType<any> | React.ReactElement;
+  crudListOptions?: {
+    listWebTopBarComponentNeeded?: boolean;
+    listWebOnScrollInfoNeeded?: boolean;
+    onOffSelectionButtonNeeded?: boolean;
+    fabCardNeeded?: boolean;
+    searchTextNeeded?: boolean;
+  };
 }
 
 export interface CardThreeDotsMenuProps {

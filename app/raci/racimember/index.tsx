@@ -9,6 +9,14 @@ export default function RaciMemberCrudScreen() {
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
   const listOwnerGUID = activeUserState?.activeUserGUID || '';
 
+  const crudListOptions = {
+    listWebTopBarComponentNeeded: true,
+    listWebOnScrollInfoNeeded: true,
+    onOffSelectionButtonNeeded: true,
+    fabCardNeeded: true,
+    searchTextNeeded: true,
+  };
+
   return (
     <ListWebCardsComponent
       entityName="raciMember"
@@ -17,6 +25,7 @@ export default function RaciMemberCrudScreen() {
       CardComponent={RaciMemberListCard}
       crudCardHeight={110}
       createNewCardComponent={CreateRaciMemberForm}
+      crudListOptions={crudListOptions}
     />
   );
 }

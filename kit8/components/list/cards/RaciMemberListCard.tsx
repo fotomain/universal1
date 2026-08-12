@@ -22,6 +22,7 @@ export interface RaciMemberListCardProps {
   onMenuOpenStateChange?: (isOpen: boolean) => void;
   dragHandleProps?: any;
   testID?: string;
+  fabCardNeeded?: boolean;
 }
 
 export const RaciMemberListCard: React.FC<RaciMemberListCardProps> = ({
@@ -38,6 +39,7 @@ export const RaciMemberListCard: React.FC<RaciMemberListCardProps> = ({
   onMenuOpenStateChange,
   dragHandleProps,
   testID = "raciMemberCard",
+  fabCardNeeded = true,
 }) => {
   const paperTheme = useTheme();
   const themePrimary = primaryColor || paperTheme.colors.primary;
@@ -124,15 +126,17 @@ export const RaciMemberListCard: React.FC<RaciMemberListCardProps> = ({
       </View>
 
       {/* FAB positioned at the right bottom corner of the RACI Card */}
-      <View style={styles.fabCornerWrapper}>
-        <FABForCardComponent
-          cardId={card.id}
-          size="small"
-          onEdit={() => onEdit?.(card.id)}
-          onShare={() => onShare?.(card.id)}
-          onDelete={() => onDelete?.(card.id)}
-        />
-      </View>
+      {fabCardNeeded && (
+        <View style={styles.fabCornerWrapper}>
+          <FABForCardComponent
+            cardId={card.id}
+            size="small"
+            onEdit={() => onEdit?.(card.id)}
+            onShare={() => onShare?.(card.id)}
+            onDelete={() => onDelete?.(card.id)}
+          />
+        </View>
+      )}
 
       <CardIconsBottomComponent
         onArchive={() => onArchive?.(card.id)}

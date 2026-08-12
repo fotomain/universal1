@@ -55,10 +55,58 @@ export function ListWebCardsComponent({
   crudGapBetweenCards = 12,
   createNewCardComponent: CustomCreateForm,
   CardComponent: CustomCardComponent,
+  crudListOptions,
 }: ListWebCardsComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const [dynamicOptions, setDynamicOptions] = useState({
+    listWebTopBarComponentNeeded: true,
+    listWebOnScrollInfoNeeded: true,
+    onOffSelectionButtonNeeded: true,
+    fabCardNeeded: true,
+    searchTextNeeded: true,
+  });
+
+  useEffect(() => {
+    setDynamicOptions({
+      listWebTopBarComponentNeeded: crudListOptions?.listWebTopBarComponentNeeded ?? true,
+      listWebOnScrollInfoNeeded: crudListOptions?.listWebOnScrollInfoNeeded ?? true,
+      onOffSelectionButtonNeeded: crudListOptions?.onOffSelectionButtonNeeded ?? true,
+      fabCardNeeded: crudListOptions?.fabCardNeeded ?? true,
+      searchTextNeeded: crudListOptions?.searchTextNeeded ?? true,
+    });
+  }, [
+    crudListOptions?.listWebTopBarComponentNeeded,
+    crudListOptions?.listWebOnScrollInfoNeeded,
+    crudListOptions?.onOffSelectionButtonNeeded,
+    crudListOptions?.fabCardNeeded,
+    crudListOptions?.searchTextNeeded,
+  ]);
+
+  const lastPressRef = useRef<number>(0);
+  const handleTitleDoublePress = () => {
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    if (now - lastPressRef.current < DOUBLE_PRESS_DELAY) {
+      const isAnyVisible =
+        dynamicOptions.listWebTopBarComponentNeeded ||
+        dynamicOptions.listWebOnScrollInfoNeeded ||
+        dynamicOptions.onOffSelectionButtonNeeded ||
+        dynamicOptions.fabCardNeeded ||
+        dynamicOptions.searchTextNeeded;
+
+      setDynamicOptions({
+        listWebTopBarComponentNeeded: !isAnyVisible,
+        listWebOnScrollInfoNeeded: !isAnyVisible,
+        onOffSelectionButtonNeeded: !isAnyVisible,
+        fabCardNeeded: !isAnyVisible,
+        searchTextNeeded: !isAnyVisible,
+      });
+    }
+    lastPressRef.current = now;
+  };
 
   // MD3 Colors
   const primaryColor = theme.colors.primary || "#6200ee";
@@ -148,6 +196,7 @@ export function ListWebCardsComponent({
         },
         dragHandleProps,
         crudCardHeight,
+        fabCardNeeded: dynamicOptions.fabCardNeeded,
       });
     }
 
@@ -191,6 +240,7 @@ export function ListWebCardsComponent({
       },
       dragHandleProps,
       crudCardHeight,
+      fabCardNeeded: dynamicOptions.fabCardNeeded,
     });
   };
 
@@ -797,19 +847,23 @@ export function ListWebCardsComponent({
       )}
 
       {/* ListWebTopBarComponent at top of crudListTitle container */}
-      <ListWebTopBarComponent
-        onCreateNewItem={handleCreateNewItem}
-        onScrollToCurrent={handleScrollToCurrent}
-        onScrollTop={handleScrollTop}
-        onScrollBottom={handleScrollBottom}
-        isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
-        currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
-        isSelectionVisible={isSelectionVisible}
-        onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
-        searchText={searchText}
-        onSearchTextChange={handleSearchChange}
-        primaryColor={primaryColor}
-      />
+      {dynamicOptions.listWebTopBarComponentNeeded && (
+        <ListWebTopBarComponent
+          onCreateNewItem={handleCreateNewItem}
+          onScrollToCurrent={handleScrollToCurrent}
+          onScrollTop={handleScrollTop}
+          onScrollBottom={handleScrollBottom}
+          isScrollToCurrentEnabled={Boolean(lastInteractedCardId)}
+          currentCardTitle={cards.find((c) => c.id === lastInteractedCardId)?.title || ""}
+          isSelectionVisible={isSelectionVisible}
+          onSelectionVisibleChange={(isOn) => setIsSelectionVisible(isOn)}
+          searchText={searchText}
+          onSearchTextChange={handleSearchChange}
+          primaryColor={primaryColor}
+          searchTextNeeded={dynamicOptions.searchTextNeeded}
+          onOffSelectionButtonNeeded={dynamicOptions.onOffSelectionButtonNeeded}
+        />
+      )}
 
       {/* Header Controls Row: Select All Checkbox aligned with Card Checkboxes */}
       <View style={styles.controlsRow}>
@@ -837,10 +891,12 @@ export function ListWebCardsComponent({
           {/* 12px Distance / Gap */}
           {isSelectionVisible && <View style={{ width: 12 }} />}
 
-          {/* CRUD List Title Label */}
-          <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.dark ? "#8892B0" : theme.colors.onSurface }}>
-            {crudListTitle}
-          </Text>
+          {/* CRUD List Title Label with Double Click/Touch toggle */}
+          <TouchableOpacity activeOpacity={0.7} onPress={handleTitleDoublePress}>
+            <Text testID={'crudListTitle'} style={{ fontSize: 24, fontWeight: "normal", color: theme.dark ? "#8892B0" : theme.colors.onSurface }}>
+              {crudListTitle}
+            </Text>
+          </TouchableOpacity>
 
           {/* Icon Buttons for Archive Selected & Delete Selected with (N) count */}
           {selectedIds.length > 0 && (
@@ -929,6 +985,7 @@ export function ListWebCardsComponent({
               primaryColor={primaryColor}
               primaryLightColor={primaryLightColor}
               height="600px"
+              listWebOnScrollInfoNeeded={dynamicOptions.listWebOnScrollInfoNeeded}
               droppableProps={provided.droppableProps}
               containerRef={(el) => {
                 provided.innerRef(el);
