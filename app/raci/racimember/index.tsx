@@ -13,7 +13,7 @@ export default function RaciMemberCrudScreen() {
     <ListWebCardsComponent
       entityName="raciMember"
       crudListTitle="Users (RACI)"
-      listOwnerGUID={listOwnerGUID}
+      crudListOwnerGUID={listOwnerGUID}
       CardComponent={RaciMemberListCard}
       crudCardHeight={110}
       createNewCardComponent={CreateRaciMemberForm}
