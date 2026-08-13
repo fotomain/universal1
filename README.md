@@ -3,7 +3,6 @@ https://youtu.be/4pe1fn3Gus0
 https://youtu.be/nta1YhicoGw
 
 ## ███ //TODO!!!
-
 npx expo start --web
 npm run web
 
