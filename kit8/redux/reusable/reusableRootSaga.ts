@@ -26,7 +26,7 @@ export const reusableRootSaga = (p: any) => {
 
             if (readAllFilter) {
                 query = query.or(
-                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,mediaPostJSON->>originUrl.ilike.%${readAllFilter}%,mediaPostJSON->>firstName.ilike.%${readAllFilter}%,mediaPostJSON->>lastName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>raciLastName.ilike.%${readAllFilter}%`
+                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,mediaPostJSON->>originUrl.ilike.%${readAllFilter}%,mediaPostJSON->>firstName.ilike.%${readAllFilter}%,mediaPostJSON->>lastName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>raciLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciEmail.ilike.%${readAllFilter}%,mediaPostJSON->>email.ilike.%${readAllFilter}%`
                 );
             }
 
@@ -303,12 +303,49 @@ export const reusableRootSaga = (p: any) => {
 
             let filteredData = reduxStateData;
             if (filterText && filterText.trim() !== "") {
-                const lowerText = filterText.toLowerCase();
+                const lowerText = filterText.toLowerCase().trim();
+                const isRaciTable = String(tableName).toLowerCase().includes("raci");
+                const isPostsTable = String(tableName).toLowerCase().includes("post") || String(tableName).toLowerCase().includes("media");
+
                 filteredData = reduxStateData.filter((item: any) => {
                     const json = item?.mediaPostJSON || item || {};
                     const title = String(json.mediaPostTitle || item.title || "").toLowerCase();
                     const description = String(json.mediaPostDescription || item.description || "").toLowerCase();
-                    return title.includes(lowerText) || description.includes(lowerText);
+                    const firstName = String(json.raciFirstName || json.firstName || json.mediaPostFirstName || item.firstName || "").toLowerCase();
+                    const lastName = String(json.raciLastName || json.lastName || json.mediaPostLastName || item.lastName || "").toLowerCase();
+                    const fullName = `${firstName} ${lastName}`.trim();
+                    const mediaPostOrigin = String(json.mediaPostOrigin || json.originUrl || json.origin || json.url || json.mediaPostURL || item.originUrl || "").toLowerCase();
+                    const email = String(json.raciEmail || json.email || item.email || "").toLowerCase();
+
+                    if (isRaciTable) {
+                        return (
+                            (firstName.length > 0 && firstName.includes(lowerText)) ||
+                            (lastName.length > 0 && lastName.includes(lowerText)) ||
+                            (fullName.length > 0 && fullName.includes(lowerText)) ||
+                            (email.length > 0 && email.includes(lowerText))
+                        );
+                    }
+
+                    if (isPostsTable) {
+                        return (
+                            title.includes(lowerText) ||
+                            description.includes(lowerText) ||
+                            (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lowerText)) ||
+                            (firstName.length > 0 && firstName.includes(lowerText)) ||
+                            (lastName.length > 0 && lastName.includes(lowerText)) ||
+                            (fullName.length > 0 && fullName.includes(lowerText))
+                        );
+                    }
+
+                    return (
+                        title.includes(lowerText) ||
+                        description.includes(lowerText) ||
+                        (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lowerText)) ||
+                        (firstName.length > 0 && firstName.includes(lowerText)) ||
+                        (lastName.length > 0 && lastName.includes(lowerText)) ||
+                        (fullName.length > 0 && fullName.includes(lowerText)) ||
+                        (email.length > 0 && email.includes(lowerText))
+                    );
                 });
             }
 
@@ -332,7 +369,7 @@ export const reusableRootSaga = (p: any) => {
 
                 if (filterText && filterText.trim() !== "") {
                     query = query.or(
-                        `mediaPostJSON->>mediaPostTitle.ilike.%${filterText}%,mediaPostJSON->>mediaPostDescription.ilike.%${filterText}%`
+                        `mediaPostJSON->>mediaPostTitle.ilike.%${filterText}%,mediaPostJSON->>mediaPostDescription.ilike.%${filterText}%,mediaPostJSON->>mediaPostOrigin.ilike.%${filterText}%,mediaPostJSON->>originUrl.ilike.%${filterText}%,mediaPostJSON->>firstName.ilike.%${filterText}%,mediaPostJSON->>lastName.ilike.%${filterText}%,mediaPostJSON->>mediaPostFirstName.ilike.%${filterText}%,mediaPostJSON->>mediaPostLastName.ilike.%${filterText}%,mediaPostJSON->>raciFirstName.ilike.%${filterText}%,mediaPostJSON->>raciLastName.ilike.%${filterText}%,mediaPostJSON->>raciEmail.ilike.%${filterText}%,mediaPostJSON->>email.ilike.%${filterText}%`
                     );
                 }
 
