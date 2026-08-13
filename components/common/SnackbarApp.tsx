@@ -92,6 +92,9 @@ export const SnackbarApp: React.FC<SnackbarAppProps> = ({
 
 const styles = StyleSheet.create({
   snackbar: {
+    maxWidth: 350,
+    width: '100%',
+    alignSelf: 'center',
     marginBottom: 16,
   },
 });

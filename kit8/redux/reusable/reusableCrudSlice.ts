@@ -49,7 +49,13 @@ export const reusableCrudSlice = (name: string) =>
                     const idToFind = action.payload.mediaPostGUID || action.payload.id;
                     const exists = list.some((item: any) => (item.mediaPostGUID || item.id) === idToFind);
                     if (!exists) {
-                        state.entityDataFromServer = [action.payload, ...list];
+                        list.push(action.payload);
+                        list.sort((a: any, b: any) => {
+                            const orderA = Number(a?.orderInList ?? a?.mediaPostJSON?.orderInList ?? 0);
+                            const orderB = Number(b?.orderInList ?? b?.mediaPostJSON?.orderInList ?? 0);
+                            return orderA - orderB;
+                        });
+                        state.entityDataFromServer = list;
                     }
                 }
             },
