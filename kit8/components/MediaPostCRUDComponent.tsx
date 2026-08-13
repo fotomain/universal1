@@ -8,6 +8,7 @@ import H1Mi from '../ui/H1Mi';
 import TexInputMi from '../ui/TexInputMi';
 import ButtonMi from '../ui/ButtonMi';
 import { showSnackbar } from '../redux/uxuiSlice';
+import AskBeforeDeletePostComponent from '../../components/common/AskBeforeDeletePostComponent';
 
 const uuid = Crypto.randomUUID;
 
@@ -17,6 +18,9 @@ interface MediaPostCRUDComponentProps {
 
 export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable' }: MediaPostCRUDComponentProps) {
     const dispatch = useDispatch();
+
+    const askBeforeDeletePost = useSelector((state: any) => state?.uxuiState?.askBeforeDeletePost ?? true);
+    const [pendingDeleteGuid, setPendingDeleteGuid] = useState<string | null>(null);
 
     // Select entity state from Redux
     const entityState = useSelector((state: any) => state[entityName]);
@@ -137,8 +141,8 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
         }, 500);
     };
 
-    // Delete an Item
-    const handleDelete = (guid: string) => {
+    // Delete an Item execution
+    const executeDelete = (guid: string) => {
         if (actions?.deleteOne) {
             dispatch(actions.deleteOne({ mediaPostGUID: guid }));
             setTimeout(() => {
@@ -146,6 +150,15 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
             }, 500);
         }
         dispatch(showSnackbar({ message: "Post successfully deleted" }));
+    };
+
+    // Delete handler
+    const handleDelete = (guid: string) => {
+        if (askBeforeDeletePost) {
+            setPendingDeleteGuid(guid);
+        } else {
+            executeDelete(guid);
+        }
     };
 
     const posts = entityState?.entityDataFromServer || [];
@@ -281,6 +294,14 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                     })
                 )}
             </View>
+            <AskBeforeDeletePostComponent
+                visible={Boolean(pendingDeleteGuid)}
+                onCancel={() => setPendingDeleteGuid(null)}
+                onConfirm={() => {
+                    if (pendingDeleteGuid) executeDelete(pendingDeleteGuid);
+                    setPendingDeleteGuid(null);
+                }}
+            />
         </ScrollView>
     );
 }
