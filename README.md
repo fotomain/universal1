@@ -14,8 +14,6 @@ npm cache clean --force
 npx expo start --clear
 rmdir /s .expo
 
-
-
 git init
 git add README.md
 git commit -m "first commit"
