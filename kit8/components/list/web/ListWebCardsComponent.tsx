@@ -14,6 +14,10 @@ import {
   ListWebCardsComponentProps,
   ListWebTopBarComponent,
   SwipeableCard,
+  createBeforeCurrent,
+  createAfterCurrent,
+  copyPasteBeforeCurrent,
+  copyPasteAfterCurrent,
 } from "./lib";
 import {CardBasicVersion} from "./cards";
 import {CreateNewCardBasicForm} from "../forms";
@@ -134,6 +138,22 @@ export function ListWebCardsComponent({
           handleCardTouch(id);
           setEditingCardId(editingCardId === id ? null : id);
         },
+        onCreateBeforeCurrent: (id: string) => {
+          handleCardTouch(id);
+          handleCreateBeforeCurrent(id);
+        },
+        onCreateAfterCurrent: (id: string) => {
+          handleCardTouch(id);
+          handleCreateAfterCurrent(id);
+        },
+        onCopyPasteBeforeCurrent: (id: string) => {
+          handleCardTouch(id);
+          handleCopyPasteBeforeCurrent(id);
+        },
+        onCopyPasteAfterCurrent: (id: string) => {
+          handleCardTouch(id);
+          handleCopyPasteAfterCurrent(id);
+        },
         onMakeFirst: (id: string) => {
           handleCardTouch(id);
           handleMakeFirst(id);
@@ -176,6 +196,22 @@ export function ListWebCardsComponent({
       onEdit: (id: string) => {
         handleCardTouch(id);
         setEditingCardId(editingCardId === id ? null : id);
+      },
+      onCreateBeforeCurrent: (id: string) => {
+        handleCardTouch(id);
+        handleCreateBeforeCurrent(id);
+      },
+      onCreateAfterCurrent: (id: string) => {
+        handleCardTouch(id);
+        handleCreateAfterCurrent(id);
+      },
+      onCopyPasteBeforeCurrent: (id: string) => {
+        handleCardTouch(id);
+        handleCopyPasteBeforeCurrent(id);
+      },
+      onCopyPasteAfterCurrent: (id: string) => {
+        handleCardTouch(id);
+        handleCopyPasteAfterCurrent(id);
       },
       onMakeFirst: (id: string) => {
         handleCardTouch(id);
@@ -280,8 +316,8 @@ export function ListWebCardsComponent({
       // Use the original unmutated 'cards' state to determine the sorting direction,
       // otherwise the recently spliced item throws off the edge detection.
       const isDesc = cards.length >= 2 
-        ? (cards[0].orderInList || 0) >= (cards[cards.length - 1].orderInList || 0) 
-        : true;
+        ? (cards[0].orderInList || 0) > (cards[cards.length - 1].orderInList || 0) 
+        : false;
       
       const itemBefore = destIndex > 0 ? currentCards[destIndex - 1] : undefined;
       const itemAfter = destIndex < currentCards.length - 1 ? currentCards[destIndex + 1] : undefined;
@@ -541,6 +577,68 @@ export function ListWebCardsComponent({
         scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
       }
     }, 100);
+  };
+
+  // Create item before current card (createBeforeCurrent)
+  const handleCreateBeforeCurrent = (id: string) => {
+    const { nextCards, newGuid } = createBeforeCurrent({
+      id,
+      cards,
+      entityName,
+      listOwnerGUID,
+      actions,
+      dispatch,
+      calculateNewOrderInList,
+      uuidFn: uuid,
+    });
+    setCards(nextCards);
+    if (newGuid) setLastInteractedCardId(newGuid);
+  };
+
+  // Create item after current card (createAfterCurrent)
+  const handleCreateAfterCurrent = (id: string) => {
+    const { nextCards, newGuid } = createAfterCurrent({
+      id,
+      cards,
+      entityName,
+      listOwnerGUID,
+      actions,
+      dispatch,
+      calculateNewOrderInList,
+      uuidFn: uuid,
+    });
+    setCards(nextCards);
+    if (newGuid) setLastInteractedCardId(newGuid);
+  };
+
+  // Copy/Paste item before current card (copyPasteBeforeCurrent)
+  const handleCopyPasteBeforeCurrent = (id: string) => {
+    const { nextCards, newGuid } = copyPasteBeforeCurrent({
+      id,
+      cards,
+      listOwnerGUID,
+      actions,
+      dispatch,
+      calculateNewOrderInList,
+      uuidFn: uuid,
+    });
+    setCards(nextCards);
+    if (newGuid) setLastInteractedCardId(newGuid);
+  };
+
+  // Copy/Paste item after current card (copyPasteAfterCurrent)
+  const handleCopyPasteAfterCurrent = (id: string) => {
+    const { nextCards, newGuid } = copyPasteAfterCurrent({
+      id,
+      cards,
+      listOwnerGUID,
+      actions,
+      dispatch,
+      calculateNewOrderInList,
+      uuidFn: uuid,
+    });
+    setCards(nextCards);
+    if (newGuid) setLastInteractedCardId(newGuid);
   };
 
   // Archive item handler: adds current post into entityForArchivationName & deletes current post from entityName

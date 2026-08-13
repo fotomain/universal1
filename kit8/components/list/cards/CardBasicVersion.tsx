@@ -19,6 +19,10 @@ export interface CardBasicVersionProps {
   onDelete?: (id: string) => void;
   onShare?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onCreateBeforeCurrent?: (id: string) => void;
+  onCreateAfterCurrent?: (id: string) => void;
+  onCopyPasteBeforeCurrent?: (id: string) => void;
+  onCopyPasteAfterCurrent?: (id: string) => void;
   onMakeFirst?: (id: string) => void;
   onMakeLast?: (id: string) => void;
   onMenuOpenStateChange?: (isOpen: boolean) => void;
@@ -36,6 +40,10 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
   onDelete,
   onShare,
   onEdit,
+  onCreateBeforeCurrent,
+  onCreateAfterCurrent,
+  onCopyPasteBeforeCurrent,
+  onCopyPasteAfterCurrent,
   onMakeFirst,
   onMakeLast,
   onMenuOpenStateChange,
@@ -104,6 +112,10 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
           onEdit={() => onEdit?.(card.id)}
           onShare={() => onShare?.(card.id)}
           onDelete={() => onDelete?.(card.id)}
+          onCreateBeforeCurrent={() => onCreateBeforeCurrent?.(card.id)}
+          onCreateAfterCurrent={() => onCreateAfterCurrent?.(card.id)}
+          onCopyPasteBeforeCurrent={() => onCopyPasteBeforeCurrent?.(card.id)}
+          onCopyPasteAfterCurrent={() => onCopyPasteAfterCurrent?.(card.id)}
         />
       </View>
 
