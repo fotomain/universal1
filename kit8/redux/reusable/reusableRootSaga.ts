@@ -9,9 +9,8 @@ export const reusableRootSaga = (p: any) => {
 
     function* readAll(action: any) {
         try {
-            const {paginationSize, originationCurrentPage, readAllFilter} =
+            const { paginationSize, originationCurrentPage, readAllFilter, orderBy = "orderInList", ascending = true } =
             action.payload || {};
-
 
             const entityObject = SystemMetaData[action.type.replace("/readData", "")]
 
@@ -21,7 +20,7 @@ export const reusableRootSaga = (p: any) => {
             let query = supabase
                 .from(tableName)
                 .select("*")
-                .order("orderInList", { ascending: true })
+                .order(orderBy || "orderInList", { ascending: ascending !== false })
                 //TODO!!! .match({...matchData})
 
             if (readAllFilter) {
