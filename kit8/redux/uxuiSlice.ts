@@ -19,6 +19,7 @@ export interface UxuiState {
   activeDesignSystem: DesignSystemType;
   iconsVariant: IconsVariant;
   bottomTabsAreVisible: boolean;
+  askBeforeDeletePost: boolean;
   snackbar: SnackbarState;
 }
 
@@ -28,6 +29,7 @@ const uxuiInitialState: UxuiState = {
   activeDesignSystem: 'paper',
   iconsVariant: 'materialIconsOnly',
   bottomTabsAreVisible: false,
+  askBeforeDeletePost: true,
   snackbar: {
     visible: false,
     message: '',
@@ -59,6 +61,12 @@ const uxuiSlice = createSlice({
     },
     setBottomTabsAreVisible: (state, action: PayloadAction<boolean>) => {
       state.bottomTabsAreVisible = action.payload;
+    },
+    setAskBeforeDeletePost: (state, action: PayloadAction<boolean>) => {
+      state.askBeforeDeletePost = action.payload;
+    },
+    toggleAskBeforeDeletePost: (state) => {
+      state.askBeforeDeletePost = !state.askBeforeDeletePost;
     },
     showSnackbar: (
       state,
@@ -119,6 +127,8 @@ export const {
   setDesignSystem,
   setIconsVariant,
   setBottomTabsAreVisible,
+  setAskBeforeDeletePost,
+  toggleAskBeforeDeletePost,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,

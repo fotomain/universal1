@@ -15,3 +15,6 @@ export { default as OnOffButtonApp, OnOffButtonAppProps } from './OnOffButtonApp
 export { default as SearchTextApp, SearchTextAppProps } from './SearchTextApp';
 export * from './fab';
 export { default as SnackbarApp, SnackbarAppProps } from './SnackbarApp';
+export { default as ModalAskComponent, ModalAskComponentProps } from './ModalAskComponent';
+export { default as AskBeforeDeletePostComponent, AskBeforeDeletePostComponentProps } from './AskBeforeDeletePostComponent';
+

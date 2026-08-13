@@ -25,6 +25,7 @@ import {SystemMetaData} from "../../../redux/SystemMetaData";
 import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
 import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
 import IconApp from "../../../../components/common/IconApp";
+import AskBeforeDeletePostComponent from "../../../../components/common/AskBeforeDeletePostComponent";
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../redux/uxuiSlice";
 
@@ -78,6 +79,7 @@ export function ListWebCardsComponent({
   const CardItemComponent = CustomCardComponent || CardBasicVersion;
   const CreateCardComponent = CustomCreateForm || CreateNewCardBasicForm;
 
+  const askBeforeDeletePost = useSelector((state: any) => state?.uxuiState?.askBeforeDeletePost ?? true);
   const [cards, setCards] = useState<CardItem[]>(testCardsMode?INITIAL_CARDS:[]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export function ListWebCardsComponent({
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isSelectionVisible, setIsSelectionVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [pendingDeleteTarget, setPendingDeleteTarget] = useState<{ type: 'single' | 'selected'; id?: string } | null>(null);
 
   const handleSearchChange = (text: string) => {
     setSearchText(text);
@@ -679,8 +682,8 @@ export function ListWebCardsComponent({
     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
   };
 
-  // Delete item handler with listOwnerGUID & undoDeleteData
-  const handleDelete = (id: string) => {
+  // Delete item execution with listOwnerGUID & undoDeleteData
+  const executeDelete = (id: string) => {
     const itemToDelete = cards.find((item) => item.id === id);
     setCards((prev) => prev.filter((item) => item.id !== id));
     if (actions?.deleteOne) {
@@ -712,6 +715,15 @@ export function ListWebCardsComponent({
     console.log(`Deleted item: ${id}`);
   };
 
+  // Delete item handler (prompts if askBeforeDeletePost is true)
+  const handleDelete = (id: string) => {
+    if (askBeforeDeletePost) {
+      setPendingDeleteTarget({ type: 'single', id });
+    } else {
+      executeDelete(id);
+    }
+  };
+
   // Archive Selected Cards
   const handleArchiveSelected = () => {
     if (selectedIds.length === 0) return;
@@ -720,8 +732,8 @@ export function ListWebCardsComponent({
     setSelectedIds([]);
   };
 
-  // Delete Selected Cards with listOwnerGUID & undoDeleteData
-  const handleDeleteSelected = () => {
+  // Delete Selected Cards execution
+  const executeDeleteSelected = () => {
     if (selectedIds.length === 0) return;
     const itemsToDelete = cards.filter((item) => selectedIds.includes(item.id));
     setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
@@ -756,6 +768,26 @@ export function ListWebCardsComponent({
     );
 
     setSelectedIds([]);
+  };
+
+  // Delete Selected Cards handler (prompts if askBeforeDeletePost is true)
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    if (askBeforeDeletePost) {
+      setPendingDeleteTarget({ type: 'selected' });
+    } else {
+      executeDeleteSelected();
+    }
+  };
+
+  const handleConfirmDeleteModal = () => {
+    if (!pendingDeleteTarget) return;
+    if (pendingDeleteTarget.type === 'single' && pendingDeleteTarget.id) {
+      executeDelete(pendingDeleteTarget.id);
+    } else if (pendingDeleteTarget.type === 'selected') {
+      executeDeleteSelected();
+    }
+    setPendingDeleteTarget(null);
   };
 
   // Share Card Handler
@@ -1223,6 +1255,11 @@ export function ListWebCardsComponent({
           )}
         </Droppable>
       </DragDropContext>
+      <AskBeforeDeletePostComponent
+        visible={Boolean(pendingDeleteTarget)}
+        onCancel={() => setPendingDeleteTarget(null)}
+        onConfirm={handleConfirmDeleteModal}
+      />
     </ScrollView>
   );
 }
