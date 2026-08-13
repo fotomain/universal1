@@ -939,10 +939,11 @@ export function ListWebCardsComponent({
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
-                  const title = String(card.title || "").toLowerCase();
-                  const description = String(card.description || "").toLowerCase();
-                  
                   const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+                  
+                  const title = String(card.title || rawJson.mediaPostTitle || "").toLowerCase();
+                  const description = String(card.description || rawJson.mediaPostDescription || "").toLowerCase();
+                  
                   const firstName = String(
                     rawJson.firstName ||
                     rawJson.mediaPostFirstName ||
@@ -961,16 +962,49 @@ export function ListWebCardsComponent({
                     card.rawItem?.lastName ||
                     ""
                   ).toLowerCase();
+                  const fullName = `${firstName} ${lastName}`.trim();
 
                   const mediaPostOrigin = String(
                     rawJson.mediaPostOrigin ||
                     rawJson.originUrl ||
                     rawJson.origin ||
                     rawJson.url ||
+                    rawJson.mediaPostURL ||
                     (card as any).mediaPostOrigin ||
                     (card as any).origin ||
                     ""
                   ).toLowerCase();
+
+                  const email = String(
+                    rawJson.raciEmail ||
+                    rawJson.email ||
+                    (card as any).email ||
+                    ""
+                  ).toLowerCase();
+
+                  const normalizedEntityName = String(entityName || "").toLowerCase();
+                  const isRaciEntity = normalizedEntityName.includes("raci");
+                  const isPostsEntity = normalizedEntityName.includes("post") || normalizedEntityName.includes("media");
+
+                  if (isRaciEntity) {
+                    return (
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower)) ||
+                      (email.length > 0 && email.includes(lower))
+                    );
+                  }
+
+                  if (isPostsEntity) {
+                    return (
+                      title.includes(lower) ||
+                      description.includes(lower) ||
+                      (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower)) ||
+                      (firstName.length > 0 && firstName.includes(lower)) ||
+                      (lastName.length > 0 && lastName.includes(lower)) ||
+                      (fullName.length > 0 && fullName.includes(lower))
+                    );
+                  }
 
                   return (
                     title.includes(lower) ||
@@ -978,7 +1012,8 @@ export function ListWebCardsComponent({
                     (firstName.length > 0 && firstName.includes(lower)) ||
                     (lastName.length > 0 && lastName.includes(lower)) ||
                     (fullName.length > 0 && fullName.includes(lower)) ||
-                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower))
+                    (mediaPostOrigin.length > 0 && mediaPostOrigin.includes(lower)) ||
+                    (email.length > 0 && email.includes(lower))
                   );
                 })
                 .map((card, index) => {
