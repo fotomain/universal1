@@ -23,6 +23,10 @@ export interface FABForCardComponentProps {
   onEdit?: () => void;
   onShare?: () => void;
   onDelete?: () => void;
+  onCreateBeforeCurrent?: () => void;
+  onCreateAfterCurrent?: () => void;
+  onCopyPasteBeforeCurrent?: () => void;
+  onCopyPasteAfterCurrent?: () => void;
   primaryColor?: string;
   actions?: FABAction[];
 }
@@ -34,6 +38,10 @@ export const FABForCardComponent: React.FC<FABForCardComponentProps> = ({
   onEdit,
   onShare,
   onDelete,
+  onCreateBeforeCurrent,
+  onCreateAfterCurrent,
+  onCopyPasteBeforeCurrent,
+  onCopyPasteAfterCurrent,
   actions,
 }) => {
   const paperTheme = useTheme();
@@ -146,6 +154,10 @@ export const FABForCardComponent: React.FC<FABForCardComponentProps> = ({
   };
 
   const defaultActions: FABAction[] = [
+    ...(onCreateBeforeCurrent ? [{ icon: 'table-row-plus-before', label: 'Create Before', onPress: onCreateBeforeCurrent }] : []),
+    ...(onCreateAfterCurrent ? [{ icon: 'table-row-plus-after', label: 'Create After', onPress: onCreateAfterCurrent }] : []),
+    ...(onCopyPasteBeforeCurrent ? [{ icon: 'content-duplicate', label: 'Copy Before', onPress: onCopyPasteBeforeCurrent }] : []),
+    ...(onCopyPasteAfterCurrent ? [{ icon: 'content-copy', label: 'Copy After', onPress: onCopyPasteAfterCurrent }] : []),
     ...(onViewNow ? [{ icon: 'eye-outline', label: 'View', onPress: onViewNow }] : []),
     ...(onEdit ? [{ icon: 'pencil-outline', label: 'Edit', onPress: onEdit }] : []),
     ...(onShare ? [{ icon: 'share-variant-outline', label: 'Share', onPress: onShare }] : []),
