@@ -4,7 +4,7 @@ import {
     View,
     ScrollView,
     Platform,
-    Share,
+    Share, Pressable,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -82,49 +82,94 @@ export interface DroppedFilePayload {
 
 
 // ============================================================================
-// MODAL: AskBeforeDeleteGoogleFile
+// MODAL: AskBeforeDeleteGoogleFile (Reusable for Single File or Clear All)
 // ============================================================================
 
 interface AskBeforeDeleteProps {
     visible: boolean;
-    file: DriveFile | null;
+    file?: DriveFile | null;
+    folderTitle?: string | null;
     onDismiss: () => void;
     onConfirm: () => void;
     isDeleting: boolean;
+    deleteProgress: number;
+    deleteStatusText?: string;
 }
 
 const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
-                                                                       visible,
-                                                                       file,
-                                                                       onDismiss,
-                                                                       onConfirm,
-                                                                       isDeleting,
-                                                                   }) => {
+    visible,
+    file,
+    folderTitle,
+    onDismiss,
+    onConfirm,
+    isDeleting,
+    deleteProgress,
+    deleteStatusText,
+}) => {
+    const isFolderClear = !!folderTitle;
+
     return (
         <Portal>
-            <Dialog visible={visible} onDismiss={onDismiss} style={styles.deleteDialog}>
+            <Dialog visible={visible} onDismiss={isDeleting ? undefined : onDismiss} style={styles.deleteDialog}>
                 <View style={styles.deleteHeaderIconWrapper}>
                     <Avatar.Icon
                         size={52}
-                        icon="trash-can-outline"
+                        icon={isFolderClear ? 'folder-remove-outline' : 'trash-can-outline'}
                         style={{ backgroundColor: '#FCE8E6' }}
                         color="#D93025"
                     />
                 </View>
-                <Dialog.Title style={styles.deleteTitle}>Delete File?</Dialog.Title>
+                <Dialog.Title style={styles.deleteTitle}>
+                    {isFolderClear ? `Clear all files?` : 'Delete File?'}
+                </Dialog.Title>
                 <Dialog.Content>
                     <Text variant="bodyMedium" style={styles.deleteContentText}>
-                        Are you sure you want to permanently remove this file from your dataset?
+                        {isFolderClear
+                            ? `Are you sure you want to permanently delete all files in "${folderTitle}"?`
+                            : 'Are you sure you want to permanently remove this file from your dataset?'}
                     </Text>
                     <View style={styles.deleteFileNameBox}>
-                        <Avatar.Icon size={24} icon="file-outline" style={{ backgroundColor: 'transparent' }} color="#5F6368" />
+                        <Avatar.Icon
+                            size={24}
+                            icon={isFolderClear ? 'folder-image' : 'file-outline'}
+                            style={{ backgroundColor: 'transparent' }}
+                            color="#5F6368"
+                        />
                         <Text variant="bodyMedium" numberOfLines={2} style={styles.deleteFileNameText}>
-                            {file?.name}
+                            {isFolderClear ? folderTitle : file?.name}
                         </Text>
                     </View>
                     <Text variant="bodySmall" style={styles.deleteWarningText}>
-                        This action cannot be undone.
+                        {isFolderClear
+                            ? 'This action will permanently delete all files in this dataset folder and cannot be undone.'
+                            : 'This action cannot be undone.'}
                     </Text>
+
+                    {/* Deletion Progress & Percentage Slider during deletion */}
+                    {isDeleting && (
+                        <View style={styles.deleteProgressContainer}>
+                            <View style={styles.deleteProgressHeader}>
+                                <Text variant="labelMedium" numberOfLines={1} style={styles.deleteStatusText}>
+                                    {deleteStatusText || 'Deleting files...'}
+                                </Text>
+                                <View style={styles.deletePercentBadge}>
+                                    <Text variant="labelMedium" style={styles.deletePercentText}>
+                                        {deleteProgress}%
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.deleteSliderTrack}>
+                                <View
+                                    style={[
+                                        styles.deleteSliderFill,
+                                        {
+                                            width: `${Math.max(deleteProgress, 5)}%`,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        </View>
+                    )}
                 </Dialog.Content>
                 <Dialog.Actions style={styles.deleteActions}>
                     <Button onPress={onDismiss} disabled={isDeleting} textColor="#5F6368" style={{ flex: 1 }}>
@@ -141,7 +186,11 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                             void onConfirm();
                         }}
                     >
-                        Delete
+                        {isDeleting
+                            ? `Deleting (${deleteProgress}%)`
+                            : isFolderClear
+                            ? 'Clear all'
+                            : 'Delete'}
                     </Button>
                 </Dialog.Actions>
             </Dialog>
@@ -150,30 +199,40 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
 };
 
 // ============================================================================
-// DND PICKER BUTTON: SelectFilesForGoogleDriveDNDComponent
+// DND PICKER BUTTON: SelectFilesForGoogleDriveDNDComponent (Accordion Header + Drop)
 // ============================================================================
 
-interface DNDProps {
+interface SelectFilesDNDProps {
     label: string;
     targetFolderId: string;
     accessToken: string | null;
     disabled: boolean;
+    isExpanded: boolean;
+    fileCount?: number;
+    onToggleExpand: () => void;
+    onClearAll?: () => void;
     onUploadSuccess: (filename: string) => void;
     onUploadError: (err: string) => void;
     variant?: 'green' | 'yellow' | 'default';
 }
 
-const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
-                                                                       label,
-                                                                       targetFolderId,
-                                                                       accessToken,
-                                                                       disabled,
-                                                                       onUploadSuccess,
-                                                                       onUploadError,
-                                                                       variant,
-                                                                   }) => {
+const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
+    label,
+    targetFolderId,
+    accessToken,
+    disabled,
+    isExpanded,
+    fileCount,
+    onToggleExpand,
+    onClearAll,
+    onUploadSuccess,
+    onUploadError,
+    variant,
+}) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const buttonDropRef = useRef<View>(null);
 
     const isYellow = variant === 'yellow' || (!variant && (label.includes('trend') || label.includes('dataset_trend_images')));
     const isGreen = variant === 'green' || (!variant && (label.includes('shop') || label.includes('dataset_shop_images')));
@@ -205,35 +264,83 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
               iconBg: '#F1F3F4',
           };
 
-    const uploadFileBlob = async (fileObj: { name: string; mimeType: string; blob: Blob | File }) => {
-        if (!accessToken || !targetFolderId) {
-            onUploadError('Invalid session or folder');
-            return;
-        }
+    const uploadMultipleFiles = async (
+        files: Array<{ name: string; mimeType?: string; blob?: Blob | File; uri?: string; base64?: string }>
+    ) => {
+        if (!accessToken || !targetFolderId || files.length === 0) return;
         setIsUploading(true);
+        setUploadProgress(0);
         try {
-            const metadata = {
-                name: fileObj.name,
-                mimeType: fileObj.mimeType || 'application/octet-stream',
-                parents: [targetFolderId],
-            };
+            const totalFiles = files.length;
+            let lastFileName = '';
 
-            const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', fileObj.blob, fileObj.name);
+            for (let i = 0; i < totalFiles; i++) {
+                const fileObj = files[i];
+                await new Promise<void>(async (resolve, reject) => {
+                    try {
+                        const metadata = {
+                            name: fileObj.name,
+                            mimeType: fileObj.mimeType || 'application/octet-stream',
+                            parents: [targetFolderId],
+                        };
 
-            const res = await fetch(DRIVE_UPLOAD_URL, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}` },
-                body: formData,
-            });
+                        const formData = new FormData();
+                        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
 
-            if (!res.ok) throw new Error('Upload failed');
-            onUploadSuccess(fileObj.name);
+                        let fileBlob: any = fileObj.blob;
+                        if (!fileBlob && fileObj.uri) {
+                            const res = await fetch(fileObj.uri);
+                            fileBlob = await res.blob();
+                        } else if (!fileBlob && fileObj.base64) {
+                            const res = await fetch(fileObj.base64);
+                            fileBlob = await res.blob();
+                        }
+
+                        formData.append('file', fileBlob, fileObj.name);
+
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', DRIVE_UPLOAD_URL);
+                        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+                        xhr.upload.onprogress = (event) => {
+                            if (event.lengthComputable && event.total > 0) {
+                                const fileFraction = event.loaded / event.total;
+                                const overallPercent = Math.min(
+                                    99,
+                                    Math.round(((i + fileFraction) / totalFiles) * 100)
+                                );
+                                setUploadProgress(overallPercent);
+                            }
+                        };
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+                                lastFileName = fileObj.name;
+                                resolve();
+                            } else {
+                                reject(new Error(`Upload failed with status ${xhr.status}`));
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network error during upload'));
+                        xhr.send(formData);
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            }
+
+            setUploadProgress(100);
+            setTimeout(() => {
+                onUploadSuccess(totalFiles > 1 ? `${totalFiles} files` : lastFileName);
+                setIsUploading(false);
+                setUploadProgress(0);
+            }, 300);
         } catch (e: any) {
-            onUploadError(e.message || 'Error uploading file');
-        } finally {
             setIsUploading(false);
+            setUploadProgress(0);
+            onUploadError(e.message || 'Error uploading file(s)');
         }
     };
 
@@ -243,95 +350,244 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
             const result = await DocumentPicker.getDocumentAsync({
                 copyToCacheDirectory: true,
                 type: '*/*',
-                multiple: false,
+                multiple: true,
             });
 
             if (result.canceled || !result.assets || result.assets.length === 0) return;
-            const asset = result.assets[0];
 
-            const fileData = await fetch(asset.uri);
-            const blob = await fileData.blob();
+            const fileItems = await Promise.all(
+                result.assets.map(async (asset) => {
+                    const fileData = await fetch(asset.uri);
+                    const blob = await fileData.blob();
+                    return {
+                        name: asset.name,
+                        mimeType: asset.mimeType || 'application/octet-stream',
+                        blob,
+                    };
+                })
+            );
 
-            await uploadFileBlob({
-                name: asset.name,
-                mimeType: asset.mimeType || 'application/octet-stream',
-                blob,
-            });
+            await uploadMultipleFiles(fileItems);
         } catch (err: any) {
             onUploadError(err.message);
         }
     };
 
-    const webDnDProps =
-        Platform.OS === 'web'
-            ? {
-                onDragOver: (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!disabled) setIsHovered(true);
-                },
-                onDragEnter: (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                },
-                onDragLeave: (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsHovered(false);
-                },
-                onDrop: async (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsHovered(false);
-                    if (disabled || !e.dataTransfer?.files?.length) return;
-                    const droppedFile = e.dataTransfer.files[0];
-                    await uploadFileBlob({
-                        name: droppedFile.name,
-                        mimeType: droppedFile.type,
-                        blob: droppedFile,
-                    });
-                },
+    // Attach native DOM drag & drop listeners directly to the button container on Web
+    useEffect(() => {
+        if (Platform.OS !== 'web' || !buttonDropRef.current) return;
+        const domNode = (buttonDropRef.current as any) as HTMLElement;
+        if (!domNode || typeof domNode.addEventListener !== 'function') return;
+
+        let counter = 0;
+
+        const handleDragEnter = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            counter++;
+            if (!disabled) {
+                setIsHovered(true);
             }
-            : {};
+        };
+
+        const handleDragOver = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.dataTransfer) {
+                e.dataTransfer.dropEffect = 'copy';
+            }
+            if (!isHovered && !disabled) {
+                setIsHovered(true);
+            }
+        };
+
+        const handleDragLeave = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            counter--;
+            if (counter <= 0) {
+                counter = 0;
+                setIsHovered(false);
+            }
+        };
+
+        const handleDrop = async (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            counter = 0;
+            setIsHovered(false);
+            if (disabled || !e.dataTransfer?.files?.length) return;
+
+            const files = Array.from(e.dataTransfer.files);
+            const fileItems = files.map((f) => ({
+                name: f.name,
+                mimeType: f.type || 'application/octet-stream',
+                blob: f,
+            }));
+            await uploadMultipleFiles(fileItems);
+        };
+
+        domNode.addEventListener('dragenter', handleDragEnter);
+        domNode.addEventListener('dragover', handleDragOver);
+        domNode.addEventListener('dragleave', handleDragLeave);
+        domNode.addEventListener('drop', handleDrop);
+
+        return () => {
+            domNode.removeEventListener('dragenter', handleDragEnter);
+            domNode.removeEventListener('dragover', handleDragOver);
+            domNode.removeEventListener('dragleave', handleDragLeave);
+            domNode.removeEventListener('drop', handleDrop);
+        };
+    }, [disabled, isHovered, accessToken, targetFolderId]);
+
+    const buttonIcon = isHovered
+        ? 'tray-arrow-down'
+        : isGreen
+        ? 'store-plus'
+        : isYellow
+        ? 'trending-up'
+        : 'cloud-upload-outline';
 
     return (
-        <Card
-            style={[
-                styles.dndCard,
-                {
-                    backgroundColor: themeColors.bg,
-                    borderColor: themeColors.border,
-                },
-                isHovered && styles.dndCardHovered,
-                disabled && styles.disabledOpacity,
-            ]}
-            mode="outlined"
-            onPress={() => {
-                void handlePickFile();
-            }}
-            {...(webDnDProps as any)}
-        >
-            <Card.Content style={styles.dndContent}>
-                {isUploading ? (
-                    <ActivityIndicator size="small" color={themeColors.iconColor} />
-                ) : (
-                    <Avatar.Icon
-                        size={38}
-                        icon="cloud-upload-outline"
-                        style={[styles.dndIcon, { backgroundColor: themeColors.iconBg }]}
-                        color={themeColors.iconColor}
-                    />
-                )}
-                <View style={styles.dndTextContainer}>
-                    <Text variant="titleSmall" style={[styles.dndTitle, { color: themeColors.title }]}>
-                        {label}
-                    </Text>
-                    <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
-                        {isUploading ? 'Uploading file...' : 'Click or drop files here to upload'}
-                    </Text>
-                </View>
-            </Card.Content>
-        </Card>
+        <View ref={buttonDropRef} style={{ width: '100%' }}>
+            <Card
+                style={[
+                    styles.dndCard,
+                    {
+                        backgroundColor: themeColors.bg,
+                        borderColor: themeColors.border,
+                    },
+                    isHovered && styles.dndCardHovered,
+                    disabled && styles.disabledOpacity,
+                ]}
+                mode="outlined"
+            >
+                <Card.Content style={styles.dndContent}>
+                    {/* Left Touchable: File Pick & Drop Target */}
+                    <Pressable
+                        style={styles.dndLeftTouchable}
+                        onPress={() => {
+                            void handlePickFile();
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${label}. Click to pick file or drop files here`}
+                    >
+                        <View
+                            style={[
+                                styles.iconBadge,
+                                {
+                                    backgroundColor: themeColors.iconBg,
+                                    borderColor: isHovered ? themeColors.border : themeColors.border + '50',
+                                },
+                            ]}
+                        >
+                            {isUploading ? (
+                                <ActivityIndicator size="small" color={themeColors.iconColor} />
+                            ) : (
+                                <Avatar.Icon
+                                    size={26}
+                                    icon={buttonIcon}
+                                    color={themeColors.iconColor}
+                                    style={{ backgroundColor: 'transparent' }}
+                                />
+                            )}
+                        </View>
+                        <View style={styles.dndTextContainer}>
+                            <View style={styles.titleRow}>
+                                <Text variant="titleSmall" style={[styles.dndTitle, { color: themeColors.title }]}>
+                                    {label}
+                                </Text>
+                                {isUploading && (
+                                    <View style={[styles.percentBadge, { backgroundColor: themeColors.iconBg, borderColor: themeColors.border + '70' }]}>
+                                        <Text variant="labelSmall" style={[styles.percentText, { color: themeColors.iconColor }]}>
+                                            {uploadProgress}%
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
+                                {isUploading
+                                    ? `Uploading to Drive... ${uploadProgress}%`
+                                    : isHovered
+                                    ? '📥 Drop files here to upload instantly'
+                                    : 'Click or drop files here to upload'}
+                            </Text>
+
+                            {/* Progress Slider Bar */}
+                            {isUploading && (
+                                <View style={styles.sliderContainer}>
+                                    <View style={styles.sliderTrack}>
+                                        <View
+                                            style={[
+                                                styles.sliderFill,
+                                                {
+                                                    width: `${Math.max(uploadProgress, 4)}%`,
+                                                    backgroundColor: themeColors.iconColor,
+                                                },
+                                            ]}
+                                        />
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    </Pressable>
+
+                    {/* Right Action Cluster: Clear All inside Button (only visible if list is not empty) + Accordion Chevron */}
+                    <View style={styles.dndRightActions}>
+                        {onClearAll && typeof fileCount === 'number' && fileCount > 0 && (
+                            <Pressable
+                                style={({ pressed }) => [
+                                    styles.clearAllInsideBtn,
+                                    {
+                                        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+                                    },
+                                ]}
+                                disabled={disabled || isUploading}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    onClearAll();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Clear all files in ${label}`}
+                            >
+                                <Avatar.Icon
+                                    size={18}
+                                    icon="trash-can-outline"
+                                    color="#D93025"
+                                    style={{ backgroundColor: 'transparent' }}
+                                />
+                                <Text variant="labelSmall" style={styles.clearAllText}>
+                                    Clear all
+                                </Text>
+                            </Pressable>
+                        )}
+
+                        {/* Right Accordion Chevron Button */}
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.chevronContainer,
+                                {
+                                    backgroundColor: isExpanded ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.03)',
+                                    borderColor: isExpanded ? themeColors.border : 'rgba(0, 0, 0, 0.06)',
+                                    opacity: pressed ? 0.7 : 1,
+                                },
+                            ]}
+                            onPress={onToggleExpand}
+                            accessibilityRole="button"
+                            accessibilityLabel={isExpanded ? `Hide ${label} list` : `Show ${label} list`}
+                        >
+                            <Avatar.Icon
+                                size={26}
+                                icon={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                color={themeColors.iconColor}
+                                style={{ backgroundColor: 'transparent' }}
+                            />
+                        </Pressable>
+                    </View>
+                </Card.Content>
+            </Card>
+        </View>
     );
 };
 
@@ -344,6 +600,7 @@ interface ListFilesDNDProps {
     folderId: string;
     accessToken: string | null;
     disabled: boolean;
+    onFilesLoaded?: (count: number) => void;
     onRenamePress: (file: DriveFile) => void;
     onDeletePress: (file: DriveFile) => void;
     onSharePress: (file: DriveFile) => void;
@@ -352,16 +609,17 @@ interface ListFilesDNDProps {
 }
 
 const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
-                                                                              title,
-                                                                              folderId,
-                                                                              accessToken,
-                                                                              disabled,
-                                                                              onRenamePress,
-                                                                              onDeletePress,
-                                                                              onSharePress,
-                                                                              onUploadSuccess,
-                                                                              onUploadError,
-                                                                          }) => {
+    title,
+    folderId,
+    accessToken,
+    disabled,
+    onFilesLoaded,
+    onRenamePress,
+    onDeletePress,
+    onSharePress,
+    onUploadSuccess,
+    onUploadError,
+}) => {
     const [folderFiles, setFolderFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [isDragOver, setIsDragOver] = useState<boolean>(false);
@@ -381,13 +639,15 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             });
             if (!res.ok) throw new Error(`Failed to load ${title}`);
             const data = await res.json();
-            setFolderFiles(data.files || []);
+            const files: DriveFile[] = data.files || [];
+            setFolderFiles(files);
+            onFilesLoaded?.(files.length);
         } catch (err: any) {
             onUploadError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [accessToken, folderId, title, onUploadError]);
+    }, [accessToken, folderId, title, onUploadError, onFilesLoaded]);
 
     useEffect(() => {
         if (folderId && accessToken) {
@@ -647,11 +907,55 @@ export default function App() {
     const [fileToRename, setFileToRename] = useState<DriveFile | null>(null);
 
     const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
+    const [folderToClear, setFolderToClear] = useState<{ id: string; title: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState<boolean>(false);
+    const [deleteProgress, setDeleteProgress] = useState<number>(0);
+    const [deleteStatusText, setDeleteStatusText] = useState<string>('');
+
+    // File count state to show/hide "Clear all" inside buttons
+    const [shopFilesCount, setShopFilesCount] = useState<number>(0);
+    const [trendFilesCount, setTrendFilesCount] = useState<number>(0);
 
     const [refreshSeed, setRefreshSeed] = useState<number>(0);
     const [snackbarMsg, setSnackbarMsg] = useState<string>('');
     const [isFabOpen, setIsFabOpen] = useState<boolean>(false);
+
+    // Accordion State: Lists hidden by default
+    const [isShopListExpanded, setIsShopListExpanded] = useState<boolean>(false);
+    const [isTrendListExpanded, setIsTrendListExpanded] = useState<boolean>(false);
+
+    // Fetch folder counts so Clear all visibility is accurate even before expanding
+    const fetchFolderCounts = useCallback(async () => {
+        if (!accessToken || !userFolders) return;
+        try {
+            if (userFolders.shopImagesId) {
+                const q = `'${userFolders.shopImagesId}' in parents and trashed = false`;
+                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id)`;
+                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    setShopFilesCount((data.files || []).length);
+                }
+            }
+            if (userFolders.trendImagesId) {
+                const q = `'${userFolders.trendImagesId}' in parents and trashed = false`;
+                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id)`;
+                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    setTrendFilesCount((data.files || []).length);
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching folder counts', e);
+        }
+    }, [accessToken, userFolders]);
+
+    useEffect(() => {
+        if (accessToken && userFolders) {
+            void fetchFolderCounts();
+        }
+    }, [fetchFolderCounts, refreshSeed, accessToken, userFolders]);
 
     // Global Drag Interceptor for Web Browsers (Prevents browser from opening dragged files outside dropzone)
     useEffect(() => {
@@ -793,6 +1097,11 @@ export default function App() {
 
             if (!res.ok) throw new Error('Upload failed');
             setSnackbarMsg(`Uploaded "${asset.name}" to ${folderTitle}!`);
+            if (folderTitle.includes('shop')) {
+                setIsShopListExpanded(true);
+            } else if (folderTitle.includes('trend')) {
+                setIsTrendListExpanded(true);
+            }
             setRefreshSeed((prev) => prev + 1);
         } catch (e: any) {
             setSnackbarMsg(`Upload error: ${e.message}`);
@@ -822,21 +1131,81 @@ export default function App() {
     };
 
     const confirmDelete = async () => {
-        if (!fileToDelete || !accessToken) return;
+        if ((!fileToDelete && !folderToClear) || !accessToken) return;
         setIsDeleting(true);
+        setDeleteProgress(0);
+        setDeleteStatusText('Connecting to Google Drive...');
         try {
-            const res = await fetch(`${DRIVE_API_URL}/${fileToDelete.id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            if (!res.ok) throw new Error('Failed to delete');
-            setSnackbarMsg(`"${fileToDelete.name}" deleted`);
-            setFileToDelete(null);
-            setRefreshSeed((prev) => prev + 1);
+            if (folderToClear) {
+                setDeleteStatusText(`Listing files in "${folderToClear.title}"...`);
+                setDeleteProgress(10);
+
+                const q = `'${folderToClear.id}' in parents and trashed = false`;
+                const fields = 'files(id, name)';
+                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}`;
+                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+                if (!res.ok) throw new Error(`Failed to list files in ${folderToClear.title}`);
+                const data = await res.json();
+                const files: DriveFile[] = data.files || [];
+
+                if (files.length === 0) {
+                    setDeleteProgress(100);
+                    setDeleteStatusText('Folder is already empty');
+                } else {
+                    for (let i = 0; i < files.length; i++) {
+                        const f = files[i];
+                        const currentPercent = Math.round(((i + 1) / files.length) * 100);
+                        setDeleteStatusText(`Deleting "${f.name}" (${i + 1}/${files.length})`);
+                        await fetch(`${DRIVE_API_URL}/${f.id}`, {
+                            method: 'DELETE',
+                            headers: { Authorization: `Bearer ${accessToken}` },
+                        });
+                        setDeleteProgress(currentPercent);
+                    }
+                }
+
+                setDeleteStatusText('Done! Folder cleared.');
+                setDeleteProgress(100);
+
+                setTimeout(() => {
+                    setSnackbarMsg(`Cleared all files from "${folderToClear.title}" (${files.length} deleted)`);
+                    if (folderToClear.title.includes('shop')) {
+                        setShopFilesCount(0);
+                    } else if (folderToClear.title.includes('trend')) {
+                        setTrendFilesCount(0);
+                    }
+                    setFolderToClear(null);
+                    setIsDeleting(false);
+                    setDeleteProgress(0);
+                    setDeleteStatusText('');
+                    setRefreshSeed((prev) => prev + 1);
+                }, 400);
+            } else if (fileToDelete) {
+                setDeleteStatusText(`Deleting "${fileToDelete.name}"...`);
+                setDeleteProgress(40);
+                const res = await fetch(`${DRIVE_API_URL}/${fileToDelete.id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                if (!res.ok) throw new Error('Failed to delete file');
+                setDeleteProgress(100);
+                setDeleteStatusText('File deleted!');
+
+                setTimeout(() => {
+                    setSnackbarMsg(`"${fileToDelete.name}" deleted`);
+                    setFileToDelete(null);
+                    setIsDeleting(false);
+                    setDeleteProgress(0);
+                    setDeleteStatusText('');
+                    setRefreshSeed((prev) => prev + 1);
+                    void fetchFolderCounts();
+                }, 400);
+            }
         } catch (e: any) {
-            setSnackbarMsg(`Delete failed: ${e.message}`);
-        } finally {
             setIsDeleting(false);
+            setDeleteProgress(0);
+            setDeleteStatusText('');
+            setSnackbarMsg(`Delete failed: ${e.message}`);
         }
     };
 
@@ -914,30 +1283,47 @@ export default function App() {
                                         targetFolderId={userFolders?.shopImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.shopImagesId}
+                                        isExpanded={isShopListExpanded}
+                                        fileCount={shopFilesCount}
+                                        onToggleExpand={() => setIsShopListExpanded((prev) => !prev)}
+                                        onClearAll={() => {
+                                            if (userFolders?.shopImagesId) {
+                                                setFolderToClear({
+                                                    id: userFolders.shopImagesId,
+                                                    title: 'dataset_shop_images',
+                                                });
+                                            }
+                                        }}
                                         onUploadSuccess={(fname) => {
                                             setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images!`);
+                                            setIsShopListExpanded(true);
                                             setRefreshSeed((prev) => prev + 1);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
                                     />
-                                    <ListFilesForGoogleDriveDNDComponent
-                                        key={`shop-list-${refreshSeed}`}
-                                        title="dataset_shop_images"
-                                        folderId={userFolders?.shopImagesId || ''}
-                                        accessToken={accessToken}
-                                        disabled={isGlobalDisabled || !userFolders?.shopImagesId}
-                                        onRenamePress={(file) => {
-                                            setFileToRename(file);
-                                            setRenameInput(file.name);
-                                            setIsRenameDialogVisible(true);
-                                        }}
-                                        onDeletePress={(file) => setFileToDelete(file)}
-                                        onSharePress={handleShareFile}
-                                        onUploadSuccess={(fname) => {
-                                            setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images`);
-                                        }}
-                                        onUploadError={(err) => setSnackbarMsg(err)}
-                                    />
+                                    {isShopListExpanded && (
+                                        <ListFilesForGoogleDriveDNDComponent
+                                            key={`shop-list-${refreshSeed}`}
+                                            title="dataset_shop_images"
+                                            folderId={userFolders?.shopImagesId || ''}
+                                            accessToken={accessToken}
+                                            disabled={isGlobalDisabled || !userFolders?.shopImagesId}
+                                            onFilesLoaded={(count) => setShopFilesCount(count)}
+                                            onRenamePress={(file) => {
+                                                setFileToRename(file);
+                                                setRenameInput(file.name);
+                                                setIsRenameDialogVisible(true);
+                                            }}
+                                            onDeletePress={(file) => setFileToDelete(file)}
+                                            onSharePress={handleShareFile}
+                                            onUploadSuccess={(fname) => {
+                                                setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images`);
+                                                setIsShopListExpanded(true);
+                                                setRefreshSeed((prev) => prev + 1);
+                                            }}
+                                            onUploadError={(err) => setSnackbarMsg(err)}
+                                        />
+                                    )}
                                 </View>
 
                                 {/* SECTION 2: dataset_trend_images */}
@@ -947,30 +1333,47 @@ export default function App() {
                                         targetFolderId={userFolders?.trendImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.trendImagesId}
+                                        isExpanded={isTrendListExpanded}
+                                        fileCount={trendFilesCount}
+                                        onToggleExpand={() => setIsTrendListExpanded((prev) => !prev)}
+                                        onClearAll={() => {
+                                            if (userFolders?.trendImagesId) {
+                                                setFolderToClear({
+                                                    id: userFolders.trendImagesId,
+                                                    title: 'dataset_trend_images',
+                                                });
+                                            }
+                                        }}
                                         onUploadSuccess={(fname) => {
                                             setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images!`);
+                                            setIsTrendListExpanded(true);
                                             setRefreshSeed((prev) => prev + 1);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
                                     />
-                                    <ListFilesForGoogleDriveDNDComponent
-                                        key={`trend-list-${refreshSeed}`}
-                                        title="dataset_trend_images"
-                                        folderId={userFolders?.trendImagesId || ''}
-                                        accessToken={accessToken}
-                                        disabled={isGlobalDisabled || !userFolders?.trendImagesId}
-                                        onRenamePress={(file) => {
-                                            setFileToRename(file);
-                                            setRenameInput(file.name);
-                                            setIsRenameDialogVisible(true);
-                                        }}
-                                        onDeletePress={(file) => setFileToDelete(file)}
-                                        onSharePress={handleShareFile}
-                                        onUploadSuccess={(fname) => {
-                                            setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images`);
-                                        }}
-                                        onUploadError={(err) => setSnackbarMsg(err)}
-                                    />
+                                    {isTrendListExpanded && (
+                                        <ListFilesForGoogleDriveDNDComponent
+                                            key={`trend-list-${refreshSeed}`}
+                                            title="dataset_trend_images"
+                                            folderId={userFolders?.trendImagesId || ''}
+                                            accessToken={accessToken}
+                                            disabled={isGlobalDisabled || !userFolders?.trendImagesId}
+                                            onFilesLoaded={(count) => setTrendFilesCount(count)}
+                                            onRenamePress={(file) => {
+                                                setFileToRename(file);
+                                                setRenameInput(file.name);
+                                                setIsRenameDialogVisible(true);
+                                            }}
+                                            onDeletePress={(file) => setFileToDelete(file)}
+                                            onSharePress={handleShareFile}
+                                            onUploadSuccess={(fname) => {
+                                                setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images`);
+                                                setIsTrendListExpanded(true);
+                                                setRefreshSeed((prev) => prev + 1);
+                                            }}
+                                            onUploadError={(err) => setSnackbarMsg(err)}
+                                        />
+                                    )}
                                 </View>
                             </View>
                         )}
@@ -1009,13 +1412,19 @@ export default function App() {
                         onStateChange={({ open }) => setIsFabOpen(open)}
                     />
 
-                    {/* Custom Nice Modal: AskBeforeDeleteGoogleFile */}
+                    {/* Custom Reusable Nice Modal: AskBeforeDeleteGoogleFile */}
                     <AskBeforeDeleteGoogleFile
-                        visible={!!fileToDelete}
+                        visible={!!fileToDelete || !!folderToClear}
                         file={fileToDelete}
-                        onDismiss={() => setFileToDelete(null)}
+                        folderTitle={folderToClear?.title}
+                        onDismiss={() => {
+                            setFileToDelete(null);
+                            setFolderToClear(null);
+                        }}
                         onConfirm={confirmDelete}
                         isDeleting={isDeleting}
+                        deleteProgress={deleteProgress}
+                        deleteStatusText={deleteStatusText}
                     />
 
                     {/* Rename File Dialog */}
@@ -1092,13 +1501,28 @@ const styles = StyleSheet.create({
         gap: 20,
     },
     sectionBlock: {
-        gap: 10,
+        marginBottom: 16,
+    },
+    sectionTopHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+        paddingHorizontal: 2,
+    },
+    sectionTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    sectionHeadingText: {
+        fontWeight: '700',
+        marginLeft: 8,
     },
     dndCard: {
-        backgroundColor: '#FFFFFF',
         borderStyle: 'dashed',
         borderWidth: 1.5,
-        borderRadius: 8,
+        borderRadius: 12,
+        marginVertical: 4,
     },
     dndCardHovered: {
         borderWidth: 2,
@@ -1106,8 +1530,134 @@ const styles = StyleSheet.create({
     dndContent: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
+    },
+    dndLeftTouchable: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        paddingVertical: 2,
+        paddingRight: 6,
+    },
+    iconBadge: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        marginRight: 14,
+        marginLeft: 2,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+    },
+    chevronContainer: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 6,
+        borderWidth: 1,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    percentBadge: {
+        borderRadius: 6,
+        borderWidth: 1,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        marginLeft: 8,
+    },
+    percentText: {
+        fontWeight: '700',
+        fontSize: 11,
+    },
+    sliderContainer: {
+        marginTop: 6,
+        width: '100%',
+    },
+    sliderTrack: {
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(0, 0, 0, 0.08)',
+        overflow: 'hidden',
+    },
+    sliderFill: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    dndRightActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 6,
+    },
+    clearAllInsideBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        borderRadius: 8,
+        backgroundColor: 'rgba(217, 48, 37, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(217, 48, 37, 0.2)',
+        marginRight: 6,
+    },
+    deleteProgressContainer: {
+        marginTop: 14,
+        padding: 10,
+        borderRadius: 10,
+        backgroundColor: '#FFF8F7',
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
+    },
+    deleteProgressHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    deleteStatusText: {
+        color: '#5F6368',
+        fontWeight: '600',
+        flex: 1,
+        marginRight: 8,
+    },
+    deletePercentBadge: {
+        backgroundColor: '#D93025',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+    },
+    deletePercentText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 11,
+    },
+    deleteSliderTrack: {
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#FFEBEE',
+        overflow: 'hidden',
+    },
+    deleteSliderFill: {
+        height: '100%',
+        borderRadius: 3,
+        backgroundColor: '#D93025',
+    },
+    clearAllText: {
+        color: '#D93025',
+        fontWeight: '600',
+        fontSize: 11,
+        marginLeft: 2,
     },
     dndIcon: {
         marginRight: 12,
