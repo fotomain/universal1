@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incident Report: Expo Web Bundle MIME Mismatch & Resolution</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(99, 102, 241, 0.3);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-blue: #3b82f6;
+      --accent-indigo: #6366f1;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --accent-green: #10b981;
+      --accent-yellow: #f59e0b;
+      --accent-red: #ef4444;
+      --code-bg: #030712;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2.5rem 1.5rem;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    .header-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 0.4rem 0.9rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.025em;
+      text-transform: uppercase;
+    }
+
+    .badge-status .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #10b981;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .report-meta {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    h1 {
+      font-size: 2.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.6rem;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      max-width: 850px;
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .stat-card.red::before { background: var(--accent-red); }
+    .stat-card.yellow::before { background: var(--accent-yellow); }
+    .stat-card.green::before { background: var(--accent-green); }
+    .stat-card.indigo::before { background: var(--accent-indigo); }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Section Cards */
+    .section-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-title svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Code & Terminal Blocks */
+    .code-wrapper {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 1rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+    }
+
+    .code-header {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .code-content {
+      padding: 1.2rem;
+      overflow-x: auto;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+
+    .error-highlight {
+      color: #f87171;
+      font-weight: 600;
+    }
+
+    .success-highlight {
+      color: #34d399;
+      font-weight: 600;
+    }
+
+    .diff-del {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      display: block;
+      padding: 2px 6px;
+      border-left: 3px solid #ef4444;
+      margin: 2px 0;
+    }
+
+    .diff-add {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      display: block;
+      padding: 2px 6px;
+      border-left: 3px solid #10b981;
+      margin: 2px 0;
+    }
+
+    /* Flow Chart / Steps */
+    .flow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    .flow-step {
+      display: flex;
+      gap: 1.25rem;
+      position: relative;
+    }
+
+    .step-marker {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .step-content {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .step-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+
+    .step-desc {
+      color: var(--text-secondary);
+      font-size: 0.925rem;
+    }
+
+    /* Verification Badge List */
+    .check-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .check-item {
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      color: #e5e7eb;
+      font-size: 0.925rem;
+    }
+
+    .check-icon {
+      color: #10b981;
+      flex-shrink: 0;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-top">
+        <div class="badge-status">
+          <span class="pulse-dot"></span>
+          Resolved & Verified
+        </div>
+        <div class="report-meta">
+          ID: ERR-EXPO-WEB-001 • Date: 2026-08-20 • Platform: Web / Hermes
+        </div>
+      </div>
+      <h1>Metro Bundler Error & MIME Mismatch Report</h1>
+      <p class="subtitle">
+        Analysis and resolution of browser <code style="color:#f87171">NS_ERROR_CORRUPTED_CONTENT</code> and MIME type <code style="color:#f87171">application/json</code> blocking for Expo Web bundle.
+      </p>
+    </header>
+
+    <!-- Summary Stats -->
+    <section class="summary-grid">
+      <div class="stat-card red">
+        <div class="stat-label">Initial Error</div>
+        <div class="stat-value">MIME Mismatch (500 JSON)</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-label">Root Causes</div>
+        <div class="stat-value">Missing Package & Entry Point</div>
+      </div>
+      <div class="stat-card indigo">
+        <div class="stat-label">Modules Bundled</div>
+        <div class="stat-value">6,270 Modules</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Bundle Status</div>
+        <div class="stat-value">HTTP 200 OK (JS)</div>
+      </div>
+    </section>
+
+    <!-- Problem Description -->
+    <section class="section-card">
+      <h2 class="section-title">
+        <svg fill="none" stroke="#f87171" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        1. Incident Symptoms & Browser Rejection
+      </h2>
+      <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+        When navigating to the Expo Web application, the browser failed to execute the client script and threw the following console error:
+      </p>
+
+      <div class="code-wrapper">
+        <div class="code-header">
+          <span>Browser Console Error</span>
+          <span>Firefox / Chromium Security Policy</span>
+        </div>
+        <div class="code-content">
+<span class="error-highlight">NS_ERROR_CORRUPTED_CONTENT</span>
+The resource from "http://localhost:8081/node_modules/expo/AppEntry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable" 
+was blocked due to MIME type ("<span class="error-highlight">application/json</span>") mismatch (<span class="error-highlight">X-Content-Type-Options: nosniff</span>).
+        </div>
+      </div>
+
+      <div class="step-desc" style="margin-top: 0.75rem;">
+        <strong>Mechanism:</strong> The browser requested a <code>&lt;script&gt;</code> file expecting <code>application/javascript</code>. Because Metro bundler encountered build/compilation errors, it responded with an HTTP 500 error payload in JSON format (<code>application/json</code>) with strict <code>X-Content-Type-Options: nosniff</code> security headers. Browser security rules blocked this payload from executing as a script, triggering <code>NS_ERROR_CORRUPTED_CONTENT</code>.
+      </div>
+    </section>
+
+    <!-- Root Cause Analysis -->
+    <section class="section-card">
+      <h2 class="section-title">
+        <svg fill="none" stroke="#60a5fa" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        2. Root Cause Breakdown
+      </h2>
+
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-marker">A</div>
+          <div class="step-content">
+            <div class="step-title">Missing Babel Plugin: <code>react-native-dotenv</code></div>
+            <p class="step-desc">
+              <code>babel.config.js</code> was configured to use <code>module:react-native-dotenv</code> for <code>@env</code> imports, but the dependency was missing in <code>package.json</code> and <code>node_modules</code>.
+            </p>
+            <div class="code-wrapper" style="margin-top: 0.75rem;">
+              <div class="code-header"><span>Metro DeltaBundler Worker Stack Trace</span></div>
+              <div class="code-content error-highlight">
+Error: Cannot find module 'react-native-dotenv'
+Require stack:
+- /Users/mgtimber/UNIVERSAL1/expo-app/node_modules/@babel/core/lib/config/files/plugins.js
+- /Users/mgtimber/UNIVERSAL1/expo-app/node_modules/@expo/metro-config/build/transform-worker/metro-transform-worker.js
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="step-marker">B</div>
+          <div class="step-content">
+            <div class="step-title">Expo Router Entry Point Mismatch in <code>package.json</code></div>
+            <p class="step-desc">
+              The project uses <strong>Expo Router</strong> (with <code>plugins: ['expo-router']</code> and an <code>app/</code> directory architecture). However, <code>package.json</code> pointed to <code>node_modules/expo/AppEntry.js</code> (which looks for a legacy root <code>App.js</code> that did not exist), instead of <code>expo-router/entry</code>.
+            </p>
+            <div class="code-wrapper" style="margin-top: 0.75rem;">
+              <div class="code-header"><span>Resolution Error Stack</span></div>
+              <div class="code-content error-highlight">
+Unable to resolve "../../App" from "node_modules/expo/AppEntry.js"
+  1 | import registerRootComponent from 'expo/src/launch/registerRootComponent';
+> 3 | import App from '../../App';
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fixes Applied -->
+    <section class="section-card">
+      <h2 class="section-title">
+        <svg fill="none" stroke="#34d399" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        3. Corrective Actions Applied
+      </h2>
+
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-marker">1</div>
+          <div class="step-content">
+            <div class="step-title">Installed <code>react-native-dotenv</code></div>
+            <p class="step-desc">Installed the required module to support Babel environment variable mapping.</p>
+            <div class="code-wrapper">
+              <div class="code-header"><span>Terminal Command</span></div>
+              <div class="code-content"><span class="success-highlight">npm install react-native-dotenv</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="step-marker">2</div>
+          <div class="step-content">
+            <div class="step-title">Corrected <code>package.json</code> Main Entry</div>
+            <p class="step-desc">Aligned the package main entry point with the Expo Router specification.</p>
+            <div class="code-wrapper">
+              <div class="code-header"><span>package.json (Diff)</span></div>
+              <div class="code-content">
+  "name": "my-app",
+  "version": "1.0.0",
+<span class="diff-del">- "main": "node_modules/expo/AppEntry.js",</span>
+<span class="diff-add">+ "main": "expo-router/entry",</span>
+  "scripts": {
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="step-marker">3</div>
+          <div class="step-content">
+            <div class="step-title">Restarted Dev Server with Cleared Bundler Cache</div>
+            <p class="step-desc">Rebooted Metro to clear stale transform workers and rebuild delta bundles.</p>
+            <div class="code-wrapper">
+              <div class="code-header"><span>Terminal Command</span></div>
+              <div class="code-content"><span class="success-highlight">npx expo start --clear --web</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Verification Results -->
+    <section class="section-card">
+      <h2 class="section-title">
+        <svg fill="none" stroke="#a78bfa" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        4. Verification & Health Checks
+      </h2>
+
+      <div class="code-wrapper">
+        <div class="code-header">
+          <span>HTTP Response Header Inspection (Live Verification)</span>
+          <span>Status: 200 OK</span>
+        </div>
+        <div class="code-content">
+<span class="success-highlight">HTTP/1.1 200 OK</span>
+<span class="success-highlight">Content-Type: application/javascript; charset=UTF-8</span>
+X-Content-Type-Options: nosniff
+Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+Content-Length: 59236550
+Date: Thu, 20 Aug 2026 11:30:22 GMT
+
+<span style="color: #93c5fd;">Web Bundled 20867ms node_modules/expo-router/entry.js (6270 modules)</span>
+        </div>
+      </div>
+
+      <ul class="check-list">
+        <li class="check-item">
+          <span class="check-icon">✓</span>
+          <span>Babel successfully resolves <code>react-native-dotenv</code> plugin and injects environment variables.</span>
+        </li>
+        <li class="check-item">
+          <span class="check-icon">✓</span>
+          <span>Expo Router successfully resolves layout structure in <code>app/</code> directory.</span>
+        </li>
+        <li class="check-item">
+          <span class="check-icon">✓</span>
+          <span>Metro serves <code>application/javascript</code> MIME type, fully satisfying browser <code>nosniff</code> policy.</span>
+        </li>
+        <li class="check-item">
+          <span class="check-icon">✓</span>
+          <span>All 6,270 modules bundle seamlessly without runtime or packaging errors.</span>
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      Generated automatically by Antigravity IDE • Universal App Architecture • Expo SDK 55
+    </footer>
+  </div>
+</body>
+</html>

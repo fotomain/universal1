@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     StyleSheet,
     View,
@@ -22,7 +22,6 @@ import {
     ActivityIndicator,
     Snackbar,
     Avatar,
-    useTheme,
 } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -40,13 +39,24 @@ const userGUID = '88888999999';
 const SHOP_IMAGES_FOLDER_NAME = 'dataset_shop_images';
 const TREND_IMAGES_FOLDER_NAME = 'dataset_trend_images';
 
-// Hardcoded safe fallbacks to prevent process.env / @env crashes
-const ENV_VARS = {
+let ENV_VARS = {
     FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '1CSG6zHm5Dof61lDMngp5rcmxQZXp1pWb',
     CLIENT_ID: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_PLACEHOLDER',
     CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET_PLACEHOLDER',
     REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || 'GOOGLE_REFRESH_TOKEN_PLACEHOLDER',
 };
+
+try {
+    const env = require('@env');
+    ENV_VARS = {
+        FOLDER_ID: env.GOOGLE_DRIVE_FOLDER_ID || ENV_VARS.FOLDER_ID,
+        CLIENT_ID: env.GOOGLE_CLIENT_ID || ENV_VARS.CLIENT_ID,
+        CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET || ENV_VARS.CLIENT_SECRET,
+        REFRESH_TOKEN: env.GOOGLE_REFRESH_TOKEN || ENV_VARS.REFRESH_TOKEN,
+    };
+} catch (e) {
+    // Fallback to process.env or defaults
+}
 
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -72,14 +82,6 @@ interface UserFolderHierarchy {
     shopImagesId: string;
     trendImagesId: string;
 }
-
-export interface DroppedFilePayload {
-    name: string;
-    mimeType?: string;
-    uri?: string;
-    blob?: Blob | File;
-}
-
 
 // ============================================================================
 // MODAL: AskBeforeDeleteGoogleFile
@@ -150,7 +152,7 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
 };
 
 // ============================================================================
-// DND PICKER BUTTON: SelectFilesForGoogleDriveDNDComponent
+// COMPONENT: SelectFilesForGoogleDriveDNDComponent
 // ============================================================================
 
 interface DNDProps {
@@ -160,7 +162,6 @@ interface DNDProps {
     disabled: boolean;
     onUploadSuccess: (filename: string) => void;
     onUploadError: (err: string) => void;
-    variant?: 'green' | 'yellow' | 'default';
 }
 
 const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
@@ -170,40 +171,9 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
                                                                        disabled,
                                                                        onUploadSuccess,
                                                                        onUploadError,
-                                                                       variant,
                                                                    }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-
-    const isYellow = variant === 'yellow' || (!variant && (label.includes('trend') || label.includes('dataset_trend_images')));
-    const isGreen = variant === 'green' || (!variant && (label.includes('shop') || label.includes('dataset_shop_images')));
-
-    const themeColors = isYellow
-        ? {
-              bg: isHovered ? '#FFF2B2' : '#FEF7D2',
-              border: '#E6A700',
-              title: '#533F03',
-              subtitle: '#786018',
-              iconColor: '#B45309',
-              iconBg: '#FFFFFF',
-          }
-        : isGreen
-        ? {
-              bg: isHovered ? '#D7EEDF' : '#E8F5E9',
-              border: '#4CAF50',
-              title: '#0E3E1E',
-              subtitle: '#2E5E3E',
-              iconColor: '#1B5E20',
-              iconBg: '#FFFFFF',
-          }
-        : {
-              bg: isHovered ? '#F0F4F9' : '#FFFFFF',
-              border: '#E0E2EC',
-              title: '#1F1F1F',
-              subtitle: '#5F6368',
-              iconColor: '#1A73E8',
-              iconBg: '#F1F3F4',
-          };
 
     const uploadFileBlob = async (fileObj: { name: string; mimeType: string; blob: Blob | File }) => {
         if (!accessToken || !targetFolderId) {
@@ -219,8 +189,8 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
             };
 
             const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', fileObj.blob, fileObj.name);
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
+            formData.append('file', fileObj.blob as any, fileObj.name);
 
             const res = await fetch(DRIVE_UPLOAD_URL, {
                 method: 'POST',
@@ -294,6 +264,36 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
             }
             : {};
 
+    const isYellow = label.includes('trend') || label.includes('dataset_trend_images');
+    const isGreen = label.includes('shop') || label.includes('dataset_shop_images');
+
+    const themeColors = isYellow
+        ? {
+              bg: isHovered ? '#FFF2B2' : '#FEF7D2',
+              border: '#E6A700',
+              title: '#533F03',
+              subtitle: '#786018',
+              iconColor: '#B45309',
+              iconBg: '#FFFFFF',
+          }
+        : isGreen
+        ? {
+              bg: isHovered ? '#D7EEDF' : '#E8F5E9',
+              border: '#4CAF50',
+              title: '#0E3E1E',
+              subtitle: '#2E5E3E',
+              iconColor: '#1B5E20',
+              iconBg: '#FFFFFF',
+          }
+        : {
+              bg: isHovered ? '#F0F4F9' : '#FFFFFF',
+              border: '#E0E2EC',
+              title: '#1F1F1F',
+              subtitle: '#5F6368',
+              iconColor: '#1A73E8',
+              iconBg: '#F1F3F4',
+          };
+
     return (
         <Card
             style={[
@@ -364,9 +364,8 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                                                                           }) => {
     const [folderFiles, setFolderFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
-    const [isDragOver, setIsDragOver] = useState<boolean>(false);
+    const [isDropZoneActive, setIsDropZoneActive] = useState<boolean>(false);
     const [isUploading, setIsUploading] = useState<boolean>(false);
-    const dragCounter = useRef(0);
 
     const fetchFolderFiles = useCallback(async () => {
         if (!accessToken || !folderId) return;
@@ -395,44 +394,42 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
         }
     }, [folderId, accessToken, fetchFolderFiles]);
 
-    const processAndUploadFiles = async (filesList: DroppedFileItem[]) => {
+    const uploadFileBlob = async (fileObj: DroppedFileItem) => {
         if (!accessToken || !folderId) return;
         setIsUploading(true);
         try {
-            for (const fileItem of filesList) {
-                const metadata = {
-                    name: fileItem.name,
-                    mimeType: fileItem.mimeType || 'application/octet-stream',
-                    parents: [folderId],
-                };
+            const metadata = {
+                name: fileObj.name,
+                mimeType: fileObj.mimeType || 'application/octet-stream',
+                parents: [folderId],
+            };
 
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            const formData = new FormData();
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
 
-                if (fileItem.blob) {
-                    formData.append('file', fileItem.blob, fileItem.name);
-                } else if (fileItem.uri) {
-                    const fileData = await fetch(fileItem.uri);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                } else if (fileItem.base64) {
-                    const fileData = await fetch(fileItem.base64);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                }
-
-                const res = await fetch(DRIVE_UPLOAD_URL, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    body: formData,
-                });
-
-                if (!res.ok) throw new Error(`Upload failed for ${fileItem.name}`);
-                onUploadSuccess(fileItem.name);
+            if (fileObj.blob) {
+                formData.append('file', fileObj.blob as any, fileObj.name);
+            } else if (fileObj.uri) {
+                const fileData = await fetch(fileObj.uri);
+                const blob = await fileData.blob();
+                formData.append('file', blob, fileObj.name);
+            } else if (fileObj.base64) {
+                const fileData = await fetch(fileObj.base64);
+                const blob = await fileData.blob();
+                formData.append('file', blob, fileObj.name);
             }
+
+            const res = await fetch(DRIVE_UPLOAD_URL, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+            onUploadSuccess(fileObj.name);
             void fetchFolderFiles();
         } catch (e: any) {
-            onUploadError(e.message || 'Error during drop upload');
+            onUploadError(e.message || 'Drop upload error');
         } finally {
             setIsUploading(false);
         }
@@ -440,7 +437,6 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
 
     const dropContainerRef = useRef<View>(null);
 
-    // Attach robust DOM drag listeners directly to the container on Web (supports Firefox, Chrome, Safari on Mac)
     useEffect(() => {
         if (Platform.OS !== 'web' || !dropContainerRef.current) return;
         const domNode = (dropContainerRef.current as any) as HTMLElement;
@@ -452,9 +448,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             e.preventDefault();
             e.stopPropagation();
             counter++;
-            if (!disabled) {
-                setIsDragOver(true);
-            }
+            if (!disabled) setIsDropZoneActive(true);
         };
 
         const handleDragOver = (e: DragEvent) => {
@@ -463,9 +457,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             if (e.dataTransfer) {
                 e.dataTransfer.dropEffect = 'copy';
             }
-            if (!isDragOver && !disabled) {
-                setIsDragOver(true);
-            }
+            if (!isDropZoneActive && !disabled) setIsDropZoneActive(true);
         };
 
         const handleDragLeave = (e: DragEvent) => {
@@ -474,25 +466,24 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             counter--;
             if (counter <= 0) {
                 counter = 0;
-                setIsDragOver(false);
+                setIsDropZoneActive(false);
             }
         };
 
-        const handleDrop = async (e: DragEvent) => {
+        const handleDrop = (e: DragEvent) => {
             e.preventDefault();
             e.stopPropagation();
             counter = 0;
-            setIsDragOver(false);
+            setIsDropZoneActive(false);
             if (disabled || !e.dataTransfer?.files?.length) return;
-
-            const files = Array.from(e.dataTransfer.files);
-            const items: DroppedFileItem[] = files.map((file) => ({
-                name: file.name,
-                mimeType: file.type || 'application/octet-stream',
-                size: file.size,
-                blob: file,
-            }));
-            await processAndUploadFiles(items);
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                const file = e.dataTransfer.files[i];
+                void uploadFileBlob({
+                    name: file.name,
+                    mimeType: file.type,
+                    blob: file,
+                });
+            }
         };
 
         domNode.addEventListener('dragenter', handleDragEnter);
@@ -506,7 +497,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             domNode.removeEventListener('dragleave', handleDragLeave);
             domNode.removeEventListener('drop', handleDrop);
         };
-    }, [disabled, isDragOver]);
+    }, [disabled, isDropZoneActive]);
 
     const formatBytes = (bytes?: string) => {
         if (!bytes) return '—';
@@ -522,6 +513,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             <Card
                 style={[
                     styles.listContainerCard,
+                    isDropZoneActive && styles.listDropZoneActive,
                     disabled && styles.disabledOpacity,
                 ]}
                 mode="elevated"
@@ -553,24 +545,20 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                     <View style={styles.uploadingNotice}>
                         <ActivityIndicator size="small" />
                         <Text variant="bodySmall" style={{ marginLeft: 8 }}>
-                            Uploading files to Drive...
+                            Uploading dropped file(s)...
                         </Text>
                     </View>
                 )}
 
-                {isDragOver ? (
+                {isDropZoneActive ? (
                     <ReceiveDraggableFilesComponent
                         folderName={title}
-                        isHovered={isDragOver}
-                        onDragEnter={() => setIsDragOver(true)}
-                        onDragLeave={() => {
-                            dragCounter.current = 0;
-                            setIsDragOver(false);
-                        }}
+                        isHovered={isDropZoneActive}
+                        onDragEnter={() => setIsDropZoneActive(true)}
+                        onDragLeave={() => setIsDropZoneActive(false)}
                         onFilesDropped={(files) => {
-                            setIsDragOver(false);
-                            dragCounter.current = 0;
-                            void processAndUploadFiles(files);
+                            setIsDropZoneActive(false);
+                            files.forEach((f) => void uploadFileBlob(f));
                         }}
                     />
                 ) : loading ? (
@@ -579,7 +567,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                     <View style={styles.emptyDropPrompt}>
                         <Avatar.Icon size={36} icon="file-upload-outline" style={{ backgroundColor: 'transparent' }} color="#9AA0A6" />
                         <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4 }}>
-                            No files yet. Drag files over this zone to trigger instant upload.
+                            Drag & Drop files anywhere into this list to upload automatically.
                         </Text>
                     </View>
                 ) : (
@@ -653,7 +641,10 @@ export default function App() {
     const [snackbarMsg, setSnackbarMsg] = useState<string>('');
     const [isFabOpen, setIsFabOpen] = useState<boolean>(false);
 
-    // Global Drag Interceptor for Web Browsers (Prevents browser from opening dragged files outside dropzone)
+    // ============================================================================
+    // GLOBAL DRAG & DROP INTERCEPTOR (Silences Firefox/Browser popups)
+    // ============================================================================
+
     useEffect(() => {
         if (Platform.OS !== 'web') return;
 
@@ -670,7 +661,10 @@ export default function App() {
         };
     }, []);
 
-    // Token refresh logic
+    // ============================================================================
+    // TOKEN REFRESH LOGIC
+    // ============================================================================
+
     const getValidAccessToken = useCallback(async (): Promise<string | null> => {
         try {
             const response = await fetch(TOKEN_ENDPOINT, {
@@ -697,7 +691,10 @@ export default function App() {
         }
     }, []);
 
-    // Folder creation logic
+    // ============================================================================
+    // SUBFOLDER INITIALIZATION
+    // ============================================================================
+
     const getOrCreateFolder = async (folderName: string, parentId: string, token: string): Promise<string> => {
         const q = `'${parentId}' in parents and name = '${folderName}' and mimeType = '${FOLDER_MIME}' and trashed = false`;
         const searchUrl = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id, name)`;
@@ -760,7 +757,10 @@ export default function App() {
         })();
     }, [getValidAccessToken, createSubfolders]);
 
-    // Upload helper for FAB speed dial
+    // ============================================================================
+    // UPLOAD HELPER FOR FAB ACTIONS
+    // ============================================================================
+
     const handleUploadToTargetFolder = async (targetFolderId: string, folderTitle: string) => {
         if (!accessToken || !targetFolderId || isInitializing) return;
         try {
@@ -782,8 +782,8 @@ export default function App() {
             const blob = await fileData.blob();
 
             const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', blob, asset.name);
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
+            formData.append('file', blob as any, asset.name);
 
             const res = await fetch(DRIVE_UPLOAD_URL, {
                 method: 'POST',
@@ -798,6 +798,10 @@ export default function App() {
             setSnackbarMsg(`Upload error: ${e.message}`);
         }
     };
+
+    // ============================================================================
+    // FILE ACTIONS
+    // ============================================================================
 
     const handleRename = async () => {
         if (!fileToRename || !renameInput.trim() || !accessToken) return;
@@ -1126,22 +1130,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#E0E2EC',
-        minHeight: 140,
     },
-    receiveDropContainer: {
-        borderRadius: 12,
+    listDropZoneActive: {
         borderWidth: 2,
-        borderStyle: 'dashed',
-        paddingVertical: 32,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 8,
-    },
-    receiveTitle: {
-        marginTop: 12,
-        fontWeight: 'bold',
-        textAlign: 'center',
+        borderColor: '#0B57D0',
+        backgroundColor: '#F0F4F9',
     },
     listHeaderRow: {
         flexDirection: 'row',

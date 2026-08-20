@@ -2,6 +2,8 @@
 https://youtu.be/4pe1fn3Gus0
 https://youtu.be/nta1YhicoGw
 
+custom_country_images
+
 ## ███ //TODO!!!
 npx expo start --web
 npm run web

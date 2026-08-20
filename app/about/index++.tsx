@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     StyleSheet,
     View,
     ScrollView,
+    FlatList,
     Platform,
     Share,
+    Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,13 +24,12 @@ import {
     ActivityIndicator,
     Snackbar,
     Avatar,
-    useTheme,
+    Divider,
 } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
 import {
     ReceiveDraggableFilesComponent,
     type DroppedFileItem,
-    SpeedDialFAB,
 } from '../../components/common';
 
 
@@ -40,13 +41,24 @@ const userGUID = '88888999999';
 const SHOP_IMAGES_FOLDER_NAME = 'dataset_shop_images';
 const TREND_IMAGES_FOLDER_NAME = 'dataset_trend_images';
 
-// Hardcoded safe fallbacks to prevent process.env / @env crashes
-const ENV_VARS = {
+let ENV_VARS = {
     FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '1CSG6zHm5Dof61lDMngp5rcmxQZXp1pWb',
     CLIENT_ID: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_PLACEHOLDER',
     CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET_PLACEHOLDER',
     REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || 'GOOGLE_REFRESH_TOKEN_PLACEHOLDER',
 };
+
+try {
+    const env = require('@env');
+    ENV_VARS = {
+        FOLDER_ID: env.GOOGLE_DRIVE_FOLDER_ID || ENV_VARS.FOLDER_ID,
+        CLIENT_ID: env.GOOGLE_CLIENT_ID || ENV_VARS.CLIENT_ID,
+        CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET || ENV_VARS.CLIENT_SECRET,
+        REFRESH_TOKEN: env.GOOGLE_REFRESH_TOKEN || ENV_VARS.REFRESH_TOKEN,
+    };
+} catch (e) {
+    // Use fallback or process.env
+}
 
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -73,16 +85,8 @@ interface UserFolderHierarchy {
     trendImagesId: string;
 }
 
-export interface DroppedFilePayload {
-    name: string;
-    mimeType?: string;
-    uri?: string;
-    blob?: Blob | File;
-}
-
-
 // ============================================================================
-// MODAL: AskBeforeDeleteGoogleFile
+// CUSTOM NICE MODAL: AskBeforeDeleteGoogleFile
 // ============================================================================
 
 interface AskBeforeDeleteProps {
@@ -105,16 +109,16 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
             <Dialog visible={visible} onDismiss={onDismiss} style={styles.deleteDialog}>
                 <View style={styles.deleteHeaderIconWrapper}>
                     <Avatar.Icon
-                        size={52}
+                        size={56}
                         icon="trash-can-outline"
                         style={{ backgroundColor: '#FCE8E6' }}
                         color="#D93025"
                     />
                 </View>
-                <Dialog.Title style={styles.deleteTitle}>Delete File?</Dialog.Title>
+                <Dialog.Title style={styles.deleteTitle}>Delete File from Drive?</Dialog.Title>
                 <Dialog.Content>
                     <Text variant="bodyMedium" style={styles.deleteContentText}>
-                        Are you sure you want to permanently remove this file from your dataset?
+                        You are about to permanently remove this file from your Google Drive folder:
                     </Text>
                     <View style={styles.deleteFileNameBox}>
                         <Avatar.Icon size={24} icon="file-outline" style={{ backgroundColor: 'transparent' }} color="#5F6368" />
@@ -150,7 +154,7 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
 };
 
 // ============================================================================
-// DND PICKER BUTTON: SelectFilesForGoogleDriveDNDComponent
+// DND & FILE PICKER UPLOAD BUTTON COMPONENT
 // ============================================================================
 
 interface DNDProps {
@@ -160,7 +164,6 @@ interface DNDProps {
     disabled: boolean;
     onUploadSuccess: (filename: string) => void;
     onUploadError: (err: string) => void;
-    variant?: 'green' | 'yellow' | 'default';
 }
 
 const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
@@ -170,44 +173,13 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
                                                                        disabled,
                                                                        onUploadSuccess,
                                                                        onUploadError,
-                                                                       variant,
                                                                    }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
-    const isYellow = variant === 'yellow' || (!variant && (label.includes('trend') || label.includes('dataset_trend_images')));
-    const isGreen = variant === 'green' || (!variant && (label.includes('shop') || label.includes('dataset_shop_images')));
-
-    const themeColors = isYellow
-        ? {
-              bg: isHovered ? '#FFF2B2' : '#FEF7D2',
-              border: '#E6A700',
-              title: '#533F03',
-              subtitle: '#786018',
-              iconColor: '#B45309',
-              iconBg: '#FFFFFF',
-          }
-        : isGreen
-        ? {
-              bg: isHovered ? '#D7EEDF' : '#E8F5E9',
-              border: '#4CAF50',
-              title: '#0E3E1E',
-              subtitle: '#2E5E3E',
-              iconColor: '#1B5E20',
-              iconBg: '#FFFFFF',
-          }
-        : {
-              bg: isHovered ? '#F0F4F9' : '#FFFFFF',
-              border: '#E0E2EC',
-              title: '#1F1F1F',
-              subtitle: '#5F6368',
-              iconColor: '#1A73E8',
-              iconBg: '#F1F3F4',
-          };
-
     const uploadFileBlob = async (fileObj: { name: string; mimeType: string; blob: Blob | File }) => {
         if (!accessToken || !targetFolderId) {
-            onUploadError('Invalid session or folder');
+            onUploadError('Invalid session or target folder');
             return;
         }
         setIsUploading(true);
@@ -219,8 +191,8 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
             };
 
             const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', fileObj.blob, fileObj.name);
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
+            formData.append('file', fileObj.blob as any, fileObj.name);
 
             const res = await fetch(DRIVE_UPLOAD_URL, {
                 method: 'POST',
@@ -267,21 +239,14 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
             ? {
                 onDragOver: (e: any) => {
                     e.preventDefault();
-                    e.stopPropagation();
                     if (!disabled) setIsHovered(true);
-                },
-                onDragEnter: (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
                 },
                 onDragLeave: (e: any) => {
                     e.preventDefault();
-                    e.stopPropagation();
                     setIsHovered(false);
                 },
                 onDrop: async (e: any) => {
                     e.preventDefault();
-                    e.stopPropagation();
                     setIsHovered(false);
                     if (disabled || !e.dataTransfer?.files?.length) return;
                     const droppedFile = e.dataTransfer.files[0];
@@ -293,6 +258,36 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
                 },
             }
             : {};
+
+    const isYellow = label.includes('trend') || label.includes('dataset_trend_images');
+    const isGreen = label.includes('shop') || label.includes('dataset_shop_images');
+
+    const themeColors = isYellow
+        ? {
+              bg: isHovered ? '#FFF2B2' : '#FEF7D2',
+              border: '#E6A700',
+              title: '#533F03',
+              subtitle: '#786018',
+              iconColor: '#B45309',
+              iconBg: '#FFFFFF',
+          }
+        : isGreen
+        ? {
+              bg: isHovered ? '#D7EEDF' : '#E8F5E9',
+              border: '#4CAF50',
+              title: '#0E3E1E',
+              subtitle: '#2E5E3E',
+              iconColor: '#1B5E20',
+              iconBg: '#FFFFFF',
+          }
+        : {
+              bg: isHovered ? '#F0F4F9' : '#FFFFFF',
+              border: '#E0E2EC',
+              title: '#1F1F1F',
+              subtitle: '#5F6368',
+              iconColor: '#1A73E8',
+              iconBg: '#F1F3F4',
+          };
 
     return (
         <Card
@@ -327,7 +322,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
                         {label}
                     </Text>
                     <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
-                        {isUploading ? 'Uploading file...' : 'Click or drop files here to upload'}
+                        {isUploading ? 'Uploading to Drive...' : 'Choose or Drop File to Upload'}
                     </Text>
                 </View>
             </Card.Content>
@@ -336,7 +331,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<DNDProps> = ({
 };
 
 // ============================================================================
-// COMPONENT: ListFilesForGoogleDriveDNDComponent
+// LIST + DROP ZONE COMPONENT: ListFilesForGoogleDriveDNDComponent
 // ============================================================================
 
 interface ListFilesDNDProps {
@@ -364,9 +359,8 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                                                                           }) => {
     const [folderFiles, setFolderFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
-    const [isDragOver, setIsDragOver] = useState<boolean>(false);
+    const [isDropZoneActive, setIsDropZoneActive] = useState<boolean>(false);
     const [isUploading, setIsUploading] = useState<boolean>(false);
-    const dragCounter = useRef(0);
 
     const fetchFolderFiles = useCallback(async () => {
         if (!accessToken || !folderId) return;
@@ -395,44 +389,42 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
         }
     }, [folderId, accessToken, fetchFolderFiles]);
 
-    const processAndUploadFiles = async (filesList: DroppedFileItem[]) => {
+    const uploadFileBlob = async (fileObj: DroppedFileItem) => {
         if (!accessToken || !folderId) return;
         setIsUploading(true);
         try {
-            for (const fileItem of filesList) {
-                const metadata = {
-                    name: fileItem.name,
-                    mimeType: fileItem.mimeType || 'application/octet-stream',
-                    parents: [folderId],
-                };
+            const metadata = {
+                name: fileObj.name,
+                mimeType: fileObj.mimeType || 'application/octet-stream',
+                parents: [folderId],
+            };
 
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            const formData = new FormData();
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
 
-                if (fileItem.blob) {
-                    formData.append('file', fileItem.blob, fileItem.name);
-                } else if (fileItem.uri) {
-                    const fileData = await fetch(fileItem.uri);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                } else if (fileItem.base64) {
-                    const fileData = await fetch(fileItem.base64);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                }
-
-                const res = await fetch(DRIVE_UPLOAD_URL, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    body: formData,
-                });
-
-                if (!res.ok) throw new Error(`Upload failed for ${fileItem.name}`);
-                onUploadSuccess(fileItem.name);
+            if (fileObj.blob) {
+                formData.append('file', fileObj.blob as any, fileObj.name);
+            } else if (fileObj.uri) {
+                const fileData = await fetch(fileObj.uri);
+                const blob = await fileData.blob();
+                formData.append('file', blob, fileObj.name);
+            } else if (fileObj.base64) {
+                const fileData = await fetch(fileObj.base64);
+                const blob = await fileData.blob();
+                formData.append('file', blob, fileObj.name);
             }
+
+            const res = await fetch(DRIVE_UPLOAD_URL, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+            onUploadSuccess(fileObj.name);
             void fetchFolderFiles();
         } catch (e: any) {
-            onUploadError(e.message || 'Error during drop upload');
+            onUploadError(e.message || 'Drop upload error');
         } finally {
             setIsUploading(false);
         }
@@ -440,7 +432,6 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
 
     const dropContainerRef = useRef<View>(null);
 
-    // Attach robust DOM drag listeners directly to the container on Web (supports Firefox, Chrome, Safari on Mac)
     useEffect(() => {
         if (Platform.OS !== 'web' || !dropContainerRef.current) return;
         const domNode = (dropContainerRef.current as any) as HTMLElement;
@@ -452,9 +443,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             e.preventDefault();
             e.stopPropagation();
             counter++;
-            if (!disabled) {
-                setIsDragOver(true);
-            }
+            if (!disabled) setIsDropZoneActive(true);
         };
 
         const handleDragOver = (e: DragEvent) => {
@@ -463,9 +452,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             if (e.dataTransfer) {
                 e.dataTransfer.dropEffect = 'copy';
             }
-            if (!isDragOver && !disabled) {
-                setIsDragOver(true);
-            }
+            if (!isDropZoneActive && !disabled) setIsDropZoneActive(true);
         };
 
         const handleDragLeave = (e: DragEvent) => {
@@ -474,25 +461,24 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             counter--;
             if (counter <= 0) {
                 counter = 0;
-                setIsDragOver(false);
+                setIsDropZoneActive(false);
             }
         };
 
-        const handleDrop = async (e: DragEvent) => {
+        const handleDrop = (e: DragEvent) => {
             e.preventDefault();
             e.stopPropagation();
             counter = 0;
-            setIsDragOver(false);
+            setIsDropZoneActive(false);
             if (disabled || !e.dataTransfer?.files?.length) return;
-
-            const files = Array.from(e.dataTransfer.files);
-            const items: DroppedFileItem[] = files.map((file) => ({
-                name: file.name,
-                mimeType: file.type || 'application/octet-stream',
-                size: file.size,
-                blob: file,
-            }));
-            await processAndUploadFiles(items);
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                const file = e.dataTransfer.files[i];
+                void uploadFileBlob({
+                    name: file.name,
+                    mimeType: file.type,
+                    blob: file,
+                });
+            }
         };
 
         domNode.addEventListener('dragenter', handleDragEnter);
@@ -506,7 +492,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             domNode.removeEventListener('dragleave', handleDragLeave);
             domNode.removeEventListener('drop', handleDrop);
         };
-    }, [disabled, isDragOver]);
+    }, [disabled, isDropZoneActive]);
 
     const formatBytes = (bytes?: string) => {
         if (!bytes) return '—';
@@ -522,6 +508,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             <Card
                 style={[
                     styles.listContainerCard,
+                    isDropZoneActive && styles.listDropZoneActive,
                     disabled && styles.disabledOpacity,
                 ]}
                 mode="elevated"
@@ -529,12 +516,12 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             <Card.Content>
                 <View style={styles.listHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Avatar.Icon size={32} icon="folder-image" style={styles.listFolderIcon} />
+                        <Avatar.Icon size={30} icon="folder-image" style={styles.listFolderIcon} color="#1A73E8" />
                         <Text variant="titleMedium" style={styles.listSectionTitle}>
                             {title}
                         </Text>
                         <View style={styles.badgeCount}>
-                            <Text variant="labelSmall" style={{ fontWeight: 'bold' }}>
+                            <Text variant="labelSmall" style={{ color: '#1A73E8', fontWeight: 'bold' }}>
                                 {folderFiles.length}
                             </Text>
                         </View>
@@ -551,26 +538,22 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
 
                 {isUploading && (
                     <View style={styles.uploadingNotice}>
-                        <ActivityIndicator size="small" />
-                        <Text variant="bodySmall" style={{ marginLeft: 8 }}>
-                            Uploading files to Drive...
+                        <ActivityIndicator size="small" color="#1A73E8" />
+                        <Text variant="bodySmall" style={{ marginLeft: 8, color: '#1A73E8' }}>
+                            Uploading dropped file(s)...
                         </Text>
                     </View>
                 )}
 
-                {isDragOver ? (
+                {isDropZoneActive ? (
                     <ReceiveDraggableFilesComponent
                         folderName={title}
-                        isHovered={isDragOver}
-                        onDragEnter={() => setIsDragOver(true)}
-                        onDragLeave={() => {
-                            dragCounter.current = 0;
-                            setIsDragOver(false);
-                        }}
+                        isHovered={isDropZoneActive}
+                        onDragEnter={() => setIsDropZoneActive(true)}
+                        onDragLeave={() => setIsDropZoneActive(false)}
                         onFilesDropped={(files) => {
-                            setIsDragOver(false);
-                            dragCounter.current = 0;
-                            void processAndUploadFiles(files);
+                            setIsDropZoneActive(false);
+                            files.forEach((f) => void uploadFileBlob(f));
                         }}
                     />
                 ) : loading ? (
@@ -579,7 +562,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                     <View style={styles.emptyDropPrompt}>
                         <Avatar.Icon size={36} icon="file-upload-outline" style={{ backgroundColor: 'transparent' }} color="#9AA0A6" />
                         <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4 }}>
-                            No files yet. Drag files over this zone to trigger instant upload.
+                            No files yet. Drag & Drop files here to upload automatically.
                         </Text>
                     </View>
                 ) : (
@@ -651,26 +634,11 @@ export default function App() {
 
     const [refreshSeed, setRefreshSeed] = useState<number>(0);
     const [snackbarMsg, setSnackbarMsg] = useState<string>('');
-    const [isFabOpen, setIsFabOpen] = useState<boolean>(false);
 
-    // Global Drag Interceptor for Web Browsers (Prevents browser from opening dragged files outside dropzone)
-    useEffect(() => {
-        if (Platform.OS !== 'web') return;
+    // ============================================================================
+    // TOKEN REFRESH LOGIC
+    // ============================================================================
 
-        const preventBrowserFileOpen = (e: DragEvent) => {
-            e.preventDefault();
-        };
-
-        window.addEventListener('dragover', preventBrowserFileOpen, false);
-        window.addEventListener('drop', preventBrowserFileOpen, false);
-
-        return () => {
-            window.removeEventListener('dragover', preventBrowserFileOpen);
-            window.removeEventListener('drop', preventBrowserFileOpen);
-        };
-    }, []);
-
-    // Token refresh logic
     const getValidAccessToken = useCallback(async (): Promise<string | null> => {
         try {
             const response = await fetch(TOKEN_ENDPOINT, {
@@ -697,7 +665,10 @@ export default function App() {
         }
     }, []);
 
-    // Folder creation logic
+    // ============================================================================
+    // SUBFOLDER INITIALIZATION
+    // ============================================================================
+
     const getOrCreateFolder = async (folderName: string, parentId: string, token: string): Promise<string> => {
         const q = `'${parentId}' in parents and name = '${folderName}' and mimeType = '${FOLDER_MIME}' and trashed = false`;
         const searchUrl = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id, name)`;
@@ -760,9 +731,12 @@ export default function App() {
         })();
     }, [getValidAccessToken, createSubfolders]);
 
-    // Upload helper for FAB speed dial
-    const handleUploadToTargetFolder = async (targetFolderId: string, folderTitle: string) => {
-        if (!accessToken || !targetFolderId || isInitializing) return;
+    // ============================================================================
+    // CRUD ACTIONS
+    // ============================================================================
+
+    const handleUploadGeneric = async () => {
+        if (!accessToken || !userFolders?.userRootId || isInitializing) return;
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 copyToCacheDirectory: true,
@@ -775,15 +749,15 @@ export default function App() {
             const metadata = {
                 name: asset.name,
                 mimeType: asset.mimeType || 'application/octet-stream',
-                parents: [targetFolderId],
+                parents: [userFolders.userRootId],
             };
 
             const fileData = await fetch(asset.uri);
             const blob = await fileData.blob();
 
             const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', blob, asset.name);
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }) as any);
+            formData.append('file', blob as any, asset.name);
 
             const res = await fetch(DRIVE_UPLOAD_URL, {
                 method: 'POST',
@@ -791,11 +765,11 @@ export default function App() {
                 body: formData,
             });
 
-            if (!res.ok) throw new Error('Upload failed');
-            setSnackbarMsg(`Uploaded "${asset.name}" to ${folderTitle}!`);
+            if (!res.ok) throw new Error('Failed to upload file');
+            setSnackbarMsg(`Uploaded "${asset.name}"!`);
             setRefreshSeed((prev) => prev + 1);
         } catch (e: any) {
-            setSnackbarMsg(`Upload error: ${e.message}`);
+            setSnackbarMsg(`Upload failed: ${e.message}`);
         }
     };
 
@@ -867,11 +841,11 @@ export default function App() {
         <SafeAreaProvider>
             <PaperProvider theme={MD3LightTheme}>
                 <SafeAreaView style={styles.container}>
-                    {/* Header */}
+                    {/* App Header */}
                     <Appbar.Header elevated mode="small">
                         <Appbar.Content
                             title="Google Drive Dataset Manager"
-                            subtitle={isInitializing ? 'Initializing subfolders...' : `User: ${userGUID}`}
+                            subtitle={isInitializing ? 'Creating & Initializing Subfolders...' : `User: ${userGUID}`}
                         />
                         <Appbar.Action
                             icon="refresh"
@@ -886,13 +860,13 @@ export default function App() {
                         {/* Top Info Banner */}
                         <Card style={styles.bannerCard} mode="outlined">
                             <Card.Content style={styles.bannerContent}>
-                                <Avatar.Icon size={40} icon="folder-account" style={styles.bannerIcon} />
+                                <Avatar.Icon size={40} icon="folder-account" style={styles.bannerIcon} color="#1A73E8" />
                                 <View style={{ flex: 1 }}>
                                     <Text variant="titleMedium" style={{ fontWeight: '700' }}>
-                                        Active User Workspace
+                                        Active Workspace
                                     </Text>
                                     <Text variant="bodySmall" style={{ color: '#5F6368' }}>
-                                        User GUID: {userGUID}
+                                        Root ID: {ENV_VARS.FOLDER_ID} | GUID: {userGUID}
                                     </Text>
                                 </View>
                             </Card.Content>
@@ -900,9 +874,9 @@ export default function App() {
 
                         {isInitializing ? (
                             <View style={styles.centerLoading}>
-                                <ActivityIndicator size="large" />
+                                <ActivityIndicator size="large" color="#1A73E8" />
                                 <Text style={{ marginTop: 12, color: '#5F6368' }}>
-                                    Creating and verifying dataset subfolders...
+                                    Setting up dataset subfolders on Drive...
                                 </Text>
                             </View>
                         ) : (
@@ -910,7 +884,7 @@ export default function App() {
                                 {/* SECTION 1: dataset_shop_images */}
                                 <View style={styles.sectionBlock}>
                                     <SelectFilesForGoogleDriveDNDComponent
-                                        label="Add dataset_shop_images"
+                                        label="Upload to dataset_shop_images"
                                         targetFolderId={userFolders?.shopImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.shopImagesId}
@@ -922,7 +896,7 @@ export default function App() {
                                     />
                                     <ListFilesForGoogleDriveDNDComponent
                                         key={`shop-list-${refreshSeed}`}
-                                        title="dataset_shop_images"
+                                        title="dataset_shop_images Files"
                                         folderId={userFolders?.shopImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.shopImagesId}
@@ -934,7 +908,7 @@ export default function App() {
                                         onDeletePress={(file) => setFileToDelete(file)}
                                         onSharePress={handleShareFile}
                                         onUploadSuccess={(fname) => {
-                                            setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images`);
+                                            setSnackbarMsg(`Added "${fname}" to dataset_shop_images`);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
                                     />
@@ -943,7 +917,7 @@ export default function App() {
                                 {/* SECTION 2: dataset_trend_images */}
                                 <View style={styles.sectionBlock}>
                                     <SelectFilesForGoogleDriveDNDComponent
-                                        label="Add dataset_trend_images"
+                                        label="Upload to dataset_trend_images"
                                         targetFolderId={userFolders?.trendImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.trendImagesId}
@@ -955,7 +929,7 @@ export default function App() {
                                     />
                                     <ListFilesForGoogleDriveDNDComponent
                                         key={`trend-list-${refreshSeed}`}
-                                        title="dataset_trend_images"
+                                        title="dataset_trend_images Files"
                                         folderId={userFolders?.trendImagesId || ''}
                                         accessToken={accessToken}
                                         disabled={isGlobalDisabled || !userFolders?.trendImagesId}
@@ -967,7 +941,7 @@ export default function App() {
                                         onDeletePress={(file) => setFileToDelete(file)}
                                         onSharePress={handleShareFile}
                                         onUploadSuccess={(fname) => {
-                                            setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images`);
+                                            setSnackbarMsg(`Added "${fname}" to dataset_trend_images`);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
                                     />
@@ -976,38 +950,18 @@ export default function App() {
                         )}
                     </ScrollView>
 
-                    {/* Left-Aligned Floating Action Button with MD3 Default Colors */}
-                    <SpeedDialFAB
-                        open={isFabOpen}
-                        visible={!isInitializing}
-                        icon="plus"
-                        position="left"
-                        actions={[
-                            {
-                                icon: 'image-plus',
-                                label: 'add dataset_shop_images',
-                                containerColor: '#E8F5E9',
-                                color: '#1B5E20',
-                                onPress: () => {
-                                    if (userFolders?.shopImagesId) {
-                                        void handleUploadToTargetFolder(userFolders.shopImagesId, 'dataset_shop_images');
-                                    }
-                                },
-                            },
-                            {
-                                icon: 'folder-image',
-                                label: 'add dataset_trend_images',
-                                containerColor: '#FEF7D2',
-                                color: '#B45309',
-                                onPress: () => {
-                                    if (userFolders?.trendImagesId) {
-                                        void handleUploadToTargetFolder(userFolders.trendImagesId, 'dataset_trend_images');
-                                    }
-                                },
-                            },
-                        ]}
-                        onStateChange={({ open }) => setIsFabOpen(open)}
-                    />
+                    {/* Left-Aligned Floating Action Button */}
+                    <View style={styles.fabLeftContainer}>
+                        <FAB
+                            icon="plus"
+                            label="Quick Upload"
+                            disabled={isGlobalDisabled}
+                            style={[styles.leftFab, isGlobalDisabled && styles.disabledOpacity]}
+                            onPress={() => {
+                                void handleUploadGeneric();
+                            }}
+                        />
+                    </View>
 
                     {/* Custom Nice Modal: AskBeforeDeleteGoogleFile */}
                     <AskBeforeDeleteGoogleFile
@@ -1086,6 +1040,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     bannerIcon: {
+        backgroundColor: '#E8F0FE',
         marginRight: 12,
     },
     sectionsContainer: {
@@ -1098,10 +1053,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderStyle: 'dashed',
         borderWidth: 1.5,
+        borderColor: '#1A73E8',
         borderRadius: 8,
     },
     dndCardHovered: {
-        borderWidth: 2,
+        backgroundColor: '#E8F0FE',
+        borderColor: '#185ABC',
     },
     dndContent: {
         flexDirection: 'row',
@@ -1110,6 +1067,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
     },
     dndIcon: {
+        backgroundColor: '#E8F0FE',
         marginRight: 12,
     },
     dndTextContainer: {
@@ -1117,6 +1075,7 @@ const styles = StyleSheet.create({
     },
     dndTitle: {
         fontWeight: '600',
+        color: '#1F1F1F',
     },
     dndSubtitle: {
         color: '#5F6368',
@@ -1126,22 +1085,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#E0E2EC',
-        minHeight: 140,
     },
-    receiveDropContainer: {
-        borderRadius: 12,
+    listDropZoneActive: {
+        borderColor: '#1A73E8',
         borderWidth: 2,
-        borderStyle: 'dashed',
-        paddingVertical: 32,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 8,
-    },
-    receiveTitle: {
-        marginTop: 12,
-        fontWeight: 'bold',
-        textAlign: 'center',
+        backgroundColor: '#F4F8FE',
     },
     listHeaderRow: {
         flexDirection: 'row',
@@ -1150,12 +1098,15 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     listFolderIcon: {
+        backgroundColor: '#E8F0FE',
         marginRight: 8,
     },
     listSectionTitle: {
         fontWeight: '700',
+        color: '#1F1F1F',
     },
     badgeCount: {
+        backgroundColor: '#E8F0FE',
         borderRadius: 12,
         paddingHorizontal: 8,
         paddingVertical: 2,
@@ -1164,6 +1115,7 @@ const styles = StyleSheet.create({
     uploadingNotice: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#E8F0FE',
         padding: 8,
         borderRadius: 6,
         marginBottom: 8,
@@ -1203,14 +1155,14 @@ const styles = StyleSheet.create({
     disabledOpacity: {
         opacity: 0.5,
     },
-    fabLeftAnchor: {
+    fabLeftContainer: {
         position: 'absolute',
-        left: 16,
-        bottom: 16,
-        zIndex: 999,
+        left: 20,
+        bottom: 24,
+        zIndex: 10,
     },
-    leftSpeedDial: {
-        alignItems: 'flex-start',
+    leftFab: {
+        backgroundColor: '#1A73E8',
     },
     deleteDialog: {
         borderRadius: 16,
