@@ -14,11 +14,34 @@ import * as MaterialSymbols from '@material-symbols-svg/react-native';
 import { ViewStyle } from 'react-native';
 
 // Helper to convert snake_case to PascalCase (e.g., "arrow_back" -> "ArrowBack")
-const snakeToPascal = (str: string): string =>
-    str
+const ALIAS_MAP: Record<string, string> = {
+    magnify: 'search',
+    'magnify-plus-outline': 'zoom_in',
+    'magnify-minus-outline': 'zoom_out',
+    'trash-can-outline': 'delete',
+    'trash-can': 'delete',
+    'delete-outline': 'delete',
+    'folder-upload-outline': 'drive_folder_upload',
+    'folder-download-outline': 'folder_zip',
+    'folder-image': 'folder',
+    'file-document-outline': 'description',
+    'file-outline': 'draft',
+    'file-search-outline': 'find_in_page',
+    'image-outline': 'image',
+    'share-variant-outline': 'share',
+    'share-variant': 'share',
+    'rename-box': 'edit',
+    'close-circle': 'cancel',
+    'close-circle-outline': 'cancel',
+};
+
+const snakeToPascal = (str: string): string => {
+    const mapped = ALIAS_MAP[str.toLowerCase()] || str;
+    return mapped
         .split('_')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join('');
+};
 
 interface MaterialSymbolProps {
     /** Accepts snake_case names directly from fonts.google.com/icons (e.g., "arrow_back", "search") */

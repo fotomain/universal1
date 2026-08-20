@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     StyleSheet,
     View,
@@ -30,6 +30,7 @@ import {
     ReceiveDraggableFilesComponent,
     type DroppedFileItem,
     SpeedDialFAB,
+    TextInputApp,
 } from '../../components/common';
 
 
@@ -104,10 +105,15 @@ export interface PendingUploadBatch {
 // Helper to extract files & subdirectories recursively from DragEvent DataTransfer
 async function extractFilesAndFoldersFromDataTransfer(
     dataTransfer: DataTransfer
-): Promise<{ folderName: string; files: Array<{ name: string; mimeType: string; blob: Blob | File; path?: string; size?: number }> }> {
+): Promise<{
+    folderName: string;
+    files: Array<{ name: string; mimeType: string; blob: Blob | File; path?: string; size?: number }>;
+    isFolder: boolean;
+}> {
     const items = dataTransfer.items;
     const fileList: Array<{ name: string; mimeType: string; blob: Blob | File; path?: string; size?: number }> = [];
     let detectedFolderName = 'Dropped Files';
+    let isFolder = false;
 
     if (items && items.length > 0 && typeof (items[0] as any).webkitGetAsEntry === 'function') {
         const entries: any[] = [];
@@ -115,8 +121,11 @@ async function extractFilesAndFoldersFromDataTransfer(
             const entry = (items[i] as any).webkitGetAsEntry();
             if (entry) {
                 entries.push(entry);
-                if (entry.isDirectory && detectedFolderName === 'Dropped Files') {
-                    detectedFolderName = entry.name;
+                if (entry.isDirectory) {
+                    isFolder = true;
+                    if (detectedFolderName === 'Dropped Files') {
+                        detectedFolderName = entry.name;
+                    }
                 }
             }
         }
@@ -139,6 +148,7 @@ async function extractFilesAndFoldersFromDataTransfer(
                     );
                 });
             } else if (entry.isDirectory) {
+                isFolder = true;
                 const dirReader = entry.createReader();
                 const readAllEntries = async (): Promise<any[]> => {
                     const allEntries: any[] = [];
@@ -180,10 +190,7 @@ async function extractFilesAndFoldersFromDataTransfer(
         }
     }
 
-    return {
-        folderName: detectedFolderName,
-        files: fileList,
-    };
+    return { folderName: detectedFolderName, files: fileList, isFolder };
 }
 
 
@@ -1024,6 +1031,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     onUploadError,
 }) => {
     const [folderFiles, setFolderFiles] = useState<DriveFile[]>([]);
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
     const [isDragOver, setIsDragOver] = useState<boolean>(false);
     const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -1031,6 +1039,12 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     const [uploadStatusText, setUploadStatusText] = useState<string>('');
     const dragCounter = useRef(0);
     const listUploadAbortControllerRef = useRef<AbortController | null>(null);
+
+    const filteredFiles = useMemo(() => {
+        if (!searchQuery.trim()) return folderFiles;
+        const query = searchQuery.trim().toLowerCase();
+        return folderFiles.filter((f) => f.name.toLowerCase().includes(query));
+    }, [folderFiles, searchQuery]);
 
     const fetchFolderFiles = useCallback(async () => {
         if (!accessToken || !folderId) return;
@@ -1239,20 +1253,24 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             >
             <Card.Content>
                 <View style={styles.listHeaderRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Avatar.Icon size={32} icon="folder-image" style={styles.listFolderIcon} />
-                        <Text variant="titleMedium" style={styles.listSectionTitle}>
-                            {title}
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                        <TextInputApp
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder={`Search ${title} by filename...`}
+                            leftIcon="search"
+                            disabled={disabled || loading}
+                            style={styles.searchTextInput}
+                        />
+                    </View>
+                    <View style={styles.badgeCount}>
+                        <Text variant="labelSmall" style={{ fontWeight: 'bold', color: '#1F1F1F' }}>
+                            {searchQuery ? `${filteredFiles.length}/${folderFiles.length}` : folderFiles.length}
                         </Text>
-                        <View style={styles.badgeCount}>
-                            <Text variant="labelSmall" style={{ fontWeight: 'bold' }}>
-                                {folderFiles.length}
-                            </Text>
-                        </View>
                     </View>
                     <IconButton
                         icon="refresh"
-                        size={18}
+                        size={20}
                         disabled={disabled || loading}
                         onPress={() => {
                             void fetchFolderFiles();
@@ -1309,37 +1327,20 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                 )}
 
                 {isDragOver ? (
-                    <ReceiveDraggableFilesComponent
-                        folderName={title}
-                        isHovered={isDragOver}
-                        onDragEnter={() => setIsDragOver(true)}
-                        onDragLeave={() => {
-                            dragCounter.current = 0;
-                            setIsDragOver(false);
-                        }}
-                        onFilesDropped={(files) => {
-                            setIsDragOver(false);
-                            dragCounter.current = 0;
-                            if (files.length > 1 && onRequestApproval) {
-                                onRequestApproval({
-                                    sourceName: `${files.length} Dropped Files`,
-                                    targetFolderId: folderId,
-                                    targetFolderName: title,
-                                    files: files.map((f) => ({
-                                        name: f.name,
-                                        mimeType: f.mimeType || 'application/octet-stream',
-                                        blob: f.blob,
-                                        uri: f.uri,
-                                        base64: f.base64,
-                                        size: f.size,
-                                    })),
-                                    themeVariant: title.includes('shop') ? 'green' : 'yellow',
-                                });
-                            } else {
-                                void processAndUploadFiles(files);
-                            }
-                        }}
-                    />
+                    <View style={styles.listDragOverOverlay} pointerEvents="none">
+                        <Avatar.Icon
+                            size={48}
+                            icon="folder-download-outline"
+                            color={title.includes('shop') ? '#1B5E20' : '#B45309'}
+                            style={{ backgroundColor: title.includes('shop') ? '#E8F5E9' : '#FEF7D2' }}
+                        />
+                        <Text variant="titleMedium" style={{ fontWeight: '700', color: title.includes('shop') ? '#1B5E20' : '#B45309', marginTop: 10 }}>
+                            Drop folder or files to add
+                        </Text>
+                        <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4 }}>
+                            Review & approve additions to "{title}"
+                        </Text>
+                    </View>
                 ) : loading ? (
                     <ActivityIndicator size="small" style={{ marginVertical: 18 }} />
                 ) : folderFiles.length === 0 ? (
@@ -1349,9 +1350,19 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                             No files yet. Drag files over this zone to trigger instant upload.
                         </Text>
                     </View>
+                ) : filteredFiles.length === 0 ? (
+                    <View style={styles.emptySearchPrompt}>
+                        <Avatar.Icon size={36} icon="file-search-outline" style={{ backgroundColor: 'transparent' }} color="#9AA0A6" />
+                        <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4, textAlign: 'center' }}>
+                            No files matching "{searchQuery}"
+                        </Text>
+                        <Button mode="text" compact onPress={() => setSearchQuery('')} textColor="#1A73E8" style={{ marginTop: 4 }}>
+                            Clear search
+                        </Button>
+                    </View>
                 ) : (
                     <View style={{ marginTop: 6 }}>
-                        {folderFiles.map((file) => (
+                        {filteredFiles.map((file) => (
                             <Card key={file.id} style={styles.innerFileCard} mode="outlined">
                                 <View style={styles.fileCardRow}>
                                     <Avatar.Icon
@@ -2359,11 +2370,31 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
     },
+    listDragOverOverlay: {
+        borderWidth: 2,
+        borderColor: '#1A73E8',
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        backgroundColor: '#F0F4F9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 32,
+        paddingHorizontal: 16,
+        marginVertical: 8,
+    },
     listHeaderRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 6,
+    },
+    searchTextInput: {
+        marginBottom: 0,
+    },
+    emptySearchPrompt: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+        marginVertical: 4,
     },
     listFolderIcon: {
         marginRight: 8,
