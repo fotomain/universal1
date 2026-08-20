@@ -6,6 +6,7 @@ import {
     Platform,
     Share, Pressable,
 } from 'react-native';
+import axios, { AxiosProgressEvent } from 'axios';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
     Provider as PaperProvider,
@@ -53,6 +54,16 @@ const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 
+export const formatBytes = (bytes?: string | number) => {
+    if (bytes === undefined || bytes === null || bytes === '') return '—';
+    const num = typeof bytes === 'number' ? bytes : parseInt(bytes, 10);
+    if (isNaN(num) || num < 0) return '—';
+    if (num < 1024) return `${num} B`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+    if (num < 1024 * 1024 * 1024) return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(num / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -78,6 +89,101 @@ export interface DroppedFilePayload {
     mimeType?: string;
     uri?: string;
     blob?: Blob | File;
+    size?: number;
+    path?: string;
+}
+
+export interface PendingUploadBatch {
+    sourceName: string;
+    targetFolderId: string;
+    targetFolderName: string;
+    files: Array<{ name: string; mimeType: string; blob?: Blob | File; uri?: string; base64?: string; path?: string; size?: number }>;
+    themeVariant?: 'green' | 'yellow' | 'default';
+}
+
+// Helper to extract files & subdirectories recursively from DragEvent DataTransfer
+async function extractFilesAndFoldersFromDataTransfer(
+    dataTransfer: DataTransfer
+): Promise<{ folderName: string; files: Array<{ name: string; mimeType: string; blob: Blob | File; path?: string; size?: number }> }> {
+    const items = dataTransfer.items;
+    const fileList: Array<{ name: string; mimeType: string; blob: Blob | File; path?: string; size?: number }> = [];
+    let detectedFolderName = 'Dropped Files';
+
+    if (items && items.length > 0 && typeof (items[0] as any).webkitGetAsEntry === 'function') {
+        const entries: any[] = [];
+        for (let i = 0; i < items.length; i++) {
+            const entry = (items[i] as any).webkitGetAsEntry();
+            if (entry) {
+                entries.push(entry);
+                if (entry.isDirectory && detectedFolderName === 'Dropped Files') {
+                    detectedFolderName = entry.name;
+                }
+            }
+        }
+
+        async function readEntry(entry: any, path = ''): Promise<void> {
+            if (entry.isFile) {
+                await new Promise<void>((resolve) => {
+                    entry.file(
+                        (file: File) => {
+                            fileList.push({
+                                name: file.name,
+                                mimeType: file.type || 'application/octet-stream',
+                                blob: file,
+                                path: path ? `${path}/${file.name}` : file.name,
+                                size: file.size,
+                            });
+                            resolve();
+                        },
+                        () => resolve()
+                    );
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                const readAllEntries = async (): Promise<any[]> => {
+                    const allEntries: any[] = [];
+                    const readBatch = async (): Promise<any[]> => {
+                        return new Promise((resolve) => {
+                            dirReader.readEntries(
+                                (results: any[]) => resolve(results),
+                                () => resolve([])
+                            );
+                        });
+                    };
+                    let batch: any[] = await readBatch();
+                    while (batch.length > 0) {
+                        allEntries.push(...batch);
+                        batch = await readBatch();
+                    }
+                    return allEntries;
+                };
+
+                const childEntries = await readAllEntries();
+                for (const child of childEntries) {
+                    await readEntry(child, path ? `${path}/${entry.name}` : entry.name);
+                }
+            }
+        }
+
+        for (const entry of entries) {
+            await readEntry(entry);
+        }
+    } else if (dataTransfer.files && dataTransfer.files.length > 0) {
+        for (let i = 0; i < dataTransfer.files.length; i++) {
+            const file = dataTransfer.files[i];
+            fileList.push({
+                name: file.name,
+                mimeType: file.type || 'application/octet-stream',
+                blob: file,
+                size: file.size,
+            });
+        }
+    }
+
+    return {
+        folderName: detectedFolderName,
+        files: fileList,
+    };
 }
 
 
@@ -90,6 +196,7 @@ interface AskBeforeDeleteProps {
     file?: DriveFile | null;
     folderTitle?: string | null;
     onDismiss: () => void;
+    onCancel?: () => void;
     onConfirm: () => void;
     isDeleting: boolean;
     deleteProgress: number;
@@ -101,6 +208,7 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
     file,
     folderTitle,
     onDismiss,
+    onCancel,
     onConfirm,
     isDeleting,
     deleteProgress,
@@ -172,8 +280,13 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                     )}
                 </Dialog.Content>
                 <Dialog.Actions style={styles.deleteActions}>
-                    <Button onPress={onDismiss} disabled={isDeleting} textColor="#5F6368" style={{ flex: 1 }}>
-                        Cancel
+                    <Button
+                        onPress={isDeleting ? (onCancel || onDismiss) : onDismiss}
+                        textColor={isDeleting ? '#D93025' : '#5F6368'}
+                        style={{ flex: 1 }}
+                        icon={isDeleting ? 'close-circle-outline' : undefined}
+                    >
+                        {isDeleting ? 'Cancel Deletion' : 'Cancel'}
                     </Button>
                     <Button
                         mode="contained"
@@ -199,6 +312,177 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
 };
 
 // ============================================================================
+// MODAL: ApproveAdditionsModal (Custom Nice Modal to Approve Uploads)
+// ============================================================================
+
+interface ApproveAdditionsProps {
+    visible: boolean;
+    batch: PendingUploadBatch | null;
+    isUploading: boolean;
+    uploadProgress: number;
+    uploadStatusText?: string;
+    onDismiss: () => void;
+    onCancel?: () => void;
+    onApprove: () => void;
+}
+
+const ApproveAdditionsModal: React.FC<ApproveAdditionsProps> = ({
+    visible,
+    batch,
+    isUploading,
+    uploadProgress,
+    uploadStatusText,
+    onDismiss,
+    onCancel,
+    onApprove,
+}) => {
+    if (!batch) return null;
+
+    const isGreen = batch.themeVariant === 'green' || batch.targetFolderName.includes('shop');
+    const isYellow = batch.themeVariant === 'yellow' || batch.targetFolderName.includes('trend');
+
+    const themeColors = isGreen
+        ? {
+              iconColor: '#1B5E20',
+              iconBg: '#E8F5E9',
+              btnColor: '#2E7D32',
+          }
+        : isYellow
+        ? {
+              iconColor: '#B45309',
+              iconBg: '#FEF7D2',
+              btnColor: '#D97706',
+          }
+        : {
+              iconColor: '#1A73E8',
+              iconBg: '#E8F0FE',
+              btnColor: '#1A73E8',
+          };
+
+    const totalBytes = batch.files.reduce((acc, f) => acc + (f.blob ? (f.blob as any).size || 0 : (f.size || 0)), 0);
+
+    return (
+        <Portal>
+            <Dialog visible={visible} onDismiss={isUploading ? undefined : onDismiss} style={styles.approveDialog}>
+                <View style={styles.approveHeaderIconWrapper}>
+                    <Avatar.Icon
+                        size={52}
+                        icon="folder-upload-outline"
+                        style={{ backgroundColor: themeColors.iconBg }}
+                        color={themeColors.iconColor}
+                    />
+                </View>
+                <Dialog.Title style={styles.approveTitle}>
+                    Approve Additions
+                </Dialog.Title>
+                <Dialog.Content style={{ maxHeight: 420 }}>
+                    <Text variant="bodyMedium" style={styles.approveContentText}>
+                        Review files before adding them to <Text style={{ fontWeight: 'bold', color: themeColors.iconColor }}>"{batch.targetFolderName}"</Text>:
+                    </Text>
+
+                    {/* Batch Summary Card */}
+                    <View style={[styles.batchSummaryBox, { backgroundColor: themeColors.iconBg }]}>
+                        <Avatar.Icon
+                            size={32}
+                            icon="folder-outline"
+                            color={themeColors.iconColor}
+                            style={{ backgroundColor: 'transparent' }}
+                        />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text variant="titleSmall" numberOfLines={1} style={{ fontWeight: '700', color: '#1F1F1F' }}>
+                                {batch.sourceName}
+                            </Text>
+                            <Text variant="bodySmall" style={{ color: '#5F6368' }}>
+                                {batch.files.length} file{batch.files.length !== 1 ? 's' : ''} • {formatBytes(totalBytes)}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Scrollable File Preview List */}
+                    <Text variant="labelMedium" style={{ fontWeight: '700', color: '#5F6368', marginTop: 12, marginBottom: 6 }}>
+                        Files ({batch.files.length}):
+                    </Text>
+                    <ScrollView style={styles.approveFilesScroll} nestedScrollEnabled>
+                        {batch.files.map((file, idx) => (
+                            <View key={`${file.name}-${idx}`} style={styles.approveFileRow}>
+                                <Avatar.Icon
+                                    size={24}
+                                    icon={file.mimeType.includes('image') ? 'image-outline' : 'file-document-outline'}
+                                    color={themeColors.iconColor}
+                                    style={{ backgroundColor: themeColors.iconBg }}
+                                />
+                                <View style={{ flex: 1, marginLeft: 8 }}>
+                                    <Text variant="bodySmall" numberOfLines={1} style={{ fontWeight: '500' }}>
+                                        {file.path || file.name}
+                                    </Text>
+                                    <Text variant="labelSmall" style={{ color: '#747775' }}>
+                                        {file.blob ? formatBytes((file.blob as any).size) : file.size ? formatBytes(file.size) : ''}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+
+                    {/* Progress Slider during upload */}
+                    {isUploading && (
+                        <View style={styles.approveProgressContainer}>
+                            <View style={styles.approveProgressHeader}>
+                                <Text variant="labelMedium" numberOfLines={1} style={styles.approveStatusText}>
+                                    {uploadStatusText || `Uploading... ${uploadProgress}%`}
+                                </Text>
+                                <View style={[styles.approvePercentBadge, { backgroundColor: themeColors.btnColor }]}>
+                                    <Text variant="labelMedium" style={styles.approvePercentText}>
+                                        {uploadProgress}%
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.approveSliderTrack}>
+                                <View
+                                    style={[
+                                        styles.approveSliderFill,
+                                        {
+                                            width: `${Math.max(uploadProgress, 4)}%`,
+                                            backgroundColor: themeColors.btnColor,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        </View>
+                    )}
+                </Dialog.Content>
+
+                <Dialog.Actions style={styles.approveActions}>
+                    <Button
+                        onPress={isUploading ? (onCancel || onDismiss) : onDismiss}
+                        textColor={isUploading ? '#D93025' : '#5F6368'}
+                        style={{ flex: 1 }}
+                        icon={isUploading ? 'close-circle-outline' : undefined}
+                    >
+                        {isUploading ? 'Cancel Upload' : 'Cancel'}
+                    </Button>
+                    <Button
+                        mode="contained"
+                        buttonColor={themeColors.btnColor}
+                        textColor="#FFFFFF"
+                        loading={isUploading}
+                        disabled={isUploading}
+                        icon="cloud-upload-outline"
+                        style={{ flex: 1.4 }}
+                        onPress={() => {
+                            void onApprove();
+                        }}
+                    >
+                        {isUploading
+                            ? `Uploading (${uploadProgress}%)`
+                            : `Upload (${batch.files.length})`}
+                    </Button>
+                </Dialog.Actions>
+            </Dialog>
+        </Portal>
+    );
+};
+
+// ============================================================================
 // DND PICKER BUTTON: SelectFilesForGoogleDriveDNDComponent (Accordion Header + Drop)
 // ============================================================================
 
@@ -211,6 +495,7 @@ interface SelectFilesDNDProps {
     fileCount?: number;
     onToggleExpand: () => void;
     onClearAll?: () => void;
+    onRequestApproval?: (batch: PendingUploadBatch) => void;
     onUploadSuccess: (filename: string) => void;
     onUploadError: (err: string) => void;
     variant?: 'green' | 'yellow' | 'default';
@@ -225,6 +510,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
     fileCount,
     onToggleExpand,
     onClearAll,
+    onRequestApproval,
     onUploadSuccess,
     onUploadError,
     variant,
@@ -264,83 +550,90 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
               iconBg: '#F1F3F4',
           };
 
+    const uploadAbortControllerRef = useRef<AbortController | null>(null);
+
+    const handleCancelUpload = (e?: any) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (uploadAbortControllerRef.current) {
+            uploadAbortControllerRef.current.abort();
+        }
+        setIsUploading(false);
+        setUploadProgress(0);
+        onUploadError('Upload cancelled');
+    };
+
     const uploadMultipleFiles = async (
         files: Array<{ name: string; mimeType?: string; blob?: Blob | File; uri?: string; base64?: string }>
     ) => {
         if (!accessToken || !targetFolderId || files.length === 0) return;
         setIsUploading(true);
         setUploadProgress(0);
+        const controller = new AbortController();
+        uploadAbortControllerRef.current = controller;
+
         try {
             const totalFiles = files.length;
             let lastFileName = '';
 
             for (let i = 0; i < totalFiles; i++) {
+                if (controller.signal.aborted) break;
                 const fileObj = files[i];
-                await new Promise<void>(async (resolve, reject) => {
-                    try {
-                        const metadata = {
-                            name: fileObj.name,
-                            mimeType: fileObj.mimeType || 'application/octet-stream',
-                            parents: [targetFolderId],
-                        };
 
-                        const formData = new FormData();
-                        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                const metadata = {
+                    name: fileObj.name,
+                    mimeType: fileObj.mimeType || 'application/octet-stream',
+                    parents: [targetFolderId],
+                };
 
-                        let fileBlob: any = fileObj.blob;
-                        if (!fileBlob && fileObj.uri) {
-                            const res = await fetch(fileObj.uri);
-                            fileBlob = await res.blob();
-                        } else if (!fileBlob && fileObj.base64) {
-                            const res = await fetch(fileObj.base64);
-                            fileBlob = await res.blob();
+                const formData = new FormData();
+                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+
+                let fileBlob: any = fileObj.blob;
+                if (!fileBlob && fileObj.uri) {
+                    const res = await fetch(fileObj.uri);
+                    fileBlob = await res.blob();
+                } else if (!fileBlob && fileObj.base64) {
+                    const res = await fetch(fileObj.base64);
+                    fileBlob = await res.blob();
+                }
+
+                formData.append('file', fileBlob, fileObj.name);
+
+                await axios.post(DRIVE_UPLOAD_URL, formData, {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    signal: controller.signal,
+                    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+                        if (progressEvent.total && progressEvent.total > 0) {
+                            const fileFraction = progressEvent.loaded / progressEvent.total;
+                            const overallPercent = Math.min(
+                                99,
+                                Math.round(((i + fileFraction) / totalFiles) * 100)
+                            );
+                            setUploadProgress(overallPercent);
                         }
-
-                        formData.append('file', fileBlob, fileObj.name);
-
-                        const xhr = new XMLHttpRequest();
-                        xhr.open('POST', DRIVE_UPLOAD_URL);
-                        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
-
-                        xhr.upload.onprogress = (event) => {
-                            if (event.lengthComputable && event.total > 0) {
-                                const fileFraction = event.loaded / event.total;
-                                const overallPercent = Math.min(
-                                    99,
-                                    Math.round(((i + fileFraction) / totalFiles) * 100)
-                                );
-                                setUploadProgress(overallPercent);
-                            }
-                        };
-
-                        xhr.onload = () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                                setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-                                lastFileName = fileObj.name;
-                                resolve();
-                            } else {
-                                reject(new Error(`Upload failed with status ${xhr.status}`));
-                            }
-                        };
-
-                        xhr.onerror = () => reject(new Error('Network error during upload'));
-                        xhr.send(formData);
-                    } catch (err) {
-                        reject(err);
-                    }
+                    },
                 });
+
+                lastFileName = fileObj.name;
+                setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
             }
 
-            setUploadProgress(100);
-            setTimeout(() => {
-                onUploadSuccess(totalFiles > 1 ? `${totalFiles} files` : lastFileName);
-                setIsUploading(false);
-                setUploadProgress(0);
-            }, 300);
+            if (!controller.signal.aborted) {
+                setUploadProgress(100);
+                setTimeout(() => {
+                    onUploadSuccess(totalFiles > 1 ? `${totalFiles} files` : lastFileName);
+                    setIsUploading(false);
+                    setUploadProgress(0);
+                }, 300);
+            }
         } catch (e: any) {
             setIsUploading(false);
             setUploadProgress(0);
-            onUploadError(e.message || 'Error uploading file(s)');
+            if (axios.isCancel(e) || e.name === 'CanceledError' || controller.signal.aborted) {
+                onUploadError('Upload cancelled');
+            } else {
+                onUploadError(e.message || 'Error uploading file(s)');
+            }
         }
     };
 
@@ -363,13 +656,67 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                         name: asset.name,
                         mimeType: asset.mimeType || 'application/octet-stream',
                         blob,
+                        size: asset.size,
                     };
                 })
             );
 
-            await uploadMultipleFiles(fileItems);
+            if (fileItems.length > 1 && onRequestApproval) {
+                onRequestApproval({
+                    sourceName: `${fileItems.length} Selected Files`,
+                    targetFolderId,
+                    targetFolderName: label.replace('Add ', ''),
+                    files: fileItems,
+                    themeVariant: variant,
+                });
+            } else {
+                await uploadMultipleFiles(fileItems);
+            }
         } catch (err: any) {
             onUploadError(err.message);
+        }
+    };
+
+    // User can select a folder on the button
+    const handlePickFolder = () => {
+        if (disabled || isUploading) return;
+        if (Platform.OS === 'web') {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.setAttribute('webkitdirectory', '');
+            input.setAttribute('directory', '');
+            input.onchange = (e: any) => {
+                const files = Array.from(e.target.files as FileList);
+                if (!files.length) return;
+                let folderName = 'Selected Folder';
+                if ((files[0] as any).webkitRelativePath) {
+                    const parts = (files[0] as any).webkitRelativePath.split('/');
+                    if (parts.length > 1) folderName = parts[0];
+                }
+                const fileItems = files.map((f: File) => ({
+                    name: f.name,
+                    mimeType: f.type || 'application/octet-stream',
+                    blob: f,
+                    path: (f as any).webkitRelativePath || f.name,
+                    size: f.size,
+                }));
+
+                if (onRequestApproval) {
+                    onRequestApproval({
+                        sourceName: folderName,
+                        targetFolderId,
+                        targetFolderName: label.replace('Add ', ''),
+                        files: fileItems,
+                        themeVariant: variant,
+                    });
+                } else {
+                    void uploadMultipleFiles(fileItems);
+                }
+            };
+            input.click();
+        } else {
+            void handlePickFile();
         }
     };
 
@@ -416,15 +763,23 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
             e.stopPropagation();
             counter = 0;
             setIsHovered(false);
-            if (disabled || !e.dataTransfer?.files?.length) return;
+            if (disabled || !e.dataTransfer) return;
 
-            const files = Array.from(e.dataTransfer.files);
-            const fileItems = files.map((f) => ({
-                name: f.name,
-                mimeType: f.type || 'application/octet-stream',
-                blob: f,
-            }));
-            await uploadMultipleFiles(fileItems);
+            // User can drag folder or multiple files:
+            const { folderName, files } = await extractFilesAndFoldersFromDataTransfer(e.dataTransfer);
+            if (!files.length) return;
+
+            if (onRequestApproval) {
+                onRequestApproval({
+                    sourceName: folderName,
+                    targetFolderId,
+                    targetFolderName: label.replace('Add ', ''),
+                    files,
+                    themeVariant: variant,
+                });
+            } else {
+                await uploadMultipleFiles(files);
+            }
         };
 
         domNode.addEventListener('dragenter', handleDragEnter);
@@ -438,7 +793,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
             domNode.removeEventListener('dragleave', handleDragLeave);
             domNode.removeEventListener('drop', handleDrop);
         };
-    }, [disabled, isHovered, accessToken, targetFolderId]);
+    }, [disabled, isHovered, accessToken, targetFolderId, onRequestApproval]);
 
     const buttonIcon = isHovered
         ? 'tray-arrow-down'
@@ -506,13 +861,33 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                                 )}
                             </View>
 
-                            <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
-                                {isUploading
-                                    ? `Uploading to Drive... ${uploadProgress}%`
-                                    : isHovered
-                                    ? '📥 Drop files here to upload instantly'
-                                    : 'Click or drop files here to upload'}
-                            </Text>
+                            <View style={styles.subtitleRow}>
+                                <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
+                                    {isUploading
+                                        ? `Uploading to Drive... ${uploadProgress}%`
+                                        : isHovered
+                                        ? '📥 Drop files here to upload instantly'
+                                        : 'Click or drop files here to upload'}
+                                </Text>
+                                {isUploading && (
+                                    <Pressable
+                                        style={styles.cancelUploadPill}
+                                        onPress={handleCancelUpload}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Cancel upload"
+                                    >
+                                        <Avatar.Icon
+                                            size={14}
+                                            icon="close-circle"
+                                            color="#D93025"
+                                            style={{ backgroundColor: 'transparent' }}
+                                        />
+                                        <Text variant="labelSmall" style={styles.cancelUploadPillText}>
+                                            Cancel
+                                        </Text>
+                                    </Pressable>
+                                )}
+                            </View>
 
                             {/* Progress Slider Bar */}
                             {isUploading && (
@@ -533,7 +908,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                         </View>
                     </Pressable>
 
-                    {/* Right Action Cluster: Clear All inside Button (only visible if list is not empty) + Accordion Chevron */}
+                    {/* Right Action Cluster: Clear All (if files exist) + Select Folder Icon Only + Accordion Chevron */}
                     <View style={styles.dndRightActions}>
                         {onClearAll && typeof fileCount === 'number' && fileCount > 0 && (
                             <Pressable
@@ -562,6 +937,32 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                                 </Text>
                             </Pressable>
                         )}
+
+                        {/* Select Folder Icon Only Button (1st at left of accordion icon) */}
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.folderIconBtn,
+                                {
+                                    backgroundColor: pressed ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.03)',
+                                    borderColor: 'rgba(0, 0, 0, 0.08)',
+                                    opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+                                },
+                            ]}
+                            disabled={disabled || isUploading}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                handlePickFolder();
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Select folder to upload into ${label}`}
+                        >
+                            <Avatar.Icon
+                                size={24}
+                                icon="folder-upload-outline"
+                                color={themeColors.iconColor}
+                                style={{ backgroundColor: 'transparent' }}
+                            />
+                        </Pressable>
 
                         {/* Right Accordion Chevron Button */}
                         <Pressable
@@ -601,6 +1002,7 @@ interface ListFilesDNDProps {
     accessToken: string | null;
     disabled: boolean;
     onFilesLoaded?: (count: number) => void;
+    onRequestApproval?: (batch: PendingUploadBatch) => void;
     onRenamePress: (file: DriveFile) => void;
     onDeletePress: (file: DriveFile) => void;
     onSharePress: (file: DriveFile) => void;
@@ -614,6 +1016,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     accessToken,
     disabled,
     onFilesLoaded,
+    onRequestApproval,
     onRenamePress,
     onDeletePress,
     onSharePress,
@@ -624,7 +1027,10 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     const [loading, setLoading] = useState<boolean>(false);
     const [isDragOver, setIsDragOver] = useState<boolean>(false);
     const [isUploading, setIsUploading] = useState<boolean>(false);
+    const [uploadProgress, setUploadProgress] = useState<number>(0);
+    const [uploadStatusText, setUploadStatusText] = useState<string>('');
     const dragCounter = useRef(0);
+    const listUploadAbortControllerRef = useRef<AbortController | null>(null);
 
     const fetchFolderFiles = useCallback(async () => {
         if (!accessToken || !folderId) return;
@@ -655,11 +1061,33 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
         }
     }, [folderId, accessToken, fetchFolderFiles]);
 
+    const handleCancelUpload = () => {
+        if (listUploadAbortControllerRef.current) {
+            listUploadAbortControllerRef.current.abort();
+        }
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadStatusText('');
+        onUploadError('Upload cancelled');
+        void fetchFolderFiles();
+    };
+
     const processAndUploadFiles = async (filesList: DroppedFileItem[]) => {
-        if (!accessToken || !folderId) return;
+        if (!accessToken || !folderId || filesList.length === 0) return;
         setIsUploading(true);
+        setUploadProgress(0);
+        const controller = new AbortController();
+        listUploadAbortControllerRef.current = controller;
+
         try {
-            for (const fileItem of filesList) {
+            const totalFiles = filesList.length;
+            let lastFileName = '';
+
+            for (let i = 0; i < totalFiles; i++) {
+                if (controller.signal.aborted) break;
+                const fileItem = filesList[i];
+                setUploadStatusText(`Uploading "${fileItem.name}" (${i + 1}/${totalFiles})`);
+
                 const metadata = {
                     name: fileItem.name,
                     mimeType: fileItem.mimeType || 'application/octet-stream',
@@ -681,20 +1109,46 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                     formData.append('file', blob, fileItem.name);
                 }
 
-                const res = await fetch(DRIVE_UPLOAD_URL, {
-                    method: 'POST',
+                await axios.post(DRIVE_UPLOAD_URL, formData, {
                     headers: { Authorization: `Bearer ${accessToken}` },
-                    body: formData,
+                    signal: controller.signal,
+                    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+                        if (progressEvent.total && progressEvent.total > 0) {
+                            const fileFraction = progressEvent.loaded / progressEvent.total;
+                            const overallPercent = Math.min(
+                                99,
+                                Math.round(((i + fileFraction) / totalFiles) * 100)
+                            );
+                            setUploadProgress(overallPercent);
+                        }
+                    },
                 });
 
-                if (!res.ok) throw new Error(`Upload failed for ${fileItem.name}`);
+                lastFileName = fileItem.name;
+                setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
                 onUploadSuccess(fileItem.name);
             }
-            void fetchFolderFiles();
+
+            if (!controller.signal.aborted) {
+                setUploadProgress(100);
+                setUploadStatusText('Upload completed!');
+                setTimeout(() => {
+                    setIsUploading(false);
+                    setUploadProgress(0);
+                    setUploadStatusText('');
+                    void fetchFolderFiles();
+                }, 300);
+            }
         } catch (e: any) {
-            onUploadError(e.message || 'Error during drop upload');
-        } finally {
             setIsUploading(false);
+            setUploadProgress(0);
+            setUploadStatusText('');
+            if (axios.isCancel(e) || e.name === 'CanceledError' || controller.signal.aborted) {
+                onUploadError('Upload cancelled');
+            } else {
+                onUploadError(e.message || 'Error during drop upload');
+            }
+            void fetchFolderFiles();
         }
     };
 
@@ -743,16 +1197,22 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             e.stopPropagation();
             counter = 0;
             setIsDragOver(false);
-            if (disabled || !e.dataTransfer?.files?.length) return;
+            if (disabled || !e.dataTransfer) return;
 
-            const files = Array.from(e.dataTransfer.files);
-            const items: DroppedFileItem[] = files.map((file) => ({
-                name: file.name,
-                mimeType: file.type || 'application/octet-stream',
-                size: file.size,
-                blob: file,
-            }));
-            await processAndUploadFiles(items);
+            const { folderName, files } = await extractFilesAndFoldersFromDataTransfer(e.dataTransfer);
+            if (!files.length) return;
+
+            if (onRequestApproval) {
+                onRequestApproval({
+                    sourceName: folderName,
+                    targetFolderId: folderId,
+                    targetFolderName: title,
+                    files,
+                    themeVariant: title.includes('shop') ? 'green' : 'yellow',
+                });
+            } else {
+                await processAndUploadFiles(files);
+            }
         };
 
         domNode.addEventListener('dragenter', handleDragEnter);
@@ -767,15 +1227,6 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
             domNode.removeEventListener('drop', handleDrop);
         };
     }, [disabled, isDragOver]);
-
-    const formatBytes = (bytes?: string) => {
-        if (!bytes) return '—';
-        const num = parseInt(bytes, 10);
-        if (isNaN(num)) return '—';
-        if (num < 1024) return `${num} B`;
-        if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
-        return `${(num / (1024 * 1024)).toFixed(1)} MB`;
-    };
 
     return (
         <View ref={dropContainerRef} style={{ width: '100%' }}>
@@ -810,11 +1261,50 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                 </View>
 
                 {isUploading && (
-                    <View style={styles.uploadingNotice}>
-                        <ActivityIndicator size="small" />
-                        <Text variant="bodySmall" style={{ marginLeft: 8 }}>
-                            Uploading files to Drive...
-                        </Text>
+                    <View style={styles.listUploadingCard}>
+                        <View style={styles.listUploadingHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                <ActivityIndicator size="small" color="#1A73E8" style={{ marginRight: 8 }} />
+                                <Text variant="bodySmall" numberOfLines={1} style={{ fontWeight: '600', color: '#1F1F1F', flex: 1 }}>
+                                    {uploadStatusText || 'Uploading to Drive...'}
+                                </Text>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={styles.listUploadPercentBadge}>
+                                    <Text variant="labelSmall" style={styles.listUploadPercentText}>
+                                        {uploadProgress}%
+                                    </Text>
+                                </View>
+                                <Pressable
+                                    style={styles.cancelUploadPill}
+                                    onPress={handleCancelUpload}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Cancel active upload"
+                                >
+                                    <Avatar.Icon
+                                        size={14}
+                                        icon="close-circle"
+                                        color="#D93025"
+                                        style={{ backgroundColor: 'transparent' }}
+                                    />
+                                    <Text variant="labelSmall" style={styles.cancelUploadPillText}>
+                                        Cancel
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        <View style={styles.listUploadSliderTrack}>
+                            <View
+                                style={[
+                                    styles.listUploadSliderFill,
+                                    {
+                                        width: `${Math.max(uploadProgress, 4)}%`,
+                                    },
+                                ]}
+                            />
+                        </View>
                     </View>
                 )}
 
@@ -830,7 +1320,24 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                         onFilesDropped={(files) => {
                             setIsDragOver(false);
                             dragCounter.current = 0;
-                            void processAndUploadFiles(files);
+                            if (files.length > 1 && onRequestApproval) {
+                                onRequestApproval({
+                                    sourceName: `${files.length} Dropped Files`,
+                                    targetFolderId: folderId,
+                                    targetFolderName: title,
+                                    files: files.map((f) => ({
+                                        name: f.name,
+                                        mimeType: f.mimeType || 'application/octet-stream',
+                                        blob: f.blob,
+                                        uri: f.uri,
+                                        base64: f.base64,
+                                        size: f.size,
+                                    })),
+                                    themeVariant: title.includes('shop') ? 'green' : 'yellow',
+                                });
+                            } else {
+                                void processAndUploadFiles(files);
+                            }
                         }}
                     />
                 ) : loading ? (
@@ -911,6 +1418,12 @@ export default function App() {
     const [isDeleting, setIsDeleting] = useState<boolean>(false);
     const [deleteProgress, setDeleteProgress] = useState<number>(0);
     const [deleteStatusText, setDeleteStatusText] = useState<string>('');
+
+    // Approval Modal State for Folder / Batch uploads
+    const [pendingUploadBatch, setPendingUploadBatch] = useState<PendingUploadBatch | null>(null);
+    const [isBatchUploading, setIsBatchUploading] = useState<boolean>(false);
+    const [batchUploadProgress, setBatchUploadProgress] = useState<number>(0);
+    const [batchUploadStatusText, setBatchUploadStatusText] = useState<string>('');
 
     // File count state to show/hide "Clear all" inside buttons
     const [shopFilesCount, setShopFilesCount] = useState<number>(0);
@@ -1130,11 +1643,44 @@ export default function App() {
         }
     };
 
+    const deleteAbortControllerRef = useRef<AbortController | null>(null);
+    const batchUploadAbortControllerRef = useRef<AbortController | null>(null);
+
+    const handleCancelDelete = () => {
+        if (deleteAbortControllerRef.current) {
+            deleteAbortControllerRef.current.abort();
+        }
+        setIsDeleting(false);
+        setDeleteProgress(0);
+        setDeleteStatusText('');
+        setSnackbarMsg('Deletion cancelled');
+        setFileToDelete(null);
+        setFolderToClear(null);
+        setRefreshSeed((prev) => prev + 1);
+        void fetchFolderCounts();
+    };
+
+    const handleCancelBatchUpload = () => {
+        if (batchUploadAbortControllerRef.current) {
+            batchUploadAbortControllerRef.current.abort();
+        }
+        setIsBatchUploading(false);
+        setBatchUploadProgress(0);
+        setBatchUploadStatusText('');
+        setPendingUploadBatch(null);
+        setSnackbarMsg('Upload cancelled');
+        setRefreshSeed((prev) => prev + 1);
+        void fetchFolderCounts();
+    };
+
     const confirmDelete = async () => {
         if ((!fileToDelete && !folderToClear) || !accessToken) return;
         setIsDeleting(true);
         setDeleteProgress(0);
         setDeleteStatusText('Connecting to Google Drive...');
+        const controller = new AbortController();
+        deleteAbortControllerRef.current = controller;
+
         try {
             if (folderToClear) {
                 setDeleteStatusText(`Listing files in "${folderToClear.title}"...`);
@@ -1143,69 +1689,83 @@ export default function App() {
                 const q = `'${folderToClear.id}' in parents and trashed = false`;
                 const fields = 'files(id, name)';
                 const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}`;
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-                if (!res.ok) throw new Error(`Failed to list files in ${folderToClear.title}`);
-                const data = await res.json();
-                const files: DriveFile[] = data.files || [];
+                const res = await axios.get(url, {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    signal: controller.signal,
+                });
+                const files: DriveFile[] = res.data?.files || [];
 
                 if (files.length === 0) {
                     setDeleteProgress(100);
                     setDeleteStatusText('Folder is already empty');
                 } else {
                     for (let i = 0; i < files.length; i++) {
+                        if (controller.signal.aborted) break;
                         const f = files[i];
                         const currentPercent = Math.round(((i + 1) / files.length) * 100);
                         setDeleteStatusText(`Deleting "${f.name}" (${i + 1}/${files.length})`);
-                        await fetch(`${DRIVE_API_URL}/${f.id}`, {
-                            method: 'DELETE',
+                        await axios.delete(`${DRIVE_API_URL}/${f.id}`, {
                             headers: { Authorization: `Bearer ${accessToken}` },
+                            signal: controller.signal,
                         });
                         setDeleteProgress(currentPercent);
                     }
                 }
 
-                setDeleteStatusText('Done! Folder cleared.');
-                setDeleteProgress(100);
+                if (!controller.signal.aborted) {
+                    setDeleteStatusText('Done! Folder cleared.');
+                    setDeleteProgress(100);
 
-                setTimeout(() => {
-                    setSnackbarMsg(`Cleared all files from "${folderToClear.title}" (${files.length} deleted)`);
-                    if (folderToClear.title.includes('shop')) {
-                        setShopFilesCount(0);
-                    } else if (folderToClear.title.includes('trend')) {
-                        setTrendFilesCount(0);
-                    }
-                    setFolderToClear(null);
-                    setIsDeleting(false);
-                    setDeleteProgress(0);
-                    setDeleteStatusText('');
-                    setRefreshSeed((prev) => prev + 1);
-                }, 400);
+                    setTimeout(() => {
+                        setSnackbarMsg(`Cleared all files from "${folderToClear.title}" (${files.length} deleted)`);
+                        if (folderToClear.title.includes('shop')) {
+                            setShopFilesCount(0);
+                        } else if (folderToClear.title.includes('trend')) {
+                            setTrendFilesCount(0);
+                        }
+                        setFolderToClear(null);
+                        setIsDeleting(false);
+                        setDeleteProgress(0);
+                        setDeleteStatusText('');
+                        setRefreshSeed((prev) => prev + 1);
+                    }, 400);
+                }
             } else if (fileToDelete) {
                 setDeleteStatusText(`Deleting "${fileToDelete.name}"...`);
                 setDeleteProgress(40);
-                const res = await fetch(`${DRIVE_API_URL}/${fileToDelete.id}`, {
-                    method: 'DELETE',
+                await axios.delete(`${DRIVE_API_URL}/${fileToDelete.id}`, {
                     headers: { Authorization: `Bearer ${accessToken}` },
+                    signal: controller.signal,
                 });
-                if (!res.ok) throw new Error('Failed to delete file');
-                setDeleteProgress(100);
-                setDeleteStatusText('File deleted!');
 
-                setTimeout(() => {
-                    setSnackbarMsg(`"${fileToDelete.name}" deleted`);
-                    setFileToDelete(null);
-                    setIsDeleting(false);
-                    setDeleteProgress(0);
-                    setDeleteStatusText('');
-                    setRefreshSeed((prev) => prev + 1);
-                    void fetchFolderCounts();
-                }, 400);
+                if (!controller.signal.aborted) {
+                    setDeleteProgress(100);
+                    setDeleteStatusText('File deleted!');
+
+                    setTimeout(() => {
+                        setSnackbarMsg(`"${fileToDelete.name}" deleted`);
+                        setFileToDelete(null);
+                        setIsDeleting(false);
+                        setDeleteProgress(0);
+                        setDeleteStatusText('');
+                        setRefreshSeed((prev) => prev + 1);
+                        void fetchFolderCounts();
+                    }, 400);
+                }
             }
         } catch (e: any) {
             setIsDeleting(false);
             setDeleteProgress(0);
             setDeleteStatusText('');
-            setSnackbarMsg(`Delete failed: ${e.message}`);
+            if (axios.isCancel(e) || e.name === 'CanceledError' || controller.signal.aborted) {
+                setSnackbarMsg('Deletion cancelled');
+                setFileToDelete(null);
+                setFolderToClear(null);
+                setRefreshSeed((prev) => prev + 1);
+                void fetchFolderCounts();
+            } else {
+                setSnackbarMsg(`Delete failed: ${e.message}`);
+            }
         }
     };
 
@@ -1294,6 +1854,7 @@ export default function App() {
                                                 });
                                             }
                                         }}
+                                        onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                         onUploadSuccess={(fname) => {
                                             setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images!`);
                                             setIsShopListExpanded(true);
@@ -1309,6 +1870,7 @@ export default function App() {
                                             accessToken={accessToken}
                                             disabled={isGlobalDisabled || !userFolders?.shopImagesId}
                                             onFilesLoaded={(count) => setShopFilesCount(count)}
+                                            onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                             onRenamePress={(file) => {
                                                 setFileToRename(file);
                                                 setRenameInput(file.name);
@@ -1344,6 +1906,7 @@ export default function App() {
                                                 });
                                             }
                                         }}
+                                        onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                         onUploadSuccess={(fname) => {
                                             setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images!`);
                                             setIsTrendListExpanded(true);
@@ -1359,6 +1922,7 @@ export default function App() {
                                             accessToken={accessToken}
                                             disabled={isGlobalDisabled || !userFolders?.trendImagesId}
                                             onFilesLoaded={(count) => setTrendFilesCount(count)}
+                                            onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                             onRenamePress={(file) => {
                                                 setFileToRename(file);
                                                 setRenameInput(file.name);
@@ -1421,10 +1985,112 @@ export default function App() {
                             setFileToDelete(null);
                             setFolderToClear(null);
                         }}
+                        onCancel={handleCancelDelete}
                         onConfirm={confirmDelete}
                         isDeleting={isDeleting}
                         deleteProgress={deleteProgress}
                         deleteStatusText={deleteStatusText}
+                    />
+
+                    {/* Custom Nice Modal: ApproveAdditionsModal for Folder / Batch Additions */}
+                    <ApproveAdditionsModal
+                        visible={!!pendingUploadBatch}
+                        batch={pendingUploadBatch}
+                        isUploading={isBatchUploading}
+                        uploadProgress={batchUploadProgress}
+                        uploadStatusText={batchUploadStatusText}
+                        onDismiss={() => {
+                            setPendingUploadBatch(null);
+                            setIsBatchUploading(false);
+                            setBatchUploadProgress(0);
+                            setBatchUploadStatusText('');
+                        }}
+                        onCancel={handleCancelBatchUpload}
+                        onApprove={async () => {
+                            if (!pendingUploadBatch || !accessToken) return;
+                            setIsBatchUploading(true);
+                            setBatchUploadProgress(0);
+                            const controller = new AbortController();
+                            batchUploadAbortControllerRef.current = controller;
+
+                            try {
+                                const files = pendingUploadBatch.files;
+                                const targetId = pendingUploadBatch.targetFolderId;
+                                const total = files.length;
+                                let lastFileName = '';
+
+                                for (let i = 0; i < total; i++) {
+                                    if (controller.signal.aborted) break;
+                                    const fileObj = files[i];
+                                    setBatchUploadStatusText(`Uploading "${fileObj.name}" (${i + 1}/${total})`);
+
+                                    const metadata = {
+                                        name: fileObj.name,
+                                        mimeType: fileObj.mimeType || 'application/octet-stream',
+                                        parents: [targetId],
+                                    };
+
+                                    const formData = new FormData();
+                                    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+
+                                    let fileBlob: any = fileObj.blob;
+                                    if (!fileBlob && fileObj.uri) {
+                                        const res = await fetch(fileObj.uri);
+                                        fileBlob = await res.blob();
+                                    } else if (!fileBlob && fileObj.base64) {
+                                        const res = await fetch(fileObj.base64);
+                                        fileBlob = await res.blob();
+                                    }
+
+                                    formData.append('file', fileBlob, fileObj.name);
+
+                                    await axios.post(DRIVE_UPLOAD_URL, formData, {
+                                        headers: { Authorization: `Bearer ${accessToken}` },
+                                        signal: controller.signal,
+                                        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+                                            if (progressEvent.total && progressEvent.total > 0) {
+                                                const fraction = progressEvent.loaded / progressEvent.total;
+                                                const overall = Math.min(99, Math.round(((i + fraction) / total) * 100));
+                                                setBatchUploadProgress(overall);
+                                            }
+                                        },
+                                    });
+
+                                    lastFileName = fileObj.name;
+                                    setBatchUploadProgress(Math.round(((i + 1) / total) * 100));
+                                }
+
+                                if (!controller.signal.aborted) {
+                                    setBatchUploadProgress(100);
+                                    setBatchUploadStatusText('All files uploaded successfully!');
+                                    setTimeout(() => {
+                                        setSnackbarMsg(`Uploaded ${total} file(s) from "${pendingUploadBatch.sourceName}"!`);
+                                        if (pendingUploadBatch.targetFolderName.includes('shop')) {
+                                            setIsShopListExpanded(true);
+                                        } else if (pendingUploadBatch.targetFolderName.includes('trend')) {
+                                            setIsTrendListExpanded(true);
+                                        }
+                                        setPendingUploadBatch(null);
+                                        setIsBatchUploading(false);
+                                        setBatchUploadProgress(0);
+                                        setBatchUploadStatusText('');
+                                        setRefreshSeed((prev) => prev + 1);
+                                    }, 300);
+                                }
+                            } catch (e: any) {
+                                setIsBatchUploading(false);
+                                setBatchUploadProgress(0);
+                                setBatchUploadStatusText('');
+                                if (axios.isCancel(e) || e.name === 'CanceledError' || controller.signal.aborted) {
+                                    setPendingUploadBatch(null);
+                                    setSnackbarMsg('Upload cancelled');
+                                    setRefreshSeed((prev) => prev + 1);
+                                    void fetchFolderCounts();
+                                } else {
+                                    setSnackbarMsg(`Upload error: ${e.message}`);
+                                }
+                            }
+                        }}
                     />
 
                     {/* Rename File Dialog */}
@@ -1711,6 +2377,43 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
         marginLeft: 8,
     },
+    listUploadingCard: {
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#F0F4F9',
+        borderWidth: 1,
+        borderColor: '#D3E3FD',
+        marginBottom: 10,
+    },
+    listUploadingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
+    listUploadPercentBadge: {
+        backgroundColor: '#1A73E8',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        marginRight: 6,
+    },
+    listUploadPercentText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 10,
+    },
+    listUploadSliderTrack: {
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#E0E2EC',
+        overflow: 'hidden',
+    },
+    listUploadSliderFill: {
+        height: '100%',
+        borderRadius: 3,
+        backgroundColor: '#1A73E8',
+    },
     uploadingNotice: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1809,5 +2512,129 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
         paddingHorizontal: 20,
         gap: 12,
+    },
+    approveDialog: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        maxWidth: 520,
+        width: '92%',
+        alignSelf: 'center',
+        paddingTop: 8,
+    },
+    approveHeaderIconWrapper: {
+        alignItems: 'center',
+        marginTop: 12,
+        marginBottom: 4,
+    },
+    approveTitle: {
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: 20,
+        color: '#1F1F1F',
+    },
+    approveContentText: {
+        color: '#444746',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    batchSummaryBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 0, 0, 0.08)',
+        marginBottom: 8,
+    },
+    approveFilesScroll: {
+        maxHeight: 160,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: '#E0E2EC',
+    },
+    approveFileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#EEEEEE',
+    },
+    approveProgressContainer: {
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#F0F4F9',
+        borderWidth: 1,
+        borderColor: '#D3E3FD',
+    },
+    approveProgressHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
+    approveStatusText: {
+        color: '#1F1F1F',
+        fontWeight: '600',
+        flex: 1,
+        marginRight: 8,
+    },
+    approvePercentBadge: {
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+    },
+    approvePercentText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 11,
+    },
+    approveSliderTrack: {
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#E0E2EC',
+        overflow: 'hidden',
+    },
+    approveSliderFill: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    approveActions: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        gap: 8,
+    },
+    subtitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    cancelUploadPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF0F0',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
+        marginLeft: 8,
+    },
+    cancelUploadPillText: {
+        color: '#D93025',
+        fontWeight: '700',
+        fontSize: 10,
+        marginLeft: 2,
+    },
+    folderIconBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 6,
+        borderWidth: 1,
     },
 });
