@@ -30,6 +30,12 @@ import {
     TextInputApp,
     IconApp,
 } from '../../../components/common';
+import { useDispatch } from 'react-redux';
+import {
+    setShopImagesCount,
+    setTrendImagesCount,
+    setGoogleDriveUploading,
+} from '../../redux/onTrendSlice';
 
 // ============================================================================
 // CONFIGURATION & CONSTANTS
@@ -522,6 +528,11 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const buttonDropRef = useRef<View>(null);
+    const dispatch = useDispatch();
+
+    useEffect(() => {
+        dispatch(setGoogleDriveUploading(isUploading));
+    }, [isUploading, dispatch]);
 
     const isYellow = variant === 'yellow' || (!variant && (label.includes('trend') || label.includes('dataset_trend_images')));
     const isGreen = variant === 'green' || (!variant && (label.includes('shop') || label.includes('dataset_shop_images')));
@@ -971,16 +982,22 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                                     backgroundColor: isExpanded ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.03)',
                                     borderColor: isExpanded ? themeColors.border : 'rgba(0, 0, 0, 0.06)',
                                     opacity: pressed ? 0.7 : 1,
+                                    cursor: 'pointer',
                                 },
                             ]}
-                            onPress={onToggleExpand}
+                            onPress={(e) => {
+                                e?.stopPropagation?.();
+                                onToggleExpand();
+                            }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             accessibilityRole="button"
                             accessibilityLabel={isExpanded ? `Hide ${label} list` : `Show ${label} list`}
                         >
                             <IconApp
-                                name={isExpanded ? 'expand_less' : 'expand_more'}
+                                name="chevron_forward"
                                 size={24}
                                 color={themeColors.iconColor}
+                                style={{ transform: [{ rotate: isExpanded ? '-90deg' : '90deg' }] }}
                             />
                         </Pressable>
                     </View>
@@ -1030,6 +1047,19 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     const [uploadStatusText, setUploadStatusText] = useState<string>('');
     const dragCounter = useRef(0);
     const listUploadAbortControllerRef = useRef<AbortController | null>(null);
+    const dispatch = useDispatch();
+
+    useEffect(() => {
+        if (title.includes('shop') || title.includes('dataset_shop_images')) {
+            dispatch(setShopImagesCount(folderFiles.length));
+        } else if (title.includes('trend') || title.includes('dataset_trend_images')) {
+            dispatch(setTrendImagesCount(folderFiles.length));
+        }
+    }, [folderFiles.length, title, dispatch]);
+
+    useEffect(() => {
+        dispatch(setGoogleDriveUploading(isUploading));
+    }, [isUploading, dispatch]);
 
     const filteredFiles = useMemo(() => {
         if (!searchQuery.trim()) return folderFiles;
@@ -1464,6 +1494,21 @@ export function UploadFilesForAIToGoogleDriveComponent({
     const [refreshSeed, setRefreshSeed] = useState<number>(0);
     const [snackbarMsg, setSnackbarMsg] = useState<string>('');
     const [isFabOpen, setIsFabOpen] = useState<boolean>(false);
+
+    const dispatch = useDispatch();
+
+    // Sync file counts & uploading status to Redux onTrendState
+    useEffect(() => {
+        dispatch(setShopImagesCount(shopFilesCount));
+    }, [shopFilesCount, dispatch]);
+
+    useEffect(() => {
+        dispatch(setTrendImagesCount(trendFilesCount));
+    }, [trendFilesCount, dispatch]);
+
+    useEffect(() => {
+        dispatch(setGoogleDriveUploading(isBatchUploading));
+    }, [isBatchUploading, dispatch]);
 
     // Accordion State: Lists hidden by default
     const [isShopListExpanded, setIsShopListExpanded] = useState<boolean>(false);

@@ -75,12 +75,19 @@ export const CORE_SYMBOL_REGISTRY: Record<string, PlatformSymbols> = {
     bookmark: { ios: 'bookmark', android: 'bookmark' },
 
     // --- Directions & Arrows ---
-    arrow_back: { ios: 'chevron.left', android: 'arrow_back' },
     arrow_forward: { ios: 'chevron.right', android: 'arrow_forward' },
-    chevron_left: { ios: 'chevron.left', android: 'chevron_left' },
-    chevron_right: { ios: 'chevron.right', android: 'chevron_right' },
-    expand_more: { ios: 'chevron.down', android: 'expand_more' },
-    expand_less: { ios: 'chevron.up', android: 'expand_less' },
+    chevron_left: { ios: 'chevron.left', android: 'chevron_backward' },
+    chevron_right: { ios: 'chevron.right', android: 'chevron_forward' },
+    chevron_down: { ios: 'chevron.down', android: 'chevron_forward' },
+    chevron_up: { ios: 'chevron.up', android: 'chevron_forward' },
+    chevron_forward: { ios: 'chevron.right', android: 'chevron_forward' },
+    chevron_backward: { ios: 'chevron.left', android: 'chevron_backward' },
+    expand_more: { ios: 'chevron.down', android: 'chevron_forward' },
+    expand_less: { ios: 'chevron.up', android: 'chevron_forward' },
+    keyboard_arrow_down: { ios: 'chevron.down', android: 'chevron_forward' },
+    keyboard_arrow_up: { ios: 'chevron.up', android: 'chevron_forward' },
+    keyboard_arrow_left: { ios: 'chevron.left', android: 'chevron_backward' },
+    keyboard_arrow_right: { ios: 'chevron.right', android: 'chevron_forward' },
 
     // --- Media & Sound ---
     play_arrow: { ios: 'play', android: 'play_arrow' },

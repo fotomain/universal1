@@ -18,9 +18,18 @@ const variantConfigs = {
     splash: { image: './assets/appCC1/splash.png' },
     scheme: 'myapp-cc1',
   },
+  appOnTrend: {
+    name: 'My OnTrend App',
+    slug: 'my-ontrend-app',
+    ios: { bundleIdentifier: 'com.myapp.ontrend' },
+    android: { package: 'com.myapp.ontrend' },
+    icon: './assets/appOnTrend/icon.png',
+    splash: { image: './assets/appOnTrend/splash.png' },
+    scheme: 'myapp-ontrend',
+  },
 };
 
-const defaultVariant = 'appPosts';
+const defaultVariant = 'appOnTrend';
 const appName = process.env.APP_NAME || defaultVariant;
 const variant = variantConfigs[appName] || variantConfigs[defaultVariant];
 

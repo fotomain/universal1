@@ -7,6 +7,7 @@ import { SystemMetaData } from "./SystemMetaData";
 import activeUserReducer from "./activeUserSlice";
 import uxuiReducer from "./uxuiSlice";
 import userThemeReducer from "./userThemeSlice";
+import onTrendReducer from "./onTrendSlice";
 
 const storePrepared: any = (params: any) => {
   const sagaDbAdapters = createSagaMiddleware({
@@ -24,7 +25,7 @@ const storePrepared: any = (params: any) => {
   const persistConfig = {
     key: "root" + appVersion,
     storage,
-    whitelist: ["activeUserState", "userState", "uxuiState", "systemState", "mediaPostState", "userTheme"], // activeUserState persisted
+    whitelist: ["activeUserState", "userState", "uxuiState", "systemState", "mediaPostState", "userTheme", "onTrendState"], // onTrendState persisted
   };
 
   const rootReducer = combineReducers({
@@ -32,6 +33,7 @@ const storePrepared: any = (params: any) => {
     activeUserState: activeUserReducer, //this display state
     uxuiState: uxuiReducer, //interface dynamics between devices
     userTheme: userThemeReducer, //colors++ between devices
+    onTrendState: onTrendReducer, // OnTrend computation & Google Drive files state
   });
 
   const persistedReducer = persistReducer(persistConfig, rootReducer);

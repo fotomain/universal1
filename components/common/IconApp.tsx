@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Platform, StyleProp, Text, TouchableOpacity, ViewStyle } from 'react-native';
+import { Platform, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useDesignSystem } from '../../context/DesignSystemContext';
 import { MaterialSymbol } from "./iconsvariants/MaterialSymbol";
@@ -68,6 +68,33 @@ export const getWebFallbackGlyph = (iconName: string): string => {
     'crosshairs-gps': '⌖',
     'format-vertical-align-top': '⤒',
     'format-vertical-align-bottom': '⤓',
+    expand_more: '▾',
+    'expand-more': '▾',
+    expand_less: '▴',
+    'expand-less': '▴',
+    chevron_down: '▾',
+    'chevron-down': '▾',
+    chevron_up: '▴',
+    'chevron-up': '▴',
+    chevron_left: '‹',
+    'chevron-left': '‹',
+    chevron_right: '›',
+    'chevron-right': '›',
+    keyboard_arrow_down: '▾',
+    keyboard_arrow_up: '▴',
+    keyboard_arrow_left: '‹',
+    keyboard_arrow_right: '›',
+    drive_folder_upload: '📁',
+    cloud_upload: '☁',
+    upload_file: '📄',
+    find_in_page: '📄',
+    folder: '📁',
+    folder_open: '📂',
+    storefront: '🏪',
+    trending_up: '📈',
+    'trending-up': '📈',
+    download: '📥',
+    cancel: '✕',
     default: '•',
   };
 
@@ -115,6 +142,26 @@ export const getPlatformSymbolName = (rawName: string): string => {
     vertical_align_top: 'arrow.up.to.line',
     'format-vertical-align-bottom': 'arrow.down.to.line',
     vertical_align_bottom: 'arrow.down.to.line',
+    expand_more: 'chevron.down',
+    'expand-more': 'chevron.down',
+    expand_less: 'chevron.up',
+    'expand-less': 'chevron.up',
+    chevron_down: 'chevron.down',
+    'chevron-down': 'chevron.down',
+    chevron_up: 'chevron.up',
+    'chevron-up': 'chevron.up',
+    chevron_left: 'chevron.left',
+    'chevron-left': 'chevron.left',
+    chevron_right: 'chevron.right',
+    'chevron-right': 'chevron.right',
+    keyboard_arrow_down: 'chevron.down',
+    keyboard_arrow_up: 'chevron.up',
+    keyboard_arrow_left: 'chevron.left',
+    keyboard_arrow_right: 'chevron.right',
+    drive_folder_upload: 'folder.badge.plus',
+    cloud_upload: 'icloud.and.arrow.up',
+    upload_file: 'doc.badge.arrow.up',
+    cancel: 'xmark.circle',
   };
 
   const normalizedKey = rawName.toLowerCase();
@@ -181,6 +228,14 @@ export const IconApp: React.FC<IconAppProps> = ({
   };
 
   const wrapWithTouchable = (children: React.ReactNode) => {
+    if (!onPress && !userOnLongPress) {
+      return (
+        <View style={style} testID={iconGuid} pointerEvents="none">
+          {children}
+        </View>
+      );
+    }
+
     const webProps = Platform.OS === 'web' ? {
       onMouseDown: handleMouseDown,
       onMouseUp: handleMouseUp,

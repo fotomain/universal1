@@ -7,6 +7,7 @@ import {Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
+import HomeAppOnTrend from '../../apps/appOnTrend/HomeAppOnTrend';
 import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
@@ -15,6 +16,7 @@ import BottomTabsRoutingComponent from '../../kit8/components/navigation/BottomT
 const homeComponentsMap = {
   appPosts: HomeAppPostsPage,
   appCC1: HomeAppCC1,
+  appOnTrend: HomeAppOnTrend,
 };
 const appName = (Constants.expoConfig?.extra?.appName as keyof typeof homeComponentsMap) || 'appPosts';
 const HomeComponent = homeComponentsMap[appName] || HomeAppPostsPage;

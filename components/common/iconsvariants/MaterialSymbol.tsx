@@ -1,17 +1,37 @@
 // MaterialSymbol.tsx
-// <MaterialSymbol name="home" size={32} color="#6750A4" />
-// <MaterialSymbol name="arrow_back" size={32} color="#1C1B1F" />
-// <MaterialSymbol name="shopping_cart" size={32} color="#1C1B1F" />
-//
-// {/* Filled icon via boolean prop */}
-// <MaterialSymbol name="home" filled size={32} color="#6750A4" />
-
-{/* Filled icon via name string */}
-// <MaterialSymbol name="shopping_cart_fill" size={32} color="#6750A4" />
-
 import React from 'react';
 import * as MaterialSymbols from '@material-symbols-svg/react-native';
-import { ViewStyle } from 'react-native';
+import { View, ViewStyle, StyleProp } from 'react-native';
+
+const ROTATION_MAP: Record<string, string> = {
+    expand_more: '90deg',
+    expandmore: '90deg',
+    'expand-more': '90deg',
+    chevron_down: '90deg',
+    chevrondown: '90deg',
+    'chevron-down': '90deg',
+    'chevron.down': '90deg',
+    arrow_drop_down: '90deg',
+    arrowdropdown: '90deg',
+    'arrow-drop-down': '90deg',
+    accordion_expand: '90deg',
+
+    expand_less: '-90deg',
+    expandless: '-90deg',
+    'expand-less': '-90deg',
+    chevron_up: '-90deg',
+    chevronup: '-90deg',
+    'chevron-up': '-90deg',
+    'chevron.up': '-90deg',
+    arrow_drop_up: '-90deg',
+    arrowdropup: '-90deg',
+    'arrow-drop-up': '-90deg',
+    accordion_collapse: '-90deg',
+
+    chevron_backward: '180deg',
+    chevronbackward: '180deg',
+    'chevron-backward': '180deg',
+};
 
 // Helper to convert snake_case to PascalCase (e.g., "arrow_back" -> "ArrowBack")
 const ALIAS_MAP: Record<string, string> = {
@@ -45,12 +65,39 @@ const ALIAS_MAP: Record<string, string> = {
     'tray-arrow-down': 'download',
     'cloud-upload-outline': 'cloud_upload',
     'cloud-upload': 'cloud_upload',
-    'chevron-up': 'expand_less',
-    'chevron-down': 'expand_more',
+    'chevron-up': 'chevron_forward',
+    'chevron.up': 'chevron_forward',
+    chevronup: 'chevron_forward',
+    'chevron-down': 'chevron_forward',
+    'chevron.down': 'chevron_forward',
+    chevrondown: 'chevron_forward',
+    chevron_up: 'chevron_forward',
+    chevron_down: 'chevron_forward',
+    chevron_left: 'chevron_backward',
+    chevron_right: 'chevron_forward',
+    'chevron-left': 'chevron_backward',
+    'chevron.left': 'chevron_backward',
+    'chevron-right': 'chevron_forward',
+    'chevron.right': 'chevron_forward',
+    chevronleft: 'chevron_backward',
+    chevronright: 'chevron_forward',
+    chevron_forward: 'chevron_forward',
+    chevronforward: 'chevron_forward',
+    chevron_backward: 'chevron_backward',
+    chevronbackward: 'chevron_backward',
+    expand_more: 'chevron_forward',
+    expandmore: 'chevron_forward',
+    'expand-more': 'chevron_forward',
+    expand_less: 'chevron_forward',
+    expandless: 'chevron_forward',
+    'expand-less': 'chevron_forward',
+    accordion_expand: 'chevron_forward',
+    accordion_collapse: 'chevron_forward',
 };
 
 const snakeToPascal = (str: string): string => {
-    const mapped = ALIAS_MAP[str.toLowerCase()] || str;
+    const norm = str.toLowerCase().replace(/[.-]/g, '_');
+    const mapped = ALIAS_MAP[norm] || ALIAS_MAP[str.toLowerCase()] || str;
     return mapped
         .split('_')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -64,16 +111,20 @@ interface MaterialSymbolProps {
     color?: string;
     /** Set to true for filled variant, or pass filled names like "home_fill" */
     filled?: boolean;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
 }
 
 export const MaterialSymbol: React.FC<MaterialSymbolProps> = ({
-                                                                  name,
-                                                                  size = 24,
-                                                                  color = '#000000',
-                                                                  filled = false,
-                                                                  style,
-                                                              }) => {
+    name,
+    size = 24,
+    color = '#000000',
+    filled = false,
+    style,
+}) => {
+    if (!name) return null;
+
+    const normKey = name.toLowerCase().replace(/[.-]/g, '_');
+
     // Normalize snake_case name to PascalCase
     let componentName = snakeToPascal(name);
 
@@ -83,11 +134,38 @@ export const MaterialSymbol: React.FC<MaterialSymbolProps> = ({
     }
 
     // Lookup component from module exports
-    const IconComponent = (MaterialSymbols as Record<string, React.FC<any>>)[componentName];
+    let IconComponent = (MaterialSymbols as Record<string, React.FC<any>>)[componentName];
+
+    // Fallback if not found: try ChevronForward if it is any chevron or expand icon
+    if (!IconComponent && (normKey.includes('chevron') || normKey.includes('expand') || normKey.includes('arrow'))) {
+        componentName = 'ChevronForward';
+        IconComponent = (MaterialSymbols as Record<string, React.FC<any>>)[componentName];
+    }
 
     if (!IconComponent) {
         console.warn(`Material Symbol "${name}" (resolved as "${componentName}") was not found.`);
         return null;
+    }
+
+    const rotation = ROTATION_MAP[normKey] || ROTATION_MAP[name.toLowerCase()];
+
+    if (rotation) {
+        return (
+            <View
+                style={[
+                    {
+                        width: size,
+                        height: size,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transform: [{ rotate: rotation }],
+                    },
+                    style,
+                ]}
+            >
+                <IconComponent width={size} height={size} fill={color} />
+            </View>
+        );
     }
 
     return <IconComponent width={size} height={size} fill={color} style={style} />;
