@@ -7,7 +7,8 @@ import {
     StyleProp,
     ViewStyle,
 } from 'react-native';
-import { Text, Avatar, useTheme, Portal } from 'react-native-paper';
+import { Text, useTheme, Portal } from 'react-native-paper';
+import IconApp from './IconApp';
 
 export interface SpeedDialAction {
     icon: string;
@@ -141,11 +142,10 @@ export const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({
                                             accessibilityRole="button"
                                             accessibilityLabel={action.label || `Action ${index + 1}`}
                                         >
-                                            <Avatar.Icon
+                                            <IconApp
                                                 size={22}
-                                                icon={action.icon}
+                                                name={action.icon}
                                                 color={actionIconColor}
-                                                style={{ backgroundColor: 'transparent' }}
                                             />
                                         </Pressable>
                                     )}
@@ -195,11 +195,10 @@ export const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({
                                             accessibilityRole="button"
                                             accessibilityLabel={action.label || `Action ${index + 1}`}
                                         >
-                                            <Avatar.Icon
+                                            <IconApp
                                                 size={22}
-                                                icon={action.icon}
+                                                name={action.icon}
                                                 color={actionIconColor}
-                                                style={{ backgroundColor: 'transparent' }}
                                             />
                                         </Pressable>
                                     )}
@@ -226,15 +225,14 @@ export const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({
                     accessibilityLabel={open ? 'Close action menu' : 'Open action menu'}
                 >
                     <Animated.View style={{ transform: [{ rotate: rotateIcon }] }}>
-                        <Avatar.Icon
+                        <IconApp
                             size={28}
-                            icon={open ? 'close' : icon}
+                            name={open ? 'close' : icon}
                             color={
                                 open
                                     ? theme.colors.onSecondaryContainer
                                     : theme.colors.onPrimaryContainer
                             }
-                            style={{ backgroundColor: 'transparent' }}
                         />
                     </Animated.View>
                 </Pressable>
