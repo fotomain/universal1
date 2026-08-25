@@ -1,8 +1,8 @@
 import React from "react";
 import {StyleSheet, View} from "react-native";
-import IconApp from "../../../../components/common/IconApp";
-import OnOffButtonApp from "../../../../components/common/OnOffButtonApp";
-import SearchTextApp from "../../../../components/common/SearchTextApp";
+import IconApp from '../../common/IconApp';
+import OnOffButtonApp from '../../common/OnOffButtonApp';
+import SearchTextApp from '../../common/SearchTextApp';
 
 let usePaperTheme: any;
 try {

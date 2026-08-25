@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Surface, Text, useTheme, IconButton, TextInput, Switch, Portal, Modal } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../../components/common';
+import { ButtonPrimaryApp } from '../common';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';

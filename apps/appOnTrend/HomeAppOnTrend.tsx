@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { ButtonApp, ButtonPrimaryApp } from '../../components/common';
+import { ButtonApp, ButtonPrimaryApp } from '../../kit8/components/common';
 import H1Mi from '../../kit8/ui/H1Mi';
 import ArticleTextMi from '../../kit8/ui/ArticleTextMi';
 import OnTrendDasboardClothesScreen from './OnTrendDasboardClothesScreen';

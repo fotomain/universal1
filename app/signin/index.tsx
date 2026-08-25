@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from '../../kit8/components/common';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../kit8/lib/localSecureStorage';

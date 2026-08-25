@@ -3,7 +3,7 @@ import { View, StyleSheet, Animated, Platform } from 'react-native';
 // @ts-ignore
 import ReactDOM from 'react-dom';
 import { Text, Surface, useTheme } from 'react-native-paper';
-import FABApp from '../../../components/common/FABApp';
+import FABApp from '../common/FABApp';
 import { useSelector } from 'react-redux';
 import { useFAB } from '../../providers/FABProvider';
 import { CustomLightTheme } from '../../theme/palettes';

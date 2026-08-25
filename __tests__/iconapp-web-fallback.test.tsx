@@ -34,7 +34,7 @@ const mockDesignSystem = {
   },
 };
 
-jest.mock('../context/DesignSystemContext', () => ({
+jest.mock('../kit8/providers/WithDesignSystem', () => ({
   __esModule: true,
   default: require('react').createContext(mockDesignSystem),
   useDesignSystem: () => mockDesignSystem,
@@ -42,7 +42,7 @@ jest.mock('../context/DesignSystemContext', () => ({
 
 describe('IconApp web fallback', () => {
   beforeAll(() => {
-    ({ getWebFallbackGlyph, getPlatformSymbolName } = require('../components/common/IconApp'));
+    ({ getWebFallbackGlyph, getPlatformSymbolName } = require('../kit8/components/common/IconApp'));
   });
 
   it('uses a text glyph instead of loading vector icon fonts on web', () => {

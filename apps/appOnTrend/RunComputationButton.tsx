@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
-import { ButtonPrimaryApp } from '../../components/common';
-import { ButtonAppProps } from '../../components/common/ButtonApp';
+import { ButtonPrimaryApp } from '../../kit8/components/common';
+import { ButtonAppProps } from '../../kit8/components/common/ButtonApp';
 import { OnTrendState } from '../../kit8/redux/onTrendSlice';
 
 export interface RunComputationButtonProps extends Partial<Omit<ButtonAppProps, 'variant'>> {

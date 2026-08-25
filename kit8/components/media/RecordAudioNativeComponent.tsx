@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Surface, Text, useTheme, Card, IconButton } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../../components/common';
+import { ButtonPrimaryApp } from '../common';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 

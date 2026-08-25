@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 // @ts-ignore
 import { PersistGate } from 'redux-persist/integration/react';
 
-import { useSQLNative } from "../providers/SQLiteNativeProvider";
+import { useSQLNative } from "../providers/WithSQLiteNative";
 import { useSupabase } from "../providers/WithSupabase";
 import { useWorkPlace } from "../providers/WithWorkPlace";
 import { storePrepared } from "./storePrepared";

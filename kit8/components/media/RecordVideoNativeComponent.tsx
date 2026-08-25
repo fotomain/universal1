@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Card, Surface, Text, useTheme} from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../../components/common';
+import { ButtonPrimaryApp } from '../common';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 import {useTranslation} from 'react-i18next';
 import {useDispatch, useSelector} from 'react-redux';

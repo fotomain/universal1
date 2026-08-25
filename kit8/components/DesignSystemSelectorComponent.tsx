@@ -1,11 +1,11 @@
 import React from 'react';
 import {Alert, Linking, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {Surface, Text} from 'react-native-paper';
-import {DesignSystemType, useDesignSystem} from '../../context/DesignSystemContext';
-import TextApp from '../../components/common/TextApp';
-import TextInputApp from '../../components/common/TextInputApp';
-import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
-import ButtonSecondaryApp from '../../components/common/ButtonSecondaryApp';
+import {DesignSystemType, useDesignSystem} from '../providers/WithDesignSystem';
+import TextApp from './common/TextApp';
+import TextInputApp from './common/TextInputApp';
+import ButtonPrimaryApp from './common/ButtonPrimaryApp';
+import ButtonSecondaryApp from './common/ButtonSecondaryApp';
 import BrandLogo from './BrandLogo';
 
 interface SystemOption {

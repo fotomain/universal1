@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Text, Surface, useTheme } from 'react-native-paper';
-import FABApp from '../../../components/common/FABApp';
+import FABApp from '../common/FABApp';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
 import { useFAB } from '../../providers/FABProvider';

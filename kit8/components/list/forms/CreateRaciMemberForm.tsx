@@ -5,7 +5,7 @@ import {RadioButton, Surface, Text, useTheme} from 'react-native-paper';
 import TexInputMi from '../../../ui/TexInputMi';
 import {PronounType} from '../../../types/pronoun';
 import {FormErrorFieldComponent} from './FormErrorFieldComponent';
-import {ButtonPrimaryApp, ButtonSecondaryApp} from "../../../../components/common";
+import {ButtonPrimaryApp, ButtonSecondaryApp} from '../../common';
 
 export interface CreateRaciMemberFormProps {
   onCreateLast?: (originParam?: any, manipulationParam?: any, originUrlParam?: string, customJson?: any) => void;

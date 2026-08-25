@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import CardApp from "../../../../components/common/CardApp";
-import TextInputApp from "../../../../components/common/TextInputApp";
+import CardApp from '../../common/CardApp';
+import TextInputApp from '../../common/TextInputApp';
 import { useTheme } from "react-native-paper";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { CardItem } from "../web/lib/types";

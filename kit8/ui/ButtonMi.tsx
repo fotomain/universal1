@@ -1,8 +1,8 @@
 import React from 'react';
-import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
-import ButtonSecondaryApp from '../../components/common/ButtonSecondaryApp';
-import ButtonTextApp from '../../components/common/ButtonTextApp';
-import { ButtonAppProps } from '../../components/common/ButtonApp';
+import ButtonPrimaryApp from '../components/common/ButtonPrimaryApp';
+import ButtonSecondaryApp from '../components/common/ButtonSecondaryApp';
+import ButtonTextApp from '../components/common/ButtonTextApp';
+import { ButtonAppProps } from '../components/common/ButtonApp';
 
 export interface ButtonMiProps extends Partial<ButtonAppProps> {
   title: string;

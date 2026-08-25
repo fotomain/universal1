@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Card, Text, useTheme } from "react-native-paper";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import TextInputApp from "../../../../components/common/TextInputApp";
-import TextAreaApp from "../../../../components/common/TextAreaApp";
-import SelectorFromApp from "../../../../components/common/SelectorFromApp";
-import ButtonPrimaryApp from "../../../../components/common/ButtonPrimaryApp";
-import ButtonTextApp from "../../../../components/common/ButtonTextApp";
+import TextInputApp from '../../common/TextInputApp';
+import TextAreaApp from '../../common/TextAreaApp';
+import SelectorFromApp from '../../common/SelectorFromApp';
+import ButtonPrimaryApp from '../../common/ButtonPrimaryApp';
+import ButtonTextApp from '../../common/ButtonTextApp';
 import { DATA_ORIGIN_TYPE, DataOriginType, urlIsYouTube, readYouTubeTitle, readYouTubeDescription } from "../../../types/origin";
 import {
   DATA_MANIPULATION_TYPE,

@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import SwitchApp from '../../components/common/SwitchApp';
+import SwitchApp from './common/SwitchApp';
 import { setDarkMode } from '../redux/uxuiSlice';
 import { toggleThemeMode } from '../redux/userThemeSlice';
 import { saveUserTheme } from '../lib/localSecureStorage';

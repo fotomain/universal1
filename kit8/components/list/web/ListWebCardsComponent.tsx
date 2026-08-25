@@ -24,8 +24,8 @@ import {CreateNewCardBasicForm} from "../forms";
 import {SystemMetaData} from "../../../redux/SystemMetaData";
 import {DATA_ORIGIN_TYPE, DataOriginType} from "../../../types/origin";
 import {DATA_MANIPULATION_TYPE, DataManipulationType} from "../../../types/manipulation";
-import IconApp from "../../../../components/common/IconApp";
-import AskBeforeDeletePostComponent from "../../../../components/common/AskBeforeDeletePostComponent";
+import IconApp from '../../common/IconApp';
+import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostComponent';
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../redux/uxuiSlice";
 

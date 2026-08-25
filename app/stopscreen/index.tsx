@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from '../../kit8/components/common';
 
 export default function StopScreen() {
   const router = useRouter();

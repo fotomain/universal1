@@ -8,7 +8,7 @@ import H1Mi from '../ui/H1Mi';
 import TexInputMi from '../ui/TexInputMi';
 import ButtonMi from '../ui/ButtonMi';
 import { showSnackbar } from '../redux/uxuiSlice';
-import AskBeforeDeletePostComponent from '../../components/common/AskBeforeDeletePostComponent';
+import AskBeforeDeletePostComponent from './common/AskBeforeDeletePostComponent';
 
 const uuid = Crypto.randomUUID;
 

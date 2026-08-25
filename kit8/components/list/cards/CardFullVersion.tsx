@@ -1,7 +1,7 @@
 import React from "react";
 import {Image, Linking, StyleSheet, TouchableOpacity, View} from "react-native";
 import {IconButton, Text, useTheme} from "react-native-paper";
-import CardApp from "../../../../components/common/CardApp";
+import CardApp from '../../common/CardApp';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {CardItem} from "../web/lib/types";
 import {CardThreeDotsMenu} from "../web/lib/CardThreeDotsMenu";

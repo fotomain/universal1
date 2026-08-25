@@ -16,7 +16,7 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,
 }), { virtual: true });
 
-jest.mock('../context/DesignSystemContext', () => ({
+jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({
     activeSystem: 'google_md3_web',
     themeColors: { primary: '#6750A4', surface: '#ffffff' },

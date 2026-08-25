@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import H1Mi from '../ui/H1Mi';
 import H2Mi from '../ui/H2Mi';
 import ArticleTextMi from '../ui/ArticleTextMi';
-import TextInputApp from '../../components/common/TextInputApp';
-import ButtonPrimaryApp from '../../components/common/ButtonPrimaryApp';
+import TextInputApp from './common/TextInputApp';
+import ButtonPrimaryApp from './common/ButtonPrimaryApp';
 
 export default function FeedbackFormMi() {
   const { t } = useTranslation();

@@ -6,7 +6,11 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build_appOnTrend": "./build_appOnTrend.sh",
+    "build_appPosts": "./build_appPosts.sh",
+    "build_appCC1": "./build_appCC1.sh",
+    "build_all": "./build_all.sh"
   },
   "dependencies": {
     "@ant-design/icons-react-native": "^2.3.2",

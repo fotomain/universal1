@@ -4,8 +4,8 @@ import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useDesignSystem } from '../../context/DesignSystemContext';
-import IconApp from '../../components/common/IconApp';
+import { useDesignSystem } from '../providers/WithDesignSystem';
+import IconApp from './common/IconApp';
 import LanguageSelectorComponent from './LanguageSelectorComponent';
 import DarkThemeSwitchComponent from './DarkThemeSwitchComponent';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Image, View} from 'react-native';
 import {SvgXml} from 'react-native-svg';
-import {DesignSystemType} from '../../context/DesignSystemContext';
+import {DesignSystemType} from '../providers/WithDesignSystem';
 
 // ─── PNG asset (Expo logo is a real PNG) ───────────────────────────
 const expoLogoPng = require('../../assets/designSystems/expo-logo.png');

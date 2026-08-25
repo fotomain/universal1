@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { Text, useTheme, Surface } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from '../../kit8/components/common';
 import { useSelector } from 'react-redux';
 import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';

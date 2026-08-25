@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Card, Text, Portal, Dialog, TextInput } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from './common';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateThemeColor, resetTheme } from '../redux/userThemeSlice';
 import { saveUserTheme } from '../lib/localSecureStorage';

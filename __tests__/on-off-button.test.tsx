@@ -4,13 +4,13 @@ jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }), { virtual: true });
 
-jest.mock('../context/DesignSystemContext', () => ({
+jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({
     themeColors: { primary: '#6750A4', onPrimary: '#ffffff' },
   }),
 }));
 
-import { OnOffButtonApp, OnOffButtonAppProps } from '../components/common/OnOffButtonApp';
+import { OnOffButtonApp, OnOffButtonAppProps } from '../kit8/components/common/OnOffButtonApp';
 
 describe('OnOffButtonApp component', () => {
   it('exports OnOffButtonApp as a valid React component', () => {

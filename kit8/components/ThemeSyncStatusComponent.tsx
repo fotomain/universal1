@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, useTheme, Chip } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from './common';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWorkPlace } from '../providers/WithWorkPlace';
 import { SystemMetaData } from '../redux/SystemMetaData';

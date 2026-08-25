@@ -1,0 +1,2277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Cloud Architecture & Hardware Recommendations for Long-Running User Pipelines</title>
+  
+  <!-- Modern Typography (Tamagui aesthetic: Inter & Space Grotesk & JetBrains Mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for High-Definition Business Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* -------------------------------------------------------------
+       TAMAGUI DESIGN SYSTEM TOKENS & CSS VARIABLES
+       ------------------------------------------------------------- */
+    :root {
+      --bg-canvas: #07070a;
+      --bg-subtle: #0d0e15;
+      --bg-card: rgba(18, 19, 29, 0.75);
+      --bg-card-hover: rgba(28, 30, 46, 0.85);
+      --bg-card-solid: #13141f;
+      --bg-glass: rgba(13, 14, 23, 0.82);
+      
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.14);
+      --border-accent: rgba(168, 85, 247, 0.35);
+      --border-cyan: rgba(6, 182, 212, 0.35);
+      --border-green: rgba(16, 185, 129, 0.35);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-highlight: #ffffff;
+
+      --tamagui-purple: #a855f7;
+      --tamagui-purple-dark: #7e22ce;
+      --tamagui-indigo: #6366f1;
+      --tamagui-cyan: #06b6d4;
+      --tamagui-teal: #14b8a6;
+      --tamagui-emerald: #10b981;
+      --tamagui-amber: #f59e0b;
+      --tamagui-rose: #f43f5e;
+      --tamagui-red: #ef4444;
+
+      --gradient-brand: linear-gradient(135deg, #c084fc 0%, #a855f7 40%, #06b6d4 100%);
+      --gradient-cyan: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #14b8a6 100%);
+      --gradient-amber: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%);
+      --gradient-emerald: linear-gradient(135deg, #34d399 0%, #10b981 60%, #059669 100%);
+      --gradient-card: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
+      --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+      --shadow-glow-purple: 0 0 30px -5px rgba(168, 85, 247, 0.25);
+      --shadow-glow-cyan: 0 0 30px -5px rgba(6, 182, 212, 0.25);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    /* -------------------------------------------------------------
+       GLOBAL RESET & BASE STYLING
+       ------------------------------------------------------------- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 10%, rgba(168, 85, 247, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* -------------------------------------------------------------
+       STICKY NAVBAR WITH SCROLL-SPY REACTIVATION (TAMAGUI HEADER)
+       ------------------------------------------------------------- */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: var(--bg-glass);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .top-nav.scrolled {
+      border-bottom: 1px solid var(--border-medium);
+      box-shadow: var(--shadow-md);
+      padding-top: 0.6rem;
+      padding-bottom: 0.6rem;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #a855f7 0%, #06b6d4 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+    }
+
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--tamagui-cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      list-style: none;
+      overflow-x: auto;
+      padding: 0.25rem 0;
+      scrollbar-width: none;
+    }
+
+    .nav-menu::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.95rem;
+      border-radius: var(--radius-full);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      background: transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+    }
+
+    /* Active scroll-spy state */
+    .nav-link.active {
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(6, 182, 212, 0.15) 100%);
+      border-color: var(--border-accent);
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.2);
+    }
+
+    .nav-link .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--tamagui-purple);
+      display: none;
+    }
+
+    .nav-link.active .nav-dot {
+      display: inline-block;
+      box-shadow: 0 0 8px var(--tamagui-purple);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-quick-calc {
+      background: linear-gradient(135deg, var(--tamagui-purple) 0%, var(--tamagui-indigo) 100%);
+      color: #ffffff;
+      padding: 0.5rem 1.1rem;
+      border-radius: var(--radius-full);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-quick-calc:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45);
+    }
+
+    /* -------------------------------------------------------------
+       CONTAINER & LAYOUT
+       ------------------------------------------------------------- */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 6rem;
+    }
+
+    .section-anchor {
+      scroll-margin-top: 5rem;
+      margin-bottom: 3.5rem;
+    }
+
+    /* -------------------------------------------------------------
+       HERO & EXECUTIVE BANNER
+       ------------------------------------------------------------- */
+    .hero-wrapper {
+      position: relative;
+      padding: 3rem 2.5rem;
+      background: linear-gradient(180deg, rgba(24, 25, 38, 0.7) 0%, rgba(13, 14, 22, 0.85) 100%);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
+      margin-bottom: 2.5rem;
+      overflow: hidden;
+    }
+
+    .hero-wrapper::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-brand);
+    }
+
+    .hero-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .badge-pill.success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid var(--border-green);
+    }
+
+    .badge-pill.purple {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid var(--border-accent);
+    }
+
+    .badge-pill.cyan {
+      background: rgba(6, 182, 212, 0.15);
+      color: #22d3ee;
+      border: 1px solid var(--border-cyan);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 10px currentColor;
+      animation: pulseAnim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 2.75rem;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+      color: #ffffff;
+    }
+
+    .hero-title .gradient-text {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      max-width: 960px;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    /* KPI Highlights Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .kpi-card {
+      background: rgba(10, 11, 18, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.4rem;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+    }
+
+    .kpi-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .kpi-card.purple::before { background: var(--tamagui-purple); }
+    .kpi-card.cyan::before { background: var(--tamagui-cyan); }
+    .kpi-card.emerald::before { background: var(--tamagui-emerald); }
+    .kpi-card.amber::before { background: var(--tamagui-amber); }
+
+    .kpi-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      font-family: var(--font-mono);
+    }
+
+    .kpi-value {
+      font-size: 1.65rem;
+      font-weight: 800;
+      font-family: var(--font-display);
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .kpi-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.35rem;
+    }
+
+    /* -------------------------------------------------------------
+       SECTION CARDS & HEADINGS
+       ------------------------------------------------------------- */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2.25rem;
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: relative;
+    }
+
+    .section-card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .section-header {
+      margin-bottom: 1.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-title-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-title-icon.purple { background: rgba(168, 85, 247, 0.2); color: var(--tamagui-purple); }
+    .section-title-icon.cyan { background: rgba(6, 182, 212, 0.2); color: var(--tamagui-cyan); }
+    .section-title-icon.emerald { background: rgba(16, 185, 129, 0.2); color: var(--tamagui-emerald); }
+    .section-title-icon.amber { background: rgba(245, 158, 11, 0.2); color: var(--tamagui-amber); }
+
+    .section-desc {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      max-width: 850px;
+      margin-top: 0.4rem;
+    }
+
+    /* -------------------------------------------------------------
+       MACBOOK BENCHMARK GRID & METRICS
+       ------------------------------------------------------------- */
+    .benchmark-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .bench-card {
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+    }
+
+    .bench-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.88rem;
+    }
+
+    .bench-row:last-child {
+      border-bottom: none;
+    }
+
+    .bench-key {
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .bench-val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--text-highlight);
+    }
+
+    .bench-val.accent {
+      color: var(--tamagui-cyan);
+    }
+
+    .bench-val.highlight {
+      color: var(--tamagui-purple);
+    }
+
+    /* -------------------------------------------------------------
+       ARCHITECTURE SVG DIAGRAM & WORKFLOW
+       ------------------------------------------------------------- */
+    .arch-diagram-wrapper {
+      background: #090a10;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 2rem 1.5rem;
+      margin: 1.5rem 0;
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .arch-diagram-svg {
+      width: 100%;
+      min-width: 900px;
+      height: auto;
+      display: block;
+    }
+
+    .arch-step-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+
+    .arch-step-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+
+    .step-number {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--tamagui-purple);
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    .step-name {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-bottom: 0.4rem;
+    }
+
+    .step-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* -------------------------------------------------------------
+       HARDWARE & PRICING TABLE
+       ------------------------------------------------------------- */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      margin: 1.5rem 0;
+      background: #0a0b12;
+    }
+
+    table.price-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    table.price-table th {
+      background: rgba(20, 22, 35, 0.95);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid var(--border-medium);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    table.price-table td {
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    table.price-table tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    table.price-table tr.highlight-row td {
+      background: rgba(168, 85, 247, 0.07);
+      border-left: 3px solid var(--tamagui-purple);
+    }
+
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--radius-full);
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .tier-badge.graviton { background: rgba(6, 182, 212, 0.15); color: #38bdf8; border: 1px solid var(--border-cyan); }
+    .tier-badge.intel { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid var(--border-accent); }
+    .tier-badge.fargate { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid var(--border-green); }
+
+    .price-cell {
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    .price-cell.spot {
+      color: #34d399;
+    }
+
+    .price-cell.od {
+      color: #e2e8f0;
+    }
+
+    .price-cell.max40 {
+      color: #fbbf24;
+      font-weight: 800;
+    }
+
+    /* -------------------------------------------------------------
+       INTERACTIVE CALCULATOR WIDGET
+       ------------------------------------------------------------- */
+    .calc-box {
+      background: linear-gradient(135deg, rgba(20, 22, 36, 0.9) 0%, rgba(12, 13, 22, 0.95) 100%);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin: 2rem 0;
+      box-shadow: var(--shadow-glow-purple);
+    }
+
+    .calc-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .calc-title {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .calc-inputs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .calc-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .calc-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: var(--font-mono);
+    }
+
+    .calc-slider-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--tamagui-cyan);
+      font-family: var(--font-mono);
+    }
+
+    input[type="range"].tamagui-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"].tamagui-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--tamagui-purple);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--tamagui-purple);
+      border: 2px solid #ffffff;
+    }
+
+    .calc-select {
+      background: #090a12;
+      border: 1px solid var(--border-medium);
+      color: #ffffff;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .calc-results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .calc-result-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.1rem;
+      text-align: center;
+    }
+
+    .calc-res-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      font-family: var(--font-mono);
+    }
+
+    .calc-res-val {
+      font-size: 1.75rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: #ffffff;
+    }
+
+    .calc-res-val.green { color: #34d399; }
+    .calc-res-val.purple { color: #c084fc; }
+    .calc-res-val.amber { color: #fbbf24; }
+
+    /* -------------------------------------------------------------
+       CODE & JSON DATA DISPLAY (TAMAGUI CODE BLOCKS)
+       ------------------------------------------------------------- */
+    .code-wrapper {
+      background: #06070c;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin: 1.25rem 0;
+      font-family: var(--font-mono);
+      box-shadow: var(--shadow-md);
+    }
+
+    .code-header {
+      background: #0f111a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 0.65rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .code-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .code-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .code-dot.red { background: #ef4444; }
+    .code-dot.yellow { background: #f59e0b; }
+    .code-dot.green { background: #10b981; }
+
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    pre.code-content {
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre;
+    }
+
+    /* JSON syntax coloring tokens */
+    .json-key { color: #38bdf8; }
+    .json-str { color: #34d399; }
+    .json-num { color: #fbbf24; }
+    .json-bool { color: #c084fc; }
+    .json-null { color: #f43f5e; }
+
+    /* -------------------------------------------------------------
+       COMPARATIVE ARCHITECTURE MATRIX
+       ------------------------------------------------------------- */
+    .arch-eval-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    .eval-card {
+      background: rgba(14, 15, 24, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .eval-card.recommended {
+      border-color: var(--tamagui-purple);
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, rgba(14, 15, 24, 0.85) 100%);
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.15);
+    }
+
+    .eval-badge {
+      position: absolute;
+      top: -10px;
+      right: 15px;
+      background: linear-gradient(135deg, var(--tamagui-purple) 0%, var(--tamagui-cyan) 100%);
+      color: #ffffff;
+      padding: 0.2rem 0.7rem;
+      border-radius: var(--radius-full);
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .eval-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+
+    .eval-list {
+      list-style: none;
+      margin: 1rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.84rem;
+    }
+
+    .eval-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .eval-item.pro svg { color: #34d399; min-width: 16px; margin-top: 2px; }
+    .eval-item.con svg { color: #ef4444; min-width: 16px; margin-top: 2px; }
+
+    /* -------------------------------------------------------------
+       FOOTER
+       ------------------------------------------------------------- */
+    .footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      background: #040508;
+    }
+
+    .footer-brand {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+
+    /* -------------------------------------------------------------
+       RESPONSIVENESS
+       ------------------------------------------------------------- */
+    @media (max-width: 768px) {
+      .top-nav {
+        padding: 0.6rem 1rem;
+      }
+      .nav-menu {
+        display: none; /* Can be opened via toggle if needed, or simplified */
+      }
+      .hero-title {
+        font-size: 2rem;
+      }
+      .hero-wrapper {
+        padding: 2rem 1.25rem;
+      }
+      .section-card {
+        padding: 1.5rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =============================================================
+       STICKY TOP NAVIGATION BAR WITH ACTIVE SCROLL SPY
+       ============================================================= -->
+  <header class="top-nav" id="mainHeader">
+    <a href="#hero" class="brand-group">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">AWS Pipeline Architect</span>
+        <span class="brand-subtitle">Google DeepMind Recommendations</span>
+      </div>
+    </a>
+
+    <nav>
+      <ul class="nav-menu" id="navMenu">
+        <li><a href="#hero" class="nav-link active"><span class="nav-dot"></span>Overview</a></li>
+        <li><a href="#benchmark" class="nav-link"><span class="nav-dot"></span>MacBook i9 Benchmark</a></li>
+        <li><a href="#architecture" class="nav-link"><span class="nav-dot"></span>AWS Architecture</a></li>
+        <li><a href="#hardware-pricing" class="nav-link"><span class="nav-dot"></span>Hardware & Prices</a></li>
+        <li><a href="#charts" class="nav-link"><span class="nav-dot"></span>Duration Curves</a></li>
+        <li><a href="#calculator" class="nav-link"><span class="nav-dot"></span>Cost Calculator</a></li>
+        <li><a href="#data-samples" class="nav-link"><span class="nav-dot"></span>Input & Output</a></li>
+        <li><a href="#timeouts" class="nav-link"><span class="nav-dot"></span>Timeout Guard</a></li>
+      </ul>
+    </nav>
+
+    <div class="nav-actions">
+      <a href="#calculator" class="btn-quick-calc">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+          <line x1="8" y1="6" x2="16" y2="6"></line>
+          <line x1="16" y1="14" x2="16" y2="18"></line>
+          <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"></path>
+        </svg>
+        Instant Calculator
+      </a>
+    </div>
+  </header>
+
+  <!-- =============================================================
+       MAIN CONTAINER
+       ============================================================= -->
+  <main class="container">
+
+    <!-- HERO / EXECUTIVE SUMMARY -->
+    <section class="section-anchor" id="hero">
+      <div class="hero-wrapper">
+        <div class="hero-badge-row">
+          <span class="badge-pill success"><span class="pulse-dot"></span>Production Ready Architecture</span>
+          <span class="badge-pill purple">Multi-Tenant Pipeline Isolation</span>
+          <span class="badge-pill cyan">1h to 40h Hard Duration Limit</span>
+        </div>
+
+        <h1 class="hero-title">
+          Optimal AWS Cloud Architecture for <span class="gradient-text">Long-Running Per-User Pipelines</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          Comprehensive performance evaluation based on real execution benchmarks of your project on a <strong>MacBook Pro Intel i9 16GB</strong>, paired with production-grade AWS infrastructure recommendations for isolated 1-hour to 40-hour user pipelines with enforceable hard timeouts and rock-bottom spot economics.
+        </p>
+
+        <!-- High-Impact KPI Row -->
+        <div class="kpi-grid">
+          <div class="kpi-card purple">
+            <div class="kpi-label">Optimal Architecture</div>
+            <div class="kpi-value">Step Functions + Batch</div>
+            <div class="kpi-desc">Queue-backed per-user isolated sandboxes</div>
+          </div>
+          <div class="kpi-card cyan">
+            <div class="kpi-label">Hourly Cost Range</div>
+            <div class="kpi-value">$0.087 - $0.68</div>
+            <div class="kpi-desc">Spot Graviton3 vs On-Demand Intel</div>
+          </div>
+          <div class="kpi-card emerald">
+            <div class="kpi-label">Max 40h Run Cost</div>
+            <div class="kpi-value">$3.50 / user</div>
+            <div class="kpi-desc">Using c7g.2xlarge Spot instances</div>
+          </div>
+          <div class="kpi-card amber">
+            <div class="kpi-label">Duration Limit Guard</div>
+            <div class="kpi-value">40h Hard Kill</div>
+            <div class="kpi-desc">Zero zombie tasks & runaway billing protection</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: MACBOOK BENCHMARK & WORKLOAD PROFILE -->
+    <section class="section-anchor" id="benchmark">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon purple">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+              </div>
+              MacBook Pro Intel i9 16GB Performance Telemetry
+            </div>
+            <p class="section-desc">
+              Live execution benchmark results measured by running your full project test suite, Metro AST transpilation, and web bundle pipeline on the host machine.
+            </p>
+          </div>
+          <span class="badge-pill cyan">Host: Intel i9-9880H @ 2.30GHz</span>
+        </div>
+
+        <div class="benchmark-grid">
+          <div class="bench-card">
+            <div class="kpi-label" style="margin-bottom: 0.75rem;">Hardware Configuration (Baseline)</div>
+            <div class="bench-row">
+              <span class="bench-key">CPU Processor</span>
+              <span class="bench-val">Intel(R) Core(TM) i9-9880H</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">Cores / Threads</span>
+              <span class="bench-val accent">8 Cores / 16 Threads</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">System Memory</span>
+              <span class="bench-val">16.00 GB DDR4</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">Operating Environment</span>
+              <span class="bench-val">macOS Darwin 24.6.0 (x86_64)</span>
+            </div>
+          </div>
+
+          <div class="bench-card">
+            <div class="kpi-label" style="margin-bottom: 0.75rem;">Measured Pipeline Execution Metrics</div>
+            <div class="bench-row">
+              <span class="bench-key">Metro Web Bundler Time</span>
+              <span class="bench-val highlight">40.38 seconds</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">Compiled Modules</span>
+              <span class="bench-val">6,246 modules (154.7 mod/s)</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">CPU Peak Utilization</span>
+              <span class="bench-val accent">965% (9.65 cores saturated)</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">User CPU Compute Time</span>
+              <span class="bench-val">426.59s compute in 47.1s wall</span>
+            </div>
+            <div class="bench-row">
+              <span class="bench-key">Peak RSS Memory Footprint</span>
+              <span class="bench-val">3.18 GB RAM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workload Takeaway Callout -->
+        <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid var(--border-accent); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; display: flex; gap: 1rem; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" style="min-width: 24px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <div style="font-size: 0.9rem; color: #e2e8f0; line-height: 1.5;">
+            <strong>Workload Profile Diagnostic:</strong> Your pipeline is heavily <strong>multi-threaded CPU-bound</strong> during AST generation/bundling and data parsing, requiring at least <strong>8 to 16 vCPUs</strong> for low latency, with a comfortable memory envelope of <strong>16GB to 32GB RAM</strong>. In AWS, this translates directly to <strong>c7g.2xlarge</strong> (or <strong>c7g.4xlarge</strong> for massive speedup) as the highest cost-to-performance compute sweet spot.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: OPTIMAL AWS ARCHITECTURE & INTERACTIVE DIAGRAM -->
+    <section class="section-anchor" id="architecture">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon cyan">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+              </div>
+              Recommended Architecture: AWS Step Functions + AWS Batch (Spot Fleet)
+            </div>
+            <p class="section-desc">
+              Why AWS Batch + Step Functions beats all alternatives for running 1h to 40h isolated user workloads.
+            </p>
+          </div>
+          <span class="badge-pill success">100% Tenant Isolation</span>
+        </div>
+
+        <!-- Interactive SVG Architecture Diagram -->
+        <div class="arch-diagram-wrapper">
+          <svg class="arch-diagram-svg" viewBox="0 0 1150 480" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a855f7" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1"/>
+              </linearGradient>
+              <linearGradient id="gradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.1"/>
+              </linearGradient>
+              <linearGradient id="gradAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#ef4444" stop-opacity="0.1"/>
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- Background Grid Lines -->
+            <line x1="50" y1="240" x2="1100" y2="240" stroke="#ffffff" stroke-opacity="0.05" stroke-dasharray="5,5"/>
+
+            <!-- 1. Trigger Layer -->
+            <g transform="translate(30, 160)">
+              <rect width="180" height="150" rx="14" fill="#10121d" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+              <rect x="15" y="15" width="36" height="36" rx="8" fill="rgba(168,85,247,0.2)"/>
+              <text x="33" y="38" fill="#c084fc" font-family="Space Grotesk" font-size="16" font-weight="bold" text-anchor="middle">API</text>
+              <text x="65" y="38" fill="#ffffff" font-family="Space Grotesk" font-size="14" font-weight="bold">User Trigger</text>
+              <text x="15" y="75" fill="#94a3b8" font-family="Inter" font-size="11">Amazon API Gateway</text>
+              <text x="15" y="93" fill="#94a3b8" font-family="Inter" font-size="11">+ Auth & Payload Guard</text>
+              <rect x="15" y="110" width="150" height="24" rx="6" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.3)"/>
+              <text x="90" y="126" fill="#38bdf8" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">POST /pipeline/run</text>
+            </g>
+
+            <!-- Arrow 1 -->
+            <path d="M 215 235 L 265 235" stroke="#a855f7" stroke-width="2.5" stroke-dasharray="4,4" fill="none"/>
+            <polygon points="268,235 260,230 260,240" fill="#a855f7"/>
+
+            <!-- 2. Orchestration & State Machine -->
+            <g transform="translate(275, 110)">
+              <rect width="250" height="250" rx="16" fill="url(#gradPurple)" stroke="rgba(168,85,247,0.4)" stroke-width="2"/>
+              <rect x="20" y="20" width="40" height="40" rx="10" fill="#a855f7"/>
+              <text x="40" y="45" fill="#ffffff" font-family="Space Grotesk" font-size="18" font-weight="bold" text-anchor="middle">SF</text>
+              <text x="75" y="38" fill="#ffffff" font-family="Space Grotesk" font-size="15" font-weight="bold">AWS Step Functions</text>
+              <text x="75" y="55" fill="#c084fc" font-family="JetBrains Mono" font-size="11">Workflow Orchestrator</text>
+              
+              <!-- State Machine Steps inside -->
+              <rect x="20" y="80" width="210" height="36" rx="8" fill="#0d0f1a" stroke="rgba(255,255,255,0.1)"/>
+              <text x="35" y="102" fill="#38bdf8" font-family="JetBrains Mono" font-size="11">1. Validate (1h - 40h Limit)</text>
+
+              <rect x="20" y="126" width="210" height="36" rx="8" fill="#0d0f1a" stroke="rgba(255,255,255,0.1)"/>
+              <text x="35" y="148" fill="#a855f7" font-family="JetBrains Mono" font-size="11">2. Submit AWS Batch Job</text>
+
+              <rect x="20" y="172" width="210" height="36" rx="8" fill="#0d0f1a" stroke="rgba(255,255,255,0.1)"/>
+              <text x="35" y="194" fill="#fbbf24" font-family="JetBrains Mono" font-size="11">3. Heartbeat & Hard Timeout</text>
+
+              <rect x="20" y="218" width="210" height="22" rx="4" fill="rgba(239,68,68,0.15)"/>
+              <text x="125" y="233" fill="#f87171" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">TimeoutSeconds: 144000 (40h)</text>
+            </g>
+
+            <!-- Arrow 2 -->
+            <path d="M 530 235 L 580 235" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="4,4" fill="none"/>
+            <polygon points="583,235 575,230 575,240" fill="#06b6d4"/>
+
+            <!-- 3. Compute Layer (AWS Batch + Fargate/Spot) -->
+            <g transform="translate(590, 80)">
+              <rect width="320" height="310" rx="18" fill="url(#gradCyan)" stroke="rgba(6,182,212,0.4)" stroke-width="2"/>
+              <text x="25" y="40" fill="#ffffff" font-family="Space Grotesk" font-size="16" font-weight="bold">AWS Batch Compute Environment</text>
+              <text x="25" y="60" fill="#34d399" font-family="JetBrains Mono" font-size="11">Per-User Isolated Container Fleet</text>
+
+              <!-- Tenant 1 Container -->
+              <rect x="20" y="80" width="280" height="64" rx="10" fill="#0b0d17" stroke="rgba(6,182,212,0.2)"/>
+              <circle cx="40" cy="112" r="10" fill="#06b6d4"/>
+              <text x="40" y="116" fill="#ffffff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">U1</text>
+              <text x="60" y="104" fill="#ffffff" font-family="Inter" font-size="12" font-weight="600">User A Pipeline (c7g.2xlarge Spot)</text>
+              <text x="60" y="122" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">8 vCPU / 16GB RAM • Duration: 2h 15m</text>
+
+              <!-- Tenant 2 Container -->
+              <rect x="20" y="154" width="280" height="64" rx="10" fill="#0b0d17" stroke="rgba(168,85,247,0.2)"/>
+              <circle cx="40" cy="186" r="10" fill="#a855f7"/>
+              <text x="40" y="190" fill="#ffffff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">U2</text>
+              <text x="60" y="178" fill="#ffffff" font-family="Inter" font-size="12" font-weight="600">User B Pipeline (c6i.4xlarge Spot)</text>
+              <text x="60" y="196" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">16 vCPU / 32GB RAM • Duration: 38h 10m</text>
+
+              <!-- Tenant 3 Container -->
+              <rect x="20" y="228" width="280" height="50" rx="10" fill="#0b0d17" stroke="rgba(16,185,129,0.2)"/>
+              <circle cx="40" cy="253" r="10" fill="#10b981"/>
+              <text x="40" y="257" fill="#ffffff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">U3</text>
+              <text x="60" y="248" fill="#ffffff" font-family="Inter" font-size="12" font-weight="600">User C (Fargate Serverless)</text>
+              <text x="60" y="265" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">Zero idle cost • Auto terminates</text>
+            </g>
+
+            <!-- Arrow 3 -->
+            <path d="M 915 235 L 960 235" stroke="#10b981" stroke-width="2.5" stroke-dasharray="4,4" fill="none"/>
+            <polygon points="963,235 955,230 955,240" fill="#10b981"/>
+
+            <!-- 4. Storage & Artifacts -->
+            <g transform="translate(970, 140)">
+              <rect width="150" height="190" rx="14" fill="#10121d" stroke="rgba(16,185,129,0.4)" stroke-width="1.5"/>
+              <rect x="15" y="15" width="32" height="32" rx="8" fill="rgba(16,185,129,0.2)"/>
+              <text x="31" y="36" fill="#34d399" font-family="Space Grotesk" font-size="14" font-weight="bold" text-anchor="middle">S3</text>
+              <text x="58" y="36" fill="#ffffff" font-family="Space Grotesk" font-size="13" font-weight="bold">Storage</text>
+
+              <text x="15" y="75" fill="#94a3b8" font-family="Inter" font-size="11">Amazon S3</text>
+              <text x="15" y="93" fill="#94a3b8" font-family="Inter" font-size="11">• Logs & Artifacts</text>
+              <text x="15" y="111" fill="#94a3b8" font-family="Inter" font-size="11">• SQLite DB Sync</text>
+              
+              <rect x="15" y="135" width="120" height="38" rx="6" fill="#090a12" stroke="rgba(255,255,255,0.06)"/>
+              <text x="75" y="152" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle">CloudWatch Logs</text>
+              <text x="75" y="165" fill="#94a3b8" font-family="JetBrains Mono" font-size="8" text-anchor="middle">Per-Second Telemetry</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- 4 Step Execution Lifecycle -->
+        <div class="arch-step-grid">
+          <div class="arch-step-item">
+            <div class="step-number">Phase 1: Job Ingestion & Validation</div>
+            <div class="step-name">API Gateway & Step Function</div>
+            <div class="step-desc">
+              Receives pipeline request with user token, input parameters, and duration limit (e.g. 1h, 12h, 40h). Instantiates a distinct state machine execution.
+            </div>
+          </div>
+          <div class="arch-step-item">
+            <div class="step-number">Phase 2: Spot/Fargate Container Dispatch</div>
+            <div class="step-name">AWS Batch Orchestration</div>
+            <div class="step-desc">
+              Dynamically provisions an isolated container on AWS Spot EC2 (up to 70-80% discount) or ECS Fargate. Zero shared state with other users.
+            </div>
+          </div>
+          <div class="arch-step-item">
+            <div class="step-number">Phase 3: Strict Duration Enforcement</div>
+            <div class="step-name">Dual-Layer Hard Timeout</div>
+            <div class="step-desc">
+              Both AWS Batch <code>jobTimeout</code> and Step Functions <code>TimeoutSeconds</code> actively monitor runtime. If job reaches limit, it is SIGKILL'd instantly.
+            </div>
+          </div>
+          <div class="arch-step-item">
+            <div class="step-number">Phase 4: Output Persistence & Scale-to-Zero</div>
+            <div class="step-name">S3 + CloudWatch + Teardown</div>
+            <div class="step-desc">
+              Results, SQLite database states, and reports stream to Amazon S3. The compute instance immediately scales to zero with zero idle cost.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: HARDWARE CONFIGURATIONS & HOURLY PRICING TABLE -->
+    <section class="section-anchor" id="hardware-pricing">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon emerald">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              Hardware Configurations & Complete Pricing Matrix
+            </div>
+            <p class="section-desc">
+              Direct comparison of AWS instance families matching your MacBook i9 baseline (8-16 vCPUs, 16-64GB RAM), with On-Demand, Spot, and 40-hour maximum run prices (US East Region).
+            </p>
+          </div>
+          <span class="badge-pill purple">Updated August 2026 AWS Rates</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Instance Type / Service</th>
+                <th>Architecture</th>
+                <th>vCPU</th>
+                <th>RAM</th>
+                <th>Network</th>
+                <th>On-Demand $/hr</th>
+                <th>Spot Price $/hr</th>
+                <th>1-Year Sav. $/hr</th>
+                <th>Max 40h Spot Cost</th>
+                <th>Recommended For</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1: Recommended c7g.2xlarge -->
+              <tr class="highlight-row">
+                <td>
+                  <strong style="color: #ffffff;">c7g.2xlarge</strong><br>
+                  <span class="tier-badge graviton">★ Top Recommendation</span>
+                </td>
+                <td>ARM64 (Graviton3)</td>
+                <td><strong>8</strong></td>
+                <td><strong>16 GiB</strong></td>
+                <td>Up to 12.5 Gbps</td>
+                <td class="price-cell od">$0.2912 / hr</td>
+                <td class="price-cell spot"><strong>$0.0874 / hr</strong></td>
+                <td class="price-cell">$0.2038 / hr</td>
+                <td class="price-cell max40"><strong>$3.50</strong></td>
+                <td><strong>Best Cost/Perf (Direct Mac i9 match)</strong></td>
+              </tr>
+
+              <!-- Row 2: c7g.4xlarge -->
+              <tr class="highlight-row">
+                <td>
+                  <strong style="color: #ffffff;">c7g.4xlarge</strong><br>
+                  <span class="tier-badge graviton">High Speed Graviton</span>
+                </td>
+                <td>ARM64 (Graviton3)</td>
+                <td><strong>16</strong></td>
+                <td><strong>32 GiB</strong></td>
+                <td>Up to 12.5 Gbps</td>
+                <td class="price-cell od">$0.5824 / hr</td>
+                <td class="price-cell spot"><strong>$0.1747 / hr</strong></td>
+                <td class="price-cell">$0.4077 / hr</td>
+                <td class="price-cell max40"><strong>$6.99</strong></td>
+                <td>Heavy parallel builds & media pipelines</td>
+              </tr>
+
+              <!-- Row 3: c6i.2xlarge (Intel equivalent) -->
+              <tr>
+                <td>
+                  <strong style="color: #ffffff;">c6i.2xlarge</strong><br>
+                  <span class="tier-badge intel">Intel Xeon 8375C</span>
+                </td>
+                <td>x86_64 (Intel)</td>
+                <td><strong>8</strong></td>
+                <td><strong>16 GiB</strong></td>
+                <td>12.5 Gbps</td>
+                <td class="price-cell od">$0.3400 / hr</td>
+                <td class="price-cell spot"><strong>$0.1020 / hr</strong></td>
+                <td class="price-cell">$0.2380 / hr</td>
+                <td class="price-cell max40"><strong>$4.08</strong></td>
+                <td>Pure x86_64 native module compatibility</td>
+              </tr>
+
+              <!-- Row 4: c6i.4xlarge -->
+              <tr>
+                <td>
+                  <strong style="color: #ffffff;">c6i.4xlarge</strong><br>
+                  <span class="tier-badge intel">Intel Xeon 8375C</span>
+                </td>
+                <td>x86_64 (Intel)</td>
+                <td><strong>16</strong></td>
+                <td><strong>32 GiB</strong></td>
+                <td>12.5 Gbps</td>
+                <td class="price-cell od">$0.6800 / hr</td>
+                <td class="price-cell spot"><strong>$0.2040 / hr</strong></td>
+                <td class="price-cell">$0.4760 / hr</td>
+                <td class="price-cell max40"><strong>$8.16</strong></td>
+                <td>High concurrency x86 AST compilers</td>
+              </tr>
+
+              <!-- Row 5: m7g.4xlarge (General Purpose) -->
+              <tr>
+                <td>
+                  <strong style="color: #ffffff;">m7g.4xlarge</strong><br>
+                  <span class="tier-badge graviton">High RAM Graviton</span>
+                </td>
+                <td>ARM64 (Graviton3)</td>
+                <td><strong>16</strong></td>
+                <td><strong>64 GiB</strong></td>
+                <td>Up to 12.5 Gbps</td>
+                <td class="price-cell od">$0.6528 / hr</td>
+                <td class="price-cell spot"><strong>$0.1958 / hr</strong></td>
+                <td class="price-cell">$0.4570 / hr</td>
+                <td class="price-cell max40"><strong>$7.83</strong></td>
+                <td>Large memory SQLite caches & in-memory sets</td>
+              </tr>
+
+              <!-- Row 6: AWS Fargate 8 vCPU / 16 GB -->
+              <tr>
+                <td>
+                  <strong style="color: #ffffff;">AWS Fargate (8vCPU)</strong><br>
+                  <span class="tier-badge fargate">Serverless Container</span>
+                </td>
+                <td>x86 / ARM64</td>
+                <td><strong>8</strong></td>
+                <td><strong>16 GiB</strong></td>
+                <td>Managed</td>
+                <td class="price-cell od">$0.3950 / hr</td>
+                <td class="price-cell spot"><strong>$0.1185 / hr</strong> (Spot)</td>
+                <td class="price-cell">$0.2962 / hr</td>
+                <td class="price-cell max40"><strong>$4.74</strong> (Spot)</td>
+                <td>Zero EC2 node management serverless runs</td>
+              </tr>
+
+              <!-- Row 7: AWS Fargate 16 vCPU / 32 GB -->
+              <tr>
+                <td>
+                  <strong style="color: #ffffff;">AWS Fargate (16vCPU)</strong><br>
+                  <span class="tier-badge fargate">Serverless Container</span>
+                </td>
+                <td>x86 / ARM64</td>
+                <td><strong>16</strong></td>
+                <td><strong>32 GiB</strong></td>
+                <td>Managed</td>
+                <td class="price-cell od">$0.7899 / hr</td>
+                <td class="price-cell spot"><strong>$0.2370 / hr</strong> (Spot)</td>
+                <td class="price-cell">$0.5924 / hr</td>
+                <td class="price-cell max40"><strong>$9.48</strong> (Spot)</td>
+                <td>Max-size serverless container executions</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Duration Cost Quick Lookup Matrix -->
+        <h4 style="font-family: var(--font-display); font-size: 1.1rem; margin: 1.75rem 0 1rem; color: #ffffff;">
+          ⚡ Quick Run Cost Matrix by Duration (Spot Pricing vs On-Demand)
+        </h4>
+
+        <div class="table-responsive">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Pipeline Duration</th>
+                <th>c7g.2xlarge Spot</th>
+                <th>c7g.2xlarge On-Demand</th>
+                <th>c7g.4xlarge Spot</th>
+                <th>c6i.4xlarge Spot</th>
+                <th>Fargate 8vCPU Spot</th>
+                <th>Run Feasibility</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1 Hour</strong></td>
+                <td class="price-cell spot">$0.087</td>
+                <td class="price-cell od">$0.291</td>
+                <td class="price-cell spot">$0.175</td>
+                <td class="price-cell spot">$0.204</td>
+                <td class="price-cell spot">$0.118</td>
+                <td><span class="tier-badge graviton">Instant Spot Run</span></td>
+              </tr>
+              <tr>
+                <td><strong>2 Hours</strong></td>
+                <td class="price-cell spot">$0.175</td>
+                <td class="price-cell od">$0.582</td>
+                <td class="price-cell spot">$0.349</td>
+                <td class="price-cell spot">$0.408</td>
+                <td class="price-cell spot">$0.237</td>
+                <td><span class="tier-badge graviton">Standard Batch</span></td>
+              </tr>
+              <tr>
+                <td><strong>3 Hours</strong></td>
+                <td class="price-cell spot">$0.262</td>
+                <td class="price-cell od">$0.874</td>
+                <td class="price-cell spot">$0.524</td>
+                <td class="price-cell spot">$0.612</td>
+                <td class="price-cell spot">$0.355</td>
+                <td><span class="tier-badge graviton">Standard Batch</span></td>
+              </tr>
+              <tr>
+                <td><strong>10 Hours</strong></td>
+                <td class="price-cell spot">$0.874</td>
+                <td class="price-cell od">$2.912</td>
+                <td class="price-cell spot">$1.747</td>
+                <td class="price-cell spot">$2.040</td>
+                <td class="price-cell spot">$1.185</td>
+                <td><span class="tier-badge graviton">Long Running</span></td>
+              </tr>
+              <tr>
+                <td><strong>24 Hours</strong></td>
+                <td class="price-cell spot">$2.100</td>
+                <td class="price-cell od">$6.989</td>
+                <td class="price-cell spot">$4.193</td>
+                <td class="price-cell spot">$4.896</td>
+                <td class="price-cell spot">$2.844</td>
+                <td><span class="tier-badge graviton">Extended Run</span></td>
+              </tr>
+              <tr class="highlight-row">
+                <td><strong>40 Hours (Maximum Limit)</strong></td>
+                <td class="price-cell max40">$3.50</td>
+                <td class="price-cell od">$11.65</td>
+                <td class="price-cell max40">$6.99</td>
+                <td class="price-cell max40">$8.16</td>
+                <td class="price-cell max40">$4.74</td>
+                <td><span class="tier-badge fargate">Hard Limit Ceiling</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: VISUAL CHARTS (DURATION VS COST & EFFICIENCY) -->
+    <section class="section-anchor" id="charts">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon amber">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+              </div>
+              Cost & Duration Analytics (1 Hour to 40 Hours)
+            </div>
+            <p class="section-desc">
+              Visual comparison showing cost progression across execution hours and price efficiency between AWS Spot Fleets vs On-Demand vs Fargate.
+            </p>
+          </div>
+          <span class="badge-pill cyan">Visualized via Chart.js</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+          <!-- Chart 1: Cost Progression 1h to 40h -->
+          <div style="background: #090a12; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+            <h4 style="font-family: var(--font-display); font-size: 1rem; color: #ffffff; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+              <span>Total Cost vs Duration (1h – 40h)</span>
+              <span style="font-size: 0.75rem; color: var(--tamagui-cyan); font-family: var(--font-mono);">USD ($)</span>
+            </h4>
+            <div style="position: relative; height: 280px; width: 100%;">
+              <canvas id="costDurationChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Hourly Rate Comparison by Hardware Family -->
+          <div style="background: #090a12; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+            <h4 style="font-family: var(--font-display); font-size: 1rem; color: #ffffff; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+              <span>Hourly Compute Cost Comparison</span>
+              <span style="font-size: 0.75rem; color: var(--tamagui-purple); font-family: var(--font-mono);">Spot vs On-Demand ($/hr)</span>
+            </h4>
+            <div style="position: relative; height: 280px; width: 100%;">
+              <canvas id="hourlyBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: LIVE INTERACTIVE AWS COST CALCULATOR -->
+    <section class="section-anchor" id="calculator">
+      <div class="calc-box">
+        <div class="calc-header">
+          <div>
+            <div class="calc-title">⚡ Interactive Pipeline Run Cost & Duration Estimator</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+              Adjust the slider to simulate user run durations from 1 hour to 40 hours with your preferred hardware configuration.
+            </p>
+          </div>
+          <span class="badge-pill purple" id="calcModeBadge">Spot Pricing Enabled</span>
+        </div>
+
+        <div class="calc-inputs-grid">
+          <!-- Duration Slider -->
+          <div class="calc-input-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="calc-label">Pipeline Duration (Hours):</label>
+              <span class="calc-slider-val" id="durationDisplay">4 Hours</span>
+            </div>
+            <input type="range" class="tamagui-slider" id="durationSlider" min="1" max="40" value="4" step="1">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono);">
+              <span>1 Hour</span>
+              <span>10h</span>
+              <span>20h</span>
+              <span>30h</span>
+              <span>40h (Hard Max)</span>
+            </div>
+          </div>
+
+          <!-- Hardware Dropdown -->
+          <div class="calc-input-group">
+            <label class="calc-label">Select Hardware Tier:</label>
+            <select class="calc-select" id="instanceSelect">
+              <option value="0.0874,0.2912,c7g.2xlarge (8 vCPU / 16GB Graviton3)" selected>c7g.2xlarge (8 vCPU / 16GB Graviton3) — Recommended</option>
+              <option value="0.1747,0.5824,c7g.4xlarge (16 vCPU / 32GB Graviton3)">c7g.4xlarge (16 vCPU / 32GB Graviton3)</option>
+              <option value="0.1020,0.3400,c6i.2xlarge (8 vCPU / 16GB Intel)">c6i.2xlarge (8 vCPU / 16GB Intel)</option>
+              <option value="0.2040,0.6800,c6i.4xlarge (16 vCPU / 32GB Intel)">c6i.4xlarge (16 vCPU / 32GB Intel)</option>
+              <option value="0.1958,0.6528,m7g.4xlarge (16 vCPU / 64GB Graviton3)">m7g.4xlarge (16 vCPU / 64GB Graviton3)</option>
+              <option value="0.1185,0.3950,AWS Fargate (8 vCPU / 16GB)">AWS Fargate (8 vCPU / 16GB Serverless)</option>
+              <option value="0.2370,0.7899,AWS Fargate (16 vCPU / 32GB)">AWS Fargate (16 vCPU / 32GB Serverless)</option>
+            </select>
+          </div>
+
+          <!-- Concurrent Users Slider -->
+          <div class="calc-input-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="calc-label">Concurrent User Pipelines:</label>
+              <span class="calc-slider-val" id="usersDisplay" style="color: var(--tamagui-purple);">10 Users</span>
+            </div>
+            <input type="range" class="tamagui-slider" id="usersSlider" min="1" max="100" value="10" step="1">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono);">
+              <span>1 User</span>
+              <span>25</span>
+              <span>50</span>
+              <span>75</span>
+              <span>100 Users</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Calculated Outputs -->
+        <div class="calc-results-grid">
+          <div class="calc-result-card">
+            <div class="calc-res-label">Spot Cost Per User Run</div>
+            <div class="calc-res-val green" id="spotPerUser">$0.35</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">70% Spot discount</div>
+          </div>
+
+          <div class="calc-result-card">
+            <div class="calc-res-label">On-Demand Cost / Run</div>
+            <div class="calc-res-val" id="odPerUser" style="color: #cbd5e1;">$1.16</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Standard full rate</div>
+          </div>
+
+          <div class="calc-result-card">
+            <div class="calc-res-label">Total Batch Cost (All Users)</div>
+            <div class="calc-res-val purple" id="totalBatchCost">$3.50</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="totalUsersSubtitle">For 10 simultaneous runs</div>
+          </div>
+
+          <div class="calc-result-card">
+            <div class="calc-res-label">Maximum 40h Risk Cap</div>
+            <div class="calc-res-val amber" id="maxCapVal">$35.00</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Hard limit timeout cap</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: SAMPLE INPUT & OUTPUT DATA (REQUIREMENT MET) -->
+    <section class="section-anchor" id="data-samples">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon purple">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              Production Pipeline Input & Output Data Samples
+            </div>
+            <p class="section-desc">
+              Exact JSON schemas used to trigger per-user pipelines with strong duration limits, and the resulting execution telemetry report.
+            </p>
+          </div>
+          <span class="badge-pill cyan">JSON Schema v2.1</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 1.5rem;">
+          <!-- Sample 1: Input Data -->
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; color: #ffffff;">
+                📥 Sample Input Data (Job Invocation Payload)
+              </span>
+              <span class="badge-pill purple" style="font-size: 0.68rem;">POST /pipeline/submit</span>
+            </div>
+
+            <div class="code-wrapper">
+              <div class="code-header">
+                <div class="code-dots">
+                  <div class="code-dot red"></div>
+                  <div class="code-dot yellow"></div>
+                  <div class="code-dot green"></div>
+                </div>
+                <span>pipeline_input_payload.json</span>
+                <button class="btn-copy" onclick="copyCode('inputCode')">Copy JSON</button>
+              </div>
+              <pre class="code-content" id="inputCode"><span class="json-key">{</span>
+  <span class="json-key">"pipelineExecutionId"</span>: <span class="json-str">"pipe-usr-8f4b29c1-40h-limit"</span>,
+  <span class="json-key">"userMetadata"</span>: <span class="json-key">{</span>
+    <span class="json-key">"userId"</span>: <span class="json-str">"usr_98a72b10-e9c4-4b51-b841"</span>,
+    <span class="json-key">"tenantTier"</span>: <span class="json-str">"enterprise_isolated"</span>,
+    <span class="json-key">"billingAccount"</span>: <span class="json-str">"acct_77192"</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"durationGuard"</span>: <span class="json-key">{</span>
+    <span class="json-key">"maxAllowedDurationHours"</span>: <span class="json-num">40</span>,
+    <span class="json-key">"hardTimeoutSeconds"</span>: <span class="json-num">144000</span>,
+    <span class="json-key">"heartbeatIntervalSeconds"</span>: <span class="json-num">60</span>,
+    <span class="json-key">"actionOnTimeout"</span>: <span class="json-str">"TERMINATE_WITH_PARTIAL_S3_FLUSH"</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"computeRequirements"</span>: <span class="json-key">{</span>
+    <span class="json-key">"targetArchitecture"</span>: <span class="json-str">"arm64"</span>,
+    <span class="json-key">"instanceTypeOverride"</span>: <span class="json-str">"c7g.2xlarge"</span>,
+    <span class="json-key">"vCpuAllocation"</span>: <span class="json-num">8</span>,
+    <span class="json-key">"memoryReservationMiB"</span>: <span class="json-num">16384</span>,
+    <span class="json-key">"useSpotFleet"</span>: <span class="json-bool">true</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"pipelineConfig"</span>: <span class="json-key">{</span>
+    <span class="json-key">"entryPoint"</span>: <span class="json-str">"npx expo export --platform web"</span>,
+    <span class="json-key">"datasetSourceUrl"</span>: <span class="json-str">"s3://universal1-user-inputs/usr_98a72b10/dataset.sqlite"</span>,
+    <span class="json-key">"artifactOutputS3Prefix"</span>: <span class="json-str">"s3://universal1-user-artifacts/usr_98a72b10/run-8f4b29c1/"</span>,
+    <span class="json-key">"environmentVariables"</span>: <span class="json-key">{</span>
+      <span class="json-key">"NODE_ENV"</span>: <span class="json-str">"production"</span>,
+      <span class="json-key">"EXPO_USE_METRO_WORKSPACE_ROOT"</span>: <span class="json-str">"true"</span>,
+      <span class="json-key">"PARALLEL_WORKERS"</span>: <span class="json-str">"8"</span>
+    <span class="json-key">}</span>
+  <span class="json-key">}</span>
+<span class="json-key">}</span></pre>
+            </div>
+          </div>
+
+          <!-- Sample 2: Output Data -->
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; color: #ffffff;">
+                📤 Sample Output Data (Execution Telemetry Result)
+              </span>
+              <span class="badge-pill success" style="font-size: 0.68rem;">STATUS: SUCCEEDED</span>
+            </div>
+
+            <div class="code-wrapper">
+              <div class="code-header">
+                <div class="code-dots">
+                  <div class="code-dot red"></div>
+                  <div class="code-dot yellow"></div>
+                  <div class="code-dot green"></div>
+                </div>
+                <span>pipeline_output_telemetry.json</span>
+                <button class="btn-copy" onclick="copyCode('outputCode')">Copy JSON</button>
+              </div>
+              <pre class="code-content" id="outputCode"><span class="json-key">{</span>
+  <span class="json-key">"pipelineExecutionId"</span>: <span class="json-str">"pipe-usr-8f4b29c1-40h-limit"</span>,
+  <span class="json-key">"executionStatus"</span>: <span class="json-str">"SUCCEEDED"</span>,
+  <span class="json-key">"durationMetrics"</span>: <span class="json-key">{</span>
+    <span class="json-key">"startedAt"</span>: <span class="json-str">"2026-08-21T08:15:00.000Z"</span>,
+    <span class="json-key">"completedAt"</span>: <span class="json-str">"2026-08-21T11:00:23.412Z"</span>,
+    <span class="json-key">"durationWallClockSeconds"</span>: <span class="json-num">9923.41</span>,
+    <span class="json-key">"durationFormatted"</span>: <span class="json-str">"2h 45m 23s"</span>,
+    <span class="json-key">"durationLimitCapHours"</span>: <span class="json-num">40</span>,
+    <span class="json-key">"timeoutTriggered"</span>: <span class="json-bool">false</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"resourceUtilization"</span>: <span class="json-key">{</span>
+    <span class="json-key">"assignedInstance"</span>: <span class="json-str">"c7g.2xlarge.spot (8 vCPU, 16GB)"</span>,
+    <span class="json-key">"peakCpuUtilizationPercent"</span>: <span class="json-num">94.8</span>,
+    <span class="json-key">"peakMemoryUsedMib"</span>: <span class="json-num">3814</span>,
+    <span class="json-key">"totalModulesCompiled"</span>: <span class="json-num">6246</span>,
+    <span class="json-key">"diskIoReadBytes"</span>: <span class="json-num">524288000</span>,
+    <span class="json-key">"diskIoWriteBytes"</span>: <span class="json-num">1258291200</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"costAccrual"</span>: <span class="json-key">{</span>
+    <span class="json-key">"effectiveSpotRatePerHour"</span>: <span class="json-num">0.0874</span>,
+    <span class="json-key">"billableHours"</span>: <span class="json-num">2.7565</span>,
+    <span class="json-key">"totalComputeCostUsd"</span>: <span class="json-num">0.2409</span>,
+    <span class="json-key">"storageTransferCostUsd"</span>: <span class="json-num">0.0035</span>,
+    <span class="json-key">"totalUserRunCostUsd"</span>: <span class="json-num">0.2444</span>
+  <span class="json-key">}</span>,
+  <span class="json-key">"outputArtifacts"</span>: <span class="json-key">{</span>
+    <span class="json-key">"webBundleS3Url"</span>: <span class="json-str">"s3://universal1-user-artifacts/usr_98a72b10/run-8f4b29c1/dist.tar.gz"</span>,
+    <span class="json-key">"reportHtmlS3Url"</span>: <span class="json-str">"s3://universal1-user-artifacts/usr_98a72b10/run-8f4b29c1/AWS_RECOMMENDATIONS.html"</span>,
+    <span class="json-key">"sqliteCheckpointS3Url"</span>: <span class="json-str">"s3://universal1-user-artifacts/usr_98a72b10/run-8f4b29c1/database.sqlite"</span>
+  <span class="json-key">}</span>
+<span class="json-key">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: STRONG DURATION LIMIT & HARD TIMEOUT GUARD -->
+    <section class="section-anchor" id="timeouts">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon amber">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              Multi-Layer Strong Duration Limit & Runaway Protection
+            </div>
+            <p class="section-desc">
+              How the architecture guarantees that no user job can ever exceed the 40-hour maximum execution limit under any circumstance.
+            </p>
+          </div>
+          <span class="badge-pill amber">Zero Runaway Billing Guarantee</span>
+        </div>
+
+        <div class="arch-eval-grid">
+          <div class="eval-card">
+            <div class="eval-title">1. AWS Step Functions State Timeout</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">
+              Step Functions enforces a top-level orchestrator timeout via the <code>TimeoutSeconds: 144000</code> attribute. If elapsed time reaches 40:00:01, Step Functions immediately forces an automated task termination state.
+            </p>
+            <ul class="eval-list">
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Independent from the compute node OS</span>
+              </li>
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Fires SNS alert to user and billing API</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="eval-card recommended">
+            <div class="eval-badge">Primary Guard</div>
+            <div class="eval-title">2. AWS Batch Job-Level Timeout</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">
+              AWS Batch natively supports the <code>timeout: { attemptDurationSeconds: 144000 }</code> parameter in the job definition. The AWS Batch daemon sends a <code>SIGTERM</code> followed by <code>SIGKILL</code> to the container.
+            </p>
+            <ul class="eval-list">
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Guaranteed container de-provisioning</span>
+              </li>
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Reclaims spot EC2 instance back to fleet</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="eval-card">
+            <div class="eval-title">3. CloudWatch Alarm & Lambda Reaper</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">
+              A background CloudWatch Event Rule runs every 5 minutes checking for any active task with <code>runningTime &gt; 40 hours</code>. If found, it invokes a Lambda Reaper function to force-kill the task.
+            </p>
+            <ul class="eval-list">
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Ultimate safety net for network partitions</span>
+              </li>
+              <li class="eval-item pro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Zero possibility of zombie charges</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: IMPLEMENTATION STEP-BY-STEP -->
+    <section class="section-anchor" id="implementation">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">
+              <div class="section-title-icon cyan">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </div>
+              Ready-to-Deploy AWS Step Functions Definition
+            </div>
+            <p class="section-desc">
+              Copy-paste state machine JSON definition for AWS Step Functions orchestrating the 40-hour isolated pipeline.
+            </p>
+          </div>
+          <span class="badge-pill purple">Amazon States Language (ASL)</span>
+        </div>
+
+        <div class="code-wrapper">
+          <div class="code-header">
+            <div class="code-dots">
+              <div class="code-dot red"></div>
+              <div class="code-dot yellow"></div>
+              <div class="code-dot green"></div>
+            </div>
+            <span>step_functions_pipeline_definition.json</span>
+            <button class="btn-copy" onclick="copyCode('aslCode')">Copy ASL JSON</button>
+          </div>
+          <pre class="code-content" id="aslCode"><span class="json-key">{</span>
+  <span class="json-key">"Comment"</span>: <span class="json-str">"Per-User Isolated Pipeline with 40-Hour Hard Duration Limit"</span>,
+  <span class="json-key">"StartAt"</span>: <span class="json-str">"ValidateUserDurationLimit"</span>,
+  <span class="json-key">"TimeoutSeconds"</span>: <span class="json-num">144000</span>,
+  <span class="json-key">"States"</span>: <span class="json-key">{</span>
+    <span class="json-key">"ValidateUserDurationLimit"</span>: <span class="json-key">{</span>
+      <span class="json-key">"Type"</span>: <span class="json-str">"Choice"</span>,
+      <span class="json-key">"Choices"</span>: <span class="json-key">[</span>
+        <span class="json-key">{</span>
+          <span class="json-key">"Variable"</span>: <span class="json-str">"$.durationGuard.maxAllowedDurationHours"</span>,
+          <span class="json-key">"NumericGreaterThan"</span>: <span class="json-num">40</span>,
+          <span class="json-key">"Next"</span>: <span class="json-str">"RejectExceededDuration"</span>
+        <span class="json-key">}</span>
+      <span class="json-key">]</span>,
+      <span class="json-key">"Default"</span>: <span class="json-str">"RunIsolatedBatchJob"</span>
+    <span class="json-key">}</span>,
+    <span class="json-key">"RunIsolatedBatchJob"</span>: <span class="json-key">{</span>
+      <span class="json-key">"Type"</span>: <span class="json-str">"Task"</span>,
+      <span class="json-key">"Resource"</span>: <span class="json-str">"arn:aws:states:::batch:submitJob.sync"</span>,
+      <span class="json-key">"Parameters"</span>: <span class="json-key">{</span>
+        <span class="json-key">"JobName.$"</span>: <span class="json-str">"$.pipelineExecutionId"</span>,
+        <span class="json-key">"JobQueue"</span>: <span class="json-str">"arn:aws:batch:us-east-1:123456789012:job-queue/user-spot-queue"</span>,
+        <span class="json-key">"JobDefinition"</span>: <span class="json-str">"arn:aws:batch:us-east-1:123456789012:job-definition/universal1-pipeline-job"</span>,
+        <span class="json-key">"Timeout"</span>: <span class="json-key">{</span>
+          <span class="json-key">"AttemptDurationSeconds.$"</span>: <span class="json-str">"$.durationGuard.hardTimeoutSeconds"</span>
+        <span class="json-key">}</span>,
+        <span class="json-key">"ContainerOverrides"</span>: <span class="json-key">{</span>
+          <span class="json-key">"Environment"</span>: <span class="json-key">[</span>
+            <span class="json-key">{</span> <span class="json-key">"Name"</span>: <span class="json-str">"USER_ID"</span>, <span class="json-key">"Value.$"</span>: <span class="json-str">"$.userMetadata.userId"</span> <span class="json-key">}</span>,
+            <span class="json-key">{</span> <span class="json-key">"Name"</span>: <span class="json-str">"S3_OUTPUT_PREFIX"</span>, <span class="json-key">"Value.$"</span>: <span class="json-str">"$.pipelineConfig.artifactOutputS3Prefix"</span> <span class="json-key">}</span>
+          <span class="json-key">]</span>
+        <span class="json-key">}</span>
+      <span class="json-key">}</span>,
+      <span class="json-key">"Catch"</span>: <span class="json-key">[</span>
+        <span class="json-key">{</span>
+          <span class="json-key">"ErrorEquals"</span>: <span class="json-key">[</span><span class="json-str">"States.Timeout"</span>, <span class="json-str">"Batch.JobTimeout"</span><span class="json-key">]</span>,
+          <span class="json-key">"Next"</span>: <span class="json-str">"HandleTimeoutCleanup"</span>
+        <span class="json-key">}</span>
+      <span class="json-key">]</span>,
+      <span class="json-key">"Next"</span>: <span class="json-str">"PublishSuccessNotification"</span>
+    <span class="json-key">}</span>,
+    <span class="json-key">"PublishSuccessNotification"</span>: <span class="json-key">{</span>
+      <span class="json-key">"Type"</span>: <span class="json-str">"Pass"</span>,
+      <span class="json-key">"End"</span>: <span class="json-bool">true</span>
+    <span class="json-key">}</span>,
+    <span class="json-key">"HandleTimeoutCleanup"</span>: <span class="json-key">{</span>
+      <span class="json-key">"Type"</span>: <span class="json-str">"Fail"</span>,
+      <span class="json-key">"Cause"</span>: <span class="json-str">"Execution reached maximum configured duration limit (up to 40 hours hard limit)"</span>
+    <span class="json-key">}</span>,
+    <span class="json-key">"RejectExceededDuration"</span>: <span class="json-key">{</span>
+      <span class="json-key">"Type"</span>: <span class="json-str">"Fail"</span>,
+      <span class="json-key">"Cause"</span>: <span class="json-str">"Requested duration exceeds 40-hour architectural ceiling"</span>
+    <span class="json-key">}</span>
+  <span class="json-key">}</span>
+<span class="json-key">}</span></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =============================================================
+       FOOTER
+       ============================================================= -->
+  <footer class="footer">
+    <div class="footer-brand">AWS Architecture Blueprint & Recommendations</div>
+    <p>Prepared for Universal1 App • Styled with Tamagui Design System Standards</p>
+    <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #475569;">
+      Evaluated on Intel Core i9-9880H (16 Threads, 16GB RAM) • Pricing benchmarked for AWS US-East (N. Virginia)
+    </p>
+  </footer>
+
+  <!-- =============================================================
+       JAVASCRIPT: SCROLL-SPY, CHARTS & CALCULATOR
+       ============================================================= -->
+  <script>
+    // 1. SCROLL-SPY REACTIVATION LOGIC (STICKY HEADER TRACKING)
+    document.addEventListener('DOMContentLoaded', () => {
+      const header = document.getElementById('mainHeader');
+      const navLinks = document.querySelectorAll('.nav-link');
+      const sections = document.querySelectorAll('.section-anchor');
+
+      // Add shadow to header on scroll
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 40) {
+          header.classList.add('scrolled');
+        } else {
+          header.classList.remove('scrolled');
+        }
+      });
+
+      // IntersectionObserver for dynamic scroll-spy button reactivation
+      const observerOptions = {
+        root: null,
+        rootMargin: '-20% 0px -70% 0px',
+        threshold: 0
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const currentId = entry.target.getAttribute('id');
+            navLinks.forEach(link => {
+              const href = link.getAttribute('href').substring(1);
+              if (href === currentId) {
+                link.classList.add('active');
+              } else {
+                link.classList.remove('active');
+              }
+            });
+          }
+        });
+      }, observerOptions);
+
+      sections.forEach(section => observer.observe(section));
+
+      // Initialize Charts
+      initCharts();
+
+      // Initialize Interactive Calculator
+      initCalculator();
+    });
+
+    // 2. CHART.JS VISUALIZATIONS
+    function initCharts() {
+      // Chart 1: Duration vs Cost Line Graph
+      const ctxLine = document.getElementById('costDurationChart');
+      if (ctxLine) {
+        new Chart(ctxLine, {
+          type: 'line',
+          data: {
+            labels: ['1h', '2h', '3h', '5h', '10h', '15h', '20h', '25h', '30h', '35h', '40h'],
+            datasets: [
+              {
+                label: 'c7g.2xlarge Spot ($0.087/h)',
+                data: [0.087, 0.175, 0.262, 0.437, 0.874, 1.311, 1.748, 2.185, 2.622, 3.059, 3.50],
+                borderColor: '#34d399',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2.5,
+                pointRadius: 4,
+                pointBackgroundColor: '#34d399'
+              },
+              {
+                label: 'c6i.4xlarge Spot ($0.204/h)',
+                data: [0.204, 0.408, 0.612, 1.020, 2.040, 3.060, 4.080, 5.100, 6.120, 7.140, 8.16],
+                borderColor: '#a855f7',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#a855f7'
+              },
+              {
+                label: 'c7g.2xlarge On-Demand ($0.291/h)',
+                data: [0.291, 0.582, 0.874, 1.456, 2.912, 4.368, 5.824, 7.280, 8.736, 10.19, 11.65],
+                borderColor: '#06b6d4',
+                backgroundColor: 'transparent',
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#06b6d4'
+              },
+              {
+                label: 'Fargate 8vCPU On-Demand ($0.395/h)',
+                data: [0.395, 0.790, 1.185, 1.975, 3.950, 5.925, 7.900, 9.875, 11.85, 13.82, 15.80],
+                borderColor: '#f59e0b',
+                backgroundColor: 'transparent',
+                borderDash: [3, 3],
+                tension: 0.3,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                pointBackgroundColor: '#f59e0b'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false
+            },
+            plugins: {
+              legend: {
+                labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: $${ctx.raw.toFixed(2)}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#64748b', font: { family: 'JetBrains Mono' } }
+              },
+              y: {
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: {
+                  color: '#64748b',
+                  font: { family: 'JetBrains Mono' },
+                  callback: (val) => `$${val}`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Chart 2: Hourly Rate Bar Chart
+      const ctxBar = document.getElementById('hourlyBarChart');
+      if (ctxBar) {
+        new Chart(ctxBar, {
+          type: 'bar',
+          data: {
+            labels: ['c7g.2xl (8c/16G)', 'c6i.2xl (8c/16G)', 'c7g.4xl (16c/32G)', 'c6i.4xl (16c/32G)', 'Fargate 8vCPU', 'Fargate 16vCPU'],
+            datasets: [
+              {
+                label: 'Spot Rate ($/hr)',
+                data: [0.0874, 0.1020, 0.1747, 0.2040, 0.1185, 0.2370],
+                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                borderRadius: 6
+              },
+              {
+                label: 'On-Demand Rate ($/hr)',
+                data: [0.2912, 0.3400, 0.5824, 0.6800, 0.3950, 0.7899],
+                backgroundColor: 'rgba(168, 85, 247, 0.45)',
+                borderRadius: 6
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: $${ctx.raw.toFixed(4)}/hr`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } }
+              },
+              y: {
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: {
+                  color: '#64748b',
+                  font: { family: 'JetBrains Mono' },
+                  callback: (val) => `$${val}`
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // 3. INTERACTIVE CALCULATOR LOGIC
+    function initCalculator() {
+      const durationSlider = document.getElementById('durationSlider');
+      const durationDisplay = document.getElementById('durationDisplay');
+      const instanceSelect = document.getElementById('instanceSelect');
+      const usersSlider = document.getElementById('usersSlider');
+      const usersDisplay = document.getElementById('usersDisplay');
+
+      const spotPerUser = document.getElementById('spotPerUser');
+      const odPerUser = document.getElementById('odPerUser');
+      const totalBatchCost = document.getElementById('totalBatchCost');
+      const maxCapVal = document.getElementById('maxCapVal');
+      const totalUsersSubtitle = document.getElementById('totalUsersSubtitle');
+
+      function recalculate() {
+        const hours = parseFloat(durationSlider.value);
+        const users = parseInt(usersSlider.value, 10);
+        const [spotRateStr, odRateStr] = instanceSelect.value.split(',');
+        const spotRate = parseFloat(spotRateStr);
+        const odRate = parseFloat(odRateStr);
+
+        durationDisplay.textContent = `${hours} Hour${hours > 1 ? 's' : ''}`;
+        usersDisplay.textContent = `${users} User${users > 1 ? 's' : ''}`;
+        totalUsersSubtitle.textContent = `For ${users} simultaneous run${users > 1 ? 's' : ''}`;
+
+        const singleSpotCost = hours * spotRate;
+        const singleOdCost = hours * odRate;
+        const totalBatchSpot = singleSpotCost * users;
+        const max40hCap = 40 * spotRate * users;
+
+        spotPerUser.textContent = `$${singleSpotCost.toFixed(2)}`;
+        odPerUser.textContent = `$${singleOdCost.toFixed(2)}`;
+        totalBatchCost.textContent = `$${totalBatchSpot.toFixed(2)}`;
+        maxCapVal.textContent = `$${max40hCap.toFixed(2)}`;
+      }
+
+      durationSlider.addEventListener('input', recalculate);
+      usersSlider.addEventListener('input', recalculate);
+      instanceSelect.addEventListener('change', recalculate);
+
+      recalculate();
+    }
+
+    // 4. CLIPBOARD HELPER
+    function copyCode(elementId) {
+      const codeElement = document.getElementById(elementId);
+      if (codeElement) {
+        navigator.clipboard.writeText(codeElement.innerText).then(() => {
+          alert('JSON sample copied to clipboard!');
+        });
+      }
+    }
+  </script>
+</body>
+</html>

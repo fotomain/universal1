@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../components/common';
+import { ButtonPrimaryApp } from '../../kit8/components/common';
 import { useSelector, useDispatch } from 'react-redux';
 import { useAppSignOut } from '../../kit8/hooks/useAppSignOut';
 import { ActiveUserState, clearActiveUser } from '../../kit8/redux/activeUserSlice';

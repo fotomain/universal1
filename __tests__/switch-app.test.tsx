@@ -8,7 +8,7 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,
 }), { virtual: true });
 
-import { SwitchApp, SwitchAppProps } from '../components/common/SwitchApp';
+import { SwitchApp, SwitchAppProps } from '../kit8/components/common/SwitchApp';
 
 describe('SwitchApp component export and props', () => {
   it('exports SwitchApp function component', () => {

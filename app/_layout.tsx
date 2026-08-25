@@ -11,8 +11,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import '../kit8/i18n/i18n';
 import AppBar from '../kit8/ui/AppBar';
 import CustomDrawerContent from '../kit8/components/CustomDrawerContent';
-import {MD3Provider, useMD3Ready} from '../kit8/providers/MD3Provider';
-import SQLiteNativeProvider from '../kit8/providers/SQLiteNativeProvider';
+import WithSQLiteNative from '../kit8/providers/WithSQLiteNative';
 import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
@@ -24,9 +23,9 @@ import {FABProvider} from '../kit8/providers/FABProvider';
 import {FABAppComponent} from '../kit8/components/fab';
 import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
-import {DesignSystemProvider} from '../context/DesignSystemContext';
-import IconApp from '../components/common/IconApp';
-import SnackbarApp from '../components/common/SnackbarApp';
+import WithDesignSystem from '../kit8/providers/WithDesignSystem';
+import IconApp from '../kit8/components/common/IconApp';
+import SnackbarApp from '../kit8/components/common/SnackbarApp';
 
 const blockError=true
 
@@ -237,15 +236,10 @@ function SupabaseAuthSync() {
 }
 
 function RootLayoutContent() {
-  const appIsReady = (Platform.OS === 'web') ? useMD3Ready() : true;
   const { theme } = useMaterial3Theme();
   const { t } = useTranslation();
   const darkMode = useSelector((state: any) => Boolean(state.uxuiState?.darkMode));
   const userTheme = useSelector((state: any) => state.userTheme);
-
-  if (!appIsReady) {
-    return null;
-  }
 
   // Use userTheme if available, otherwise fallback to darkMode
   const paperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
@@ -300,7 +294,7 @@ function RootLayoutContent() {
           }
         `}</style>
       )}
-      <DesignSystemProvider>
+      <WithDesignSystem>
         <PaperProvider theme={paperTheme}>
           <FABProvider>
             <SupabaseAuthSync />
@@ -349,7 +343,7 @@ function RootLayoutContent() {
             <SnackbarApp />
           </FABProvider>
         </PaperProvider>
-      </DesignSystemProvider>
+      </WithDesignSystem>
     </GestureHandlerRootView>
   );
 }
@@ -361,16 +355,14 @@ export default function RootLayout() {
   };
 
   return (
-    <MD3Provider>
-      <WithWorkPlace>
-        <WithSupabase initialConfig={initialSupabaseConfig}>
-          <SQLiteNativeProvider>
-            <WithState>
-              <RootLayoutContent />
-            </WithState>
-          </SQLiteNativeProvider>
-        </WithSupabase>
-      </WithWorkPlace>
-    </MD3Provider>
+    <WithWorkPlace>
+      <WithSupabase initialConfig={initialSupabaseConfig}>
+        <WithSQLiteNative>
+          <WithState>
+            <RootLayoutContent />
+          </WithState>
+        </WithSQLiteNative>
+      </WithSupabase>
+    </WithWorkPlace>
   );
 }

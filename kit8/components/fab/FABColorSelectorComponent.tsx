@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, Portal, Dialog, TextInput, useTheme, Surface } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../../components/common';
+import { ButtonPrimaryApp } from '../common';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { setFabColor } from '../../redux/userThemeSlice';
 import { CustomLightTheme } from '../../theme/palettes';
 import { FAB_DEFAULT_BG, FAB_DEFAULT_ICON } from './fabColors';
-import FABApp from '../../../components/common/FABApp';
+import FABApp from '../common/FABApp';
 
 export interface ColorPreset {
   name: string;

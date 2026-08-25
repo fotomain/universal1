@@ -1,4 +1,4 @@
-import {SearchTextApp, SearchTextAppProps} from '../components/common/SearchTextApp';
+import {SearchTextApp, SearchTextAppProps} from '../kit8/components/common/SearchTextApp';
 
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });
@@ -8,7 +8,7 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,
 }), { virtual: true });
 
-jest.mock('../context/DesignSystemContext', () => ({
+jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({
     activeSystem: 'google_md3_web',
     themeColors: { primary: '#6750A4', surface: '#ffffff' },

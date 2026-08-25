@@ -1,5 +1,5 @@
 import React from 'react';
-import { SnackbarAppProps } from '../components/common/SnackbarApp';
+import { SnackbarAppProps } from '../kit8/components/common/SnackbarApp';
 
 describe('SnackbarApp Component & Card Delete Undo Integration', () => {
   it('supports visible, message, duration, actionLabel "Undo", and undoDeleteData props', () => {
