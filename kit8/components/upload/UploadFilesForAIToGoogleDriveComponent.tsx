@@ -44,12 +44,12 @@ import {
 const SHOP_IMAGES_FOLDER_NAME = 'dataset_shop_images';
 const TREND_IMAGES_FOLDER_NAME = 'dataset_trend_images';
 
-// Hardcoded safe fallbacks to prevent process.env / @env crashes
+// Values loaded from .env — never hardcode secrets in source
 const ENV_VARS = {
-    FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '1CSG6zHm5Dof61lDMngp5rcmxQZXp1pWb',
-    CLIENT_ID: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_PLACEHOLDER',
-    CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET_PLACEHOLDER',
-    REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || 'GOOGLE_REFRESH_TOKEN_PLACEHOLDER',
+    FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
+    CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+    CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+    REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || '',
 };
 
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
