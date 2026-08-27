@@ -51,7 +51,7 @@ export const RaciMemberListCard: React.FC<RaciMemberListCardProps> = ({
   const themePrimary = primaryColor || paperTheme.colors.primary;
 
   // Extract JSON data
-  const json = card.rawItem?.mediaPostJSON || {};
+  const json = card.rawItem?.rowJSON || {};
   const email = json.raciEmail || "No Email";
   const firstName = json.raciFirstName || "No Name";
   const lastName = json.raciLastName || "";

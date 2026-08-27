@@ -23,7 +23,7 @@ export function copyPasteAfterCurrent(params: CopyPasteAfterCurrentParams) {
   const newGuid = generateUuid();
   let computedOrder = Date.now();
 
-  const oldJson = targetCard.rawItem?.mediaPostJSON || targetCard.rawItem || {};
+  const oldJson = targetCard.rawItem?.rowJSON || targetCard.rawItem || {};
   const oldTitle = targetCard.title || oldJson.mediaPostTitle || oldJson.raciFirstName || 'Untitled Card';
   const newTitle = `Copy ${oldTitle}`;
 
@@ -40,10 +40,10 @@ export function copyPasteAfterCurrent(params: CopyPasteAfterCurrentParams) {
     orderInList: computedOrder,
     rawItem: {
       ...targetCard.rawItem,
-      mediaPostOwnerGUID: listOwnerGUID,
-      mediaPostGUID: newGuid,
+      rowOwnerGUID: listOwnerGUID,
+      rowGUID: newGuid,
       orderInList: computedOrder,
-      mediaPostJSON: newMediaPostJSON,
+      rowJSON: newMediaPostJSON,
     },
   };
 
@@ -56,17 +56,17 @@ export function copyPasteAfterCurrent(params: CopyPasteAfterCurrentParams) {
   newCard.orderInList = computedOrder;
   if (newCard.rawItem) {
     newCard.rawItem.orderInList = computedOrder;
-    if (newCard.rawItem.mediaPostJSON) {
-      newCard.rawItem.mediaPostJSON.orderInList = computedOrder;
+    if (newCard.rawItem.rowJSON) {
+      newCard.rawItem.rowJSON.orderInList = computedOrder;
     }
   }
 
   if (actions?.createOne && listOwnerGUID && dispatch) {
     dispatch(actions.createOne({
-      mediaPostOwnerGUID: listOwnerGUID,
-      mediaPostGUID: newGuid,
+      rowOwnerGUID: listOwnerGUID,
+      rowGUID: newGuid,
       orderInList: computedOrder,
-      mediaPostJSON: newMediaPostJSON,
+      rowJSON: newMediaPostJSON,
     }));
   }
 

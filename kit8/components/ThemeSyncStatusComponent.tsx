@@ -24,8 +24,8 @@ export default function ThemeSyncStatusComponent() {
     if (SystemMetaData?.themeStore?.actions?.readOne) {
       dispatch(
         SystemMetaData.themeStore.actions.readOne({
-          mediaPostOwnerGUID: userGUID,
-          mediaPostGUID: workPlaceGUID,
+          rowOwnerGUID: userGUID,
+          rowGUID: workPlaceGUID,
         })
       );
     }
@@ -36,10 +36,10 @@ export default function ThemeSyncStatusComponent() {
     if (SystemMetaData?.themeStore?.actions?.upsertOne) {
       dispatch(
         SystemMetaData.themeStore.actions.upsertOne({
-          mediaPostOwnerGUID: userGUID,
-          mediaPostGUID: workPlaceGUID,
+          rowOwnerGUID: userGUID,
+          rowGUID: workPlaceGUID,
           orderInList: Date.now(),
-          mediaPostJSON: userTheme,
+          rowJSON: userTheme,
         })
       );
     }

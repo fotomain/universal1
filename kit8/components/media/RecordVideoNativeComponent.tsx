@@ -34,9 +34,9 @@ export default function RecordVideoNativeComponent() {
       payload: {
         entityName: 'mediaPostReusable',
         item: {
-          mediaPostOwnerGUID: activeUserState?.activeUserGUID || 'anon',
+          rowOwnerGUID: activeUserState?.activeUserGUID || 'anon',
           orderInList: Date.now(),
-          mediaPostJSON: {
+          rowJSON: {
             videoGUID,
             isNative: true,
             storageLocation: saveToDownloads ? 'Downloads & Secure App Storage' : 'Secure App Storage',
@@ -55,10 +55,10 @@ export default function RecordVideoNativeComponent() {
       type: 'reusable/updateOneRequest',
       payload: {
         entityName: 'mediaPostReusable',
-        mediaPostGUID: currentGUID,
+        rowGUID: currentGUID,
         item: {
           mediaPostOrigin: `file:///storage/emulated/0/Download/kit8video_${currentGUID}.mp4`,
-          mediaPostJSON: {
+          rowJSON: {
             videoGUID: currentGUID,
             percentageVideoUploadedToGoogleDrive: 100,
             nativeFileSaved: true,

@@ -13,17 +13,17 @@ export type MediaPostJSONType = {
 
 export const genericMediaPostSQLite = {
     orderInList: "number",
-    mediaPostGUID: "string",
-    mediaPostOwnerGUID: "string",
-    mediaPostJSON: "json",
+    rowGUID: "string",
+    rowOwnerGUID: "string",
+    rowJSON: "json",
 } as const;
 
 
 export const genericMediaPostSupabase = {
     orderInList: "number",
-    mediaPostGUID: "string",
-    mediaPostOwnerGUID: "string",
-    mediaPostJSON: "json",
+    rowGUID: "string",
+    rowOwnerGUID: "string",
+    rowJSON: "json",
 } as const;
 
 export type SchemaTypeMap = {

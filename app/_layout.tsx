@@ -55,8 +55,8 @@ function ThemeStoreSyncManager() {
 
         if (SystemMetaData?.themeStore?.actions?.readOne) {
           dispatch(SystemMetaData.themeStore.actions.readOne({
-            mediaPostOwnerGUID: userGUID,
-            mediaPostGUID: workPlaceGUID,
+            rowOwnerGUID: userGUID,
+            rowGUID: workPlaceGUID,
           }));
         }
 
@@ -64,25 +64,25 @@ function ThemeStoreSyncManager() {
         const { data } = await supabase
           .from(tableName)
           .select("*")
-          .eq("mediaPostOwnerGUID", userGUID)
-          .eq("mediaPostGUID", workPlaceGUID)
+          .eq("rowOwnerGUID", userGUID)
+          .eq("rowGUID", workPlaceGUID)
           .maybeSingle();
 
-        if (data && data.mediaPostJSON) {
-          const incomingSnapshot = JSON.stringify(data.mediaPostJSON);
+        if (data && data.rowJSON) {
+          const incomingSnapshot = JSON.stringify(data.rowJSON);
           lastSyncedThemeRef.current = incomingSnapshot;
-          console.log("themeStore-ticket-step4: Stored theme found in Supabase via readOne, setting into themeState:", data.mediaPostJSON);
-          dispatch(applyThemeFromSupabase(data.mediaPostJSON));
+          console.log("themeStore-ticket-step4: Stored theme found in Supabase via readOne, setting into themeState:", data.rowJSON);
+          dispatch(applyThemeFromSupabase(data.rowJSON));
         } else if (!data) {
           const initialSnapshot = JSON.stringify(userTheme);
           lastSyncedThemeRef.current = initialSnapshot;
           console.log("themeStore-ticket-step4: themeStore createOne-must be called after user is registered / signed in");
           if (SystemMetaData?.themeStore?.actions?.createOne) {
             dispatch(SystemMetaData.themeStore.actions.createOne({
-              mediaPostOwnerGUID: userGUID,
-              mediaPostGUID: workPlaceGUID,
+              rowOwnerGUID: userGUID,
+              rowGUID: workPlaceGUID,
               orderInList: Date.now(),
-              mediaPostJSON: userTheme,
+              rowJSON: userTheme,
             }));
           }
         }
@@ -111,10 +111,10 @@ function ThemeStoreSyncManager() {
     if (SystemMetaData?.themeStore?.actions?.upsertOne) {
       lastSyncedThemeRef.current = snapshot;
       dispatch(SystemMetaData.themeStore.actions.upsertOne({
-        mediaPostOwnerGUID: userGUID,
-        mediaPostGUID: workPlaceGUID,
+        rowOwnerGUID: userGUID,
+        rowGUID: workPlaceGUID,
         orderInList: Date.now(),
-        mediaPostJSON: userTheme,
+        rowJSON: userTheme,
       }));
     }
   }, [userTheme, userGUID, workPlaceGUID, dispatch]);
@@ -127,7 +127,7 @@ function ThemeStoreSyncManager() {
       const payload = event?.detail;
       const updatedRow = payload?.new;
 
-      if (!updatedRow || updatedRow.mediaPostOwnerGUID !== userGUID || !updatedRow.mediaPostJSON) {
+      if (!updatedRow || updatedRow.rowOwnerGUID !== userGUID || !updatedRow.rowJSON) {
         return;
       }
 
@@ -136,16 +136,16 @@ function ThemeStoreSyncManager() {
         theme: userTheme?.theme,
         fabColor: userTheme?.fabColor,
       });
-      const incomingThemeSnapshot = JSON.stringify(updatedRow.mediaPostJSON);
+      const incomingThemeSnapshot = JSON.stringify(updatedRow.rowJSON);
 
       if (incomingThemeSnapshot === currentThemeSnapshot || incomingThemeSnapshot === lastSyncedThemeRef.current) {
-        console.log("themeStore-ticket-step2-111: Skipping same-theme echo update from local write:", updatedRow.mediaPostGUID);
+        console.log("themeStore-ticket-step2-111: Skipping same-theme echo update from local write:", updatedRow.rowGUID);
         return;
       }
 
       lastSyncedThemeRef.current = incomingThemeSnapshot;
       console.log("themeStore-ticket-step2-222: Realtime theme update received from workplace:", updatedRow);
-      dispatch(applyThemeFromSupabase(updatedRow.mediaPostJSON));
+      dispatch(applyThemeFromSupabase(updatedRow.rowJSON));
     };
 
     if (typeof window !== 'undefined') {
@@ -191,8 +191,8 @@ function SupabaseAuthSync() {
           try {
             const { data, error } = await supabase
               .from('raciMemberTable')
-              .select('mediaPostGUID')
-              .eq('mediaPostGUID', activeUserGUID);
+              .select('rowGUID')
+              .eq('rowGUID', activeUserGUID);
 
             if (error) {
               console.error('Supabase select error:', error);
@@ -201,10 +201,10 @@ function SupabaseAuthSync() {
 
             if (!data || data.length === 0) {
               const { error: insertError } = await supabase.from('raciMemberTable').insert({
-                mediaPostGUID: activeUserGUID,
-                mediaPostOwnerGUID: userEmail,
+                rowGUID: activeUserGUID,
+                rowOwnerGUID: userEmail,
                 orderInList: Date.now(),
-                mediaPostJSON: {
+                rowJSON: {
                   raciGUID: activeUserGUID,
                   raciEmail: userEmail,
                   raciFirstName: userFirstName,

@@ -83,17 +83,17 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
   const themePrimary = primaryColor || paperTheme.colors.primary || "#1D827D";
 
   // MediaPost Data Extraction
-  const uuidString = card.rawItem?.mediaPostGUID || card.id;
+  const uuidString = card.rawItem?.rowGUID || card.id;
   const videoUrl =
-    card.rawItem?.mediaPostJSON?.mediaPostOrigin ||
-    card.rawItem?.mediaPostJSON?.mediaPostURL ||
+    card.rawItem?.rowJSON?.mediaPostOrigin ||
+    card.rawItem?.rowJSON?.mediaPostURL ||
     (card as any).originUrl ||
     "";
-  const title = card.title || card.rawItem?.mediaPostJSON?.mediaPostTitle || "[MASTERCLASS] Effective Digital Marketing Strategy 2024";
-  const description = card.description || card.rawItem?.mediaPostJSON?.mediaPostDescription || "Explore comprehensive frameworks, case studies, and actionable techniques to scale your business online.";
+  const title = card.title || card.rawItem?.rowJSON?.mediaPostTitle || "[MASTERCLASS] Effective Digital Marketing Strategy 2024";
+  const description = card.description || card.rawItem?.rowJSON?.mediaPostDescription || "Explore comprehensive frameworks, case studies, and actionable techniques to scale your business online.";
 
   // Dynamically computed thumbnail URL
-  const computedThumbnailUrl = card.rawItem?.mediaPostJSON?.thumbnailUrl || getYouTubeThumbnail(videoUrl, "hq") ||
+  const computedThumbnailUrl = card.rawItem?.rowJSON?.thumbnailUrl || getYouTubeThumbnail(videoUrl, "hq") ||
     "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80";
 
   const handleCopy = () => {

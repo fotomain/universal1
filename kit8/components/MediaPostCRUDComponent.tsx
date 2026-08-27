@@ -65,10 +65,10 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
 
         const newPostGUID = uuid();
         const newPostPayload = {
-            mediaPostOwnerGUID: "111459c1-b433-47d4-bf99-031d23a7a389",
-            mediaPostGUID: newPostGUID,
+            rowOwnerGUID: "111459c1-b433-47d4-bf99-031d23a7a389",
+            rowGUID: newPostGUID,
             orderInList: Date.now(),
-            mediaPostJSON: {
+            rowJSON: {
                 mediaPostTitle: title.trim() || 'Untitled Post',
                 mediaPostSubTitle: subtitle.trim() || 'Subtitle',
                 mediaPostDescription: description.trim() || '',
@@ -91,7 +91,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
 
     // Pre-fill with Example Post
     const handleLoadExample = () => {
-        const exampleJSON = mediaPostExample.mediaPostJSON;
+        const exampleJSON = mediaPostExample.rowJSON;
         setTitle(exampleJSON.mediaPostTitle || '');
         setSubtitle(exampleJSON.mediaPostSubTitle || '');
         setDescription(exampleJSON.mediaPostDescription || '');
@@ -100,8 +100,8 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
 
     // Start Editing an Item
     const handleStartEdit = (item: any) => {
-        const json = item.mediaPostJSON || {};
-        setEditingGuid(item.mediaPostGUID);
+        const json = item.rowJSON || {};
+        setEditingGuid(item.rowGUID);
         setEditTitle(json.mediaPostTitle || '');
         setEditDescription(json.mediaPostDescription || '');
     };
@@ -119,7 +119,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
 
         if (editTitle.trim()) {
             dispatch(actions.updateOne({
-                mediaPostGUID: guid,
+                rowGUID: guid,
                 field: 'mediaPostTitle',
                 value: editTitle.trim(),
             }));
@@ -127,7 +127,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
 
         if (editDescription.trim()) {
             dispatch(actions.updateOne({
-                mediaPostGUID: guid,
+                rowGUID: guid,
                 field: 'mediaPostDescription',
                 value: editDescription.trim(),
             }));
@@ -144,7 +144,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
     // Delete an Item execution
     const executeDelete = (guid: string) => {
         if (actions?.deleteOne) {
-            dispatch(actions.deleteOne({ mediaPostGUID: guid }));
+            dispatch(actions.deleteOne({ rowGUID: guid }));
             setTimeout(() => {
                 handleRead();
             }, 500);
@@ -243,8 +243,8 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                     <Text style={styles.emptyText}>No media posts found. Click "Create Post" or "Search / Read Posts".</Text>
                 ) : (
                     posts.map((item: any, index: number) => {
-                        const json = item?.mediaPostJSON || {};
-                        const guid = item?.mediaPostGUID || `item-${index}`;
+                        const json = item?.rowJSON || {};
+                        const guid = item?.rowGUID || `item-${index}`;
                         const isEditing = editingGuid === guid;
 
                         return (

@@ -40,9 +40,9 @@ const SystemMetaData:any = {
         // actions - see meta.actions = slice.actions;
         updateValidator: () => {},
         defaultData: {
-            mediaPostOwnerGUID: "",
-            mediaPostGUID: "",
-            mediaPostJSON: { isDark: false },
+            rowOwnerGUID: "",
+            rowGUID: "",
+            rowJSON: { isDark: false },
         },
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };

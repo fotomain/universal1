@@ -135,7 +135,7 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
     const listOwnerGUID = activeUserState?.activeUserGUID || 'anon';
     const newOrderInList = Date.now();
 
-    const mediaPostJSON = {
+    const rowJSON = {
       videoGUID,
       videoIPAddress: '127.0.0.1',
       videoGPSData: '56.9496,24.1052', // Default coords
@@ -151,9 +151,9 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
       payload: {
         entityName: 'mediaPostReusable',
         item: {
-          mediaPostOwnerGUID: listOwnerGUID,
+          rowOwnerGUID: listOwnerGUID,
           orderInList: newOrderInList,
-          mediaPostJSON,
+          rowJSON,
         },
       },
     });
@@ -243,9 +243,9 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
         type: 'reusable/updateOneRequest',
         payload: {
           entityName: 'mediaPostReusable',
-          mediaPostGUID: videoGUID,
+          rowGUID: videoGUID,
           item: {
-            mediaPostJSON: {
+            rowJSON: {
               videoGUID,
               percentageVideoUploadedToGoogleDrive: progress,
               videoTimeStampFinish: finishTime,
@@ -266,10 +266,10 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
           type: 'reusable/updateOneRequest',
           payload: {
             entityName: 'mediaPostReusable',
-            mediaPostGUID: videoGUID,
+            rowGUID: videoGUID,
             item: {
               mediaPostOrigin: driveURL,
-              mediaPostJSON: {
+              rowJSON: {
                 videoGUID,
                 driveFileName,
                 percentageVideoUploadedToGoogleDrive: 100,

@@ -3,10 +3,10 @@ import * as Crypto from "expo-crypto";
 const uuid = Crypto.randomUUID
 
 export const mediaPostExample = {
-    "mediaPostOwnerGUID": "111459c1-b433-47d4-bf99-031d23a7a389",
-    "mediaPostGUID": "222459c1-b433-47d4-bf99-031d23a7a389",
+    "rowOwnerGUID": "111459c1-b433-47d4-bf99-031d23a7a389",
+    "rowGUID": "222459c1-b433-47d4-bf99-031d23a7a389",
     "orderInList": 0,
-    "mediaPostJSON": {
+    "rowJSON": {
         "mediaPostMIME": "youtube",
         "mediaPostOriginType": "url",
         "mediaPostOrigin": "https://youtu.be/1iygZ8j_SSs",

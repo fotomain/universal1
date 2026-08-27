@@ -35,16 +35,16 @@ describe('SearchTextApp & Field Filter Integration', () => {
 
   it('filters posts by firstName, lastName, and mediaPostOrigin accurately', () => {
     const mockPosts = [
-      { id: '1', title: 'Update', description: 'Tech post', rawItem: { mediaPostJSON: { firstName: 'Alice', lastName: 'Smith', mediaPostOrigin: 'https://youtube.com/watch?v=123' } } },
-      { id: '2', title: 'Announcement', description: 'General news', rawItem: { mediaPostJSON: { firstName: 'Bob', lastName: 'Jones', mediaPostOrigin: 'https://vimeo.com/456' } } },
-      { id: '3', title: 'Design Review', description: 'UI post', rawItem: { mediaPostJSON: { mediaPostFirstName: 'Charlie', mediaPostLastName: 'Brown', mediaPostOrigin: 'https://github.com/expo/expo' } } },
+      { id: '1', title: 'Update', description: 'Tech post', rawItem: { rowJSON: { firstName: 'Alice', lastName: 'Smith', mediaPostOrigin: 'https://youtube.com/watch?v=123' } } },
+      { id: '2', title: 'Announcement', description: 'General news', rawItem: { rowJSON: { firstName: 'Bob', lastName: 'Jones', mediaPostOrigin: 'https://vimeo.com/456' } } },
+      { id: '3', title: 'Design Review', description: 'UI post', rawItem: { rowJSON: { mediaPostFirstName: 'Charlie', mediaPostLastName: 'Brown', mediaPostOrigin: 'https://github.com/expo/expo' } } },
     ];
 
     const filterFn = (items: typeof mockPosts, searchText: string, entityName = 'mediaPostReusable') => {
       if (!searchText || searchText.trim() === '') return items;
       const lower = searchText.toLowerCase().trim();
       return items.filter((card) => {
-        const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+        const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
         const title = String(card.title || rawJson.mediaPostTitle || '').toLowerCase();
         const description = String(card.description || rawJson.mediaPostDescription || '').toLowerCase();
         const firstName = String(rawJson.firstName || rawJson.mediaPostFirstName || rawJson.raciFirstName || '').toLowerCase();
@@ -76,15 +76,15 @@ describe('SearchTextApp & Field Filter Integration', () => {
 
   it('filters raci entity list by firstName, lastName, and email', () => {
     const mockRaciMembers = [
-      { id: '1', rawItem: { mediaPostJSON: { raciFirstName: 'John', raciLastName: 'Doe', raciEmail: 'john.doe@example.com' } } },
-      { id: '2', rawItem: { mediaPostJSON: { raciFirstName: 'Jane', raciLastName: 'Smith', raciEmail: 'jane.smith@domain.org' } } },
+      { id: '1', rawItem: { rowJSON: { raciFirstName: 'John', raciLastName: 'Doe', raciEmail: 'john.doe@example.com' } } },
+      { id: '2', rawItem: { rowJSON: { raciFirstName: 'Jane', raciLastName: 'Smith', raciEmail: 'jane.smith@domain.org' } } },
     ];
 
     const filterRaciFn = (items: typeof mockRaciMembers, searchText: string) => {
       if (!searchText || searchText.trim() === '') return items;
       const lower = searchText.toLowerCase().trim();
       return items.filter((card) => {
-        const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+        const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
         const firstName = String(rawJson.raciFirstName || rawJson.firstName || '').toLowerCase();
         const lastName = String(rawJson.raciLastName || rawJson.lastName || '').toLowerCase();
         const fullName = `${firstName} ${lastName}`.trim();

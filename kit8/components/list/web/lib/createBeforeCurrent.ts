@@ -27,10 +27,10 @@ export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
     description: '',
     orderInList: computedOrder,
     rawItem: {
-      mediaPostOwnerGUID: listOwnerGUID,
-      mediaPostGUID: newGuid,
+      rowOwnerGUID: listOwnerGUID,
+      rowGUID: newGuid,
       orderInList: computedOrder,
-      mediaPostJSON: {
+      rowJSON: {
         mediaPostTitle: defaultTitle,
         mediaPostDescription: '',
         ...(isRaciEntity ? { raciFirstName: 'New', raciLastName: 'Member', raciEmail: '' } : {}),
@@ -47,17 +47,17 @@ export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
   newCard.orderInList = computedOrder;
   if (newCard.rawItem) {
     newCard.rawItem.orderInList = computedOrder;
-    if (newCard.rawItem.mediaPostJSON) {
-      newCard.rawItem.mediaPostJSON.orderInList = computedOrder;
+    if (newCard.rawItem.rowJSON) {
+      newCard.rawItem.rowJSON.orderInList = computedOrder;
     }
   }
 
   if (actions?.createOne && listOwnerGUID && dispatch) {
     dispatch(actions.createOne({
-      mediaPostOwnerGUID: listOwnerGUID,
-      mediaPostGUID: newGuid,
+      rowOwnerGUID: listOwnerGUID,
+      rowGUID: newGuid,
       orderInList: computedOrder,
-      mediaPostJSON: newCard.rawItem.mediaPostJSON,
+      rowJSON: newCard.rawItem.rowJSON,
     }));
   }
 

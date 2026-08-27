@@ -46,13 +46,13 @@ export const reusableCrudSlice = (name: string) =>
                 state.crudMoment = Date.now();
                 if (action.payload) {
                     const list = Array.isArray(state.entityDataFromServer) ? [...state.entityDataFromServer] : [];
-                    const idToFind = action.payload.mediaPostGUID || action.payload.id;
-                    const exists = list.some((item: any) => (item.mediaPostGUID || item.id) === idToFind);
+                    const idToFind = action.payload.rowGUID || action.payload.id;
+                    const exists = list.some((item: any) => (item.rowGUID || item.id) === idToFind);
                     if (!exists) {
                         list.push(action.payload);
                         list.sort((a: any, b: any) => {
-                            const orderA = Number(a?.orderInList ?? a?.mediaPostJSON?.orderInList ?? 0);
-                            const orderB = Number(b?.orderInList ?? b?.mediaPostJSON?.orderInList ?? 0);
+                            const orderA = Number(a?.orderInList ?? a?.rowJSON?.orderInList ?? 0);
+                            const orderB = Number(b?.orderInList ?? b?.rowJSON?.orderInList ?? 0);
                             return orderA - orderB;
                         });
                         state.entityDataFromServer = list;
@@ -124,9 +124,9 @@ export const reusableCrudSlice = (name: string) =>
                 state.deleteSuccessful = 1;
                 state.crudMoment = Date.now();
                 if (action.payload && Array.isArray(state.entityDataFromServer)) {
-                    const deletedId = action.payload.mediaPostGUID || action.payload.id;
+                    const deletedId = action.payload.rowGUID || action.payload.id;
                     state.entityDataFromServer = state.entityDataFromServer.filter(
-                        (item: any) => (item.mediaPostGUID || item.id) !== deletedId
+                        (item: any) => (item.rowGUID || item.id) !== deletedId
                     );
                 }
             },

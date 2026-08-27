@@ -3,6 +3,11 @@
 https://youtu.be/4pe1fn3Gus0
 https://youtu.be/nta1YhicoGw
 
+refactor: 
+mediaPostGUID->rowGUID,
+mediaPostOwnerGUID->rowOwnerGUID,
+mediaPostJSON->rowJSON,
+
 ## ███ //TODO!!!
 npx expo start --web
 npm run web

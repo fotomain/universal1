@@ -25,7 +25,7 @@ export const reusableRootSaga = (p: any) => {
 
             if (readAllFilter) {
                 query = query.or(
-                    `mediaPostJSON->>mediaPostTitle.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostDescription.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,mediaPostJSON->>originUrl.ilike.%${readAllFilter}%,mediaPostJSON->>firstName.ilike.%${readAllFilter}%,mediaPostJSON->>lastName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>mediaPostLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciFirstName.ilike.%${readAllFilter}%,mediaPostJSON->>raciLastName.ilike.%${readAllFilter}%,mediaPostJSON->>raciEmail.ilike.%${readAllFilter}%,mediaPostJSON->>email.ilike.%${readAllFilter}%`
+                    `rowJSON->>mediaPostTitle.ilike.%${readAllFilter}%,rowJSON->>mediaPostDescription.ilike.%${readAllFilter}%,rowJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,rowJSON->>originUrl.ilike.%${readAllFilter}%,rowJSON->>firstName.ilike.%${readAllFilter}%,rowJSON->>lastName.ilike.%${readAllFilter}%,rowJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,rowJSON->>mediaPostLastName.ilike.%${readAllFilter}%,rowJSON->>raciFirstName.ilike.%${readAllFilter}%,rowJSON->>raciLastName.ilike.%${readAllFilter}%,rowJSON->>raciEmail.ilike.%${readAllFilter}%,rowJSON->>email.ilike.%${readAllFilter}%`
                 );
             }
 
@@ -54,8 +54,8 @@ export const reusableRootSaga = (p: any) => {
 
         const {data:readData, error:readError} = yield call(() =>
             supabase.from(tableName).select("*")
-            .eq("mediaPostGUID", action.payload.mediaPostGUID)
-            .eq("mediaPostOwnerGUID", action.payload.mediaPostOwnerGUID)
+            .eq("rowGUID", action.payload.rowGUID)
+            .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
             .single()
         );
 
@@ -70,22 +70,22 @@ export const reusableRootSaga = (p: any) => {
                 supabase.from(tableName)
                     .select('*')
                     .single()
-                    .eq("mediaPostGUID", action.payload.mediaPostGUID)
-                    .eq("mediaPostOwnerGUID", action.payload.mediaPostOwnerGUID)
+                    .eq("rowGUID", action.payload.rowGUID)
+                    .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
             );
 
-            let jsonToUpdate = readData.mediaPostJSON
+            let jsonToUpdate = readData.rowJSON
             // console.log("jsonToUpdate00",jsonToUpdate)
 
-            jsonToUpdate = {...jsonToUpdate,...action.payload.mediaPostJSON}
+            jsonToUpdate = {...jsonToUpdate,...action.payload.rowJSON}
 
             const {data:updateData, error:updateError} = yield call(() =>
                 supabase.from(tableName)
                     .update({
-                        mediaPostJSON: jsonToUpdate,
+                        rowJSON: jsonToUpdate,
                     })
-                    .eq("mediaPostGUID", action.payload.mediaPostGUID)
-                    .eq("mediaPostOwnerGUID", action.payload.mediaPostOwnerGUID)
+                    .eq("rowGUID", action.payload.rowGUID)
+                    .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
                     .select()
                     .single()
             );
@@ -156,7 +156,7 @@ export const reusableRootSaga = (p: any) => {
         console.log("updateOneFieldOfJson0", action)
 
         try {
-            const {mediaPostGUID, field, value} = action.payload;
+            const {rowGUID, field, value} = action.payload;
 
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
@@ -171,15 +171,15 @@ export const reusableRootSaga = (p: any) => {
                 const {data: existingRow, error: readError} = yield call(() =>
                     supabase
                         .from(tableName)
-                        .select("mediaPostJSON")
-                        .eq("mediaPostGUID", mediaPostGUID)
+                        .select("rowJSON")
+                        .eq("rowGUID", rowGUID)
                         .single()
                 );
 
                 if (readError) throw readError;
 
                 // dY" 2. SAFE MERGE (preserve all fields)
-                const prevJSON = existingRow?.mediaPostJSON || {};
+                const prevJSON = existingRow?.rowJSON || {};
 
                 let updatedJSON = {...prevJSON}
 
@@ -199,7 +199,7 @@ export const reusableRootSaga = (p: any) => {
                     };
                 }
                 
-                updatePayload = { mediaPostJSON: updatedJSON };
+                updatePayload = { rowJSON: updatedJSON };
             }
 
             // dY" 3. UPDATE
@@ -208,7 +208,7 @@ export const reusableRootSaga = (p: any) => {
                 supabase
                     .from(tableName)
                     .update(updatePayload)
-                    .eq("mediaPostGUID", mediaPostGUID)
+                    .eq("rowGUID", rowGUID)
                     .select()
                     .single()
             );
@@ -233,9 +233,9 @@ export const reusableRootSaga = (p: any) => {
 
     function* deleteOne(action: any) {
         try {
-            const {mediaPostGUID} = action.payload;
+            const {rowGUID} = action.payload;
 
-            // console.log("deleteOne mediaPostGUID",mediaPostGUID)
+            // console.log("deleteOne rowGUID",rowGUID)
 
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
@@ -244,7 +244,7 @@ export const reusableRootSaga = (p: any) => {
                 supabase
                     .from(tableName)
                     .delete()
-                    .eq("mediaPostGUID", mediaPostGUID)
+                    .eq("rowGUID", rowGUID)
                     .select()
             );
 
@@ -270,13 +270,13 @@ export const reusableRootSaga = (p: any) => {
         try {
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase;
-            const { mediaPostOwnerGUID, mediaPostGUID } = action.payload || {};
+            const { rowOwnerGUID, rowGUID } = action.payload || {};
             let query = supabase.from(tableName).select("*");
-            if (mediaPostOwnerGUID) {
-                query = query.eq("mediaPostOwnerGUID", mediaPostOwnerGUID);
+            if (rowOwnerGUID) {
+                query = query.eq("rowOwnerGUID", rowOwnerGUID);
             }
-            if (mediaPostGUID) {
-                query = query.eq("mediaPostGUID", mediaPostGUID);
+            if (rowGUID) {
+                query = query.eq("rowGUID", rowGUID);
             }
             const { data, error } = yield call(() => query.single());
             if (error && error.code !== 'PGRST116') {
@@ -307,7 +307,7 @@ export const reusableRootSaga = (p: any) => {
                 const isPostsTable = String(tableName).toLowerCase().includes("post") || String(tableName).toLowerCase().includes("media");
 
                 filteredData = reduxStateData.filter((item: any) => {
-                    const json = item?.mediaPostJSON || item || {};
+                    const json = item?.rowJSON || item || {};
                     const title = String(json.mediaPostTitle || item.title || "").toLowerCase();
                     const description = String(json.mediaPostDescription || item.description || "").toLowerCase();
                     const firstName = String(json.raciFirstName || json.firstName || json.mediaPostFirstName || item.firstName || "").toLowerCase();
@@ -368,7 +368,7 @@ export const reusableRootSaga = (p: any) => {
 
                 if (filterText && filterText.trim() !== "") {
                     query = query.or(
-                        `mediaPostJSON->>mediaPostTitle.ilike.%${filterText}%,mediaPostJSON->>mediaPostDescription.ilike.%${filterText}%,mediaPostJSON->>mediaPostOrigin.ilike.%${filterText}%,mediaPostJSON->>originUrl.ilike.%${filterText}%,mediaPostJSON->>firstName.ilike.%${filterText}%,mediaPostJSON->>lastName.ilike.%${filterText}%,mediaPostJSON->>mediaPostFirstName.ilike.%${filterText}%,mediaPostJSON->>mediaPostLastName.ilike.%${filterText}%,mediaPostJSON->>raciFirstName.ilike.%${filterText}%,mediaPostJSON->>raciLastName.ilike.%${filterText}%,mediaPostJSON->>raciEmail.ilike.%${filterText}%,mediaPostJSON->>email.ilike.%${filterText}%`
+                        `rowJSON->>mediaPostTitle.ilike.%${filterText}%,rowJSON->>mediaPostDescription.ilike.%${filterText}%,rowJSON->>mediaPostOrigin.ilike.%${filterText}%,rowJSON->>originUrl.ilike.%${filterText}%,rowJSON->>firstName.ilike.%${filterText}%,rowJSON->>lastName.ilike.%${filterText}%,rowJSON->>mediaPostFirstName.ilike.%${filterText}%,rowJSON->>mediaPostLastName.ilike.%${filterText}%,rowJSON->>raciFirstName.ilike.%${filterText}%,rowJSON->>raciLastName.ilike.%${filterText}%,rowJSON->>raciEmail.ilike.%${filterText}%,rowJSON->>email.ilike.%${filterText}%`
                     );
                 }
 

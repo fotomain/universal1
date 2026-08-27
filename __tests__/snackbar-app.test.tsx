@@ -4,8 +4,8 @@ import { SnackbarAppProps } from '../kit8/components/common/SnackbarApp';
 describe('SnackbarApp Component & Card Delete Undo Integration', () => {
   it('supports visible, message, duration, actionLabel "Undo", and undoDeleteData props', () => {
     const mockPostData = {
-      mediaPostGUID: 'post-123',
-      mediaPostJSON: { mediaPostTitle: 'Test Post' },
+      rowGUID: 'post-123',
+      rowJSON: { mediaPostTitle: 'Test Post' },
     };
 
     const props: SnackbarAppProps = {
@@ -29,8 +29,8 @@ describe('SnackbarApp Component & Card Delete Undo Integration', () => {
 
   it('validates showSnackbar action structure containing undoDeleteData', () => {
     const mockPostData = {
-      mediaPostGUID: 'post-123',
-      mediaPostJSON: { mediaPostTitle: 'Test Post' },
+      rowGUID: 'post-123',
+      rowJSON: { mediaPostTitle: 'Test Post' },
     };
 
     const showSnackbarAction = {
@@ -50,8 +50,8 @@ describe('SnackbarApp Component & Card Delete Undo Integration', () => {
 
   it('triggers createOne saga action payload when Undo is executed', () => {
     const mockPostData = {
-      mediaPostGUID: 'post-123',
-      mediaPostJSON: { mediaPostTitle: 'Restored Post' },
+      rowGUID: 'post-123',
+      rowJSON: { mediaPostTitle: 'Restored Post' },
     };
 
     const createOneAction = {

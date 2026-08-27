@@ -285,14 +285,14 @@ export function ListWebCardsComponent({
     }
   };
 
-  // Read ONCE on mount using listOwnerGUID as mediaPostOwnerGUID
+  // Read ONCE on mount using listOwnerGUID as rowOwnerGUID
   useEffect(() => {
     if (actions?.readData && listOwnerGUID) {
       dispatch(actions.readData({
         paginationSize: 50,
         originationCurrentPage: 0,
         readAllFilter: "",
-        mediaPostOwnerGUID: listOwnerGUID,
+        rowOwnerGUID: listOwnerGUID,
       }));
     }
   }, [actions, entityName, listOwnerGUID, dispatch]);
@@ -301,9 +301,9 @@ export function ListWebCardsComponent({
   useEffect(() => {
     if (entityState?.entityDataFromServer && entityState.entityDataFromServer.length > 0) {
       const mapped = entityState.entityDataFromServer.map((item: any, idx: number) => {
-        const json = item?.mediaPostJSON || {};
+        const json = item?.rowJSON || {};
         return {
-          id: item?.mediaPostGUID || `card-${idx + 1}`,
+          id: item?.rowGUID || `card-${idx + 1}`,
           title: json.mediaPostTitle || item?.title || `Media Post ${idx + 1}`,
           description: json.mediaPostDescription || item?.description || "",
           orderInList: item?.orderInList,
@@ -355,8 +355,8 @@ export function ListWebCardsComponent({
     const dispatchOrderUpdate = (id: string, newOrder: number) => {
       if (actions?.updateOne && listOwnerGUID) {
         dispatch(actions.updateOne({
-          mediaPostGUID: id,
-          mediaPostOwnerGUID: listOwnerGUID,
+          rowGUID: id,
+          rowOwnerGUID: listOwnerGUID,
           field: "orderInList",
           value: newOrder,
         }));
@@ -394,8 +394,8 @@ export function ListWebCardsComponent({
     if (actions?.updateOne && listOwnerGUID) {
       const sagaField = field === "title" ? "mediaPostTitle" : "mediaPostDescription";
       dispatch(actions.updateOne({
-        mediaPostGUID: id,
-        mediaPostOwnerGUID: listOwnerGUID,
+        rowGUID: id,
+        rowOwnerGUID: listOwnerGUID,
         field: sagaField,
         value: value,
       }));
@@ -467,10 +467,10 @@ export function ListWebCardsComponent({
       title: newTitle.trim() || "Untitled Post",
       description: newDescription.trim() || "",
       rawItem: {
-        mediaPostOwnerGUID: listOwnerGUID,
-        mediaPostGUID: newGuid,
+        rowOwnerGUID: listOwnerGUID,
+        rowGUID: newGuid,
         orderInList: Date.now(),
-        mediaPostJSON: {
+        rowJSON: {
           mediaPostTitle: newTitle.trim() || "Untitled Post",
           mediaPostDescription: newDescription.trim() || "",
           mediaPostOrigin: urlToUse,
@@ -487,10 +487,10 @@ export function ListWebCardsComponent({
 
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
-        mediaPostOwnerGUID: listOwnerGUID,
-        mediaPostGUID: newGuid,
+        rowOwnerGUID: listOwnerGUID,
+        rowGUID: newGuid,
         orderInList: Date.now(),
-        mediaPostJSON: {
+        rowJSON: {
           mediaPostTitle: newCard.title,
           mediaPostDescription: newCard.description,
           mediaPostOrigin: urlToUse,
@@ -534,10 +534,10 @@ export function ListWebCardsComponent({
       title: newTitle.trim() || "Untitled Post",
       description: newDescription.trim() || "",
       rawItem: {
-        mediaPostOwnerGUID: listOwnerGUID,
-        mediaPostGUID: newGuid,
+        rowOwnerGUID: listOwnerGUID,
+        rowGUID: newGuid,
         orderInList: Date.now(),
-        mediaPostJSON: {
+        rowJSON: {
           mediaPostTitle: newTitle.trim() || "Untitled Post",
           mediaPostDescription: newDescription.trim() || "",
           mediaPostOrigin: urlToUse,
@@ -554,10 +554,10 @@ export function ListWebCardsComponent({
 
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
-        mediaPostOwnerGUID: listOwnerGUID,
-        mediaPostGUID: newGuid,
+        rowOwnerGUID: listOwnerGUID,
+        rowGUID: newGuid,
         orderInList: Date.now(),
-        mediaPostJSON: {
+        rowJSON: {
           mediaPostTitle: newCard.title,
           mediaPostDescription: newCard.description,
           mediaPostOrigin: urlToUse,
@@ -654,12 +654,12 @@ export function ListWebCardsComponent({
       // 1. Add current post into entityForArchivationName (mediaPostArchive)
       if (archiveActions?.createOne) {
         const itemToArchive = targetCard.rawItem
-          ? { ...targetCard.rawItem, mediaPostOwnerGUID: listOwnerGUID }
+          ? { ...targetCard.rawItem, rowOwnerGUID: listOwnerGUID }
           : {
-              mediaPostGUID: targetCard.id,
-              mediaPostOwnerGUID: listOwnerGUID,
+              rowGUID: targetCard.id,
+              rowOwnerGUID: listOwnerGUID,
               orderInList: Date.now(),
-              mediaPostJSON: {
+              rowJSON: {
                 mediaPostTitle: targetCard.title,
                 mediaPostDescription: targetCard.description,
                 mediaPostMIME: "youtube",
@@ -673,8 +673,8 @@ export function ListWebCardsComponent({
       if (actions?.deleteOne) {
         dispatch(
           actions.deleteOne({
-            mediaPostGUID: id,
-            mediaPostOwnerGUID: listOwnerGUID,
+            rowGUID: id,
+            rowOwnerGUID: listOwnerGUID,
           })
         );
       }
@@ -688,16 +688,16 @@ export function ListWebCardsComponent({
     setCards((prev) => prev.filter((item) => item.id !== id));
     if (actions?.deleteOne) {
       dispatch(actions.deleteOne({
-        mediaPostGUID: id,
-        ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+        rowGUID: id,
+        ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}),
       }));
     }
 
     const undoItemData = (itemToDelete as any)?.rawItem || {
-      mediaPostGUID: id,
-      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      rowGUID: id,
+      ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}),
       orderInList: Date.now(),
-      mediaPostJSON: {
+      rowJSON: {
         mediaPostTitle: itemToDelete?.title || '',
         mediaPostDescription: itemToDelete?.description || '',
         mediaPostImage: itemToDelete?.image || '',
@@ -741,17 +741,17 @@ export function ListWebCardsComponent({
     if (actions?.deleteOne) {
       selectedIds.forEach((id) => {
         dispatch(actions.deleteOne({
-          mediaPostGUID: id,
-          ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+          rowGUID: id,
+          ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}),
         }));
       });
     }
 
     const firstUndoData = (itemsToDelete[0] as any)?.rawItem || {
-      mediaPostGUID: itemsToDelete[0]?.id || uuid(),
-      ...(listOwnerGUID ? { mediaPostOwnerGUID: listOwnerGUID } : {}),
+      rowGUID: itemsToDelete[0]?.id || uuid(),
+      ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}),
       orderInList: Date.now(),
-      mediaPostJSON: {
+      rowJSON: {
         mediaPostTitle: itemsToDelete[0]?.title || '',
         mediaPostDescription: itemsToDelete[0]?.description || '',
         mediaPostImage: itemsToDelete[0]?.image || '',
@@ -1069,7 +1069,7 @@ export function ListWebCardsComponent({
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
-                  const rawJson = card.rawItem?.mediaPostJSON || card.rawItem || {};
+                  const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
                   
                   const title = String(card.title || rawJson.mediaPostTitle || "").toLowerCase();
                   const description = String(card.description || rawJson.mediaPostDescription || "").toLowerCase();
