@@ -81,7 +81,6 @@ export function BusinessFunnyScrollComponent({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, marginRight: "12px" }}>
-          <span style={{ fontSize: "18px", flexShrink: 0 }}>💼</span>
           <span
             style={{
               fontSize: "12px",
