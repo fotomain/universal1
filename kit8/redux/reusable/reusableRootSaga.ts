@@ -14,6 +14,10 @@ export const reusableRootSaga = (p: any) => {
 
             const entityObject = SystemMetaData[action.type.replace("/readData", "")]
 
+            if(doBefore){
+                doBefore(action)
+            }
+
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
 
@@ -40,7 +44,11 @@ export const reusableRootSaga = (p: any) => {
 
             if (error) throw error;
 
-            yield put(actions.readDataSuccess(data));
+            if(doAfter){
+                doAfter({action,data})
+            }
+
+            yield put(actions.readDataSuccess({data,action}));
         } catch (e: any) {
             yield put(actions.readDataFailure(e?.message));
         }

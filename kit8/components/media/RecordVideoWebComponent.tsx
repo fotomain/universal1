@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, ScrollView } from 'react-native';
-import { Surface, Text, useTheme, IconButton, TextInput, Switch, Portal, Modal } from 'react-native-paper';
+import { Surface, Text, useTheme, IconButton, TextInput, Switch } from 'react-native-paper';
 import { ButtonPrimaryApp } from '../common';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,7 +17,7 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
   const router = useRouter();
   const dispatch = useDispatch();
   const theme = useTheme();
-  const { t } = useTranslation();
+
   const searchParams = useLocalSearchParams<{ withAudio?: string; maxDuration?: string; videoQualityData?: string }>();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
@@ -233,7 +233,7 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
   const startGoogleDriveUpload = (videoGUID: string, finishTime: string, durationSec: number, sizeMb: number) => {
     setUploadProgress(0);
     let progress = 0;
-    const listOwnerGUID = activeUserState?.activeUserGUID || 'anon';
+    // const listOwnerGUID = activeUserState?.activeUserGUID || 'anon';
 
     const interval = setInterval(() => {
       progress += 25;

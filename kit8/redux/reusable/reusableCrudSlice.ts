@@ -72,7 +72,7 @@ export const reusableCrudSlice = (name: string) =>
 
             },
             readDataSuccess: (state, action) => {
-                state.entityDataFromServer = action.payload;
+                state.entityDataFromServer = action.payload.data;
                 state.isReading = false;
                 state.readSuccessful = 1;
                 state.crudMoment = Date.now();
