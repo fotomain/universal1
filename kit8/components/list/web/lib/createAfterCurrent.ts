@@ -5,7 +5,7 @@ export interface CreateAfterCurrentParams {
   id: string;
   cards: CardItem[];
   entityName?: string;
-  listOwnerGUID: string;
+  listOwnerGUID: string | undefined;
   actions?: any;
   dispatch?: (action: any) => void;
   calculateNewOrderInList?: (cards: CardItem[], index: number, originalCards?: CardItem[]) => number;

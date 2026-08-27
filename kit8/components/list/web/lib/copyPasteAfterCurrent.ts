@@ -4,7 +4,7 @@ import { calculateNewOrderInList as defaultCalculateNewOrderInList } from './cal
 export interface CopyPasteAfterCurrentParams {
   id: string;
   cards: CardItem[];
-  listOwnerGUID: string;
+  listOwnerGUID: string | undefined;
   actions?: any;
   dispatch?: (action: any) => void;
   calculateNewOrderInList?: (cards: CardItem[], index: number, originalCards?: CardItem[]) => number;
