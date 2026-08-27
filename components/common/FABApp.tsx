@@ -1,6 +1,6 @@
 import React from 'react';
 import {Platform} from 'react-native';
-import {useDesignSystem} from '../../context/DesignSystemContext';
+import {useDesignSystem} from '../../kit8/providers/DesignSystemContext';
 import {AntFABApp, ExpoFABApp, GoogleMD3WebFAB, NativeFABApp, PaperFABApp, TamaguiFABApp,} from './fab';
 
 export interface FABAppProps {

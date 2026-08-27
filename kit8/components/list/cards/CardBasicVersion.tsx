@@ -24,6 +24,7 @@ export interface CardBasicVersionProps {
   onMenuOpenStateChange?: (isOpen: boolean) => void;
   dragHandleProps?: any;
   testID?: string;
+  fabCardNeeded?: boolean;
 }
 
 export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
@@ -41,6 +42,7 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
   onMenuOpenStateChange,
   dragHandleProps,
   testID = "cardBasic",
+  fabCardNeeded = true,
 }) => {
   const theme = useTheme();
 
@@ -48,42 +50,38 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
     <CardApp
       testID={testID}
       style={{
-        backgroundColor: isSelected
-          ? (theme.dark ? "#1e3a5f" : "#e3f2fd")
-          : theme.colors.surface,
-        borderRadius: 8,
+        width: "100%",
+        backgroundColor: theme.dark ? "#12121e" : "#ffffff",
+        borderColor: isSelected ? primaryColor : (theme.dark ? "#3a3a55" : "#e0e0e0"),
+        borderWidth: isSelected ? 2 : 1,
+        borderRadius: 12,
+        padding: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDragging ? 0.3 : 0.05,
+        shadowRadius: isDragging ? 10 : 3,
+        elevation: isDragging ? 6 : 1,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {/* Copy to Clipboard Icon at Left of Card ID */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              if (typeof navigator !== "undefined" && navigator.clipboard) {
-                navigator.clipboard.writeText(card.id);
-              }
-            }}
-          >
-            <MaterialCommunityIcons name="content-copy" size={18} color={primaryColor} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 14, fontFamily: "Roboto, 'Helvetica Neue', sans-serif", color: theme.colors.onSurface, fontWeight: '500' }}>
-            ID: {card.id.substring(0, 12)}...
-          </Text>
-        </View>
-
-        {/* CardThreeDotsMenu at top right corner of Card */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <Text style={{ fontSize: 18, fontWeight: "bold", color: theme.dark ? "#ffffff" : theme.colors.onSurface }}>
+          {card.title}
+        </Text>
         <CardThreeDotsMenu
           onEdit={() => onEdit?.(card.id)}
           onDelete={() => onDelete?.(card.id)}
           onShare={() => onShare?.(card.id)}
-          onMenuOpenStateChange={(isOpen) => onMenuOpenStateChange?.(isOpen)}
+          onMenuOpenStateChange={onMenuOpenStateChange}
           primaryColor={primaryColor}
         />
       </View>
 
-      {/* Card Content - Show Title and Description */}
-      <View style={{ flexDirection: "column", gap: 8, paddingBottom: 8 }}>
+      <Text style={{ fontSize: 14, color: theme.dark ? "#8892B0" : theme.colors.onSurfaceVariant, marginBottom: 12 }}>
+        {card.description}
+      </Text>
+
+      {/* Editing Form fields visible if card is being edited */}
+      <View style={{ gap: 8, marginBottom: 12 }}>
         <TextInputApp
           label="Title"
           value={card.title}
@@ -97,15 +95,17 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
       </View>
 
       {/* FAB positioned at the right bottom corner of the Card */}
-      <View style={cardStyles.fabCornerWrapper}>
-        <FABForCardComponent
-          cardId={card.id}
-          size="small"
-          onEdit={() => onEdit?.(card.id)}
-          onShare={() => onShare?.(card.id)}
-          onDelete={() => onDelete?.(card.id)}
-        />
-      </View>
+      {fabCardNeeded && (
+        <View style={cardStyles.fabCornerWrapper}>
+          <FABForCardComponent
+            cardId={card.id}
+            size="small"
+            onEdit={() => onEdit?.(card.id)}
+            onShare={() => onShare?.(card.id)}
+            onDelete={() => onDelete?.(card.id)}
+          />
+        </View>
+      )}
 
       {/* CardIconsBottomComponent: Space-between flex box with LeftSideIcons & RightSideIcons */}
       <CardIconsBottomComponent

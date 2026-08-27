@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, TextInputProps as RNTextInputProps } from 'react-native';
 import { TextInput as PaperTextInput, HelperText as PaperHelperText, TextInputProps as PaperTextInputProps } from 'react-native-paper';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import IconApp from './IconApp';
 import GoogleMD3WebTextInput from './googlemd3web/GoogleMD3WebTextInput';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../providers/DesignSystemContext';
 import ThemeSwitcher from '../../components/ThemeSwitcher';
 import TextApp from '../../components/common/TextApp';
 import TextInputApp from '../../components/common/TextInputApp';

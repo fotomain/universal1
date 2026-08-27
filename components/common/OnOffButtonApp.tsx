@@ -3,7 +3,7 @@ import IconApp from "./IconApp";
 
 let useDesignSystem: any;
 try {
-  useDesignSystem = require("../../context/DesignSystemContext").useDesignSystem;
+  useDesignSystem = require("../../kit8/providers/DesignSystemContext").useDesignSystem;
 } catch (e) {
   useDesignSystem = () => ({ themeColors: { primary: "#6750A4", onPrimary: "#ffffff" } });
 }

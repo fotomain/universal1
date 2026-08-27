@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Platform, StyleProp, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import { MaterialSymbol } from "./iconsvariants/MaterialSymbol";
 import { PlatformOrientedIcon } from "./iconsvariants/PlatformOrientedIcon";
 

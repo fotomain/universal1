@@ -25,6 +25,8 @@ export interface ListWebTopBarComponentProps {
   primaryColor?: string;
   style?: any;
   testID?: string;
+  searchTextNeeded?: boolean;
+  onOffSelectionButtonNeeded?: boolean;
 }
 
 export function ListWebTopBarComponent({
@@ -41,6 +43,8 @@ export function ListWebTopBarComponent({
   primaryColor = "#2e7d32",
   style,
   testID = "listWebTopBar",
+  searchTextNeeded = true,
+  onOffSelectionButtonNeeded = true,
 }: ListWebTopBarComponentProps) {
   let surfaceColor = "#ffffff";
   try {
@@ -63,15 +67,17 @@ export function ListWebTopBarComponent({
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor }, style]} testID={testID}>
       {/* 0. Top Search Bar */}
-      <View style={styles.searchRow}>
-        <SearchTextApp
-          testID="topBarSearchInput"
-          value={searchText}
-          onChangeText={onSearchTextChange}
-          placeholder="Search items..."
-          primaryColor={primaryColor}
-        />
-      </View>
+      {searchTextNeeded && (
+        <View style={styles.searchRow}>
+          <SearchTextApp
+            testID="topBarSearchInput"
+            value={searchText}
+            onChangeText={onSearchTextChange}
+            placeholder="Search items..."
+            primaryColor={primaryColor}
+          />
+        </View>
+      )}
 
       {/* 1. Actions Bar */}
       <View style={styles.actionsRow}>
@@ -88,16 +94,18 @@ export function ListWebTopBarComponent({
             />
           </div>
 
-        {/* OnOffButtonApp right after createNewItem */}
-        <div title={isSelectionVisible ? "Hide Card Selection" : "Show Card Selection"} style={{ marginLeft: 8 }}>
-          <OnOffButtonApp
-            testID="onOffSelectionButton"
-            isOn={isSelectionVisible}
-            onOffCallback={onSelectionVisibleChange}
-            primaryColor={primaryColor}
-          />
-        </div>
-      </View>
+          {/* OnOffButtonApp right after createNewItem */}
+          {onOffSelectionButtonNeeded && (
+            <div title={isSelectionVisible ? "Hide Card Selection" : "Show Card Selection"} style={{ marginLeft: 8 }}>
+              <OnOffButtonApp
+                testID="onOffSelectionButton"
+                isOn={isSelectionVisible}
+                onOffCallback={onSelectionVisibleChange}
+                primaryColor={primaryColor}
+              />
+            </div>
+          )}
+        </View>
 
       {/* 2. Right Justified Section: Scroll Icons */}
       <View style={styles.rightSection}>

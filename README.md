@@ -6,6 +6,7 @@ https://youtu.be/nta1YhicoGw
 
 npx expo start --web
 npm run web
+npm i; npm run web
 
 # CLEAR
 taskkill /f /im node.exe

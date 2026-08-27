@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, View, ActivityIndicator } from 'react-native';
 import { Button as PaperButton } from 'react-native-paper';
-import { useDesignSystem } from '../../context/DesignSystemContext';
+import { useDesignSystem } from '../../kit8/providers/DesignSystemContext';
 import IconApp from './IconApp';
 import GoogleMD3WebButton from './googlemd3web/GoogleMD3WebButton';
 

@@ -293,7 +293,7 @@ export const reusableRootSaga = (p: any) => {
     }
 
     // █████████████████████████████ filterAll (Opportunistic Search)
-    function* filterAll(action: any) {
+    function* filterAll(action: any): Generator<any, void, any> {
         try {
             const filterText = action.payload?.filterText ?? (typeof action.payload === 'string' ? action.payload : "");
             

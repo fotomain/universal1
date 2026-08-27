@@ -8,7 +8,7 @@ import NativeSwitchSub from './switch/subcomponents/NativeSwitchSub';
 
 let useDesignSystem: any;
 try {
-  useDesignSystem = require('../../context/DesignSystemContext').useDesignSystem;
+  useDesignSystem = require('../../kit8/providers/DesignSystemContext').useDesignSystem;
 } catch (e) {
   useDesignSystem = () => ({ activeSystem: 'native' });
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {Card as PaperCard} from 'react-native-paper';
-import {useDesignSystem} from '../../context/DesignSystemContext';
+import {useDesignSystem} from '../../kit8/providers/DesignSystemContext';
 import GoogleMD3WebCard from './googlemd3web/GoogleMD3WebCard';
 
 export interface CardAppProps {
