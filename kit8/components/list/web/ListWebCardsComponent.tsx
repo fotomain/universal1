@@ -318,13 +318,13 @@ export function ListWebCardsComponent({
     const calculateNewOrderInList = (currentCards: CardItem[], destIndex: number): number => {
       // Use the original unmutated 'cards' state to determine the sorting direction,
       // otherwise the recently spliced item throws off the edge detection.
-      const isDesc = cards.length >= 2 
-        ? (cards[0].orderInList || 0) > (cards[cards.length - 1].orderInList || 0) 
+      const isDesc = cards.length >= 2
+        ? (cards[0].orderInList || 0) > (cards[cards.length - 1].orderInList || 0)
         : false;
-      
+
       const itemBefore = destIndex > 0 ? currentCards[destIndex - 1] : undefined;
       const itemAfter = destIndex < currentCards.length - 1 ? currentCards[destIndex + 1] : undefined;
-      
+
       const beforeOrder = itemBefore?.orderInList;
       const afterOrder = itemAfter?.orderInList;
       if (_testMode) {
@@ -338,17 +338,17 @@ export function ListWebCardsComponent({
         }
         return result;
       }
-      
+
       const GAP = 100000;
-      
+
       if (beforeOrder === undefined && afterOrder !== undefined) {
         return isDesc ? afterOrder + GAP : afterOrder - GAP;
       }
-      
+
       if (afterOrder === undefined && beforeOrder !== undefined) {
         return isDesc ? beforeOrder - GAP : beforeOrder + GAP;
       }
-      
+
       return Date.now();
     };
 
@@ -369,10 +369,10 @@ export function ListWebCardsComponent({
       const items = Array.from(cards);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
-      
+
       const newOrder = calculateNewOrderInList(items, result.destination.index);
       reorderedItem.orderInList = newOrder;
-      
+
       setCards(items);
       dispatchOrderUpdate(reorderedItem.id, newOrder);
     };
@@ -488,6 +488,7 @@ export function ListWebCardsComponent({
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
         rowOwnerGUID: listOwnerGUID,
+        rowParentGUID: '',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -555,6 +556,7 @@ export function ListWebCardsComponent({
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
         rowOwnerGUID: listOwnerGUID,
+        rowParentGUID: '',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -700,7 +702,6 @@ export function ListWebCardsComponent({
       rowJSON: {
         mediaPostTitle: itemToDelete?.title || '',
         mediaPostDescription: itemToDelete?.description || '',
-        mediaPostImage: itemToDelete?.image || '',
       },
     };
 
@@ -802,10 +803,10 @@ export function ListWebCardsComponent({
     const items = [...cards];
     const [item] = items.splice(index, 1);
     items.unshift(item);
-    
+
     const newOrder = calculateNewOrderInList(items, 0);
     item.orderInList = newOrder;
-    
+
     setCards(items);
     dispatchOrderUpdate(item.id, newOrder);
   };
@@ -817,10 +818,10 @@ export function ListWebCardsComponent({
     const items = [...cards];
     const [item] = items.splice(index, 1);
     items.push(item);
-    
+
     const newOrder = calculateNewOrderInList(items, items.length - 1);
     item.orderInList = newOrder;
-    
+
     setCards(items);
     dispatchOrderUpdate(item.id, newOrder);
   };
@@ -1070,10 +1071,10 @@ export function ListWebCardsComponent({
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
                   const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
-                  
+
                   const title = String(card.title || rawJson.mediaPostTitle || "").toLowerCase();
                   const description = String(card.description || rawJson.mediaPostDescription || "").toLowerCase();
-                  
+
                   const firstName = String(
                     rawJson.firstName ||
                     rawJson.mediaPostFirstName ||
