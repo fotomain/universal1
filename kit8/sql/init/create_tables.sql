@@ -10,6 +10,7 @@ table_name TEXT;
          ,'catalogOrganizationTable'
          ,'dtcCatalogExecutiveTable'
          ,'mediaPostTable'
+         ,'mediaPostTableArchive'
          ,'dtcTaskRegisteredTable'
          ,'dtcTaskWaitingTable'
          ,'dtcTaskProgressTable'
@@ -28,14 +29,14 @@ BEGIN
         -- 2️⃣ Create table
 EXECUTE format(
         'CREATE TABLE public.%I (
+            "rowGUID" TEXT NOT NULL,
             "rowOwnerGUID" TEXT NOT NULL,
             "rowParentGUID" TEXT NOT NULL,
-            "rowGUID" TEXT NOT NULL,
             "rowJSON" JSONB NOT NULL DEFAULT ''{}''::jsonb,
             "orderInList" NUMERIC NOT NULL,
-            "created_at" TIMESTAMPTZ NOT NULL,
-            "updated_at" TIMESTAMPTZ NOT NULL,
-            CONSTRAINT %I PRIMARY KEY ("rowGUID")
+            "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY ("rowGUID")
         )',
         table_name,
         'pk_' || table_name
@@ -100,21 +101,13 @@ END LOOP;
     RAISE NOTICE 'Tables in supabase_realtime:';
     PERFORM * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
 
-
     -- ██ 10 create additional indexes
+    -- █████████ dtcTaskProgressTable
     CREATE UNIQUE INDEX IF NOT EXISTS  idx_dtcTaskProgressTable_rowOwnerGUID
     ON public."dtcTaskProgressTable" ("rowOwnerGUID");
 
-            IF NOT EXISTS (
-                        SELECT 1
-                        FROM pg_constraint
-                        WHERE conname = 'pk_userAuthTable'
-                    ) THEN
-            ALTER TABLE public."userAuthTable"
-                ADD CONSTRAINT pk_userAuthTable
-                    PRIMARY KEY ("rowGUID");
-            END IF;
 
+    -- █████████ userTable
     CREATE UNIQUE INDEX IF NOT EXISTS  idx_userTable_rowOwnerGUID
     ON public."userTable" ("rowOwnerGUID");
 

@@ -4,6 +4,7 @@ const uuid = Crypto.randomUUID
 
 export const mediaPostExample = {
     "rowOwnerGUID": "111459c1-b433-47d4-bf99-031d23a7a389",
+    "rowParentGUID": "11122222-b433-47d4-bf99-031d23a7a389",
     "rowGUID": "222459c1-b433-47d4-bf99-031d23a7a389",
     "orderInList": 0,
     "rowJSON": {

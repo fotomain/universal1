@@ -39,7 +39,7 @@ export const reusableCrudSlice = (name: string) =>
                 state.isCreating = true;
                 state.createSuccessful = -1;
             },
-            createOneSuccess: (state, action) => {
+            createOneSuccess: (state:any, action) => {
                 state.lastCreatedData = action.payload;
                 state.isCreating = false;
                 state.createSuccessful = 1;
@@ -135,7 +135,7 @@ export const reusableCrudSlice = (name: string) =>
                 state.deleteSuccessful = 0;
                 state.deleteErrorData = action.payload;
             },
-            
+
             // ===== READ ONE (themeStore-ticket-step1)
             readOne: (state, action?: any) => {
                 state.isReading = true;

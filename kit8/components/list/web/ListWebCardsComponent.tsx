@@ -488,7 +488,7 @@ export function ListWebCardsComponent({
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
         rowOwnerGUID: listOwnerGUID,
-        rowParentGUID: '',
+        rowParentGUID: 'empty',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -556,7 +556,7 @@ export function ListWebCardsComponent({
     if (actions?.createOne && listOwnerGUID) {
       dispatch(actions.createOne({
         rowOwnerGUID: listOwnerGUID,
-        rowParentGUID: '',
+        rowParentGUID: 'empty',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -755,7 +755,7 @@ export function ListWebCardsComponent({
       rowJSON: {
         mediaPostTitle: itemsToDelete[0]?.title || '',
         mediaPostDescription: itemsToDelete[0]?.description || '',
-        mediaPostImage: itemsToDelete[0]?.image || '',
+        // mediaPostImage: itemsToDelete[0]?.image || '',
       },
     };
 

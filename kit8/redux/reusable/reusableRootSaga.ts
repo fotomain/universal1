@@ -160,7 +160,7 @@ export const reusableRootSaga = (p: any) => {
 
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
-            
+
             let updatePayload: any = {};
 
             // Check if it's a root level field
@@ -198,7 +198,7 @@ export const reusableRootSaga = (p: any) => {
                         [field]: value,
                     };
                 }
-                
+
                 updatePayload = { rowJSON: updatedJSON };
             }
 
@@ -295,8 +295,9 @@ export const reusableRootSaga = (p: any) => {
     function* filterAll(action: any) {
         try {
             const filterText = action.payload?.filterText ?? (typeof action.payload === 'string' ? action.payload : "");
-            
+
             // 1. Opportunistic search in Redux state
+            // @ts-ignore
             const sliceState: any = yield select((state: any) => state[tableName] || {});
             const reduxStateData = sliceState?.entityDataFromServer || [];
 
