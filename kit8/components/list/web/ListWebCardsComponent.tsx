@@ -293,6 +293,7 @@ export function ListWebCardsComponent({
         originationCurrentPage: 0,
         readAllFilter: "",
         rowOwnerGUID: listOwnerGUID,
+          rowParentGUID: 'empty',
       }));
     }
   }, [actions, entityName, listOwnerGUID, dispatch]);
@@ -357,6 +358,7 @@ export function ListWebCardsComponent({
         dispatch(actions.updateOne({
           rowGUID: id,
           rowOwnerGUID: listOwnerGUID,
+            rowParentGUID: 'empty',
           field: "orderInList",
           value: newOrder,
         }));
@@ -396,6 +398,7 @@ export function ListWebCardsComponent({
       dispatch(actions.updateOne({
         rowGUID: id,
         rowOwnerGUID: listOwnerGUID,
+          rowParentGUID: 'empty',
         field: sagaField,
         value: value,
       }));
@@ -468,6 +471,7 @@ export function ListWebCardsComponent({
       description: newDescription.trim() || "",
       rawItem: {
         rowOwnerGUID: listOwnerGUID,
+          rowParentGUID: 'empty',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -536,6 +540,7 @@ export function ListWebCardsComponent({
       description: newDescription.trim() || "",
       rawItem: {
         rowOwnerGUID: listOwnerGUID,
+          rowParentGUID: 'empty',
         rowGUID: newGuid,
         orderInList: Date.now(),
         rowJSON: {
@@ -660,6 +665,7 @@ export function ListWebCardsComponent({
           : {
               rowGUID: targetCard.id,
               rowOwnerGUID: listOwnerGUID,
+                rowParentGUID: 'empty',
               orderInList: Date.now(),
               rowJSON: {
                 mediaPostTitle: targetCard.title,

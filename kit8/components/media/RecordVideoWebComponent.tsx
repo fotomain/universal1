@@ -152,6 +152,7 @@ export default function RecordVideoWebComponent(props: RecordVideoWebComponentPr
         entityName: 'mediaPostReusable',
         item: {
           rowOwnerGUID: listOwnerGUID,
+            rowParentGUID: 'empty',
           orderInList: newOrderInList,
           rowJSON,
         },

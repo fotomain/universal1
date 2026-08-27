@@ -41,6 +41,7 @@ export function copyPasteBeforeCurrent(params: CopyPasteBeforeCurrentParams) {
     rawItem: {
       ...targetCard.rawItem,
       rowOwnerGUID: listOwnerGUID,
+        rowParentGUID: 'empty',
       rowGUID: newGuid,
       orderInList: computedOrder,
       rowJSON: newMediaPostJSON,
@@ -64,6 +65,7 @@ export function copyPasteBeforeCurrent(params: CopyPasteBeforeCurrentParams) {
   if (actions?.createOne && listOwnerGUID && dispatch) {
     dispatch(actions.createOne({
       rowOwnerGUID: listOwnerGUID,
+        rowParentGUID: 'empty',
       rowGUID: newGuid,
       orderInList: computedOrder,
       rowJSON: newMediaPostJSON,

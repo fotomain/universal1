@@ -28,6 +28,7 @@ export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
     orderInList: computedOrder,
     rawItem: {
       rowOwnerGUID: listOwnerGUID,
+        rowParentGUID: 'empty',
       rowGUID: newGuid,
       orderInList: computedOrder,
       rowJSON: {
@@ -55,6 +56,7 @@ export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
   if (actions?.createOne && listOwnerGUID && dispatch) {
     dispatch(actions.createOne({
       rowOwnerGUID: listOwnerGUID,
+      rowParentGUID: 'empty',
       rowGUID: newGuid,
       orderInList: computedOrder,
       rowJSON: newCard.rawItem.rowJSON,
