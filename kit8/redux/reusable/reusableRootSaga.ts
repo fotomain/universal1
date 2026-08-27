@@ -5,7 +5,7 @@ import {showSnackbar} from "../uxuiSlice";
 
 
 export const reusableRootSaga = (p: any) => {
-    const {tableName, actions, doBefore, doAfter} = p
+    const {tableName, actions, doBefore, doAfter, afterCreateOneSuccess} = p
 
     function* readAll(action: any) {
         try {
@@ -409,5 +409,8 @@ export const reusableRootSaga = (p: any) => {
         yield takeEvery(actions.updateOne, updateOneFieldOfJson);
         yield takeEvery(actions.deleteOne, deleteOne);
         yield takeEvery(actions.upsertOne, upsertOne);
+        if (afterCreateOneSuccess) {
+            yield takeEvery(actions.createOneSuccess, afterCreateOneSuccess);
+        }
     };
 };

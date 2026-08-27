@@ -1,6 +1,17 @@
 import {mediaPostExample} from "./lib/mediaPostExample";
-
+// MD.
 const SystemMetaData:any = {
+    'uploadToGoogleDriveSession': {
+        tableName: "uploadToGoogleDriveSessionTable",
+        // actions - see meta.actions = slice.actions;
+        updateValidator: () => {
+        },
+        defaultData: uploadToGoogleDrivePostExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p:any)=>{},
+    },
     'mediaPostReusable': {
         tableName: "mediaPostTable",
         // actions - see meta.actions = slice.actions;
