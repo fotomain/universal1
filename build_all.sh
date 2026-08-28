@@ -7,5 +7,6 @@ echo "Building all web app variants..."
 "$DIR/build_appOnTrend.sh"
 "$DIR/build_appPosts.sh"
 "$DIR/build_appCC1.sh"
+"$DIR/build_appClothes1.sh"
 
 echo "All apps built successfully into dist/!"

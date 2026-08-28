@@ -2,10 +2,10 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
-import UploadFilesForAIToGoogleDriveComponent from '../../kit8/components/upload/UploadFilesForAIToGoogleDriveComponent';
+import Clothes1UploadToDriveComponent from '../../kit8/components/upload/Clothes1UploadToDriveComponent';
 import RunComputationButton from './RunComputationButton';
 
-export default function OnTrendDasboardClothesScreen() {
+export default function Clothes1DashboardScreen() {
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
   const userState = useSelector((state: any) => state.userState);
   const userGUID = userState?.userGUID || activeUserState?.activeUserGUID || '88888999999';
@@ -15,10 +15,10 @@ export default function OnTrendDasboardClothesScreen() {
       <RunComputationButton
         style={styles.runButton}
         onPress={() => {
-          console.log('[OnTrend] Run computation triggered for userGUID:', userGUID);
+          console.log('[Clothes1] Run computation triggered for userGUID:', userGUID);
         }}
       />
-      <UploadFilesForAIToGoogleDriveComponent userGUID={userGUID} />
+      <Clothes1UploadToDriveComponent userGUID={userGUID} />
     </View>
   );
 }

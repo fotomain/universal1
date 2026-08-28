@@ -1457,14 +1457,14 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
 };
 
 // ============================================================================
-// MAIN COMPONENT: UploadFilesForAIToGoogleDriveComponent
+// MAIN COMPONENT: Clothes1UploadToDriveComponent
 // ============================================================================
 
 export interface UploadFilesForAIToGoogleDriveComponentProps {
     userGUID?: string;
 }
 
-export function UploadFilesForAIToGoogleDriveComponent({
+export function Clothes1UploadToDriveComponent({
     userGUID = '88888999999',
 }: UploadFilesForAIToGoogleDriveComponentProps) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -2215,7 +2215,7 @@ export function UploadFilesForAIToGoogleDriveComponent({
     );
 }
 
-export default UploadFilesForAIToGoogleDriveComponent;
+export default Clothes1UploadToDriveComponent;
 
 // ============================================================================
 // STYLES

@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
 import HomeAppOnTrend from '../../apps/appOnTrend/HomeAppOnTrend';
+import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
 import { useWorkPlace } from '../../kit8/providers/WithWorkPlace';
 import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
 
@@ -16,16 +17,17 @@ const homeComponentsMap = {
   appPosts: HomeAppPostsPage,
   appCC1: HomeAppCC1,
   appOnTrend: HomeAppOnTrend,
+  appClothes1: HomeAppClothes1,
 };
-const appName = (Constants.expoConfig?.extra?.appName as keyof typeof homeComponentsMap) || 'appPosts';
-const HomeComponent = homeComponentsMap[appName] || HomeAppPostsPage;
-
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const theme = useTheme();
   const { workPlaceGUID } = useWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
+
+  const appName = (Constants.expoConfig?.extra?.appName as keyof typeof homeComponentsMap) || 'appClothes1';
+  const HomeComponent = homeComponentsMap[appName] || HomeAppClothes1;
 
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>

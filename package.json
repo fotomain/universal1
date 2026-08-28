@@ -10,6 +10,7 @@
     "build_appOnTrend": "./build_appOnTrend.sh",
     "build_appPosts": "./build_appPosts.sh",
     "build_appCC1": "./build_appCC1.sh",
+    "build_appClothes1": "./build_appClothes1.sh",
     "build_all": "./build_all.sh"
   },
   "dependencies": {

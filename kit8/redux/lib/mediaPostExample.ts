@@ -2,18 +2,6 @@ import * as Crypto from "expo-crypto";
 
 const uuid = Crypto.randomUUID
 
-export const uploadToGoogleDrivePostExample = {
-    "rowOwnerGUID": "userGUID",
-    "rowParentGUID": "uploadClothes1DataSetsToGoogleDrive", //
-    "rowGUID": "222459c1-b433-47d4-bf99-031d23a7a389",
-    "orderInList": 0,
-    "rowJSON": {
-        "readyToUpload": false,
-        "isUploading": false,
-        "uploadingProgressPercent": 0,
-        "isFinished": false,
-    }
-}
 
 export const mediaPostExample = {
     "rowOwnerGUID": "111459c1-b433-47d4-bf99-031d23a7a389",

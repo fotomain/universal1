@@ -17,6 +17,9 @@ npm run web
 # CLEAR
 taskkill /f /im node.exe
 npm cache clean --force
+# NEW APP
+npm run web -- -c
+npx expo start -c
 
 npx expo start --clear
 rmdir /s .expo

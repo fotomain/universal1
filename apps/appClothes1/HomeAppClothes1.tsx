@@ -5,18 +5,18 @@ import { useRouter } from 'expo-router';
 import { ButtonApp, ButtonPrimaryApp } from '../../kit8/components/common';
 import H1Mi from '../../kit8/ui/H1Mi';
 import ArticleTextMi from '../../kit8/ui/ArticleTextMi';
-import OnTrendDasboardScreen from './OnTrendDasboardScreen';
+import Clothes1DashboardScreen from './Clothes1DashboardScreen';
 
-export default function HomeAppOnTrend() {
+export default function HomeAppClothes1() {
   const { t } = useTranslation();
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <OnTrendDasboardScreen />
+      <Clothes1DashboardScreen />
 
-      <H1Mi>{t('body.welcomeAppOnTrend') || 'Welcome to App OnTrend'}</H1Mi>
-      <ArticleTextMi>{t('body.homeAppOnTrendDesc') || 'This is the home page for the OnTrend app variant.'}</ArticleTextMi>
+      <H1Mi>{t('body.welcomeAppClothes1') || 'Welcome to App Clothes1'}</H1Mi>
+      <ArticleTextMi>{t('body.homeAppClothes1Desc') || 'This is the home page for the Clothes1 app variant.'}</ArticleTextMi>
 
       <ButtonPrimaryApp
         style={styles.menuButton}
