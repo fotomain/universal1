@@ -29,13 +29,19 @@ import {
     SpeedDialFAB,
     TextInputApp,
     IconApp,
-} from '../common';
+} from '../../kit8/components/common';
 import { useDispatch } from 'react-redux';
 import {
     setShopImagesCount,
     setTrendImagesCount,
     setGoogleDriveUploading,
-} from '../../redux/onTrendSlice';
+} from '../../kit8/redux/onTrendSlice';
+import {
+    googleDrive,
+    type GoogleDriveCredentials,
+    type GoogleDriveFileInfo,
+} from '../../kit8/google/drive/googleDrive';
+import {SystemMetaData} from "../../kit8/redux/SystemMetaData";
 
 // ============================================================================
 // CONFIGURATION & CONSTANTS
@@ -52,10 +58,11 @@ const ENV_VARS = {
     REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || '',
 };
 
-const FOLDER_MIME = 'application/vnd.google-apps.folder';
-const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
-const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+const credentialsConfig: GoogleDriveCredentials = {
+    clientId: ENV_VARS.CLIENT_ID,
+    clientSecret: ENV_VARS.CLIENT_SECRET,
+    refreshToken: ENV_VARS.REFRESH_TOKEN,
+};
 
 export const formatBytes = (bytes?: string | number) => {
     if (bytes === undefined || bytes === null || bytes === '') return '—';
@@ -71,15 +78,7 @@ export const formatBytes = (bytes?: string | number) => {
 // TYPES
 // ============================================================================
 
-export interface DriveFile {
-    id: string;
-    name: string;
-    mimeType: string;
-    size?: string;
-    modifiedTime?: string;
-    webViewLink?: string;
-    webContentLink?: string;
-}
+export type DriveFile = GoogleDriveFileInfo;
 
 interface UserFolderHierarchy {
     userRootId: string;
@@ -223,25 +222,37 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
     deleteStatusText,
 }) => {
     const isFolderClear = !!folderTitle;
+    const isCompleted = isDeleting && deleteProgress === 100;
 
     return (
         <Portal>
             <Dialog visible={visible} onDismiss={isDeleting ? undefined : onDismiss} style={styles.deleteDialog}>
                 <View style={styles.deleteHeaderIconWrapper}>
-                    <View style={[styles.modalHeaderIconCircle, { backgroundColor: '#FCE8E6' }]}>
+                    <View
+                        style={[
+                            styles.modalHeaderIconCircle,
+                            { backgroundColor: isCompleted ? '#E6F4EA' : '#FCE8E6' },
+                        ]}
+                    >
                         <IconApp
-                            name={isFolderClear ? 'folder_off' : 'delete'}
+                            name={isCompleted ? 'check_circle' : isFolderClear ? 'folder_off' : 'delete'}
                             size={28}
-                            color="#D93025"
+                            color={isCompleted ? '#137333' : '#D93025'}
                         />
                     </View>
                 </View>
-                <Dialog.Title style={styles.deleteTitle}>
-                    {isFolderClear ? `Clear all files?` : 'Delete File?'}
+                <Dialog.Title style={[styles.deleteTitle, isCompleted && { color: '#137333' }]}>
+                    {isCompleted
+                        ? 'Successfully Cleared!'
+                        : isFolderClear
+                        ? `Clear all files?`
+                        : 'Delete File?'}
                 </Dialog.Title>
                 <Dialog.Content>
                     <Text variant="bodyMedium" style={styles.deleteContentText}>
-                        {isFolderClear
+                        {isCompleted
+                            ? 'All files have been permanently removed from Google Drive.'
+                            : isFolderClear
                             ? `Are you sure you want to permanently delete all files in "${folderTitle}"?`
                             : 'Are you sure you want to permanently remove this file from your dataset?'}
                     </Text>
@@ -256,7 +267,9 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                         </Text>
                     </View>
                     <Text variant="bodySmall" style={styles.deleteWarningText}>
-                        {isFolderClear
+                        {isCompleted
+                            ? 'The folder is now empty.'
+                            : isFolderClear
                             ? 'This action will permanently delete all files in this dataset folder and cannot be undone.'
                             : 'This action cannot be undone.'}
                     </Text>
@@ -265,11 +278,26 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                     {isDeleting && (
                         <View style={styles.deleteProgressContainer}>
                             <View style={styles.deleteProgressHeader}>
-                                <Text variant="labelMedium" numberOfLines={1} style={styles.deleteStatusText}>
+                                <Text
+                                    variant="labelMedium"
+                                    numberOfLines={1}
+                                    style={[styles.deleteStatusText, isCompleted && { color: '#137333', fontWeight: '600' }]}
+                                >
                                     {deleteStatusText || 'Deleting files...'}
                                 </Text>
-                                <View style={styles.deletePercentBadge}>
-                                    <Text variant="labelMedium" style={styles.deletePercentText}>
+                                <View
+                                    style={[
+                                        styles.deletePercentBadge,
+                                        isCompleted && { backgroundColor: '#E6F4EA' },
+                                    ]}
+                                >
+                                    <Text
+                                        variant="labelMedium"
+                                        style={[
+                                            styles.deletePercentText,
+                                            isCompleted && { color: '#137333' },
+                                        ]}
+                                    >
                                         {deleteProgress}%
                                     </Text>
                                 </View>
@@ -280,6 +308,7 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                                         styles.deleteSliderFill,
                                         {
                                             width: `${Math.max(deleteProgress, 5)}%`,
+                                            backgroundColor: isCompleted ? '#137333' : '#D93025',
                                         },
                                     ]}
                                 />
@@ -291,23 +320,26 @@ const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
                     <Button
                         onPress={isDeleting ? (onCancel || onDismiss) : onDismiss}
                         textColor={isDeleting ? '#D93025' : '#5F6368'}
-                        style={{ flex: 1 }}
-                        icon={isDeleting ? () => <IconApp name="cancel" size={18} color="#D93025" /> : undefined}
+                        disabled={isCompleted}
+                        style={{ flex: 1, opacity: isCompleted ? 0.4 : 1 }}
+                        icon={isDeleting && !isCompleted ? () => <IconApp name="cancel" size={18} color="#D93025" /> : undefined}
                     >
-                        {isDeleting ? 'Cancel Deletion' : 'Cancel'}
+                        {isDeleting && !isCompleted ? 'Cancel' : 'Cancel'}
                     </Button>
                     <Button
                         mode="contained"
-                        buttonColor="#D93025"
+                        buttonColor={isCompleted ? '#137333' : '#D93025'}
                         textColor="#FFFFFF"
-                        loading={isDeleting}
+                        loading={isDeleting && !isCompleted}
                         disabled={isDeleting}
                         style={{ flex: 1 }}
                         onPress={() => {
                             void onConfirm();
                         }}
                     >
-                        {isDeleting
+                        {isCompleted
+                            ? 'Completed'
+                            : isDeleting
                             ? `Deleting (${deleteProgress}%)`
                             : isFolderClear
                             ? 'Clear all'
@@ -593,40 +625,26 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                 if (controller.signal.aborted) break;
                 const fileObj = files[i];
 
-                const metadata = {
-                    name: fileObj.name,
-                    mimeType: fileObj.mimeType || 'application/octet-stream',
-                    parents: [targetFolderId],
-                };
-
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-
-                let fileBlob: any = fileObj.blob;
-                if (!fileBlob && fileObj.uri) {
-                    const res = await fetch(fileObj.uri);
-                    fileBlob = await res.blob();
-                } else if (!fileBlob && fileObj.base64) {
-                    const res = await fetch(fileObj.base64);
-                    fileBlob = await res.blob();
-                }
-
-                formData.append('file', fileBlob, fileObj.name);
-
-                await axios.post(DRIVE_UPLOAD_URL, formData, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    signal: controller.signal,
-                    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-                        if (progressEvent.total && progressEvent.total > 0) {
-                            const fileFraction = progressEvent.loaded / progressEvent.total;
+                await googleDrive.createFile(
+                    { accessToken, ...credentialsConfig },
+                    fileObj,
+                    {
+                        parentId: targetFolderId,
+                        signal: controller.signal,
+                        dispatch,
+                        rowOwnerGUID: 'userGUID',
+                        rowParentGUID: 'Clothes1',
+                        orderInList: i,
+                        onProgress: (percent) => {
+                            const fileFraction = percent / 100;
                             const overallPercent = Math.min(
                                 99,
                                 Math.round(((i + fileFraction) / totalFiles) * 100)
                             );
                             setUploadProgress(overallPercent);
-                        }
-                    },
-                });
+                        },
+                    }
+                );
 
                 lastFileName = fileObj.name;
                 setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
@@ -1064,31 +1082,31 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
     const filteredFiles = useMemo(() => {
         if (!searchQuery.trim()) return folderFiles;
         const query = searchQuery.trim().toLowerCase();
-        return folderFiles.filter((f) => f.name.toLowerCase().includes(query));
+        return folderFiles.filter((f) => (f.name || '').toLowerCase().includes(query));
     }, [folderFiles, searchQuery]);
 
     const fetchFolderFiles = useCallback(async () => {
         if (!accessToken || !folderId) return;
         setLoading(true);
         try {
-            const q = `'${folderId}' in parents and trashed = false`;
-            const fields = 'files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink)';
-            const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&orderBy=name`;
-
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            if (!res.ok) throw new Error(`Failed to load ${title}`);
-            const data = await res.json();
-            const files: DriveFile[] = data.files || [];
-            setFolderFiles(files);
-            onFilesLoaded?.(files.length);
+            const { files } = await googleDrive.listFiles(
+                { accessToken, ...credentialsConfig },
+                {},
+                {
+                    parentId: folderId,
+                    fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink)',
+                    orderBy: 'name',
+                }
+            );
+            const driveFiles: DriveFile[] = files || [];
+            setFolderFiles(driveFiles);
+            onFilesLoaded?.(driveFiles.length);
         } catch (err: any) {
             onUploadError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [accessToken, folderId, title, onUploadError, onFilesLoaded]);
+    }, [accessToken, folderId, onUploadError, onFilesLoaded]);
 
     useEffect(() => {
         if (folderId && accessToken) {
@@ -1123,41 +1141,26 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                 const fileItem = filesList[i];
                 setUploadStatusText(`Uploading "${fileItem.name}" (${i + 1}/${totalFiles})`);
 
-                const metadata = {
-                    name: fileItem.name,
-                    mimeType: fileItem.mimeType || 'application/octet-stream',
-                    parents: [folderId],
-                };
-
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-
-                if (fileItem.blob) {
-                    formData.append('file', fileItem.blob, fileItem.name);
-                } else if (fileItem.uri) {
-                    const fileData = await fetch(fileItem.uri);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                } else if (fileItem.base64) {
-                    const fileData = await fetch(fileItem.base64);
-                    const blob = await fileData.blob();
-                    formData.append('file', blob, fileItem.name);
-                }
-
-                await axios.post(DRIVE_UPLOAD_URL, formData, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    signal: controller.signal,
-                    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-                        if (progressEvent.total && progressEvent.total > 0) {
-                            const fileFraction = progressEvent.loaded / progressEvent.total;
+                await googleDrive.createFile(
+                    { accessToken, ...credentialsConfig },
+                    fileItem,
+                    {
+                        parentId: folderId,
+                        signal: controller.signal,
+                        dispatch,
+                        rowOwnerGUID: 'userGUID',
+                        rowParentGUID: 'Clothes1',
+                        orderInList: i,
+                        onProgress: (percent) => {
+                            const fileFraction = percent / 100;
                             const overallPercent = Math.min(
                                 99,
                                 Math.round(((i + fileFraction) / totalFiles) * 100)
                             );
                             setUploadProgress(overallPercent);
-                        }
-                    },
-                });
+                        },
+                    }
+                );
 
                 lastFileName = fileItem.name;
                 setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
@@ -1394,7 +1397,7 @@ const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
                                 <View style={styles.fileCardRow}>
                                     <View style={[styles.fileCardIconBox, { backgroundColor: '#F1F3F4' }]}>
                                         <IconApp
-                                            name={file.mimeType.includes('image') ? 'image' : 'description'}
+                                            name={file.mimeType && file.mimeType.includes('image') ? 'image' : 'description'}
                                             size={22}
                                             color="#5F6368"
                                         />
@@ -1519,22 +1522,20 @@ export function Clothes1UploadToDriveComponent({
         if (!accessToken || !userFolders) return;
         try {
             if (userFolders.shopImagesId) {
-                const q = `'${userFolders.shopImagesId}' in parents and trashed = false`;
-                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id)`;
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-                if (res.ok) {
-                    const data = await res.json();
-                    setShopFilesCount((data.files || []).length);
-                }
+                const { files } = await googleDrive.listFiles(
+                    { accessToken, ...credentialsConfig },
+                    {},
+                    { parentId: userFolders.shopImagesId, fields: 'files(id)' }
+                );
+                setShopFilesCount((files || []).length);
             }
             if (userFolders.trendImagesId) {
-                const q = `'${userFolders.trendImagesId}' in parents and trashed = false`;
-                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id)`;
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-                if (res.ok) {
-                    const data = await res.json();
-                    setTrendFilesCount((data.files || []).length);
-                }
+                const { files } = await googleDrive.listFiles(
+                    { accessToken, ...credentialsConfig },
+                    {},
+                    { parentId: userFolders.trendImagesId, fields: 'files(id)' }
+                );
+                setTrendFilesCount((files || []).length);
             }
         } catch (e) {
             console.error('Error fetching folder counts', e);
@@ -1567,72 +1568,40 @@ export function Clothes1UploadToDriveComponent({
     // Token refresh logic
     const getValidAccessToken = useCallback(async (): Promise<string | null> => {
         try {
-            const response = await fetch(TOKEN_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    client_id: ENV_VARS.CLIENT_ID,
-                    client_secret: ENV_VARS.CLIENT_SECRET,
-                    refresh_token: ENV_VARS.REFRESH_TOKEN,
-                    grant_type: 'refresh_token',
-                }).toString(),
-            });
-
-            const data = await response.json();
-            if (!response.ok || !data.access_token) {
-                throw new Error(data.error_description || 'Unable to refresh token');
-            }
-
-            setAccessToken(data.access_token);
-            return data.access_token;
+            const token = await googleDrive.getAccessToken(credentialsConfig, {}, {});
+            setAccessToken(token);
+            return token;
         } catch (err: any) {
             setSnackbarMsg(`Auth Error: ${err.message}`);
             return null;
         }
     }, []);
 
-    // Folder creation logic
-    const getOrCreateFolder = async (folderName: string, parentId: string, token: string): Promise<string> => {
-        const q = `'${parentId}' in parents and name = '${folderName}' and mimeType = '${FOLDER_MIME}' and trashed = false`;
-        const searchUrl = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=files(id, name)`;
-        const searchRes = await fetch(searchUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const searchData = await searchRes.json();
-
-        if (searchData.files && searchData.files.length > 0) {
-            return searchData.files[0].id;
-        }
-
-        const createRes = await fetch(DRIVE_API_URL, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: folderName,
-                mimeType: FOLDER_MIME,
-                parents: [parentId],
-            }),
-        });
-
-        const createData = await createRes.json();
-        if (!createRes.ok) throw new Error(`Could not create folder: ${folderName}`);
-        return createData.id;
-    };
-
+    // Folder creation logic with subfolders support
     const createSubfolders = useCallback(async (token: string) => {
         setIsInitializing(true);
         try {
-            const userRootId = await getOrCreateFolder(userGUID, ENV_VARS.FOLDER_ID, token);
-            const shopImagesId = await getOrCreateFolder(SHOP_IMAGES_FOLDER_NAME, userRootId, token);
-            const trendImagesId = await getOrCreateFolder(TREND_IMAGES_FOLDER_NAME, userRootId, token);
+            const credentials = { accessToken: token, ...credentialsConfig };
+            const userRoot = await googleDrive.createFolder(
+                credentials,
+                { name: userGUID },
+                { parentId: ENV_VARS.FOLDER_ID, findIfExists: true }
+            );
+            const shopImages = await googleDrive.createFolder(
+                credentials,
+                { name: SHOP_IMAGES_FOLDER_NAME },
+                { parentId: userRoot.id!, findIfExists: true }
+            );
+            const trendImages = await googleDrive.createFolder(
+                credentials,
+                { name: TREND_IMAGES_FOLDER_NAME },
+                { parentId: userRoot.id!, findIfExists: true }
+            );
 
             const hierarchy: UserFolderHierarchy = {
-                userRootId,
-                shopImagesId,
-                trendImagesId,
+                userRootId: userRoot.id!,
+                shopImagesId: shopImages.id!,
+                trendImagesId: trendImages.id!,
             };
 
             setUserFolders(hierarchy);
@@ -1666,26 +1635,21 @@ export function Clothes1UploadToDriveComponent({
             if (result.canceled || !result.assets || result.assets.length === 0) return;
             const asset = result.assets[0];
 
-            const metadata = {
-                name: asset.name,
-                mimeType: asset.mimeType || 'application/octet-stream',
-                parents: [targetFolderId],
-            };
+            await googleDrive.createFile(
+                { accessToken, ...credentialsConfig },
+                {
+                    name: asset.name,
+                    mimeType: asset.mimeType || 'application/octet-stream',
+                    uri: asset.uri,
+                },
+                {
+                    parentId: targetFolderId,
+                    dispatch,
+                    rowOwnerGUID: userGUID,
+                    rowParentGUID: 'Clothes1',
+                }
+            );
 
-            const fileData = await fetch(asset.uri);
-            const blob = await fileData.blob();
-
-            const formData = new FormData();
-            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            formData.append('file', blob, asset.name);
-
-            const res = await fetch(DRIVE_UPLOAD_URL, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}` },
-                body: formData,
-            });
-
-            if (!res.ok) throw new Error('Upload failed');
             setSnackbarMsg(`Uploaded "${asset.name}" to ${folderTitle}!`);
             if (folderTitle.includes('shop')) {
                 setIsShopListExpanded(true);
@@ -1701,16 +1665,12 @@ export function Clothes1UploadToDriveComponent({
     const handleRename = async () => {
         if (!fileToRename || !renameInput.trim() || !accessToken) return;
         try {
-            const res = await fetch(`${DRIVE_API_URL}/${fileToRename.id}`, {
-                method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name: renameInput.trim() }),
-            });
+            await googleDrive.updateFile(
+                { accessToken, ...credentialsConfig },
+                fileToRename,
+                { newName: renameInput.trim() }
+            );
 
-            if (!res.ok) throw new Error('Failed to rename file');
             setSnackbarMsg('File renamed successfully');
             setIsRenameDialogVisible(false);
             setFileToRename(null);
@@ -1761,40 +1721,34 @@ export function Clothes1UploadToDriveComponent({
         try {
             if (folderToClear) {
                 setDeleteStatusText(`Listing files in "${folderToClear.title}"...`);
-                setDeleteProgress(10);
+                setDeleteProgress(15);
 
-                const q = `'${folderToClear.id}' in parents and trashed = false`;
-                const fields = 'files(id, name)';
-                const url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}`;
-                const res = await axios.get(url, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    signal: controller.signal,
-                });
-                const files: DriveFile[] = res.data?.files || [];
-
-                if (files.length === 0) {
-                    setDeleteProgress(100);
-                    setDeleteStatusText('Folder is already empty');
-                } else {
-                    for (let i = 0; i < files.length; i++) {
-                        if (controller.signal.aborted) break;
-                        const f = files[i];
-                        const currentPercent = Math.round(((i + 1) / files.length) * 100);
-                        setDeleteStatusText(`Deleting "${f.name}" (${i + 1}/${files.length})`);
-                        await axios.delete(`${DRIVE_API_URL}/${f.id}`, {
-                            headers: { Authorization: `Bearer ${accessToken}` },
-                            signal: controller.signal,
-                        });
-                        setDeleteProgress(currentPercent);
+                const result = await googleDrive.deleteFolderContents(
+                    { accessToken, ...credentialsConfig },
+                    { id: folderToClear.id },
+                    {
+                        signal: controller.signal,
+                        onProgress: (percent, current, total) => {
+                            if (total === 0) {
+                                setDeleteStatusText('Folder is already empty.');
+                            } else {
+                                setDeleteStatusText(`Deleting files (${current}/${total})...`);
+                            }
+                            setDeleteProgress(percent);
+                        },
                     }
-                }
+                );
 
                 if (!controller.signal.aborted) {
-                    setDeleteStatusText('Done! Folder cleared.');
                     setDeleteProgress(100);
+                    setDeleteStatusText(
+                        result.deletedCount === 0
+                            ? 'Folder is already empty.'
+                            : `Done! ${result.deletedCount} file(s) permanently cleared.`
+                    );
 
                     setTimeout(() => {
-                        setSnackbarMsg(`Cleared all files from "${folderToClear.title}" (${files.length} deleted)`);
+                        setSnackbarMsg(`Cleared all files from "${folderToClear.title}" (${result.deletedCount} deleted)`);
                         if (folderToClear.title.includes('shop')) {
                             setShopFilesCount(0);
                         } else if (folderToClear.title.includes('trend')) {
@@ -1805,19 +1759,21 @@ export function Clothes1UploadToDriveComponent({
                         setDeleteProgress(0);
                         setDeleteStatusText('');
                         setRefreshSeed((prev) => prev + 1);
-                    }, 400);
+                    }, 1200);
                 }
             } else if (fileToDelete) {
                 setDeleteStatusText(`Deleting "${fileToDelete.name}"...`);
-                setDeleteProgress(40);
-                await axios.delete(`${DRIVE_API_URL}/${fileToDelete.id}`, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    signal: controller.signal,
-                });
+                setDeleteProgress(50);
+
+                await googleDrive.deleteFile(
+                    { accessToken, ...credentialsConfig },
+                    fileToDelete,
+                    { signal: controller.signal }
+                );
 
                 if (!controller.signal.aborted) {
                     setDeleteProgress(100);
-                    setDeleteStatusText('File deleted!');
+                    setDeleteStatusText(`Done! "${fileToDelete.name}" deleted.`);
 
                     setTimeout(() => {
                         setSnackbarMsg(`"${fileToDelete.name}" deleted`);
@@ -1827,7 +1783,7 @@ export function Clothes1UploadToDriveComponent({
                         setDeleteStatusText('');
                         setRefreshSeed((prev) => prev + 1);
                         void fetchFolderCounts();
-                    }, 400);
+                    }, 1000);
                 }
             }
         } catch (e: any) {
@@ -1955,7 +1911,7 @@ export function Clothes1UploadToDriveComponent({
                                             onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                             onRenamePress={(file) => {
                                                 setFileToRename(file);
-                                                setRenameInput(file.name);
+                                                setRenameInput(file.name || '');
                                                 setIsRenameDialogVisible(true);
                                             }}
                                             onDeletePress={(file) => setFileToDelete(file)}
@@ -2007,7 +1963,7 @@ export function Clothes1UploadToDriveComponent({
                                             onRequestApproval={(batch) => setPendingUploadBatch(batch)}
                                             onRenamePress={(file) => {
                                                 setFileToRename(file);
-                                                setRenameInput(file.name);
+                                                setRenameInput(file.name || '');
                                                 setIsRenameDialogVisible(true);
                                             }}
                                             onDeletePress={(file) => setFileToDelete(file)}
@@ -2106,37 +2062,23 @@ export function Clothes1UploadToDriveComponent({
                                     const fileObj = files[i];
                                     setBatchUploadStatusText(`Uploading "${fileObj.name}" (${i + 1}/${total})`);
 
-                                    const metadata = {
-                                        name: fileObj.name,
-                                        mimeType: fileObj.mimeType || 'application/octet-stream',
-                                        parents: [targetId],
-                                    };
-
-                                    const formData = new FormData();
-                                    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-
-                                    let fileBlob: any = fileObj.blob;
-                                    if (!fileBlob && fileObj.uri) {
-                                        const res = await fetch(fileObj.uri);
-                                        fileBlob = await res.blob();
-                                    } else if (!fileBlob && fileObj.base64) {
-                                        const res = await fetch(fileObj.base64);
-                                        fileBlob = await res.blob();
-                                    }
-
-                                    formData.append('file', fileBlob, fileObj.name);
-
-                                    await axios.post(DRIVE_UPLOAD_URL, formData, {
-                                        headers: { Authorization: `Bearer ${accessToken}` },
-                                        signal: controller.signal,
-                                        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-                                            if (progressEvent.total && progressEvent.total > 0) {
-                                                const fraction = progressEvent.loaded / progressEvent.total;
+                                    await googleDrive.createFile(
+                                        { accessToken, ...credentialsConfig },
+                                        fileObj,
+                                        {
+                                            parentId: targetId,
+                                            signal: controller.signal,
+                                            dispatch,
+                                            rowOwnerGUID: userGUID,
+                                            rowParentGUID: 'Clothes1',
+                                            orderInList: i,
+                                            onProgress: (percent) => {
+                                                const fraction = percent / 100;
                                                 const overall = Math.min(99, Math.round(((i + fraction) / total) * 100));
                                                 setBatchUploadProgress(overall);
-                                            }
-                                        },
-                                    });
+                                            },
+                                        }
+                                    );
 
                                     lastFileName = fileObj.name;
                                     setBatchUploadProgress(Math.round(((i + 1) / total) * 100));

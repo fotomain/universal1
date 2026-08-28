@@ -2,19 +2,21 @@ DO $$
 DECLARE
 table_name TEXT;
     tables TEXT[] := ARRAY[
-          'userAuthTable'
-         ,'aiSessionTable'
-         ,'userTable'
-         ,'userAuthTable'
-         ,'dtcTaskFinishedTable'
-         ,'catalogOrganizationTable'
-         ,'dtcCatalogExecutiveTable'
-         ,'mediaPostTable'
-         ,'mediaPostTableArchive'
-         ,'dtcTaskRegisteredTable'
-         ,'dtcTaskWaitingTable'
-         ,'dtcTaskProgressTable'
-         ,'dtcFreeExecutiveTable'
+          'raciMemberTable'
+--          ,'userAuthTable'
+--          ,'aiSessionTable'
+--          ,'raciMemberTable'
+--          ,'userTable'
+--          ,'userAuthTable'
+--          ,'dtcTaskFinishedTable'
+--          ,'catalogOrganizationTable'
+--          ,'dtcCatalogExecutiveTable'
+--          ,'mediaPostTable'
+--          ,'mediaPostTableArchive'
+--          ,'dtcTaskRegisteredTable'
+--          ,'dtcTaskWaitingTable'
+--          ,'dtcTaskProgressTable'
+--          ,'dtcFreeExecutiveTable'
     ];
 BEGIN
     FOREACH table_name IN ARRAY tables

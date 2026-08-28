@@ -1,14 +1,14 @@
 import {mediaPostExample} from "./lib/mediaPostExample";
-import {uploadToGoogleDrivePostExample} from "./lib/uploadToGoogleDrivePostExample";
+import {googleDriveCommandExample} from "../google/drive/googleDriveCommandExample";
 // MD.
 const SystemMetaData:any = {
     // 'uploadToGoogleDriveSession': {
-    'uploadToGoogleDriveData': {
-        tableName: "uploadToGoogleDriveSessionTable",
+    'googleDriveCommand': {
+        tableName: "googleDriveCommandTable",
         // actions - see meta.actions = slice.actions;
         updateValidator: () => {
         },
-        defaultData: uploadToGoogleDrivePostExample ,
+        defaultData: googleDriveCommandExample ,
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

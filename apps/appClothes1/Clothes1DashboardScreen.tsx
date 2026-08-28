@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
-import Clothes1UploadToDriveComponent from '../../kit8/components/upload/Clothes1UploadToDriveComponent';
+import Clothes1UploadToDriveComponent from './Clothes1UploadToDriveComponent';
 import RunComputationButton from './RunComputationButton';
 
 export default function Clothes1DashboardScreen() {
