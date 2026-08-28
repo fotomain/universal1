@@ -1,127 +1,33 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 
-// ============================================================================
-// CONSTANTS & ENDPOINTS
-// ============================================================================
+// Re-export everything from the base module so existing consumers are unaffected
+export {
+    TOKEN_ENDPOINT,
+    DRIVE_API_URL,
+    DRIVE_UPLOAD_URL,
+    FOLDER_MIME,
+    GoogleDriveCredentials,
+    GoogleDriveFileInfo,
+    DriveFile,
+    GoogleDriveCrudSpecifics,
+    generateUUID,
+    getAccessToken,
+} from './googleDriveBase';
 
-export const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-export const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
-export const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-export const FOLDER_MIME = 'application/vnd.google-apps.folder';
+import {
+    DRIVE_API_URL,
+    FOLDER_MIME,
+    GoogleDriveCredentials,
+    GoogleDriveFileInfo,
+    GoogleDriveCrudSpecifics,
+    generateUUID,
+    getAccessToken,
+} from './googleDriveBase';
 
-// ============================================================================
-// TYPES & INTERFACES
-// ============================================================================
+import { createOnGoogleDrive } from './createOnGoogleDrive';
 
-export interface GoogleDriveCredentials {
-    accessToken?: string | null;
-    clientId?: string;
-    clientSecret?: string;
-    refreshToken?: string;
-    tokenEndpoint?: string;
-}
-
-export interface GoogleDriveFileInfo {
-    id?: string;
-    name?: string;
-    mimeType?: string;
-    parents?: string[];
-    blob?: Blob | File | null;
-    uri?: string;
-    base64?: string;
-    size?: number | string;
-    path?: string;
-    modifiedTime?: string;
-    webViewLink?: string;
-    webContentLink?: string;
-    [key: string]: any;
-}
-
-export interface GoogleDriveCrudSpecifics {
-    parentId?: string;
-    folderPath?: string | string[]; // Single path 'user/sub' or array ['user', 'sub']
-    findIfExists?: boolean; // If true, searches existing folder instead of creating duplicates
-    signal?: AbortSignal;
-    onProgress?: (progressPercent: number, currentOrLoaded?: number, total?: number) => void;
-    fields?: string;
-    orderBy?: string;
-    pageSize?: number;
-    pageToken?: string;
-    q?: string;
-    newName?: string; // For renaming or updating
-    trashed?: boolean;
-    batchFiles?: GoogleDriveFileInfo[];
-    // Redux / Entity command tracking parameters:
-    dispatch?: any;
-    rowOwnerGUID?: string;
-    userGUID?: string;
-    rowParentGUID?: string;
-    rowGUID?: string;
-    orderInList?: number;
-    entityName?: string;
-    commandName?: string;
-    uuidFn?: () => string;
-    [key: string]: any;
-}
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-export const generateUUID = (): string => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-    });
-};
-
-// ============================================================================
-// CORE AUTH HELPER
-// ============================================================================
-
-/**
- * Retrieves a valid access token. Uses provided accessToken or exchanges refreshToken.
- */
-export const getAccessToken = async (
-    credentials?: GoogleDriveCredentials,
-    _fileInfo?: GoogleDriveFileInfo,
-    _crudSpecifics?: GoogleDriveCrudSpecifics
-): Promise<string> => {
-    if (credentials?.accessToken) {
-        return credentials.accessToken;
-    }
-
-    const clientId = credentials?.clientId || process.env.GOOGLE_CLIENT_ID || '';
-    const clientSecret = credentials?.clientSecret || process.env.GOOGLE_CLIENT_SECRET || '';
-    const refreshToken = credentials?.refreshToken || process.env.GOOGLE_REFRESH_TOKEN || '';
-    const tokenEndpoint = credentials?.tokenEndpoint || TOKEN_ENDPOINT;
-
-    if (!refreshToken) {
-        throw new Error('Google Drive refresh token is missing.');
-    }
-
-    const response = await fetch(tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            client_id: clientId,
-            client_secret: clientSecret,
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token',
-        }).toString(),
-    });
-
-    const data = await response.json();
-    if (!response.ok || !data.access_token) {
-        throw new Error(data.error_description || data.error || 'Failed to obtain Google Drive access token');
-    }
-
-    return data.access_token;
-};
+export { createOnGoogleDrive };
 
 // ============================================================================
 // CRUD OPERATIONS
@@ -131,6 +37,7 @@ export const getAccessToken = async (
  * 1. createFile - Uploads a file with metadata and binary data to Google Drive,
  * with optional Redux command tracking for SystemMetaData['googleDriveCommand'].
  */
+
 export const createFile = async (
     credentials: GoogleDriveCredentials,
     fileInfo: GoogleDriveFileInfo,
@@ -139,7 +46,7 @@ export const createFile = async (
     const dispatch = crudSpecifics?.dispatch;
     const entityName = crudSpecifics?.entityName || 'googleDriveCommand';
     const entityMetaData = SystemMetaData?.[entityName];
-    const actions = entityMetaData?.actions;
+    const actions = crudSpecifics?.actions || entityMetaData?.actions;
     const commandRowGUID =
         crudSpecifics?.rowGUID || (crudSpecifics?.uuidFn ? crudSpecifics.uuidFn() : generateUUID());
     const rowOwnerGUID = crudSpecifics?.rowOwnerGUID || crudSpecifics?.userGUID || 'userGUID';
@@ -147,7 +54,6 @@ export const createFile = async (
     const orderInList = typeof crudSpecifics?.orderInList === 'number' ? crudSpecifics.orderInList : 0;
     const commandName = crudSpecifics?.commandName || 'createFile';
 
-    // 1. Dispatch createOne when starting upload
     if (dispatch && actions?.createOne && fileInfo) {
         try {
             dispatch(
@@ -164,6 +70,17 @@ export const createFile = async (
                         uploadingProgressPercent: 0,
                         isFinished: false,
                     },
+                    afterCreateOneSuccess: () => {
+                        console.log("████████ afterCreateOneSuccess1", Date.now());
+                        createOnGoogleDrive(credentials, fileInfo, {
+                            ...crudSpecifics,
+                            rowGUID: commandRowGUID,
+                            rowOwnerGUID,
+                            rowParentGUID,
+                            orderInList,
+                            commandName,
+                        });
+                    },
                 })
             );
         } catch (e) {
@@ -171,135 +88,7 @@ export const createFile = async (
         }
     }
 
-    try {
-        const token = await getAccessToken(credentials, fileInfo, crudSpecifics);
-        const parentId = crudSpecifics?.parentId || (fileInfo.parents && fileInfo.parents[0]) || '';
-
-        const metadata: Record<string, any> = {
-            name: fileInfo.name || 'Untitled',
-            mimeType: fileInfo.mimeType || 'application/octet-stream',
-        };
-
-        if (parentId) {
-            metadata.parents = [parentId];
-        } else if (fileInfo.parents && fileInfo.parents.length > 0) {
-            metadata.parents = fileInfo.parents;
-        }
-
-        const formData = new FormData();
-        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-
-        let fileBlob: any = fileInfo.blob;
-        if (!fileBlob && fileInfo.uri) {
-            const res = await fetch(fileInfo.uri);
-            fileBlob = await res.blob();
-        } else if (!fileBlob && fileInfo.base64) {
-            const res = await fetch(fileInfo.base64);
-            fileBlob = await res.blob();
-        }
-
-        if (fileBlob) {
-            formData.append('file', fileBlob, fileInfo.name || 'file');
-        }
-
-        const res = await axios.post(DRIVE_UPLOAD_URL, formData, {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: crudSpecifics?.signal,
-            onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-                if (progressEvent.total && progressEvent.total > 0) {
-                    const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                    crudSpecifics?.onProgress?.(percent, progressEvent.loaded, progressEvent.total);
-
-                    // 2. Dispatch updateOne with upload progress
-                    if (dispatch && actions?.updateOne) {
-                        try {
-                            dispatch(
-                                actions.updateOne({
-                                    rowOwnerGUID,
-                                    rowParentGUID,
-                                    rowGUID: commandRowGUID,
-                                    orderInList,
-                                    rowJSON: {
-                                        googleDriveCommandName: commandName,
-                                        fileInfo,
-                                        readyToUpload: false,
-                                        isUploading: true,
-                                        uploadingProgressPercent: percent,
-                                        isFinished: false,
-                                    },
-                                })
-                            );
-                        } catch (e) {
-                            console.error('Error dispatching updateOne progress:', e);
-                        }
-                    }
-                }
-            },
-        });
-
-        const resultFileInfo: GoogleDriveFileInfo = {
-            id: res.data.id,
-            name: res.data.name || fileInfo.name,
-            mimeType: res.data.mimeType || fileInfo.mimeType,
-            size: res.data.size || fileInfo.size,
-            modifiedTime: res.data.modifiedTime,
-            webViewLink: res.data.webViewLink,
-            webContentLink: res.data.webContentLink,
-            ...res.data,
-        };
-
-        // 3. Dispatch updateOne upon completion
-        if (dispatch && actions?.updateOne) {
-            try {
-                dispatch(
-                    actions.updateOne({
-                        rowOwnerGUID,
-                        rowParentGUID,
-                        rowGUID: commandRowGUID,
-                        orderInList,
-                        rowJSON: {
-                            googleDriveCommandName: commandName,
-                            fileInfo: resultFileInfo,
-                            readyToUpload: false,
-                            isUploading: false,
-                            uploadingProgressPercent: 100,
-                            isFinished: true,
-                        },
-                    })
-                );
-            } catch (e) {
-                console.error('Error dispatching updateOne finish:', e);
-            }
-        }
-
-        return resultFileInfo;
-    } catch (err: any) {
-        // 4. Dispatch updateOne upon error
-        if (dispatch && actions?.updateOne) {
-            try {
-                dispatch(
-                    actions.updateOne({
-                        rowOwnerGUID,
-                        rowParentGUID,
-                        rowGUID: commandRowGUID,
-                        orderInList,
-                        rowJSON: {
-                            googleDriveCommandName: commandName,
-                            fileInfo,
-                            readyToUpload: false,
-                            isUploading: false,
-                            uploadingProgressPercent: 0,
-                            isFinished: false,
-                            error: err?.message || String(err),
-                        },
-                    })
-                );
-            } catch (e) {
-                console.error('Error dispatching updateOne error:', e);
-            }
-        }
-        throw err;
-    }
+    // return await createOnGoogleDrive(credentials, fileInfo, crudSpecifics);
 };
 
 /**
@@ -430,29 +219,45 @@ export const listFiles = async (
         q = 'trashed = false';
     }
 
-    const fields =
+    let fields =
         crudSpecifics?.fields ||
         'files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink), nextPageToken';
-
-    let url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}`;
-    if (crudSpecifics?.orderBy) {
-        url += `&orderBy=${encodeURIComponent(crudSpecifics.orderBy)}`;
-    }
-    if (crudSpecifics?.pageSize) {
-        url += `&pageSize=${crudSpecifics.pageSize}`;
-    }
-    if (crudSpecifics?.pageToken) {
-        url += `&pageToken=${encodeURIComponent(crudSpecifics.pageToken)}`;
+    if (!fields.includes('nextPageToken')) {
+        fields = `${fields}, nextPageToken`;
     }
 
-    const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: crudSpecifics?.signal,
-    });
+    const pageSize = crudSpecifics?.pageSize || 1000;
+    const fetchAllPages = crudSpecifics?.fetchAllPages !== false;
+
+    let allFiles: GoogleDriveFileInfo[] = [];
+    let currentPageToken: string | undefined = crudSpecifics?.pageToken;
+
+    do {
+        let url = `${DRIVE_API_URL}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}`;
+        if (crudSpecifics?.orderBy) {
+            url += `&orderBy=${encodeURIComponent(crudSpecifics.orderBy)}`;
+        }
+        if (currentPageToken) {
+            url += `&pageToken=${encodeURIComponent(currentPageToken)}`;
+        }
+
+        const res = await axios.get(url, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: crudSpecifics?.signal,
+        });
+
+        const fetchedFiles = res.data?.files || [];
+        allFiles = allFiles.concat(fetchedFiles);
+        currentPageToken = res.data?.nextPageToken;
+
+        if (!fetchAllPages || !currentPageToken) {
+            break;
+        }
+    } while (currentPageToken && !crudSpecifics?.signal?.aborted);
 
     return {
-        files: res.data?.files || [],
-        nextPageToken: res.data?.nextPageToken,
+        files: allFiles,
+        nextPageToken: currentPageToken,
     };
 };
 
@@ -613,6 +418,7 @@ export const clearFolder = deleteFolderContents;
 export const googleDrive = {
     getAccessToken,
     createFile,
+    createOnGoogleDrive,
     createFolder,
     deleteFile,
     listFiles,

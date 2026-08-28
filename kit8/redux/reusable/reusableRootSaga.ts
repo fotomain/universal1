@@ -54,7 +54,31 @@ export const reusableRootSaga = (p: any) => {
         }
     }
 
+    // █████████████████████████████ doAfterCreateOneSuccess
+    function* doAfterCreateOneSuccess(action: any) {
+        // console.log("doAfterCreateOneSuccess1", action);
+        if (afterCreateOneSuccess) {
+            // console.log("doAfterCreateOneSuccess2", action);
+            try {
+                if (typeof afterCreateOneSuccess === 'function') {
+                    yield call(afterCreateOneSuccess, action);
+                }
+            } catch (err) {
+                console.error("Error in entity afterCreateOneSuccess:", err);
+            }
+        }
+        const actionCallback = action?.payload?.afterCreateOneSuccess;
+        if (typeof actionCallback === 'function') {
+            try {
+                yield call(actionCallback, action);
+            } catch (err) {
+                console.error("Error in action afterCreateOneSuccess callback:", err);
+            }
+        }
+    }
+
     // █████████████████████████████ upsertOne
+
     function* upsertOne(action: any) {
 
         // @ts-ignore
@@ -64,7 +88,7 @@ export const reusableRootSaga = (p: any) => {
             supabase.from(tableName).select("*")
             .eq("rowGUID", action.payload.rowGUID)
             .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
-            .single()
+            .maybeSingle()
         );
 
         // console.log("upsertOne0 data ", readData)
@@ -77,12 +101,12 @@ export const reusableRootSaga = (p: any) => {
             const {data:readData, error:readError} = yield call(() =>
                 supabase.from(tableName)
                     .select('*')
-                    .single()
                     .eq("rowGUID", action.payload.rowGUID)
                     .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
+                    .maybeSingle()
             );
 
-            let jsonToUpdate = readData.rowJSON
+            let jsonToUpdate = readData?.rowJSON || {}
             // console.log("jsonToUpdate00",jsonToUpdate)
 
             jsonToUpdate = {...jsonToUpdate,...action.payload.rowJSON}
@@ -95,7 +119,7 @@ export const reusableRootSaga = (p: any) => {
                     .eq("rowGUID", action.payload.rowGUID)
                     .eq("rowOwnerGUID", action.payload.rowOwnerGUID)
                     .select()
-                    .single()
+                    .maybeSingle()
             );
 
             // console.log("upsertOne0 data ", updateData)
@@ -128,31 +152,39 @@ export const reusableRootSaga = (p: any) => {
             const workPlaceAdapter=dbAdapters.workPlaceAdapter;
 
             // console.log("dbAdapters00",dbAdapters)
-            let newItem:any = null
-            if(entityObject?.prepareCreateApi) {
+            let newItem: any = null;
+            if (entityObject?.prepareCreateApi) {
                 // @ts-ignore
-                let ret = yield entityObject.prepareCreateApi({action, userState, workPlaceAdapter})
-                newItem = ret.newItem
-            }else{
-                newItem = action.payload
+                let ret = yield entityObject.prepareCreateApi({ action, userState, workPlaceAdapter });
+                newItem = ret.newItem;
+            } else {
+                newItem = action.payload;
             }
 
-            console.log("onCreateRow0 newItem", newItem)
+            // Strip callback/non-column fields before DB insert
+            const { afterCreateOneSuccess: actionAfterSuccess, ...dbItem } = newItem || {};
+
+            console.log("onCreateRow0 newItem", dbItem);
 
             // @ts-ignore
-            const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
+            const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase;
 
-
-            const {data, error} = yield call(() =>
-                supabase.from(tableName).insert(newItem).select()
+            const { data, error } = yield call(() =>
+                supabase.from(tableName).insert(dbItem).select()
             );
 
-            console.log("createOne0 data", data)
-            console.log("createOne0 error", error)
+            console.log("createOne0 data", data);
+            console.log("createOne0 error", error);
 
             if (error) throw error;
 
-            yield put(actions.createOneSuccess(data[0]));
+            const createdRow = (data && data[0]) ? data[0] : dbItem;
+            yield put(actions.createOneSuccess({
+                createdData: createdRow,
+                ...createdRow,
+                action,
+                afterCreateOneSuccess: actionAfterSuccess || action?.payload?.afterCreateOneSuccess,
+            }));
         } catch (e) {
             console.log("createOneFailure0 data, error", e)
             yield put(actions.createOneFailure(e));
@@ -164,29 +196,51 @@ export const reusableRootSaga = (p: any) => {
         console.log("updateOneFieldOfJson0", action)
 
         try {
-            const {rowGUID, field, value} = action.payload;
+            const {rowGUID, field, value, rowJSON, orderInList} = action.payload || {};
 
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
 
             let updatePayload: any = {};
 
-            // Check if it's a root level field
-            if (field === "orderInList") {
-                updatePayload = { [field]: value };
-            } else {
-                // dY" 1. READ current JSON
+            // Check if it's a root level field without rowJSON
+            if (field === "orderInList" || (orderInList !== undefined && field === undefined && rowJSON === undefined)) {
+                updatePayload = { orderInList: value !== undefined ? value : orderInList };
+            } else if (rowJSON !== undefined) {
+                // 1. READ current JSON
                 const {data: existingRow, error: readError} = yield call(() =>
                     supabase
                         .from(tableName)
                         .select("rowJSON")
                         .eq("rowGUID", rowGUID)
-                        .single()
+                        .maybeSingle()
                 );
 
                 if (readError) throw readError;
 
-                // dY" 2. SAFE MERGE (preserve all fields)
+                // 2. MERGE rowJSON (preserve existing fields and apply new fields)
+                const prevJSON = existingRow?.rowJSON || {};
+                const updatedJSON = {
+                    ...prevJSON,
+                    ...rowJSON,
+                };
+                updatePayload = { rowJSON: updatedJSON };
+                if (orderInList !== undefined) {
+                    updatePayload.orderInList = orderInList;
+                }
+            } else if (field !== undefined) {
+                // 1. READ current JSON
+                const {data: existingRow, error: readError} = yield call(() =>
+                    supabase
+                        .from(tableName)
+                        .select("rowJSON")
+                        .eq("rowGUID", rowGUID)
+                        .maybeSingle()
+                );
+
+                if (readError) throw readError;
+
+                // 2. SAFE MERGE (preserve all fields)
                 const prevJSON = existingRow?.rowJSON || {};
 
                 let updatedJSON = {...prevJSON}
@@ -218,7 +272,7 @@ export const reusableRootSaga = (p: any) => {
                     .update(updatePayload)
                     .eq("rowGUID", rowGUID)
                     .select()
-                    .single()
+                    .maybeSingle()
             );
 
             if (error) throw error;
@@ -286,8 +340,8 @@ export const reusableRootSaga = (p: any) => {
             if (rowGUID) {
                 query = query.eq("rowGUID", rowGUID);
             }
-            const { data, error } = yield call(() => query.single());
-            if (error && error.code !== 'PGRST116') {
+            const { data, error } = yield call(() => query.maybeSingle());
+            if (error) {
                 throw error;
             }
             const singleData = data || null;
@@ -409,8 +463,6 @@ export const reusableRootSaga = (p: any) => {
         yield takeEvery(actions.updateOne, updateOneFieldOfJson);
         yield takeEvery(actions.deleteOne, deleteOne);
         yield takeEvery(actions.upsertOne, upsertOne);
-        if (afterCreateOneSuccess) {
-            yield takeEvery(actions.createOneSuccess, afterCreateOneSuccess);
-        }
+        yield takeEvery(actions.createOneSuccess, doAfterCreateOneSuccess);
     };
 };

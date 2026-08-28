@@ -23,6 +23,9 @@ export const buildEntities = (SystemMetaData: any) => {
             reusableRootSaga({
                 tableName: meta.tableName,
                 actions: slice.actions,
+                afterCreateOneSuccess: meta.afterCreateOneSuccess,
+                doBefore: meta.doBefore,
+                doAfter: meta.doAfter,
             })
         );
     });

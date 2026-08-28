@@ -54,6 +54,33 @@ describe('googleDrive Module CRUD Operations', () => {
             );
         });
 
+        it('should upload file reading from disk path using createOnGoogleDrive', async () => {
+            const mockFileInfo: GoogleDriveFileInfo = {
+                name: 'disk-file.txt',
+                mimeType: 'text/plain',
+                path: '/tmp/disk-file.txt',
+            };
+
+            mockedAxios.post.mockResolvedValueOnce({
+                data: {
+                    id: 'disk-file-123',
+                    name: 'disk-file.txt',
+                    mimeType: 'text/plain',
+                    size: '512',
+                },
+            });
+
+            const result = await googleDrive.createOnGoogleDrive(
+                mockCredentials,
+                mockFileInfo,
+                { parentId: 'folder-disk' }
+            );
+
+            expect(result.id).toBe('disk-file-123');
+            expect(result.name).toBe('disk-file.txt');
+            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+        });
+
         it('should dispatch createOne and updateOne actions when dispatch is provided', async () => {
             const mockFileInfo: GoogleDriveFileInfo = {
                 name: 'test-doc.pdf',
@@ -79,6 +106,10 @@ describe('googleDrive Module CRUD Operations', () => {
                 {
                     parentId: 'folder-abc',
                     dispatch: mockDispatch,
+                    actions: {
+                        createOne: (payload: any) => ({ type: 'googleDriveCommand/createOne', payload }),
+                        updateOne: (payload: any) => ({ type: 'googleDriveCommand/updateOne', payload }),
+                    },
                     rowOwnerGUID: 'owner-guid-1',
                     rowParentGUID: 'Clothes1',
                     orderInList: 2,
@@ -86,6 +117,22 @@ describe('googleDrive Module CRUD Operations', () => {
             );
 
             expect(result.id).toBe('pdf-file-123');
+            expect(mockDispatch).toHaveBeenCalled();
+            // Verify at least one updateOne action was dispatched with rowJSON
+            const updateActions = mockDispatch.mock.calls
+                .map((call) => call[0])
+                .filter((action) => action?.type?.includes('updateOne'));
+            expect(updateActions.length).toBeGreaterThan(0);
+            expect(updateActions[0].payload).toEqual(
+                expect.objectContaining({
+                    rowOwnerGUID: 'owner-guid-1',
+                    rowParentGUID: 'Clothes1',
+                    orderInList: 2,
+                    rowJSON: expect.objectContaining({
+                        googleDriveCommandName: 'createFile',
+                    }),
+                })
+            );
         });
     });
 
@@ -211,6 +258,34 @@ describe('googleDrive Module CRUD Operations', () => {
                 expect.stringContaining('orderBy=name'),
                 expect.any(Object)
             );
+        });
+
+        it('should automatically follow nextPageToken and fetch all files across multiple pages', async () => {
+            // Page 1
+            mockedAxios.get.mockResolvedValueOnce({
+                data: {
+                    files: [{ id: 'file-page-1', name: 'img1.png' }],
+                    nextPageToken: 'token-page-2',
+                },
+            });
+            // Page 2
+            mockedAxios.get.mockResolvedValueOnce({
+                data: {
+                    files: [{ id: 'file-page-2', name: 'img2.png' }],
+                    nextPageToken: undefined,
+                },
+            });
+
+            const result = await googleDrive.listFiles(
+                mockCredentials,
+                {},
+                { parentId: 'dataset-folder-large', fetchAllPages: true }
+            );
+
+            expect(result.files).toHaveLength(2);
+            expect(result.files[0].id).toBe('file-page-1');
+            expect(result.files[1].id).toBe('file-page-2');
+            expect(mockedAxios.get).toHaveBeenCalledTimes(2);
         });
     });
 

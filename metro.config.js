@@ -8,4 +8,9 @@ if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
+config.server = {
+  ...config.server,
+  port: 8088,
+};
+
 module.exports = config;

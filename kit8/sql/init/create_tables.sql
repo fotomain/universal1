@@ -2,7 +2,8 @@ DO $$
 DECLARE
 table_name TEXT;
     tables TEXT[] := ARRAY[
-          'raciMemberTable'
+          'googleDriveCommandTable'
+--          ,'raciMemberTable'
 --          ,'userAuthTable'
 --          ,'aiSessionTable'
 --          ,'raciMemberTable'

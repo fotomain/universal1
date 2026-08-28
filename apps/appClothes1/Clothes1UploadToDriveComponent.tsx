@@ -41,6 +41,8 @@ import {
     type GoogleDriveCredentials,
     type GoogleDriveFileInfo,
 } from '../../kit8/google/drive/googleDrive';
+import { ListFilesForGoogleDriveDNDComponent } from './ListFilesForGoogleDriveDNDComponent';
+import { AskBeforeDeleteGoogleFile } from './AskBeforeDeleteGoogleFile';
 import {SystemMetaData} from "../../kit8/redux/SystemMetaData";
 
 // ============================================================================
@@ -194,162 +196,8 @@ async function extractFilesAndFoldersFromDataTransfer(
     return { folderName: detectedFolderName, files: fileList, isFolder };
 }
 
-// ============================================================================
-// MODAL: AskBeforeDeleteGoogleFile (Reusable for Single File or Clear All)
-// ============================================================================
+// (AskBeforeDeleteGoogleFile is imported from ./AskBeforeDeleteGoogleFile)
 
-interface AskBeforeDeleteProps {
-    visible: boolean;
-    file?: DriveFile | null;
-    folderTitle?: string | null;
-    onDismiss: () => void;
-    onCancel?: () => void;
-    onConfirm: () => void;
-    isDeleting: boolean;
-    deleteProgress: number;
-    deleteStatusText?: string;
-}
-
-const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteProps> = ({
-    visible,
-    file,
-    folderTitle,
-    onDismiss,
-    onCancel,
-    onConfirm,
-    isDeleting,
-    deleteProgress,
-    deleteStatusText,
-}) => {
-    const isFolderClear = !!folderTitle;
-    const isCompleted = isDeleting && deleteProgress === 100;
-
-    return (
-        <Portal>
-            <Dialog visible={visible} onDismiss={isDeleting ? undefined : onDismiss} style={styles.deleteDialog}>
-                <View style={styles.deleteHeaderIconWrapper}>
-                    <View
-                        style={[
-                            styles.modalHeaderIconCircle,
-                            { backgroundColor: isCompleted ? '#E6F4EA' : '#FCE8E6' },
-                        ]}
-                    >
-                        <IconApp
-                            name={isCompleted ? 'check_circle' : isFolderClear ? 'folder_off' : 'delete'}
-                            size={28}
-                            color={isCompleted ? '#137333' : '#D93025'}
-                        />
-                    </View>
-                </View>
-                <Dialog.Title style={[styles.deleteTitle, isCompleted && { color: '#137333' }]}>
-                    {isCompleted
-                        ? 'Successfully Cleared!'
-                        : isFolderClear
-                        ? `Clear all files?`
-                        : 'Delete File?'}
-                </Dialog.Title>
-                <Dialog.Content>
-                    <Text variant="bodyMedium" style={styles.deleteContentText}>
-                        {isCompleted
-                            ? 'All files have been permanently removed from Google Drive.'
-                            : isFolderClear
-                            ? `Are you sure you want to permanently delete all files in "${folderTitle}"?`
-                            : 'Are you sure you want to permanently remove this file from your dataset?'}
-                    </Text>
-                    <View style={styles.deleteFileNameBox}>
-                        <IconApp
-                            name={isFolderClear ? 'folder' : 'description'}
-                            size={22}
-                            color="#5F6368"
-                        />
-                        <Text variant="bodyMedium" numberOfLines={2} style={styles.deleteFileNameText}>
-                            {isFolderClear ? folderTitle : file?.name}
-                        </Text>
-                    </View>
-                    <Text variant="bodySmall" style={styles.deleteWarningText}>
-                        {isCompleted
-                            ? 'The folder is now empty.'
-                            : isFolderClear
-                            ? 'This action will permanently delete all files in this dataset folder and cannot be undone.'
-                            : 'This action cannot be undone.'}
-                    </Text>
-
-                    {/* Deletion Progress & Percentage Slider during deletion */}
-                    {isDeleting && (
-                        <View style={styles.deleteProgressContainer}>
-                            <View style={styles.deleteProgressHeader}>
-                                <Text
-                                    variant="labelMedium"
-                                    numberOfLines={1}
-                                    style={[styles.deleteStatusText, isCompleted && { color: '#137333', fontWeight: '600' }]}
-                                >
-                                    {deleteStatusText || 'Deleting files...'}
-                                </Text>
-                                <View
-                                    style={[
-                                        styles.deletePercentBadge,
-                                        isCompleted && { backgroundColor: '#E6F4EA' },
-                                    ]}
-                                >
-                                    <Text
-                                        variant="labelMedium"
-                                        style={[
-                                            styles.deletePercentText,
-                                            isCompleted && { color: '#137333' },
-                                        ]}
-                                    >
-                                        {deleteProgress}%
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={styles.deleteSliderTrack}>
-                                <View
-                                    style={[
-                                        styles.deleteSliderFill,
-                                        {
-                                            width: `${Math.max(deleteProgress, 5)}%`,
-                                            backgroundColor: isCompleted ? '#137333' : '#D93025',
-                                        },
-                                    ]}
-                                />
-                            </View>
-                        </View>
-                    )}
-                </Dialog.Content>
-                <Dialog.Actions style={styles.deleteActions}>
-                    <Button
-                        onPress={isDeleting ? (onCancel || onDismiss) : onDismiss}
-                        textColor={isDeleting ? '#D93025' : '#5F6368'}
-                        disabled={isCompleted}
-                        style={{ flex: 1, opacity: isCompleted ? 0.4 : 1 }}
-                        icon={isDeleting && !isCompleted ? () => <IconApp name="cancel" size={18} color="#D93025" /> : undefined}
-                    >
-                        {isDeleting && !isCompleted ? 'Cancel' : 'Cancel'}
-                    </Button>
-                    <Button
-                        mode="contained"
-                        buttonColor={isCompleted ? '#137333' : '#D93025'}
-                        textColor="#FFFFFF"
-                        loading={isDeleting && !isCompleted}
-                        disabled={isDeleting}
-                        style={{ flex: 1 }}
-                        onPress={() => {
-                            void onConfirm();
-                        }}
-                    >
-                        {isCompleted
-                            ? 'Completed'
-                            : isDeleting
-                            ? `Deleting (${deleteProgress}%)`
-                            : isFolderClear
-                            ? 'Clear all'
-                            : 'Delete'}
-                    </Button>
-                </Dialog.Actions>
-            </Dialog>
-        </Portal>
-    );
-};
 
 // ============================================================================
 // MODAL: ApproveAdditionsModal (Custom Nice Modal to Approve Uploads)
@@ -540,6 +388,7 @@ interface SelectFilesDNDProps {
     onUploadSuccess: (filename: string) => void;
     onUploadError: (err: string) => void;
     variant?: 'green' | 'yellow' | 'default';
+    userGUID: string;
 }
 
 const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
@@ -555,6 +404,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
     onUploadSuccess,
     onUploadError,
     variant,
+    userGUID,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -609,7 +459,8 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
     };
 
     const uploadMultipleFiles = async (
-        files: Array<{ name: string; mimeType?: string; blob?: Blob | File; uri?: string; base64?: string }>
+        files: Array<{ name: string; mimeType?: string; blob?: Blob | File; uri?: string; base64?: string }>,
+        userGUID: string
     ) => {
         if (!accessToken || !targetFolderId || files.length === 0) return;
         setIsUploading(true);
@@ -632,7 +483,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                         parentId: targetFolderId,
                         signal: controller.signal,
                         dispatch,
-                        rowOwnerGUID: 'userGUID',
+                        rowOwnerGUID: userGUID,
                         rowParentGUID: 'Clothes1',
                         orderInList: i,
                         onProgress: (percent) => {
@@ -702,7 +553,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                     themeVariant: variant,
                 });
             } else {
-                await uploadMultipleFiles(fileItems);
+                await uploadMultipleFiles(fileItems, userGUID);
             }
         } catch (err: any) {
             onUploadError(err.message);
@@ -743,7 +594,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                         themeVariant: variant,
                     });
                 } else {
-                    void uploadMultipleFiles(fileItems);
+                    void uploadMultipleFiles(fileItems, userGUID);
                 }
             };
             input.click();
@@ -810,7 +661,7 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                     themeVariant: variant,
                 });
             } else {
-                await uploadMultipleFiles(files);
+                await uploadMultipleFiles(files, userGUID);
             }
         };
 
@@ -850,93 +701,100 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
                 mode="outlined"
             >
                 <Card.Content style={styles.dndContent}>
-                    {/* Left Touchable: File Pick & Drop Target */}
-                    <Pressable
-                        style={styles.dndLeftTouchable}
-                        onPress={() => {
-                            void handlePickFile();
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${label}. Click to pick file or drop files here`}
-                    >
-                        <View
-                            style={[
-                                styles.iconBadge,
-                                {
-                                    backgroundColor: themeColors.iconBg,
-                                    borderColor: isHovered ? themeColors.border : themeColors.border + '50',
-                                },
-                            ]}
+                    {/* Left Area: File Pick Target & Progress */}
+                    <View style={styles.dndLeftTouchable}>
+                        <Pressable
+                            style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                            onPress={() => {
+                                if (!isUploading && !disabled) {
+                                    void handlePickFile();
+                                }
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${label}. Click to pick file or drop files here`}
+                            disabled={disabled || isUploading}
                         >
-                            {isUploading ? (
-                                <ActivityIndicator size="small" color={themeColors.iconColor} />
-                            ) : (
-                                <IconApp
-                                    name={buttonIcon}
-                                    size={24}
-                                    color={themeColors.iconColor}
-                                />
-                            )}
-                        </View>
-                        <View style={styles.dndTextContainer}>
-                            <View style={styles.titleRow}>
-                                <Text variant="titleSmall" style={[styles.dndTitle, { color: themeColors.title }]}>
-                                    {label}
-                                </Text>
-                                {isUploading && (
-                                    <View style={[styles.percentBadge, { backgroundColor: themeColors.iconBg, borderColor: themeColors.border + '70' }]}>
-                                        <Text variant="labelSmall" style={[styles.percentText, { color: themeColors.iconColor }]}>
-                                            {uploadProgress}%
-                                        </Text>
-                                    </View>
+                            <View
+                                style={[
+                                    styles.iconBadge,
+                                    {
+                                        backgroundColor: themeColors.iconBg,
+                                        borderColor: isHovered ? themeColors.border : themeColors.border + '50',
+                                    },
+                                ]}
+                            >
+                                {isUploading ? (
+                                    <ActivityIndicator size="small" color={themeColors.iconColor} />
+                                ) : (
+                                    <IconApp
+                                        name={buttonIcon}
+                                        size={24}
+                                        color={themeColors.iconColor}
+                                    />
                                 )}
                             </View>
-
-                            <View style={styles.subtitleRow}>
-                                <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
-                                    {isUploading
-                                        ? `Uploading to Drive... ${uploadProgress}%`
-                                        : isHovered
-                                        ? '📥 Drop files here to upload instantly'
-                                        : 'Click or drop files here to upload'}
-                                </Text>
-                                {isUploading && (
-                                    <Pressable
-                                        style={styles.cancelUploadPill}
-                                        onPress={handleCancelUpload}
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Cancel upload"
-                                    >
-                                        <IconApp
-                                            name="cancel"
-                                            size={14}
-                                            color="#D93025"
-                                        />
-                                        <Text variant="labelSmall" style={styles.cancelUploadPillText}>
-                                            Cancel
-                                        </Text>
-                                    </Pressable>
-                                )}
-                            </View>
-
-                            {/* Progress Slider Bar */}
-                            {isUploading && (
-                                <View style={styles.sliderContainer}>
-                                    <View style={styles.sliderTrack}>
-                                        <View
-                                            style={[
-                                                styles.sliderFill,
-                                                {
-                                                    width: `${Math.max(uploadProgress, 4)}%`,
-                                                    backgroundColor: themeColors.iconColor,
-                                                },
-                                            ]}
-                                        />
-                                    </View>
+                            <View style={styles.dndTextContainer}>
+                                <View style={styles.titleRow}>
+                                    <Text variant="titleSmall" style={[styles.dndTitle, { color: themeColors.title }]}>
+                                        {label}
+                                    </Text>
+                                    {isUploading && (
+                                        <View style={[styles.percentBadge, { backgroundColor: themeColors.iconBg, borderColor: themeColors.border + '70' }]}>
+                                            <Text variant="labelSmall" style={[styles.percentText, { color: themeColors.iconColor }]}>
+                                                {uploadProgress}%
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
-                            )}
-                        </View>
-                    </Pressable>
+
+                                <View style={styles.subtitleRow}>
+                                    <Text variant="bodySmall" style={[styles.dndSubtitle, { color: themeColors.subtitle }]}>
+                                        {isUploading
+                                            ? `Uploading to Drive... ${uploadProgress}%`
+                                            : isHovered
+                                            ? '📥 Drop files here to upload instantly'
+                                            : 'Click or drop files here to upload'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </Pressable>
+
+                        {/* Separate Cancel Button during upload (not nested inside main Pressable) */}
+                        {isUploading && (
+                            <Pressable
+                                style={styles.cancelUploadPill}
+                                onPress={handleCancelUpload}
+                                accessibilityRole="button"
+                                accessibilityLabel="Cancel upload"
+                            >
+                                <IconApp
+                                    name="cancel"
+                                    size={14}
+                                    color="#D93025"
+                                />
+                                <Text variant="labelSmall" style={styles.cancelUploadPillText}>
+                                    Cancel
+                                </Text>
+                            </Pressable>
+                        )}
+
+                        {/* Progress Slider Bar */}
+                        {isUploading && (
+                            <View style={styles.sliderContainer}>
+                                <View style={styles.sliderTrack}>
+                                    <View
+                                        style={[
+                                            styles.sliderFill,
+                                            {
+                                                width: `${Math.max(uploadProgress, 4)}%`,
+                                                backgroundColor: themeColors.iconColor,
+                                            },
+                                        ]}
+                                    />
+                                </View>
+                            </View>
+                        )}
+                    </View>
 
                     {/* Right Action Cluster: Clear All (if files exist) + Select Folder Icon Only + Accordion Chevron */}
                     <View style={styles.dndRightActions}>
@@ -1025,439 +883,8 @@ const SelectFilesForGoogleDriveDNDComponent: React.FC<SelectFilesDNDProps> = ({
     );
 };
 
-// ============================================================================
-// COMPONENT: ListFilesForGoogleDriveDNDComponent
-// ============================================================================
+// (ListFilesForGoogleDriveDNDComponent is imported from ./ListFilesForGoogleDriveDNDComponent)
 
-interface ListFilesDNDProps {
-    title: string;
-    folderId: string;
-    accessToken: string | null;
-    disabled: boolean;
-    onFilesLoaded?: (count: number) => void;
-    onRequestApproval?: (batch: PendingUploadBatch) => void;
-    onRenamePress: (file: DriveFile) => void;
-    onDeletePress: (file: DriveFile) => void;
-    onSharePress: (file: DriveFile) => void;
-    onUploadSuccess: (filename: string) => void;
-    onUploadError: (err: string) => void;
-}
-
-const ListFilesForGoogleDriveDNDComponent: React.FC<ListFilesDNDProps> = ({
-    title,
-    folderId,
-    accessToken,
-    disabled,
-    onFilesLoaded,
-    onRequestApproval,
-    onRenamePress,
-    onDeletePress,
-    onSharePress,
-    onUploadSuccess,
-    onUploadError,
-}) => {
-    const [folderFiles, setFolderFiles] = useState<DriveFile[]>([]);
-    const [searchQuery, setSearchQuery] = useState<string>('');
-    const [loading, setLoading] = useState<boolean>(false);
-    const [isDragOver, setIsDragOver] = useState<boolean>(false);
-    const [isUploading, setIsUploading] = useState<boolean>(false);
-    const [uploadProgress, setUploadProgress] = useState<number>(0);
-    const [uploadStatusText, setUploadStatusText] = useState<string>('');
-    const dragCounter = useRef(0);
-    const listUploadAbortControllerRef = useRef<AbortController | null>(null);
-    const dispatch = useDispatch();
-
-    useEffect(() => {
-        if (title.includes('shop') || title.includes('dataset_shop_images')) {
-            dispatch(setShopImagesCount(folderFiles.length));
-        } else if (title.includes('trend') || title.includes('dataset_trend_images')) {
-            dispatch(setTrendImagesCount(folderFiles.length));
-        }
-    }, [folderFiles.length, title, dispatch]);
-
-    useEffect(() => {
-        dispatch(setGoogleDriveUploading(isUploading));
-    }, [isUploading, dispatch]);
-
-    const filteredFiles = useMemo(() => {
-        if (!searchQuery.trim()) return folderFiles;
-        const query = searchQuery.trim().toLowerCase();
-        return folderFiles.filter((f) => (f.name || '').toLowerCase().includes(query));
-    }, [folderFiles, searchQuery]);
-
-    const fetchFolderFiles = useCallback(async () => {
-        if (!accessToken || !folderId) return;
-        setLoading(true);
-        try {
-            const { files } = await googleDrive.listFiles(
-                { accessToken, ...credentialsConfig },
-                {},
-                {
-                    parentId: folderId,
-                    fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink)',
-                    orderBy: 'name',
-                }
-            );
-            const driveFiles: DriveFile[] = files || [];
-            setFolderFiles(driveFiles);
-            onFilesLoaded?.(driveFiles.length);
-        } catch (err: any) {
-            onUploadError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [accessToken, folderId, onUploadError, onFilesLoaded]);
-
-    useEffect(() => {
-        if (folderId && accessToken) {
-            void fetchFolderFiles();
-        }
-    }, [folderId, accessToken, fetchFolderFiles]);
-
-    const handleCancelUpload = () => {
-        if (listUploadAbortControllerRef.current) {
-            listUploadAbortControllerRef.current.abort();
-        }
-        setIsUploading(false);
-        setUploadProgress(0);
-        setUploadStatusText('');
-        onUploadError('Upload cancelled');
-        void fetchFolderFiles();
-    };
-
-    const processAndUploadFiles = async (filesList: DroppedFileItem[]) => {
-        if (!accessToken || !folderId || filesList.length === 0) return;
-        setIsUploading(true);
-        setUploadProgress(0);
-        const controller = new AbortController();
-        listUploadAbortControllerRef.current = controller;
-
-        try {
-            const totalFiles = filesList.length;
-            let lastFileName = '';
-
-            for (let i = 0; i < totalFiles; i++) {
-                if (controller.signal.aborted) break;
-                const fileItem = filesList[i];
-                setUploadStatusText(`Uploading "${fileItem.name}" (${i + 1}/${totalFiles})`);
-
-                await googleDrive.createFile(
-                    { accessToken, ...credentialsConfig },
-                    fileItem,
-                    {
-                        parentId: folderId,
-                        signal: controller.signal,
-                        dispatch,
-                        rowOwnerGUID: 'userGUID',
-                        rowParentGUID: 'Clothes1',
-                        orderInList: i,
-                        onProgress: (percent) => {
-                            const fileFraction = percent / 100;
-                            const overallPercent = Math.min(
-                                99,
-                                Math.round(((i + fileFraction) / totalFiles) * 100)
-                            );
-                            setUploadProgress(overallPercent);
-                        },
-                    }
-                );
-
-                lastFileName = fileItem.name;
-                setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-                onUploadSuccess(fileItem.name);
-            }
-
-            if (!controller.signal.aborted) {
-                setUploadProgress(100);
-                setUploadStatusText('Upload completed!');
-                setTimeout(() => {
-                    setIsUploading(false);
-                    setUploadProgress(0);
-                    setUploadStatusText('');
-                    void fetchFolderFiles();
-                }, 300);
-            }
-        } catch (e: any) {
-            setIsUploading(false);
-            setUploadProgress(0);
-            setUploadStatusText('');
-            if (axios.isCancel(e) || e.name === 'CanceledError' || controller.signal.aborted) {
-                onUploadError('Upload cancelled');
-            } else {
-                onUploadError(e.message || 'Error during drop upload');
-            }
-            void fetchFolderFiles();
-        }
-    };
-
-    const dropContainerRef = useRef<View>(null);
-
-    // Attach robust DOM drag listeners directly to the container on Web (supports Firefox, Chrome, Safari on Mac)
-    useEffect(() => {
-        if (Platform.OS !== 'web' || !dropContainerRef.current) return;
-        const domNode = (dropContainerRef.current as any) as HTMLElement;
-        if (!domNode || typeof domNode.addEventListener !== 'function') return;
-
-        let counter = 0;
-
-        const handleDragEnter = (e: DragEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            counter++;
-            if (!disabled) {
-                setIsDragOver(true);
-            }
-        };
-
-        const handleDragOver = (e: DragEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.dataTransfer) {
-                e.dataTransfer.dropEffect = 'copy';
-            }
-            if (!isDragOver && !disabled) {
-                setIsDragOver(true);
-            }
-        };
-
-        const handleDragLeave = (e: DragEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            counter--;
-            if (counter <= 0) {
-                counter = 0;
-                setIsDragOver(false);
-            }
-        };
-
-        const handleDrop = async (e: DragEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            counter = 0;
-            setIsDragOver(false);
-            if (disabled || !e.dataTransfer) return;
-
-            const { folderName, files } = await extractFilesAndFoldersFromDataTransfer(e.dataTransfer);
-            if (!files.length) return;
-
-            if (onRequestApproval) {
-                onRequestApproval({
-                    sourceName: folderName,
-                    targetFolderId: folderId,
-                    targetFolderName: title,
-                    files,
-                    themeVariant: title.includes('shop') ? 'green' : 'yellow',
-                });
-            } else {
-                await processAndUploadFiles(files);
-            }
-        };
-
-        domNode.addEventListener('dragenter', handleDragEnter);
-        domNode.addEventListener('dragover', handleDragOver);
-        domNode.addEventListener('dragleave', handleDragLeave);
-        domNode.addEventListener('drop', handleDrop);
-
-        return () => {
-            domNode.removeEventListener('dragenter', handleDragEnter);
-            domNode.removeEventListener('dragover', handleDragOver);
-            domNode.removeEventListener('dragleave', handleDragLeave);
-            domNode.removeEventListener('drop', handleDrop);
-        };
-    }, [disabled, isDragOver]);
-
-    return (
-        <View ref={dropContainerRef} style={{ width: '100%' }}>
-            <Card
-                style={[
-                    styles.listContainerCard,
-                    disabled && styles.disabledOpacity,
-                ]}
-                mode="elevated"
-            >
-            <Card.Content>
-                <View style={styles.listHeaderRow}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                        <TextInputApp
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            placeholder={`Search ${title} by filename...`}
-                            leftIcon="search"
-                            disabled={disabled || loading}
-                            style={styles.searchTextInput}
-                        />
-                    </View>
-                    <View style={styles.badgeCount}>
-                        <Text variant="labelSmall" style={{ fontWeight: 'bold', color: '#1F1F1F' }}>
-                            {searchQuery ? `${filteredFiles.length}/${folderFiles.length}` : folderFiles.length}
-                        </Text>
-                    </View>
-                    <Pressable
-                        onPress={() => {
-                            void fetchFolderFiles();
-                        }}
-                        disabled={disabled || loading}
-                        style={({ pressed }) => [
-                            styles.iconActionBtn,
-                            { opacity: (disabled || loading) ? 0.4 : pressed ? 0.6 : 1 },
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Refresh files"
-                    >
-                        <IconApp name="refresh" size={20} color="#5F6368" />
-                    </Pressable>
-                </View>
-
-                {isUploading && (
-                    <View style={styles.listUploadingCard}>
-                        <View style={styles.listUploadingHeader}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                                <ActivityIndicator size="small" color="#1A73E8" style={{ marginRight: 8 }} />
-                                <Text variant="bodySmall" numberOfLines={1} style={{ fontWeight: '600', color: '#1F1F1F', flex: 1 }}>
-                                    {uploadStatusText || 'Uploading to Drive...'}
-                                </Text>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <View style={styles.listUploadPercentBadge}>
-                                    <Text variant="labelSmall" style={styles.listUploadPercentText}>
-                                        {uploadProgress}%
-                                    </Text>
-                                </View>
-                                <Pressable
-                                    style={styles.cancelUploadPill}
-                                    onPress={handleCancelUpload}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Cancel active upload"
-                                >
-                                    <IconApp
-                                        name="cancel"
-                                        size={14}
-                                        color="#D93025"
-                                    />
-                                    <Text variant="labelSmall" style={styles.cancelUploadPillText}>
-                                        Cancel
-                                    </Text>
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <View style={styles.listUploadSliderTrack}>
-                            <View
-                                style={[
-                                    styles.listUploadSliderFill,
-                                    {
-                                        width: `${Math.max(uploadProgress, 4)}%`,
-                                    },
-                                ]}
-                            />
-                        </View>
-                    </View>
-                )}
-
-                {isDragOver ? (
-                    <View style={styles.listDragOverOverlay} pointerEvents="none">
-                        <View style={[styles.modalHeaderIconCircle, { backgroundColor: title.includes('shop') ? '#E8F5E9' : '#FEF7D2' }]}>
-                            <IconApp
-                                name="folder_zip"
-                                size={32}
-                                color={title.includes('shop') ? '#1B5E20' : '#B45309'}
-                            />
-                        </View>
-                        <Text variant="titleMedium" style={{ fontWeight: '700', color: title.includes('shop') ? '#1B5E20' : '#B45309', marginTop: 10 }}>
-                            Drop folder or files to add
-                        </Text>
-                        <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4 }}>
-                            Review & approve additions to "{title}"
-                        </Text>
-                    </View>
-                ) : loading ? (
-                    <ActivityIndicator size="small" style={{ marginVertical: 18 }} />
-                ) : folderFiles.length === 0 ? (
-                    <View style={styles.emptyDropPrompt}>
-                        <IconApp name="upload_file" size={36} color="#9AA0A6" />
-                        <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4 }}>
-                            No files yet. Drag files over this zone to trigger instant upload.
-                        </Text>
-                    </View>
-                ) : filteredFiles.length === 0 ? (
-                    <View style={styles.emptySearchPrompt}>
-                        <IconApp name="find_in_page" size={36} color="#9AA0A6" />
-                        <Text variant="bodySmall" style={{ color: '#5F6368', marginTop: 4, textAlign: 'center' }}>
-                            No files matching "{searchQuery}"
-                        </Text>
-                        <Button mode="text" compact onPress={() => setSearchQuery('')} textColor="#1A73E8" style={{ marginTop: 4 }}>
-                            Clear search
-                        </Button>
-                    </View>
-                ) : (
-                    <View style={{ marginTop: 6 }}>
-                        {filteredFiles.map((file) => (
-                            <Card key={file.id} style={styles.innerFileCard} mode="outlined">
-                                <View style={styles.fileCardRow}>
-                                    <View style={[styles.fileCardIconBox, { backgroundColor: '#F1F3F4' }]}>
-                                        <IconApp
-                                            name={file.mimeType && file.mimeType.includes('image') ? 'image' : 'description'}
-                                            size={22}
-                                            color="#5F6368"
-                                        />
-                                    </View>
-                                    <View style={styles.fileDetails}>
-                                        <Text variant="bodyMedium" numberOfLines={1} style={{ fontWeight: '500' }}>
-                                            {file.name}
-                                        </Text>
-                                        <Text variant="labelSmall" style={{ color: '#747775' }}>
-                                            {formatBytes(file.size)} • {file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString() : ''}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.actionButtonsRow}>
-                                        <Pressable
-                                            disabled={disabled}
-                                            onPress={() => onRenamePress(file)}
-                                            style={({ pressed }) => [
-                                                styles.fileActionBtn,
-                                                { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
-                                            ]}
-                                            accessibilityRole="button"
-                                            accessibilityLabel="Rename file"
-                                        >
-                                            <IconApp name="edit" size={20} color="#5F6368" />
-                                        </Pressable>
-                                        <Pressable
-                                            disabled={disabled}
-                                            onPress={() => onSharePress(file)}
-                                            style={({ pressed }) => [
-                                                styles.fileActionBtn,
-                                                { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
-                                            ]}
-                                            accessibilityRole="button"
-                                            accessibilityLabel="Share file"
-                                        >
-                                            <IconApp name="share" size={20} color="#5F6368" />
-                                        </Pressable>
-                                        <Pressable
-                                            disabled={disabled}
-                                            onPress={() => onDeletePress(file)}
-                                            style={({ pressed }) => [
-                                                styles.fileActionBtn,
-                                                { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
-                                            ]}
-                                            accessibilityRole="button"
-                                            accessibilityLabel="Delete file"
-                                        >
-                                            <IconApp name="delete" size={20} color="#D93025" />
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            </Card>
-                        ))}
-                    </View>
-                )}
-            </Card.Content>
-        </Card>
-    </View>
-    );
-};
 
 // ============================================================================
 // MAIN COMPONENT: Clothes1UploadToDriveComponent
@@ -1899,6 +1326,7 @@ export function Clothes1UploadToDriveComponent({
                                             setRefreshSeed((prev) => prev + 1);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
+                                        userGUID={userGUID}
                                     />
                                     {isShopListExpanded && (
                                         <ListFilesForGoogleDriveDNDComponent
@@ -1916,6 +1344,14 @@ export function Clothes1UploadToDriveComponent({
                                             }}
                                             onDeletePress={(file) => setFileToDelete(file)}
                                             onSharePress={handleShareFile}
+                                            onClearAll={() => {
+                                                if (userFolders?.shopImagesId) {
+                                                    setFolderToClear({
+                                                        id: userFolders.shopImagesId,
+                                                        title: 'dataset_shop_images',
+                                                    });
+                                                }
+                                            }}
                                             onUploadSuccess={(fname) => {
                                                 setSnackbarMsg(`Uploaded "${fname}" to dataset_shop_images`);
                                                 setIsShopListExpanded(true);
@@ -1951,6 +1387,7 @@ export function Clothes1UploadToDriveComponent({
                                             setRefreshSeed((prev) => prev + 1);
                                         }}
                                         onUploadError={(err) => setSnackbarMsg(err)}
+                                        userGUID={userGUID}
                                     />
                                     {isTrendListExpanded && (
                                         <ListFilesForGoogleDriveDNDComponent
@@ -1968,6 +1405,14 @@ export function Clothes1UploadToDriveComponent({
                                             }}
                                             onDeletePress={(file) => setFileToDelete(file)}
                                             onSharePress={handleShareFile}
+                                            onClearAll={() => {
+                                                if (userFolders?.trendImagesId) {
+                                                    setFolderToClear({
+                                                        id: userFolders.trendImagesId,
+                                                        title: 'dataset_trend_images',
+                                                    });
+                                                }
+                                            }}
                                             onUploadSuccess={(fname) => {
                                                 setSnackbarMsg(`Uploaded "${fname}" to dataset_trend_images`);
                                                 setIsTrendListExpanded(true);
@@ -2701,3 +2146,5 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
 });
+
+export { AskBeforeDeleteGoogleFile };
