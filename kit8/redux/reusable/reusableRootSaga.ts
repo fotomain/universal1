@@ -3,7 +3,6 @@ import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
 import {showSnackbar} from "../uxuiSlice";
 
-
 export const reusableRootSaga = (p: any) => {
     const {tableName, actions, doBefore, doAfter, afterCreateOneSuccess} = p
 
