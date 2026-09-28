@@ -4,6 +4,7 @@ import {Platform} from 'react-native';
 
 import {Drawer} from 'expo-router/drawer';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {PaperProvider} from 'react-native-paper';
 import {useMaterial3Theme} from '@pchmn/expo-material3-theme';
 import {useTranslation} from 'react-i18next';
@@ -203,6 +204,7 @@ function SupabaseAuthSync() {
               const { error: insertError } = await supabase.from('raciMemberTable').insert({
                 rowGUID: activeUserGUID,
                 rowOwnerGUID: userEmail,
+                rowParentGUID: 'empty', // NOT NULL column; 'empty' = no parent (app-wide convention)
                 orderInList: Date.now(),
                 rowJSON: {
                   raciGUID: activeUserGUID,
@@ -330,6 +332,8 @@ function RootLayoutContent() {
 
               <Drawer.Screen name="raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
+              <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
+              <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
               <Drawer.Screen name="record/recordvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoWeb') }} />
@@ -348,6 +352,8 @@ function RootLayoutContent() {
   );
 }
 
+const pmGanttQueryClient = new QueryClient();
+
 export default function RootLayout() {
   const initialSupabaseConfig = {
     url: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://czgrxgzdmodkkmbmraub.supabase.co',
@@ -359,7 +365,9 @@ export default function RootLayout() {
       <WithSupabase initialConfig={initialSupabaseConfig}>
         <WithSQLiteNative>
           <WithState>
-            <RootLayoutContent />
+            <QueryClientProvider client={pmGanttQueryClient}>
+              <RootLayoutContent />
+            </QueryClientProvider>
           </WithState>
         </WithSQLiteNative>
       </WithSupabase>

@@ -48,6 +48,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'developer1', label: 'Developer 1', icon: 'logo_dev', route: 'developer1' },
     { id: 'posts', label: 'Media Posts', icon: 'list_alt', route: 'posts/mediapostcrud' },
     { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'raci/racimember' },
+    { id: 'pm-projects', label: 'Projects', icon: 'view_timeline', route: 'pm/project/dashboard' },
   ];
 
   const bottomNavItems: MenuItem[] = [

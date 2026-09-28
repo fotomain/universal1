@@ -1,0 +1,25 @@
+// Zoom out · Zoom in · Fit to screen.
+
+import React from 'react';
+import { PMPalette } from '../theme';
+import { PMIconButton } from './PMIconButton';
+
+export default function PMGanttZoomButtons({
+  palette,
+  onZoomOut,
+  onZoomIn,
+  onFit,
+}: {
+  palette: PMPalette;
+  onZoomOut: () => void;
+  onZoomIn: () => void;
+  onFit: () => void;
+}) {
+  return (
+    <>
+      <PMIconButton testID="pm-gantt-zoom-out" icon="zoom_out" title="Zoom out" color={palette.text} onPress={onZoomOut} />
+      <PMIconButton testID="pm-gantt-zoom-in" icon="zoom_in" title="Zoom in" color={palette.text} onPress={onZoomIn} />
+      <PMIconButton testID="pm-gantt-fit" icon="fit_screen" title="Fit to screen" color={palette.text} onPress={onFit} />
+    </>
+  );
+}

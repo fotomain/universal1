@@ -1,0 +1,75 @@
+// OnRightClickOnDependencyArrow: small context menu (Edit, Delete) at the click point.
+// Web = right-click on an arrow; touch = tap on an arrow. "Delete" removes only the
+// dependency and can be undone from the Gantt bar.
+
+import React from 'react';
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useDesignSystem } from '../providers/WithDesignSystem';
+import IconApp from '../components/common/IconApp';
+import { usePMStore } from './store';
+import { PMCrud } from './usePMCrud';
+
+const MENU_W = 196;
+const ITEM_H = 40;
+
+export default function PMDependencyMenu({ crud }: { crud: PMCrud }) {
+  const { themeColors: c } = useDesignSystem();
+  const menu = usePMStore((s) => s.depMenu);
+  const names = usePMStore((s) =>
+    s.depMenu
+      ? `${s.tasksById[s.depMenu.dependsOnGUID]?.rowJSON.name ?? '?'} → ${s.tasksById[s.depMenu.rowGUID]?.rowJSON.name ?? '?'}`
+      : ''
+  );
+  const { width, height } = useWindowDimensions();
+  if (!menu) return null;
+
+  const ref = { rowGUID: menu.rowGUID, dependsOnGUID: menu.dependsOnGUID };
+  const menuH = ITEM_H * 2 + 30;
+  const left = Math.max(8, Math.min(menu.x, width - MENU_W - 8));
+  const top = Math.max(8, Math.min(menu.y, height - menuH - 8));
+  const close = crud.closeDependencyMenu;
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={close}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={close} onLongPress={close} />
+      <View style={[styles.menu, { left, top, width: MENU_W, backgroundColor: c.surface, borderColor: c.border }]} testID="pm-dep-menu">
+        <Text numberOfLines={1} style={[styles.caption, { color: c.text }]}>
+          {names}
+        </Text>
+        <Pressable
+          testID="pm-dep-menu-edit"
+          onPress={() => crud.openDependencyEditor(ref)}
+          style={({ hovered, pressed }: any) => [styles.item, { backgroundColor: hovered || pressed ? `${c.primary}18` : 'transparent' }]}
+        >
+          <IconApp testID="pm-dep-menu-edit-icon" name="edit" size={18} color={c.text} />
+          <Text style={[styles.itemText, { color: c.text }]}>Edit</Text>
+        </Pressable>
+        <Pressable
+          testID="pm-dep-menu-delete"
+          onPress={() => crud.deleteDependency(ref)}
+          style={({ hovered, pressed }: any) => [styles.item, { backgroundColor: hovered || pressed ? `${c.error}18` : 'transparent' }]}
+        >
+          <IconApp testID="pm-dep-menu-delete-icon" name="delete" size={18} color={c.error} />
+          <Text style={[styles.itemText, { color: c.error }]}>Delete</Text>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  menu: {
+    position: 'absolute',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  caption: { fontSize: 11, opacity: 0.6, paddingHorizontal: 12, paddingVertical: 4 },
+  item: { height: ITEM_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  itemText: { marginLeft: 10, fontSize: 14, fontWeight: '600' },
+});

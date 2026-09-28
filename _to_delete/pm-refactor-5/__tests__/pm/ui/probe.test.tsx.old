@@ -1,0 +1,13 @@
+/** @jest-environment jsdom */
+import { renderUI, press, q, cleanupUI } from './pmUiTestKit';
+import React from 'react';
+import { PMIconButton } from '../../../kit8/pm/buttons/PMIconButton';
+
+afterEach(cleanupUI);
+it('probe', () => {
+  const fn = jest.fn();
+  renderUI(<PMIconButton testID="b1" icon="undo" onPress={fn} color="#000" badge={3} />);
+  expect(q('b1')).not.toBeNull();
+  press('b1');
+  expect(fn).toHaveBeenCalledTimes(1);
+});
