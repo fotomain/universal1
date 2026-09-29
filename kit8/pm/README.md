@@ -167,7 +167,12 @@ destructive })`. One window is mounted per screen (dashboard, task page).
 | `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
 | `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | Gantt bar commands: same choice for the chart |
 
-All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button).
+All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button), split into
+top tabs **Task** (task progress on/off, task progress line) · **Tree** (row commands, "#" column, column order / widths) ·
+**Gantt** (critical path, arrow shape, bar commands) · **Project** (project progress line). The search field above the tabs
+finds a setting by any substring of its name (or key, e.g. `showCriticalPath`): the matches are listed in a table
+(Setting | Tab); pressing a line opens that tab, scrolls to the option and flashes it. Which option lives where:
+`view/gantt/settings/uxuiSettingsIndex.ts`.
 
 Read with `uxuiSettingsOf()` (falls back to the old top-level keys), saved with `crud/project/useProjectViewSettings.ts`.
 Default line color: `PM_DEFAULT_PROGRESS_LINE_COLOR` / `progressLineColor` = "yellow".
@@ -185,7 +190,8 @@ the project chip update instantly. Existing DB: run `update_pm_tables_projectPro
 
 Gantt bar → **Gantt | Network** (`view/gantt/toolbars/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
 selector) sets `uxuiSettings.ganttVsNetworkView` = `'showGanttChart'` | `'showNetworkView'`; the dashboard then renders
-the Gantt surface or `PMNetworkView`. The same buttons sit on the network bar, so you can always switch back.
+the Gantt surface or `PMNetworkView`. The same buttons sit on the network bar, so you can always switch back; on both bars
+they are right before the **Critical path** button.
 
 `PMNetworkView` — radio **Network diagram / Network schedule** (`networkViewMode`) + Critical path:
 
@@ -241,7 +247,7 @@ ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / s
 `inner/panels/` shared `PMFloatingRowPanel` · `inner/PMApproveYesNoCancelModalWindow.tsx` Yes / No / Cancel dialog ·
 **`view/`** screens and panes: `view/theme.ts` palette ·
 **`view/gantt/`** Gantt pane: `PMGanttSurface*.tsx` layout (Tree | Gantt) + web loader · `PMProjectGanttChart.tsx` ·
-`ganttGeometry.ts` time scale · `useGanttViewport.ts` shared scroll · `PMGanttUXUISettinsModalWindow.tsx` ·
+`ganttGeometry.ts` time scale · `useGanttViewport.ts` shared scroll · `PMGanttUXUISettinsModalWindow.tsx` (+ `settings/uxuiSettingsIndex.ts` tabs / search index) ·
 `buttons/` `PMGanttUndoButton`, `PMGanttZoomButtons`, `PMGanttScaleButtons`, `PMGanttViewToggles` · `panels/` `PMGanttBarHoverPanel` ·
 `toolbars/` `PMGanttToolbar` + `PMGanttLinkModeHint` + `GanttToNetworkViewToggleButtons` (+ the arrow shape selector from `view/task/dependency/`) ·
 **`view/network/`** network diagram / schedule (see *Network view*) ·

@@ -1,5 +1,5 @@
 // Per-project view switches (saved in project_table.rowJSON.uxuiSettings):
-// % = showTaskProgressOnGantt · ⚙ = PMGanttUXUISettinsModalWindow · Critical path = showCriticalPath.
+// % = showTaskProgressOnGantt · ⚙ = PMGanttUXUISettinsModalWindow · [viewSwitch = Gantt | Network] · Critical path = showCriticalPath.
 
 import React from 'react';
 import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
@@ -7,8 +7,18 @@ import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
+import { PMToolbarDivider } from '../../../inner/toolbars/PMToolbarPrimitives';
 
-export default function PMGanttViewToggles({ crud, palette }: { crud: PMCrud; palette: PMPalette }) {
+export default function PMGanttViewToggles({
+  crud,
+  palette,
+  viewSwitch,
+}: {
+  crud: PMCrud;
+  palette: PMPalette;
+  /** Gantt | Network switch, shown right before the Critical path button */
+  viewSwitch?: React.ReactNode;
+}) {
   const showTaskProgress = usePMStore((s) => s.showTaskProgressOnGantt);
   const showCritical = usePMStore((s) => s.showCriticalPath);
   return (
@@ -29,6 +39,13 @@ export default function PMGanttViewToggles({ crud, palette }: { crud: PMCrud; pa
         color={palette.text}
         onPress={() => usePMStore.getState().setUxuiSettingsOpen(true)}
       />
+      {viewSwitch && (
+        <>
+          <PMToolbarDivider color={palette.border} />
+          {viewSwitch}
+          <PMToolbarDivider color={palette.border} />
+        </>
+      )}
       <PMIconButton
         testID="pm-gantt-critical"
         icon="route"

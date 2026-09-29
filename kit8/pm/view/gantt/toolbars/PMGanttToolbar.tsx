@@ -1,6 +1,6 @@
 // PMGanttToolbar - the Gantt bar (toolbar above the chart canvas):
-//   Gantt · Network | Undo | Zoom out · Zoom in · Fit to screen | Day · Week · Month · Year | Today · arrow shape
-//   ......................................................................  % · Critical path
+//   Undo | Zoom out · Zoom in · Fit to screen | Day · Week · Month · Year | Today · arrow shape
+//   ......................................................  % · ⚙ | Gantt · Network | Critical path
 // In tap-to-link mode it shows PMGanttLinkModeHint instead.
 
 import React from 'react';
@@ -43,8 +43,6 @@ export default function PMGanttToolbar({
         <PMGanttLinkModeHint sourceName={linkSourceName} palette={palette} onCancel={crud.cancelLink} />
       ) : (
         <>
-          <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
-          <PMToolbarDivider color={palette.border} />
           <PMGanttUndoButton crud={crud} palette={palette} />
           <PMToolbarDivider color={palette.border} />
           <PMGanttZoomButtons palette={palette} onZoomOut={() => actions.zoomBy(1 / 1.5)} onZoomIn={() => actions.zoomBy(1.5)} onFit={actions.fit} />
@@ -54,7 +52,11 @@ export default function PMGanttToolbar({
           <PMIconButton testID="pm-gantt-today" icon="today" label="Today" color={palette.text} onPress={actions.goToday} />
           <DependencyArrowLineFormSelector color={palette.text} activeColor={palette.primary} border={palette.border} onChange={crud.setGanttArrowsForm} />
           <PMToolbarSpacer />
-          <PMGanttViewToggles crud={crud} palette={palette} />
+          <PMGanttViewToggles
+            crud={crud}
+            palette={palette}
+            viewSwitch={<GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />}
+          />
         </>
       )}
     </PMToolbar>

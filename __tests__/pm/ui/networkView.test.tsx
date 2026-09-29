@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // kit8/pm/view/network: PMNetworkView (radio, read-only mode), PMNetworkDiagram, PMNetworkSchedule.
 import { act } from 'react';
-import { cleanupUI, fakeCrud, press, q, qa, renderUI, seedStore } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, press, q, qa, renderUI, seedStore } from './pmUiTestKit';
 
 import React from 'react';
 import PMNetworkView from '../../../kit8/pm/view/network/PMNetworkView';
@@ -28,6 +28,8 @@ describe('PMNetworkView (editable)', () => {
     renderUI(<PMNetworkView crud={crud} />);
     expect(q('pm-net-view')).not.toBeNull();
     expect(q('pm-net-readonly-badge')).toBeNull();
+    // Gantt | Network sits right before Critical path (same place as on the Gantt bar)
+    expectInOrder(['pm-net-mode-networkDiagram', 'pm-net-mode-networkSchedule', 'pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showNetworkView', 'pm-net-critical']);
     press('pm-gantt-vs-network-showGanttChart');
     expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showGanttChart');
     press('pm-net-mode-networkSchedule');

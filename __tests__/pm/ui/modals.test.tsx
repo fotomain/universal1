@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // PM dialogs: task edit, dependency editor, approve Yes/No/Cancel, Gantt UX/UI settings.
 import { act } from 'react';
-import { cleanupUI, fakeCrud, inputValue, press, q, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, inputValue, press, q, qa, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
 import React from 'react';
 import PMTaskEditModal from '../../../kit8/pm/view/task/PMTaskEditModal';
 import PMEditDependencyScreen from '../../../kit8/pm/view/task/dependency/PMEditDependencyScreen';
@@ -186,24 +186,41 @@ describe('PMApproveYesNoCancelModalWindow', () => {
 });
 
 describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
-  it('opens from store, shows every setting, Save writes the draft', () => {
+  const TAB_CONTROLS: Record<string, string[]> = {
+    TabTask: ['pm-uxui-progress', 'pm-uxui-task-line-pos-onTop', 'pm-uxui-task-line-pos-atTheMiddle', 'pm-uxui-task-line-pos-onBottom', 'pm-uxui-task-line-color-default'],
+    TabTree: ['pm-uxui-tree-commands-onHoverPanelMode', 'pm-uxui-tree-commands-onRightClickMenuMode', 'pm-uxui-tree-numbers', 'pm-uxui-tree-columns-reset', 'pm-uxui-tree-columns-widths-reset'],
+    TabGantt: ['pm-uxui-critical', 'pm-uxui-arrows-smoothForm', 'pm-uxui-arrows-squareForm', 'pm-uxui-gantt-commands-onHoverPanelMode', 'pm-uxui-gantt-commands-onRightClickMenuMode'],
+    TabProject: ['pm-uxui-project-line-pos-onTop', 'pm-uxui-project-line-pos-atTheMiddle', 'pm-uxui-project-line-pos-onBottom', 'pm-uxui-project-line-color-default'],
+  };
+  const tabSelected = (tab: string) => q(`pm-uxui-tab-${tab}`)!.getAttribute('aria-selected') === 'true';
+
+  it('top tabs Task · Tree · Gantt · Project: each tab shows only its settings', () => {
+    seedStore();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={fakeCrud()} />);
+    expect(q('pm-uxui-window')).toBeNull();
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    expectInOrder(['pm-uxui-search', 'pm-uxui-tab-TabTask', 'pm-uxui-tab-TabTree', 'pm-uxui-tab-TabGantt', 'pm-uxui-tab-TabProject']);
+    for (const id of ['pm-uxui-close', 'pm-uxui-defaults', 'pm-uxui-cancel', 'pm-uxui-save']) expect(q(id)).not.toBeNull();
+    expect(tabSelected('TabTask')).toBe(true); // opens on the first tab
+    for (const tab of Object.keys(TAB_CONTROLS)) {
+      press(`pm-uxui-tab-${tab}`);
+      expect(tabSelected(tab)).toBe(true);
+      for (const [other, ids] of Object.entries(TAB_CONTROLS)) for (const id of ids) expect([tab, id, !!q(id)]).toEqual([tab, id, other === tab]);
+    }
+  });
+
+  it('Save writes the draft edited across all tabs', () => {
     seedStore();
     const crud = fakeCrud();
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
-    expect(q('pm-uxui-window')).toBeNull();
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
-    for (const id of [
-      'pm-uxui-close', 'pm-uxui-critical', 'pm-uxui-arrows-smoothForm', 'pm-uxui-arrows-squareForm', 'pm-uxui-progress',
-      'pm-uxui-task-line-pos-onTop', 'pm-uxui-task-line-pos-atTheMiddle', 'pm-uxui-task-line-pos-onBottom', 'pm-uxui-task-line-color-default',
-      'pm-uxui-project-line-pos-onTop', 'pm-uxui-project-line-pos-atTheMiddle', 'pm-uxui-project-line-pos-onBottom', 'pm-uxui-project-line-color-default',
-      'pm-uxui-defaults', 'pm-uxui-cancel', 'pm-uxui-save',
-    ]) expect(q(id)).not.toBeNull();
-
-    toggleSwitch('pm-uxui-critical');
-    press('pm-uxui-arrows-squareForm');
     toggleSwitch('pm-uxui-progress');
     press('pm-uxui-task-line-pos-onBottom');
     press('pm-uxui-task-line-color-#22c55e');
+    press('pm-uxui-tab-TabGantt');
+    toggleSwitch('pm-uxui-critical');
+    press('pm-uxui-arrows-squareForm');
+    press('pm-uxui-tab-TabProject');
     press('pm-uxui-project-line-pos-onTop');
     press('pm-uxui-project-line-color-#ef4444');
     press('pm-uxui-save');
@@ -221,14 +238,43 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(usePMStore.getState().uxuiSettingsOpen).toBe(false);
   });
 
+  it('search: substring -> table (Setting | Tab); pressing a line opens the tab and marks the option', () => {
+    seedStore();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    expect(q('pm-uxui-search-results')).toBeNull(); // nothing typed: no table
+
+    typeInto('pm-uxui-search', 'PROGRESS LINE'); // case-insensitive substring
+    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-taskProgressLine', 'pm-uxui-search-row-projectProgressLine']);
+    expect(textOf('pm-uxui-search-row-projectProgressLine')).toContain('Project');
+
+    typeInto('pm-uxui-search', 'commands'); // one per pane
+    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-treeCommands', 'pm-uxui-search-row-ganttCommands']);
+    press('pm-uxui-search-row-ganttCommands');
+    expect(tabSelected('TabGantt')).toBe(true);
+    expect(inputValue('pm-uxui-search')).toBe(''); // the table closes
+    expect(q('pm-uxui-search-results')).toBeNull();
+    expect(q('pm-uxui-opt-ganttCommands')!.getAttribute('aria-selected')).toBe('true'); // flashed / scrolled to
+
+    typeInto('pm-uxui-search', 'critical');
+    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-criticalPath']);
+    press('pm-uxui-search-row-criticalPath'); // same tab: scrolls without switching
+    expect(tabSelected('TabGantt')).toBe(true);
+    expect(q('pm-uxui-opt-criticalPath')!.getAttribute('aria-selected')).toBe('true');
+
+    typeInto('pm-uxui-search', 'no such setting');
+    expect(q('pm-uxui-search-empty')).not.toBeNull();
+    expect(qa('pm-uxui-search-row-')).toEqual([]);
+  });
+
   it('row commands: Hover panel (default) | Right-click menu for the tree and for the Gantt chart', () => {
     seedStore();
     const crud = fakeCrud();
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
-    for (const pane of ['tree', 'gantt'])
-      for (const m of ['onHoverPanelMode', 'onRightClickMenuMode']) expect(q(`pm-uxui-${pane}-commands-${m}`)).not.toBeNull();
+    press('pm-uxui-tab-TabTree');
     press('pm-uxui-tree-commands-onRightClickMenuMode');
+    press('pm-uxui-tab-TabGantt');
     press('pm-uxui-gantt-commands-onRightClickMenuMode');
     press('pm-uxui-gantt-commands-onHoverPanelMode'); // changed my mind for the chart
     press('pm-uxui-save');
@@ -244,6 +290,7 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     const crud = fakeCrud();
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    press('pm-uxui-tab-TabTree');
     expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %'); // the draft comes from the project (defaults)
     toggleSwitch('pm-uxui-tree-numbers');
     press('pm-uxui-save');

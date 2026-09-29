@@ -1,7 +1,7 @@
 // PMNetworkView - the project as a network (shown instead of the Gantt when
 // uxuiSettings.ganttVsNetworkView = 'showNetworkView').
 //
-//   [ Gantt | Network ]  ( ) Network diagram  ( ) Network schedule  ..........  Critical path
+//   ( ) Network diagram  ( ) Network schedule  ..........  [ Gantt | Network ] | Critical path
 //   ├─ PMNetworkDiagram   activity-on-node  (variants: CPM boxes / compact blocks)
 //   └─ PMNetworkSchedule  activity-on-arrow (variants: 4-sector event circles / time-scaled)
 //
@@ -69,12 +69,6 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
           <PMGanttLinkModeHint sourceName={linkSourceName} palette={palette} onCancel={crud!.cancelLink} />
         ) : (
           <>
-            {showGanttToggle && (
-              <>
-                <GanttToNetworkViewToggleButtons palette={palette} onChange={setters.setGanttVsNetworkView} />
-                <PMToolbarDivider color={palette.border} />
-              </>
-            )}
             <PMNetworkRadioGroup
               testID="pm-net-mode"
               options={PM_NETWORK_VIEW_MODES}
@@ -97,6 +91,12 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
               >
                 Read-only
               </Text>
+            )}
+            {showGanttToggle && (
+              <>
+                <GanttToNetworkViewToggleButtons palette={palette} onChange={setters.setGanttVsNetworkView} />
+                <PMToolbarDivider color={palette.border} />
+              </>
             )}
             <PMIconButton
               testID="pm-net-critical"

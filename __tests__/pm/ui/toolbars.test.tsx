@@ -50,8 +50,6 @@ describe('PMGanttToolbar (Gantt bar)', () => {
     seedStore();
     renderUI(<PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={actions()} />);
     expectInOrder([
-      'pm-gantt-vs-network-showGanttChart',
-      'pm-gantt-vs-network-showNetworkView',
       'pm-gantt-undo',
       'pm-gantt-zoom-out',
       'pm-gantt-zoom-in',
@@ -65,6 +63,8 @@ describe('PMGanttToolbar (Gantt bar)', () => {
       'pm-gantt-line-form-squareForm',
       'pm-gantt-task-progress',
       'pm-gantt-uxui-settings',
+      'pm-gantt-vs-network-showGanttChart',
+      'pm-gantt-vs-network-showNetworkView',
       'pm-gantt-critical',
     ]);
   });
