@@ -43,6 +43,16 @@ export function useCreateTaskMutation(projectGUID: string | null | undefined) {
   );
 }
 
+/** Several rows at once (Duplicate: a row + its subtree), parents before children. */
+export function useCreateTasksMutation(projectGUID: string | null | undefined) {
+  const api = usePMApi();
+  return useProjectMutation<PMTaskRow[], PMTaskRow[]>(
+    projectGUID,
+    (rows) => api.createTasks(rows),
+    (data, rows) => ({ ...data, tasks: [...data.tasks, ...rows] })
+  );
+}
+
 export function useUpdateTaskMutation(projectGUID: string | null | undefined) {
   const api = usePMApi();
   return useProjectMutation<{ rowGUID: string; patch: Partial<PMTaskRow> }, PMTaskRow>(

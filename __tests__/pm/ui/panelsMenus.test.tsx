@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 // kit8/pm/panels (tree hover panel, gantt bar panel) and kit8/pm/menu (context menus).
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore, textOf } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, press, q, qa, renderUI, seedStore, textOf } from './pmUiTestKit';
 import React from 'react';
-import PMTreeRowHoverPanel from '../../../kit8/pm/panels/tree/PMTreeRowHoverPanel';
-import PMGanttBarHoverPanel from '../../../kit8/pm/panels/gantt/PMGanttBarHoverPanel';
+import PMTreeRowHoverPanel from '../../../kit8/pm/tree/panels/PMTreeRowHoverPanel';
+import { treeRowPanelIconCount } from '../../../kit8/pm/tree/panels/treeRowPanelGeometry';
+import PMGanttBarHoverPanel from '../../../kit8/pm/gantt/panels/PMGanttBarHoverPanel';
 import PMContextMenu from '../../../kit8/pm/menu/PMContextMenu';
 import PMDependencyMenu from '../../../kit8/pm/menu/PMDependencyMenu';
 import { makePMPalette } from '../../../kit8/pm/theme';
@@ -15,16 +16,18 @@ const G = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 afterEach(cleanupUI);
 
-describe('PMTreeRowHoverPanel (panels/tree)', () => {
-  it('task row: add below (1st) · add above · edit · link · details · delete', () => {
+describe('PMTreeRowHoverPanel (tree/panels)', () => {
+  it('task row: add below (1st) · add above · edit · duplicate · link · details · delete', () => {
     const crud = fakeCrud();
     renderUI(<PMTreeRowHoverPanel guid={G} isSummary={false} crud={crud} palette={palette} width={200} right={0} animatedStyle={{}} />);
     expect(q('pm-tree-row-panel')).not.toBeNull();
-    expectInOrder([`pm-tree-row-add-below-${G}`, `pm-tree-row-add-above-${G}`, `pm-tree-row-edit-${G}`, `pm-tree-row-link-${G}`, `pm-tree-row-open-${G}`, `pm-tree-row-delete-${G}`]);
+    expectInOrder([`pm-tree-row-add-below-${G}`, `pm-tree-row-add-above-${G}`, `pm-tree-row-edit-${G}`, `pm-tree-row-duplicate-${G}`, `pm-tree-row-copy-info-${G}`, `pm-tree-row-share-${G}`, `pm-tree-row-link-${G}`, `pm-tree-row-open-${G}`, `pm-tree-row-delete-${G}`]);
     expect(q(`pm-tree-row-add-${G}`)).toBeNull(); // "add inside" only for stages
     press(`pm-tree-row-add-below-${G}`);
     press(`pm-tree-row-add-above-${G}`);
     press(`pm-tree-row-edit-${G}`);
+    press(`pm-tree-row-duplicate-${G}`);
+    expect(crud.duplicateTask).toHaveBeenCalledWith(G);
     press(`pm-tree-row-link-${G}`);
     press(`pm-tree-row-open-${G}`);
     press(`pm-tree-row-delete-${G}`);
@@ -45,14 +48,28 @@ describe('PMTreeRowHoverPanel (panels/tree)', () => {
   });
 });
 
-describe('PMGanttBarHoverPanel (panels/gantt)', () => {
-  it('add · edit · link · details · delete', () => {
+describe('PMTreeRowHoverPanel width (tree/panels/treeRowPanelGeometry)', () => {
+  it('the geometry counts exactly the buttons the panel renders', () => {
+    for (const isSummary of [false, true]) {
+      renderUI(<PMTreeRowHoverPanel guid={G} isSummary={isSummary} crud={fakeCrud()} palette={palette} width={300} left={10} animatedStyle={{}} />);
+      const buttons = qa('pm-tree-row-').filter((id) => id !== 'pm-tree-row-panel' && !id.endsWith('-icon'));
+      expect(buttons.length).toBe(treeRowPanelIconCount(isSummary));
+      expect(q('pm-tree-row-panel')!.style.left).toBe('10px');
+      cleanupUI();
+    }
+  });
+});
+
+describe('PMGanttBarHoverPanel (gantt/panels)', () => {
+  it('add · edit · duplicate · link · details · delete', () => {
     const crud = fakeCrud();
     renderUI(<PMGanttBarHoverPanel guid={G} crud={crud} palette={palette} animatedStyle={{}} />);
     expect(q('pm-gantt-bar-panel')).not.toBeNull();
-    expectInOrder([`pm-gantt-bar-add-${G}`, `pm-gantt-bar-edit-${G}`, `pm-gantt-bar-link-${G}`, `pm-gantt-bar-open-${G}`, `pm-gantt-bar-delete-${G}`]);
+    expectInOrder([`pm-gantt-bar-add-${G}`, `pm-gantt-bar-edit-${G}`, `pm-gantt-bar-duplicate-${G}`, `pm-gantt-bar-copy-info-${G}`, `pm-gantt-bar-share-${G}`, `pm-gantt-bar-link-${G}`, `pm-gantt-bar-open-${G}`, `pm-gantt-bar-delete-${G}`]);
     press(`pm-gantt-bar-add-${G}`);
+    press(`pm-gantt-bar-duplicate-${G}`);
     press(`pm-gantt-bar-delete-${G}`);
+    expect(crud.duplicateTask).toHaveBeenCalledWith(G);
     expect(crud.createTask).toHaveBeenCalledWith(G);
     expect(crud.deleteTask).toHaveBeenCalledWith(G);
   });

@@ -35,6 +35,30 @@ describe('pm scheduling - TRD use case', () => {
     expect(flattenVisible(tree, { [stage1]: false }).length).toBe(5);
   });
 
+  it('numbers rows 1 / 1.1 / 1.1.1 from treePath + sibling order', () => {
+    const P = 'p';
+    const row = (id: string, path: string, orderInList: number) =>
+      ({ rowGUID: id, treePath: `${P}.${path}`, projectGUID: P, orderInList, rowJSON: { name: id } }) as unknown as PMTaskRow;
+    const tree = buildTreeIndex([
+      row('b', 'b', 2048), // listed first, ordered second
+      row('a', 'a', 1024),
+      row('a2', 'a.a2', 2048),
+      row('a1', 'a.a1', 1024),
+      row('a11', 'a.a1.a11', 1024),
+    ]);
+    expect(tree.wbsById).toEqual({ a: '1', a1: '1.1', a11: '1.1.1', a2: '1.2', b: '2' });
+  });
+
+  it('keeps outline numbers when a stage is collapsed (they follow the full tree)', () => {
+    const { data } = demo();
+    const p1 = data.projects[0].rowGUID;
+    const tree = buildTreeIndex(data.tasks.filter((t) => t.projectGUID === p1));
+    const [s1, s2] = tree.childrenById[ROOT_KEY];
+    expect(tree.wbsById[s1]).toBe('1');
+    expect(tree.wbsById[s2]).toBe('2');
+    expect(tree.childrenById[s1].map((g) => tree.wbsById[g])).toEqual(tree.childrenById[s1].map((_, i) => `1.${i + 1}`));
+  });
+
   it('Task 113 starts after the finish of Task 111 and Task 112', () => {
     const { data, byName } = demo();
     const p1 = data.projects[0].rowGUID;

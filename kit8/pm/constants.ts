@@ -25,6 +25,8 @@ export const PM_TREE_DEFAULT_WIDTH = 380;
 export const PM_TREE_MIN_WIDTH = 200;
 export const PM_TREE_MAX_WIDTH = 720;
 export const PM_TREE_INDENT = 18;
+/** Outline number column ("1.2.3"), right of the Task name. */
+export const PM_TREE_COL_WBS = 52;
 export const PM_TREE_COL_START = 78;
 export const PM_TREE_COL_DAYS = 46;
 export const PM_TREE_COL_PROGRESS = 46;
@@ -41,8 +43,9 @@ export const PM_ROW_BUCKET = 6; // window only re-renders when scroll crosses a 
 export const PM_DAY_BUCKET = 14; // same idea for horizontal virtualization
 export const PM_TIMELINE_PAD_DAYS = 21; // empty days before/after the project range
 
-export const PM_HOVER_PANEL_WIDTH = 200; // tree hover CRUD panel (right end of the Task name column)
-export const PM_BAR_PANEL_WIDTH = 150; // chart hover CRUD panel (next to the bar)
+/** @deprecated the tree row panel is sized by tree/panels/treeRowPanelGeometry (kept for older imports). */
+export const PM_HOVER_PANEL_WIDTH = 250;
+export const PM_BAR_PANEL_WIDTH = 200; // chart hover CRUD panel (next to the bar)
 /** "Critical path" (chart bar) and "+ Project" (project bar) share this width. */
 export const PM_WIDE_ACTION_WIDTH = 132;
 /** px around a dependency arrow that still counts as a hit (right-click / double-click / tap). */

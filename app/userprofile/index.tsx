@@ -17,7 +17,11 @@ export default function UserProfileScreen() {
 
   const userState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
-  const isLoggedIn = !!(userState?.activeUserGUID && userState.activeUserGUID.trim() !== "");
+  const isLoggedIn = !!(
+    userState?.activeUserGUID &&
+    userState.activeUserGUID.trim() !== "" &&
+    userState.activeUserEmail !== "user@example.com"
+  );
 
   const onSignOutClick = async () => {
     dispatch(clearActiveUser());

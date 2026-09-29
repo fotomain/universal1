@@ -6,7 +6,7 @@ import React from 'react';
 import PMTaskEditModal from '../../../kit8/pm/PMTaskEditModal';
 import PMEditDependencyScreen from '../../../kit8/pm/PMEditDependencyScreen';
 import PMApproveYesNoCancelModalWindow, { askPMApprove } from '../../../kit8/pm/PMApproveYesNoCancelModalWindow';
-import PMGanttUXUISettinsModalWindow from '../../../kit8/pm/PMGanttUXUISettinsModalWindow';
+import PMGanttUXUISettinsModalWindow from '../../../kit8/pm/gantt/PMGanttUXUISettinsModalWindow';
 import { usePMStore } from '../../../kit8/pm/store';
 
 afterEach(() => {
@@ -219,6 +219,21 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(typeof d.showCriticalPath).toBe('boolean');
     expect(typeof d.showTaskProgressOnGantt).toBe('boolean');
     expect(usePMStore.getState().uxuiSettingsOpen).toBe(false);
+  });
+
+  it('task tree: "#" switch + default column order', () => {
+    seedStore();
+    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['name', 'wbs', 'start', 'days', 'progress'] }));
+    const crud = fakeCrud();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %'); // the draft comes from the project (defaults)
+    toggleSwitch('pm-uxui-tree-numbers');
+    press('pm-uxui-save');
+    const d = crud.setGanttViewSettings.mock.calls[0][0];
+    expect(d.showTreeHierarchyNumbers).toBe(false);
+    expect(d.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress']);
+    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress'], showTreeHierarchyNumbers: true }));
   });
 
   it('Cancel / ✕ close without saving; Defaults resets the draft', () => {

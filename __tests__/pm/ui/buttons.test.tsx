@@ -5,15 +5,15 @@ import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, q, renderUI, seedSt
 import React from 'react';
 import { PMIconButton } from '../../../kit8/pm/buttons/PMIconButton';
 import { PMDialogButton } from '../../../kit8/pm/buttons/PMDialogButton';
-import PMAddProjectButton from '../../../kit8/pm/buttons/PMAddProjectButton';
-import PMGanttUndoButton from '../../../kit8/pm/buttons/PMGanttUndoButton';
-import PMGanttZoomButtons from '../../../kit8/pm/buttons/PMGanttZoomButtons';
-import PMGanttScaleButtons from '../../../kit8/pm/buttons/PMGanttScaleButtons';
-import PMGanttViewToggles from '../../../kit8/pm/buttons/PMGanttViewToggles';
+import PMAddProjectButton from '../../../kit8/pm/project/buttons/PMAddProjectButton';
+import PMGanttUndoButton from '../../../kit8/pm/gantt/buttons/PMGanttUndoButton';
+import PMGanttZoomButtons from '../../../kit8/pm/gantt/buttons/PMGanttZoomButtons';
+import PMGanttScaleButtons from '../../../kit8/pm/gantt/buttons/PMGanttScaleButtons';
+import PMGanttViewToggles from '../../../kit8/pm/gantt/buttons/PMGanttViewToggles';
 import PMRowActionButtons from '../../../kit8/pm/buttons/PMRowActionButtons';
 import { makePMPalette } from '../../../kit8/pm/theme';
 import { usePMStore } from '../../../kit8/pm/store';
-import { PM_ZOOM_PRESETS } from '../../../kit8/pm/ganttGeometry';
+import { PM_ZOOM_PRESETS } from '../../../kit8/pm/gantt/ganttGeometry';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 
@@ -115,13 +115,19 @@ describe('Gantt bar buttons', () => {
 });
 
 describe('PMRowActionButtons', () => {
-  it('edit · link · details · delete call crud with the row', () => {
+  it('edit · duplicate · copy info · share · link · details · delete call crud with the row', () => {
     const { byName } = seedStore();
     const guid = byName('Task 111').rowGUID;
     const crud = fakeCrud();
     renderUI(<PMRowActionButtons guid={guid} crud={crud} palette={palette} testIDPrefix="row" />);
-    expectInOrder([`row-edit-${guid}`, `row-link-${guid}`, `row-open-${guid}`, `row-delete-${guid}`]);
+    expectInOrder([`row-edit-${guid}`, `row-duplicate-${guid}`, `row-copy-info-${guid}`, `row-share-${guid}`, `row-link-${guid}`, `row-open-${guid}`, `row-delete-${guid}`]);
     press(`row-edit-${guid}`);
+    press(`row-duplicate-${guid}`);
+    expect(crud.duplicateTask).toHaveBeenCalledWith(guid);
+    press(`row-copy-info-${guid}`);
+    press(`row-share-${guid}`);
+    expect(crud.copyTaskInfo).toHaveBeenCalledWith(guid);
+    expect(crud.shareTask).toHaveBeenCalledWith(guid);
     press(`row-link-${guid}`);
     press(`row-open-${guid}`);
     press(`row-delete-${guid}`);

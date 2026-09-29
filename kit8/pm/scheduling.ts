@@ -179,6 +179,8 @@ export interface PMTreeIndex {
   parentById: Record<string, string | null>;
   childrenById: Record<string, string[]>; // ROOT_KEY holds the top-level rows
   depthById: Record<string, number>;
+  /** Outline (WBS) number from the treePath hierarchy + sibling order: "1", "1.2", "1.2.3". */
+  wbsById: Record<string, string>;
 }
 
 export function buildTreeIndex(tasks: PMTaskRow[]): PMTreeIndex {
@@ -222,7 +224,25 @@ export function buildTreeIndex(tasks: PMTaskRow[]): PMTreeIndex {
       visit(t.rowGUID, 0, seen);
     }
   }
-  return { parentById, childrenById, depthById };
+  return { parentById, childrenById, depthById, wbsById: buildWbsNumbers(childrenById) };
+}
+
+/**
+ * Outline numbers ("1", "1.1", "1.1.1") for every row: depth-first over the treePath
+ * hierarchy, each level numbered by the sibling order (orderInList). Numbers follow
+ * the FULL tree, so they stay stable when a stage is collapsed.
+ */
+export function buildWbsNumbers(childrenById: Record<string, string[]>): Record<string, string> {
+  const wbsById: Record<string, string> = {};
+  const visit = (guid: string, wbs: string) => {
+    wbsById[guid] = wbs;
+    let n = 0;
+    // `in` check: defensive against corrupt paths listing a row twice / cycles
+    for (const c of childrenById[guid] || []) if (!(c in wbsById)) visit(c, `${wbs}.${++n}`);
+  };
+  let n = 0;
+  for (const r of childrenById[ROOT_KEY] || []) if (!(r in wbsById)) visit(r, String(++n));
+  return wbsById;
 }
 
 /** Depth-first row order, skipping children of collapsed rows (expanded defaults to true). */

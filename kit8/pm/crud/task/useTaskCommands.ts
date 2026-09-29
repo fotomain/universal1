@@ -13,20 +13,23 @@ import {
   movedTreePath,
   orderForInsert,
   useCreateTaskMutation,
+  useCreateTasksMutation,
   useDeleteTaskMutation,
   useMoveTaskMutation,
   useUpdateTaskMutation,
 } from './taskQueries';
 import { usePMStore } from '../../store';
-import { isTreeAncestorPath, projectTreePath, ROOT_KEY, workDaysBetween } from '../../scheduling';
+import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, workDaysBetween } from '../../scheduling';
 import { PMTaskRow } from '../../types';
 import type { PMUndo } from '../../undo/useUndoGanttAction';
+import { copyTaskInfo, shareTask } from '../../taskShare';
 
 export type PMBarEditMode = 'move' | 'resize-start' | 'resize-end';
 
 export function useTaskCommands(ownerGUID: string, projectGUID: string | null, undo: PMUndo) {
   const router = useRouter();
   const createTaskMutation = useCreateTaskMutation(projectGUID);
+  const createTasksMutation = useCreateTasksMutation(projectGUID);
   const updateTaskMutation = useUpdateTaskMutation(projectGUID);
   const moveTaskMutation = useMoveTaskMutation(projectGUID);
   const deleteTaskMutation = useDeleteTaskMutation(projectGUID);
@@ -140,7 +143,55 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         return insertRow({ parentGUID: s.tree.parentById[guid] ?? null, afterGUID: guid, rowKind: 'task', name: 'New task', durationDays: 1 });
       },
 
+      /**
+       * Duplicate: a copy of the row right below the original (same parent). A stage is copied with
+       * its whole subtree. The copy keeps duration, start constraint, progress, color and notes;
+       * the top row is named "<name> (copy)". Dependencies are not copied. One Undo step.
+       */
+      duplicateTask: (guid: string) => {
+        const s = st();
+        const src = s.tasksById[guid];
+        if (!src || !projectGUID || !ownerGUID) return null;
+        const parentGUID = s.tree.parentById[guid] ?? null;
+        const siblings = siblingsOf(parentGUID);
+        const i = siblings.findIndex((t) => t.rowGUID === guid);
+        const { orderInList, rebalance } = orderForInsert(siblings, guid, siblings[i + 1]?.rowGUID ?? null, null);
+        const parent = parentGUID ? s.tasksById[parentGUID] : null;
+        const rows: PMTaskRow[] = [];
+        const copy = (orig: PMTaskRow, parentPath: string, order: number, isTop: boolean): string => {
+          const rowGUID = newGUID();
+          const treePath = `${parentPath}.${toLtreeLabel(rowGUID)}`;
+          const { created_at: _c, updated_at: _u, ...rest } = orig;
+          rows.push({
+            ...rest,
+            rowGUID,
+            treePath,
+            projectGUID,
+            rowOwnerGUID: ownerGUID,
+            orderInList: order,
+            rowDuration: null, // scheduler output - written back after the insert
+            rowJSON: { ...orig.rowJSON, name: isTop ? `${orig.rowJSON.name} (copy)` : orig.rowJSON.name },
+          });
+          for (const kid of s.tree.childrenById[orig.rowGUID] || []) {
+            const k = s.tasksById[kid];
+            if (k) copy(k, treePath, k.orderInList, false); // parents first (the DB checks the parent)
+          }
+          return rowGUID;
+        };
+        const copyGUID = copy(src, parent ? parent.treePath : projectTreePath(projectGUID), orderInList, true);
+        record('task-create', `Duplicate "${src.rowJSON.name}"`);
+        for (const r of rebalance || []) updateTaskMutation.mutate({ rowGUID: r.rowGUID, patch: { orderInList: r.orderInList } });
+        createTasksMutation.mutate(rows);
+        s.setSelected(copyGUID);
+        return copyGUID;
+      },
+
       edit: (guid: string) => st().setEditing(guid),
+
+      /** Hover panels "Copy task info": plain-text summary + deep link on the clipboard. */
+      copyTaskInfo: (guid: string) => copyTaskInfo(guid),
+      /** Hover panels "Share task": share sheet / Web Share / copy the deep link. */
+      shareTask: (guid: string) => shareTask(guid),
 
       deleteTask: async (guid: string) => {
         const s = st();
@@ -295,5 +346,5 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         updateTaskMutation.mutate({ rowGUID: guid, patch });
       },
     };
-  }, [router, ownerGUID, projectGUID, createTaskMutation, updateTaskMutation, moveTaskMutation, deleteTaskMutation, record]);
+  }, [router, ownerGUID, projectGUID, createTaskMutation, createTasksMutation, updateTaskMutation, moveTaskMutation, deleteTaskMutation, record]);
 }

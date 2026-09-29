@@ -53,6 +53,8 @@ describe('uxuiSettingsOf', () => {
       networkViewMode: 'networkDiagram',
       networkDiagramVariant: 'cpmNodes',
       networkScheduleVariant: 'eventCircles',
+      showTreeHierarchyNumbers: true,
+      treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress'],
     });
   });
   it('uxuiSettings wins over legacy top-level keys', () => {

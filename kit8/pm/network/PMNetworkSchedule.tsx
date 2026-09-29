@@ -25,7 +25,7 @@ import { PMPalette, withAlpha } from '../theme';
 import { PMNetworkScheduleVariant } from '../types';
 import { PMCrud } from '../usePMCrud';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../toolbars/PMToolbarPrimitives';
-import PMGanttZoomButtons from '../buttons/PMGanttZoomButtons';
+import PMGanttZoomButtons from '../gantt/buttons/PMGanttZoomButtons';
 import PMSegmentedIconButtons, { PMSegmentOption } from './PMSegmentedIconButtons';
 import PMNetworkCanvas, { useNetworkZoom } from './PMNetworkCanvas';
 import PMNetworkInfoCard from './PMNetworkInfoCard';

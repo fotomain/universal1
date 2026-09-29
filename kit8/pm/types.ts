@@ -116,6 +116,8 @@ export interface PMDepRef {
 }
 
 import { PMProgressLinePosition, PM_DEFAULT_PROGRESS_LINE_COLOR } from './progress/line/progressLineConstants';
+import { normalizeTreeColumnsOrder, PMTreeColumnKey } from './tree/columns/treeColumns';
+export type { PMTreeColumnKey } from './tree/columns/treeColumns';
 // progress line types / constants live in kit8/pm/progress/line (re-exported for older imports)
 export type { PMProgressLinePosition } from './progress/line/progressLineConstants';
 export { PM_DEFAULT_PROGRESS_LINE_COLOR, PM_PROGRESS_LINE_POSITIONS } from './progress/line/progressLineConstants';
@@ -144,6 +146,10 @@ export interface PMUxUiSettings {
   networkDiagramVariant?: PMNetworkDiagramVariant;
   /** PMNetworkSchedule variant (default 'eventCircles'). */
   networkScheduleVariant?: PMNetworkScheduleVariant;
+  /** Tree: "#" column = hierarchy / outline number 1.2.3 (default true). */
+  showTreeHierarchyNumbers?: boolean;
+  /** Tree: column order, changed by dragging the column headers (default "#" first - see tree/columns). */
+  treeColumnsOrder?: PMTreeColumnKey[];
 }
 
 /** Gantt bar toggle (GanttToNetworkViewToggleButtons). */
@@ -181,6 +187,8 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null): Required<PMU
     networkViewMode: u.networkViewMode === 'networkSchedule' ? 'networkSchedule' : 'networkDiagram',
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',
+    showTreeHierarchyNumbers: u.showTreeHierarchyNumbers !== false,
+    treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder),
   };
 }
 

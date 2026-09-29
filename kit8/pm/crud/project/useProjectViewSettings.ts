@@ -1,12 +1,13 @@
 // Gantt UX/UI settings saved per project in project_table.rowJSON.uxuiSettings:
 //   showCriticalPath, ganttArrowsForm, showTaskProgressOnGantt,
-//   taskProgressLinePosition, projectProgressLinePosition
+//   taskProgressLinePosition, projectProgressLinePosition,
+//   showTreeHierarchyNumbers, treeColumnsOrder (tree/columns)
 // The update is optimistic (projects cache -> store.setProjects -> the chart repaints at once).
 // Legacy top-level keys (rowJSON.showCriticalPath, ...) are moved into uxuiSettings on save.
 
 import { useMemo } from 'react';
 import { usePMStore } from '../../store';
-import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMUxUiSettings, uxuiSettingsOf } from '../../types';
+import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../types';
 import { useUpdateProjectMutation } from './projectQueries';
 
 export type PMGanttViewSettings = PMUxUiSettings;
@@ -44,6 +45,20 @@ export function useProjectViewSettings(ownerGUID: string, projectGUID: string | 
       setNetworkDiagramVariant: (v: PMNetworkDiagramVariant) => {
         usePMStore.getState().setNetworkViewSettings({ networkDiagramVariant: v });
         save({ networkDiagramVariant: v });
+      },
+      // ---- tree columns (tree/columns): store first (no flicker), then saved per project
+      setTreeColumnsOrder: (order: PMTreeColumnKey[]) => {
+        usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: order });
+        save({ treeColumnsOrder: order });
+      },
+      setShowTreeHierarchyNumbers: (v: boolean) => {
+        usePMStore.getState().setTreeColumnsSettings({ showTreeHierarchyNumbers: v });
+        save({ showTreeHierarchyNumbers: v });
+      },
+      toggleTreeHierarchyNumbers: () => {
+        const v = !usePMStore.getState().showTreeHierarchyNumbers;
+        usePMStore.getState().setTreeColumnsSettings({ showTreeHierarchyNumbers: v });
+        save({ showTreeHierarchyNumbers: v });
       },
       setNetworkScheduleVariant: (v: PMNetworkScheduleVariant) => {
         usePMStore.getState().setNetworkViewSettings({ networkScheduleVariant: v });

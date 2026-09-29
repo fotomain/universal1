@@ -1,6 +1,6 @@
 # kit8/pm — Skia Gantt for Expo (iOS / Android / Web)
 
-Routes: `/pm/project/dashboard` (PMProjectDashboard) · `/pm/project/task?taskGUID=…` (PMProjectTaskInfo).
+Routes: `/pm/project/dashboard` (project/PMProjectDashboard) · `/pm/project/task?taskGUID=…` (PMProjectTaskInfo).
 Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
 
 ## Setup
@@ -35,7 +35,7 @@ Supabase ──► React Query (queries.ts)  server truth · optimistic updates 
   React for a crisp re-layout (the DHTMLX "zoom levels" become automatic: day / week / month scales).
 * **Interaction** – react-native-gesture-handler + Reanimated worklets: hit-testing, drag ghost, snapped
   date label, rubber-band link line all run on the UI thread; one JS call commits on release.
-* **Web loading** – `PMGanttSurfaceLoader.web.tsx` initialises CanvasKit, then code-splits the Skia surface
+* **Web loading** – `gantt/PMGanttSurfaceLoader.web.tsx` initialises CanvasKit, then code-splits the Skia surface
   (Skia modules must not be evaluated before CanvasKit exists). Fonts are bundled `.ttf`
   (CanvasKit cannot use system fonts).
 
@@ -63,15 +63,25 @@ stages, "start no earlier than" constraints (bar drag), optional Mon–Fri calen
 ## Interactions
 
 Chart: drag bar = move · drag ends = resize · drag ▲ knob = progress · drag ○ = create link (end → end picks
-FS/SS/FF/SF) · double-click = edit · hover panel = edit / add / link / details / delete · wheel = scroll ·
+FS/SS/FF/SF) · double-click = edit · hover panel = edit / add / duplicate / link / details / delete · wheel = scroll ·
 shift+wheel = horizontal · ctrl/⌘+wheel or pinch = zoom · Undo · Day / Week / Month / Year · Today · Fit to screen ·
 arrow shape · task progress % · Critical path. Right-click / double-click an arrow = dependency menu / editor.
 Touch: long-press a bar to drag it, pan to scroll, tap a row to show its panel.
 
-Tree: click Start / Days / % = inline edit (Enter saves, Esc cancels) · drag rows by the Task name column ·
-hover panel = add task above / below (+ inside for stages), edit, link, details, delete ·
-toolbar = add stage / task / milestone, move up/down, indent/outdent, edit, delete, expand/collapse all
+Tree: # = hierarchy / outline number (1, 1.1, 1.1.1 from treePath + sibling order, read-only), **first column by default**,
+on/off with `uxuiSettings.showTreeHierarchyNumbers` (toolbar # button or ⚙) · **drag a column header to move the column**
+(`tree/columns`, saved as `uxuiSettings.treeColumnsOrder`) · click Start / Days / % = inline edit (Enter saves, Esc cancels) ·
+drag rows by the Task name / # columns ·
+hover panel = add task above / below (+ inside for stages), edit, duplicate, copy info, share, link, details, delete - it takes the
+width its icons need (`tree/panels/treeRowPanelGeometry.ts`): ends at the Task name column's right edge and grows over the
+neighbouring columns when the name column is narrower; once shown, the pointer can move onto it over Start / Days / % ·
+toolbar = add stage / task / milestone, move up/down, indent/outdent, edit, duplicate, delete, # on/off, expand/collapse all
 · drag a row (long-press on touch) to reorder / re-parent · chevron = expand/collapse.
+
+Hover panels also have **Copy task info** (plain-text summary + deep link to the clipboard) and **Share task**
+(native share sheet; web: Web Share API, otherwise the link is copied) - `taskShare.ts`.
+
+Duplicate = copy right below the original (a stage with its whole subtree; name + " (copy)"; dependencies are not copied; one Undo step).
 
 Keyboard (web): ↑/↓ select · Alt+↑/↓ move · Tab / Shift+Tab indent/outdent · Enter/F2 edit · Del delete · Esc ·
 Ctrl/⌘+Z undo.
@@ -83,7 +93,7 @@ activates the task in the tree (parents expanded, row selected + scrolled into v
 
 `SelectProjectFromList` (search any project in the DB by substring, like the language picker) · ribbon of the
 **last selected** projects only (sorted by name, chevron scrolling, hover → ✕ "Close" removes it from the ribbon),
-stored per user in AsyncStorage (`pm.recentProjects.v1.<userGUID>`, see `recentProjects.ts`) · switching project
+stored per user in AsyncStorage (`pm.recentProjects.v1.<userGUID>`, see `project/recent/recentProjects.ts`) · switching project
 shows the loader until the project's data was re-read.
 
 ## Resize / rotation
@@ -119,6 +129,8 @@ destructive })`. One window is mounted per screen (dashboard, task page).
 | `projectProgressLinePosition` | 'onTop' \| 'onBottom' \| 'atTheMiddle' ('onBottom') | line in the time-scale header (middle = under the labels) + "Project XX%" |
 | `taskProgressLineColor` | any color ('yellow') | task bar progress lines |
 | `projectProgressLineColor` | any color ('yellow') | project progress line |
+| `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
+| `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' (['wbs','name','start','days','progress']) | drag the tree column headers; ⚙ = default order |
 
 All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button).
 
@@ -136,7 +148,7 @@ the project chip update instantly. Existing DB: run `update_pm_tables_projectPro
 
 ## Network view (`kit8/pm/network`)
 
-Gantt bar → **Gantt | Network** (`toolbars/gantt/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
+Gantt bar → **Gantt | Network** (`gantt/toolbars/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
 selector) sets `uxuiSettings.ganttVsNetworkView` = `'showGanttChart'` | `'showNetworkView'`; the dashboard then renders
 the Gantt surface or `PMNetworkView`. The same buttons sit on the network bar, so you can always switch back.
 
@@ -184,23 +196,29 @@ Delete; double-click → `PMEditDependencyScreen` (from/to GUIDs with copy, link
 `buttons/` every button, built on `kit8/components/common/ButtonApp` (improved: `variant="toolbar"`, `active`,
 `badge`, `compact`, `width`, `danger`, `textColor`, `iconSize`, `testID`, hover / long-press handlers, forwarded
 ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / secondary / text / danger…),
-`PMAddProjectButton`, `PMGanttUndoButton`, `PMGanttZoomButtons`, `PMGanttScaleButtons`, `PMGanttViewToggles`,
 `PMRowActionButtons`, `PMTipIcon` / `PMTipPressable` ·
-`toolbars/` `PMRecentProjectsToolbar` (project bar: search + recent ribbon + project CRUD), `PMToolbarPrimitives`
-(bar / divider / spacer), `toolbars/gantt/` `PMGanttToolbar` + `PMGanttLinkModeHint` + `DependencyArrowLineFormSelector`,
-`toolbars/tree/` `PMTreeToolbar` ·
+`toolbars/` `PMToolbarPrimitives` (bar / divider / spacer) ·
 `menu/` `PMContextMenu` (generic popup menu) + `PMMenuItem` + `PMDependencyMenu` (arrow right-click / tap menu) · `progress/line/` everything about the progress lines: constants (`PMProgressLinePosition`, default color,
 thickness, swatches), placement math (`progressLineGeometry.ts`), Skia `PMTaskProgressLine` / `PMProjectProgressLine`
 / `PMProjectProgressLabel`, and the settings UI (`PMProgressLineSettings`, `PMProgressLinePositionSelector`,
-`PMColorSwatchPicker`, `PMProgressLinePreview`) · `panels/gantt/` `PMGanttBarHoverPanel`, `panels/tree/` `PMTreeRowHoverPanel`, `panels/` shared `PMFloatingRowPanel` · `store.ts` Zustand · `useGanttViewport.ts` shared scroll ·
-`PMGanttSurface*.tsx` layout + web loader · `PMProjectTasksTree.tsx` · `PMProjectGanttChart.tsx` ·
-`ganttGeometry.ts` time scale · `theme.ts` palette · `PMTaskEditModal.tsx` ·
-`PMProjectTaskInfo.tsx` · `PMEditDependencyScreen.tsx` · `SelectProjectFromList.tsx` ·
-`recentProjects.ts` · `seedDemo.ts` · tests: see below.
+`PMColorSwatchPicker`, `PMProgressLinePreview`) · `panels/` shared `PMFloatingRowPanel` · `store.ts` Zustand · `useGanttViewport.ts` shared scroll ·
+**`gantt/`** Gantt pane: `PMGanttSurface*.tsx` layout (Tree | Gantt) + web loader · `PMProjectGanttChart.tsx` ·
+`ganttGeometry.ts` time scale · `PMGanttUXUISettinsModalWindow.tsx` · `gantt/buttons/` `PMGanttUndoButton`, `PMGanttZoomButtons`,
+`PMGanttScaleButtons`, `PMGanttViewToggles` · `gantt/panels/` `PMGanttBarHoverPanel` · `gantt/toolbars/` `PMGanttToolbar` +
+`PMGanttLinkModeHint` + `DependencyArrowLineFormSelector` + `GanttToNetworkViewToggleButtons` ·
+**`project/`** project level: `PMProjectDashboard.tsx` (route `/pm/project/dashboard`) · `SelectProjectFromList.tsx` ·
+`project/buttons/` `PMAddProjectButton` · **`project/recent/`** recently selected projects: `recentProjects.ts` (per-user ribbon
+store) + `PMRecentProjectsToolbar` (project bar: search + recent ribbon + project CRUD) ·
+**`tree/`** Tree pane: `PMProjectTasksTree.tsx` · `tree/columns/` column order / layout / drag & drop (`treeColumns.ts` pure,
+`useTreeColumnsLayout`, `useTreeColumnDragGesture`, Skia `PMTreeColumnsHeader` - import it by path) ·
+`tree/panels/` `PMTreeRowHoverPanel` + `treeRowPanelGeometry.ts` · `tree/toolbars/` `PMTreeToolbar` ·
+`tree/inline/` cell editors (`PMInlineCellEditor`, `EditTaskStart` / `EditTaskDays` / `EditTaskProgress`) ·
+`theme.ts` palette · `PMTaskEditModal.tsx` ·
+`PMProjectTaskInfo.tsx` · `PMEditDependencyScreen.tsx` · `seedDemo.ts` · tests: see below.
 
 ## Tests (`npx jest __tests__/pm`)
 
-* Pure logic: `scheduling.test.ts`, `undoGanttPlan.test.ts`, `progress.test.ts`, `viewSettings.test.ts`.
+* Pure logic: `scheduling.test.ts`, `undoGanttPlan.test.ts`, `progress.test.ts`, `viewSettings.test.ts`, `treeColumns.test.ts` (column order / layout / drag & drop + row panel placement).
 * **UI** (`__tests__/pm/ui`, jsdom + react-native-web): every button, toolbar, hover panel, context
   menu, dialog, progress-line picker and inline cell editor is rendered, found by `testID`, pressed /
   typed into, and checked for the right `crud` call or store change (`pmUiTestKit.tsx` = mocks + helpers).

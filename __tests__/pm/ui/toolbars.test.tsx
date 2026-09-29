@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// kit8/pm/toolbars: Gantt bar, tree toolbar, recent projects toolbar (+ project search).
+// Toolbars: Gantt bar (kit8/pm/gantt), tree toolbar (kit8/pm/tree), recent projects toolbar (kit8/pm/project/recent) (+ project search).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, typeInto } from './pmUiTestKit';
 
@@ -29,9 +29,9 @@ jest.mock('../../../kit8/pm/queries', () => ({
 }));
 
 import React from 'react';
-import PMGanttToolbar from '../../../kit8/pm/toolbars/gantt/PMGanttToolbar';
-import PMTreeToolbar from '../../../kit8/pm/toolbars/tree/PMTreeToolbar';
-import PMRecentProjectsToolbar from '../../../kit8/pm/toolbars/PMRecentProjectsToolbar';
+import PMGanttToolbar from '../../../kit8/pm/gantt/toolbars/PMGanttToolbar';
+import PMTreeToolbar from '../../../kit8/pm/tree/toolbars/PMTreeToolbar';
+import PMRecentProjectsToolbar from '../../../kit8/pm/project/recent/PMRecentProjectsToolbar';
 import PMApproveYesNoCancelModalWindow from '../../../kit8/pm/PMApproveYesNoCancelModalWindow';
 import { makePMPalette } from '../../../kit8/pm/theme';
 import { usePMStore } from '../../../kit8/pm/store';
@@ -131,16 +131,27 @@ describe('PMTreeToolbar', () => {
     const crud = fakeCrud();
     renderUI(<PMTreeToolbar crud={crud} palette={palette} />);
     press('pm-tree-delete');
+    press('pm-tree-duplicate');
     expect(crud.deleteTask).not.toHaveBeenCalled();
+    expect(crud.duplicateTask).not.toHaveBeenCalled();
     const g = byName('Task 112').rowGUID;
     act(() => usePMStore.getState().setSelected(g));
-    for (const id of ['pm-tree-move-up', 'pm-tree-move-down', 'pm-tree-outdent', 'pm-tree-indent', 'pm-tree-edit', 'pm-tree-delete']) press(id);
+    for (const id of ['pm-tree-move-up', 'pm-tree-move-down', 'pm-tree-outdent', 'pm-tree-indent', 'pm-tree-edit', 'pm-tree-duplicate', 'pm-tree-delete']) press(id);
+    expect(crud.duplicateTask).toHaveBeenCalledWith(g);
     expect(crud.moveBy).toHaveBeenCalledWith(g, -1);
     expect(crud.moveBy).toHaveBeenCalledWith(g, 1);
     expect(crud.outdent).toHaveBeenCalledWith(g);
     expect(crud.indent).toHaveBeenCalledWith(g);
     expect(crud.edit).toHaveBeenCalledWith(g);
     expect(crud.deleteTask).toHaveBeenCalledWith(g);
+  });
+
+  it('"#" button switches the hierarchy numbers (uxuiSettings.showTreeHierarchyNumbers)', () => {
+    seedStore();
+    const crud = fakeCrud();
+    renderUI(<PMTreeToolbar crud={crud} palette={palette} />);
+    press('pm-tree-toggle-numbers');
+    expect(crud.toggleTreeHierarchyNumbers).toHaveBeenCalledTimes(1);
   });
 
   it('expand all / collapse all', () => {

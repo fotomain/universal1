@@ -77,6 +77,38 @@ describe('create: stages / tasks / milestones', () => {
     expect(await run(() => h.crud.createTaskBelow('missing'))).toBeNull();
   });
 
+  it('duplicate task: copy right below the original, same fields, selected, one undo step', async () => {
+    await run(() => h.crud.setProgress(g('Task 111'), 30));
+    const copy = (await run(() => h.crud.duplicateTask(g('Task 111')))) as string;
+    expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 111', 'Task 111 (copy)', 'Task 112', 'Task 113']);
+    const orig = dbTask('Task 111');
+    const dup = h.db.task(copy)!;
+    const { name: _n1, startAt: _s1, ...origJSON } = orig.rowJSON;
+    const { name: _n2, startAt: _s2, ...dupJSON } = dup.rowJSON;
+    expect(dupJSON).toEqual(origJSON);
+    expect(dup).toMatchObject({ rowProgress: 30, projectGUID: h.P1, rowOwnerGUID: h.owner });
+    expect(dup.treePath.startsWith(`${dbTask('Stage 1').treePath}.`)).toBe(true);
+    expect(dbDeps().some((d) => d.rowGUID === copy || d.rowDependsOnGUID === copy)).toBe(false); // links are not copied
+    expect(h.store().selectedGUID).toBe(copy);
+    await h.until(() => h.store().undoLabel === 'Duplicate "Task 111"', 'undo label');
+    expect(await run(() => h.crud.duplicateTask('missing'))).toBeNull();
+  });
+
+  it('duplicate the last row: copy becomes the last sibling', async () => {
+    await run(() => h.crud.duplicateTask(g('Task 113')));
+    expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 111', 'Task 112', 'Task 113', 'Task 113 (copy)']);
+  });
+
+  it('duplicate stage: copies the whole subtree right below the stage', async () => {
+    const copy = (await run(() => h.crud.duplicateTask(g('Stage 1')))) as string;
+    expect(h.childrenOf(null)).toEqual(['Stage 1', 'Stage 1 (copy)', 'Stage 2']);
+    expect(h.childrenOf(copy)).toEqual(['Task 111', 'Task 112', 'Task 113']);
+    const copyPath = h.db.task(copy)!.treePath;
+    const kids = h.db.rows('project_task_table').filter((t) => t.treePath.startsWith(`${copyPath}.`));
+    expect(kids).toHaveLength(3);
+    expect(h.store().tasks.length).toBe(12);
+  });
+
   it('a failed insert rolls the optimistic row back and shows the error', async () => {
     h.db.failNext('pm_gantt: parent row does not exist', { table: 'project_task_table', op: 'insert' });
     await run(() => h.crud.createTask(g('Stage 1')));
@@ -363,6 +395,8 @@ describe('undo (undoGanttAction)', () => {
     ['delete task', () => h.crud.deleteTask(g('Task 111'))],
     ['delete stage', () => h.crud.deleteTask(g('Stage 1'))],
     ['add task', () => h.crud.createTaskBelow(g('Task 112'))],
+    ['duplicate task', () => h.crud.duplicateTask(g('Task 112'))],
+    ['duplicate stage', () => h.crud.duplicateTask(g('Stage 1'))],
     ['progress', () => h.crud.setProgress(g('Task 112'), 70)],
     ['duration', () => h.crud.setDurationDays(g('Task 112'), 12)],
     ['start', () => h.crud.setStartConstraint(g('Task 112'), Date.UTC(2026, 10, 2))],

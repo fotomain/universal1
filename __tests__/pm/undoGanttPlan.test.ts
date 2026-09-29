@@ -1,5 +1,5 @@
 import { computeUndoPlan, isEmptyUndoPlan } from '../../kit8/pm/undo/undoGanttPlan';
-import { distanceToPolyline, routeLink, scaleLevelsFor } from '../../kit8/pm/ganttGeometry';
+import { distanceToPolyline, routeLink, scaleLevelsFor } from '../../kit8/pm/gantt/ganttGeometry';
 import { taskColorOf, PMProjectData, PMTaskRow, PMTaskDependencyRow } from '../../kit8/pm/types';
 
 const P = 'p';

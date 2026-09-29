@@ -10,19 +10,20 @@
 import { create } from 'zustand';
 import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAULT_WIDTH, PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from './constants';
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from './scheduling';
-import { PMDepRef, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, uxuiSettingsOf, PM_DEFAULT_PROGRESS_LINE_COLOR, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from './types';
+import { PM_TREE_COLUMNS_DEFAULT_ORDER } from './tree/columns/treeColumns';
+import { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, uxuiSettingsOf, PM_DEFAULT_PROGRESS_LINE_COLOR, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from './types';
 
 /** Tree cells that can be edited inline (click on Start / Days / %). */
 export type PMCellField = 'start' | 'days' | 'progress';
 
-const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {} };
+const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {}, wbsById: {} };
 
 export interface PMStoreState {
   // ---- projects -------------------------------------------------------------------
   projectsById: Record<string, PMProjectRow>;
   projectOrder: string[];
   selectedProjectGUID: string | null;
-  /** Projects shown in the ribbon (last selected ones), persisted per user - see recentProjects.ts. */
+  /** Projects shown in the ribbon (last selected ones), persisted per user - see project/recent/recentProjects.ts. */
   recentProjectGUIDs: string[];
 
   // ---- selected project (normalized) ---------------------------------------------
@@ -50,7 +51,7 @@ export interface PMStoreState {
   treeWidth: number;
   showCriticalPath: boolean;
   lastError: string | null;
-  /** Dependency arrow shape (toolbars/gantt/DependencyArrowLineFormSelector) = project rowJSON.ganttArrowsForm. */
+  /** Dependency arrow shape (gantt/toolbars/DependencyArrowLineFormSelector) = project rowJSON.ganttArrowsForm. */
   linkLineForm: PMLinkLineForm;
   /** Progress line + "XX%" on task bars = project rowJSON.uxuiSettings.showTaskProgressOnGantt. */
   showTaskProgressOnGantt: boolean;
@@ -66,6 +67,12 @@ export interface PMStoreState {
   networkViewMode: PMNetworkViewMode;
   networkDiagramVariant: PMNetworkDiagramVariant;
   networkScheduleVariant: PMNetworkScheduleVariant;
+  /** rowJSON.uxuiSettings.showTreeHierarchyNumbers - "#" column of the tree. */
+  showTreeHierarchyNumbers: boolean;
+  /** rowJSON.uxuiSettings.treeColumnsOrder - tree column order (tree/columns). */
+  treeColumnsOrder: PMTreeColumnKey[];
+  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers). */
+  setTreeColumnsSettings: (patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder'>>) => void;
   /** Local (not saved) switch of the network view settings - used by read-only views. */
   setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
   /** PMGanttUXUISettinsModalWindow visible */
@@ -129,7 +136,15 @@ function viewSettingsOf(project: PMProjectRow | undefined) {
     networkViewMode: u.networkViewMode,
     networkDiagramVariant: u.networkDiagramVariant,
     networkScheduleVariant: u.networkScheduleVariant,
+    showTreeHierarchyNumbers: u.showTreeHierarchyNumbers,
+    treeColumnsOrder: u.treeColumnsOrder,
   };
+}
+
+/** Gantt | Network view + network sub-mode: kept when switching projects. */
+function withoutWorkspaceMode<T extends { ganttVsNetworkView: unknown; networkViewMode: unknown }>(v: T) {
+  const { ganttVsNetworkView: _v, networkViewMode: _m, ...rest } = v;
+  return rest;
 }
 
 function derive(
@@ -203,6 +218,9 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   networkDiagramVariant: 'cpmNodes',
   networkScheduleVariant: 'eventCircles',
   setNetworkViewSettings: (patch) => set(patch),
+  showTreeHierarchyNumbers: true,
+  treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
+  setTreeColumnsSettings: (patch) => set(patch),
   uxuiSettingsOpen: false,
   setUxuiSettingsOpen: (open) => set({ uxuiSettingsOpen: open }),
   depMenu: null,
@@ -217,7 +235,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       const projectsById: Record<string, PMProjectRow> = {};
       for (const p of projects) projectsById[p.rowGUID] = p;
       const projectOrder = [...projects].sort((a, b) => a.orderInList - b.orderInList).map((p) => p.rowGUID);
-      // no auto-select here: recentProjects.ts restores the last selected project per user
+      // no auto-select here: project/recent/recentProjects.ts restores the last selected project per user
       const selectedProjectGUID =
         state.selectedProjectGUID && projectsById[state.selectedProjectGUID] ? state.selectedProjectGUID : null;
       const recentProjectGUIDs = state.recentProjectGUIDs.filter((g) => !!projectsById[g]);
@@ -229,7 +247,9 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         projectOrder,
         selectedProjectGUID,
         ...(recentProjectGUIDs.length !== state.recentProjectGUIDs.length ? { recentProjectGUIDs } : {}),
-        ...(selectedProjectGUID ? viewSettingsOf(projectsById[selectedProjectGUID]) : {}),
+        // ganttVsNetworkView / networkViewMode are NOT re-applied here: they are a workspace mode
+        // that follows the user across projects (see selectProject); the setters update the store.
+        ...(selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID])) : {}),
         ...(sameProject ? derive(next, selectedProjectGUID) : {}),
       };
     }),
@@ -241,6 +261,11 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         : {
             selectedProjectGUID: rowGUID,
             ...viewSettingsOf(rowGUID ? state.projectsById[rowGUID] : undefined),
+            // Project 1 in PMNetworkView -> switch to Project N: stay in PMNetworkView (same mode).
+            // The first project opened in a session uses its own saved setting.
+            ...(rowGUID && state.selectedProjectGUID
+              ? { ganttVsNetworkView: state.ganttVsNetworkView, networkViewMode: state.networkViewMode }
+              : {}),
             loadedProjectGUID: null,
             tasks: [],
             tasksById: {},
