@@ -14,6 +14,7 @@ import AppBar from '../kit8/ui/AppBar';
 import CustomDrawerContent from '../kit8/components/CustomDrawerContent';
 import WithSQLiteNative from '../kit8/providers/WithSQLiteNative';
 import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
+import { useAuthRedirectHandler } from '../kit8/hooks/useAuthRedirectHandler';
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
 import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
@@ -163,6 +164,8 @@ function ThemeStoreSyncManager() {
 function SupabaseAuthSync() {
   const { supabase } = useSupabase();
   const dispatch = useDispatch();
+  // email "confirm via web link": deep link -> session (native), link errors (web)
+  useAuthRedirectHandler(supabase);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {

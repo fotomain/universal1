@@ -21,6 +21,7 @@ import {
 import { usePMStore } from '../../store';
 import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, workDaysBetween } from '../../scheduling';
 import { PMTaskRow } from '../../types';
+import { PMCustomColumnValue, taskCustomValuesOf } from '../../tree/columns/customColumns';
 import type { PMUndo } from '../../undo/useUndoGanttAction';
 import { copyTaskInfo, shareTask } from '../../taskShare';
 
@@ -339,6 +340,20 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         if ((t.rowJSON.manualStartAt ?? null) === manualStartAt) return;
         record('task-move', `Start of "${t.rowJSON.name}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, manualStartAt } } });
+      },
+
+      /** Custom tree column cell (project.rowJSON.customColumns): value null = cleared. Undoable. */
+      setCustomColumnValue: (guid: string, key: string, value: PMCustomColumnValue) => {
+        const t = st().tasksById[guid];
+        if (!t) return;
+        const cur = taskCustomValuesOf(t.rowJSON);
+        if ((cur[key] ?? null) === value) return;
+        const next = { ...cur };
+        if (value === null) delete next[key];
+        else next[key] = value;
+        const col = st().customColumns.find((c) => c.key === key);
+        record('task-update', `${col?.name ?? 'Custom column'} of "${t.rowJSON.name}"`);
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, customColumns: next } } });
       },
 
       updateTask: (guid: string, patch: Partial<PMTaskRow>, label = 'Edit task') => {

@@ -31,6 +31,13 @@ export interface PMRowJSON {
   /** Computed by the scheduler and written back (ISO timestamptz). Finish lives in rowDuration. */
   startAt?: string | null;
   notes?: string;
+  /**
+   * Custom tree columns (tree/columns/customColumns.ts):
+   *  project_table:      definitions + header colors  { columns: [{ key, name, type }], headersBackgroundColors: { [key]: color } }
+   *  project_task_table: values of this task          { [columnKey]: string | number | boolean | null }
+   * Read with projectCustomColumnsOf() / taskCustomValuesOf().
+   */
+  customColumns?: PMProjectCustomColumns | PMTaskCustomColumnValues;
   // ---- project_table only ----
   /** Project start (ISO timestamptz, UTC midnight). */
   projectStartAt?: string;
@@ -115,12 +122,14 @@ export interface PMDepRef {
   dependsOnGUID: string;
 }
 
-import { PMProgressLinePosition, PM_DEFAULT_PROGRESS_LINE_COLOR } from './progress/line/progressLineConstants';
-import { normalizeTreeColumnsOrder, PMTreeColumnKey } from './tree/columns/treeColumns';
+import { PMProgressLinePosition, PM_DEFAULT_PROGRESS_LINE_COLOR } from './task/progress/line/progressLineConstants';
+import { normalizeTreeColumnsOrder, normalizeTreeColumnsWidths, PMTreeColumnKey } from './tree/columns/treeColumns';
+import { projectCustomColumnsOf, PMProjectCustomColumns, PMTaskCustomColumnValues } from './tree/columns/customColumns';
 export type { PMTreeColumnKey } from './tree/columns/treeColumns';
-// progress line types / constants live in kit8/pm/progress/line (re-exported for older imports)
-export type { PMProgressLinePosition } from './progress/line/progressLineConstants';
-export { PM_DEFAULT_PROGRESS_LINE_COLOR, PM_PROGRESS_LINE_POSITIONS } from './progress/line/progressLineConstants';
+export type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType, PMCustomColumnValue, PMProjectCustomColumns, PMTaskCustomColumnValues } from './tree/columns/customColumns';
+// progress line types / constants live in kit8/pm/task/progress/line (re-exported for older imports)
+export type { PMProgressLinePosition } from './task/progress/line/progressLineConstants';
+export { PM_DEFAULT_PROGRESS_LINE_COLOR, PM_PROGRESS_LINE_POSITIONS } from './task/progress/line/progressLineConstants';
 
 /** project_table.rowJSON.uxuiSettings - how the Gantt of this project looks. */
 export interface PMUxUiSettings {
@@ -150,6 +159,8 @@ export interface PMUxUiSettings {
   showTreeHierarchyNumbers?: boolean;
   /** Tree: column order, changed by dragging the column headers (default "#" first - see tree/columns). */
   treeColumnsOrder?: PMTreeColumnKey[];
+  /** Tree: widths of resized columns (drag a header separator), e.g. { name: 260 }. No Task name width = it fills the pane. */
+  treeColumnsWidths?: Record<string, number>;
 }
 
 /** Gantt bar toggle (GanttToNetworkViewToggleButtons). */
@@ -188,7 +199,8 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null): Required<PMU
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers !== false,
-    treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder),
+    treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key)),
+    treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
   };
 }
 

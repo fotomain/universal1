@@ -12,15 +12,17 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
 import PMNetworkView from '../network/PMNetworkView';
-import PMTaskEditModal from '../PMTaskEditModal';
-import PMEditDependencyScreen from '../PMEditDependencyScreen';
-import PMDependencyMenu from '../menu/PMDependencyMenu';
+import PMTaskEditModal from '../task/PMTaskEditModal';
+import PMEditDependencyScreen from '../task/dependency/PMEditDependencyScreen';
+import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
+import PMTreeHeaderMenu from '../tree/customColumns/PMTreeHeaderMenu';
+import PMCustomColumnNameModalWindow from '../tree/customColumns/PMCustomColumnNameModalWindow';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
 import PMApproveYesNoCancelModalWindow, { isPMApproveOpen } from '../PMApproveYesNoCancelModalWindow';
 import PMUndoProvider from '../undo/PMUndoProvider';
 import { useRecentProjects } from './recent/recentProjects';
-import { PMTooltipLayer } from '../PMTooltip';
-import { PMDialogButton, PMTipIcon } from '../buttons';
+import { PMTooltipLayer } from '../inner/tooltip/PMTooltip';
+import { PMDialogButton, PMTipIcon } from '../inner/buttons';
 import { usePMStore } from '../store';
 import { uxuiSettingsOf } from '../types';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../queries';
@@ -174,6 +176,8 @@ function PMProjectDashboardInner() {
       <PMTaskEditModal crud={crud} />
       <PMEditDependencyScreen crud={crud} />
       <PMDependencyMenu crud={crud} />
+      <PMTreeHeaderMenu crud={crud} />
+      <PMCustomColumnNameModalWindow crud={crud} />
       <PMGanttUXUISettinsModalWindow crud={crud} />
       <PMApproveYesNoCancelModalWindow />
       <PMTooltipLayer />
@@ -198,7 +202,7 @@ function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       const s = usePMStore.getState();
-      if (s.editingGUID || s.editingDep || s.uxuiSettingsOpen || isPMApproveOpen()) return;
+      if (s.editingGUID || s.editingDep || s.uxuiSettingsOpen || s.customColumnPrompt || isPMApproveOpen()) return;
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (s.undoCount > 0) crud.undoGanttAction();
@@ -207,6 +211,7 @@ function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
       const sel = s.selectedGUID;
       if (e.key === 'Escape') {
         if (s.depMenu) s.setDepMenu(null);
+        else if (s.treeHeaderMenu) s.setTreeHeaderMenu(null);
         else if (s.linkSourceGUID) s.setLinkSource(null);
         else s.setSelected(null);
         return;

@@ -41,14 +41,14 @@ import {
   PMProjectProgressLabel,
   PMTaskProgressLine,
   projectProgressLineLayout,
-} from '../progress/line';
+} from '../task/progress/line';
 import { ellipsize, PMPalette } from '../theme';
 import { makeMeasure, usePMFonts } from '../skia/usePMFonts';
 import { clampValue, maxScrollX, maxScrollY, PMViewport } from '../useGanttViewport';
 import { PMCrud } from '../usePMCrud';
 import PMGanttBarHoverPanel from './panels/PMGanttBarHoverPanel';
 import PMGanttToolbar from './toolbars/PMGanttToolbar';
-import { hidePMTip, showPMTip } from '../PMTooltip';
+import { hidePMTip, showPMTip } from '../inner/tooltip/PMTooltip';
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -1149,7 +1149,7 @@ const BarShape = React.memo(function BarShape({
     );
   }
 
-  // showTaskProgressOnGantt: thick line, XX% of the task's full length (kit8/pm/progress/line)
+  // showTaskProgressOnGantt: thick line, XX% of the task's full length (kit8/pm/task/progress/line)
   //   onTop = on the top edge · onBottom = on the bottom edge · atTheMiddle = through the middle, under the text
   const progressLine =
     bar.pctLabel !== null ? (

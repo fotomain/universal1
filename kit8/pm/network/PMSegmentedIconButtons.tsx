@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { PMIconButton } from '../buttons/PMIconButton';
+import { PMIconButton } from '../inner/buttons/PMIconButton';
 
 export interface PMSegmentOption<T extends string> {
   value: T;

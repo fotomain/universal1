@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../kit8/components/common';
+import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
+import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
 import { useSelector, useDispatch } from 'react-redux';
 import { useAppSignOut } from '../../kit8/hooks/useAppSignOut';
 import { ActiveUserState, clearActiveUser } from '../../kit8/redux/activeUserSlice';
@@ -39,15 +40,14 @@ export default function UserProfileScreen() {
           <Text variant="headlineMedium" style={{ color: theme.colors.primary, marginBottom: 16, textAlign: 'center', fontWeight: 'bold' }}>
             {t('menu.userProfile')}
           </Text>
-          <Text variant="bodyLarge" style={{ color: theme.colors.onSurface, marginBottom: 24, textAlign: 'center' }}>
+          <Text variant="bodyLarge" style={{ color: theme.colors.onSurface, marginBottom: 16, textAlign: 'center' }}>
             You are currently not signed in.
           </Text>
-          <ButtonPrimaryApp 
-            onPress={onSignInClick} 
-            color={theme.colors.primary}
-          >
-            Go to Sign In
-          </ButtonPrimaryApp>
+          {/* Sign in right here with a one-time email code; the profile below shows as soon as the session exists */}
+          <SignInWithEmailOtp testIDPrefix="profile-email-otp" />
+          <ButtonTextApp testID="profile-more-signin-options" onPress={onSignInClick} style={{ marginTop: 16 }}>
+            {t('screens.moreSignInOptions')}
+          </ButtonTextApp>
         </Surface>
       </View>
     );

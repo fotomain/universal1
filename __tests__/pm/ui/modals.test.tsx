@@ -3,8 +3,8 @@
 import { act } from 'react';
 import { cleanupUI, fakeCrud, inputValue, press, q, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
 import React from 'react';
-import PMTaskEditModal from '../../../kit8/pm/PMTaskEditModal';
-import PMEditDependencyScreen from '../../../kit8/pm/PMEditDependencyScreen';
+import PMTaskEditModal from '../../../kit8/pm/task/PMTaskEditModal';
+import PMEditDependencyScreen from '../../../kit8/pm/task/dependency/PMEditDependencyScreen';
 import PMApproveYesNoCancelModalWindow, { askPMApprove } from '../../../kit8/pm/PMApproveYesNoCancelModalWindow';
 import PMGanttUXUISettinsModalWindow from '../../../kit8/pm/gantt/PMGanttUXUISettinsModalWindow';
 import { usePMStore } from '../../../kit8/pm/store';

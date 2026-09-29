@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { PMPalette } from '../../theme';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 export default function PMGanttZoomButtons({
   palette,

@@ -14,7 +14,7 @@ import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react
 import { create } from 'zustand';
 import { useDesignSystem } from '../providers/WithDesignSystem';
 import IconApp from '../components/common/IconApp';
-import { PMDialogButton } from './buttons/PMDialogButton';
+import { PMDialogButton } from './inner/buttons/PMDialogButton';
 
 export type PMApproveAnswer = 'yes' | 'no' | 'cancel';
 

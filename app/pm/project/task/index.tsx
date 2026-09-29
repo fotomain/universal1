@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import PMProjectTaskInfo from '../../../../kit8/pm/PMProjectTaskInfo';
+import PMProjectTaskInfo from '../../../../kit8/pm/task/PMProjectTaskInfo';
 
 // route: /pm/project/task?taskGUID=<uuid>&projectGUID=<uuid, optional>
 export default function PMProjectTaskRoute() {

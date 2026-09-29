@@ -3,7 +3,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { PMPalette } from '../../theme';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 export default function PMGanttLinkModeHint({ sourceName, palette, onCancel }: { sourceName: string; palette: PMPalette; onCancel: () => void }) {
   return (

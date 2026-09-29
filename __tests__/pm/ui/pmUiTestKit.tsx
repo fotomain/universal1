@@ -68,6 +68,17 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+// react-native-gesture-handler needs its native module: the drag handle only needs a pass-through detector
+jest.mock('react-native-gesture-handler', () => {
+  const chain: any = new Proxy(function () {}, { get: () => () => chain, apply: () => chain });
+  return {
+    __esModule: true,
+    GestureDetector: ({ children }: any) => children,
+    GestureHandlerRootView: ({ children }: any) => children,
+    Gesture: new Proxy({}, { get: () => () => chain }),
+  };
+});
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false, setParams: jest.fn() }),
   useNavigation: () => ({ setOptions: jest.fn() }),

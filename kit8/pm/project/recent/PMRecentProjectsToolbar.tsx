@@ -40,9 +40,9 @@ import {
 } from "../../scheduling";
 import { uxuiSettingsOf } from "../../types";
 import { approvePM } from "../../PMApproveYesNoCancelModalWindow";
-import { PMDialogButton, PMIconButton, PMTipIcon } from "../../buttons";
+import { PMDialogButton, PMIconButton, PMTipIcon } from "../../inner/buttons";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
-import { usePMTip } from "../../PMTooltip";
+import { usePMTip } from "../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 
 interface Draft {

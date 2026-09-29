@@ -1,14 +1,17 @@
-// Picks the inline editor for a tree cell (Start / Days / %) and places it over the cell
-// (the columns can be in any order - tree/columns).
+// Picks the inline editor for a tree cell (Start / Days / % / custom column) and places it over
+// the cell (the columns can be in any order - tree/columns). x values are CONTENT x: the parent
+// translates this layer by the tree's horizontal scroll.
 
 import React from 'react';
 import { PMTreeColumnsLayout } from '../columns/treeColumns';
-import { PMCellField } from '../../store';
+import { isCustomColumnKey } from '../columns/customColumns';
+import { PMCellField, usePMStore } from '../../store';
 import { PMViewport } from '../../useGanttViewport';
 import { PMCrud } from '../../usePMCrud';
 import EditTaskStart from './EditTaskStart';
 import EditTaskDays from './EditTaskDays';
 import EditTaskProgress from './EditTaskProgress';
+import EditTaskCustomValue from './EditTaskCustomValue';
 
 export default function PMInlineCellEditor({
   field,
@@ -27,15 +30,26 @@ export default function PMInlineCellEditor({
   crud: PMCrud;
   colors: { text: string; background: string; primary: string; error: string };
 }) {
+  const customColumns = usePMStore((s) => s.customColumns);
   const common = { guid, rowIndex, scrollY, crud, colors };
   const col = cols.byKey[field];
   if (!col) return null; // column hidden (narrow pane)
+  const contentW = Math.max(cols.width, cols.contentWidth);
+  if (isCustomColumnKey(field)) {
+    const def = customColumns.find((c) => c.key === field);
+    if (!def || def.type === 'boolean') return null; // booleans toggle on click
+    // text / dates need room: at least 120 / 104 px, growing to the right (or left at the content's right edge)
+    const minW = def.type === 'text' ? 140 : def.type === 'date' ? 104 : 72;
+    const w = Math.min(Math.max(minW, col.w - 4), contentW - 4);
+    const x = Math.min(col.x + 2, contentW - 2 - w);
+    return <EditTaskCustomValue {...common} column={def} x={Math.max(2, x)} width={w} />;
+  }
   if (field === 'start') {
     // a date needs more room than the column: grow to the left (or right, at the pane's left edge)
-    const w = Math.min(Math.max(104, col.w - 4), cols.width - 4);
-    const x = Math.min(Math.max(2, col.x + col.w - 2 - w), cols.width - 2 - w);
+    const w = Math.min(Math.max(104, col.w - 4), contentW - 4);
+    const x = Math.min(Math.max(2, col.x + col.w - 2 - w), contentW - 2 - w);
     return <EditTaskStart {...common} x={x} width={w} />;
   }
   if (field === 'days') return <EditTaskDays {...common} x={col.x + 2} width={col.w - 4} />;
-  return <EditTaskProgress {...common} x={col.x + 2} width={Math.min(col.w, cols.width - col.x) - 4} />;
+  return <EditTaskProgress {...common} x={col.x + 2} width={Math.min(col.w, contentW - col.x) - 4} />;
 }

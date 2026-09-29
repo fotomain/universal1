@@ -6,7 +6,7 @@ import { PM_WIDE_ACTION_WIDTH } from '../../constants';
 import { usePMStore } from '../../store';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../usePMCrud';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 export default function PMGanttViewToggles({ crud, palette }: { crud: PMCrud; palette: PMPalette }) {
   const showTaskProgress = usePMStore((s) => s.showTaskProgressOnGantt);

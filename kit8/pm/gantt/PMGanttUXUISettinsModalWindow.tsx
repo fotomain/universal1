@@ -4,7 +4,8 @@
 //   showCriticalPath · ganttArrowsForm · showTaskProgressOnGantt ·
 //   taskProgressLinePosition · taskProgressLineColor ·
 //   projectProgressLinePosition · projectProgressLineColor ·
-//   task tree: showTreeHierarchyNumbers ("#" column) · treeColumnsOrder (reset; reorder = drag the headers)
+//   task tree: showTreeHierarchyNumbers ("#" column) · treeColumnsOrder (reset; reorder = drag the headers) ·
+//              treeColumnsWidths (reset; resize = drag the header separators)
 //
 // Works on a draft: Save writes all settings at once, Cancel / ✕ / backdrop discard,
 // "Defaults" resets the draft.
@@ -15,12 +16,12 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { usePMStore } from '../store';
 import { PMUxUiSettings, uxuiSettingsOf } from '../types';
 import { PMCrud } from '../usePMCrud';
-import { PMDialogButton, PMIconButton } from '../buttons';
+import { PMDialogButton, PMIconButton } from '../inner/buttons';
 // direct file import: the progress/line index also exports Skia components, which must not
 // load on web before CanvasKit (see PMGanttSurfaceLoader.web.tsx)
-import PMProgressLineSettings from '../progress/line/PMProgressLineSettings';
-import { DEPENDENCY_LINE_FORMS } from './toolbars/DependencyArrowLineFormSelector';
-import { PM_TREE_COLUMN_TITLES, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder } from '../tree/columns/treeColumns';
+import PMProgressLineSettings from '../task/progress/line/PMProgressLineSettings';
+import { DEPENDENCY_LINE_FORMS } from '../task/dependency/DependencyArrowLineFormSelector';
+import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder, treeColumnTitle } from '../tree/columns/treeColumns';
 
 type Draft = Required<PMUxUiSettings>;
 
@@ -30,6 +31,9 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
   const project = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID] : undefined));
   const close = () => usePMStore.getState().setUxuiSettingsOpen(false);
   const [draft, setDraft] = useState<Draft>(() => uxuiSettingsOf(undefined));
+  const customColumns = usePMStore((s) => s.customColumns);
+  /** default order = built-in default + the custom columns in creation order */
+  const defaultOrder = normalizeTreeColumnsOrder(PM_TREE_COLUMNS_DEFAULT_ORDER, customColumns.map((c) => c.key));
 
   // fresh draft every time the window opens (or the project changes)
   useEffect(() => {
@@ -84,10 +88,14 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             <Row label='Show hierarchy numbers ("#" column) in the task tree' color={c.text}>
               <Switch testID="pm-uxui-tree-numbers" value={draft.showTreeHierarchyNumbers} onValueChange={(v) => set('showTreeHierarchyNumbers', v)} />
             </Row>
-            <Text style={[styles.label, { color: c.text }]}>Task tree columns (drag a column header in the tree to move it)</Text>
+            <Text style={[styles.label, { color: c.text }]}>
+              Task tree columns (drag a column header in the tree to move it, drag a header separator to resize, right-click / long-press a header to add a custom column)
+            </Text>
             <View style={[styles.segment, { alignItems: 'center' }]}>
               <Text testID="pm-uxui-tree-columns-order" style={{ color: c.text, flex: 1 }} numberOfLines={1}>
-                {draft.treeColumnsOrder.map((k) => PM_TREE_COLUMN_TITLES[k]).join('  ·  ')}
+                {normalizeTreeColumnsOrder(draft.treeColumnsOrder, customColumns.map((c) => c.key))
+                  .map((k) => treeColumnTitle(k, customColumns))
+                  .join('  ·  ')}
               </Text>
               <PMDialogButton
                 testID="pm-uxui-tree-columns-reset"
@@ -95,8 +103,17 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 icon="restart_alt"
                 title="Default order"
                 color={c.text}
-                disabled={sameTreeColumnsOrder(draft.treeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER)}
-                onPress={() => set('treeColumnsOrder', [...PM_TREE_COLUMNS_DEFAULT_ORDER])}
+                disabled={sameTreeColumnsOrder(normalizeTreeColumnsOrder(draft.treeColumnsOrder, customColumns.map((c) => c.key)), defaultOrder)}
+                onPress={() => set('treeColumnsOrder', defaultOrder)}
+              />
+              <PMDialogButton
+                testID="pm-uxui-tree-columns-widths-reset"
+                kind="text"
+                icon="fit_width"
+                title="Default widths"
+                color={c.text}
+                disabled={Object.keys(draft.treeColumnsWidths).length === 0}
+                onPress={() => set('treeColumnsWidths', {})}
               />
             </View>
 

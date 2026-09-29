@@ -6,8 +6,8 @@ import React from 'react';
 import { usePMStore } from '../../store';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../usePMCrud';
-import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../toolbars/PMToolbarPrimitives';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../inner/toolbars/PMToolbarPrimitives';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette: PMPalette }) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);

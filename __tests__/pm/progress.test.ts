@@ -55,6 +55,7 @@ describe('uxuiSettingsOf', () => {
       networkScheduleVariant: 'eventCircles',
       showTreeHierarchyNumbers: true,
       treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress'],
+      treeColumnsWidths: {},
     });
   });
   it('uxuiSettings wins over legacy top-level keys', () => {
@@ -73,7 +74,7 @@ describe('uxuiSettingsOf', () => {
   });
 });
 
-import { isProgressLineUnderText, projectProgressLineLayout, taskProgressLineWidth, taskProgressLineY } from '../../kit8/pm/progress/line/progressLineGeometry';
+import { isProgressLineUnderText, projectProgressLineLayout, taskProgressLineWidth, taskProgressLineY } from '../../kit8/pm/task/progress/line/progressLineGeometry';
 
 describe('progress line geometry', () => {
   it('task line y for onTop / onBottom / atTheMiddle', () => {

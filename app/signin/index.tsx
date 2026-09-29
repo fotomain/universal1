@@ -4,7 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp } from '../../kit8/components/common';
+import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
+import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../kit8/lib/localSecureStorage';
@@ -25,6 +26,8 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // Email sign-in: one-time code (Supabase OTP, default) or the old email + password
+  const [emailMode, setEmailMode] = useState<'otp' | 'password'>('otp');
 
   useEffect(() => {
     if (googleUser) {
@@ -149,42 +152,56 @@ export default function SignInScreen() {
 
         <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>{t('screens.or')}</Text>
 
-        <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-          {t('screens.signInWithEmail')}
-        </Text>
+        {emailMode === 'otp' ? (
+          <SignInWithEmailOtp onSignedIn={() => router.replace(returnTo as any)} />
+        ) : (
+          <>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+              {t('screens.signInWithEmail')}
+            </Text>
 
-        <TexInputMi
-          label={t('screens.email')}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="your@email.com"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          inputMode="nativePaper"
-        />
+            <TexInputMi
+              label={t('screens.email')}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="your@email.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              inputMode="nativePaper"
+            />
 
-        <TexInputMi
-          label={t('screens.password')}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          secureTextEntry
-          inputMode="nativePaper"
-        />
+            <TexInputMi
+              label={t('screens.password')}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              secureTextEntry
+              inputMode="nativePaper"
+            />
 
-        <View style={styles.buttonWrapper}>
-          {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          ) : (
-            <ButtonPrimaryApp 
-              onPress={handleEmailSignIn} 
-              color={theme.colors.primary}
-              style={{ marginTop: 8 }}
-            >
-              {t('menu.signIn')}
-            </ButtonPrimaryApp>
-          )}
-        </View>
+            <View style={styles.buttonWrapper}>
+              {loading ? (
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              ) : (
+                <ButtonPrimaryApp 
+                  onPress={handleEmailSignIn} 
+                  color={theme.colors.primary}
+                  style={{ marginTop: 8 }}
+                >
+                  {t('menu.signIn')}
+                </ButtonPrimaryApp>
+              )}
+            </View>
+          </>
+        )}
+
+        <ButtonTextApp
+          testID="signin-toggle-email-mode"
+          onPress={() => setEmailMode(emailMode === 'otp' ? 'password' : 'otp')}
+          style={{ marginTop: 8 }}
+        >
+          {emailMode === 'otp' ? t('screens.usePasswordInstead') : t('screens.useEmailCodeInstead')}
+        </ButtonTextApp>
       </Surface>
     </View>
   );

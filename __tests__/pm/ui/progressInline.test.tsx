@@ -1,12 +1,12 @@
 /** @jest-environment jsdom */
-// kit8/pm/progress/line settings UI + kit8/pm/tree/inline cell editors (Days / Start / %).
+// kit8/pm/task/progress/line settings UI + kit8/pm/tree/inline cell editors (Days / Start / %).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, inputValue, press, pressKey, q, renderUI, seedStore, typeInto } from './pmUiTestKit';
 import React from 'react';
-import PMProgressLineSettings from '../../../kit8/pm/progress/line/PMProgressLineSettings';
-import PMColorSwatchPicker from '../../../kit8/pm/progress/line/PMColorSwatchPicker';
-import PMProgressLinePositionSelector from '../../../kit8/pm/progress/line/PMProgressLinePositionSelector';
-import { PM_PROGRESS_LINE_SWATCHES } from '../../../kit8/pm/progress/line/progressLineConstants';
+import PMProgressLineSettings from '../../../kit8/pm/task/progress/line/PMProgressLineSettings';
+import PMColorSwatchPicker from '../../../kit8/pm/task/progress/line/PMColorSwatchPicker';
+import PMProgressLinePositionSelector from '../../../kit8/pm/task/progress/line/PMProgressLinePositionSelector';
+import { PM_PROGRESS_LINE_SWATCHES } from '../../../kit8/pm/task/progress/line/progressLineConstants';
 import EditTaskDays from '../../../kit8/pm/tree/inline/EditTaskDays';
 import EditTaskStart from '../../../kit8/pm/tree/inline/EditTaskStart';
 import EditTaskProgress from '../../../kit8/pm/tree/inline/EditTaskProgress';

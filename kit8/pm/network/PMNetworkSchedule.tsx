@@ -24,7 +24,7 @@ import { addWorkDays, formatDateShort, todayUTC, workDaysBetween } from '../sche
 import { PMPalette, withAlpha } from '../theme';
 import { PMNetworkScheduleVariant } from '../types';
 import { PMCrud } from '../usePMCrud';
-import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../toolbars/PMToolbarPrimitives';
+import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../inner/toolbars/PMToolbarPrimitives';
 import PMGanttZoomButtons from '../gantt/buttons/PMGanttZoomButtons';
 import PMSegmentedIconButtons, { PMSegmentOption } from './PMSegmentedIconButtons';
 import PMNetworkCanvas, { useNetworkZoom } from './PMNetworkCanvas';

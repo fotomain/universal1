@@ -1,13 +1,13 @@
 /** @jest-environment jsdom */
-// kit8/pm/panels (tree hover panel, gantt bar panel) and kit8/pm/menu (context menus).
+// kit8/pm/inner/panels (tree hover panel, gantt bar panel), kit8/pm/inner/menu (context menus), kit8/pm/task/dependency (arrow menu).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, press, q, qa, renderUI, seedStore, textOf } from './pmUiTestKit';
 import React from 'react';
 import PMTreeRowHoverPanel from '../../../kit8/pm/tree/panels/PMTreeRowHoverPanel';
 import { treeRowPanelIconCount } from '../../../kit8/pm/tree/panels/treeRowPanelGeometry';
 import PMGanttBarHoverPanel from '../../../kit8/pm/gantt/panels/PMGanttBarHoverPanel';
-import PMContextMenu from '../../../kit8/pm/menu/PMContextMenu';
-import PMDependencyMenu from '../../../kit8/pm/menu/PMDependencyMenu';
+import PMContextMenu from '../../../kit8/pm/inner/menu/PMContextMenu';
+import PMDependencyMenu from '../../../kit8/pm/task/dependency/PMDependencyMenu';
 import { makePMPalette } from '../../../kit8/pm/theme';
 import { usePMStore } from '../../../kit8/pm/store';
 

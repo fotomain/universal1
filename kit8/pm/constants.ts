@@ -51,8 +51,8 @@ export const PM_WIDE_ACTION_WIDTH = 132;
 /** px around a dependency arrow that still counts as a hit (right-click / double-click / tap). */
 export const PM_LINK_HIT_TOLERANCE = 6;
 
-/** Progress line color / thickness: kit8/pm/progress/line (re-exported for older imports). */
-export { progressLineColor, PM_PROGRESS_LINE_HEIGHT } from './progress/line/progressLineConstants';
+/** Progress line color / thickness: kit8/pm/task/progress/line (re-exported for older imports). */
+export { progressLineColor, PM_PROGRESS_LINE_HEIGHT } from './task/progress/line/progressLineConstants';
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 

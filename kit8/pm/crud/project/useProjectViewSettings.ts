@@ -1,7 +1,7 @@
 // Gantt UX/UI settings saved per project in project_table.rowJSON.uxuiSettings:
 //   showCriticalPath, ganttArrowsForm, showTaskProgressOnGantt,
 //   taskProgressLinePosition, projectProgressLinePosition,
-//   showTreeHierarchyNumbers, treeColumnsOrder (tree/columns)
+//   showTreeHierarchyNumbers, treeColumnsOrder, treeColumnsWidths (tree/columns)
 // The update is optimistic (projects cache -> store.setProjects -> the chart repaints at once).
 // Legacy top-level keys (rowJSON.showCriticalPath, ...) are moved into uxuiSettings on save.
 
@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { usePMStore } from '../../store';
 import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../types';
 import { useUpdateProjectMutation } from './projectQueries';
+import { clampTreeColumnWidth } from '../../tree/columns/treeColumns';
 
 export type PMGanttViewSettings = PMUxUiSettings;
 
@@ -50,6 +51,19 @@ export function useProjectViewSettings(ownerGUID: string, projectGUID: string | 
       setTreeColumnsOrder: (order: PMTreeColumnKey[]) => {
         usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: order });
         save({ treeColumnsOrder: order });
+      },
+      /** Header separator drag (tree/columns/useTreeColumnResizeGesture): new width of one column. */
+      setTreeColumnWidth: (key: PMTreeColumnKey, width: number) => {
+        const treeColumnsWidths = { ...usePMStore.getState().treeColumnsWidths, [key]: clampTreeColumnWidth(key, width) };
+        usePMStore.getState().setTreeColumnsSettings({ treeColumnsWidths });
+        save({ treeColumnsWidths });
+      },
+      /** Default width for one column (Task name: fills the pane again), or for all columns (no key). */
+      resetTreeColumnWidth: (key?: PMTreeColumnKey) => {
+        const cur = usePMStore.getState().treeColumnsWidths;
+        const treeColumnsWidths = key ? Object.fromEntries(Object.entries(cur).filter(([k]) => k !== key)) : {};
+        usePMStore.getState().setTreeColumnsSettings({ treeColumnsWidths });
+        save({ treeColumnsWidths });
       },
       setShowTreeHierarchyNumbers: (v: boolean) => {
         usePMStore.getState().setTreeColumnsSettings({ showTreeHierarchyNumbers: v });

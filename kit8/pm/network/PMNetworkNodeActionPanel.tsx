@@ -4,9 +4,9 @@
 
 import React from 'react';
 import { PM_BAR_PANEL_WIDTH } from '../constants';
-import { PMIconButton } from '../buttons/PMIconButton';
-import PMRowActionButtons from '../buttons/PMRowActionButtons';
-import PMFloatingRowPanel from '../panels/PMFloatingRowPanel';
+import { PMIconButton } from '../inner/buttons/PMIconButton';
+import PMRowActionButtons from '../inner/buttons/PMRowActionButtons';
+import PMFloatingRowPanel from '../inner/panels/PMFloatingRowPanel';
 import { PMPalette } from '../theme';
 import { PMCrud } from '../usePMCrud';
 

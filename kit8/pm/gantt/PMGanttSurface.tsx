@@ -20,7 +20,7 @@ import { diffDaysMs, todayUTC } from '../scheduling';
 import { usePMCrud } from '../usePMCrud';
 import PMProjectTasksTree from '../tree/PMProjectTasksTree';
 import PMProjectGanttChart from './PMProjectGanttChart';
-import { hidePMTip } from '../PMTooltip';
+import { hidePMTip } from '../inner/tooltip/PMTooltip';
 
 const MIN_CHART_WIDTH = 160;
 const RESIZE_SETTLE_MS = 180;
@@ -152,7 +152,7 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
 
   // ---- web: mouse wheel / trackpad = scroll, shift+wheel = horizontal, ctrl/⌘+wheel = zoom ----
   const zoomCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { scrollX, scrollY, dayWidthLive, bodyH, chartW, rowCount: rc, totalDays: td } = viewport; // stable shared values
+  const { scrollX, scrollY, dayWidthLive, bodyH, chartW, rowCount: rc, totalDays: td, treeScrollX, treeMaxScrollX } = viewport; // stable shared values
   const treeWidthRef = useRef(treeWidth);
   treeWidthRef.current = treeWidth;
   useEffect(() => () => {
@@ -182,12 +182,15 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
         dx = dy;
         dy = 0;
       }
-      if (dx) scrollX.value = clampValue(scrollX.value + dx, 0, maxScrollX(td.value, dayWidthLive.value, chartW.value));
+      // over a tree whose columns overflow (custom / resized columns): horizontal = the tree columns, not the time line
+      const overTree = e.clientX - el.getBoundingClientRect().left < treeWidthRef.current;
+      if (dx && overTree && treeMaxScrollX.value > 0) treeScrollX.value = clampValue(treeScrollX.value + dx, 0, treeMaxScrollX.value);
+      else if (dx) scrollX.value = clampValue(scrollX.value + dx, 0, maxScrollX(td.value, dayWidthLive.value, chartW.value));
       if (dy) scrollY.value = clampValue(scrollY.value + dy, 0, maxScrollY(rc.value, bodyH.value));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [scrollX, scrollY, dayWidthLive, bodyH, chartW, rc, td, commitZoom]);
+  }, [scrollX, scrollY, dayWidthLive, bodyH, chartW, rc, td, treeScrollX, treeMaxScrollX, commitZoom]);
 
   // ---- splitter between tree and chart ----
   const splitStart = useRef(treeWidth);

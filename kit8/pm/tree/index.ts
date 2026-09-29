@@ -4,9 +4,12 @@
 // panels / toolbars
 export { default as PMTreeRowHoverPanel } from './panels/PMTreeRowHoverPanel';
 export { default as PMTreeToolbar } from './toolbars/PMTreeToolbar';
+// custom columns (header menu + name window)
+export { PMTreeHeaderMenu, PMCustomColumnNameModalWindow } from './customColumns';
 // inline cell editors
 export { default as PMInlineCellEditor } from './inline/PMInlineCellEditor';
 export { default as PMInlineCellInput } from './inline/PMInlineCellInput';
 export { default as EditTaskStart } from './inline/EditTaskStart';
 export { default as EditTaskDays } from './inline/EditTaskDays';
 export { default as EditTaskProgress } from './inline/EditTaskProgress';
+export { default as EditTaskCustomValue } from './inline/EditTaskCustomValue';

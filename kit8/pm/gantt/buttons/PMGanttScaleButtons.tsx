@@ -3,7 +3,7 @@
 import React from 'react';
 import { PMScaleUnit, PM_ZOOM_PRESETS } from '../ganttGeometry';
 import { PMPalette } from '../../theme';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 const SCALES: { key: keyof typeof PM_ZOOM_PRESETS; unit: PMScaleUnit; icon: string; label: string; title?: string }[] = [
   { key: 'day', unit: 'day', icon: 'calendar_view_day', label: 'Day' },

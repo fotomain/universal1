@@ -4,7 +4,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { DAY_MS } from '../constants';
-import { PMIconButton } from '../buttons/PMIconButton';
+import { PMIconButton } from '../inner/buttons/PMIconButton';
 import { addWorkDays, formatDateShort, PMCalendar } from '../scheduling';
 import { PMPalette, withAlpha } from '../theme';
 import { PMActivityNetwork, PMNetActivity, PMNetEvent } from './networkModel';

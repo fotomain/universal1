@@ -5,9 +5,9 @@ import React from 'react';
 import { PM_BAR_PANEL_WIDTH } from '../../constants';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../usePMCrud';
-import { PMIconButton } from '../../buttons/PMIconButton';
-import PMFloatingRowPanel from '../../panels/PMFloatingRowPanel';
-import PMRowActionButtons from '../../buttons/PMRowActionButtons';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
+import PMFloatingRowPanel from '../../inner/panels/PMFloatingRowPanel';
+import PMRowActionButtons from '../../inner/buttons/PMRowActionButtons';
 
 export default function PMGanttBarHoverPanel({
   guid,

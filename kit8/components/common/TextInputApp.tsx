@@ -4,6 +4,10 @@ import { TextInput as PaperTextInput, HelperText as PaperHelperText, TextInputPr
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './IconApp';
 import GoogleMD3WebTextInput from './googlemd3web/GoogleMD3WebTextInput';
+import { installNoAutofillHighlight } from '../../lib/webAutofillStyle';
+
+// web: no light-blue browser autofill background on any app input
+installNoAutofillHighlight();
 
 export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInputProps, 'inputMode' | 'style' | 'error'> {
   label?: string;

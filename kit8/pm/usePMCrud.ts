@@ -12,12 +12,14 @@
 //   crud/dependency/useDependencyCommands.ts dependencies (arrows)
 //   undo/useUndoGanttAction.ts               undoGanttAction (record + undo)
 //   crud/project/useProjectViewSettings.ts   view settings in project_table.rowJSON
+//   crud/project/useProjectCustomColumns.ts  custom tree columns (project_table.rowJSON.customColumns)
 
 import { useMemo } from 'react';
 import { useTaskCommands } from './crud/task/useTaskCommands';
 import { useDependencyCommands } from './crud/dependency/useDependencyCommands';
 import { useUndoGanttAction } from './undo/useUndoGanttAction';
 import { useProjectViewSettings } from './crud/project/useProjectViewSettings';
+import { useProjectCustomColumns } from './crud/project/useProjectCustomColumns';
 import { usePMStore } from './store';
 import { approvePM } from './PMApproveYesNoCancelModalWindow';
 
@@ -28,11 +30,13 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
   const task = useTaskCommands(ownerGUID, projectGUID, undo);
   const dependency = useDependencyCommands(ownerGUID, projectGUID, undo);
   const view = useProjectViewSettings(ownerGUID, projectGUID);
+  const customColumns = useProjectCustomColumns(ownerGUID, projectGUID);
   return useMemo(
     () => ({
       ...task,
       ...dependency,
       ...view,
+      ...customColumns,
       /** Asks first (PMApproveYesNoCancelModalWindow), then undoes the last action. */
       undoGanttAction: async () => {
         const { undoCount, undoLabel } = usePMStore.getState();
@@ -47,7 +51,7 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
       },
       isUndoing: undo.isUndoing,
     }),
-    [task, dependency, view, undo]
+    [task, dependency, view, customColumns, undo]
   );
 }
 

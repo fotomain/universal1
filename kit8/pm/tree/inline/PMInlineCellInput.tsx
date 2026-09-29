@@ -22,6 +22,8 @@ export interface PMInlineCellInputProps {
   onCommit: (text: string) => string | null;
   onCancel: () => void;
   colors: { text: string; background: string; primary: string; error: string };
+  /** text alignment (default right: numbers / dates) */
+  align?: 'left' | 'right' | 'center';
 }
 
 export default function PMInlineCellInput({
@@ -37,6 +39,7 @@ export default function PMInlineCellInput({
   onCommit,
   onCancel,
   colors,
+  align = 'right',
 }: PMInlineCellInputProps) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState(false);
@@ -101,7 +104,7 @@ export default function PMInlineCellInput({
         }}
         style={[
           styles.input,
-          { color: colors.text, backgroundColor: colors.background, borderColor: error ? colors.error : colors.primary },
+          { color: colors.text, backgroundColor: colors.background, borderColor: error ? colors.error : colors.primary, textAlign: align },
           Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
         ]}
       />

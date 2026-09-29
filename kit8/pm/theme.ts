@@ -103,3 +103,15 @@ export function ellipsize(text: string, maxWidth: number, measure: (s: string) =
   }
   return lo > 0 ? text.slice(0, lo) + '…' : '';
 }
+
+/** Dark or light text for a background color (e.g. a tree header background); null for non-hex colors. */
+export function readableTextOn(background: string, dark = '#1f2937', light = '#f8fafc'): string | null {
+  const rgb = hexToRgb(background);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.4 ? dark : light;
+}

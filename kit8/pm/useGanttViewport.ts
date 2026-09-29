@@ -34,6 +34,10 @@ export interface PMViewport {
   totalDays: SharedValue<number>;
   hoverRow: SharedValue<number>; // -1 = none
   dragging: SharedValue<number>; // 1 while a bar/row drag is active (hides hover panels)
+  /** horizontal scroll of the TREE columns (custom / resized columns wider than the tree pane) */
+  treeScrollX: SharedValue<number>;
+  /** largest treeScrollX (set by the tree from its column layout) */
+  treeMaxScrollX: SharedValue<number>;
   win: PMWindow;
   /** committed zoom (React); live/committed = on-the-fly scaleX during pinch */
   dayWidth: number;
@@ -77,6 +81,8 @@ export function useGanttViewport(params: {
   const totalDaysSV = useSharedValue(totalDays);
   const hoverRow = useSharedValue(-1);
   const dragging = useSharedValue(0);
+  const treeScrollX = useSharedValue(0);
+  const treeMaxScrollX = useSharedValue(0);
 
   // keep geometry shared values in sync with React layout, re-clamping scroll
   useEffect(() => {
@@ -175,6 +181,8 @@ export function useGanttViewport(params: {
     totalDays: totalDaysSV,
     hoverRow,
     dragging,
+    treeScrollX,
+    treeMaxScrollX,
     win,
     dayWidth,
     setZoom,

@@ -1,16 +1,16 @@
 /** @jest-environment jsdom */
-// kit8/pm/buttons: every PM button exists, shows its state and calls its action.
+// kit8/pm/inner/buttons: every PM button exists, shows its state and calls its action.
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, q, renderUI, seedStore, textOf } from './pmUiTestKit';
 import React from 'react';
-import { PMIconButton } from '../../../kit8/pm/buttons/PMIconButton';
-import { PMDialogButton } from '../../../kit8/pm/buttons/PMDialogButton';
+import { PMIconButton } from '../../../kit8/pm/inner/buttons/PMIconButton';
+import { PMDialogButton } from '../../../kit8/pm/inner/buttons/PMDialogButton';
 import PMAddProjectButton from '../../../kit8/pm/project/buttons/PMAddProjectButton';
 import PMGanttUndoButton from '../../../kit8/pm/gantt/buttons/PMGanttUndoButton';
 import PMGanttZoomButtons from '../../../kit8/pm/gantt/buttons/PMGanttZoomButtons';
 import PMGanttScaleButtons from '../../../kit8/pm/gantt/buttons/PMGanttScaleButtons';
 import PMGanttViewToggles from '../../../kit8/pm/gantt/buttons/PMGanttViewToggles';
-import PMRowActionButtons from '../../../kit8/pm/buttons/PMRowActionButtons';
+import PMRowActionButtons from '../../../kit8/pm/inner/buttons/PMRowActionButtons';
 import { makePMPalette } from '../../../kit8/pm/theme';
 import { usePMStore } from '../../../kit8/pm/store';
 import { PM_ZOOM_PRESETS } from '../../../kit8/pm/gantt/ganttGeometry';

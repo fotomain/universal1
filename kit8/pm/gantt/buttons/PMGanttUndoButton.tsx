@@ -4,7 +4,7 @@ import React from 'react';
 import { usePMStore } from '../../store';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../usePMCrud';
-import { PMIconButton } from '../../buttons/PMIconButton';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 
 export default function PMGanttUndoButton({ crud, palette }: { crud: PMCrud; palette: PMPalette }) {
   const undoCount = usePMStore((s) => s.undoCount);

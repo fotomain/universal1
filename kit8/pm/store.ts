@@ -11,10 +11,25 @@ import { create } from 'zustand';
 import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAULT_WIDTH, PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from './constants';
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from './scheduling';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from './tree/columns/treeColumns';
+import { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType, projectCustomColumnsOf } from './tree/columns/customColumns';
 import { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, uxuiSettingsOf, PM_DEFAULT_PROGRESS_LINE_COLOR, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from './types';
 
-/** Tree cells that can be edited inline (click on Start / Days / %). */
-export type PMCellField = 'start' | 'days' | 'progress';
+/** Tree cells that can be edited inline (click on Start / Days / % or on a custom column cell). */
+export type PMCellField = 'start' | 'days' | 'progress' | PMCustomColumnKey;
+
+/** PMCustomColumnNameModalWindow request: add a column of `type`, or rename column `key` (current `name`). */
+export interface PMCustomColumnPrompt {
+  type: PMCustomColumnType;
+  key?: PMCustomColumnKey;
+  name?: string;
+}
+
+/** Right-click / long-press menu of the tree header (columnKey = column under the pointer). */
+export interface PMTreeHeaderMenuState {
+  x: number;
+  y: number;
+  columnKey: PMTreeColumnKey | null;
+}
 
 const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {}, wbsById: {} };
 
@@ -71,8 +86,25 @@ export interface PMStoreState {
   showTreeHierarchyNumbers: boolean;
   /** rowJSON.uxuiSettings.treeColumnsOrder - tree column order (tree/columns). */
   treeColumnsOrder: PMTreeColumnKey[];
-  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers). */
-  setTreeColumnsSettings: (patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder'>>) => void;
+  /** rowJSON.uxuiSettings.treeColumnsWidths - resized tree columns (no "name" = Task name fills the pane). */
+  treeColumnsWidths: Record<string, number>;
+  /** rowJSON.customColumns.columns - custom tree columns of the selected project. */
+  customColumns: PMCustomColumnDef[];
+  /** rowJSON.customColumns.headersBackgroundColors - tree header background per column key. */
+  treeHeadersBackgroundColors: Record<string, string>;
+  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers / setTreeColumnWidth ...). */
+  setTreeColumnsSettings: (
+    patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder' | 'treeColumnsWidths' | 'customColumns' | 'treeHeadersBackgroundColors'>>
+  ) => void;
+  /** Tree header context menu (Add / Delete custom column, header color, column width). */
+  treeHeaderMenu: PMTreeHeaderMenuState | null;
+  setTreeHeaderMenu: (menu: PMTreeHeaderMenuState | null) => void;
+  /** "Column name" window (PMCustomColumnNameModalWindow): new column of `type`, or rename column `key`. */
+  customColumnPrompt: PMCustomColumnPrompt | null;
+  setCustomColumnPrompt: (prompt: PMCustomColumnPrompt | null) => void;
+  /** "Scroll the tree horizontally until this column is visible" request (consumed by the tree). */
+  treeColumnReveal: { key: PMTreeColumnKey; nonce: number } | null;
+  requestTreeColumnReveal: (key: PMTreeColumnKey | null) => void;
   /** Local (not saved) switch of the network view settings - used by read-only views. */
   setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
   /** PMGanttUXUISettinsModalWindow visible */
@@ -138,6 +170,9 @@ function viewSettingsOf(project: PMProjectRow | undefined) {
     networkScheduleVariant: u.networkScheduleVariant,
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers,
     treeColumnsOrder: u.treeColumnsOrder,
+    treeColumnsWidths: u.treeColumnsWidths,
+    customColumns: projectCustomColumnsOf(project?.rowJSON).columns,
+    treeHeadersBackgroundColors: projectCustomColumnsOf(project?.rowJSON).headersBackgroundColors,
   };
 }
 
@@ -220,7 +255,16 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   setNetworkViewSettings: (patch) => set(patch),
   showTreeHierarchyNumbers: true,
   treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
+  treeColumnsWidths: {},
+  customColumns: [],
+  treeHeadersBackgroundColors: {},
   setTreeColumnsSettings: (patch) => set(patch),
+  treeHeaderMenu: null,
+  setTreeHeaderMenu: (menu) => set({ treeHeaderMenu: menu }),
+  customColumnPrompt: null,
+  setCustomColumnPrompt: (prompt) => set({ customColumnPrompt: prompt, treeHeaderMenu: null }),
+  treeColumnReveal: null,
+  requestTreeColumnReveal: (key) => set((s) => ({ treeColumnReveal: key ? { key, nonce: (s.treeColumnReveal?.nonce ?? 0) + 1 } : null })),
   uxuiSettingsOpen: false,
   setUxuiSettingsOpen: (open) => set({ uxuiSettingsOpen: open }),
   depMenu: null,
@@ -282,6 +326,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             depMenu: null,
             editingDep: null,
             cellEdit: null,
+            treeHeaderMenu: null,
+            customColumnPrompt: null,
             undoCount: 0,
             undoLabel: null,
             recentProjectGUIDs:

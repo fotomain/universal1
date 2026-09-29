@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { PM_WIDE_ACTION_WIDTH } from '../../constants';
-import { usePMTip } from '../../PMTooltip';
+import { usePMTip } from '../../inner/tooltip/PMTooltip';
 import ButtonApp from '../../../components/common/ButtonApp';
 
 export default function PMAddProjectButton({ onPress, compact }: { onPress: () => void; compact?: boolean }) {

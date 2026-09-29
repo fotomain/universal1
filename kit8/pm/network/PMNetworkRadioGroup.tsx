@@ -3,7 +3,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import IconApp from '../../components/common/IconApp';
-import { PMTipPressable } from '../buttons/PMTipPressables';
+import { PMTipPressable } from '../inner/buttons/PMTipPressables';
 
 export interface PMRadioOption<T extends string> {
   value: T;
