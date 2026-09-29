@@ -320,12 +320,14 @@ describe('navigation / UI state commands', () => {
   });
 });
 
-describe('Gantt view settings (project_table.rowJSON.uxuiSettings)', () => {
-  const uxui = () => h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON.uxuiSettings;
+describe('Gantt view settings (project_user_settings_table: one row per project and user)', () => {
+  const userRow = (projectGUID = h.P1) => h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === projectGUID && r.rowParentGUID === h.owner);
+  const uxui = () => userRow()!.rowJSON.uxuiSettings;
 
-  it('toggles and setters persist and reach the store', async () => {
+  it('toggles and setters persist in the user row and reach the store', async () => {
     const critical = h.store().showCriticalPath;
     await run(() => h.crud.toggleCriticalPath());
+    expect(userRow()).toMatchObject({ rowOwnerGUID: h.P1, rowParentGUID: h.owner }); // project + user (defTable pattern)
     expect(uxui().showCriticalPath).toBe(!critical);
     expect(h.store().showCriticalPath).toBe(!critical);
 
@@ -336,29 +338,67 @@ describe('Gantt view settings (project_table.rowJSON.uxuiSettings)', () => {
     await run(() => h.crud.setTaskProgressLinePosition('onBottom'));
     await run(() => h.crud.setProjectProgressLinePosition('atTheMiddle'));
     expect(uxui()).toMatchObject({ ganttArrowsForm: 'squareForm', taskProgressLinePosition: 'onBottom', projectProgressLinePosition: 'atTheMiddle', showCriticalPath: !critical });
+    // one row per (project, user) - saving again updates it; the project row is not touched
+    expect(h.db.rows('project_user_settings_table').filter((r) => r.rowOwnerGUID === h.P1)).toHaveLength(1);
+    expect(h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON.uxuiSettings).toBeUndefined();
+    expect(h.db.calls.some((c) => c.table === 'project_table' && c.op === 'update')).toBe(false);
+  });
+
+  it('criticalPathTaskColor is saved in the user row and reaches the store', async () => {
+    await run(() => h.crud.setGanttViewSettings({ criticalPathTaskColor: '#00F0FF' }));
+    expect(uxui().criticalPathTaskColor).toBe('#00F0FF');
+    expect(h.store().criticalPathTaskColor).toBe('#00F0FF');
   });
 
   it('setGanttViewSettings merges the draft of the ⚙ window', async () => {
     await run(() => h.crud.setGanttViewSettings({ taskProgressLineColor: '#22c55e', projectProgressLineColor: '#ef4444' }));
     expect(uxui()).toMatchObject({ taskProgressLineColor: '#22c55e', projectProgressLineColor: '#ef4444', ganttArrowsForm: 'smoothForm' });
   });
+
+  it('settings are per user: only rows of the signed-in user are read', async () => {
+    unmountPM();
+    h = await mountPM({
+      seed: (db, demo) => {
+        const P1 = demo.projects[0].rowGUID;
+        const owner = demo.projects[0].rowOwnerGUID;
+        db.seed('project_user_settings_table', [
+          { rowGUID: 'a0000000-0000-4000-8000-000000000001', rowOwnerGUID: P1, rowParentGUID: owner, orderInList: 0, rowJSON: { uxuiSettings: { ganttArrowsForm: 'squareForm', projectTreeContextCommandsMode: 'onRightClickMenuMode' } } },
+          { rowGUID: 'a0000000-0000-4000-8000-000000000002', rowOwnerGUID: P1, rowParentGUID: '22222222-2222-4222-8222-222222222222', orderInList: 0, rowJSON: { uxuiSettings: { showCriticalPath: false } } },
+        ]);
+      },
+    });
+    await h.until(() => h.store().linkLineForm === 'squareForm', 'user settings applied');
+    expect(h.store().projectTreeContextCommandsMode).toBe('onRightClickMenuMode');
+    expect(h.store().showCriticalPath).toBe(true); // the other user's row is not ours
+    expect(h.db.calls.find((c) => c.table === 'project_user_settings_table' && c.op === 'select')!.filters).toEqual([['eq', 'rowParentGUID', h.owner]]);
+  });
 });
 
-describe('legacy view settings', () => {
-  it('top-level rowJSON keys move into uxuiSettings on save', async () => {
+describe('legacy view settings (project_table.rowJSON)', () => {
+  it('old per-project settings are the defaults; saving writes the full user row, the project row stays', async () => {
     unmountPM();
     h = await mountPM({
       seed: (db) => {
         const p = db.rows('project_table')[0];
-        p.rowJSON = { ...p.rowJSON, showCriticalPath: false, ganttArrowsForm: 'squareForm' };
+        p.rowJSON = { ...p.rowJSON, showCriticalPath: false, ganttArrowsForm: 'squareForm', uxuiSettings: { showTaskProgressOnGantt: true } };
       },
     });
     expect(h.store().showCriticalPath).toBe(false);
+    expect(h.store().showTaskProgressOnGantt).toBe(true);
     await run(() => h.crud.setTaskProgressLinePosition('onBottom'));
-    const json = h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON;
-    expect(json).not.toHaveProperty('showCriticalPath');
-    expect(json).not.toHaveProperty('ganttArrowsForm');
-    expect(json.uxuiSettings).toMatchObject({ showCriticalPath: false, ganttArrowsForm: 'squareForm', taskProgressLinePosition: 'onBottom' });
+    const row = h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === h.P1)!;
+    expect(row.rowJSON.uxuiSettings).toMatchObject({ showCriticalPath: false, ganttArrowsForm: 'squareForm', showTaskProgressOnGantt: true, taskProgressLinePosition: 'onBottom' });
+    expect(h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON).toMatchObject({ showCriticalPath: false, uxuiSettings: { showTaskProgressOnGantt: true } });
+  });
+
+  it('table not created yet (SQL upgrade not run): saves fall back to project_table.rowJSON.uxuiSettings', async () => {
+    unmountPM();
+    h = await mountPM({ seed: (db) => void delete db.tables.project_user_settings_table });
+    await h.until(() => h.store().userSettingsTableMissing, 'missing table detected');
+    await run(() => h.crud.setGanttArrowsForm('squareForm'));
+    expect(h.store().linkLineForm).toBe('squareForm');
+    await h.until(() => h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON.uxuiSettings?.ganttArrowsForm === 'squareForm', 'legacy save');
+    expect(h.store().lastError).toBeNull();
   });
 });
 

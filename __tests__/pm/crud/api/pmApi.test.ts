@@ -243,3 +243,47 @@ describe('project_task_dependencies_table CRUD', () => {
 });
 
 export type { FakeSupabase };
+
+describe('projectUserSettingsApi (project_user_settings_table)', () => {
+  const { isMissingTableError, PMMissingTableError } = require('../../../../kit8/pm/crud/api/projectUserSettingsApi');
+  const P = '00000000-0000-4000-8000-00000000000a';
+  const U1 = '11111111-1111-4111-8111-111111111111';
+  const U2 = '22222222-2222-4222-8222-222222222222';
+
+  it('upsert: one row per (project, user); read returns only that user', async () => {
+    const db = createFakeSupabase();
+    const api = createPMApi(db as any);
+    const a = await api.saveProjectUserSettings(P, U1, { showCriticalPath: false });
+    expect(a).toMatchObject({ rowOwnerGUID: P, rowParentGUID: U1, rowJSON: { uxuiSettings: { showCriticalPath: false } } });
+    const b = await api.saveProjectUserSettings(P, U1, { showCriticalPath: true, ganttArrowsForm: 'squareForm' });
+    expect(b.rowGUID).toBe(a.rowGUID); // same row, updated
+    await api.saveProjectUserSettings(P, U2, { showTaskProgressOnGantt: true });
+    expect(db.rows('project_user_settings_table')).toHaveLength(2);
+    const upsert = db.calls.find((c) => c.op === 'upsert')!;
+    expect(upsert.table).toBe('project_user_settings_table');
+    const r1 = await api.readProjectUserSettings(U1);
+    expect(r1.missing).toBe(false);
+    expect(r1.rows.map((r) => r.rowJSON.uxuiSettings)).toEqual([{ showCriticalPath: true, ganttArrowsForm: 'squareForm' }]);
+  });
+
+  it('missing table: read answers { missing }, save throws PMMissingTableError; other errors still throw', async () => {
+    const db = createFakeSupabase();
+    delete (db.tables as any).project_user_settings_table;
+    const api = createPMApi(db as any);
+    expect(await api.readProjectUserSettings(U1)).toEqual({ rows: [], missing: true });
+    await expect(api.saveProjectUserSettings(P, U1, {})).rejects.toBeInstanceOf(PMMissingTableError);
+    const db2 = createFakeSupabase();
+    db2.failNext('new row violates row-level security policy', { table: 'project_user_settings_table' });
+    await expect(createPMApi(db2 as any).readProjectUserSettings(U1)).rejects.toThrow(/row-level security/);
+  });
+
+  it('isMissingTableError recognises Postgres / PostgREST answers', () => {
+    const t = 'project_user_settings_table';
+    expect(isMissingTableError({ code: '42P01', message: 'x' }, t)).toBe(true);
+    expect(isMissingTableError({ code: 'PGRST205', message: 'x' }, t)).toBe(true);
+    expect(isMissingTableError({ message: `Could not find the table 'public.${t}' in the schema cache` }, t)).toBe(true);
+    expect(isMissingTableError({ message: `relation "${t}" does not exist` }, t)).toBe(true);
+    expect(isMissingTableError({ message: 'permission denied' }, t)).toBe(false);
+    expect(isMissingTableError(null, t)).toBe(false);
+  });
+});

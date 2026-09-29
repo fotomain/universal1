@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet, Platform } from 'react-native';
 import { useTheme, Text, Avatar } from 'react-native-paper';
 import { DragDropContentView, type DropAsset } from 'expo-drag-drop-content-view';
 import type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDraggableFilesComponent.types';
+import { pickFilesForDrop } from './pickFilesForDrop';
 
 export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps> = ({
     folderName,
@@ -12,11 +13,39 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
     onDragLeave,
     style,
     allowedMimeTypes,
+    title,
+    subtitle,
+    compact = false,
+    pickable = false,
+    pickLabel = 'Choose file…',
+    accept,
+    pickMimeTypes,
+    disabled = false,
+    testID,
 }) => {
     const theme = useTheme();
     const [isInternalHovered, setIsInternalHovered] = useState(false);
     const dropRef = useRef<View>(null);
-    const activeHover = isHovered || isInternalHovered;
+    const activeHover = !disabled && (isHovered || isInternalHovered);
+    const onPick = async () => {
+        if (disabled) return;
+        const files = await pickFilesForDrop({ accept, mimeTypes: pickMimeTypes });
+        if (files.length) onFilesDropped(files);
+    };
+    const pickButton = pickable ? (
+        <Pressable
+            testID={testID ? `${testID}-pick` : undefined}
+            accessibilityRole="button"
+            accessibilityLabel={pickLabel}
+            disabled={disabled}
+            onPress={onPick}
+            style={[styles.pickButton, { borderColor: theme.colors.primary, opacity: disabled ? 0.5 : 1 }]}
+        >
+            <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '600' }}>
+                {pickLabel}
+            </Text>
+        </Pressable>
+    ) : null;
 
     // Web-specific robust DOM drag-and-drop listener for Firefox / Chrome / Safari on Mac
     useEffect(() => {
@@ -61,6 +90,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
             e.stopPropagation();
             counter = 0;
             setIsInternalHovered(false);
+            if (disabled) return;
             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files);
                 const items: DroppedFileItem[] = files.map((file) => ({
@@ -84,11 +114,11 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
             domNode.removeEventListener('dragleave', handleDragLeave);
             domNode.removeEventListener('drop', handleDrop);
         };
-    }, [onDragEnter, onDragLeave, onFilesDropped]);
+    }, [onDragEnter, onDragLeave, onFilesDropped, disabled]);
 
     const handleAssetsDrop = (event: { assets: DropAsset[] }) => {
         setIsInternalHovered(false);
-        if (!event?.assets?.length) return;
+        if (disabled || !event?.assets?.length) return;
 
         const collected: DroppedFileItem[] = event.assets.map((asset) => {
             const name =
@@ -110,7 +140,8 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
 
     const dropContent = (
         <View style={styles.content} pointerEvents="none">
-            <View
+            {!compact && (
+<View
                 style={[
                     styles.iconCircle,
                     {
@@ -126,6 +157,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                     color={theme.colors.primary}
                 />
             </View>
+            )}
 
             <Text
                 variant="titleMedium"
@@ -134,16 +166,17 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                     { color: activeHover ? theme.colors.onPrimaryContainer : theme.colors.onSurface },
                 ]}
             >
-                Drop files to upload to {folderName}
+                {title ?? `Drop files to upload to ${folderName}`}
             </Text>
 
             <Text
                 variant="bodyMedium"
                 style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
             >
-                Release to automatically upload • MD3 Drag & Drop
+                {subtitle ?? 'Release to automatically upload • MD3 Drag & Drop'}
             </Text>
 
+{!compact && (
             <View
                 style={[
                     styles.badge,
@@ -166,6 +199,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                     {Platform.OS === 'web' ? 'Web Drop Zone Active' : 'MD3 Drop Zone Active'}
                 </Text>
             </View>
+            )}
         </View>
     );
 
@@ -173,27 +207,34 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
         return (
             <View
                 ref={dropRef}
+                testID={testID}
                 style={[
                     styles.container,
+                    compact && styles.containerCompact,
                     {
                         backgroundColor: activeHover ? theme.colors.primaryContainer : theme.colors.surfaceVariant,
                         borderColor: activeHover ? theme.colors.primary : theme.colors.outline,
+                        opacity: disabled ? 0.6 : 1,
                     },
                     style,
                 ]}
             >
                 {dropContent}
+                {pickButton}
             </View>
         );
     }
 
     return (
         <DragDropContentView
+            testID={testID}
             style={[
                 styles.container,
+                compact && styles.containerCompact,
                 {
                     backgroundColor: activeHover ? theme.colors.primaryContainer : theme.colors.surfaceVariant,
                     borderColor: activeHover ? theme.colors.primary : theme.colors.outline,
+                    opacity: disabled ? 0.6 : 1,
                 },
                 style,
             ]}
@@ -212,6 +253,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
             allowedMimeTypes={allowedMimeTypes}
         >
             {dropContent}
+            {pickButton}
         </DragDropContentView>
     );
 };
@@ -229,6 +271,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 180,
+    },
+    containerCompact: {
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        minHeight: 96,
+        borderRadius: 12,
+    },
+    pickButton: {
+        marginTop: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 18,
+        borderWidth: 1,
     },
     content: {
         alignItems: 'center',

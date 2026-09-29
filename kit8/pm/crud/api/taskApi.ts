@@ -82,6 +82,11 @@ export function createTaskApi(sb: SupabaseClient) {
     check(await sb.from(projectTaskTable).delete().eq('rowGUID', rowGUID));
   }
 
+  /** Deletes EVERY stage / task of a project (their dependencies go with them: FK cascade). Import uses it. */
+  async function deleteProjectTasks(projectGUID: string): Promise<void> {
+    check(await sb.from(projectTaskTable).delete().eq('projectGUID', projectGUID));
+  }
+
   async function applySchedule(
     projectGUID: string,
     rows: PMScheduleWrite[],
@@ -105,6 +110,7 @@ export function createTaskApi(sb: SupabaseClient) {
     readTask,
     updateTask,
     deleteTask,
+    deleteProjectTasks,
     // batch / per project / helpers
     createTasks,
     readProjectData,

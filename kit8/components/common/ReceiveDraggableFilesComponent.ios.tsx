@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { useTheme, Text, Avatar } from 'react-native-paper';
 import { ViewDrop, MapKeysMultiItems, type FileInfo, type AvAssetType } from 'react-native-viewdrop-ios';
 import type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDraggableFilesComponent.types';
+import { pickFilesForDrop } from './pickFilesForDrop';
 
 export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps> = ({
     folderName,
@@ -11,13 +12,42 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
     onDragEnter,
     onDragLeave,
     style,
+    title,
+    subtitle,
+    compact = false,
+    pickable = false,
+    pickLabel = 'Choose file…',
+    accept,
+    pickMimeTypes,
+    disabled = false,
+    testID,
 }) => {
     const theme = useTheme();
     const [isInternalHovered, setIsInternalHovered] = useState(false);
-    const activeHover = isHovered || isInternalHovered;
+    const activeHover = !disabled && (isHovered || isInternalHovered);
+    const onPick = async () => {
+        if (disabled) return;
+        const files = await pickFilesForDrop({ accept, mimeTypes: pickMimeTypes });
+        if (files.length) onFilesDropped(files);
+    };
+    const pickButton = pickable ? (
+        <Pressable
+            testID={testID ? `${testID}-pick` : undefined}
+            accessibilityRole="button"
+            accessibilityLabel={pickLabel}
+            disabled={disabled}
+            onPress={onPick}
+            style={[styles.pickButton, { borderColor: theme.colors.primary, opacity: disabled ? 0.5 : 1 }]}
+        >
+            <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '600' }}>
+                {pickLabel}
+            </Text>
+        </Pressable>
+    ) : null;
 
     const handleFileItemsReceived = (data: Record<MapKeysMultiItems, FileInfo[]>) => {
         setIsInternalHovered(false);
+        if (disabled) return;
         const collected: DroppedFileItem[] = [];
 
         if (data[MapKeysMultiItems.file]) {
@@ -64,6 +94,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
 
     const handleSingleFileReceived = (fileInfo: FileInfo) => {
         setIsInternalHovered(false);
+        if (disabled) return;
         onFilesDropped([
             {
                 name: fileInfo.fileName,
@@ -109,8 +140,11 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
 
     return (
         <ViewDrop
+            testID={testID}
             style={[
                 styles.container,
+                compact && styles.containerCompact,
+                disabled && { opacity: 0.6 },
                 {
                     backgroundColor: activeHover ? theme.colors.primaryContainer : theme.colors.surfaceVariant,
                     borderColor: activeHover ? theme.colors.primary : theme.colors.outline,
@@ -130,7 +164,8 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
             onAudioReceived={handleSingleAudioReceived}
         >
             <View style={styles.content}>
-                <View
+                {!compact && (
+<View
                     style={[
                         styles.iconCircle,
                         {
@@ -146,6 +181,7 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                         color={theme.colors.primary}
                     />
                 </View>
+                )}
 
                 <Text
                     variant="titleMedium"
@@ -154,16 +190,17 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                         { color: activeHover ? theme.colors.onPrimaryContainer : theme.colors.onSurface },
                     ]}
                 >
-                    Drop files to upload to {folderName}
+                    {title ?? `Drop files to upload to ${folderName}`}
                 </Text>
 
                 <Text
                     variant="bodyMedium"
                     style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
                 >
-                    Release to automatically upload • iOS ViewDrop
+                    {subtitle ?? 'Release to automatically upload • iOS ViewDrop'}
                 </Text>
 
+{!compact && (
                 <View
                     style={[
                         styles.badge,
@@ -186,7 +223,9 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
                         MD3 iOS Drop Zone Active
                     </Text>
                 </View>
+                )}
             </View>
+            {pickButton}
         </ViewDrop>
     );
 };
@@ -204,6 +243,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 180,
+    },
+    containerCompact: {
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        minHeight: 96,
+        borderRadius: 12,
+    },
+    pickButton: {
+        marginTop: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 18,
+        borderWidth: 1,
     },
     content: {
         alignItems: 'center',

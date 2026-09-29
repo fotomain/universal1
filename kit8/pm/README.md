@@ -8,6 +8,8 @@ Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
 1. Run `kit8/sql/init/create_pm_tables.sql` in the Supabase SQL editor (drops + recreates the PM tables).
    Existing database from the old `pm_gantt_tables.sql`? Run `update_pm_tables_rowJSON.sql` instead (non-destructive:
    adds `rowJSON` to the dependency + closure tables, moves `rowJSON.color` → `rowJSON.taskColor`).
+   Existing PM tables (before per-user settings)? Run `update_pm_tables_userSettings.sql` (non-destructive: creates
+   `project_user_settings_table` and copies every project's old `rowJSON.uxuiSettings` into its owner's row).
    Remove everything: `delete_pm_tables.sql`.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
@@ -112,14 +114,33 @@ headers only) asks first and removes the definition, its order / width / header 
 |---|---|
 | `project_table.rowJSON.customColumns.columns` | `[{ key: 'cc_xxxxxxxx', name, type: 'text' \| 'date' \| 'boolean' \| 'integer' \| 'float', createdAt }]` |
 | `project_table.rowJSON.customColumns.headersBackgroundColors` | `{ [columnKey]: color }` - header background of any column (custom or built-in); the misspelled `headersBacgroundColors` is read too |
-| `project_table.rowJSON.uxuiSettings.treeColumnsOrder` | custom keys take part in column drag & drop like the built-in ones |
-| `project_table.rowJSON.uxuiSettings.treeColumnsWidths` | resized columns `{ name: 260, cc_xxxxxxxx: 140 }` |
+| user row `rowJSON.uxuiSettings.treeColumnsOrder` | custom keys take part in column drag & drop like the built-in ones |
+| user row `rowJSON.uxuiSettings.treeColumnsWidths` | resized columns `{ name: 260, cc_xxxxxxxx: 140 }` |
 | `project_task_table.rowJSON.customColumns` | values `{ [columnKey]: string \| number \| boolean \| null }`, dates as `YYYY-MM-DD` |
 
 Cells: click = inline editor (`EditTaskCustomValue`; Enter saves, Esc cancels, empty = clear), Boolean = click toggles the
 check box. Custom values are editable on stages too (no roll-up). Value edits are undoable (`crud.setCustomColumnValue`);
 adding / deleting columns is not part of the Gantt undo. Pure logic + parsing: `view/tree/columns/customColumns.ts`;
 commands: `crud/project/useProjectCustomColumns.ts`; UI: `view/tree/customColumns/`.
+
+## Import / export a project (`crud/exchange/project`)
+
+Gantt bar → **⇅** (right after the task progress % button) opens the **Project settings** window of the selected project
+(also: projects bar → ⚙); its **Import / Export** section is `crud/exchange/project/ImportExportProject.tsx`,
+with top tabs **Import** (TabImport, default: the drop zone) and **Export** (TabExport: the export button).
+
+* **Export** → `project_data_<project.rowGUID>.json` = `{ format: "kit8.pm.project", version: 1, exportedAt, project,
+  tasks, dependencies, uxuiSettings }` - the project with ALL its stages / tasks / milestones and dependencies, read fresh from
+  the database, plus the exporting user's Gantt settings. Web: downloaded at once; iOS / Android: share sheet (Save to Files …).
+* **Import** → drop the file on the drop zone (`ReceiveDraggableFilesComponent`, compact, with **Choose file…**) - into the
+  project being edited. If it already has tasks / dependencies it asks first (**Delete and import**; No = nothing changes),
+  then deletes them and inserts the file's rows with NEW ids and tree paths under this project (so a file can be imported next
+  to its source project), applies start / calendar / custom columns (the project keeps its name) and the file's Gantt settings
+  for this user. Not undoable.
+* Files: `projectExchangeFormat.ts` (format, file name, checks) · `export/exportProjectToFile.ts` + `downloadTextFile.ts` ·
+  `import/importProjectFromFile.ts` + `planProjectImport.ts` (pure id / path remap) + `readDroppedFileText.ts` ·
+  `useProjectExchange.ts` (React: confirm, cache refresh). Tests: `__tests__/pm/crud/exchange/projectExchange.test.ts`,
+  `__tests__/pm/ui/importExportProject.test.tsx`.
 
 ## Projects bar
 
@@ -150,17 +171,36 @@ Key: `undoGanttAction-<userGUID>-<projectGUID>`, last 100 actions kept. Button: 
 (task / stage / milestone, dependency, project) and before Undo: `await approvePM({ title, message, yesLabel,
 destructive })`. One window is mounted per screen (dashboard, task page).
 
-## Gantt UX/UI settings — `project_table.rowJSON.uxuiSettings` (per project)
+## Gantt UX/UI settings — `project_user_settings_table` (per project AND user)
+
+Each user has his own settings per project (`kit8/sql/defTable.md` pattern, RN `projectUserSettingsTable`):
+
+| column | value |
+|---|---|
+| `rowGUID` | uuid of the row |
+| `rowOwnerGUID` | `project_table.rowGUID` (the project; the row is deleted with it) |
+| `rowParentGUID` | the user = Supabase auth uid (the PM owner id, `usePMOwnerGUID`) |
+| `rowJSON` | `{ uxuiSettings: { …keys below… } }` - user specified data for visualisations |
+
+One row per (project, user) - `UNIQUE (rowOwnerGUID, rowParentGUID)`, saved with an upsert; RLS: own rows only.
+Read: `useReadProjectUserSettingsQuery(user)` (all rows of the user, dashboard + task page) → `store.userSettingsByProject`.
+Effective value = the user's row over the project's old `project_table.rowJSON.uxuiSettings` (still read as a fallback,
+e.g. after `update_pm_tables_userSettings.sql` for other users) over legacy top-level keys over defaults
+(`uxuiSettingsOf(projectJSON, userSettings)` / `effectiveUxuiSettings(store, projectGUID)`).
+Save: `useSaveProjectUserSettings(user).saveUxuiSettings(project, patch)` - store first (no flicker), then upsert;
+if the table does not exist yet (SQL not run) it saves to `project_table.rowJSON.uxuiSettings` as before.
+Custom column definitions + header colors stay project data (`project_table.rowJSON.customColumns`).
 
 | key | values (default) | UI |
 |---|---|---|
 | `showCriticalPath` | bool (true) | Critical path button |
+| `criticalPathTaskColor` | #FCFF00 · #FFAA00 · #FF5500 · #00FF66 · #00F0FF · #4455FF · #9D00FF · #FF007F · #FF0033 · #000000 ('#FF0033') | ⚙ → Task tab: color of the critical path bars, arrows and network nodes (`model/criticalPathColors.ts`, other values → default) |
 | `ganttArrowsForm` | 'smoothForm' \| 'squareForm' ('smoothForm') | arrow shape selector |
 | `showTaskProgressOnGantt` | bool (false) | % button: progress lines + "XX%" |
 | `taskProgressLinePosition` | 'onTop' \| 'onBottom' \| 'atTheMiddle' ('onTop') | atTheMiddle = through the bar, under the task text |
 | `projectProgressLinePosition` | 'onTop' \| 'onBottom' \| 'atTheMiddle' ('onBottom') | line in the time-scale header (middle = under the labels) + "Project XX%" |
-| `taskProgressLineColor` | any color ('yellow') | task bar progress lines |
-| `projectProgressLineColor` | any color ('yellow') | project progress line |
+| `taskProgressLineColor` | one of the set ('#FCFF00') | task bar progress lines |
+| `projectProgressLineColor` | one of the set ('#FCFF00') | project progress line |
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
@@ -168,14 +208,18 @@ destructive })`. One window is mounted per screen (dashboard, task page).
 | `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | Gantt bar commands: same choice for the chart |
 
 All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button), split into
-top tabs **Task** (task progress on/off, task progress line) · **Tree** (row commands, "#" column, column order / widths) ·
+top tabs **Task** (task progress on/off, task progress line, critical path task color) · **Tree** (row commands, "#" column, column order / widths) ·
 **Gantt** (critical path, arrow shape, bar commands) · **Project** (project progress line). The search field above the tabs
 finds a setting by any substring of its name (or key, e.g. `showCriticalPath`): the matches are listed in a table
 (Setting | Tab); pressing a line opens that tab, scrolls to the option and flashes it. Which option lives where:
 `view/gantt/settings/uxuiSettingsIndex.ts`.
 
-Read with `uxuiSettingsOf()` (falls back to the old top-level keys), saved with `crud/project/useProjectViewSettings.ts`.
-Default line color: `PM_DEFAULT_PROGRESS_LINE_COLOR` / `progressLineColor` = "yellow".
+Read with `uxuiSettingsOf()` (user row → project `uxuiSettings` → old top-level keys), saved with `crud/project/useProjectViewSettings.ts`
+→ `crud/project/projectUserSettingsQueries.ts` → `crud/api/projectUserSettingsApi.ts`. Switches in the window are `SwitchApp`.
+Progress line colors: ONLY `PM_PROGRESS_LINE_SWATCHES` = #FCFF00, #FFAA00, #FF5500, #00FF66, #00F0FF, #4455FF, #9D00FF,
+#FF007F, #FF0033 + white #FFFFFF + black #000000; default `PM_DEFAULT_PROGRESS_LINE_COLOR` = #FCFF00. A saved color outside
+the set (e.g. the old "yellow") is read as the default (`progressLineColorOf`). The Gantt settings window has a fixed height
+(`PM_UXUI_WINDOW_HEIGHT`, max 92 % of the screen): switching tabs never resizes it, the tab panel scrolls.
 
 ## Project progress (formula + stored procedure)
 
@@ -200,7 +244,7 @@ they are right before the **Critical path** button.
 | `PMNetworkDiagram` | activity-on-node (PDM) | `cpmNodes` (ES·D·EF / name / LS·TF·LF box) · `compactNodes` (name, duration, dates) |
 | `PMNetworkSchedule` | activity-on-arrow, events = circles | `eventCircles` (4 sectors: № / early · late / predecessor №) · `timeScaled` (x = working day, dotted = free float, dates + today on the axis) |
 
-All four settings are saved per project in `uxuiSettings` (`networkViewMode`, `networkDiagramVariant`,
+All four settings are saved per project and user in `uxuiSettings` (`networkViewMode`, `networkDiagramVariant`,
 `networkScheduleVariant`, `ganttVsNetworkView`). Numbers are working-day offsets from the project start, 0-based,
 EF = ES + D, taken from the same CPM schedule as the Gantt (`store.schedule`). Stage links are expanded to leaves and
 transitively reduced (dashed). The AOA network: one event per distinct predecessor set, then exact dummy contraction

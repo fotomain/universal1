@@ -25,6 +25,7 @@ import { pmKeys, usePMApi } from './shared/queryShared';
 
 export { pmKeys, usePMApi, useProjectMutation, useProjectsListMutation } from './shared/queryShared';
 export * from './project/projectQueries';
+export * from './project/projectUserSettingsQueries';
 export * from './task/taskQueries';
 export * from './dependency/dependencyQueries';
 

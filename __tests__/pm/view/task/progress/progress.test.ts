@@ -47,8 +47,9 @@ describe('uxuiSettingsOf', () => {
       showTaskProgressOnGantt: false,
       taskProgressLinePosition: 'onTop',
       projectProgressLinePosition: 'onBottom',
-      taskProgressLineColor: 'yellow',
-      projectProgressLineColor: 'yellow',
+      taskProgressLineColor: '#FCFF00',
+      projectProgressLineColor: '#FCFF00',
+      criticalPathTaskColor: '#FF0033',
       ganttVsNetworkView: 'showGanttChart',
       networkViewMode: 'networkDiagram',
       networkDiagramVariant: 'cpmNodes',
@@ -71,8 +72,8 @@ describe('uxuiSettingsOf', () => {
     expect([u.showCriticalPath, u.taskProgressLinePosition, u.projectProgressLinePosition]).toEqual([true, 'atTheMiddle', 'onTop']);
   });
   it('custom progress line colors', () => {
-    const u = uxuiSettingsOf({ rowKind: 'project', name: 'x', durationDays: 0, uxuiSettings: { taskProgressLineColor: '#22c55e', projectProgressLineColor: '' } });
-    expect([u.taskProgressLineColor, u.projectProgressLineColor]).toEqual(['#22c55e', 'yellow']);
+    const u = uxuiSettingsOf({ rowKind: 'project', name: 'x', durationDays: 0, uxuiSettings: { taskProgressLineColor: '#00FF66', projectProgressLineColor: '' } });
+    expect([u.taskProgressLineColor, u.projectProgressLineColor]).toEqual(['#00FF66', '#FCFF00']);
   });
 });
 
@@ -91,5 +92,22 @@ describe('progress line geometry', () => {
     expect(projectProgressLineLayout('onTop', 48).y).toBe(1);
     expect(projectProgressLineLayout('atTheMiddle', 48).y).toBe(22);
     expect(projectProgressLineLayout('onBottom', 48).y).toBe(43);
+  });
+});
+
+describe('progress line color set', () => {
+  const { PM_PROGRESS_LINE_SWATCHES, PM_DEFAULT_PROGRESS_LINE_COLOR, progressLineColorOf } = require('../../../../../kit8/pm/view/task/progress/line/progressLineConstants');
+  it('exactly 9 colors + white + black; default = the first', () => {
+    expect(PM_PROGRESS_LINE_SWATCHES).toEqual(['#FCFF00', '#FFAA00', '#FF5500', '#00FF66', '#00F0FF', '#4455FF', '#9D00FF', '#FF007F', '#FF0033', '#FFFFFF', '#000000']);
+    expect(PM_DEFAULT_PROGRESS_LINE_COLOR).toBe('#FCFF00');
+  });
+  it('saved colors outside the set (old yellow, other hex) fall back to the default; case-insensitive match', () => {
+    expect(progressLineColorOf('#ff0033')).toBe('#FF0033');
+    expect(progressLineColorOf(' #9d00ff ')).toBe('#9D00FF');
+    expect(progressLineColorOf('yellow')).toBe('#FCFF00');
+    expect(progressLineColorOf('#22c55e')).toBe('#FCFF00');
+    expect(progressLineColorOf(undefined)).toBe('#FCFF00');
+    expect(uxuiSettingsOf({ rowKind: 'project', name: 'x', uxuiSettings: { taskProgressLineColor: '#00ff66', projectProgressLineColor: '#123456' } } as any))
+      .toMatchObject({ taskProgressLineColor: '#00FF66', projectProgressLineColor: '#FCFF00' });
   });
 });

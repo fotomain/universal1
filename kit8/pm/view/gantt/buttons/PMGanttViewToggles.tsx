@@ -1,5 +1,5 @@
 // Per-project view switches (saved in project_table.rowJSON.uxuiSettings):
-// % = showTaskProgressOnGantt · ⚙ = PMGanttUXUISettinsModalWindow · [viewSwitch = Gantt | Network] · Critical path = showCriticalPath.
+// % = showTaskProgressOnGantt · ⇅ = import / export (Project settings window, crud/exchange/project) · ⚙ = PMGanttUXUISettinsModalWindow · [viewSwitch = Gantt | Network] · Critical path = showCriticalPath.
 
 import React from 'react';
 import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
@@ -21,6 +21,7 @@ export default function PMGanttViewToggles({
 }) {
   const showTaskProgress = usePMStore((s) => s.showTaskProgressOnGantt);
   const showCritical = usePMStore((s) => s.showCriticalPath);
+  const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
   return (
     <>
       <PMIconButton
@@ -31,6 +32,14 @@ export default function PMGanttViewToggles({
         activeColor={palette.primary}
         color={palette.text}
         onPress={crud.toggleTaskProgressOnGantt}
+      />
+      <PMIconButton
+        testID="pm-gantt-import-export"
+        icon="import_export"
+        title="Import / export the project (project_data_….json) - opens the Project settings"
+        color={palette.text}
+        disabled={!selectedProjectGUID}
+        onPress={() => usePMStore.getState().openProjectSettings(selectedProjectGUID)}
       />
       <PMIconButton
         testID="pm-gantt-uxui-settings"

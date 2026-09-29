@@ -63,6 +63,12 @@ const ALIAS_MAP: Record<string, string> = {
     'store-plus': 'storefront',
     'trending-up': 'trending_up',
     'tray-arrow-down': 'download',
+    // names that are NOT in @material-symbols-svg (the icon would be invisible) -> closest existing symbol
+    import_export: 'swap_vert',
+    pencil: 'edit',
+    play: 'play_arrow',
+    microphone: 'mic',
+    video: 'videocam',
     'cloud-upload-outline': 'cloud_upload',
     'cloud-upload': 'cloud_upload',
     'chevron-up': 'chevron_forward',

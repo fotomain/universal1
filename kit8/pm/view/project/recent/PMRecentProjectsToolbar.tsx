@@ -7,7 +7,7 @@
 //                            removes the project from the ribbon (not from the database)
 //  * project CRUD          - create / settings / delete (demo data: only in the empty state)
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
   Modal,
@@ -38,12 +38,13 @@ import {
   parseDateISO,
   todayUTC,
 } from "../scheduling";
-import { uxuiSettingsOf } from "../../../model/types";
 import { approvePM } from "../../../inner/PMApproveYesNoCancelModalWindow";
 import { PMDialogButton, PMIconButton, PMTipIcon } from "../../../inner/buttons";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
+import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
+import type { PMProjectRow, PMRowJSON } from "../../../model/types";
 
 interface Draft {
   rowGUID: string | null; // null = new project
@@ -74,7 +75,10 @@ export default function PMRecentProjectsToolbar({
   const updateProject = useUpdateProjectMutation(ownerGUID);
   const deleteProject = useDeleteProjectMutation(ownerGUID);
 
-  const compact = useWindowDimensions().width < 640;
+  const win = useWindowDimensions();
+  const compact = win.width < 640;
+  /** Project settings window: FIXED height (new / edit, any Import / Export tab) - the body scrolls */
+  const settingsHeight = Math.max(320, Math.min(PM_PROJECT_SETTINGS_HEIGHT, Math.round(win.height * 0.92)));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const selected = selectedProjectGUID
@@ -136,19 +140,42 @@ export default function PMRecentProjectsToolbar({
       skipWeekends: false,
     });
   };
-  const openEdit = () => {
-    if (!selected) return;
+  const openEditFor = (project: PMProjectRow | undefined) => {
+    if (!project) return;
     setDraftError(null);
-    const start = selected.rowJSON.projectStartAt
-      ? Date.parse(selected.rowJSON.projectStartAt)
+    const start = project.rowJSON.projectStartAt
+      ? Date.parse(project.rowJSON.projectStartAt)
       : todayUTC();
     setDraft({
-      rowGUID: selected.rowGUID,
-      name: selected.rowJSON.name || "",
+      rowGUID: project.rowGUID,
+      name: project.rowJSON.name || "",
       start: formatDateISO(start),
-      skipWeekends: !!selected.rowJSON.skipWeekends,
+      skipWeekends: !!project.rowJSON.skipWeekends,
     });
   };
+  const openEdit = () => openEditFor(selected);
+
+  // ⇅ on the Gantt bar (import / export) asks for this window: store.openProjectSettings(guid)
+  const settingsRequest = usePMStore((s) => s.projectSettingsRequest);
+  useEffect(() => {
+    if (!settingsRequest) return;
+    const s = usePMStore.getState();
+    openEditFor(s.projectsById[settingsRequest.guid]);
+    s.openProjectSettings(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsRequest]);
+
+  /** after an import the project's start / calendar come from the file: show them (Save keeps them) */
+  const onImported = (json: PMRowJSON) =>
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            start: json.projectStartAt ? formatDateISO(Date.parse(json.projectStartAt)) : d.start,
+            skipWeekends: !!json.skipWeekends,
+          }
+        : d,
+    );
 
   const saveDraft = () => {
     if (!draft) return;
@@ -172,7 +199,7 @@ export default function PMRecentProjectsToolbar({
     } else {
       const row = buildRow(name, startMs);
       row.rowJSON.skipWeekends = draft.skipWeekends;
-      row.rowJSON.uxuiSettings = uxuiSettingsOf(undefined);
+      // no uxuiSettings here: the Gantt / tree settings are per user (project_user_settings_table), defaults until saved
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -324,9 +351,10 @@ export default function PMRecentProjectsToolbar({
         >
           <View style={styles.modalOverlay}>
             <View
+              testID="pm-project-settings-window"
               style={[
                 styles.modalCard,
-                { backgroundColor: themeColors.surface },
+                { height: settingsHeight, backgroundColor: themeColors.surface },
               ]}
             >
               <Text
@@ -339,6 +367,7 @@ export default function PMRecentProjectsToolbar({
               >
                 {draft?.rowGUID ? "Project settings" : "New project"}
               </Text>
+              <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               <Text style={[styles.label, { color: themeColors.text }]}>
                 Name
               </Text>
@@ -389,6 +418,15 @@ export default function PMRecentProjectsToolbar({
                   {draftError}
                 </Text>
               )}
+              {!!draft?.rowGUID && (
+                <ImportExportProject
+                  ownerGUID={ownerGUID}
+                  projectGUID={draft.rowGUID}
+                  colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
+                  onImported={onImported}
+                />
+              )}
+              </ScrollView>
               <View
                 style={{
                   flexDirection: "row",
@@ -417,6 +455,9 @@ export default function PMRecentProjectsToolbar({
     </View>
   );
 }
+
+/** Height (px) of the Project settings window - fixed (max 92 % of the screen), the body scrolls. */
+export const PM_PROJECT_SETTINGS_HEIGHT = 600;
 
 function ProjectChip({
   guid,
@@ -556,7 +597,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 16,
   },
-  modalCard: { width: "100%", maxWidth: 360, borderRadius: 12, padding: 16 },
+  modalCard: { width: "100%", maxWidth: 420, borderRadius: 12, padding: 16 },
+  modalBody: { flex: 1, minHeight: 0 },
   label: { fontSize: 12, opacity: 0.7, marginTop: 10, marginBottom: 4 },
   input: {
     borderWidth: 1,

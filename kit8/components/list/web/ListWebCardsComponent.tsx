@@ -28,6 +28,7 @@ import IconApp from '../../common/IconApp';
 import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostComponent';
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../redux/uxuiSlice";
+import {useRealtimeEntity} from "../../../redux/reusable/useRealtimeEntity";
 
 const _testMode=false
 
@@ -60,6 +61,12 @@ export function ListWebCardsComponent({
   crudGapBetweenCards = 12,
   createNewCardComponent: CustomCreateForm,
   CardComponent: CustomCardComponent,
+  mapItemToCard,
+  onCreateNewItem,
+  onEditCard,
+  realtime = false,
+  readParams,
+  itemLabel = "Post",
 }: ListWebCardsComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
@@ -70,6 +77,8 @@ export function ListWebCardsComponent({
   const primaryLightColor = theme.colors.primaryContainer || "#eaddff";
 
   const entityState = useSelector((state: any) => state[entityName]);
+  // Supabase Realtime: changes from other browsers / devices reach this list (ref-counted per entity)
+  useRealtimeEntity(entityName, { enabled: realtime, readParams: { paginationSize: 50, originationCurrentPage: 0, ...(readParams || {}) } });
   const entityMetaData = SystemMetaData[entityName];
   const actions = entityMetaData?.actions;
 
@@ -139,6 +148,7 @@ export function ListWebCardsComponent({
         },
         onEdit: (id: string) => {
           handleCardTouch(id);
+          if (onEditCard) return onEditCard(id, card.rawItem);
           setEditingCardId(editingCardId === id ? null : id);
         },
         onCreateBeforeCurrent: (id: string) => {
@@ -198,6 +208,7 @@ export function ListWebCardsComponent({
       },
       onEdit: (id: string) => {
         handleCardTouch(id);
+        if (onEditCard) return onEditCard(id, card.rawItem);
         setEditingCardId(editingCardId === id ? null : id);
       },
       onCreateBeforeCurrent: (id: string) => {
@@ -279,6 +290,7 @@ export function ListWebCardsComponent({
   };
 
   const handleCreateNewItem = () => {
+    if (onCreateNewItem) return onCreateNewItem();
     setIsCreateFormOpen(true);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
@@ -294,25 +306,30 @@ export function ListWebCardsComponent({
         readAllFilter: "",
         rowOwnerGUID: listOwnerGUID,
           rowParentGUID: 'empty',
+        ...(readParams || {}),
       }));
     }
   }, [actions, entityName, listOwnerGUID, dispatch]);
 
-  // Sync Redux entity data to local cards list when server data loads
+  // Sync Redux entity data to local cards list when server data loads / changes (also realtime)
   useEffect(() => {
-    if (entityState?.entityDataFromServer && entityState.entityDataFromServer.length > 0) {
-      const mapped = entityState.entityDataFromServer.map((item: any, idx: number) => {
-        const json = item?.rowJSON || {};
-        return {
-          id: item?.rowGUID || `card-${idx + 1}`,
-          title: json.mediaPostTitle || item?.title || `Media Post ${idx + 1}`,
-          description: json.mediaPostDescription || item?.description || "",
-          orderInList: item?.orderInList,
-          rawItem: item,
-        };
-      });
-      setCards(mapped);
-    }
+    const rows = entityState?.entityDataFromServer;
+    if (!Array.isArray(rows)) return;
+    // an empty list is real only after a read or a realtime change (not the initial empty state)
+    if (rows.length === 0 && !(entityState?.readSuccessful === 1 || entityState?.lastRealtimeEvent)) return;
+    const mapped = rows.map((item: any, idx: number) => {
+      if (mapItemToCard) return mapItemToCard(item, idx);
+      const json = item?.rowJSON || {};
+      return {
+        id: item?.rowGUID || `card-${idx + 1}`,
+        title: json.mediaPostTitle || item?.title || `Media Post ${idx + 1}`,
+        description: json.mediaPostDescription || item?.description || "",
+        orderInList: item?.orderInList,
+        rawItem: item,
+      };
+    });
+    setCards(mapped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityState?.entityDataFromServer]);
 
     // Helper to calculate new order for an item
@@ -713,7 +730,7 @@ export function ListWebCardsComponent({
 
     dispatch(
       showSnackbar({
-        message: "Post successfully deleted",
+        message: `${itemLabel} successfully deleted`,
         actionLabel: "Undo",
         undoDeleteData: undoItemData,
         entityName: entityName || "mediaPostReusable",
@@ -767,7 +784,7 @@ export function ListWebCardsComponent({
 
     dispatch(
       showSnackbar({
-        message: "Post successfully deleted",
+        message: `${itemLabel} successfully deleted`,
         actionLabel: "Undo",
         undoDeleteData: firstUndoData,
         entityName: entityName || "mediaPostReusable",

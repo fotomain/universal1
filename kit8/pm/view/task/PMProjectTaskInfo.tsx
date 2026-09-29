@@ -18,6 +18,7 @@ import {
   usePMOwnerGUID,
   useReadProjectDataQuery,
   useReadProjectsQuery,
+  useReadProjectUserSettingsQuery,
   useReadTaskClosureQuery,
   useReadTaskQuery,
 } from '../../crud/queries';
@@ -73,6 +74,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   const taskQuery = useReadTaskQuery(!task ? taskGUID : null);
   const projectGUID = task?.projectGUID || taskQuery.data?.projectGUID || projectHint || null;
   useReadProjectsQuery(ownerGUID);
+  useReadProjectUserSettingsQuery(ownerGUID);
   useEffect(() => {
     if (projectGUID && projectGUID !== selectedProjectGUID) usePMStore.getState().selectProject(projectGUID);
   }, [projectGUID, selectedProjectGUID]);

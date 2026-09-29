@@ -14,7 +14,9 @@
 import { useMemo } from 'react';
 import { approvePM } from '../../inner/PMApproveYesNoCancelModalWindow';
 import { usePMStore } from '../../store/store_pm';
-import { PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
+import { PMTreeColumnKey, PMUxUiSettings } from '../../model/types';
+import { effectiveUxuiSettings } from '../../store/storeDerive';
+import { useSaveProjectUserSettings } from './projectUserSettingsQueries';
 import {
   isCustomColumnKey,
   newCustomColumnKey,
@@ -33,18 +35,20 @@ import { useUpdateTaskMutation } from '../task/taskQueries';
 
 export function useProjectCustomColumns(ownerGUID: string, projectGUID: string | null) {
   const updateProject = useUpdateProjectMutation(ownerGUID);
+  const { saveUxuiSettings } = useSaveProjectUserSettings(ownerGUID);
   const updateTaskMutation = useUpdateTaskMutation(projectGUID);
 
   return useMemo(() => {
     const st = () => usePMStore.getState();
     const project = () => (projectGUID ? st().projectsById[projectGUID] : undefined);
 
-    /** One project write: new customColumns + uxuiSettings patch; the store switches first (no flicker). */
+    /**
+     * customColumns = project data (project_table.rowJSON); the column order / widths patch = the user's
+     * settings (project_user_settings_table). The store switches first (no flicker).
+     */
     const saveProject = (customColumns: ReturnType<typeof withCustomColumnAdded>, uxui: PMUxUiSettings) => {
       const p = project();
       if (!p) return;
-      const { showCriticalPath: _a, ganttArrowsForm: _b, showTaskProgressOnGantt: _c, ...json } = p.rowJSON;
-      const uxuiSettings: PMUxUiSettings = { ...uxuiSettingsOf(p.rowJSON), ...uxui };
       const cc = projectCustomColumnsOf({ customColumns });
       st().setTreeColumnsSettings({
         customColumns: cc.columns,
@@ -52,7 +56,8 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         ...(uxui.treeColumnsOrder ? { treeColumnsOrder: uxui.treeColumnsOrder } : {}),
         ...(uxui.treeColumnsWidths ? { treeColumnsWidths: uxui.treeColumnsWidths } : {}),
       });
-      updateProject.mutate({ rowGUID: p.rowGUID, patch: { rowJSON: { ...json, customColumns, uxuiSettings } } });
+      updateProject.mutate({ rowGUID: p.rowGUID, patch: { rowJSON: { ...p.rowJSON, customColumns } } });
+      if (Object.keys(uxui).length) saveUxuiSettings(p.rowGUID, uxui);
     };
 
     return {
@@ -83,7 +88,7 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         if (validateCustomColumnName(name, cur.columns)) return null;
         const key = newCustomColumnKey(cur.columns.map((c) => c.key));
         const def: PMCustomColumnDef = { key, name: name.trim(), type, createdAt: new Date().toISOString() };
-        const order = [...uxuiSettingsOf(p.rowJSON).treeColumnsOrder.filter((k) => k !== key), key];
+        const order = [...effectiveUxuiSettings(st(), p.rowGUID).treeColumnsOrder.filter((k) => k !== key), key];
         saveProject(withCustomColumnAdded(p.rowJSON, def), { treeColumnsOrder: order });
         st().setCustomColumnPrompt(null);
         st().requestTreeColumnReveal(key);
@@ -116,7 +121,7 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         });
         if (!ok) return false;
         const fresh = project() ?? p;
-        const u = uxuiSettingsOf(fresh.rowJSON);
+        const u = effectiveUxuiSettings(st(), fresh.rowGUID);
         const { [key]: _w, ...treeColumnsWidths } = u.treeColumnsWidths;
         saveProject(withCustomColumnDeleted(fresh.rowJSON, key), { treeColumnsOrder: u.treeColumnsOrder.filter((k) => k !== key), treeColumnsWidths });
         const s = st();
@@ -135,5 +140,5 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         saveProject(withHeaderBackgroundColor(p.rowJSON, key, color), {});
       },
     };
-  }, [projectGUID, updateProject, updateTaskMutation]);
+  }, [projectGUID, updateProject, updateTaskMutation, saveUxuiSettings]);
 }

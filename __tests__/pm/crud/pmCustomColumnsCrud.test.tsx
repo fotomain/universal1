@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // AddCustomProjectTaskColumn + columnResizeWidth end-to-end: usePMCrud -> React Query -> in-memory
 // Supabase -> Zustand. Definitions / header colors in project.rowJSON.customColumns, values in
-// task.rowJSON.customColumns, order / widths in project.rowJSON.uxuiSettings.
+// task.rowJSON.customColumns, order / widths in the user's project_user_settings_table row (rowJSON.uxuiSettings).
 import { mockApprove, mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import { act } from 'react';
 
@@ -16,6 +16,8 @@ const run = async (fn: () => unknown) => {
 };
 const g = (name: string) => h.byName(name).rowGUID as string;
 const projectJSON = () => h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON;
+/** this user's settings row of Project 1 (project_user_settings_table.rowJSON.uxuiSettings) */
+const userUxui = () => h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === h.P1 && r.rowParentGUID === h.owner)!.rowJSON.uxuiSettings;
 
 beforeEach(async () => {
   mockApprove.mockReset();
@@ -47,7 +49,7 @@ describe('custom columns', () => {
     });
     expect(key).toMatch(/^cc_/);
     expect(projectJSON().customColumns.columns).toEqual([expect.objectContaining({ key, name: 'Budget', type: 'float' })]);
-    const order = projectJSON().uxuiSettings.treeColumnsOrder;
+    const order = userUxui().treeColumnsOrder;
     expect(order[order.length - 1]).toBe(key);
     expect(h.store().customColumns.map((c) => c.key)).toEqual([key]);
     expect(h.store().treeColumnsOrder[h.store().treeColumnsOrder.length - 1]).toBe(key);
@@ -58,7 +60,7 @@ describe('custom columns', () => {
     await run(() => {
       key2 = h.crud.addCustomColumn('boolean', 'Approved');
     });
-    expect(projectJSON().uxuiSettings.treeColumnsOrder.slice(-2)).toEqual([key, key2]);
+    expect(userUxui().treeColumnsOrder.slice(-2)).toEqual([key, key2]);
     expect(h.crud.validateCustomColumnName('budget')).toBe('A column with this name already exists');
     await run(() => {
       expect(h.crud.addCustomColumn('text', 'BUDGET')).toBeNull();
@@ -102,8 +104,8 @@ describe('custom columns', () => {
     expect(mockApprove.mock.calls[1][0].message).toMatch(/1 task/);
     const json = projectJSON();
     expect(json.customColumns).toEqual({ columns: [], headersBackgroundColors: {} });
-    expect(json.uxuiSettings.treeColumnsOrder).not.toContain(key);
-    expect(json.uxuiSettings.treeColumnsWidths).not.toHaveProperty(key);
+    expect(userUxui().treeColumnsOrder).not.toContain(key);
+    expect(userUxui().treeColumnsWidths).not.toHaveProperty(key);
     expect(h.db.task(g('Task 111'))!.rowJSON.customColumns).toEqual({});
     expect(h.store().customColumns).toEqual([]);
   });
@@ -130,15 +132,15 @@ describe('custom columns', () => {
 });
 
 describe('columnResizeWidth', () => {
-  it('setTreeColumnWidth / resetTreeColumnWidth persist uxuiSettings.treeColumnsWidths', async () => {
+  it('setTreeColumnWidth / resetTreeColumnWidth persist the user row uxuiSettings.treeColumnsWidths', async () => {
     await run(() => h.crud.setTreeColumnWidth('name', 280.6));
-    expect(projectJSON().uxuiSettings.treeColumnsWidths).toEqual({ name: 281 });
+    expect(userUxui().treeColumnsWidths).toEqual({ name: 281 });
     expect(h.store().treeColumnsWidths).toEqual({ name: 281 });
     await run(() => h.crud.setTreeColumnWidth('days', 2)); // clamped
-    expect(projectJSON().uxuiSettings.treeColumnsWidths).toEqual({ name: 281, days: 32 });
+    expect(userUxui().treeColumnsWidths).toEqual({ name: 281, days: 32 });
     await run(() => h.crud.resetTreeColumnWidth('name'));
-    expect(projectJSON().uxuiSettings.treeColumnsWidths).toEqual({ days: 32 });
+    expect(userUxui().treeColumnsWidths).toEqual({ days: 32 });
     await run(() => h.crud.resetTreeColumnWidth());
-    expect(projectJSON().uxuiSettings.treeColumnsWidths).toEqual({});
+    expect(userUxui().treeColumnsWidths).toEqual({});
   });
 });

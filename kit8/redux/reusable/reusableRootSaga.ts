@@ -1,14 +1,20 @@
-import {call, getContext, put, select, takeEvery, takeLatest} from "redux-saga/effects";
+import {call, cancel, cancelled, fork, getContext, put, select, take, takeEvery, takeLatest} from "redux-saga/effects";
+import {createSupabaseTableChannel} from "./createSupabaseTableChannel";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
 import {showSnackbar} from "../uxuiSlice";
 
 export const reusableRootSaga = (p: any) => {
     const {tableName, actions, doBefore, doAfter, afterCreateOneSuccess} = p
+    /** SystemMetaData key of the entity (redux state key, snackbar Undo target); older callers: derived from the table */
+    const entityKey: string = p.entityKey || tableName.replace("Table", "")
+    /** "Post", "Currency", ... for user messages */
+    const itemLabel: string = p.itemLabel || "Post"
 
     function* readAll(action: any) {
         try {
-            const { paginationSize, originationCurrentPage, readAllFilter, orderBy = "orderInList", ascending = true } =
+            // defaults: first page of 1000 rows (catalogs, realtime catch-up reads send no paging)
+            const { paginationSize = 1000, originationCurrentPage = 0, readAllFilter, orderBy = "orderInList", ascending = true } =
             action.payload || {};
 
             const entityObject = SystemMetaData[action.type.replace("/readData", "")]
@@ -315,10 +321,11 @@ export const reusableRootSaga = (p: any) => {
             yield put(actions.deleteOneSuccess(deletedRecord));
             yield put(
                 showSnackbar({
-                    message: "Post successfully deleted",
+                    message: `${itemLabel} successfully deleted`,
                     actionLabel: "Undo",
                     undoDeleteData: deletedRecord,
-                    entityName: tableName.replace("Table", "") || "mediaPostReusable",
+                    // SystemMetaData key (not the table name): Undo re-creates the row in THIS entity
+                    entityName: entityKey || "mediaPostReusable",
                 })
             );
         } catch (e) {
@@ -359,7 +366,7 @@ export const reusableRootSaga = (p: any) => {
 
             // 1. Opportunistic search in Redux state
             // @ts-ignore
-            const sliceState: any = yield select((state: any) => state[tableName] || {});
+            const sliceState: any = yield select((state: any) => state[entityKey] || state[tableName] || {});
             const reduxStateData = sliceState?.entityDataFromServer || [];
 
             let filteredData = reduxStateData;
@@ -452,6 +459,57 @@ export const reusableRootSaga = (p: any) => {
         }
     }
 
+    // █████████████████████████████ realtime (Supabase postgres_changes -> list, any browser / device)
+    // startRealtime({ filter?, readParams? }) opens ONE channel for the table; every row change is applied
+    // with applyRealtimeChange. On every SUBSCRIBED (first connect and reconnects) a catch-up readData runs,
+    // so changes made while the socket was down are not lost. stopRealtime (or a new start) closes it.
+    function* realtimeWorker(action: any): Generator<any, void, any> {
+        const {filter, readParams} = action.payload || {};
+        const dbAdapters: any = yield getContext("dbAdapters");
+        const supabase: any = dbAdapters?.supabaseAdapter?.supabase;
+        if (!supabase?.channel) {
+            yield put(actions.realtimeStatusChanged({status: "CHANNEL_ERROR", error: "Supabase realtime is not available"}));
+            return;
+        }
+        const chan: any = yield call(createSupabaseTableChannel, supabase, {
+            table: tableName,
+            filter,
+            channelName: `reusable:${entityKey}:${tableName}:${filter || "all"}:${Date.now()}`,
+        });
+        try {
+            while (true) {
+                const msg: any = yield take(chan);
+                if (msg.kind === "status") {
+                    yield put(actions.realtimeStatusChanged({status: msg.status, error: msg.error}));
+                    if (msg.status === "SUBSCRIBED") {
+                        yield put(actions.readData({paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {})}));
+                    }
+                } else if (msg.kind === "change" && msg.payload?.table === tableName) {
+                    yield put(actions.applyRealtimeChange(msg.payload));
+                }
+            }
+        } finally {
+            chan.close();
+            if (yield cancelled()) {
+                yield put(actions.realtimeStatusChanged({status: "CLOSED"}));
+            }
+        }
+    }
+
+    function* realtimeWatcher(): Generator<any, void, any> {
+        let task: any = null;
+        while (true) {
+            const action: any = yield take([actions.startRealtime.type, actions.stopRealtime.type]);
+            if (task) {
+                yield cancel(task);
+                task = null;
+            }
+            if (action.type === actions.startRealtime.type) {
+                task = yield fork(realtimeWorker, action);
+            }
+        }
+    }
+
     return function* reusableSagas() {
         yield takeLatest(actions.readData, readAll);
         if (actions.filterAll) {
@@ -463,5 +521,8 @@ export const reusableRootSaga = (p: any) => {
         yield takeEvery(actions.deleteOne, deleteOne);
         yield takeEvery(actions.upsertOne, upsertOne);
         yield takeEvery(actions.createOneSuccess, doAfterCreateOneSuccess);
+        if (actions.startRealtime) {
+            yield fork(realtimeWatcher);
+        }
     };
 };

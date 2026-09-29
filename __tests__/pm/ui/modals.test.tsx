@@ -187,7 +187,7 @@ describe('PMApproveYesNoCancelModalWindow', () => {
 
 describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
   const TAB_CONTROLS: Record<string, string[]> = {
-    TabTask: ['pm-uxui-progress', 'pm-uxui-task-line-pos-onTop', 'pm-uxui-task-line-pos-atTheMiddle', 'pm-uxui-task-line-pos-onBottom', 'pm-uxui-task-line-color-default'],
+    TabTask: ['pm-uxui-progress', 'pm-uxui-task-line-pos-onTop', 'pm-uxui-task-line-pos-atTheMiddle', 'pm-uxui-task-line-pos-onBottom', 'pm-uxui-task-line-color-default', 'pm-uxui-critical-color-default'],
     TabTree: ['pm-uxui-tree-commands-onHoverPanelMode', 'pm-uxui-tree-commands-onRightClickMenuMode', 'pm-uxui-tree-numbers', 'pm-uxui-tree-columns-reset', 'pm-uxui-tree-columns-widths-reset'],
     TabGantt: ['pm-uxui-critical', 'pm-uxui-arrows-smoothForm', 'pm-uxui-arrows-squareForm', 'pm-uxui-gantt-commands-onHoverPanelMode', 'pm-uxui-gantt-commands-onRightClickMenuMode'],
     TabProject: ['pm-uxui-project-line-pos-onTop', 'pm-uxui-project-line-pos-atTheMiddle', 'pm-uxui-project-line-pos-onBottom', 'pm-uxui-project-line-color-default'],
@@ -209,6 +209,49 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     }
   });
 
+  it('fixed window height: switching tabs or searching does not resize it', () => {
+    seedStore();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    const height = () => getComputedStyle(q('pm-uxui-window')!).height;
+    const h0 = height();
+    expect(h0).toMatch(/^\d+px$/); // an explicit height, not content-sized
+    for (const tab of ['TabTree', 'TabGantt', 'TabProject', 'TabTask']) {
+      press(`pm-uxui-tab-${tab}`);
+      expect(height()).toBe(h0);
+    }
+    typeInto('pm-uxui-search', 'line');
+    expect(height()).toBe(h0);
+  });
+
+  it('Task tab: critical path task color - 9 colors + black (no white), default #FF0033, saved with the draft', () => {
+    seedStore();
+    const crud = fakeCrud();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    const set = ['#FCFF00', '#FFAA00', '#FF5500', '#00FF66', '#00F0FF', '#4455FF', '#9D00FF', '#FF007F', '#FF0033', '#000000'];
+    expect(qa('pm-uxui-critical-color-')).toEqual(['pm-uxui-critical-color-default', ...set.map((c) => `pm-uxui-critical-color-${c}`)]);
+    expect(q('pm-uxui-critical-color-#FFFFFF')).toBeNull();
+    press('pm-uxui-critical-color-#4455FF');
+    press('pm-uxui-save');
+    expect(crud.setGanttViewSettings.mock.calls[0][0].criticalPathTaskColor).toBe('#4455FF');
+
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    press('pm-uxui-critical-color-default');
+    press('pm-uxui-save');
+    expect(crud.setGanttViewSettings.mock.calls[1][0].criticalPathTaskColor).toBe('#FF0033');
+  });
+
+  it('progress line colors: only the fixed set (9 colors + white + black)', () => {
+    seedStore();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    const set = ['#FCFF00', '#FFAA00', '#FF5500', '#00FF66', '#00F0FF', '#4455FF', '#9D00FF', '#FF007F', '#FF0033', '#FFFFFF', '#000000'];
+    expect(qa('pm-uxui-task-line-color-').filter((id) => id !== 'pm-uxui-task-line-color-default')).toEqual(set.map((c) => `pm-uxui-task-line-color-${c}`));
+    press('pm-uxui-tab-TabProject');
+    expect(qa('pm-uxui-project-line-color-').filter((id) => id !== 'pm-uxui-project-line-color-default')).toEqual(set.map((c) => `pm-uxui-project-line-color-${c}`));
+  });
+
   it('Save writes the draft edited across all tabs', () => {
     seedStore();
     const crud = fakeCrud();
@@ -216,22 +259,22 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
     toggleSwitch('pm-uxui-progress');
     press('pm-uxui-task-line-pos-onBottom');
-    press('pm-uxui-task-line-color-#22c55e');
+    press('pm-uxui-task-line-color-#00FF66');
     press('pm-uxui-tab-TabGantt');
     toggleSwitch('pm-uxui-critical');
     press('pm-uxui-arrows-squareForm');
     press('pm-uxui-tab-TabProject');
     press('pm-uxui-project-line-pos-onTop');
-    press('pm-uxui-project-line-color-#ef4444');
+    press('pm-uxui-project-line-color-#FF0033');
     press('pm-uxui-save');
     expect(crud.setGanttViewSettings).toHaveBeenCalledTimes(1);
     const d = crud.setGanttViewSettings.mock.calls[0][0];
     expect(d).toMatchObject({
       ganttArrowsForm: 'squareForm',
       taskProgressLinePosition: 'onBottom',
-      taskProgressLineColor: '#22c55e',
+      taskProgressLineColor: '#00FF66',
       projectProgressLinePosition: 'onTop',
-      projectProgressLineColor: '#ef4444',
+      projectProgressLineColor: '#FF0033',
     });
     expect(typeof d.showCriticalPath).toBe('boolean');
     expect(typeof d.showTaskProgressOnGantt).toBe('boolean');
@@ -257,7 +300,7 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(q('pm-uxui-opt-ganttCommands')!.getAttribute('aria-selected')).toBe('true'); // flashed / scrolled to
 
     typeInto('pm-uxui-search', 'critical');
-    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-criticalPath']);
+    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-criticalPathTaskColor', 'pm-uxui-search-row-criticalPath']);
     press('pm-uxui-search-row-criticalPath'); // same tab: scrolls without switching
     expect(tabSelected('TabGantt')).toBe(true);
     expect(q('pm-uxui-opt-criticalPath')!.getAttribute('aria-selected')).toBe('true');
@@ -305,7 +348,7 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     const crud = fakeCrud();
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
-    press('pm-uxui-task-line-color-#22c55e');
+    press('pm-uxui-task-line-color-#00FF66');
     press('pm-uxui-cancel');
     expect(q('pm-uxui-window')).toBeNull();
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
@@ -314,9 +357,9 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(crud.setGanttViewSettings).not.toHaveBeenCalled();
 
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
-    press('pm-uxui-task-line-color-#22c55e');
+    press('pm-uxui-task-line-color-#00FF66');
     press('pm-uxui-defaults');
     press('pm-uxui-save');
-    expect(crud.setGanttViewSettings.mock.calls[0][0].taskProgressLineColor).toBe('yellow');
+    expect(crud.setGanttViewSettings.mock.calls[0][0].taskProgressLineColor).toBe('#FCFF00');
   });
 });

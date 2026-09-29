@@ -25,8 +25,8 @@ import { useRecentProjects } from './recent/recentProjects';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
 import { PMDialogButton, PMTipIcon } from '../../inner/buttons';
 import { usePMStore } from '../../store/store_pm';
-import { uxuiSettingsOf } from '../../model/types';
-import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
+import { effectiveUxuiSettings } from '../../store/storeDerive';
+import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
 import PMActivityIndicator from '../../inner/PMActivityIndicator';
 
@@ -51,6 +51,7 @@ function PMProjectDashboardInner() {
   const ganttVsNetworkView = usePMStore((s) => s.ganttVsNetworkView);
 
   const projectsQuery = useReadProjectsQuery(ownerGUID);
+  useReadProjectUserSettingsQuery(ownerGUID); // this user's Gantt / tree settings per project
   const dataQuery = useReadProjectDataQuery(selectedProjectGUID);
   useProjectRealtime(ownerGUID, selectedProjectGUID);
   useScheduleWriteBack(selectedProjectGUID);
@@ -83,7 +84,7 @@ function PMProjectDashboardInner() {
     const s = usePMStore.getState();
     const project = s.projectsById[selectedProjectGUID];
     if (!project) return;
-    const saved = uxuiSettingsOf(project.rowJSON);
+    const saved = effectiveUxuiSettings(s, selectedProjectGUID);
     if (saved.ganttVsNetworkView !== s.ganttVsNetworkView || saved.networkViewMode !== s.networkViewMode) {
       crud.setGanttViewSettings({ ganttVsNetworkView: s.ganttVsNetworkView, networkViewMode: s.networkViewMode });
     }

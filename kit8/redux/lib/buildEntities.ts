@@ -21,6 +21,8 @@ export const buildEntities = (SystemMetaData: any) => {
         // 🔹 saga
         sagas.push(
             reusableRootSaga({
+                entityKey,
+                itemLabel: meta.itemLabel,
                 tableName: meta.tableName,
                 actions: slice.actions,
                 afterCreateOneSuccess: meta.afterCreateOneSuccess,

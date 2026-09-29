@@ -337,6 +337,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
+              <Drawer.Screen name="currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />
+              <Drawer.Screen name="currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />

@@ -1,4 +1,8 @@
 import {createSlice} from "@reduxjs/toolkit";
+import {applyRealtimeChangeToList, rowIdOf, upsertRow} from "./realtimeRows";
+
+/** Supabase Realtime state of an entity (startRealtime / stopRealtime, see reusableRootSaga). */
+export type RealtimeStatus = "idle" | "subscribing" | "subscribed" | "error";
 
 
 const initialState = {
@@ -23,6 +27,11 @@ const initialState = {
     deleteErrorData: "",
 
     crudMoment: 0,
+
+    // Supabase Realtime (another browser / device changed the table -> the list follows)
+    realtimeStatus: "idle" as RealtimeStatus,
+    realtimeError: "",
+    lastRealtimeEvent: null as null | { eventType: string; rowGUID?: string; at: number },
 };
 
 export const reusableCrudSlice = (name: string) =>
@@ -100,12 +109,16 @@ export const reusableCrudSlice = (name: string) =>
                 // state.isUpdating = true;
                 // state.updateSuccessful = -1;
             },
-            updateOneSuccess: (state, action) => {
-                //anatomy2-optimistic crud
-                // state.lastUpdatedData = action.payload;
-                // state.isUpdating = false;
-                // state.updateSuccessful = 1;
-                // state.crudMoment = Date.now();
+            updateOneSuccess: (state: any, action) => {
+                //anatomy2-optimistic crud: the list was changed before the request; the server row
+                // (if the saga sends it) replaces the matching list item, so both agree again
+                const row = action?.payload?.lastUpdatedData;
+                if (row && rowIdOf(row) && Array.isArray(state.entityDataFromServer)
+                    && state.entityDataFromServer.some((r: any) => rowIdOf(r) === rowIdOf(row))) {
+                    state.entityDataFromServer = upsertRow(state.entityDataFromServer, row);
+                    state.lastUpdatedData = row;
+                    state.crudMoment = Date.now();
+                }
             },
             updateOneFailure: (state, action) => {
                 state.isUpdating = false;
@@ -151,6 +164,34 @@ export const reusableCrudSlice = (name: string) =>
                 state.isReading = false;
                 state.readSuccessful = 0;
                 state.readErrorData = action.payload;
+            },
+
+            // ===== REALTIME (Supabase postgres_changes via reusableRootSaga)
+            /** payload: { filter?: 'col=eq.value', readParams?: readData payload used for the catch-up refresh } */
+            startRealtime: (state: any, _action: { payload?: { filter?: string; readParams?: any } | undefined }) => {
+                state.realtimeStatus = "subscribing";
+                state.realtimeError = "";
+            },
+            stopRealtime: (state: any) => {
+                state.realtimeStatus = "idle";
+            },
+            realtimeStatusChanged: (state: any, action: { payload: { status: string; error?: string } }) => {
+                const s = action.payload?.status;
+                if (s === "SUBSCRIBED") state.realtimeStatus = "subscribed";
+                else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") state.realtimeStatus = "error";
+                else if (s === "CLOSED") state.realtimeStatus = "idle";
+                state.realtimeError = action.payload?.error || "";
+            },
+            /** one row changed in the database (any client): INSERT / UPDATE upsert, DELETE remove */
+            applyRealtimeChange: (state: any, action: { payload: any }) => {
+                const change = action.payload;
+                state.entityDataFromServer = applyRealtimeChangeToList(state.entityDataFromServer, change);
+                state.lastRealtimeEvent = {
+                    eventType: change?.eventType,
+                    rowGUID: rowIdOf(change?.new) || rowIdOf(change?.old),
+                    at: Date.now(),
+                };
+                state.crudMoment = Date.now();
             },
 
             // ===== CLEAR

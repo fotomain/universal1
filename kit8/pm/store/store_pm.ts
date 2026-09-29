@@ -13,7 +13,7 @@ import { create } from 'zustand';
 import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAULT_WIDTH, PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from '../model/constants';
 import { flattenVisible, ROOT_KEY, todayUTC } from '../view/project/scheduling';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
-import { PMProjectRow, PMTaskRow, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
+import { PMProjectRow, PMTaskRow, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
 import { derive, EMPTY_TREE, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
 import type { PMStoreState } from './storeTypes';
 
@@ -46,6 +46,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   dayWidth: PM_DAY_WIDTH_DEFAULT,
   treeWidth: PM_TREE_DEFAULT_WIDTH,
   showCriticalPath: true,
+  criticalPathTaskColor: PM_DEFAULT_CRITICAL_PATH_TASK_COLOR,
   lastError: null,
   linkLineForm: 'smoothForm',
   showTaskProgressOnGantt: false,
@@ -58,11 +59,37 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   networkDiagramVariant: 'cpmNodes',
   networkScheduleVariant: 'eventCircles',
   setNetworkViewSettings: (patch) => set(patch),
+  userSettingsByProject: {},
+  userSettingsTableMissing: false,
+  keepWorkspaceMode: false,
+  setAllProjectUserSettings: (byProject, tableMissing = false) =>
+    set((state) => {
+      const g = state.selectedProjectGUID;
+      const v = g ? viewSettingsOf(state.projectsById[g], byProject[g]) : null;
+      return {
+        userSettingsByProject: byProject,
+        userSettingsTableMissing: tableMissing,
+        // the selected project's rows arrive after selectProject: apply them (the Gantt | Network mode
+        // only for the first project of the session - later it follows the user, see selectProject)
+        ...(v ? (state.keepWorkspaceMode ? withoutWorkspaceMode(v) : v) : {}),
+      };
+    }),
+  setProjectUserSettings: (projectGUID, settings) =>
+    set((state) => {
+      const userSettingsByProject = { ...state.userSettingsByProject };
+      if (settings) userSettingsByProject[projectGUID] = settings;
+      else delete userSettingsByProject[projectGUID];
+      const v = projectGUID === state.selectedProjectGUID ? viewSettingsOf(state.projectsById[projectGUID], settings) : null;
+      return { userSettingsByProject, ...(v ? withoutWorkspaceMode(v) : {}) };
+    }),
   showTreeHierarchyNumbers: true,
   projectTreeContextCommandsMode: 'onHoverPanelMode',
   projectGanttChartContextCommandsMode: 'onHoverPanelMode',
   rowMenu: null,
   setRowMenu: (menu) => set({ rowMenu: menu }),
+  projectSettingsRequest: null,
+  openProjectSettings: (projectGUID) =>
+    set((s) => ({ projectSettingsRequest: projectGUID ? { guid: projectGUID, nonce: (s.projectSettingsRequest?.nonce ?? 0) + 1 } : null })),
   treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
   treeColumnsWidths: {},
   customColumns: [],
@@ -102,7 +129,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         ...(recentProjectGUIDs.length !== state.recentProjectGUIDs.length ? { recentProjectGUIDs } : {}),
         // ganttVsNetworkView / networkViewMode are NOT re-applied here: they are a workspace mode
         // that follows the user across projects (see selectProject); the setters update the store.
-        ...(selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID])) : {}),
+        ...(selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID], state.userSettingsByProject[selectedProjectGUID])) : {}),
         ...(sameProject ? derive(next, selectedProjectGUID) : {}),
       };
     }),
@@ -113,7 +140,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         ? {}
         : {
             selectedProjectGUID: rowGUID,
-            ...viewSettingsOf(rowGUID ? state.projectsById[rowGUID] : undefined),
+            keepWorkspaceMode: !!(rowGUID && state.selectedProjectGUID) || (state.keepWorkspaceMode && !!rowGUID),
+            ...viewSettingsOf(rowGUID ? state.projectsById[rowGUID] : undefined, rowGUID ? state.userSettingsByProject[rowGUID] : undefined),
             // Project 1 in PMNetworkView -> switch to Project N: stay in PMNetworkView (same mode).
             // The first project opened in a session uses its own saved setting.
             ...(rowGUID && state.selectedProjectGUID

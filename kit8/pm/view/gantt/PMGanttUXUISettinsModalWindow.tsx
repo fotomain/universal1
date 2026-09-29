@@ -1,7 +1,7 @@
-// PMGanttUXUISettinsModalWindow: edits project_table.rowJSON.uxuiSettings of the selected
-// project (opened by the ⚙ button on the Gantt bar, after the task progress % button).
+// PMGanttUXUISettinsModalWindow: edits the signed-in user's settings of the selected project
+// (project_user_settings_table.rowJSON.uxuiSettings; switches = SwitchApp) (opened by the ⚙ button on the Gantt bar, after the task progress % button).
 //
-//   showCriticalPath · ganttArrowsForm · showTaskProgressOnGantt ·
+//   showCriticalPath · criticalPathTaskColor · ganttArrowsForm · showTaskProgressOnGantt ·
 //   taskProgressLinePosition · taskProgressLineColor ·
 //   projectProgressLinePosition · projectProgressLineColor ·
 //   row commands: projectTreeContextCommandsMode · projectGanttChartContextCommandsMode
@@ -9,6 +9,7 @@
 //   task tree: showTreeHierarchyNumbers ("#" column) · treeColumnsOrder (reset; reorder = drag the headers) ·
 //              treeColumnsWidths (reset; resize = drag the header separators)
 //
+// Fixed height (PM_UXUI_WINDOW_HEIGHT, max 92 % of the screen): the tab panel scrolls, the window never resizes.
 // Top tabs: Task · Tree · Gantt · Project (settings/uxuiSettingsIndex.ts lists which option is where).
 // Search: type a substring of a setting's name -> table of matches (Setting | Tab); pressing a line opens
 // that tab and scrolls to the option (it flashes).
@@ -16,11 +17,14 @@
 // "Defaults" resets the draft.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import SwitchApp from '../../../components/common/SwitchApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import TextInputApp from '../../../components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
-import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
+import { effectiveUxuiSettings } from '../../store/storeDerive';
+import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
+import PMColorSwatchPicker from '../task/progress/line/PMColorSwatchPicker';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 // direct file import: the progress/line index also exports Skia components, which must not
@@ -33,6 +37,9 @@ import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColum
 
 type Draft = Required<PMUxUiSettings>;
 
+/** Height of the Gantt settings window (px) - fixed, it does not follow the tab content. */
+export const PM_UXUI_WINDOW_HEIGHT = 620;
+
 export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }) {
   const { themeColors: c } = useDesignSystem();
   const open = usePMStore((s) => s.uxuiSettingsOpen);
@@ -44,6 +51,9 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
   const defaultOrder = normalizeTreeColumnsOrder(PM_TREE_COLUMNS_DEFAULT_ORDER, customColumns.map((c) => c.key));
 
   const [tab, setTab] = useState<PMUxUiTab>('TabTask');
+  /** FIXED window height (same on every tab): 92 % of the screen, at most PM_UXUI_WINDOW_HEIGHT */
+  const win = useWindowDimensions();
+  const cardHeight = Math.max(320, Math.min(PM_UXUI_WINDOW_HEIGHT, Math.round(win.height * 0.92)));
   const [query, setQuery] = useState('');
   const results = useMemo(() => searchUxuiOptions(query), [query]);
   const scrollRef = useRef<ScrollView>(null);
@@ -102,7 +112,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
       optionY.current = {};
       pendingFocus.current = null;
     }
-    if (open) setDraft(uxuiSettingsOf(project?.rowJSON));
+    if (open) setDraft(effectiveUxuiSettings(usePMStore.getState(), project?.rowGUID));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, project?.rowGUID]);
 
@@ -118,7 +128,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-uxui-window">
+        <View style={[styles.card, { height: cardHeight, backgroundColor: c.surface, borderColor: c.border }]} testID="pm-uxui-window">
           <View style={styles.header}>
             <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
               Gantt settings · {project.rowJSON.name}
@@ -190,12 +200,13 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
           </View>
 
           <OptContext.Provider value={optCtx}>
-          <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" testID={`pm-uxui-panel-${tab}`}>
+          {/* the tab panel takes the rest of the fixed card height: switching tabs never resizes the window */}
+          <ScrollView ref={scrollRef} style={styles.panel} keyboardShouldPersistTaps="handled" testID={`pm-uxui-panel-${tab}`}>
             {tab === 'TabTask' && (
               <>
                 <Opt id="taskProgress">
                   <Row label="Show task progress on the Gantt (lines + %)" color={c.text}>
-                    <Switch testID="pm-uxui-progress" value={draft.showTaskProgressOnGantt} onValueChange={(v) => set('showTaskProgressOnGantt', v)} />
+                    <SwitchApp testID="pm-uxui-progress" value={draft.showTaskProgressOnGantt} onValueChange={(v) => set('showTaskProgressOnGantt', v)} />
                   </Row>
                 </Opt>
                 <Opt id="taskProgressLine">
@@ -213,6 +224,18 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                     />
                   </View>
                 </Opt>
+                <Opt id="criticalPathTaskColor">
+                  <Text style={[styles.section, { color: c.text }]}>Critical path task color</Text>
+                  <Text style={[styles.label, { color: c.text }]}>Bars, arrows and network nodes on the critical path</Text>
+                  <PMColorSwatchPicker
+                    testID="pm-uxui-critical-color"
+                    value={draft.criticalPathTaskColor === PM_DEFAULT_CRITICAL_PATH_TASK_COLOR ? null : draft.criticalPathTaskColor}
+                    onChange={(v) => set('criticalPathTaskColor', v || PM_DEFAULT_CRITICAL_PATH_TASK_COLOR)}
+                    swatches={PM_CRITICAL_PATH_TASK_COLORS}
+                    defaultColor={PM_DEFAULT_CRITICAL_PATH_TASK_COLOR}
+                    colors={colors}
+                  />
+                </Opt>
               </>
             )}
 
@@ -229,7 +252,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 </Opt>
                 <Opt id="treeNumbers">
                   <Row label='Show hierarchy numbers ("#" column) in the task tree' color={c.text}>
-                    <Switch testID="pm-uxui-tree-numbers" value={draft.showTreeHierarchyNumbers} onValueChange={(v) => set('showTreeHierarchyNumbers', v)} />
+                    <SwitchApp testID="pm-uxui-tree-numbers" value={draft.showTreeHierarchyNumbers} onValueChange={(v) => set('showTreeHierarchyNumbers', v)} />
                   </Row>
                 </Opt>
                 <Opt id="treeColumns">
@@ -269,7 +292,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
               <>
                 <Opt id="criticalPath">
                   <Row label="Show the critical path" color={c.text}>
-                    <Switch testID="pm-uxui-critical" value={draft.showCriticalPath} onValueChange={(v) => set('showCriticalPath', v)} />
+                    <SwitchApp testID="pm-uxui-critical" value={draft.showCriticalPath} onValueChange={(v) => set('showCriticalPath', v)} />
                   </Row>
                 </Opt>
                 <Opt id="arrows">
@@ -413,7 +436,8 @@ function Row({ label, color, children }: { label: string; color: string; childre
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  card: { width: '100%', maxWidth: 480, maxHeight: '92%', borderRadius: 14, padding: 18, borderWidth: StyleSheet.hairlineWidth },
+  card: { width: '100%', maxWidth: 480, borderRadius: 14, padding: 18, borderWidth: StyleSheet.hairlineWidth },
+  panel: { flex: 1, minHeight: 0 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   title: { flex: 1, fontSize: 17, fontWeight: '700' },
   section: { fontSize: 14, fontWeight: '700', marginTop: 16 },

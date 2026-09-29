@@ -1,5 +1,5 @@
 // In-memory stand-in for the Supabase client used by kit8/pm/crud/* (PostgREST subset):
-//   from(table).select / insert(...).select() / update(...) / delete()
+//   from(table).select / insert(...).select() / upsert(row, { onConflict }).select() / update(...) / delete()
 //     .eq .ilike('rowJSON->>name', pattern) .order .limit .single .maybeSingle   (awaitable)
 //   rpc('pm_apply_schedule', args)
 // It also plays the SQL triggers the PM module relies on:
@@ -14,7 +14,7 @@ export type Row = Record<string, any>;
 
 export interface FakeCall {
   table: string;
-  op: 'select' | 'insert' | 'update' | 'delete' | 'rpc';
+  op: 'select' | 'insert' | 'upsert' | 'update' | 'delete' | 'rpc';
   filters: [string, string, any][];
   payload?: any;
 }
@@ -51,6 +51,7 @@ export class FakeSupabase {
     project_task_table: [],
     project_task_dependencies_table: [],
     project_task_dependency_closure_table: [],
+    project_user_settings_table: [],
   };
   calls: FakeCall[] = [];
   rpcCalls: { fn: string; args: any }[] = [];
@@ -142,6 +143,14 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
     this.payload = Array.isArray(rows) ? rows : [rows];
     return this;
   }
+  /** insert or merge on the `onConflict` columns (like PostgREST); rowGUID defaults to a new id */
+  upsert(rows: Row | Row[], opts: { onConflict?: string } = {}) {
+    this.op = 'upsert';
+    this.payload = Array.isArray(rows) ? rows : [rows];
+    this.conflictCols = (opts.onConflict || 'rowGUID').split(',').map((c) => c.trim());
+    return this;
+  }
+  private conflictCols: string[] = [];
   update(patch: Row) {
     this.op = 'update';
     this.payload = patch;
@@ -225,6 +234,22 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
       }
       all.push(...rows);
       return this.returning ? this.shape(rows) : { data: null, error: null };
+    }
+
+    if (this.op === 'upsert') {
+      const out: Row[] = [];
+      for (const r of clone(this.payload as Row[])) {
+        const hit = all.find((x) => this.conflictCols.every((c) => x[c] === r[c]));
+        if (hit) {
+          Object.assign(hit, r, { updated_at: new Date().toISOString() });
+          out.push(hit);
+        } else {
+          const row = { rowGUID: `fake-${all.length + 1}-${Math.random().toString(16).slice(2, 10)}`, orderInList: 0, rowJSON: {}, ...r };
+          all.push(row);
+          out.push(row);
+        }
+      }
+      return this.returning ? this.shape(out) : { data: null, error: null };
     }
 
     if (this.op === 'update') {

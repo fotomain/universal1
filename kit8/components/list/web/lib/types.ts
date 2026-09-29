@@ -18,6 +18,18 @@ export interface ListWebCardsComponentProps {
   crudGapBetweenCards?: number;
   createNewCardComponent?: React.ComponentType<any> | React.ReactElement;
   CardComponent?: React.ComponentType<any> | React.ReactElement;
+  /** server row -> card (default: media post title / description) */
+  mapItemToCard?: (item: any, index: number) => CardItem;
+  /** "+" in the top bar: e.g. navigate to an edit screen (default: the built-in create form) */
+  onCreateNewItem?: () => void;
+  /** card "edit": e.g. navigate to an edit screen (default: toggle inline edit) */
+  onEditCard?: (id: string, rawItem?: any) => void;
+  /** keep the list in sync with Supabase Realtime (other browsers / devices) - redux-saga channel */
+  realtime?: boolean;
+  /** extra readData payload (merged into the default first page) */
+  readParams?: Record<string, any>;
+  /** "Post", "Currency", ... in user messages */
+  itemLabel?: string;
 }
 
 export interface CardThreeDotsMenuProps {

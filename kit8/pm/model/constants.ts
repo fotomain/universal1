@@ -5,6 +5,8 @@ export const projectTable = 'project_table';
 export const projectTaskTable = 'project_task_table';
 export const projectTaskDependenciesTable = 'project_task_dependencies_table';
 export const projectTaskDependencyClosureTable = 'project_task_dependency_closure_table';
+/** Per user settings of a project (rowOwnerGUID = project, rowParentGUID = user, rowJSON.uxuiSettings). */
+export const projectUserSettingsTable = 'project_user_settings_table';
 
 // SQL functions (see kit8/sql/init/create_pm_tables.sql)
 export const pmRpcApplySchedule = 'pm_apply_schedule';

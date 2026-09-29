@@ -28,6 +28,14 @@ jest.mock('../../../kit8/pm/crud/queries', () => ({
   },
 }));
 
+// the Import / Export section of the Project settings window has its own test (importExportProject.test.tsx)
+const mockImportExport = jest.fn();
+jest.mock('../../../kit8/pm/crud/exchange/project/ImportExportProject', () => {
+  const R = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: (props: any) => (mockImportExport(props), R.createElement(View, { testID: 'pm-project-exchange' })) };
+});
+
 import React from 'react';
 import PMGanttToolbar from '../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
 import PMTreeToolbar from '../../../kit8/pm/view/tree/toolbars/PMTreeToolbar';
@@ -62,6 +70,7 @@ describe('PMGanttToolbar (Gantt bar)', () => {
       'pm-gantt-line-form-smoothForm',
       'pm-gantt-line-form-squareForm',
       'pm-gantt-task-progress',
+      'pm-gantt-import-export',
       'pm-gantt-uxui-settings',
       'pm-gantt-vs-network-showGanttChart',
       'pm-gantt-vs-network-showNetworkView',
@@ -199,6 +208,46 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockCreate.mock.calls[0][0].rowJSON.name).toBe('Project 3');
     expect(q('pm-project-name')).toBeNull(); // dialog closed
+  });
+
+  it('⇅ on the Gantt bar opens the Project settings of the selected project with Import / Export', () => {
+    const { demo } = seedStore();
+    renderUI(
+      <>
+        <PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={{ zoomBy: jest.fn(), setZoom: jest.fn(), fit: jest.fn(), goToday: jest.fn() }} />
+        <PMRecentProjectsToolbar ownerGUID={OWNER} />
+      </>
+    );
+    expect(q('pm-project-exchange')).toBeNull();
+    press('pm-gantt-import-export');
+    expect(inputValue('pm-project-name')).toBe(demo.projects[0].rowJSON.name);
+    expect(q('pm-project-exchange')).not.toBeNull();
+    expect(mockImportExport).toHaveBeenLastCalledWith(expect.objectContaining({ ownerGUID: OWNER, projectGUID: demo.projects[0].rowGUID }));
+    expect(usePMStore.getState().projectSettingsRequest).toBeNull(); // consumed
+
+    // an import brings a new start / calendar: the open window shows them
+    act(() => mockImportExport.mock.calls[mockImportExport.mock.calls.length - 1][0].onImported({ rowKind: 'project', name: 'x', projectStartAt: '2027-01-04T00:00:00.000Z', skipWeekends: true }));
+    expect(inputValue('pm-project-start')).toBe('2027-01-04');
+    press('pm-project-cancel');
+  });
+
+  it('Project settings window: fixed height, same for a new and an existing project', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    const h = getComputedStyle(q('pm-project-settings-window')!).height;
+    expect(h).toMatch(/^\d+px$/);
+    press('pm-project-cancel');
+    press('pm-project-add');
+    expect(getComputedStyle(q('pm-project-settings-window')!).height).toBe(h);
+  });
+
+  it('new project: no Import / Export section (only for saved projects)', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    expect(q('pm-project-name')).not.toBeNull();
+    expect(q('pm-project-exchange')).toBeNull();
   });
 
   it('settings dialog edits name, Cancel discards', () => {

@@ -3,19 +3,21 @@
 // rowJSON view settings into the store.
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from '../view/project/scheduling';
 import { projectCustomColumnsOf } from '../view/tree/columns/customColumns';
-import { PMLinkLineForm, PMProjectRow, uxuiSettingsOf } from '../model/types';
+import { PMLinkLineForm, PMProjectRow, PMUxUiSettings, uxuiSettingsOf } from '../model/types';
 import type { PMStoreState } from './storeTypes';
 
 export const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {}, wbsById: {} };
 
 /**
- * Gantt view settings live in project_table.rowJSON (showCriticalPath, ganttArrowsForm,
- * showTaskProgressOnGantt); the store mirrors the selected project's values.
+ * Gantt / tree view settings = the user's row in project_user_settings_table (rowJSON.uxuiSettings)
+ * over the project's legacy rowJSON.uxuiSettings; the store mirrors the selected project's values.
+ * Custom columns (definitions + header colors) stay project data (project_table.rowJSON.customColumns).
  */
-export function viewSettingsOf(project: PMProjectRow | undefined) {
-  const u = uxuiSettingsOf(project?.rowJSON);
+export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?: PMUxUiSettings | null) {
+  const u = uxuiSettingsOf(project?.rowJSON, userSettings);
   return {
     showCriticalPath: u.showCriticalPath,
+    criticalPathTaskColor: u.criticalPathTaskColor,
     linkLineForm: u.ganttArrowsForm as PMLinkLineForm,
     showTaskProgressOnGantt: u.showTaskProgressOnGantt,
     taskProgressLinePosition: u.taskProgressLinePosition,
@@ -34,6 +36,14 @@ export function viewSettingsOf(project: PMProjectRow | undefined) {
     customColumns: projectCustomColumnsOf(project?.rowJSON).columns,
     treeHeadersBackgroundColors: projectCustomColumnsOf(project?.rowJSON).headersBackgroundColors,
   };
+}
+
+/** Effective settings of a project for the signed-in user (settings window draft, saves). */
+export function effectiveUxuiSettings(
+  s: Pick<PMStoreState, 'projectsById' | 'userSettingsByProject'>,
+  projectGUID: string | null | undefined
+) {
+  return uxuiSettingsOf(projectGUID ? s.projectsById[projectGUID]?.rowJSON : undefined, projectGUID ? s.userSettingsByProject[projectGUID] : undefined);
 }
 
 /** Gantt | Network view + network sub-mode: kept when switching projects. */

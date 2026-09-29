@@ -15,6 +15,8 @@ export const pmKeys = {
   projectSearch: (ownerGUID: string | null | undefined, text: string) => ['pm', 'projectSearch', ownerGUID, text] as const,
   projectData: (projectGUID: string | null | undefined) => ['pm', 'projectData', projectGUID] as const,
   task: (taskGUID: string | null | undefined) => ['pm', 'task', taskGUID] as const,
+  /** project_user_settings_table rows of one user (all his projects) */
+  userSettings: (userGUID: string | null | undefined) => ['pm', 'userSettings', userGUID] as const,
   upstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'up', taskGUID] as const,
   downstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'down', taskGUID] as const,
 };

@@ -1,29 +1,23 @@
-// Gantt UX/UI settings saved per project in project_table.rowJSON.uxuiSettings:
+// Gantt UX/UI settings saved per project AND user in project_user_settings_table.rowJSON.uxuiSettings
+// (projectUserSettingsQueries.ts; legacy project_table.rowJSON.uxuiSettings is read as a fallback):
 //   showCriticalPath, ganttArrowsForm, showTaskProgressOnGantt,
 //   taskProgressLinePosition, projectProgressLinePosition,
 //   showTreeHierarchyNumbers, treeColumnsOrder, treeColumnsWidths (tree/columns)
 //   projectTreeContextCommandsMode, projectGanttChartContextCommandsMode (hover panel | right-click menu)
-// The update is optimistic (projects cache -> store.setProjects -> the chart repaints at once).
-// Legacy top-level keys (rowJSON.showCriticalPath, ...) are moved into uxuiSettings on save.
+// The update is optimistic (store.setProjectUserSettings -> the chart repaints at once), then upserted.
 
 import { useMemo } from 'react';
 import { usePMStore } from '../../store/store_pm';
-import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
-import { useUpdateProjectMutation } from './projectQueries';
+import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings } from '../../model/types';
+import { useSaveProjectUserSettings } from './projectUserSettingsQueries';
 import { clampTreeColumnWidth } from '../../view/tree/columns/treeColumns';
 
 export type PMGanttViewSettings = PMUxUiSettings;
 
 export function useProjectViewSettings(ownerGUID: string, projectGUID: string | null) {
-  const updateProject = useUpdateProjectMutation(ownerGUID);
+  const { saveUxuiSettings } = useSaveProjectUserSettings(ownerGUID);
   return useMemo(() => {
-    const saveFor = (rowGUID: string | null, patch: PMUxUiSettings) => {
-      const project = rowGUID ? usePMStore.getState().projectsById[rowGUID] : undefined;
-      if (!project) return;
-      const { showCriticalPath: _a, ganttArrowsForm: _b, showTaskProgressOnGantt: _c, ...json } = project.rowJSON;
-      const uxuiSettings: PMUxUiSettings = { ...uxuiSettingsOf(project.rowJSON), ...patch };
-      updateProject.mutate({ rowGUID: project.rowGUID, patch: { rowJSON: { ...json, uxuiSettings } } });
-    };
+    const saveFor = (rowGUID: string | null, patch: PMUxUiSettings) => saveUxuiSettings(rowGUID, patch);
     const save = (patch: PMUxUiSettings) => saveFor(projectGUID, patch);
     return {
       setGanttViewSettings: save,
@@ -80,5 +74,5 @@ export function useProjectViewSettings(ownerGUID: string, projectGUID: string | 
         save({ networkScheduleVariant: v });
       },
     };
-  }, [updateProject, projectGUID]);
+  }, [saveUxuiSettings, projectGUID]);
 }

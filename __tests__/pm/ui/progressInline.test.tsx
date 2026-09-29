@@ -27,26 +27,26 @@ describe('progress/line settings', () => {
 
   it('color swatches: Default + every swatch', () => {
     const onChange = jest.fn();
-    renderUI(<PMColorSwatchPicker testID="col" value={null} onChange={onChange} defaultColor="yellow" colors={colors} />);
+    renderUI(<PMColorSwatchPicker testID="col" value={null} onChange={onChange} defaultColor="#FCFF00" colors={colors} />);
     expect(q('col-default')).not.toBeNull();
     for (const c of PM_PROGRESS_LINE_SWATCHES) expect(q(`col-${c}`)).not.toBeNull();
-    press('col-#22c55e');
+    press('col-#00FF66');
     press('col-default');
-    expect(onChange.mock.calls).toEqual([['#22c55e'], [null]]);
+    expect(onChange.mock.calls).toEqual([['#00FF66'], [null]]);
   });
 
-  it('PMProgressLineSettings: title, -pos / -color pickers, Default = yellow', () => {
+  it('PMProgressLineSettings: title, -pos / -color pickers, Default = #FCFF00', () => {
     const onPosition = jest.fn();
     const onColor = jest.fn();
     renderUI(
-      <PMProgressLineSettings testID="tl" title="Task progress line" positionLabel="Position" position="atTheMiddle" onPosition={onPosition} color="#22c55e" onColor={onColor} previewBarColor="#6366f1" colors={colors} />
+      <PMProgressLineSettings testID="tl" title="Task progress line" positionLabel="Position" position="atTheMiddle" onPosition={onPosition} color="#00FF66" onColor={onColor} previewBarColor="#6366f1" colors={colors} />
     );
     expect(document.body.textContent).toContain('Task progress line');
     press('tl-pos-onTop');
     press('tl-color-default');
-    press('tl-color-#ef4444');
+    press('tl-color-#FF0033');
     expect(onPosition).toHaveBeenCalledWith('onTop');
-    expect(onColor.mock.calls).toEqual([['yellow'], ['#ef4444']]);
+    expect(onColor.mock.calls).toEqual([['#FCFF00'], ['#FF0033']]);
   });
 });
 

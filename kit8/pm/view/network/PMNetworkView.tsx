@@ -54,7 +54,8 @@ export interface PMNetworkViewProps {
 
 export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, palette: paletteProp }: PMNetworkViewProps) {
   const { themeColors, isDark } = useDesignSystem();
-  const palette = useMemo(() => paletteProp ?? makePMPalette(themeColors, isDark), [paletteProp, themeColors, isDark]);
+  const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
+  const palette = useMemo(() => paletteProp ?? makePMPalette(themeColors, isDark, criticalColor), [paletteProp, themeColors, isDark, criticalColor]);
   const editable = canEdit(crud, readOnly);
   const mode = usePMStore((s) => s.networkViewMode);
   const showCritical = usePMStore((s) => s.showCriticalPath);

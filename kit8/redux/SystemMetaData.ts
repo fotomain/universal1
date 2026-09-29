@@ -1,5 +1,6 @@
 import {mediaPostExample} from "./lib/mediaPostExample";
 import {googleDriveCommandExample} from "../google/drive/googleDriveCommandExample";
+import {CURRENCY_ENTITY, currenciesTable, currencyExample} from "../catalog/currency/currencyModel";
 // MD.
 const SystemMetaData:any = {
     // 'uploadToGoogleDriveSession': {
@@ -9,6 +10,19 @@ const SystemMetaData:any = {
         updateValidator: () => {
         },
         defaultData: googleDriveCommandExample ,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p:any)=>{},
+    },
+    // Currency catalog (kit8/catalog/currency): /currency/list + /currency/edit, Supabase Realtime sync
+    [CURRENCY_ENTITY]: {
+        tableName: currenciesTable,
+        itemLabel: "Currency",
+        // actions - see meta.actions = slice.actions;
+        updateValidator: () => {
+        },
+        defaultData: currencyExample,
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

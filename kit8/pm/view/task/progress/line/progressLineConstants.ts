@@ -12,13 +12,24 @@ export const PM_PROGRESS_LINE_POSITION_LABEL: Record<PMProgressLinePosition, str
   onBottom: 'On bottom',
 };
 
-/** Default color of both progress lines (each project can override it in uxuiSettings). */
-export const PM_DEFAULT_PROGRESS_LINE_COLOR = 'yellow';
+/**
+ * The ONLY colors a progress line may have (Gantt settings window swatches): 9 colors + white + black.
+ * Saved values outside this set (e.g. the old 'yellow') are read as the default - progressLineColorOf().
+ */
+export const PM_PROGRESS_LINE_SWATCHES = ['#FCFF00', '#FFAA00', '#FF5500', '#00FF66', '#00F0FF', '#4455FF', '#9D00FF', '#FF007F', '#FF0033', '#FFFFFF', '#000000'];
+
+/** Default color of both progress lines (the first color of the set; each user can override it per project). */
+export const PM_DEFAULT_PROGRESS_LINE_COLOR = PM_PROGRESS_LINE_SWATCHES[0];
+
+/** A saved color -> the matching color of the set (case-insensitive), anything else -> the default. */
+export function progressLineColorOf(value: unknown): string {
+  if (typeof value !== 'string') return PM_DEFAULT_PROGRESS_LINE_COLOR;
+  const v = value.trim().toUpperCase();
+  return PM_PROGRESS_LINE_SWATCHES.find((c) => c === v) ?? PM_DEFAULT_PROGRESS_LINE_COLOR;
+}
 /** Legacy name of the default color. */
 export const progressLineColor = PM_DEFAULT_PROGRESS_LINE_COLOR;
 
 /** Thickness (px) of every progress line. */
 export const PM_PROGRESS_LINE_HEIGHT = 4;
 
-/** Colors offered by the Gantt settings window. */
-export const PM_PROGRESS_LINE_SWATCHES = ['yellow', '#f59e0b', '#f97316', '#22c55e', '#06b6d4', '#6366f1', '#a855f7', '#ec4899', '#ef4444', '#ffffff', '#111827'];

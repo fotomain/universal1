@@ -34,7 +34,7 @@ import {
   useDeleteProjectMutation,
   useReadProjectDataQuery,
   useProjectSearchQuery,
-  useReadProjectsQuery,
+  useReadProjectsQuery, useReadProjectUserSettingsQuery,
   useScheduleWriteBack,
   useSeedDemoMutation,
   useUpdateProjectMutation,
@@ -103,6 +103,8 @@ export async function mountPM(opts: { writeBack?: boolean; seed?: (db: FakeSupab
     s.setProjects([]);
     s.setRecentProjects([]);
     s.setError(null);
+    s.setAllProjectUserSettings({}, false);
+    usePMStore.setState({ keepWorkspaceMode: false });
     s.selectProject(P1);
   });
 
@@ -115,6 +117,7 @@ export async function mountPM(opts: { writeBack?: boolean; seed?: (db: FakeSupab
     const [text, setText] = React.useState('');
     setSearchText = setText;
     useReadProjectsQuery(owner);
+    useReadProjectUserSettingsQuery(owner);
     const selected = usePMStore((s) => s.selectedProjectGUID);
     useReadProjectDataQuery(selected);
     if (opts.writeBack) useScheduleWriteBack(selected); // eslint-disable-line react-hooks/rules-of-hooks

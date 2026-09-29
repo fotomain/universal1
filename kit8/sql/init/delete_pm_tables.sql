@@ -1,8 +1,8 @@
 -- =====================================================================================
 -- PM Gantt module - DROP EVERYTHING created by kit8/sql/init/create_pm_tables.sql
 --
--- WARNING: irreversible. Deletes all projects, stages, tasks, dependencies and the
--- dependency closure of ALL users. Policies, triggers and indexes go with their tables.
+-- WARNING: irreversible. Deletes all projects, stages, tasks, dependencies, the
+-- dependency closure and the per-user project settings of ALL users. Policies, triggers and indexes go with their tables.
 -- Safe to run more than once (IF EXISTS everywhere).
 -- =====================================================================================
 
@@ -26,6 +26,7 @@ END $$;
 DROP VIEW IF EXISTS public.project_task_schedule_view;
 
 -- ---- tables (children first; CASCADE removes triggers, policies, FKs, indexes) --------
+DROP TABLE IF EXISTS public.project_user_settings_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependency_closure_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_table CASCADE;

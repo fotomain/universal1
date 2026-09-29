@@ -32,7 +32,8 @@ export interface PMGanttSurfaceProps {
 
 export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfaceProps) {
   const { themeColors, isDark } = useDesignSystem();
-  const palette = useMemo(() => makePMPalette(themeColors, isDark), [themeColors, isDark]);
+  const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
+  const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
   const crud = usePMCrud(ownerGUID, projectGUID);
 
   const rootRef = useRef<View>(null);

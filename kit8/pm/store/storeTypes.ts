@@ -1,7 +1,7 @@
 // Types of the PM Zustand store (store_pm.ts): the state shape + UI request objects.
 import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
-import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
+import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
 
 /** Tree cells that can be edited inline (click on Start / Days / % or on a custom column cell). */
 export type PMCellField = 'start' | 'days' | 'progress' | PMCustomColumnKey;
@@ -60,6 +60,8 @@ export interface PMStoreState {
   dayWidth: number;
   treeWidth: number;
   showCriticalPath: boolean;
+  /** rowJSON.uxuiSettings.criticalPathTaskColor (user row) - color of the critical path tasks. */
+  criticalPathTaskColor: string;
   lastError: string | null;
   /** Dependency arrow shape (gantt/toolbars/DependencyArrowLineFormSelector) = project rowJSON.ganttArrowsForm. */
   linkLineForm: PMLinkLineForm;
@@ -95,6 +97,19 @@ export interface PMStoreState {
   projectTreeContextCommandsMode: PMContextCommandsMode;
   /** rowJSON.uxuiSettings.projectGanttChartContextCommandsMode - Gantt bar commands: hover panel or right-click menu. */
   projectGanttChartContextCommandsMode: PMContextCommandsMode;
+  /** project_user_settings_table rows of the signed-in user: projectGUID -> rowJSON.uxuiSettings. */
+  userSettingsByProject: Record<string, PMUxUiSettings>;
+  /** project_user_settings_table does not exist yet (SQL upgrade not run) -> saves go to project_table.rowJSON. */
+  userSettingsTableMissing: boolean;
+  /** Set when the user switched from one project to another: the Gantt | Network mode then follows him. */
+  keepWorkspaceMode: boolean;
+  /** All rows of the user (query result); the selected project re-applies its view settings. */
+  setAllProjectUserSettings: (byProject: Record<string, PMUxUiSettings>, tableMissing?: boolean) => void;
+  /** One project's settings (optimistic save / realtime); re-applied when it is the selected project. */
+  setProjectUserSettings: (projectGUID: string, settings: PMUxUiSettings | null) => void;
+  /** "Open the Project settings window of this project" (⇅ button on the Gantt bar); consumed by the projects bar. */
+  projectSettingsRequest: { guid: string; nonce: number } | null;
+  openProjectSettings: (projectGUID: string | null) => void;
   /** Row / bar context menu (onRightClickMenuMode): task + window point + where it was opened. */
   rowMenu: PMRowMenuState | null;
   setRowMenu: (menu: PMRowMenuState | null) => void;

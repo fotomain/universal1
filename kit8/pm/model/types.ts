@@ -5,6 +5,7 @@ export {
   projectTaskTable,
   projectTaskDependenciesTable,
   projectTaskDependencyClosureTable,
+  projectUserSettingsTable,
 } from './constants';
 
 /** project = row of project_table; stage = summary row; task = leaf; milestone = 0-day leaf. */
@@ -58,6 +59,25 @@ export interface PMRowJSON {
  * instant. duration = rowDuration - rowJSON.startAt. Both are written back by the
  * scheduler so SQL (reports, the project_task_schedule_view) can query real dates.
  */
+/**
+ * Row of project_user_settings_table (kit8/sql/defTable.md pattern): the settings ONE user chose for ONE project.
+ *   rowOwnerGUID = project_table.rowGUID · rowParentGUID = the user (Supabase auth uid)
+ */
+export interface PMProjectUserSettingsRow {
+  rowGUID: string;
+  rowOwnerGUID: string;
+  rowParentGUID: string;
+  orderInList: number;
+  rowJSON: PMProjectUserSettingsJSON;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** project_user_settings_table.rowJSON - user specified data for visualisations. */
+export interface PMProjectUserSettingsJSON {
+  uxuiSettings?: PMUxUiSettings;
+}
+
 export interface PMProjectRow {
   rowGUID: string;
   treePath: string;
@@ -122,7 +142,9 @@ export interface PMDepRef {
   dependsOnGUID: string;
 }
 
-import { PMProgressLinePosition, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../view/task/progress/line/progressLineConstants';
+import { PMProgressLinePosition, progressLineColorOf } from '../view/task/progress/line/progressLineConstants';
+import { criticalPathTaskColorOf } from './criticalPathColors';
+export { PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, criticalPathTaskColorOf } from './criticalPathColors';
 import { normalizeTreeColumnsOrder, normalizeTreeColumnsWidths, PMTreeColumnKey } from '../view/tree/columns/treeColumns';
 import { projectCustomColumnsOf, PMProjectCustomColumns, PMTaskCustomColumnValues } from '../view/tree/columns/customColumns';
 export type { PMTreeColumnKey } from '../view/tree/columns/treeColumns';
@@ -135,6 +157,8 @@ export { PM_DEFAULT_PROGRESS_LINE_COLOR, PM_PROGRESS_LINE_POSITIONS } from '../v
 export interface PMUxUiSettings {
   /** Critical path highlighting on/off (default true). */
   showCriticalPath?: boolean;
+  /** Color of the critical path tasks (bars, arrows, network nodes): one of PM_CRITICAL_PATH_TASK_COLORS (default #FF0033). */
+  criticalPathTaskColor?: string;
   /** Dependency arrow shape (default 'smoothForm'). */
   ganttArrowsForm?: PMLinkLineForm;
   /** Progress line + "XX%" on task bars and the project progress line (default false). */
@@ -195,9 +219,12 @@ export type PMNetworkDiagramVariant = 'cpmNodes' | 'compactNodes';
 export type PMNetworkScheduleVariant = 'eventCircles' | 'timeScaled';
 
 
-/** Effective settings of a project (uxuiSettings, then legacy top-level keys, then defaults). */
-export function uxuiSettingsOf(json: PMRowJSON | undefined | null): Required<PMUxUiSettings> {
-  const u = json?.uxuiSettings || {};
+/**
+ * Effective settings = the user's own row (project_user_settings_table.rowJSON.uxuiSettings)
+ * over the project's legacy rowJSON.uxuiSettings, then legacy top-level keys, then defaults.
+ */
+export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?: PMUxUiSettings | null): Required<PMUxUiSettings> {
+  const u: PMUxUiSettings = { ...(json?.uxuiSettings || {}), ...(userSettings || {}) };
   const pos = (v: unknown, d: PMProgressLinePosition): PMProgressLinePosition =>
     v === 'onTop' || v === 'onBottom' || v === 'atTheMiddle' ? v : d;
   return {
@@ -206,8 +233,10 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null): Required<PMU
     showTaskProgressOnGantt: !!(u.showTaskProgressOnGantt ?? json?.showTaskProgressOnGantt),
     taskProgressLinePosition: pos(u.taskProgressLinePosition, 'onTop'),
     projectProgressLinePosition: pos(u.projectProgressLinePosition, 'onBottom'),
-    taskProgressLineColor: (typeof u.taskProgressLineColor === 'string' && u.taskProgressLineColor) || PM_DEFAULT_PROGRESS_LINE_COLOR,
-    projectProgressLineColor: (typeof u.projectProgressLineColor === 'string' && u.projectProgressLineColor) || PM_DEFAULT_PROGRESS_LINE_COLOR,
+    // only the colors of PM_PROGRESS_LINE_SWATCHES (anything else, e.g. the old 'yellow' -> default)
+    taskProgressLineColor: progressLineColorOf(u.taskProgressLineColor),
+    projectProgressLineColor: progressLineColorOf(u.projectProgressLineColor),
+    criticalPathTaskColor: criticalPathTaskColorOf(u.criticalPathTaskColor),
     ganttVsNetworkView: u.ganttVsNetworkView === 'showNetworkView' ? 'showNetworkView' : 'showGanttChart',
     networkViewMode: u.networkViewMode === 'networkSchedule' ? 'networkSchedule' : 'networkDiagram',
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
