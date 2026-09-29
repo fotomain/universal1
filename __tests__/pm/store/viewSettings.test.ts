@@ -134,11 +134,14 @@ describe('criticalPathTaskColor (user row -> store -> palette)', () => {
   const { criticalPathTaskColorOf } = require('../../../kit8/pm/model/types');
   const tc = { primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' };
 
-  it('only 9 colors + black; others (white, old red, junk) -> default #FF0033', () => {
+  it('any #RRGGBB (ColorPickerApp) normalized to upper case; junk / missing -> default #FF0033', () => {
     expect(criticalPathTaskColorOf('#4455ff')).toBe('#4455FF');
     expect(criticalPathTaskColorOf('#000000')).toBe('#000000');
-    expect(criticalPathTaskColorOf('#FFFFFF')).toBe('#FF0033');
-    expect(criticalPathTaskColorOf('#ef4444')).toBe('#FF0033');
+    expect(criticalPathTaskColorOf('#ef4444')).toBe('#EF4444');
+    expect(criticalPathTaskColorOf('#abc')).toBe('#AABBCC');
+    expect(criticalPathTaskColorOf('#12345680')).toBe('#123456');
+    expect(criticalPathTaskColorOf('red')).toBe('#FF0033');
+    expect(criticalPathTaskColorOf('#GGGGGG')).toBe('#FF0033');
     expect(criticalPathTaskColorOf(undefined)).toBe('#FF0033');
   });
 

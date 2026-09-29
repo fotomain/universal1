@@ -224,14 +224,15 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(height()).toBe(h0);
   });
 
-  it('Task tab: critical path task color - 9 colors + black (no white), default #FF0033, saved with the draft', () => {
+  it('Task tab: critical path task color = ColorPickerApp (Default + 9 colors + black + Custom), default #FF0033, saved with the draft', () => {
     seedStore();
     const crud = fakeCrud();
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
     const set = ['#FCFF00', '#FFAA00', '#FF5500', '#00FF66', '#00F0FF', '#4455FF', '#9D00FF', '#FF007F', '#FF0033', '#000000'];
-    expect(qa('pm-uxui-critical-color-')).toEqual(['pm-uxui-critical-color-default', ...set.map((c) => `pm-uxui-critical-color-${c}`)]);
+    expect(qa('pm-uxui-critical-color-')).toEqual(['pm-uxui-critical-color-default', ...set.map((c) => `pm-uxui-critical-color-${c}`), 'pm-uxui-critical-color-custom']);
     expect(q('pm-uxui-critical-color-#FFFFFF')).toBeNull();
+    expect(textOf('pm-uxui-critical-color-custom')).toContain('Custom');
     press('pm-uxui-critical-color-#4455FF');
     press('pm-uxui-save');
     expect(crud.setGanttViewSettings.mock.calls[0][0].criticalPathTaskColor).toBe('#4455FF');

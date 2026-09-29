@@ -19,7 +19,7 @@ export interface ListWebCardsComponentProps {
   createNewCardComponent?: React.ComponentType<any> | React.ReactElement;
   CardComponent?: React.ComponentType<any> | React.ReactElement;
   /** server row -> card (default: media post title / description) */
-  mapItemToCard?: (item: any, index: number) => CardItem;
+  mapItemToCard?: (item: any, index: number, rows?: any[]) => CardItem;
   /** "+" in the top bar: e.g. navigate to an edit screen (default: the built-in create form) */
   onCreateNewItem?: () => void;
   /** card "edit": e.g. navigate to an edit screen (default: toggle inline edit) */
@@ -30,6 +30,8 @@ export interface ListWebCardsComponentProps {
   readParams?: Record<string, any>;
   /** "Post", "Currency", ... in user messages */
   itemLabel?: string;
+  /** false: fixed order (e.g. rates by date) - no drag & drop, move up / down, make first / last */
+  reorderEnabled?: boolean;
 }
 
 export interface CardThreeDotsMenuProps {

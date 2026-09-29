@@ -3,7 +3,7 @@
 // form shows the new values; while it has unsaved edits -> a banner offers Reload / Keep mine.
 // Deleted in another browser -> the form says so and cannot save.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
@@ -12,6 +12,8 @@ import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from './CurrencyRealtimeBadge';
+import IconApp from '../../components/common/IconApp';
+import { CURRENCY_EXCHANGE_ROUTES } from './exchange/currencyExchangeModel';
 import {
   CURRENCY_CATALOG_OWNER,
   CURRENCY_ENTITY,
@@ -146,6 +148,18 @@ export default function CurrencyEdit() {
         <Text style={[styles.title, { color: c.text }]}>{rowGUID ? `Currency ${row?.rowJSON.currencyCode ?? ''}` : 'New currency'}</Text>
         <CurrencyRealtimeBadge status={status} />
       </View>
+      {/* hyperlink "Rates" only for a saved currency (the rates' rowOwnerGUID is its rowGUID) */}
+      {rowGUID && row ? (
+        <Pressable
+          testID="currency-edit-rates"
+          accessibilityRole="link"
+          onPress={() => router.push({ pathname: CURRENCY_EXCHANGE_ROUTES.list, params: { currencyGUID: rowGUID } } as any)}
+          style={styles.ratesLink}
+        >
+          <IconApp name="currency_exchange" size={18} color={c.primary} />
+          <Text style={{ color: c.primary, fontWeight: '600', textDecorationLine: 'underline' }}>Rates</Text>
+        </Pressable>
+      ) : null}
 
       {remoteChanged && (
         <View style={[styles.banner, { borderColor: c.primary, backgroundColor: `${c.primary}14` }]} testID="currency-edit-remote-changed">
@@ -209,6 +223,7 @@ export default function CurrencyEdit() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  ratesLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   title: { fontSize: 22, fontWeight: '700' },
   banner: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 12, gap: 6 },

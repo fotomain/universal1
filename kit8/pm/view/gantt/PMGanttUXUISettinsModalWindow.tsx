@@ -24,7 +24,7 @@ import TextInputApp from '../../../components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
-import PMColorSwatchPicker from '../task/progress/line/PMColorSwatchPicker';
+import ColorPickerApp from '../../../components/common/ColorPickerApp';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 // direct file import: the progress/line index also exports Skia components, which must not
@@ -227,8 +227,9 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 <Opt id="criticalPathTaskColor">
                   <Text style={[styles.section, { color: c.text }]}>Critical path task color</Text>
                   <Text style={[styles.label, { color: c.text }]}>Bars, arrows and network nodes on the critical path</Text>
-                  <PMColorSwatchPicker
+                  <ColorPickerApp
                     testID="pm-uxui-critical-color"
+                    title="Critical path task color"
                     value={draft.criticalPathTaskColor === PM_DEFAULT_CRITICAL_PATH_TASK_COLOR ? null : draft.criticalPathTaskColor}
                     onChange={(v) => set('criticalPathTaskColor', v || PM_DEFAULT_CRITICAL_PATH_TASK_COLOR)}
                     swatches={PM_CRITICAL_PATH_TASK_COLORS}

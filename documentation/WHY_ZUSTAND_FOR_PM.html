@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why Zustand for PM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* Light Tamagui-style business theme (works offline: fonts fall back to system fonts) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7;
+    --rose: #e11d48; --rose-soft: #ffe4e6; --indigo: #4f46e5;
+    --gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 45%, #0891b2 100%);
+    --radius: 14px; --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  a { color: var(--purple); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; }
+
+  /* ---- sticky top menu (buttons re-activate while scrolling) ---- */
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 18px; padding: 10px 20px; }
+  .brand { font: 700 16px var(--display); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .brand-dot { width: 22px; height: 22px; border-radius: 7px; background: var(--gradient); }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none;
+    font-weight: 500; font-size: 13.5px; transition: background .15s, color .15s; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  nav a.active { background: var(--purple-soft); color: var(--purple); font-weight: 600; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 20px 80px; }
+  section { margin-top: 28px; }
+  h1 { font: 700 40px/1.15 var(--display); margin: 0 0 12px; letter-spacing: -0.02em; }
+  h2 { font: 700 26px/1.2 var(--display); margin: 0 0 6px; letter-spacing: -0.01em; }
+  h3 { font: 600 17px var(--font); margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .g4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+  .hero { background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 34px; position: relative; overflow: hidden; }
+  .hero::after { content: ''; position: absolute; right: -80px; top: -80px; width: 280px; height: 280px; border-radius: 50%; background: var(--gradient); opacity: .12; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .pill.purple { background: var(--purple-soft); color: var(--purple); }
+  .pill.cyan { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.emerald { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.amber { background: var(--amber-soft); color: var(--amber); }
+  .pill.rose { background: var(--rose-soft); color: var(--rose); }
+  .answer { margin-top: 18px; padding: 14px 16px; border-left: 4px solid var(--purple); background: var(--purple-soft); border-radius: 0 10px 10px 0; font-weight: 500; max-width: 860px; }
+
+  .kpi { padding: 18px; }
+  .kpi .v { font: 700 30px var(--display); letter-spacing: -0.02em; }
+  .kpi .l { color: var(--muted); font-size: 13px; }
+  .kpi .n { font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+
+  .analogy { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .analogy .card h3 { margin-top: 0; display: flex; align-items: center; gap: 8px; }
+  .emoji { font-size: 22px; }
+  ul.clean { margin: 8px 0 0; padding-left: 18px; }
+  ul.clean li { margin: 4px 0; }
+
+  /* ---- tables with filter + sort ---- */
+  .table-tools { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .table-tools input, .table-tools select { font: 14px var(--font); padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: #fff; min-width: 240px; }
+  .table-tools .count { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-subtle); font-weight: 600; font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; }
+  th::after { content: ' ⇅'; color: var(--border-strong); }
+  th.asc::after { content: ' ▲'; color: var(--purple); }
+  th.desc::after { content: ' ▼'; color: var(--purple); }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #faf5ff; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  pre { margin: 0; font: 12.5px/1.55 var(--mono); background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; }
+  pre .k { color: #c4b5fd; } pre .s { color: #86efac; } pre .c { color: #94a3b8; } pre .n { color: #fcd34d; }
+  .io-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+
+  .diagram { width: 100%; height: auto; }
+  .chart-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); margin-top: 8px; }
+  .chart-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--c); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .callout { padding: 14px 16px; border-radius: 12px; border: 1px solid; margin-top: 12px; }
+  .callout.amber { background: var(--amber-soft); border-color: #fcd34d; }
+  .callout.emerald { background: var(--emerald-soft); border-color: #6ee7b7; }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 640px) { h1 { font-size: 30px; } .hero { padding: 22px; } .table-tools input { min-width: 0; flex: 1; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="brand-dot"></span>PM state · Zustand</div>
+    <nav><ul id="nav">
+      <li><a href="#overview" class="active">Overview</a></li>
+      <li><a href="#dummies">For Dummies</a></li>
+      <li><a href="#flow">How data flows</a></li>
+      <li><a href="#compare">Zustand vs RTK</a></li>
+      <li><a href="#size">Size</a></li>
+      <li><a href="#io">Input &amp; Output</a></li>
+      <li><a href="#code">Same job, two ways</a></li>
+      <li><a href="#rtk">When RTK wins</a></li>
+      <li><a href="#numbers">Codebase numbers</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============================== OVERVIEW ============================== -->
+<section id="overview" class="hero">
+  <span class="pill purple">Architecture decision · UNIVERSAL1 / expo-app · kit8/pm</span>
+  <h1>Why the Project module (Gantt) uses Zustand<br>and the rest of the app uses Redux Toolkit</h1>
+  <p class="lead">The Gantt chart is a fast, interactive drawing: bars are dragged, rows hovered and zoomed dozens of times per second, and a lot of that code runs <b>outside React</b> (gestures, keyboard shortcuts, canvas hit-testing). Zustand gives that code a tiny, always-importable store. Redux Toolkit stays where it shines: app-wide data with sagas, persistence and realtime catalogs.</p>
+  <div class="answer">Short answer: <b>it is not "Zustand is better than Redux".</b> Each tool is used where it fits. The PM module needs a small, fast, self-contained view-state store - that is exactly what Zustand is. The server data of PM lives in React Query, not in any of the two.</div>
+</section>
+
+<section class="grid g4" aria-label="Key numbers">
+  <div class="card kpi"><div class="v">0.8 kB</div><div class="l">Zustand (gzip, this repo)</div><div class="n">vs ~38 kB for Redux Toolkit + redux + immer + reselect + react-redux</div></div>
+  <div class="card kpi"><div class="v">128</div><div class="l">store reads outside React in kit8/pm</div><div class="n"><code>usePMStore.getState()</code> - gestures, shortcuts, commands</div></div>
+  <div class="card kpi"><div class="v">145</div><div class="l">fine-grained subscriptions</div><div class="n"><code>usePMStore(selector)</code> in 46 files - only the reader re-renders</div></div>
+  <div class="card kpi"><div class="v">0</div><div class="l">Redux calls inside kit8/pm</div><div class="n">no <code>useSelector</code>, no SystemMetaData entry, no Provider needed</div></div>
+</section>
+
+<!-- ============================== FOR DUMMIES ============================== -->
+<section id="dummies">
+  <h2>For Dummies: a whiteboard vs a post office</h2>
+  <p class="sub">Both keep "the current state of the app". They differ in how you read and change it.</p>
+  <div class="analogy">
+    <div class="card">
+      <h3><span class="emoji">🧑‍🏫</span> Zustand = a shared whiteboard</h3>
+      <p>Anyone in the room can <b>look at the board</b> or <b>write on it</b> directly: <code>usePMStore.getState().setHovered(id)</code>. People who only care about one corner of the board (e.g. "which row is hovered") are only told when <i>that</i> corner changes.</p>
+      <ul class="clean">
+        <li>One file describes the whole board (<code>store/store_pm.ts</code>).</li>
+        <li>No envelopes, no forms, no mailman.</li>
+        <li>The board hangs on the wall - any code can walk up to it, even code that is not a React screen.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="emoji">🏤</span> Redux Toolkit = a well-run post office</h3>
+      <p>You never touch the data yourself: you <b>send a letter</b> (an action like <code>createOne</code>), clerks (reducers) file it, and couriers (sagas) talk to Supabase. Every step is logged and predictable.</p>
+      <ul class="clean">
+        <li>Great when many departments share the same records (media posts, RACI members, currencies).</li>
+        <li>Great for long workflows (saga: read → realtime channel → reconnect → refetch).</li>
+        <li>More paperwork for tiny, very frequent changes like "the mouse moved to row 12".</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout emerald"><b>Rule of thumb used in this repo:</b> data that many screens share and that must be synced / persisted → Redux Toolkit (+ saga). Fast, local "what does the Gantt show right now" state → Zustand. Server truth of projects / tasks → React Query.</div>
+</section>
+
+<!-- ============================== FLOW DIAGRAM ============================== -->
+<section id="flow">
+  <h2>How data flows</h2>
+  <p class="sub">Left: the PM module. Right: app-wide entities (catalogs, posts, RACI). Same Supabase, two proven paths.</p>
+  <div class="card">
+    <svg class="diagram" viewBox="0 0 1100 430" role="img" aria-label="Data flow diagram: PM uses React Query and Zustand; the rest of the app uses redux-saga and Redux Toolkit">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+        <linearGradient id="gp" x1="0" x2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#6366f1"/></linearGradient>
+        <linearGradient id="gc" x1="0" x2="1"><stop offset="0" stop-color="#0891b2"/><stop offset="1" stop-color="#059669"/></linearGradient>
+      </defs>
+      <!-- supabase -->
+      <rect x="400" y="14" width="300" height="56" rx="14" fill="#0f172a"/>
+      <text x="550" y="40" text-anchor="middle" fill="#fff" font-family="Space Grotesk, Inter, sans-serif" font-size="18" font-weight="700">Supabase (Postgres + Realtime)</text>
+      <text x="550" y="60" text-anchor="middle" fill="#94a3b8" font-family="Inter, sans-serif" font-size="12">project_table · project_task_table · currencyTable · …</text>
+      <!-- PM column -->
+      <text x="275" y="104" text-anchor="middle" fill="#7c3aed" font-family="Inter, sans-serif" font-size="13" font-weight="700">PM MODULE (kit8/pm)</text>
+      <rect x="125" y="118" width="300" height="62" rx="12" fill="#fff" stroke="#7c3aed" stroke-width="2"/>
+      <text x="275" y="144" text-anchor="middle" fill="#0f172a" font-family="Inter, sans-serif" font-size="15" font-weight="700">React Query</text>
+      <text x="275" y="164" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12">server truth · cache · optimistic · realtime invalidate</text>
+      <rect x="125" y="214" width="300" height="72" rx="12" fill="url(#gp)"/>
+      <text x="275" y="242" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="15" font-weight="700">Zustand store_pm</text>
+      <text x="275" y="262" text-anchor="middle" fill="#ede9fe" font-family="Inter, sans-serif" font-size="12">tree · CPM schedule · visibleRows · hover</text>
+      <text x="275" y="278" text-anchor="middle" fill="#ede9fe" font-family="Inter, sans-serif" font-size="12">zoom · menus · per-user view settings</text>
+      <rect x="40" y="322" width="200" height="56" rx="12" fill="#fff" stroke="#cbd5e1"/>
+      <text x="140" y="346" text-anchor="middle" fill="#0f172a" font-family="Inter, sans-serif" font-size="14" font-weight="600">Skia tree</text>
+      <text x="140" y="364" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12">reads visibleRows</text>
+      <rect x="310" y="322" width="200" height="56" rx="12" fill="#fff" stroke="#cbd5e1"/>
+      <text x="410" y="346" text-anchor="middle" fill="#0f172a" font-family="Inter, sans-serif" font-size="14" font-weight="600">Skia Gantt chart</text>
+      <text x="410" y="364" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12">reads the SAME visibleRows</text>
+      <text x="275" y="410" text-anchor="middle" fill="#7c3aed" font-family="Inter, sans-serif" font-size="12" font-weight="600">+ gestures / keyboard / commands call getState() directly</text>
+      <!-- app column -->
+      <text x="825" y="104" text-anchor="middle" fill="#0891b2" font-family="Inter, sans-serif" font-size="13" font-weight="700">APP ENTITIES (SystemMetaData)</text>
+      <rect x="675" y="118" width="300" height="62" rx="12" fill="#fff" stroke="#0891b2" stroke-width="2"/>
+      <text x="825" y="144" text-anchor="middle" fill="#0f172a" font-family="Inter, sans-serif" font-size="15" font-weight="700">redux-saga</text>
+      <text x="825" y="164" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12">reusableRootSaga · realtime channel · catch-up read</text>
+      <rect x="675" y="214" width="300" height="72" rx="12" fill="url(#gc)"/>
+      <text x="825" y="242" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="15" font-weight="700">Redux Toolkit slices</text>
+      <text x="825" y="262" text-anchor="middle" fill="#ecfeff" font-family="Inter, sans-serif" font-size="12">reusableCrudSlice × entity · redux-persist</text>
+      <text x="825" y="278" text-anchor="middle" fill="#ecfeff" font-family="Inter, sans-serif" font-size="12">activeUser · uxui · theme</text>
+      <rect x="725" y="322" width="200" height="56" rx="12" fill="#fff" stroke="#cbd5e1"/>
+      <text x="825" y="346" text-anchor="middle" fill="#0f172a" font-family="Inter, sans-serif" font-size="14" font-weight="600">Screens</text>
+      <text x="825" y="364" text-anchor="middle" fill="#64748b" font-family="Inter, sans-serif" font-size="12">Currencies · Posts · RACI</text>
+      <!-- arrows -->
+      <path d="M470 70 L330 116" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M630 70 L770 116" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M275 180 L275 212" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M825 180 L825 212" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M220 286 L150 320" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M330 286 L400 320" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M825 286 L825 320" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+    </svg>
+    <p class="note">The Zustand store holds a <b>render-ready copy</b> of the selected project (hydrated from React Query), so row <i>i</i> of the tree and bar <i>i</i> of the chart can never disagree.</p>
+  </div>
+</section>
+
+<!-- ============================== COMPARISON TABLE ============================== -->
+<section id="compare">
+  <h2>Zustand vs Redux Toolkit - for the Gantt</h2>
+  <p class="sub">Filter by any word, click a column to sort.</p>
+  <div class="table-tools">
+    <input type="search" placeholder="Filter, e.g. outside React, boilerplate, devtools…" data-filter="tbl-compare" aria-label="Filter comparison">
+    <select data-filter-col="tbl-compare" data-col="3" aria-label="Filter by winner">
+      <option value="">Any winner</option><option>Zustand</option><option>Redux Toolkit</option><option>Tie</option>
+    </select>
+    <span class="count" data-count="tbl-compare"></span>
+  </div>
+  <div class="tbl-wrap"><table id="tbl-compare">
+    <thead><tr><th>Topic</th><th>Zustand (kit8/pm)</th><th>Redux Toolkit (app)</th><th>Better for the Gantt</th><th>Why it matters here</th></tr></thead>
+    <tbody>
+      <tr><td>Use outside React</td><td>Module singleton: <code>usePMStore.getState()</code> anywhere</td><td>The app store is created at runtime inside <code>WithState</code> (needs dbAdapters) - not importable</td><td>Zustand</td><td>Gesture handlers, keyboard shortcuts, taskShare and commands read / write the store 128×.</td></tr>
+      <tr><td>Setup / boilerplate</td><td>1 <code>create()</code> call, state + setters together</td><td>slice + actions + saga + SystemMetaData entry + persist whitelist</td><td>Zustand</td><td>A new view flag (e.g. <code>criticalPathTaskColor</code>) = type + default + setter.</td></tr>
+      <tr><td>Re-render control</td><td>Selector per component, <code>Object.is</code> compare</td><td><code>useSelector</code> per component - same idea</td><td>Tie</td><td>Both avoid re-rendering the whole tree; hover only repaints its readers.</td></tr>
+      <tr><td>High-frequency updates</td><td><code>set()</code> is a plain function call</td><td>dispatch → middleware (saga, persist, serializable check) → reducer</td><td>Zustand</td><td>Hover, zoom, drag ghost, link mode fire many times per second.</td></tr>
+      <tr><td>Provider needed</td><td>No</td><td>Yes (<code>&lt;Provider&gt;</code> + PersistGate)</td><td>Zustand</td><td>The PM module works in tests and other apps without the app shell.</td></tr>
+      <tr><td>Module isolation / reuse</td><td>kit8/pm owns its store</td><td>Entities live in one global SystemMetaData</td><td>Zustand</td><td>The Gantt can be dropped into appCC1 / appPosts builds unchanged.</td></tr>
+      <tr><td>Async workflows</td><td>Kept out on purpose (React Query does it)</td><td>redux-saga: channels, cancel, retry</td><td>Redux Toolkit</td><td>Realtime catalogs (Currencies) use the saga channel + catch-up read.</td></tr>
+      <tr><td>Persistence</td><td>Middleware available, not used (settings live in Supabase)</td><td>redux-persist already configured</td><td>Redux Toolkit</td><td>User / theme / uxui state survives reloads via redux-persist.</td></tr>
+      <tr><td>DevTools / time travel</td><td>Optional <code>devtools</code> middleware</td><td>Built in</td><td>Redux Toolkit</td><td>Nice for debugging shared entity flows.</td></tr>
+      <tr><td>Enforced structure for big teams</td><td>Free-form - discipline needed (store split into storeTypes / storeDerive / store_pm)</td><td>Opinionated slices + actions</td><td>Redux Toolkit</td><td>Conventions help when many people touch the same data.</td></tr>
+      <tr><td>Library size</td><td>≈ 0.8 kB gzip</td><td>≈ 38 kB gzip incl. deps</td><td>Tie</td><td>RTK ships anyway for the rest of the app, so size is NOT the reason here.</td></tr>
+      <tr><td>Testing</td><td>Call <code>getState()</code> / setters directly, no store setup</td><td>Build a store (+ saga middleware) per test</td><td>Zustand</td><td>PM store tests run without providers (<code>__tests__/pm/store</code>).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== SIZE CHART ============================== -->
+<section id="size">
+  <h2>Size of the libraries (measured in this repo)</h2>
+  <p class="sub">gzip -9 of the ESM files in <code>node_modules</code> (unminified, so production bundles are smaller - the ratio is what counts).</p>
+  <div class="card">
+    <svg class="diagram" viewBox="0 0 900 250" role="img" aria-label="Bar chart: Zustand 0.8 kB vs Redux Toolkit stack 38.2 kB gzip, plus redux-saga 7.1 kB">
+      <g font-family="Inter, sans-serif" font-size="13" fill="#334155">
+        <text x="0" y="58">Zustand 5.0.15</text>
+        <text x="0" y="128">Redux Toolkit stack</text>
+        <text x="0" y="198">+ redux-saga 1.5.1</text>
+      </g>
+      <!-- scale: 1 kB = 15px, x0 = 170 -->
+      <g stroke="#e2e8f0">
+        <line x1="170" y1="20" x2="170" y2="225"/><line x1="320" y1="20" x2="320" y2="225"/><line x1="470" y1="20" x2="470" y2="225"/><line x1="620" y1="20" x2="620" y2="225"/><line x1="770" y1="20" x2="770" y2="225"/>
+      </g>
+      <g font-family="Inter, sans-serif" font-size="11" fill="#94a3b8"><text x="166" y="242">0</text><text x="312" y="242">10 kB</text><text x="462" y="242">20 kB</text><text x="612" y="242">30 kB</text><text x="762" y="242">40 kB</text></g>
+      <rect x="170" y="40" width="12" height="28" rx="4" fill="#7c3aed"/>
+      <text x="190" y="59" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#7c3aed">0.8 kB</text>
+      <!-- RTK stack: toolkit 18.0, redux 4.4, immer 6.5, reselect 5.6, react-redux 3.7 = 38.2 -->
+      <rect x="170" y="110" width="270" height="28" fill="#0891b2"/>
+      <rect x="440" y="110" width="66" height="28" fill="#06b6d4"/>
+      <rect x="506" y="110" width="97.5" height="28" fill="#14b8a6"/>
+      <rect x="603.5" y="110" width="84" height="28" fill="#059669"/>
+      <rect x="687.5" y="110" width="55.5" height="28" fill="#10b981"/>
+      <text x="752" y="129" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#0891b2">38.2 kB</text>
+      <rect x="170" y="180" width="106.5" height="28" rx="4" fill="#d97706"/>
+      <text x="286" y="199" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#d97706">7.1 kB (minified UMD)</text>
+    </svg>
+    <div class="chart-legend">
+      <span style="--c:#0891b2">@reduxjs/toolkit 2.12.0 · 18.0 kB</span>
+      <span style="--c:#06b6d4">redux · 4.4 kB</span>
+      <span style="--c:#14b8a6">immer · 6.5 kB</span>
+      <span style="--c:#059669">reselect · 5.6 kB</span>
+      <span style="--c:#10b981">react-redux 9.3.0 · 3.7 kB</span>
+    </div>
+    <div class="callout amber"><b>Be fair:</b> this app already ships the Redux stack for posts, RACI, currencies and user state, so choosing Zustand for PM adds only ~0.8 kB and saves nothing. The real reasons are the ones in the comparison table: use outside React, less plumbing, isolation.</div>
+  </div>
+</section>
+
+<!-- ============================== INPUT / OUTPUT ============================== -->
+<section id="io">
+  <h2>Input &amp; Output: what the store receives and what it gives</h2>
+  <p class="sub">Input = rows from Supabase (via React Query). Output = the render-ready state both Skia canvases read. Samples shortened.</p>
+  <div class="grid g2">
+    <div class="card">
+      <div class="io-label">Input sample · <code>hydrate(projectGUID, tasks, deps)</code></div>
+<pre><span class="c">// project_task_table rows (React Query cache)</span>
+[
+  { <span class="k">"rowGUID"</span>: <span class="s">"00000000-…-000000000002"</span>,
+    <span class="k">"treePath"</span>: <span class="s">"p1.s1"</span>, <span class="k">"orderInList"</span>: <span class="n">1024</span>,
+    <span class="k">"rowProgress"</span>: <span class="n">0</span>,
+    <span class="k">"rowJSON"</span>: { <span class="k">"rowKind"</span>: <span class="s">"stage"</span>, <span class="k">"name"</span>: <span class="s">"Stage 1"</span> } },
+  { <span class="k">"rowGUID"</span>: <span class="s">"00000000-…-000000000003"</span>,
+    <span class="k">"treePath"</span>: <span class="s">"p1.s1.t111"</span>, <span class="k">"orderInList"</span>: <span class="n">1024</span>,
+    <span class="k">"rowProgress"</span>: <span class="n">40</span>,
+    <span class="k">"rowJSON"</span>: { <span class="k">"rowKind"</span>: <span class="s">"task"</span>, <span class="k">"name"</span>: <span class="s">"Task 111"</span>,
+                 <span class="k">"durationDays"</span>: <span class="n">3</span> } }
+]
+<span class="c">// project_task_dependencies_table</span>
+[ { <span class="k">"rowGUID"</span>: <span class="s">"…t113"</span>, <span class="k">"rowDependsOnGUID"</span>: <span class="s">"…t111"</span>,
+    <span class="k">"linkType"</span>: <span class="s">"FS"</span>, <span class="k">"lagDays"</span>: <span class="n">0</span> } ]</pre>
+    </div>
+    <div class="card">
+      <div class="io-label">Output sample · <code>usePMStore.getState()</code></div>
+<pre>{
+  <span class="k">visibleRows</span>: [<span class="s">"…002"</span>, <span class="s">"…003"</span>, <span class="s">"…004"</span>, <span class="s">"…005"</span>],
+  <span class="k">rowIndexById</span>: { <span class="s">"…003"</span>: <span class="n">1</span>, … },
+  <span class="k">tree</span>: { <span class="k">wbsById</span>: { <span class="s">"…002"</span>: <span class="s">"1"</span>, <span class="s">"…003"</span>: <span class="s">"1.1"</span> }, … },
+  <span class="k">schedule</span>: {
+    <span class="s">"…003"</span>: { <span class="k">startAt</span>: <span class="s">"2026-09-28"</span>, <span class="k">finishAt</span>: <span class="s">"2026-10-01"</span>,
+               <span class="k">durationDays</span>: <span class="n">3</span>, <span class="k">progress</span>: <span class="n">40</span>,
+               <span class="k">totalFloatDays</span>: <span class="n">2</span>, <span class="k">isCritical</span>: <span class="k">false</span> } },
+  <span class="k">projectProgress</span>: <span class="n">13.3</span>,
+  <span class="k">hoveredGUID</span>: <span class="k">null</span>, <span class="k">dayWidth</span>: <span class="n">30</span>,
+  <span class="k">showCriticalPath</span>: <span class="k">true</span>, <span class="k">criticalPathTaskColor</span>: <span class="s">"#FF0033"</span>
+}</pre>
+    </div>
+  </div>
+  <p class="note">The store turns flat rows into a tree, a CPM schedule (critical path, float) and the visible row order in one place (<code>store/storeDerive.ts</code>) - a pure function that is easy to test.</p>
+</section>
+
+<!-- ============================== CODE ============================== -->
+<section id="code">
+  <h2>Same job, two ways: "highlight the row under the mouse"</h2>
+  <p class="sub">Runs on every pointer move over the chart.</p>
+  <div class="grid g2">
+    <div class="card">
+      <div class="io-label">Zustand (what kit8/pm does)</div>
+<pre><span class="c">// store/store_pm.ts</span>
+hoveredGUID: <span class="k">null</span>,
+setHovered: (g) =&gt; set({ hoveredGUID: g }),
+
+<span class="c">// gesture callback (not a component)</span>
+usePMStore.getState().setHovered(guid);
+
+<span class="c">// only components that read it re-render</span>
+<span class="k">const</span> hovered = usePMStore((s) =&gt; s.hoveredGUID);</pre>
+    </div>
+    <div class="card">
+      <div class="io-label">Redux Toolkit (how it would look)</div>
+<pre><span class="c">// slice</span>
+setHovered: (state, a) =&gt; { state.hoveredGUID = a.payload },
+
+<span class="c">// gesture callback: needs the store instance -
+// in this app it is created inside WithState at runtime,
+// so it must be threaded in through React context first</span>
+store.dispatch(pmSlice.actions.setHovered(guid));
+<span class="c">// -> saga middleware, persist, serializable check, reducer</span>
+
+<span class="k">const</span> hovered = useSelector((s) =&gt; s.pm.hoveredGUID);</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== WHEN RTK WINS ============================== -->
+<section id="rtk">
+  <h2>Where Redux Toolkit is the right choice (and stays)</h2>
+  <p class="sub">Every module of the app and the tool it uses. Filter / sort.</p>
+  <div class="table-tools">
+    <input type="search" placeholder="Filter modules…" data-filter="tbl-modules" aria-label="Filter modules">
+    <span class="count" data-count="tbl-modules"></span>
+  </div>
+  <div class="tbl-wrap"><table id="tbl-modules">
+    <thead><tr><th>Module</th><th>State tool</th><th>Server data via</th><th>Realtime</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td>Projects / Gantt / Network (kit8/pm)</td><td>Zustand</td><td>React Query</td><td>Supabase channel → query invalidation</td><td>Fast view state, used outside React, isolated module</td></tr>
+      <tr><td>Per-user Gantt settings</td><td>Zustand (mirror)</td><td>React Query → project_user_settings_table</td><td>-</td><td>Belongs to the PM view; optimistic save</td></tr>
+      <tr><td>Currencies catalog</td><td>Redux Toolkit</td><td>redux-saga</td><td>saga eventChannel + catch-up read</td><td>Shared catalog, several browsers, generic reusable entity</td></tr>
+      <tr><td>Media posts / archive</td><td>Redux Toolkit</td><td>redux-saga</td><td>available (useRealtimeEntity)</td><td>Generic CRUD list, undo snackbar, persisted</td></tr>
+      <tr><td>Users (RACI)</td><td>Redux Toolkit</td><td>redux-saga</td><td>available</td><td>Shared entity used by several screens</td></tr>
+      <tr><td>Active user / auth</td><td>Redux Toolkit</td><td>Supabase auth listener</td><td>-</td><td>Persisted with redux-persist, read app-wide (menu, profile)</td></tr>
+      <tr><td>Theme / UX UI state</td><td>Redux Toolkit</td><td>themeStore saga</td><td>-</td><td>Persisted, synced between devices</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout amber"><b>Honest costs of Zustand in PM:</b> two state libraries in one app (learn both); no enforced structure (the PM store is split into <code>storeTypes.ts</code> / <code>storeDerive.ts</code> / <code>store_pm.ts</code> to stay readable); devtools only with the optional middleware.</div>
+</section>
+
+<!-- ============================== NUMBERS ============================== -->
+<section id="numbers">
+  <h2>Codebase numbers</h2>
+  <p class="sub">Counted with grep / wc in expo-app (2026-09-29).</p>
+  <div class="table-tools">
+    <input type="search" placeholder="Filter metrics…" data-filter="tbl-numbers" aria-label="Filter metrics">
+    <span class="count" data-count="tbl-numbers"></span>
+  </div>
+  <div class="tbl-wrap"><table id="tbl-numbers">
+    <thead><tr><th>Metric</th><th>Value</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Selector subscriptions <code>usePMStore(…)</code></td><td class="num">145</td><td>kit8/pm (46 files)</td></tr>
+      <tr><td>Store reads/writes outside React (<code>getState()</code>)</td><td class="num">128</td><td>kit8/pm commands, gestures, shortcuts</td></tr>
+      <tr><td><code>useSelector</code> calls inside kit8/pm</td><td class="num">0</td><td>kit8/pm</td></tr>
+      <tr><td><code>useSelector</code> calls in the rest of the app</td><td class="num">41</td><td>app + kit8 (non-PM)</td></tr>
+      <tr><td>PM store lines (types + derive + store)</td><td class="num">523</td><td>kit8/pm/store</td></tr>
+      <tr><td>Reusable Redux slice + saga lines</td><td class="num">732</td><td>kit8/redux/reusable</td></tr>
+      <tr><td>Zustand version</td><td class="num">5.0.15</td><td>package.json</td></tr>
+      <tr><td>Redux Toolkit version</td><td class="num">2.12.0</td><td>package.json</td></tr>
+      <tr><td>Zustand size (gzip, ESM)</td><td class="num">0.8</td><td>kB · node_modules/zustand</td></tr>
+      <tr><td>Redux stack size (gzip, ESM)</td><td class="num">38.2</td><td>kB · toolkit + redux + immer + reselect + react-redux</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== GLOSSARY ============================== -->
+<section id="glossary">
+  <h2>Glossary for Dummies</h2>
+  <div class="grid g2">
+    <div class="card"><h3>State</h3><p>What the app "remembers" right now: which project is open, which row is hovered, the zoom level.</p>
+      <h3>Store</h3><p>The box that holds the state. Zustand: <code>usePMStore</code>. Redux: the app store in <code>WithState</code>.</p>
+      <h3>Selector</h3><p>"Give me just this piece": <code>(s) =&gt; s.hoveredGUID</code>. Only components whose piece changed re-draw.</p></div>
+    <div class="card"><h3>Action / dispatch</h3><p>Redux's letter: <code>{ type: 'currencyReusable/createOne', payload }</code>, sent with <code>dispatch</code>.</p>
+      <h3>Saga</h3><p>A background worker for Redux actions: talks to Supabase, listens to realtime, retries.</p>
+      <h3>React Query</h3><p>Keeps server data fresh (cache, refetch, optimistic updates). In PM it owns projects / tasks; Zustand only mirrors a render-ready view.</p></div>
+  </div>
+</section>
+</main>
+
+<footer>WHY_ZUSTAND_FOR_PM · expo-app/documentation · report style: ONTREND REPORTS REQUIREMENTS (HTML, local, light Tamagui theme, sticky menu, filterable / sortable tables, input &amp; output samples, charts).</footer>
+
+<script>
+// ---- sticky menu: highlight the section in view (re-activates while scrolling) ----
+(function () {
+  const links = Array.from(document.querySelectorAll('#nav a'));
+  const byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const sections = Array.from(byId.keys()).map((id) => document.getElementById(id)).filter(Boolean);
+  const setActive = (id) => {
+    links.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+    const a = byId.get(id);
+    if (a && a.scrollIntoView) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+  const onScroll = () => {
+    const y = window.scrollY + 90;
+    let current = sections[0] && sections[0].id;
+    for (const s of sections) if (s.offsetTop <= y) current = s.id;
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 2) current = sections[sections.length - 1].id;
+    setActive(current);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
+// ---- tables: text filter, column filter, click-to-sort (numbers aware) ----
+(function () {
+  const state = {};
+  const rowsOf = (t) => Array.from(t.tBodies[0].rows);
+  function apply(id) {
+    const t = document.getElementById(id);
+    const s = state[id] || (state[id] = { text: '', col: null, colVal: '', sort: null, dir: 1 });
+    let visible = 0;
+    rowsOf(t).forEach((r) => {
+      const okText = !s.text || r.textContent.toLowerCase().includes(s.text);
+      const okCol = !s.colVal || (r.cells[s.col] && r.cells[s.col].textContent.trim() === s.colVal);
+      r.style.display = okText && okCol ? '' : 'none';
+      if (okText && okCol) visible++;
+    });
+    const c = document.querySelector('[data-count="' + id + '"]');
+    if (c) c.textContent = visible + ' of ' + rowsOf(t).length + ' rows';
+  }
+  document.querySelectorAll('[data-filter]').forEach((inp) => {
+    const id = inp.dataset.filter;
+    inp.addEventListener('input', () => { (state[id] = state[id] || { dir: 1 }).text = inp.value.trim().toLowerCase(); apply(id); });
+    apply(id);
+  });
+  document.querySelectorAll('[data-filter-col]').forEach((sel) => {
+    const id = sel.dataset.filterCol;
+    sel.addEventListener('change', () => { const s = (state[id] = state[id] || { dir: 1 }); s.col = Number(sel.dataset.col); s.colVal = sel.value; apply(id); });
+  });
+  document.querySelectorAll('table').forEach((t) => {
+    Array.from(t.tHead.rows[0].cells).forEach((th, i) => {
+      th.addEventListener('click', () => {
+        const s = (state[t.id] = state[t.id] || { dir: 1 });
+        s.dir = s.sort === i ? -s.dir : 1;
+        s.sort = i;
+        const num = (v) => { const n = parseFloat(v.replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
+        const rows = rowsOf(t).sort((a, b) => {
+          const x = a.cells[i].textContent.trim(), y = b.cells[i].textContent.trim();
+          const nx = num(x), ny = num(y);
+          return (nx !== null && ny !== null ? nx - ny : x.localeCompare(y)) * s.dir;
+        });
+        rows.forEach((r) => t.tBodies[0].appendChild(r));
+        Array.from(t.tHead.rows[0].cells).forEach((c) => c.classList.remove('asc', 'desc'));
+        th.classList.add(s.dir === 1 ? 'asc' : 'desc');
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,11 +1,18 @@
 // CurrencyCard - one currency in ListWebCardsComponent (web, drag & drop) and in the native list.
-// Tap / Edit -> /currency/edit?rowGUID=… · Delete -> the list's delete (asks when "ask before delete" is on).
+// Tap / Edit -> /currency/edit?rowGUID=… · Rates -> /currency/exchange/list?currencyGUID=… ·
+// Delete -> the list's delete (asks when "ask before delete" is on).
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from '../../components/common/IconApp';
 import type { CardItem } from '../../components/list/web/lib/types';
 import type { CurrencyRowJSON } from './currencyModel';
+import { CURRENCY_EXCHANGE_ROUTES } from './exchange/currencyExchangeModel';
+
+/** hyperlink "Rates": the exchange rates of this (saved) currency */
+export const openCurrencyRates = (currencyGUID: string) =>
+  router.push({ pathname: CURRENCY_EXCHANGE_ROUTES.list, params: { currencyGUID } } as any);
 
 export interface CurrencyCardProps {
   card: CardItem;
@@ -65,6 +72,16 @@ export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onD
           </Text>
         )}
       </Pressable>
+      <Pressable
+        testID={`currency-card-rates-${id}`}
+        onPress={() => openCurrencyRates(id)}
+        accessibilityRole="link"
+        accessibilityLabel={`Exchange rates of ${j.currencyCode || 'currency'}`}
+        style={styles.ratesLink}
+      >
+        <IconApp name="currency_exchange" size={18} color={c.primary} />
+        <Text style={[styles.ratesText, { color: c.primary }]}>Rates</Text>
+      </Pressable>
       <IconApp testID={`currency-card-edit-${id}`} name="edit" size={20} color={c.text} onPress={() => onEdit?.(id)} />
       <View style={{ width: 8 }} />
       <IconApp testID={`currency-card-delete-${id}`} name="delete" size={20} color={c.error} onPress={() => onDelete?.(id)} />
@@ -80,5 +97,7 @@ const styles = StyleSheet.create({
   codeText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
   name: { fontSize: 16, fontWeight: '600' },
   meta: { fontSize: 12, opacity: 0.7, marginTop: 2 },
+  ratesLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 4, marginRight: 8 },
+  ratesText: { fontWeight: '600', textDecorationLine: 'underline', fontSize: 13 },
   chip: { fontSize: 11, borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, marginRight: 8 },
 });

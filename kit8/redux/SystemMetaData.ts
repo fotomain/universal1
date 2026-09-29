@@ -1,6 +1,7 @@
 import {mediaPostExample} from "./lib/mediaPostExample";
 import {googleDriveCommandExample} from "../google/drive/googleDriveCommandExample";
 import {CURRENCY_ENTITY, currenciesTable, currencyExample} from "../catalog/currency/currencyModel";
+import {CURRENCY_EXCHANGE_ENTITY, currencyExchangeRateTable} from "../catalog/currency/exchange/currencyExchangeModel";
 // MD.
 const SystemMetaData:any = {
     // 'uploadToGoogleDriveSession': {
@@ -23,6 +24,20 @@ const SystemMetaData:any = {
         updateValidator: () => {
         },
         defaultData: currencyExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p:any)=>{},
+    },
+    // Currency exchange rates (kit8/catalog/currency/exchange): /currency/exchange/list + /edit, one rate per
+    // currency per day (rowOwnerGUID = currency, rowParentGUID = 'YYYY-MM-DD'), realtime scoped by readParams.match
+    [CURRENCY_EXCHANGE_ENTITY]: {
+        tableName: currencyExchangeRateTable,
+        itemLabel: "Exchange rate",
+        // actions - see meta.actions = slice.actions;
+        updateValidator: () => {
+        },
+        defaultData: { startingDate: "2026-09-29", currencyRatio: 1 },
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

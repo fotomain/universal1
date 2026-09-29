@@ -29,6 +29,7 @@ import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostCompon
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../redux/uxuiSlice";
 import {useRealtimeEntity} from "../../../redux/reusable/useRealtimeEntity";
+import {matchRow} from "../../../redux/reusable/realtimeRows";
 
 const _testMode=false
 
@@ -67,6 +68,7 @@ export function ListWebCardsComponent({
   realtime = false,
   readParams,
   itemLabel = "Post",
+  reorderEnabled = true,
 }: ListWebCardsComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
@@ -298,6 +300,9 @@ export function ListWebCardsComponent({
   };
 
   // Read ONCE on mount using listOwnerGUID as rowOwnerGUID
+  // readParams.match scopes the list (e.g. { rowOwnerGUID: currencyGUID }): server read, realtime and the cards
+  const readParamsKey = JSON.stringify(readParams ?? null);
+  const scopeMatch = readParams?.match;
   useEffect(() => {
     if (actions?.readData && listOwnerGUID) {
       dispatch(actions.readData({
@@ -309,16 +314,19 @@ export function ListWebCardsComponent({
         ...(readParams || {}),
       }));
     }
-  }, [actions, entityName, listOwnerGUID, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actions, entityName, listOwnerGUID, readParamsKey, dispatch]);
 
   // Sync Redux entity data to local cards list when server data loads / changes (also realtime)
   useEffect(() => {
-    const rows = entityState?.entityDataFromServer;
-    if (!Array.isArray(rows)) return;
+    const allRows = entityState?.entityDataFromServer;
+    if (!Array.isArray(allRows)) return;
+    // rows of another scope (e.g. the previous currency until its read finishes) are not shown
+    const rows = scopeMatch ? allRows.filter((r: any) => matchRow(r, scopeMatch)) : allRows;
     // an empty list is real only after a read or a realtime change (not the initial empty state)
-    if (rows.length === 0 && !(entityState?.readSuccessful === 1 || entityState?.lastRealtimeEvent)) return;
+    if (rows.length === 0 && allRows.length === 0 && !(entityState?.readSuccessful === 1 || entityState?.lastRealtimeEvent)) return;
     const mapped = rows.map((item: any, idx: number) => {
-      if (mapItemToCard) return mapItemToCard(item, idx);
+      if (mapItemToCard) return mapItemToCard(item, idx, rows);
       const json = item?.rowJSON || {};
       return {
         id: item?.rowGUID || `card-${idx + 1}`,
@@ -330,7 +338,7 @@ export function ListWebCardsComponent({
     });
     setCards(mapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityState?.entityDataFromServer]);
+  }, [entityState?.entityDataFromServer, readParamsKey]);
 
     // Helper to calculate new order for an item
     const calculateNewOrderInList = (currentCards: CardItem[], destIndex: number): number => {
@@ -384,7 +392,7 @@ export function ListWebCardsComponent({
 
     // Drag and drop reordering handler
     const onDragEnd = (result: DropResult) => {
-      if (!result.destination) return;
+      if (!reorderEnabled || !result.destination) return;
       const items = Array.from(cards);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
@@ -424,6 +432,7 @@ export function ListWebCardsComponent({
 
   // Move Card Up
   const handleMoveUp = (index: number) => {
+    if (!reorderEnabled) return;
     if (index <= 0) {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
@@ -447,6 +456,7 @@ export function ListWebCardsComponent({
 
   // Move Card Down
   const handleMoveDown = (index: number) => {
+    if (!reorderEnabled) return;
     if (index >= cards.length - 1) {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
@@ -670,6 +680,8 @@ export function ListWebCardsComponent({
 
   // Archive item handler: adds current post into entityForArchivationName & deletes current post from entityName
   const handleArchive = (id: string) => {
+    // no archive entity (catalogs, rates): archiving must not silently delete the row
+    if (!archiveActions?.createOne) return;
     const targetCard = cards.find((item) => item.id === id);
 
     setCards((prev) => prev.filter((item) => item.id !== id));
@@ -821,6 +833,7 @@ export function ListWebCardsComponent({
 
   // Move Card to Top
   const handleMakeFirst = (id: string) => {
+    if (!reorderEnabled) return;
     const index = cards.findIndex((item) => item.id === id);
     if (index <= 0) return;
     const items = [...cards];
@@ -836,6 +849,7 @@ export function ListWebCardsComponent({
 
   // Move Card to Bottom
   const handleMakeLast = (id: string) => {
+    if (!reorderEnabled) return;
     const index = cards.findIndex((item) => item.id === id);
     if (index === -1 || index === cards.length - 1) return;
     const items = [...cards];
@@ -1174,7 +1188,7 @@ export function ListWebCardsComponent({
                 const isSelected = selectedIds.includes(card.id);
                 // testID="testScrollDesign"
                 return (
-                  <Draggable key={card.id} draggableId={card.id} index={index}>
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!reorderEnabled}>
                     {(draggableProvided, snapshot) => (
                       <div
                         id={`card-container-${card.id}`}

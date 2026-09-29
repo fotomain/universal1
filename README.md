@@ -23,9 +23,11 @@ npm run web
 taskkill /f /im node.exe
 npm cache clean --force
 killall node
+killall -9 node
 # NEW APP
 npm run web -- -c
 npx expo start -c
+npx expo start --web --clear
 
 npx expo start --clear
 rmdir /s .expo

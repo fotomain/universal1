@@ -1,18 +1,44 @@
 // Keeps a reusable entity (SystemMetaData key) in sync with Supabase Realtime while at least one
-// screen uses it: the first user dispatches startRealtime, the last one stopRealtime (ref-counted, so
-// the list and the edit screen can both use it; drawer screens stay mounted).
+// screen uses it. Every mounted user registers { filter, readParams }; the most recently mounted one
+// decides the channel + catch-up read (readParams.match scopes the list, e.g. the rates of ONE currency).
+// startRealtime is dispatched only when that effective subscription changes, stopRealtime when the last
+// user unmounts - so the list and the edit screen of the same scope share one channel (drawer screens stay
+// mounted), and opening another scope (another currency) re-subscribes with its own read.
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../SystemMetaData';
 
-const users: Record<string, number> = {};
-
 export interface UseRealtimeEntityOptions {
   /** PostgREST filter for the channel, e.g. 'rowOwnerGUID=eq.x' */
   filter?: string;
-  /** readData payload for the first read and the catch-up read after every (re)connect */
+  /** readData payload for the first read and the catch-up read after every (re)connect; `match` scopes the list */
   readParams?: any;
   enabled?: boolean;
+}
+
+type Sub = { id: number; filter?: string; readParams?: any };
+const subs: Record<string, Sub[]> = {};
+const running: Record<string, string | null> = {};
+let nextSubId = 1;
+const subKey = (s: Sub) => JSON.stringify([s.filter ?? null, s.readParams ?? null]);
+
+function sync(entityKey: string, dispatch: (a: any) => any) {
+  const actions = SystemMetaData[entityKey]?.actions;
+  if (!actions?.startRealtime) return;
+  const list = subs[entityKey] || [];
+  if (list.length === 0) {
+    if (running[entityKey]) {
+      running[entityKey] = null;
+      dispatch(actions.stopRealtime());
+    }
+    return;
+  }
+  const top = list[list.length - 1];
+  const k = subKey(top);
+  if (running[entityKey] !== k) {
+    running[entityKey] = k;
+    dispatch(actions.startRealtime({ filter: top.filter, readParams: top.readParams }));
+  }
 }
 
 export function useRealtimeEntity(entityKey: string, options: UseRealtimeEntityOptions = {}) {
@@ -20,13 +46,13 @@ export function useRealtimeEntity(entityKey: string, options: UseRealtimeEntityO
   const { filter, readParams, enabled = true } = options;
   const paramsKey = JSON.stringify(readParams ?? null);
   useEffect(() => {
-    const actions = SystemMetaData[entityKey]?.actions;
-    if (!enabled || !actions?.startRealtime) return;
-    users[entityKey] = (users[entityKey] || 0) + 1;
-    if (users[entityKey] === 1) dispatch(actions.startRealtime({ filter, readParams }));
+    if (!enabled || !SystemMetaData[entityKey]?.actions?.startRealtime) return;
+    const sub: Sub = { id: nextSubId++, filter, readParams };
+    (subs[entityKey] = subs[entityKey] || []).push(sub);
+    sync(entityKey, dispatch);
     return () => {
-      users[entityKey] = Math.max(0, (users[entityKey] || 1) - 1);
-      if (users[entityKey] === 0) dispatch(actions.stopRealtime());
+      subs[entityKey] = (subs[entityKey] || []).filter((s) => s.id !== sub.id);
+      sync(entityKey, dispatch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, entityKey, filter, paramsKey, enabled]);
@@ -35,5 +61,6 @@ export function useRealtimeEntity(entityKey: string, options: UseRealtimeEntityO
 
 /** test helper */
 export const __resetRealtimeEntityUsers = () => {
-  for (const k of Object.keys(users)) delete users[k];
+  for (const k of Object.keys(subs)) delete subs[k];
+  for (const k of Object.keys(running)) delete running[k];
 };

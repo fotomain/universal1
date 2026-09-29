@@ -2,6 +2,9 @@
 
 Hamburger menu → **Catalogs** (accordion, compact sub-rows) → **Currencies** → `/currency/list` · add / edit → `/currency/edit` (`?rowGUID=…` for an existing one).
 
+**Exchange rates** of a currency: the **Rates** link on its card / on its edit screen (saved currencies) →
+`/currency/exchange/list?currencyGUID=…` — see [`exchange/README.md`](exchange/README.md).
+
 ## Setup
 
 Run `kit8/sql/init/create_currency_table.sql` in the Supabase SQL editor (non-destructive): creates `public."currencyTable"`

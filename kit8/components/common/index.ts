@@ -20,3 +20,4 @@ export { default as AskBeforeDeletePostComponent, AskBeforeDeletePostComponentPr
 export { ReceiveDraggableFilesComponent } from './ReceiveDraggableFilesComponent';
 export type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDraggableFilesComponent.types';
 export { default as SpeedDialFAB, SpeedDialFABProps, SpeedDialAction } from './SpeedDialFAB';
+export { default as ColorPickerApp, ColorPickerAppProps, ColorPickerAppColors, normalizeHexColor } from './ColorPickerApp';

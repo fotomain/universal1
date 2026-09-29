@@ -3,6 +3,15 @@ import {createSupabaseTableChannel} from "./createSupabaseTableChannel";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
 import {showSnackbar} from "../uxuiSlice";
+import {scopeRealtimeChange} from "./realtimeRows";
+
+/** Supabase / PostgREST error -> short user message (23505 = unique index, e.g. one rate per currency per day). */
+export const dbErrorMessage = (e: any): string => {
+    if (e?.code === "23505") return "it already exists (duplicate)";
+    if (e?.code === "23514") return "a value is not allowed (check constraint)";
+    if (e?.code === "42501" || /row-level security/i.test(String(e?.message || ""))) return "not allowed - please sign in";
+    return String(e?.message || e || "unknown error");
+};
 
 export const reusableRootSaga = (p: any) => {
     const {tableName, actions, doBefore, doAfter, afterCreateOneSuccess} = p
@@ -14,7 +23,8 @@ export const reusableRootSaga = (p: any) => {
     function* readAll(action: any) {
         try {
             // defaults: first page of 1000 rows (catalogs, realtime catch-up reads send no paging)
-            const { paginationSize = 1000, originationCurrentPage = 0, readAllFilter, orderBy = "orderInList", ascending = true } =
+            // match: column equality scope, e.g. { rowOwnerGUID: currencyGUID } (the rates of ONE currency)
+            const { paginationSize = 1000, originationCurrentPage = 0, readAllFilter, orderBy = "orderInList", ascending = true, match } =
             action.payload || {};
 
             const entityObject = SystemMetaData[action.type.replace("/readData", "")]
@@ -30,7 +40,10 @@ export const reusableRootSaga = (p: any) => {
                 .from(tableName)
                 .select("*")
                 .order(orderBy || "orderInList", { ascending: ascending !== false })
-                //TODO!!! .match({...matchData})
+
+            if (match && typeof match === "object" && Object.keys(match).length > 0) {
+                query = query.match(match);
+            }
 
             if (readAllFilter) {
                 query = query.or(
@@ -190,9 +203,10 @@ export const reusableRootSaga = (p: any) => {
                 action,
                 afterCreateOneSuccess: actionAfterSuccess || action?.payload?.afterCreateOneSuccess,
             }));
-        } catch (e) {
+        } catch (e: any) {
             console.log("createOneFailure0 data, error", e)
-            yield put(actions.createOneFailure(e));
+            yield put(actions.createOneFailure(e?.message || e));
+            yield put(showSnackbar({message: `${itemLabel} was not saved: ${dbErrorMessage(e)}`}));
         }
     }
 
@@ -201,7 +215,8 @@ export const reusableRootSaga = (p: any) => {
         console.log("updateOneFieldOfJson0", action)
 
         try {
-            const {rowGUID, field, value, rowJSON, orderInList} = action.payload || {};
+            // columns: root columns to set too, e.g. { rowParentGUID: '2026-09-29' } (only the whitelisted ones)
+            const {rowGUID, field, value, rowJSON, orderInList, columns} = action.payload || {};
 
             // @ts-ignore
             const supabase: any = (yield getContext("dbAdapters")).supabaseAdapter.supabase
@@ -269,6 +284,12 @@ export const reusableRootSaga = (p: any) => {
                 updatePayload = { rowJSON: updatedJSON };
             }
 
+            if (columns && typeof columns === "object") {
+                for (const col of ["rowParentGUID", "orderInList"]) {
+                    if (columns[col] !== undefined) updatePayload[col] = columns[col];
+                }
+            }
+
             // dY" 3. UPDATE
             console.log("updateOneFieldOfJson0 - updatePayload", updatePayload)
             const {data, error} = yield call(() =>
@@ -295,6 +316,7 @@ export const reusableRootSaga = (p: any) => {
                     updateErrorData: e?.message || e,
                 })
             );
+            yield put(showSnackbar({message: `${itemLabel} was not saved: ${dbErrorMessage(e)}`}));
         }
     }
 
@@ -465,6 +487,8 @@ export const reusableRootSaga = (p: any) => {
     // so changes made while the socket was down are not lost. stopRealtime (or a new start) closes it.
     function* realtimeWorker(action: any): Generator<any, void, any> {
         const {filter, readParams} = action.payload || {};
+        // scoped list (readParams.match): changes of other owners are ignored, rows moved out are removed
+        const match = readParams?.match;
         const dbAdapters: any = yield getContext("dbAdapters");
         const supabase: any = dbAdapters?.supabaseAdapter?.supabase;
         if (!supabase?.channel) {
@@ -485,7 +509,8 @@ export const reusableRootSaga = (p: any) => {
                         yield put(actions.readData({paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {})}));
                     }
                 } else if (msg.kind === "change" && msg.payload?.table === tableName) {
-                    yield put(actions.applyRealtimeChange(msg.payload));
+                    const change = scopeRealtimeChange(msg.payload, match);
+                    if (change) yield put(actions.applyRealtimeChange(change));
                 }
             }
         } finally {

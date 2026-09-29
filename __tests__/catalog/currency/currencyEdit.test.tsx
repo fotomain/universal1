@@ -5,7 +5,9 @@ import React, { act } from 'react';
 
 const mockReplace = jest.fn();
 let mockParams: any = {};
-jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: jest.fn() }), useLocalSearchParams: () => mockParams }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }), useLocalSearchParams: () => mockParams, router: { push: mockPush } }));
+jest.mock('../../../kit8/components/common/IconApp', () => () => null);
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'new-guid-1' }));
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
@@ -120,4 +122,12 @@ it('deleted in another browser: notice, no save', () => {
   press('currency-edit-save');
   expect(dispatched.some((a) => a.type === 'currencyReusable/updateOne')).toBe(false);
   expect(q('currency-edit-delete')).toBeNull();
+});
+
+it('hyperlink "Rates": only for a saved currency, opens its exchange rates', () => {
+  mount({});
+  expect(q('currency-edit-rates')).toBeNull();
+  mount({ rowGUID: 'eur' });
+  press('currency-edit-rates');
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/currency/exchange/list', params: { currencyGUID: 'eur' } });
 });

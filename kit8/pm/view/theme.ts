@@ -1,7 +1,7 @@
 // Color tokens for the Skia tree + chart, derived from the app design system so the
 // Gantt follows light/dark mode and the user's theme primary color.
 
-import { PM_DEFAULT_CRITICAL_PATH_TASK_COLOR } from '../model/criticalPathColors';
+import { isVeryDarkColor, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR } from '../model/criticalPathColors';
 
 export interface PMPalette {
   background: string;
@@ -83,8 +83,8 @@ export function makePMPalette(
     summaryProgress: isDark ? '#cbd5e1' : '#1e293b',
     milestone: '#f59e0b',
     critical: criticalPathTaskColor,
-    // darker part of a critical bar; black (no darker shade) gets a light progress part instead
-    criticalProgress: criticalPathTaskColor === '#000000' ? '#64748b' : shade(criticalPathTaskColor, -0.45),
+    // darker part of a critical bar; very dark colors (no darker shade, e.g. black) get a light progress part instead
+    criticalProgress: isVeryDarkColor(criticalPathTaskColor) ? '#64748b' : shade(criticalPathTaskColor, -0.45),
     link: isDark ? 'rgba(203,213,225,0.75)' : 'rgba(51,65,85,0.7)',
     linkActive: primary,
     today: '#f97316',
