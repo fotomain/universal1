@@ -84,6 +84,12 @@ neighbouring columns when the name column is narrower; once shown, the pointer c
 toolbar = add stage / task / milestone, move up/down, indent/outdent, edit, duplicate, delete, # on/off, expand/collapse all
 · drag a row (long-press on touch) to reorder / re-parent · chevron = expand/collapse.
 
+**Context commands mode** (per project, ⚙ → *Task tree: row commands* / *Gantt chart: bar commands*):
+`onHoverPanelMode` (default) = the floating panel above; `onRightClickMenuMode` = no panel, the same commands
+(add below / above / inside, edit, duplicate, copy info, share, link, details, delete) in `view/task/PMTaskRowMenu`
+opened by right-click on a row / bar (web) or long-press and release (touch; long-press and drag still reorders rows /
+moves bars). Right-click on a dependency arrow keeps opening the arrow menu.
+
 Hover panels also have **Copy task info** (plain-text summary + deep link to the clipboard) and **Share task**
 (native share sheet; web: Web Share API, otherwise the link is copied) - `view/task/taskShare.ts`.
 
@@ -158,6 +164,8 @@ destructive })`. One window is mounted per screen (dashboard, task page).
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
+| `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
+| `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | Gantt bar commands: same choice for the chart |
 
 All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button).
 

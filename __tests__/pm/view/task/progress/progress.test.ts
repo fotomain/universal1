@@ -56,6 +56,8 @@ describe('uxuiSettingsOf', () => {
       showTreeHierarchyNumbers: true,
       treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress'],
       treeColumnsWidths: {},
+      projectTreeContextCommandsMode: 'onHoverPanelMode',
+      projectGanttChartContextCommandsMode: 'onHoverPanelMode',
     });
   });
   it('uxuiSettings wins over legacy top-level keys', () => {

@@ -2,6 +2,7 @@
 //   showCriticalPath, ganttArrowsForm, showTaskProgressOnGantt,
 //   taskProgressLinePosition, projectProgressLinePosition,
 //   showTreeHierarchyNumbers, treeColumnsOrder, treeColumnsWidths (tree/columns)
+//   projectTreeContextCommandsMode, projectGanttChartContextCommandsMode (hover panel | right-click menu)
 // The update is optimistic (projects cache -> store.setProjects -> the chart repaints at once).
 // Legacy top-level keys (rowJSON.showCriticalPath, ...) are moved into uxuiSettings on save.
 

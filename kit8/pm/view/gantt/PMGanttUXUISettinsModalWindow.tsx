@@ -4,6 +4,8 @@
 //   showCriticalPath · ganttArrowsForm · showTaskProgressOnGantt ·
 //   taskProgressLinePosition · taskProgressLineColor ·
 //   projectProgressLinePosition · projectProgressLineColor ·
+//   row commands: projectTreeContextCommandsMode · projectGanttChartContextCommandsMode
+//              ('onHoverPanelMode' = hover panel, 'onRightClickMenuMode' = right-click / long-press menu)
 //   task tree: showTreeHierarchyNumbers ("#" column) · treeColumnsOrder (reset; reorder = drag the headers) ·
 //              treeColumnsWidths (reset; resize = drag the header separators)
 //
@@ -14,7 +16,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { usePMStore } from '../../store/store_pm';
-import { PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
+import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 // direct file import: the progress/line index also exports Skia components, which must not
@@ -83,6 +85,22 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 />
               ))}
             </View>
+
+            {/* ---- row commands: hover panel or right-click menu ---- */}
+            <CommandsModeSelector
+              label="Task tree: row commands"
+              testID="pm-uxui-tree-commands"
+              value={draft.projectTreeContextCommandsMode}
+              onChange={(v) => set('projectTreeContextCommandsMode', v)}
+              colors={{ text: c.text, primary: c.primary }}
+            />
+            <CommandsModeSelector
+              label="Gantt chart: bar commands"
+              testID="pm-uxui-gantt-commands"
+              value={draft.projectGanttChartContextCommandsMode}
+              onChange={(v) => set('projectGanttChartContextCommandsMode', v)}
+              colors={{ text: c.text, primary: c.primary }}
+            />
 
             {/* ---- task tree ---- */}
             <Row label='Show hierarchy numbers ("#" column) in the task tree' color={c.text}>
@@ -157,6 +175,47 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
         </View>
       </View>
     </Modal>
+  );
+}
+
+const COMMANDS_MODE_UI: Record<PMContextCommandsMode, { icon: string; label: string; title: string }> = {
+  onHoverPanelMode: { icon: 'more_horiz', label: 'Hover panel', title: 'Buttons on the hovered (web) / selected (touch) row' },
+  onRightClickMenuMode: { icon: 'menu_open', label: 'Right-click menu', title: 'Menu on right-click (web) / long-press and release (touch)' },
+};
+
+/** Hover panel | Right-click menu (uxuiSettings.project…ContextCommandsMode) */
+function CommandsModeSelector({
+  label,
+  testID,
+  value,
+  onChange,
+  colors,
+}: {
+  label: string;
+  testID: string;
+  value: PMContextCommandsMode;
+  onChange: (v: PMContextCommandsMode) => void;
+  colors: { text: string; primary: string };
+}) {
+  return (
+    <>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <View style={styles.segment} testID={testID}>
+        {PM_CONTEXT_COMMANDS_MODES.map((m) => (
+          <PMIconButton
+            key={m}
+            testID={`${testID}-${m}`}
+            icon={COMMANDS_MODE_UI[m].icon}
+            label={COMMANDS_MODE_UI[m].label}
+            title={COMMANDS_MODE_UI[m].title}
+            active={value === m}
+            activeColor={colors.primary}
+            color={colors.text}
+            onPress={() => onChange(m)}
+          />
+        ))}
+      </View>
+    </>
   );
 }
 

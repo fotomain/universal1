@@ -161,7 +161,21 @@ export interface PMUxUiSettings {
   treeColumnsOrder?: PMTreeColumnKey[];
   /** Tree: widths of resized columns (drag a header separator), e.g. { name: 260 }. No Task name width = it fills the pane. */
   treeColumnsWidths?: Record<string, number>;
+  /** Tree: row commands in a hover panel (default) or in a right-click / long-press menu. */
+  projectTreeContextCommandsMode?: PMContextCommandsMode;
+  /** Gantt chart: bar commands in a hover panel (default) or in a right-click / long-press menu. */
+  projectGanttChartContextCommandsMode?: PMContextCommandsMode;
 }
+
+/**
+ * Where the row / bar commands (add, edit, duplicate, copy, share, link, details, delete) live:
+ *  onHoverPanelMode     = floating panel on the hovered row (web) / selected row (touch)
+ *  onRightClickMenuMode = context menu: right-click (web) / long-press and release (touch); no panel
+ */
+export type PMContextCommandsMode = 'onHoverPanelMode' | 'onRightClickMenuMode';
+export const PM_CONTEXT_COMMANDS_MODES: PMContextCommandsMode[] = ['onHoverPanelMode', 'onRightClickMenuMode'];
+export const contextCommandsModeOf = (v: unknown): PMContextCommandsMode =>
+  v === 'onRightClickMenuMode' ? 'onRightClickMenuMode' : 'onHoverPanelMode';
 
 /** Gantt bar toggle (GanttToNetworkViewToggleButtons). */
 export type PMGanttVsNetworkView = 'showGanttChart' | 'showNetworkView';
@@ -201,6 +215,8 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null): Required<PMU
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers !== false,
     treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key)),
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
+    projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),
+    projectGanttChartContextCommandsMode: contextCommandsModeOf(u.projectGanttChartContextCommandsMode),
   };
 }
 

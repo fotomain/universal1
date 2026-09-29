@@ -96,6 +96,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const cellEdit = usePMStore((s) => s.cellEdit);
   const headerColors = usePMStore((s) => s.treeHeadersBackgroundColors);
   const columnReveal = usePMStore((s) => s.treeColumnReveal);
+  /** uxuiSettings.projectTreeContextCommandsMode: row commands in a right-click / long-press menu instead of the hover panel */
+  const rowMenuMode = usePMStore((s) => s.projectTreeContextCommandsMode === 'onRightClickMenuMode');
 
   const canvasH = Math.max(0, height - PM_TOOLBAR_HEIGHT);
   // ---- grid columns (tree/columns): saved order + widths, "#" switch, custom columns, responsive hiding ----
@@ -270,6 +272,10 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const hbarX = useDerivedValue(() => (treeMaxScrollX.value > 0 ? (treeScrollX.value / treeMaxScrollX.value) * (width - hbarW) : 0), [width, hbarW]);
 
   const dragFrom = useSharedValue(-1);
+  /** touch long-press row menu (onRightClickMenuMode): row + start point */
+  const menuRow = useSharedValue(-1);
+  const menuX = useSharedValue(0);
+  const menuY = useSharedValue(0);
   const dragY = useSharedValue(0);
   const dropSlot = useSharedValue(-1);
   const handleStartY = useSharedValue(0);
@@ -475,7 +481,18 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     setHandleDragGUID(idx >= 0 ? usePMStore.getState().visibleRows[idx] ?? null : null);
   }, []);
 
-  // web: right-click on the header -> PMTreeHeaderMenu (elsewhere the browser menu)
+  /** onRightClickMenuMode: select the row and open PMTaskRowMenu at the window point */
+  const openRowMenu = useCallback((idx: number, winX: number, winY: number) => {
+    const s = usePMStore.getState();
+    const guid = s.visibleRows[idx];
+    if (!guid) return;
+    hidePMTip();
+    s.setSelected(guid);
+    s.setRowMenu({ guid, x: winX, y: winY, source: 'tree' });
+  }, []);
+
+  // web: right-click on the header -> PMTreeHeaderMenu; on a row (onRightClickMenuMode) -> PMTaskRowMenu;
+  // elsewhere the browser menu
   useEffect(() => {
     if (!IS_WEB) return;
     const el = canvasBoxRef.current as unknown as HTMLElement | null;
@@ -483,20 +500,29 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     const onContextMenu = (e: MouseEvent) => {
       const r = el.getBoundingClientRect();
       const y = e.clientY - r.top;
-      if (y < 0 || y >= PM_SCALE_HEIGHT) return;
+      if (y < 0) return;
+      if (y >= PM_SCALE_HEIGHT) {
+        if (!rowMenuMode) return;
+        const idx = Math.floor((y - PM_SCALE_HEIGHT + scrollY.value) / PM_ROW_HEIGHT);
+        if (idx < 0 || idx >= usePMStore.getState().visibleRows.length) return;
+        e.preventDefault();
+        openRowMenu(idx, e.clientX, e.clientY);
+        return;
+      }
       e.preventDefault();
       openHeaderMenu(e.clientX - r.left + treeScrollX.value, e.clientX, e.clientY);
     };
     el.addEventListener('contextmenu', onContextMenu);
     return () => el.removeEventListener('contextmenu', onContextMenu);
-  }, [openHeaderMenu, treeScrollX]);
+  }, [openHeaderMenu, openRowMenu, rowMenuMode, scrollY, treeScrollX]);
 
   // ---- hover / selection CRUD panel ------------------------------------------------------
   // web: no hover panel while the pointer is over Start / Days / % / custom cells (inline edit there) -
   //      but once it shows, the pointer may move onto it even where it covers those columns
   // web: only while the pointer is over the tree - hovering a Gantt bar highlights the row but shows no tree panel
   const treeHovered = treeHoverGUID && treeHoverGUID === hoveredGUID ? treeHoverGUID : null;
-  const panelGUID = handleDragGUID ?? (linkSourceGUID || cellEdit ? null : IS_WEB ? (hoverInCells ? null : treeHovered) : selectedGUID);
+  // onRightClickMenuMode: no panel - the same commands are in PMTaskRowMenu
+  const panelGUID = handleDragGUID ?? (rowMenuMode || linkSourceGUID || cellEdit ? null : IS_WEB ? (hoverInCells ? null : treeHovered) : selectedGUID);
   const panelIndex = panelGUID ? rowIndexById[panelGUID] ?? -1 : -1;
   const panelIsSummary = panelGUID ? !!schedule[panelGUID]?.isSummary : false;
   // the panel takes the width its icons need (not only the Task name column)
@@ -696,6 +722,32 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         runOnJS(openHeaderMenu)(cx(e.x), e.absoluteX, e.absoluteY);
       });
 
+    /** touch + onRightClickMenuMode: long-press a row and release without moving = PMTaskRowMenu
+     *  (long-press and drag still reorders the row) */
+    const rowMenu = Gesture.LongPress()
+      .enabled(rowMenuMode && !IS_WEB)
+      .minDuration(450)
+      .maxDistance(12)
+      .onTouchesDown((e, m) => {
+        'worklet';
+        const t = e.allTouches[0];
+        if (!t || t.y < PM_SCALE_HEIGHT) m.fail();
+      })
+      .onStart((e) => {
+        'worklet';
+        menuRow.value = rowAt(e.y);
+        menuX.value = e.x;
+        menuY.value = e.y;
+      })
+      .onEnd((e, ok) => {
+        'worklet';
+        const idx = menuRow.value;
+        menuRow.value = -1;
+        if (!ok || idx < 0 || dragging.value !== 0) return;
+        if (Math.abs(e.x - menuX.value) + Math.abs(e.y - menuY.value) > 12) return; // it became a drag
+        runOnJS(openRowMenu)(idx, e.absoluteX, e.absoluteY);
+      });
+
     /** the panel's drag handle (last panel button): drag the panel's row */
     const handle = Gesture.Pan()
       .minDistance(1)
@@ -741,11 +793,11 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     if (IS_WEB) handle.blocksExternalGesture(reorder, tap, doubleTap);
     else handle.blocksExternalGesture(reorder, scroll, tap, doubleTap);
     return {
-      gesture: Gesture.Simultaneous(hover, Gesture.Race(Gesture.Exclusive(header, pans), Gesture.Exclusive(doubleTap, tap))),
+      gesture: Gesture.Simultaneous(hover, rowMenu, Gesture.Race(Gesture.Exclusive(header, pans), Gesture.Exclusive(doubleTap, tap))),
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, openHeaderMenu, onDrop, onHandleDrag]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY]);
 
   const panelStyle = useAnimatedStyle(() => {
     const top = PM_SCALE_HEIGHT + panelIndex * PM_ROW_HEIGHT - scrollY.value;

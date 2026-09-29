@@ -15,6 +15,7 @@ import PMNetworkView from '../network/PMNetworkView';
 import PMTaskEditModal from '../task/PMTaskEditModal';
 import PMEditDependencyScreen from '../task/dependency/PMEditDependencyScreen';
 import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
+import PMTaskRowMenu from '../task/PMTaskRowMenu';
 import PMTreeHeaderMenu from '../tree/customColumns/PMTreeHeaderMenu';
 import PMCustomColumnNameModalWindow from '../tree/customColumns/PMCustomColumnNameModalWindow';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
@@ -177,6 +178,7 @@ function PMProjectDashboardInner() {
       <PMTaskEditModal crud={crud} />
       <PMEditDependencyScreen crud={crud} />
       <PMDependencyMenu crud={crud} />
+      <PMTaskRowMenu crud={crud} />
       <PMTreeHeaderMenu crud={crud} />
       <PMCustomColumnNameModalWindow crud={crud} />
       <PMGanttUXUISettinsModalWindow crud={crud} />

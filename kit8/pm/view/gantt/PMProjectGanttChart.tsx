@@ -155,6 +155,12 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const projectLineColor = usePMStore((s) => s.projectProgressLineColor);
   const depMenu = usePMStore((s) => s.depMenu);
   const editingDep = usePMStore((s) => s.editingDep);
+  /** uxuiSettings.projectGanttChartContextCommandsMode: bar commands in a right-click / long-press menu instead of the panel */
+  const rowMenuMode = usePMStore((s) => s.projectGanttChartContextCommandsMode === 'onRightClickMenuMode');
+  /** touch long-press bar menu: row + start point */
+  const menuRow = useSharedValue(-1);
+  const menuX = useSharedValue(0);
+  const menuY = useSharedValue(0);
 
   const { scrollX, scrollY, dayWidthLive, bodyH, chartW, rowCount, totalDays: totalDaysSV, hoverRow, dragging, win, dayWidth } = viewport;
   const canvasH = Math.max(0, height - PM_TOOLBAR_HEIGHT);
@@ -690,7 +696,22 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     [crud, hitLinkAt]
   );
 
-  // web: right-click on an arrow -> context menu (edit, delete); elsewhere the browser menu
+  /** onRightClickMenuMode: select the bar's task and open PMTaskRowMenu at the window point */
+  const openRowMenu = useCallback((idx: number, winX: number, winY: number) => {
+    const s = usePMStore.getState();
+    const guid = s.visibleRows[idx];
+    if (!guid) return;
+    hidePMTip();
+    s.setSelected(guid);
+    s.setRowMenu({ guid, x: winX, y: winY, source: 'gantt' });
+  }, []);
+  const isBarZone = (zone: number) => {
+    'worklet';
+    return zone !== Z_NONE && zone !== Z_THUMB_X && zone !== Z_THUMB_Y && zone !== Z_HOLD;
+  };
+
+  // web: right-click on an arrow -> context menu (edit, delete); on a bar (onRightClickMenuMode) ->
+  // PMTaskRowMenu; elsewhere the browser menu
   useEffect(() => {
     if (!IS_WEB) return;
     const el = canvasBoxRef.current as unknown as HTMLElement | null;
@@ -700,14 +721,20 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
       const ref = hitLinkAt(x, y);
-      if (!ref) return;
+      if (!ref) {
+        if (!rowMenuMode || !isBarZone(hitTest(x, y))) return;
+        e.preventDefault();
+        openRowMenu(rowAt(y), e.clientX, e.clientY);
+        return;
+      }
       e.preventDefault();
       hidePMTip();
       crud.openDependencyMenu(ref, e.clientX, e.clientY);
     };
     el.addEventListener('contextmenu', onContextMenu);
     return () => el.removeEventListener('contextmenu', onContextMenu);
-  }, [crud, hitLinkAt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crud, hitLinkAt, rowMenuMode, openRowMenu]);
 
   const commitZoom = useCallback((dw: number) => usePMStore.getState().setDayWidth(dw), []);
 
@@ -917,14 +944,36 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         if (idx >= 0) runOnJS(onDoubleTap)(idx, e.x, e.y, hitTest(e.x, e.y));
       });
 
-    return Gesture.Simultaneous(hover, pinch, Gesture.Race(Gesture.Exclusive(edit, scroll), Gesture.Exclusive(doubleTap, tap)));
+    /** touch + onRightClickMenuMode: long-press a bar and release without moving = PMTaskRowMenu
+     *  (long-press and drag still moves / resizes the bar; a drag without movement changes nothing) */
+    const rowMenu = Gesture.LongPress()
+      .enabled(rowMenuMode && !IS_WEB)
+      .minDuration(450)
+      .maxDistance(12)
+      .onStart((e) => {
+        'worklet';
+        menuRow.value = isBarZone(hitTest(e.x, e.y)) ? rowAt(e.y) : -1;
+        menuX.value = e.x;
+        menuY.value = e.y;
+      })
+      .onEnd((e, ok) => {
+        'worklet';
+        const idx = menuRow.value;
+        menuRow.value = -1;
+        if (!ok || idx < 0) return;
+        if (Math.abs(e.x - menuX.value) + Math.abs(e.y - menuY.value) > 12) return; // it became a drag
+        runOnJS(openRowMenu)(idx, e.absoluteX, e.absoluteY);
+      });
+
+    return Gesture.Simultaneous(hover, pinch, rowMenu, Gesture.Race(Gesture.Exclusive(edit, scroll), Gesture.Exclusive(doubleTap, tap)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dwCommitted, onHover, onTap, onDoubleTap, commitBarDrag, commitLink, commitZoom]);
+  }, [dwCommitted, onHover, onTap, onDoubleTap, commitBarDrag, commitLink, commitZoom, rowMenuMode, openRowMenu]);
 
   // =====================================================================================
   // Hover / selection CRUD panel next to the bar
   // =====================================================================================
-  const panelGUID = linkSourceGUID ? null : IS_WEB ? hoveredGUID : selectedGUID;
+  // onRightClickMenuMode: no panel - the same commands are in PMTaskRowMenu
+  const panelGUID = linkSourceGUID || rowMenuMode ? null : IS_WEB ? hoveredGUID : selectedGUID;
   const panelIndex = panelGUID ? rowIndexById[panelGUID] ?? -1 : -1;
   const panelTask = panelGUID ? tasksById[panelGUID] : undefined;
   const panelBar = useMemo(

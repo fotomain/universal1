@@ -8,6 +8,7 @@ import { treeRowPanelIconCount } from '../../../kit8/pm/view/tree/panels/treeRow
 import PMGanttBarHoverPanel from '../../../kit8/pm/view/gantt/panels/PMGanttBarHoverPanel';
 import PMContextMenu from '../../../kit8/pm/inner/menu/PMContextMenu';
 import PMDependencyMenu from '../../../kit8/pm/view/task/dependency/PMDependencyMenu';
+import PMTaskRowMenu from '../../../kit8/pm/view/task/PMTaskRowMenu';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
@@ -127,5 +128,48 @@ describe('PMDependencyMenu (right click on a dependency arrow)', () => {
     press('pm-dep-menu-backdrop');
     expect(crud.closeDependencyMenu).toHaveBeenCalled();
     act(() => usePMStore.getState().setDepMenu(null));
+  });
+});
+
+describe('PMTaskRowMenu (onRightClickMenuMode: right-click / long-press on a tree row or Gantt bar)', () => {
+  const ITEMS = ['add-below', 'add-above', 'edit', 'duplicate', 'copy-info', 'share', 'link', 'open', 'delete'];
+
+  it('hidden without store.rowMenu; task: every command of the hover panel, in order, each closes the menu', () => {
+    const { byName } = seedStore();
+    const task = byName('Task 111');
+    const crud = fakeCrud();
+    act(() => usePMStore.getState().setRowMenu(null));
+    renderUI(<PMTaskRowMenu crud={crud} />);
+    expect(q('pm-row-menu')).toBeNull();
+
+    act(() => usePMStore.getState().setRowMenu({ guid: task.rowGUID, x: 120, y: 80, source: 'tree' }));
+    expect(textOf('pm-row-menu-caption')).toBe('Task 111');
+    expectInOrder(ITEMS.map((i) => `pm-row-menu-${i}`));
+    expect(q('pm-row-menu-add-inside')).toBeNull(); // a leaf task has no "inside"
+
+    const calls: [string, string][] = [
+      ['add-below', 'createTaskBelow'], ['add-above', 'createTaskAbove'], ['edit', 'edit'], ['duplicate', 'duplicateTask'],
+      ['copy-info', 'copyTaskInfo'], ['share', 'shareTask'], ['link', 'startLink'], ['open', 'openInfo'], ['delete', 'deleteTask'],
+    ];
+    for (const [item, fn] of calls) {
+      act(() => usePMStore.getState().setRowMenu({ guid: task.rowGUID, x: 120, y: 80, source: 'gantt' }));
+      press(`pm-row-menu-${item}`);
+      expect(crud[fn]).toHaveBeenCalledWith(task.rowGUID);
+      expect(usePMStore.getState().rowMenu).toBeNull();
+    }
+  });
+
+  it('stage: also "Add task inside"; the backdrop closes it', () => {
+    const { byName } = seedStore();
+    const stage = byName('Stage 1');
+    const crud = fakeCrud();
+    renderUI(<PMTaskRowMenu crud={crud} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
+    press('pm-row-menu-add-inside');
+    expect(crud.createTask).toHaveBeenCalledWith(stage.rowGUID);
+    act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
+    press('pm-row-menu-backdrop');
+    expect(usePMStore.getState().rowMenu).toBeNull();
+    expect(q('pm-row-menu')).toBeNull();
   });
 });

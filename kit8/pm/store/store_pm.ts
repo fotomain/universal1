@@ -17,7 +17,7 @@ import { PMProjectRow, PMTaskRow, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../mode
 import { derive, EMPTY_TREE, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
 import type { PMStoreState } from './storeTypes';
 
-export type { PMCellField, PMCustomColumnPrompt, PMTreeHeaderMenuState, PMStoreState } from './storeTypes';
+export type { PMCellField, PMCustomColumnPrompt, PMRowMenuState, PMTreeHeaderMenuState, PMStoreState } from './storeTypes';
 
 export const usePMStore = create<PMStoreState>((set, get) => ({
   projectsById: {},
@@ -59,6 +59,10 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   networkScheduleVariant: 'eventCircles',
   setNetworkViewSettings: (patch) => set(patch),
   showTreeHierarchyNumbers: true,
+  projectTreeContextCommandsMode: 'onHoverPanelMode',
+  projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+  rowMenu: null,
+  setRowMenu: (menu) => set({ rowMenu: menu }),
   treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
   treeColumnsWidths: {},
   customColumns: [],
@@ -129,6 +133,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             linkSourceGUID: null,
             editingGUID: null,
             depMenu: null,
+            rowMenu: null,
             editingDep: null,
             cellEdit: null,
             treeHeaderMenu: null,

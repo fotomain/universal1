@@ -221,6 +221,23 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(usePMStore.getState().uxuiSettingsOpen).toBe(false);
   });
 
+  it('row commands: Hover panel (default) | Right-click menu for the tree and for the Gantt chart', () => {
+    seedStore();
+    const crud = fakeCrud();
+    renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
+    act(() => usePMStore.getState().setUxuiSettingsOpen(true));
+    for (const pane of ['tree', 'gantt'])
+      for (const m of ['onHoverPanelMode', 'onRightClickMenuMode']) expect(q(`pm-uxui-${pane}-commands-${m}`)).not.toBeNull();
+    press('pm-uxui-tree-commands-onRightClickMenuMode');
+    press('pm-uxui-gantt-commands-onRightClickMenuMode');
+    press('pm-uxui-gantt-commands-onHoverPanelMode'); // changed my mind for the chart
+    press('pm-uxui-save');
+    expect(crud.setGanttViewSettings.mock.calls[0][0]).toMatchObject({
+      projectTreeContextCommandsMode: 'onRightClickMenuMode',
+      projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+    });
+  });
+
   it('task tree: "#" switch + default column order', () => {
     seedStore();
     act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['name', 'wbs', 'start', 'days', 'progress'] }));

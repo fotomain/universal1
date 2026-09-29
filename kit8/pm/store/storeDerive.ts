@@ -27,6 +27,8 @@ export function viewSettingsOf(project: PMProjectRow | undefined) {
     networkDiagramVariant: u.networkDiagramVariant,
     networkScheduleVariant: u.networkScheduleVariant,
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers,
+    projectTreeContextCommandsMode: u.projectTreeContextCommandsMode,
+    projectGanttChartContextCommandsMode: u.projectGanttChartContextCommandsMode,
     treeColumnsOrder: u.treeColumnsOrder,
     treeColumnsWidths: u.treeColumnsWidths,
     customColumns: projectCustomColumnsOf(project?.rowJSON).columns,

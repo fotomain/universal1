@@ -1,7 +1,7 @@
 // Types of the PM Zustand store (store_pm.ts): the state shape + UI request objects.
 import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
-import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
+import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
 
 /** Tree cells that can be edited inline (click on Start / Days / % or on a custom column cell). */
 export type PMCellField = 'start' | 'days' | 'progress' | PMCustomColumnKey;
@@ -11,6 +11,14 @@ export interface PMCustomColumnPrompt {
   type: PMCustomColumnType;
   key?: PMCustomColumnKey;
   name?: string;
+}
+
+/** Row / bar context menu (PMTaskRowMenu) - opened in onRightClickMenuMode. */
+export interface PMRowMenuState {
+  guid: string;
+  x: number;
+  y: number;
+  source: 'tree' | 'gantt';
 }
 
 /** Right-click / long-press menu of the tree header (columnKey = column under the pointer). */
@@ -83,6 +91,13 @@ export interface PMStoreState {
   setTreeColumnsSettings: (
     patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder' | 'treeColumnsWidths' | 'customColumns' | 'treeHeadersBackgroundColors'>>
   ) => void;
+  /** rowJSON.uxuiSettings.projectTreeContextCommandsMode - tree row commands: hover panel or right-click menu. */
+  projectTreeContextCommandsMode: PMContextCommandsMode;
+  /** rowJSON.uxuiSettings.projectGanttChartContextCommandsMode - Gantt bar commands: hover panel or right-click menu. */
+  projectGanttChartContextCommandsMode: PMContextCommandsMode;
+  /** Row / bar context menu (onRightClickMenuMode): task + window point + where it was opened. */
+  rowMenu: PMRowMenuState | null;
+  setRowMenu: (menu: PMRowMenuState | null) => void;
   /** Tree header context menu (Add / Delete custom column, header color, column width). */
   treeHeaderMenu: PMTreeHeaderMenuState | null;
   setTreeHeaderMenu: (menu: PMTreeHeaderMenuState | null) => void;
