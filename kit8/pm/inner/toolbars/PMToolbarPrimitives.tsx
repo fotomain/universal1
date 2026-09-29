@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { PM_TOOLBAR_HEIGHT } from '../../constants';
+import { PM_TOOLBAR_HEIGHT } from '../../model/constants';
 
 export function PMToolbar({
   children,

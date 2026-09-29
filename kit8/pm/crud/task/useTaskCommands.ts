@@ -6,9 +6,9 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { DAY_MS, PM_ROUTES } from '../../constants';
-import { approvePM } from '../../PMApproveYesNoCancelModalWindow';
-import { newGUID } from '../shared/apiUtils';
+import { DAY_MS, PM_ROUTES } from '../../model/constants';
+import { approvePM } from '../../inner/PMApproveYesNoCancelModalWindow';
+import { newGUID } from '../api/apiUtils';
 import {
   movedTreePath,
   orderForInsert,
@@ -18,12 +18,12 @@ import {
   useMoveTaskMutation,
   useUpdateTaskMutation,
 } from './taskQueries';
-import { usePMStore } from '../../store';
-import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, workDaysBetween } from '../../scheduling';
-import { PMTaskRow } from '../../types';
-import { PMCustomColumnValue, taskCustomValuesOf } from '../../tree/columns/customColumns';
-import type { PMUndo } from '../../undo/useUndoGanttAction';
-import { copyTaskInfo, shareTask } from '../../taskShare';
+import { usePMStore } from '../../store/store_pm';
+import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, workDaysBetween } from '../../view/project/scheduling';
+import { PMTaskRow } from '../../model/types';
+import { PMCustomColumnValue, taskCustomValuesOf } from '../../view/tree/columns/customColumns';
+import type { PMUndo } from '../../view/undo/useUndoGanttAction';
+import { copyTaskInfo, shareTask } from '../../view/task/taskShare';
 
 export type PMBarEditMode = 'move' | 'resize-start' | 'resize-end';
 

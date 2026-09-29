@@ -1,9 +1,9 @@
 // React Query hooks for dependencies (DAG edges) and the closure table.
 
 import { useQuery } from '@tanstack/react-query';
-import { describeDependencyProblem, validateNewDependency } from '../../scheduling';
-import { depKey, PMDependencyJSON, PMLinkType, PMTaskDependencyRow } from '../../types';
-import { PMDependencyPatch } from './dependencyApi';
+import { describeDependencyProblem, validateNewDependency } from '../../view/project/scheduling';
+import { depKey, PMDependencyJSON, PMLinkType, PMTaskDependencyRow } from '../../model/types';
+import { PMDependencyPatch } from '../api/dependencyApi';
 import { pmKeys, usePMApi, useProjectMutation } from '../shared/queryShared';
 
 /** Transitive blockers / dependents from the closure table. */

@@ -5,7 +5,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { PM_ROW_HEIGHT } from '../../constants';
+import { PM_ROW_HEIGHT } from '../../model/constants';
 
 export default function PMFloatingRowPanel({
   children,

@@ -1,11 +1,11 @@
 /** @jest-environment jsdom */
-// kit8/pm/network: PMNetworkView (radio, read-only mode), PMNetworkDiagram, PMNetworkSchedule.
+// kit8/pm/view/network: PMNetworkView (radio, read-only mode), PMNetworkDiagram, PMNetworkSchedule.
 import { act } from 'react';
 import { cleanupUI, fakeCrud, press, q, qa, renderUI, seedStore } from './pmUiTestKit';
 
 import React from 'react';
-import PMNetworkView from '../../../kit8/pm/network/PMNetworkView';
-import { usePMStore } from '../../../kit8/pm/store';
+import PMNetworkView from '../../../kit8/pm/view/network/PMNetworkView';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
 const setView = (patch: Parameters<ReturnType<typeof usePMStore.getState>['setNetworkViewSettings']>[0]) =>
   act(() => usePMStore.getState().setNetworkViewSettings(patch));

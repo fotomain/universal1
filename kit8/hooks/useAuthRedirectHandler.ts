@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { EmailOtpError, completeAuthRedirect, parseAuthRedirectUrl } from '../auth/emailOtp';
+import { isRecoveryRedirectUrl } from '../auth/passwordReset';
 
 // captured at import time, before supabase-js may rewrite the address bar
 const initialWebUrl = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.href : null;
@@ -43,12 +44,45 @@ export function emailLinkRedirectTo(): string | undefined {
   }
 }
 
+/** Deep link the password-reset email should open (web: <origin>/forgotpassword, native: <scheme>://forgotpassword). */
+export function resetPasswordRedirectTo(): string | undefined {
+  if (Platform.OS === 'web') {
+    return typeof window !== 'undefined' && /^https?:/.test(window.location.origin || '')
+      ? `${window.location.origin}/forgotpassword`
+      : undefined;
+  }
+  try {
+    return Linking.createURL('forgotpassword');
+  } catch {
+    return undefined;
+  }
+}
+
+// Password-reset link opened ("type=recovery"): the Forgot Password screen then asks for the new password.
+type RecoveryListener = (active: boolean) => void;
+const recoveryListeners = new Set<RecoveryListener>();
+let recoveryActive = false;
+
+export function publishRecoveryRedirect(active: boolean) {
+  recoveryActive = active;
+  recoveryListeners.forEach((l) => l(active));
+}
+
+/** Current "opened from a reset link" state + updates; returns unsubscribe. */
+export function subscribeRecoveryRedirect(listener: RecoveryListener): () => void {
+  recoveryListeners.add(listener);
+  listener(recoveryActive);
+  return () => { recoveryListeners.delete(listener); };
+}
+
 const handled = new Set<string>();
 
 export function useAuthRedirectHandler(supabase: Pick<SupabaseClient, 'auth'>) {
   useEffect(() => {
     if (Platform.OS === 'web') {
       const parsed = parseAuthRedirectUrl(initialWebUrl);
+      // supabase-js sets the session from the URL itself; we only remember it was a reset link
+      if (parsed && parsed.kind !== 'error' && isRecoveryRedirectUrl(initialWebUrl)) publishRecoveryRedirect(true);
       if (parsed?.kind === 'error') {
         publishAuthRedirectError(parsed.error);
         try {
@@ -66,6 +100,7 @@ export function useAuthRedirectHandler(supabase: Pick<SupabaseClient, 'auth'>) {
       const res = await completeAuthRedirect(supabase, url);
       if (!alive) return;
       publishAuthRedirectError(res.ok ? null : res.error);
+      if (res.ok && isRecoveryRedirectUrl(url)) publishRecoveryRedirect(true);
       // success: onAuthStateChange(SIGNED_IN) in SupabaseAuthSync stores the user
     };
     Linking.getInitialURL().then(handle).catch(() => {});

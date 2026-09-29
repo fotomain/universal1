@@ -12,9 +12,9 @@
 // Every change is optimistic (store first, then the project / task mutations).
 
 import { useMemo } from 'react';
-import { approvePM } from '../../PMApproveYesNoCancelModalWindow';
-import { usePMStore } from '../../store';
-import { PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../types';
+import { approvePM } from '../../inner/PMApproveYesNoCancelModalWindow';
+import { usePMStore } from '../../store/store_pm';
+import { PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
 import {
   isCustomColumnKey,
   newCustomColumnKey,
@@ -27,7 +27,7 @@ import {
   withCustomColumnDeleted,
   withHeaderBackgroundColor,
   PM_CUSTOM_COLUMN_TYPE_LABEL,
-} from '../../tree/columns/customColumns';
+} from '../../view/tree/columns/customColumns';
 import { useUpdateProjectMutation } from './projectQueries';
 import { useUpdateTaskMutation } from '../task/taskQueries';
 

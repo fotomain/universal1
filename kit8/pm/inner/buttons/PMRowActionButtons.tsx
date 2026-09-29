@@ -2,9 +2,9 @@
 // edit · duplicate · copy task info · share · link · open task info · delete.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { PMPalette } from '../../theme';
-import { PMCrud } from '../../usePMCrud';
-import type { PMShareResult } from '../../taskShare';
+import { PMPalette } from '../../view/theme';
+import { PMCrud } from '../../crud/usePMCrud';
+import type { PMShareResult } from '../../view/task/taskShare';
 import { PMIconButton } from './PMIconButton';
 
 /** Short "done" feedback on the button itself (the panels have no room for a toast). */

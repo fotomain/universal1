@@ -1,7 +1,7 @@
 // State machine for "Sign in with email" (Supabase OTP):
 //   step 'email' -> 'code' (type the one-time code)  -> signed in
 //               -> 'link' (click the link in the email; this screen waits for the session) -> signed in
-// The confirmation way (radio button) is remembered per device. Pure Supabase calls: kit8/auth/emailOtp.ts.
+// The confirmation way (radio button) starts on 'otpCode' (One-time PIN code); remembering it per device is opt-in. Pure Supabase calls: kit8/auth/emailOtp.ts.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,9 +29,9 @@ export interface UseEmailOtpSignInOptions {
   onSignedIn?: (user: User) => void | Promise<void>;
   shouldCreateUser?: boolean;
   emailRedirectTo?: string;
-  /** initial confirmation way; otherwise the one remembered on this device, else 'otpCode' */
+  /** initial confirmation way (default 'otpCode'); with rememberConfirmationWay, the remembered one wins */
   confirmationWay?: EmailConfirmationWay;
-  /** remember the radio choice in AsyncStorage (default true) */
+  /** remember the radio choice in AsyncStorage (default false: every screen opens on One-time PIN code) */
   rememberConfirmationWay?: boolean;
 }
 
@@ -51,7 +51,7 @@ export function useEmailOtpSignIn(supabase: Pick<SupabaseClient, 'auth'>, option
   optionsRef.current = options;
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
-  const remember = options.rememberConfirmationWay !== false;
+  const remember = options.rememberConfirmationWay === true;
 
   // remembered radio choice
   useEffect(() => {

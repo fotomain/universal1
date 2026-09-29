@@ -3,7 +3,7 @@
 // -> refetch -> Zustand store), against the in-memory database of fakeSupabaseTestKit.
 import { mockApprove, mockRouter, mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import { act } from 'react';
-import { DAY_MS } from '../../../kit8/pm/constants';
+import { DAY_MS } from '../../../kit8/pm/model/constants';
 
 let h: PMHarness;
 const run = async (fn: () => unknown) => {

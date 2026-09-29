@@ -3,8 +3,8 @@
 // write-back and the web undo storage.
 import { mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import { act } from 'react';
-import { createWebUndoStorage } from '../../../kit8/pm/undo/undoGanttWebStorage';
-import { undoGanttKey } from '../../../kit8/pm/undo/undoGanttTypes';
+import { createWebUndoStorage } from '../../../kit8/pm/view/undo/undoGanttWebStorage';
+import { undoGanttKey } from '../../../kit8/pm/view/undo/undoGanttTypes';
 
 let h: PMHarness;
 const run = async (fn: () => unknown) => {

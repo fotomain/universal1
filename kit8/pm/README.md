@@ -1,6 +1,6 @@
 # kit8/pm — Skia Gantt for Expo (iOS / Android / Web)
 
-Routes: `/pm/project/dashboard` (project/PMProjectDashboard) · `/pm/project/task?taskGUID=…` (task/PMProjectTaskInfo).
+Routes: `/pm/project/dashboard` (view/project/PMProjectDashboard) · `/pm/project/task?taskGUID=…` (view/task/PMProjectTaskInfo).
 Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
 
 ## Setup
@@ -16,13 +16,13 @@ Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
 ## Architecture
 
 ```
-Supabase ──► React Query (queries.ts)  server truth · optimistic updates + rollback · realtime · write-back
+Supabase ──► React Query (crud/queries.ts)  server truth · optimistic updates + rollback · realtime · write-back
                  │ hydrate()
                  ▼
-             Zustand (store.ts)        normalized tree · CPM schedule · visibleRows · UI state
+             Zustand (store/store_pm.ts) normalized tree · CPM schedule · visibleRows · UI state
                  │ selectors
                  ▼
-   ┌─────────── PMGanttSurface ────────────┐   one viewport (useGanttViewport.ts):
+   ┌─────────── PMGanttSurface ────────────┐   one viewport (view/gantt/useGanttViewport.ts):
    │ PMProjectTasksTree │ PMProjectGanttChart│   scrollY / scrollX / live zoom = Reanimated
    │   (Skia canvas)    │   (Skia canvas)    │   shared values → both canvases translate on the
    └────────────────────┴────────────────────┘   UI thread → rows are pixel-locked, no scroll sync
@@ -35,7 +35,7 @@ Supabase ──► React Query (queries.ts)  server truth · optimistic updates 
   React for a crisp re-layout (the DHTMLX "zoom levels" become automatic: day / week / month scales).
 * **Interaction** – react-native-gesture-handler + Reanimated worklets: hit-testing, drag ghost, snapped
   date label, rubber-band link line all run on the UI thread; one JS call commits on release.
-* **Web loading** – `gantt/PMGanttSurfaceLoader.web.tsx` initialises CanvasKit, then code-splits the Skia surface
+* **Web loading** – `view/gantt/PMGanttSurfaceLoader.web.tsx` initialises CanvasKit, then code-splits the Skia surface
   (Skia modules must not be evaluated before CanvasKit exists). Fonts are bundled `.ttf`
   (CanvasKit cannot use system fonts).
 
@@ -53,7 +53,7 @@ every task inside it), per-project advisory lock against concurrent cycles, per-
 delete, SECURITY DEFINER trigger functions + owner-only RLS, and a scheduler write-back RPC so SQL always
 has real dates (`project_task_schedule_view`).
 
-## Scheduling (scheduling.ts, pure + unit-tested)
+## Scheduling (view/project/scheduling.ts, pure + unit-tested)
 
 Forward pass (dates) + backward pass (total float → **critical path**), FS/SS/FF/SF + lag/lead, links to
 stages, "start no earlier than" constraints (bar drag), optional Mon–Fri calendar, stage roll-up
@@ -70,7 +70,7 @@ Touch: long-press a bar to drag it, pan to scroll, tap a row to show its panel.
 
 Tree: # = hierarchy / outline number (1, 1.1, 1.1.1 from treePath + sibling order, read-only), **first column by default**,
 on/off with `uxuiSettings.showTreeHierarchyNumbers` (toolbar # button or ⚙) · **drag a column header to move the column**
-(`tree/columns`, saved as `uxuiSettings.treeColumnsOrder`) · **drag a header separator to resize the column on its left**
+(`view/tree/columns`, saved as `uxuiSettings.treeColumnsOrder`) · **drag a header separator to resize the column on its left**
 (columnResizeWidth - Task name included, saved as `uxuiSettings.treeColumnsWidths`; double-click the separator = default width;
 without a saved width the Task name column fills the pane) · click Start / Days / % = inline edit (Enter saves, Esc cancels) ·
 drag rows by the Task name / # columns ·
@@ -79,13 +79,13 @@ Rename / Delete custom column, Header color ▸, Default width (see *Custom tree
 **horizontal scroll** when the columns are wider than the pane (shift+wheel / trackpad on web, pan on touch, scroll bar at the bottom) ·
 hover panel = add task above / below (+ inside for stages), edit, duplicate, copy info, share, link, details, delete,
 **drag handle ⠿ (last button: press + drag = move the row)** - it takes the
-width its icons need (`tree/panels/treeRowPanelGeometry.ts`): ends at the Task name column's right edge and grows over the
+width its icons need (`view/tree/panels/treeRowPanelGeometry.ts`): ends at the Task name column's right edge and grows over the
 neighbouring columns when the name column is narrower; once shown, the pointer can move onto it over Start / Days / % ·
 toolbar = add stage / task / milestone, move up/down, indent/outdent, edit, duplicate, delete, # on/off, expand/collapse all
 · drag a row (long-press on touch) to reorder / re-parent · chevron = expand/collapse.
 
 Hover panels also have **Copy task info** (plain-text summary + deep link to the clipboard) and **Share task**
-(native share sheet; web: Web Share API, otherwise the link is copied) - `taskShare.ts`.
+(native share sheet; web: Web Share API, otherwise the link is copied) - `view/task/taskShare.ts`.
 
 Duplicate = copy right below the original (a stage with its whole subtree; name + " (copy)"; dependencies are not copied; one Undo step).
 
@@ -112,14 +112,14 @@ headers only) asks first and removes the definition, its order / width / header 
 
 Cells: click = inline editor (`EditTaskCustomValue`; Enter saves, Esc cancels, empty = clear), Boolean = click toggles the
 check box. Custom values are editable on stages too (no roll-up). Value edits are undoable (`crud.setCustomColumnValue`);
-adding / deleting columns is not part of the Gantt undo. Pure logic + parsing: `tree/columns/customColumns.ts`;
-commands: `crud/project/useProjectCustomColumns.ts`; UI: `tree/customColumns/`.
+adding / deleting columns is not part of the Gantt undo. Pure logic + parsing: `view/tree/columns/customColumns.ts`;
+commands: `crud/project/useProjectCustomColumns.ts`; UI: `view/tree/customColumns/`.
 
 ## Projects bar
 
 `SelectProjectFromList` (search any project in the DB by substring, like the language picker) · ribbon of the
 **last selected** projects only (sorted by name, chevron scrolling, hover → ✕ "Close" removes it from the ribbon),
-stored per user in AsyncStorage (`pm.recentProjects.v1.<userGUID>`, see `project/recent/recentProjects.ts`) · switching project
+stored per user in AsyncStorage (`pm.recentProjects.v1.<userGUID>`, see `view/project/recent/recentProjects.ts`) · switching project
 shows the loader until the project's data was re-read.
 
 ## Resize / rotation
@@ -131,7 +131,7 @@ floating menus/editors and keeps the selected row in view.
 ## Undo (undoGanttAction)
 
 Every command in `usePMCrud` records the whole project (tasks + dependencies) **before** it mutates. Undo diffs
-that snapshot against the current data (`undo/undoGanttPlan.ts`) and writes the difference back (re-insert
+that snapshot against the current data (`view/undo/undoGanttPlan.ts`) and writes the difference back (re-insert
 deleted rows/links, restore moved/stretched/reordered/recolored rows, delete rows the action created).
 Storage: `undoGanttActionTable` (1 record = 1 action; `rowOwnerGUID` = project, `rowParentGUID` = user,
 `orderInList` = timestamp, `rowJSON` = action) in **expo-sqlite** via `SQLiteProvider` (auto-created in `onInit`,
@@ -140,7 +140,7 @@ Key: `undoGanttAction-<userGUID>-<projectGUID>`, last 100 actions kept. Button: 
 
 ## Approvals
 
-`PMApproveYesNoCancelModalWindow` (Yes / No / Cancel; web: Enter = Yes, Esc = Cancel) asks before every delete
+`inner/PMApproveYesNoCancelModalWindow` (Yes / No / Cancel; web: Enter = Yes, Esc = Cancel) asks before every delete
 (task / stage / milestone, dependency, project) and before Undo: `await approvePM({ title, message, yesLabel,
 destructive })`. One window is mounted per screen (dashboard, task page).
 
@@ -173,9 +173,9 @@ SQL: `pm_recalc_project_progress(project uuid)` updates every stage's and the pr
 `pm_apply_schedule` calls it too. Client mirror: `computeProjectProgress` (store.projectProgress), so the Gantt and
 the project chip update instantly. Existing DB: run `update_pm_tables_projectProgress.sql`.
 
-## Network view (`kit8/pm/network`)
+## Network view (`kit8/pm/view/network`)
 
-Gantt bar → **Gantt | Network** (`gantt/toolbars/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
+Gantt bar → **Gantt | Network** (`view/gantt/toolbars/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
 selector) sets `uxuiSettings.ganttVsNetworkView` = `'showGanttChart'` | `'showNetworkView'`; the dashboard then renders
 the Gantt surface or `PMNetworkView`. The same buttons sit on the network bar, so you can always switch back.
 
@@ -209,7 +209,7 @@ Delete; double-click → `PMEditDependencyScreen` (from/to GUIDs with copy, link
 
 ## CRUD names (same at every layer)
 
-| entity | api (`crud/*/…Api.ts`) | React Query (`crud/*/…Queries.ts`) | commands (`usePMCrud`) |
+| entity | api (`crud/api/…Api.ts`) | React Query (`crud/*/…Queries.ts`) | commands (`usePMCrud`) |
 |---|---|---|---|
 | project | `createProject` · `readProject` · `updateProject` · `deleteProject` (+ `createProjects`, `readProjects`, `searchProjects`) | `useCreateProjectMutation` · `useReadProjectQuery` / `useReadProjectsQuery` · `useUpdateProjectMutation` · `useDeleteProjectMutation` | view settings: `setGanttViewSettings`, toggles |
 | task | `createTask` · `readTask` · `updateTask` · `deleteTask` (+ `createTasks`, `readProjectData`) | `useCreateTaskMutation` · `useReadTaskQuery` / `useReadProjectDataQuery` · `useUpdateTaskMutation` · `useDeleteTaskMutation` · `useMoveTaskMutation` | `createStage` · `createTask(at, kind)` · `createTaskAbove` · `createTaskBelow` · `updateTask` · `deleteTask` (asks first) · move / indent / outdent / drop |
@@ -217,44 +217,55 @@ Delete; double-click → `PMEditDependencyScreen` (from/to GUIDs with copy, link
 
 ## Files
 
-`constants.ts` table names & layout · `types.ts` · `scheduling.ts` CPM/tree/calendar ·
-`crud/{project,task,dependency}/` Supabase API + React Query hooks + commands per entity (`crud/shared/` helpers) ·
-`api.ts` / `queries.ts` / `usePMCrud.ts` compose them (`crud/project/useProjectCustomColumns.ts` = custom tree columns) · `undo/` undoGanttAction ·
+`skia/` fonts ·
+**`model/`** data model (pure, no React / Supabase / Skia): `constants.ts` table names & layout · `types.ts` · `seedDemo.ts` demo data ·
+**`store/`** Zustand: `store_pm.ts` (`usePMStore`) · `storeTypes.ts` state shape · `storeDerive.ts` pure derive / view settings ·
+**`crud/`** data layer: `crud/api/` Supabase API (`api_pm.ts` = `createPMApi` + `projectApi.ts` / `taskApi.ts` / `dependencyApi.ts` + `apiUtils.ts`) ·
+`crud/{project,task,dependency}/` React Query hooks + commands per entity (`crud/shared/queryShared.ts`) ·
+`crud/queries.ts` (owner, realtime, write-back; re-exports the hooks) · `crud/usePMCrud.ts` all commands in one object
+(`crud/project/useProjectCustomColumns.ts` = custom tree columns) ·
 **`inner/`** shared building blocks: `inner/buttons/` every button, built on `kit8/components/common/ButtonApp` (improved: `variant="toolbar"`, `active`,
 `badge`, `compact`, `width`, `danger`, `textColor`, `iconSize`, `testID`, hover / long-press handlers, forwarded
 ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / secondary / text / danger…),
 `PMRowActionButtons`, `PMDragHandleButton` (row drag handle), `PMTipIcon` / `PMTipPressable` ·
 `inner/toolbars/` `PMToolbarPrimitives` (bar / divider / spacer) · `inner/tooltip/` `PMTooltip` (`usePMTip`, `showPMTip` /
-`hidePMTip`, `PMTooltipLayer`) ·
-`inner/menu/` `PMContextMenu` (generic popup menu) + `PMMenuItem`; items can open a submenu ▸ · `inner/panels/` shared `PMFloatingRowPanel` · **`task/`** task level: `task/dependency/` everything about dependencies (links): `PMDependencyMenu` (arrow right-click / tap menu), `PMEditDependencyScreen` (editor), `DependencyArrowLineFormSelector` (arrow shape) · `task/progress/line/` everything about the progress lines: constants (`PMProgressLinePosition`, default color,
+`hidePMTip`, `PMTooltipLayer`) · `inner/menu/` `PMContextMenu` (generic popup menu) + `PMMenuItem`; items can open a submenu ▸ ·
+`inner/panels/` shared `PMFloatingRowPanel` · `inner/PMApproveYesNoCancelModalWindow.tsx` Yes / No / Cancel dialog ·
+**`view/`** screens and panes: `view/theme.ts` palette ·
+**`view/gantt/`** Gantt pane: `PMGanttSurface*.tsx` layout (Tree | Gantt) + web loader · `PMProjectGanttChart.tsx` ·
+`ganttGeometry.ts` time scale · `useGanttViewport.ts` shared scroll · `PMGanttUXUISettinsModalWindow.tsx` ·
+`buttons/` `PMGanttUndoButton`, `PMGanttZoomButtons`, `PMGanttScaleButtons`, `PMGanttViewToggles` · `panels/` `PMGanttBarHoverPanel` ·
+`toolbars/` `PMGanttToolbar` + `PMGanttLinkModeHint` + `GanttToNetworkViewToggleButtons` (+ the arrow shape selector from `view/task/dependency/`) ·
+**`view/network/`** network diagram / schedule (see *Network view*) ·
+**`view/project/`** project level: `scheduling.ts` CPM / tree / calendar (pure) · `PMProjectDashboard.tsx` (route `/pm/project/dashboard`) · `SelectProjectFromList.tsx` ·
+`buttons/` `PMAddProjectButton` · `recent/` recently selected projects: `recentProjects.ts` (per-user ribbon
+store) + `PMRecentProjectsToolbar` (project bar: search + recent ribbon + project CRUD) ·
+**`view/task/`** task level: `PMTaskEditModal.tsx` · `PMProjectTaskInfo.tsx` · `taskShare.ts` (copy / share) ·
+`dependency/` everything about dependencies (links): `PMDependencyMenu` (arrow right-click / tap menu), `PMEditDependencyScreen` (editor),
+`DependencyArrowLineFormSelector` (arrow shape) · `progress/line/` everything about the progress lines: constants (`PMProgressLinePosition`, default color,
 thickness, swatches), placement math (`progressLineGeometry.ts`), Skia `PMTaskProgressLine` / `PMProjectProgressLine`
 / `PMProjectProgressLabel`, and the settings UI (`PMProgressLineSettings`, `PMProgressLinePositionSelector`,
-`PMColorSwatchPicker`, `PMProgressLinePreview`) · `store.ts` Zustand · `useGanttViewport.ts` shared scroll ·
-**`gantt/`** Gantt pane: `PMGanttSurface*.tsx` layout (Tree | Gantt) + web loader · `PMProjectGanttChart.tsx` ·
-`ganttGeometry.ts` time scale · `PMGanttUXUISettinsModalWindow.tsx` · `gantt/buttons/` `PMGanttUndoButton`, `PMGanttZoomButtons`,
-`PMGanttScaleButtons`, `PMGanttViewToggles` · `gantt/panels/` `PMGanttBarHoverPanel` · `gantt/toolbars/` `PMGanttToolbar` +
-`PMGanttLinkModeHint` + `GanttToNetworkViewToggleButtons` (+ the arrow shape selector from `task/dependency/`) ·
-**`project/`** project level: `PMProjectDashboard.tsx` (route `/pm/project/dashboard`) · `SelectProjectFromList.tsx` ·
-`project/buttons/` `PMAddProjectButton` · **`project/recent/`** recently selected projects: `recentProjects.ts` (per-user ribbon
-store) + `PMRecentProjectsToolbar` (project bar: search + recent ribbon + project CRUD) ·
-**`tree/`** Tree pane: `PMProjectTasksTree.tsx` · `tree/columns/` column order / widths / layout / drag & drop / resize
+`PMColorSwatchPicker`, `PMProgressLinePreview`) ·
+**`view/tree/`** Tree pane: `PMProjectTasksTree.tsx` · `columns/` column order / widths / layout / drag & drop / resize
 (`treeColumns.ts` + `customColumns.ts` pure, `useTreeColumnsLayout`, `useTreeColumnDragGesture`, `useTreeColumnResizeGesture`,
-Skia `PMTreeColumnsHeader` - import it by path) · `tree/customColumns/` `PMTreeHeaderMenu` + `PMCustomColumnNameModalWindow` ·
-`tree/panels/` `PMTreeRowHoverPanel` + `treeRowPanelGeometry.ts` · `tree/toolbars/` `PMTreeToolbar` ·
-`tree/inline/` cell editors (`PMInlineCellEditor`, `EditTaskStart` / `EditTaskDays` / `EditTaskProgress` / `EditTaskCustomValue`) ·
-`theme.ts` palette · `task/PMTaskEditModal.tsx` ·
-`task/PMProjectTaskInfo.tsx` · `seedDemo.ts` · tests: see below.
+Skia `PMTreeColumnsHeader` - import it by path) · `customColumns/` `PMTreeHeaderMenu` + `PMCustomColumnNameModalWindow` ·
+`panels/` `PMTreeRowHoverPanel` + `treeRowPanelGeometry.ts` · `toolbars/` `PMTreeToolbar` ·
+`inline/` cell editors (`PMInlineCellEditor`, `EditTaskStart` / `EditTaskDays` / `EditTaskProgress` / `EditTaskCustomValue`) ·
+**`view/undo/`** undoGanttAction (provider, plan, SQLite / web storage) · tests: see below.
 
 ## Tests (`npx jest __tests__/pm`)
 
-* Pure logic: `scheduling.test.ts`, `undoGanttPlan.test.ts`, `progress.test.ts`, `viewSettings.test.ts`, `treeColumns.test.ts` (column order / layout / drag & drop + row panel placement), `customColumns.test.ts` (custom column values / definitions, widths, resize handles, horizontal scroll).
+* `__tests__/pm` mirrors `kit8/pm`. Pure logic: `view/project/scheduling.test.ts`, `store/viewSettings.test.ts`,
+  `view/undo/undoGanttPlan.test.ts`, `view/task/progress/progress.test.ts`, `view/task/taskShare.test.ts`,
+  `view/network/networkModel.test.ts`, `view/tree/columns/treeColumns.test.ts` (column order / layout / drag & drop + row panel placement),
+  `view/tree/columns/customColumns.test.ts` (custom column values / definitions, widths, resize handles, horizontal scroll).
 * **UI** (`__tests__/pm/ui`, jsdom + react-native-web): every button, toolbar, hover panel, context
   menu (incl. the tree header menu + submenus), dialog (incl. the custom column name window), progress-line picker and inline cell editor is rendered, found by `testID`, pressed /
   typed into, and checked for the right `crud` call or store change (`pmUiTestKit.tsx` = mocks + helpers).
   The Skia canvases themselves are covered by the pure geometry / scheduling tests.
 * **CRUD** (`__tests__/pm/crud`): the real `usePMCrud` → React Query → Supabase stack on an in-memory
   Supabase (`fakeSupabaseTestKit.ts`: PostgREST subset + the subtree / cascade / re-path triggers):
-  `pmApi.test.ts` (API layer, old-schema fallback, RPC), `pmCrud.test.tsx` (create / update / reorder /
+  `crud/api/pmApi.test.ts` (API layer, old-schema fallback, RPC), `pmCrud.test.tsx` (create / update / reorder /
   indent / drag-drop / delete with approval / dependencies / view settings / optimistic rollback / undo of
   every action type), `pmProjectCrud.test.tsx` (projects, search, demo seed, schedule write-back, undo storage), `pmCustomColumnsCrud.test.tsx` (add / rename / delete custom columns, values, header colors, column widths).
 * Files ending in `TestKit.ts(x)` are helpers, excluded from the run in `jest.config.js`.

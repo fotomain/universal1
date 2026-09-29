@@ -3,13 +3,13 @@
 // Deleting a dependency never deletes a task, and is undoable (undoGanttAction).
 
 import { useMemo } from 'react';
-import { approvePM } from '../../PMApproveYesNoCancelModalWindow';
-import { usePMStore } from '../../store';
-import { describeDependencyProblem, validateNewDependency } from '../../scheduling';
-import { PMDepRef, PMLinkType } from '../../types';
-import { PMDependencyPatch } from './dependencyApi';
+import { approvePM } from '../../inner/PMApproveYesNoCancelModalWindow';
+import { usePMStore } from '../../store/store_pm';
+import { describeDependencyProblem, validateNewDependency } from '../../view/project/scheduling';
+import { PMDepRef, PMLinkType } from '../../model/types';
+import { PMDependencyPatch } from '../api/dependencyApi';
 import { useCreateDependencyMutation, useDeleteDependencyMutation, useUpdateDependencyMutation } from './dependencyQueries';
-import type { PMUndo } from '../../undo/useUndoGanttAction';
+import type { PMUndo } from '../../view/undo/useUndoGanttAction';
 
 export function useDependencyCommands(ownerGUID: string, projectGUID: string | null, undo: PMUndo) {
   const createDependencyMutation = useCreateDependencyMutation(ownerGUID, projectGUID);

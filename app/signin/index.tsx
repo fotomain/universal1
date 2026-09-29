@@ -192,6 +192,13 @@ export default function SignInScreen() {
                 </ButtonPrimaryApp>
               )}
             </View>
+
+            <ButtonTextApp
+              testID="signin-forgot-password"
+              onPress={() => router.push({ pathname: '/forgotpassword', params: { email, returnTo } } as any)}
+            >
+              {t('screens.forgotPassword')}
+            </ButtonTextApp>
           </>
         )}
 

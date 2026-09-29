@@ -222,8 +222,8 @@ export const OWNER = '11111111-1111-4111-8111-111111111111';
  * and hydrates it - exactly what the dashboard does after loading.
  */
 export function seedStore() {
-  const { usePMStore } = require('../../../kit8/pm/store');
-  const { buildDemoData } = require('../../../kit8/pm/seedDemo');
+  const { usePMStore } = require('../../../kit8/pm/store/store_pm');
+  const { buildDemoData } = require('../../../kit8/pm/model/seedDemo');
   let n = 0;
   const guid = () => {
     n += 1;

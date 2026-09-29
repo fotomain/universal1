@@ -158,7 +158,7 @@ it('project email quota: no countdown, user can still enter a code already recei
 it('web link: remembers the choice, waits on the link step and signs in when the session arrives', async () => {
   const sb = makeSupabase();
   const onSignedIn = jest.fn();
-  const { result } = renderHook(() => useEmailOtpSignIn(sb, { onSignedIn, emailRedirectTo: 'https://app.test/signin' }));
+  const { result } = renderHook(() => useEmailOtpSignIn(sb, { onSignedIn, emailRedirectTo: 'https://app.test/signin', rememberConfirmationWay: true }));
   expect(result.current.confirmationWay).toBe('otpCode');
   act(() => result.current.setConfirmationWay('webLink'));
   expect(mockStore.get('auth.emailConfirmationWay.v1')).toBe('webLink');
@@ -180,11 +180,20 @@ it('web link: remembers the choice, waits on the link step and signs in when the
   expect(onSignedIn).toHaveBeenCalledTimes(1);
 });
 
-it('restores the remembered confirmation way', async () => {
+it('restores the remembered confirmation way only when asked to', async () => {
+  mockStore.set('auth.emailConfirmationWay.v1', 'webLink');
+  const { result } = renderHook(() => useEmailOtpSignIn(makeSupabase(), { rememberConfirmationWay: true }));
+  await act(async () => { await Promise.resolve(); });
+  expect(result.current.confirmationWay).toBe('webLink');
+});
+
+it('opens on One-time PIN code by default, even if web link was chosen before', async () => {
   mockStore.set('auth.emailConfirmationWay.v1', 'webLink');
   const { result } = renderHook(() => useEmailOtpSignIn(makeSupabase()));
   await act(async () => { await Promise.resolve(); });
-  expect(result.current.confirmationWay).toBe('webLink');
+  expect(result.current.confirmationWay).toBe('otpCode');
+  act(() => result.current.setConfirmationWay('webLink'));
+  expect(mockStore.get('auth.emailConfirmationWay.v1')).toBe('webLink'); // untouched: nothing stored
 });
 
 it('link step: "enter the code instead" switches to the code field without sending', async () => {

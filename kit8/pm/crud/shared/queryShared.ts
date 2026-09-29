@@ -3,10 +3,10 @@
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../../providers/WithSupabase';
-import { createPMApi, PMApi } from '../../api';
-import { usePMStore } from '../../store';
-import { PMProjectData, PMProjectRow } from '../../types';
-import { errorMessage } from './apiUtils';
+import { createPMApi, PMApi } from '../api/api_pm';
+import { usePMStore } from '../../store/store_pm';
+import { PMProjectData, PMProjectRow } from '../../model/types';
+import { errorMessage } from '../api/apiUtils';
 
 export const pmKeys = {
   all: ['pm'] as const,

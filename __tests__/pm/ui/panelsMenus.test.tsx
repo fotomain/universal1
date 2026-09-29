@@ -1,15 +1,15 @@
 /** @jest-environment jsdom */
-// kit8/pm/inner/panels (tree hover panel, gantt bar panel), kit8/pm/inner/menu (context menus), kit8/pm/task/dependency (arrow menu).
+// kit8/pm/inner/panels (tree hover panel, gantt bar panel), kit8/pm/inner/menu (context menus), kit8/pm/view/task/dependency (arrow menu).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, press, q, qa, renderUI, seedStore, textOf } from './pmUiTestKit';
 import React from 'react';
-import PMTreeRowHoverPanel from '../../../kit8/pm/tree/panels/PMTreeRowHoverPanel';
-import { treeRowPanelIconCount } from '../../../kit8/pm/tree/panels/treeRowPanelGeometry';
-import PMGanttBarHoverPanel from '../../../kit8/pm/gantt/panels/PMGanttBarHoverPanel';
+import PMTreeRowHoverPanel from '../../../kit8/pm/view/tree/panels/PMTreeRowHoverPanel';
+import { treeRowPanelIconCount } from '../../../kit8/pm/view/tree/panels/treeRowPanelGeometry';
+import PMGanttBarHoverPanel from '../../../kit8/pm/view/gantt/panels/PMGanttBarHoverPanel';
 import PMContextMenu from '../../../kit8/pm/inner/menu/PMContextMenu';
-import PMDependencyMenu from '../../../kit8/pm/task/dependency/PMDependencyMenu';
-import { makePMPalette } from '../../../kit8/pm/theme';
-import { usePMStore } from '../../../kit8/pm/store';
+import PMDependencyMenu from '../../../kit8/pm/view/task/dependency/PMDependencyMenu';
+import { makePMPalette } from '../../../kit8/pm/view/theme';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 const G = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

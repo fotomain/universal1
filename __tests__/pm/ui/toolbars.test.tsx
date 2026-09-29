@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// Toolbars: Gantt bar (kit8/pm/gantt), tree toolbar (kit8/pm/tree), recent projects toolbar (kit8/pm/project/recent) (+ project search).
+// Toolbars: Gantt bar (kit8/pm/view/gantt), tree toolbar (kit8/pm/view/tree), recent projects toolbar (kit8/pm/view/project/recent) (+ project search).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, typeInto } from './pmUiTestKit';
 
@@ -7,7 +7,7 @@ import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, O
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockDelete = jest.fn();
-jest.mock('../../../kit8/pm/queries', () => ({
+jest.mock('../../../kit8/pm/crud/queries', () => ({
   useBuildProjectRow: () => (name: string, startMs?: number) => ({
     rowGUID: '99999999-9999-4999-8999-999999999999',
     treePath: 'x',
@@ -21,7 +21,7 @@ jest.mock('../../../kit8/pm/queries', () => ({
   useUpdateProjectMutation: () => ({ mutate: mockUpdate }),
   useDeleteProjectMutation: () => ({ mutate: mockDelete }),
   useProjectSearchQuery: (_owner: string, text: string, enabled: boolean) => {
-    const { usePMStore } = require('../../../kit8/pm/store');
+    const { usePMStore } = require('../../../kit8/pm/store/store_pm');
     const all = Object.values(usePMStore.getState().projectsById) as any[];
     const t = text.trim().toLowerCase();
     return { data: enabled ? all.filter((p) => !t || p.rowJSON.name.toLowerCase().includes(t)) : undefined, isFetching: false };
@@ -29,12 +29,12 @@ jest.mock('../../../kit8/pm/queries', () => ({
 }));
 
 import React from 'react';
-import PMGanttToolbar from '../../../kit8/pm/gantt/toolbars/PMGanttToolbar';
-import PMTreeToolbar from '../../../kit8/pm/tree/toolbars/PMTreeToolbar';
-import PMRecentProjectsToolbar from '../../../kit8/pm/project/recent/PMRecentProjectsToolbar';
-import PMApproveYesNoCancelModalWindow from '../../../kit8/pm/PMApproveYesNoCancelModalWindow';
-import { makePMPalette } from '../../../kit8/pm/theme';
-import { usePMStore } from '../../../kit8/pm/store';
+import PMGanttToolbar from '../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
+import PMTreeToolbar from '../../../kit8/pm/view/tree/toolbars/PMTreeToolbar';
+import PMRecentProjectsToolbar from '../../../kit8/pm/view/project/recent/PMRecentProjectsToolbar';
+import PMApproveYesNoCancelModalWindow from '../../../kit8/pm/inner/PMApproveYesNoCancelModalWindow';
+import { makePMPalette } from '../../../kit8/pm/view/theme';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 

@@ -329,6 +329,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="about/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.about') }} />
               <Drawer.Screen name="signup/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signUp') }} />
               <Drawer.Screen name="signin/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signIn') }} />
+              <Drawer.Screen name="forgotpassword/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.resetPasswordTitle') }} />
               <Drawer.Screen name="posts/mediapostcrud/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.posts') }} />
               <Drawer.Screen name="feedback/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.feedback') }} />
               <Drawer.Screen name="map/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.map') }} />

@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { useTheme, Text } from 'react-native-paper';
 import type { User } from '@supabase/supabase-js';
@@ -58,6 +59,15 @@ export default function SignInWithEmailOtp({
 
   const otp = useEmailOtpSignIn(supabase, { onSignedIn: handleSignedIn, shouldCreateUser, confirmationWay });
 
+  // Every time the screen appears (drawer screens stay mounted), the radio starts on "One-time PIN code".
+  const initialWay = confirmationWay ?? 'otpCode';
+  const otpRef = React.useRef(otp);
+  otpRef.current = otp;
+  useFocusEffect(useCallback(() => {
+    const o = otpRef.current;
+    if (o.step === 'email' && o.confirmationWay !== initialWay) o.setConfirmationWay(initialWay);
+  }, [initialWay]));
+
   // errors from an opened email link (expired / already used), see useAuthRedirectHandler
   const [linkError, setLinkError] = useState<EmailOtpError | null>(null);
   useEffect(() => subscribeAuthRedirectError(setLinkError), []);
@@ -83,12 +93,6 @@ export default function SignInWithEmailOtp({
 
       {otp.step === 'email' ? (
         <>
-          <EmailConfirmationWayRadio
-            testID={id('way')}
-            value={otp.confirmationWay}
-            onChange={(w) => { clearLinkError(); otp.setConfirmationWay(w); }}
-            disabled={otp.sending}
-          />
           <TexInputMi
             testID={id('email')}
             label={t('screens.email')}
@@ -104,6 +108,12 @@ export default function SignInWithEmailOtp({
             onSubmitEditing={() => { if (otp.canSend) otp.sendCode(); }}
             editable={!otp.sending}
             inputMode="nativePaper"
+          />
+          <EmailConfirmationWayRadio
+            testID={id('way')}
+            value={otp.confirmationWay}
+            onChange={(w) => { clearLinkError(); otp.setConfirmationWay(w); }}
+            disabled={otp.sending}
           />
           <ButtonPrimaryApp
             testID={id('send')}

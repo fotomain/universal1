@@ -1,0 +1,138 @@
+// Types of the PM Zustand store (store_pm.ts): the state shape + UI request objects.
+import type { PMTreeIndex } from '../view/project/scheduling';
+import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
+import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
+
+/** Tree cells that can be edited inline (click on Start / Days / % or on a custom column cell). */
+export type PMCellField = 'start' | 'days' | 'progress' | PMCustomColumnKey;
+
+/** PMCustomColumnNameModalWindow request: add a column of `type`, or rename column `key` (current `name`). */
+export interface PMCustomColumnPrompt {
+  type: PMCustomColumnType;
+  key?: PMCustomColumnKey;
+  name?: string;
+}
+
+/** Right-click / long-press menu of the tree header (columnKey = column under the pointer). */
+export interface PMTreeHeaderMenuState {
+  x: number;
+  y: number;
+  columnKey: PMTreeColumnKey | null;
+}
+
+export interface PMStoreState {
+  // ---- projects -------------------------------------------------------------------
+  projectsById: Record<string, PMProjectRow>;
+  projectOrder: string[];
+  selectedProjectGUID: string | null;
+  /** Projects shown in the ribbon (last selected ones), persisted per user - see project/recent/recentProjects.ts. */
+  recentProjectGUIDs: string[];
+
+  // ---- selected project (normalized) ---------------------------------------------
+  loadedProjectGUID: string | null;
+  tasks: PMTaskRow[];
+  tasksById: Record<string, PMTaskRow>;
+  deps: PMTaskDependencyRow[];
+  tree: PMTreeIndex;
+  schedule: Record<string, PMScheduledRow>;
+  projectStartMs: number;
+  projectFinishMs: number;
+  /** Live project progress (computeProjectProgress = SQL pm_recalc_project_progress formula). */
+  projectProgress: number;
+  cycleGUIDs: string[];
+  visibleRows: string[];
+  rowIndexById: Record<string, number>;
+  expandedByProject: Record<string, Record<string, boolean>>;
+
+  // ---- UI ---------------------------------------------------------------------------
+  hoveredGUID: string | null;
+  selectedGUID: string | null;
+  linkSourceGUID: string | null; // tap-to-link mode (touch devices / hover panel)
+  editingGUID: string | null; // row shown in PMTaskEditModal
+  dayWidth: number;
+  treeWidth: number;
+  showCriticalPath: boolean;
+  lastError: string | null;
+  /** Dependency arrow shape (gantt/toolbars/DependencyArrowLineFormSelector) = project rowJSON.ganttArrowsForm. */
+  linkLineForm: PMLinkLineForm;
+  /** Progress line + "XX%" on task bars = project rowJSON.uxuiSettings.showTaskProgressOnGantt. */
+  showTaskProgressOnGantt: boolean;
+  /** rowJSON.uxuiSettings.taskProgressLinePosition / projectProgressLinePosition */
+  taskProgressLinePosition: PMProgressLinePosition;
+  projectProgressLinePosition: PMProgressLinePosition;
+  /** rowJSON.uxuiSettings.taskProgressLineColor / projectProgressLineColor */
+  taskProgressLineColor: string;
+  projectProgressLineColor: string;
+  /** rowJSON.uxuiSettings.ganttVsNetworkView - Gantt chart or PMNetworkView. */
+  ganttVsNetworkView: PMGanttVsNetworkView;
+  /** rowJSON.uxuiSettings.networkViewMode / networkDiagramVariant / networkScheduleVariant */
+  networkViewMode: PMNetworkViewMode;
+  networkDiagramVariant: PMNetworkDiagramVariant;
+  networkScheduleVariant: PMNetworkScheduleVariant;
+  /** rowJSON.uxuiSettings.showTreeHierarchyNumbers - "#" column of the tree. */
+  showTreeHierarchyNumbers: boolean;
+  /** rowJSON.uxuiSettings.treeColumnsOrder - tree column order (tree/columns). */
+  treeColumnsOrder: PMTreeColumnKey[];
+  /** rowJSON.uxuiSettings.treeColumnsWidths - resized tree columns (no "name" = Task name fills the pane). */
+  treeColumnsWidths: Record<string, number>;
+  /** rowJSON.customColumns.columns - custom tree columns of the selected project. */
+  customColumns: PMCustomColumnDef[];
+  /** rowJSON.customColumns.headersBackgroundColors - tree header background per column key. */
+  treeHeadersBackgroundColors: Record<string, string>;
+  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers / setTreeColumnWidth ...). */
+  setTreeColumnsSettings: (
+    patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder' | 'treeColumnsWidths' | 'customColumns' | 'treeHeadersBackgroundColors'>>
+  ) => void;
+  /** Tree header context menu (Add / Delete custom column, header color, column width). */
+  treeHeaderMenu: PMTreeHeaderMenuState | null;
+  setTreeHeaderMenu: (menu: PMTreeHeaderMenuState | null) => void;
+  /** "Column name" window (PMCustomColumnNameModalWindow): new column of `type`, or rename column `key`. */
+  customColumnPrompt: PMCustomColumnPrompt | null;
+  setCustomColumnPrompt: (prompt: PMCustomColumnPrompt | null) => void;
+  /** "Scroll the tree horizontally until this column is visible" request (consumed by the tree). */
+  treeColumnReveal: { key: PMTreeColumnKey; nonce: number } | null;
+  requestTreeColumnReveal: (key: PMTreeColumnKey | null) => void;
+  /** Local (not saved) switch of the network view settings - used by read-only views. */
+  setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
+  /** PMGanttUXUISettinsModalWindow visible */
+  uxuiSettingsOpen: boolean;
+  setUxuiSettingsOpen: (open: boolean) => void;
+  /** Right-click / tap menu on a dependency arrow (window coordinates). */
+  depMenu: (PMDepRef & { x: number; y: number }) | null;
+  /** Dependency shown in PMEditDependencyScreen. */
+  editingDep: PMDepRef | null;
+  /** Inline tree cell editor (Start / Days / %). */
+  cellEdit: { guid: string; field: PMCellField } | null;
+  /** "Reveal this row" request (e.g. back from the task page): consumed by the Gantt surface. */
+  focusRequest: { guid: string; nonce: number } | null;
+  /** Undo stack info for the current project (the entries live in expo-sqlite). */
+  undoCount: number;
+  undoLabel: string | null;
+
+  // ---- actions ----------------------------------------------------------------------
+  setProjects: (projects: PMProjectRow[]) => void;
+  selectProject: (rowGUID: string | null) => void;
+  hydrate: (projectGUID: string, tasks: PMTaskRow[], deps: PMTaskDependencyRow[]) => void;
+  toggleExpanded: (rowGUID: string) => void;
+  setAllExpanded: (expanded: boolean) => void;
+  setHovered: (rowGUID: string | null) => void;
+  setSelected: (rowGUID: string | null) => void;
+  setLinkSource: (rowGUID: string | null) => void;
+  setEditing: (rowGUID: string | null) => void;
+  setDayWidth: (px: number) => void;
+  setTreeWidth: (px: number) => void;
+  toggleCriticalPath: () => void;
+  setError: (message: string | null) => void;
+  setRecentProjects: (guids: string[]) => void;
+  addRecentProject: (rowGUID: string) => void;
+  removeRecentProject: (rowGUID: string) => void;
+  setLinkLineForm: (form: PMLinkLineForm) => void;
+  setDepMenu: (menu: (PMDepRef & { x: number; y: number }) | null) => void;
+  setEditingDep: (ref: PMDepRef | null) => void;
+  setCellEdit: (edit: { guid: string; field: PMCellField } | null) => void;
+  /** Ask the Gantt to expand the row's parents, select it and scroll it into view. */
+  requestFocus: (rowGUID: string | null) => void;
+  /** Expands all ancestors of the row and selects it (no scrolling). */
+  revealRow: (rowGUID: string) => void;
+  setUndoInfo: (count: number, label: string | null) => void;
+}

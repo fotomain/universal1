@@ -3,11 +3,11 @@
 
 import { useEffect } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { usePMStore } from '../../store';
-import { buildDemoData } from '../../seedDemo';
-import { todayUTC } from '../../scheduling';
-import { PMProjectRow } from '../../types';
-import { errorMessage, newGUID } from '../shared/apiUtils';
+import { usePMStore } from '../../store/store_pm';
+import { buildDemoData } from '../../model/seedDemo';
+import { todayUTC } from '../../view/project/scheduling';
+import { PMProjectRow } from '../../model/types';
+import { errorMessage, newGUID } from '../api/apiUtils';
 import { pmKeys, usePMApi, useProjectsListMutation } from '../shared/queryShared';
 
 export function useReadProjectsQuery(ownerGUID: string | null | undefined) {

@@ -1,8 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { ActiveUserState, formatTo32CharGUID } from '../redux/activeUserSlice';
+import { ActiveUserData, formatTo32CharGUID } from '../redux/activeUserSlice';
 
-export interface StoredUserData extends ActiveUserState {
+export interface StoredUserData extends ActiveUserData {
   id: string; /* userGUID32 */
   email: string;
 }
@@ -15,7 +15,7 @@ export async function saveUserData(
 ) {
   /* userGUID32 */
   const activeUserGUID = formatTo32CharGUID(id); /* userGUID32 */
-  const stateToSave: ActiveUserState = {
+  const stateToSave: ActiveUserData = {
     activeUserGUID, /* userGUID32 */
     activeUserEmail: email,
     activeUserFirstName: firstName,
@@ -69,7 +69,7 @@ export async function getUserData(): Promise<StoredUserData> {
     }
 
     if (jsonStr) {
-      const parsed = JSON.parse(jsonStr) as ActiveUserState;
+      const parsed = JSON.parse(jsonStr) as ActiveUserData;
       const activeUserGUID = formatTo32CharGUID(parsed.activeUserGUID || id); /* userGUID32 */
       const activeUserEmail = parsed.activeUserEmail || email;
       const activeUserFirstName = parsed.activeUserFirstName || firstName;

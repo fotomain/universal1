@@ -6,10 +6,10 @@
 // Legacy top-level keys (rowJSON.showCriticalPath, ...) are moved into uxuiSettings on save.
 
 import { useMemo } from 'react';
-import { usePMStore } from '../../store';
-import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../types';
+import { usePMStore } from '../../store/store_pm';
+import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings, uxuiSettingsOf } from '../../model/types';
 import { useUpdateProjectMutation } from './projectQueries';
-import { clampTreeColumnWidth } from '../../tree/columns/treeColumns';
+import { clampTreeColumnWidth } from '../../view/tree/columns/treeColumns';
 
 export type PMGanttViewSettings = PMUxUiSettings;
 

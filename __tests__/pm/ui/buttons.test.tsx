@@ -5,15 +5,15 @@ import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, q, renderUI, seedSt
 import React from 'react';
 import { PMIconButton } from '../../../kit8/pm/inner/buttons/PMIconButton';
 import { PMDialogButton } from '../../../kit8/pm/inner/buttons/PMDialogButton';
-import PMAddProjectButton from '../../../kit8/pm/project/buttons/PMAddProjectButton';
-import PMGanttUndoButton from '../../../kit8/pm/gantt/buttons/PMGanttUndoButton';
-import PMGanttZoomButtons from '../../../kit8/pm/gantt/buttons/PMGanttZoomButtons';
-import PMGanttScaleButtons from '../../../kit8/pm/gantt/buttons/PMGanttScaleButtons';
-import PMGanttViewToggles from '../../../kit8/pm/gantt/buttons/PMGanttViewToggles';
+import PMAddProjectButton from '../../../kit8/pm/view/project/buttons/PMAddProjectButton';
+import PMGanttUndoButton from '../../../kit8/pm/view/gantt/buttons/PMGanttUndoButton';
+import PMGanttZoomButtons from '../../../kit8/pm/view/gantt/buttons/PMGanttZoomButtons';
+import PMGanttScaleButtons from '../../../kit8/pm/view/gantt/buttons/PMGanttScaleButtons';
+import PMGanttViewToggles from '../../../kit8/pm/view/gantt/buttons/PMGanttViewToggles';
 import PMRowActionButtons from '../../../kit8/pm/inner/buttons/PMRowActionButtons';
-import { makePMPalette } from '../../../kit8/pm/theme';
-import { usePMStore } from '../../../kit8/pm/store';
-import { PM_ZOOM_PRESETS } from '../../../kit8/pm/gantt/ganttGeometry';
+import { makePMPalette } from '../../../kit8/pm/view/theme';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { PM_ZOOM_PRESETS } from '../../../kit8/pm/view/gantt/ganttGeometry';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 

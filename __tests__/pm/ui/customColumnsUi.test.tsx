@@ -5,12 +5,12 @@
 import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, q, qa, renderUI, textOf, typeInto } from './pmUiTestKit';
 import React from 'react';
 import { act } from 'react';
-import PMTreeHeaderMenu from '../../../kit8/pm/tree/customColumns/PMTreeHeaderMenu';
-import PMCustomColumnNameModalWindow from '../../../kit8/pm/tree/customColumns/PMCustomColumnNameModalWindow';
-import PMTreeRowHoverPanel from '../../../kit8/pm/tree/panels/PMTreeRowHoverPanel';
+import PMTreeHeaderMenu from '../../../kit8/pm/view/tree/customColumns/PMTreeHeaderMenu';
+import PMCustomColumnNameModalWindow from '../../../kit8/pm/view/tree/customColumns/PMCustomColumnNameModalWindow';
+import PMTreeRowHoverPanel from '../../../kit8/pm/view/tree/panels/PMTreeRowHoverPanel';
 import PMContextMenu from '../../../kit8/pm/inner/menu/PMContextMenu';
-import { makePMPalette } from '../../../kit8/pm/theme';
-import { usePMStore } from '../../../kit8/pm/store';
+import { makePMPalette } from '../../../kit8/pm/view/theme';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 const G = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

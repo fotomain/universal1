@@ -4,6 +4,8 @@ import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
+import { selectIsLoggedIn } from '../redux/activeUserSlice';
 import { useDesignSystem } from '../providers/WithDesignSystem';
 import IconApp from './common/IconApp';
 import LanguageSelectorComponent from './LanguageSelectorComponent';
@@ -22,6 +24,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const pathname = usePathname();
   const { t } = useTranslation();
   const { activeSystem, themeColors, isDark } = useDesignSystem();
+  const isLoggedIn = useSelector(selectIsLoggedIn);
 
   const navigateAndClose = (route: string) => {
     const fullRoute = route.startsWith('/') ? route : `/${route}`;
@@ -52,7 +55,10 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   ];
 
   const bottomNavItems: MenuItem[] = [
-    { id: 'userprofile', label: 'User Profile', icon: 'account_circle', route: 'userprofile' },
+    // signed out -> "Sign In"; signed in -> "User Profile"
+    isLoggedIn
+      ? { id: 'userprofile', label: t('menu.userProfile'), icon: 'account_circle', route: 'userprofile' }
+      : { id: 'signin', label: t('menu.signIn'), icon: 'login', route: 'signin' },
     { id: 'settings', label: t('menu.settings'), icon: 'settings', route: 'settings' },
   ];
 

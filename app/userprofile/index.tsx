@@ -7,7 +7,7 @@ import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
 import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
 import { useSelector, useDispatch } from 'react-redux';
 import { useAppSignOut } from '../../kit8/hooks/useAppSignOut';
-import { ActiveUserState, clearActiveUser } from '../../kit8/redux/activeUserSlice';
+import { ActiveUserState, clearActiveUser, selectIsLoggedIn } from '../../kit8/redux/activeUserSlice';
 
 export default function UserProfileScreen() {
   const router = useRouter();
@@ -18,11 +18,7 @@ export default function UserProfileScreen() {
 
   const userState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
-  const isLoggedIn = !!(
-    userState?.activeUserGUID &&
-    userState.activeUserGUID.trim() !== "" &&
-    userState.activeUserEmail !== "user@example.com"
-  );
+  const isLoggedIn = useSelector(selectIsLoggedIn);
 
   const onSignOutClick = async () => {
     dispatch(clearActiveUser());

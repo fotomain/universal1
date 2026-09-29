@@ -4,9 +4,9 @@
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { usePMStore } from '../../store';
-import { isTreeAncestorPath, orderGapTooSmall, toLtreeLabel } from '../../scheduling';
-import { PMTaskRow } from '../../types';
+import { usePMStore } from '../../store/store_pm';
+import { isTreeAncestorPath, orderGapTooSmall, toLtreeLabel } from '../../view/project/scheduling';
+import { PMTaskRow } from '../../model/types';
 import { pmKeys, usePMApi, useProjectMutation } from '../shared/queryShared';
 
 export function useReadProjectDataQuery(projectGUID: string | null | undefined) {

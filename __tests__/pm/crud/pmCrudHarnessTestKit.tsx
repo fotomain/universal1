@@ -15,7 +15,7 @@ export const mockRouter = { push: jest.fn(), navigate: jest.fn(), replace: jest.
 jest.mock('../../../kit8/providers/WithSupabase', () => ({
   useSupabase: () => ({ supabase: require('./pmCrudHarnessTestKit').mockDb.current }),
 }));
-jest.mock('../../../kit8/pm/PMApproveYesNoCancelModalWindow', () => ({
+jest.mock('../../../kit8/pm/inner/PMApproveYesNoCancelModalWindow', () => ({
   approvePM: (req: any) => require('./pmCrudHarnessTestKit').mockApprove(req),
   askPMApprove: async (req: any) => ((await require('./pmCrudHarnessTestKit').mockApprove(req)) ? 'yes' : 'no'),
   isPMApproveOpen: () => false,
@@ -28,7 +28,7 @@ jest.mock('expo-router', () => ({
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { usePMCrud, PMCrud } from '../../../kit8/pm/usePMCrud';
+import { usePMCrud, PMCrud } from '../../../kit8/pm/crud/usePMCrud';
 import {
   useCreateProjectMutation,
   useDeleteProjectMutation,
@@ -39,11 +39,11 @@ import {
   useSeedDemoMutation,
   useUpdateProjectMutation,
   useBuildProjectRow,
-} from '../../../kit8/pm/queries';
-import { usePMStore } from '../../../kit8/pm/store';
-import { buildDemoData } from '../../../kit8/pm/seedDemo';
-import { UndoGanttStorageContext } from '../../../kit8/pm/undo/undoGanttContext';
-import { createWebUndoStorage } from '../../../kit8/pm/undo/undoGanttWebStorage';
+} from '../../../kit8/pm/crud/queries';
+import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { buildDemoData } from '../../../kit8/pm/model/seedDemo';
+import { UndoGanttStorageContext } from '../../../kit8/pm/view/undo/undoGanttContext';
+import { createWebUndoStorage } from '../../../kit8/pm/view/undo/undoGanttWebStorage';
 import { createFakeSupabase, FakeSupabase } from './fakeSupabaseTestKit';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
