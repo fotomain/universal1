@@ -56,6 +56,12 @@ it('Catalogs is a closed accordion; press opens it; Currencies is a compact sub-
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
 });
 
+it('Catalogs comes right before Projects', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-pm-projects') - 1);
+});
+
 it('opens by itself on a catalog page (list or edit)', () => {
   mount('/currency/list');
   expect(q('drawer-subitem-currencies')).not.toBeNull();

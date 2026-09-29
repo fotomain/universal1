@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // Toolbars: Gantt bar (kit8/pm/view/gantt), tree toolbar (kit8/pm/view/tree), recent projects toolbar (kit8/pm/view/project/recent) (+ project search).
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, typeInto } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
 
 // ---- the project bar talks to Supabase through these hooks: replaced by fakes ----
 const mockCreate = jest.fn();
@@ -71,9 +71,9 @@ describe('PMGanttToolbar (Gantt bar)', () => {
       'pm-gantt-line-form-squareForm',
       'pm-gantt-task-progress',
       'pm-gantt-import-export',
-      'pm-gantt-uxui-settings',
       'pm-gantt-vs-network-showGanttChart',
       'pm-gantt-vs-network-showNetworkView',
+      'pm-gantt-uxui-settings',
       'pm-gantt-critical',
     ]);
   });
@@ -248,6 +248,16 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     press('pm-project-add');
     expect(q('pm-project-name')).not.toBeNull();
     expect(q('pm-project-exchange')).toBeNull();
+  });
+
+  it('"Working days only (skip weekends)" is a SwitchApp and is saved', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    expect(textOf('pm-project-settings-window')).toContain('Working days only (skip weekends)');
+    toggleSwitch('pm-project-weekends');
+    press('pm-project-save');
+    expect(mockUpdate.mock.calls[mockUpdate.mock.calls.length - 1][0].patch.rowJSON.skipWeekends).toBe(true);
   });
 
   it('settings dialog edits name, Cancel discards', () => {

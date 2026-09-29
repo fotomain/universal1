@@ -1,5 +1,6 @@
 // Per-project view switches (saved in project_table.rowJSON.uxuiSettings):
-// % = showTaskProgressOnGantt · ⇅ = import / export (Project settings window, crud/exchange/project) · ⚙ = PMGanttUXUISettinsModalWindow · [viewSwitch = Gantt | Network] · Critical path = showCriticalPath.
+// % = showTaskProgressOnGantt · ⇅ = import / export (Project settings window, crud/exchange/project) · [viewSwitch = Gantt | Network] ·
+// ⚙ = Gantt settings (PMGanttUXUISettinsModalWindow) · Critical path = showCriticalPath.
 
 import React from 'react';
 import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
@@ -41,13 +42,6 @@ export default function PMGanttViewToggles({
         disabled={!selectedProjectGUID}
         onPress={() => usePMStore.getState().openProjectSettings(selectedProjectGUID)}
       />
-      <PMIconButton
-        testID="pm-gantt-uxui-settings"
-        icon="settings"
-        title="Gantt settings (progress lines, colors, arrows, critical path)"
-        color={palette.text}
-        onPress={() => usePMStore.getState().setUxuiSettingsOpen(true)}
-      />
       {viewSwitch && (
         <>
           <PMToolbarDivider color={palette.border} />
@@ -55,6 +49,13 @@ export default function PMGanttViewToggles({
           <PMToolbarDivider color={palette.border} />
         </>
       )}
+      <PMIconButton
+        testID="pm-gantt-uxui-settings"
+        icon="settings"
+        title="Gantt settings (progress lines, colors, arrows, critical path)"
+        color={palette.text}
+        onPress={() => usePMStore.getState().setUxuiSettingsOpen(true)}
+      />
       <PMIconButton
         testID="pm-gantt-critical"
         icon="route"

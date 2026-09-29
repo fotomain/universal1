@@ -63,6 +63,9 @@ describe('ImportExportProject', () => {
     press('pm-project-export');
     expect(mockExport).toHaveBeenCalledWith(P);
     expect(textOf('pm-project-exchange')).toContain(`project_data_${P}.json`);
+    // centered: button, description and file name
+    expect(getComputedStyle(q('pm-project-export-panel')!).alignItems).toBe('center');
+    expect(getComputedStyle(q('pm-project-export-file-name')!).textAlign).toBe('center');
   });
 
   it('import drop zone: compact + "Choose file…" for .json; a drop imports into THIS project and reports back', async () => {
@@ -71,6 +74,7 @@ describe('ImportExportProject', () => {
     const onImported = jest.fn();
     renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} onImported={onImported} />);
     expect(mockDropProps).toHaveBeenLastCalledWith(expect.objectContaining({ compact: true, pickable: true, accept: '.json,application/json', testID: 'pm-project-import-drop' }));
+    expect(mockDropProps.mock.calls[mockDropProps.mock.calls.length - 1][0].style).toMatchObject({ flexGrow: 1 }); // full height of the window
     await act(async () => {
       press('pm-project-import-drop');
       await Promise.resolve();

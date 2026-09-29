@@ -17,7 +17,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   useWindowDimensions,
@@ -44,6 +43,7 @@ import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
+import SwitchApp from "../../../../components/common/SwitchApp";
 import type { PMProjectRow, PMRowJSON } from "../../../model/types";
 
 interface Draft {
@@ -367,7 +367,7 @@ export default function PMRecentProjectsToolbar({
               >
                 {draft?.rowGUID ? "Project settings" : "New project"}
               </Text>
-              <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
               <Text style={[styles.label, { color: themeColors.text }]}>
                 Name
               </Text>
@@ -401,18 +401,15 @@ export default function PMRecentProjectsToolbar({
                 ]}
                 autoCapitalize="none"
               />
-              <View style={styles.switchRow}>
-                <Text style={{ color: themeColors.text, flex: 1 }}>
-                  Working days only (skip weekends)
-                </Text>
-                <Switch
-                  testID="pm-project-weekends"
-                  value={!!draft?.skipWeekends}
-                  onValueChange={(v) =>
-                    setDraft((d) => (d ? { ...d, skipWeekends: v } : d))
-                  }
-                />
-              </View>
+              <SwitchApp
+                testID="pm-project-weekends"
+                label="Working days only (skip weekends)"
+                value={!!draft?.skipWeekends}
+                onValueChange={(v) =>
+                  setDraft((d) => (d ? { ...d, skipWeekends: v } : d))
+                }
+                style={styles.switchRow}
+              />
               {!!draftError && (
                 <Text style={{ color: themeColors.error, marginTop: 6 }}>
                   {draftError}

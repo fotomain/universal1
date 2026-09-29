@@ -70,31 +70,30 @@ export default function ImportExportProject({
             title="Drop a project_data_….json here"
             subtitle={`Replaces the tasks of "${name}" (asks first)`}
             disabled={busy}
+            style={styles.dropZone}
             onFilesDropped={async (files) => {
               const plan = await importProject(projectGUID, files);
               if (plan) onImported?.(plan.projectRowJSON);
             }}
           />
         ) : (
-          <>
+          <View style={styles.exportPanel} testID="pm-project-export-panel">
             <Text style={[styles.hint, { color: colors.text }]}>
               The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).
             </Text>
-            <View style={styles.row}>
-              <PMDialogButton
-                testID="pm-project-export"
-                kind="primary"
-                icon="download"
-                title="Export to file"
-                disabled={busy}
-                style={{ marginLeft: 0 }}
-                onPress={() => exportProject(projectGUID)}
-              />
-              <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
-                {fileName}
-              </Text>
-            </View>
-          </>
+            <PMDialogButton
+              testID="pm-project-export"
+              kind="primary"
+              icon="download"
+              title="Export to file"
+              disabled={busy}
+              style={styles.exportButton}
+              onPress={() => exportProject(projectGUID)}
+            />
+            <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2} testID="pm-project-export-file-name">
+              {fileName}
+            </Text>
+          </View>
         )}
       </View>
       {status.kind !== 'idle' && (
@@ -117,13 +116,17 @@ export const PM_EXCHANGE_TABS: { key: PMExchangeTab; title: string }[] = [
 ];
 
 const styles = StyleSheet.create({
-  box: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
+  // fills the rest of the (fixed height) Project settings window; the Import drop zone takes all of it
+  box: { flexGrow: 1, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
   title: { fontWeight: '700', fontSize: 14, marginBottom: 6 },
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderBottomWidth: 2 },
-  panel: { minHeight: 110, justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  hint: { fontSize: 12, opacity: 0.75 },
-  fileName: { flex: 1, fontSize: 11, opacity: 0.6, marginLeft: 8 },
-  status: { marginTop: 6, fontSize: 12 },
+  panel: { flexGrow: 1, minHeight: 110, justifyContent: 'center' },
+  dropZone: { flexGrow: 1, marginVertical: 0 },
+  // Export tab: button, description and file name centered
+  exportPanel: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  exportButton: { marginLeft: 0, marginTop: 12, alignSelf: 'center' },
+  hint: { fontSize: 12, opacity: 0.75, textAlign: 'center' },
+  fileName: { fontSize: 11, opacity: 0.6, marginTop: 8, textAlign: 'center' },
+  status: { marginTop: 6, fontSize: 12, textAlign: 'center' },
 });
