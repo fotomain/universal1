@@ -16,7 +16,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../providers/WithSupabase';
-import { projectTable, projectTaskDependenciesTable, projectTaskTable } from '../model/constants';
 import { PMScheduleWrite } from './api/api_pm';
 import { usePMStore } from '../store/store_pm';
 import { PMProjectData, PMProjectRow } from '../model/types';
@@ -53,47 +52,8 @@ export function usePMOwnerGUID(): string {
   return UUID_RE.test(uid) ? uid : '';
 }
 
-// =====================================================================================
-// Realtime: other clients' changes invalidate the cache (debounced, and never while one
-// of our own mutations is in flight so optimistic state is not overwritten mid-drag).
-// =====================================================================================
-
-export function useProjectRealtime(ownerGUID: string | null | undefined, projectGUID: string | null | undefined) {
-  const { supabase } = useSupabase();
-  const qc = useQueryClient();
-
-  useEffect(() => {
-    if (!ownerGUID) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const invalidate = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(function run() {
-        if (qc.isMutating() > 0) {
-          timer = setTimeout(run, 400);
-          return;
-        }
-        qc.invalidateQueries({ queryKey: pmKeys.projects(ownerGUID) });
-        if (projectGUID) qc.invalidateQueries({ queryKey: pmKeys.projectData(projectGUID) });
-        qc.invalidateQueries({ queryKey: ['pm', 'closure'] });
-      }, 350);
-    };
-
-    let channel = supabase
-      .channel(`pm-gantt:${ownerGUID}:${projectGUID || 'none'}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: projectTable, filter: `rowOwnerGUID=eq.${ownerGUID}` }, invalidate);
-    if (projectGUID) {
-      channel = channel
-        .on('postgres_changes', { event: '*', schema: 'public', table: projectTaskTable, filter: `projectGUID=eq.${projectGUID}` }, invalidate)
-        .on('postgres_changes', { event: '*', schema: 'public', table: projectTaskDependenciesTable, filter: `projectGUID=eq.${projectGUID}` }, invalidate);
-    }
-    channel.subscribe();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, qc, ownerGUID, projectGUID]);
-}
+// Realtime auto refresh (all browsers of the user): crud/realtime/useProjectRealtime.ts
+export { useProjectRealtime } from './realtime/useProjectRealtime';
 
 // =====================================================================================
 // Scheduler write-back: the client-side CPM result (start / finish / rolled-up progress)

@@ -16,6 +16,7 @@ import { PM_ROUTES } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import {
   usePMOwnerGUID,
+  useProjectRealtime,
   useReadProjectDataQuery,
   useReadProjectsQuery,
   useReadProjectUserSettingsQuery,
@@ -79,6 +80,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
     if (projectGUID && projectGUID !== selectedProjectGUID) usePMStore.getState().selectProject(projectGUID);
   }, [projectGUID, selectedProjectGUID]);
   useReadProjectDataQuery(projectGUID);
+  useProjectRealtime(ownerGUID, projectGUID); // edits from other browsers refresh this page too
 
   const crud = usePMCrud(ownerGUID, projectGUID);
   const upstream = useReadTaskClosureQuery(task ? taskGUID : null, 'up');

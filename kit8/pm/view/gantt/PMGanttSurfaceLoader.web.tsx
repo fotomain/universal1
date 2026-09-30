@@ -34,7 +34,18 @@ export function loadCanvasKit(): Promise<void> {
   return ckPromise;
 }
 
-const LazySurface = React.lazy(() => loadCanvasKit().then(() => import('./PMGanttSurface')));
+const LazySurface = React.lazy(() =>
+  loadCanvasKit()
+    .then(async () => {
+      try {
+        const { preloadPMFonts } = await import('../../skia/usePMFonts');
+        await preloadPMFonts();
+      } catch (e) {
+        console.warn('[PMGanttSurfaceLoader] Font preload error:', e);
+      }
+    })
+    .then(() => import('./PMGanttSurface'))
+);
 
 class SurfaceErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
   state = { error: null as string | null };

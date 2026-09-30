@@ -147,6 +147,14 @@ import { criticalPathTaskColorOf } from './criticalPathColors';
 export { PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, criticalPathTaskColorOf } from './criticalPathColors';
 import { normalizeTreeColumnsOrder, normalizeTreeColumnsWidths, PMTreeColumnKey } from '../view/tree/columns/treeColumns';
 import { projectCustomColumnsOf, PMProjectCustomColumns, PMTaskCustomColumnValues } from '../view/tree/columns/customColumns';
+import {
+  columnFilterIconColorOf,
+  normalizeTreeColumnsFilters,
+  normalizeTreeColumnSort,
+  PMTreeColumnsFilters,
+  PMTreeColumnSort,
+} from '../view/tree/filter/treeColumnFilter';
+export type { PMFilterVariantForColumn, PMTreeColumnFilter, PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
 export type { PMTreeColumnKey } from '../view/tree/columns/treeColumns';
 export type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType, PMCustomColumnValue, PMProjectCustomColumns, PMTaskCustomColumnValues } from '../view/tree/columns/customColumns';
 // progress line types / constants live in kit8/pm/view/task/progress/line (re-exported for older imports)
@@ -189,6 +197,12 @@ export interface PMUxUiSettings {
   projectTreeContextCommandsMode?: PMContextCommandsMode;
   /** Gantt chart: bar commands in a hover panel (default) or in a right-click / long-press menu. */
   projectGanttChartContextCommandsMode?: PMContextCommandsMode;
+  /** Tree: column filters { [columnKey]: { filterVariantForColumn, value, value2 } } - all AND-ed (tree/filter). */
+  treeColumnsFilters?: PMTreeColumnsFilters;
+  /** Tree: sorted column (siblings sorted inside every parent), null = tree order. */
+  treeColumnSort?: PMTreeColumnSort | null;
+  /** Tree: color of the filter icon on a filtered column header (default light vibrant red #FF4D6D). */
+  columnFilterIconColor?: string;
 }
 
 /**
@@ -246,6 +260,9 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
     projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),
     projectGanttChartContextCommandsMode: contextCommandsModeOf(u.projectGanttChartContextCommandsMode),
+    treeColumnsFilters: normalizeTreeColumnsFilters(u.treeColumnsFilters),
+    treeColumnSort: normalizeTreeColumnSort(u.treeColumnSort),
+    columnFilterIconColor: columnFilterIconColorOf(u.columnFilterIconColor),
   };
 }
 

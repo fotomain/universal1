@@ -11,13 +11,21 @@
 
 import { create } from 'zustand';
 import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAULT_WIDTH, PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from '../model/constants';
-import { flattenVisible, ROOT_KEY, todayUTC } from '../view/project/scheduling';
+import { ROOT_KEY, todayUTC } from '../view/project/scheduling';
+import { PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../view/tree/filter/treeColumnFilter';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
 import { PMProjectRow, PMTaskRow, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
-import { derive, EMPTY_TREE, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
+import { derive, EMPTY_TREE, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
 import type { PMStoreState } from './storeTypes';
 
-export type { PMCellField, PMCustomColumnPrompt, PMRowMenuState, PMTreeHeaderMenuState, PMStoreState } from './storeTypes';
+export type { PMCellField, PMCustomColumnPrompt, PMRowMenuState, PMTreeColumnFilterPopupState, PMTreeHeaderMenuState, PMStoreState } from './storeTypes';
+
+/** Visible rows of the selected project for `state` (tree filters / sort applied) - {} before the project is loaded. */
+const rowsOf = (state: PMStoreState, expanded?: Record<string, boolean>) => {
+  const pg = state.selectedProjectGUID;
+  if (!pg || state.loadedProjectGUID !== pg) return {};
+  return treeRowsOf(state, expanded ?? state.expandedByProject[pg] ?? {});
+};
 
 export const usePMStore = create<PMStoreState>((set, get) => ({
   projectsById: {},
@@ -66,12 +74,14 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
     set((state) => {
       const g = state.selectedProjectGUID;
       const v = g ? viewSettingsOf(state.projectsById[g], byProject[g]) : null;
+      const applied = v ? (state.keepWorkspaceMode ? withoutWorkspaceMode(v) : v) : {};
       return {
         userSettingsByProject: byProject,
         userSettingsTableMissing: tableMissing,
         // the selected project's rows arrive after selectProject: apply them (the Gantt | Network mode
         // only for the first project of the session - later it follows the user, see selectProject)
-        ...(v ? (state.keepWorkspaceMode ? withoutWorkspaceMode(v) : v) : {}),
+        ...applied,
+        ...(v ? rowsOf({ ...state, ...applied }) : {}),
       };
     }),
   setProjectUserSettings: (projectGUID, settings) =>
@@ -80,7 +90,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       if (settings) userSettingsByProject[projectGUID] = settings;
       else delete userSettingsByProject[projectGUID];
       const v = projectGUID === state.selectedProjectGUID ? viewSettingsOf(state.projectsById[projectGUID], settings) : null;
-      return { userSettingsByProject, ...(v ? withoutWorkspaceMode(v) : {}) };
+      const applied = v ? withoutWorkspaceMode(v) : {};
+      return { userSettingsByProject, ...applied, ...(v ? rowsOf({ ...state, ...applied }) : {}) };
     }),
   showTreeHierarchyNumbers: true,
   projectTreeContextCommandsMode: 'onHoverPanelMode',
@@ -94,7 +105,27 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   treeColumnsWidths: {},
   customColumns: [],
   treeHeadersBackgroundColors: {},
-  setTreeColumnsSettings: (patch) => set(patch),
+  treeColumnsFilters: {},
+  treeColumnSort: null,
+  columnFilterIconColor: PM_DEFAULT_COLUMN_FILTER_ICON_COLOR,
+  treeFilterContextGUIDs: {},
+  treeFilterMatchCount: null,
+  treeColumnFilterPopup: null,
+  setTreeColumnFilterPopup: (popup) => set({ treeColumnFilterPopup: popup, treeHeaderMenu: null }),
+  setTreeColumnsSettings: (patch) =>
+    set((state) =>
+      'treeColumnsFilters' in patch || 'treeColumnSort' in patch || 'customColumns' in patch ? { ...patch, ...rowsOf({ ...state, ...patch }) } : patch
+    ),
+  expandRows: (rowGUIDs) =>
+    set((state) => {
+      const pg = state.selectedProjectGUID;
+      if (!pg || !rowGUIDs.length) return {};
+      const cur = state.expandedByProject[pg] || {};
+      const next = { ...cur };
+      for (const g of rowGUIDs) next[g] = true;
+      const expandedByProject = { ...state.expandedByProject, [pg]: next };
+      return { expandedByProject, ...rowsOf(state, next) };
+    }),
   treeHeaderMenu: null,
   setTreeHeaderMenu: (menu) => set({ treeHeaderMenu: menu }),
   customColumnPrompt: null,
@@ -119,7 +150,10 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       const selectedProjectGUID =
         state.selectedProjectGUID && projectsById[state.selectedProjectGUID] ? state.selectedProjectGUID : null;
       const recentProjectGUIDs = state.recentProjectGUIDs.filter((g) => !!projectsById[g]);
-      const next = { ...state, projectsById, projectOrder, selectedProjectGUID };
+      // ganttVsNetworkView / networkViewMode are NOT re-applied here: they are a workspace mode
+      // that follows the user across projects (see selectProject); the setters update the store.
+      const view = selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID], state.userSettingsByProject[selectedProjectGUID])) : {};
+      const next = { ...state, projectsById, projectOrder, selectedProjectGUID, ...view };
       // project settings (start date, calendar) feed the scheduler
       const sameProject = selectedProjectGUID === state.loadedProjectGUID;
       return {
@@ -127,9 +161,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         projectOrder,
         selectedProjectGUID,
         ...(recentProjectGUIDs.length !== state.recentProjectGUIDs.length ? { recentProjectGUIDs } : {}),
-        // ganttVsNetworkView / networkViewMode are NOT re-applied here: they are a workspace mode
-        // that follows the user across projects (see selectProject); the setters update the store.
-        ...(selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID], state.userSettingsByProject[selectedProjectGUID])) : {}),
+        ...view,
         ...(sameProject ? derive(next, selectedProjectGUID) : {}),
       };
     }),
@@ -166,6 +198,9 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             cellEdit: null,
             treeHeaderMenu: null,
             customColumnPrompt: null,
+            treeColumnFilterPopup: null,
+            treeFilterContextGUIDs: {},
+            treeFilterMatchCount: null,
             undoCount: 0,
             undoLabel: null,
             recentProjectGUIDs:
@@ -196,10 +231,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       if (!pg) return {};
       const cur = state.expandedByProject[pg] || {};
       const expandedByProject = { ...state.expandedByProject, [pg]: { ...cur, [rowGUID]: cur[rowGUID] === false } };
-      const visibleRows = flattenVisible(state.tree, expandedByProject[pg]);
-      const rowIndexById: Record<string, number> = {};
-      visibleRows.forEach((g, i) => (rowIndexById[g] = i));
-      return { expandedByProject, visibleRows, rowIndexById };
+      return { expandedByProject, ...treeRowsOf(state, expandedByProject[pg]) };
     }),
 
   setAllExpanded: (expanded) =>
@@ -211,10 +243,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         if (guid !== ROOT_KEY && kids.length) map[guid] = expanded;
       }
       const expandedByProject = { ...state.expandedByProject, [pg]: map };
-      const visibleRows = flattenVisible(state.tree, map);
-      const rowIndexById: Record<string, number> = {};
-      visibleRows.forEach((g, i) => (rowIndexById[g] = i));
-      return { expandedByProject, visibleRows, rowIndexById };
+      return { expandedByProject, ...treeRowsOf(state, map) };
     }),
 
   setHovered: (rowGUID) => {
@@ -257,10 +286,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       }
       if (!changed) return { selectedGUID: rowGUID };
       const expandedByProject = { ...state.expandedByProject, [pg]: nextExpanded };
-      const visibleRows = flattenVisible(state.tree, nextExpanded);
-      const rowIndexById: Record<string, number> = {};
-      visibleRows.forEach((g, i) => (rowIndexById[g] = i));
-      return { expandedByProject, visibleRows, rowIndexById, selectedGUID: rowGUID };
+      return { expandedByProject, ...treeRowsOf(state, nextExpanded), selectedGUID: rowGUID };
     }),
 
   setUndoInfo: (count, label) => set({ undoCount: count, undoLabel: label }),

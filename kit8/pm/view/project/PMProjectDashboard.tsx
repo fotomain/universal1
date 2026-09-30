@@ -18,6 +18,7 @@ import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
 import PMTaskRowMenu from '../task/PMTaskRowMenu';
 import PMTreeHeaderMenu from '../tree/customColumns/PMTreeHeaderMenu';
 import PMCustomColumnNameModalWindow from '../tree/customColumns/PMCustomColumnNameModalWindow';
+import PMTreeColumnFilterPopup from '../tree/filter/PMTreeColumnFilterPopup';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
 import PMApproveYesNoCancelModalWindow, { isPMApproveOpen } from '../../inner/PMApproveYesNoCancelModalWindow';
 import PMUndoProvider from '../undo/PMUndoProvider';
@@ -182,6 +183,7 @@ function PMProjectDashboardInner() {
       <PMTaskRowMenu crud={crud} />
       <PMTreeHeaderMenu crud={crud} />
       <PMCustomColumnNameModalWindow crud={crud} />
+      <PMTreeColumnFilterPopup crud={crud} />
       <PMGanttUXUISettinsModalWindow crud={crud} />
       <PMApproveYesNoCancelModalWindow />
       <PMTooltipLayer />

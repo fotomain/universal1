@@ -30,6 +30,8 @@ export interface PMPalette {
   handle: string;
   error: string;
   border: string;
+  /** light "▾" of a tree header without a filter (white-ish in dark mode, soft grey in light mode) */
+  headerIcon: string;
 }
 
 function hexToRgb(hex: string): [number, number, number] | null {
@@ -92,6 +94,7 @@ export function makePMPalette(
     handle: isDark ? '#e2e8f0' : '#334155',
     error: colors.error,
     border: colors.border,
+    headerIcon: isDark ? 'rgba(255,255,255,0.72)' : 'rgba(100,116,139,0.62)',
   };
 }
 

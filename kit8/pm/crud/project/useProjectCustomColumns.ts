@@ -55,6 +55,8 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         treeHeadersBackgroundColors: cc.headersBackgroundColors,
         ...(uxui.treeColumnsOrder ? { treeColumnsOrder: uxui.treeColumnsOrder } : {}),
         ...(uxui.treeColumnsWidths ? { treeColumnsWidths: uxui.treeColumnsWidths } : {}),
+        ...(uxui.treeColumnsFilters ? { treeColumnsFilters: uxui.treeColumnsFilters } : {}),
+        ...('treeColumnSort' in uxui ? { treeColumnSort: uxui.treeColumnSort ?? null } : {}),
       });
       updateProject.mutate({ rowGUID: p.rowGUID, patch: { rowJSON: { ...p.rowJSON, customColumns } } });
       if (Object.keys(uxui).length) saveUxuiSettings(p.rowGUID, uxui);
@@ -123,7 +125,15 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
         const fresh = project() ?? p;
         const u = effectiveUxuiSettings(st(), fresh.rowGUID);
         const { [key]: _w, ...treeColumnsWidths } = u.treeColumnsWidths;
-        saveProject(withCustomColumnDeleted(fresh.rowJSON, key), { treeColumnsOrder: u.treeColumnsOrder.filter((k) => k !== key), treeColumnsWidths });
+        // its filter / sort go too (tree/filter)
+        const { [key]: _f, ...treeColumnsFilters } = u.treeColumnsFilters;
+        const sortGone = u.treeColumnSort?.key === key;
+        saveProject(withCustomColumnDeleted(fresh.rowJSON, key), {
+          treeColumnsOrder: u.treeColumnsOrder.filter((k) => k !== key),
+          treeColumnsWidths,
+          ...(_f ? { treeColumnsFilters } : {}),
+          ...(sortGone ? { treeColumnSort: null } : {}),
+        });
         const s = st();
         if (s.cellEdit?.field === key) s.setCellEdit(null);
         for (const t of withValues) {

@@ -6,6 +6,8 @@ export { default as PMTreeRowHoverPanel } from './panels/PMTreeRowHoverPanel';
 export { default as PMTreeToolbar } from './toolbars/PMTreeToolbar';
 // custom columns (header menu + name window)
 export { PMTreeHeaderMenu, PMCustomColumnNameModalWindow } from './customColumns';
+// filter & sort of the columns
+export { PMTreeColumnFilterPopup } from './filter';
 // inline cell editors
 export { default as PMInlineCellEditor } from './inline/PMInlineCellEditor';
 export { default as PMInlineCellInput } from './inline/PMInlineCellInput';

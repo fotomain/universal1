@@ -5,6 +5,42 @@ import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, RO
 import { projectCustomColumnsOf } from '../view/tree/columns/customColumns';
 import { PMLinkLineForm, PMProjectRow, PMUxUiSettings, uxuiSettingsOf } from '../model/types';
 import type { PMStoreState } from './storeTypes';
+import { filterAndSortTreeRows } from '../view/tree/filter/treeColumnFilter';
+import type { PMTaskRow } from '../model/types';
+
+const NO_CONTEXT: Record<string, true> = Object.freeze({}) as Record<string, true>;
+
+/**
+ * Visible row order of the tree = expanded rows (flattenVisible) with the column filters and the
+ * sort applied (tree/filter). Every place that changes the tree, expansion, filters or sort uses it,
+ * so tree rows and Gantt bars always follow the same order.
+ */
+export function treeRowsOf(
+  s: Pick<PMStoreState, 'tree' | 'schedule' | 'customColumns' | 'treeColumnsFilters' | 'treeColumnSort'> & { tasksById?: Record<string, PMTaskRow>; tasks?: PMTaskRow[] },
+  expanded: Record<string, boolean>
+) {
+  const filters = s.treeColumnsFilters;
+  const active = (filters && Object.keys(filters).length > 0) || !!s.treeColumnSort;
+  let visibleRows: string[];
+  let treeFilterContextGUIDs = NO_CONTEXT;
+  let treeFilterMatchCount: number | null = null;
+  if (!active) {
+    visibleRows = flattenVisible(s.tree, expanded);
+  } else {
+    let tasksById = s.tasksById;
+    if (!tasksById) {
+      tasksById = {};
+      for (const t of s.tasks ?? []) tasksById[t.rowGUID] = t;
+    }
+    const r = filterAndSortTreeRows(s.tree, expanded, { tasksById, schedule: s.schedule, tree: s.tree, customColumns: s.customColumns ?? [] }, filters, s.treeColumnSort);
+    visibleRows = r.visibleRows;
+    if (r.contextGUIDs && Object.keys(r.contextGUIDs).length) treeFilterContextGUIDs = r.contextGUIDs;
+    treeFilterMatchCount = r.matchCount;
+  }
+  const rowIndexById: Record<string, number> = {};
+  visibleRows.forEach((g, i) => (rowIndexById[g] = i));
+  return { visibleRows, rowIndexById, treeFilterContextGUIDs, treeFilterMatchCount };
+}
 
 export const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {}, wbsById: {} };
 
@@ -33,6 +69,9 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     projectGanttChartContextCommandsMode: u.projectGanttChartContextCommandsMode,
     treeColumnsOrder: u.treeColumnsOrder,
     treeColumnsWidths: u.treeColumnsWidths,
+    treeColumnsFilters: u.treeColumnsFilters,
+    treeColumnSort: u.treeColumnSort,
+    columnFilterIconColor: u.columnFilterIconColor,
     customColumns: projectCustomColumnsOf(project?.rowJSON).columns,
     treeHeadersBackgroundColors: projectCustomColumnsOf(project?.rowJSON).headersBackgroundColors,
   };
@@ -53,7 +92,8 @@ export function withoutWorkspaceMode<T extends { ganttVsNetworkView: unknown; ne
 }
 
 export function derive(
-  s: Pick<PMStoreState, 'tasks' | 'deps' | 'projectsById' | 'expandedByProject'>,
+  s: Pick<PMStoreState, 'tasks' | 'deps' | 'projectsById' | 'expandedByProject'> &
+    Partial<Pick<PMStoreState, 'customColumns' | 'treeColumnsFilters' | 'treeColumnSort' | 'tasksById'>>,
   projectGUID: string | null
 ) {
   const project = projectGUID ? s.projectsById[projectGUID] : undefined;
@@ -69,9 +109,10 @@ export function derive(
     calendar: { skipWeekends: !!project?.rowJSON?.skipWeekends },
   });
   const expanded = (projectGUID && s.expandedByProject[projectGUID]) || {};
-  const visibleRows = flattenVisible(tree, expanded);
-  const rowIndexById: Record<string, number> = {};
-  visibleRows.forEach((g, i) => (rowIndexById[g] = i));
+  const rows = treeRowsOf(
+    { tree, schedule: result.rows, tasks: s.tasks, customColumns: s.customColumns ?? [], treeColumnsFilters: s.treeColumnsFilters ?? {}, treeColumnSort: s.treeColumnSort ?? null },
+    expanded
+  );
   return {
     tree,
     schedule: result.rows,
@@ -79,7 +120,6 @@ export function derive(
     projectFinishMs: result.projectFinishMs,
     projectProgress: computeProjectProgress(result.rows),
     cycleGUIDs: result.cycleGUIDs,
-    visibleRows,
-    rowIndexById,
+    ...rows,
   };
 }

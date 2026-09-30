@@ -7,7 +7,7 @@
 //   row commands: projectTreeContextCommandsMode · projectGanttChartContextCommandsMode
 //              ('onHoverPanelMode' = hover panel, 'onRightClickMenuMode' = right-click / long-press menu)
 //   task tree: showTreeHierarchyNumbers ("#" column) · treeColumnsOrder (reset; reorder = drag the headers) ·
-//              treeColumnsWidths (reset; resize = drag the header separators)
+//              treeColumnsWidths (reset; resize = drag the header separators) · columnFilterIconColor (filtered header icon)
 //
 // Fixed height (PM_UXUI_WINDOW_HEIGHT, max 92 % of the screen): the tab panel scrolls, the window never resizes.
 // Top tabs: Task · Tree · Gantt · Project (settings/uxuiSettingsIndex.ts lists which option is where).
@@ -34,6 +34,7 @@ import { DEPENDENCY_LINE_FORMS } from '../task/dependency/DependencyArrowLineFor
 import { withAlpha } from '../theme';
 import { PM_UXUI_TABS, PMUxUiOptionId, PMUxUiTab, PM_UXUI_OPTIONS, searchUxuiOptions, uxuiTabTitle } from './settings/uxuiSettingsIndex';
 import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder, treeColumnTitle } from '../tree/columns/treeColumns';
+import { PM_COLUMN_FILTER_ICON_COLORS, PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../tree/filter/treeColumnFilter';
 
 type Draft = Required<PMUxUiSettings>;
 
@@ -119,7 +120,9 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
   if (!open || !project) return null;
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const save = () => {
-    crud.setGanttViewSettings(draft);
+    // the tree's column filters / sort are not edited here (tree/filter): keep the current ones (also after "Defaults")
+    const { treeColumnsFilters: _f, treeColumnSort: _s, ...rest } = draft;
+    crud.setGanttViewSettings(rest);
     close();
   };
   const colors = { text: c.text, border: c.border, background: c.background, primary: c.primary };
@@ -285,6 +288,21 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                       onPress={() => set('treeColumnsWidths', {})}
                     />
                   </View>
+                </Opt>
+                <Opt id="columnFilterIconColor">
+                  <Text style={[styles.section, { color: c.text }]}>Filter icon color</Text>
+                  <Text style={[styles.label, { color: c.text }]}>
+                    Funnel at the right of a filtered column header (click the ▾ of a header, or right-click / long-press it → Filter & sort)
+                  </Text>
+                  <ColorPickerApp
+                    testID="pm-uxui-filter-icon-color"
+                    title="Filter icon color"
+                    value={draft.columnFilterIconColor === PM_DEFAULT_COLUMN_FILTER_ICON_COLOR ? null : draft.columnFilterIconColor}
+                    onChange={(v) => set('columnFilterIconColor', v || PM_DEFAULT_COLUMN_FILTER_ICON_COLOR)}
+                    swatches={PM_COLUMN_FILTER_ICON_COLORS}
+                    defaultColor={PM_DEFAULT_COLUMN_FILTER_ICON_COLOR}
+                    colors={colors}
+                  />
                 </Opt>
               </>
             )}

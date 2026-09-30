@@ -1,4 +1,5 @@
 import '../kit8/lib/setup-console';
+import '../kit8/lib/blurPressedButtonOnWeb'; // web: no "Blocked aria-hidden ... retained focus" warning on navigation
 import React, {useEffect} from 'react';
 import {Platform} from 'react-native';
 

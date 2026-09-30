@@ -16,6 +16,9 @@
 //                           width its icons need (tree/panels/treeRowPanelGeometry): ends at the Task name
 //                           column's right edge and grows over the neighbouring columns when needed.
 //                           Its LAST button is the drag handle: press + drag = move the row.
+// Filter & sort           = the ▾ at the right of every header (funnel = filtered, uxuiSettings.columnFilterIconColor;
+//                           ↑ / ↓ = sorted column) or header menu -> "Filter & sort" -> PMTreeColumnFilterPopup
+//                           (tree/filter). Rows kept only as the context of a match are drawn muted.
 // Inline cell edit        = click / tap Start, Days, % or a custom cell -> EditTaskStart / EditTaskDays /
 //                           EditTaskProgress / EditTaskCustomValue (Boolean cells toggle on click);
 //                           drag & drop of rows also works on the Task name and # columns.
@@ -58,6 +61,8 @@ import { useTreeColumnDragGesture, useTreeColumnGeometry } from './columns/useTr
 import { useTreeColumnResizeGesture } from './columns/useTreeColumnResizeGesture';
 import PMTreeColumnsHeader from './columns/PMTreeColumnsHeader';
 import { isOverTreeRowPanel, placeTreeRowPanel, treeRowPanelViewLeft } from './panels/treeRowPanelGeometry';
+import { treeFilterIconAt } from './filter/treeFilterIconGeometry';
+import { describeTreeColumnFilter, isTreeColumnFilterActive, sortLabels, treeColumnDataType } from './filter/treeColumnFilter';
 
 const IS_WEB = Platform.OS === 'web';
 const CHEVRON_W = 16;
@@ -96,6 +101,17 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const cellEdit = usePMStore((s) => s.cellEdit);
   const headerColors = usePMStore((s) => s.treeHeadersBackgroundColors);
   const columnReveal = usePMStore((s) => s.treeColumnReveal);
+  // ---- filter & sort (tree/filter) ----
+  const columnFilters = usePMStore((s) => s.treeColumnsFilters);
+  const columnSort = usePMStore((s) => s.treeColumnSort);
+  const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
+  const filterContext = usePMStore((s) => s.treeFilterContextGUIDs);
+  const customColumnDefs = usePMStore((s) => s.customColumns);
+  const filteredKeys = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const [k, f] of Object.entries(columnFilters)) if (isTreeColumnFilterActive(k, f, customColumnDefs)) out[k] = true;
+    return out;
+  }, [columnFilters, customColumnDefs]);
   /** uxuiSettings.projectTreeContextCommandsMode: row commands in a right-click / long-press menu instead of the hover panel */
   const rowMenuMode = usePMStore((s) => s.projectTreeContextCommandsMode === 'onRightClickMenuMode');
 
@@ -119,7 +135,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   /** left x of the tree structure (chevron) of a row at `depth` (content x) */
   const chevronXAt = useCallback((depth: number) => (colsRef.current.byKey.name?.x ?? 0) + 8 + depth * PM_TREE_INDENT, []);
   const [hoverInCells, setHoverInCells] = useState(false);
-  const [headerCursor, setHeaderCursor] = useState<'' | 'grab' | 'col-resize'>('');
+  const [headerCursor, setHeaderCursor] = useState<'' | 'grab' | 'col-resize' | 'pointer'>('');
   /** row whose hover panel is showing (web) - the pointer may move over the panel without hiding it */
   const panelShownFor = useRef<string | null>(null);
   /** row under the pointer while the pointer is over THIS tree (the chart also sets store.hoveredGUID) */
@@ -166,6 +182,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       progX: number;
       critical: boolean;
       color: string | null;
+      /** shown only because a descendant matches the filters */
+      context: boolean;
       custom: { key: string; text: string; x: number; bool: boolean | null; boxX: number }[];
     }[] = [];
     for (let i = win.firstRow; i <= win.lastRow && i < visibleRows.length; i++) {
@@ -208,11 +226,12 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         progX: progCol ? progCol.x + progCol.w - 8 - measureSmall(prog) : 0,
         critical: showCritical && !!r?.isCritical && !summary,
         color: taskColorOf(t.rowJSON),
+        context: !!filterContext[guid],
         custom,
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, customCols, showCritical]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, customCols, showCritical, filterContext]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -363,9 +382,11 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     setHoverInCells(inCells);
     const inHeader = !guid && y >= 0 && y < PM_SCALE_HEIGHT && x >= 0;
     const resizeKey = inHeader ? treeColumnResizeHandleAt(colsRef.current, x, RESIZE_GRAB) : null;
-    const headerKey = inHeader && !resizeKey ? treeColumnAt(colsRef.current, x) : null;
-    setHeaderCursor(resizeKey ? 'col-resize' : headerKey ? 'grab' : '');
+    const filterKey = inHeader && !resizeKey ? treeFilterIconAt(colsRef.current, x, y, RESIZE_GRAB) : null;
+    const headerKey = inHeader && !resizeKey && !filterKey ? treeColumnAt(colsRef.current, x) : null;
+    setHeaderCursor(resizeKey ? 'col-resize' : filterKey ? 'pointer' : headerKey ? 'grab' : '');
     if (resizeKey) zone = `resize:${resizeKey}`;
+    else if (filterKey) zone = `filter:${filterKey}`;
     else if (headerKey) zone = `head:${headerKey}`;
     if (guid && x >= 0 && !onPanel) {
       const chevronX = chevronXAt(s.tree.depthById[guid] ?? 0);
@@ -383,12 +404,22 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       const title = colsRef.current.byKey[k]?.title ?? '';
       return tipAt(`Drag to resize "${title}" · double-click = default width`, vx, y);
     }
+    if (zone.startsWith('filter:')) {
+      const k = zone.slice(7) as PMTreeColumnKey;
+      const title = colsRef.current.byKey[k]?.title ?? '';
+      const type = treeColumnDataType(k, s.customColumns);
+      const f = s.treeColumnsFilters[k];
+      const parts: string[] = [];
+      if (f && type && isTreeColumnFilterActive(k, f, s.customColumns)) parts.push(`Filtered: ${describeTreeColumnFilter(f, type)}`);
+      if (s.treeColumnSort?.key === k && type) parts.push(sortLabels(type)[s.treeColumnSort.direction].replace(/^Sort/, 'Sorted'));
+      return tipAt(parts.length ? `${title} · ${parts.join(' · ')} · click to change` : `Filter & sort "${title}"`, vx, y);
+    }
     if (zone.startsWith('head:')) {
       const k = zone.slice(5);
       const def = custom(k);
       const what = def ? `${def.name} (${PM_CUSTOM_COLUMN_TYPE_LABEL[def.type]} column) · ` : '';
       const move = colsRef.current.columns.length > 1 ? 'drag to move the column · ' : '';
-      return tipAt(`${what}${move}${IS_WEB ? 'right-click' : 'long-press'} for column options (add a custom column…)`, vx, y);
+      return tipAt(`${what}${move}${IS_WEB ? 'right-click' : 'long-press'} for column options (filter & sort, add a custom column…)`, vx, y);
     }
     const expandedNow = s.selectedProjectGUID ? s.expandedByProject[s.selectedProjectGUID]?.[guid!] !== false : true;
     const summary = !!s.schedule[guid!]?.isSummary;
@@ -464,6 +495,28 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     [crud]
   );
 
+  /** Opens the "Filter & sort" popup of a column, under its header (window coordinates). */
+  const openColumnFilter = useCallback(
+    (key: PMTreeColumnKey) => {
+      hidePMTip();
+      const c = colsRef.current.byKey[key];
+      const box = canvasBoxRef.current;
+      if (!c || !box) return;
+      box.measureInWindow((wx, wy) => crud.openTreeColumnFilter(key, wx + Math.max(0, c.x - treeScrollX.value), wy + PM_SCALE_HEIGHT));
+    },
+    [crud, treeScrollX]
+  );
+
+  /** Tap on the header: the ▾ / funnel icon opens "Filter & sort" (the rest of the header = drag / resize / menu). */
+  const onTapHeader = useCallback(
+    (x: number, y: number) => {
+      if (treeColumnResizeHandleAt(colsRef.current, x, RESIZE_GRAB)) return;
+      const key = treeFilterIconAt(colsRef.current, x, y, RESIZE_GRAB);
+      if (key) openColumnFilter(key);
+    },
+    [openColumnFilter]
+  );
+
   /** Header context menu (window point); column under content x. */
   const openHeaderMenu = useCallback(
     (x: number, winX: number, winY: number) => {
@@ -474,7 +527,21 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     [crud]
   );
 
-  const onDrop = useCallback((from: number, slot: number) => crud.dropRow(from, slot), [crud]);
+  const onDrop = useCallback(
+    (from: number, slot: number) => {
+      const s = usePMStore.getState();
+      if (s.treeColumnSort) {
+        // the tree order is the sort order now: a drop could not keep its place
+        if (slot !== from && slot !== from + 1) {
+          const title = colsRef.current.byKey[s.treeColumnSort.key]?.title ?? s.treeColumnSort.key;
+          s.setError(`The tree is sorted by "${title}" - clear the sort (column ▾ -> Filter & sort) to reorder rows by drag & drop.`);
+        }
+        return;
+      }
+      crud.dropRow(from, slot);
+    },
+    [crud]
+  );
   /** drag handle of the row panel: keep that row's panel mounted during the drag (idx -1 = drag ended) */
   const onHandleDrag = useCallback((idx: number) => {
     hidePMTip();
@@ -628,7 +695,10 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         if (e.y >= canvasHSV.value - HBAR_GRAB_H && treeMaxScrollX.value > 0) return; // on the scroll bar
         const idx = rowAt(e.y);
         if (onPanel(idx, e.x)) return; // on the hover panel (its buttons handle the press)
-        if (e.y < PM_SCALE_HEIGHT) return; // header: drag / resize / menu
+        if (e.y < PM_SCALE_HEIGHT) {
+          runOnJS(onTapHeader)(cx(e.x), e.y); // header: the filter icon; the rest = drag / resize / menu
+          return;
+        }
         runOnJS(onTapRow)(idx, cx(e.x));
       });
 
@@ -797,7 +867,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY]);
 
   const panelStyle = useAnimatedStyle(() => {
     const top = PM_SCALE_HEIGHT + panelIndex * PM_ROW_HEIGHT - scrollY.value;
@@ -851,7 +921,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
                       ) : null}
                       {fonts.ready && (
                         <>
-                          <SkText x={r.nameX} y={base} text={r.name} font={r.summary ? fonts.bold : fonts.regular} color={palette.text} />
+                          <SkText x={r.nameX} y={base} text={r.name} font={r.summary ? fonts.bold : fonts.regular} color={r.context ? palette.textMuted : palette.text} opacity={r.context ? 0.7 : 1} />
                           {wbsCol && <SkText x={wbsCol.x + 8} y={base} text={r.wbs} font={r.summary ? fonts.smallBold : fonts.small} color={palette.textMuted} />}
                           {startCol && <SkText x={startCol.x + 8} y={base} text={r.start} font={fonts.small} color={palette.textMuted} />}
                           {daysCol && <SkText x={r.daysX} y={base} text={r.days} font={fonts.small} color={palette.textMuted} />}
@@ -879,6 +949,9 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
               geometry={geometry}
               scrollX={treeScrollX}
               headerColors={headerColors}
+              filteredKeys={filteredKeys}
+              sort={columnSort}
+              filterIconColor={filterIconColor}
             />
 
             {/* ---- horizontal scroll bar (columns wider than the pane) ---- */}

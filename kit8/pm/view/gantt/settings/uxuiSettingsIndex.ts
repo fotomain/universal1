@@ -20,6 +20,7 @@ export type PMUxUiOptionId =
   | 'treeCommands'
   | 'treeNumbers'
   | 'treeColumns'
+  | 'columnFilterIconColor'
   | 'criticalPath'
   | 'arrows'
   | 'ganttCommands'
@@ -41,6 +42,7 @@ export const PM_UXUI_OPTIONS: PMUxUiOption[] = [
   { id: 'treeCommands', tab: 'TabTree', label: 'Task tree: row commands (hover panel / right-click menu)', keywords: 'projectTreeContextCommandsMode context menu long-press buttons' },
   { id: 'treeNumbers', tab: 'TabTree', label: 'Show hierarchy numbers ("#" column) in the task tree', keywords: 'showTreeHierarchyNumbers wbs outline number' },
   { id: 'treeColumns', tab: 'TabTree', label: 'Task tree columns: default order, default widths', keywords: 'treeColumnsOrder treeColumnsWidths reset resize width custom column' },
+  { id: 'columnFilterIconColor', tab: 'TabTree', label: 'Filter icon color of a filtered column header', keywords: 'columnFilterIconColor filter sort funnel colour treeColumnsFilters' },
   { id: 'criticalPath', tab: 'TabGantt', label: 'Show the critical path', keywords: 'showCriticalPath cpm float' },
   { id: 'arrows', tab: 'TabGantt', label: 'Dependency arrows: smooth / square', keywords: 'ganttArrowsForm links lines shape' },
   { id: 'ganttCommands', tab: 'TabGantt', label: 'Gantt chart: bar commands (hover panel / right-click menu)', keywords: 'projectGanttChartContextCommandsMode context menu long-press buttons' },

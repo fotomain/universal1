@@ -59,6 +59,9 @@ describe('uxuiSettingsOf', () => {
       treeColumnsWidths: {},
       projectTreeContextCommandsMode: 'onHoverPanelMode',
       projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+      treeColumnsFilters: {},
+      treeColumnSort: null,
+      columnFilterIconColor: '#FF4D6D',
     });
   });
   it('uxuiSettings wins over legacy top-level keys', () => {

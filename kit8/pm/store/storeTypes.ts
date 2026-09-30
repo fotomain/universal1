@@ -1,6 +1,7 @@
 // Types of the PM Zustand store (store_pm.ts): the state shape + UI request objects.
 import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
+import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
 import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
 
 /** Tree cells that can be edited inline (click on Start / Days / % or on a custom column cell). */
@@ -19,6 +20,13 @@ export interface PMRowMenuState {
   x: number;
   y: number;
   source: 'tree' | 'gantt';
+}
+
+/** "Filter & sort" popup of a tree column (window point of its top-left corner). */
+export interface PMTreeColumnFilterPopupState {
+  key: PMTreeColumnKey;
+  x: number;
+  y: number;
 }
 
 /** Right-click / long-press menu of the tree header (columnKey = column under the pointer). */
@@ -89,10 +97,31 @@ export interface PMStoreState {
   customColumns: PMCustomColumnDef[];
   /** rowJSON.customColumns.headersBackgroundColors - tree header background per column key. */
   treeHeadersBackgroundColors: Record<string, string>;
-  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers / setTreeColumnWidth ...). */
+  /** rowJSON.uxuiSettings.treeColumnsFilters - column filters of the tree (tree/filter/treeColumnFilter.ts). */
+  treeColumnsFilters: PMTreeColumnsFilters;
+  /** rowJSON.uxuiSettings.treeColumnSort - sorted tree column (null = tree order). */
+  treeColumnSort: PMTreeColumnSort | null;
+  /** rowJSON.uxuiSettings.columnFilterIconColor - filter icon of a filtered header. */
+  columnFilterIconColor: string;
+  /** Rows shown only because a descendant matches the filters (drawn muted). */
+  treeFilterContextGUIDs: Record<string, true>;
+  /** Rows matching every filter (null = no filter). */
+  treeFilterMatchCount: number | null;
+  /** "Filter & sort" popup of a tree column. */
+  treeColumnFilterPopup: PMTreeColumnFilterPopupState | null;
+  setTreeColumnFilterPopup: (popup: PMTreeColumnFilterPopupState | null) => void;
+  /** Local switch of the tree column settings (saved by crud.setTreeColumnsOrder / setShowTreeHierarchyNumbers / setTreeColumnWidth /
+   *  setTreeColumnFilter / setTreeColumnSort ...); filters / sort / custom columns re-compute the visible rows. */
   setTreeColumnsSettings: (
-    patch: Partial<Pick<PMStoreState, 'showTreeHierarchyNumbers' | 'treeColumnsOrder' | 'treeColumnsWidths' | 'customColumns' | 'treeHeadersBackgroundColors'>>
+    patch: Partial<
+      Pick<
+        PMStoreState,
+        'showTreeHierarchyNumbers' | 'treeColumnsOrder' | 'treeColumnsWidths' | 'customColumns' | 'treeHeadersBackgroundColors' | 'treeColumnsFilters' | 'treeColumnSort'
+      >
+    >
   ) => void;
+  /** Expands these rows (e.g. the ancestors of the rows a new filter matches). */
+  expandRows: (rowGUIDs: string[]) => void;
   /** rowJSON.uxuiSettings.projectTreeContextCommandsMode - tree row commands: hover panel or right-click menu. */
   projectTreeContextCommandsMode: PMContextCommandsMode;
   /** rowJSON.uxuiSettings.projectGanttChartContextCommandsMode - Gantt bar commands: hover panel or right-click menu. */

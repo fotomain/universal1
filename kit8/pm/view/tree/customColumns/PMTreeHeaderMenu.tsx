@@ -1,6 +1,7 @@
 // PMTreeHeaderMenu: right-click (touch: long-press) on a tree column header - "Task name" or any
 // other one. AddCustomProjectTaskColumn lives here:
 //
+//   Filter & sort                                                  -> PMTreeColumnFilterPopup (tree/filter)
 //   Add custom column ▸ Text · Date · Boolean · Integer · Float   -> PMCustomColumnNameModalWindow
 //   Rename custom column / Delete custom column                    (custom columns only; delete asks first)
 //   Header color ▸ Default · swatches                              -> project.rowJSON.customColumns.headersBackgroundColors
@@ -29,6 +30,9 @@ export default function PMTreeHeaderMenu({ crud }: { crud: PMCrud }) {
   const customColumns = usePMStore((s) => s.customColumns);
   const headerColors = usePMStore((s) => s.treeHeadersBackgroundColors);
   const widths = usePMStore((s) => s.treeColumnsWidths);
+  const columnFilters = usePMStore((s) => s.treeColumnsFilters);
+  const columnSort = usePMStore((s) => s.treeColumnSort);
+  const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
   if (!menu) return null;
   const key = menu.columnKey;
   const close = () => crud.closeTreeHeaderMenu();
@@ -38,7 +42,20 @@ export default function PMTreeHeaderMenu({ crud }: { crud: PMCrud }) {
   };
   const custom = key && isCustomColumnKey(key) ? customColumns.find((c) => c.key === key) : undefined;
 
-  const items: PMMenuItemProps[] = [
+  const items: PMMenuItemProps[] = [];
+  if (key) {
+    const filtered = !!columnFilters[key];
+    const sorted = columnSort?.key === key;
+    items.push({
+      testID: 'pm-tree-header-menu-filter',
+      label: 'Filter & sort',
+      icon: filtered ? 'filter_alt' : 'filter_list',
+      iconColor: filtered ? filterIconColor : undefined,
+      checked: filtered || sorted,
+      onPress: then(() => crud.openTreeColumnFilter(key, menu.x, menu.y)),
+    });
+  }
+  items.push(
     {
       testID: 'pm-tree-header-menu-add',
       label: 'Add custom column',
@@ -50,8 +67,8 @@ export default function PMTreeHeaderMenu({ crud }: { crud: PMCrud }) {
         icon: PM_CUSTOM_COLUMN_TYPE_ICON[type],
         onPress: then(() => crud.promptAddCustomColumn(type)),
       })),
-    },
-  ];
+    }
+  );
   if (custom) {
     items.push(
       { testID: 'pm-tree-header-menu-rename', label: 'Rename custom column', icon: 'edit', onPress: then(() => crud.promptRenameCustomColumn(custom.key)) },

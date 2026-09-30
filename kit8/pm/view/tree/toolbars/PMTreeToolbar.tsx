@@ -1,6 +1,7 @@
 // PMTreeToolbar - tree container CRUD toolbar (above the tree canvas):
 // add stage / task / milestone · move up / down · outdent / indent · edit / duplicate / delete ·
-// "#" hierarchy numbers on / off (uxuiSettings.showTreeHierarchyNumbers) · expand / collapse all.
+// "#" hierarchy numbers on / off (uxuiSettings.showTreeHierarchyNumbers) · expand / collapse all ·
+// clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns).
 
 import React from 'react';
 import { usePMStore } from '../../../store/store_pm';
@@ -13,6 +14,10 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
   const selectedGUID = usePMStore((s) => s.selectedGUID);
   const hasSelection = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID]));
   const showNumbers = usePMStore((s) => s.showTreeHierarchyNumbers);
+  const filterCount = usePMStore((s) => Object.keys(s.treeColumnsFilters).length);
+  const sorted = usePMStore((s) => !!s.treeColumnSort);
+  const matchCount = usePMStore((s) => s.treeFilterMatchCount);
+  const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
   const text = palette.text;
   const withSel = (fn: (guid: string) => void) => () => {
     const g = usePMStore.getState().selectedGUID;
@@ -34,6 +39,16 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
       <PMIconButton testID="pm-tree-duplicate" icon="control_point_duplicate" title="Duplicate selected (copy below)" color={text} disabled={!hasSelection} onPress={withSel(crud.duplicateTask)} />
       <PMIconButton testID="pm-tree-delete" icon="delete" title="Delete selected" color={palette.error} disabled={!hasSelection} onPress={withSel(crud.deleteTask)} />
       <PMToolbarSpacer />
+      {(filterCount > 0 || sorted) && (
+        <PMIconButton
+          testID="pm-tree-clear-filters"
+          icon="filter_alt_off"
+          title={`Clear all filters and sorting${filterCount ? ` (${filterCount} filtered column${filterCount === 1 ? '' : 's'}${matchCount !== null ? `, ${matchCount} matching row${matchCount === 1 ? '' : 's'}` : ''})` : ''}`}
+          color={filterCount ? filterIconColor : text}
+          badge={filterCount || undefined}
+          onPress={crud.clearTreeColumnsFilters}
+        />
+      )}
       <PMIconButton
         testID="pm-tree-toggle-numbers"
         icon="format_list_numbered"

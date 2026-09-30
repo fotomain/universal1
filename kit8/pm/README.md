@@ -10,6 +10,8 @@ Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
    adds `rowJSON` to the dependency + closure tables, moves `rowJSON.color` → `rowJSON.taskColor`).
    Existing PM tables (before per-user settings)? Run `update_pm_tables_userSettings.sql` (non-destructive: creates
    `project_user_settings_table` and copies every project's old `rowJSON.uxuiSettings` into its owner's row).
+   Existing PM tables (before realtime)? Run `update_pm_tables_realtime.sql` (non-destructive: adds the PM tables to the
+   `supabase_realtime` publication + `REPLICA IDENTITY FULL`; without it other browsers only see edits after a reload).
    Remove everything: `delete_pm_tables.sql`.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
@@ -40,6 +42,28 @@ Supabase ──► React Query (crud/queries.ts)  server truth · optimistic upd
 * **Web loading** – `view/gantt/PMGanttSurfaceLoader.web.tsx` initialises CanvasKit, then code-splits the Skia surface
   (Skia modules must not be evaluated before CanvasKit exists). Fonts are bundled `.ttf`
   (CanvasKit cannot use system fonts).
+
+## Realtime auto refresh (`crud/realtime/`)
+
+The same user editing in several browsers / devices sees every change without reloading:
+
+```
+browser B edits → Supabase → Realtime channel (postgres_changes) → useProjectRealtime (browser A)
+  → invalidate React Query (debounced 350 ms, paused while A's own mutation is in flight) → refetch
+  → hydrate() → usePMStore → Skia repaints
+```
+
+* `useProjectRealtime(ownerGUID, projectGUID)` - mounted on the dashboard AND the task page. One channel per
+  (user, project): `project_table` (filter `rowOwnerGUID`), `project_task_table` + `project_task_dependencies_table`
+  (filter `projectGUID`), `project_user_settings_table` (filter `rowParentGUID`) → projects / projectData / task /
+  closure / userSettings queries.
+* DELETE events cannot be filtered by Supabase and (RLS + `REPLICA IDENTITY FULL`) carry only the primary key: they
+  are matched against the cached rows (`projectRealtime.ts` `isDeleteRelevant`, pure).
+* After a reconnect (sleep / network drop) everything is refetched - events sent meanwhile are lost.
+* SQL: the realtime block at the end of `create_pm_tables.sql` / `update_pm_tables_realtime.sql`. Check with
+  `SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime';`
+* Scope = one user's own rows (RLS `auth.uid()`); sharing a project with other users needs RLS changes first.
+* Tests: `__tests__/pm/crud/realtime/`.
 
 ## Three structures (never mixed)
 
@@ -122,6 +146,36 @@ Cells: click = inline editor (`EditTaskCustomValue`; Enter saves, Esc cancels, e
 check box. Custom values are editable on stages too (no roll-up). Value edits are undoable (`crud.setCustomColumnValue`);
 adding / deleting columns is not part of the Gantt undo. Pure logic + parsing: `view/tree/columns/customColumns.ts`;
 commands: `crud/project/useProjectCustomColumns.ts`; UI: `view/tree/customColumns/`.
+
+## Filter & sort of tree columns (`view/tree/filter`)
+
+Every tree header has an icon at its right edge: a light **▾** (no filter; white-ish in dark mode, soft grey in light
+mode = `palette.headerIcon`) or a **funnel** in `uxuiSettings.columnFilterIconColor` (filtered; default light vibrant
+red `#FF4D6D`, ⚙ → Tree tab). A small **↑ / ↓** left of it = the sorted column. Click the icon, or right-click
+(touch: long-press) the header → **Filter & sort** (first item of `PMTreeHeaderMenu`) → `PMTreeColumnFilterPopup`:
+
+* **Sort** A to Z / Z to A (dates: oldest ↔ newest, numbers: smallest ↔ largest) - applied at once; press the active
+  one again = tree order. Siblings are sorted inside every parent; empty values are last; one sorted column at a time.
+  Drag & drop of rows is blocked while sorted (message in the error bar).
+* **filterVariantForColumn** (chosen with `kit8/components/common/SelectItemFromListApp`, link trigger "begins with ⌄"):
+  Is exactly / Is equal to · Is not · Is one of (comma separated) · Contains · Does not contain · Begins with ·
+  After / Greater than · Before / Less than · Less than or equal (dates: On or before) · Greater than or equal ·
+  Between A and B (two inputs) · Matches (old AX / D365 syntax: `*` `?` `!` `a..b` `..b` `a..` `>` `<` `,` `""`, dates
+  `t` / `(day(-1))`; `G*V, !Gustav` = starts with G, ends with V, not Gustav) · Is empty / Is not empty (custom columns).
+  Text / date / number / boolean columns get the variants and labels of their type; Boolean = Yes / No chips.
+  Inputs are `TextInputApp`; dates: YYYY-MM-DD, D.M.YYYY, M/D/YYYY, `t`. Live preview "N matching rows"; invalid
+  input shows the error and saves nothing. Apply / Clear; web: Enter = Apply, Esc = close.
+* Tree semantics: a row is shown when it matches every column filter (AND) or when a descendant does (those ancestors
+  are **context rows**, drawn muted); applying a filter expands collapsed stages that hide a match. The Gantt follows
+  (same `visibleRows`). Tree toolbar → **filter_alt_off** (badge = filtered columns) clears all filters + sort.
+
+Saved per project AND user in `uxuiSettings`: `treeColumnsFilters` `{ [columnKey]: { filterVariantForColumn, value?, value2? } }`,
+`treeColumnSort` `{ key, direction: 'asc' | 'desc' } | null`, `columnFilterIconColor`. Deleting a custom column
+removes its filter / sort. Files: `treeColumnFilter.ts` (pure: variants, parsing, "matches", `filterAndSortTreeRows`),
+`treeFilterIconGeometry.ts` (icon box / hit-test), `PMTreeColumnFilterPopup.tsx`; store: `storeDerive.treeRowsOf`
+(used by derive / expand / collapse / reveal / settings); commands: `crud/project/useProjectTreeFilters.ts`
+(`openTreeColumnFilter`, `setTreeColumnFilter`, `setTreeColumnSort`, `clearTreeColumnsFilters`).
+Tests: `__tests__/pm/view/tree/filter/treeColumnFilter.test.ts`, `__tests__/pm/ui/treeColumnFilterUi.test.tsx`.
 
 ## Import / export a project (`crud/exchange/project`)
 
@@ -206,6 +260,9 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
 | `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
 | `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | Gantt bar commands: same choice for the chart |
+| `treeColumnsFilters` | { [columnKey]: { filterVariantForColumn, value?, value2? } } ({}) | tree header ▾ → Filter & sort (see *Filter & sort of tree columns*) |
+| `treeColumnSort` | { key, direction: 'asc' \| 'desc' } \| null (null) | Filter & sort → Sort A to Z / Z to A |
+| `columnFilterIconColor` | '#RRGGBB' ('#FF4D6D') | ⚙ → Tree tab: funnel of a filtered header |
 
 All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button), split into
 top tabs **Task** (task progress on/off, task progress line, critical path task color) · **Tree** (row commands, "#" column, column order / widths) ·
@@ -280,7 +337,7 @@ Delete; double-click → `PMEditDependencyScreen` (from/to GUIDs with copy, link
 **`store/`** Zustand: `store_pm.ts` (`usePMStore`) · `storeTypes.ts` state shape · `storeDerive.ts` pure derive / view settings ·
 **`crud/`** data layer: `crud/api/` Supabase API (`api_pm.ts` = `createPMApi` + `projectApi.ts` / `taskApi.ts` / `dependencyApi.ts` + `apiUtils.ts`) ·
 `crud/{project,task,dependency}/` React Query hooks + commands per entity (`crud/shared/queryShared.ts`) ·
-`crud/queries.ts` (owner, realtime, write-back; re-exports the hooks) · `crud/usePMCrud.ts` all commands in one object
+`crud/queries.ts` (owner, write-back; re-exports the hooks) · `crud/realtime/` realtime auto refresh (`useProjectRealtime` + pure `projectRealtime.ts`) · `crud/usePMCrud.ts` all commands in one object
 (`crud/project/useProjectCustomColumns.ts` = custom tree columns) ·
 **`inner/`** shared building blocks: `inner/buttons/` every button, built on `kit8/components/common/ButtonApp` (improved: `variant="toolbar"`, `active`,
 `badge`, `compact`, `width`, `danger`, `textColor`, `iconSize`, `testID`, hover / long-press handlers, forwarded

@@ -13,6 +13,7 @@ export { default as FABApp, FABAppProps } from './FABApp';
 export { default as ArrowToLeftApp, ArrowToLeftAppProps } from './ArrowToLeftApp';
 export { default as OnOffButtonApp, OnOffButtonAppProps } from './OnOffButtonApp';
 export { default as SearchTextApp, SearchTextAppProps } from './SearchTextApp';
+export { default as SelectItemFromListApp, SelectItemFromListAppProps, SelectItemFromListItem } from './SelectItemFromListApp';
 export * from './fab';
 export { default as SnackbarApp, SnackbarAppProps } from './SnackbarApp';
 export { default as ModalAskComponent, ModalAskComponentProps } from './ModalAskComponent';

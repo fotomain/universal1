@@ -22,6 +22,7 @@ npm run web
 # CLEAR
 taskkill /f /im node.exe
 npm cache clean --force
+sudo killall node
 killall node
 killall -9 node
 # NEW APP
