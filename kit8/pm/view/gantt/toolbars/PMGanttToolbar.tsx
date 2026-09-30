@@ -1,5 +1,5 @@
 // PMGanttToolbar - the Gantt bar (toolbar above the chart canvas):
-//   Undo | Zoom out · Zoom in · Fit to screen | Day · Week · Month · Year | Today · arrow shape
+//   Undo | Zoom out · Zoom in · Fit to screen | Today | Day · Week · Month · Year · arrow shape
 //   ..................................................  % · ⇅ | Gantt · Network | ⚙ · Critical path
 // In tap-to-link mode it shows PMGanttLinkModeHint instead.
 
@@ -47,9 +47,10 @@ export default function PMGanttToolbar({
           <PMToolbarDivider color={palette.border} />
           <PMGanttZoomButtons palette={palette} onZoomOut={() => actions.zoomBy(1 / 1.5)} onZoomIn={() => actions.zoomBy(1.5)} onFit={actions.fit} />
           <PMToolbarDivider color={palette.border} />
+          <PMIconButton testID="pm-gantt-today" icon="today" label="Today" color={palette.text} onPress={actions.goToday} />
+          <PMToolbarDivider color={palette.border} />
           <PMGanttScaleButtons palette={palette} activeUnit={activeUnit} onZoom={actions.setZoom} />
           <PMToolbarDivider color={palette.border} />
-          <PMIconButton testID="pm-gantt-today" icon="today" label="Today" color={palette.text} onPress={actions.goToday} />
           <DependencyArrowLineFormSelector color={palette.text} activeColor={palette.primary} border={palette.border} onChange={crud.setGanttArrowsForm} />
           <PMToolbarSpacer />
           <PMGanttViewToggles

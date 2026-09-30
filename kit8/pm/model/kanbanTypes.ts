@@ -55,6 +55,8 @@ export interface PMProjectKanbanStageRow {
 export interface PMTaskKanbanStateJSON {
   /** project_kanban_stage_table.rowGUID */
   stageGUID: string;
+  /** independently editable progress % (0..100) of the task in its Kanban stage */
+  kanbanStageProgressPercent?: number;
 }
 
 /** Row of project_task_kanban_state_table (the stage of one task). */
@@ -99,3 +101,8 @@ export const PM_KANBAN_STAGE_NAME_MAX = 40;
 
 export const kanbanStageColorOf = (json: PMKanbanStageJSON | undefined | null, fallback = '#94A3B8'): string =>
   json?.stageColor && /^#[0-9a-f]{6}$/i.test(json.stageColor) ? json.stageColor : fallback;
+
+export const kanbanStageProgressOf = (state: PMTaskKanbanStateRow | undefined | null, fallback = 0): number => {
+  const p = state?.rowJSON?.kanbanStageProgressPercent;
+  return typeof p === 'number' && Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : fallback;
+};

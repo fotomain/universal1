@@ -179,9 +179,72 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     [current, deleteStageM]
   );
 
+  /** Sets the independent Kanban stage progress % (0..100) of a single task. */
+  const setTaskKanbanProgress = useCallback(
+    (taskGUID: string, percent: number) => {
+      const cur = current();
+      if (!cur || !projectGUID) return;
+      const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+      const existing = cur.statesByTask[taskGUID];
+      const stageGUID = existing?.rowJSON?.stageGUID ?? (cur.stages[0]?.rowGUID || '');
+      const orderInList = existing?.orderInList ?? PM_KANBAN_ORDER_STEP;
+      saveStates.mutate([
+        {
+          taskGUID,
+          stageGUID,
+          orderInList,
+          kanbanStageProgressPercent: clamped,
+        },
+      ]);
+    },
+    [current, projectGUID, saveStates]
+  );
+
+  /** Sets the independent Kanban stage progress % (0..100) of multiple tasks (e.g. leaves of a stage row). */
+  const setTasksKanbanProgress = useCallback(
+    (taskGUIDs: string[], percent: number) => {
+      const cur = current();
+      if (!cur || !projectGUID || !taskGUIDs.length) return;
+      const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+      const writes: PMKanbanStateWrite[] = taskGUIDs.map((g) => {
+        const existing = cur.statesByTask[g];
+        const stageGUID = existing?.rowJSON?.stageGUID ?? (cur.stages[0]?.rowGUID || '');
+        const orderInList = existing?.orderInList ?? PM_KANBAN_ORDER_STEP;
+        return {
+          taskGUID: g,
+          stageGUID,
+          orderInList,
+          kanbanStageProgressPercent: clamped,
+        };
+      });
+      saveStates.mutate(writes);
+    },
+    [current, projectGUID, saveStates]
+  );
+
   return useMemo(
-    () => ({ moveTasksToStage, moveTreeRowToStage, createStage, updateStage, moveStage, deleteStage, isSaving: saveStates.isPending }),
-    [moveTasksToStage, moveTreeRowToStage, createStage, updateStage, moveStage, deleteStage, saveStates.isPending]
+    () => ({
+      moveTasksToStage,
+      moveTreeRowToStage,
+      setTaskKanbanProgress,
+      setTasksKanbanProgress,
+      createStage,
+      updateStage,
+      moveStage,
+      deleteStage,
+      isSaving: saveStates.isPending,
+    }),
+    [
+      moveTasksToStage,
+      moveTreeRowToStage,
+      setTaskKanbanProgress,
+      setTasksKanbanProgress,
+      createStage,
+      updateStage,
+      moveStage,
+      deleteStage,
+      saveStates.isPending,
+    ]
   );
 }
 

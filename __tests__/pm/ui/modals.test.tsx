@@ -9,7 +9,23 @@ import PMApproveYesNoCancelModalWindow, { askPMApprove } from '../../../kit8/pm/
 import PMGanttUXUISettinsModalWindow from '../../../kit8/pm/view/gantt/PMGanttUXUISettinsModalWindow';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
+const mockKanban = {
+  moveTasksToStage: jest.fn(),
+  moveTreeRowToStage: jest.fn(),
+  setTaskKanbanProgress: jest.fn(),
+  setTasksKanbanProgress: jest.fn(),
+  createStage: jest.fn(),
+  updateStage: jest.fn(),
+  moveStage: jest.fn(),
+  deleteStage: jest.fn(),
+  isSaving: false,
+};
+jest.mock('../../../kit8/pm/crud/kanban/useKanbanCommands', () => ({
+  useKanbanCommands: () => mockKanban,
+}));
+
 afterEach(() => {
+  jest.clearAllMocks();
   act(() => {
     const s = usePMStore.getState();
     s.setEditing(null);
@@ -28,7 +44,7 @@ describe('PMTaskEditModal', () => {
     act(() => usePMStore.getState().setEditing(t.rowGUID));
     expect(inputValue('pm-edit-name')).toBe('Task 111');
     for (const id of [
-      'pm-edit-close', 'pm-edit-kind-stage', 'pm-edit-kind-task', 'pm-edit-kind-milestone', 'pm-edit-days', 'pm-edit-progress',
+      'pm-edit-close', 'pm-edit-kind-stage', 'pm-edit-kind-task', 'pm-edit-kind-milestone', 'pm-edit-days', 'pm-edit-progress', 'pm-edit-kanban-progress',
       'pm-edit-start', 'pm-edit-color-auto', 'pm-edit-notes', 'pm-edit-delete', 'pm-edit-open', 'pm-edit-cancel', 'pm-edit-save',
     ]) expect(q(id)).not.toBeNull();
   });
@@ -52,10 +68,12 @@ describe('PMTaskEditModal', () => {
     typeInto('pm-edit-name', 'Renamed task');
     typeInto('pm-edit-days', '7');
     typeInto('pm-edit-progress', '40');
+    typeInto('pm-edit-kanban-progress', '65');
     typeInto('pm-edit-start', '2026-10-05');
     typeInto('pm-edit-notes', 'hello');
     press('pm-edit-save');
     expect(crud.updateTask).toHaveBeenCalledTimes(1);
+    expect(mockKanban.setTaskKanbanProgress).toHaveBeenCalledWith(t.rowGUID, 65);
     const [guid, patch] = crud.updateTask.mock.calls[0];
     expect(guid).toBe(t.rowGUID);
     expect(patch.rowProgress).toBe(40);
@@ -335,13 +353,13 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
     press('pm-uxui-tab-TabTree');
-    expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %  ·  Kanban'); // the draft comes from the project (defaults)
+    expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %  ·  Kanban  ·  Kanban %'); // the draft comes from the project (defaults)
     toggleSwitch('pm-uxui-tree-numbers');
     press('pm-uxui-save');
     const d = crud.setGanttViewSettings.mock.calls[0][0];
     expect(d.showTreeHierarchyNumbers).toBe(false);
-    expect(d.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban']);
-    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress', 'kanban'], showTreeHierarchyNumbers: true }));
+    expect(d.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
+    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent'], showTreeHierarchyNumbers: true }));
   });
 
   it('Cancel / ✕ close without saving; Defaults resets the draft', () => {

@@ -190,6 +190,13 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
     [kanban]
   );
 
+  const onProgressChange = useCallback(
+    (guid: string, percent: number) => {
+      kanban.setTaskKanbanProgress(guid, percent);
+    },
+    [kanban]
+  );
+
   const onHScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (bridge) bridge.scrollX.value = e.nativeEvent.contentOffset.x;
@@ -265,6 +272,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
                     onMoveBy={onMoveBy}
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}
+                    onProgressChange={onProgressChange}
                   />
                 </View>
               ))}

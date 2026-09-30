@@ -119,6 +119,7 @@ export function treeColumnDataType(key: string, customColumns: readonly PMCustom
       return 'date';
     case 'days':
     case 'progress':
+    case 'kanbanStageProgressPercent':
       return 'number';
   }
   if (!isCustomColumnKey(key)) return null;
@@ -270,6 +271,10 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       const saved = ctx.kanbanStates?.[guid]?.rowJSON?.stageGUID;
       const stage = (saved && stages.find((s) => s.rowGUID === saved)) || stages[0];
       return stage?.rowJSON?.stageName ?? '';
+    }
+    case 'kanbanStageProgressPercent': {
+      const state = ctx.kanbanStates?.[guid];
+      return Math.round(state?.rowJSON?.kanbanStageProgressPercent ?? 0);
     }
   }
   const type = treeColumnDataType(key, ctx.customColumns);

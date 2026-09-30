@@ -4,8 +4,8 @@ import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '.
 import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
 import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
 
-/** Tree cells that can be edited inline (click on Start / Days / % / Kanban or on a custom column cell). */
-export type PMCellField = 'start' | 'days' | 'progress' | 'kanban' | PMCustomColumnKey;
+/** Tree cells that can be edited inline (click on Start / Days / % / Kanban / Kanban % or on a custom column cell). */
+export type PMCellField = 'start' | 'days' | 'progress' | 'kanban' | 'kanbanStageProgressPercent' | PMCustomColumnKey;
 
 /** PMCustomColumnNameModalWindow request: add a column of `type`, or rename column `key` (current `name`). */
 export interface PMCustomColumnPrompt {

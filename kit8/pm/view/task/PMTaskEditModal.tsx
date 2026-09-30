@@ -10,6 +10,10 @@ import { formatDateISO, parseDateISO } from '../project/scheduling';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMRowKind, taskColorOf } from '../../model/types';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
+import { usePMKanbanStore } from '../../store/store_kanban';
+import { useKanbanCommands, PMKanbanCommands } from '../../crud/kanban/useKanbanCommands';
+import { kanbanStageProgressOf } from '../../model/kanbanTypes';
+import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 
 const SWATCHES = [null, '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string }[] = [
@@ -18,19 +22,33 @@ const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string }[] = [
   { kind: 'milestone', label: 'Milestone' },
 ];
 
-export default function PMTaskEditModal({ crud }: { crud: PMCrud }) {
+export default function PMTaskEditModal({
+  crud,
+  kanban: kanbanProp,
+}: {
+  crud: PMCrud;
+  kanban?: PMKanbanCommands;
+}) {
   const { themeColors } = useDesignSystem();
   const editingGUID = usePMStore((s) => s.editingGUID);
   const task = usePMStore((s) => (s.editingGUID ? s.tasksById[s.editingGUID] : undefined));
   const sched = usePMStore((s) => (s.editingGUID ? s.schedule[s.editingGUID] : undefined));
   const hasChildren = usePMStore((s) => (s.editingGUID ? (s.tree.childrenById[s.editingGUID]?.length ?? 0) > 0 : false));
+  const projectGUID = usePMStore((s) => s.selectedProjectGUID);
+  const tasksById = usePMStore((s) => s.tasksById);
+  const tree = usePMStore((s) => s.tree);
   const close = () => usePMStore.getState().setEditing(null);
+
+  const statesByTask = usePMKanbanStore((s) => s.statesByTask);
+  const kanbanHook = useKanbanCommands(projectGUID);
+  const kanban = kanbanProp ?? kanbanHook;
 
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Exclude<PMRowKind, 'project'>>('task');
   const [days, setDays] = useState('1');
   const [start, setStart] = useState('');
   const [progress, setProgress] = useState('0');
+  const [kanbanProgress, setKanbanProgress] = useState('0');
   const [color, setColor] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +60,11 @@ export default function PMTaskEditModal({ crud }: { crud: PMCrud }) {
     setDays(String(task.rowJSON.durationDays ?? 1));
     setStart(task.rowJSON.manualStartAt ? formatDateISO(Date.parse(task.rowJSON.manualStartAt)) : '');
     setProgress(String(Math.round(task.rowProgress || 0)));
+    const isSumm = hasChildren || (task.rowJSON.rowKind as any) === 'stage';
+    const initialKanbanProg = isSumm
+      ? derivedKanbanProgress(task.rowGUID, tasksById, tree, statesByTask)
+      : kanbanStageProgressOf(statesByTask[task.rowGUID], 0);
+    setKanbanProgress(String(Math.round(initialKanbanProg)));
     setColor(taskColorOf(task.rowJSON));
     setNotes(task.rowJSON.notes || '');
     setError(null);
@@ -75,6 +98,17 @@ export default function PMTaskEditModal({ crud }: { crud: PMCrud }) {
       },
       `Edit "${name.trim() || task.rowJSON.name}"`
     );
+
+    const kanbanPct = Math.min(100, Math.max(0, parseInt(kanbanProgress, 10) || 0));
+    if (summary) {
+      const leaves = kanbanLeavesOf(task.rowGUID, tasksById, tree);
+      if (leaves.length) {
+        kanban?.setTasksKanbanProgress?.(leaves, kanbanPct);
+      }
+    } else {
+      kanban?.setTaskKanbanProgress?.(task.rowGUID, kanbanPct);
+    }
+
     close();
   };
 
@@ -123,10 +157,22 @@ export default function PMTaskEditModal({ crud }: { crud: PMCrud }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={label}>Progress %</Text>
-                  <TextInput testID="pm-edit-progress" value={progress} onChangeText={(v) => setProgress(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" style={input} />
+                  <TextInput testID="pm-edit-progress" value={progress} selectTextOnFocus onChangeText={(v) => setProgress(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" style={input} />
                 </View>
               </View>
             )}
+
+            <View style={{ marginTop: summary ? 8 : 2 }}>
+              <Text style={label}>Kanban stage progress %</Text>
+              <TextInput
+                testID="pm-edit-kanban-progress"
+                value={kanbanProgress}
+                selectTextOnFocus
+                onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
+                keyboardType="number-pad"
+                style={input}
+              />
+            </View>
 
             {!summary && (
               <>

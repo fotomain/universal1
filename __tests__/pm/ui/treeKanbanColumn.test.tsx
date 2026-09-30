@@ -1,10 +1,12 @@
 /** @jest-environment jsdom */
-// Tests for the TaskTree "Kanban" column and its inline stage editor (EditTaskKanbanStage).
+// Tests for the TaskTree "Kanban" and "Kanban %" columns and their inline editors
+// (PMKanbanChangeStageInTree and EditTaskKanbanProgress).
 import React, { act } from 'react';
-import { cleanupUI, fakeCrud, press, q, renderUI, seedStore } from './pmUiTestKit';
+import { cleanupUI, fakeCrud, press, pressKey, q, renderUI, seedStore, typeInto } from './pmUiTestKit';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
 import { usePMKanbanStore } from '../../../kit8/pm/store/store_kanban';
-import EditTaskKanbanStage from '../../../kit8/pm/view/tree/inline/EditTaskKanbanStage';
+import PMKanbanChangeStageInTree from '../../../kit8/pm/view/tree/inline/PMKanbanChangeStageInTree';
+import EditTaskKanbanProgress from '../../../kit8/pm/view/tree/inline/EditTaskKanbanProgress';
 import {
   PM_TREE_COLUMNS_DEFAULT_ORDER,
   PM_TREE_COLUMN_TITLES,
@@ -12,11 +14,13 @@ import {
   layoutTreeColumns,
   normalizeTreeColumnsOrder,
 } from '../../../kit8/pm/view/tree/columns/treeColumns';
-import { PM_TREE_COL_KANBAN } from '../../../kit8/pm/model/constants';
+import { PM_TREE_COL_KANBAN, PM_TREE_COL_KANBAN_PROGRESS } from '../../../kit8/pm/model/constants';
 
 const mockKanban = {
   moveTasksToStage: jest.fn(),
   moveTreeRowToStage: jest.fn(),
+  setTaskKanbanProgress: jest.fn(),
+  setTasksKanbanProgress: jest.fn(),
   createStage: jest.fn(),
   updateStage: jest.fn(),
   moveStage: jest.fn(),
@@ -34,29 +38,35 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-describe('TaskTree "Kanban" column definition', () => {
-  it('is the last built-in column in default order', () => {
-    expect(PM_TREE_COLUMNS_DEFAULT_ORDER[PM_TREE_COLUMNS_DEFAULT_ORDER.length - 1]).toBe('kanban');
+describe('TaskTree "Kanban" and "Kanban %" column definitions', () => {
+  it('kanban and kanbanStageProgressPercent are the last built-in columns in default order', () => {
+    expect(PM_TREE_COLUMNS_DEFAULT_ORDER[PM_TREE_COLUMNS_DEFAULT_ORDER.length - 2]).toBe('kanban');
+    expect(PM_TREE_COLUMNS_DEFAULT_ORDER[PM_TREE_COLUMNS_DEFAULT_ORDER.length - 1]).toBe('kanbanStageProgressPercent');
     expect(PM_TREE_COLUMN_TITLES.kanban).toBe('Kanban');
+    expect(PM_TREE_COLUMN_TITLES.kanbanStageProgressPercent).toBe('Kanban %');
     expect(PM_TREE_COLUMN_WIDTHS.kanban).toBe(PM_TREE_COL_KANBAN);
+    expect(PM_TREE_COLUMN_WIDTHS.kanbanStageProgressPercent).toBe(PM_TREE_COL_KANBAN_PROGRESS);
   });
 
-  it('normalizeTreeColumnsOrder preserves "kanban" at the end', () => {
+  it('normalizeTreeColumnsOrder preserves "kanban" and "kanbanStageProgressPercent" at the end', () => {
     const norm = normalizeTreeColumnsOrder(null);
-    expect(norm[norm.length - 1]).toBe('kanban');
-    expect(norm).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban']);
+    expect(norm[norm.length - 2]).toBe('kanban');
+    expect(norm[norm.length - 1]).toBe('kanbanStageProgressPercent');
+    expect(norm).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
   });
 
-  it('layoutTreeColumns lays out the Kanban column as last column', () => {
+  it('layoutTreeColumns lays out the Kanban and Kanban % columns', () => {
     const layout = layoutTreeColumns(600, PM_TREE_COLUMNS_DEFAULT_ORDER);
     expect(layout.byKey.kanban).toBeDefined();
-    expect(layout.columns[layout.columns.length - 1].key).toBe('kanban');
+    expect(layout.byKey.kanbanStageProgressPercent).toBeDefined();
+    expect(layout.columns[layout.columns.length - 2].key).toBe('kanban');
+    expect(layout.columns[layout.columns.length - 1].key).toBe('kanbanStageProgressPercent');
     expect(layout.byKey.kanban!.title).toBe('Kanban');
-    expect(layout.byKey.kanban!.w).toBe(PM_TREE_COL_KANBAN);
+    expect(layout.byKey.kanbanStageProgressPercent!.title).toBe('Kanban %');
   });
 });
 
-describe('EditTaskKanbanStage inline editor', () => {
+describe('PMKanbanChangeStageInTree inline editor', () => {
   const scrollY = { value: 0 } as any;
 
   const mockStages = [
@@ -79,7 +89,7 @@ describe('EditTaskKanbanStage inline editor', () => {
     });
 
     renderUI(
-      <EditTaskKanbanStage
+      <PMKanbanChangeStageInTree
         guid={task.rowGUID}
         rowIndex={1}
         x={200}
@@ -111,7 +121,7 @@ describe('EditTaskKanbanStage inline editor', () => {
     });
 
     renderUI(
-      <EditTaskKanbanStage
+      <PMKanbanChangeStageInTree
         guid={task.rowGUID}
         rowIndex={1}
         x={200}
@@ -140,7 +150,7 @@ describe('EditTaskKanbanStage inline editor', () => {
     });
 
     renderUI(
-      <EditTaskKanbanStage
+      <PMKanbanChangeStageInTree
         guid={task.rowGUID}
         rowIndex={1}
         x={200}
@@ -153,6 +163,51 @@ describe('EditTaskKanbanStage inline editor', () => {
 
     press('pm-tree-edit-kanban-close');
     expect(mockKanban.moveTreeRowToStage).not.toHaveBeenCalled();
+    expect(usePMStore.getState().cellEdit).toBeNull();
+  });
+});
+
+describe('EditTaskKanbanProgress inline editor', () => {
+  const scrollY = { value: 0 } as any;
+
+  it('displays the current stage progress and commits new percentage', () => {
+    const { byName } = seedStore();
+    const task = byName('Task 111');
+    const crud = fakeCrud();
+
+    act(() => {
+      usePMStore.getState().selectProject('p1');
+      usePMKanbanStore.getState().hydrateProject('p1', [], [
+        {
+          rowGUID: 'st-1',
+          rowOwnerGUID: 'p1',
+          rowParentGUID: task.rowGUID,
+          orderInList: 1024,
+          rowJSON: { stageGUID: 'stage-1', kanbanStageProgressPercent: 45 },
+        } as any,
+      ], false);
+      usePMStore.getState().setCellEdit({ guid: task.rowGUID, field: 'kanbanStageProgressPercent' });
+    });
+
+    renderUI(
+      <EditTaskKanbanProgress
+        guid={task.rowGUID}
+        rowIndex={1}
+        x={200}
+        width={60}
+        scrollY={scrollY}
+        crud={crud}
+        colors={colors}
+      />
+    );
+
+    const inputId = `pm-tree-edit-kanban-progress-${task.rowGUID}`;
+    expect(q(inputId)).not.toBeNull();
+
+    typeInto(inputId, '80');
+    pressKey(inputId, 'Enter');
+
+    expect(mockKanban.setTaskKanbanProgress).toHaveBeenCalledWith(task.rowGUID, 80);
     expect(usePMStore.getState().cellEdit).toBeNull();
   });
 });

@@ -45,6 +45,7 @@ export const PM_TREE_COL_START = 78;
 export const PM_TREE_COL_DAYS = 46;
 export const PM_TREE_COL_PROGRESS = 46;
 export const PM_TREE_COL_KANBAN = 88;
+export const PM_TREE_COL_KANBAN_PROGRESS = 58;
 
 export const PM_DAY_WIDTH_DEFAULT = 30;
 export const PM_DAY_WIDTH_MIN = 1; // Year zoom (quarter / year scale)

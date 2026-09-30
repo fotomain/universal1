@@ -24,6 +24,10 @@ import {
   useReadTaskQuery,
 } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
+import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
+import { usePMKanbanStore } from '../../store/store_kanban';
+import { kanbanStageProgressOf } from '../../model/kanbanTypes';
+import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 import { formatDateISO, LINK_TYPES, validateNewDependency } from '../project/scheduling';
 import { PMTaskDependencyRow } from '../../model/types';
 import PMTaskEditModal from './PMTaskEditModal';
@@ -83,6 +87,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   useProjectRealtime(ownerGUID, projectGUID); // edits from other browsers refresh this page too
 
   const crud = usePMCrud(ownerGUID, projectGUID);
+  const kanban = useKanbanCommands(projectGUID);
   const upstream = useReadTaskClosureQuery(task ? taskGUID : null, 'up');
   const downstream = useReadTaskClosureQuery(task ? taskGUID : null, 'down');
 
@@ -160,6 +165,13 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
 
   const isSummary = !!sched?.isSummary;
   const progress = Math.round(sched?.progress ?? task.rowProgress ?? 0);
+  const statesByTask = usePMKanbanStore((s) => s.statesByTask);
+  const kanbanProgress = useMemo(() => {
+    if (isSummary) {
+      return derivedKanbanProgress(taskGUID, tasksById, tree, statesByTask);
+    }
+    return kanbanStageProgressOf(statesByTask[taskGUID], 0);
+  }, [taskGUID, isSummary, tasksById, tree, statesByTask]);
 
   const renderDep = (d: PMTaskDependencyRow, other: string, direction: 'pred' | 'succ') => (
     <View key={`${direction}-${other}`} style={[styles.depRow, { borderColor: c.border }]}>
@@ -263,6 +275,32 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         )}
         {isSummary && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Rolled up from the tasks inside (weighted by duration).</Text>}
 
+        {/* ---- kanban stage progress ---- */}
+        <Text style={[styles.section, { color: c.text }]}>Kanban Stage Progress {kanbanProgress}%</Text>
+        <View style={[styles.progressTrack, { backgroundColor: `${c.primary}22` }]}>
+          <View style={[styles.progressFill, { width: `${kanbanProgress}%`, backgroundColor: c.primary }]} />
+        </View>
+        <View style={styles.progressBtns}>
+          {[0, 25, 50, 75, 100].map((p) => (
+            <PMTipPressable
+              tip={`Set Kanban stage progress to ${p}%`}
+              key={p}
+              testID={`pm-info-kanban-progress-${p}`}
+              onPress={() => {
+                if (isSummary) {
+                  const leaves = kanbanLeavesOf(taskGUID, tasksById, tree);
+                  if (leaves.length) kanban.setTasksKanbanProgress(leaves, p);
+                } else {
+                  kanban.setTaskKanbanProgress(taskGUID, p);
+                }
+              }}
+              style={[styles.pill, { borderColor: c.border, marginRight: 6 }]}
+            >
+              <Text style={{ color: kanbanProgress === p ? c.primary : c.text, fontWeight: kanbanProgress === p ? '700' : '400' }}>{p}%</Text>
+            </PMTipPressable>
+          ))}
+        </View>
+
         {/* ---- predecessors ---- */}
         <View style={styles.sectionRow}>
           <Text style={[styles.section, { color: c.text, flex: 1 }]}>Waits for (predecessors)</Text>
@@ -333,7 +371,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
           />
         </View>
       </ScrollView>
-      <PMTaskEditModal crud={crud} />
+      <PMTaskEditModal crud={crud} kanban={kanban} />
       <PMEditDependencyScreen crud={crud} />
       <PMApproveYesNoCancelModalWindow />
       <PMTooltipLayer />

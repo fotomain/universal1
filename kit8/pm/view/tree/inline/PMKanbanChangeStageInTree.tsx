@@ -1,6 +1,7 @@
-// Inline editor for the tree "Kanban" cell: shows the list of project Kanban stages
-// with their accent colors, highlights the current stage, and updates the task's
-// Kanban state on select. Enter = commit, Esc = cancel.
+// PMKanbanChangeStageInTree: inline editor for the tree "Kanban" cell.
+// Shows the list of project Kanban stages with their accent colors,
+// highlights the current stage, and updates the task's Kanban stage on select.
+// Enter = commit, Esc = cancel.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -18,7 +19,7 @@ import IconApp from '../../../../components/common/IconApp';
 const POPUP_WIDTH = 180;
 const ITEM_HEIGHT = 32;
 
-export interface EditTaskKanbanStageProps {
+export interface PMKanbanChangeStageInTreeProps {
   guid: string;
   rowIndex: number;
   x: number;
@@ -28,14 +29,14 @@ export interface EditTaskKanbanStageProps {
   colors: { text: string; background: string; primary: string; error: string };
 }
 
-export default function EditTaskKanbanStage({
+export default function PMKanbanChangeStageInTree({
   guid,
   rowIndex,
   x,
   width,
   scrollY,
   colors,
-}: EditTaskKanbanStageProps) {
+}: PMKanbanChangeStageInTreeProps) {
   const projectGUID = usePMStore((s) => s.selectedProjectGUID);
   const tasksById = usePMStore((s) => s.tasksById);
   const schedule = usePMStore((s) => s.schedule);

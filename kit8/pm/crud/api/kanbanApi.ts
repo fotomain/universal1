@@ -41,7 +41,16 @@ export function normalizeKanbanStage<T extends PMKanbanStageRow | PMProjectKanba
 }
 
 export function normalizeKanbanState(row: any): PMTaskKanbanStateRow {
-  return { ...row, orderInList: Number(row.orderInList) || 0, rowJSON: { stageGUID: '', ...(row.rowJSON || {}) } };
+  const percent = row?.rowJSON?.kanbanStageProgressPercent;
+  return {
+    ...row,
+    orderInList: Number(row.orderInList) || 0,
+    rowJSON: {
+      stageGUID: '',
+      ...(row.rowJSON || {}),
+      ...(percent !== undefined ? { kanbanStageProgressPercent: Math.max(0, Math.min(100, Math.round(Number(percent) || 0))) } : {}),
+    },
+  };
 }
 
 const byOrder = <T extends { orderInList: number }>(a: T, b: T) => a.orderInList - b.orderInList;
@@ -51,6 +60,7 @@ export interface PMKanbanStateWrite {
   taskGUID: string;
   stageGUID: string;
   orderInList: number;
+  kanbanStageProgressPercent?: number;
 }
 
 export function createKanbanApi(sb: SupabaseClient) {
@@ -142,7 +152,15 @@ export function createKanbanApi(sb: SupabaseClient) {
     const res = await sb
       .from(projectTaskKanbanStateTable)
       .upsert(
-        writes.map((w) => ({ rowOwnerGUID: projectGUID, rowParentGUID: w.taskGUID, orderInList: w.orderInList, rowJSON: { stageGUID: w.stageGUID } })),
+        writes.map((w) => ({
+          rowOwnerGUID: projectGUID,
+          rowParentGUID: w.taskGUID,
+          orderInList: w.orderInList,
+          rowJSON: {
+            stageGUID: w.stageGUID,
+            ...(w.kanbanStageProgressPercent !== undefined ? { kanbanStageProgressPercent: Math.max(0, Math.min(100, Math.round(w.kanbanStageProgressPercent))) } : {}),
+          },
+        })),
         { onConflict: 'rowOwnerGUID,rowParentGUID' }
       )
       .select();

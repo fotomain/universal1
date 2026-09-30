@@ -15,6 +15,7 @@ import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
 import PMNetworkView from '../network/PMNetworkView';
 import PMTaskEditModal from '../task/PMTaskEditModal';
+import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMEditDependencyScreen from '../task/dependency/PMEditDependencyScreen';
 import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
 import PMTaskRowMenu from '../task/PMTaskRowMenu';
@@ -64,6 +65,7 @@ function PMProjectDashboardInner() {
   useKanbanRealtime(ownerGUID, selectedProjectGUID);
   useScheduleWriteBack(selectedProjectGUID);
   const crud = usePMCrud(ownerGUID, selectedProjectGUID);
+  const kanban = useKanbanCommands(selectedProjectGUID);
   const seedDemo = useSeedDemoMutation(ownerGUID);
   useRecentProjects(ownerGUID, projectsQuery.isSuccess);
 
@@ -188,7 +190,7 @@ function PMProjectDashboardInner() {
         </View>
       )}
 
-      <PMTaskEditModal crud={crud} />
+      <PMTaskEditModal crud={crud} kanban={kanban} />
       <PMEditDependencyScreen crud={crud} />
       <PMDependencyMenu crud={crud} />
       <PMTaskRowMenu crud={crud} />

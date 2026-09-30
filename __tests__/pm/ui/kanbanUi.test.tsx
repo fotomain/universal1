@@ -2,7 +2,7 @@
 // kit8/pm/view/kanban: PMKanbanDashboard (columns, cards, scope, ‹ › moves, read-only mode),
 // the Gantt | Kanban | Network switch and PMKanbanStagesModalWindow (Kanban Stages).
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, q, qa, renderUI, seedStore, textOf, typeInto } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, mustGet, press, pressKey, q, qa, renderUI, seedStore, textOf, typeInto } from './pmUiTestKit';
 
 import React from 'react';
 import { View } from 'react-native';
@@ -26,6 +26,7 @@ const mockKanban = {
   updateStage: jest.fn(),
   moveStage: jest.fn(),
   deleteStage: jest.fn(),
+  setTaskKanbanProgress: jest.fn(),
   isSaving: false,
 };
 jest.mock('../../../kit8/pm/crud/kanban/useKanbanCommands', () => ({ useKanbanCommands: () => mockKanban }));
@@ -126,6 +127,23 @@ describe('PMKanbanDashboard', () => {
     expect(qa('pm-kanban-column-').length).toBe(5);
     expect(q('pm-kanban-column-default-waiting')).not.toBeNull();
     expect(q(`pm-kanban-right-${byName('Task 111').rowGUID}`)).toBeNull();
+  });
+
+  it('stage progress can be edited on card badge and calls setTaskKanbanProgress', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111').rowGUID;
+    setup(false, [
+      { rowGUID: 'k1', rowOwnerGUID: 'p', rowParentGUID: t, orderInList: 1024, rowJSON: { stageGUID: 's-wait', kanbanStageProgressPercent: 25 } },
+    ]);
+    expect(textOf(`pm-kanban-progress-badge-${t}`)).toContain('25%');
+    press(`pm-kanban-progress-badge-${t}`);
+    const inputEl = mustGet(`pm-kanban-progress-input-${t}`);
+    const htmlInput = (inputEl.tagName === 'INPUT' ? inputEl : inputEl.querySelector('input')) as HTMLInputElement;
+    expect(htmlInput.selectionStart).toBe(0);
+    expect(htmlInput.selectionEnd).toBe(2); // '25' length is 2
+    typeInto(`pm-kanban-progress-input-${t}`, '75');
+    pressKey(`pm-kanban-progress-input-${t}`, 'Enter');
+    expect(mockKanban.setTaskKanbanProgress).toHaveBeenCalledWith(t, 75);
   });
 });
 

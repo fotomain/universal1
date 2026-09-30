@@ -41,8 +41,8 @@ import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
 import { usePMKanbanStore } from '../../store/store_kanban';
-import { kanbanStageOfTask, derivedKanbanStage } from '../kanban/kanbanModel';
-import { kanbanStageColorOf } from '../../model/kanbanTypes';
+import { kanbanStageOfTask, derivedKanbanStage, derivedKanbanProgress } from '../kanban/kanbanModel';
+import { kanbanStageColorOf, kanbanStageProgressOf } from '../../model/kanbanTypes';
 import PMInlineCellEditor from './inline/PMInlineCellEditor';
 import {
   PMTreeColumnKey,
@@ -80,7 +80,7 @@ const BOOL_BOX = 12;
 
 /** Editable cell of a column (null = Task name / # column). */
 const cellFieldOf = (key: PMTreeColumnKey | null): PMCellField | null =>
-  key === 'start' || key === 'days' || key === 'progress' || key === 'kanban' || isCustomColumnKey(key) ? (key as PMCellField) : null;
+  key === 'start' || key === 'days' || key === 'progress' || key === 'kanban' || key === 'kanbanStageProgressPercent' || isCustomColumnKey(key) ? (key as PMCellField) : null;
 
 interface Props {
   viewport: PMViewport;
@@ -133,6 +133,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const daysCol = layout.byKey.days;
   const progCol = layout.byKey.progress;
   const kanbanCol = layout.byKey.kanban;
+  const kanbanProgressCol = layout.byKey.kanbanStageProgressPercent;
   const customCols = useMemo(() => layout.columns.filter((c) => c.customType), [layout]);
   const kanbanStages = usePMKanbanStore((s) => s.stages);
   const kanbanStates = usePMKanbanStore((s) => s.statesByTask);
@@ -199,6 +200,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         dotX: number;
         textX: number;
       } | null;
+      kanbanProg: string;
+      kanbanProgX: number;
       critical: boolean;
       color: string | null;
       /** shown only because a descendant matches the filters */
@@ -234,6 +237,15 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         const bgColor = withAlpha(stageColor, 0.16);
         kanban = { text: ellipsized, color: stageColor, bgColor, pillX, pillW, dotX, textX };
       }
+      let kanbanProg = '';
+      let kanbanProgX = 0;
+      if (kanbanProgressCol) {
+        const val = summary || hasChildren
+          ? derivedKanbanProgress(guid, tasksById, tree, kanbanStates)
+          : kanbanStageProgressOf(kanbanStates[guid], 0);
+        kanbanProg = `${val}%`;
+        kanbanProgX = kanbanProgressCol.x + kanbanProgressCol.w - 8 - measureSmall(kanbanProg);
+      }
       const values = customCols.length ? taskCustomValuesOf(t.rowJSON) : {};
       const custom = customCols.map((c) => {
         const type = c.customType!;
@@ -261,6 +273,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         prog,
         progX: progCol ? progCol.x + progCol.w - 8 - measureSmall(prog) : 0,
         kanban,
+        kanbanProg,
+        kanbanProgX,
         critical: showCritical && !!r?.isCritical && !summary,
         color: taskColorOf(t.rowJSON),
         context: !!filterContext[guid],
@@ -268,7 +282,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, kanbanCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -350,7 +364,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const cellEditable = useCallback((guid: string, field: PMCellField) => {
     const s = usePMStore.getState();
     if (!s.tasksById[guid]) return false;
-    if (field === 'kanban') return true;
+    if (field === 'kanban' || field === 'kanbanStageProgressPercent') return true;
     if (isCustomColumnKey(field)) return true;
     if (s.schedule[guid]?.isSummary || (s.tree.childrenById[guid]?.length ?? 0) > 0) return false;
     if (field === 'days' && s.tasksById[guid]?.rowJSON.rowKind === 'milestone') return false;
@@ -473,6 +487,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
           : `Click to edit "${def.name}" (${PM_CUSTOM_COLUMN_TYPE_LABEL[def.type]}${def.type === 'date' ? ', YYYY-MM-DD' : ''})`
         : f === 'kanban'
           ? 'Click to change Kanban stage'
+          : f === 'kanbanStageProgressPercent'
+          ? 'Click to change Kanban stage progress %'
           : cellEditable(guid!, f)
           ? f === 'start'
             ? 'Click to set the start (YYYY-MM-DD, empty = as soon as possible)'
@@ -1009,6 +1025,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
                               />
                             </>
                           )}
+                          {kanbanProgressCol && <SkText x={r.kanbanProgX} y={base} text={r.kanbanProg} font={fonts.small} color={palette.textMuted} />}
                           {r.custom.map((c) => (c.text ? <SkText key={c.key} x={c.x} y={base} text={c.text} font={fonts.small} color={palette.text} /> : null))}
                         </>
                       )}

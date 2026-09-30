@@ -16,6 +16,7 @@ import {
   PMProjectKanbanStageRow,
   PMTaskKanbanStateRow,
   PM_KANBAN_ORDER_STEP,
+  kanbanStageProgressOf,
 } from '../../model/kanbanTypes';
 
 export interface PMKanbanCard {
@@ -26,6 +27,8 @@ export interface PMKanbanCard {
   wbs: string;
   /** task progress % (independent of the stage) */
   progress: number;
+  /** stage progress % (independently editable) */
+  kanbanStageProgressPercent: number;
   /** name of the parent stage ('' at the root) */
   parentName: string;
   color: string | null;
@@ -112,12 +115,15 @@ export function buildKanbanBoard(input: PMKanbanInput): PMKanbanBoard {
     const t = tasksById[g];
     const sch = schedule[g];
     const parent = tree.parentById[g];
+    const state = statesByTask[g];
+    const kanbanStageProgressPercent = kanbanStageProgressOf(state, 0);
     const card: PMKanbanCard = {
       guid: g,
       name: t.rowJSON?.name || '',
       kind: t.rowJSON?.rowKind === 'milestone' || sch?.isMilestone ? 'milestone' : 'task',
       wbs: tree.wbsById[g] || '',
       progress: Math.round(sch?.progress ?? t.rowProgress ?? 0),
+      kanbanStageProgressPercent,
       parentName: parent ? tasksById[parent]?.rowJSON?.name || '' : '',
       color: taskColorOf(t.rowJSON),
       critical: !!sch?.isCritical,
@@ -159,7 +165,7 @@ export function planKanbanMove(
   taskGUIDs: string[],
   targetStageGUID: string,
   index?: number
-): { taskGUID: string; stageGUID: string; orderInList: number }[] {
+): { taskGUID: string; stageGUID: string; orderInList: number; kanbanStageProgressPercent?: number }[] {
   const col = board.columns.find((c) => c.stage.rowGUID === targetStageGUID);
   if (!col || !taskGUIDs.length) return [];
   const moving = Array.from(new Set(taskGUIDs));
@@ -171,12 +177,20 @@ export function planKanbanMove(
   const next = [...before, ...moving, ...after];
   // dropped where it already is: nothing to write
   if (next.length === current.length && next.every((g, i) => g === current[i])) return [];
-  const writes: { taskGUID: string; stageGUID: string; orderInList: number }[] = [];
+  const writes: { taskGUID: string; stageGUID: string; orderInList: number; kanbanStageProgressPercent?: number }[] = [];
   next.forEach((g, i) => {
     const orderInList = (i + 1) * PM_KANBAN_ORDER_STEP;
     const st = statesByTask[g];
     if (st && st.rowJSON?.stageGUID === targetStageGUID && st.orderInList === orderInList) return;
-    writes.push({ taskGUID: g, stageGUID: targetStageGUID, orderInList });
+    const write: { taskGUID: string; stageGUID: string; orderInList: number; kanbanStageProgressPercent?: number } = {
+      taskGUID: g,
+      stageGUID: targetStageGUID,
+      orderInList,
+    };
+    if (st?.rowJSON?.kanbanStageProgressPercent !== undefined) {
+      write.kanbanStageProgressPercent = st.rowJSON.kanbanStageProgressPercent;
+    }
+    writes.push(write);
   });
   return writes;
 }
@@ -199,21 +213,43 @@ export function derivedKanbanStage(
   return best >= 0 ? sorted[best] : null;
 }
 
+/** Average Kanban stage progress % of the tasks inside a stage/summary row (0 = no tasks). */
+export function derivedKanbanProgress(
+  guid: string,
+  tasksById: Record<string, PMTaskRow>,
+  tree: PMTreeIndex,
+  statesByTask: Record<string, PMTaskKanbanStateRow>
+): number {
+  const leaves = kanbanLeavesOf(guid, tasksById, tree);
+  if (!leaves.length) return 0;
+  let sum = 0;
+  for (const g of leaves) {
+    sum += kanbanStageProgressOf(statesByTask[g], 0);
+  }
+  return Math.round(sum / leaves.length);
+}
+
 /** Optimistic cache update: applies `writes` to the state rows of a project. */
 export function applyKanbanStateWrites(
   states: PMTaskKanbanStateRow[],
   projectGUID: string,
-  writes: { taskGUID: string; stageGUID: string; orderInList: number }[]
+  writes: { taskGUID: string; stageGUID: string; orderInList: number; kanbanStageProgressPercent?: number }[]
 ): PMTaskKanbanStateRow[] {
   const byTask = new Map(states.map((s) => [s.rowParentGUID, s]));
   for (const w of writes) {
     const prev = byTask.get(w.taskGUID);
+    const prevPercent = prev?.rowJSON?.kanbanStageProgressPercent;
+    const nextPercent = w.kanbanStageProgressPercent !== undefined ? w.kanbanStageProgressPercent : prevPercent;
     byTask.set(w.taskGUID, {
       rowGUID: prev?.rowGUID ?? `optimistic-${w.taskGUID}`,
       rowOwnerGUID: projectGUID,
       rowParentGUID: w.taskGUID,
       orderInList: w.orderInList,
-      rowJSON: { ...(prev?.rowJSON || {}), stageGUID: w.stageGUID },
+      rowJSON: {
+        ...(prev?.rowJSON || {}),
+        stageGUID: w.stageGUID,
+        ...(nextPercent !== undefined ? { kanbanStageProgressPercent: nextPercent } : {}),
+      },
     });
   }
   return Array.from(byTask.values());

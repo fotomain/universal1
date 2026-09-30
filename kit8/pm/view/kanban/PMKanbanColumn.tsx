@@ -34,6 +34,7 @@ export interface PMKanbanColumnProps {
   onMoveBy: (guid: string, dir: -1 | 1) => void;
   onDragStart: (data: PMKanbanCardDragData) => void;
   onDragEnd: (data: PMKanbanCardDragData) => void;
+  onProgressChange?: (guid: string, percent: number) => void;
 }
 
 export default function PMKanbanColumn(p: PMKanbanColumnProps) {
@@ -72,6 +73,7 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
             onMoveBy={p.onMoveBy}
             onDragStart={p.onDragStart}
             onDragEnd={p.onDragEnd}
+            onProgressChange={p.onProgressChange}
           />
         ))}
         {!column.cards.length && (

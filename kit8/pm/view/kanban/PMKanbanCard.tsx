@@ -2,10 +2,10 @@
 //   drag (web: mouse drag · touch: long-press + drag) = move to another column / reorder (react-native-reanimated-dnd)
 //   tap = select the task (the tree selects + scrolls to it) · double tap / ✎ = edit (PMTaskEditModal)
 //   ‹ › = previous / next stage (phones: no dragging across off-screen columns needed)
-// The progress bar shows the task %, which is independent of the Kanban stage.
+// The progress bar shows the Kanban stage progress %, which is independently editable.
 
-import React, { useRef } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Draggable } from 'react-native-reanimated-dnd';
 import { PMPalette, withAlpha } from '../theme';
 import { formatDateShort } from '../project/scheduling';
@@ -37,6 +37,7 @@ export interface PMKanbanCardProps {
   onMoveBy: (guid: string, dir: -1 | 1) => void;
   onDragStart: (data: PMKanbanCardDragData) => void;
   onDragEnd: (data: PMKanbanCardDragData) => void;
+  onProgressChange?: (guid: string, percent: number) => void;
 }
 
 function PMKanbanCardInner({
@@ -54,16 +55,58 @@ function PMKanbanCardInner({
   onMoveBy,
   onDragStart,
   onDragEnd,
+  onProgressChange,
 }: PMKanbanCardProps) {
   const lastTap = useRef(0);
   const accent = card.color || (card.critical ? palette.critical : stageColor);
-  const progress = Math.max(0, Math.min(100, card.progress));
+  const stageProgress = Math.max(0, Math.min(100, Math.round(card.kanbanStageProgressPercent ?? 0)));
+  const [isEditingProgress, setIsEditingProgress] = useState(false);
+  const [progressInput, setProgressInput] = useState('');
+  const [trackWidth, setTrackWidth] = useState(0);
+  const progressInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (isEditingProgress) {
+      const selectVal = () => {
+        const el = progressInputRef.current as any;
+        if (!el) return;
+        if (typeof el.focus === 'function') el.focus();
+        if (typeof el.select === 'function') {
+          el.select();
+        } else if (typeof el.setSelectionRange === 'function') {
+          el.setSelectionRange(0, el.value?.length ?? 10);
+        }
+      };
+      selectVal();
+      const timer = setTimeout(selectVal, 20);
+      return () => clearTimeout(timer);
+    }
+  }, [isEditingProgress]);
+
   const dates =
     card.startMs !== null && card.finishMs !== null
       ? card.kind === 'milestone'
         ? formatDateShort(card.startMs)
         : `${formatDateShort(card.startMs)} – ${formatDateShort(card.finishMs - 1)}`
       : '';
+
+  const commitProgress = () => {
+    setIsEditingProgress(false);
+    const n = progressInput.trim() === '' ? 0 : parseInt(progressInput, 10);
+    if (Number.isFinite(n)) {
+      const clamped = Math.max(0, Math.min(100, n));
+      if (clamped !== stageProgress) {
+        onProgressChange?.(card.guid, clamped);
+      }
+    }
+  };
+
+  const onTrackPress = (e: any) => {
+    if (readOnly || trackWidth <= 0) return;
+    const locX = e.nativeEvent?.locationX ?? 0;
+    const pct = Math.max(0, Math.min(100, Math.round((locX / trackWidth) * 100)));
+    onProgressChange?.(card.guid, pct);
+  };
 
   const onPress = () => {
     const now = Date.now();
@@ -96,15 +139,75 @@ function PMKanbanCardInner({
           {card.critical && <View style={[styles.criticalDot, { backgroundColor: palette.critical }]} />}
         </View>
         <Text style={[styles.meta, { color: palette.textMuted }]} numberOfLines={1}>
-          {[card.wbs, card.parentName].filter(Boolean).join(' · ')}
+          {[card.wbs, card.parentName, card.progress > 0 ? `Task: ${card.progress}%` : null].filter(Boolean).join(' · ')}
         </Text>
-        <View style={styles.progressRow}>
-          <View style={[styles.progressTrack, { backgroundColor: withAlpha(palette.primary, 0.15) }]}>
-            <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: palette.primary }]} />
-          </View>
-          <Text style={[styles.progressText, { color: palette.textMuted }]}>{progress}%</Text>
-        </View>
       </Pressable>
+      <View style={styles.progressRow}>
+        <Pressable
+          testID={`pm-kanban-progress-track-${card.guid}`}
+          accessibilityRole="adjustable"
+          accessibilityLabel={`Kanban stage progress ${stageProgress}%`}
+          accessibilityValue={{ min: 0, max: 100, now: stageProgress }}
+          disabled={readOnly}
+          onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+          onPress={onTrackPress}
+          style={[
+            styles.progressTrack,
+            { backgroundColor: withAlpha(stageColor, 0.18) },
+            IS_WEB && !readOnly ? ({ cursor: 'pointer' } as any) : null,
+          ]}
+        >
+          <View style={[styles.progressFill, { width: `${stageProgress}%`, backgroundColor: stageColor }]} />
+        </Pressable>
+        {isEditingProgress ? (
+          <TextInput
+            ref={progressInputRef}
+            testID={`pm-kanban-progress-input-${card.guid}`}
+            value={progressInput}
+            onChangeText={(t) => setProgressInput(t.replace(/[^0-9]/g, '').slice(0, 3))}
+            keyboardType="number-pad"
+            autoFocus
+            selectTextOnFocus
+            onFocus={(e: any) => {
+              const target = e.target ?? (progressInputRef.current as any);
+              if (target && typeof target.select === 'function') {
+                target.select();
+              }
+            }}
+            onBlur={commitProgress}
+            onSubmitEditing={commitProgress}
+            style={[
+              styles.progressInput,
+              { color: palette.text, borderColor: palette.primary, backgroundColor: palette.surface },
+            ]}
+          />
+        ) : (
+          <Pressable
+            testID={`pm-kanban-progress-badge-${card.guid}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit stage progress, current ${stageProgress}%`}
+            disabled={readOnly}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              if (!readOnly) {
+                setProgressInput(String(stageProgress));
+                setIsEditingProgress(true);
+              }
+            }}
+            style={({ hovered }: any) => [
+              styles.progressBadge,
+              { borderColor: withAlpha(stageColor, 0.4) },
+              hovered && !readOnly ? { backgroundColor: withAlpha(palette.primary, 0.12) } : null,
+              IS_WEB && !readOnly ? ({ cursor: 'pointer' } as any) : null,
+            ]}
+          >
+            <Text style={[styles.progressText, { color: palette.text }]}>{stageProgress}%</Text>
+            {!readOnly && (
+              <Text style={{ fontSize: 9, color: palette.textMuted, marginLeft: 2 }}>✎</Text>
+            )}
+          </Pressable>
+        )}
+      </View>
       <View style={styles.footer}>
         <Text style={[styles.meta, { color: palette.textMuted, flex: 1 }]} numberOfLines={1}>
           {dates}
@@ -149,8 +252,10 @@ const styles = StyleSheet.create({
   criticalDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 6, marginTop: 4 },
   meta: { fontSize: 11, marginTop: 2 },
   progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  progressTrack: { flex: 1, height: 5, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: 5, borderRadius: 3 },
-  progressText: { fontSize: 11, marginLeft: 6, minWidth: 30, textAlign: 'right' },
+  progressTrack: { flex: 1, height: 7, borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: 7, borderRadius: 4 },
+  progressBadge: { flexDirection: 'row', alignItems: 'center', marginLeft: 6, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, borderWidth: 1 },
+  progressInput: { fontSize: 11, fontWeight: '600', marginLeft: 6, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, borderWidth: 1, width: 44, textAlign: 'center' },
+  progressText: { fontSize: 11, fontWeight: '600' },
   footer: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
 });
