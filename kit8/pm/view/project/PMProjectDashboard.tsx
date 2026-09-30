@@ -29,7 +29,7 @@ import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
-import PMActivityIndicator from '../../inner/PMActivityIndicator';
+import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 
 export default function PMProjectDashboard() {
   return (
@@ -135,7 +135,7 @@ function PMProjectDashboardInner() {
         </Centered>
       ) : loading ? (
         <Centered color={themeColors.background}>
-          <PMActivityIndicator testID="pm-loading" />
+          <ActivityIndicatorCircleApp testID="pm-loading" />
           {!!selectedProjectGUID && !projectsQuery.isLoading && (
             <Text style={{ color: themeColors.text, opacity: 0.6, marginTop: 10 }}>Loading {projectName || 'project'}…</Text>
           )}

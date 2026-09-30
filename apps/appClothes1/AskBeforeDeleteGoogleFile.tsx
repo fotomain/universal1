@@ -5,8 +5,8 @@ import {
     View,
     Text,
     TouchableOpacity,
-    ActivityIndicator,
 } from 'react-native';
+import ActivityIndicatorCircleApp from '../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
 import { IconApp } from '../../kit8/components/common/IconApp';
 import type { DriveFile } from '../../kit8/google/drive/googleDrive';
 
@@ -216,7 +216,7 @@ export const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteGoogleFileProps>
                             testID={`${testID}-confirmBtn`}
                         >
                             {isDeleting && !isCompleted && (
-                                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
+                                <ActivityIndicatorCircleApp size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
                             )}
                             <Text style={styles.confirmBtnText}>
                                 {isCompleted

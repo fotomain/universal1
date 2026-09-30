@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, FlatList, ActivityIndicator, Platform } from 'react-native';
+import { View, StyleSheet, Text, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import ActivityIndicatorCircleApp from '../../../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
 import { useTranslation } from 'react-i18next';
 import { useAuthWithGoogle } from '../../../../kit8/hooks/useAuth';
 import { getUserData } from '../../../../kit8/lib/localSecureStorage';
@@ -140,7 +141,7 @@ export default function SQLiteNativeDemoScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#6200ee" />
+        <ActivityIndicatorCircleApp />
       </View>
     );
   }

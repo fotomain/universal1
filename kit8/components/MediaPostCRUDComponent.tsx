@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { SystemMetaData } from '../redux/SystemMetaData';
@@ -9,6 +9,7 @@ import TexInputMi from '../ui/TexInputMi';
 import ButtonMi from '../ui/ButtonMi';
 import { showSnackbar } from '../redux/uxuiSlice';
 import AskBeforeDeletePostComponent from './common/AskBeforeDeletePostComponent';
+import ActivityIndicatorCircleApp from './activityindicator/ActivityIndicatorCircleApp';
 
 const uuid = Crypto.randomUUID;
 
@@ -171,7 +172,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
             {/* Status & Error Section */}
             {isLoading && (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#6200ee" />
+                    <ActivityIndicatorCircleApp size="small" />
                     <Text style={styles.loadingText}>Processing request...</Text>
                 </View>
             )}

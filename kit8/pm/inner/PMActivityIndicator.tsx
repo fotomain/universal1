@@ -1,12 +1,12 @@
-// Full-area loading spinner of the PM module: same as the main app's loaders
-// (<ActivityIndicator size="large" color={theme primary} />, e.g. app/signin).
-import React from 'react';
-import { ActivityIndicator, ActivityIndicatorProps } from 'react-native';
-import { useDesignSystem } from '../../providers/WithDesignSystem';
+// Deprecated: PMActivityIndicator has been refactored to ActivityIndicatorCircleApp.
+// Use ActivityIndicatorCircleApp from kit8/components/activityindicator.
+import ActivityIndicatorCircleApp, {
+  ActivityIndicatorCircleAppProps,
+  ACTIVITY_INDICATOR_CIRCLE_APP_SIZE,
+} from '../../components/activityindicator/ActivityIndicatorCircleApp';
 
-export const PM_ACTIVITY_INDICATOR_SIZE = 'large' as const;
+export const PM_ACTIVITY_INDICATOR_SIZE = ACTIVITY_INDICATOR_CIRCLE_APP_SIZE;
+export type PMActivityIndicatorProps = ActivityIndicatorCircleAppProps;
 
-export default function PMActivityIndicator({ size = PM_ACTIVITY_INDICATOR_SIZE, color, ...rest }: ActivityIndicatorProps) {
-  const { themeColors } = useDesignSystem();
-  return <ActivityIndicator size={size} color={color ?? themeColors.primary} {...rest} />;
-}
+export const PMActivityIndicator = ActivityIndicatorCircleApp;
+export default ActivityIndicatorCircleApp;

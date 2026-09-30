@@ -11,7 +11,7 @@ import { Text, View } from 'react-native';
 // @ts-ignore - canvaskit-wasm ships no types for this entry point
 import CanvasKitInit from 'canvaskit-wasm/bin/full/canvaskit';
 import type { PMGanttSurfaceProps } from './PMGanttSurface';
-import PMActivityIndicator from '../../inner/PMActivityIndicator';
+import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 
 const CANVASKIT_VERSION = '0.40.0'; // must match node_modules/canvaskit-wasm (react-native-skia 2.4.x)
 
@@ -71,7 +71,7 @@ export default function PMGanttSurfaceLoader(props: PMGanttSurfaceProps) {
       <Suspense
         fallback={
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <PMActivityIndicator testID="pm-gantt-loading" />
+            <ActivityIndicatorCircleApp testID="pm-gantt-loading" />
           </View>
         }
       >

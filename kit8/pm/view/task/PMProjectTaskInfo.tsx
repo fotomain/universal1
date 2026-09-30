@@ -8,7 +8,7 @@
 // row selected and scrolled into view) - see store.requestFocus / PMGanttSurface.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../components/common/IconApp';
@@ -32,7 +32,7 @@ import PMApproveYesNoCancelModalWindow from '../../inner/PMApproveYesNoCancelMod
 import PMUndoProvider from '../undo/PMUndoProvider';
 import { PMDialogButton, PMIconButton, PMTipPressable } from '../../inner/buttons';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
-import PMActivityIndicator from '../../inner/PMActivityIndicator';
+import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 
 const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Start → Start', FF: 'Finish → Finish', SF: 'Start → Finish' };
 
@@ -139,7 +139,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
     return (
       <View style={[styles.center, { backgroundColor: c.background }]}>
         {taskQuery.isLoading || (projectGUID && !taskQuery.isError) ? (
-          <PMActivityIndicator testID="pm-task-loading" color={c.primary} />
+          <ActivityIndicatorCircleApp testID="pm-task-loading" color={c.primary} />
         ) : (
           <>
             <Text style={{ color: c.text, marginBottom: 12 }}>Task not found.</Text>
@@ -363,7 +363,7 @@ function ClosureList({
   color: string;
   kind: 'up' | 'down';
 }) {
-  if (loading) return <ActivityIndicator />;
+  if (loading) return <ActivityIndicatorCircleApp size="small" color={color} />;
   if (!rows?.length) return <Text style={{ color, opacity: 0.6 }}>None.</Text>;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>

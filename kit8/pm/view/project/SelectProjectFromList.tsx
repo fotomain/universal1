@@ -5,8 +5,9 @@
 // selects it and adds it to the ribbon of recently selected projects.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 import IconApp from '../../../components/common/IconApp';
 import { usePMStore } from '../../store/store_pm';
 import { useProjectSearchQuery } from '../../crud/queries';
@@ -112,7 +113,7 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
       {open && (
         <View style={[styles.dropdown, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-project-search-list">
           {search.isFetching && !results.length ? (
-            <ActivityIndicator style={{ padding: 12 }} color={c.primary} />
+            <ActivityIndicatorCircleApp style={{ padding: 12 }} size="small" color={c.primary} />
           ) : (
             <FlatList
               data={results}

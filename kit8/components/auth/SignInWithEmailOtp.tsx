@@ -2,13 +2,14 @@
 // web link in the email (radio "Confirmation way"). Used on the Sign In screen and inline on the
 // User Profile screen when signed out.
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { useTheme, Text } from 'react-native-paper';
 import type { User } from '@supabase/supabase-js';
 import { ButtonPrimaryApp, ButtonTextApp } from '../common';
+import ActivityIndicatorCircleApp from '../activityindicator/ActivityIndicatorCircleApp';
 import TexInputMi from '../../ui/TexInputMi';
 import IconApp from '../common/IconApp';
 import { useSupabase } from '../../providers/WithSupabase';
@@ -147,7 +148,7 @@ export default function SignInWithEmailOtp({
               {t('screens.linkOpenHint')}
             </Text>
             <View style={styles.waitingRow}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <ActivityIndicatorCircleApp size="small" />
               <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginLeft: 8 }}>
                 {t('screens.waitingForLink')}
               </Text>

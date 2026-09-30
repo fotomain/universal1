@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, StyleSheet, Alert, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
 import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
+import ActivityIndicatorCircleApp from '../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
 import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
@@ -132,7 +133,7 @@ export default function SignInScreen() {
 
         <View style={styles.buttonWrapper}>
           {googleLoading ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <ActivityIndicatorCircleApp />
           ) : (
             <ButtonPrimaryApp 
               icon={({ size }: { size: number }) => (
@@ -181,7 +182,7 @@ export default function SignInScreen() {
 
             <View style={styles.buttonWrapper}>
               {loading ? (
-                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <ActivityIndicatorCircleApp />
               ) : (
                 <ButtonPrimaryApp 
                   onPress={handleEmailSignIn} 

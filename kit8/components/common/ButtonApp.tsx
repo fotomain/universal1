@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, Text, View, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, View, Pressable, StyleSheet } from 'react-native';
 import { Button as PaperButton } from 'react-native-paper';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
+import ActivityIndicatorCircleApp from '../activityindicator/ActivityIndicatorCircleApp';
 import IconApp from './IconApp';
 import GoogleMD3WebButton from './googlemd3web/GoogleMD3WebButton';
 
@@ -122,7 +123,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
         ]}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={tint} />
+          <ActivityIndicatorCircleApp size="small" color={tint} />
         ) : (
           <>
             {!!icon && (typeof icon === 'string' ? <IconApp testID={testID ? `${testID}-icon` : undefined} name={icon} size={iconSize ?? (compact ? 16 : 18)} color={tint} /> : icon)}
@@ -206,7 +207,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
               {icon && <IconApp testID="b5d10e4f-2a6c-7b89-1d23-456789012d04" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
@@ -268,7 +269,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
           ) : (
             <>
               {icon && <IconApp testID="c6e21f50-3b7d-8c90-2e34-567890123e05" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
@@ -323,7 +324,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
           ) : (
             <>
               {icon && <IconApp testID="d7f32a61-4c8e-9d01-3f45-678901234f06" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
@@ -397,7 +398,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={isContained ? '#fff' : btnColor} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
               {icon && <IconApp testID="e8043b72-5d9f-0e12-4056-789012345a07" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
