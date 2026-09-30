@@ -8,6 +8,17 @@ export {
   projectUserSettingsTable,
 } from './constants';
 
+export type { PMPlanDateInputFormat, PMPlanUnits } from './planDateFormats';
+export {
+  PM_PLAN_DATE_INPUT_FORMATS,
+  PM_DEFAULT_PLAN_DATE_INPUT_FORMAT,
+  formatPlanDate,
+  parsePlanDate,
+  formatPlanDuration,
+  parsePlanDuration,
+} from './planDateFormats';
+import type { PMPlanDateInputFormat } from './planDateFormats';
+
 /** project = row of project_table; stage = summary row; task = leaf; milestone = 0-day leaf. */
 export type PMRowKind = 'project' | 'stage' | 'task' | 'milestone';
 
@@ -32,6 +43,19 @@ export interface PMRowJSON {
   /** Computed by the scheduler and written back (ISO timestamptz). Finish lives in rowDuration. */
   startAt?: string | null;
   notes?: string;
+  // ---- task planning units fields ----
+  /** Start hour when planHour is enabled. */
+  startHourStart?: number | string | null;
+  /** Finish hour when planHour is enabled. */
+  startHourFinish?: number | string | null;
+  /** Start minute when planMinute is enabled. */
+  planMinuteStart?: number | string | null;
+  /** Finish minute when planMinute is enabled. */
+  planMinuteFinish?: number | string | null;
+  /** Start second when planSecond is enabled. */
+  planSecondStart?: number | string | null;
+  /** Finish second when planSecond is enabled. */
+  planSecondFinish?: number | string | null;
   /**
    * Custom tree columns (tree/columns/customColumns.ts):
    *  project_table:      definitions + header colors  { columns: [{ key, name, type }], headersBackgroundColors: { [key]: color } }
@@ -44,6 +68,16 @@ export interface PMRowJSON {
   projectStartAt?: string;
   /** true = durations count Mon-Fri only. */
   skipWeekends?: boolean;
+  /** Planning units: plan in days (default true). */
+  planDay?: boolean;
+  /** Planning units: plan in hours. */
+  planHour?: boolean;
+  /** Planning units: plan in minutes. */
+  planMinute?: boolean;
+  /** Planning units: plan in seconds. */
+  planSecond?: boolean;
+  /** Date input format for start/finish date columns in TaskTree (e.g. DD MMM, DD.MM.YYYY, YYYY-MM-DD). */
+  planDateInputFormat?: PMPlanDateInputFormat;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */

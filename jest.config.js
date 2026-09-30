@@ -7,5 +7,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     "^react-native$": "react-native-web",
+    "^react-native-paper-dates$": "<rootDir>/__mocks__/react-native-paper-dates.js",
   },
 };
+

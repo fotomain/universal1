@@ -55,7 +55,7 @@ describe('uxuiSettingsOf', () => {
       networkDiagramVariant: 'cpmNodes',
       networkScheduleVariant: 'eventCircles',
       showTreeHierarchyNumbers: true,
-      treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent'],
+      treeColumnsOrder: ['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent'],
       treeColumnsWidths: {},
       projectTreeContextCommandsMode: 'onHoverPanelMode',
       projectGanttChartContextCommandsMode: 'onHoverPanelMode',

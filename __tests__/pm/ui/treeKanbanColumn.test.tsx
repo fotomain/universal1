@@ -52,7 +52,7 @@ describe('TaskTree "Kanban" and "Kanban %" column definitions', () => {
     const norm = normalizeTreeColumnsOrder(null);
     expect(norm[norm.length - 2]).toBe('kanban');
     expect(norm[norm.length - 1]).toBe('kanbanStageProgressPercent');
-    expect(norm).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
+    expect(norm).toEqual(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent']);
   });
 
   it('layoutTreeColumns lays out the Kanban and Kanban % columns', () => {

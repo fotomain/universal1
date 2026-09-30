@@ -41,8 +41,19 @@ export const PM_TREE_MAX_WIDTH = 720;
 export const PM_TREE_INDENT = 18;
 /** Outline number column ("1.2.3"), right of the Task name. */
 export const PM_TREE_COL_WBS = 52;
-export const PM_TREE_COL_START = 78;
-export const PM_TREE_COL_DAYS = 46;
+export const PM_TREE_COL_TASK_START_DATE = 78;
+export const PM_TREE_COL_TASK_FINISH_DATE = 78;
+export const PM_TREE_COL_START_HOUR_START = 54;
+export const PM_TREE_COL_START_HOUR_FINISH = 54;
+export const PM_TREE_COL_PLAN_MINUTE_START = 50;
+export const PM_TREE_COL_PLAN_MINUTE_FINISH = 50;
+export const PM_TREE_COL_PLAN_SECOND_START = 50;
+export const PM_TREE_COL_PLAN_SECOND_FINISH = 50;
+export const PM_TREE_COL_TASK_DURATION = 56;
+/** @deprecated legacy alias for PM_TREE_COL_TASK_START_DATE */
+export const PM_TREE_COL_START = PM_TREE_COL_TASK_START_DATE;
+/** @deprecated legacy alias for PM_TREE_COL_TASK_DURATION */
+export const PM_TREE_COL_DAYS = PM_TREE_COL_TASK_DURATION;
 export const PM_TREE_COL_PROGRESS = 46;
 export const PM_TREE_COL_KANBAN = 88;
 export const PM_TREE_COL_KANBAN_PROGRESS = 58;

@@ -23,3 +23,4 @@ export type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDragg
 export { default as SpeedDialFAB, SpeedDialFABProps, SpeedDialAction } from './SpeedDialFAB';
 export { default as ColorPickerApp, ColorPickerAppProps, ColorPickerAppColors, normalizeHexColor } from './ColorPickerApp';
 export { default as ActivityIndicatorCircleApp, ActivityIndicatorCircleAppProps } from '../activityindicator';
+export { default as SelectDateApp, SelectDateAppProps } from './SelectDateApp';

@@ -115,11 +115,20 @@ export function treeColumnDataType(key: string, customColumns: readonly PMCustom
     case 'name':
     case 'kanban':
       return 'text';
+    case 'taskStartDate':
     case 'start':
+    case 'taskFinishDate':
       return 'date';
+    case 'taskDuration':
     case 'days':
     case 'progress':
     case 'kanbanStageProgressPercent':
+    case 'startHourStart':
+    case 'startHourFinish':
+    case 'planMinuteStart':
+    case 'planMinuteFinish':
+    case 'planSecondStart':
+    case 'planSecondFinish':
       return 'number';
   }
   if (!isCustomColumnKey(key)) return null;
@@ -259,8 +268,12 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       return ctx.tree.wbsById[guid] ?? '';
     case 'name':
       return t?.rowJSON?.name ?? '';
+    case 'taskStartDate':
     case 'start':
       return r ? r.startMs : null;
+    case 'taskFinishDate':
+      return r ? (r.finishMs > r.startMs ? r.finishMs - 1 : r.startMs) : null;
+    case 'taskDuration':
     case 'days':
       return r ? r.durationDays : typeof t?.rowJSON?.durationDays === 'number' ? t.rowJSON.durationDays : null;
     case 'progress':
@@ -276,6 +289,18 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       const state = ctx.kanbanStates?.[guid];
       return Math.round(state?.rowJSON?.kanbanStageProgressPercent ?? 0);
     }
+    case 'startHourStart':
+      return typeof t?.rowJSON?.startHourStart === 'number' ? t.rowJSON.startHourStart : (r ? new Date(r.startMs).getUTCHours() : null);
+    case 'startHourFinish':
+      return typeof t?.rowJSON?.startHourFinish === 'number' ? t.rowJSON.startHourFinish : (r ? new Date(r.finishMs > r.startMs ? r.finishMs - 1 : r.startMs).getUTCHours() : null);
+    case 'planMinuteStart':
+      return typeof t?.rowJSON?.planMinuteStart === 'number' ? t.rowJSON.planMinuteStart : (r ? new Date(r.startMs).getUTCMinutes() : null);
+    case 'planMinuteFinish':
+      return typeof t?.rowJSON?.planMinuteFinish === 'number' ? t.rowJSON.planMinuteFinish : (r ? new Date(r.finishMs > r.startMs ? r.finishMs - 1 : r.startMs).getUTCMinutes() : null);
+    case 'planSecondStart':
+      return typeof t?.rowJSON?.planSecondStart === 'number' ? t.rowJSON.planSecondStart : (r ? new Date(r.startMs).getUTCSeconds() : null);
+    case 'planSecondFinish':
+      return typeof t?.rowJSON?.planSecondFinish === 'number' ? t.rowJSON.planSecondFinish : (r ? new Date(r.finishMs > r.startMs ? r.finishMs - 1 : r.startMs).getUTCSeconds() : null);
   }
   const type = treeColumnDataType(key, ctx.customColumns);
   if (!type) return null;

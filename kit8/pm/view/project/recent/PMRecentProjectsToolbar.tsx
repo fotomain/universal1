@@ -45,13 +45,20 @@ import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
 import SwitchApp from "../../../../components/common/SwitchApp";
 import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
-import type { PMProjectRow, PMRowJSON } from "../../../model/types";
+import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat } from "../../../model/types";
+import { PM_PLAN_DATE_INPUT_FORMATS } from "../../../model/types";
+import { withAlpha } from "../../theme";
 
 interface Draft {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
   skipWeekends: boolean;
+  planDay: boolean;
+  planHour: boolean;
+  planMinute: boolean;
+  planSecond: boolean;
+  planDateInputFormat: PMPlanDateInputFormat;
 }
 
 export default function PMRecentProjectsToolbar({
@@ -144,6 +151,11 @@ export default function PMRecentProjectsToolbar({
       name: "",
       start: formatDateISO(todayUTC()),
       skipWeekends: false,
+      planDay: true,
+      planHour: false,
+      planMinute: false,
+      planSecond: false,
+      planDateInputFormat: 'YYYY-MM-DD',
     });
   };
   const openEditFor = (project: PMProjectRow | undefined) => {
@@ -157,6 +169,11 @@ export default function PMRecentProjectsToolbar({
       name: project.rowJSON.name || "",
       start: formatDateISO(start),
       skipWeekends: !!project.rowJSON.skipWeekends,
+      planDay: project.rowJSON.planDay ?? true,
+      planHour: !!project.rowJSON.planHour,
+      planMinute: !!project.rowJSON.planMinute,
+      planSecond: !!project.rowJSON.planSecond,
+      planDateInputFormat: project.rowJSON.planDateInputFormat || 'YYYY-MM-DD',
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -179,6 +196,11 @@ export default function PMRecentProjectsToolbar({
             ...d,
             start: json.projectStartAt ? formatDateISO(Date.parse(json.projectStartAt)) : d.start,
             skipWeekends: !!json.skipWeekends,
+            planDay: json.planDay ?? d.planDay,
+            planHour: json.planHour ?? d.planHour,
+            planMinute: json.planMinute ?? d.planMinute,
+            planSecond: json.planSecond ?? d.planSecond,
+            planDateInputFormat: json.planDateInputFormat || d.planDateInputFormat,
           }
         : d,
     );
@@ -199,12 +221,22 @@ export default function PMRecentProjectsToolbar({
             name,
             projectStartAt: new Date(startMs).toISOString(),
             skipWeekends: draft.skipWeekends,
+            planDay: draft.planDay,
+            planHour: draft.planHour,
+            planMinute: draft.planMinute,
+            planSecond: draft.planSecond,
+            planDateInputFormat: draft.planDateInputFormat,
           },
         },
       });
     } else {
       const row = buildRow(name, startMs);
       row.rowJSON.skipWeekends = draft.skipWeekends;
+      row.rowJSON.planDay = draft.planDay;
+      row.rowJSON.planHour = draft.planHour;
+      row.rowJSON.planMinute = draft.planMinute;
+      row.rowJSON.planSecond = draft.planSecond;
+      row.rowJSON.planDateInputFormat = draft.planDateInputFormat;
       // no uxuiSettings here: the Gantt / tree settings are per user (project_user_settings_table), defaults until saved
       createProject.mutate(row);
       selectProject(row.rowGUID);
@@ -416,6 +448,80 @@ export default function PMRecentProjectsToolbar({
                 }
                 style={styles.switchRow}
               />
+              <SwitchApp
+                testID="pm-project-plan-day"
+                label="Plan in days (planDay)"
+                value={draft?.planDay ?? true}
+                onValueChange={(v) =>
+                  setDraft((d) => (d ? { ...d, planDay: v } : d))
+                }
+                style={styles.switchRow}
+              />
+              <SwitchApp
+                testID="pm-project-plan-hour"
+                label="Plan in hours (planHour)"
+                value={!!draft?.planHour}
+                onValueChange={(v) =>
+                  setDraft((d) => (d ? { ...d, planHour: v } : d))
+                }
+                style={styles.switchRow}
+              />
+              <SwitchApp
+                testID="pm-project-plan-minute"
+                label="Plan in minutes (planMinute)"
+                value={!!draft?.planMinute}
+                onValueChange={(v) =>
+                  setDraft((d) => (d ? { ...d, planMinute: v } : d))
+                }
+                style={styles.switchRow}
+              />
+              <SwitchApp
+                testID="pm-project-plan-second"
+                label="Plan in seconds (planSecond)"
+                value={!!draft?.planSecond}
+                onValueChange={(v) =>
+                  setDraft((d) => (d ? { ...d, planSecond: v } : d))
+                }
+                style={styles.switchRow}
+              />
+              <Text style={[styles.label, { color: themeColors.text, marginTop: 14 }]}>
+                Date format (planDateInputFormat)
+              </Text>
+              <View testID="pm-project-date-format" style={styles.formatRow}>
+                {PM_PLAN_DATE_INPUT_FORMATS.map((fmt) => {
+                  const selectedFmt = (draft?.planDateInputFormat || "YYYY-MM-DD") === fmt;
+                  return (
+                    <Pressable
+                      key={fmt}
+                      testID={`pm-project-format-${fmt.replace(/[^A-Za-z0-9]/g, "_")}`}
+                      onPress={() =>
+                        setDraft((d) => (d ? { ...d, planDateInputFormat: fmt } : d))
+                      }
+                      style={[
+                        styles.formatChip,
+                        {
+                          borderColor: selectedFmt ? themeColors.primary : themeColors.border,
+                          backgroundColor: selectedFmt
+                            ? withAlpha(themeColors.primary, 0.15)
+                            : "transparent",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.formatText,
+                          {
+                            color: selectedFmt ? themeColors.primary : themeColors.text,
+                            fontWeight: selectedFmt ? "700" : "400",
+                          },
+                        ]}
+                      >
+                        {fmt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               {!!draftError && (
                 <Text style={{ color: themeColors.error, marginTop: 6 }}>
                   {draftError}
@@ -629,4 +735,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   switchRow: { flexDirection: "row", alignItems: "center", marginTop: 12 },
+  formatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+  formatChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  formatText: { fontSize: 11 },
 });

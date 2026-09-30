@@ -51,3 +51,24 @@
         rowJSON       = { stageGUID }  = project_kanban_stage_table.rowGUID
                         no row / unknown stage = the project's first stage; independent of the task progress %
         realtime      = scoped by rowOwnerGUID (the project)
+
+    personTable (kit8/sql/init/create_person_table.sql, RN: personsTable = "personTable", kit8/catalog/person)
+        rowOwnerGUID  = 'personCatalog' (shared catalog), rowParentGUID = 'empty'
+        rowJSON       = { personFirstName, personLastName, personTitle, personEmail, personPhone, isActive, personIsEmployee, employeeData }
+        realtime      = supabase_realtime publication -> redux-saga realtime (auto refresh)
+        security      = Authenticated only (GDPR compliant)
+
+    partnerTable (kit8/sql/init/create_partner_table.sql, RN: partnersTable = "partnerTable", kit8/catalog/partner)
+        rowOwnerGUID  = 'partnerCatalog' (shared catalog), rowParentGUID = 'empty'
+        rowJSON       = { partnerTitle, partnerLegalName, partnerKind, isActive, partnerIsSupplier, partnerIsCustomer, legalData, supplierData, customerData }
+        realtime      = supabase_realtime publication -> redux-saga realtime (auto refresh)
+        security      = Authenticated only
+
+    contractTable (kit8/sql/init/create_contract_table.sql, RN: contractsTable = "contractTable", kit8/catalog/contract)
+        rowOwnerGUID  = personTable.rowGUID or partnerTable.rowGUID (the person or partner)
+        rowParentGUID = 'person' or 'partner' (matches contractPartyType)
+        orderInList   = -(days since 1970-01-01) of contractStartDate (ascending = newest first)
+        rowJSON       = { contractPartyType, contractNumber, contractTitle, contractType, contractStatus, contractSignedDate, contractStartDate, contractFinishDate, contractPaymentsPeriod, contractCurrency, contractSumBeforeVAT, contractVATRate, contractVAT, contractTotal, notes }
+        realtime      = supabase_realtime publication -> redux-saga realtime scoped by rowOwnerGUID
+        security      = Authenticated only (GDPR compliant)
+

@@ -121,7 +121,17 @@ export const CORE_SYMBOL_REGISTRY: Record<string, PlatformSymbols> = {
     // --- Structures & Architecture ---
     door_back: { ios: 'door.right.hand.closed', android: 'door_back' },
     door_front: { ios: 'door.left.hand.open', android: 'door_front' },
+
+    // --- Business & Catalogs ---
+    business: { ios: 'building.2', android: 'handshake' },
+    handshake: { ios: 'person.2', android: 'handshake' },
+    partners: { ios: 'person.2', android: 'handshake' },
+    payments: { ios: 'creditcard', android: 'payments' },
+    view_column: { ios: 'rectangle.split.3x1', android: 'view_column' },
+    menu_book: { ios: 'book', android: 'menu_book' },
+    description: { ios: 'doc.text', android: 'description' },
 };
+
 
 /**
  * Type-safe helper extraction engine.

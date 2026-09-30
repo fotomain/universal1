@@ -24,6 +24,8 @@ export interface PMInlineCellInputProps {
   colors: { text: string; background: string; primary: string; error: string };
   /** text alignment (default right: numbers / dates) */
   align?: 'left' | 'right' | 'center';
+  /** optional element rendered on the right side of the input (e.g. date picker trigger) */
+  rightElement?: React.ReactNode;
 }
 
 export default function PMInlineCellInput({
@@ -40,6 +42,7 @@ export default function PMInlineCellInput({
   onCancel,
   colors,
   align = 'right',
+  rightElement,
 }: PMInlineCellInputProps) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState(false);
@@ -77,42 +80,61 @@ export default function PMInlineCellInput({
 
   return (
     <Animated.View style={[styles.box, { left: x, width }, style]}>
-      <TextInput
-        ref={inputRef}
-        testID={testID}
-        value={value}
-        placeholder={placeholder}
-        placeholderTextColor={`${colors.text}66`}
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-        autoCorrect={false}
-        selectTextOnFocus
-        onChangeText={(t) => {
-          setError(false);
-          setValue(sanitize ? sanitize(t) : t);
-        }}
-        onSubmitEditing={commit}
-        onBlur={() => {
-          // blur commits a valid value, cancels an invalid one
-          if (done.current) return;
-          const problem = onCommit(value.trim());
-          done.current = true;
-          if (problem) onCancel();
-        }}
-        onKeyPress={(e) => {
-          if ((e.nativeEvent as any).key === 'Escape') cancel();
-        }}
+      <Animated.View
         style={[
-          styles.input,
-          { color: colors.text, backgroundColor: colors.background, borderColor: error ? colors.error : colors.primary, textAlign: align },
-          Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            borderColor: error ? colors.error : colors.primary,
+          },
         ]}
-      />
+      >
+        <TextInput
+          ref={inputRef}
+          testID={testID}
+          value={value}
+          placeholder={placeholder}
+          placeholderTextColor={`${colors.text}66`}
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+          autoCorrect={false}
+          selectTextOnFocus
+          onChangeText={(t) => {
+            setError(false);
+            setValue(sanitize ? sanitize(t) : t);
+          }}
+          onSubmitEditing={commit}
+          onBlur={() => {
+            // blur commits a valid value, cancels an invalid one
+            if (done.current) return;
+            const problem = onCommit(value.trim());
+            done.current = true;
+            if (problem) onCancel();
+          }}
+          onKeyPress={(e) => {
+            if ((e.nativeEvent as any).key === 'Escape') cancel();
+          }}
+          style={[
+            styles.input,
+            { color: colors.text, textAlign: align },
+            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
+          ]}
+        />
+        {rightElement}
+      </Animated.View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   box: { position: 'absolute', top: 0, height: PM_ROW_HEIGHT - 6, zIndex: 20 },
-  input: { flex: 1, borderWidth: 1.5, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 0, fontSize: 12, textAlign: 'right' },
+  container: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  input: { flex: 1, height: '100%', paddingHorizontal: 6, paddingVertical: 0, fontSize: 12, textAlign: 'right' },
 });

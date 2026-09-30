@@ -2,10 +2,26 @@
 import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
 import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
-import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../model/types';
+import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow, PMPlanDateInputFormat } from '../model/types';
 
-/** Tree cells that can be edited inline (click on Start / Days / % / Kanban / Kanban % or on a custom column cell). */
-export type PMCellField = 'start' | 'days' | 'progress' | 'kanban' | 'kanbanStageProgressPercent' | PMCustomColumnKey;
+/** Tree cells that can be edited inline (click on taskStartDate / taskFinishDate / taskDuration / % / Kanban / Kanban % or on a custom column cell). */
+export type PMCellField =
+  | 'taskStartDate'
+  | 'taskFinishDate'
+  | 'taskDuration'
+  | 'start'
+  | 'days'
+  | 'progress'
+  | 'kanban'
+  | 'kanbanStageProgressPercent'
+  | 'startHourStart'
+  | 'startHourFinish'
+  | 'planMinuteStart'
+  | 'planMinuteFinish'
+  | 'planSecondStart'
+  | 'planSecondFinish'
+  | PMCustomColumnKey;
+
 
 /** PMCustomColumnNameModalWindow request: add a column of `type`, or rename column `key` (current `name`). */
 export interface PMCustomColumnPrompt {
@@ -103,6 +119,16 @@ export interface PMStoreState {
   treeColumnSort: PMTreeColumnSort | null;
   /** rowJSON.uxuiSettings.columnFilterIconColor - filter icon of a filtered header. */
   columnFilterIconColor: string;
+  /** project.rowJSON.planDay - plan in days */
+  planDay: boolean;
+  /** project.rowJSON.planHour - plan in hours */
+  planHour: boolean;
+  /** project.rowJSON.planMinute - plan in minutes */
+  planMinute: boolean;
+  /** project.rowJSON.planSecond - plan in seconds */
+  planSecond: boolean;
+  /** project.rowJSON.planDateInputFormat - date format */
+  planDateInputFormat: PMPlanDateInputFormat;
   /** Rows shown only because a descendant matches the filters (drawn muted). */
   treeFilterContextGUIDs: Record<string, true>;
   /** Rows matching every filter (null = no filter). */

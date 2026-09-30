@@ -11,10 +11,21 @@ export function useTreeColumnsLayout(width: number, liveWidth?: { key: PMTreeCol
   const showHierarchyNumbers = usePMStore((s) => s.showTreeHierarchyNumbers);
   const savedWidths = usePMStore((s) => s.treeColumnsWidths);
   const customColumns = usePMStore((s) => s.customColumns);
+  const planHour = usePMStore((s) => s.planHour);
+  const planMinute = usePMStore((s) => s.planMinute);
+  const planSecond = usePMStore((s) => s.planSecond);
   const liveKey = liveWidth?.key;
   const liveW = liveWidth?.width;
   return useMemo(() => {
     const widths = liveKey ? { ...savedWidths, [liveKey]: liveW! } : savedWidths;
-    return layoutTreeColumns(width, order, { showHierarchyNumbers, widths, customColumns });
-  }, [width, order, showHierarchyNumbers, savedWidths, customColumns, liveKey, liveW]);
+    return layoutTreeColumns(width, order, {
+      showHierarchyNumbers,
+      widths,
+      customColumns,
+      planHour,
+      planMinute,
+      planSecond,
+    });
+  }, [width, order, showHierarchyNumbers, savedWidths, customColumns, planHour, planMinute, planSecond, liveKey, liveW]);
 }
+

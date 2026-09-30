@@ -44,7 +44,13 @@ const resources = {
         feedback: 'Feedback',
         map: 'Map',
         screens: 'Screens',
+        catalogs: 'Catalogs',
+        currencies: 'Currencies',
+        kanbanStages: 'Kanban Stages',
+        persons: 'Persons',
+        partners: 'Partners',
       },
+
       tabs: {
         media: 'Media',
         my: 'My',

@@ -40,18 +40,35 @@ function mount(path: string) {
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); });
 
-it('Catalogs is a closed accordion; press opens it; Currencies is a compact sub-row that navigates', () => {
+it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partners navigate', () => {
   mount('/home');
   expect(q('drawer-item-catalogs')).not.toBeNull();
   expect(q('drawer-item-currencies')).toBeNull(); // not a top-level row any more
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed
+  expect(q('drawer-subitem-persons')).toBeNull();
+  expect(q('drawer-subitem-partners')).toBeNull();
   press('drawer-item-catalogs');
   expect(mockNavigate).not.toHaveBeenCalled(); // a group only toggles
-  const sub = q('drawer-subitem-currencies')!;
-  expect(sub.textContent).toContain('Currencies');
-  expect(getComputedStyle(sub).height).toBe(`${DRAWER_SUBITEM_HEIGHT}px`);
+
+  // Currencies
+  const subCurr = q('drawer-subitem-currencies')!;
+  expect(subCurr.textContent).toContain('Currencies');
+  expect(getComputedStyle(subCurr).height).toBe(`${DRAWER_SUBITEM_HEIGHT}px`);
   press('drawer-subitem-currencies');
   expect(mockNavigate).toHaveBeenCalledWith('/currency/list');
+
+  // Persons
+  const subPerson = q('drawer-subitem-persons')!;
+  expect(subPerson.textContent).toContain('Persons');
+  press('drawer-subitem-persons');
+  expect(mockNavigate).toHaveBeenCalledWith('/person/list');
+
+  // Partners
+  const subPartner = q('drawer-subitem-partners')!;
+  expect(subPartner.textContent).toContain('Partners');
+  press('drawer-subitem-partners');
+  expect(mockNavigate).toHaveBeenCalledWith('/partner/list');
+
   press('drawer-item-catalogs');
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
 });
@@ -68,4 +85,11 @@ it('opens by itself on a catalog page (list or edit)', () => {
   act(() => root.unmount());
   mount('/currency/edit');
   expect(q('drawer-subitem-currencies')).not.toBeNull();
+  act(() => root.unmount());
+  mount('/person/list');
+  expect(q('drawer-subitem-persons')).not.toBeNull();
+  act(() => root.unmount());
+  mount('/partner/list');
+  expect(q('drawer-subitem-partners')).not.toBeNull();
 });
+

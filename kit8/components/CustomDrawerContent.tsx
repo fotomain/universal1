@@ -64,9 +64,14 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [
         { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
         { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'kanbanstage/list' },
+        { id: 'persons', label: 'Persons', icon: 'person', route: 'person/list' },
+        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'partner/list' },
       ],
     },
+
     { id: 'pm-projects', label: 'Projects', icon: 'view_timeline', route: 'pm/project/dashboard' },
+
+
   ];
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----

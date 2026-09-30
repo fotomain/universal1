@@ -31,6 +31,7 @@ import Animated, { runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, w
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT, PM_TOOLBAR_HEIGHT, PM_TREE_INDENT } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import { formatDateShort } from '../project/scheduling';
+import { formatPlanDate, formatPlanDuration } from '../../model/planDateFormats';
 import { ellipsize, PMPalette, withAlpha } from '../theme';
 import { makeMeasure, usePMFonts } from '../../skia/usePMFonts';
 import { clampValue, maxScrollY, PMViewport } from '../gantt/useGanttViewport';
@@ -80,7 +81,23 @@ const BOOL_BOX = 12;
 
 /** Editable cell of a column (null = Task name / # column). */
 const cellFieldOf = (key: PMTreeColumnKey | null): PMCellField | null =>
-  key === 'start' || key === 'days' || key === 'progress' || key === 'kanban' || key === 'kanbanStageProgressPercent' || isCustomColumnKey(key) ? (key as PMCellField) : null;
+  key === 'taskStartDate' ||
+  key === 'start' ||
+  key === 'taskFinishDate' ||
+  key === 'taskDuration' ||
+  key === 'days' ||
+  key === 'progress' ||
+  key === 'kanban' ||
+  key === 'kanbanStageProgressPercent' ||
+  key === 'startHourStart' ||
+  key === 'startHourFinish' ||
+  key === 'planMinuteStart' ||
+  key === 'planMinuteFinish' ||
+  key === 'planSecondStart' ||
+  key === 'planSecondFinish' ||
+  isCustomColumnKey(key)
+    ? (key as PMCellField)
+    : null;
 
 interface Props {
   viewport: PMViewport;
@@ -129,11 +146,23 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const geometry = useTreeColumnGeometry(layout, RESIZE_GRAB);
   const nameCol = layout.byKey.name ?? { key: 'name' as const, title: '', x: 0, w: width };
   const wbsCol = layout.byKey.wbs;
-  const startCol = layout.byKey.start;
-  const daysCol = layout.byKey.days;
+  const startCol = layout.byKey.taskStartDate ?? layout.byKey.start;
+  const finishCol = layout.byKey.taskFinishDate;
+  const startHourStartCol = layout.byKey.startHourStart;
+  const startHourFinishCol = layout.byKey.startHourFinish;
+  const planMinuteStartCol = layout.byKey.planMinuteStart;
+  const planMinuteFinishCol = layout.byKey.planMinuteFinish;
+  const planSecondStartCol = layout.byKey.planSecondStart;
+  const planSecondFinishCol = layout.byKey.planSecondFinish;
+  const daysCol = layout.byKey.taskDuration ?? layout.byKey.days;
   const progCol = layout.byKey.progress;
   const kanbanCol = layout.byKey.kanban;
   const kanbanProgressCol = layout.byKey.kanbanStageProgressPercent;
+  const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
+  const planDay = usePMStore((s) => s.planDay);
+  const planHour = usePMStore((s) => s.planHour);
+  const planMinute = usePMStore((s) => s.planMinute);
+  const planSecond = usePMStore((s) => s.planSecond);
   const customCols = useMemo(() => layout.columns.filter((c) => c.customType), [layout]);
   const kanbanStages = usePMKanbanStore((s) => s.stages);
   const kanbanStates = usePMKanbanStore((s) => s.statesByTask);
@@ -187,6 +216,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       nameX: number;
       wbs: string;
       start: string;
+      finish: string;
       days: string;
       daysX: number;
       prog: string;
@@ -218,8 +248,40 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       const summary = !!r?.isSummary;
       const nameX = nameCol.x + 8 + depth * PM_TREE_INDENT + CHEVRON_W + ICON_W + 4;
       const measure = summary ? measureBold : measureReg;
-      const days = r ? (r.isMilestone ? '◆' : String(r.durationDays)) : '';
+      const isSubDay = planHour || planMinute || planSecond;
+      const finishInstant = r
+        ? isSubDay
+          ? r.finishMs
+          : r.finishMs > r.startMs
+          ? r.finishMs - 1
+          : r.startMs
+        : 0;
+      const startText = r ? ellipsize(formatPlanDate(r.startMs, planDateInputFormat), (startCol?.w ?? 0) - 10, measureSmall) : '';
+      const finishText = r ? ellipsize(formatPlanDate(finishInstant, planDateInputFormat), (finishCol?.w ?? 0) - 10, measureSmall) : '';
+      const durationText = r ? (r.isMilestone ? '◆' : formatPlanDuration(r.durationDays, { planDay, planHour, planMinute, planSecond })) : '';
       const prog = r ? `${Math.round(r.progress)}%` : '';
+
+      const dStart = r ? new Date(r.startMs) : null;
+      const dFinish = r ? new Date(finishInstant) : null;
+      const formatUnit = (val: unknown, fallback: number | null): string => {
+        if (typeof val === 'number') return String(val).padStart(2, '0');
+        if (typeof val === 'string' && val.trim() !== '') return val.padStart(2, '0');
+        return fallback !== null ? String(fallback).padStart(2, '0') : '';
+      };
+      const startHourStartText = startHourStartCol ? formatUnit(t.rowJSON?.startHourStart, dStart ? dStart.getUTCHours() : null) : '';
+      const startHourFinishText = startHourFinishCol ? formatUnit(t.rowJSON?.startHourFinish, dFinish ? dFinish.getUTCHours() : null) : '';
+      const planMinuteStartText = planMinuteStartCol ? formatUnit(t.rowJSON?.planMinuteStart, dStart ? dStart.getUTCMinutes() : null) : '';
+      const planMinuteFinishText = planMinuteFinishCol ? formatUnit(t.rowJSON?.planMinuteFinish, dFinish ? dFinish.getUTCMinutes() : null) : '';
+      const planSecondStartText = planSecondStartCol ? formatUnit(t.rowJSON?.planSecondStart, dStart ? dStart.getUTCSeconds() : null) : '';
+      const planSecondFinishText = planSecondFinishCol ? formatUnit(t.rowJSON?.planSecondFinish, dFinish ? dFinish.getUTCSeconds() : null) : '';
+
+      const startHourStartX = startHourStartCol ? startHourStartCol.x + startHourStartCol.w - 8 - measureSmall(startHourStartText) : 0;
+      const startHourFinishX = startHourFinishCol ? startHourFinishCol.x + startHourFinishCol.w - 8 - measureSmall(startHourFinishText) : 0;
+      const planMinuteStartX = planMinuteStartCol ? planMinuteStartCol.x + planMinuteStartCol.w - 8 - measureSmall(planMinuteStartText) : 0;
+      const planMinuteFinishX = planMinuteFinishCol ? planMinuteFinishCol.x + planMinuteFinishCol.w - 8 - measureSmall(planMinuteFinishText) : 0;
+      const planSecondStartX = planSecondStartCol ? planSecondStartCol.x + planSecondStartCol.w - 8 - measureSmall(planSecondStartText) : 0;
+      const planSecondFinishX = planSecondFinishCol ? planSecondFinishCol.x + planSecondFinishCol.w - 8 - measureSmall(planSecondFinishText) : 0;
+
       let kanban: { text: string; color: string; bgColor: string; pillX: number; pillW: number; dotX: number; textX: number } | null = null;
       if (kanbanCol) {
         const stage = summary || hasChildren
@@ -267,9 +329,22 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         name: ellipsize(t.rowJSON?.name || '(untitled)', nameCol.x + nameCol.w - nameX - 6, measure),
         nameX,
         wbs: wbsCol ? ellipsize(tree.wbsById[guid] ?? '', wbsCol.w - 12, summary ? measureSmallBold : measureSmall) : '',
-        start: r ? ellipsize(formatDateShort(r.startMs), (startCol?.w ?? 0) - 10, measureSmall) : '',
-        days,
-        daysX: daysCol ? daysCol.x + daysCol.w - 8 - measureSmall(days) : 0,
+        start: startText,
+        startHourStart: startHourStartText,
+        startHourStartX,
+        planMinuteStart: planMinuteStartText,
+        planMinuteStartX,
+        planSecondStart: planSecondStartText,
+        planSecondStartX,
+        finish: finishText,
+        startHourFinish: startHourFinishText,
+        startHourFinishX,
+        planMinuteFinish: planMinuteFinishText,
+        planMinuteFinishX,
+        planSecondFinish: planSecondFinishText,
+        planSecondFinishX,
+        days: durationText,
+        daysX: daysCol ? daysCol.x + daysCol.w - 8 - measureSmall(durationText) : 0,
         prog,
         progX: progCol ? progCol.x + progCol.w - 8 - measureSmall(prog) : 0,
         kanban,
@@ -282,7 +357,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -367,7 +442,12 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     if (field === 'kanban' || field === 'kanbanStageProgressPercent') return true;
     if (isCustomColumnKey(field)) return true;
     if (s.schedule[guid]?.isSummary || (s.tree.childrenById[guid]?.length ?? 0) > 0) return false;
-    if (field === 'days' && s.tasksById[guid]?.rowJSON.rowKind === 'milestone') return false;
+    if ((field === 'taskDuration' || field === 'days') && s.tasksById[guid]?.rowJSON.rowKind === 'milestone') return false;
+    if (
+      (field === 'taskFinishDate' || field === 'startHourFinish' || field === 'planMinuteFinish' || field === 'planSecondFinish') &&
+      s.tasksById[guid]?.rowJSON.rowKind === 'milestone'
+    )
+      return false;
     return true;
   }, []);
 
@@ -490,11 +570,13 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
           : f === 'kanbanStageProgressPercent'
           ? 'Click to change Kanban stage progress %'
           : cellEditable(guid!, f)
-          ? f === 'start'
-            ? 'Click to set the start (YYYY-MM-DD, empty = as soon as possible)'
-            : f === 'days'
-              ? 'Click to change the duration (working days)'
-              : 'Click to change the progress %'
+          ? f === 'taskStartDate' || f === 'start'
+            ? `Click to set the start (${planDateInputFormat}, empty = as soon as possible)`
+            : f === 'taskFinishDate'
+              ? `Click to set the finish date (${planDateInputFormat})`
+              : f === 'taskDuration' || f === 'days'
+                ? 'Click to change the duration'
+                : 'Click to change the progress %'
           : summary
             ? 'Rolled up from the rows inside this stage'
             : 'Milestones have no duration';
@@ -996,6 +1078,13 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
                           <SkText x={r.nameX} y={base} text={r.name} font={r.summary ? fonts.bold : fonts.regular} color={r.context ? palette.textMuted : palette.text} opacity={r.context ? 0.7 : 1} />
                           {wbsCol && <SkText x={wbsCol.x + 8} y={base} text={r.wbs} font={r.summary ? fonts.smallBold : fonts.small} color={palette.textMuted} />}
                           {startCol && <SkText x={startCol.x + 8} y={base} text={r.start} font={fonts.small} color={palette.textMuted} />}
+                          {startHourStartCol && <SkText x={r.startHourStartX} y={base} text={r.startHourStart} font={fonts.small} color={palette.textMuted} />}
+                          {planMinuteStartCol && <SkText x={r.planMinuteStartX} y={base} text={r.planMinuteStart} font={fonts.small} color={palette.textMuted} />}
+                          {planSecondStartCol && <SkText x={r.planSecondStartX} y={base} text={r.planSecondStart} font={fonts.small} color={palette.textMuted} />}
+                          {finishCol && <SkText x={finishCol.x + 8} y={base} text={r.finish} font={fonts.small} color={palette.textMuted} />}
+                          {startHourFinishCol && <SkText x={r.startHourFinishX} y={base} text={r.startHourFinish} font={fonts.small} color={palette.textMuted} />}
+                          {planMinuteFinishCol && <SkText x={r.planMinuteFinishX} y={base} text={r.planMinuteFinish} font={fonts.small} color={palette.textMuted} />}
+                          {planSecondFinishCol && <SkText x={r.planSecondFinishX} y={base} text={r.planSecondFinish} font={fonts.small} color={palette.textMuted} />}
                           {daysCol && <SkText x={r.daysX} y={base} text={r.days} font={fonts.small} color={palette.textMuted} />}
                           {progCol && <SkText x={r.progX} y={base} text={r.prog} font={fonts.small} color={palette.textMuted} />}
                           {r.kanban && (

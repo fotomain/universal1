@@ -74,6 +74,11 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     columnFilterIconColor: u.columnFilterIconColor,
     customColumns: projectCustomColumnsOf(project?.rowJSON).columns,
     treeHeadersBackgroundColors: projectCustomColumnsOf(project?.rowJSON).headersBackgroundColors,
+    planDay: project?.rowJSON?.planDay ?? true,
+    planHour: !!project?.rowJSON?.planHour,
+    planMinute: !!project?.rowJSON?.planMinute,
+    planSecond: !!project?.rowJSON?.planSecond,
+    planDateInputFormat: project?.rowJSON?.planDateInputFormat || 'YYYY-MM-DD',
   };
 }
 

@@ -37,7 +37,7 @@ import { uxuiSettingsOf } from '../../../../../kit8/pm/model/types';
 const budget: PMCustomColumnDef = { key: 'cc_budget01', name: 'Budget', type: 'float' };
 const ok: PMCustomColumnDef = { key: 'cc_approved', name: 'Approved', type: 'boolean' };
 const due: PMCustomColumnDef = { key: 'cc_due00001', name: 'Due', type: 'date' };
-const BUILTIN_FIXED = PM_TREE_COLUMN_WIDTHS.wbs + PM_TREE_COLUMN_WIDTHS.start + PM_TREE_COLUMN_WIDTHS.days + PM_TREE_COLUMN_WIDTHS.progress + PM_TREE_COLUMN_WIDTHS.kanban + PM_TREE_COLUMN_WIDTHS.kanbanStageProgressPercent;
+const BUILTIN_FIXED = PM_TREE_COLUMN_WIDTHS.wbs + PM_TREE_COLUMN_WIDTHS.taskStartDate + PM_TREE_COLUMN_WIDTHS.taskFinishDate + PM_TREE_COLUMN_WIDTHS.taskDuration + PM_TREE_COLUMN_WIDTHS.progress + PM_TREE_COLUMN_WIDTHS.kanban + PM_TREE_COLUMN_WIDTHS.kanbanStageProgressPercent;
 
 describe('custom column values', () => {
   it('parses every type; empty = cleared', () => {
@@ -118,26 +118,26 @@ describe('project.rowJSON.customColumns', () => {
 
 describe('tree columns with custom columns', () => {
   it('a new custom column is the LAST column; deleted ones disappear from the order', () => {
-    expect(normalizeTreeColumnsOrder(['wbs', 'name', 'start', 'days', 'progress'], ['cc_budget01'])).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
+    expect(normalizeTreeColumnsOrder(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress'], ['cc_budget01'])).toEqual(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
     // dragged into the middle: stays there
-    expect(normalizeTreeColumnsOrder(['wbs', 'cc_budget01', 'name', 'start', 'days', 'progress'], ['cc_budget01'])).toEqual(['wbs', 'cc_budget01', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
+    expect(normalizeTreeColumnsOrder(['wbs', 'cc_budget01', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress'], ['cc_budget01'])).toEqual(['wbs', 'cc_budget01', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent']);
     // column deleted: dropped from the saved order
-    expect(normalizeTreeColumnsOrder(['wbs', 'cc_budget01', 'name', 'start', 'days', 'progress'], [])).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
+    expect(normalizeTreeColumnsOrder(['wbs', 'cc_budget01', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress'], [])).toEqual(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent']);
     // uxuiSettingsOf keeps the custom keys of the project
-    const json = { customColumns: { columns: [budget, ok] }, uxuiSettings: { treeColumnsOrder: ['cc_approved', 'wbs', 'name', 'start', 'days', 'progress'] } } as any;
-    expect(uxuiSettingsOf(json).treeColumnsOrder).toEqual(['cc_approved', 'wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
+    const json = { customColumns: { columns: [budget, ok] }, uxuiSettings: { treeColumnsOrder: ['cc_approved', 'wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress'] } } as any;
+    expect(uxuiSettingsOf(json).treeColumnsOrder).toEqual(['cc_approved', 'wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
   });
 
   it('lays custom columns out with their type width; they never hide - the tree scrolls horizontally', () => {
-    const l = layoutTreeColumns(520, undefined, { customColumns: [budget, ok] });
-    expect(l.columns.map((c) => c.key)).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01', 'cc_approved']);
+    const l = layoutTreeColumns(600, undefined, { customColumns: [budget, ok] });
+    expect(l.columns.map((c) => c.key)).toEqual(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01', 'cc_approved']);
     expect(l.byKey.cc_budget01).toMatchObject({ w: PM_CUSTOM_COLUMN_DEFAULT_WIDTH.float, customType: 'float', title: 'Budget' });
     expect(l.byKey.name!.w).toBe(PM_TREE_NAME_MIN_WIDTH); // flexible name column keeps its minimum
     expect(l.contentWidth).toBe(BUILTIN_FIXED + PM_TREE_NAME_MIN_WIDTH + PM_CUSTOM_COLUMN_DEFAULT_WIDTH.float + PM_CUSTOM_COLUMN_DEFAULT_WIDTH.boolean);
-    expect(treeMaxScrollX(l)).toBe(l.contentWidth - 520);
+    expect(treeMaxScrollX(l)).toBe(l.contentWidth - 600);
     expect(treeColumnAt(l, l.contentWidth - 1)).toBe('cc_approved');
     // narrow pane: built-in columns still hide by their own widths only
-    expect(layoutTreeColumns(250, undefined, { customColumns: [budget] }).columns.map((c) => c.key)).toEqual(['name', 'start', 'cc_budget01']);
+    expect(layoutTreeColumns(250, undefined, { customColumns: [budget] }).columns.map((c) => c.key)).toEqual(['name', 'taskStartDate', 'cc_budget01']);
     expect(treeColumnTitle('cc_budget01', [budget])).toBe('Budget');
     expect(treeColumnTitle('progress')).toBe('%');
     expect(treeColumnTitle('kanban')).toBe('Kanban');
@@ -146,15 +146,15 @@ describe('tree columns with custom columns', () => {
 
   it('custom columns move by drag & drop like the built-in ones', () => {
     const l = layoutTreeColumns(900, undefined, { customColumns: [budget, due] });
-    expect(moveTreeColumn(l, 'cc_due00001', 1)).toEqual(['wbs', 'cc_due00001', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
-    expect(moveTreeColumn(l, 'name', 9)).toEqual(['wbs', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01', 'cc_due00001', 'name']);
+    expect(moveTreeColumn(l, 'cc_due00001', 1)).toEqual(['wbs', 'cc_due00001', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01']);
+    expect(moveTreeColumn(l, 'name', 10)).toEqual(['wbs', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent', 'cc_budget01', 'cc_due00001', 'name']);
   });
 });
 
 describe('columnResizeWidth', () => {
   it('a saved Task name width makes the column fixed (no responsive hiding, horizontal scroll instead)', () => {
     const l = layoutTreeColumns(300, undefined, { widths: { name: 260 } });
-    expect(l.columns.map((c) => c.key)).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent']);
+    expect(l.columns.map((c) => c.key)).toEqual(['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent']);
     expect(l.byKey.name!.w).toBe(260);
     expect(l.contentWidth).toBe(BUILTIN_FIXED + 260);
     // wide pane: a narrow fixed name leaves room on the right
@@ -164,23 +164,23 @@ describe('columnResizeWidth', () => {
   });
 
   it('other columns keep their saved width; the flexible Task name column fills the rest', () => {
-    const l = layoutTreeColumns(600, undefined, { widths: { start: 120, cc_budget01: 140 }, customColumns: [budget] });
-    expect(l.byKey.start!.w).toBe(120);
+    const l = layoutTreeColumns(600, undefined, { widths: { taskStartDate: 120, cc_budget01: 140 }, customColumns: [budget] });
+    expect(l.byKey.taskStartDate!.w).toBe(120);
     expect(l.byKey.cc_budget01!.w).toBe(140);
-    expect(l.byKey.name!.w).toBe(Math.max(PM_TREE_NAME_MIN_WIDTH, 600 - (BUILTIN_FIXED - PM_TREE_COLUMN_WIDTHS.start + 120 + 140)));
+    expect(l.byKey.name!.w).toBe(Math.max(PM_TREE_NAME_MIN_WIDTH, 600 - (BUILTIN_FIXED - PM_TREE_COLUMN_WIDTHS.taskStartDate + 120 + 140)));
   });
 
   it('clamps widths and drops junk', () => {
     expect(clampTreeColumnWidth('name', 10)).toBe(PM_TREE_NAME_RESIZE_MIN_WIDTH);
-    expect(clampTreeColumnWidth('days', 5)).toBe(32);
-    expect(clampTreeColumnWidth('days', 99999)).toBe(1200);
-    expect(normalizeTreeColumnsWidths({ name: 250.4, days: 'x', bogus: 10, cc_ok: 20 })).toEqual({ name: 250, cc_ok: 32 });
+    expect(clampTreeColumnWidth('taskDuration', 5)).toBe(32);
+    expect(clampTreeColumnWidth('taskDuration', 99999)).toBe(1200);
+    expect(normalizeTreeColumnsWidths({ name: 250.4, taskDuration: 'x' as any, bogus: 10, cc_ok: 20 })).toEqual({ name: 250, cc_ok: 32 });
     expect(normalizeTreeColumnsWidths(null)).toEqual({});
     expect(uxuiSettingsOf({ uxuiSettings: { treeColumnsWidths: { name: 300 } } } as any).treeColumnsWidths).toEqual({ name: 300 });
   });
 
   it('resize handles sit on the right edge of every column (Task name included)', () => {
-    const l = layoutTreeColumns(500, undefined);
+    const l = layoutTreeColumns(600, undefined);
     const name = l.byKey.name!;
     expect(treeColumnResizeHandleAt(l, name.x + name.w + 3)).toBe('name');
     expect(treeColumnResizeHandleAt(l, name.x + name.w - 4)).toBe('name');
@@ -189,9 +189,9 @@ describe('columnResizeWidth', () => {
   });
 
   it('scrolls a column into view', () => {
-    const l = layoutTreeColumns(520, undefined, { customColumns: [budget, ok] });
+    const l = layoutTreeColumns(600, undefined, { customColumns: [budget, ok] });
     const last = l.byKey.cc_approved!;
-    expect(scrollXToRevealColumn(l, 'cc_approved', 0)).toBe(last.x + last.w - 520);
+    expect(scrollXToRevealColumn(l, 'cc_approved', 0)).toBe(last.x + last.w - 600);
     expect(scrollXToRevealColumn(l, 'wbs', 200)).toBe(0);
     expect(scrollXToRevealColumn(l, 'name', 10)).toBe(10); // already visible
   });

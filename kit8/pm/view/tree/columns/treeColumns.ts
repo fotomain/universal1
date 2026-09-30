@@ -11,20 +11,70 @@
 // Coordinates: every x in a layout is a CONTENT x (0 = left edge of the first column). The tree
 // scrolls horizontally when the columns are wider than the pane (contentWidth > width).
 
-import { PM_TREE_COL_DAYS, PM_TREE_COL_KANBAN, PM_TREE_COL_KANBAN_PROGRESS, PM_TREE_COL_PROGRESS, PM_TREE_COL_START, PM_TREE_COL_WBS } from '../../../model/constants';
+import {
+  PM_TREE_COL_DAYS,
+  PM_TREE_COL_KANBAN,
+  PM_TREE_COL_KANBAN_PROGRESS,
+  PM_TREE_COL_PLAN_MINUTE_FINISH,
+  PM_TREE_COL_PLAN_MINUTE_START,
+  PM_TREE_COL_PLAN_SECOND_FINISH,
+  PM_TREE_COL_PLAN_SECOND_START,
+  PM_TREE_COL_PROGRESS,
+  PM_TREE_COL_START,
+  PM_TREE_COL_START_HOUR_FINISH,
+  PM_TREE_COL_START_HOUR_START,
+  PM_TREE_COL_TASK_DURATION,
+  PM_TREE_COL_TASK_FINISH_DATE,
+  PM_TREE_COL_TASK_START_DATE,
+  PM_TREE_COL_WBS,
+} from '../../../model/constants';
 import { isCustomColumnKey, PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType, PM_CUSTOM_COLUMN_DEFAULT_WIDTH } from './customColumns';
 
-/** Built-in columns: wbs = "#" (hierarchy / outline number), name = Task name, kanban = Kanban stage, kanbanStageProgressPercent = Kanban %. */
-export type PMBuiltinTreeColumnKey = 'wbs' | 'name' | 'start' | 'days' | 'progress' | 'kanban' | 'kanbanStageProgressPercent';
+/** Built-in columns: wbs = "#", name = Task name, taskStartDate, taskFinishDate, taskDuration, progress, kanban, kanbanStageProgressPercent. */
+export type PMBuiltinTreeColumnKey =
+  | 'wbs'
+  | 'name'
+  | 'taskStartDate'
+  | 'taskFinishDate'
+  | 'taskDuration'
+  | 'startHourStart'
+  | 'startHourFinish'
+  | 'planMinuteStart'
+  | 'planMinuteFinish'
+  | 'planSecondStart'
+  | 'planSecondFinish'
+  | 'progress'
+  | 'kanban'
+  | 'kanbanStageProgressPercent'
+  | 'start'
+  | 'days';
 /** Any tree column: built-in or custom ("cc_..."). */
 export type PMTreeColumnKey = PMBuiltinTreeColumnKey | PMCustomColumnKey;
 
-/** Default order: "#" column first, "Kanban" then "Kanban %" columns last (custom columns follow, in creation order). */
-export const PM_TREE_COLUMNS_DEFAULT_ORDER: readonly PMBuiltinTreeColumnKey[] = ['wbs', 'name', 'start', 'days', 'progress', 'kanban', 'kanbanStageProgressPercent'];
+/** Default order: "#" column first, Start, Finish, Duration, "%", then "Kanban" and "Kanban %" columns last. */
+export const PM_TREE_COLUMNS_DEFAULT_ORDER: readonly PMBuiltinTreeColumnKey[] = [
+  'wbs',
+  'name',
+  'taskStartDate',
+  'taskFinishDate',
+  'taskDuration',
+  'progress',
+  'kanban',
+  'kanbanStageProgressPercent',
+];
 
 export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
   wbs: '#',
   name: 'Task name',
+  taskStartDate: 'Start',
+  taskFinishDate: 'Finish',
+  taskDuration: 'Duration',
+  startHourStart: 'Hour S',
+  startHourFinish: 'Hour F',
+  planMinuteStart: 'Min S',
+  planMinuteFinish: 'Min F',
+  planSecondStart: 'Sec S',
+  planSecondFinish: 'Sec F',
   start: 'Start',
   days: 'Days',
   progress: '%',
@@ -35,6 +85,15 @@ export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
 /** Default widths; the Task name column takes the rest of the pane until it is resized. */
 export const PM_TREE_COLUMN_WIDTHS: Record<Exclude<PMBuiltinTreeColumnKey, 'name'>, number> = {
   wbs: PM_TREE_COL_WBS,
+  taskStartDate: PM_TREE_COL_TASK_START_DATE,
+  taskFinishDate: PM_TREE_COL_TASK_FINISH_DATE,
+  taskDuration: PM_TREE_COL_TASK_DURATION,
+  startHourStart: PM_TREE_COL_START_HOUR_START,
+  startHourFinish: PM_TREE_COL_START_HOUR_FINISH,
+  planMinuteStart: PM_TREE_COL_PLAN_MINUTE_START,
+  planMinuteFinish: PM_TREE_COL_PLAN_MINUTE_FINISH,
+  planSecondStart: PM_TREE_COL_PLAN_SECOND_START,
+  planSecondFinish: PM_TREE_COL_PLAN_SECOND_FINISH,
   start: PM_TREE_COL_START,
   days: PM_TREE_COL_DAYS,
   progress: PM_TREE_COL_PROGRESS,
@@ -51,11 +110,36 @@ export const PM_TREE_COLUMN_MAX_WIDTH = 1200;
 /** Half width of the grab zone around a header separator (px). */
 export const PM_TREE_RESIZE_GRAB = 5;
 
-/** Narrow pane: hide "#" first, then Kanban %, then Kanban, then %, then Days, then Start (Task name always stays). */
-const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = ['wbs', 'kanbanStageProgressPercent', 'kanban', 'progress', 'days', 'start'];
+/** Narrow pane: hide "#" first, then Kanban %, then Kanban, then %, then Duration, then Finish, then Start (Task name always stays). */
+const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = [
+  'wbs',
+  'kanbanStageProgressPercent',
+  'kanban',
+  'progress',
+  'planSecondFinish',
+  'planSecondStart',
+  'planMinuteFinish',
+  'planMinuteStart',
+  'startHourFinish',
+  'startHourStart',
+  'taskDuration',
+  'days',
+  'taskFinishDate',
+  'taskStartDate',
+  'start',
+];
 
 export const isBuiltinTreeColumnKey = (k: unknown): k is PMBuiltinTreeColumnKey =>
-  typeof k === 'string' && (PM_TREE_COLUMNS_DEFAULT_ORDER as readonly string[]).includes(k);
+  typeof k === 'string' &&
+  ((PM_TREE_COLUMNS_DEFAULT_ORDER as readonly string[]).includes(k) ||
+    k === 'start' ||
+    k === 'days' ||
+    k === 'startHourStart' ||
+    k === 'startHourFinish' ||
+    k === 'planMinuteStart' ||
+    k === 'planMinuteFinish' ||
+    k === 'planSecondStart' ||
+    k === 'planSecondFinish');
 
 /**
  * Valid, complete, duplicate-free order: unknown keys dropped (also custom keys that are not in
@@ -69,8 +153,16 @@ export function normalizeTreeColumnsOrder(value: unknown, customKeys: readonly s
     if (out.includes(k)) continue;
     if (isBuiltinTreeColumnKey(k) || (isCustomColumnKey(k) && customKeys.includes(k))) out.push(k);
   }
+  const hasCol = (k: PMBuiltinTreeColumnKey) => {
+    if (out.includes(k)) return true;
+    if (k === 'taskStartDate' && out.includes('start')) return true;
+    if (k === 'start' && out.includes('taskStartDate')) return true;
+    if (k === 'taskDuration' && out.includes('days')) return true;
+    if (k === 'days' && out.includes('taskDuration')) return true;
+    return false;
+  };
   PM_TREE_COLUMNS_DEFAULT_ORDER.forEach((k, i) => {
-    if (out.includes(k)) return;
+    if (hasCol(k)) return;
     if (k === 'kanban' || k === 'kanbanStageProgressPercent') {
       out.push(k);
       return;
@@ -78,9 +170,12 @@ export function normalizeTreeColumnsOrder(value: unknown, customKeys: readonly s
     // insert after the nearest default predecessor that is already placed
     let at = 0;
     for (let j = i - 1; j >= 0; j--) {
-      const p = out.indexOf(PM_TREE_COLUMNS_DEFAULT_ORDER[j]);
-      if (p >= 0) {
-        at = p + 1;
+      const pred = PM_TREE_COLUMNS_DEFAULT_ORDER[j];
+      const p = out.indexOf(pred);
+      const altP = pred === 'taskStartDate' ? out.indexOf('start') : pred === 'taskDuration' ? out.indexOf('days') : -1;
+      const idx = Math.max(p, altP);
+      if (idx >= 0) {
+        at = idx + 1;
         break;
       }
     }
@@ -149,12 +244,55 @@ export interface PMTreeColumnsLayoutOptions {
   widths?: Record<string, number>;
   /** project custom columns (definitions) */
   customColumns?: readonly PMCustomColumnDef[];
+  /** When true (project.rowJSON.planHour === true), show startHourStart + startHourFinish columns in TaskTree */
+  planHour?: boolean;
+  /** When true (project.rowJSON.planMinute === true), show planMinuteStart + planMinuteFinish columns in TaskTree */
+  planMinute?: boolean;
+  /** When true (project.rowJSON.planSecond === true), show planSecondStart + planSecondFinish columns in TaskTree */
+  planSecond?: boolean;
 }
 
 export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnKey[] | unknown, opts: PMTreeColumnsLayoutOptions = {}): PMTreeColumnsLayout {
   const customColumns = opts.customColumns ?? [];
   const customByKey = new Map(customColumns.map((c) => [c.key as string, c]));
-  const order = normalizeTreeColumnsOrder(orderIn, customColumns.map((c) => c.key));
+  const baseOrder = normalizeTreeColumnsOrder(orderIn, customColumns.map((c) => c.key));
+  const order = [...baseOrder];
+
+  if (opts.planHour) {
+    if (!order.includes('startHourStart')) {
+      const idx = order.indexOf('taskStartDate');
+      order.splice(idx >= 0 ? idx + 1 : 2, 0, 'startHourStart');
+    }
+    if (!order.includes('startHourFinish')) {
+      const idx = order.indexOf('taskFinishDate');
+      order.splice(idx >= 0 ? idx + 1 : order.indexOf('taskDuration'), 0, 'startHourFinish');
+    }
+  }
+  if (opts.planMinute) {
+    if (!order.includes('planMinuteStart')) {
+      const after = order.includes('startHourStart') ? 'startHourStart' : 'taskStartDate';
+      const idx = order.indexOf(after);
+      order.splice(idx >= 0 ? idx + 1 : 2, 0, 'planMinuteStart');
+    }
+    if (!order.includes('planMinuteFinish')) {
+      const after = order.includes('startHourFinish') ? 'startHourFinish' : 'taskFinishDate';
+      const idx = order.indexOf(after);
+      order.splice(idx >= 0 ? idx + 1 : order.indexOf('taskDuration'), 0, 'planMinuteFinish');
+    }
+  }
+  if (opts.planSecond) {
+    if (!order.includes('planSecondStart')) {
+      const after = order.includes('planMinuteStart') ? 'planMinuteStart' : order.includes('startHourStart') ? 'startHourStart' : 'taskStartDate';
+      const idx = order.indexOf(after);
+      order.splice(idx >= 0 ? idx + 1 : 2, 0, 'planSecondStart');
+    }
+    if (!order.includes('planSecondFinish')) {
+      const after = order.includes('planMinuteFinish') ? 'planMinuteFinish' : order.includes('startHourFinish') ? 'startHourFinish' : 'taskFinishDate';
+      const idx = order.indexOf(after);
+      order.splice(idx >= 0 ? idx + 1 : order.indexOf('taskDuration'), 0, 'planSecondFinish');
+    }
+  }
+
   const saved = opts.widths ?? {};
   const widthOf = (k: PMTreeColumnKey): number => {
     if (typeof saved[k] === 'number') return clampTreeColumnWidth(k, saved[k]);
@@ -163,6 +301,18 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
   };
   const visible = new Set<PMTreeColumnKey>(order);
   if (opts.showHierarchyNumbers === false) visible.delete('wbs');
+  if (!opts.planHour) {
+    visible.delete('startHourStart');
+    visible.delete('startHourFinish');
+  }
+  if (!opts.planMinute) {
+    visible.delete('planMinuteStart');
+    visible.delete('planMinuteFinish');
+  }
+  if (!opts.planSecond) {
+    visible.delete('planSecondStart');
+    visible.delete('planSecondFinish');
+  }
   const nameFixed = typeof saved.name === 'number';
   if (!nameFixed) {
     // responsive: hide built-in columns while the flexible Task name column would be too narrow

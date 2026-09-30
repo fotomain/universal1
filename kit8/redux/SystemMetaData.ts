@@ -3,6 +3,10 @@ import {googleDriveCommandExample} from "../google/drive/googleDriveCommandExamp
 import {CURRENCY_ENTITY, currenciesTable, currencyExample} from "../catalog/currency/currencyModel";
 import {CURRENCY_EXCHANGE_ENTITY, currencyExchangeRateTable} from "../catalog/currency/exchange/currencyExchangeModel";
 import {KANBAN_STAGE_ENTITY, kanbanStageTable, kanbanStageExample} from "../catalog/kanbanstage/kanbanStageModel";
+import {PERSON_ENTITY, personsTable, personExample} from "../catalog/person/personModel";
+import {PARTNER_ENTITY, partnersTable, partnerExample} from "../catalog/partner/partnerModel";
+import {CONTRACT_ENTITY, contractsTable, emptyContract} from "../catalog/contract/contractModel";
+
 // MD.
 const SystemMetaData:any = {
     // 'uploadToGoogleDriveSession': {
@@ -58,6 +62,40 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p:any)=>{},
     },
+    // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
+    [PERSON_ENTITY]: {
+        tableName: personsTable,
+        itemLabel: "Person",
+        updateValidator: () => {},
+        defaultData: personExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Partner catalog (kit8/catalog/partner): /partner/list + /partner/edit, Supabase Realtime sync
+    [PARTNER_ENTITY]: {
+        tableName: partnersTable,
+        itemLabel: "Partner",
+        updateValidator: () => {},
+        defaultData: partnerExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Contract catalog (kit8/catalog/contract): embedded in PersonEdit / PartnerEdit, Supabase Realtime sync
+    [CONTRACT_ENTITY]: {
+        tableName: contractsTable,
+        itemLabel: "Contract",
+        updateValidator: () => {},
+        defaultData: emptyContract('partner'),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+
     'mediaPostReusable': {
         tableName: "mediaPostTable",
         // actions - see meta.actions = slice.actions;
