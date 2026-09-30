@@ -19,6 +19,7 @@
 //   matches (old AX / D365 query syntax, see compileMatches) · isEmpty · isNotEmpty (custom columns only)
 
 import type { PMScheduledRow, PMTaskRow } from '../../../model/types';
+import type { PMProjectKanbanStageRow, PMTaskKanbanStateRow } from '../../../model/kanbanTypes';
 import type { PMTreeIndex } from '../../project/scheduling';
 import type { PMTreeColumnKey } from '../columns/treeColumns';
 import { isCustomColumnKey, PMCustomColumnDef, taskCustomValuesOf } from '../columns/customColumns';
@@ -112,6 +113,7 @@ export function treeColumnDataType(key: string, customColumns: readonly PMCustom
   switch (key) {
     case 'wbs':
     case 'name':
+    case 'kanban':
       return 'text';
     case 'start':
       return 'date';
@@ -240,6 +242,8 @@ export interface PMTreeFilterContext {
   schedule: Record<string, PMScheduledRow | undefined>;
   tree: Pick<PMTreeIndex, 'wbsById' | 'childrenById'>;
   customColumns: readonly PMCustomColumnDef[];
+  kanbanStages?: readonly PMProjectKanbanStageRow[];
+  kanbanStates?: Record<string, PMTaskKanbanStateRow | undefined>;
 }
 
 /**
@@ -260,6 +264,13 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       return r ? r.durationDays : typeof t?.rowJSON?.durationDays === 'number' ? t.rowJSON.durationDays : null;
     case 'progress':
       return r ? Math.round(r.progress) : null; // as shown in the cell
+    case 'kanban': {
+      const stages = ctx.kanbanStages;
+      if (!stages || !stages.length) return '';
+      const saved = ctx.kanbanStates?.[guid]?.rowJSON?.stageGUID;
+      const stage = (saved && stages.find((s) => s.rowGUID === saved)) || stages[0];
+      return stage?.rowJSON?.stageName ?? '';
+    }
   }
   const type = treeColumnDataType(key, ctx.customColumns);
   if (!type) return null;

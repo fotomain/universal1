@@ -22,6 +22,7 @@ import {
   invalidationFor,
   isDeleteRelevant,
   mergeInvalidation,
+  nextRealtimeInstance,
   PMRealtimeInvalidation,
   PMRealtimeTable,
   PM_REALTIME_NOTHING,
@@ -80,7 +81,9 @@ export function useProjectRealtime(ownerGUID: string | null | undefined, project
     };
 
     const upserts = ['INSERT', 'UPDATE'] as const;
-    let channel: any = supabase.channel(`pm-gantt:${ownerGUID}:${projectGUID || 'none'}`);
+    // unique topic per hook instance: supabase.channel(topic) RETURNS the existing channel for a known topic, and
+    // adding listeners to an already subscribed channel throws (dashboard + task page are both mounted in the stack)
+    let channel: any = supabase.channel(`pm-gantt:${ownerGUID}:${projectGUID || 'none'}:${nextRealtimeInstance()}`);
     const listen = (table: string, kind: PMRealtimeTable, filter: string | null) => {
       for (const event of upserts) {
         channel = channel.on('postgres_changes', { event, schema: 'public', table, ...(filter ? { filter } : {}) }, onChange(kind));

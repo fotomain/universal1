@@ -2,6 +2,7 @@ import {mediaPostExample} from "./lib/mediaPostExample";
 import {googleDriveCommandExample} from "../google/drive/googleDriveCommandExample";
 import {CURRENCY_ENTITY, currenciesTable, currencyExample} from "../catalog/currency/currencyModel";
 import {CURRENCY_EXCHANGE_ENTITY, currencyExchangeRateTable} from "../catalog/currency/exchange/currencyExchangeModel";
+import {KANBAN_STAGE_ENTITY, kanbanStageTable, kanbanStageExample} from "../catalog/kanbanstage/kanbanStageModel";
 // MD.
 const SystemMetaData:any = {
     // 'uploadToGoogleDriveSession': {
@@ -38,6 +39,20 @@ const SystemMetaData:any = {
         updateValidator: () => {
         },
         defaultData: { startingDate: "2026-09-29", currencyRatio: 1 },
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p:any)=>{},
+    },
+    // Kanban stage catalog (kit8/catalog/kanbanstage): /kanbanstage/list + /kanbanstage/edit, the default stages
+    // copied into a project's Kanban (kanban_stage_table, rowOwnerGUID = 'kanbanStageCatalog'), Supabase Realtime sync
+    [KANBAN_STAGE_ENTITY]: {
+        tableName: kanbanStageTable,
+        itemLabel: "Kanban stage",
+        // actions - see meta.actions = slice.actions;
+        updateValidator: () => {
+        },
+        defaultData: kanbanStageExample,
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

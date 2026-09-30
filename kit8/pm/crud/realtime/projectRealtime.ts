@@ -79,3 +79,10 @@ export function isDeleteRelevant(table: PMRealtimeTable, old: OldRecord, cache: 
       return !!cache.userSettingsRowGUIDs?.includes(guid);
   }
 }
+
+let realtimeInstanceSeq = 0;
+/** Unique suffix for a realtime channel topic (one per mounted hook / effect run). */
+export function nextRealtimeInstance(): string {
+  realtimeInstanceSeq += 1;
+  return `${realtimeInstanceSeq.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}

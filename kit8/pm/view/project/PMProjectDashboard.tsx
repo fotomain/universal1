@@ -2,6 +2,8 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
+//   Gantt | Kanban | Network switch (uxuiSettings.ganttVsNetworkView): Kanban = tree + view/kanban/PMKanbanDashboard,
+//   Network = view/network/PMNetworkView
 //
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
 // Undo: PMUndoProvider (expo-sqlite on native) keeps one undoGanttAction per action.
@@ -29,6 +31,8 @@ import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
+import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
+import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 
 export default function PMProjectDashboard() {
@@ -55,6 +59,9 @@ function PMProjectDashboardInner() {
   useReadProjectUserSettingsQuery(ownerGUID); // this user's Gantt / tree settings per project
   const dataQuery = useReadProjectDataQuery(selectedProjectGUID);
   useProjectRealtime(ownerGUID, selectedProjectGUID);
+  // Kanban: stages + task states of the selected project (store_kanban) + their realtime auto refresh
+  useReadProjectKanbanQuery(ownerGUID ? selectedProjectGUID : null);
+  useKanbanRealtime(ownerGUID, selectedProjectGUID);
   useScheduleWriteBack(selectedProjectGUID);
   const crud = usePMCrud(ownerGUID, selectedProjectGUID);
   const seedDemo = useSeedDemoMutation(ownerGUID);
@@ -167,7 +174,11 @@ function PMProjectDashboardInner() {
           {ganttVsNetworkView === 'showNetworkView' ? (
             <PMNetworkView crud={crud} />
           ) : (
-            <PMGanttSurfaceLoader ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
+            <PMGanttSurfaceLoader
+              ownerGUID={ownerGUID}
+              projectGUID={selectedProjectGUID}
+              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : 'gantt'}
+            />
           )}
           {rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
             <View pointerEvents="box-none" style={styles.emptyOverlay}>

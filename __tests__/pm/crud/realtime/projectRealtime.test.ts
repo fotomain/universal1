@@ -50,3 +50,11 @@ describe('isDeleteRelevant (unfiltered DELETE events, primary key only)', () => 
     expect(isDeleteRelevant('task', { rowGUID: 't1' }, {})).toBe(false);
   });
 });
+
+describe('nextRealtimeInstance', () => {
+  it('gives every hook instance its own channel topic suffix (supabase.channel() reuses subscribed topics)', () => {
+    const { nextRealtimeInstance } = require('../../../../kit8/pm/crud/realtime/projectRealtime');
+    const ids = new Set(Array.from({ length: 50 }, () => nextRealtimeInstance()));
+    expect(ids.size).toBe(50);
+  });
+});

@@ -1,4 +1,6 @@
 // The Skia-rendered Gantt surface: [ tree | splitter | chart ] sharing ONE viewport.
+// Kanban mode (rightPane='kanban'): [ tree | splitter | PMKanbanDashboard ]; tree rows can be dragged onto
+// the board through view/kanban/kanbanTreeBridge.ts.
 // On web this module (and everything that imports Skia) is loaded lazily, after
 // CanvasKit has been initialised (see PMGanttSurfaceLoader.web.tsx).
 //
@@ -21,6 +23,10 @@ import { usePMCrud } from '../../crud/usePMCrud';
 import PMProjectTasksTree from '../tree/PMProjectTasksTree';
 import PMProjectGanttChart from './PMProjectGanttChart';
 import { hidePMTip } from '../../inner/tooltip/PMTooltip';
+import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
+import PMKanbanDashboard from '../kanban/PMKanbanDashboard';
+import PMKanbanTreeDragGhost from '../kanban/PMKanbanTreeDragGhost';
+import { useKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
 
 const MIN_CHART_WIDTH = 160;
 const RESIZE_SETTLE_MS = 180;
@@ -28,13 +34,18 @@ const RESIZE_SETTLE_MS = 180;
 export interface PMGanttSurfaceProps {
   ownerGUID: string;
   projectGUID: string;
+  /** right pane: the Skia Gantt chart (default) or the Kanban board (tree rows can be dragged onto it) */
+  rightPane?: 'gantt' | 'kanban';
 }
 
-export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfaceProps) {
+export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'gantt' }: PMGanttSurfaceProps) {
+  const isKanban = rightPane === 'kanban';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
   const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
   const crud = usePMCrud(ownerGUID, projectGUID);
+  const kanban = useKanbanCommands(projectGUID);
+  const kanbanBridge = useKanbanTreeBridge(kanban);
 
   const rootRef = useRef<View>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -96,6 +107,9 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
   // phones: the tree takes at most ~45% so the chart stays usable
   const treeWidth = size.w ? Math.round(Math.min(storeTreeWidth, Math.max(160, size.w * 0.45))) : storeTreeWidth;
   const chartWidth = Math.max(MIN_CHART_WIDTH, size.w - treeWidth - PM_SPLITTER_WIDTH);
+  useEffect(() => {
+    kanbanBridge.treeWidth.value = treeWidth;
+  }, [kanbanBridge, treeWidth]);
   const bodyHeight = Math.max(0, size.h - PM_TOOLBAR_HEIGHT - PM_SCALE_HEIGHT);
 
   // timeline = project range + padding, starting on a Monday, at least one screen wide
@@ -156,6 +170,8 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
   const { scrollX, scrollY, dayWidthLive, bodyH, chartW, rowCount: rc, totalDays: td, treeScrollX, treeMaxScrollX } = viewport; // stable shared values
   const treeWidthRef = useRef(treeWidth);
   treeWidthRef.current = treeWidth;
+  const isKanbanRef = useRef(isKanban);
+  isKanbanRef.current = isKanban;
   useEffect(() => () => {
     if (zoomCommitTimer.current) clearTimeout(zoomCommitTimer.current);
   }, []);
@@ -164,6 +180,8 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
     const el = rootRef.current as unknown as HTMLElement | null;
     if (!el || typeof el.addEventListener !== 'function') return;
     const onWheel = (e: WheelEvent) => {
+      // Kanban: the board scrolls natively, only the tree uses the shared viewport
+      if (isKanbanRef.current && e.clientX - el.getBoundingClientRect().left >= treeWidthRef.current) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? bodyH.value : 1;
       if (e.ctrlKey || e.metaKey) {
@@ -210,7 +228,7 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
     <View ref={rootRef} style={[styles.root, { backgroundColor: palette.background }]} onLayout={onLayout}>
       {size.w > 0 && size.h > 0 && (
         <React.Fragment key={`gantt-${layoutEpoch}`}>
-          <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} />
+          <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} kanbanBridge={isKanban ? kanbanBridge : undefined} />
           <GestureDetector gesture={splitter}>
             <View
               style={[
@@ -220,15 +238,29 @@ export default function PMGanttSurface({ ownerGUID, projectGUID }: PMGanttSurfac
               ]}
             />
           </GestureDetector>
-          <PMProjectGanttChart
-            viewport={viewport}
-            width={chartWidth}
-            height={size.h}
-            palette={palette}
-            crud={crud}
-            timelineStartMs={timelineStartMs}
-            totalDays={totalDays}
-          />
+          {isKanban ? (
+            <PMKanbanDashboard
+              projectGUID={projectGUID}
+              width={chartWidth}
+              height={size.h}
+              palette={palette}
+              crud={crud}
+              kanban={kanban}
+              bridge={kanbanBridge}
+              boardLeft={treeWidth + PM_SPLITTER_WIDTH}
+            />
+          ) : (
+            <PMProjectGanttChart
+              viewport={viewport}
+              width={chartWidth}
+              height={size.h}
+              palette={palette}
+              crud={crud}
+              timelineStartMs={timelineStartMs}
+              totalDays={totalDays}
+            />
+          )}
+          {isKanban && <PMKanbanTreeDragGhost bridge={kanbanBridge} palette={palette} />}
         </React.Fragment>
       )}
     </View>

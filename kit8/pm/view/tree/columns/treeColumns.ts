@@ -11,16 +11,16 @@
 // Coordinates: every x in a layout is a CONTENT x (0 = left edge of the first column). The tree
 // scrolls horizontally when the columns are wider than the pane (contentWidth > width).
 
-import { PM_TREE_COL_DAYS, PM_TREE_COL_PROGRESS, PM_TREE_COL_START, PM_TREE_COL_WBS } from '../../../model/constants';
+import { PM_TREE_COL_DAYS, PM_TREE_COL_KANBAN, PM_TREE_COL_PROGRESS, PM_TREE_COL_START, PM_TREE_COL_WBS } from '../../../model/constants';
 import { isCustomColumnKey, PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType, PM_CUSTOM_COLUMN_DEFAULT_WIDTH } from './customColumns';
 
-/** Built-in columns: wbs = "#" (hierarchy / outline number), name = Task name. */
-export type PMBuiltinTreeColumnKey = 'wbs' | 'name' | 'start' | 'days' | 'progress';
+/** Built-in columns: wbs = "#" (hierarchy / outline number), name = Task name, kanban = Kanban stage. */
+export type PMBuiltinTreeColumnKey = 'wbs' | 'name' | 'start' | 'days' | 'progress' | 'kanban';
 /** Any tree column: built-in or custom ("cc_..."). */
 export type PMTreeColumnKey = PMBuiltinTreeColumnKey | PMCustomColumnKey;
 
-/** Default order: the "#" column is the first one (custom columns follow, in creation order). */
-export const PM_TREE_COLUMNS_DEFAULT_ORDER: readonly PMBuiltinTreeColumnKey[] = ['wbs', 'name', 'start', 'days', 'progress'];
+/** Default order: "#" column first, "Kanban" column last (custom columns follow, in creation order). */
+export const PM_TREE_COLUMNS_DEFAULT_ORDER: readonly PMBuiltinTreeColumnKey[] = ['wbs', 'name', 'start', 'days', 'progress', 'kanban'];
 
 export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
   wbs: '#',
@@ -28,6 +28,7 @@ export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
   start: 'Start',
   days: 'Days',
   progress: '%',
+  kanban: 'Kanban',
 };
 
 /** Default widths; the Task name column takes the rest of the pane until it is resized. */
@@ -36,6 +37,7 @@ export const PM_TREE_COLUMN_WIDTHS: Record<Exclude<PMBuiltinTreeColumnKey, 'name
   start: PM_TREE_COL_START,
   days: PM_TREE_COL_DAYS,
   progress: PM_TREE_COL_PROGRESS,
+  kanban: PM_TREE_COL_KANBAN,
 };
 
 /** The flexible Task name column never gets narrower than this: other built-in columns are hidden first. */
@@ -47,8 +49,8 @@ export const PM_TREE_COLUMN_MAX_WIDTH = 1200;
 /** Half width of the grab zone around a header separator (px). */
 export const PM_TREE_RESIZE_GRAB = 5;
 
-/** Narrow pane: hide "#" first, then %, then Days, then Start (Task name always stays). */
-const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = ['wbs', 'progress', 'days', 'start'];
+/** Narrow pane: hide "#" first, then Kanban, then %, then Days, then Start (Task name always stays). */
+const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = ['wbs', 'kanban', 'progress', 'days', 'start'];
 
 export const isBuiltinTreeColumnKey = (k: unknown): k is PMBuiltinTreeColumnKey =>
   typeof k === 'string' && (PM_TREE_COLUMNS_DEFAULT_ORDER as readonly string[]).includes(k);
@@ -67,6 +69,10 @@ export function normalizeTreeColumnsOrder(value: unknown, customKeys: readonly s
   }
   PM_TREE_COLUMNS_DEFAULT_ORDER.forEach((k, i) => {
     if (out.includes(k)) return;
+    if (k === 'kanban') {
+      out.push(k);
+      return;
+    }
     // insert after the nearest default predecessor that is already placed
     let at = 0;
     for (let j = i - 1; j >= 0; j--) {

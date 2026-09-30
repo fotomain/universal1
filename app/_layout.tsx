@@ -342,6 +342,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
               <Drawer.Screen name="currency/exchange/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rates' }} />
               <Drawer.Screen name="currency/exchange/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rate' }} />
+              <Drawer.Screen name="kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
+              <Drawer.Screen name="kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />

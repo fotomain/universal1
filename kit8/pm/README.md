@@ -12,6 +12,8 @@ Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
    `project_user_settings_table` and copies every project's old `rowJSON.uxuiSettings` into its owner's row).
    Existing PM tables (before realtime)? Run `update_pm_tables_realtime.sql` (non-destructive: adds the PM tables to the
    `supabase_realtime` publication + `REPLICA IDENTITY FULL`; without it other browsers only see edits after a reload).
+   Kanban: run `create_pm_kanban_tables.sql` after it (non-destructive, safe to re-run; also after every
+   `create_pm_tables.sql`, which drops the project Kanban tables). Remove: `delete_pm_kanban_tables.sql`.
    Remove everything: `delete_pm_tables.sql`.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
@@ -315,6 +317,39 @@ double tap / long press = edit, tap-to-link, tap a link / labelled dummy = depen
 upstream + downstream chain, info card (dates, ES/EF/LS/LF, float, progress).
 **Read-only**: `<PMNetworkView readOnly />` (or no `crud`) — no CRUD panel, no linking / editing / dependency menu,
 only selection + the info card; view switches are local (nothing saved).
+
+## Kanban view (`kit8/pm/view/kanban`)
+
+Main view switch **Gantt | Kanban | Network** (`GanttToNetworkViewToggleButtons`, on the Gantt, Kanban and network bars) =
+`uxuiSettings.ganttVsNetworkView` `'showGanttChart'` | `'showKanbanView'` | `'showNetworkView'`. Kanban =
+`PMGanttSurface rightPane="kanban"`: the Skia task tree stays on the left, `PMKanbanDashboard` replaces the chart.
+
+* **Stages (columns)** - `project_kanban_stage_table`, the same set for every task of the project. The first open of a
+  project copies the catalog `kanban_stage_table` (projectTaskKanbanStages: Waiting, Plan, Analyse, Construct, Execute)
+  into it (RPC `pm_kanban_ensure_project_stages`, advisory lock = never twice). The catalog itself: hamburger menu →
+  Catalogs → **Kanban Stages** (`kit8/catalog/kanbanstage`, `ListWebCardsComponent` + `KanbanEditCard`). Edit them in **Project settings →
+  Kanban Stages** (or the Kanban bar button): rename, color, WIP limit, move, add, delete (its tasks go back to the first
+  stage - SQL trigger). `PMKanbanStagesModalWindow` is rendered inside its host Modal (iOS) and confirms deletes inline.
+* **Task stage** - `project_task_kanban_state_table` (rowOwnerGUID = project, rowParentGUID = task, rowJSON.stageGUID,
+  orderInList = card order). No row / deleted stage = the first stage. **Independent of the progress %**: cards only
+  show it (edit it with ✎ = `PMTaskEditModal`).
+* **Cards** = tasks + milestones (leaf rows) of the **scope**: select a stage in the tree → the board shows only its
+  subtree (toolbar: name + "earliest" stage of its tasks, **All** = whole project); selecting a task outside the scope
+  resets it. Tap a card = select it in the tree, double tap / ✎ = edit, ‹ › = previous / next stage.
+* **Drag & drop** - inside the board `react-native-reanimated-dnd` (card = `Draggable`, column = `Droppable`; the place
+  inside the column comes from the drop position; touch: long-press first). **Tree → board**: the tree's own row drag
+  (name / # columns, or the panel's ⠿ handle) continues onto the board through `kanbanTreeBridge.ts` (UI-thread shared
+  values: pointer, column under it; floating `PMKanbanTreeDragGhost`); dropping a stage row moves all its tasks.
+* **Data** - `crud/api/kanbanApi.ts` → `crud/kanban/kanbanQueries.ts` (React Query, optimistic + rollback) →
+  `store/store_kanban.ts` (Zustand `usePMKanbanStore`); commands `crud/kanban/useKanbanCommands.ts`
+  (`moveTasksToStage`, `moveTreeRowToStage`, `createStage`, `updateStage`, `moveStage`, `deleteStage`). Pure logic:
+  `view/kanban/kanbanModel.ts` (`buildKanbanBoard`, `planKanbanMove`, `derivedKanbanStage`).
+* **Auto refresh** - `crud/kanban/useKanbanRealtime.ts` (own channel, same rules as `crud/realtime`): the three tables
+  are in the `supabase_realtime` publication (`create_pm_kanban_tables.sql`).
+* Tables missing (SQL not run): the board shows the default stages read-only with a hint.
+* Not in the Gantt undo; not part of the project export file.
+* Tests: `__tests__/pm/view/kanban/kanbanModel.test.ts`, `__tests__/pm/crud/kanban/kanbanRealtime.test.ts`,
+  `__tests__/pm/crud/pmKanbanCrud.test.tsx`, `__tests__/pm/ui/kanbanUi.test.tsx`.
 
 ## Dependencies
 

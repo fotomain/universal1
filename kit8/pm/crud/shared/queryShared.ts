@@ -17,6 +17,10 @@ export const pmKeys = {
   task: (taskGUID: string | null | undefined) => ['pm', 'task', taskGUID] as const,
   /** project_user_settings_table rows of one user (all his projects) */
   userSettings: (userGUID: string | null | undefined) => ['pm', 'userSettings', userGUID] as const,
+  /** kanban_stage_table catalog (shared) */
+  kanbanCatalog: () => ['pm', 'kanbanCatalog'] as const,
+  /** project_kanban_stage_table + project_task_kanban_state_table of one project */
+  projectKanban: (projectGUID: string | null | undefined) => ['pm', 'projectKanban', projectGUID] as const,
   upstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'up', taskGUID] as const,
   downstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'down', taskGUID] as const,
 };

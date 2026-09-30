@@ -1,10 +1,10 @@
-// Gantt bar control (same look as the "Dependency arrows" selector): two buttons that switch
-// the project view
+// Main view switch (same look as the "Dependency arrows" selector): Gantt | Kanban | Network
 //   ganttVsNetworkView = 'showGanttChart'  -> the Gantt chart (tree + Skia chart)
+//   ganttVsNetworkView = 'showKanbanView'  -> tree + PMKanbanDashboard (view/kanban)
 //   ganttVsNetworkView = 'showNetworkView' -> PMNetworkView (network diagram / network schedule)
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);
-// read-only views pass a local setter instead. The same control sits on the network view's bar,
-// so the user can always switch back.
+// read-only views pass a local setter instead. The same control sits on the Gantt bar, the Kanban bar
+// and the network view's bar, so the user can always switch.
 
 import React from 'react';
 import { usePMStore } from '../../../store/store_pm';
@@ -18,6 +18,12 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     icon: 'view_timeline',
     label: 'Gantt',
     title: 'Gantt chart',
+  },
+  {
+    value: 'showKanbanView',
+    icon: 'view_kanban',
+    label: 'Kanban',
+    title: 'Kanban board: task stages (drag tasks from the tree onto a column)',
   },
   {
     value: 'showNetworkView',

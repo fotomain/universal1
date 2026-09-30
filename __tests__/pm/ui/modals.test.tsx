@@ -335,13 +335,13 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     renderUI(<PMGanttUXUISettinsModalWindow crud={crud} />);
     act(() => usePMStore.getState().setUxuiSettingsOpen(true));
     press('pm-uxui-tab-TabTree');
-    expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %'); // the draft comes from the project (defaults)
+    expect(textOf('pm-uxui-tree-columns-order')).toBe('#  ·  Task name  ·  Start  ·  Days  ·  %  ·  Kanban'); // the draft comes from the project (defaults)
     toggleSwitch('pm-uxui-tree-numbers');
     press('pm-uxui-save');
     const d = crud.setGanttViewSettings.mock.calls[0][0];
     expect(d.showTreeHierarchyNumbers).toBe(false);
-    expect(d.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress']);
-    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress'], showTreeHierarchyNumbers: true }));
+    expect(d.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban']);
+    act(() => usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['wbs', 'name', 'start', 'days', 'progress', 'kanban'], showTreeHierarchyNumbers: true }));
   });
 
   it('Cancel / ✕ close without saving; Defaults resets the draft', () => {

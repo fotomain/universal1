@@ -61,7 +61,10 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       label: 'Catalogs',
       icon: 'menu_book',
       route: '',
-      children: [{ id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' }],
+      children: [
+        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
+        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'kanbanstage/list' },
+      ],
     },
     { id: 'pm-projects', label: 'Projects', icon: 'view_timeline', route: 'pm/project/dashboard' },
   ];

@@ -6,6 +6,7 @@
 --   project_task_dependencies_table        DAG edges (the dependencies)
 --   project_task_dependency_closure_table  transitive closure of the DAG (trigger-maintained)
 --   project_user_settings_table            per user settings of a project (RN: projectUserSettingsTable)
+--   (Kanban tables: create_pm_kanban_tables.sql - run it after this file)
 --
 -- Three structures, three jobs (never mix them):
 --   1. TREE  (Project -> Stage -> Task)   = ltree "treePath". Only answers "what contains what".
@@ -54,6 +55,9 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT text2ltree(replace(lower(p_guid::text), '-', '_'));
 $$;
 
+-- Kanban tables reference project_table / project_task_table: re-create them afterwards with create_pm_kanban_tables.sql
+DROP TABLE IF EXISTS public.project_task_kanban_state_table CASCADE;
+DROP TABLE IF EXISTS public.project_kanban_stage_table CASCADE;
 DROP TABLE IF EXISTS public.project_user_settings_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependency_closure_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;

@@ -31,7 +31,7 @@ import Animated, { runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, w
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT, PM_TOOLBAR_HEIGHT, PM_TREE_INDENT } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import { formatDateShort } from '../project/scheduling';
-import { ellipsize, PMPalette } from '../theme';
+import { ellipsize, PMPalette, withAlpha } from '../theme';
 import { makeMeasure, usePMFonts } from '../../skia/usePMFonts';
 import { clampValue, maxScrollY, PMViewport } from '../gantt/useGanttViewport';
 import { PMCrud } from '../../crud/usePMCrud';
@@ -40,6 +40,9 @@ import PMTreeToolbar from './toolbars/PMTreeToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
+import { usePMKanbanStore } from '../../store/store_kanban';
+import { kanbanStageOfTask, derivedKanbanStage } from '../kanban/kanbanModel';
+import { kanbanStageColorOf } from '../../model/kanbanTypes';
 import PMInlineCellEditor from './inline/PMInlineCellEditor';
 import {
   PMTreeColumnKey,
@@ -58,6 +61,7 @@ import {
 } from './columns/customColumns';
 import { useTreeColumnsLayout } from './columns/useTreeColumnsLayout';
 import { useTreeColumnDragGesture, useTreeColumnGeometry } from './columns/useTreeColumnDragGesture';
+import { kanbanBridgeFinish, kanbanBridgeMove, kanbanBridgeRelease, PMKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
 import { useTreeColumnResizeGesture } from './columns/useTreeColumnResizeGesture';
 import PMTreeColumnsHeader from './columns/PMTreeColumnsHeader';
 import { isOverTreeRowPanel, placeTreeRowPanel, treeRowPanelViewLeft } from './panels/treeRowPanelGeometry';
@@ -76,7 +80,7 @@ const BOOL_BOX = 12;
 
 /** Editable cell of a column (null = Task name / # column). */
 const cellFieldOf = (key: PMTreeColumnKey | null): PMCellField | null =>
-  key === 'start' || key === 'days' || key === 'progress' || isCustomColumnKey(key) ? (key as PMCellField) : null;
+  key === 'start' || key === 'days' || key === 'progress' || key === 'kanban' || isCustomColumnKey(key) ? (key as PMCellField) : null;
 
 interface Props {
   viewport: PMViewport;
@@ -84,9 +88,11 @@ interface Props {
   height: number; // whole pane incl. toolbar
   palette: PMPalette;
   crud: PMCrud;
+  /** Kanban mode: dragging a row to the right of the tree drops it onto the board (view/kanban/kanbanTreeBridge.ts) */
+  kanbanBridge?: PMKanbanTreeBridge;
 }
 
-export default function PMProjectTasksTree({ viewport, width, height, palette, crud }: Props) {
+export default function PMProjectTasksTree({ viewport, width, height, palette, crud, kanbanBridge }: Props) {
   const fonts = usePMFonts();
   const visibleRows = usePMStore((s) => s.visibleRows);
   const tasksById = usePMStore((s) => s.tasksById);
@@ -126,7 +132,10 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const startCol = layout.byKey.start;
   const daysCol = layout.byKey.days;
   const progCol = layout.byKey.progress;
+  const kanbanCol = layout.byKey.kanban;
   const customCols = useMemo(() => layout.columns.filter((c) => c.customType), [layout]);
+  const kanbanStages = usePMKanbanStore((s) => s.stages);
+  const kanbanStates = usePMKanbanStore((s) => s.statesByTask);
   /** grid width in content coordinates (rows, lines) */
   const gridW = Math.max(width, layout.contentWidth);
   const { scrollY, hoverRow, rowCount, bodyH, dragging, win, treeScrollX, treeMaxScrollX } = viewport;
@@ -135,6 +144,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   /** left x of the tree structure (chevron) of a row at `depth` (content x) */
   const chevronXAt = useCallback((depth: number) => (colsRef.current.byKey.name?.x ?? 0) + 8 + depth * PM_TREE_INDENT, []);
   const [hoverInCells, setHoverInCells] = useState(false);
+  const [hoverCellField, setHoverCellField] = useState<PMCellField | null>(null);
   const [headerCursor, setHeaderCursor] = useState<'' | 'grab' | 'col-resize' | 'pointer'>('');
   /** row whose hover panel is showing (web) - the pointer may move over the panel without hiding it */
   const panelShownFor = useRef<string | null>(null);
@@ -180,6 +190,15 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       daysX: number;
       prog: string;
       progX: number;
+      kanban: {
+        text: string;
+        color: string;
+        bgColor: string;
+        pillX: number;
+        pillW: number;
+        dotX: number;
+        textX: number;
+      } | null;
       critical: boolean;
       color: string | null;
       /** shown only because a descendant matches the filters */
@@ -198,6 +217,23 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       const measure = summary ? measureBold : measureReg;
       const days = r ? (r.isMilestone ? '◆' : String(r.durationDays)) : '';
       const prog = r ? `${Math.round(r.progress)}%` : '';
+      let kanban: { text: string; color: string; bgColor: string; pillX: number; pillW: number; dotX: number; textX: number } | null = null;
+      if (kanbanCol) {
+        const stage = summary || hasChildren
+          ? derivedKanbanStage(guid, tasksById, tree, kanbanStages, kanbanStates) ?? (kanbanStages.length ? kanbanStages[0] : null)
+          : kanbanStages.find((s) => s.rowGUID === kanbanStageOfTask(guid, kanbanStages, kanbanStates)) ?? (kanbanStages.length ? kanbanStages[0] : null);
+        const stageName = stage?.rowJSON?.stageName || (kanbanStages.length ? '—' : 'None');
+        const stageColor = kanbanStageColorOf(stage?.rowJSON);
+        const maxTextW = Math.max(10, kanbanCol.w - 28);
+        const ellipsized = ellipsize(stageName, maxTextW, measureSmall);
+        const textW = measureSmall(ellipsized);
+        const pillW = Math.min(kanbanCol.w - 8, Math.max(28, textW + 18));
+        const pillX = kanbanCol.x + 4;
+        const dotX = pillX + 6;
+        const textX = pillX + 16;
+        const bgColor = withAlpha(stageColor, 0.16);
+        kanban = { text: ellipsized, color: stageColor, bgColor, pillX, pillW, dotX, textX };
+      }
       const values = customCols.length ? taskCustomValuesOf(t.rowJSON) : {};
       const custom = customCols.map((c) => {
         const type = c.customType!;
@@ -224,6 +260,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         daysX: daysCol ? daysCol.x + daysCol.w - 8 - measureSmall(days) : 0,
         prog,
         progX: progCol ? progCol.x + progCol.w - 8 - measureSmall(prog) : 0,
+        kanban,
         critical: showCritical && !!r?.isCritical && !summary,
         color: taskColorOf(t.rowJSON),
         context: !!filterContext[guid],
@@ -231,7 +268,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, customCols, showCritical, filterContext]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, daysCol, progCol, kanbanCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -309,10 +346,11 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   /** Which editable column is under content x (null = Task name / # column). */
   const cellFieldAt = useCallback((x: number): PMCellField | null => cellFieldOf(treeColumnAt(colsRef.current, x)), []);
 
-  /** Stages are rolled up; milestones have no duration. Custom cells are editable on every row. */
+  /** Stages are rolled up; milestones have no duration. Custom cells and Kanban are editable on every row. */
   const cellEditable = useCallback((guid: string, field: PMCellField) => {
     const s = usePMStore.getState();
     if (!s.tasksById[guid]) return false;
+    if (field === 'kanban') return true;
     if (isCustomColumnKey(field)) return true;
     if (s.schedule[guid]?.isSummary || (s.tree.childrenById[guid]?.length ?? 0) > 0) return false;
     if (field === 'days' && s.tasksById[guid]?.rowJSON.rowKind === 'milestone') return false;
@@ -380,6 +418,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     const inCells = !!field && !onPanel;
     panelShownFor.current = guid && !inCells ? guid : null;
     setHoverInCells(inCells);
+    setHoverCellField(inCells ? field : null);
     const inHeader = !guid && y >= 0 && y < PM_SCALE_HEIGHT && x >= 0;
     const resizeKey = inHeader ? treeColumnResizeHandleAt(colsRef.current, x, RESIZE_GRAB) : null;
     const filterKey = inHeader && !resizeKey ? treeFilterIconAt(colsRef.current, x, y, RESIZE_GRAB) : null;
@@ -432,7 +471,9 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         ? def.type === 'boolean'
           ? `Click to switch "${def.name}"`
           : `Click to edit "${def.name}" (${PM_CUSTOM_COLUMN_TYPE_LABEL[def.type]}${def.type === 'date' ? ', YYYY-MM-DD' : ''})`
-        : cellEditable(guid!, f)
+        : f === 'kanban'
+          ? 'Click to change Kanban stage'
+          : cellEditable(guid!, f)
           ? f === 'start'
             ? 'Click to set the start (YYYY-MM-DD, empty = as soon as possible)'
             : f === 'days'
@@ -640,6 +681,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     canvasHSV.value = canvasH;
   }, [canvasH, canvasHSV]);
 
+  const bridge = kanbanBridge;
   const { gesture, handleGesture } = useMemo(() => {
     /** view x of the panel's left edge (it follows its column but stays inside the pane) */
     const onPanel = (idx: number, vx: number) => {
@@ -732,18 +774,23 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         'worklet';
         if (dragFrom.value < 0) return;
         dragY.value += e.changeY;
+        // Kanban: to the right of the tree the row is dragged onto the board (surface coords: canvas is below the toolbar)
+        if (bridge && kanbanBridgeMove(bridge, e.x, e.y + PM_TOOLBAR_HEIGHT, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
         dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
       })
       .onEnd(() => {
         'worklet';
-        if (dragFrom.value >= 0) runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+        if (dragFrom.value < 0) return;
+        if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
       })
       .onFinalize(() => {
         'worklet';
         dragFrom.value = -1;
         dropSlot.value = -1;
         dragging.value = 0;
+        if (bridge) kanbanBridgeFinish(bridge);
       });
     if (!IS_WEB) reorder.activateAfterLongPress(350);
 
@@ -837,12 +884,20 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         'worklet';
         if (dragFrom.value < 0) return;
         dragY.value += e.changeY;
+        if (bridge) {
+          // the handle is the panel's last button: its surface point + the finger's translation
+          const handleX = treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
+          const handleY = PM_TOOLBAR_HEIGHT + PM_SCALE_HEIGHT + handleStartY.value - handleStartScroll.value;
+          if (kanbanBridgeMove(bridge, handleX + e.translationX, handleY + e.translationY, dragFrom.value)) return;
+        }
         const contentY = handleStartY.value + e.translationY + (scrollY.value - handleStartScroll.value);
         dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
       })
       .onEnd(() => {
         'worklet';
-        if (dragFrom.value >= 0) runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+        if (dragFrom.value < 0) return;
+        if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
       })
       .onFinalize(() => {
         'worklet';
@@ -850,6 +905,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         dropSlot.value = -1;
         dragging.value = 0;
         runOnJS(onHandleDrag)(-1);
+        if (bridge) kanbanBridgeFinish(bridge);
       });
 
     // web: mouse-drag = reorder (wheel scrolls); touch: long-press-drag = reorder, drag = scroll
@@ -867,7 +923,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge]);
 
   const panelStyle = useAnimatedStyle(() => {
     const top = PM_SCALE_HEIGHT + panelIndex * PM_ROW_HEIGHT - scrollY.value;
@@ -880,7 +936,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
 
   const selectedIndex = selectedGUID ? rowIndexById[selectedGUID] ?? -1 : -1;
   const linkIndex = linkSourceGUID ? rowIndexById[linkSourceGUID] ?? -1 : -1;
-  const cursor = headerCursor || (hoverInCells ? 'text' : 'default');
+  const cursor = headerCursor || (hoverCellField === 'kanban' ? 'pointer' : hoverInCells ? 'text' : 'default');
 
   return (
     <View style={{ width, height, backgroundColor: palette.surface }}>
@@ -926,6 +982,33 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
                           {startCol && <SkText x={startCol.x + 8} y={base} text={r.start} font={fonts.small} color={palette.textMuted} />}
                           {daysCol && <SkText x={r.daysX} y={base} text={r.days} font={fonts.small} color={palette.textMuted} />}
                           {progCol && <SkText x={r.progX} y={base} text={r.prog} font={fonts.small} color={palette.textMuted} />}
+                          {r.kanban && (
+                            <>
+                              <RoundedRect
+                                x={r.kanban.pillX}
+                                y={cy - 9}
+                                width={r.kanban.pillW}
+                                height={18}
+                                r={4}
+                                color={r.kanban.bgColor}
+                              />
+                              <RoundedRect
+                                x={r.kanban.dotX}
+                                y={cy - 3}
+                                width={6}
+                                height={6}
+                                r={3}
+                                color={r.kanban.color}
+                              />
+                              <SkText
+                                x={r.kanban.textX}
+                                y={base}
+                                text={r.kanban.text}
+                                font={r.summary ? fonts.smallBold : fonts.small}
+                                color={r.context ? palette.textMuted : palette.text}
+                              />
+                            </>
+                          )}
                           {r.custom.map((c) => (c.text ? <SkText key={c.key} x={c.x} y={base} text={c.text} font={fonts.small} color={palette.text} /> : null))}
                         </>
                       )}

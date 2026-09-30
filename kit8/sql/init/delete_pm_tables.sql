@@ -26,6 +26,8 @@ END $$;
 DROP VIEW IF EXISTS public.project_task_schedule_view;
 
 -- ---- tables (children first; CASCADE removes triggers, policies, FKs, indexes) --------
+DROP TABLE IF EXISTS public.project_task_kanban_state_table CASCADE; -- Kanban (create_pm_kanban_tables.sql)
+DROP TABLE IF EXISTS public.project_kanban_stage_table CASCADE;
 DROP TABLE IF EXISTS public.project_user_settings_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependency_closure_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;

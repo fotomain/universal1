@@ -48,16 +48,16 @@ describe('Gantt view settings from project_table.rowJSON', () => {
   it('mirrors the tree column settings (showTreeHierarchyNumbers / treeColumnsOrder) of the selected project', () => {
     const s = usePMStore.getState();
     s.selectProject(null);
-    s.setProjects([project('t1', { uxuiSettings: { showTreeHierarchyNumbers: false, treeColumnsOrder: ['name', 'wbs', 'start', 'days', 'progress'] } }), project('t2')]);
+    s.setProjects([project('t1', { uxuiSettings: { showTreeHierarchyNumbers: false, treeColumnsOrder: ['name', 'wbs', 'start', 'days', 'progress', 'kanban'] } }), project('t2')]);
     usePMStore.getState().selectProject('t1');
     let st = usePMStore.getState();
     expect(st.showTreeHierarchyNumbers).toBe(false);
-    expect(st.treeColumnsOrder).toEqual(['name', 'wbs', 'start', 'days', 'progress']);
+    expect(st.treeColumnsOrder).toEqual(['name', 'wbs', 'start', 'days', 'progress', 'kanban']);
     usePMStore.getState().selectProject('t2'); // defaults: "#" shown and first
     st = usePMStore.getState();
     expect(st.showTreeHierarchyNumbers).toBe(true);
-    expect(st.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress']);
-    usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['progress', 'wbs', 'name', 'start', 'days'] });
+    expect(st.treeColumnsOrder).toEqual(['wbs', 'name', 'start', 'days', 'progress', 'kanban']);
+    usePMStore.getState().setTreeColumnsSettings({ treeColumnsOrder: ['progress', 'wbs', 'name', 'start', 'days', 'kanban'] });
     expect(usePMStore.getState().treeColumnsOrder[0]).toBe('progress');
   });
 });

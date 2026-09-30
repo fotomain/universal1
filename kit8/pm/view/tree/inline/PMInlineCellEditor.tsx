@@ -12,6 +12,7 @@ import EditTaskStart from './EditTaskStart';
 import EditTaskDays from './EditTaskDays';
 import EditTaskProgress from './EditTaskProgress';
 import EditTaskCustomValue from './EditTaskCustomValue';
+import EditTaskKanbanStage from './EditTaskKanbanStage';
 
 export default function PMInlineCellEditor({
   field,
@@ -49,6 +50,11 @@ export default function PMInlineCellEditor({
     const w = Math.min(Math.max(104, col.w - 4), contentW - 4);
     const x = Math.min(Math.max(2, col.x + col.w - 2 - w), contentW - 2 - w);
     return <EditTaskStart {...common} x={x} width={w} />;
+  }
+  if (field === 'kanban') {
+    const w = Math.min(Math.max(160, col.w - 4), contentW - 4);
+    const x = Math.min(Math.max(2, col.x + col.w - 2 - w), contentW - 2 - w);
+    return <EditTaskKanbanStage {...common} x={x} width={w} />;
   }
   if (field === 'days') return <EditTaskDays {...common} x={col.x + 2} width={col.w - 4} />;
   return <EditTaskProgress {...common} x={col.x + 2} width={Math.min(col.w, contentW - col.x) - 4} />;

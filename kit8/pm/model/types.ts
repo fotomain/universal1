@@ -179,7 +179,7 @@ export interface PMUxUiSettings {
   taskProgressLineColor?: string;
   /** Color of the project progress line (default PM_DEFAULT_PROGRESS_LINE_COLOR). */
   projectProgressLineColor?: string;
-  /** Gantt bar toggle: Gantt chart or network view (default 'showGanttChart'). */
+  /** Main view switch: Gantt chart, Kanban board or network view (default 'showGanttChart'). */
   ganttVsNetworkView?: PMGanttVsNetworkView;
   /** PMNetworkView radio: network diagram (AON) or network schedule (AOA) (default 'networkDiagram'). */
   networkViewMode?: PMNetworkViewMode;
@@ -215,8 +215,10 @@ export const PM_CONTEXT_COMMANDS_MODES: PMContextCommandsMode[] = ['onHoverPanel
 export const contextCommandsModeOf = (v: unknown): PMContextCommandsMode =>
   v === 'onRightClickMenuMode' ? 'onRightClickMenuMode' : 'onHoverPanelMode';
 
-/** Gantt bar toggle (GanttToNetworkViewToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showNetworkView';
+/** Main view switch Gantt | Kanban | Network (GanttToNetworkViewToggleButtons). */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView';
+export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
+  v === 'showNetworkView' || v === 'showKanbanView' ? v : 'showGanttChart';
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
 /**
@@ -251,7 +253,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     taskProgressLineColor: progressLineColorOf(u.taskProgressLineColor),
     projectProgressLineColor: progressLineColorOf(u.projectProgressLineColor),
     criticalPathTaskColor: criticalPathTaskColorOf(u.criticalPathTaskColor),
-    ganttVsNetworkView: u.ganttVsNetworkView === 'showNetworkView' ? 'showNetworkView' : 'showGanttChart',
+    ganttVsNetworkView: pmMainViewOf(u.ganttVsNetworkView),
     networkViewMode: u.networkViewMode === 'networkSchedule' ? 'networkSchedule' : 'networkDiagram',
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',

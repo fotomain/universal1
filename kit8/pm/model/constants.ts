@@ -8,6 +8,18 @@ export const projectTaskDependencyClosureTable = 'project_task_dependency_closur
 /** Per user settings of a project (rowOwnerGUID = project, rowParentGUID = user, rowJSON.uxuiSettings). */
 export const projectUserSettingsTable = 'project_user_settings_table';
 
+// ---- Kanban (kit8/sql/init/create_pm_kanban_tables.sql, kit8/sql/defTable.md pattern) ----------------
+/** Catalog of default Kanban stages (rowOwnerGUID = KANBAN_STAGE_CATALOG_OWNER). */
+export const kanbanStageTable = 'kanban_stage_table';
+/** Kanban stages (columns) of a project (rowOwnerGUID = project). */
+export const projectKanbanStageTable = 'project_kanban_stage_table';
+/** Kanban stage of a task (rowOwnerGUID = project, rowParentGUID = task, rowJSON.stageGUID). */
+export const projectTaskKanbanStateTable = 'project_task_kanban_state_table';
+/** rowOwnerGUID of the shared kanban_stage_table catalog rows. */
+export const KANBAN_STAGE_CATALOG_OWNER = 'kanbanStageCatalog';
+/** RPC: the project's stages; the first call copies the catalog into the project. */
+export const pmRpcKanbanEnsureProjectStages = 'pm_kanban_ensure_project_stages';
+
 // SQL functions (see kit8/sql/init/create_pm_tables.sql)
 export const pmRpcApplySchedule = 'pm_apply_schedule';
 export const pmRpcDependencyCreatesCycle = 'pm_dependency_creates_cycle';
@@ -32,6 +44,7 @@ export const PM_TREE_COL_WBS = 52;
 export const PM_TREE_COL_START = 78;
 export const PM_TREE_COL_DAYS = 46;
 export const PM_TREE_COL_PROGRESS = 46;
+export const PM_TREE_COL_KANBAN = 88;
 
 export const PM_DAY_WIDTH_DEFAULT = 30;
 export const PM_DAY_WIDTH_MIN = 1; // Year zoom (quarter / year scale)

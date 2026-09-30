@@ -44,6 +44,7 @@ import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
 import SwitchApp from "../../../../components/common/SwitchApp";
+import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
 import type { PMProjectRow, PMRowJSON } from "../../../model/types";
 
 interface Draft {
@@ -81,6 +82,11 @@ export default function PMRecentProjectsToolbar({
   const settingsHeight = Math.max(320, Math.min(PM_PROJECT_SETTINGS_HEIGHT, Math.round(win.height * 0.92)));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
+  const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
+  useEffect(() => {
+    if (!draft) setKanbanStagesOpen(false);
+  }, [draft]);
   const selected = selectedProjectGUID
     ? projectsById[selectedProjectGUID]
     : undefined;
@@ -416,6 +422,17 @@ export default function PMRecentProjectsToolbar({
                 </Text>
               )}
               {!!draft?.rowGUID && (
+                <PMDialogButton
+                  testID="pm-project-kanban-stages"
+                  kind="secondary"
+                  icon="view_column"
+                  title="Kanban Stages"
+                  color={themeColors.text}
+                  style={styles.kanbanStagesButton}
+                  onPress={() => setKanbanStagesOpen(true)}
+                />
+              )}
+              {!!draft?.rowGUID && (
                 <ImportExportProject
                   ownerGUID={ownerGUID}
                   projectGUID={draft.rowGUID}
@@ -447,6 +464,13 @@ export default function PMRecentProjectsToolbar({
               </View>
             </View>
           </View>
+          {/* inside the settings Modal: iOS presents a modal only from the top-most one */}
+          <PMKanbanStagesModalWindow
+            projectGUID={draft?.rowGUID ?? null}
+            projectName={draft?.name}
+            visible={kanbanStagesOpen && !!draft?.rowGUID}
+            onClose={() => setKanbanStagesOpen(false)}
+          />
         </Modal>
       )}
     </View>
@@ -596,6 +620,7 @@ const styles = StyleSheet.create({
   },
   modalCard: { width: "100%", maxWidth: 420, borderRadius: 12, padding: 16 },
   modalBody: { flex: 1, minHeight: 0 },
+  kanbanStagesButton: { alignSelf: "flex-start", marginLeft: 0, marginTop: 10 },
   label: { fontSize: 12, opacity: 0.7, marginTop: 10, marginBottom: 4 },
   input: {
     borderWidth: 1,
