@@ -319,7 +319,11 @@ describe('PMGanttUXUISettinsModalWindow (⚙ on the Gantt bar)', () => {
     expect(q('pm-uxui-opt-ganttCommands')!.getAttribute('aria-selected')).toBe('true'); // flashed / scrolled to
 
     typeInto('pm-uxui-search', 'critical');
-    expect(qa('pm-uxui-search-row-')).toEqual(['pm-uxui-search-row-criticalPathTaskColor', 'pm-uxui-search-row-criticalPath']);
+    expect(qa('pm-uxui-search-row-')).toEqual([
+      'pm-uxui-search-row-criticalPathTaskColor',
+      'pm-uxui-search-row-criticalPathColorHasPriorityOverTheCustomTaskColor',
+      'pm-uxui-search-row-criticalPath',
+    ]);
     press('pm-uxui-search-row-criticalPath'); // same tab: scrolls without switching
     expect(tabSelected('TabGantt')).toBe(true);
     expect(q('pm-uxui-opt-criticalPath')!.getAttribute('aria-selected')).toBe('true');

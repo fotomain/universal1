@@ -11,6 +11,7 @@ import { PMPalette, withAlpha } from '../theme';
 import { formatDateShort } from '../project/scheduling';
 import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { PMTipIcon } from '../../inner/buttons';
+import { usePMStore } from '../../store/store_pm';
 import type { PMKanbanCard as Card } from './kanbanModel';
 
 const IS_WEB = Platform.OS === 'web';

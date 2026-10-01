@@ -50,6 +50,7 @@ describe('uxuiSettingsOf', () => {
       taskProgressLineColor: '#FCFF00',
       projectProgressLineColor: '#FCFF00',
       criticalPathTaskColor: '#FF0033',
+      criticalPathColorHasPriorityOverTheCustomTaskColor: false,
       ganttVsNetworkView: 'showGanttChart',
       networkViewMode: 'networkDiagram',
       networkDiagramVariant: 'cpmNodes',

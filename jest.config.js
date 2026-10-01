@@ -6,6 +6,7 @@ module.exports = {
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|immer|@reduxjs/.*|redux|reselect|reanimated-color-picker)",
   ],
   moduleNameMapper: {
+    "^react-redux$": "<rootDir>/node_modules/react-redux/dist/cjs/index.js",
     "^react-native$": "react-native-web",
     "^react-native-paper-dates$": "<rootDir>/__mocks__/react-native-paper-dates.js",
     "^expo-asset$": "<rootDir>/node_modules/expo/node_modules/expo-asset",

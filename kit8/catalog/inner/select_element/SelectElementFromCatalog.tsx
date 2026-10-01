@@ -122,7 +122,7 @@ export default function SelectElementFromCatalog({
   titleExtractor = defaultTitleExtractor,
   subtitleExtractor = defaultSubtitleExtractor,
   testID = 'select-element-from-catalog',
-  scopeFetchByOwner = false,
+  scopeFetchByOwner = true,
 }: SelectElementFromCatalogProps) {
   const { themeColors: c } = useDesignSystem();
   const [modalOpen, setModalOpen] = useState(false);
@@ -131,7 +131,7 @@ export default function SelectElementFromCatalog({
   // Realtime subscription scoped by rowOwnerGUID and/or rowParentGUID
   const readParams = useMemo(() => {
     const match: Record<string, any> = {};
-    if (scopeFetchByOwner && rowOwnerGUID !== undefined) match.rowOwnerGUID = rowOwnerGUID;
+    if (scopeFetchByOwner !== false && rowOwnerGUID !== undefined) match.rowOwnerGUID = rowOwnerGUID;
     if (rowParentGUID !== undefined) match.rowParentGUID = rowParentGUID;
     return {
       paginationSize: 1000,

@@ -55,7 +55,7 @@ eas build --platform ios --profile production
 # Both platforms simultaneously:
 eas build --platform all --profile production
 
-make me save_to_github.command: it must save to repo: expo-YYYY-MM-DD-HH-MM
+make me save_to_github.command: it must save to branch of universal1: expo-YYYY-MM-DD-HH-MM
 it must solve the error: The following problems have occurred when adding the files: Unable to create '/Users/mgtimber/UNIVERSAL1/expo-app/.git/index.lock': File exists. Another git process seems to be running in this repository, e.g. an editor opened by 'git commit'. Please make sure all processes are terminated then try again. If it still fails, a git process may have crashed in this repository earlier: remove the file manually to continue.
 
 git init

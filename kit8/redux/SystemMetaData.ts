@@ -11,6 +11,9 @@ import {COUNTRY_ENTITY, countryTable, emptyCountry} from "../catalog/country/cou
 import {DEPARTAMENT_ENTITY, departamentTable, emptyDepartament} from "../catalog/departament/departamentModel";
 import {PROJECT_ENTITY} from "../catalog/project/projectCatalogModel";
 import {PROJECT_KANBAN_STAGE_ENTITY, PROJECT_TASK_KANBAN_STATE_ENTITY, projectKanbanStageTable, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
+import {ROLE_ENTITY, rolesTable, emptyRole} from "../catalog/role/roleModel";
+import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userrole/userRoleModel";
+import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
 
 // MD.
 const SystemMetaData:any = {
@@ -121,8 +124,42 @@ const SystemMetaData:any = {
     [COUNTRY_ENTITY]: {
         tableName: countryTable,
         itemLabel: "Country",
-        updateValidator: () => {},
+        updateValidator: (action: any, state: any) => {
+            if (state && !checkIsAppAdmin(state)) {
+                throw new Error("Only roleAppAdmin can modify countries.");
+            }
+        },
         defaultData: emptyCountry(),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Role catalog (kit8/catalog/role): /catalog/role/list, roleAppAdmin only
+    [ROLE_ENTITY]: {
+        tableName: rolesTable,
+        itemLabel: "Role",
+        updateValidator: (action: any, state: any) => {
+            if (state && !checkIsAppAdmin(state)) {
+                throw new Error("Only roleAppAdmin can modify roles.");
+            }
+        },
+        defaultData: emptyRole(),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // User Role entity (kit8/catalog/userrole): /user/roles/list, roleAppAdmin only
+    [USER_ROLE_ENTITY]: {
+        tableName: userRolesTable,
+        itemLabel: "User Role",
+        updateValidator: (action: any, state: any) => {
+            if (state && !checkIsAppAdmin(state)) {
+                throw new Error("Only roleAppAdmin can modify user roles.");
+            }
+        },
+        defaultData: emptyUserRole(),
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },
@@ -169,6 +206,17 @@ const SystemMetaData:any = {
         itemLabel: "Task Kanban State",
         updateValidator: () => {},
         defaultData: { stageGUID: "", kanbanStageProgressPercent: 0 },
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Project Kanban Stage (project_kanban_stage_table): TabKanban in Project Settings, Supabase Realtime sync
+    [PROJECT_KANBAN_STAGE_ENTITY]: {
+        tableName: projectKanbanStageTable,
+        itemLabel: "Project Kanban Stage",
+        updateValidator: () => {},
+        defaultData: { stageName: "New Stage", stageColor: "#3b82f6", wipLimit: 0 },
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

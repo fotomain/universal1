@@ -381,14 +381,51 @@ CREATE TABLE IF NOT EXISTS public."contractTable" (
 );
 CREATE INDEX IF NOT EXISTS "idx_contractTable_owner_order" ON public."contractTable" ("rowOwnerGUID", "orderInList");
 CREATE INDEX IF NOT EXISTS "idx_contractTable_number" ON public."contractTable" ((lower("rowJSON"->>'contractNumber')));
-SELECT public.kit8_setup_def_table('contractTable');
+-- ---- roleTable: rowOwnerGUID = 'roleCatalog', rowParentGUID = 'empty' -------------------------
+CREATE TABLE IF NOT EXISTS public."roleTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'roleCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_roleTable_name" ON public."roleTable" ((lower("rowJSON"->>'roleName')));
+SELECT public.kit8_setup_def_table('roleTable');
 
--- departament / person / partner / contract: full CRUD for signed-in users only
+INSERT INTO public."roleTable" ("orderInList", "rowJSON")
+SELECT v.ord, v.j::jsonb
+  FROM (VALUES
+    (1000, '{"roleName":"roleUser","roleTitle":"User","roleDescription":"Standard user","isActive":true}'),
+    (2000, '{"roleName":"roleOrganizationAdmin","roleTitle":"Organization Admin","roleDescription":"Organization administrator","isActive":true}'),
+    (3000, '{"roleName":"roleProjectManager","roleTitle":"Project Manager","roleDescription":"Project manager","isActive":true}'),
+    (4000, '{"roleName":"roleAppAdmin","roleTitle":"App Admin","roleDescription":"Application administrator","isActive":true}')
+  ) AS v(ord, j)
+ WHERE NOT EXISTS (SELECT 1 FROM public."roleTable" r WHERE r."rowJSON"->>'roleName' = (v.j::jsonb->>'roleName'));
+
+-- ---- userRoleTable: rowOwnerGUID = user email / uid, rowParentGUID = roleGUID or 'empty' ------
+CREATE TABLE IF NOT EXISTS public."userRoleTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_userRoleTable_owner" ON public."userRoleTable" ("rowOwnerGUID");
+CREATE INDEX IF NOT EXISTS "idx_userRoleTable_role" ON public."userRoleTable" ((lower("rowJSON"->>'roleName')));
+SELECT public.kit8_setup_def_table('userRoleTable');
+
+-- departament / person / partner / contract / role / userRole: full CRUD for signed-in users only
 DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['departamentTable', 'personTable', 'partnerTable', 'contractTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['departamentTable', 'personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable'] LOOP
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
@@ -1731,6 +1768,7 @@ DECLARE
     -- catalogs
     'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
     'departamentTable', 'personTable', 'partnerTable', 'contractTable',
+    'roleTable', 'userRoleTable',
     -- PM (React Query invalidation: kit8/pm/crud/realtime, kit8/pm/crud/kanban)
     'project_table', 'project_task_table', 'project_task_dependencies_table', 'project_user_settings_table',
     'kanban_stage_table', 'project_kanban_stage_table', 'project_task_kanban_state_table'

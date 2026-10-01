@@ -52,6 +52,8 @@ import SelectElementFromCatalog from "../../../../catalog/inner/select_element/S
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
+import SelectDateApp from "../../../../components/common/SelectDateApp";
+import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
 
@@ -61,6 +63,8 @@ interface Draft {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
+  projectStartDate: string;
+  projectFinishDate: string;
   skipWeekends: boolean;
   planDay: boolean;
   planHour: boolean;
@@ -166,6 +170,8 @@ export default function PMRecentProjectsToolbar({
       rowGUID: null,
       name: "",
       start: formatDateISO(todayUTC()),
+      projectStartDate: formatDateISO(todayUTC()),
+      projectFinishDate: "",
       skipWeekends: false,
       planDay: true,
       planHour: false,
@@ -182,13 +188,18 @@ export default function PMRecentProjectsToolbar({
     if (!project) return;
     setDraftError(null);
     setActiveTab('TabMain');
-    const start = project.rowJSON.projectStartAt
-      ? Date.parse(project.rowJSON.projectStartAt)
-      : todayUTC();
+    const startStr = project.rowJSON.projectStartDate || (project.rowJSON.projectStartAt
+      ? formatDateISO(Date.parse(project.rowJSON.projectStartAt))
+      : formatDateISO(todayUTC()));
+    const finishStr = project.rowJSON.projectFinishDate || (project.rowDuration
+      ? formatDateISO(Date.parse(project.rowDuration))
+      : "");
     setDraft({
       rowGUID: project.rowGUID,
       name: project.rowJSON.name || "",
-      start: formatDateISO(start),
+      start: startStr,
+      projectStartDate: startStr,
+      projectFinishDate: finishStr,
       skipWeekends: !!project.rowJSON.skipWeekends,
       planDay: project.rowJSON.planDay ?? true,
       planHour: !!project.rowJSON.planHour,
@@ -214,12 +225,17 @@ export default function PMRecentProjectsToolbar({
   }, [settingsRequest]);
 
   /** after an import the project's start / calendar come from the file: show them (Save keeps them) */
-  const onImported = (json: PMRowJSON) =>
+  const onImported = (json: PMRowJSON) => {
+    const newStart = json.projectStartAt ? formatDateISO(Date.parse(json.projectStartAt)) : undefined;
+    const newFinish = json.projectFinishAt ? formatDateISO(Date.parse(json.projectFinishAt)) : undefined;
     setDraft((d) =>
       d
         ? {
             ...d,
-            start: json.projectStartAt ? formatDateISO(Date.parse(json.projectStartAt)) : d.start,
+            start: newStart ?? d.start,
+            projectStartDate: newStart ?? d.projectStartDate,
+            finish: newFinish ?? d.finish,
+            projectFinishDate: newFinish ?? d.projectFinishDate,
             skipWeekends: !!json.skipWeekends,
             planDay: json.planDay ?? d.planDay,
             planHour: json.planHour ?? d.planHour,
@@ -233,13 +249,16 @@ export default function PMRecentProjectsToolbar({
           }
         : d,
     );
+  };
 
   const saveDraft = () => {
     if (!draft) return;
     const name = draft.name.trim();
-    const startMs = parseDateISO(draft.start);
+    const startDateVal = draft.projectStartDate || draft.start;
+    const startMs = parseDateISO(startDateVal) ?? parsePlanDate(startDateVal, draft.planDateInputFormat);
     if (!name) return setDraftError("Name is required.");
     if (startMs === null) return setDraftError("Start must be YYYY-MM-DD.");
+    const finishMs = draft.projectFinishDate ? (parseDateISO(draft.projectFinishDate) ?? parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat)) : null;
     if (draft.rowGUID) {
       const cur = projectsById[draft.rowGUID];
       updateProject.mutate({
@@ -249,6 +268,8 @@ export default function PMRecentProjectsToolbar({
             ...cur.rowJSON,
             name,
             projectStartAt: new Date(startMs).toISOString(),
+            projectStartDate: startDateVal,
+            projectFinishDate: draft.projectFinishDate || null,
             skipWeekends: draft.skipWeekends,
             planDay: draft.planDay,
             planHour: draft.planHour,
@@ -260,10 +281,14 @@ export default function PMRecentProjectsToolbar({
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
           },
+          ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
       });
     } else {
       const row = buildRow(name, startMs);
+      row.rowJSON.projectStartDate = startDateVal;
+      row.rowJSON.projectFinishDate = draft.projectFinishDate || null;
+      if (finishMs) row.rowDuration = new Date(finishMs).toISOString();
       row.rowJSON.skipWeekends = draft.skipWeekends;
       row.rowJSON.planDay = draft.planDay;
       row.rowJSON.planHour = draft.planHour;
@@ -274,7 +299,6 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
-      // no uxuiSettings here: the Gantt / tree settings are per user (project_user_settings_table), defaults until saved
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -525,20 +549,72 @@ export default function PMRecentProjectsToolbar({
                       onSubmitEditing={saveDraft}
                     />
                     <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
-                      Start (YYYY-MM-DD)
+                      Project Start Date (projectStartDate)
                     </Text>
-                    <TextInput
-                      testID="pm-project-start"
-                      value={draft?.start || ""}
-                      onChangeText={(v) =>
-                        setDraft((d) => (d ? { ...d, start: v } : d))
-                      }
-                      style={[
-                        styles.input,
-                        { color: themeColors.text, borderColor: themeColors.border },
-                      ]}
-                      autoCapitalize="none"
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TextInput
+                        testID="pm-project-start"
+                        value={draft?.projectStartDate || draft?.start || ""}
+                        onChangeText={(v) =>
+                          setDraft((d) => (d ? { ...d, projectStartDate: v, start: v } : d))
+                        }
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={themeColors.border}
+                        style={[
+                          styles.input,
+                          { flex: 1, color: themeColors.text, borderColor: themeColors.border },
+                        ]}
+                        autoCapitalize="none"
+                      />
+                      <SelectDateApp
+                        trigger="icon"
+                        testID="pm-project-start-datepicker"
+                        style={{ marginLeft: 8 }}
+                        value={
+                          draft?.projectStartDate
+                            ? (parsePlanDate(draft.projectStartDate, draft.planDateInputFormat) ?? parseDateISO(draft.projectStartDate))
+                            : undefined
+                        }
+                        onSelect={(d) => {
+                          const val = d ? (draft?.planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), draft?.planDateInputFormat || 'YYYY-MM-DD')) : '';
+                          setDraft((prev) => prev ? { ...prev, projectStartDate: val, start: val } : prev);
+                        }}
+                      />
+                    </View>
+
+                    <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
+                      Project Finish Date (projectFinishDate)
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TextInput
+                        testID="pm-project-finish"
+                        value={draft?.projectFinishDate || ""}
+                        onChangeText={(v) =>
+                          setDraft((d) => (d ? { ...d, projectFinishDate: v } : d))
+                        }
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={themeColors.border}
+                        style={[
+                          styles.input,
+                          { flex: 1, color: themeColors.text, borderColor: themeColors.border },
+                        ]}
+                        autoCapitalize="none"
+                      />
+                      <SelectDateApp
+                        trigger="icon"
+                        testID="pm-project-finish-datepicker"
+                        style={{ marginLeft: 8 }}
+                        value={
+                          draft?.projectFinishDate
+                            ? (parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat) ?? parseDateISO(draft.projectFinishDate))
+                            : undefined
+                        }
+                        onSelect={(d) => {
+                          const val = d ? (draft?.planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), draft?.planDateInputFormat || 'YYYY-MM-DD')) : '';
+                          setDraft((prev) => prev ? { ...prev, projectFinishDate: val } : prev);
+                        }}
+                      />
+                    </View>
                     <SwitchApp
                       testID="pm-project-weekends"
                       label="Working days only (skip weekends)"
@@ -691,6 +767,7 @@ export default function PMRecentProjectsToolbar({
                       value={draft?.mainSupplierContractGUID}
                       rowOwnerGUID={draft?.mainSupplierGUID ? draft.mainSupplierGUID : undefined}
                       rowParentGUID="partner"
+                      scopeFetchByOwner={false}
                       filterItem={(item) => {
                         if (draft?.mainSupplierGUID) {
                           return item.rowOwnerGUID === draft.mainSupplierGUID;
@@ -745,6 +822,7 @@ export default function PMRecentProjectsToolbar({
                       value={draft?.mainCustomerContractGUID}
                       rowOwnerGUID={draft?.mainCustomerGUID ? draft.mainCustomerGUID : undefined}
                       rowParentGUID="partner"
+                      scopeFetchByOwner={false}
                       filterItem={(item) => {
                         if (draft?.mainCustomerGUID) {
                           return item.rowOwnerGUID === draft.mainCustomerGUID;

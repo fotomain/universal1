@@ -21,6 +21,7 @@ import {
   normalizeCountry,
   validateCountry,
 } from './countryModel';
+import { useIsAppAdmin } from '../role/useIsAppAdmin';
 
 type Form = {
   countryName: string;
@@ -63,6 +64,7 @@ export default function CountryEdit() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
+  const isAdmin = useIsAppAdmin();
   const { rowGUID } = useLocalSearchParams<{ rowGUID?: string }>();
   const isNew = !rowGUID;
 
@@ -98,6 +100,10 @@ export default function CountryEdit() {
   };
 
   const handleSave = () => {
+    if (!isAdmin) {
+      setSaveError('Permission denied: only roleAppAdmin can modify countries.');
+      return;
+    }
     const json = fromForm(form);
     const check = validateCountry(json);
     if (!check.valid) {

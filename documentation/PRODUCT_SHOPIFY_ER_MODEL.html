@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopify-Style Product ER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f8fafc; --bg-subtle:#f1f5f9; --card:#fff; --border:#e2e8f0; --border-strong:#cbd5e1; --text:#0f172a; --text-2:#334155; --muted:#64748b;
+    --emerald:#059669; --emerald-soft:#d1fae5; --purple:#7c3aed; --radius:14px; --radius-sm:8px; --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 16px rgba(15,23,42,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; --display:'Space Grotesk','Inter',sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; scroll-padding-top:70px; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 var(--font); }
+  a { color:var(--purple); }
+  code { font:12.5px var(--mono); background:var(--bg-subtle); padding:1px 6px; border-radius:6px; overflow-wrap:anywhere; }
+  header.top { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.93); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+  .top-inner { max-width:1320px; margin:0 auto; display:flex; align-items:center; gap:18px; padding:10px 20px; }
+  .brand { font:700 16px var(--display); white-space:nowrap; display:flex; align-items:center; gap:8px; }
+  .brand-dot { width:22px; height:22px; border-radius:7px; background:linear-gradient(180deg,#64748b,#0891b2 25%,#7c3aed 45%,#059669 65%,#d97706 75%,#16a34a 85%,#e11d48); }
+  nav { overflow-x:auto; flex:1; } nav ul { list-style:none; display:flex; gap:4px; margin:0; padding:0; }
+  nav a { display:block; white-space:nowrap; padding:6px 12px; border-radius:999px; color:var(--muted); text-decoration:none; font-weight:500; font-size:13.5px; }
+  nav a:hover { background:var(--bg-subtle); color:var(--text); }
+  main { max-width:1320px; margin:0 auto; padding:8px 20px 80px; }
+  section { margin:42px 0; }
+  h1 { font:700 34px/1.15 var(--display); margin:14px 0 10px; letter-spacing:-.02em; }
+  h2 { font:700 25px/1.2 var(--display); margin:0 0 6px; }
+  .sub { color:var(--muted); margin:0 0 16px; max-width:940px; }
+  .lead { font-size:17px; color:var(--text-2); max-width:940px; }
+  .pill { display:inline-block; padding:4px 12px; border-radius:999px; font-size:12.5px; font-weight:600; background:var(--emerald-soft); color:var(--emerald); }
+  .kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-top:18px; }
+  @media (max-width:800px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:27px; } }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow); }
+  .kpi b { display:block; font:700 26px var(--display); } .kpi span { color:var(--muted); font-size:13px; }
+  /* diagram */
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; }
+  .toolbar button, .toolbar input { font:600 13px var(--font); border:1px solid var(--border-strong); background:var(--card); border-radius:999px; padding:6px 14px; color:var(--text-2); cursor:pointer; }
+  .toolbar input { cursor:text; font-weight:500; min-width:200px; }
+  .toolbar button:hover { background:var(--bg-subtle); }
+  .toolbar .zoomv { color:var(--muted); font-size:13px; min-width:48px; }
+  .viewport { border:1px solid var(--border); border-radius:var(--radius); background:#fff; overflow:auto; height:min(82vh,1100px); box-shadow:var(--shadow); cursor:grab; }
+  .viewport.drag { cursor:grabbing; }
+  .viewport svg { display:block; transform-origin:0 0; }
+  #er { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; }
+#er .box { fill: #fff; stroke: #cbd5e1; stroke-width: 1.2; }
+#er .zebra { fill: #f8fafc; }
+#er .th { font: 700 13px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill: #fff; }
+#er .tb { font: 700 10.5px 'Inter', sans-serif; fill: rgba(255,255,255,.85); }
+#er .cn { font: 11.5px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill: #0f172a; }
+#er .pkc { font-weight: 700; }
+#er .rpcc { fill: #475569; }
+#er .req { fill: #e11d48; }
+#er .ct { font: 10.5px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill: #64748b; }
+#er .badge { font: 700 9px 'Inter', sans-serif; }
+#er .bpk { fill: #d97706; } #er .bfk { fill: #7c3aed; } #er .bar { fill: #0891b2; } #er .blog { fill: #16a34a; } #er .buq { fill: #64748b; }
+#er .bandlbl { font: 700 13px 'Space Grotesk', 'Inter', sans-serif; letter-spacing: .02em; }
+#er .edge { fill: none; stroke: #94a3b8; stroke-width: 1.4; }
+#er .edge.fk { stroke: #7c3aed; stroke-opacity: .75; }
+#er .edge.fk.optional { stroke-dasharray: 6 3; }
+#er .edge.array { stroke: #0891b2; stroke-dasharray: 2 3; stroke-width: 1.6; }
+#er .edge.trigger { stroke: #d97706; stroke-dasharray: 4 3; }
+#er .edge.rebuild { stroke: #16a34a; stroke-width: 1.8; }
+#er .edge.read { stroke: #e11d48; stroke-width: 1.8; }
+#er .mk { fill: none; stroke: #7c3aed; stroke-width: 1.4; }
+#er .mkdot { stroke: #0891b2; }
+#er .mko { fill: #fff; }
+#er .mka { fill: #64748b; }
+#er .node.rpc .box { stroke-dasharray: 4 3; }
+
+  #er .node { cursor:pointer; transition:opacity .15s; }
+  #er .edge { transition:opacity .15s, stroke-width .15s; }
+  #er.focus .node:not(.on) { opacity:.18; }
+  #er.focus .edge:not(.on) { opacity:.06; }
+  #er.focus .edge.on { stroke-width:2.6; stroke-opacity:1; }
+  #er.focus .band { opacity:.6; }
+  #er .node.hit .box { stroke:#e11d48; stroke-width:3; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 20px; font-size:13px; color:var(--text-2); margin:12px 0 0; }
+  .legend span { display:inline-flex; align-items:center; gap:8px; }
+  .legend svg { flex:none; }
+  .legend b { font:700 10px var(--font); }
+  /* waterfall steps */
+  .falls { display:flex; flex-direction:column; gap:10px; }
+  .step { margin-left:calc(var(--i) * min(3.2vw, 44px)); border-left:5px solid var(--c); background:var(--card); border-radius:10px; box-shadow:var(--shadow); padding:10px 14px; position:relative; }
+  .step::before { content:''; position:absolute; left:-5px; top:100%; width:calc(min(3.2vw,44px) + 5px); height:10px; border-left:5px solid var(--c); border-bottom:2px solid var(--c); border-bottom-left-radius:10px; opacity:.5; }
+  .step:last-child::before { display:none; }
+  .stephead { display:flex; justify-content:space-between; gap:12px; color:var(--c); font-family:var(--display); }
+  .stephead span { color:var(--muted); font:13px var(--font); }
+  .stepbody { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:6px 18px; margin-top:6px; }
+  .lvt { display:flex; flex-direction:column; font-size:13px; }
+  .lvt a { text-decoration:none; } .lvt span { color:var(--text-2); } .lvt em { color:var(--muted); font-size:12px; }
+  @media (max-width:640px) { .step { margin-left:calc(var(--i) * 6px); } .step::before { display:none; } }
+  .order { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; line-height:2.1; font-size:13px; }
+  .tbl-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card); margin:10px 0; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; }
+  th,td { text-align:left; padding:7px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background:var(--bg-subtle); font-weight:600; color:var(--text-2); white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  .grid2 { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:18px; }
+  @media (max-width:900px) { .grid2 { grid-template-columns:1fr; } }
+  .ctrees { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .ctree { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; font-size:13px; }
+  .croot { font-weight:700; color:#e11d48; }
+  .ctree ul { list-style:none; margin:4px 0 0 6px; padding-left:14px; border-left:2px solid #fecdd3; }
+  .ctree li { margin:4px 0; } .via { color:var(--muted); font-size:12px; }
+  .callout { border-radius:var(--radius-sm); padding:12px 16px; margin:14px 0; border-left:4px solid #d97706; background:#fef3c7; align-self:start; }
+  .sqlpre { font:12px/1.55 var(--mono); background:#0f172a; color:#e2e8f0; padding:14px 16px; border-radius:8px; overflow-x:auto; }
+  .sqlpre code { background:none; color:inherit; padding:0; }
+  details { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; } details summary { cursor:pointer; font-weight:600; }
+  pre.js { font:12px/1.55 var(--mono); background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow-x:auto; margin:6px 0 0; white-space:pre-wrap; }
+  footer { color:var(--muted); font-size:13px; text-align:center; padding:30px 0; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand"><span class="brand-dot"></span>Shopify-style · ER model</div>
+  <nav><ul>
+    <li><a href="#diagram">Diagram</a></li><li><a href="#levels">Waterfall levels</a></li><li><a href="#order">Create / drop order</a></li>
+    <li><a href="#cascade">Delete cascade</a></li><li><a href="#json">JSON columns</a></li><li><a href="#woo">Woo mapping</a></li><li><a href="#compare">vs Plan 2</a></li><li><a href="#relations">Relationships</a></li><li><a href="#sql">SQL</a></li>
+  </ul></nav>
+</div></header>
+<main>
+<section style="margin-top:20px">
+  <span class="pill">ER model · compact Shopify-style product schema · generated from the tested schema · 2026-10-01</span>
+  <h1>Compact product ER model: products, options, variants</h1>
+  <p class="lead">Every table sits on a numbered level, and every arrow points down. A table only ever depends on levels above it. The write side has 7 tables instead of Plan 2's 17. Variant dimensions live on the product as <code>options</code> (up to 3, e.g. Color and Memory), and every variant stores its choice as plain text in <code>option1</code>–<code>option3</code>, as in Shopify and Medusa. The fast read model from Plan 2 sits underneath unchanged, so the shop stays as fast.</p>
+  <p class="sub">Generated from the actual <code>shop</code> schema, tested on PostgreSQL 16: tables, columns, primary keys, foreign keys, unique indexes and triggers. The test loaded a variable phone (3 colors × 3 memory sizes) and a simple food product, with stock in two locations. It checked the rebuild, the facets, the "Blue AND 512 GB on the same variant" filter, the per-store filter, stock and rating roll-ups, rejection of unknown category IDs and rejection of duplicate option combinations. Laid out with ELK's layered algorithm with one partition per level, so no table can move above a table it depends on.</p>
+  <div class="kpis">
+    <div class="kpi"><b>12</b><span>tables</span></div>
+    <div class="kpi"><b>139</b><span>columns</span></div>
+    <div class="kpi"><b>6</b><span>foreign keys (3 cascade)</span></div>
+    <div class="kpi"><b>9</b><span>waterfall levels, L0 to L8</span></div>
+    <div class="kpi"><b>0</b><span>upward edges</span></div>
+  </div>
+</section>
+
+<section id="diagram">
+  <h2>Diagram</h2>
+  <div class="toolbar">
+    <button id="zfit">Fit width</button><button id="zout" aria-label="Zoom out">−</button><span class="zoomv" id="zval">100%</span><button id="zin" aria-label="Zoom in">+</button><button id="z100">100%</button>
+    <input id="find" type="search" placeholder="Find a table or column…" aria-label="Find a table or column">
+    <button id="clear">Clear focus</button>
+  </div>
+  <div class="viewport" id="vp"><svg xmlns="http://www.w3.org/2000/svg" id="er" viewBox="0 0 1332 2828" width="1332" height="2828" role="img" aria-label="Product plan 2 ER model, waterfall layout">
+<defs>
+  <marker id="many" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1,7 L13,1 M1,7 L13,7 M1,7 L13,13" class="mk"/></marker>
+  <marker id="manyDot" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1,7 L13,1 M1,7 L13,13" class="mk mkdot"/></marker>
+  <marker id="one" viewBox="0 0 14 14" refX="1" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M5,1 L5,13 M9,1 L9,13" class="mk"/></marker>
+  <marker id="zeroOne" viewBox="0 0 16 14" refX="1" refY="7" markerWidth="16" markerHeight="14" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M5,1 L5,13" class="mk"/><circle cx="11" cy="7" r="3.4" class="mk mko"/></marker>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" class="mka"/></marker>
+</defs>
+<g class="band" data-band="0"><rect x="0" y="6" width="1332" height="215" fill="#64748b" fill-opacity="0.09"/><text x="1316" y="28" text-anchor="end" class="bandlbl" fill="#64748b">L0 · Reference data</text></g>
+<g class="band" data-band="1"><rect x="0" y="265" width="1332" height="691" fill="#7c3aed" fill-opacity="0.05"/><text x="1316" y="287" text-anchor="end" class="bandlbl" fill="#7c3aed">L1 · Product</text></g>
+<g class="band" data-band="2"><rect x="0" y="1000" width="1332" height="555" fill="#4f46e5" fill-opacity="0.09"/><text x="1316" y="1022" text-anchor="end" class="bandlbl" fill="#4f46e5">L2 · Variants &amp; reviews</text></g>
+<g class="band" data-band="3"><rect x="0" y="1599" width="1332" height="198" fill="#059669" fill-opacity="0.05"/><text x="1316" y="1621" text-anchor="end" class="bandlbl" fill="#059669">L3 · Inventory (optional)</text></g>
+<g class="band" data-band="4"><rect x="0" y="1841" width="1332" height="96" fill="#d97706" fill-opacity="0.09"/><text x="1316" y="1863" text-anchor="end" class="bandlbl" fill="#d97706">L4 · Projection queue</text></g>
+<g class="band" data-band="5"><rect x="0" y="1981" width="1332" height="368" fill="#16a34a" fill-opacity="0.05"/><text x="1316" y="2003" text-anchor="end" class="bandlbl" fill="#16a34a">L5 · Read model</text></g>
+<g class="band" data-band="6"><rect x="0" y="2393" width="1332" height="147" fill="#15803d" fill-opacity="0.09"/><text x="1316" y="2415" text-anchor="end" class="bandlbl" fill="#15803d">L6 · Aggregates</text></g>
+<g class="band" data-band="7"><rect x="0" y="2584" width="1332" height="96" fill="#e11d48" fill-opacity="0.05"/><text x="1316" y="2606" text-anchor="end" class="bandlbl" fill="#e11d48">L7 · Storefront RPC</text></g>
+<g class="band" data-band="8"><rect x="0" y="2724" width="1332" height="96" fill="#be123c" fill-opacity="0.09"/><text x="1316" y="2746" text-anchor="end" class="bandlbl" fill="#be123c">L8 · Consumers</text></g>
+<path class="edge fk cascade" data-from="product" data-to="variant" d="M601.0,944.0 L601.0,1014.0" marker-end="url(#many)" marker-start="url(#one)"><title>product → variant · product_id · ON DELETE CASCADE</title></path>
+<path class="edge fk cascade" data-from="product" data-to="review" d="M534.0,944.0 L534.0,966.0 L299.0,966.0 L299.0,1014.0" marker-end="url(#many)" marker-start="url(#one)"><title>product → review · product_id · ON DELETE CASCADE</title></path>
+<path class="edge fk cascade" data-from="variant" data-to="stock_level" d="M556.0,1543.0 L556.0,1565.0 L547.0,1565.0 L547.0,1613.0" marker-end="url(#many)" marker-start="url(#one)"><title>variant → stock_level · variant_id · ON DELETE CASCADE</title></path>
+<path class="edge fk" data-from="location" data-to="stock_level" d="M154.0,209.0 L154.0,1565.0 L457.0,1565.0 L457.0,1613.0" marker-end="url(#many)" marker-start="url(#one)"><title>location → stock_level · location_id</title></path>
+<path class="edge array" data-from="category" data-to="product" d="M858.0,209.0 L858.0,231.0 L646.0,231.0 L646.0,279.0" marker-end="url(#manyDot)" ><title>category → product · category_ids[] (trigger-validated)</title></path>
+<path class="edge array" data-from="option_swatch" data-to="product" d="M556.0,209.0 L556.0,279.0" marker-end="url(#manyDot)" ><title>option_swatch → product · options values (display lookup)</title></path>
+<path class="edge trigger" data-from="product" data-to="dirty" d="M668.0,944.0 L668.0,966.0 L745.0,966.0 L745.0,1807.0 L713.0,1807.0 L713.0,1855.0" marker-end="url(#arrow)" ><title>product → dirty · trigger</title></path>
+<path class="edge trigger" data-from="variant" data-to="dirty" d="M646.0,1543.0 L646.0,1855.0" marker-end="url(#arrow)" ><title>variant → dirty · trigger</title></path>
+<path class="edge trigger" data-from="stock_level" data-to="dirty" d="M502.0,1785.0 L502.0,1807.0 L579.0,1807.0 L579.0,1855.0" marker-end="url(#arrow)" ><title>stock_level → dirty · trigger</title></path>
+<path class="edge rebuild" data-from="dirty" data-to="listing" d="M579.0,1925.0 L579.0,1947.0 L344.0,1947.0 L344.0,1995.0" marker-end="url(#arrow)" ><title>dirty → listing · rebuild_product()</title></path>
+<path class="edge rebuild" data-from="dirty" data-to="variant_facet" d="M646.0,1925.0 L646.0,2148.0" marker-end="url(#arrow)" ><title>dirty → variant_facet · rebuild_product()</title></path>
+<path class="edge rebuild" data-from="dirty" data-to="page" d="M713.0,1925.0 L713.0,1947.0 L948.0,1947.0 L948.0,2114.0" marker-end="url(#arrow)" ><title>dirty → page · rebuild_product()</title></path>
+<path class="edge rebuild" data-from="listing" data-to="category_facet" d="M411.0,2337.0 L411.0,2359.0 L524.0,2359.0 L524.0,2407.0" marker-end="url(#arrow)" ><title>listing → category_facet · refresh (1 min)</title></path>
+<path class="edge rebuild" data-from="variant_facet" data-to="category_facet" d="M646.0,2286.0 L646.0,2359.0 L614.0,2359.0 L614.0,2407.0" marker-end="url(#arrow)" ><title>variant_facet → category_facet · refresh (1 min)</title></path>
+<path class="edge read" data-from="listing" data-to="rpc_search" d="M277.0,2337.0 L277.0,2550.0 L299.0,2550.0 L299.0,2598.0" marker-end="url(#arrow)" ><title>listing → rpc_search</title></path>
+<path class="edge read" data-from="variant_facet" data-to="rpc_search" d="M579.0,2286.0 L579.0,2368.0 L389.0,2368.0 L389.0,2598.0" marker-end="url(#arrow)" ><title>variant_facet → rpc_search</title></path>
+<path class="edge read" data-from="category_facet" data-to="rpc_facets" d="M569.0,2528.0 L569.0,2550.0 L646.0,2550.0 L646.0,2598.0" marker-end="url(#arrow)" ><title>category_facet → rpc_facets</title></path>
+<path class="edge read" data-from="listing" data-to="rpc_facets" d="M344.0,2337.0 L344.0,2377.0 L424.0,2377.0 L424.0,2559.0 L579.0,2559.0 L579.0,2598.0" marker-end="url(#arrow)" ><title>listing → rpc_facets</title></path>
+<path class="edge read" data-from="variant_facet" data-to="rpc_facets" d="M713.0,2286.0 L713.0,2598.0" marker-end="url(#arrow)" ><title>variant_facet → rpc_facets</title></path>
+<path class="edge read" data-from="page" data-to="rpc_product_page" d="M948.0,2218.0 L948.0,2606.5" marker-end="url(#arrow)" ><title>page → rpc_product_page</title></path>
+<path class="edge read" data-from="rpc_search" data-to="web_shop" d="M344.0,2668.0 L344.0,2690.0 L579.0,2690.0 L579.0,2738.0" marker-end="url(#arrow)" ><title>rpc_search → web_shop</title></path>
+<path class="edge read" data-from="rpc_facets" data-to="web_shop" d="M646.0,2668.0 L646.0,2738.0" marker-end="url(#arrow)" ><title>rpc_facets → web_shop</title></path>
+<path class="edge read" data-from="rpc_product_page" data-to="web_shop" d="M948.0,2659.5 L948.0,2690.0 L713.0,2690.0 L713.0,2738.0" marker-end="url(#arrow)" ><title>rpc_product_page → web_shop</title></path>
+<g class="node" data-t="category" transform="translate(724,20)"><rect class="box" width="268" height="189" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#64748b"/><text x="12" y="20" class="th">shop.category</text><text x="258" y="20" text-anchor="end" class="tb">L0</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">int</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge buq">UQ</text><text x="34" y="60" class="cn">woo_id</text><text x="258" y="60" text-anchor="end" class="ct">bigint</text><text x="10" y="77" class="badge bfk">FK</text><text x="34" y="77" class="cn">parent_id ↺</text><text x="258" y="77" text-anchor="end" class="ct">int</text><title>parent_id → category</title><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="10" y="94" class="badge buq">UQ</text><text x="34" y="94" class="cn">slug<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">text</text><text x="34" y="111" class="cn">name<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">text</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="34" y="128" class="cn">description<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">text</text><text x="34" y="145" class="cn">menu_order<tspan class="req">*</tspan></text><text x="258" y="145" text-anchor="end" class="ct">int</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">ancestor_ids<tspan class="req">*</tspan></text><text x="258" y="162" text-anchor="end" class="ct">int[]</text><text x="34" y="179" class="cn">image</text><text x="258" y="179" text-anchor="end" class="ct">jsonb</text></g>
+<g class="node" data-t="category_facet" transform="translate(435,2407)"><rect class="box" width="268" height="121" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#15803d"/><text x="12" y="20" class="th">shop.category_facet</text><text x="258" y="20" text-anchor="end" class="tb">L6</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">category_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">int</text><title>category_id ≈ category</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge bpk">PK</text><text x="34" y="60" class="cn pkc">facet_key<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">text</text><text x="34" y="77" class="cn">product_count<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">int</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">price_min</text><text x="258" y="94" text-anchor="end" class="ct">bigint</text><text x="34" y="111" class="cn">price_max</text><text x="258" y="111" text-anchor="end" class="ct">bigint</text></g>
+<g class="node" data-t="dirty" transform="translate(512,1855)"><rect class="box" width="268" height="70" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#d97706"/><text x="12" y="20" class="th">shop.dirty</text><text x="258" y="20" text-anchor="end" class="tb">L4</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">product_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><title>product_id ≈ product</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="34" y="60" class="cn">queued_at<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">timestamptz</text></g>
+<g class="node" data-t="listing" transform="translate(210,1995)"><rect class="box" width="268" height="342" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#16a34a"/><text x="12" y="20" class="th">shop.listing</text><text x="258" y="20" text-anchor="end" class="tb">L5</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">product_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><title>product_id ≈ product</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="34" y="60" class="cn">slug<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">text</text><text x="34" y="77" class="cn">name<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">text</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">card<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">jsonb</text><text x="10" y="111" class="badge blog">R</text><text x="34" y="111" class="cn">category_ids<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">int[]</text><title>category_ids ≈ category (+ancestors)</title><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="10" y="128" class="badge blog">R</text><text x="34" y="128" class="cn">facet_keys<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">text[]</text><title>facet_keys ≈ option:value, brand:, tag:, spec:</title><text x="34" y="145" class="cn">price_min<tspan class="req">*</tspan></text><text x="258" y="145" text-anchor="end" class="ct">bigint</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">price_max<tspan class="req">*</tspan></text><text x="258" y="162" text-anchor="end" class="ct">bigint</text><text x="34" y="179" class="cn">on_sale<tspan class="req">*</tspan></text><text x="258" y="179" text-anchor="end" class="ct">bool</text><rect x="1" y="184" width="266" height="17" class="zebra"/><text x="34" y="196" class="cn">in_stock<tspan class="req">*</tspan></text><text x="258" y="196" text-anchor="end" class="ct">bool</text><text x="34" y="213" class="cn">featured<tspan class="req">*</tspan></text><text x="258" y="213" text-anchor="end" class="ct">bool</text><rect x="1" y="218" width="266" height="17" class="zebra"/><text x="34" y="230" class="cn">in_catalog<tspan class="req">*</tspan></text><text x="258" y="230" text-anchor="end" class="ct">bool</text><text x="34" y="247" class="cn">in_search<tspan class="req">*</tspan></text><text x="258" y="247" text-anchor="end" class="ct">bool</text><rect x="1" y="252" width="266" height="17" class="zebra"/><text x="34" y="264" class="cn">menu_order<tspan class="req">*</tspan></text><text x="258" y="264" text-anchor="end" class="ct">int</text><text x="34" y="281" class="cn">total_sales<tspan class="req">*</tspan></text><text x="258" y="281" text-anchor="end" class="ct">int</text><rect x="1" y="286" width="266" height="17" class="zebra"/><text x="34" y="298" class="cn">rating_avg<tspan class="req">*</tspan></text><text x="258" y="298" text-anchor="end" class="ct">numeric</text><text x="34" y="315" class="cn">published_at<tspan class="req">*</tspan></text><text x="258" y="315" text-anchor="end" class="ct">timestamptz</text><rect x="1" y="320" width="266" height="17" class="zebra"/><text x="34" y="332" class="cn">search<tspan class="req">*</tspan></text><text x="258" y="332" text-anchor="end" class="ct">tsvector</text></g>
+<g class="node" data-t="location" transform="translate(20,37)"><rect class="box" width="268" height="172" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#64748b"/><text x="12" y="20" class="th">shop.location</text><text x="258" y="20" text-anchor="end" class="tb">L0</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">smallint</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge buq">UQ</text><text x="34" y="60" class="cn">code<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">text</text><text x="34" y="77" class="cn">name<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">text</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">kind<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">text</text><text x="34" y="111" class="cn">sells_online<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">bool</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="34" y="128" class="cn">is_pickup<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">bool</text><text x="34" y="145" class="cn">priority<tspan class="req">*</tspan></text><text x="258" y="145" text-anchor="end" class="ct">smallint</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">address</text><text x="258" y="162" text-anchor="end" class="ct">jsonb</text></g>
+<g class="node" data-t="option_swatch" transform="translate(422,105)"><rect class="box" width="268" height="104" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#64748b"/><text x="12" y="20" class="th">shop.option_swatch</text><text x="258" y="20" text-anchor="end" class="tb">L0</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">option_name<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">text</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge bpk">PK</text><text x="34" y="60" class="cn pkc">value<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">text</text><text x="34" y="77" class="cn">hex</text><text x="258" y="77" text-anchor="end" class="ct">text</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">sort<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">int</text></g>
+<g class="node" data-t="page" transform="translate(814,2114)"><rect class="box" width="268" height="104" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#16a34a"/><text x="12" y="20" class="th">shop.page</text><text x="258" y="20" text-anchor="end" class="tb">L5</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">product_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><title>product_id ≈ product</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge buq">UQ</text><text x="34" y="60" class="cn">slug<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">text</text><text x="34" y="77" class="cn">doc<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">jsonb</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">etag<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">text</text></g>
+<g class="node" data-t="product" transform="translate(467,279)"><rect class="box" width="268" height="665" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#7c3aed"/><text x="12" y="20" class="th">shop.product</text><text x="258" y="20" text-anchor="end" class="tb">L1</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge buq">UQ</text><text x="34" y="60" class="cn">woo_id</text><text x="258" y="60" text-anchor="end" class="ct">bigint</text><text x="34" y="77" class="cn">type<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">text</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">status<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">text</text><text x="34" y="111" class="cn">visibility<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">text</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="10" y="128" class="badge buq">UQ</text><text x="34" y="128" class="cn">slug<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">text</text><text x="34" y="145" class="cn">name<tspan class="req">*</tspan></text><text x="258" y="145" text-anchor="end" class="ct">text</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">short_description<tspan class="req">*</tspan></text><text x="258" y="162" text-anchor="end" class="ct">text</text><text x="34" y="179" class="cn">description<tspan class="req">*</tspan></text><text x="258" y="179" text-anchor="end" class="ct">text</text><rect x="1" y="184" width="266" height="17" class="zebra"/><text x="34" y="196" class="cn">vendor</text><text x="258" y="196" text-anchor="end" class="ct">text</text><text x="34" y="213" class="cn">featured<tspan class="req">*</tspan></text><text x="258" y="213" text-anchor="end" class="ct">bool</text><rect x="1" y="218" width="266" height="17" class="zebra"/><text x="10" y="230" class="badge blog">R</text><text x="34" y="230" class="cn">options<tspan class="req">*</tspan></text><text x="258" y="230" text-anchor="end" class="ct">jsonb</text><title>options ≈ option_swatch (by name + value)</title><text x="34" y="247" class="cn">specs<tspan class="req">*</tspan></text><text x="258" y="247" text-anchor="end" class="ct">jsonb</text><rect x="1" y="252" width="266" height="17" class="zebra"/><text x="34" y="264" class="cn">filter_specs<tspan class="req">*</tspan></text><text x="258" y="264" text-anchor="end" class="ct">text[]</text><text x="34" y="281" class="cn">tags<tspan class="req">*</tspan></text><text x="258" y="281" text-anchor="end" class="ct">text[]</text><rect x="1" y="286" width="266" height="17" class="zebra"/><text x="10" y="298" class="badge bar">A</text><text x="34" y="298" class="cn">category_ids<tspan class="req">*</tspan></text><text x="258" y="298" text-anchor="end" class="ct">int[]</text><title>category_ids → category[]</title><text x="34" y="315" class="cn">images<tspan class="req">*</tspan></text><text x="258" y="315" text-anchor="end" class="ct">jsonb</text><rect x="1" y="320" width="266" height="17" class="zebra"/><text x="34" y="332" class="cn">links<tspan class="req">*</tspan></text><text x="258" y="332" text-anchor="end" class="ct">jsonb</text><text x="10" y="349" class="badge bfk">FK</text><text x="34" y="349" class="cn">parent_id ↺</text><text x="258" y="349" text-anchor="end" class="ct">bigint</text><title>parent_id → product</title><rect x="1" y="354" width="266" height="17" class="zebra"/><text x="34" y="366" class="cn">external_url</text><text x="258" y="366" text-anchor="end" class="ct">text</text><text x="34" y="383" class="cn">button_text</text><text x="258" y="383" text-anchor="end" class="ct">text</text><rect x="1" y="388" width="266" height="17" class="zebra"/><text x="34" y="400" class="cn">tax_class<tspan class="req">*</tspan></text><text x="258" y="400" text-anchor="end" class="ct">text</text><text x="34" y="417" class="cn">shipping_class<tspan class="req">*</tspan></text><text x="258" y="417" text-anchor="end" class="ct">text</text><rect x="1" y="422" width="266" height="17" class="zebra"/><text x="34" y="434" class="cn">unit<tspan class="req">*</tspan></text><text x="258" y="434" text-anchor="end" class="ct">text</text><text x="34" y="451" class="cn">sold_individually<tspan class="req">*</tspan></text><text x="258" y="451" text-anchor="end" class="ct">bool</text><rect x="1" y="456" width="266" height="17" class="zebra"/><text x="34" y="468" class="cn">reviews_allowed<tspan class="req">*</tspan></text><text x="258" y="468" text-anchor="end" class="ct">bool</text><text x="34" y="485" class="cn">purchase_note<tspan class="req">*</tspan></text><text x="258" y="485" text-anchor="end" class="ct">text</text><rect x="1" y="490" width="266" height="17" class="zebra"/><text x="34" y="502" class="cn">menu_order<tspan class="req">*</tspan></text><text x="258" y="502" text-anchor="end" class="ct">int</text><text x="34" y="519" class="cn">rating_avg<tspan class="req">*</tspan></text><text x="258" y="519" text-anchor="end" class="ct">numeric</text><rect x="1" y="524" width="266" height="17" class="zebra"/><text x="34" y="536" class="cn">rating_count<tspan class="req">*</tspan></text><text x="258" y="536" text-anchor="end" class="ct">int</text><text x="34" y="553" class="cn">total_sales<tspan class="req">*</tspan></text><text x="258" y="553" text-anchor="end" class="ct">int</text><rect x="1" y="558" width="266" height="17" class="zebra"/><text x="34" y="570" class="cn">meta<tspan class="req">*</tspan></text><text x="258" y="570" text-anchor="end" class="ct">jsonb</text><text x="34" y="587" class="cn">created_at<tspan class="req">*</tspan></text><text x="258" y="587" text-anchor="end" class="ct">timestamptz</text><rect x="1" y="592" width="266" height="17" class="zebra"/><text x="34" y="604" class="cn">published_at</text><text x="258" y="604" text-anchor="end" class="ct">timestamptz</text><text x="34" y="621" class="cn">updated_at<tspan class="req">*</tspan></text><text x="258" y="621" text-anchor="end" class="ct">timestamptz</text><rect x="1" y="626" width="266" height="17" class="zebra"/><text x="34" y="638" class="cn">woo_modified_gmt</text><text x="258" y="638" text-anchor="end" class="ct">timestamptz</text><text x="34" y="655" class="cn">sync_status<tspan class="req">*</tspan></text><text x="258" y="655" text-anchor="end" class="ct">text</text></g>
+<g class="node" data-t="review" transform="translate(165,1014)"><rect class="box" width="268" height="189" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#4f46e5"/><text x="12" y="20" class="th">shop.review</text><text x="258" y="20" text-anchor="end" class="tb">L2</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge bfk">FK</text><text x="34" y="60" class="cn">product_id<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">bigint</text><title>product_id → product</title><text x="10" y="77" class="badge buq">UQ</text><text x="34" y="77" class="cn">woo_id</text><text x="258" y="77" text-anchor="end" class="ct">bigint</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">status<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">text</text><text x="34" y="111" class="cn">reviewer<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">text</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="34" y="128" class="cn">rating<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">smallint</text><text x="34" y="145" class="cn">review<tspan class="req">*</tspan></text><text x="258" y="145" text-anchor="end" class="ct">text</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">verified<tspan class="req">*</tspan></text><text x="258" y="162" text-anchor="end" class="ct">bool</text><text x="34" y="179" class="cn">created_at<tspan class="req">*</tspan></text><text x="258" y="179" text-anchor="end" class="ct">timestamptz</text></g>
+<g class="node" data-t="stock_level" transform="translate(368,1613)"><rect class="box" width="268" height="172" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#059669"/><text x="12" y="20" class="th">shop.stock_level</text><text x="258" y="20" text-anchor="end" class="tb">L3</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">variant_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><title>variant_id → variant</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge bpk">PK</text><text x="34" y="60" class="cn pkc">location_id<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">smallint</text><title>location_id → location</title><text x="34" y="77" class="cn">on_hand<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">int</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">reserved<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">int</text><text x="34" y="111" class="cn">available</text><text x="258" y="111" text-anchor="end" class="ct">int</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="34" y="128" class="cn">reorder_point</text><text x="258" y="128" text-anchor="end" class="ct">int</text><text x="34" y="145" class="cn">bin</text><text x="258" y="145" text-anchor="end" class="ct">text</text><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">counted_at</text><text x="258" y="162" text-anchor="end" class="ct">timestamptz</text></g>
+<g class="node" data-t="variant" transform="translate(467,1014)"><rect class="box" width="268" height="529" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#4f46e5"/><text x="12" y="20" class="th">shop.variant</text><text x="258" y="20" text-anchor="end" class="tb">L2</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge bfk">FK</text><text x="34" y="60" class="cn">product_id<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">bigint</text><title>product_id → product</title><text x="10" y="77" class="badge buq">UQ</text><text x="34" y="77" class="cn">woo_id</text><text x="258" y="77" text-anchor="end" class="ct">bigint</text><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">is_default<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">bool</text><text x="10" y="111" class="badge blog">R</text><text x="34" y="111" class="cn">option1</text><text x="258" y="111" text-anchor="end" class="ct">text</text><title>option1 ≈ product.options[0]</title><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="10" y="128" class="badge blog">R</text><text x="34" y="128" class="cn">option2</text><text x="258" y="128" text-anchor="end" class="ct">text</text><title>option2 ≈ product.options[1]</title><text x="10" y="145" class="badge blog">R</text><text x="34" y="145" class="cn">option3</text><text x="258" y="145" text-anchor="end" class="ct">text</text><title>option3 ≈ product.options[2]</title><rect x="1" y="150" width="266" height="17" class="zebra"/><text x="34" y="162" class="cn">position<tspan class="req">*</tspan></text><text x="258" y="162" text-anchor="end" class="ct">int</text><text x="10" y="179" class="badge buq">UQ</text><text x="34" y="179" class="cn">sku</text><text x="258" y="179" text-anchor="end" class="ct">text</text><rect x="1" y="184" width="266" height="17" class="zebra"/><text x="34" y="196" class="cn">gtin</text><text x="258" y="196" text-anchor="end" class="ct">text</text><text x="34" y="213" class="cn">price<tspan class="req">*</tspan></text><text x="258" y="213" text-anchor="end" class="ct">bigint</text><rect x="1" y="218" width="266" height="17" class="zebra"/><text x="34" y="230" class="cn">sale_price</text><text x="258" y="230" text-anchor="end" class="ct">bigint</text><text x="34" y="247" class="cn">sale_from</text><text x="258" y="247" text-anchor="end" class="ct">timestamptz</text><rect x="1" y="252" width="266" height="17" class="zebra"/><text x="34" y="264" class="cn">sale_to</text><text x="258" y="264" text-anchor="end" class="ct">timestamptz</text><text x="34" y="281" class="cn">manage_stock<tspan class="req">*</tspan></text><text x="258" y="281" text-anchor="end" class="ct">bool</text><rect x="1" y="286" width="266" height="17" class="zebra"/><text x="34" y="298" class="cn">stock_qty</text><text x="258" y="298" text-anchor="end" class="ct">int</text><text x="34" y="315" class="cn">stock_status<tspan class="req">*</tspan></text><text x="258" y="315" text-anchor="end" class="ct">text</text><rect x="1" y="320" width="266" height="17" class="zebra"/><text x="34" y="332" class="cn">backorders<tspan class="req">*</tspan></text><text x="258" y="332" text-anchor="end" class="ct">text</text><text x="34" y="349" class="cn">low_stock_amount</text><text x="258" y="349" text-anchor="end" class="ct">int</text><rect x="1" y="354" width="266" height="17" class="zebra"/><text x="34" y="366" class="cn">weight_g</text><text x="258" y="366" text-anchor="end" class="ct">int</text><text x="34" y="383" class="cn">dims_mm</text><text x="258" y="383" text-anchor="end" class="ct">int[]</text><rect x="1" y="388" width="266" height="17" class="zebra"/><text x="34" y="400" class="cn">image</text><text x="258" y="400" text-anchor="end" class="ct">jsonb</text><text x="34" y="417" class="cn">is_virtual<tspan class="req">*</tspan></text><text x="258" y="417" text-anchor="end" class="ct">bool</text><rect x="1" y="422" width="266" height="17" class="zebra"/><text x="34" y="434" class="cn">is_downloadable<tspan class="req">*</tspan></text><text x="258" y="434" text-anchor="end" class="ct">bool</text><text x="34" y="451" class="cn">downloads<tspan class="req">*</tspan></text><text x="258" y="451" text-anchor="end" class="ct">jsonb</text><rect x="1" y="456" width="266" height="17" class="zebra"/><text x="34" y="468" class="cn">description<tspan class="req">*</tspan></text><text x="258" y="468" text-anchor="end" class="ct">text</text><text x="34" y="485" class="cn">meta<tspan class="req">*</tspan></text><text x="258" y="485" text-anchor="end" class="ct">jsonb</text><rect x="1" y="490" width="266" height="17" class="zebra"/><text x="34" y="502" class="cn">updated_at<tspan class="req">*</tspan></text><text x="258" y="502" text-anchor="end" class="ct">timestamptz</text><text x="34" y="519" class="cn">woo_modified_gmt</text><text x="258" y="519" text-anchor="end" class="ct">timestamptz</text></g>
+<g class="node" data-t="variant_facet" transform="translate(512,2148)"><rect class="box" width="268" height="138" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#16a34a"/><text x="12" y="20" class="th">shop.variant_facet</text><text x="258" y="20" text-anchor="end" class="tb">L5</text><text x="10" y="43" class="badge bpk">PK</text><text x="34" y="43" class="cn pkc">variant_id<tspan class="req">*</tspan></text><text x="258" y="43" text-anchor="end" class="ct">bigint</text><title>variant_id ≈ variant</title><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="10" y="60" class="badge blog">R</text><text x="34" y="60" class="cn">product_id<tspan class="req">*</tspan></text><text x="258" y="60" text-anchor="end" class="ct">bigint</text><title>product_id ≈ product</title><text x="10" y="77" class="badge blog">R</text><text x="34" y="77" class="cn">facet_keys<tspan class="req">*</tspan></text><text x="258" y="77" text-anchor="end" class="ct">text[]</text><title>facet_keys ≈ option:value keys</title><rect x="1" y="82" width="266" height="17" class="zebra"/><text x="34" y="94" class="cn">price<tspan class="req">*</tspan></text><text x="258" y="94" text-anchor="end" class="ct">bigint</text><text x="34" y="111" class="cn">in_stock<tspan class="req">*</tspan></text><text x="258" y="111" text-anchor="end" class="ct">bool</text><rect x="1" y="116" width="266" height="17" class="zebra"/><text x="10" y="128" class="badge blog">R</text><text x="34" y="128" class="cn">location_ids<tspan class="req">*</tspan></text><text x="258" y="128" text-anchor="end" class="ct">int2[]</text><title>location_ids ≈ location</title></g>
+<g class="node rpc" data-t="rpc_search" transform="translate(210,2598)"><rect class="box" width="268" height="70" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#e11d48"/><text x="12" y="20" class="th">shop.search(p)</text><text x="258" y="20" text-anchor="end" class="tb">L7</text><text x="34" y="43" class="cn rpcc">p → {items, next, version}</text><text x="258" y="43" text-anchor="end" class="ct">jsonb</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="34" y="60" class="cn rpcc">sort · filters · keyset</text><text x="258" y="60" text-anchor="end" class="ct"></text></g>
+<g class="node rpc" data-t="rpc_facets" transform="translate(512,2598)"><rect class="box" width="268" height="70" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#e11d48"/><text x="12" y="20" class="th">shop.facets(p)</text><text x="258" y="20" text-anchor="end" class="tb">L7</text><text x="34" y="43" class="cn rpcc">p → {facets, price, source}</text><text x="258" y="43" text-anchor="end" class="ct">jsonb</text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="34" y="60" class="cn rpcc">precomputed | live</text><text x="258" y="60" text-anchor="end" class="ct"></text></g>
+<g class="node rpc" data-t="rpc_product_page" transform="translate(814,2606.5)"><rect class="box" width="268" height="53" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#e11d48"/><text x="12" y="20" class="th">shop.product_page(slug)</text><text x="258" y="20" text-anchor="end" class="tb">L7</text><text x="34" y="43" class="cn rpcc">slug → doc + etag</text><text x="258" y="43" text-anchor="end" class="ct">jsonb</text></g>
+<g class="node rpc" data-t="web_shop" transform="translate(512,2738)"><rect class="box" width="268" height="70" rx="9"/><path d="M0,9 a9,9 0 0 1 9,-9 h250 a9,9 0 0 1 9,9 v21 h-268 z" fill="#be123c"/><text x="12" y="20" class="th">Web shop</text><text x="258" y="20" text-anchor="end" class="tb">L8</text><text x="34" y="43" class="cn rpcc">Expo web / headless storefront</text><text x="258" y="43" text-anchor="end" class="ct"></text><rect x="1" y="48" width="266" height="17" class="zebra"/><text x="34" y="60" class="cn rpcc">CDN · React Query cache</text><text x="258" y="60" text-anchor="end" class="ct"></text></g>
+</svg></div>
+  <div class="legend">
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#7c3aed" stroke-width="1.6"/><path d="M6,1 V13 M10,1 V13" stroke="#7c3aed"/><path d="M50,7 L62,1 M50,7 L62,7 M50,7 L62,13" stroke="#7c3aed" fill="none"/></svg>FK, required: one → many</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#7c3aed" stroke-width="1.6" stroke-dasharray="6 3"/><path d="M6,1 V13" stroke="#7c3aed"/><circle cx="12" cy="7" r="3.4" fill="#fff" stroke="#7c3aed"/></svg>FK, optional (nullable)</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#0891b2" stroke-width="1.8" stroke-dasharray="2 3"/></svg>int[] reference (no FK possible)</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#d97706" stroke-width="1.6" stroke-dasharray="4 3"/></svg>trigger → dirty queue</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#16a34a" stroke-width="2"/></svg>rebuild / refresh</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#e11d48" stroke-width="2"/></svg>read by RPC / shop</span>
+    <span><b style="color:#d97706">PK</b> <b style="color:#7c3aed">FK</b> <b style="color:#0891b2">A</b> array ref <b style="color:#16a34a">R</b> read-model ref <b style="color:#64748b">UQ</b> unique <b style="color:#e11d48">*</b> NOT NULL · ↺ self reference</span>
+  </div>
+  <p class="sub" style="margin-top:10px">Click or search a table to highlight everything it depends on (above) and everything that depends on it (below). Drag to pan; hover over an edge for its columns and delete rule.</p>
+</section>
+
+<section id="levels">
+  <h2>Waterfall levels</h2>
+  <p class="sub">Each step depends only on the steps above it. That is also the order of migrations and imports from WooCommerce. Click a table to show it in the diagram.</p>
+  <div class="falls"><div class="step" style="--c:#64748b;--i:0"><div class="stephead"><b>L0 · Reference data</b><span>3 objects</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="category"><code>shop.category</code></a><span>Category tree, ancestor_ids[] by trigger</span><em>no dependencies</em></div><div class="lvt"><a href="#" data-focus="option_swatch"><code>shop.option_swatch</code></a><span>Shared color / sort for option values</span><em>no dependencies</em></div><div class="lvt"><a href="#" data-focus="location"><code>shop.location</code></a><span>Warehouses, stores, pickup points</span><em>no dependencies</em></div></div></div>
+<div class="step" style="--c:#7c3aed;--i:1"><div class="stephead"><b>L1 · Product</b><span>1 object</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="product"><code>shop.product</code></a><span>Product + options[], specs, tags[], category_ids[], images</span><em>needs: category, option_swatch</em></div></div></div>
+<div class="step" style="--c:#4f46e5;--i:2"><div class="stephead"><b>L2 · Variants &amp; reviews</b><span>2 objects</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="variant"><code>shop.variant</code></a><span>Sellable unit: option1-3, price, stock; simple product = 1 default</span><em>needs: product</em></div><div class="lvt"><a href="#" data-focus="review"><code>shop.review</code></a><span>Woo reviews → rating roll-up</span><em>needs: product</em></div></div></div>
+<div class="step" style="--c:#059669;--i:3"><div class="stephead"><b>L3 · Inventory (optional)</b><span>1 object</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="stock_level"><code>shop.stock_level</code></a><span>Quantity per variant per location</span><em>needs: location, variant</em></div></div></div>
+<div class="step" style="--c:#d97706;--i:4"><div class="stephead"><b>L4 · Projection queue</b><span>1 object</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="dirty"><code>shop.dirty</code></a><span>Products waiting for rebuild</span><em>needs: product, stock_level, variant</em></div></div></div>
+<div class="step" style="--c:#16a34a;--i:5"><div class="stephead"><b>L5 · Read model</b><span>3 objects</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="listing"><code>shop.listing</code></a><span>Card JSON + filter / sort keys</span><em>needs: dirty</em></div><div class="lvt"><a href="#" data-focus="variant_facet"><code>shop.variant_facet</code></a><span>Per-variant facet keys, price, stock, locations</span><em>needs: dirty</em></div><div class="lvt"><a href="#" data-focus="page"><code>shop.page</code></a><span>Product page document + etag</span><em>needs: dirty</em></div></div></div>
+<div class="step" style="--c:#15803d;--i:6"><div class="stephead"><b>L6 · Aggregates</b><span>1 object</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="category_facet"><code>shop.category_facet</code></a><span>Counts per category × facet key</span><em>needs: listing, variant_facet</em></div></div></div>
+<div class="step" style="--c:#e11d48;--i:7"><div class="stephead"><b>L7 · Storefront RPC</b><span>3 objects</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="rpc_search"><code>shop.search(p)</code></a><span>Listing RPC</span><em>needs: listing, variant_facet</em></div><div class="lvt"><a href="#" data-focus="rpc_facets"><code>shop.facets(p)</code></a><span>Facet RPC</span><em>needs: category_facet, listing, variant_facet</em></div><div class="lvt"><a href="#" data-focus="rpc_product_page"><code>shop.product_page(slug)</code></a><span>Product page RPC</span><em>needs: page</em></div></div></div>
+<div class="step" style="--c:#be123c;--i:8"><div class="stephead"><b>L8 · Consumers</b><span>1 object</span></div><div class="stepbody"><div class="lvt"><a href="#" data-focus="web_shop"><code>Web shop</code></a><span>Shop front end</span><em>needs: facets(p), product_page(slug), search(p)</em></div></div></div></div>
+</section>
+
+<section id="order">
+  <h2>Create / drop order</h2>
+  <div class="grid2">
+    <div><h3 style="font:600 16px var(--display);margin:0 0 6px">CREATE (top → bottom)</h3><div class="order"><code>category</code> → <code>option_swatch</code> → <code>location</code> → <code>product</code> → <code>variant</code> → <code>review</code> → <code>stock_level</code> → <code>dirty</code> → <code>listing</code> → <code>variant_facet</code> → <code>page</code> → <code>category_facet</code></div></div>
+    <div><h3 style="font:600 16px var(--display);margin:0 0 6px">DROP (bottom → top)</h3><div class="order"><code>category_facet</code> → <code>page</code> → <code>variant_facet</code> → <code>listing</code> → <code>dirty</code> → <code>stock_level</code> → <code>review</code> → <code>variant</code> → <code>product</code> → <code>location</code> → <code>option_swatch</code> → <code>category</code></div></div>
+  </div>
+  <p class="sub" style="margin-top:12px">The WooCommerce import follows the same order: categories first, then products with their options, then variations, then stock. Every reference then resolves on the first pass, except <code>category.parent_id</code> and <code>product.parent_id</code> (self references), which are filled in a second pass.</p>
+</section>
+
+<section id="cascade">
+  <h2>Delete cascade</h2>
+  <p class="sub">What falls with a deleted row (<code>ON DELETE CASCADE</code>), and which references block the delete (<code>RESTRICT</code>, the default "no action").</p>
+  <div class="ctrees"><div class="ctree"><div class="croot">DELETE <code>product</code></div><ul><li><code>variant</code> <span class="via">via product_id</span><ul><li><code>stock_level</code> <span class="via">via variant_id</span></li></ul></li><li><code>review</code> <span class="via">via product_id</span></li></ul></div><div class="ctree"><div class="croot">DELETE <code>location</code></div></div></div>
+  <div class="grid2" style="margin-top:14px">
+    <div><div class="tbl-wrap"><table><tr><th>Deleting…</th><th>…is blocked while referenced by</th></tr><tr><td><code>category</code></td><td><code>category.parent_id</code></td></tr><tr><td><code>location</code></td><td><code>stock_level.location_id</code></td></tr><tr><td><code>product</code></td><td><code>product.parent_id</code></td></tr></table></div></div>
+    <div class="callout">Arrays and option values (<code>category_ids</code>, <code>option1–3</code>) are not real foreign keys: a trigger rejects unknown category IDs, and the app checks option values. Read-model tables (<code>listing</code>, <code>variant_facet</code>, <code>page</code>, <code>category_facet</code>) have <b>no foreign keys</b> on purpose. They are rebuilt rather than referenced. Deleting a product queues it in <code>dirty</code>, and <code>rebuild_product()</code> then removes its read-model rows. Products are normally archived (<code>status = 'draft'</code>), not deleted, because Woo orders reference them.</div>
+  </div>
+</section>
+
+<section id="json">
+  <h2>JSON and array columns</h2>
+  <p class="sub">The compact model is compact because the many-to-many link tables of Plan 2 become columns on the product row. These are their shapes.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Column</th><th>Shape</th><th>Replaces in Plan 2</th></tr>
+    <tr><td><code>product.options</code></td><td><pre class="js">[{"name": "Color",  "values": ["Black", "White", "Blue"]},
+ {"name": "Memory", "values": ["128 GB", "256 GB", "512 GB"]}]</pre>Maximum 3 entries (CHECK). Entry <i>n</i> names <code>variant.option(n+1)</code>.</td><td><code>attribute</code>, <code>attribute_term</code>, <code>product_attribute</code> (for variation attributes)</td></tr>
+    <tr><td><code>variant.option1–3</code></td><td><code>'Black'</code>, <code>'256 GB'</code>, <code>NULL</code>. <code>UNIQUE NULLS NOT DISTINCT (product_id, option1, option2, option3)</code> blocks duplicate combinations.</td><td><code>variant.option_term_ids int[]</code></td></tr>
+    <tr><td><code>product.specs</code> + <code>filter_specs</code></td><td><pre class="js">{"Material": "Aluminium", "Warranty": "24 months"}   filter_specs = {Material}</pre>Only the keys listed in <code>filter_specs</code> become shop filters.</td><td><code>product_attribute</code> (non-variation attributes)</td></tr>
+    <tr><td><code>product.vendor</code></td><td><code>'Nova'</code> → facet key <code>brand:nova</code></td><td><code>brand_term_id</code></td></tr>
+    <tr><td><code>product.tags</code></td><td><code>{new, sale}</code> (GIN index)</td><td><code>tag</code>, <code>product_tag</code></td></tr>
+    <tr><td><code>product.category_ids</code></td><td><code>{3, 7}</code> (GIN index; a trigger rejects unknown IDs)</td><td><code>product_category</code></td></tr>
+    <tr><td><code>product.images</code></td><td><pre class="js">[{"url": "…", "w": 800, "h": 800, "alt": "", "lqip": "…", "woo_id": 41}]</pre>Position 0 is the main image.</td><td><code>media</code>, <code>product_media</code></td></tr>
+    <tr><td><code>product.links</code></td><td><code>{"upsell": [12, 15], "crossSell": [], "grouped": []}</code></td><td><code>product_link</code></td></tr>
+    <tr><td><code>variant.downloads</code></td><td><code>[{"id": "…", "name": "Manual", "file": "https://…"}]</code></td><td><code>download</code></td></tr>
+    <tr><td><code>product.meta</code>, <code>variant.meta</code></td><td>Woo <code>meta_data</code> stored verbatim: <code>[{"id": 812, "key": "_yoast_wpseo_title", "value": "…"}]</code></td><td>same</td></tr>
+    <tr><td><code>listing.facet_keys</code>, <code>variant_facet.facet_keys</code></td><td><code>{color:black, memory:256-gb, brand:nova, tag:new, material:aluminium}</code>: text keys <code>option:value</code> in place of integer term IDs (GIN index).</td><td><code>term_ids int[]</code></td></tr>
+  </table></div>
+</section>
+
+<section id="woo">
+  <h2>WooCommerce mapping</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>Woo REST v3</th><th>Compact model</th><th>Note</th></tr>
+    <tr><td>Product <code>attributes[]</code> with <code>variation: true</code></td><td><code>product.options[]</code> (name + options, in <code>position</code> order)</td><td>At most 3. A Woo product with 4 or more variation attributes needs the extra ones merged (rare).</td></tr>
+    <tr><td>Product <code>attributes[]</code> with <code>variation: false</code></td><td><code>product.specs</code> (several values joined with ", "); filterable ones listed in <code>filter_specs</code></td><td>The global/local attribute distinction is lost; on push all become local attributes unless the name matches an existing global <code>pa_*</code></td></tr>
+    <tr><td>Variation <code>attributes[{name, option}]</code></td><td><code>variant.option1–3</code> by matching the name to <code>options[n].name</code></td><td>Woo's "any value" variation (empty option) → <code>NULL</code></td></tr>
+    <tr><td>Simple product price / stock</td><td>its single <code>is_default</code> variant</td><td>Folded back into the product on push</td></tr>
+    <tr><td><code>categories[]</code>, <code>tags[]</code></td><td><code>category_ids</code> (via <code>category.woo_id</code>), <code>tags</code> (names)</td><td>Tags are matched by name on push; Woo creates missing ones</td></tr>
+    <tr><td><code>brands[]</code> (Woo Brands)</td><td><code>vendor</code> (first brand)</td><td>A product with several brands keeps the rest in <code>tags</code></td></tr>
+    <tr><td><code>images[]</code>, <code>upsell_ids</code>, <code>cross_sell_ids</code>, <code>grouped_products</code>, <code>downloads</code></td><td><code>images</code>, <code>links</code>, <code>downloads</code> JSON</td><td>Same data, no join tables</td></tr>
+    <tr><td><code>regular_price</code> / <code>sale_price</code> / sale dates</td><td><code>variant.price</code> / <code>sale_price</code> / <code>sale_from</code>, <code>sale_to</code> (cents)</td><td>Kept as Woo's regular + sale pair (Shopify's equivalent is price + compare-at price)</td></tr>
+    <tr><td><code>stock_quantity</code></td><td><code>variant.stock_qty</code> = Σ <code>stock_level.available</code> at locations that sell online</td><td>Without the inventory tables, edited directly</td></tr>
+    <tr><td><code>tax_class</code>, <code>shipping_class</code></td><td>slug text on product</td><td>No lookup tables: Woo validates them on push</td></tr>
+    <tr><td><code>meta_data[]</code></td><td><code>meta</code> (verbatim)</td><td>Push sends only changed entries by <code>id</code></td></tr>
+  </table></div>
+</section>
+
+<section id="compare">
+  <h2>Compact model vs Plan 2</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th></th><th>Plan 2 (Woo taxonomy)</th><th>Compact (Shopify-style)</th></tr>
+    <tr><td>Write-model tables</td><td>17</td><td><b>5</b> core + 2 inventory (location, stock_level)</td></tr>
+    <tr><td>Write-model columns</td><td>142</td><td><b>88</b> core (104 with inventory)</td></tr>
+    <tr><td>Foreign keys</td><td>23</td><td><b>6</b> (+ trigger-checked <code>category_ids</code>)</td></tr>
+    <tr><td>Save a product from the app</td><td>Upsert into up to 8 tables</td><td><b>2 tables</b>: product row + its variants</td></tr>
+    <tr><td>Rename a value ("Black" → "Jet black")</td><td><b>One row</b> in <code>attribute_term</code></td><td>Update <code>options</code> and <code>option1</code> on every product that uses it (one SQL statement)</td></tr>
+    <tr><td>Shared value data (swatch, sort, number)</td><td>On the term</td><td>Optional lookup <code>option_swatch</code> (name + value)</td></tr>
+    <tr><td>Variant dimensions</td><td>Unlimited</td><td>Maximum 3, like Shopify</td></tr>
+    <tr><td>Shop read speed</td><td colspan="2">Same read model (<code>listing</code>, <code>variant_facet</code>, <code>page</code>, <code>category_facet</code>), so the same speed. Facet keys are text instead of int, which makes the GIN index slightly bigger but still uses one index probe per filter.</td></tr>
+    <tr><td>Warehouse / store stock</td><td>Not modelled yet</td><td><b>Included</b>: <code>location</code>, <code>stock_level</code>, per-store filter (<code>variant_facet.location_ids</code>)</td></tr>
+  </table></div>
+</section>
+
+<section id="relations">
+  <h2>Relationships</h2>
+  <div class="tbl-wrap"><table><tr><th>Parent (one)</th><th>Child column (many)</th><th>Cardinality</th><th>On delete</th><th>Kind</th></tr><tr><td><code>category</code></td><td><code>category.parent_id</code></td><td>0..1 → 0..n</td><td>RESTRICT</td><td>FK</td></tr>
+<tr><td><code>location</code></td><td><code>stock_level.location_id</code></td><td>1 → 0..n</td><td>RESTRICT</td><td>FK</td></tr>
+<tr><td><code>product</code></td><td><code>product.parent_id</code></td><td>0..1 → 0..n</td><td>RESTRICT</td><td>FK</td></tr>
+<tr><td><code>product</code></td><td><code>review.product_id</code></td><td>1 → 0..n</td><td>CASCADE</td><td>FK</td></tr>
+<tr><td><code>product</code></td><td><code>variant.product_id</code></td><td>1 → 0..n</td><td>CASCADE</td><td>FK</td></tr>
+<tr><td><code>variant</code></td><td><code>stock_level.variant_id</code></td><td>1 → 0..n</td><td>CASCADE</td><td>FK</td></tr>
+<tr><td><code>category</code></td><td><code>product.category_ids</code></td><td>0..n ↔ 0..n</td><td>trigger rejects unknown ids</td><td>int[] (no FK in Postgres)</td></tr>
+<tr><td><code>category</code></td><td><code>category.ancestor_ids</code></td><td>1 → 1..n</td><td>trigger</td><td>int[] path</td></tr>
+<tr><td><code>product.options[0..2]</code></td><td><code>variant.option1 / option2 / option3</code></td><td>value ∈ option values</td><td>app validation</td><td>text (by position)</td></tr>
+<tr><td><code>option_swatch</code></td><td><code>product.options[].values</code></td><td>0..1 swatch per value</td><td>none (display only)</td><td>jsonb text match</td></tr></table></div>
+</section>
+<section id="sql"><h2>SQL (tested on PostgreSQL 16)</h2><details><summary>Full schema: write model, read model, triggers, rebuild</summary><pre class="sqlpre"><code>-- COMPACT (Shopify-style) product model: products + options + variants, with the same fast read model as Plan 2
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE SCHEMA IF NOT EXISTS shop;
+
+-- ---------- L0 reference ----------
+CREATE TABLE shop.category (
+  id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  parent_id int REFERENCES shop.category(id),
+  slug text NOT NULL UNIQUE, name text NOT NULL, description text NOT NULL DEFAULT &#x27;&#x27;,
+  menu_order int NOT NULL DEFAULT 0,
+  ancestor_ids int[] NOT NULL DEFAULT &#x27;{}&#x27;,          -- self + parents, maintained by trigger
+  image jsonb                                        -- {url, w, h, alt}
+);
+CREATE TABLE shop.option_swatch (                    -- shared display data for option values (&quot;Black&quot; -&gt; #111)
+  option_name text NOT NULL,                         -- &#x27;Color&#x27;
+  value text NOT NULL,                               -- &#x27;Black&#x27;
+  hex text, sort int NOT NULL DEFAULT 0,
+  PRIMARY KEY (option_name, value)
+);
+CREATE TABLE shop.location (                         -- warehouses / stores (optional inventory module)
+  id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code text NOT NULL UNIQUE, name text NOT NULL,
+  kind text NOT NULL DEFAULT &#x27;warehouse&#x27; CHECK (kind IN (&#x27;warehouse&#x27;,&#x27;store&#x27;,&#x27;pickup&#x27;)),
+  sells_online boolean NOT NULL DEFAULT true, is_pickup boolean NOT NULL DEFAULT false,
+  priority smallint NOT NULL DEFAULT 0, address jsonb
+);
+
+-- ---------- L1 product ----------
+CREATE TABLE shop.product (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  type text NOT NULL DEFAULT &#x27;simple&#x27; CHECK (type IN (&#x27;simple&#x27;,&#x27;variable&#x27;,&#x27;grouped&#x27;,&#x27;external&#x27;)),
+  status text NOT NULL DEFAULT &#x27;draft&#x27; CHECK (status IN (&#x27;draft&#x27;,&#x27;pending&#x27;,&#x27;private&#x27;,&#x27;publish&#x27;)),
+  visibility text NOT NULL DEFAULT &#x27;visible&#x27; CHECK (visibility IN (&#x27;visible&#x27;,&#x27;catalog&#x27;,&#x27;search&#x27;,&#x27;hidden&#x27;)),
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  short_description text NOT NULL DEFAULT &#x27;&#x27;,
+  description text NOT NULL DEFAULT &#x27;&#x27;,
+  vendor text,                                       -- brand
+  featured boolean NOT NULL DEFAULT false,
+  -- up to 3 variant dimensions, in order: option1 / option2 / option3 of every variant
+  options jsonb NOT NULL DEFAULT &#x27;[]&#x27;                -- [{&quot;name&quot;:&quot;Color&quot;,&quot;values&quot;:[&quot;Black&quot;,&quot;White&quot;]},{&quot;name&quot;:&quot;Memory&quot;,&quot;values&quot;:[&quot;128 GB&quot;,&quot;256 GB&quot;]}]
+    CHECK (jsonb_typeof(options) = &#x27;array&#x27; AND jsonb_array_length(options) &lt;= 3),
+  specs jsonb NOT NULL DEFAULT &#x27;{}&#x27;,                 -- non-variant facts {&quot;Material&quot;:&quot;Aluminium&quot;,&quot;Origin&quot;:&quot;LV&quot;} (Woo non-variation attributes)
+  filter_specs text[] NOT NULL DEFAULT &#x27;{}&#x27;,         -- which specs keys are shop filters, e.g. {Material}
+  tags text[] NOT NULL DEFAULT &#x27;{}&#x27;,
+  category_ids int[] NOT NULL DEFAULT &#x27;{}&#x27;,          -- -&gt; category.id (array: kept valid by trigger)
+  images jsonb NOT NULL DEFAULT &#x27;[]&#x27;,                -- [{url, w, h, alt, lqip, woo_id}], [0] = main
+  links jsonb NOT NULL DEFAULT &#x27;{}&#x27;,                 -- {&quot;upsell&quot;:[ids],&quot;crossSell&quot;:[ids],&quot;grouped&quot;:[ids]}
+  parent_id bigint REFERENCES shop.product(id),      -- child of a grouped product
+  external_url text, button_text text,
+  tax_class text NOT NULL DEFAULT &#x27;&#x27;,                -- Woo tax class slug (&#x27;&#x27; = standard)
+  shipping_class text NOT NULL DEFAULT &#x27;&#x27;,
+  unit text NOT NULL DEFAULT &#x27;pcs&#x27;,
+  sold_individually boolean NOT NULL DEFAULT false,
+  reviews_allowed boolean NOT NULL DEFAULT true,
+  purchase_note text NOT NULL DEFAULT &#x27;&#x27;,
+  menu_order int NOT NULL DEFAULT 0,
+  rating_avg numeric(3,2) NOT NULL DEFAULT 0, rating_count int NOT NULL DEFAULT 0,
+  total_sales int NOT NULL DEFAULT 0,
+  meta jsonb NOT NULL DEFAULT &#x27;[]&#x27;,                  -- Woo meta_data verbatim [{id,key,value}]
+  created_at timestamptz NOT NULL DEFAULT now(), published_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(),
+  woo_modified_gmt timestamptz,
+  sync_status text NOT NULL DEFAULT &#x27;localOnly&#x27; CHECK (sync_status IN (&#x27;synced&#x27;,&#x27;dirty&#x27;,&#x27;conflict&#x27;,&#x27;error&#x27;,&#x27;localOnly&#x27;))
+);
+CREATE INDEX product_categories ON shop.product USING gin (category_ids);
+CREATE INDEX product_tags ON shop.product USING gin (tags);
+
+-- ---------- L2 sellable unit ----------
+CREATE TABLE shop.variant (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  product_id bigint NOT NULL REFERENCES shop.product(id) ON DELETE CASCADE,
+  woo_id bigint UNIQUE,                              -- NULL for the default variant of a simple product
+  is_default boolean NOT NULL DEFAULT false,
+  option1 text, option2 text, option3 text,          -- values of product.options[0..2]
+  position int NOT NULL DEFAULT 0,
+  sku text UNIQUE, gtin text,
+  price bigint NOT NULL CHECK (price &gt;= 0),          -- regular price, cents
+  sale_price bigint CHECK (sale_price &gt;= 0), sale_from timestamptz, sale_to timestamptz,
+  manage_stock boolean NOT NULL DEFAULT true,
+  stock_qty int,                                     -- = SUM(stock_level.available) of online locations when inventory is used
+  stock_status text NOT NULL DEFAULT &#x27;instock&#x27; CHECK (stock_status IN (&#x27;instock&#x27;,&#x27;outofstock&#x27;,&#x27;onbackorder&#x27;)),
+  backorders text NOT NULL DEFAULT &#x27;no&#x27; CHECK (backorders IN (&#x27;no&#x27;,&#x27;notify&#x27;,&#x27;yes&#x27;)),
+  low_stock_amount int,
+  weight_g int, dims_mm int[],                       -- {length,width,height}; NULL = inherit
+  image jsonb,
+  is_virtual boolean NOT NULL DEFAULT false, is_downloadable boolean NOT NULL DEFAULT false,
+  downloads jsonb NOT NULL DEFAULT &#x27;[]&#x27;,             -- [{id, name, file}]
+  description text NOT NULL DEFAULT &#x27;&#x27;,
+  meta jsonb NOT NULL DEFAULT &#x27;[]&#x27;,
+  updated_at timestamptz NOT NULL DEFAULT now(), woo_modified_gmt timestamptz,
+  UNIQUE NULLS NOT DISTINCT (product_id, option1, option2, option3)
+);
+CREATE INDEX ON shop.variant (product_id);
+CREATE UNIQUE INDEX variant_one_default ON shop.variant (product_id) WHERE is_default;
+
+CREATE TABLE shop.review (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  product_id bigint NOT NULL REFERENCES shop.product(id) ON DELETE CASCADE,
+  woo_id bigint UNIQUE, status text NOT NULL DEFAULT &#x27;approved&#x27; CHECK (status IN (&#x27;approved&#x27;,&#x27;hold&#x27;,&#x27;spam&#x27;,&#x27;trash&#x27;)),
+  reviewer text NOT NULL, rating smallint NOT NULL CHECK (rating BETWEEN 0 AND 5), review text NOT NULL DEFAULT &#x27;&#x27;,
+  verified boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON shop.review (product_id, created_at DESC) WHERE status = &#x27;approved&#x27;;
+
+-- ---------- L3 inventory (optional) ----------
+CREATE TABLE shop.stock_level (
+  variant_id bigint NOT NULL REFERENCES shop.variant(id) ON DELETE CASCADE,
+  location_id smallint NOT NULL REFERENCES shop.location(id),
+  on_hand int NOT NULL DEFAULT 0, reserved int NOT NULL DEFAULT 0,
+  available int GENERATED ALWAYS AS (on_hand - reserved) STORED,
+  reorder_point int, bin text, counted_at timestamptz,
+  PRIMARY KEY (variant_id, location_id)
+);
+
+-- ---------- read model (same idea as Plan 2, text facet keys instead of term ids) ----------
+CREATE TABLE shop.dirty (product_id bigint PRIMARY KEY, queued_at timestamptz NOT NULL DEFAULT now());
+CREATE SEQUENCE shop.catalog_version;
+
+CREATE TABLE shop.listing (
+  product_id bigint PRIMARY KEY,
+  slug text NOT NULL, name text NOT NULL, card jsonb NOT NULL,
+  category_ids int[] NOT NULL,                       -- with ancestors
+  facet_keys text[] NOT NULL,                        -- &#x27;color:black&#x27;, &#x27;memory:256-gb&#x27;, &#x27;brand:nova&#x27;, &#x27;tag:new&#x27;, &#x27;material:aluminium&#x27;
+  price_min bigint NOT NULL, price_max bigint NOT NULL,
+  on_sale boolean NOT NULL, in_stock boolean NOT NULL, featured boolean NOT NULL,
+  in_catalog boolean NOT NULL, in_search boolean NOT NULL,
+  menu_order int NOT NULL, total_sales int NOT NULL, rating_avg numeric(3,2) NOT NULL, published_at timestamptz NOT NULL,
+  search tsvector NOT NULL
+);
+CREATE INDEX listing_cat ON shop.listing USING gin (category_ids);
+CREATE INDEX listing_facets ON shop.listing USING gin (facet_keys);
+CREATE INDEX listing_fts ON shop.listing USING gin (search);
+CREATE INDEX listing_trgm ON shop.listing USING gin (name gin_trgm_ops);
+CREATE INDEX listing_price ON shop.listing (price_min, product_id);
+CREATE INDEX listing_new ON shop.listing (published_at DESC, product_id DESC);
+CREATE INDEX listing_pop ON shop.listing (total_sales DESC, product_id DESC);
+
+CREATE TABLE shop.variant_facet (
+  variant_id bigint PRIMARY KEY, product_id bigint NOT NULL,
+  facet_keys text[] NOT NULL, price bigint NOT NULL, in_stock boolean NOT NULL,
+  location_ids smallint[] NOT NULL DEFAULT &#x27;{}&#x27;      -- locations where this variant is available (store filter)
+);
+CREATE INDEX vf_keys ON shop.variant_facet USING gin (facet_keys);
+CREATE INDEX vf_product ON shop.variant_facet (product_id);
+
+CREATE TABLE shop.page (product_id bigint PRIMARY KEY, slug text NOT NULL UNIQUE, doc jsonb NOT NULL, etag text NOT NULL);
+CREATE TABLE shop.category_facet (category_id int NOT NULL, facet_key text NOT NULL, product_count int NOT NULL,
+  price_min bigint, price_max bigint, PRIMARY KEY (category_id, facet_key));
+
+-- ---------- functions ----------
+CREATE OR REPLACE FUNCTION shop.slugify(t text) RETURNS text LANGUAGE sql IMMUTABLE AS
+$$ SELECT trim(both &#x27;-&#x27; from lower(regexp_replace(coalesce(t, &#x27;&#x27;), &#x27;[^[:alnum:]]+&#x27;, &#x27;-&#x27;, &#x27;g&#x27;))) $$;
+
+CREATE OR REPLACE FUNCTION shop.category_set_ancestors() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.ancestor_ids := COALESCE((SELECT ancestor_ids FROM shop.category WHERE id = NEW.parent_id), &#x27;{}&#x27;) || NEW.id;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER category_ancestors BEFORE INSERT OR UPDATE OF parent_id ON shop.category
+  FOR EACH ROW EXECUTE FUNCTION shop.category_set_ancestors();
+
+-- arrays cannot carry FKs: reject unknown category ids
+CREATE OR REPLACE FUNCTION shop.product_check_categories() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM unnest(NEW.category_ids) c WHERE NOT EXISTS (SELECT 1 FROM shop.category WHERE id = c)) THEN
+    RAISE EXCEPTION &#x27;unknown category id in %&#x27;, NEW.category_ids;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER product_categories_valid BEFORE INSERT OR UPDATE OF category_ids ON shop.product
+  FOR EACH ROW EXECUTE FUNCTION shop.product_check_categories();
+
+CREATE OR REPLACE FUNCTION shop.effective_price(v shop.variant) RETURNS bigint LANGUAGE sql STABLE AS $$
+  SELECT CASE WHEN v.sale_price IS NOT NULL AND (v.sale_from IS NULL OR v.sale_from &lt;= now()) AND (v.sale_to IS NULL OR v.sale_to &gt; now())
+              THEN v.sale_price ELSE v.price END $$;
+
+-- facet keys of one variant: its options + product-level brand / tags / filterable specs
+CREATE OR REPLACE FUNCTION shop.variant_keys(p shop.product, v shop.variant) RETURNS text[] LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(array_agg(DISTINCT k), &#x27;{}&#x27;) FROM (
+    SELECT shop.slugify(p.options-&gt;0-&gt;&gt;&#x27;name&#x27;) || &#x27;:&#x27; || shop.slugify(v.option1) k WHERE v.option1 IS NOT NULL
+    UNION ALL SELECT shop.slugify(p.options-&gt;1-&gt;&gt;&#x27;name&#x27;) || &#x27;:&#x27; || shop.slugify(v.option2) WHERE v.option2 IS NOT NULL
+    UNION ALL SELECT shop.slugify(p.options-&gt;2-&gt;&gt;&#x27;name&#x27;) || &#x27;:&#x27; || shop.slugify(v.option3) WHERE v.option3 IS NOT NULL
+    UNION ALL SELECT &#x27;brand:&#x27; || shop.slugify(p.vendor) WHERE p.vendor IS NOT NULL
+    UNION ALL SELECT &#x27;tag:&#x27; || shop.slugify(t) FROM unnest(p.tags) t
+    UNION ALL SELECT shop.slugify(s) || &#x27;:&#x27; || shop.slugify(p.specs-&gt;&gt;s) FROM unnest(p.filter_specs) s WHERE p.specs ? s
+  ) x $$;
+
+CREATE OR REPLACE FUNCTION shop.rebuild_product(pid bigint) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE p shop.product;
+BEGIN
+  SELECT * INTO p FROM shop.product WHERE id = pid;
+  IF NOT FOUND OR p.status &lt;&gt; &#x27;publish&#x27; THEN
+    DELETE FROM shop.listing WHERE product_id = pid; DELETE FROM shop.variant_facet WHERE product_id = pid;
+    DELETE FROM shop.page WHERE product_id = pid; RETURN;
+  END IF;
+
+  DELETE FROM shop.variant_facet WHERE product_id = pid;
+  INSERT INTO shop.variant_facet (variant_id, product_id, facet_keys, price, in_stock, location_ids)
+  SELECT v.id, pid, shop.variant_keys(p, v), shop.effective_price(v), v.stock_status &lt;&gt; &#x27;outofstock&#x27;,
+         COALESCE((SELECT array_agg(location_id ORDER BY location_id) FROM shop.stock_level s WHERE s.variant_id = v.id AND s.available &gt; 0), &#x27;{}&#x27;)
+  FROM shop.variant v WHERE v.product_id = pid;
+
+  IF p.parent_id IS NOT NULL OR p.visibility = &#x27;hidden&#x27; THEN
+    DELETE FROM shop.listing WHERE product_id = pid;
+  ELSE
+    INSERT INTO shop.listing AS l (product_id, slug, name, card, category_ids, facet_keys, price_min, price_max, on_sale, in_stock,
+                                   featured, in_catalog, in_search, menu_order, total_sales, rating_avg, published_at, search)
+    SELECT pid, p.slug, p.name,
+      jsonb_build_object(&#x27;id&#x27;, pid, &#x27;slug&#x27;, p.slug, &#x27;name&#x27;, p.name, &#x27;type&#x27;, p.type, &#x27;image&#x27;, p.images-&gt;0,
+        &#x27;priceMin&#x27;, a.pmin, &#x27;priceMax&#x27;, a.pmax, &#x27;regularMin&#x27;, a.rmin, &#x27;onSale&#x27;, a.on_sale, &#x27;inStock&#x27;, a.in_stock,
+        &#x27;rating&#x27;, p.rating_avg, &#x27;ratingCount&#x27;, p.rating_count, &#x27;vendor&#x27;, p.vendor,
+        &#x27;swatches&#x27;, (SELECT jsonb_agg(jsonb_build_object(&#x27;v&#x27;, o.value, &#x27;hex&#x27;, sw.hex) ORDER BY sw.sort)
+                     FROM jsonb_array_elements_text(p.options-&gt;0-&gt;&#x27;values&#x27;) o(value)
+                     JOIN shop.option_swatch sw ON sw.option_name = p.options-&gt;0-&gt;&gt;&#x27;name&#x27; AND sw.value = o.value)),
+      COALESCE((SELECT array_agg(DISTINCT x) FROM shop.category c, unnest(c.ancestor_ids) x WHERE c.id = ANY(p.category_ids)), &#x27;{}&#x27;),
+      COALESCE((SELECT array_agg(DISTINCT k) FROM shop.variant_facet vf, unnest(vf.facet_keys) k WHERE vf.product_id = pid AND vf.in_stock), &#x27;{}&#x27;),
+      a.pmin, a.pmax, a.on_sale, a.in_stock, p.featured,
+      p.visibility IN (&#x27;visible&#x27;,&#x27;catalog&#x27;), p.visibility IN (&#x27;visible&#x27;,&#x27;search&#x27;),
+      p.menu_order, p.total_sales, p.rating_avg, COALESCE(p.published_at, p.created_at),
+      setweight(to_tsvector(&#x27;simple&#x27;, p.name || &#x27; &#x27; || COALESCE(p.vendor, &#x27;&#x27;)), &#x27;A&#x27;) ||
+      setweight(to_tsvector(&#x27;simple&#x27;, COALESCE((SELECT string_agg(sku, &#x27; &#x27;) FROM shop.variant WHERE product_id = pid), &#x27;&#x27;)), &#x27;A&#x27;) ||
+      setweight(to_tsvector(&#x27;simple&#x27;, p.short_description || &#x27; &#x27; || array_to_string(p.tags, &#x27; &#x27;)), &#x27;B&#x27;)
+    FROM (SELECT COALESCE(min(shop.effective_price(v)) FILTER (WHERE v.stock_status &lt;&gt; &#x27;outofstock&#x27;), min(shop.effective_price(v)), 0) pmin,
+                 COALESCE(max(shop.effective_price(v)) FILTER (WHERE v.stock_status &lt;&gt; &#x27;outofstock&#x27;), max(shop.effective_price(v)), 0) pmax,
+                 COALESCE(min(v.price), 0) rmin,
+                 COALESCE(bool_or(shop.effective_price(v) &lt; v.price), false) on_sale,
+                 COALESCE(bool_or(v.stock_status &lt;&gt; &#x27;outofstock&#x27;), false) in_stock
+          FROM shop.variant v WHERE v.product_id = pid) a
+    ON CONFLICT (product_id) DO UPDATE SET slug = EXCLUDED.slug, name = EXCLUDED.name, card = EXCLUDED.card,
+      category_ids = EXCLUDED.category_ids, facet_keys = EXCLUDED.facet_keys, price_min = EXCLUDED.price_min, price_max = EXCLUDED.price_max,
+      on_sale = EXCLUDED.on_sale, in_stock = EXCLUDED.in_stock, featured = EXCLUDED.featured, in_catalog = EXCLUDED.in_catalog,
+      in_search = EXCLUDED.in_search, menu_order = EXCLUDED.menu_order, total_sales = EXCLUDED.total_sales,
+      rating_avg = EXCLUDED.rating_avg, published_at = EXCLUDED.published_at, search = EXCLUDED.search;
+  END IF;
+
+  INSERT INTO shop.page (product_id, slug, doc, etag)
+  SELECT pid, p.slug, d, md5(d::text) FROM (SELECT jsonb_build_object(
+    &#x27;product&#x27;, to_jsonb(p) - &#x27;meta&#x27; - &#x27;sync_status&#x27; - &#x27;woo_modified_gmt&#x27;,
+    &#x27;variants&#x27;, (SELECT COALESCE(jsonb_object_agg(concat_ws(&#x27;|&#x27;, v.option1, v.option2, v.option3),
+                   jsonb_build_object(&#x27;id&#x27;, v.id, &#x27;sku&#x27;, v.sku, &#x27;price&#x27;, shop.effective_price(v), &#x27;regular&#x27;, v.price,
+                                      &#x27;stock&#x27;, v.stock_status, &#x27;qty&#x27;, CASE WHEN v.manage_stock THEN v.stock_qty END, &#x27;image&#x27;, v.image,
+                                      &#x27;locations&#x27;, (SELECT jsonb_object_agg(l.code, s.available) FROM shop.stock_level s JOIN shop.location l ON l.id = s.location_id
+                                                    WHERE s.variant_id = v.id AND s.available &gt; 0))), &#x27;{}&#x27;)
+                 FROM shop.variant v WHERE v.product_id = pid),
+    &#x27;categories&#x27;, (SELECT COALESCE(jsonb_agg(jsonb_build_object(&#x27;id&#x27;, c.id, &#x27;slug&#x27;, c.slug, &#x27;name&#x27;, c.name)), &#x27;[]&#x27;) FROM shop.category c WHERE c.id = ANY(p.category_ids))
+  ) d) x
+  ON CONFLICT (product_id) DO UPDATE SET slug = EXCLUDED.slug, doc = EXCLUDED.doc, etag = EXCLUDED.etag;
+  PERFORM nextval(&#x27;shop.catalog_version&#x27;);
+END $$;
+
+CREATE OR REPLACE FUNCTION shop.mark_dirty() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE r jsonb := to_jsonb(COALESCE(NEW, OLD)); pid bigint;
+BEGIN
+  pid := COALESCE((r-&gt;&gt;&#x27;product_id&#x27;)::bigint, (r-&gt;&gt;&#x27;id&#x27;)::bigint);
+  IF TG_TABLE_NAME = &#x27;stock_level&#x27; THEN SELECT product_id INTO pid FROM shop.variant WHERE id = (r-&gt;&gt;&#x27;variant_id&#x27;)::bigint; END IF;
+  IF pid IS NOT NULL THEN INSERT INTO shop.dirty (product_id) VALUES (pid) ON CONFLICT DO NOTHING; END IF;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER dirty_product AFTER INSERT OR UPDATE OR DELETE ON shop.product FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_variant AFTER INSERT OR UPDATE OR DELETE ON shop.variant FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_stock AFTER INSERT OR UPDATE OR DELETE ON shop.stock_level FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+
+-- online stock = sum of available at locations that sell online -&gt; variant.stock_qty / stock_status
+CREATE OR REPLACE FUNCTION shop.stock_rollup() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE vid bigint := COALESCE(NEW.variant_id, OLD.variant_id); q int;
+BEGIN
+  SELECT COALESCE(sum(s.available), 0) INTO q FROM shop.stock_level s JOIN shop.location l ON l.id = s.location_id
+  WHERE s.variant_id = vid AND l.sells_online;
+  UPDATE shop.variant SET stock_qty = q, stock_status = CASE WHEN q &gt; 0 THEN &#x27;instock&#x27; WHEN backorders &lt;&gt; &#x27;no&#x27; THEN &#x27;onbackorder&#x27; ELSE &#x27;outofstock&#x27; END
+  WHERE id = vid AND manage_stock;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER stock_rollup AFTER INSERT OR UPDATE OR DELETE ON shop.stock_level FOR EACH ROW EXECUTE FUNCTION shop.stock_rollup();
+
+CREATE OR REPLACE FUNCTION shop.review_rollup() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE pid bigint := COALESCE(NEW.product_id, OLD.product_id);
+BEGIN
+  UPDATE shop.product p SET rating_avg = COALESCE(r.avg, 0), rating_count = r.cnt
+  FROM (SELECT round(avg(rating)::numeric, 2) avg, count(*)::int cnt FROM shop.review WHERE product_id = pid AND status = &#x27;approved&#x27;) r
+  WHERE p.id = pid;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER review_rollup AFTER INSERT OR UPDATE OR DELETE ON shop.review FOR EACH ROW EXECUTE FUNCTION shop.review_rollup();
+
+CREATE OR REPLACE FUNCTION shop.process_dirty(max_items int DEFAULT 500) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN DELETE FROM shop.dirty WHERE product_id IN (SELECT product_id FROM shop.dirty ORDER BY queued_at LIMIT max_items FOR UPDATE SKIP LOCKED)
+           RETURNING product_id LOOP
+    PERFORM shop.rebuild_product(r.product_id); n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+
+CREATE OR REPLACE FUNCTION shop.refresh_category_facets() RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  DELETE FROM shop.category_facet;
+  INSERT INTO shop.category_facet
+  SELECT c, k, count(DISTINCT l.product_id)::int, NULL, NULL
+  FROM shop.listing l, unnest(l.category_ids || 0) c, unnest(l.facet_keys) k WHERE l.in_catalog AND l.in_stock GROUP BY 1, 2
+  UNION ALL
+  SELECT c, &#x27;&#x27;, count(*)::int, min(l.price_min), max(l.price_max)
+  FROM shop.listing l, unnest(l.category_ids || 0) c WHERE l.in_catalog AND l.in_stock GROUP BY 1;
+END $$;
+</code></pre></details></section>
+</main>
+<footer>UNIVERSAL1 · expo-app · documentation/PRODUCT_SHOPIFY_ER_MODEL.html · compact alternative to PRODUCT_PLAN2_ER_MODEL.html · 24 indexes and 7 triggers in the schema</footer>
+
+<script>
+(() => {
+  const svg = document.getElementById('er'), vp = document.getElementById('vp');
+  const W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height;
+  let z = 1;
+  const setZ = v => { z = Math.min(2, Math.max(0.2, v)); svg.setAttribute('width', W * z); svg.setAttribute('height', H * z); document.getElementById('zval').textContent = Math.round(z * 100) + '%'; };
+  const fit = () => setZ((vp.clientWidth - 4) / W);
+  document.getElementById('zfit').onclick = fit;
+  document.getElementById('z100').onclick = () => setZ(1);
+  document.getElementById('zin').onclick = () => setZ(z * 1.2);
+  document.getElementById('zout').onclick = () => setZ(z / 1.2);
+  fit();
+  // drag to pan
+  let drag = null;
+  vp.addEventListener('mousedown', e => { if (e.button) return; drag = { x: e.clientX, y: e.clientY, l: vp.scrollLeft, t: vp.scrollTop, moved: false }; vp.classList.add('drag'); });
+  window.addEventListener('mousemove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; vp.scrollLeft = drag.l - dx; vp.scrollTop = drag.t - dy; });
+  window.addEventListener('mouseup', () => { setTimeout(() => (drag = null), 0); vp.classList.remove('drag'); });
+  // focus: node + all ancestors (up) + all descendants (down)
+  const edges = [...svg.querySelectorAll('.edge')];
+  const nodes = Object.fromEntries([...svg.querySelectorAll('.node')].map(n => [n.dataset.t, n]));
+  const walk = (start, dir) => { const seen = new Set([start]); const q = [start];
+    while (q.length) { const t = q.shift(); edges.forEach(e => { const a = dir > 0 ? e.dataset.from : e.dataset.to, b = dir > 0 ? e.dataset.to : e.dataset.from;
+      if (a === t && !seen.has(b)) { seen.add(b); q.push(b); } }); } return seen; };
+  const clear = () => { svg.classList.remove('focus'); svg.querySelectorAll('.on,.hit').forEach(x => x.classList.remove('on', 'hit')); };
+  const focus = (t, scroll) => {
+    clear(); if (!nodes[t]) return;
+    const up = walk(t, -1), down = walk(t, 1), all = new Set([...up, ...down]);
+    svg.classList.add('focus'); all.forEach(k => nodes[k] && nodes[k].classList.add('on')); nodes[t].classList.add('hit');
+    edges.forEach(e => { const f = e.dataset.from, to = e.dataset.to;
+      if ((up.has(f) && up.has(to)) || (down.has(f) && down.has(to))) e.classList.add('on'); });
+    if (scroll) { const r = nodes[t].getBBox(), m = nodes[t].transform.baseVal.consolidate().matrix;
+      vp.scrollTo({ left: (m.e + r.width / 2) * z - vp.clientWidth / 2, top: (m.f + r.height / 2) * z - vp.clientHeight / 2, behavior: 'smooth' }); }
+  };
+  Object.entries(nodes).forEach(([t, n]) => n.addEventListener('click', () => { if (drag && drag.moved) return; n.classList.contains('hit') ? clear() : focus(t, false); }));
+  document.getElementById('clear').onclick = clear;
+  document.querySelectorAll('[data-focus]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); document.getElementById('diagram').scrollIntoView(); focus(a.dataset.focus, true); }));
+  const find = document.getElementById('find');
+  find.addEventListener('input', () => {
+    const q = find.value.trim().toLowerCase(); if (!q) return clear();
+    const hit = Object.keys(nodes).find(t => t.includes(q)) || Object.keys(nodes).find(t => nodes[t].textContent.toLowerCase().includes(q));
+    if (hit) focus(hit, true);
+  });
+})();
+</script>
+</body>
+</html>

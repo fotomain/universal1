@@ -19,6 +19,8 @@ import {
   countryToCard,
 } from './countryModel';
 
+import { useIsAppAdmin } from '../role/useIsAppAdmin';
+
 const ListWebCardsComponent: any =
   Platform.OS === 'web'
     ? require('../../components/list/web/ListWebCardsComponent').ListWebCardsComponent
@@ -28,6 +30,7 @@ export default function CountryList() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
+  const isAdmin = useIsAppAdmin();
   const status = useRealtimeEntity(COUNTRY_ENTITY, { readParams: COUNTRY_READ_PARAMS });
 
   const rows: CountryRow[] =
@@ -62,14 +65,17 @@ export default function CountryList() {
   }, [rows.length, status, dispatch]);
 
   const handleCreate = () => {
+    if (!isAdmin) return;
     router.push(COUNTRY_ROUTES.edit as any);
   };
 
   const handleEdit = (id: string) => {
+    if (!isAdmin) return;
     router.push({ pathname: COUNTRY_ROUTES.edit as any, params: { rowGUID: id } });
   };
 
   const handleDelete = (id: string) => {
+    if (!isAdmin) return;
     const actions = SystemMetaData[COUNTRY_ENTITY]?.actions;
     if (!actions) return;
     const target = rows.find((r) => r.rowGUID === id);
@@ -90,16 +96,18 @@ export default function CountryList() {
           <Text style={[styles.title, { color: c.text }]}>Countries</Text>
           <CurrencyRealtimeBadge status={status} />
         </View>
-        <Pressable
-          testID="country-create-btn"
-          style={[styles.createBtn, { backgroundColor: c.primary }]}
-          onPress={handleCreate}
-          accessibilityRole="button"
-          accessibilityLabel="Add country"
-        >
-          <IconApp name="add" size={20} color="#fff" />
-          <Text style={styles.createBtnText}>Add Country</Text>
-        </Pressable>
+        {isAdmin && (
+          <Pressable
+            testID="country-create-btn"
+            style={[styles.createBtn, { backgroundColor: c.primary }]}
+            onPress={handleCreate}
+            accessibilityRole="button"
+            accessibilityLabel="Add country"
+          >
+            <IconApp name="add" size={20} color="#fff" />
+            <Text style={styles.createBtnText}>Add Country</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Body: Web ListWebCardsComponent or Native FlatList */}

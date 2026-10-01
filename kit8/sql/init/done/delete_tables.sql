@@ -25,7 +25,7 @@ BEGIN
            'dtcTaskFinishedTable', 'dtcCatalogExecutiveTable', 'dtcTaskRegisteredTable',
            'dtcTaskWaitingTable', 'dtcTaskProgressTable', 'dtcFreeExecutiveTable',
            'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
-           'departamentTable', 'personTable', 'partnerTable', 'contractTable',
+           'departamentTable', 'personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable',
            'project_table', 'project_task_table', 'project_task_dependencies_table',
            'project_task_dependency_closure_table', 'project_user_settings_table',
            'kanban_stage_table', 'project_kanban_stage_table', 'project_task_kanban_state_table',
@@ -60,7 +60,8 @@ DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_table CASCADE;
 DROP TABLE IF EXISTS public.project_table CASCADE;
 
--- ---- 5. catalogs ------------------------------------------------------------------------
+DROP TABLE IF EXISTS public."userRoleTable" CASCADE;
+DROP TABLE IF EXISTS public."roleTable" CASCADE;
 DROP TABLE IF EXISTS public."contractTable" CASCADE;
 DROP TABLE IF EXISTS public."partnerTable" CASCADE;
 DROP TABLE IF EXISTS public."personTable" CASCADE;

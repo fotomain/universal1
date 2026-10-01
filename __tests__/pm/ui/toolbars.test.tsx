@@ -180,7 +180,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     const [p1, p2] = demo.projects;
     act(() => usePMStore.getState().setRecentProjects([p2.rowGUID, p1.rowGUID]));
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
-    expectInOrder(['pm-project-search', 'pm-project-ribbon-left', `pm-project-chip-${p1.rowGUID}`, `pm-project-chip-${p2.rowGUID}`, 'pm-project-ribbon-right', 'pm-project-edit', 'pm-project-delete', 'pm-project-add']);
+    expectInOrder(['pm-project-search', 'pm-project-ribbon-left', `pm-project-chip-${p1.rowGUID}`, `pm-project-chip-${p2.rowGUID}`, 'pm-project-ribbon-right', 'pm-project-delete', 'pm-project-edit', 'pm-project-add']);
     expect(q('pm-project-demo')).toBeNull(); // Demo button removed from the bar
   });
 

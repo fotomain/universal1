@@ -1,117 +1,85 @@
 #!/bin/zsh
 # =========================================================================
-# UNIVERSAL1 Expo App — Save Codebase to GitHub
-# Target Repo: expo-YYYY-MM-DD-HH-MM
+# UNIVERSAL1 Expo App — Save to Branch of universal1: expo-YYYY-MM-DD-HH-MM
+# Target Remote : https://github.com/fotomain/universal1.git
+# Target Branch : expo-YYYY-MM-DD-HH-MM
 # =========================================================================
 
 set -eo pipefail
 
-# Change directory to repo root
+# 1. Resolve repository directory
 cd "$(dirname "$0")"
 REPO_DIR="$(pwd)"
 
+REMOTE_NAME="origin"
+REMOTE_URL="https://github.com/fotomain/universal1.git"
+TIMESTAMP=$(date +'%Y-%m-%d-%H-%M')
+BRANCH_NAME="expo-${TIMESTAMP}"
+
 echo "=============================================================================="
-echo "  UNIVERSAL1 EXPO APP: SAVE CODEBASE TO GITHUB"
-echo "  Directory : ${REPO_DIR}"
-echo "  Time      : $(date '+%Y-%m-%d %H:%M:%S')"
+echo "  UNIVERSAL1 -> GITHUB SAVE UTILITY"
+echo "  Directory     : ${REPO_DIR}"
+echo "  Remote URL    : ${REMOTE_URL}"
+echo "  Target Branch : ${BRANCH_NAME}"
+echo "  Timestamp     : $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================================================="
 
 # -------------------------------------------------------------------------
 # Step 0: Auto-resolve stale locks and hung Git processes
+# Fixes error: Unable to create '.git/index.lock': File exists
 # -------------------------------------------------------------------------
 echo "[0/5] Checking repository health & clearing stale locks..."
 
-# 1. Terminate any hung git processes locking this repository
+# 0.1 Terminate any hanging git processes locking this repository
 CURRENT_PID=$$
-GIT_PIDS=$(pgrep -f "git " 2>/dev/null | tr '\n' ' ' || true)
-if [ -n "$GIT_PIDS" ]; then
-    for pid in ${(z)GIT_PIDS}; do
-        if [ "$pid" != "$CURRENT_PID" ]; then
-            PROC_CWD=$(lsof -p "$pid" -Fn 2>/dev/null | grep "^n/" | grep "$REPO_DIR" || true)
-            if [ -n "$PROC_CWD" ]; then
-                echo "      Terminating hanging git process (PID: $pid)..."
-                kill -9 "$pid" 2>/dev/null || true
-            fi
+for pid in $(pgrep -f "git " 2>/dev/null || true); do
+    if [ "$pid" != "$CURRENT_PID" ]; then
+        PROC_CWD=$(lsof -p "$pid" -Fn 2>/dev/null | grep "^n/" | grep "$REPO_DIR" || true)
+        if [ -n "$PROC_CWD" ]; then
+            echo "      Terminating hanging git process (PID: $pid)..."
+            kill -9 "$pid" 2>/dev/null || true
         fi
-    done
-fi
+    fi
+done
 
-# 2. Force remove all lock files in .git
-STALE_LOCKS=$(find .git -name "*.lock" 2>/dev/null || true)
-if [ -n "$STALE_LOCKS" ]; then
-    echo "      Removing stale lock files:"
-    for lock_file in ${(f)STALE_LOCKS}; do
-        echo "       - $lock_file"
-        rm -f "$lock_file"
-    done
-fi
+# 0.2 Safely remove all stale lock files (.git/index.lock, .git/refs/**/*.lock, etc.)
+find .git -name "*.lock" 2>/dev/null | while IFS= read -r lock_file; do
+    if [ -n "$lock_file" ]; then
+        echo "      Removing stale lock: $lock_file"
+        rm -f "$lock_file" 2>/dev/null || true
+    fi
+done
+rm -f .git/index.lock 2>/dev/null || true
 find .git -name "*.lock" -delete 2>/dev/null || true
-echo "      ✓ Git repository unlocked and ready."
+echo "      ✓ Git repository unlocked and clean."
 
 # -------------------------------------------------------------------------
-# Step 1: Ensure Git repository initialized
+# Step 1: Ensure Git repository initialized & Remote Origin configured
 # -------------------------------------------------------------------------
 if [ ! -d ".git" ]; then
     echo "[1/5] Initializing Git repository..."
     git init
-else
-    echo "[1/5] Git repository verified."
 fi
 
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main1")
-if [ "$CURRENT_BRANCH" = "HEAD" ] || [ -z "$CURRENT_BRANCH" ]; then
-    CURRENT_BRANCH="main1"
+CURRENT_REMOTE=$(git remote get-url "$REMOTE_NAME" 2>/dev/null || true)
+if [ -z "$CURRENT_REMOTE" ]; then
+    echo "[1/5] Adding remote ${REMOTE_NAME}: ${REMOTE_URL}"
+    git remote add "$REMOTE_NAME" "$REMOTE_URL"
+elif [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
+    echo "[1/5] Updating remote ${REMOTE_NAME} to: ${REMOTE_URL}"
+    git remote set-url "$REMOTE_NAME" "$REMOTE_URL"
+else
+    echo "[1/5] Remote ${REMOTE_NAME} verified: ${REMOTE_URL}"
 fi
 
 # -------------------------------------------------------------------------
-# Step 2: Generate Timestamped Repo Name: expo-YYYY-MM-DD-HH-MM
+# Step 2: Create and switch to target branch expo-YYYY-MM-DD-HH-MM
 # -------------------------------------------------------------------------
-TIMESTAMP=$(date +'%Y-%m-%d-%H-%M')
-REPO_NAME="expo-${TIMESTAMP}"
-echo "[2/5] Target Repository: ${REPO_NAME}"
-
-# Retrieve GitHub Token from git credentials / environment
-TOKEN="${GITHUB_TOKEN:-}"
-if [ -z "$TOKEN" ]; then
-    TOKEN=$(printf "protocol=https\nhost=github.com\n\n" | git credential fill 2>/dev/null | awk -F= '$1=="password"{print $2}')
-fi
-
-GH_USER="fotomain"
-if [ -n "$TOKEN" ]; then
-    API_USER=$(curl -s -H "Authorization: token $TOKEN" https://api.github.com/user 2>/dev/null | awk -F'"' '/"login":/{print $4; exit}')
-    if [ -n "$API_USER" ]; then
-        GH_USER="$API_USER"
-    fi
-    echo "      Authenticated as GitHub user: ${GH_USER}"
-    echo "      Creating GitHub repository: ${GH_USER}/${REPO_NAME}..."
-    HTTP_STATUS=$(curl -s -o /tmp/gh_repo_create.json -w "%{http_code}" \
-        -X POST \
-        -H "Authorization: token $TOKEN" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/user/repos \
-        -d "{\"name\":\"${REPO_NAME}\",\"private\":true,\"description\":\"Snapshot ${REPO_NAME}\"}")
-    if [ "$HTTP_STATUS" = "201" ]; then
-        echo "      ✓ Created new repository: https://github.com/${GH_USER}/${REPO_NAME}"
-    elif [ "$HTTP_STATUS" = "422" ]; then
-        echo "      ℹ Repository https://github.com/${GH_USER}/${REPO_NAME} already exists."
-    else
-        echo "      ℹ GitHub API response: ${HTTP_STATUS}"
-    fi
-else
-    echo "      Warning: GitHub token not found in keychain, attempting push directly."
-fi
-
-TARGET_REMOTE_URL="https://github.com/${GH_USER}/${REPO_NAME}.git"
-
-# Add or update the snapshot remote
-if git remote | grep -q "^expo_snap$"; then
-    git remote set-url expo_snap "$TARGET_REMOTE_URL"
-else
-    git remote add expo_snap "$TARGET_REMOTE_URL"
-fi
+echo "[2/5] Creating and switching to branch: ${BRANCH_NAME}..."
+git checkout -B "$BRANCH_NAME"
 
 # -------------------------------------------------------------------------
-# Step 3: Stage workspace files (auto-clearing locks if any)
+# Step 3: Stage workspace files (with auto-retry and lock clearance)
 # -------------------------------------------------------------------------
 echo "[3/5] Staging workspace files..."
 find .git -name "*.lock" -delete 2>/dev/null || true
@@ -131,10 +99,10 @@ done
 # -------------------------------------------------------------------------
 # Step 4: Commit changes
 # -------------------------------------------------------------------------
-COMMIT_MSG="${1:-Auto save: ${REPO_NAME} [$(date '+%Y-%m-%d %H:%M:%S')]}"
+COMMIT_MSG="${1:-Save codebase to branch: ${BRANCH_NAME} [$(date '+%Y-%m-%d %H:%M:%S')]}"
 
-if git diff --staged --quiet; then
-    echo "[4/5] Working tree clean, creating checkpoint commit..."
+if git diff --cached --quiet; then
+    echo "[4/5] Working tree clean. Creating checkpoint commit..."
     git commit --allow-empty -m "$COMMIT_MSG"
 else
     echo "[4/5] Committing changes: \"${COMMIT_MSG}\""
@@ -142,14 +110,15 @@ else
 fi
 
 # -------------------------------------------------------------------------
-# Step 5: Push to GitHub target repo & origin
+# Step 5: Push to universal1 on branch expo-YYYY-MM-DD-HH-MM
 # -------------------------------------------------------------------------
-echo "[5/5] Pushing codebase to https://github.com/${GH_USER}/${REPO_NAME}.git..."
+echo "[5/5] Pushing branch '${BRANCH_NAME}' to ${REMOTE_NAME} (universal1)..."
 
 PUSH_SUCCESS=0
 for attempt in 1 2 3; do
-    echo "      Pushing to ${TARGET_REMOTE_URL} (attempt ${attempt}/3)..."
-    if git push -u expo_snap "${CURRENT_BRANCH}:main" --force 2>/dev/null || git push -u expo_snap HEAD:main 2>/dev/null; then
+    echo "      Pushing to ${REMOTE_NAME}/${BRANCH_NAME} (attempt ${attempt}/3)..."
+    find .git -name "*.lock" -delete 2>/dev/null || true
+    if git push -u "$REMOTE_NAME" "$BRANCH_NAME"; then
         PUSH_SUCCESS=1
         break
     else
@@ -159,22 +128,17 @@ for attempt in 1 2 3; do
     fi
 done
 
-# Also push to origin universal1 if available
-if git remote | grep -q "^origin$"; then
-    echo "      Synchronizing with origin (universal1)..."
-    git push origin "$CURRENT_BRANCH" 2>/dev/null || true
-    git push origin "${CURRENT_BRANCH}:${REPO_NAME}" 2>/dev/null || true
-fi
-
 echo ""
 echo "=============================================================================="
 if [ $PUSH_SUCCESS -eq 1 ]; then
-    echo "  [✓] SUCCESSFULLY SAVED TO REPO: ${REPO_NAME}"
-    echo "  • GitHub URL : https://github.com/${GH_USER}/${REPO_NAME}"
+    echo "  [✓] SUCCESSFULLY SAVED TO BRANCH: ${BRANCH_NAME}"
+    echo "  • Repository : ${REMOTE_URL}"
+    echo "  • Branch     : ${BRANCH_NAME}"
     echo "  • Commit     : $(git rev-parse --short HEAD)"
-    echo "  • Branch     : main"
+    echo "  • GitHub URL : https://github.com/fotomain/universal1/tree/${BRANCH_NAME}"
 else
-    echo "  [!] Snapshot created locally, but remote push encountered issues."
+    echo "  [!] Committed locally, but push failed after 3 attempts."
+    echo "  • Branch     : ${BRANCH_NAME}"
     echo "  • Commit     : $(git rev-parse --short HEAD)"
 fi
 echo "=============================================================================="

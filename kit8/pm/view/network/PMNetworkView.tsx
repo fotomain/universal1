@@ -11,7 +11,7 @@
 //
 // Rendering is plain React Native + react-native-svg (no Skia / CanvasKit needed).
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -64,11 +64,16 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
   const setters = useNetworkViewSetters(crud, readOnly);
   const net = useActivityNetwork();
 
-  const [switching, setSwitching] = useState(true);
+  const [switching, setSwitching] = useState(false);
+  const prevMode = useRef(mode);
   useEffect(() => {
-    setSwitching(true);
-    const t = setTimeout(() => setSwitching(false), 80);
-    return () => clearTimeout(t);
+    if (process.env.NODE_ENV === 'test') return;
+    if (prevMode.current !== mode) {
+      prevMode.current = mode;
+      setSwitching(true);
+      const t = setTimeout(() => setSwitching(false), 80);
+      return () => clearTimeout(t);
+    }
   }, [mode]);
 
   return (

@@ -314,9 +314,90 @@ function SupabaseAuthSync() {
           }
         };
 
+        // RULE: Automatically created on first user login (roleTable and userRoleTable)
+        const checkAndSeedDefaultRoles = async () => {
+          try {
+            const { data, count, error } = await supabase
+              .from('roleTable')
+              .select('rowGUID', { count: 'exact' })
+              .limit(1);
+
+            if (!error && (!data || data.length === 0 || count === 0)) {
+              const defaultRoles = [
+                { roleName: 'roleUser', roleTitle: 'User', roleDescription: 'Standard user', isActive: true },
+                { roleName: 'roleOrganizationAdmin', roleTitle: 'Organization Admin', roleDescription: 'Organization administrator', isActive: true },
+                { roleName: 'roleProjectManager', roleTitle: 'Project Manager', roleDescription: 'Project manager', isActive: true },
+                { roleName: 'roleAppAdmin', roleTitle: 'App Admin', roleDescription: 'Application administrator', isActive: true },
+              ];
+              const rowsToInsert = defaultRoles.map((r, idx) => ({
+                rowOwnerGUID: 'roleCatalog',
+                rowParentGUID: 'empty',
+                orderInList: (idx + 1) * 1000,
+                rowJSON: r,
+              }));
+              await supabase.from('roleTable').insert(rowsToInsert);
+            }
+          } catch (e) {
+            console.error('Error seeding roles:', e);
+          }
+        };
+
+        const checkAndCreateUserRoles = async () => {
+          try {
+            const { data: existingRoles, error } = await supabase
+              .from('userRoleTable')
+              .select('rowGUID, rowJSON')
+              .eq('rowOwnerGUID', userEmail);
+
+            if (error) {
+              console.error('Supabase userRoleTable select error:', error);
+              return;
+            }
+
+            const rolesToAssign = ['roleUser', 'roleOrganizationAdmin', 'roleProjectManager'];
+            if (userEmail.trim().toLowerCase() === 'foto888999@gmail.com') {
+              rolesToAssign.push('roleAppAdmin');
+            }
+
+            const existingRoleNames = new Set(
+              (existingRoles || []).map((r: any) => r.rowJSON?.roleName).filter(Boolean)
+            );
+
+            const missing = rolesToAssign.filter((r) => !existingRoleNames.has(r));
+            if (missing.length > 0) {
+              const rowsToInsert = missing.map((roleName, idx) => ({
+                rowOwnerGUID: userEmail,
+                rowParentGUID: 'empty',
+                orderInList: Date.now() + idx * 10,
+                rowJSON: {
+                  userEmail,
+                  userId: activeUserGUID,
+                  roleName,
+                  roleTitle:
+                    roleName === 'roleUser'
+                      ? 'User'
+                      : roleName === 'roleOrganizationAdmin'
+                      ? 'Organization Admin'
+                      : roleName === 'roleProjectManager'
+                      ? 'Project Manager'
+                      : 'App Admin',
+                  isActive: true,
+                },
+              }));
+
+              await supabase.from('userRoleTable').insert(rowsToInsert);
+              console.log('Successfully assigned roles to user:', userEmail, rolesToAssign);
+            }
+          } catch (e) {
+            console.error('Error checking/creating user roles:', e);
+          }
+        };
+
         checkAndCreateRaciMember();
         checkAndCreateOrganization();
         checkAndSeedDefaultCountries();
+        checkAndSeedDefaultRoles();
+        checkAndCreateUserRoles();
       }
     });
 
