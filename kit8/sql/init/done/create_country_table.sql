@@ -1,4 +1,4 @@
--- =====================================================================================
+-- ====================================================================================
 -- Country catalog: public."countryTable" (RN: countryTable = "countryTable",
 -- kit8/catalog/country/countryModel.ts; route /catalog/country)
 --
