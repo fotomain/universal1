@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from '../../components/common/IconApp';
 import type { CardItem } from '../../components/list/web/lib/types';
-import type { PMProjectRow } from '../../pm/model/types';
+import type { PMProjectRow, PMRowJSON } from '../../pm/model/types';
 import { usePMStore } from '../../pm/store/store_pm';
 import { formatDateShort } from '../../pm/view/project/scheduling';
 
@@ -34,7 +34,7 @@ export default function ProjectCard({
   const router = useRouter();
   const { themeColors: c } = useDesignSystem();
   const raw: Partial<PMProjectRow> = card.rawItem || {};
-  const j = raw.rowJSON || {};
+  const j: Partial<PMRowJSON> = raw.rowJSON || {};
   const id = card.id;
 
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);

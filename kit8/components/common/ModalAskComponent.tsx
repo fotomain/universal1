@@ -38,9 +38,9 @@ export const ModalAskComponent: React.FC<ModalAskComponentProps> = ({
 
   const isMd3 = effectiveSystem === 'googlemd3web' || effectiveSystem === 'paper';
   const borderRadius = isMd3 ? 28 : 16;
-  const cardBg = isDark ? (themeColors?.surfaceVariant || '#2d2d3a') : '#ffffff';
-  const textColor = isDark ? '#f0f0f5' : (themeColors?.onSurface || '#1c1b1f');
-  const secondaryTextColor = isDark ? '#b0b0c2' : (themeColors?.onSurfaceVariant || '#49454f');
+  const cardBg = isDark ? ((themeColors as any)?.surfaceVariant || themeColors?.surface || '#2d2d3a') : '#ffffff';
+  const textColor = isDark ? '#f0f0f5' : ((themeColors as any)?.onSurface || themeColors?.text || '#1c1b1f');
+  const secondaryTextColor = isDark ? '#b0b0c2' : ((themeColors as any)?.onSurfaceVariant || '#49454f');
 
   if (!visible) return null;
 

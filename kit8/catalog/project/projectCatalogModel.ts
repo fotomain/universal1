@@ -31,7 +31,7 @@ export function projectToCard(row: PMProjectRow, index = 0): CardItem {
     id: row.rowGUID,
     title: name,
     description: parts.join(' · '),
-    order: row.orderInList ?? index,
+    orderInList: row.orderInList ?? index,
     rawItem: row,
   };
 }

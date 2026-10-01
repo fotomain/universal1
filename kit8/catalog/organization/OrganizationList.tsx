@@ -55,7 +55,7 @@ export default function OrganizationList() {
         r.rowJSON.createdByUser.toLowerCase() === activeUserEmail.toLowerCase()
     );
 
-    if (!hasOrg && rows.length >= 0 && (status === 'synced' || status === 'idle')) {
+    if (!hasOrg && rows.length >= 0 && (status === 'subscribed' || status === 'idle')) {
       const actions = SystemMetaData[ORGANIZATION_ENTITY]?.actions;
       if (actions?.createOne) {
         autoCreatedRef.current = true;

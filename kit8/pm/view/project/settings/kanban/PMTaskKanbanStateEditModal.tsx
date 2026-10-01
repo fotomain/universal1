@@ -17,6 +17,7 @@ import IconApp from '../../../../../components/common/IconApp';
 import { SystemMetaData } from '../../../../../redux/SystemMetaData';
 import { PROJECT_TASK_KANBAN_STATE_ENTITY } from '../../../../model/constants';
 import { usePMStore } from '../../../../store/store_pm';
+import { usePMKanbanStore } from '../../../../store/store_kanban';
 
 export interface PMTaskKanbanStateEditModalProps {
   visible: boolean;
@@ -46,7 +47,7 @@ export default function PMTaskKanbanStateEditModal({
   }, [tasksById, projectGUID]);
 
   // Retrieve kanban stages from store
-  const stages = usePMStore((s) => s.kanbanStages || []);
+  const stages = usePMKanbanStore((s) => s.stages || []);
 
   const [selectedTaskGUID, setSelectedTaskGUID] = useState<string>('');
   const [selectedStageGUID, setSelectedStageGUID] = useState<string>('');
@@ -61,7 +62,7 @@ export default function PMTaskKanbanStateEditModal({
         setProgressPct(String(initialRow.rowJSON?.kanbanStageProgressPercent ?? 0));
       } else {
         setSelectedTaskGUID(projectTasks[0]?.rowGUID || '');
-        setSelectedStageGUID(stages[0]?.rowGUID || stages[0]?.id || '');
+        setSelectedStageGUID(stages[0]?.rowGUID || '');
         setProgressPct('0');
       }
       setError(null);

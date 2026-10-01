@@ -110,10 +110,11 @@ export default function OrganizationEdit() {
   const update = <K extends keyof Form>(k: K, v: Form[K]) => {
     if (!canEdit) return;
     setForm((f) => ({ ...f, [k]: v }));
-    if (errors[k as any]) {
+    const errKey = k as unknown as keyof OrganizationErrors;
+    if (errors[errKey]) {
       setErrors((e) => {
         const next = { ...e };
-        delete next[k as any];
+        delete next[errKey];
         return next;
       });
     }
@@ -173,7 +174,7 @@ export default function OrganizationEdit() {
         <CurrencyRealtimeBadge status={status} />
         <ButtonTextApp
           testID="organization-back"
-          text="Back to list"
+          title="Back to list"
           onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
         />
       </View>
@@ -339,12 +340,12 @@ export default function OrganizationEdit() {
         <View style={styles.actions}>
           <ButtonPrimaryApp
             testID="organization-save"
-            text={isNew ? 'Create Organization' : 'Save Changes'}
+            title={isNew ? 'Create Organization' : 'Save Changes'}
             onPress={handleSave}
           />
           <ButtonTextApp
             testID="organization-cancel"
-            text="Cancel"
+            title="Cancel"
             onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
           />
         </View>

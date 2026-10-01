@@ -8,6 +8,7 @@ export interface TextAppProps {
   variant?: 'title' | 'subtitle' | 'body' | 'caption' | 'heading';
   style?: TextStyle | TextStyle[];
   numberOfLines?: number;
+  testID?: string;
 }
 
 export const TextApp: React.FC<TextAppProps> = ({
@@ -15,6 +16,7 @@ export const TextApp: React.FC<TextAppProps> = ({
   variant = 'body',
   style,
   numberOfLines,
+  testID,
 }) => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
 
@@ -61,6 +63,7 @@ export const TextApp: React.FC<TextAppProps> = ({
       };
       return (
         <PaperText
+          testID={testID}
           variant={paperVariantMap[variant] || 'bodyMedium'}
           numberOfLines={numberOfLines}
           style={[{ color: themeColors.text }, style]}
@@ -73,6 +76,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     case 'tamagui': {
       return (
         <RNText
+          testID={testID}
           numberOfLines={numberOfLines}
           style={[
             {
@@ -92,6 +96,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     case 'ant': {
       return (
         <RNText
+          testID={testID}
           numberOfLines={numberOfLines}
           style={[
             {
@@ -111,6 +116,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     case 'expo': {
       return (
         <RNText
+          testID={testID}
           numberOfLines={numberOfLines}
           style={[
             {
@@ -129,6 +135,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     case 'googlemd3web': {
       return (
         <RNText
+          testID={testID}
           numberOfLines={numberOfLines}
           style={[
             {
@@ -150,6 +157,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     default: {
       return (
         <RNText
+          testID={testID}
           numberOfLines={numberOfLines}
           style={[
             {

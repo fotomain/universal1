@@ -5,6 +5,7 @@ import { useDesignSystem } from '../../../../../providers/WithDesignSystem';
 import IconApp from '../../../../../components/common/IconApp';
 import type { CardItem } from '../../../../../components/list/web/lib/types';
 import { usePMStore } from '../../../../store/store_pm';
+import { usePMKanbanStore } from '../../../../store/store_kanban';
 
 export interface PMTaskKanbanStateCardProps {
   card: CardItem;
@@ -36,14 +37,14 @@ export default function PMTaskKanbanStateCard({
   const stageGUID = j.stageGUID;
   const progressPct = j.kanbanStageProgressPercent;
 
-  // Look up task name and stage from PM store
+  // Look up task name and stage from PM and Kanban stores
   const task = usePMStore((s) => (taskGUID ? s.tasksById[taskGUID] : undefined));
-  const stages = usePMStore((s) => s.kanbanStages || []);
-  const stage = stages.find((st: any) => st.rowGUID === stageGUID || st.id === stageGUID);
+  const stages = usePMKanbanStore((s) => s.stages || []);
+  const stage = stages.find((st) => st.rowGUID === stageGUID);
 
   const taskName = task?.rowJSON?.name || card.title || `Task (${taskGUID?.slice(0, 8) || 'unknown'})`;
-  const stageName = stage?.rowJSON?.name || stage?.name || 'Default stage';
-  const stageColor = stage?.rowJSON?.color || stage?.color || c.primary;
+  const stageName = stage?.rowJSON?.stageName || 'Default stage';
+  const stageColor = stage?.rowJSON?.stageColor || c.primary;
 
   return (
     <View

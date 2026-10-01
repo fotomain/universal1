@@ -167,7 +167,7 @@ export function organizationToCard(row: OrganizationRow, index = 0): CardItem {
     id: row.rowGUID,
     title,
     description: subtitle || json.contactEmail || 'No details',
-    order: row.orderInList ?? index,
+    orderInList: row.orderInList ?? index,
     rawItem: row,
   };
 }
