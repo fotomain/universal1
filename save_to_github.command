@@ -7,6 +7,9 @@
 
 set -eo pipefail
 
+# Ensure standard system and Homebrew binaries are in PATH when launched from macOS Finder
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # 1. Resolve repository directory
 cd "$(dirname "$0")"
 REPO_DIR="$(pwd)"
@@ -34,7 +37,7 @@ echo "[0/5] Checking repository health & clearing stale locks..."
 CURRENT_PID=$$
 for pid in $(pgrep -f "git " 2>/dev/null || true); do
     if [ "$pid" != "$CURRENT_PID" ]; then
-        PROC_CWD=$(lsof -p "$pid" -Fn 2>/dev/null | grep "^n/" | grep "$REPO_DIR" || true)
+        PROC_CWD=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | grep "^n/" | grep "$REPO_DIR" || true)
         if [ -n "$PROC_CWD" ]; then
             echo "      Terminating hanging git process (PID: $pid)..."
             kill -9 "$pid" 2>/dev/null || true
@@ -61,21 +64,26 @@ if [ ! -d ".git" ]; then
     git init
 fi
 
+# Clean up any leftover temporary snapshot remotes
+if git remote | grep -q "^expo_snap$"; then
+    git remote remove expo_snap 2>/dev/null || true
+fi
+
 CURRENT_REMOTE=$(git remote get-url "$REMOTE_NAME" 2>/dev/null || true)
 if [ -z "$CURRENT_REMOTE" ]; then
     echo "[1/5] Adding remote ${REMOTE_NAME}: ${REMOTE_URL}"
     git remote add "$REMOTE_NAME" "$REMOTE_URL"
-elif [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
+elif [[ "$CURRENT_REMOTE" != *"universal1"* ]]; then
     echo "[1/5] Updating remote ${REMOTE_NAME} to: ${REMOTE_URL}"
     git remote set-url "$REMOTE_NAME" "$REMOTE_URL"
 else
-    echo "[1/5] Remote ${REMOTE_NAME} verified: ${REMOTE_URL}"
+    echo "[1/5] Remote ${REMOTE_NAME} verified: ${CURRENT_REMOTE}"
 fi
 
 # -------------------------------------------------------------------------
 # Step 2: Create and switch to target branch expo-YYYY-MM-DD-HH-MM
 # -------------------------------------------------------------------------
-echo "[2/5] Creating and switching to branch: ${BRANCH_NAME}..."
+echo "[2/5] Creating and switching to chronological branch: ${BRANCH_NAME}..."
 git checkout -B "$BRANCH_NAME"
 
 # -------------------------------------------------------------------------

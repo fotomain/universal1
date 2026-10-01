@@ -14,7 +14,8 @@
     "build_appCC1": "./build_appCC1.sh",
     "build_appClothes1": "./build_appClothes1.sh",
     "build_all": "./build_all.sh",
-    "deploy:web": "./deploy/eas/web/deploy_web_eas.command"
+    "deploy:web": "./deploy/eas/web/deploy_web_eas.command",
+    "save_to_github": "./save_to_github.command"
   },
   "dependencies": {
     "@ant-design/icons-react-native": "^2.3.2",

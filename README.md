@@ -55,12 +55,15 @@ eas build --platform ios --profile production
 # Both platforms simultaneously:
 eas build --platform all --profile production
 
-make me save_to_github.command: it must save to branch of universal1: expo-YYYY-MM-DD-HH-MM
-it must solve the error: The following problems have occurred when adding the files: Unable to create '/Users/mgtimber/UNIVERSAL1/expo-app/.git/index.lock': File exists. Another git process seems to be running in this repository, e.g. an editor opened by 'git commit'. Please make sure all processes are terminated then try again. If it still fails, a git process may have crashed in this repository earlier: remove the file manually to continue.
+## 💾 Save Codebase to GitHub (Branch with Chronology)
+Save to repository `universal1` on chronological branch `expo-YYYY-MM-DD-HH-MM` (automatically resolves `.git/index.lock` and hung processes):
 
-git init
-git add .
-git commit -m "first commit"
-git branch -M main1
-git remote add origin https://github.com/fotomain/universal1.git
-git push -u origin main1
+```bash
+# From expo-app or project root:
+./save_to_github.command
+# or
+./save_to_github
+# or
+npm run save_to_github
+```
+
