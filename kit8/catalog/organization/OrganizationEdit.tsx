@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
@@ -9,6 +9,8 @@ import IconApp from '../../components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
+import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
+import DepartamentList from '../departament/DepartamentList';
 import {
   ORGANIZATION_CATALOG_OWNER,
   ORGANIZATION_ENTITY,
@@ -28,6 +30,7 @@ type Form = {
   organizationLegalName: string;
   createdByUser: string;
   isActive: boolean;
+  countryOfResidence: string;
   contactEmail: string;
   contactPhone: string;
   website: string;
@@ -47,6 +50,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     organizationLegalName: v.organizationLegalName || '',
     createdByUser: v.createdByUser || defaultUserEmail,
     isActive: v.isActive !== false,
+    countryOfResidence: v.countryOfResidence || leg.country || 'LV',
     contactEmail: v.contactEmail || defaultUserEmail,
     contactPhone: v.contactPhone || '',
     website: v.website || '',
@@ -65,6 +69,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     organizationLegalName: f.organizationLegalName,
     createdByUser: f.createdByUser,
     isActive: f.isActive,
+    countryOfResidence: f.countryOfResidence,
     contactEmail: f.contactEmail,
     contactPhone: f.contactPhone,
     website: f.website,
@@ -73,7 +78,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
       legalAddress: f.legalAddress,
-      country: f.country,
+      country: f.countryOfResidence || f.country,
       bankIban: f.bankIban,
     },
   });
@@ -82,8 +87,11 @@ export default function OrganizationEdit() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
-  const { rowGUID } = useLocalSearchParams<{ rowGUID?: string }>();
+  const params = useLocalSearchParams<{ rowGUID?: string; guid?: string }>();
+  const rowGUID = params.rowGUID || params.guid;
   const isNew = !rowGUID;
+
+  const [activeTab, setActiveTab] = useState<'TabMain' | 'TabDepartaments'>('TabMain');
 
   const status = useRealtimeEntity(ORGANIZATION_ENTITY, { readParams: ORGANIZATION_READ_PARAMS });
   const rows: OrganizationRow[] =
@@ -200,154 +208,232 @@ export default function OrganizationEdit() {
         </View>
       )}
 
-      {/* Main Info */}
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={[styles.sectionTitle, { color: c.text }]}>General Information</Text>
-
-        <TextInputApp
-          testID="organization-input-title"
-          label="Organization Title *"
-          value={form.organizationTitle}
-          onChangeText={(v) => update('organizationTitle', v)}
-          placeholder="Trade name or brand"
-          error={errors.organizationTitle}
-          disabled={!canEdit}
-        />
-
-        <TextInputApp
-          testID="organization-input-legal-name"
-          label="Legal Entity Name"
-          value={form.organizationLegalName}
-          onChangeText={(v) => update('organizationLegalName', v)}
-          placeholder="Official legal name (e.g. SIA, Ltd, Inc)"
-          disabled={!canEdit}
-        />
-
-        <TextInputApp
-          testID="organization-input-creator"
-          label="Creator User Email"
-          value={form.createdByUser}
-          onChangeText={(v) => update('createdByUser', v)}
-          placeholder="Creator email"
-          disabled={true} // creator is read-only
-          error={errors.createdByUser}
-        />
-
-        <SwitchApp
-          testID="organization-switch-active"
-          label="Organization is active"
-          value={form.isActive}
-          onValueChange={(v) => update('isActive', v)}
-          disabled={!canEdit}
-        />
+      {/* TopTabs Bar: TabMain, TabDepartaments */}
+      <View testID="organization-toptabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
+        {[
+          { id: 'TabMain' as const, label: 'Main Details', icon: 'info' },
+          { id: 'TabDepartaments' as const, label: 'Departments', icon: 'schema' },
+        ].map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              testID={`organization-tab-${tab.id}`}
+              accessibilityRole="tab"
+              aria-selected={active}
+              onPress={() => setActiveTab(tab.id)}
+              style={[
+                styles.topTabButton,
+                {
+                  borderBottomColor: active ? c.primary : 'transparent',
+                  backgroundColor: active ? `${c.primary}18` : 'transparent',
+                },
+              ]}
+            >
+              <IconApp
+                name={tab.icon}
+                size={16}
+                color={active ? c.primary : c.text}
+              />
+              <Text
+                style={[
+                  styles.topTabText,
+                  {
+                    color: active ? c.primary : c.text,
+                    fontWeight: active ? '700' : '500',
+                  },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      {/* Contact Info */}
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={[styles.sectionTitle, { color: c.text }]}>Contact Information</Text>
+      {/* TAB 1: TabMain */}
+      {activeTab === 'TabMain' && (
+        <>
+          {/* Main Info */}
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>General Information</Text>
 
-        <TextInputApp
-          testID="organization-input-email"
-          label="Contact Email"
-          value={form.contactEmail}
-          onChangeText={(v) => update('contactEmail', v)}
-          placeholder="contact@company.com"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-title"
+              label="Organization Title *"
+              value={form.organizationTitle}
+              onChangeText={(v) => update('organizationTitle', v)}
+              placeholder="Trade name or brand"
+              error={errors.organizationTitle}
+              disabled={!canEdit}
+            />
 
-        <TextInputApp
-          testID="organization-input-phone"
-          label="Contact Phone"
-          value={form.contactPhone}
-          onChangeText={(v) => update('contactPhone', v)}
-          placeholder="+1 555 0100"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-legal-name"
+              label="Legal Entity Name"
+              value={form.organizationLegalName}
+              onChangeText={(v) => update('organizationLegalName', v)}
+              placeholder="Official legal name (e.g. SIA, Ltd, Inc)"
+              disabled={!canEdit}
+            />
 
-        <TextInputApp
-          testID="organization-input-website"
-          label="Website"
-          value={form.website}
-          onChangeText={(v) => update('website', v)}
-          placeholder="https://example.com"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-creator"
+              label="Creator User Email"
+              value={form.createdByUser}
+              onChangeText={(v) => update('createdByUser', v)}
+              placeholder="Creator email"
+              disabled={true} // creator is read-only
+              error={errors.createdByUser}
+            />
 
-        <TextInputApp
-          testID="organization-input-notes"
-          label="Notes"
-          value={form.notes}
-          onChangeText={(v) => update('notes', v)}
-          placeholder="Additional notes"
-          multiline
-          disabled={!canEdit}
-        />
-      </View>
+            <SwitchApp
+              testID="organization-switch-active"
+              label="Organization is active"
+              value={form.isActive}
+              onValueChange={(v) => update('isActive', v)}
+              disabled={!canEdit}
+            />
+          </View>
 
-      {/* Legal Data */}
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={[styles.sectionTitle, { color: c.text }]}>Legal & Registration Data</Text>
+          {/* Contact Info */}
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Contact Information</Text>
 
-        <TextInputApp
-          testID="organization-input-reg-no"
-          label="Registration No"
-          value={form.registrationNo}
-          onChangeText={(v) => update('registrationNo', v)}
-          placeholder="Official company registration number"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-email"
+              label="Contact Email"
+              value={form.contactEmail}
+              onChangeText={(v) => update('contactEmail', v)}
+              placeholder="contact@company.com"
+              disabled={!canEdit}
+            />
 
-        <TextInputApp
-          testID="organization-input-vat-no"
-          label="VAT Number"
-          value={form.vatNo}
-          onChangeText={(v) => update('vatNo', v)}
-          placeholder="e.g. LV40003999999"
-          error={errors.vatNo}
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-phone"
+              label="Contact Phone"
+              value={form.contactPhone}
+              onChangeText={(v) => update('contactPhone', v)}
+              placeholder="+1 555 0100"
+              disabled={!canEdit}
+            />
 
-        <TextInputApp
-          testID="organization-input-address"
-          label="Legal Address"
-          value={form.legalAddress}
-          onChangeText={(v) => update('legalAddress', v)}
-          placeholder="Street, City, Postal Code"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-website"
+              label="Website"
+              value={form.website}
+              onChangeText={(v) => update('website', v)}
+              placeholder="https://example.com"
+              disabled={!canEdit}
+            />
 
-        <TextInputApp
-          testID="organization-input-country"
-          label="Country Code (ISO-2)"
-          value={form.country}
-          onChangeText={(v) => update('country', v.toUpperCase())}
-          placeholder="LV"
-          disabled={!canEdit}
-        />
+            <TextInputApp
+              testID="organization-input-notes"
+              label="Notes"
+              value={form.notes}
+              onChangeText={(v) => update('notes', v)}
+              placeholder="Additional notes"
+              multiline
+              disabled={!canEdit}
+            />
+          </View>
 
-        <TextInputApp
-          testID="organization-input-iban"
-          label="Bank IBAN"
-          value={form.bankIban}
-          onChangeText={(v) => update('bankIban', v.toUpperCase())}
-          placeholder="Bank account IBAN"
-          disabled={!canEdit}
-        />
-      </View>
+          {/* Legal Data */}
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Legal & Registration Data</Text>
 
-      {/* Save / Actions */}
-      {canEdit && (
-        <View style={styles.actions}>
-          <ButtonPrimaryApp
-            testID="organization-save"
-            title={isNew ? 'Create Organization' : 'Save Changes'}
-            onPress={handleSave}
-          />
-          <ButtonTextApp
-            testID="organization-cancel"
-            title="Cancel"
-            onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
-          />
+            {/* Country of Residence from countryTable catalog via SelectElementFromCatalog */}
+            <SelectElementFromCatalog
+              testID="organization-select-country"
+              entityName="countryReusable"
+              label="Country of Residence *"
+              placeholder="Select country of residence from catalog..."
+              value={form.countryOfResidence || form.country}
+              onSelect={(guid, row) => {
+                const code = row?.rowJSON?.countryCode || guid || 'LV';
+                update('countryOfResidence', code);
+                update('country', code);
+              }}
+              onChange={(guid, row) => {
+                const code = row?.rowJSON?.countryCode || guid || 'LV';
+                update('countryOfResidence', code);
+                update('country', code);
+              }}
+              disabled={!canEdit}
+            />
+
+            <TextInputApp
+              testID="organization-input-reg-no"
+              label="Registration No"
+              value={form.registrationNo}
+              onChangeText={(v) => update('registrationNo', v)}
+              placeholder="Official company registration number"
+              disabled={!canEdit}
+            />
+
+            <TextInputApp
+              testID="organization-input-vat-no"
+              label="VAT Number"
+              value={form.vatNo}
+              onChangeText={(v) => update('vatNo', v)}
+              placeholder="e.g. LV40003999999"
+              error={errors.vatNo}
+              disabled={!canEdit}
+            />
+
+            <TextInputApp
+              testID="organization-input-address"
+              label="Legal Address"
+              value={form.legalAddress}
+              onChangeText={(v) => update('legalAddress', v)}
+              placeholder="Street, City, Postal Code"
+              disabled={!canEdit}
+            />
+
+            <TextInputApp
+              testID="organization-input-iban"
+              label="Bank IBAN"
+              value={form.bankIban}
+              onChangeText={(v) => update('bankIban', v.toUpperCase())}
+              placeholder="Bank account IBAN"
+              disabled={!canEdit}
+            />
+          </View>
+
+          {/* Save / Actions */}
+          {canEdit && (
+            <View style={styles.actions}>
+              <ButtonPrimaryApp
+                testID="organization-save"
+                title={isNew ? 'Create Organization' : 'Save Changes'}
+                onPress={handleSave}
+              />
+              <ButtonTextApp
+                testID="organization-cancel"
+                title="Cancel"
+                onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
+              />
+            </View>
+          )}
+        </>
+      )}
+
+      {/* TAB 2: TabDepartaments */}
+      {activeTab === 'TabDepartaments' && (
+        <View style={styles.tabContent} testID="organization-tab-departaments-content">
+          {isNew ? (
+            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border, alignItems: 'center', padding: 32 }]}>
+              <IconApp name="schema" size={48} color={c.text + '99'} />
+              <Text style={[styles.sectionTitle, { color: c.text, textAlign: 'center', marginTop: 12 }]}>
+                Organization Not Saved Yet
+              </Text>
+              <Text style={{ color: c.text + '99', textAlign: 'center', marginTop: 6, maxWidth: 400 }}>
+                Please save this organization first on the "Main Details" tab. Once saved, you can add departments and manage your organizational tree structure here.
+              </Text>
+            </View>
+          ) : (
+            <DepartamentList organizationGUID={existing!.rowGUID} />
+          )}
         </View>
       )}
     </ScrollView>
@@ -368,7 +454,27 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   bannerText: { flex: 1, fontSize: 13 },
+  topTabsBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    gap: 8,
+    marginBottom: 4,
+  },
+  topTabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  topTabText: {
+    fontSize: 14,
+  },
   card: { borderWidth: 1, borderRadius: 12, padding: 16, gap: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  tabContent: { width: '100%' },
   actions: { flexDirection: 'row', gap: 12, marginTop: 8, paddingBottom: 32 },
 });

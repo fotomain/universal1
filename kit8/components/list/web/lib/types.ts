@@ -6,6 +6,14 @@ export interface CardItem {
   description: string;
   orderInList?: number;
   rawItem?: any;
+  /** Hierarchy: parent card id (or rowParentGUID) */
+  parentId?: string | null;
+  /** Hierarchy: nest level (0 = root, 1 = child, 2 = grandchild, etc.) */
+  depth?: number;
+  /** Hierarchy: whether this card has children in the current tree */
+  hasChildren?: boolean;
+  /** Hierarchy: whether children of this card are currently expanded */
+  isExpanded?: boolean;
 }
 
 export interface ListWebCardsComponentProps {
@@ -32,6 +40,10 @@ export interface ListWebCardsComponentProps {
   itemLabel?: string;
   /** false: fixed order (e.g. rates by date) - no drag & drop, move up / down, make first / last */
   reorderEnabled?: boolean;
+  /** Enable hierarchical tree display of cards based on parentId / rowParentGUID */
+  hierarchyEnabled?: boolean;
+  /** Callback to add a child under a specific card */
+  onCreateChildItem?: (parentCardId: string, parentRawItem?: any) => void;
 }
 
 export interface CardThreeDotsMenuProps {

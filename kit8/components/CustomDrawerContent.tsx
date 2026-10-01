@@ -67,6 +67,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
         { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
         { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
+        { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
+        { id: 'departaments', label: 'Departments', icon: 'schema', route: 'catalog/departament' },
         { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
       ],
     },

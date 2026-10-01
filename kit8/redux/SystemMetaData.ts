@@ -7,6 +7,8 @@ import {PERSON_ENTITY, personsTable, personExample} from "../catalog/person/pers
 import {PARTNER_ENTITY, partnersTable, partnerExample} from "../catalog/partner/partnerModel";
 import {CONTRACT_ENTITY, contractsTable, emptyContract} from "../catalog/contract/contractModel";
 import {ORGANIZATION_ENTITY, organizationTable, organizationExample} from "../catalog/organization/organizationModel";
+import {COUNTRY_ENTITY, countryTable, emptyCountry} from "../catalog/country/countryModel";
+import {DEPARTAMENT_ENTITY, departamentTable, emptyDepartament} from "../catalog/departament/departamentModel";
 import {PROJECT_ENTITY} from "../catalog/project/projectCatalogModel";
 import {PROJECT_TASK_KANBAN_STATE_ENTITY, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
 
@@ -110,6 +112,28 @@ const SystemMetaData:any = {
             }
         },
         defaultData: organizationExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Country catalog (kit8/catalog/country): /catalog/country, Supabase Realtime sync
+    [COUNTRY_ENTITY]: {
+        tableName: countryTable,
+        itemLabel: "Country",
+        updateValidator: () => {},
+        defaultData: emptyCountry(),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Departament catalog (kit8/catalog/departament): TabDepartaments in Organization, Supabase Realtime sync
+    [DEPARTAMENT_ENTITY]: {
+        tableName: departamentTable,
+        itemLabel: "Departament",
+        updateValidator: () => {},
+        defaultData: emptyDepartament().rowJSON,
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

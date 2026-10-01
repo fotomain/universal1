@@ -38,6 +38,8 @@ export interface OrganizationRowJSON {
   /** Email of the user who created the organization. Only this email can edit the organization. */
   createdByUser: string;
   isActive: boolean;
+  /** Selected country of residence (countryTable rowGUID or ISO-2 code) */
+  countryOfResidence?: string | null;
   /** Legal registration data */
   legalData?: LegalData;
   contactEmail?: string;
@@ -79,6 +81,7 @@ export const emptyOrganization = (userEmail = ''): OrganizationRowJSON => ({
   organizationLegalName: '',
   createdByUser: userEmail,
   isActive: true,
+  countryOfResidence: 'LV',
   legalData: {
     registrationNo: '',
     vatNo: '',
@@ -99,12 +102,14 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
   const createdByUser = (raw.createdByUser || '').trim().toLowerCase();
   const isActive = raw.isActive !== false;
   const leg = raw.legalData || {};
+  const countryOfResidence = (raw.countryOfResidence || leg.country || 'LV').trim();
 
   const cleanLegal: LegalData = {};
   if (leg.registrationNo?.trim()) cleanLegal.registrationNo = leg.registrationNo.trim();
   if (leg.vatNo?.trim()) cleanLegal.vatNo = leg.vatNo.trim().toUpperCase();
   if (leg.legalAddress?.trim()) cleanLegal.legalAddress = leg.legalAddress.trim();
-  if (leg.country?.trim()) cleanLegal.country = leg.country.trim().toUpperCase();
+  if (countryOfResidence) cleanLegal.country = countryOfResidence.toUpperCase();
+  else if (leg.country?.trim()) cleanLegal.country = leg.country.trim().toUpperCase();
   if (leg.bankIban?.trim()) cleanLegal.bankIban = leg.bankIban.trim().replace(/\s+/g, '').toUpperCase();
 
   return {
@@ -112,6 +117,7 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(legalName ? { organizationLegalName: legalName } : {}),
     createdByUser,
     isActive,
+    countryOfResidence,
     ...(Object.keys(cleanLegal).length > 0 ? { legalData: cleanLegal } : {}),
     ...(raw.contactEmail?.trim() ? { contactEmail: raw.contactEmail.trim().toLowerCase() } : {}),
     ...(raw.contactPhone?.trim() ? { contactPhone: raw.contactPhone.trim() } : {}),

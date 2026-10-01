@@ -21,6 +21,7 @@ import WithState from '../kit8/redux/WithState';
 import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
+import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
 import {FABProvider} from '../kit8/providers/FABProvider';
@@ -274,8 +275,46 @@ function SupabaseAuthSync() {
           }
         };
 
+        // RULE: Automatically created if the first user login (default countries)
+        const checkAndSeedDefaultCountries = async () => {
+          try {
+            const { data, count, error } = await supabase
+              .from('countryTable')
+              .select('rowGUID', { count: 'exact' })
+              .limit(1);
+
+            if (error) {
+              console.error('Supabase country select error:', error);
+              return;
+            }
+
+            if (!data || data.length === 0 || count === 0) {
+              const rowsToInsert = DEFAULT_COUNTRIES.map((c, idx) => ({
+                rowGUID: Crypto.randomUUID ? Crypto.randomUUID() : formatTo32CharGUID(`country_${c.countryCode}_${Date.now()}`),
+                rowOwnerGUID: 'countryCatalog',
+                rowParentGUID: 'empty',
+                orderInList: (idx + 1) * 1000,
+                rowJSON: {
+                  ...c,
+                  isActive: true,
+                },
+              }));
+
+              const { error: insertError } = await supabase.from('countryTable').insert(rowsToInsert);
+              if (insertError) {
+                console.error('Supabase countryTable seed error:', insertError);
+              } else {
+                console.log('Successfully seeded default countries in countryTable');
+              }
+            }
+          } catch (e) {
+            console.error('Error checking/seeding countries:', e);
+          }
+        };
+
         checkAndCreateRaciMember();
         checkAndCreateOrganization();
+        checkAndSeedDefaultCountries();
       }
     });
 

@@ -18,6 +18,7 @@ import {
   createAfterCurrent,
   copyPasteBeforeCurrent,
   copyPasteAfterCurrent,
+  organizeCardsHierarchy,
 } from "./lib";
 import {CardBasicVersion} from "./cards";
 import {CreateNewCardBasicForm} from "../forms";
@@ -69,6 +70,8 @@ export function ListWebCardsComponent({
   readParams,
   itemLabel = "Post",
   reorderEnabled = true,
+  hierarchyEnabled = false,
+  onCreateChildItem,
 }: ListWebCardsComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
@@ -99,7 +102,17 @@ export function ListWebCardsComponent({
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isSelectionVisible, setIsSelectionVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [collapsedCardIds, setCollapsedCardIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState<{ type: 'single' | 'selected'; id?: string } | null>(null);
+
+  const handleToggleExpand = (id: string) => {
+    setCollapsedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSearchChange = (text: string) => {
     setSearchText(text);
@@ -183,6 +196,11 @@ export function ListWebCardsComponent({
         },
         dragHandleProps,
         crudCardHeight,
+        depth: card.depth ?? 0,
+        hasChildren: card.hasChildren ?? false,
+        isExpanded: card.isExpanded !== false,
+        onToggleExpand: () => handleToggleExpand(card.id),
+        onCreateChild: onCreateChildItem ? () => onCreateChildItem(card.id, card.rawItem) : undefined,
       });
     }
 
@@ -243,6 +261,11 @@ export function ListWebCardsComponent({
       },
       dragHandleProps,
       crudCardHeight,
+      depth: card.depth ?? 0,
+      hasChildren: card.hasChildren ?? false,
+      isExpanded: card.isExpanded !== false,
+      onToggleExpand: () => handleToggleExpand(card.id),
+      onCreateChild: onCreateChildItem ? () => onCreateChildItem(card.id, card.rawItem) : undefined,
     });
   };
 
@@ -891,6 +914,11 @@ export function ListWebCardsComponent({
     }
   };
 
+  const visibleCards = React.useMemo(() => {
+    if (!hierarchyEnabled) return cards;
+    return organizeCardsHierarchy(cards, collapsedCardIds);
+  }, [cards, hierarchyEnabled, collapsedCardIds]);
+
   // Empty State if no listOwnerGUID is provided
   if (!listOwnerGUID) {
     return (
@@ -1103,7 +1131,7 @@ export function ListWebCardsComponent({
                 scrollContainerRef.current = el;
               }}
             >
-              {cards
+              {visibleCards
                 .filter((card) => {
                   if (!searchText || searchText.trim() === "") return true;
                   const lower = searchText.toLowerCase().trim();
@@ -1202,9 +1230,43 @@ export function ListWebCardsComponent({
                           alignItems: "center",
                           userSelect: "none",
                           position: "relative",
+                          paddingLeft: hierarchyEnabled && card.depth ? `${card.depth * 24}px` : undefined,
                           ...getVerticalDraggableStyle(draggableProvided.draggableProps.style, snapshot.isDragging),
                         }}
                       >
+                        {/* Hierarchy toggle / tree branch connector */}
+                        {hierarchyEnabled && (
+                          <div
+                            title={card.hasChildren ? (card.isExpanded !== false ? "Collapse" : "Expand") : undefined}
+                            style={{
+                              cursor: card.hasChildren ? "pointer" : "default",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: 22,
+                              height: 22,
+                              marginRight: 4,
+                              userSelect: "none",
+                              flexShrink: 0,
+                            }}
+                            onClick={(e) => {
+                              if (card.hasChildren) {
+                                e.stopPropagation();
+                                handleToggleExpand(card.id);
+                              }
+                            }}
+                          >
+                            {card.hasChildren ? (
+                              <IconApp
+                                name={card.isExpanded !== false ? "expand_more" : "chevron_right"}
+                                size={20}
+                                color={primaryColor}
+                              />
+                            ) : card.depth && card.depth > 0 ? (
+                              <Text style={{ color: theme.colors.outline || "#999", fontSize: 13, fontWeight: "700" }}>└</Text>
+                            ) : null}
+                          </div>
+                        )}
                         {/* Checkbox Column with MoveCardUp (upper) & MoveCardDown (lower) */}
                         {isSelectionVisible && (
                           <View style={styles.leftControlColumn}>

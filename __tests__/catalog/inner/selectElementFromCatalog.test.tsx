@@ -277,5 +277,64 @@ describe('SelectElementFromCatalog', () => {
     const emptyRow = { rowGUID: 'row-empty', rowJSON: {} };
     expect(defaultTitleExtractor(emptyRow)).toBe('row-empty');
     expect(defaultSubtitleExtractor(emptyRow)).toBeUndefined();
+
+    // Country extraction
+    const countryRow = {
+      rowGUID: 'country-lv',
+      rowJSON: {
+        countryName: 'Latvia',
+        countryCode: 'LV',
+        countryCodeAlpha3: 'LVA',
+        flagEmoji: '🇱🇻',
+        phonePrefix: '+371',
+        currencyCode: 'EUR',
+      },
+    };
+    expect(defaultTitleExtractor(countryRow)).toBe('🇱🇻 Latvia (LV)');
+    expect(defaultSubtitleExtractor(countryRow)).toBe('LVA · 📞 +371 · 💱 EUR');
+
+    // Departament extraction
+    const deptRow = {
+      rowGUID: 'dept-eng',
+      rowJSON: {
+        departmentName: 'Engineering',
+        departmentCode: 'ENG',
+        headPersonName: 'Alice Smith',
+        description: 'Core product team',
+      },
+    };
+    expect(defaultTitleExtractor(deptRow)).toBe('[ENG] Engineering');
+    expect(defaultSubtitleExtractor(deptRow)).toBe('Lead: Alice Smith · Core product team');
+  });
+
+  it('resolves country by ISO code in value (e.g. value="LV")', () => {
+    const sampleCountries = [
+      {
+        rowGUID: 'guid-latvia-123',
+        rowOwnerGUID: 'countryCatalog',
+        rowParentGUID: 'empty',
+        orderInList: 0,
+        rowJSON: {
+          countryName: 'Latvia',
+          countryCode: 'LV',
+          flagEmoji: '🇱🇻',
+        },
+      },
+    ];
+    mockReduxState = {
+      countryReusable: { entityDataFromServer: sampleCountries },
+    };
+
+    render(
+      <SelectElementFromCatalog
+        testID="sel-country"
+        entityName="countryReusable"
+        value="LV"
+      />
+    );
+
+    const trigger = q('sel-country-trigger');
+    expect(trigger?.textContent).toContain('Latvia');
+    expect(trigger?.textContent).toContain('LV');
   });
 });

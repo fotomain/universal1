@@ -4,6 +4,7 @@ export * from "./CardIconsBottomComponent";
 export * from "./CardSwipeUnderlayLeftComponent";
 export * from "./CardSwipeUnderlayRightComponent";
 export * from "./SwipeableCard";
+export * from "./hierarchy";
 export * from "./calculateNewOrderInList";
 export * from "./createBeforeCurrent";
 export * from "./createAfterCurrent";

@@ -21,6 +21,7 @@ describe('organizationModel', () => {
       organizationTitle: '  Baltic Timber SIA  ',
       organizationLegalName: '  Baltic Timber SIA  ',
       createdByUser: '  Boss@Company.COM  ',
+      countryOfResidence: ' LV ',
       legalData: {
         registrationNo: ' 40003123456 ',
         vatNo: ' lv40003123456 ',
@@ -31,6 +32,7 @@ describe('organizationModel', () => {
     const normalized = normalizeOrganization(raw);
     expect(normalized.organizationTitle).toBe('Baltic Timber SIA');
     expect(normalized.createdByUser).toBe('boss@company.com');
+    expect(normalized.countryOfResidence).toBe('LV');
     expect(normalized.legalData?.registrationNo).toBe('40003123456');
     expect(normalized.legalData?.vatNo).toBe('LV40003123456');
     expect(normalized.legalData?.bankIban).toBe('LV80HABA0551000000001');

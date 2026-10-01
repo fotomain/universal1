@@ -51,6 +51,17 @@ export interface SelectElementFromCatalogProps {
 export function defaultTitleExtractor(row: any): string {
   if (!row) return '';
   const j = row.rowJSON || {};
+  // Country
+  if (j.countryName) {
+    const flag = j.flagEmoji ? `${j.flagEmoji} ` : '';
+    const code = j.countryCode ? ` (${j.countryCode})` : '';
+    return `${flag}${j.countryName}${code}`;
+  }
+  // Departament
+  if (j.departmentName) {
+    const code = j.departmentCode ? `[${j.departmentCode}] ` : '';
+    return `${code}${j.departmentName}`;
+  }
   if (j.partnerTitle) return j.partnerTitle;
   if (j.contractNumber && j.contractTitle) return `${j.contractNumber} — ${j.contractTitle}`;
   if (j.contractTitle) return j.contractTitle;
@@ -63,6 +74,19 @@ export function defaultTitleExtractor(row: any): string {
 export function defaultSubtitleExtractor(row: any): string | undefined {
   if (!row) return undefined;
   const j = row.rowJSON || {};
+  // Country
+  if (j.countryCode || j.phonePrefix || j.currencyCode) {
+    const parts = [
+      j.countryCodeAlpha3 || j.countryCode,
+      j.phonePrefix ? `📞 ${j.phonePrefix}` : null,
+      j.currencyCode ? `💱 ${j.currencyCode}` : null,
+    ].filter(Boolean);
+    return parts.join(' · ');
+  }
+  // Departament
+  if (j.headPersonName || j.description) {
+    return [j.headPersonName ? `Lead: ${j.headPersonName}` : null, j.description].filter(Boolean).join(' · ');
+  }
   // Partner
   if (j.legalData?.vatNo) return `VAT: ${j.legalData.vatNo}`;
   if (j.partnerLegalName && j.partnerLegalName !== j.partnerTitle) return j.partnerLegalName;
@@ -132,10 +156,17 @@ export default function SelectElementFromCatalog({
     return [...list].sort((a, b) => (a.orderInList ?? 0) - (b.orderInList ?? 0));
   }, [allRows, rowOwnerGUID, rowParentGUID, filterItem]);
 
-  // Selected item
+  // Selected item (matches by rowGUID, or countryCode / ISO code)
   const selectedItem = useMemo(() => {
     if (!value) return null;
-    return allRows.find((r) => r.rowGUID === value) || null;
+    return (
+      allRows.find(
+        (r) =>
+          r.rowGUID === value ||
+          (r.rowJSON?.countryCode && r.rowJSON.countryCode.toUpperCase() === value.toUpperCase()) ||
+          (r.rowJSON?.countryCodeAlpha3 && r.rowJSON.countryCodeAlpha3.toUpperCase() === value.toUpperCase())
+      ) || null
+    );
   }, [allRows, value]);
 
   const selectedTitle = selectedItem ? titleExtractor(selectedItem) : '';

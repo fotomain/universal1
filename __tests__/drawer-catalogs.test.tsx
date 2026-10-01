@@ -40,13 +40,15 @@ function mount(path: string) {
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); });
 
-it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partners navigate', () => {
+it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partners, Countries, Departments navigate', () => {
   mount('/home');
   expect(q('drawer-item-catalogs')).not.toBeNull();
   expect(q('drawer-item-currencies')).toBeNull(); // not a top-level row any more
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed
   expect(q('drawer-subitem-persons')).toBeNull();
   expect(q('drawer-subitem-partners')).toBeNull();
+  expect(q('drawer-subitem-countries')).toBeNull();
+  expect(q('drawer-subitem-departaments')).toBeNull();
   press('drawer-item-catalogs');
   expect(mockNavigate).not.toHaveBeenCalled(); // a group only toggles
 
@@ -61,13 +63,25 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   const subPerson = q('drawer-subitem-persons')!;
   expect(subPerson.textContent).toContain('Persons');
   press('drawer-subitem-persons');
-  expect(mockNavigate).toHaveBeenCalledWith('/person/list');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/person/list');
 
   // Partners
   const subPartner = q('drawer-subitem-partners')!;
   expect(subPartner.textContent).toContain('Partners');
   press('drawer-subitem-partners');
-  expect(mockNavigate).toHaveBeenCalledWith('/partner/list');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/partner/list');
+
+  // Countries
+  const subCountry = q('drawer-subitem-countries')!;
+  expect(subCountry.textContent).toContain('Countries');
+  press('drawer-subitem-countries');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/country');
+
+  // Departments
+  const subDept = q('drawer-subitem-departaments')!;
+  expect(subDept.textContent).toContain('Departments');
+  press('drawer-subitem-departaments');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/departament');
 
   press('drawer-item-catalogs');
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
@@ -86,10 +100,16 @@ it('opens by itself on a catalog page (list or edit)', () => {
   mount('/currency/edit');
   expect(q('drawer-subitem-currencies')).not.toBeNull();
   act(() => root.unmount());
-  mount('/person/list');
+  mount('/catalog/person/list');
   expect(q('drawer-subitem-persons')).not.toBeNull();
   act(() => root.unmount());
-  mount('/partner/list');
+  mount('/catalog/partner/list');
   expect(q('drawer-subitem-partners')).not.toBeNull();
+  act(() => root.unmount());
+  mount('/catalog/country');
+  expect(q('drawer-subitem-countries')).not.toBeNull();
+  act(() => root.unmount());
+  mount('/catalog/departament');
+  expect(q('drawer-subitem-departaments')).not.toBeNull();
 });
 
