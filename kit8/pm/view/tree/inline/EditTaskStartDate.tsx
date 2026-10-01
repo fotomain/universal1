@@ -39,26 +39,29 @@ export default function EditTaskStartDate(props: {
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
       preventBlur={pickerOpen}
-      rightElement={
-        <SelectDateApp
-          value={startMs}
-          trigger="icon"
-          testID={`pm-tree-select-date-start-${guid}`}
-          style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
-          onOpen={() => setPickerOpen(true)}
-          onDismiss={() => setPickerOpen(false)}
-          onSelect={(selectedDate) => {
-            setPickerOpen(false);
-            if (!selectedDate) {
-              crud.setStartConstraint(guid, null);
-            } else {
-              const ms = Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-              crud.setStartConstraint(guid, ms);
-            }
-            close();
-          }}
-        />
-      }
+      rightElement={(currentText) => {
+        const parsed = currentText ? parsePlanDate(currentText, planDateInputFormat, startMs) : null;
+        return (
+          <SelectDateApp
+            value={parsed ?? startMs}
+            trigger="icon"
+            testID={`pm-tree-select-date-start-${guid}`}
+            style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+            onOpen={() => setPickerOpen(true)}
+            onDismiss={() => setPickerOpen(false)}
+            onSelect={(selectedDate) => {
+              setPickerOpen(false);
+              if (!selectedDate) {
+                crud.setStartConstraint(guid, null);
+              } else {
+                const ms = Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                crud.setStartConstraint(guid, ms);
+              }
+              close();
+            }}
+          />
+        );
+      }}
       onCommit={(text) => {
         if (!text.trim()) {
           crud.setStartConstraint(guid, null);

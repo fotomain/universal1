@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Storage Plan 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7;
+    --rose: #e11d48; --rose-soft: #ffe4e6; --slate: #64748b;
+    --gradient: linear-gradient(135deg, #059669 0%, #0891b2 50%, #7c3aed 100%);
+    --radius: 14px; --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  a { color: var(--purple); }
+  code { font: 12.5px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12px/1.55 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 10px 0; }
+  pre code { background: none; padding: 0; color: inherit; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 18px; padding: 10px 20px; }
+  .brand { font: 700 16px var(--display); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .brand-dot { width: 22px; height: 22px; border-radius: 7px; background: var(--gradient); }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  nav a.active { background: var(--emerald-soft); color: var(--emerald); }
+  main { max-width: 1180px; margin: 0 auto; padding: 8px 20px 80px; }
+  section { margin: 46px 0; }
+  h1 { font: 700 36px/1.15 var(--display); margin: 14px 0 12px; letter-spacing: -.02em; }
+  h2 { font: 700 26px/1.2 var(--display); margin: 0 0 6px; letter-spacing: -.01em; }
+  h3 { font: 600 17px/1.3 var(--display); margin: 0 0 8px; }
+  h4 { font: 600 13px var(--font); margin: 18px 0 6px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+  .sub { color: var(--muted); margin: 0 0 18px; max-width: 900px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 920px; }
+  .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--emerald-soft); color: var(--emerald); }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .hot { background: var(--rose-soft); color: var(--rose); } .warm { background: var(--amber-soft); color: var(--amber); }
+  .cold { background: var(--cyan-soft); color: var(--cyan); } .derived { background: var(--bg-subtle); color: var(--slate); }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0,1fr)); } .g3 { grid-template-columns: repeat(3, minmax(0,1fr)); } .g4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  @media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 640px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } h1 { font-size: 28px; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
+  .kpi .v { font: 700 30px var(--display); background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi .l { font-weight: 600; } .kpi .n { color: var(--muted); font-size: 13px; }
+  ul.clean { margin: 6px 0 0; padding-left: 18px; } ul.clean li { margin: 3px 0; }
+  .callout { border-radius: var(--radius-sm); padding: 12px 16px; margin: 14px 0; border-left: 4px solid; }
+  .callout.amber { background: var(--amber-soft); border-color: var(--amber); }
+  .callout.emerald { background: var(--emerald-soft); border-color: var(--emerald); }
+  .callout.cyan { background: var(--cyan-soft); border-color: var(--cyan); }
+  .callout.rose { background: var(--rose-soft); border-color: var(--rose); }
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); margin: 10px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-subtle); font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.win { color: var(--emerald); font-weight: 700; }
+  /* architecture lanes */
+  .lanes { display: grid; grid-template-columns: 1fr 40px 1.25fr 40px 1fr; align-items: stretch; gap: 0; }
+  @media (max-width: 900px) { .lanes { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); height: 34px; } }
+  .lane { background: var(--card); border: 1.5px solid var(--border-strong); border-radius: 12px; padding: 12px 14px; }
+  .lane h3 { font-size: 15px; } .lane .k { font: 600 11px var(--font); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .lane.w { border-color: var(--cyan); } .lane.r { border-color: var(--emerald); } .lane.c { border-color: var(--purple); }
+  .lane ul { margin: 6px 0 0; padding-left: 16px; font-size: 13px; } .lane li { margin: 2px 0; }
+  .arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 22px; }
+  /* bar chart */
+  .bars { display: grid; grid-template-columns: minmax(150px, 260px) 1fr; gap: 6px 12px; align-items: center; font-size: 13px; }
+  .bars .lbl { color: var(--text-2); }
+  .bars .track { display: grid; gap: 3px; }
+  .bar { height: 14px; border-radius: 4px; display: flex; align-items: center; font: 600 11px var(--mono); color: #fff; padding-left: 6px; white-space: nowrap; min-width: 46px; }
+  .bar.p1 { background: #94a3b8; } .bar.p2 { background: var(--emerald); }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin: 6px 0 12px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  details { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin: 10px 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 8px 0; }
+  .steps li { counter-increment: s; position: relative; padding: 6px 0 6px 40px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 5px; width: 26px; height: 26px; border-radius: 50%; background: var(--emerald-soft); color: var(--emerald); font: 700 13px/26px var(--display); text-align: center; }
+  footer { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand"><span class="brand-dot"></span>Product storage · Plan 2</div>
+  <nav><ul id="nav">
+    <li><a href="#overview" class="active">Overview</a></li>
+    <li><a href="#principles">Principles</a></li>
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#write">Write model</a></li>
+    <li><a href="#read">Read model</a></li>
+    <li><a href="#coverage">Woo coverage</a></li>
+    <li><a href="#api">Storefront API</a></li>
+    <li><a href="#bench">Benchmark</a></li>
+    <li><a href="#fresh">Freshness</a></li>
+    <li><a href="#edge">Beyond the DB</a></li>
+    <li><a href="#vs">Plan 1 vs 2</a></li>
+    <li><a href="#rollout">Rollout</a></li>
+    <li><a href="#sql">SQL</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+<section id="overview">
+  <span class="pill">Independent approach · storage for web-shop speed · UNIVERSAL1 / expo-app · 2026-10-01</span>
+  <h1>Write it typed, read it precomputed: product storage built for shop speed</h1>
+  <p class="lead">A shop reads products thousands of times for every time it writes one. So this plan stops storing products in one shape for both jobs. It keeps a <b>typed, normalized write model</b> that mirrors WooCommerce exactly. Next to it is a <b>read model</b>: four small tables, rebuilt per product,, holding exactly what each shop screen needs, already filtered, sorted and turned into JSON. Each shop screen costs one database call. At 100,000 products, the listing, the product page and the category facets all answer in under 10 ms.</p>
+  <div class="callout emerald"><b>Measured, not guessed.</b> Both plans were built on PostgreSQL 16 with the same synthetic shop: 20,000 and 100,000 products, 66k and 329k variants, 260 categories, color, memory, size and brand. The category page, the most-visited page of any shop, went from <b>187 ms to 0.44 ms</b> at 100k products. Facet counts went from <b>403 ms to 0.24 ms</b>. Details are in <a href="#bench">Benchmark</a>; the SQL that produced them is in <a href="#sql">SQL</a>.</div>
+</section>
+
+<section class="grid g4" aria-label="Key numbers">
+  <div class="card kpi"><div class="v">0.8 ms</div><div class="l">category page, 24 cards</div><div class="n">100k products, sorted by price, in-stock only (Plan 1: 187 ms)</div></div>
+  <div class="card kpi"><div class="v">0.24 ms</div><div class="l">facet counts</div><div class="n">every color, size and brand count for a category (Plan 1: 403 ms)</div></div>
+  <div class="card kpi"><div class="v">0.12 ms</div><div class="l">product page</div><div class="n">product, gallery, attributes and the whole variant matrix as one JSON document</div></div>
+  <div class="card kpi"><div class="v">1 call</div><div class="l">per screen</div><div class="n">Over the network, round trips cost more than milliseconds of query time</div></div>
+</section>
+
+<section id="principles">
+  <h2>Design principles</h2>
+  <div class="grid g3">
+    <div class="card"><h3>1 · Pay at write time, not read time</h3><p>Price ranges, in-stock flags, ancestor categories, search vectors and card JSON are computed <b>once per product change</b>, not once per visitor. A rebuild costs about 1 ms per product.</p></div>
+    <div class="card"><h3>2 · Hot fields are typed columns</h3><p>Anything a shop filters or sorts on gets a real column: price, stock, date, popularity, rating. Category and attribute filters use <code>int[]</code> arrays with GIN indexes. JSONB is kept for data the shop only displays and never searches.</p></div>
+    <div class="card"><h3>3 · Every product has a sellable variant</h3><p>A simple product gets one <i>default variant</i>, so price and stock live in one place for all product types. Woo still sees simple products; the mapper folds the default variant back into the product.</p></div>
+    <div class="card"><h3>4 · Integers everywhere they count</h3><p>Prices are stored as <code>bigint</code> cents, not text or float, so they are exact, fast and safe to sort. IDs are <code>bigint identity</code> rather than text UUIDs, which makes indexes smaller and joins faster. Term IDs are <code>int</code>, ready for <code>intarray</code>.</p></div>
+    <div class="card"><h3>5 · One screen = one call</h3><p>The listing, facets and product page each come from one RPC that returns finished JSON. Pagination uses keysets (<code>after</code>), so page 50 is as fast as page 1.</p></div>
+    <div class="card"><h3>6 · The shop reads only what is published</h3><p>The read model contains only sellable, published rows. Anonymous visitors call <code>SECURITY DEFINER</code> RPCs, so there are no row-level-security checks on hot paths and no direct table access.</p></div>
+  </div>
+</section>
+
+<section id="arch">
+  <h2>Architecture</h2>
+  <p class="sub">The left side is where editors and WooCommerce sync write. The right side is what the shop reads. The middle keeps them in step.</p>
+  <div class="lanes">
+    <div class="lane w"><div class="k">Write model · schema shop</div><h3>Normalized, typed, Woo-shaped</h3>
+      <ul><li><code>product</code>, <code>variant</code></li><li><code>category</code>, <code>tag</code>, <code>attribute</code>, <code>attribute_term</code></li>
+      <li><code>product_category</code>, <code>product_tag</code>, <code>product_attribute</code></li><li><code>media</code>, <code>product_media</code>, <code>product_link</code></li>
+      <li><code>download</code>, <code>review</code>, <code>unit</code>, <code>tax_class</code>, <code>shipping_class</code></li></ul></div>
+    <div class="arrow">→</div>
+    <div class="lane c"><div class="k">Projection</div><h3>Dirty queue + rebuild</h3>
+      <ul><li>Row triggers put <code>product_id</code> into <code>shop.dirty</code>, de-duplicated</li>
+      <li>The admin "save" RPC rebuilds immediately; <code>pg_cron</code> every 5 s is the safety net</li>
+      <li><code>rebuild_product(id)</code> takes about 1 ms and bumps <code>catalog_version</code></li>
+      <li><code>refresh_category_facets()</code> runs once a minute: 0.2 s at 20k products, 1 s at 100k</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="lane r"><div class="k">Read model · what the shop reads</div><h3>Precomputed, denormalized</h3>
+      <ul><li><code>listing</code>: one row per product with card JSON and filter and sort keys</li>
+      <li><code>variant_facet</code>: one row per sellable variant, for exact attribute filters</li>
+      <li><code>page</code>: one JSON document per product page, with an ETag</li>
+      <li><code>category_facet</code>: counts for each category and term</li></ul></div>
+  </div>
+  <p class="sub" style="margin-top:14px">WooCommerce sync (webhooks plus a reconcile using <code>modified_after</code>) and the Expo admin both write only to the left side. The shop (Expo web, a Next.js storefront or anything else) only calls the RPCs on the right.</p>
+</section>
+
+<section id="write">
+  <h2>Write model: WooCommerce, typed</h2>
+  <p class="sub">The write model is one table per Woo concept. Woo IDs are kept in <code>woo_id</code> (unique, nullable), so products created in the app exist before their first push. The full DDL is under <a href="#sql">SQL</a>.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Table</th><th>Holds</th><th>Key design choice</th></tr>
+    <tr><td><code>product</code></td><td>name, slug, type, status, visibility, descriptions, featured, brand, tax and shipping class, grouped/external, sold individually, purchase note, reviews allowed, default attributes, download limits, rating and sales aggregates, <code>meta</code> JSONB</td><td>Every Woo enum is <code>text + CHECK</code>; it reads well and migrates easily (no <code>ALTER TYPE</code>). <code>meta</code> and <code>custom_attributes</code> (Woo local attributes) are JSONB because the shop never filters on them.</td></tr>
+    <tr><td><code>variant</code></td><td>SKU, GTIN, prices in cents, sale window, stock, backorders, low stock, weight and dimensions, image, virtual/downloadable, description, <code>option_term_ids int[]</code></td><td>A simple product has exactly 1 <code>is_default</code> variant (enforced by a partial unique index). <code>UNIQUE(product_id, option_term_ids)</code> makes duplicate combinations impossible.</td></tr>
+    <tr><td><code>category</code></td><td>Tree with <code>parent_id</code> and <code>ancestor_ids int[]</code> (kept up to date by a trigger)</td><td>Subtree filters need no recursive CTE: products copy all ancestor IDs into the listing row.</td></tr>
+    <tr><td><code>attribute</code> / <code>attribute_term</code></td><td>Global attributes (<code>pa_color</code>) and their terms, with a <code>kind</code> of select, color or number, a swatch hex, and a numeric value for sorting such as 128 &lt; 256 &lt; 512 GB</td><td>Brand is an attribute term, since a Woo "Brands" term behaves as a filter like any other.</td></tr>
+    <tr><td><code>product_attribute</code></td><td>Which attributes and terms a product uses, the position, visible and used-for-variations flags</td><td>Non-variation terms (material, brand) are merged into every variant's facet row, so one index answers both.</td></tr>
+    <tr><td><code>product_category</code>, <code>product_tag</code>, <code>product_media</code>, <code>product_link</code></td><td>Many-to-many links (<code>product_link.kind</code> is upsell, cross_sell or grouped)</td><td>These are proper join tables with integrity in the write model, and arrays in the read model.</td></tr>
+    <tr><td><code>download</code>, <code>review</code></td><td>Woo downloads and reviews</td><td>A review trigger maintains <code>product.rating_avg</code> and <code>rating_count</code>, which then flow into the card.</td></tr>
+    <tr><td><code>unit</code>, <code>tax_class</code>, <code>shipping_class</code>, <code>media</code></td><td>Reference data. <code>media</code> stores width, height and <code>lqip</code> (a blur placeholder).</td><td>Image dimensions in the card prevent layout shift (CLS) on the shop page.</td></tr>
+  </table></div>
+</section>
+
+<section id="read">
+  <h2>Read model: one table per question the shop asks</h2>
+  <div class="grid g2">
+    <div class="card"><h3><code>shop.listing</code>: "which cards, in what order?"</h3>
+      <ul class="clean">
+        <li><code>card jsonb</code>: everything a tile shows (name, image with size and LQIP, price range, regular price, on-sale flag, stock, rating, color swatches). The shop renders it as is.</li>
+        <li><code>category_ids int[]</code>: the assigned categories plus all their ancestors, searched with a GIN index (<code>gin__int_ops</code>).</li>
+        <li><code>term_ids int[]</code>: terms of in-stock variants plus product attributes plus brand.</li>
+        <li><code>price_min</code>/<code>price_max</code> are the effective prices: sale-aware, and counting only in-stock variants when any are in stock.</li>
+        <li>B-tree sort indexes on <code>(price_min, id)</code>, <code>(published_at, id)</code> and <code>(total_sales, id)</code> serve "top 24" and keyset pages straight from the index.</li>
+        <li><code>search tsvector</code> (name and SKUs weighted A, short description B) with a GIN index, plus a trigram index on the name for partial words.</li>
+      </ul></div>
+    <div class="card"><h3><code>shop.variant_facet</code>: "does an in-stock variant match?"</h3>
+      <ul class="clean">
+        <li>One row per sellable variant: <code>term_ids int[]</code>, <code>price</code>, <code>in_stock</code>.</li>
+        <li>This makes "Blue <b>and</b> 256 GB" correct: both terms must be on the <b>same in-stock variant</b>. A product with a blue 128 GB and a black 256 GB doesn't match. Woo's own <code>wc_product_attributes_lookup</code> table solves the same problem.</li>
+        <li><code>@&gt;</code> (contains all) for single-value groups, <code>&amp;&amp;</code> (overlaps) for "Black OR Blue" groups.</li>
+      </ul></div>
+    <div class="card"><h3><code>shop.page</code>: "everything for one product page"</h3>
+      <ul class="clean">
+        <li>The product, gallery, attributes with terms and swatches, and categories.</li>
+        <li>The <b>variant matrix</b> is keyed by sorted term IDs, e.g. <code>"5-14"</code> → <code>{id, sku, price, regular, stock, qty, media}</code>. Picking a color or memory changes the price and stock on the client <b>with zero requests</b>.</li>
+        <li><code>etag</code> (an md5 of the document) gives cheap <code>304 Not Modified</code> responses and cache keys.</li>
+      </ul></div>
+    <div class="card"><h3><code>shop.category_facet</code>: "what can I filter by here?"</h3>
+      <ul class="clean">
+        <li>Rows of <code>(category_id, term_id) → product_count</code>, plus a price-range row per category (<code>term_id = 0</code>). <code>category_id = 0</code> is the whole shop.</li>
+        <li>Covers the most common request, a category landing page with no filters yet, in 0.2 ms.</li>
+        <li>Once the visitor adds filters, <code>shop.facets()</code> switches to the live query, which takes 4–18 ms.</li>
+      </ul></div>
+  </div>
+  <div class="callout cyan"><b>Storage cost of the speed:</b> at 100k products the write model is 165 MB and the read model about 310 MB (listing 125, variant_facet 49, page 133). Plan 1's JSONB tables were 345 MB for the same data. That's roughly 1.4× more storage in total. All of it fits in the RAM of a small Supabase instance, which is what keeps the reads below a millisecond.</div>
+</section>
+
+<section id="coverage">
+  <h2>Every WooCommerce product field, and where it lives</h2>
+  <p class="sub">Source: WooCommerce REST API v3 product and variation properties. <span class="tag hot">hot</span> = filtered or sorted in the shop (typed column and index in the read model) · <span class="tag warm">warm</span> = shown on cards or pages (inside the prebuilt JSON) · <span class="tag cold">cold</span> = admin and sync only · <span class="tag derived">derived</span> = computed by Woo, not stored.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Woo field(s)</th><th>Stored in</th><th>Temp.</th></tr>
+    <tr><td><code>id</code>, <code>date_modified_gmt</code></td><td><code>product.woo_id</code>, <code>woo_modified_gmt</code> (conflict detection)</td><td><span class="tag cold">cold</span></td></tr>
+    <tr><td><code>name</code>, <code>slug</code></td><td><code>product.name</code>, <code>slug</code> (unique) → <code>listing.name</code>, <code>search</code>, <code>page.slug</code></td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>type</code>, <code>status</code>, <code>catalog_visibility</code></td><td><code>product.*</code> → only published rows reach the read model; <code>listing.in_catalog</code> / <code>in_search</code></td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>featured</code>, <code>menu_order</code></td><td><code>product.*</code> → <code>listing.featured</code>, <code>menu_order</code></td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>description</code>, <code>short_description</code>, <code>purchase_note</code></td><td><code>product.*</code> → <code>page.doc</code>; short description is also in <code>search</code></td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>sku</code>, <code>global_unique_id</code></td><td><code>variant.sku</code> (unique), <code>gtin</code> → <code>listing.search</code></td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>regular_price</code>, <code>sale_price</code>, <code>date_on_sale_from/to</code></td><td><code>variant.*</code> in cents → <code>listing.price_min/max</code>, <code>variant_facet.price</code>, card, page matrix</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>price</code>, <code>price_html</code>, <code>on_sale</code>, <code>purchasable</code></td><td>derived in <code>rebuild_product</code> (effective price, <code>on_sale</code>)</td><td><span class="tag derived">derived</span></td></tr>
+    <tr><td><code>manage_stock</code>, <code>stock_quantity</code>, <code>stock_status</code>, <code>backorders</code>, <code>low_stock_amount</code></td><td><code>variant.*</code> → <code>listing.in_stock</code>, <code>variant_facet.in_stock</code>, page matrix</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>backorders_allowed</code>, <code>backordered</code></td><td>derived from <code>backorders</code> and stock</td><td><span class="tag derived">derived</span></td></tr>
+    <tr><td><code>total_sales</code>, <code>average_rating</code>, <code>rating_count</code></td><td><code>product.*</code> (rating maintained from <code>review</code>) → <code>listing</code> sort keys</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>categories</code></td><td><code>product_category</code> → <code>listing.category_ids</code> (with ancestors)</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>tags</code></td><td><code>product_tag</code> → <code>listing.tag_ids</code></td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>brands</code></td><td><code>product.brand_term_id</code> → <code>term_ids</code> (facet)</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>attributes[]</code> (global, id &gt; 0)</td><td><code>product_attribute</code> + <code>variant.option_term_ids</code> → <code>term_ids</code>, page</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>attributes[]</code> (local, id = 0)</td><td><code>product.custom_attributes</code> JSONB → page only (Woo can't filter on these either)</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>default_attributes</code></td><td><code>product.default_term_ids</code> → page (preselected variant)</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>variations</code></td><td><code>variant</code> rows (+ variation <code>description</code>, <code>image</code>, <code>menu_order</code>)</td><td><span class="tag hot">hot</span></td></tr>
+    <tr><td><code>images[]</code></td><td><code>media</code> + <code>product_media</code> (position 0 = main) → card image, page gallery</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>weight</code>, <code>dimensions</code>, <code>shipping_class</code></td><td><code>variant.weight_g</code>, <code>*_mm</code> (NULL = inherit), <code>product.shipping_class_id</code></td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>shipping_required</code>, <code>shipping_taxable</code></td><td>derived from virtual and tax status</td><td><span class="tag derived">derived</span></td></tr>
+    <tr><td><code>tax_status</code>, <code>tax_class</code></td><td><code>product.tax_status</code>, <code>tax_class_id</code></td><td><span class="tag cold">cold</span></td></tr>
+    <tr><td><code>virtual</code>, <code>downloadable</code>, <code>downloads</code>, <code>download_limit/expiry</code></td><td><code>variant.is_virtual/is_downloadable</code>, <code>download</code>, <code>product.download_*</code></td><td><span class="tag cold">cold</span></td></tr>
+    <tr><td><code>external_url</code>, <code>button_text</code></td><td><code>product.*</code> → page</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>grouped_products</code>, <code>upsell_ids</code>, <code>cross_sell_ids</code></td><td><code>product_link</code> (+ <code>product.parent_id</code> for grouped children)</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>related_ids</code></td><td>derived (shared categories and tags): a query against <code>listing.category_ids</code></td><td><span class="tag derived">derived</span></td></tr>
+    <tr><td><code>sold_individually</code>, <code>reviews_allowed</code></td><td><code>product.*</code> → page</td><td><span class="tag warm">warm</span></td></tr>
+    <tr><td><code>meta_data[]</code></td><td><code>product.meta</code>, <code>variant.meta</code> JSONB, kept verbatim for a lossless round trip</td><td><span class="tag cold">cold</span></td></tr>
+    <tr><td>units of measure (not in Woo)</td><td><code>unit</code> + <code>product.unit_id</code>, pushed as <code>meta_data</code></td><td><span class="tag warm">warm</span></td></tr>
+  </table></div>
+</section>
+
+<section id="api">
+  <h2>Storefront API: three calls cover the shop</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>RPC</th><th>Input</th><th>Returns</th><th class="num">100k products</th></tr>
+    <tr><td><code>shop.search(p)</code></td><td><code>{category, terms: [[5,6],[14]], priceMax, q, inStock, sort, limit, after}</code></td><td><code>{items: [card…], next: {k, id}, version}</code></td><td class="num">0.8–8.5 ms</td></tr>
+    <tr><td><code>shop.facets(p)</code></td><td>the same filters</td><td><code>{terms: {termId: count}, price: {min, max}, source}</code></td><td class="num">0.24 ms precomputed · 17 ms live</td></tr>
+    <tr><td><code>shop.product_page(slug)</code></td><td>slug</td><td>page document + <code>etag</code></td><td class="num">0.12 ms</td></tr>
+  </table></div>
+  <ul class="clean">
+    <li><b>Sorts:</b> <code>price</code>, <code>price_desc</code>, <code>popularity</code>, <code>date</code>, <code>menu_order</code>, <code>rating</code>. The function builds SQL from a whitelist (no injection) so each sort uses its own index.</li>
+    <li><b>Filters:</b> AND between attribute groups, OR inside a group. Every group must match the <i>same in-stock variant</i>.</li>
+    <li><b>Pagination:</b> pass the returned <code>next</code> as <code>after</code>. Keyset pagination stays fast on deep pages and never repeats or skips items when stock changes.</li>
+    <li><b>Exposure:</b> the tables live in schema <code>shop</code>, which is <i>not</i> exposed by PostgREST. Thin wrappers <code>public.shop_search(p)</code>, <code>public.shop_facets(p)</code> and <code>public.shop_product_page(slug)</code> are <code>SECURITY DEFINER</code>, with <code>SET search_path = ''</code> and <code>GRANT EXECUTE TO anon</code>. Being <code>STABLE</code>, they can be called with HTTP GET, which makes them cacheable.</li>
+  </ul>
+<pre><code>-- public wrapper (one per RPC): anon can call it, cannot touch the tables
+CREATE FUNCTION public.shop_search(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  PERFORM set_config('response.headers',
+    '[{"Cache-Control": "public, max-age=30, stale-while-revalidate=300"}]', true);   -- PostgREST response header
+  RETURN shop.search(p);
+END $$;
+REVOKE ALL ON SCHEMA shop FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_search(jsonb) TO anon, authenticated;</code></pre>
+</section>
+
+<section id="bench">
+  <h2>Benchmark: Plan 1 (defTable JSONB) vs Plan 2</h2>
+  <p class="sub">The setup was PostgreSQL 16.13 with 2 vCPU, 8 GB RAM and a warm cache. The client ran on the same machine, and each figure is the median of 40 runs. Plan 1 got the indexes a careful developer would add: GIN <code>jsonb_path_ops</code> on <code>rowJSON</code>, GIN on <code>categoryTermGUIDs</code>, expression indexes on price, sales, slug, and a trigram index on name. Both plans return the same row counts for every query. The facet row uses Plan 2's <i>live</i> query; the precomputed <code>category_facet</code> answers the same question in 0.24 ms (see the API table).</p>
+  <div class="legend"><span><i style="background:#94a3b8"></i>Plan 1 · defTable JSONB</span><span><i style="background:var(--emerald)"></i>Plan 2 · read model</span><span>Bar length is on a log scale; the label is milliseconds</span></div>
+  <h4>100,000 products · 329k variants</h4>
+  <div class="bars" id="bars100"></div>
+  <h4>Numbers</h4>
+  <div class="tbl-wrap"><table id="benchTable">
+    <tr><th>Query</th><th class="num">Plan 1 20k</th><th class="num">Plan 2 20k</th><th class="num">Plan 1 100k</th><th class="num">Plan 2 100k</th><th class="num">× faster @100k</th></tr>
+  </table></div>
+  <ul class="clean">
+    <li><b>Why Plan 1 grows linearly on category pages.</b> The variable products' price must be computed from JSON in their variants, and the in-stock check needs another variant lookup. Every product in the category is processed before the top 24 can be sorted. Plan 2 walks the price index and stops after 24 matches.</li>
+    <li><b>Where Plan 1 holds up:</b> a lookup by slug and a text search are fast in both plans. The bigger win for the product page is <b>round trips</b>: through the REST API Plan 1 needs 3 calls (product, variants, terms), while Plan 2 needs one.</li>
+    <li><b>Network dominates real-world numbers.</b> From the browser to Supabase is typically 20–80 ms per call. Plan 2 makes a category page 2 calls (search and facets) instead of 3–4, and both of those calls can be served from a CDN.</li>
+  </ul>
+  <h4>Plan 2 API calls (dynamic SQL wrappers), median ms</h4>
+  <div class="tbl-wrap"><table id="apiTable"><tr><th>Call</th><th class="num">20k</th><th class="num">100k</th></tr></table></div>
+</section>
+
+<section id="fresh">
+  <h2>Freshness: how changes reach the shop</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Write path</h3>
+      <ol class="steps">
+        <li>An editor saves in the Expo admin through RPC <code>shop.save_product(doc)</code>: one transaction that upserts product, variants and links, then calls <code>rebuild_product</code>. The change is visible <b>immediately</b>.</li>
+        <li>A Woo webhook (<code>product.updated</code>, <code>order.created</code> for stock) arrives at the Edge Function, which updates the write model. Triggers queue the product, and <code>process_dirty()</code> runs right away.</li>
+        <li><code>pg_cron</code> every 5 s runs <code>process_dirty(500)</code> as a safety net. It uses <code>SKIP LOCKED</code>, so parallel workers are safe.</li>
+        <li><code>pg_cron</code> every minute runs <code>refresh_category_facets()</code> and also queues products whose <code>sale_from</code>/<code>sale_to</code> passed in that minute, so scheduled sales switch on and off on time.</li>
+        <li>A nightly reconcile with Woo uses <code>GET /products?modified_after=…</code> and rebuilds anything that changed.</li>
+      </ol></div>
+    <div class="card"><h3>Measured cost</h3>
+      <div class="tbl-wrap"><table>
+        <tr><th>Operation</th><th class="num">20k</th><th class="num">100k</th></tr>
+        <tr><td>Full rebuild of the read model</td><td class="num">13 s</td><td class="num">97 s</td></tr>
+        <tr><td>Per product (average)</td><td class="num">0.66 ms</td><td class="num">≈1 ms</td></tr>
+        <tr><td>Single product, worst case seen</td><td class="num">–</td><td class="num">12 ms</td></tr>
+        <tr><td>Category facet refresh</td><td class="num">0.19 s</td><td class="num">0.97 s</td></tr>
+      </table></div>
+      <p>The visible lag is about 0 s for admin edits, under 5 s for Woo changes, and under 60 s for facet counts. The counts are a navigation aid, not a promise, so a minute of lag is acceptable.</p>
+      <p><b>Realtime:</b> the shop doesn't subscribe to product tables, since thousands of visitors listening to catalog changes would be expensive. The admin keeps realtime on <code>shop.product</code> for editors.</p></div>
+  </div>
+</section>
+
+<section id="edge">
+  <h2>Beyond the database: the other half of shop speed</h2>
+  <div class="grid g3">
+    <div class="card"><h3>HTTP / CDN cache</h3><p>GET RPC responses carry a <code>Cache-Control</code> header with a short max-age and <code>stale-while-revalidate</code>. Put Cloudflare (or an Edge Function cache) in front and use <code>catalog_version</code> in the cache key. The product page answers <code>If-None-Match</code> with its <code>etag</code>.</p></div>
+    <div class="card"><h3>Client cache</h3><p>React Query (already in the app) with a <code>staleTime</code> of 60 s. Prefetch <code>product_page(slug)</code> on hover or when a card scrolls into view. Variant switching uses the page's matrix, with no requests.</p></div>
+    <div class="card"><h3>Images</h3><p>The card holds <code>w</code>, <code>h</code> and <code>lqip</code>: reserved space and an instant blurred preview. Serve WebP or AVIF at 2–3 widths from a CDN (Woo's own or Supabase Storage transforms), and lazy-load below the fold.</p></div>
+  </div>
+  <div class="callout amber"><b>If the shop stays on WordPress:</b> this plan speeds up the Expo or headless shop that reads from Supabase. The WordPress storefront itself is made fast inside WooCommerce: turn on HPOS, keep the product lookup tables regenerated, use a persistent object cache (Redis), use page caching, and use the Woo "filter by attribute" lookup table. These tables are Woo's own version of this plan's read model.</div>
+</section>
+
+<section id="vs">
+  <h2>Plan 1 vs Plan 2</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th></th><th>Plan 1: defTable JSONB (PRODUCT_ENTITY_PLAN.html)</th><th>Plan 2: typed write model + read model</th></tr>
+    <tr><td>Shop read speed</td><td>Fine below a few thousand products; category pages and facets grow linearly (187 ms / 403 ms at 100k)</td><td class="win">Flat: under 1 ms for pages and facets, under 10 ms for any attribute filter at 100k</td></tr>
+    <tr><td>Round trips per screen</td><td>2–4 (product, variants, terms)</td><td class="win">1</td></tr>
+    <tr><td>Data integrity</td><td>GUIDs inside JSON: no foreign keys, unique constraints only through expression indexes</td><td class="win">Foreign keys, CHECKs, unique (product, combination) and one default variant</td></tr>
+    <tr><td>Fit with existing app code</td><td class="win">Plugs into SystemMetaData, reusableCrudSlice, ListWebCardsComponent and realtime as is</td><td>Needs an admin data layer (React Query + <code>save_product</code> RPC), like the PM module already uses. Generic list components work through <code>mapItemToCard</code>.</td></tr>
+    <tr><td>Schema changes</td><td class="win">Add a JSON key, no migration</td><td>New hot field = new column + rebuild. Cold fields still go to <code>meta</code> without a migration.</td></tr>
+    <tr><td>Storage</td><td class="win">345 MB @100k</td><td>~475 MB @100k (write + read model)</td></tr>
+    <tr><td>Moving parts</td><td class="win">Tables + saga</td><td>+ triggers, dirty queue, 2 cron jobs, 3 RPCs</td></tr>
+  </table></div>
+  <div class="callout emerald"><b>Recommendation:</b> use Plan 2 for products. Shop speed is the mission, and Plan 1's cost grows with the catalog exactly where shoppers spend their time (category pages and filters). Keep the defTable pattern for the small back-office catalogs (persons, partners, currencies, units), where it is a good fit. The taxonomy idea from Plan 1 still applies; here it becomes the typed <code>attribute</code> / <code>attribute_term</code> and <code>category</code> tables.</div>
+</section>
+
+<section id="rollout">
+  <h2>Rollout</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>#</th><th>Step</th><th>Done when</th></tr>
+    <tr><td class="num">1</td><td>Add schema <code>shop</code> (DDL below) to <code>kit8/sql/init/done/create_tables.sql</code> as a new section, with matching drops in <code>delete_tables.sql</code>. Enable <code>intarray</code> and <code>pg_trgm</code>, plus <code>pg_cron</code> in the Supabase dashboard.</td><td>The script runs twice cleanly; delete → create passes</td></tr>
+    <tr><td class="num">2</td><td>Woo import into the write model (Edge Function <code>woo-proxy</code>, mappers that fold a simple product's price into its default variant), then <code>process_dirty</code> and <code>refresh_category_facets</code></td><td>Shop products are visible through <code>shop_search</code>; a second import changes nothing</td></tr>
+    <tr><td class="num">3</td><td>Public wrappers, grants and cache headers. Storefront screens in Expo web: category, search and product page.</td><td>Lighthouse LCP under 2.5 s on 4G; category API under 10 ms in the database</td></tr>
+    <tr><td class="num">4</td><td>Admin: <code>save_product</code> RPC, ProductList and ProductEdit with a variant matrix (React Query), push to Woo with a <code>date_modified_gmt</code> conflict check</td><td>An edit is visible in the shop immediately and in Woo after the push</td></tr>
+    <tr><td class="num">5</td><td>Webhooks (product, stock), cron jobs, nightly reconcile</td><td>A Woo stock change is visible in the shop within 5 s</td></tr>
+    <tr><td class="num">6</td><td>Optional: <code>product_i18n</code> and a per-locale read model; warehouse stock; price lists</td><td>–</td></tr>
+  </table></div>
+</section>
+
+<section id="sql">
+  <h2>SQL (tested on PostgreSQL 16)</h2>
+  <p class="sub">This is the exact code behind the benchmark: it ran on a fresh database, was loaded with 2k, 20k and 100k products, and the API was checked for keyset paging, OR groups, precomputed versus live facets, and the review roll-up.</p>
+  <details><summary>1 · Schema: write model, read model, rebuild, dirty queue</summary><pre><code>-- PLAN 2: typed write model (shop.*) + precomputed read model (shop.listing / shop.variant_facet / shop.page)
+CREATE EXTENSION IF NOT EXISTS intarray;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE SCHEMA IF NOT EXISTS shop;
+
+-- ---------- reference catalogs ----------
+CREATE TABLE shop.unit (
+  id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code text NOT NULL UNIQUE,                 -- UN/ECE Rec 20: H87, KGM, GRM, LTR ...
+  name text NOT NULL, symbol text NOT NULL
+);
+CREATE TABLE shop.tax_class (
+  id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  slug text NOT NULL UNIQUE,                 -- Woo: standard | reduced-rate | zero-rate
+  name text NOT NULL
+);
+CREATE TABLE shop.shipping_class (
+  id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE, slug text NOT NULL UNIQUE, name text NOT NULL
+);
+CREATE TABLE shop.media (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  url text NOT NULL, width int, height int, alt text NOT NULL DEFAULT &#x27;&#x27;,
+  lqip text                                  -- tiny blur placeholder (base64 / blurhash)
+);
+
+-- ---------- classification ----------
+CREATE TABLE shop.category (
+  id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  parent_id int REFERENCES shop.category(id),
+  slug text NOT NULL UNIQUE, name text NOT NULL, description text NOT NULL DEFAULT &#x27;&#x27;,
+  menu_order int NOT NULL DEFAULT 0,
+  ancestor_ids int[] NOT NULL DEFAULT &#x27;{}&#x27;,  -- self + all parents, maintained by trigger
+  media_id bigint REFERENCES shop.media(id)
+);
+CREATE TABLE shop.tag (
+  id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE, slug text NOT NULL UNIQUE, name text NOT NULL
+);
+CREATE TABLE shop.attribute (
+  id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  code text NOT NULL UNIQUE,                 -- pa_color, pa_memory
+  name text NOT NULL,
+  kind text NOT NULL DEFAULT &#x27;select&#x27; CHECK (kind IN (&#x27;select&#x27;,&#x27;color&#x27;,&#x27;number&#x27;)),
+  unit_id smallint REFERENCES shop.unit(id),
+  is_filter boolean NOT NULL DEFAULT true    -- shown as a facet in the shop
+);
+CREATE TABLE shop.attribute_term (
+  id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  attribute_id smallint NOT NULL REFERENCES shop.attribute(id) ON DELETE CASCADE,
+  woo_id bigint UNIQUE,
+  slug text NOT NULL, name text NOT NULL, menu_order int NOT NULL DEFAULT 0,
+  swatch_hex text, numeric_value numeric,
+  UNIQUE (attribute_id, slug)
+);
+
+-- ---------- product (one row per Woo product) ----------
+CREATE TABLE shop.product (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  woo_id bigint UNIQUE,
+  type text NOT NULL CHECK (type IN (&#x27;simple&#x27;,&#x27;variable&#x27;,&#x27;grouped&#x27;,&#x27;external&#x27;)),
+  status text NOT NULL DEFAULT &#x27;draft&#x27; CHECK (status IN (&#x27;draft&#x27;,&#x27;pending&#x27;,&#x27;private&#x27;,&#x27;publish&#x27;)),
+  visibility text NOT NULL DEFAULT &#x27;visible&#x27; CHECK (visibility IN (&#x27;visible&#x27;,&#x27;catalog&#x27;,&#x27;search&#x27;,&#x27;hidden&#x27;)),
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  short_description text NOT NULL DEFAULT &#x27;&#x27;,
+  description text NOT NULL DEFAULT &#x27;&#x27;,
+  featured boolean NOT NULL DEFAULT false,
+  brand_term_id int REFERENCES shop.attribute_term(id),   -- Woo &quot;Brands&quot; (product_brand) mapped to an attribute term
+  sold_individually boolean NOT NULL DEFAULT false,
+  reviews_allowed boolean NOT NULL DEFAULT true,
+  purchase_note text NOT NULL DEFAULT &#x27;&#x27;,
+  default_term_ids int[] NOT NULL DEFAULT &#x27;{}&#x27;,           -- Woo default_attributes (preselected variant)
+  download_limit int, download_expiry int,                -- -1 = unlimited (Woo semantics)
+  tax_status text NOT NULL DEFAULT &#x27;taxable&#x27; CHECK (tax_status IN (&#x27;taxable&#x27;,&#x27;shipping&#x27;,&#x27;none&#x27;)),
+  tax_class_id smallint REFERENCES shop.tax_class(id),
+  shipping_class_id smallint REFERENCES shop.shipping_class(id),
+  unit_id smallint REFERENCES shop.unit(id),
+  parent_id bigint REFERENCES shop.product(id),          -- child of a grouped product
+  external_url text, button_text text,
+  menu_order int NOT NULL DEFAULT 0,
+  rating_avg numeric(3,2) NOT NULL DEFAULT 0, rating_count int NOT NULL DEFAULT 0,
+  total_sales int NOT NULL DEFAULT 0,
+  custom_attributes jsonb NOT NULL DEFAULT &#x27;[]&#x27;,          -- Woo local attributes (id 0): display only
+  meta jsonb NOT NULL DEFAULT &#x27;{}&#x27;,                       -- Woo meta_data: never filtered on
+  created_at timestamptz NOT NULL DEFAULT now(),
+  published_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  woo_modified_gmt timestamptz,
+  sync_status text NOT NULL DEFAULT &#x27;localOnly&#x27; CHECK (sync_status IN (&#x27;synced&#x27;,&#x27;dirty&#x27;,&#x27;conflict&#x27;,&#x27;error&#x27;,&#x27;localOnly&#x27;))
+);
+CREATE TABLE shop.product_category (
+  product_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  category_id int REFERENCES shop.category(id) ON DELETE CASCADE,
+  is_primary boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (product_id, category_id)
+);
+CREATE INDEX ON shop.product_category (category_id);
+CREATE TABLE shop.product_tag (
+  product_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  tag_id int REFERENCES shop.tag(id) ON DELETE CASCADE,
+  PRIMARY KEY (product_id, tag_id)
+);
+-- global attributes attached to a product (Woo attributes[] with id &gt; 0)
+CREATE TABLE shop.product_attribute (
+  product_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  attribute_id smallint REFERENCES shop.attribute(id),
+  position smallint NOT NULL DEFAULT 0,
+  visible boolean NOT NULL DEFAULT true,
+  for_variations boolean NOT NULL DEFAULT false,
+  term_ids int[] NOT NULL,
+  PRIMARY KEY (product_id, attribute_id)
+);
+CREATE TABLE shop.product_media (
+  product_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  media_id bigint REFERENCES shop.media(id),
+  position smallint NOT NULL DEFAULT 0,                   -- 0 = main image
+  PRIMARY KEY (product_id, media_id)
+);
+CREATE TABLE shop.product_link (
+  product_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  linked_id bigint REFERENCES shop.product(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN (&#x27;upsell&#x27;,&#x27;cross_sell&#x27;,&#x27;grouped&#x27;)),
+  position smallint NOT NULL DEFAULT 0,
+  PRIMARY KEY (product_id, kind, linked_id)
+);
+
+-- ---------- variant = sellable unit; EVERY product that is sold has &gt;= 1 (simple -&gt; 1 default variant) ----------
+CREATE TABLE shop.variant (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  product_id bigint NOT NULL REFERENCES shop.product(id) ON DELETE CASCADE,
+  woo_id bigint UNIQUE,                                   -- NULL for the default variant of a simple product
+  is_default boolean NOT NULL DEFAULT false,
+  sku text UNIQUE, gtin text,                             -- gtin = Woo global_unique_id
+  status text NOT NULL DEFAULT &#x27;publish&#x27; CHECK (status IN (&#x27;publish&#x27;,&#x27;private&#x27;)),
+  description text NOT NULL DEFAULT &#x27;&#x27;,                   -- Woo variation description
+  is_virtual boolean NOT NULL DEFAULT false,
+  is_downloadable boolean NOT NULL DEFAULT false,
+  regular_price bigint NOT NULL CHECK (regular_price &gt;= 0),      -- minor units (cents)
+  sale_price bigint CHECK (sale_price &gt;= 0),
+  sale_from timestamptz, sale_to timestamptz,
+  manage_stock boolean NOT NULL DEFAULT true,
+  stock_qty int,
+  stock_status text NOT NULL DEFAULT &#x27;instock&#x27; CHECK (stock_status IN (&#x27;instock&#x27;,&#x27;outofstock&#x27;,&#x27;onbackorder&#x27;)),
+  backorders text NOT NULL DEFAULT &#x27;no&#x27; CHECK (backorders IN (&#x27;no&#x27;,&#x27;notify&#x27;,&#x27;yes&#x27;)),
+  low_stock_amount int,
+  weight_g int, length_mm int, width_mm int, height_mm int,  -- NULL = inherit from product
+  media_id bigint REFERENCES shop.media(id),
+  menu_order int NOT NULL DEFAULT 0,
+  option_term_ids int[] NOT NULL DEFAULT &#x27;{}&#x27;,            -- sorted attribute_term ids, e.g. {12,57}
+  meta jsonb NOT NULL DEFAULT &#x27;{}&#x27;,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  woo_modified_gmt timestamptz,
+  UNIQUE (product_id, option_term_ids)
+);
+CREATE INDEX ON shop.variant (product_id);
+CREATE UNIQUE INDEX variant_one_default ON shop.variant (product_id) WHERE is_default;
+
+CREATE TABLE shop.download (                             -- Woo downloads[] (product or variation)
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  variant_id bigint NOT NULL REFERENCES shop.variant(id) ON DELETE CASCADE,
+  woo_download_id text, name text NOT NULL, file_url text NOT NULL
+);
+CREATE TABLE shop.review (                               -- Woo /products/reviews; rating_avg / rating_count on product are its aggregate
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  product_id bigint NOT NULL REFERENCES shop.product(id) ON DELETE CASCADE,
+  woo_id bigint UNIQUE, status text NOT NULL DEFAULT &#x27;approved&#x27; CHECK (status IN (&#x27;approved&#x27;,&#x27;hold&#x27;,&#x27;spam&#x27;,&#x27;trash&#x27;)),
+  reviewer text NOT NULL, rating smallint NOT NULL CHECK (rating BETWEEN 0 AND 5), review text NOT NULL DEFAULT &#x27;&#x27;,
+  verified boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON shop.review (product_id, created_at DESC) WHERE status = &#x27;approved&#x27;;
+-- (optional) multilingual shop: shop.product_i18n (product_id, locale, name, slug, short_description, description)
+--            and add &quot;locale&quot; to the PRIMARY KEY of shop.listing / shop.page
+
+-- ---------- READ MODEL (rebuilt per product, never edited by hand) ----------
+CREATE TABLE shop.listing (                               -- one row per product visible in the shop
+  product_id bigint PRIMARY KEY,
+  slug text NOT NULL,
+  name text NOT NULL,
+  card jsonb NOT NULL,                                    -- everything a product tile needs, prebuilt
+  category_ids int[] NOT NULL,                            -- assigned categories + ALL ancestors
+  term_ids int[] NOT NULL,                                -- terms of in-stock variants + product attributes + brand
+  tag_ids int[] NOT NULL,
+  price_min bigint NOT NULL, price_max bigint NOT NULL,   -- effective (sale-aware) price, cents
+  on_sale boolean NOT NULL, in_stock boolean NOT NULL, featured boolean NOT NULL,
+  in_catalog boolean NOT NULL, in_search boolean NOT NULL,
+  menu_order int NOT NULL, total_sales int NOT NULL, rating_avg numeric(3,2) NOT NULL,
+  published_at timestamptz NOT NULL,
+  search tsvector NOT NULL
+);
+CREATE INDEX listing_cat   ON shop.listing USING gin (category_ids gin__int_ops);
+CREATE INDEX listing_terms ON shop.listing USING gin (term_ids gin__int_ops);
+CREATE INDEX listing_fts   ON shop.listing USING gin (search);
+CREATE INDEX listing_trgm  ON shop.listing USING gin (name gin_trgm_ops);
+CREATE INDEX listing_price ON shop.listing (price_min, product_id);
+CREATE INDEX listing_new   ON shop.listing (published_at DESC, product_id DESC);
+CREATE INDEX listing_pop   ON shop.listing (total_sales DESC, product_id DESC);
+
+CREATE TABLE shop.variant_facet (                         -- one row per sellable variant: exact attribute filters + facet counts
+  variant_id bigint PRIMARY KEY,
+  product_id bigint NOT NULL,
+  term_ids int[] NOT NULL,                                -- variant options + product-level attribute terms + brand
+  price bigint NOT NULL,
+  in_stock boolean NOT NULL
+);
+CREATE INDEX variant_facet_terms ON shop.variant_facet USING gin (term_ids gin__int_ops);
+CREATE INDEX variant_facet_product ON shop.variant_facet (product_id);
+
+CREATE TABLE shop.page (                                  -- product detail page: one JSON document per product
+  product_id bigint PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  doc jsonb NOT NULL,
+  etag text NOT NULL
+);
+
+CREATE TABLE shop.dirty (product_id bigint PRIMARY KEY, queued_at timestamptz NOT NULL DEFAULT now());
+CREATE SEQUENCE shop.catalog_version;                    -- bumped on every rebuild -&gt; HTTP/CDN cache key
+
+-- ---------- category ancestors ----------
+CREATE OR REPLACE FUNCTION shop.category_set_ancestors() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.ancestor_ids := COALESCE((SELECT ancestor_ids FROM shop.category WHERE id = NEW.parent_id), &#x27;{}&#x27;) || NEW.id;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER category_ancestors BEFORE INSERT OR UPDATE OF parent_id ON shop.category
+  FOR EACH ROW EXECUTE FUNCTION shop.category_set_ancestors();
+
+-- ---------- rebuild one product into the read model ----------
+CREATE OR REPLACE FUNCTION shop.effective_price(v shop.variant) RETURNS bigint LANGUAGE sql STABLE AS $$
+  SELECT CASE WHEN v.sale_price IS NOT NULL
+               AND (v.sale_from IS NULL OR v.sale_from &lt;= now())
+               AND (v.sale_to IS NULL OR v.sale_to &gt; now())
+              THEN v.sale_price ELSE v.regular_price END
+$$;
+
+CREATE OR REPLACE FUNCTION shop.rebuild_product(pid bigint) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  p shop.product;
+  prod_terms int[];
+BEGIN
+  SELECT * INTO p FROM shop.product WHERE id = pid;
+  IF NOT FOUND OR p.status &lt;&gt; &#x27;publish&#x27; THEN
+    DELETE FROM shop.listing WHERE product_id = pid;
+    DELETE FROM shop.variant_facet WHERE product_id = pid;
+    DELETE FROM shop.page WHERE product_id = pid;
+    RETURN;
+  END IF;
+  IF p.parent_id IS NOT NULL OR p.visibility = &#x27;hidden&#x27; THEN   -- page only, not listed
+    DELETE FROM shop.listing WHERE product_id = pid;
+  END IF;
+
+  -- product-level (non-variation) attribute terms + brand
+  SELECT COALESCE(array_agg(DISTINCT t), &#x27;{}&#x27;) INTO prod_terms
+  FROM (SELECT unnest(term_ids) t FROM shop.product_attribute WHERE product_id = pid AND NOT for_variations
+        UNION SELECT p.brand_term_id WHERE p.brand_term_id IS NOT NULL) x;
+
+  DELETE FROM shop.variant_facet WHERE product_id = pid;
+  INSERT INTO shop.variant_facet (variant_id, product_id, term_ids, price, in_stock)
+  SELECT v.id, pid, sort(uniq(sort(v.option_term_ids || prod_terms))), shop.effective_price(v), v.stock_status &lt;&gt; &#x27;outofstock&#x27;
+  FROM shop.variant v WHERE v.product_id = pid AND v.status = &#x27;publish&#x27;;
+
+  IF p.parent_id IS NULL AND p.visibility &lt;&gt; &#x27;hidden&#x27; THEN
+  INSERT INTO shop.listing AS l (product_id, slug, name, card, category_ids, term_ids, tag_ids, price_min, price_max,
+                           on_sale, in_stock, featured, in_catalog, in_search, menu_order, total_sales, rating_avg, published_at, search)
+  SELECT pid, p.slug, p.name,
+    jsonb_build_object(&#x27;id&#x27;, pid, &#x27;slug&#x27;, p.slug, &#x27;name&#x27;, p.name, &#x27;type&#x27;, p.type,
+      &#x27;image&#x27;, (SELECT jsonb_build_object(&#x27;url&#x27;, m.url, &#x27;w&#x27;, m.width, &#x27;h&#x27;, m.height, &#x27;alt&#x27;, m.alt, &#x27;lqip&#x27;, m.lqip)
+                FROM shop.product_media pm JOIN shop.media m ON m.id = pm.media_id
+                WHERE pm.product_id = pid ORDER BY pm.position LIMIT 1),
+      &#x27;priceMin&#x27;, agg.pmin, &#x27;priceMax&#x27;, agg.pmax, &#x27;regularMin&#x27;, agg.rmin, &#x27;onSale&#x27;, agg.on_sale,
+      &#x27;inStock&#x27;, agg.in_stock, &#x27;rating&#x27;, p.rating_avg, &#x27;ratingCount&#x27;, p.rating_count,
+      &#x27;swatches&#x27;, (SELECT jsonb_agg(jsonb_build_object(&#x27;t&#x27;, at.id, &#x27;hex&#x27;, at.swatch_hex) ORDER BY at.menu_order)
+                   FROM shop.attribute_term at JOIN shop.attribute a ON a.id = at.attribute_id AND a.kind = &#x27;color&#x27;
+                   WHERE at.id = ANY(agg.var_terms))),
+    COALESCE((SELECT array_agg(DISTINCT a) FROM shop.product_category pc JOIN shop.category c ON c.id = pc.category_id,
+              unnest(c.ancestor_ids) a WHERE pc.product_id = pid), &#x27;{}&#x27;),
+    sort(uniq(sort(agg.var_terms || prod_terms))),
+    COALESCE((SELECT array_agg(tag_id ORDER BY tag_id) FROM shop.product_tag WHERE product_id = pid), &#x27;{}&#x27;),
+    agg.pmin, agg.pmax, agg.on_sale, agg.in_stock, p.featured,
+    p.visibility IN (&#x27;visible&#x27;,&#x27;catalog&#x27;), p.visibility IN (&#x27;visible&#x27;,&#x27;search&#x27;),
+    p.menu_order, p.total_sales, p.rating_avg, COALESCE(p.published_at, p.created_at),
+    setweight(to_tsvector(&#x27;simple&#x27;, p.name), &#x27;A&#x27;) ||
+    setweight(to_tsvector(&#x27;simple&#x27;, COALESCE((SELECT string_agg(sku, &#x27; &#x27;) FROM shop.variant WHERE product_id = pid), &#x27;&#x27;)), &#x27;A&#x27;) ||
+    setweight(to_tsvector(&#x27;simple&#x27;, p.short_description), &#x27;B&#x27;)
+  FROM (
+    SELECT COALESCE(min(shop.effective_price(v)) FILTER (WHERE v.stock_status &lt;&gt; &#x27;outofstock&#x27;), min(shop.effective_price(v)), 0) AS pmin,
+           COALESCE(max(shop.effective_price(v)) FILTER (WHERE v.stock_status &lt;&gt; &#x27;outofstock&#x27;), max(shop.effective_price(v)), 0) AS pmax,
+           COALESCE(min(v.regular_price), 0) AS rmin,
+           COALESCE(bool_or(shop.effective_price(v) &lt; v.regular_price), false) AS on_sale,
+           COALESCE(bool_or(v.stock_status &lt;&gt; &#x27;outofstock&#x27;), false) AS in_stock,
+           COALESCE(array_agg(DISTINCT t) FILTER (WHERE t IS NOT NULL AND v.stock_status &lt;&gt; &#x27;outofstock&#x27;), &#x27;{}&#x27;) AS var_terms
+    FROM shop.variant v LEFT JOIN LATERAL unnest(v.option_term_ids) t ON true
+    WHERE v.product_id = pid AND v.status = &#x27;publish&#x27;
+  ) agg
+  ON CONFLICT (product_id) DO UPDATE SET slug = EXCLUDED.slug, name = EXCLUDED.name, card = EXCLUDED.card,
+    category_ids = EXCLUDED.category_ids, term_ids = EXCLUDED.term_ids, tag_ids = EXCLUDED.tag_ids,
+    price_min = EXCLUDED.price_min, price_max = EXCLUDED.price_max, on_sale = EXCLUDED.on_sale,
+    in_stock = EXCLUDED.in_stock, featured = EXCLUDED.featured, in_catalog = EXCLUDED.in_catalog,
+    in_search = EXCLUDED.in_search, menu_order = EXCLUDED.menu_order, total_sales = EXCLUDED.total_sales,
+    rating_avg = EXCLUDED.rating_avg, published_at = EXCLUDED.published_at, search = EXCLUDED.search;
+  END IF;
+
+  INSERT INTO shop.page (product_id, slug, doc, etag)
+  SELECT pid, p.slug, d, md5(d::text) FROM (
+    SELECT jsonb_build_object(
+      &#x27;product&#x27;, to_jsonb(p) - &#x27;meta&#x27; - &#x27;sync_status&#x27; - &#x27;woo_modified_gmt&#x27;,
+      &#x27;images&#x27;, (SELECT COALESCE(jsonb_agg(jsonb_build_object(&#x27;url&#x27;, m.url, &#x27;w&#x27;, m.width, &#x27;h&#x27;, m.height, &#x27;alt&#x27;, m.alt, &#x27;lqip&#x27;, m.lqip) ORDER BY pm.position), &#x27;[]&#x27;)
+                 FROM shop.product_media pm JOIN shop.media m ON m.id = pm.media_id WHERE pm.product_id = pid),
+      &#x27;attributes&#x27;, (SELECT COALESCE(jsonb_agg(jsonb_build_object(&#x27;id&#x27;, a.id, &#x27;code&#x27;, a.code, &#x27;name&#x27;, a.name, &#x27;kind&#x27;, a.kind,
+                        &#x27;forVariations&#x27;, pa.for_variations, &#x27;visible&#x27;, pa.visible,
+                        &#x27;terms&#x27;, (SELECT jsonb_agg(jsonb_build_object(&#x27;id&#x27;, t.id, &#x27;slug&#x27;, t.slug, &#x27;name&#x27;, t.name, &#x27;hex&#x27;, t.swatch_hex) ORDER BY t.menu_order)
+                                  FROM shop.attribute_term t WHERE t.id = ANY(pa.term_ids))) ORDER BY pa.position), &#x27;[]&#x27;)
+                     FROM shop.product_attribute pa JOIN shop.attribute a ON a.id = pa.attribute_id WHERE pa.product_id = pid),
+      -- variant matrix keyed by sorted term ids: client switches variant with zero requests
+      &#x27;variants&#x27;, (SELECT COALESCE(jsonb_object_agg(array_to_string(v.option_term_ids, &#x27;-&#x27;),
+                        jsonb_build_object(&#x27;id&#x27;, v.id, &#x27;sku&#x27;, v.sku, &#x27;price&#x27;, shop.effective_price(v), &#x27;regular&#x27;, v.regular_price,
+                                           &#x27;stock&#x27;, v.stock_status, &#x27;qty&#x27;, CASE WHEN v.manage_stock THEN v.stock_qty END, &#x27;media&#x27;, v.media_id)), &#x27;{}&#x27;)
+                   FROM shop.variant v WHERE v.product_id = pid AND v.status = &#x27;publish&#x27;),
+      &#x27;categories&#x27;, (SELECT COALESCE(jsonb_agg(jsonb_build_object(&#x27;id&#x27;, c.id, &#x27;slug&#x27;, c.slug, &#x27;name&#x27;, c.name)), &#x27;[]&#x27;)
+                     FROM shop.product_category pc JOIN shop.category c ON c.id = pc.category_id WHERE pc.product_id = pid)
+    ) d
+  ) x
+  ON CONFLICT (product_id) DO UPDATE SET slug = EXCLUDED.slug, doc = EXCLUDED.doc, etag = EXCLUDED.etag;
+
+  PERFORM nextval(&#x27;shop.catalog_version&#x27;);
+END $$;
+
+-- ---------- dirty queue: any write-model change marks the product ----------
+CREATE OR REPLACE FUNCTION shop.mark_dirty() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE r jsonb := to_jsonb(COALESCE(NEW, OLD)); pid bigint;
+BEGIN
+  pid := COALESCE((r-&gt;&gt;&#x27;product_id&#x27;)::bigint, (r-&gt;&gt;&#x27;id&#x27;)::bigint);   -- product row: id, child rows: product_id
+  INSERT INTO shop.dirty (product_id) VALUES (pid) ON CONFLICT DO NOTHING;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER dirty_product AFTER INSERT OR UPDATE OR DELETE ON shop.product FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_variant AFTER INSERT OR UPDATE OR DELETE ON shop.variant FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_pcat AFTER INSERT OR UPDATE OR DELETE ON shop.product_category FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_pattr AFTER INSERT OR UPDATE OR DELETE ON shop.product_attribute FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_pmedia AFTER INSERT OR UPDATE OR DELETE ON shop.product_media FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+CREATE TRIGGER dirty_ptag AFTER INSERT OR UPDATE OR DELETE ON shop.product_tag FOR EACH ROW EXECUTE FUNCTION shop.mark_dirty();
+
+-- worker: called by pg_cron every few seconds and right after an import batch
+CREATE OR REPLACE FUNCTION shop.process_dirty(max_items int DEFAULT 500) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN DELETE FROM shop.dirty WHERE product_id IN (
+             SELECT product_id FROM shop.dirty ORDER BY queued_at LIMIT max_items FOR UPDATE SKIP LOCKED)
+           RETURNING product_id LOOP
+    PERFORM shop.rebuild_product(r.product_id); n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+
+
+-- reviews -&gt; product.rating_avg / rating_count (the product update marks it dirty -&gt; listing card re-sorted)
+CREATE OR REPLACE FUNCTION shop.review_rollup() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE pid bigint := COALESCE(NEW.product_id, OLD.product_id);
+BEGIN
+  UPDATE shop.product p SET rating_avg = COALESCE(r.avg, 0), rating_count = r.cnt
+  FROM (SELECT round(avg(rating)::numeric, 2) avg, count(*)::int cnt FROM shop.review WHERE product_id = pid AND status = &#x27;approved&#x27;) r
+  WHERE p.id = pid;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER review_rollup AFTER INSERT OR UPDATE OR DELETE ON shop.review FOR EACH ROW EXECUTE FUNCTION shop.review_rollup();
+</code></pre></details>
+  <details><summary>2 · Storefront API: search, product page</summary><pre><code>-- Storefront API: ONE round trip per screen. Called by the app / web shop through PostgREST RPC (public wrappers, SECURITY DEFINER).
+-- p = { &quot;category&quot;: 53, &quot;terms&quot;: [[5,7],[14]], &quot;priceMax&quot;: 100000, &quot;q&quot;: &quot;nova&quot;, &quot;inStock&quot;: true,
+--       &quot;sort&quot;: &quot;price&quot; | &quot;price_desc&quot; | &quot;popularity&quot; | &quot;date&quot; | &quot;menu_order&quot; | &quot;rating&quot;, &quot;limit&quot;: 24,
+--       &quot;after&quot;: { &quot;k&quot;: &lt;sort value of the last card&gt;, &quot;id&quot;: &lt;product_id of the last card&gt; } }
+-- terms: AND between groups (attributes), OR inside a group; all groups must match the SAME in-stock variant.
+CREATE OR REPLACE FUNCTION shop.search(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+  sort text := COALESCE(p-&gt;&gt;&#x27;sort&#x27;, &#x27;menu_order&#x27;);
+  key_col text; dir text;
+  w text[] := ARRAY[&#x27;l.in_catalog&#x27;];
+  g jsonb; sql text; res jsonb; single int[];
+  lim int := LEAST(COALESCE((p-&gt;&gt;&#x27;limit&#x27;)::int, 24), 100);
+BEGIN
+  SELECT c, d INTO key_col, dir FROM (VALUES
+    (&#x27;price&#x27;,&#x27;price_min&#x27;,&#x27;ASC&#x27;), (&#x27;price_desc&#x27;,&#x27;price_max&#x27;,&#x27;DESC&#x27;), (&#x27;popularity&#x27;,&#x27;total_sales&#x27;,&#x27;DESC&#x27;),
+    (&#x27;date&#x27;,&#x27;published_at&#x27;,&#x27;DESC&#x27;), (&#x27;menu_order&#x27;,&#x27;menu_order&#x27;,&#x27;ASC&#x27;), (&#x27;rating&#x27;,&#x27;rating_avg&#x27;,&#x27;DESC&#x27;)) v(s, c, d)
+  WHERE v.s = sort;
+  IF key_col IS NULL THEN RAISE EXCEPTION &#x27;unknown sort %&#x27;, sort; END IF;
+
+  IF p ? &#x27;category&#x27; THEN w := w || format(&#x27;l.category_ids @&gt; ARRAY[%s]::int[]&#x27;, (p-&gt;&gt;&#x27;category&#x27;)::int); END IF;
+  IF COALESCE((p-&gt;&gt;&#x27;inStock&#x27;)::boolean, true) THEN w := w || &#x27;l.in_stock&#x27;::text; END IF;
+  IF p ? &#x27;priceMax&#x27; THEN w := w || format(&#x27;l.price_min &lt;= %s&#x27;, (p-&gt;&gt;&#x27;priceMax&#x27;)::bigint); END IF;
+  IF p ? &#x27;q&#x27; THEN w := w || format(&#x27;(l.search @@ plainto_tsquery(&#x27;&#x27;simple&#x27;&#x27;, %L) OR l.name ILIKE %L)&#x27;, p-&gt;&gt;&#x27;q&#x27;, &#x27;%&#x27; || (p-&gt;&gt;&#x27;q&#x27;) || &#x27;%&#x27;); END IF;
+  IF jsonb_array_length(COALESCE(p-&gt;&#x27;terms&#x27;, &#x27;[]&#x27;)) &gt; 0 THEN
+    sql := &#x27;SELECT vf.product_id FROM shop.variant_facet vf WHERE vf.in_stock&#x27;;
+    IF p ? &#x27;priceMax&#x27; THEN sql := sql || format(&#x27; AND vf.price &lt;= %s&#x27;, (p-&gt;&gt;&#x27;priceMax&#x27;)::bigint); END IF;
+    -- single-value groups are merged into one &quot;contains all&quot; test (one GIN probe); multi-value groups use &quot;overlaps&quot;
+    single := ARRAY(SELECT (g2-&gt;&gt;0)::int FROM jsonb_array_elements(p-&gt;&#x27;terms&#x27;) g2 WHERE jsonb_array_length(g2) = 1);
+    IF cardinality(single) &gt; 0 THEN sql := sql || format(&#x27; AND vf.term_ids @&gt; ARRAY[%s]::int[]&#x27;, array_to_string(single, &#x27;,&#x27;)); END IF;
+    FOR g IN SELECT * FROM jsonb_array_elements(p-&gt;&#x27;terms&#x27;) LOOP
+      CONTINUE WHEN jsonb_array_length(g) &lt; 2;
+      sql := sql || format(&#x27; AND vf.term_ids &amp;&amp; ARRAY[%s]::int[]&#x27;,
+                           (SELECT string_agg((x::text)::int::text, &#x27;,&#x27;) FROM jsonb_array_elements(g) x));
+    END LOOP;
+    w := w || (&#x27;l.product_id IN (&#x27; || sql || &#x27;)&#x27;);
+  END IF;
+  IF p ? &#x27;after&#x27; THEN   -- keyset pagination: no OFFSET, page 50 is as fast as page 1
+    w := w || format(&#x27;(l.%I, l.product_id) %s (%L::%s, %s)&#x27;, key_col, CASE dir WHEN &#x27;ASC&#x27; THEN &#x27;&gt;&#x27; ELSE &#x27;&lt;&#x27; END,
+                     p-&gt;&#x27;after&#x27;-&gt;&gt;&#x27;k&#x27;, CASE key_col WHEN &#x27;published_at&#x27; THEN &#x27;timestamptz&#x27; WHEN &#x27;rating_avg&#x27; THEN &#x27;numeric&#x27; ELSE &#x27;bigint&#x27; END,
+                     (p-&gt;&#x27;after&#x27;-&gt;&gt;&#x27;id&#x27;)::bigint);
+  END IF;
+
+  EXECUTE format(&#x27;WITH s AS (SELECT l.card, l.product_id, l.%1$I AS k, row_number() OVER (ORDER BY l.%1$I %3$s, l.product_id %3$s) n
+                  FROM shop.listing l WHERE %2$s ORDER BY l.%1$I %3$s, l.product_id %3$s LIMIT %4$s)
+                  SELECT jsonb_build_object(&#x27;&#x27;items&#x27;&#x27;, COALESCE((SELECT jsonb_agg(card ORDER BY n) FROM s), &#x27;&#x27;[]&#x27;&#x27;),
+                                            &#x27;&#x27;next&#x27;&#x27;, (SELECT jsonb_build_object(&#x27;&#x27;k&#x27;&#x27;, k, &#x27;&#x27;id&#x27;&#x27;, product_id) FROM s ORDER BY n DESC LIMIT 1),
+                                            &#x27;&#x27;version&#x27;&#x27;, (SELECT last_value FROM shop.catalog_version))&#x27;,
+                 key_col, array_to_string(w, &#x27; AND &#x27;), dir, lim) INTO res;
+  RETURN res;
+END $$;
+
+CREATE OR REPLACE FUNCTION shop.product_page(p_slug text) RETURNS jsonb
+LANGUAGE sql STABLE AS $$ SELECT doc || jsonb_build_object(&#x27;etag&#x27;, etag) FROM shop.page WHERE slug = p_slug $$;
+</code></pre></details>
+  <details><summary>3 · Category facets: precomputed table and facets()</summary><pre><code>-- precomputed facet counts for category landing pages (the most visited listing pages)
+CREATE TABLE IF NOT EXISTS shop.category_facet (
+  category_id int NOT NULL,          -- 0 = whole shop
+  term_id int NOT NULL,              -- 0 = row carrying the price range / product count
+  product_count int NOT NULL,
+  price_min bigint, price_max bigint,
+  PRIMARY KEY (category_id, term_id)
+);
+
+CREATE OR REPLACE FUNCTION shop.refresh_category_facets() RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  CREATE TEMP TABLE cf_new ON COMMIT DROP AS
+  WITH pt AS (          -- distinct (product, term) pairs of in-stock variants
+    SELECT DISTINCT vf.product_id, t FROM shop.variant_facet vf, unnest(vf.term_ids) t WHERE vf.in_stock
+  ), lc AS (            -- product -&gt; every category it is shown in (+ 0 = whole shop)
+    SELECT l.product_id, c FROM shop.listing l, unnest(l.category_ids || 0) c WHERE l.in_catalog AND l.in_stock
+  )
+  SELECT lc.c AS category_id, pt.t AS term_id, count(*)::int AS product_count, NULL::bigint AS price_min, NULL::bigint AS price_max
+  FROM lc JOIN pt USING (product_id) GROUP BY 1, 2
+  UNION ALL
+  SELECT c, 0, count(*)::int, min(l.price_min), max(l.price_max)
+  FROM shop.listing l, unnest(l.category_ids || 0) c WHERE l.in_catalog AND l.in_stock GROUP BY 1;
+  DELETE FROM shop.category_facet;
+  INSERT INTO shop.category_facet SELECT * FROM cf_new;
+END $$;
+
+-- facets(): category-only requests read the precomputed table; any other filter falls back to the live query
+CREATE OR REPLACE FUNCTION shop.facets(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE AS $$
+DECLARE cond text := &#x27;l.in_catalog&#x27;; res jsonb; cat int := COALESCE((p-&gt;&gt;&#x27;category&#x27;)::int, 0);
+BEGIN
+  IF (p - &#x27;category&#x27;) = &#x27;{}&#x27;::jsonb THEN
+    SELECT jsonb_build_object(
+      &#x27;terms&#x27;, COALESCE(jsonb_object_agg(term_id, product_count) FILTER (WHERE term_id &lt;&gt; 0), &#x27;{}&#x27;),
+      &#x27;price&#x27;, (SELECT jsonb_build_object(&#x27;min&#x27;, price_min, &#x27;max&#x27;, price_max) FROM shop.category_facet WHERE category_id = cat AND term_id = 0),
+      &#x27;source&#x27;, &#x27;precomputed&#x27;)
+    INTO res FROM shop.category_facet WHERE category_id = cat;
+    RETURN res;
+  END IF;
+  IF p ? &#x27;category&#x27; THEN cond := cond || format(&#x27; AND l.category_ids @&gt; ARRAY[%s]::int[]&#x27;, cat); END IF;
+  EXECUTE format($q$
+    SELECT jsonb_build_object(
+      &#x27;terms&#x27;, COALESCE((SELECT jsonb_object_agg(t, n) FROM (
+          SELECT t, count(DISTINCT vf.product_id) n
+          FROM shop.listing l JOIN shop.variant_facet vf ON vf.product_id = l.product_id AND vf.in_stock, unnest(vf.term_ids) t
+          WHERE %1$s GROUP BY t) x), &#x27;{}&#x27;),
+      &#x27;price&#x27;, (SELECT jsonb_build_object(&#x27;min&#x27;, min(price_min), &#x27;max&#x27;, max(price_max)) FROM shop.listing l WHERE %1$s AND l.in_stock),
+      &#x27;source&#x27;, &#x27;live&#x27;)
+  $q$, cond) INTO res;
+  RETURN res;
+END $$;
+</code></pre></details>
+</section>
+</main>
+<footer>UNIVERSAL1 · expo-app · documentation/PRODUCT_ENTITY_PLAN2.html · plan only; companion to PRODUCT_ENTITY_PLAN.html</footer>
+
+<script>
+const BENCH20 = [{"q": "Q1 category page, in stock, cheapest first", "p1_median": 14.63, "p1_p95": 21.96, "p1_rows": 24, "p2_median": 0.51, "p2_p95": 0.8, "p2_rows": 24, "speedup": 28.7}, {"q": "Q2 category + Color AND Memory on the same in-stock variant + max price, by popularity", "p1_median": 3.46, "p1_p95": 4.8, "p1_rows": 20, "p2_median": 1.61, "p2_p95": 1.96, "p2_rows": 20, "speedup": 2.1}, {"q": "Q3 facet counts (all attribute terms) for a subcategory", "p1_median": 23.74, "p1_p95": 28.29, "p1_rows": 104, "p2_median": 3.06, "p2_p95": 3.69, "p2_rows": 104, "speedup": 7.8}, {"q": "Q4 product page by slug (product + variants + terms + images)", "p1_median": 0.41, "p1_p95": 0.61, "p1_rows": 1, "p2_median": 0.09, "p2_p95": 0.12, "p2_rows": 1, "speedup": 4.6}, {"q": "Q5 text search \"nova\", best sellers first", "p1_median": 0.66, "p1_p95": 0.83, "p1_rows": 24, "p2_median": 0.5, "p2_p95": 0.71, "p2_rows": 24, "speedup": 1.3}];
+const BENCH100 = [{"q": "Q1 category page, in stock, cheapest first", "p1_median": 187.27, "p1_p95": 217.79, "p1_rows": 24, "p2_median": 0.44, "p2_p95": 1.28, "p2_rows": 24, "speedup": 425.6}, {"q": "Q2 category + Color AND Memory on the same in-stock variant + max price, by popularity", "p1_median": 14.3, "p1_p95": 20.59, "p1_rows": 24, "p2_median": 5.6, "p2_p95": 7.62, "p2_rows": 24, "speedup": 2.6}, {"q": "Q3 facet counts (all attribute terms) for a subcategory", "p1_median": 402.66, "p1_p95": 443.76, "p1_rows": 105, "p2_median": 17.97, "p2_p95": 23.11, "p2_rows": 105, "speedup": 22.4}, {"q": "Q4 product page by slug (product + variants + terms + images)", "p1_median": 0.39, "p1_p95": 0.52, "p1_rows": 1, "p2_median": 0.11, "p2_p95": 0.17, "p2_rows": 1, "speedup": 3.5}, {"q": "Q5 text search \"nova\", best sellers first", "p1_median": 0.82, "p1_p95": 1.23, "p1_rows": 24, "p2_median": 0.45, "p2_p95": 0.59, "p2_rows": 24, "speedup": 1.8}];
+const API20 = [{"call": "search: category, cheapest first", "median": 1.11, "p95": 1.46}, {"call": "search: category + Color + Memory + max price", "median": 1.81, "p95": 2.08}, {"call": "search: Color (Black OR Blue) + Memory", "median": 2.71, "p95": 2.94}, {"call": "search: page 2 via keyset", "median": 0.98, "p95": 1.42}, {"call": "search: text \"nova\"", "median": 0.95, "p95": 1.13}, {"call": "facets: subcategory", "median": 0.21, "p95": 0.26}, {"call": "facets: root category", "median": 0.22, "p95": 0.48}, {"call": "product_page: by slug", "median": 0.12, "p95": 0.17}];
+const API100 = [{"call": "search: category, cheapest first", "median": 0.79, "p95": 0.9}, {"call": "search: category + Color + Memory + max price", "median": 4.49, "p95": 5.51}, {"call": "search: Color (Black OR Blue) + Memory", "median": 8.54, "p95": 11.38}, {"call": "search: page 2 via keyset", "median": 0.87, "p95": 1.18}, {"call": "search: text \"nova\"", "median": 1.01, "p95": 1.38}, {"call": "facets: subcategory", "median": 0.24, "p95": 0.45}, {"call": "facets: root category", "median": 0.23, "p95": 0.34}, {"call": "product_page: by slug", "median": 0.14, "p95": 0.21}];
+const short = q => q.replace(/^Q\d /, '');
+// table
+const tb = document.getElementById('benchTable');
+BENCH100.forEach((r, i) => {
+  const a = BENCH20[i];
+  tb.insertAdjacentHTML('beforeend', `<tr><td>${short(r.q)}</td><td class="num">${a.p1_median}</td><td class="num">${a.p2_median}</td><td class="num">${r.p1_median}</td><td class="num win">${r.p2_median}</td><td class="num"><b>${r.speedup}×</b></td></tr>`);
+});
+const at = document.getElementById('apiTable');
+API100.forEach((r, i) => at.insertAdjacentHTML('beforeend', `<tr><td>${r.call}</td><td class="num">${API20[i].median}</td><td class="num">${r.median}</td></tr>`));
+// log-scale bars
+const bars = document.getElementById('bars100');
+const lo = Math.log10(0.05), hi = Math.log10(500);
+const pct = v => Math.max(4, (Math.log10(v) - lo) / (hi - lo) * 100);
+BENCH100.forEach(r => {
+  bars.insertAdjacentHTML('beforeend', `<div class="lbl">${short(r.q)}</div><div class="track">
+    <div class="bar p1" style="width:${pct(r.p1_median)}%">${r.p1_median} ms</div>
+    <div class="bar p2" style="width:${pct(r.p2_median)}%">${r.p2_median} ms</div></div>`);
+});
+// nav highlight
+const links = [...document.querySelectorAll('#nav a')];
+const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) { links.forEach(l => l.classList.remove('active')); const a = map.get(e.target.id); if (a) a.classList.add('active'); }
+}), { rootMargin: '-40% 0px -55% 0px' });
+map.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+</script>
+</body>
+</html>

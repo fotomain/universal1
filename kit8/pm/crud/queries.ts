@@ -27,6 +27,7 @@ export * from './project/projectQueries';
 export * from './project/projectUserSettingsQueries';
 export * from './task/taskQueries';
 export * from './dependency/dependencyQueries';
+export * from './template/templateQueries';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

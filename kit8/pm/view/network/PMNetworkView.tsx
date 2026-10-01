@@ -11,8 +11,9 @@
 //
 // Rendering is plain React Native + react-native-svg (no Skia / CanvasKit needed).
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { usePMStore } from '../../store/store_pm';
 import { makePMPalette, PMPalette, withAlpha } from '../theme';
@@ -63,6 +64,13 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
   const setters = useNetworkViewSetters(crud, readOnly);
   const net = useActivityNetwork();
 
+  const [switching, setSwitching] = useState(true);
+  useEffect(() => {
+    setSwitching(true);
+    const t = setTimeout(() => setSwitching(false), 80);
+    return () => clearTimeout(t);
+  }, [mode]);
+
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]} testID={readOnly || !crud ? 'pm-net-view-readonly' : 'pm-net-view'}>
       <PMToolbar background={palette.surface} border={palette.border}>
@@ -112,7 +120,11 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
           </>
         )}
       </PMToolbar>
-      {mode === 'networkSchedule' ? (
+      {switching ? (
+        <View style={styles.loadingContainer} testID="pm-net-loading-container">
+          <ActivityIndicatorCircleApp testID="pm-net-loading" color={palette.primary} />
+        </View>
+      ) : mode === 'networkSchedule' ? (
         <PMNetworkSchedule net={net} palette={palette} crud={crud} readOnly={!editable} />
       ) : (
         <PMNetworkDiagram net={net} palette={palette} crud={crud} readOnly={!editable} />
@@ -123,6 +135,12 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
   badge: {
     fontSize: 11,
     fontWeight: '700',

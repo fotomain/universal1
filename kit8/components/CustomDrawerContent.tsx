@@ -70,10 +70,12 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
         { id: 'departaments', label: 'Departments', icon: 'schema', route: 'catalog/departament' },
         { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
+        { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
+        { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
       ],
     },
 
-    { id: 'pm-projects', label: 'Gantt Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
+    { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
 
 
   ];

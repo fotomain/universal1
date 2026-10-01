@@ -5,5 +5,8 @@ export { default as PMProjectDashboard } from './PMProjectDashboard';
 export { default as SelectProjectFromList } from './SelectProjectFromList';
 // buttons
 export { default as PMAddProjectButton } from './buttons/PMAddProjectButton';
+// templates
+export { default as CreateTemplateFromProject } from './CreateTemplateFromProject';
+export { default as CreateProjectFromTemplate } from './CreateProjectFromTemplate';
 // recent projects
 export * from './recent';

@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // Kanban end-to-end: useReadProjectKanbanQuery / useKanbanCommands -> React Query -> in-memory Supabase
 // -> Zustand (store_kanban). Tables: kanban_stage_table, project_kanban_stage_table,
-// project_task_kanban_state_table (kit8/sql/init/create_pm_kanban_tables.sql).
+// project_task_kanban_state_table (kit8/sql/init/done/create_tables.sql).
 import { mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import React, { act } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -145,6 +145,6 @@ describe('Kanban CRUD', () => {
     await mountKanban({ tables: false });
     expect(ks().tablesMissing).toBe(true);
     await run(() => k().moveTasksToStage([g('Task 111')], 'x'));
-    expect(h.store().lastError).toContain('create_pm_kanban_tables.sql');
+    expect(h.store().lastError).toContain('create_tables.sql');
   });
 });

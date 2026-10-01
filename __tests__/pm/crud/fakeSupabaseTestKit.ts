@@ -52,6 +52,14 @@ export class FakeSupabase {
     project_task_dependencies_table: [],
     project_task_dependency_closure_table: [],
     project_user_settings_table: [],
+    templates_project_table: [],
+    templates_project_task_table: [],
+    templates_project_task_dependencies_table: [],
+    templates_project_task_dependency_closure_table: [],
+    templates_project_kanban_stage_table: [],
+    templates_project_user_settings_table: [],
+    kanban_stage_table: [],
+    project_kanban_stage_table: [],
   };
   calls: FakeCall[] = [];
   rpcCalls: { fn: string; args: any }[] = [];

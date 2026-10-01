@@ -54,6 +54,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
   return {
     showCriticalPath: u.showCriticalPath,
     criticalPathTaskColor: u.criticalPathTaskColor,
+    criticalPathColorHasPriorityOverTheCustomTaskColor: !!u.criticalPathColorHasPriorityOverTheCustomTaskColor,
     linkLineForm: u.ganttArrowsForm as PMLinkLineForm,
     showTaskProgressOnGantt: u.showTaskProgressOnGantt,
     taskProgressLinePosition: u.taskProgressLinePosition,

@@ -86,6 +86,8 @@ export interface PMStoreState {
   showCriticalPath: boolean;
   /** rowJSON.uxuiSettings.criticalPathTaskColor (user row) - color of the critical path tasks. */
   criticalPathTaskColor: string;
+  /** rowJSON.uxuiSettings.criticalPathColorHasPriorityOverTheCustomTaskColor - critical path color takes priority over custom task color. */
+  criticalPathColorHasPriorityOverTheCustomTaskColor: boolean;
   lastError: string | null;
   /** Dependency arrow shape (gantt/toolbars/DependencyArrowLineFormSelector) = project rowJSON.ganttArrowsForm. */
   linkLineForm: PMLinkLineForm;

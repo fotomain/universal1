@@ -16,6 +16,7 @@ import { createTaskApi } from './taskApi';
 import { createDependencyApi } from './dependencyApi';
 import { createProjectUserSettingsApi } from './projectUserSettingsApi';
 import { createKanbanApi } from './kanbanApi';
+import { createTemplateApi } from './templateApi';
 
 export { newGUID } from './apiUtils';
 export type { PMScheduleWrite } from './taskApi';
@@ -23,6 +24,10 @@ export type { PMDependencyPatch } from './dependencyApi';
 export { PMMissingTableError, isMissingTableError } from './projectUserSettingsApi';
 export { PMKanbanMissingError } from './kanbanApi';
 export type { PMKanbanStateWrite } from './kanbanApi';
+export type {
+  CreateTemplateFromProjectParams,
+  CreateProjectFromTemplateParams,
+} from './templateApi';
 
 export function createPMApi(sb: SupabaseClient) {
   return {
@@ -31,6 +36,7 @@ export function createPMApi(sb: SupabaseClient) {
     ...createDependencyApi(sb),
     ...createProjectUserSettingsApi(sb),
     ...createKanbanApi(sb),
+    ...createTemplateApi(sb),
   };
 }
 

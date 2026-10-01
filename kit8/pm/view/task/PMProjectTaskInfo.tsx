@@ -148,7 +148,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         ) : (
           <>
             <Text style={{ color: c.text, marginBottom: 12 }}>Task not found.</Text>
-            <PMDialogButton testID="pm-info-open-dashboard" kind="text" title="Open the Gantt dashboard" onPress={() => router.replace(PM_ROUTES.dashboard as any)} />
+            <PMDialogButton testID="pm-info-open-dashboard" kind="text" title="Open the Project dashboard" onPress={() => router.replace(PM_ROUTES.dashboard as any)} />
           </>
         )}
       </View>

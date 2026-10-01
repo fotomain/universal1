@@ -240,6 +240,15 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                     colors={colors}
                   />
                 </Opt>
+                <Opt id="criticalPathColorHasPriorityOverTheCustomTaskColor">
+                  <Row label="Critical path color has priority over custom task color" color={c.text}>
+                    <SwitchApp
+                      testID="pm-uxui-critical-priority"
+                      value={!!draft.criticalPathColorHasPriorityOverTheCustomTaskColor}
+                      onValueChange={(v) => set('criticalPathColorHasPriorityOverTheCustomTaskColor', v)}
+                    />
+                  </Row>
+                </Opt>
               </>
             )}
 

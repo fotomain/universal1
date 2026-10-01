@@ -222,7 +222,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
       {tablesMissing && (
         <View style={[styles.banner, { borderColor: palette.error }]}>
           <Text style={{ color: palette.error, fontSize: 12 }}>
-            Read-only: the Kanban tables are missing - run kit8/sql/init/create_pm_kanban_tables.sql in Supabase.
+            Read-only: the Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.
           </Text>
         </View>
       )}

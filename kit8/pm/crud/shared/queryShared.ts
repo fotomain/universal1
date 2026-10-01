@@ -23,6 +23,9 @@ export const pmKeys = {
   projectKanban: (projectGUID: string | null | undefined) => ['pm', 'projectKanban', projectGUID] as const,
   upstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'up', taskGUID] as const,
   downstream: (taskGUID: string | null | undefined) => ['pm', 'closure', 'down', taskGUID] as const,
+  templates: (ownerGUID: string | null | undefined) => ['pm', 'templates', ownerGUID] as const,
+  template: (templateGUID: string | null | undefined) => ['pm', 'template', templateGUID] as const,
+  templateData: (templateGUID: string | null | undefined) => ['pm', 'templateData', templateGUID] as const,
 };
 
 export function usePMApi(): PMApi {

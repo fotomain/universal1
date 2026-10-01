@@ -178,6 +178,6 @@ describe('PMKanbanStagesModalWindow (Kanban Stages)', () => {
   it('missing tables: explains which SQL to run', () => {
     mockEditorData = { stages: [], states: [], missing: true };
     renderUI(<PMKanbanStagesModalWindow projectGUID="p" visible onClose={jest.fn()} />);
-    expect(mustGet('pm-kanban-stages-window').textContent).toContain('create_pm_kanban_tables.sql');
+    expect(mustGet('pm-kanban-stages-window').textContent).toContain('create_tables.sql');
   });
 });

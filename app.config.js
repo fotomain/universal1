@@ -49,8 +49,13 @@ module.exports = {
     userInterfaceStyle: 'light',
     assetBundlePatterns: ['**/*'],
     web: { favicon: './assets/favicon.png' },
-    plugins: ['expo-router'],
-    extra: { appName }, // available in code via Constants.expoConfig.extra.appName
+    owner: 'foto888999',
+    extra: {
+      appName,
+      eas: {
+        projectId: 'bcc76802-860a-4f85-9d51-723119055d94',
+      },
+    }, // available in code via Constants.expoConfig.extra
 
     // Variant-specific fields (merged)
     name: variant.name,

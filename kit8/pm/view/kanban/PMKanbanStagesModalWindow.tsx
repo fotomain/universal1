@@ -72,7 +72,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
           ) : missing ? (
             <View style={styles.center}>
               <Text style={{ color: c.error, textAlign: 'center' }}>
-                The Kanban tables are missing.{'\n'}Run kit8/sql/init/create_pm_kanban_tables.sql in Supabase.
+                The Kanban tables are missing.{'\n'}Run kit8/sql/init/done/create_tables.sql in Supabase.
               </Text>
             </View>
           ) : (

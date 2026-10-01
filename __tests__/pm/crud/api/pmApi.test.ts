@@ -200,7 +200,7 @@ describe('project_task_dependencies_table CRUD', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const [d] = await s.api.createDependencies([edge(s, 'Task 111', 'Task 112', { rowJSON: { dependencyColor: '#f00' } })]);
     expect(d.rowGUID).toBe(s.byName('Task 112').rowGUID);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('update_pm_tables_rowJSON.sql'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('create_tables.sql'));
     warn.mockRestore();
   });
 

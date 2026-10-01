@@ -19,7 +19,7 @@ function isMissingRowJSONColumn(err: any): boolean {
 }
 
 export const PM_MISSING_DEP_ROWJSON_HINT =
-  'The dependency table has no "rowJSON" column yet - run kit8/sql/init/update_pm_tables_rowJSON.sql in Supabase (dependency colors need it).';
+  'The dependency table has no "rowJSON" column yet - run kit8/sql/init/done/create_tables.sql in Supabase (dependency colors need it).';
 
 export function createDependencyApi(sb: SupabaseClient) {
   async function createDependencies(rows: PMTaskDependencyRow[]): Promise<PMTaskDependencyRow[]> {

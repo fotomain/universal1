@@ -1,4 +1,4 @@
-// Supabase CRUD for the Kanban tables (kit8/sql/init/create_pm_kanban_tables.sql):
+// Supabase CRUD for the Kanban tables (kit8/sql/init/done/create_tables.sql):
 //   kanban_stage_table               readKanbanStageCatalog
 //   project_kanban_stage_table       ensureProjectKanbanStages · createProjectKanbanStage · updateProjectKanbanStage ·
 //                                    saveProjectKanbanStagesOrder · deleteProjectKanbanStage
@@ -25,7 +25,7 @@ import {
 import { check } from './apiUtils';
 import { isMissingTableError, PMMissingTableError } from './projectUserSettingsApi';
 
-const KANBAN_SQL = 'kit8/sql/init/create_pm_kanban_tables.sql';
+const KANBAN_SQL = 'kit8/sql/init/done/create_tables.sql';
 
 export class PMKanbanMissingError extends PMMissingTableError {
   constructor(table: string) {

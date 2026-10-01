@@ -18,7 +18,7 @@ import { applyKanbanStateWrites, buildKanbanBoard, kanbanLeavesOf, planKanbanMov
 import { pmKeys, usePMApi } from '../shared/queryShared';
 import { useKanbanMutation } from './kanbanQueries';
 
-const readOnlyMessage = 'The Kanban tables are missing - run kit8/sql/init/create_pm_kanban_tables.sql in Supabase.';
+const readOnlyMessage = 'The Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.';
 
 export function useKanbanCommands(projectGUID: string | null | undefined) {
   const api = usePMApi();

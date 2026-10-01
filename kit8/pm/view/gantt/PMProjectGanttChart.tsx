@@ -138,6 +138,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const fonts = usePMFonts();
   const visibleRows = usePMStore((s) => s.visibleRows);
   const rowIndexById = usePMStore((s) => s.rowIndexById);
+  const criticalPriority = usePMStore((s) => s.criticalPathColorHasPriorityOverTheCustomTaskColor);
   const tasksById = usePMStore((s) => s.tasksById);
   const schedule = usePMStore((s) => s.schedule);
   const deps = usePMStore((s) => s.deps);
@@ -214,7 +215,10 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       const w = hitTable.w[i];
       const y = i * PM_ROW_HEIGHT;
       const critical = showCritical && r.isCritical && kind !== K_SUMMARY;
-      const color = taskColorOf(t.rowJSON) || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar);
+      const customColor = taskColorOf(t.rowJSON);
+      const color = (critical && criticalPriority)
+        ? palette.critical
+        : (customColor || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar));
       const progressColor = kind === K_SUMMARY ? palette.summaryProgress : critical ? palette.criticalProgress : palette.barProgress;
       const name = t.rowJSON.name || '';
       const textW = (kind === K_SUMMARY ? measureBold : measure)(name);
@@ -243,7 +247,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold]);
+  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold]);
 
   // =====================================================================================
   // Dependency links: one path per style (normal / critical / highlighted) + arrows

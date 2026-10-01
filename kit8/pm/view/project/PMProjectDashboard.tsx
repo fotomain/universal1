@@ -10,6 +10,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
@@ -45,6 +46,7 @@ export default function PMProjectDashboard() {
 }
 
 function PMProjectDashboardInner() {
+  const router = useRouter();
   const { themeColors } = useDesignSystem();
   const ownerGUID = usePMOwnerGUID(); // real Supabase auth uid (uuid) - see queries.ts
 
@@ -107,6 +109,13 @@ function PMProjectDashboardInner() {
         <PMTipIcon tip="Sign-in required" testID="pm-signin-icon" name="lock" size={32} color={themeColors.primary} />
         <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Sign in to manage projects</Text>
         <Text style={{ color: themeColors.text, opacity: 0.7 }}>Projects are stored per user in Supabase (row level security).</Text>
+        <PMDialogButton
+          testID="pm-signin-button"
+          title="Go to Sign In"
+          kind="primary"
+          style={{ marginTop: 16 }}
+          onPress={() => router.push('/signin')}
+        />
       </Centered>
     );
   }
@@ -139,7 +148,7 @@ function PMProjectDashboardInner() {
           <Text style={[styles.emptyTitle, { color: themeColors.error }]}>Could not load projects</Text>
           <Text style={{ color: themeColors.text, opacity: 0.7, textAlign: 'center' }}>
             {loadError.message}
-            {'\n'}Did you run kit8/sql/init/create_pm_tables.sql in Supabase?
+            {'\n'}Did you run kit8/sql/init/done/create_tables.sql in Supabase?
           </Text>
         </Centered>
       ) : loading ? (

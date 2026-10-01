@@ -8,11 +8,21 @@ export const projectTaskDependencyClosureTable = 'project_task_dependency_closur
 /** Per user settings of a project (rowOwnerGUID = project, rowParentGUID = user, rowJSON.uxuiSettings). */
 export const projectUserSettingsTable = 'project_user_settings_table';
 
+// ---- Templates -------------------------------------------------------------------
+export const templatesProjectTable = 'templates_project_table';
+export const templatesProjectTaskTable = 'templates_project_task_table';
+export const templatesProjectTaskDependenciesTable = 'templates_project_task_dependencies_table';
+export const templatesProjectTaskDependencyClosureTable = 'templates_project_task_dependency_closure_table';
+export const templatesProjectKanbanStageTable = 'templates_project_kanban_stage_table';
+export const templatesProjectUserSettingsTable = 'templates_project_user_settings_table';
+
 // ---- Kanban (kit8/sql/init/create_pm_kanban_tables.sql, kit8/sql/defTable.md pattern) ----------------
 /** Catalog of default Kanban stages (rowOwnerGUID = KANBAN_STAGE_CATALOG_OWNER). */
 export const kanbanStageTable = 'kanban_stage_table';
 /** Kanban stages (columns) of a project (rowOwnerGUID = project). */
 export const projectKanbanStageTable = 'project_kanban_stage_table';
+/** Redux entity key for project_kanban_stage_table in SystemMetaData. */
+export const PROJECT_KANBAN_STAGE_ENTITY = 'projectKanbanStageReusable';
 /** Kanban stage of a task (rowOwnerGUID = project, rowParentGUID = task, rowJSON.stageGUID). */
 export const projectTaskKanbanStateTable = 'project_task_kanban_state_table';
 /** Redux entity key for project_task_kanban_state_table in SystemMetaData. */

@@ -24,3 +24,5 @@ export { default as SpeedDialFAB, SpeedDialFABProps, SpeedDialAction } from './S
 export { default as ColorPickerApp, ColorPickerAppProps, ColorPickerAppColors, normalizeHexColor } from './ColorPickerApp';
 export { default as ActivityIndicatorCircleApp, ActivityIndicatorCircleAppProps } from '../activityindicator';
 export { default as SelectDateApp, SelectDateAppProps } from './SelectDateApp';
+export { default as ErrorModalWindow, ErrorModalWindowProps, showErrorModal, hideErrorModal, useErrorModalStore, AppErrorPayload } from './ErrorModalWindow';
+

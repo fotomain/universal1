@@ -52,6 +52,8 @@ import SelectElementFromCatalog from "../../../../catalog/inner/select_element/S
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
+import CreateTemplateFromProject from "../CreateTemplateFromProject";
+import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
 
 export type ProjectSettingsTab = 'TabMain' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
@@ -102,6 +104,8 @@ export default function PMRecentProjectsToolbar({
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('TabMain');
   /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
+  const [createFromTemplateOpen, setCreateFromTemplateOpen] = useState(false);
   useEffect(() => {
     if (!draft) setKanbanStagesOpen(false);
   }, [draft]);
@@ -396,20 +400,35 @@ export default function PMRecentProjectsToolbar({
         </Text>
       )}
       <PMIconButton
-        testID="pm-project-edit"
-        icon="settings"
-        title="Project settings"
-        color={themeColors.text}
-        disabled={!selected}
-        onPress={openEdit}
-      />
-      <PMIconButton
         testID="pm-project-delete"
         icon="delete"
         title="Delete project"
         color={themeColors.error}
         disabled={!selected}
         onPress={remove}
+      />
+      <PMIconButton
+        testID="pm-create-template-btn"
+        icon="bookmark_add"
+        title="Create template from project"
+        color={themeColors.text}
+        disabled={!selected}
+        onPress={() => setCreateTemplateOpen(true)}
+      />
+      <PMIconButton
+        testID="pm-create-from-template-btn"
+        icon="library_add"
+        title="Create project from template"
+        color={themeColors.text}
+        onPress={() => setCreateFromTemplateOpen(true)}
+      />
+      <PMIconButton
+        testID="pm-project-edit"
+        icon="settings"
+        title="Project settings"
+        color={themeColors.text}
+        disabled={!selected}
+        onPress={openEdit}
       />
       <PMAddProjectButton compact={compact} onPress={openNew} />
 
@@ -530,12 +549,35 @@ export default function PMRecentProjectsToolbar({
                       style={styles.switchRow}
                     />
                     {!!draft?.rowGUID && (
-                      <ImportExportProject
-                        ownerGUID={ownerGUID}
-                        projectGUID={draft.rowGUID}
-                        colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
-                        onImported={onImported}
-                      />
+                      <>
+                        <ImportExportProject
+                          ownerGUID={ownerGUID}
+                          projectGUID={draft.rowGUID}
+                          colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
+                          onImported={onImported}
+                        />
+                        <View style={{ marginTop: 12 }}>
+                          <PMDialogButton
+                            testID="pm-settings-save-as-template"
+                            title="Save as template"
+                            color={themeColors.text}
+                            onPress={() => setCreateTemplateOpen(true)}
+                          />
+                        </View>
+                      </>
+                    )}
+                    {!draft?.rowGUID && (
+                      <View style={{ marginTop: 12 }}>
+                        <PMDialogButton
+                          testID="pm-settings-new-from-template"
+                          title="Or create from template"
+                          color={themeColors.text}
+                          onPress={() => {
+                            setDraft(null);
+                            setCreateFromTemplateOpen(true);
+                          }}
+                        />
+                      </View>
                     )}
                   </View>
                 )}
@@ -649,10 +691,17 @@ export default function PMRecentProjectsToolbar({
                       value={draft?.mainSupplierContractGUID}
                       rowOwnerGUID={draft?.mainSupplierGUID ? draft.mainSupplierGUID : undefined}
                       rowParentGUID="partner"
-                      filterItem={(item) =>
-                        Boolean(item.rowJSON?.supplierRole) &&
-                        (!draft?.mainSupplierGUID || item.rowOwnerGUID === draft.mainSupplierGUID)
-                      }
+                      filterItem={(item) => {
+                        if (draft?.mainSupplierGUID) {
+                          return item.rowOwnerGUID === draft.mainSupplierGUID;
+                        }
+                        return Boolean(
+                          item.rowJSON?.supplierRole === true ||
+                          item.rowJSON?.contractType?.toLowerCase().includes('suppl') ||
+                          item.rowParentGUID === 'partner' ||
+                          item.rowJSON?.contractPartyType === 'partner'
+                        );
+                      }}
                       onChange={(guid, row) =>
                         setDraft((d) =>
                           d
@@ -696,10 +745,17 @@ export default function PMRecentProjectsToolbar({
                       value={draft?.mainCustomerContractGUID}
                       rowOwnerGUID={draft?.mainCustomerGUID ? draft.mainCustomerGUID : undefined}
                       rowParentGUID="partner"
-                      filterItem={(item) =>
-                        Boolean(item.rowJSON?.customerRole) &&
-                        (!draft?.mainCustomerGUID || item.rowOwnerGUID === draft.mainCustomerGUID)
-                      }
+                      filterItem={(item) => {
+                        if (draft?.mainCustomerGUID) {
+                          return item.rowOwnerGUID === draft.mainCustomerGUID;
+                        }
+                        return Boolean(
+                          item.rowJSON?.customerRole === true ||
+                          item.rowJSON?.contractType?.toLowerCase().includes('cust') ||
+                          item.rowParentGUID === 'partner' ||
+                          item.rowJSON?.contractPartyType === 'partner'
+                        );
+                      }}
                       onChange={(guid, row) =>
                         setDraft((d) =>
                           d
@@ -760,6 +816,23 @@ export default function PMRecentProjectsToolbar({
             onClose={() => setKanbanStagesOpen(false)}
           />
         </Modal>
+      )}
+
+      {createTemplateOpen && (
+        <CreateTemplateFromProject
+          visible={createTemplateOpen}
+          onClose={() => setCreateTemplateOpen(false)}
+          ownerGUID={ownerGUID}
+          sourceProjectGUID={selectedProjectGUID || draft?.rowGUID || undefined}
+        />
+      )}
+
+      {createFromTemplateOpen && (
+        <CreateProjectFromTemplate
+          visible={createFromTemplateOpen}
+          onClose={() => setCreateFromTemplateOpen(false)}
+          ownerGUID={ownerGUID}
+        />
       )}
     </View>
   );

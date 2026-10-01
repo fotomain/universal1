@@ -81,6 +81,7 @@ export default function ImportExportProject({
             <Text style={[styles.hint, { color: colors.text }]}>
               The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).
             </Text>
+            <View style={{ height: 16 }} />
             <PMDialogButton
               testID="pm-project-export"
               kind="primary"

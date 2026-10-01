@@ -25,7 +25,7 @@ export interface PMInlineCellInputProps {
   /** text alignment (default right: numbers / dates) */
   align?: 'left' | 'right' | 'center';
   /** optional element rendered on the right side of the input (e.g. date picker trigger) */
-  rightElement?: React.ReactNode;
+  rightElement?: React.ReactNode | ((currentValue: string) => React.ReactNode);
   /** when true, onBlur does not close/commit the input (e.g. when date picker modal is open) */
   preventBlur?: boolean;
 }
@@ -129,7 +129,7 @@ export default function PMInlineCellInput({
             style={styles.rightElementBox}
             {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
           >
-            {rightElement}
+            {typeof rightElement === 'function' ? rightElement(value) : rightElement}
           </View>
         )}
       </Animated.View>

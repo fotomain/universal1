@@ -31,6 +31,7 @@ import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
 import WithDesignSystem from '../kit8/providers/WithDesignSystem';
 import IconApp from '../kit8/components/common/IconApp';
 import SnackbarApp from '../kit8/components/common/SnackbarApp';
+import { ErrorModalWindow, showErrorModal } from '../kit8/components/common';
 
 const blockError=true
 
@@ -285,6 +286,7 @@ function SupabaseAuthSync() {
 
             if (error) {
               console.error('Supabase country select error:', error);
+              showErrorModal(error);
               return;
             }
 
@@ -441,6 +443,7 @@ function RootLayoutContent() {
             </Drawer>
             <FABAppComponent />
             <SnackbarApp />
+            <ErrorModalWindow />
           </FABProvider>
         </PaperProvider>
       </WithDesignSystem>

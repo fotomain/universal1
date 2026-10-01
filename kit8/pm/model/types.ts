@@ -6,6 +6,12 @@ export {
   projectTaskDependenciesTable,
   projectTaskDependencyClosureTable,
   projectUserSettingsTable,
+  templatesProjectTable,
+  templatesProjectTaskTable,
+  templatesProjectTaskDependenciesTable,
+  templatesProjectTaskDependencyClosureTable,
+  templatesProjectKanbanStageTable,
+  templatesProjectUserSettingsTable,
 } from './constants';
 
 export type { PMPlanDateInputFormat, PMPlanUnits } from './planDateFormats';
@@ -210,6 +216,8 @@ export interface PMUxUiSettings {
   showCriticalPath?: boolean;
   /** Color of the critical path tasks (bars, arrows, network nodes): one of PM_CRITICAL_PATH_TASK_COLORS (default #FF0033). */
   criticalPathTaskColor?: string;
+  /** Critical path color overrides custom task color on critical tasks (default false). */
+  criticalPathColorHasPriorityOverTheCustomTaskColor?: boolean;
   /** Dependency arrow shape (default 'smoothForm'). */
   ganttArrowsForm?: PMLinkLineForm;
   /** Progress line + "XX%" on task bars and the project progress line (default false). */
@@ -296,6 +304,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     taskProgressLineColor: progressLineColorOf(u.taskProgressLineColor),
     projectProgressLineColor: progressLineColorOf(u.projectProgressLineColor),
     criticalPathTaskColor: criticalPathTaskColorOf(u.criticalPathTaskColor),
+    criticalPathColorHasPriorityOverTheCustomTaskColor: !!u.criticalPathColorHasPriorityOverTheCustomTaskColor,
     ganttVsNetworkView: pmMainViewOf(u.ganttVsNetworkView),
     networkViewMode: u.networkViewMode === 'networkSchedule' ? 'networkSchedule' : 'networkDiagram',
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',

@@ -10,7 +10,7 @@ import {ORGANIZATION_ENTITY, organizationTable, organizationExample} from "../ca
 import {COUNTRY_ENTITY, countryTable, emptyCountry} from "../catalog/country/countryModel";
 import {DEPARTAMENT_ENTITY, departamentTable, emptyDepartament} from "../catalog/departament/departamentModel";
 import {PROJECT_ENTITY} from "../catalog/project/projectCatalogModel";
-import {PROJECT_TASK_KANBAN_STATE_ENTITY, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
+import {PROJECT_KANBAN_STAGE_ENTITY, PROJECT_TASK_KANBAN_STATE_ENTITY, projectKanbanStageTable, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
 
 // MD.
 const SystemMetaData:any = {

@@ -1,7 +1,7 @@
 // Supabase CRUD for project_user_settings_table: the Gantt / tree settings ONE user chose for ONE project.
 //   rowOwnerGUID = project_table.rowGUID · rowParentGUID = user (Supabase auth uid) · rowJSON.uxuiSettings
 // One row per (project, user): saving is an upsert on that pair.
-// Until kit8/sql/init/update_pm_tables_userSettings.sql has run, the table is missing: reads answer
+// Until kit8/sql/init/done/create_tables.sql has run, the table is missing: reads answer
 // { missing: true } and saves throw PMMissingTableError - the React hooks then fall back to the
 // legacy project_table.rowJSON.uxuiSettings.
 
@@ -13,7 +13,7 @@ import { check } from './apiUtils';
 /** The table does not exist yet (SQL upgrade not run). */
 export class PMMissingTableError extends Error {
   constructor(public table: string) {
-    super(`${table} is missing - run kit8/sql/init/update_pm_tables_userSettings.sql`);
+    super(`${table} is missing - run kit8/sql/init/done/create_tables.sql`);
   }
 }
 

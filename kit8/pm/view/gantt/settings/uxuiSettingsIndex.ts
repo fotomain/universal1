@@ -17,6 +17,7 @@ export type PMUxUiOptionId =
   | 'taskProgress'
   | 'taskProgressLine'
   | 'criticalPathTaskColor'
+  | 'criticalPathColorHasPriorityOverTheCustomTaskColor'
   | 'treeCommands'
   | 'treeNumbers'
   | 'treeColumns'
@@ -39,6 +40,7 @@ export const PM_UXUI_OPTIONS: PMUxUiOption[] = [
   { id: 'taskProgress', tab: 'TabTask', label: 'Show task progress on the Gantt (lines + %)', keywords: 'showTaskProgressOnGantt percent percentage' },
   { id: 'taskProgressLine', tab: 'TabTask', label: 'Task progress line: position on the task bar, color', keywords: 'taskProgressLinePosition taskProgressLineColor top bottom middle colour' },
   { id: 'criticalPathTaskColor', tab: 'TabTask', label: 'Critical path task color', keywords: 'criticalPathTaskColor critical tasks bars colour' },
+  { id: 'criticalPathColorHasPriorityOverTheCustomTaskColor', tab: 'TabTask', label: 'Critical path color has priority over custom task color', keywords: 'criticalPathColorHasPriorityOverTheCustomTaskColor priority custom task color override' },
   { id: 'treeCommands', tab: 'TabTree', label: 'Task tree: row commands (hover panel / right-click menu)', keywords: 'projectTreeContextCommandsMode context menu long-press buttons' },
   { id: 'treeNumbers', tab: 'TabTree', label: 'Show hierarchy numbers ("#" column) in the task tree', keywords: 'showTreeHierarchyNumbers wbs outline number' },
   { id: 'treeColumns', tab: 'TabTree', label: 'Task tree columns: default order, default widths', keywords: 'treeColumnsOrder treeColumnsWidths reset resize width custom column' },

@@ -55,6 +55,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   treeWidth: PM_TREE_DEFAULT_WIDTH,
   showCriticalPath: true,
   criticalPathTaskColor: PM_DEFAULT_CRITICAL_PATH_TASK_COLOR,
+  criticalPathColorHasPriorityOverTheCustomTaskColor: false,
   lastError: null,
   linkLineForm: 'smoothForm',
   showTaskProgressOnGantt: false,

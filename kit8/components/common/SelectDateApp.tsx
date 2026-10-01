@@ -53,19 +53,27 @@ export function normalizeDateValue(val: Date | string | number | null | undefine
     return isNaN(d.getTime()) ? undefined : d;
   }
   if (typeof val === 'string') {
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) return d;
-    // try YYYY-MM-DD or DD.MM.YYYY
-    const parts = val.trim().split(/[./-]/);
+    const trimmed = val.trim();
+    if (!trimmed) return undefined;
+    // try YYYY-MM-DD or DD.MM.YYYY first to construct local Date without UTC offset shift
+    const parts = trimmed.split(/[./-]/);
     if (parts.length === 3) {
       if (parts[0].length === 4) {
-        const parsed = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        const y = Number(parts[0]);
+        const m = Number(parts[1]) - 1;
+        const d = Number(parts[2]);
+        const parsed = new Date(y, m, d);
         if (!isNaN(parsed.getTime())) return parsed;
-      } else {
-        const parsed = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+      } else if (parts[2].length === 4) {
+        const d = Number(parts[0]);
+        const m = Number(parts[1]) - 1;
+        const y = Number(parts[2]);
+        const parsed = new Date(y, m, d);
         if (!isNaN(parsed.getTime())) return parsed;
       }
     }
+    const parsedGeneric = new Date(trimmed);
+    if (!isNaN(parsedGeneric.getTime())) return parsedGeneric;
   }
   return undefined;
 }
@@ -108,11 +116,11 @@ export default function SelectDateApp({
 
   const handleConfirmSingle = useCallback(
     (params: { date?: Date }) => {
-      const selected = params.date ?? null;
+      const selected = params.date || dateValue || null;
       onSelect?.(selected);
       handleDismiss();
     },
-    [onSelect, handleDismiss]
+    [dateValue, onSelect, handleDismiss]
   );
 
   const formatted = useMemo(() => {
@@ -201,6 +209,11 @@ export default function SelectDateApp({
         onDismiss={handleDismiss}
         date={dateValue}
         onConfirm={handleConfirmSingle}
+        onChange={(params: any) => {
+          if (mode === 'single' && params?.date) {
+            handleConfirmSingle({ date: params.date });
+          }
+        }}
         validRange={validRange}
       />
     </>

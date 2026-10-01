@@ -58,7 +58,8 @@ function PMKanbanCardInner({
   onProgressChange,
 }: PMKanbanCardProps) {
   const lastTap = useRef(0);
-  const accent = card.color || (card.critical ? palette.critical : stageColor);
+  const criticalPriority = usePMStore((s) => s.criticalPathColorHasPriorityOverTheCustomTaskColor);
+  const accent = (card.critical && criticalPriority) ? palette.critical : (card.color || (card.critical ? palette.critical : stageColor));
   const stageProgress = Math.max(0, Math.min(100, Math.round(card.kanbanStageProgressPercent ?? 0)));
   const [isEditingProgress, setIsEditingProgress] = useState(false);
   const [progressInput, setProgressInput] = useState('');

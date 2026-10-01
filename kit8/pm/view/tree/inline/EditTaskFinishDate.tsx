@@ -56,38 +56,41 @@ export default function EditTaskFinishDate(props: {
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
       preventBlur={pickerOpen}
-      rightElement={
-        <SelectDateApp
-          value={finishDisplayMs}
-          trigger="icon"
-          testID={`pm-tree-select-date-finish-${guid}`}
-          style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
-          onOpen={() => setPickerOpen(true)}
-          onDismiss={() => setPickerOpen(false)}
-          onSelect={(selectedDate) => {
-            setPickerOpen(false);
-            if (!selectedDate || !scheduled) {
+      rightElement={(currentText) => {
+        const parsed = currentText ? parsePlanDate(currentText, planDateInputFormat, finishDisplayMs) : null;
+        return (
+          <SelectDateApp
+            value={parsed ?? finishDisplayMs}
+            trigger="icon"
+            testID={`pm-tree-select-date-finish-${guid}`}
+            style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+            onOpen={() => setPickerOpen(true)}
+            onDismiss={() => setPickerOpen(false)}
+            onSelect={(selectedDate) => {
+              setPickerOpen(false);
+              if (!selectedDate || !scheduled) {
+                close();
+                return;
+              }
+              const ms = Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+              if (isSubDay) {
+                const diffMs = ms - scheduled.startMs;
+                if (diffMs > 0) {
+                  crud.setDurationDays(guid, diffMs / DAY_MS);
+                }
+              } else {
+                const newFinishInstant = utcMidnight(ms) + DAY_MS;
+                if (newFinishInstant > scheduled.startMs) {
+                  const calendar = { skipWeekends: !!project?.rowJSON.skipWeekends };
+                  const days = workDaysBetween(scheduled.startMs, newFinishInstant, calendar);
+                  if (days >= 1) crud.setDurationDays(guid, days);
+                }
+              }
               close();
-              return;
-            }
-            const ms = Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-            if (isSubDay) {
-              const diffMs = ms - scheduled.startMs;
-              if (diffMs > 0) {
-                crud.setDurationDays(guid, diffMs / DAY_MS);
-              }
-            } else {
-              const newFinishInstant = utcMidnight(ms) + DAY_MS;
-              if (newFinishInstant > scheduled.startMs) {
-                const calendar = { skipWeekends: !!project?.rowJSON.skipWeekends };
-                const days = workDaysBetween(scheduled.startMs, newFinishInstant, calendar);
-                if (days >= 1) crud.setDurationDays(guid, days);
-              }
-            }
-            close();
-          }}
-        />
-      }
+            }}
+          />
+        );
+      }}
       onCommit={(text) => {
         if (!text.trim()) {
           close();

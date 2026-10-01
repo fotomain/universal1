@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Entity Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* Same light business theme as documentation/WHY_ZUSTAND_FOR_PM.html (fonts fall back to system fonts offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7;
+    --rose: #e11d48; --rose-soft: #ffe4e6; --indigo: #4f46e5;
+    --gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 45%, #0891b2 100%);
+    --radius: 14px; --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  a { color: var(--purple); }
+  code { font: 12.5px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.55 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 10px 0; }
+  pre code { background: none; padding: 0; color: inherit; }
+  pre .c { color: #94a3b8; } pre .k { color: #c4b5fd; } pre .s { color: #6ee7b7; }
+
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 18px; padding: 10px 20px; }
+  .brand { font: 700 16px var(--display); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .brand-dot { width: 22px; height: 22px; border-radius: 7px; background: var(--gradient); }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  nav a.active { background: var(--purple-soft); color: var(--purple); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 8px 20px 80px; }
+  section { margin: 44px 0; }
+  h1 { font: 700 36px/1.15 var(--display); margin: 14px 0 12px; letter-spacing: -.02em; }
+  h2 { font: 700 26px/1.2 var(--display); margin: 0 0 6px; letter-spacing: -.01em; }
+  h3 { font: 600 17px/1.3 var(--display); margin: 0 0 8px; }
+  h4 { font: 600 14px var(--font); margin: 16px 0 6px; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; }
+  .hero { padding-top: 24px; }
+  .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+  .pill.purple { background: var(--purple-soft); color: var(--purple); }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
+  .tag.new { background: var(--emerald-soft); color: var(--emerald); }
+  .tag.reuse { background: var(--cyan-soft); color: var(--cyan); }
+  .tag.improve { background: var(--amber-soft); color: var(--amber); }
+  .tag.missing { background: var(--rose-soft); color: var(--rose); }
+  .tag.p2 { background: var(--bg-subtle); color: var(--muted); }
+
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  @media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 640px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } h1 { font-size: 28px; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
+  .kpi .v { font: 700 28px var(--display); background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi .l { font-weight: 600; }
+  .kpi .n { color: var(--muted); font-size: 13px; }
+  ul.clean { margin: 6px 0 0; padding-left: 18px; } ul.clean li { margin: 3px 0; }
+  .callout { border-radius: var(--radius-sm); padding: 12px 16px; margin: 14px 0; border-left: 4px solid; }
+  .callout.amber { background: var(--amber-soft); border-color: var(--amber); }
+  .callout.rose { background: var(--rose-soft); border-color: var(--rose); }
+  .callout.emerald { background: var(--emerald-soft); border-color: var(--emerald); }
+  .callout.cyan { background: var(--cyan-soft); border-color: var(--cyan); }
+
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); margin: 10px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-subtle); font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* entity diagram */
+  .er { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; position: relative; }
+  @media (max-width: 900px) { .er { grid-template-columns: 1fr; } }
+  .ent { background: var(--card); border: 1.5px solid var(--border-strong); border-radius: 12px; overflow: hidden; }
+  .ent .h { padding: 8px 12px; font: 600 14px var(--mono); color: #fff; }
+  .ent.core .h { background: var(--purple); } .ent.cls .h { background: var(--cyan); } .ent.cat .h { background: var(--emerald); } .ent.sys .h { background: #475569; }
+  .ent .b { padding: 8px 12px; font: 12.5px/1.6 var(--mono); color: var(--text-2); }
+  .ent .b div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ent .b .fk { color: var(--purple); }
+  .rel { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 8px 0; }
+  .steps li { counter-increment: s; position: relative; padding: 6px 0 6px 40px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 5px; width: 26px; height: 26px; border-radius: 50%; background: var(--purple-soft); color: var(--purple); font: 700 13px/26px var(--display); text-align: center; }
+  .tree { font: 13px/1.65 var(--mono); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; overflow-x: auto; white-space: pre; }
+  .tree .d { color: var(--muted); }
+  details { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin: 10px 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .prompt { white-space: pre-wrap; font: 13px/1.6 var(--mono); background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 16px 18px; max-height: 620px; overflow: auto; }
+  .copy { float: right; margin: -4px 0 6px 10px; border: 1px solid var(--border-strong); background: var(--card); border-radius: 999px; padding: 4px 12px; font: 600 12.5px var(--font); cursor: pointer; color: var(--text-2); }
+  .copy:hover { background: var(--purple-soft); color: var(--purple); }
+  footer { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="brand-dot"></span>Product entity · plan</div>
+    <nav><ul id="nav">
+      <li><a href="#overview" class="active">Overview</a></li>
+      <li><a href="#prompt">Improved prompt</a></li>
+      <li><a href="#today">Repo today</a></li>
+      <li><a href="#model">Model</a></li>
+      <li><a href="#tables">Tables</a></li>
+      <li><a href="#catalogs">Catalogs</a></li>
+      <li><a href="#woo">WooCommerce</a></li>
+      <li><a href="#mapping">Field map</a></li>
+      <li><a href="#sync">Import / write-back</a></li>
+      <li><a href="#ui">UI &amp; routes</a></li>
+      <li><a href="#demo">Demo data</a></li>
+      <li><a href="#phases">Phases</a></li>
+      <li><a href="#tests">Tests</a></li>
+      <li><a href="#decisions">Decisions</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============================== OVERVIEW ============================== -->
+<section id="overview" class="hero">
+  <span class="pill purple">Plan only · no code · UNIVERSAL1 / expo-app · kit8/catalog/product · 2026-10-01</span>
+  <h1>Product entity: WooCommerce-shaped products, variants and classification in Supabase</h1>
+  <p class="lead">Products are imported from the WordPress / WooCommerce shop into four <code>defTable.md</code>-style Supabase tables, edited in the Expo app (desktop and mobile), and written back to WooCommerce. The model copies WordPress: a <b>product</b> has <b>variations</b>, and it is classified by <b>taxonomies</b> (categories, tags, attributes) that hold <b>terms</b>.</p>
+  <div class="callout emerald"><b>The one idea behind the design:</b> <code>taxonomyTable</code> = a WordPress <i>taxonomy</i> (Product categories, Tags, Color, Memory…), <code>taxonomyTermTable</code> = its <i>terms</i> (Smartphones, Food, Black, 256 GB…). The same two tables classify products and drive variant prices, so there is no separate "attributes" table to maintain. Named <i>taxonomy</i>, not <i>category</i>: a "category" is only one kind of taxonomy (and in the UI "category" means a term such as Smartphones), so <code>categoryTable</code> would be misleading. UI labels stay "Categories &amp; attributes".</div>
+</section>
+
+<section class="grid g4" aria-label="Scope">
+  <div class="card kpi"><div class="v">4</div><div class="l">core tables</div><div class="n">productTable, productVariantTable, taxonomyTable, taxonomyTermTable</div></div>
+  <div class="card kpi"><div class="v">5</div><div class="l">supporting catalogs</div><div class="n">unitsOfMeasurementTable, taxClassTable, warehouseTable, stockLevelTable, integrationSyncLogTable</div></div>
+  <div class="card kpi"><div class="v">3</div><div class="l">routes</div><div class="n">/catalog/product/list · /edit · /import (+ category routes)</div></div>
+  <div class="card kpi"><div class="v">2</div><div class="l">demo product groups</div><div class="n">Smartphones (variable: color × memory) · Food (imported from the shop)</div></div>
+</section>
+
+<!-- ============================== IMPROVED PROMPT ============================== -->
+<section id="prompt">
+  <h2>Improved prompt</h2>
+  <p class="sub">The original prompt, rewritten so that an implementing agent cannot misread it. Keys are referenced by name only: secrets never go into prompts, docs or the client bundle.</p>
+  <button class="copy" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('promptText').innerText);this.textContent='Copied'">Copy</button>
+  <div class="prompt" id="promptText">ROLE
+You are a senior product-information (PIM) and inventory architect and a React Native (Expo, expo-router, web + iOS + Android) engineer working in /Users/mgtimber/UNIVERSAL1/expo-app.
+
+GOAL
+Add a Product module that imports products from our WooCommerce shop into Supabase, lets users list / edit / create them in the app on desktop and mobile, and writes changes back to WooCommerce.
+
+FOLLOW THE EXISTING PATTERNS (read before writing anything)
+- Table shape: kit8/sql/defTable.md (rowGUID, rowOwnerGUID, rowParentGUID, orderInList, rowJSON, created_at, updated_at). Every new table uses it and is added to defTable.md.
+- SQL: append to kit8/sql/init/done/create_tables.sql (idempotent, kit8_setup_def_table, RLS: authenticated only, realtime publication) and to delete_tables.sql.
+- Redux: one SystemMetaData entry per table (kit8/redux/SystemMetaData.ts) → reusableCrudSlice + reusableRootSaga + useRealtimeEntity.
+- Catalog module shape: kit8/catalog/partner (xxxModel.ts, XxxList.tsx, XxxCard.tsx, XxxEdit.tsx, index.ts, README.md, tests in __tests__/catalog/xxx).
+- Lists: ListWebCardsComponent on web, FlatList of the same card on iOS/Android. Pickers: SelectElementFromCatalog. Improve both generically if needed (no product-specific code inside them).
+
+DATA MODEL (WordPress / WooCommerce concept)
+- productTable — one row per product (Woo types: simple | variable | grouped | external).
+- productVariantTable — one row per variation of a variable product (rowOwnerGUID = product rowGUID).
+- taxonomyTable — taxonomies: product categories, product tags, attributes (Color, Memory, …), shipping classes.
+- taxonomyTermTable — terms of a taxonomy (rowOwnerGUID = taxonomyTable rowGUID, rowParentGUID = parent term → tree).
+- Supporting catalogs with common names: unitsOfMeasurementTable, taxClassTable, warehouseTable, stockLevelTable, integrationSyncLogTable.
+Field names in rowJSON are camelCase and prefixed by the entity (productName, variantSku, termName …). Woo ids live in rowJSON.woo.
+
+WOOCOMMERCE
+- Credentials in .env as WOO_URL_SECRET, WOO_CK_SECRET, WOO_CS_SECRET (no EXPO_PUBLIC_ prefix). They are used only server-side by a Supabase Edge Function "woo-proxy"; the app calls the proxy. Never ship the consumer secret to the client.
+- Rebuild WooEntityRoot.js as a typed client in kit8/catalog/product/crud/woo (paging, batch, retry, rate limiting, error mapping). The generic Supabase CRUD stays in kit8/catalog/product/crud.
+- Reference: WooCommerce REST API v3 product properties https://woocommerce.github.io/woocommerce-rest-api-docs/#product-properties and https://developer.woocommerce.com/docs/apis/rest-api
+
+DELIVERABLES
+1. ImportWordPressProducts.tsx (kit8/catalog/product/import, route app/catalog/product/import): dry-run preview, then idempotent import (upsert by Woo id) of categories, tags, attributes + terms, products and variations; progress and log in integrationSyncLogTable. After import the app reads products only from Supabase.
+2. ProductListScreen.tsx (list/) and ProductEditCard.tsx (card/) for desktop and mobile: save to Supabase, then "Push to WooCommerce" (per product and bulk), with conflict detection on date_modified_gmt.
+3. Routes: app/catalog/product/list, app/catalog/product/edit (?rowGUID= edits, none = new), app/catalog/product/import, app/catalog/taxonomy/list, app/catalog/category/edit.
+4. Hamburger menu: a "Products" group with Products, Categories &amp; attributes, Units of measurement, Import from WooCommerce.
+5. Demo data: product category "Smartphones" with 2 variable phones whose variant prices depend on Color × Memory; product category "Food" imported from the shop.
+6. Tests for model normalize/validate, Woo mappers (both directions), variant-matrix generation and import idempotency.
+
+CONSTRAINTS
+- Plan first: produce ./documentation/PRODUCT_ENTITY_PLAN.html, then implement phase by phase.
+- Money: numeric in rowJSON, string in Woo (Woo prices are strings). Rounded to currencyTable.decimalDigits.
+- Do not delete Woo products from the app; archive (status = draft / isActive = false).
+- i18n labels for menu and screens.</div>
+</section>
+
+<!-- ============================== REPO TODAY ============================== -->
+<section id="today">
+  <h2>What the repo has today</h2>
+  <p class="sub">Checked on the connected folder <code>expo-app</code> before planning.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Item</th><th>State</th><th>Plan</th></tr>
+    <tr><td><code>kit8/sql/defTable.md</code></td><td><span class="tag reuse">exists</span> 7-column pattern, used by currency, person, partner, contract, kanban…</td><td>Add the 9 new tables to its "Tables that use this pattern" list.</td></tr>
+    <tr><td><code>kit8/redux/SystemMetaData.ts</code></td><td><span class="tag reuse">exists</span> entity → tableName, defaultData, prepareCreateApi</td><td>Add 9 entries (<code>productReusable</code>, <code>productVariantReusable</code>, …).</td></tr>
+    <tr><td><code>kit8/sql/init/done/create_tables.sql</code></td><td><span class="tag reuse">exists</span> master idempotent script, <code>kit8_setup_def_table()</code>, RLS loop, realtime</td><td>New section "Products"; matching drops in <code>delete_tables.sql</code>.</td></tr>
+    <tr><td><code>ListWebCardsComponent</code></td><td><span class="tag reuse">exists</span> search, drag &amp; drop order, hierarchy, realtime, archive</td><td>Small generic additions (see <a href="#ui">UI</a>).</td></tr>
+    <tr><td><code>SelectElementFromCatalog</code></td><td><span class="tag reuse">exists</span> single select, owner/parent filters, search</td><td>Add multi-select, tree indent, chips (generic).</td></tr>
+    <tr><td><code>kit8/catalog/product/{card,crud,list}</code>, <code>app/catalog/product/{edit,list}</code></td><td><span class="tag improve">empty folders</span></td><td>Filled by this plan.</td></tr>
+    <tr><td><code>WooEntityRoot.js</code></td><td><span class="tag missing">not found</span> in expo-app</td><td>Rebuilt as <code>crud/woo/wooClient.ts</code>. If the old file lives elsewhere, copy it to <code>kit8/catalog/product/crud/woo/_legacy/</code> first so its endpoints can be compared.</td></tr>
+    <tr><td><code>ImportWordPressProducts.tsx</code>, <code>ProductListScreen.tsx</code>, <code>ProductEditCard.tsx</code></td><td><span class="tag missing">not found</span></td><td>New files (names kept as given).</td></tr>
+    <tr><td><code>.env</code></td><td>Google + CLOTHES1 keys only, no Woo keys</td><td>Add 3 Woo keys (server-only) + mirror them into Supabase function secrets.</td></tr>
+    <tr><td>Hamburger menu <code>kit8/components/CustomDrawerContent.tsx</code></td><td>"Catalogs" group with children</td><td>New "Products" group next to it.</td></tr>
+  </table></div>
+</section>
+
+<!-- ============================== MODEL ============================== -->
+<section id="model">
+  <h2>Domain model: WordPress → Supabase</h2>
+  <p class="sub">WooCommerce stores products as posts, variations as child posts, and classification as taxonomies with terms. We keep exactly that shape, in defTable rows.</p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>WordPress / WooCommerce</th><th>Woo REST resource</th><th>Supabase table</th><th>defTable keys</th></tr>
+    <tr><td>Product post (<code>post_type=product</code>)</td><td><code>/products</code></td><td><code>productTable</code></td><td>owner <code>'productCatalog'</code>, parent <code>'empty'</code> or grouped-parent rowGUID</td></tr>
+    <tr><td>Variation post (<code>product_variation</code>)</td><td><code>/products/{id}/variations</code></td><td><code>productVariantTable</code></td><td>owner = product rowGUID, parent <code>'empty'</code></td></tr>
+    <tr><td>Taxonomy (<code>product_cat</code>, <code>product_tag</code>, <code>pa_color</code>, shipping class)</td><td><code>/products/attributes</code> (attributes only)</td><td><code>taxonomyTable</code></td><td>owner <code>'taxonomyCatalog'</code>, parent <code>'empty'</code></td></tr>
+    <tr><td>Term (<code>Smartphones</code>, <code>Black</code>, <code>256 GB</code>)</td><td><code>/products/categories</code>, <code>/products/tags</code>, <code>/products/attributes/{id}/terms</code>, <code>/products/shipping_classes</code></td><td><code>taxonomyTermTable</code></td><td>owner = taxonomy rowGUID, parent = parent term rowGUID or <code>'empty'</code></td></tr>
+  </table></div>
+
+  <h4>Entity diagram</h4>
+  <div class="er">
+    <div class="ent core"><div class="h">productTable</div><div class="b">
+      <div>rowGUID</div><div>rowOwnerGUID = 'productCatalog'</div><div>rowParentGUID = 'empty' | grouped parent</div>
+      <div>rowJSON.productType, productName, productSku</div><div>rowJSON.regularPrice, salePrice, stock</div>
+      <div class="fk">rowJSON.categoryTermGUIDs[] → taxonomyTermTable</div><div class="fk">rowJSON.attributes[].taxonomyGUID → taxonomyTable</div>
+      <div class="fk">rowJSON.unitOfMeasureGUID, taxClassGUID</div><div>rowJSON.woo { wooId, wooModifiedGmt … }</div>
+    </div></div>
+    <div class="ent core"><div class="h">productVariantTable</div><div class="b">
+      <div>rowGUID</div><div class="fk">rowOwnerGUID → productTable.rowGUID</div><div>rowParentGUID = 'empty'</div>
+      <div>rowJSON.variantKey (unique per product)</div><div class="fk">rowJSON.attributeValues[] → taxonomyTermTable</div>
+      <div>rowJSON.variantSku, regularPrice, salePrice</div><div>rowJSON.stock, image, weight</div><div>rowJSON.woo { wooId, wooParentId }</div>
+    </div></div>
+    <div class="ent cls"><div class="h">taxonomyTable</div><div class="b">
+      <div>rowGUID</div><div>rowOwnerGUID = 'taxonomyCatalog'</div><div>rowParentGUID = 'empty'</div>
+      <div>rowJSON.taxonomyCode ('product_cat', 'pa_color')</div><div>rowJSON.taxonomyKind (category|tag|attribute|shippingClass)</div>
+      <div>rowJSON.isHierarchical, valueType</div><div>rowJSON.woo { wooAttributeId }</div>
+    </div></div>
+    <div class="ent cls"><div class="h">taxonomyTermTable</div><div class="b">
+      <div>rowGUID</div><div class="fk">rowOwnerGUID → taxonomyTable.rowGUID</div><div class="fk">rowParentGUID → parent value | 'empty'</div>
+      <div>rowJSON.termCode (slug), termName</div><div>rowJSON.colorHex, numericValue, unitOfMeasureGUID</div><div>rowJSON.woo { wooTermId }</div>
+    </div></div>
+    <div class="ent cat"><div class="h">unitsOfMeasurementTable · taxClassTable</div><div class="b">
+      <div>owner 'unitOfMeasurementCatalog' / 'taxClassCatalog'</div><div>uomCode (UN/ECE Rec 20), uomName, uomSymbol</div><div>taxClassCode ('standard', 'reduced-rate' …)</div>
+    </div></div>
+    <div class="ent cat"><div class="h">warehouseTable · stockLevelTable</div><div class="b">
+      <div>warehouse: owner 'warehouseCatalog'</div><div class="fk">stockLevel: owner → product | variant rowGUID</div><div class="fk">stockLevel: parent → warehouse rowGUID</div><div>rowJSON.quantityOnHand, quantityReserved</div>
+    </div></div>
+  </div>
+  <p class="rel">Relations live in <code>rowOwnerGUID</code> / <code>rowParentGUID</code> (one-to-many, indexed, cascade by trigger) or in <code>rowJSON</code> GUID arrays (many-to-many, indexed with GIN). This is the same split <code>contractTable</code> and <code>project_task_kanban_state_table</code> already use.</p>
+</section>
+
+<!-- ============================== TABLES ============================== -->
+<section id="tables">
+  <h2>Core tables</h2>
+  <p class="sub">All columns are the defTable seven: <code>rowGUID TEXT PK</code>, <code>rowOwnerGUID</code>, <code>rowParentGUID</code>, <code>rowJSON JSONB</code>, <code>orderInList NUMERIC</code>, <code>created_at</code>, <code>updated_at</code>. Only rowJSON differs.</p>
+
+  <h3>1 · productTable <span class="tag new">new</span></h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td>RN constants</td><td><code>productsTable = "productTable"</code>, <code>PRODUCT_ENTITY = "productReusable"</code>, <code>PRODUCT_CATALOG_OWNER = "productCatalog"</code></td></tr>
+    <tr><td>rowOwnerGUID</td><td><code>'productCatalog'</code> (or organization GUID when multi-tenant, as in personTable)</td></tr>
+    <tr><td>rowParentGUID</td><td><code>'empty'</code>; for children of a <i>grouped</i> product the grouped product's rowGUID (enables <code>hierarchyEnabled</code> in the list)</td></tr>
+    <tr><td>orderInList</td><td>manual order (Woo <code>menu_order</code>)</td></tr>
+    <tr><td>Indexes</td><td>unique <code>rowJSON-&gt;'woo'-&gt;&gt;'wooId'</code> (where not null) · unique <code>lower(productSku)</code> (where not empty) · <code>lower(productName)</code> · GIN on <code>rowJSON-&gt;'categoryTermGUIDs'</code></td></tr>
+    <tr><td>Checks</td><td><code>productType IN ('simple','variable','grouped','external')</code>, <code>productStatus IN ('draft','pending','private','publish')</code>, prices ≥ 0</td></tr>
+    <tr><td>Realtime</td><td>supabase_realtime → redux-saga (as partnerTable)</td></tr>
+  </table></div>
+<details open><summary>rowJSON: ProductRowJSON</summary>
+<pre><code>{
+  <span class="k">productName</span>: <span class="s">"Nova X"</span>,                 <span class="c">// Woo name</span>
+  <span class="k">productSlug</span>: <span class="s">"nova-x"</span>,                 <span class="c">// Woo slug</span>
+  <span class="k">productType</span>: <span class="s">"variable"</span>,               <span class="c">// simple | variable | grouped | external</span>
+  <span class="k">productStatus</span>: <span class="s">"publish"</span>,              <span class="c">// draft | pending | private | publish</span>
+  <span class="k">isActive</span>: true,                         <span class="c">// app-side archive flag (status draft on push when false)</span>
+  <span class="k">productSku</span>: <span class="s">"NOVA-X"</span>,
+  <span class="k">productGtin</span>: <span class="s">""</span>,                       <span class="c">// Woo global_unique_id (EAN / UPC / ISBN)</span>
+  <span class="k">shortDescription</span>: <span class="s">"…"</span>, <span class="k">description</span>: <span class="s">"…html…"</span>,
+  <span class="k">isFeatured</span>: false, <span class="k">catalogVisibility</span>: <span class="s">"visible"</span>,   <span class="c">// visible | catalog | search | hidden</span>
+  <span class="k">isVirtual</span>: false, <span class="k">isDownloadable</span>: false,
+  <span class="k">currencyCode</span>: <span class="s">"EUR"</span>,                     <span class="c">// shop currency, from currencyTable</span>
+  <span class="k">regularPrice</span>: 699.00, <span class="k">salePrice</span>: null,     <span class="c">// simple products; variable: min of variants (read-only)</span>
+  <span class="k">saleFrom</span>: null, <span class="k">saleTo</span>: null,
+  <span class="k">taxStatus</span>: <span class="s">"taxable"</span>, <span class="k">taxClassGUID</span>: <span class="s">"…"</span>,   <span class="c">// → taxClassTable</span>
+  <span class="k">unitOfMeasureGUID</span>: <span class="s">"…"</span>,                  <span class="c">// → unitsOfMeasurementTable (pcs, kg, l…) — app-only, sent as meta_data</span>
+  <span class="k">stock</span>: { <span class="k">manageStock</span>: true, <span class="k">quantity</span>: 12, <span class="k">status</span>: <span class="s">"instock"</span>, <span class="k">backorders</span>: <span class="s">"no"</span>, <span class="k">lowStockAmount</span>: 2 },
+  <span class="k">shipping</span>: { <span class="k">weight</span>: 0.19, <span class="k">length</span>: 15, <span class="k">width</span>: 7, <span class="k">height</span>: 0.8, <span class="k">shippingClassTermGUID</span>: null },
+  <span class="k">categoryTermGUIDs</span>: [<span class="s">"…Smartphones"</span>],     <span class="c">// product_cat terms</span>
+  <span class="k">tagTermGUIDs</span>: [],                      <span class="c">// product_tag terms</span>
+  <span class="k">attributes</span>: [                            <span class="c">// Woo attributes[]</span>
+    { <span class="k">taxonomyGUID</span>: <span class="s">"…Color"</span>,  <span class="k">termGUIDs</span>: [<span class="s">"…Black"</span>, <span class="s">"…White"</span>, <span class="s">"…Blue"</span>], <span class="k">isVisible</span>: true, <span class="k">usedForVariations</span>: true, <span class="k">position</span>: 0 },
+    { <span class="k">taxonomyGUID</span>: <span class="s">"…Memory"</span>, <span class="k">termGUIDs</span>: [<span class="s">"…128"</span>, <span class="s">"…256"</span>, <span class="s">"…512"</span>],    <span class="k">isVisible</span>: true, <span class="k">usedForVariations</span>: true, <span class="k">position</span>: 1 }
+  ],
+  <span class="k">customAttributes</span>: [ { <span class="k">name</span>: <span class="s">"Warranty"</span>, <span class="k">options</span>: [<span class="s">"24 months"</span>] } ],  <span class="c">// Woo local attributes (id 0)</span>
+  <span class="k">defaultAttributes</span>: [ { <span class="k">taxonomyGUID</span>: <span class="s">"…Color"</span>, <span class="k">termGUID</span>: <span class="s">"…Black"</span> } ],
+  <span class="k">images</span>: [ { <span class="k">src</span>: <span class="s">"https://…"</span>, <span class="k">alt</span>: <span class="s">""</span>, <span class="k">wooImageId</span>: 41 } ],   <span class="c">// [0] = main image</span>
+  <span class="k">groupedProductGUIDs</span>: [], <span class="k">upsellGUIDs</span>: [], <span class="k">crossSellGUIDs</span>: [],
+  <span class="k">externalUrl</span>: <span class="s">""</span>, <span class="k">buttonText</span>: <span class="s">""</span>,         <span class="c">// external products</span>
+  <span class="k">food</span>: { <span class="k">netQuantity</span>: 500, <span class="k">netUnitGUID</span>: <span class="s">"…g"</span>, <span class="k">bestBeforeDays</span>: 180, <span class="k">allergens</span>: [], <span class="k">storage</span>: <span class="s">""</span> },  <span class="c">// optional, only when a Food category is set</span>
+  <span class="k">metaData</span>: [ { <span class="k">key</span>: <span class="s">"_custom"</span>, <span class="k">value</span>: <span class="s">"…"</span> } ],   <span class="c">// unknown Woo meta kept verbatim</span>
+  <span class="k">woo</span>: { <span class="k">wooId</span>: 123, <span class="k">wooPermalink</span>: <span class="s">"…"</span>, <span class="k">wooModifiedGmt</span>: <span class="s">"2026-09-30T10:00:00"</span>,
+         <span class="k">syncStatus</span>: <span class="s">"synced"</span>,   <span class="c">// synced | dirty | conflict | error | localOnly</span>
+         <span class="k">lastPushedAt</span>: null, <span class="k">lastPulledAt</span>: <span class="s">"…"</span>, <span class="k">lastError</span>: null }
+}</code></pre>
+</details>
+
+  <h3>2 · productVariantTable <span class="tag new">new</span></h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td>RN constants</td><td><code>productVariantsTable = "productVariantTable"</code>, <code>PRODUCT_VARIANT_ENTITY = "productVariantReusable"</code></td></tr>
+    <tr><td>rowOwnerGUID</td><td><code>productTable.rowGUID</code> (cascade delete by trigger; realtime scoped by owner, as contractTable)</td></tr>
+    <tr><td>rowParentGUID</td><td><code>'empty'</code></td></tr>
+    <tr><td>orderInList</td><td>variant order (Woo <code>menu_order</code>)</td></tr>
+    <tr><td>Indexes</td><td>unique <code>(rowOwnerGUID, rowJSON-&gt;&gt;'variantKey')</code> · unique <code>wooId</code> · unique <code>lower(variantSku)</code></td></tr>
+  </table></div>
+<details open><summary>rowJSON: ProductVariantRowJSON</summary>
+<pre><code>{
+  <span class="k">variantKey</span>: <span class="s">"color=black|memory=256gb"</span>,   <span class="c">// sorted termCodes → one row per combination</span>
+  <span class="k">attributeValues</span>: [ { <span class="k">taxonomyGUID</span>: <span class="s">"…Color"</span>, <span class="k">termGUID</span>: <span class="s">"…Black"</span> },
+                     { <span class="k">taxonomyGUID</span>: <span class="s">"…Memory"</span>, <span class="k">termGUID</span>: <span class="s">"…256"</span> } ],
+  <span class="k">variantName</span>: <span class="s">"Nova X · Black · 256 GB"</span>,     <span class="c">// computed for lists / pickers</span>
+  <span class="k">variantSku</span>: <span class="s">"NOVA-X-BLK-256"</span>, <span class="k">variantGtin</span>: <span class="s">""</span>,
+  <span class="k">isActive</span>: true,                             <span class="c">// Woo status publish / private</span>
+  <span class="k">regularPrice</span>: 799.00, <span class="k">salePrice</span>: null, <span class="k">saleFrom</span>: null, <span class="k">saleTo</span>: null,
+  <span class="k">stock</span>: { <span class="k">manageStock</span>: true, <span class="k">quantity</span>: 5, <span class="k">status</span>: <span class="s">"instock"</span>, <span class="k">backorders</span>: <span class="s">"no"</span> },
+  <span class="k">shipping</span>: { <span class="k">weight</span>: null },                 <span class="c">// null = inherit from product</span>
+  <span class="k">image</span>: { <span class="k">src</span>: <span class="s">"…"</span>, <span class="k">wooImageId</span>: 52 },
+  <span class="k">woo</span>: { <span class="k">wooId</span>: 456, <span class="k">wooParentId</span>: 123, <span class="k">wooModifiedGmt</span>: <span class="s">"…"</span>, <span class="k">syncStatus</span>: <span class="s">"synced"</span> }
+}</code></pre>
+</details>
+
+  <h3>3 · taxonomyTable <span class="tag new">new</span> — taxonomies (groups)</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td>RN constants</td><td><code>taxonomiesTable = "taxonomyTable"</code>, <code>TAXONOMY_ENTITY = "taxonomyReusable"</code>, owner <code>'taxonomyCatalog'</code></td></tr>
+    <tr><td><code>appliesTo</code></td><td>rowJSON array of entities that may use the taxonomy: <code>['product']</code> now; later <code>'partner'</code>, <code>'project'</code>… (the same tables can classify any catalog)</td></tr>
+    <tr><td>rowJSON</td><td><code>{ taxonomyCode, taxonomyName, taxonomyKind, isHierarchical, valueType, usedForVariationsDefault, unitOfMeasureGUID, isSystem, isActive, woo: { wooAttributeId, wooTaxonomy } }</code></td></tr>
+    <tr><td><code>taxonomyKind</code></td><td><code>productCategory</code> (Woo product_cat) · <code>productTag</code> · <code>productAttribute</code> (pa_*) · <code>shippingClass</code></td></tr>
+    <tr><td><code>valueType</code></td><td><code>text</code> · <code>color</code> (shows colorHex swatch) · <code>number</code> (numericValue + unit, sortable: 128 &lt; 256 &lt; 1024 GB)</td></tr>
+    <tr><td>Seed (isSystem = true)</td><td><code>product_cat</code> "Product categories" (hierarchical) · <code>product_tag</code> "Tags" · <code>shipping_class</code> "Shipping classes" · <code>pa_color</code> "Color" (color) · <code>pa_memory</code> "Memory" (number, GB)</td></tr>
+    <tr><td>Unique</td><td><code>lower(taxonomyCode)</code></td></tr>
+  </table></div>
+
+  <h3>4 · taxonomyTermTable <span class="tag new">new</span> — terms (values)</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td>RN constants</td><td><code>taxonomyTermsTable = "taxonomyTermTable"</code>, <code>TAXONOMY_TERM_ENTITY = "taxonomyTermReusable"</code></td></tr>
+    <tr><td>rowOwnerGUID</td><td><code>taxonomyTable.rowGUID</code> (the taxonomy) — realtime and SelectElementFromCatalog filter on it</td></tr>
+    <tr><td>rowParentGUID</td><td>parent value rowGUID (category tree: Food → Dairy → Cheese) or <code>'empty'</code></td></tr>
+    <tr><td>orderInList</td><td>term order (Woo <code>menu_order</code> / attribute term order)</td></tr>
+    <tr><td>rowJSON</td><td><code>{ termCode, termName, description, colorHex, numericValue, image, isActive, productCount, woo: { wooTermId } }</code></td></tr>
+    <tr><td>Unique</td><td><code>(rowOwnerGUID, lower(termCode))</code> · <code>(rowOwnerGUID, wooTermId)</code></td></tr>
+  </table></div>
+</section>
+
+<!-- ============================== CATALOGS ============================== -->
+<section id="catalogs">
+  <h2>Supporting catalogs</h2>
+  <p class="sub">Same pattern, common names. Phase 1 needs the first two and the sync log; inventory tables come in phase 3.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Table</th><th>Owner / parent</th><th>rowJSON</th><th>Seed</th><th>Phase</th></tr>
+    <tr><td><code>unitsOfMeasurementTable</code></td><td><code>'unitOfMeasurementCatalog'</code> / <code>'empty'</code></td><td><code>uomCode</code> (UN/ECE Rec 20), <code>uomName</code>, <code>uomSymbol</code>, <code>uomKind</code> (count|mass|volume|length|data), <code>baseUomCode</code>, <code>factorToBase</code>, <code>decimalDigits</code></td><td>H87 pcs · KGM kg · GRM g · LTR l · MLT ml · MTR m · E34 GB</td><td>1</td></tr>
+    <tr><td><code>taxClassTable</code></td><td><code>'taxClassCatalog'</code></td><td><code>taxClassCode</code> (Woo slug), <code>taxClassName</code>, <code>vatRatePercent</code> (info), <code>isDefault</code></td><td>standard 21 · reduced-rate 12 · zero-rate 0 (LV); refreshed from <code>/taxes/classes</code></td><td>1</td></tr>
+    <tr><td><code>integrationSyncLogTable</code></td><td><code>'wooCommerce'</code> / run rowGUID</td><td><code>runKind</code> (import|push), <code>entity</code>, <code>wooId</code>, <code>rowGUID</code>, <code>action</code> (created|updated|skipped|conflict|error), <code>message</code>, <code>startedAt</code>, <code>finishedAt</code>, <code>counts</code></td><td>—</td><td>1</td></tr>
+    <tr><td><code>warehouseTable</code></td><td><code>'warehouseCatalog'</code></td><td><code>warehouseCode</code>, <code>warehouseName</code>, <code>address</code>, <code>countryCode</code>, <code>isDefault</code>, <code>isActive</code></td><td>MAIN "Main warehouse"</td><td>3</td></tr>
+    <tr><td><code>stockLevelTable</code></td><td>owner = product or variant rowGUID / parent = warehouse rowGUID (unique pair)</td><td><code>quantityOnHand</code>, <code>quantityReserved</code>, <code>reorderPoint</code>, <code>binLocation</code>, <code>lastCountedAt</code></td><td>—</td><td>3</td></tr>
+  </table></div>
+  <div class="callout cyan"><b>Inventory rule:</b> until phase 3, Woo <code>stock_quantity</code> lives in <code>rowJSON.stock.quantity</code>. From phase 3 the pushed quantity = Σ <code>quantityOnHand − quantityReserved</code> over warehouses that sell online; <code>rowJSON.stock.quantity</code> becomes a computed, read-only copy. Stock movements (receipts, write-offs) are a later <code>stockMovementTable</code>, not in this scope.</div>
+  <p>Brands are not a separate table: create a <code>pa_brand</code> attribute in <code>taxonomyTable</code> (the Woo "Brands" taxonomy can be mapped to it later). Price lists, suppliers' prices and bundles are out of scope; <code>partnerTable.partnerIsSupplier</code> is ready when they come.</p>
+</section>
+
+<!-- ============================== WOO ============================== -->
+<section id="woo">
+  <h2>WooCommerce connection</h2>
+  <div class="callout rose"><b>Security:</b> the consumer key and secret give full read/write access to the shop. Anything prefixed <code>EXPO_PUBLIC_</code> or put in <code>app.config.js extra</code> is shipped inside the web bundle and the mobile app, so the keys must stay server-side. The keys are also written in plain text in the Google Doc "W1 PRODUCT": remove them from there and, once the proxy works, regenerate them in WooCommerce → Settings → Advanced → REST API.</div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>.env (developer machine, git-ignored)</h3>
+<pre><code><span class="c"># WooCommerce REST API v3 — server-only, NO EXPO_PUBLIC_ prefix</span>
+WOO_URL_SECRET=https://site555.antinedoebit.com
+WOO_CK_SECRET=ck_…
+WOO_CS_SECRET=cs_…
+<span class="c"># the app only knows the function name</span>
+EXPO_PUBLIC_WOO_PROXY_FUNCTION=woo-proxy</code></pre>
+      <p>Same 3 values go to Supabase: <code>supabase secrets set --env-file .env</code> (only the WOO_* lines). Add a <code>.env.example</code> with empty values.</p>
+    </div>
+    <div class="card">
+      <h3>Transport: Supabase Edge Function <code>woo-proxy</code></h3>
+      <ul class="clean">
+        <li>App → <code>supabase.functions.invoke('woo-proxy', { body: { method, path, query, data } })</code> with the user's JWT.</li>
+        <li>Function checks the user is signed in (optionally has a role from <code>user/roles</code>), allow-lists paths under <code>/wp-json/wc/v3/products…</code> and <code>/taxes/classes</code>, adds Basic auth, forwards, returns body + <code>X-WP-Total</code> / <code>X-WP-TotalPages</code>.</li>
+        <li>Also solves CORS: the browser never calls the shop directly.</li>
+        <li>Lives in <code>supabase/functions/woo-proxy/index.ts</code> (new folder at repo root).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>WooEntityRoot.js → <code>kit8/catalog/product/crud/woo</code></h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>File</th><th>Responsibility</th></tr>
+    <tr><td><code>wooTypes.ts</code></td><td>TypeScript types for Woo v3 Product, Variation, Category, Tag, Attribute, AttributeTerm, ShippingClass, TaxClass, BatchRequest/Response, Error.</td></tr>
+    <tr><td><code>wooTransport.ts</code></td><td>One function <code>wooRequest(method, path, {query, data})</code> → proxy. Swappable (tests inject a fake).</td></tr>
+    <tr><td><code>wooClient.ts</code> <span class="tag improve">replaces WooEntityRoot</span></td><td>Generic <code>WooResource&lt;T&gt;</code>: <code>list(query)</code>, <code>listAll()</code> (async generator, <code>per_page=100</code>, follows <code>X-WP-TotalPages</code>), <code>get(id)</code>, <code>create</code>, <code>update</code>, <code>remove</code> (not used from UI), <code>batch({create,update,delete})</code> chunked to 100. Retry with backoff on 429/5xx, concurrency limit 3, typed <code>WooError</code> (code, status, message). Resources: <code>products</code>, <code>variations(productId)</code>, <code>categories</code>, <code>tags</code>, <code>attributes</code>, <code>attributeTerms(attrId)</code>, <code>shippingClasses</code>, <code>taxClasses</code>.</td></tr>
+    <tr><td><code>wooMappers.ts</code></td><td>Pure functions, both directions: <code>wooProductToRow</code>, <code>rowToWooProduct</code>, <code>wooVariationToRow</code>, <code>rowToWooVariation</code>, <code>wooTermToValueRow</code>, … Need a <code>LookupMaps</code> (wooId ↔ rowGUID) built once per run.</td></tr>
+    <tr><td><code>wooImport.ts</code></td><td>Import pipeline (below). Emits progress events; writes integrationSyncLogTable.</td></tr>
+    <tr><td><code>wooPush.ts</code></td><td>Write-back pipeline (below).</td></tr>
+    <tr><td><code>index.ts</code>, <code>README.md</code></td><td>Public API + how to add a Woo field.</td></tr>
+  </table></div>
+  <p>Generic Supabase side in <code>kit8/catalog/product/crud</code>: <code>productRepository.ts</code> (upsert by wooId through the supabase client for bulk import — Redux slices are for UI reads/edits), <code>variantMatrix.ts</code> (cartesian product of selected attribute values → missing / obsolete variants), <code>productSelectors.ts</code> (price range, stock total, variant by key).</p>
+</section>
+
+<!-- ============================== MAPPING ============================== -->
+<section id="mapping">
+  <h2>Field map: Woo REST v3 ↔ rowJSON</h2>
+  <p class="sub">Source: WooCommerce REST API "Product properties" and "Product variation properties". Woo sends money as strings; we store numbers.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Woo product</th><th>productTable.rowJSON</th><th>Direction / note</th></tr>
+    <tr><td><code>id</code>, <code>permalink</code>, <code>date_modified_gmt</code></td><td><code>woo.wooId</code>, <code>woo.wooPermalink</code>, <code>woo.wooModifiedGmt</code></td><td>pull only</td></tr>
+    <tr><td><code>name</code>, <code>slug</code>, <code>type</code>, <code>status</code></td><td><code>productName</code>, <code>productSlug</code>, <code>productType</code>, <code>productStatus</code></td><td>both; type change variable→simple is blocked in UI if variants exist</td></tr>
+    <tr><td><code>featured</code>, <code>catalog_visibility</code></td><td><code>isFeatured</code>, <code>catalogVisibility</code></td><td>both</td></tr>
+    <tr><td><code>description</code>, <code>short_description</code></td><td><code>description</code>, <code>shortDescription</code></td><td>both (HTML kept; plain-text editor on mobile)</td></tr>
+    <tr><td><code>sku</code>, <code>global_unique_id</code></td><td><code>productSku</code>, <code>productGtin</code></td><td>both; SKU unique in Woo too</td></tr>
+    <tr><td><code>regular_price</code>, <code>sale_price</code>, <code>date_on_sale_from/to</code></td><td><code>regularPrice</code>, <code>salePrice</code>, <code>saleFrom</code>, <code>saleTo</code></td><td>both; <code>""</code> ↔ <code>null</code>; for variable products Woo ignores them (prices live on variations)</td></tr>
+    <tr><td><code>price</code>, <code>price_html</code>, <code>on_sale</code>, <code>total_sales</code></td><td>—</td><td>read-only in Woo; not stored (computed in app)</td></tr>
+    <tr><td><code>virtual</code>, <code>downloadable</code></td><td><code>isVirtual</code>, <code>isDownloadable</code></td><td>both (downloads not in scope)</td></tr>
+    <tr><td><code>tax_status</code>, <code>tax_class</code></td><td><code>taxStatus</code>, <code>taxClassGUID</code></td><td>both via taxClassTable.taxClassCode (<code>""</code> = standard)</td></tr>
+    <tr><td><code>manage_stock</code>, <code>stock_quantity</code>, <code>stock_status</code>, <code>backorders</code>, <code>low_stock_amount</code></td><td><code>stock.*</code></td><td>both</td></tr>
+    <tr><td><code>weight</code>, <code>dimensions{length,width,height}</code>, <code>shipping_class</code></td><td><code>shipping.*</code></td><td>both; Woo strings ↔ numbers</td></tr>
+    <tr><td><code>categories[{id}]</code>, <code>tags[{id}]</code></td><td><code>categoryTermGUIDs</code>, <code>tagTermGUIDs</code></td><td>both through LookupMaps</td></tr>
+    <tr><td><code>attributes[{id,name,position,visible,variation,options}]</code></td><td><code>attributes[]</code> (id &gt; 0) / <code>customAttributes[]</code> (id = 0)</td><td>both; <code>options</code> (term names) ↔ <code>termGUIDs</code></td></tr>
+    <tr><td><code>default_attributes</code></td><td><code>defaultAttributes</code></td><td>both</td></tr>
+    <tr><td><code>images[{id,src,alt}]</code></td><td><code>images[]</code></td><td>both; push sends <code>{id}</code> for known images, <code>{src}</code> for new URLs (upload to media library is phase 2)</td></tr>
+    <tr><td><code>grouped_products</code>, <code>upsell_ids</code>, <code>cross_sell_ids</code></td><td><code>groupedProductGUIDs</code>, <code>upsellGUIDs</code>, <code>crossSellGUIDs</code></td><td>both</td></tr>
+    <tr><td><code>external_url</code>, <code>button_text</code></td><td><code>externalUrl</code>, <code>buttonText</code></td><td>both</td></tr>
+    <tr><td><code>menu_order</code></td><td>column <code>orderInList</code></td><td>both</td></tr>
+    <tr><td><code>meta_data[]</code></td><td><code>metaData[]</code> + <code>_w1_uom</code>, <code>_w1_food</code> keys for app-only fields</td><td>both; keys starting with <code>_</code> other than ours are pull-only</td></tr>
+    <tr><td><code>variations[]</code></td><td>rows in productVariantTable</td><td>separate endpoint</td></tr>
+  </table></div>
+  <p>Variation: <code>id</code>, <code>sku</code>, <code>global_unique_id</code>, <code>status</code>, <code>regular_price</code>, <code>sale_price</code>, sale dates, stock fields, <code>weight</code>, <code>dimensions</code>, <code>image</code>, <code>menu_order</code> map 1:1 to <code>productVariantTable.rowJSON</code>; <code>attributes[{id,option}]</code> ↔ <code>attributeValues[]</code> and <code>variantKey</code>.</p>
+</section>
+
+<!-- ============================== SYNC ============================== -->
+<section id="sync">
+  <h2>Import and write-back</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Import (Woo → Supabase), idempotent</h3>
+      <ol class="steps">
+        <li><b>Dry run</b>: count products / categories / attributes via <code>X-WP-Total</code>; show "will create N, update M, unchanged K".</li>
+        <li><b>Taxonomies</b>: ensure seed rows in taxonomyTable; <code>/products/attributes</code> → one taxonomyTable row per <code>pa_*</code>.</li>
+        <li><b>Terms</b>: <code>/products/categories</code> (2 passes: rows, then <code>rowParentGUID</code> from <code>parent</code>), <code>/products/tags</code>, <code>/products/attributes/{id}/terms</code>, <code>/products/shipping_classes</code> → taxonomyTermTable.</li>
+        <li><b>Tax classes</b> → taxClassTable.</li>
+        <li><b>Products</b>: <code>listAll()</code> pages of 100 → map → upsert by <code>woo.wooId</code>. Local edits newer than last pull (<code>syncStatus = dirty</code>) are <b>not</b> overwritten → logged as conflict.</li>
+        <li><b>Variations</b> of every variable product → upsert by <code>wooId</code>; build <code>variantKey</code>.</li>
+        <li><b>Second pass</b>: resolve grouped / upsell / cross-sell GUIDs.</li>
+        <li>Write run summary to integrationSyncLogTable; realtime refreshes open lists.</li>
+      </ol>
+      <p>Options on the screen: categories to import (e.g. only "Food"), "overwrite local changes", "include drafts".</p>
+    </div>
+    <div class="card">
+      <h3>Write-back (Supabase → Woo)</h3>
+      <ol class="steps">
+        <li>Every save in ProductEditCard writes Supabase first and sets <code>woo.syncStatus = 'dirty'</code> (or <code>'localOnly'</code> if no wooId).</li>
+        <li>"Push to WooCommerce" (card button, list bulk action) → ensure terms exist in Woo (create missing attribute terms / categories and store their wooIds).</li>
+        <li><b>Conflict check</b>: GET product, compare <code>date_modified_gmt</code> with <code>woo.wooModifiedGmt</code>. Different → <code>conflict</code>; user chooses "keep app" / "take shop" with a field diff.</li>
+        <li>POST (new) or PUT product with <code>rowToWooProduct</code> (only changed fields).</li>
+        <li>Variations: <code>POST /products/{id}/variations/batch</code> with create / update / delete (delete only for variants the user removed).</li>
+        <li>Store returned ids and <code>date_modified_gmt</code>; <code>syncStatus = 'synced'</code>; log.</li>
+      </ol>
+      <p>Auto-push on save is a setting (default off) so the shop is never changed by accident.</p>
+    </div>
+  </div>
+  <div class="callout amber"><b>Deletes:</b> deleting in the app sets <code>isActive = false</code> and pushes <code>status = 'draft'</code>. Hard delete in Woo is not offered (orders reference products). Products removed in Woo are marked <code>syncStatus = 'error'</code>, "missing in shop", not deleted.</div>
+</section>
+
+<!-- ============================== UI ============================== -->
+<section id="ui">
+  <h2>UI, files and routes</h2>
+  <div class="grid g2">
+    <div>
+      <h4>kit8/catalog/product</h4>
+<div class="tree">kit8/catalog/product/
+├─ productModel.ts            <span class="d">table / entity / routes / types / example / normalize / validate / productToCard</span>
+├─ productVariantModel.ts     <span class="d">variant types, variantKey(), validate</span>
+├─ index.ts · README.md
+├─ list/
+│  ├─ ProductListScreen.tsx   <span class="d">web: ListWebCardsComponent · native: FlatList</span>
+│  ├─ ProductCard.tsx         <span class="d">tile: image, name, SKU, price range, stock, sync badge</span>
+│  └─ ProductListFilters.tsx  <span class="d">category tree, type, status, sync status</span>
+├─ card/
+│  ├─ ProductEditCard.tsx     <span class="d">tabs/sections, save, push</span>
+│  ├─ ProductGeneralSection.tsx
+│  ├─ ProductPriceStockSection.tsx
+│  ├─ ProductClassificationSection.tsx
+│  ├─ ProductAttributesSection.tsx
+│  ├─ VariantMatrixEditor.tsx <span class="d">grid on desktop, list + sheet on mobile</span>
+│  ├─ ProductImagesSection.tsx
+│  └─ ProductSyncPanel.tsx    <span class="d">status, last push/pull, conflict diff</span>
+├─ taxonomy/
+│  ├─ taxonomyModel.ts · taxonomyTermModel.ts
+│  ├─ TaxonomyList.tsx · TaxonomyEdit.tsx
+│  └─ TaxonomyTermTree.tsx   <span class="d">ListWebCardsComponent hierarchyEnabled</span>
+├─ catalogs/
+│  ├─ unitsOfMeasurement/ (model, List, Edit)
+│  └─ taxClass/ (model, List, Edit)
+├─ import/
+│  └─ ImportWordPressProducts.tsx
+└─ crud/
+   ├─ productRepository.ts · variantMatrix.ts · productSelectors.ts
+   └─ woo/ wooTypes · wooTransport · wooClient · wooMappers · wooImport · wooPush · index · README</div>
+    </div>
+    <div>
+      <h4>Routes (thin wrappers, as app/catalog/partner)</h4>
+      <div class="tbl-wrap"><table>
+        <tr><th>Route</th><th>Renders</th></tr>
+        <tr><td><code>app/catalog/product/list/index.tsx</code></td><td>ProductListScreen</td></tr>
+        <tr><td><code>app/catalog/product/edit/index.tsx</code></td><td>ProductEditCard (<code>?rowGUID=</code> edit, none = new)</td></tr>
+        <tr><td><code>app/catalog/product/import/index.tsx</code></td><td>ImportWordPressProducts</td></tr>
+        <tr><td><code>app/catalog/taxonomy/list</code>, <code>/edit</code></td><td>TaxonomyList / TaxonomyEdit (taxonomy + its values)</td></tr>
+        <tr><td><code>app/catalog/uom/list</code>, <code>/edit</code></td><td>Units of measurement</td></tr>
+        <tr><td><code>app/catalog/taxclass/list</code></td><td>Tax classes (read-only, refreshed from Woo)</td></tr>
+      </table></div>
+      <h4>Hamburger menu (CustomDrawerContent.tsx)</h4>
+<pre><code>{ <span class="k">id</span>: <span class="s">'products'</span>, <span class="k">label</span>: t(<span class="s">'menu.products'</span>), <span class="k">icon</span>: <span class="s">'inventory_2'</span>, <span class="k">route</span>: <span class="s">''</span>, <span class="k">children</span>: [
+  { <span class="k">id</span>: <span class="s">'product-list'</span>,   <span class="k">label</span>: <span class="s">'Products'</span>,                <span class="k">icon</span>: <span class="s">'inventory_2'</span>, <span class="k">route</span>: <span class="s">'catalog/product/list'</span> },
+  { <span class="k">id</span>: <span class="s">'taxonomy-list'</span>,  <span class="k">label</span>: <span class="s">'Categories &amp; attributes'</span>, <span class="k">icon</span>: <span class="s">'category'</span>,    <span class="k">route</span>: <span class="s">'catalog/taxonomy/list'</span> },
+  { <span class="k">id</span>: <span class="s">'uom-list'</span>,       <span class="k">label</span>: <span class="s">'Units of measurement'</span>,    <span class="k">icon</span>: <span class="s">'straighten'</span>,  <span class="k">route</span>: <span class="s">'catalog/uom/list'</span> },
+  { <span class="k">id</span>: <span class="s">'taxclass-list'</span>,  <span class="k">label</span>: <span class="s">'Tax classes'</span>,             <span class="k">icon</span>: <span class="s">'percent'</span>,     <span class="k">route</span>: <span class="s">'catalog/taxclass/list'</span> },
+  { <span class="k">id</span>: <span class="s">'product-import'</span>, <span class="k">label</span>: <span class="s">'Import from WooCommerce'</span>, <span class="k">icon</span>: <span class="s">'cloud_download'</span>, <span class="k">route</span>: <span class="s">'catalog/product/import'</span> },
+]}</code></pre>
+      <p>Placed right after the "Catalogs" group. The group's auto-open logic already matches <code>/list</code> ↔ <code>/edit</code>.</p>
+    </div>
+  </div>
+
+  <h3>ProductListScreen</h3>
+  <div class="grid g2">
+    <div class="card"><h3>Desktop (web, ≥ 900 px)</h3><ul class="clean">
+      <li>Left: category tree filter (TaxonomyTermTree for <code>product_cat</code>), counts per term.</li>
+      <li>Right: ListWebCardsComponent with <code>entityName = PRODUCT_ENTITY</code>, <code>realtime</code>, <code>mapItemToCard = productToCard</code>, <code>CardComponent = ProductCard</code>, <code>onEditCard</code> → edit route, <code>hierarchyEnabled</code> for grouped products.</li>
+      <li>Top bar: search (name, SKU, variant SKU), type / status / sync filters, "Push selected", "Import".</li>
+    </ul></div>
+    <div class="card"><h3>Mobile (iOS / Android / narrow web)</h3><ul class="clean">
+      <li>FlatList of ProductCard (as PartnerList), pull-to-refresh, category chips horizontally on top.</li>
+      <li>FAB "+" → new product; long-press → push / archive.</li>
+      <li>Same <code>useRealtimeEntity(PRODUCT_ENTITY)</code> → live updates.</li>
+    </ul></div>
+  </div>
+
+  <h3>ProductEditCard</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Section</th><th>Fields / components</th></tr>
+    <tr><td>General</td><td>name (slug auto), type, status, SKU, GTIN, short description, description, featured, visibility</td></tr>
+    <tr><td>Classification</td><td>SelectElementFromCatalog <b>multi</b> on taxonomyTermTable filtered by owner = product_cat (tree) · tags (multi, "create new") · unit of measurement · tax class · shipping class</td></tr>
+    <tr><td>Price &amp; stock</td><td>simple: regular / sale price, sale dates, stock block · variable: read-only price range + stock total from variants</td></tr>
+    <tr><td>Attributes</td><td>add attribute (SelectElementFromCatalog on taxonomyTable, kind = productAttribute) → pick values (multi) · "visible on product page" · "used for variations" · default values</td></tr>
+    <tr><td>Variants (variable only)</td><td>VariantMatrixEditor: "Generate variants" from the cartesian product of variation attributes; grid rows = combinations, columns = SKU, regular, sale, stock, active. Bulk tools: "set price for all <i>256 GB</i>", "+ €20 for <i>Blue</i>", "copy stock". Desktop: editable grid · mobile: list → bottom sheet per variant.</td></tr>
+    <tr><td>Images</td><td>URL list with preview, reorder, first = main</td></tr>
+    <tr><td>Food (shown when a Food category is selected)</td><td>net quantity + unit, best-before days, allergens (pa_allergen values), storage</td></tr>
+    <tr><td>Sync</td><td>ProductSyncPanel: status badge, wooId + link, last pull / push, "Push now", conflict diff</td></tr>
+  </table></div>
+  <p>Layout: desktop = two columns (form left, preview + sync right); mobile = single column, collapsible sections, sticky Save bar. Validation in <code>validateProduct()</code> (pure, unit-tested) as in partnerModel.</p>
+
+  <h3>Generic component improvements</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Component</th><th>Change</th><th>Why</th></tr>
+    <tr><td>SelectElementFromCatalog <span class="tag improve">improve</span></td><td><code>multiple?: boolean</code> + <code>values?: string[]</code> + <code>onChangeMany</code>; chips for selected; <code>tree?: boolean</code> (indent by rowParentGUID); <code>allowCreate?: (text) =&gt; Promise&lt;row&gt;</code>; extractors for <code>termName</code>, <code>taxonomyName</code>, <code>productName</code>, <code>uomName</code> in the default title/subtitle</td><td>categories, tags, attribute values, related products</td></tr>
+    <tr><td>ListWebCardsComponent <span class="tag improve">improve</span></td><td><code>bulkActions?: {label, icon, onRun(selectedIds)}[]</code> in the top bar; <code>filterItem?: (row) =&gt; boolean</code> for external filters (category tree); <code>headerSlot</code></td><td>"Push selected", category filter without forking the component</td></tr>
+    <tr><td>CurrencyRealtimeBadge <span class="tag reuse">reuse</span></td><td>as is</td><td>realtime status in list headers</td></tr>
+  </table></div>
+</section>
+
+<!-- ============================== DEMO ============================== -->
+<section id="demo">
+  <h2>Demo product groups</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Smartphones — variable products (created in the app, pushed to Woo)</h3>
+      <p>Category term <code>Smartphones</code> under <code>product_cat</code>. Attributes <code>pa_color</code> (Black, White, Blue) and <code>pa_memory</code> (128, 256, 512 GB). Price depends on memory, Blue costs +€20.</p>
+      <div class="tbl-wrap"><table>
+        <tr><th>Nova X (NOVA-X)</th><th>128 GB</th><th>256 GB</th><th>512 GB</th></tr>
+        <tr><td>Black</td><td class="num">€699</td><td class="num">€799</td><td class="num">€949</td></tr>
+        <tr><td>White</td><td class="num">€699</td><td class="num">€799</td><td class="num">€949</td></tr>
+        <tr><td>Blue</td><td class="num">€719</td><td class="num">€819</td><td class="num">€969</td></tr>
+      </table></div>
+      <div class="tbl-wrap"><table>
+        <tr><th>Nova Lite (NOVA-L)</th><th>128 GB</th><th>256 GB</th></tr>
+        <tr><td>Black</td><td class="num">€349</td><td class="num">€419</td></tr>
+        <tr><td>White</td><td class="num">€349</td><td class="num">€419</td></tr>
+      </table></div>
+      <p>13 variants. SKU pattern <code>{productSku}-{COLOR3}-{GB}</code>. Seeded by a "Create demo smartphones" button on the import screen (not by SQL, so it also exercises the push path).</p>
+    </div>
+    <div class="card">
+      <h3>Food — imported from the shop</h3>
+      <p>Import with the category filter "Food" (or whatever the shop names it; the dry run lists the shop's categories). Typical shape: simple products, unit kg / g / l, tax class reduced-rate, optional <code>food</code> block filled in the app and pushed as <code>_w1_food</code> meta.</p>
+      <p>Acceptance: after import every Food product is visible in ProductListScreen filtered by the Food term, opens in ProductEditCard, a price edit pushed from the app is visible on the shop's product page, and re-running the import changes nothing (0 created, 0 updated).</p>
+      <div class="callout amber" style="margin-top:12px">If the shop has no Food category yet, the importer reports it in the dry run; then create "Food" in the app and push 3 sample products (Milk 1 l, Rye bread 500 g, Cheddar 200 g).</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PHASES ============================== -->
+<section id="phases">
+  <h2>Implementation phases</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>#</th><th>Work</th><th>Done when</th></tr>
+    <tr><td class="num">0</td><td>Env + proxy: <code>.env</code> keys, <code>.env.example</code>, <code>supabase/functions/woo-proxy</code>, secrets set, <code>wooTransport</code> + <code>wooClient</code> with a "Test connection" call (<code>GET /products?per_page=1</code>)</td><td>App shows shop product count; no Woo key in the web bundle (<code>grep ck_ dist/</code> empty)</td></tr>
+    <tr><td class="num">1</td><td>SQL for productTable, productVariantTable, taxonomyTable, taxonomyTermTable, unitsOfMeasurementTable, taxClassTable, integrationSyncLogTable (+ seeds, indexes, RLS, realtime, delete script); defTable.md; models; SystemMetaData entries</td><td>create_tables.sql runs twice cleanly on local Postgres; delete → create cycle passes</td></tr>
+    <tr><td class="num">2</td><td>wooMappers + wooImport + ImportWordPressProducts screen + route + menu</td><td>Full import of the shop; second run = all "unchanged"</td></tr>
+    <tr><td class="num">3a</td><td>Categories &amp; attributes screens; SelectElementFromCatalog multi/tree</td><td>Create Color / Memory values in the app</td></tr>
+    <tr><td class="num">3b</td><td>ProductListScreen (desktop + mobile), ProductCard, filters; ListWebCardsComponent bulkActions / filterItem</td><td>List, search, filter by category on web and in Expo Go</td></tr>
+    <tr><td class="num">4</td><td>ProductEditCard (all sections), VariantMatrixEditor, validation</td><td>Create Nova X with 9 variants from the matrix in under 2 minutes</td></tr>
+    <tr><td class="num">5</td><td>wooPush, conflict check, ProductSyncPanel, bulk push; demo smartphones</td><td>Smartphones visible in the shop with correct variant prices; Food edit round-trips</td></tr>
+    <tr><td class="num">6</td><td>warehouseTable, stockLevelTable, stock aggregation into push <span class="tag p2">later</span></td><td>Stock per warehouse sums to Woo stock_quantity</td></tr>
+  </table></div>
+</section>
+
+<!-- ============================== TESTS ============================== -->
+<section id="tests">
+  <h2>Tests (<code>__tests__/catalog/product</code>)</h2>
+  <ul class="clean">
+    <li><b>productModel</b>: normalize (Woo strings → numbers, <code>""</code> → null), validate (sale ≤ regular, SKU required for variants, variable needs ≥ 1 variation attribute).</li>
+    <li><b>variantMatrix</b>: 3 × 3 → 9 keys; adding a value adds 3, removing one marks 3 obsolete; stable <code>variantKey</code> regardless of attribute order.</li>
+    <li><b>wooMappers</b>: fixture JSON for a simple, variable, grouped and external product (from the docs' examples) → row → Woo is lossless for mapped fields; unknown meta survives.</li>
+    <li><b>wooImport</b> with a fake transport: idempotent second run; dirty local rows not overwritten; category parent resolved regardless of page order.</li>
+    <li><b>wooPush</b>: conflict when <code>date_modified_gmt</code> differs; batch split at 100.</li>
+    <li><b>SelectElementFromCatalog</b>: extend the existing test for multi-select and tree indent.</li>
+    <li><b>SQL</b>: run create/delete scripts on local PostgreSQL 16 with Supabase stubs (same harness as the master schema).</li>
+  </ul>
+</section>
+
+<!-- ============================== DECISIONS ============================== -->
+<section id="decisions">
+  <h2>Decisions taken (and the alternative not taken)</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>Question</th><th>Decision</th><th>Not taken, because</th></tr>
+    <tr><td>Table names: category or taxonomy?</td><td><code>taxonomyTable</code> + <code>taxonomyTermTable</code> (WordPress words: taxonomy → term)</td><td><code>categoryTable</code> + <code>categoryValuesTable</code> (original prompt): the table also holds tags, attributes and shipping classes, and "category" would mean the group in SQL but the value (Smartphones) in the UI</td></tr>
+    <tr><td>What do the two tables hold?</td><td>Taxonomies and terms (WP model): product categories, tags, attributes and shipping classes in one pair</td><td>Separate attributeTable + productCategoryTable: duplicates the tree / term logic and the UI</td></tr>
+    <tr><td>Variants: rows or JSON array in the product?</td><td>Own table</td><td>JSON array: no per-variant realtime, unique SKU index or stock rows</td></tr>
+    <tr><td>Who talks to Woo?</td><td>Supabase Edge Function proxy</td><td>Direct from app: leaks the secret, CORS on web</td></tr>
+    <tr><td>Source of truth</td><td>Supabase for the app; Woo for orders. Explicit push with conflict check</td><td>Two-way auto sync via webhooks: later, once push is stable (Woo webhooks "product.updated" → edge function)</td></tr>
+    <tr><td>Bulk import through Redux?</td><td>No — repository writes directly, Redux/realtime refreshes the UI</td><td>Thousands of actions through the saga, slow and noisy</td></tr>
+    <tr><td>Prices type</td><td>number in rowJSON, string to Woo</td><td>strings everywhere: breaks sorting and validation</td></tr>
+    <tr><td>Images</td><td>URLs from the Woo media library</td><td>Uploading files from the app: phase 2 (Supabase Storage → Woo <code>src</code>)</td></tr>
+  </table></div>
+  <h4>Open points to confirm while implementing</h4>
+  <ul class="clean">
+    <li>Location of the original <code>WooEntityRoot.js</code> (not in expo-app), to check for endpoints or shop-specific meta it already handles.</li>
+    <li>The shop's actual category name for food and whether it already has global attributes (the dry run will show both).</li>
+    <li>Whether product editing needs a role from the existing <code>user/roles</code> catalog (default: any signed-in user can edit, only users with a "catalogManager" role can push).</li>
+  </ul>
+</section>
+
+</main>
+<footer>UNIVERSAL1 · expo-app · documentation/PRODUCT_ENTITY_PLAN.html · plan only, no code changed</footer>
+
+<script>
+  // highlight the menu entry of the section in view
+  const links = [...document.querySelectorAll('#nav a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { links.forEach(l => l.classList.remove('active')); const a = map.get(e.target.id); if (a) { a.classList.add('active'); a.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } }
+  }), { rootMargin: '-40% 0px -55% 0px' });
+  map.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+</script>
+</body>
+</html>
