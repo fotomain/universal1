@@ -1,11 +1,10 @@
-// PartnerCard - one partner in ListWebCardsComponent (web, drag & drop) and in the native list.
-// Tap / Edit -> /partner/edit?rowGUID=… · Delete -> the list's delete.
-import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from '../../components/common/IconApp';
 import type { CardItem } from '../../components/list/web/lib/types';
 import type { PartnerRowJSON } from './partnerModel';
+import ContractList from '../contract/ContractList';
 
 export interface PartnerCardProps {
   card: CardItem;
@@ -13,6 +12,7 @@ export interface PartnerCardProps {
   isDragging?: boolean;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onContracts?: (id: string) => void;
   /** web drag handle from ListWebCardsComponent (@hello-pangea/dnd) */
   dragHandleProps?: any;
   crudCardHeight?: number;
@@ -25,11 +25,13 @@ export default function PartnerCard({
   isDragging,
   onEdit,
   onDelete,
+  onContracts,
   dragHandleProps,
   crudCardHeight = 88,
   testID,
 }: PartnerCardProps) {
   const { themeColors: c } = useDesignSystem();
+  const [showContracts, setShowContracts] = useState(false);
   const j: Partial<PartnerRowJSON> = card.rawItem?.rowJSON || {};
   const inactive = j.isActive === false;
   const id = card.id;
@@ -103,9 +105,56 @@ export default function PartnerCard({
         </View>
       </Pressable>
 
+      <IconApp
+        testID={`partner-card-contracts-${id}`}
+        name="description"
+        size={20}
+        color={c.primary}
+        onPress={() => {
+          if (onContracts) onContracts(id);
+          else setShowContracts(true);
+        }}
+      />
+      <View style={{ width: 8 }} />
       <IconApp testID={`partner-card-edit-${id}`} name="edit" size={20} color={c.text} onPress={() => onEdit?.(id)} />
       <View style={{ width: 8 }} />
       <IconApp testID={`partner-card-delete-${id}`} name="delete" size={20} color={c.error} onPress={() => onDelete?.(id)} />
+
+      {showContracts && (
+        <Modal
+          visible={showContracts}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowContracts(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalBox, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <IconApp name="handshake" size={22} color={c.primary} />
+                  <Text style={[styles.modalTitle, { color: c.text }]}>
+                    {j.partnerTitle || 'Partner'} — Contracts
+                  </Text>
+                </View>
+                <IconApp
+                  testID={`partner-contracts-close-${id}`}
+                  name="close"
+                  size={20}
+                  color={c.text}
+                  onPress={() => setShowContracts(false)}
+                />
+              </View>
+              <ScrollView style={{ maxHeight: 460 }}>
+                <ContractList
+                  ownerGUID={id}
+                  partyType="partner"
+                  defaultCurrency={j.supplierData?.defaultCurrency || j.customerData?.defaultCurrency || 'EUR'}
+                />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -134,4 +183,35 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700' },
   meta: { fontSize: 12, opacity: 0.7, marginTop: 2 },
   chip: { fontSize: 11, borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 640,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

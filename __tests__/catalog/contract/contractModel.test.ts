@@ -4,6 +4,7 @@ import {
   CONTRACT_PERIODS,
   calculateContractAmounts,
   contractOrderInList,
+  contractPeriods,
   contractToCard,
   contractsTable,
   normalizeContract,
@@ -15,6 +16,10 @@ describe('contractModel', () => {
   it('table constants & periods', () => {
     expect(contractsTable).toBe('contractTable');
     expect(CONTRACT_ENTITY).toBe('contractReusable');
+    expect(contractPeriods.Month).toBe('Month');
+    expect(contractPeriods.Week).toBe('Week');
+    expect(contractPeriods.Day).toBe('Day');
+    expect(contractPeriods.Year).toBe('Year');
     expect(CONTRACT_PERIODS.Month).toBe('Month');
     expect(CONTRACT_PERIODS.Year).toBe('Year');
     expect(CONTRACT_PERIODS.OneTime).toBe('OneTime');

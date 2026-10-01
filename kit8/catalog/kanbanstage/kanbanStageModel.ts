@@ -11,7 +11,7 @@ import { PMKanbanStageJSON, PMKanbanStageRow, PM_KANBAN_STAGE_COLORS, PM_KANBAN_
 export { kanbanStageTable, KANBAN_STAGE_CATALOG_OWNER };
 /** SystemMetaData / redux entity key (reusableCrudSlice + reusableRootSaga). */
 export const KANBAN_STAGE_ENTITY = 'kanbanStageReusable';
-export const KANBAN_STAGE_ROUTES = { list: '/kanbanstage/list', edit: '/kanbanstage/edit' } as const;
+export const KANBAN_STAGE_ROUTES = { list: '/catalog/kanbanstage/list', edit: '/catalog/kanbanstage/edit' } as const;
 /** readData payload of the catalog (all rows; also the catch-up read after a realtime reconnect). */
 export const KANBAN_STAGE_READ_PARAMS = { paginationSize: 1000, originationCurrentPage: 0 };
 

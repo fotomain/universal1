@@ -36,9 +36,17 @@ export interface PMGanttSurfaceProps {
   projectGUID: string;
   /** right pane: the Skia Gantt chart (default) or the Kanban board (tree rows can be dragged onto it) */
   rightPane?: 'gantt' | 'kanban';
+  readOnly?: boolean;
+  hideTree?: boolean;
 }
 
-export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'gantt' }: PMGanttSurfaceProps) {
+export default function PMGanttSurface({
+  ownerGUID,
+  projectGUID,
+  rightPane = 'gantt',
+  readOnly = false,
+  hideTree = false,
+}: PMGanttSurfaceProps) {
   const isKanban = rightPane === 'kanban';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
@@ -106,10 +114,13 @@ export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'ga
 
   // phones: the tree takes at most ~45% so the chart stays usable
   const treeWidth = size.w ? Math.round(Math.min(storeTreeWidth, Math.max(160, size.w * 0.45))) : storeTreeWidth;
-  const chartWidth = Math.max(MIN_CHART_WIDTH, size.w - treeWidth - PM_SPLITTER_WIDTH);
+  const effectiveTreeWidth = hideTree ? 0 : treeWidth;
+  const chartWidth = hideTree
+    ? Math.max(MIN_CHART_WIDTH, size.w)
+    : Math.max(MIN_CHART_WIDTH, size.w - effectiveTreeWidth - PM_SPLITTER_WIDTH);
   useEffect(() => {
-    kanbanBridge.treeWidth.value = treeWidth;
-  }, [kanbanBridge, treeWidth]);
+    kanbanBridge.treeWidth.value = effectiveTreeWidth;
+  }, [kanbanBridge, effectiveTreeWidth]);
   const bodyHeight = Math.max(0, size.h - PM_TOOLBAR_HEIGHT - PM_SCALE_HEIGHT);
 
   // timeline = project range + padding, starting on a Monday, at least one screen wide
@@ -228,16 +239,20 @@ export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'ga
     <View ref={rootRef} style={[styles.root, { backgroundColor: palette.background }]} onLayout={onLayout}>
       {size.w > 0 && size.h > 0 && (
         <React.Fragment key={`gantt-${layoutEpoch}`}>
-          <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} kanbanBridge={isKanban ? kanbanBridge : undefined} />
-          <GestureDetector gesture={splitter}>
-            <View
-              style={[
-                styles.splitter,
-                { width: PM_SPLITTER_WIDTH, backgroundColor: palette.header, borderColor: palette.border },
-                Platform.OS === 'web' ? ({ cursor: 'col-resize' } as any) : null,
-              ]}
-            />
-          </GestureDetector>
+          {!hideTree && (
+            <>
+              <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} kanbanBridge={isKanban ? kanbanBridge : undefined} />
+              <GestureDetector gesture={splitter}>
+                <View
+                  style={[
+                    styles.splitter,
+                    { width: PM_SPLITTER_WIDTH, backgroundColor: palette.header, borderColor: palette.border },
+                    Platform.OS === 'web' ? ({ cursor: 'col-resize' } as any) : null,
+                  ]}
+                />
+              </GestureDetector>
+            </>
+          )}
           {isKanban ? (
             <PMKanbanDashboard
               projectGUID={projectGUID}
@@ -247,7 +262,7 @@ export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'ga
               crud={crud}
               kanban={kanban}
               bridge={kanbanBridge}
-              boardLeft={treeWidth + PM_SPLITTER_WIDTH}
+              boardLeft={hideTree ? 0 : treeWidth + PM_SPLITTER_WIDTH}
             />
           ) : (
             <PMProjectGanttChart
@@ -258,9 +273,10 @@ export default function PMGanttSurface({ ownerGUID, projectGUID, rightPane = 'ga
               crud={crud}
               timelineStartMs={timelineStartMs}
               totalDays={totalDays}
+              readOnly={readOnly}
             />
           )}
-          {isKanban && <PMKanbanTreeDragGhost bridge={kanbanBridge} palette={palette} />}
+          {isKanban && !hideTree && <PMKanbanTreeDragGhost bridge={kanbanBridge} palette={palette} />}
         </React.Fragment>
       )}
     </View>

@@ -48,7 +48,20 @@ jest.mock('../../../kit8/components/common/googlemd3web/GoogleMD3WebButton', () 
 jest.mock('react-native-paper', () => {
   const Stub = () => null;
   (Stub as any).Icon = () => null;
-  return { Button: Stub, TextInput: Stub, HelperText: Stub };
+  (Stub as any).Content = () => null;
+  (Stub as any).Actions = () => null;
+  (Stub as any).Cover = () => null;
+  (Stub as any).Title = () => null;
+  return {
+    Button: Stub,
+    TextInput: Stub,
+    HelperText: Stub,
+    Card: Stub,
+    Text: Stub,
+    useTheme: () => ({ colors: {} }),
+    MD3LightTheme: { colors: {} },
+    MD3DarkTheme: { colors: {} },
+  };
 });
 
 jest.mock('react-native-reanimated', () => {

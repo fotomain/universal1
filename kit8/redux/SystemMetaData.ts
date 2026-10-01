@@ -6,6 +6,9 @@ import {KANBAN_STAGE_ENTITY, kanbanStageTable, kanbanStageExample} from "../cata
 import {PERSON_ENTITY, personsTable, personExample} from "../catalog/person/personModel";
 import {PARTNER_ENTITY, partnersTable, partnerExample} from "../catalog/partner/partnerModel";
 import {CONTRACT_ENTITY, contractsTable, emptyContract} from "../catalog/contract/contractModel";
+import {ORGANIZATION_ENTITY, organizationTable, organizationExample} from "../catalog/organization/organizationModel";
+import {PROJECT_ENTITY} from "../catalog/project/projectCatalogModel";
+import {PROJECT_TASK_KANBAN_STATE_ENTITY, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
 
 // MD.
 const SystemMetaData:any = {
@@ -90,6 +93,58 @@ const SystemMetaData:any = {
         itemLabel: "Contract",
         updateValidator: () => {},
         defaultData: emptyContract('partner'),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Organization catalog (kit8/catalog/organization): /catalog/organization, Supabase Realtime sync
+    [ORGANIZATION_ENTITY]: {
+        tableName: organizationTable,
+        itemLabel: "Organization",
+        updateValidator: (action: any, state: any) => {
+            const userEmail = state?.activeUserState?.activeUserEmail;
+            const createdByUser = action?.payload?.rowJSON?.createdByUser;
+            if (userEmail && createdByUser && userEmail.toLowerCase() !== createdByUser.toLowerCase()) {
+                throw new Error(`Only the creator (${createdByUser}) has permission to edit this organization.`);
+            }
+        },
+        defaultData: organizationExample,
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Project catalog (kit8/catalog/project): /catalog/project, Supabase Realtime sync
+    [PROJECT_ENTITY]: {
+        tableName: projectTable,
+        itemLabel: "Project",
+        updateValidator: () => {},
+        defaultData: {
+            rowKind: "project",
+            name: "New Project",
+            durationDays: 0,
+        },
+        prepareCreateApi: (p: any) => {
+            const item = p.action.payload || {};
+            const rowGUID = item.rowGUID || item.id || "";
+            return {
+                newItem: {
+                    ...item,
+                    rowGUID,
+                    treePath: rowGUID ? rowGUID.toLowerCase().replace(/-/g, "_") : undefined,
+                    rowProgress: item.rowProgress ?? 0,
+                },
+            };
+        },
+        prepareReadApi: (p: any) => {},
+    },
+    // Project Task Kanban State (project_task_kanban_state_table): TabKanban in Project Settings, Supabase Realtime sync
+    [PROJECT_TASK_KANBAN_STATE_ENTITY]: {
+        tableName: projectTaskKanbanStateTable,
+        itemLabel: "Task Kanban State",
+        updateValidator: () => {},
+        defaultData: { stageGUID: "", kanbanStageProgressPercent: 0 },
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

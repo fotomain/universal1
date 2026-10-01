@@ -78,6 +78,15 @@ export interface PMRowJSON {
   planSecond?: boolean;
   /** Date input format for start/finish date columns in TaskTree (e.g. DD MMM, DD.MM.YYYY, YYYY-MM-DD). */
   planDateInputFormat?: PMPlanDateInputFormat;
+  // ---- project_table only: Partners & Contracts ----
+  /** Selected main supplier partner rowGUID (partnerTable) */
+  mainSupplierGUID?: string | null;
+  /** Selected main supplier contract rowGUID (contractTable) */
+  mainSupplierContractGUID?: string | null;
+  /** Selected main customer partner rowGUID (partnerTable) */
+  mainCustomerGUID?: string | null;
+  /** Selected main customer contract rowGUID (contractTable) */
+  mainCustomerContractGUID?: string | null;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */

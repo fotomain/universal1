@@ -15,6 +15,8 @@ export const kanbanStageTable = 'kanban_stage_table';
 export const projectKanbanStageTable = 'project_kanban_stage_table';
 /** Kanban stage of a task (rowOwnerGUID = project, rowParentGUID = task, rowJSON.stageGUID). */
 export const projectTaskKanbanStateTable = 'project_task_kanban_state_table';
+/** Redux entity key for project_task_kanban_state_table in SystemMetaData. */
+export const PROJECT_TASK_KANBAN_STATE_ENTITY = 'projectTaskKanbanStateReusable';
 /** rowOwnerGUID of the shared kanban_stage_table catalog rows. */
 export const KANBAN_STAGE_CATALOG_OWNER = 'kanbanStageCatalog';
 /** RPC: the project's stages; the first call copies the catalog into the project. */

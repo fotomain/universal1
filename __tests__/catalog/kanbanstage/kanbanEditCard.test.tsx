@@ -88,7 +88,7 @@ it('new stage: code follows the name, duplicates are refused, createOne goes las
     orderInList: 2048 + 1024,
     rowJSON: { stageName: 'Code Review', stageCode: 'code_review', stageColor: '#EF4444', isActive: true },
   });
-  expect(mockReplace).toHaveBeenCalledWith('/kanbanstage/list');
+  expect(mockReplace).toHaveBeenCalledWith('/catalog/kanbanstage/list');
 });
 
 it('existing stage: updateOne; delete asks twice', () => {

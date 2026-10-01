@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../components/common';
+import SwitchApp from '../../components/common/SwitchApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import {
   CONTRACT_ENTITY,
@@ -45,6 +46,8 @@ type Form = {
   contractSumBeforeVAT: string;
   contractVATRate: string;
   notes: string;
+  supplierRole: boolean;
+  customerRole: boolean;
 };
 
 const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'partner', defaultCurrency = 'EUR'): Form => {
@@ -64,6 +67,8 @@ const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'par
     contractSumBeforeVAT: String(j.contractSumBeforeVAT ?? 0),
     contractVATRate: String(j.contractVATRate ?? (partyType === 'person' ? 0 : 21)),
     notes: j.notes ?? '',
+    supplierRole: !!j.supplierRole,
+    customerRole: !!j.customerRole,
   };
 };
 
@@ -117,6 +122,8 @@ export default function ContractEdit({
       contractSumBeforeVAT: numericSum,
       contractVATRate: numericVatRate,
       notes: form.notes,
+      supplierRole: form.supplierRole,
+      customerRole: form.customerRole,
     };
 
     const normalized = normalizeContract(raw);
@@ -264,6 +271,22 @@ export default function ContractEdit({
                   {contractTotal.toFixed(2)} {form.contractCurrency}
                 </Text>
               </View>
+            </View>
+
+            {/* Roles */}
+            <View style={{ marginVertical: 8, gap: 6 }}>
+              <SwitchApp
+                testID="contract-edit-supplierRole"
+                label="Supplier Contract (supplierRole)"
+                value={form.supplierRole}
+                onValueChange={(v) => set('supplierRole', v)}
+              />
+              <SwitchApp
+                testID="contract-edit-customerRole"
+                label="Customer Contract (customerRole)"
+                value={form.customerRole}
+                onValueChange={(v) => set('customerRole', v)}
+              />
             </View>
 
             {input('notes', 'Notes / Terms', { multiline: true, numberOfLines: 2 })}

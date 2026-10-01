@@ -9,15 +9,15 @@ END;
 $$ LANGUAGE plpgsql;
 
    --===================
-   
-   
+
+
 DO $$
 DECLARE
 tables TEXT[] := ARRAY[
         'userAuthTable'
         ,'userTable'
         ,'dtcTaskFinishedTable'
-        ,'catalogOrganizationTable'
+
         ,'dtcCatalogExecutiveTable'
         ,'mediaPostTable'
         ,'dtcTaskRegisteredTable'

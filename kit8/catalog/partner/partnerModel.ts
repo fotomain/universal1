@@ -10,7 +10,7 @@ export const PARTNER_ENTITY = 'partnerReusable';
 /** rowOwnerGUID of every catalog row: shared catalog (or tenant GUID). */
 export const PARTNER_CATALOG_OWNER = 'partnerCatalog';
 
-export const PARTNER_ROUTES = { list: '/partner/list', edit: '/partner/edit' } as const;
+export const PARTNER_ROUTES = { list: '/catalog/partner/list', edit: '/catalog/partner/edit' } as const;
 
 /** readData payload of the catalog. */
 export const PARTNER_READ_PARAMS = { paginationSize: 1000, originationCurrentPage: 0 };

@@ -10,7 +10,7 @@ table_name TEXT;
 --          ,'userTable'
 --          ,'userAuthTable'
 --          ,'dtcTaskFinishedTable'
---          ,'catalogOrganizationTable'
+--
 --          ,'dtcCatalogExecutiveTable'
 --          ,'mediaPostTable'
 --          ,'mediaPostTableArchive'

@@ -63,13 +63,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       children: [
         { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
-        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'kanbanstage/list' },
-        { id: 'persons', label: 'Persons', icon: 'person', route: 'person/list' },
-        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'partner/list' },
+        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'catalog/kanbanstage/list' },
+        { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
+        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
+        { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
+        { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
       ],
     },
 
-    { id: 'pm-projects', label: 'Projects', icon: 'view_timeline', route: 'pm/project/dashboard' },
+    { id: 'pm-projects', label: 'Gantt Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
 
 
   ];

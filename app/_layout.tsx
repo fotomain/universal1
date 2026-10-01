@@ -19,6 +19,7 @@ import { useAuthRedirectHandler } from '../kit8/hooks/useAuthRedirectHandler';
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
 import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
+import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
@@ -228,8 +229,53 @@ function SupabaseAuthSync() {
             console.error('Error checking/creating raciMember:', e);
           }
         };
-        
+
+        // RULE: Automatically created upon first user login with createdByUser: userState.activeUserEmail
+        const checkAndCreateOrganization = async () => {
+          try {
+            const { data, error } = await supabase
+              .from('organizationTable')
+              .select('rowGUID')
+              .eq('rowJSON->>createdByUser', userEmail.toLowerCase());
+
+            if (error) {
+              console.error('Supabase organization select error:', error);
+              return;
+            }
+
+            if (!data || data.length === 0) {
+              const formattedName = userFirstName || userEmail.split('@')[0] || 'User';
+              const newOrgGUID = Crypto.randomUUID ? Crypto.randomUUID() : formatTo32CharGUID(Date.now().toString());
+              const { error: insertError } = await supabase.from('organizationTable').insert({
+                rowGUID: newOrgGUID,
+                rowOwnerGUID: 'organizationCatalog',
+                rowParentGUID: 'empty',
+                orderInList: Date.now(),
+                rowJSON: {
+                  organizationTitle: `${formattedName}'s Organization`,
+                  organizationLegalName: `${formattedName} Organization SIA`,
+                  createdByUser: userEmail.toLowerCase(),
+                  isActive: true,
+                  contactEmail: userEmail,
+                  legalData: {
+                    country: 'LV',
+                  },
+                },
+              });
+
+              if (insertError) {
+                console.error('Supabase organization insert error:', insertError);
+              } else {
+                console.log('Successfully created initial user organization in organizationTable');
+              }
+            }
+          } catch (e) {
+            console.error('Error checking/creating organization:', e);
+          }
+        };
+
         checkAndCreateRaciMember();
+        checkAndCreateOrganization();
       }
     });
 

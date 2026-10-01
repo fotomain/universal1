@@ -10,7 +10,7 @@ export const PERSON_ENTITY = 'personReusable';
 /** rowOwnerGUID of every catalog row: shared catalog (or tenant GUID). */
 export const PERSON_CATALOG_OWNER = 'personCatalog';
 
-export const PERSON_ROUTES = { list: '/person/list', edit: '/person/edit' } as const;
+export const PERSON_ROUTES = { list: '/catalog/person/list', edit: '/catalog/person/edit' } as const;
 
 /** readData payload of the catalog. */
 export const PERSON_READ_PARAMS = { paginationSize: 1000, originationCurrentPage: 0 };

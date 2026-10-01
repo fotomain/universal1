@@ -104,6 +104,7 @@ interface Props {
   crud: PMCrud;
   timelineStartMs: number;
   totalDays: number;
+  readOnly?: boolean;
 }
 
 interface BarDesc {
@@ -133,7 +134,7 @@ function linkHandleOffset(kind: number): number {
   return kind === K_MILESTONE ? MILESTONE_HALF + 8 : 9;
 }
 
-export default function PMProjectGanttChart({ viewport, width, height, palette, crud, timelineStartMs, totalDays }: Props) {
+export default function PMProjectGanttChart({ viewport, width, height, palette, crud, timelineStartMs, totalDays, readOnly }: Props) {
   const fonts = usePMFonts();
   const visibleRows = usePMStore((s) => s.visibleRows);
   const rowIndexById = usePMStore((s) => s.rowIndexById);
@@ -543,12 +544,15 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     return x >= left && x <= left + PM_BAR_PANEL_WIDTH;
   };
 
+  const isReadOnly = Boolean(readOnly);
+
   const hitTest = (x: number, y: number) => {
     'worklet';
     const bh = bodyH.value;
     const cw = chartW.value;
     if (IS_WEB && maxScrollY(rowCount.value, bh) > 0 && x >= cw - SCROLLBAR - 2 && y >= PM_SCALE_HEIGHT) return Z_THUMB_Y;
     if (IS_WEB && maxScrollX(totalDaysSV.value, dayWidthLive.value, cw) > 0 && y >= PM_SCALE_HEIGHT + bh - SCROLLBAR - 2) return Z_THUMB_X;
+    if (isReadOnly) return Z_NONE;
     const idx = rowAt(y);
     if (idx < 0 || panelHit(x, y)) return Z_NONE;
     const b = barsSV.value;
@@ -1119,7 +1123,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
             <RoundedRect x={hThumbX} y={canvasH - SCROLLBAR} width={hThumbW} height={SCROLLBAR - 2} r={3} color={palette.gridStrong} />
           </Canvas>
 
-          {panelTask && <PMGanttBarHoverPanel guid={panelTask.rowGUID} crud={crud} palette={palette} animatedStyle={panelStyle} />}
+          {!readOnly && panelTask && <PMGanttBarHoverPanel guid={panelTask.rowGUID} crud={crud} palette={palette} animatedStyle={panelStyle} />}
         </View>
       </GestureDetector>
     </View>

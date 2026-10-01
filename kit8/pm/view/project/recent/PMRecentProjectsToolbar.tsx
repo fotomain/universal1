@@ -48,6 +48,12 @@ import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
 import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat } from "../../../model/types";
 import { PM_PLAN_DATE_INPUT_FORMATS } from "../../../model/types";
 import { withAlpha } from "../../theme";
+import SelectElementFromCatalog from "../../../../catalog/inner/select_element/SelectElementFromCatalog";
+import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
+import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
+import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
+
+export type ProjectSettingsTab = 'TabMain' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
 interface Draft {
   rowGUID: string | null; // null = new project
@@ -59,6 +65,10 @@ interface Draft {
   planMinute: boolean;
   planSecond: boolean;
   planDateInputFormat: PMPlanDateInputFormat;
+  mainSupplierGUID?: string | null;
+  mainSupplierContractGUID?: string | null;
+  mainCustomerGUID?: string | null;
+  mainCustomerContractGUID?: string | null;
 }
 
 export default function PMRecentProjectsToolbar({
@@ -89,6 +99,7 @@ export default function PMRecentProjectsToolbar({
   const settingsHeight = Math.max(320, Math.min(PM_PROJECT_SETTINGS_HEIGHT, Math.round(win.height * 0.92)));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('TabMain');
   /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
   useEffect(() => {
@@ -146,6 +157,7 @@ export default function PMRecentProjectsToolbar({
 
   const openNew = () => {
     setDraftError(null);
+    setActiveTab('TabMain');
     setDraft({
       rowGUID: null,
       name: "",
@@ -156,11 +168,16 @@ export default function PMRecentProjectsToolbar({
       planMinute: false,
       planSecond: false,
       planDateInputFormat: 'YYYY-MM-DD',
+      mainSupplierGUID: null,
+      mainSupplierContractGUID: null,
+      mainCustomerGUID: null,
+      mainCustomerContractGUID: null,
     });
   };
   const openEditFor = (project: PMProjectRow | undefined) => {
     if (!project) return;
     setDraftError(null);
+    setActiveTab('TabMain');
     const start = project.rowJSON.projectStartAt
       ? Date.parse(project.rowJSON.projectStartAt)
       : todayUTC();
@@ -174,6 +191,10 @@ export default function PMRecentProjectsToolbar({
       planMinute: !!project.rowJSON.planMinute,
       planSecond: !!project.rowJSON.planSecond,
       planDateInputFormat: project.rowJSON.planDateInputFormat || 'YYYY-MM-DD',
+      mainSupplierGUID: project.rowJSON.mainSupplierGUID ?? null,
+      mainSupplierContractGUID: project.rowJSON.mainSupplierContractGUID ?? null,
+      mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
+      mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -201,6 +222,10 @@ export default function PMRecentProjectsToolbar({
             planMinute: json.planMinute ?? d.planMinute,
             planSecond: json.planSecond ?? d.planSecond,
             planDateInputFormat: json.planDateInputFormat || d.planDateInputFormat,
+            mainSupplierGUID: json.mainSupplierGUID ?? d.mainSupplierGUID,
+            mainSupplierContractGUID: json.mainSupplierContractGUID ?? d.mainSupplierContractGUID,
+            mainCustomerGUID: json.mainCustomerGUID ?? d.mainCustomerGUID,
+            mainCustomerContractGUID: json.mainCustomerContractGUID ?? d.mainCustomerContractGUID,
           }
         : d,
     );
@@ -226,6 +251,10 @@ export default function PMRecentProjectsToolbar({
             planMinute: draft.planMinute,
             planSecond: draft.planSecond,
             planDateInputFormat: draft.planDateInputFormat,
+            mainSupplierGUID: draft.mainSupplierGUID ?? null,
+            mainSupplierContractGUID: draft.mainSupplierContractGUID ?? null,
+            mainCustomerGUID: draft.mainCustomerGUID ?? null,
+            mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
           },
         },
       });
@@ -237,6 +266,10 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.planMinute = draft.planMinute;
       row.rowJSON.planSecond = draft.planSecond;
       row.rowJSON.planDateInputFormat = draft.planDateInputFormat;
+      row.rowJSON.mainSupplierGUID = draft.mainSupplierGUID ?? null;
+      row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
+      row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
+      row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       // no uxuiSettings here: the Gantt / tree settings are per user (project_user_settings_table), defaults until saved
       createProject.mutate(row);
       selectProject(row.rowGUID);
@@ -405,148 +438,297 @@ export default function PMRecentProjectsToolbar({
               >
                 {draft?.rowGUID ? "Project settings" : "New project"}
               </Text>
-              <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-              <Text style={[styles.label, { color: themeColors.text }]}>
-                Name
-              </Text>
-              <TextInput
-                testID="pm-project-name"
-                value={draft?.name || ""}
-                onChangeText={(v) =>
-                  setDraft((d) => (d ? { ...d, name: v } : d))
-                }
-                placeholder="Project name"
-                placeholderTextColor={themeColors.border}
-                style={[
-                  styles.input,
-                  { color: themeColors.text, borderColor: themeColors.border },
-                ]}
-                autoFocus
-                onSubmitEditing={saveDraft}
-              />
-              <Text style={[styles.label, { color: themeColors.text }]}>
-                Start (YYYY-MM-DD)
-              </Text>
-              <TextInput
-                testID="pm-project-start"
-                value={draft?.start || ""}
-                onChangeText={(v) =>
-                  setDraft((d) => (d ? { ...d, start: v } : d))
-                }
-                style={[
-                  styles.input,
-                  { color: themeColors.text, borderColor: themeColors.border },
-                ]}
-                autoCapitalize="none"
-              />
-              <SwitchApp
-                testID="pm-project-weekends"
-                label="Working days only (skip weekends)"
-                value={!!draft?.skipWeekends}
-                onValueChange={(v) =>
-                  setDraft((d) => (d ? { ...d, skipWeekends: v } : d))
-                }
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-plan-day"
-                label="Plan in days (planDay)"
-                value={draft?.planDay ?? true}
-                onValueChange={(v) =>
-                  setDraft((d) => (d ? { ...d, planDay: v } : d))
-                }
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-plan-hour"
-                label="Plan in hours (planHour)"
-                value={!!draft?.planHour}
-                onValueChange={(v) =>
-                  setDraft((d) => (d ? { ...d, planHour: v } : d))
-                }
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-plan-minute"
-                label="Plan in minutes (planMinute)"
-                value={!!draft?.planMinute}
-                onValueChange={(v) =>
-                  setDraft((d) => (d ? { ...d, planMinute: v } : d))
-                }
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-plan-second"
-                label="Plan in seconds (planSecond)"
-                value={!!draft?.planSecond}
-                onValueChange={(v) =>
-                  setDraft((d) => (d ? { ...d, planSecond: v } : d))
-                }
-                style={styles.switchRow}
-              />
-              <Text style={[styles.label, { color: themeColors.text, marginTop: 14 }]}>
-                Date format (planDateInputFormat)
-              </Text>
-              <View testID="pm-project-date-format" style={styles.formatRow}>
-                {PM_PLAN_DATE_INPUT_FORMATS.map((fmt) => {
-                  const selectedFmt = (draft?.planDateInputFormat || "YYYY-MM-DD") === fmt;
+
+              {/* TopTabs Bar: TabMain, TabUXUI, TabPartners, TabKanban */}
+              <View testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
+                {[
+                  { id: 'TabMain' as const, label: 'Main', icon: 'info' },
+                  { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
+                  { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
+                  { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
+                ].map((tab) => {
+                  const active = activeTab === tab.id;
                   return (
                     <Pressable
-                      key={fmt}
-                      testID={`pm-project-format-${fmt.replace(/[^A-Za-z0-9]/g, "_")}`}
-                      onPress={() =>
-                        setDraft((d) => (d ? { ...d, planDateInputFormat: fmt } : d))
-                      }
+                      key={tab.id}
+                      testID={`pm-project-tab-${tab.id}`}
+                      accessibilityRole="tab"
+                      aria-selected={active}
+                      onPress={() => setActiveTab(tab.id)}
                       style={[
-                        styles.formatChip,
+                        styles.topTabButton,
                         {
-                          borderColor: selectedFmt ? themeColors.primary : themeColors.border,
-                          backgroundColor: selectedFmt
-                            ? withAlpha(themeColors.primary, 0.15)
-                            : "transparent",
+                          borderBottomColor: active ? themeColors.primary : 'transparent',
+                          backgroundColor: active ? withAlpha(themeColors.primary, 0.12) : 'transparent',
                         },
                       ]}
                     >
+                      <IconApp
+                        name={tab.icon}
+                        size={15}
+                        color={active ? themeColors.primary : themeColors.text}
+                      />
                       <Text
                         style={[
-                          styles.formatText,
+                          styles.topTabText,
                           {
-                            color: selectedFmt ? themeColors.primary : themeColors.text,
-                            fontWeight: selectedFmt ? "700" : "400",
+                            color: active ? themeColors.primary : themeColors.text,
+                            fontWeight: active ? '700' : '500',
                           },
                         ]}
                       >
-                        {fmt}
+                        {tab.label}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
+
+              <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+                {activeTab === 'TabMain' && (
+                  <View testID="pm-project-tab-main-content">
+                    <Text style={[styles.label, { color: themeColors.text }]}>
+                      Name
+                    </Text>
+                    <TextInput
+                      testID="pm-project-name"
+                      value={draft?.name || ""}
+                      onChangeText={(v) =>
+                        setDraft((d) => (d ? { ...d, name: v } : d))
+                      }
+                      placeholder="Project name"
+                      placeholderTextColor={themeColors.border}
+                      style={[
+                        styles.input,
+                        { color: themeColors.text, borderColor: themeColors.border },
+                      ]}
+                      autoFocus
+                      onSubmitEditing={saveDraft}
+                    />
+                    <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
+                      Start (YYYY-MM-DD)
+                    </Text>
+                    <TextInput
+                      testID="pm-project-start"
+                      value={draft?.start || ""}
+                      onChangeText={(v) =>
+                        setDraft((d) => (d ? { ...d, start: v } : d))
+                      }
+                      style={[
+                        styles.input,
+                        { color: themeColors.text, borderColor: themeColors.border },
+                      ]}
+                      autoCapitalize="none"
+                    />
+                    <SwitchApp
+                      testID="pm-project-weekends"
+                      label="Working days only (skip weekends)"
+                      value={!!draft?.skipWeekends}
+                      onValueChange={(v) =>
+                        setDraft((d) => (d ? { ...d, skipWeekends: v } : d))
+                      }
+                      style={styles.switchRow}
+                    />
+                    {!!draft?.rowGUID && (
+                      <ImportExportProject
+                        ownerGUID={ownerGUID}
+                        projectGUID={draft.rowGUID}
+                        colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
+                        onImported={onImported}
+                      />
+                    )}
+                  </View>
+                )}
+
+                {activeTab === 'TabUXUI' && (
+                  <View testID="pm-project-tab-uxui-content">
+                    <SwitchApp
+                      testID="pm-project-plan-day"
+                      label="Plan in days (planDay)"
+                      value={draft?.planDay ?? true}
+                      onValueChange={(v) =>
+                        setDraft((d) => (d ? { ...d, planDay: v } : d))
+                      }
+                      style={styles.switchRow}
+                    />
+                    <SwitchApp
+                      testID="pm-project-plan-hour"
+                      label="Plan in hours (planHour)"
+                      value={!!draft?.planHour}
+                      onValueChange={(v) =>
+                        setDraft((d) => (d ? { ...d, planHour: v } : d))
+                      }
+                      style={styles.switchRow}
+                    />
+                    <SwitchApp
+                      testID="pm-project-plan-minute"
+                      label="Plan in minutes (planMinute)"
+                      value={!!draft?.planMinute}
+                      onValueChange={(v) =>
+                        setDraft((d) => (d ? { ...d, planMinute: v } : d))
+                      }
+                      style={styles.switchRow}
+                    />
+                    <SwitchApp
+                      testID="pm-project-plan-second"
+                      label="Plan in seconds (planSecond)"
+                      value={!!draft?.planSecond}
+                      onValueChange={(v) =>
+                        setDraft((d) => (d ? { ...d, planSecond: v } : d))
+                      }
+                      style={styles.switchRow}
+                    />
+                    <Text style={[styles.label, { color: themeColors.text, marginTop: 14 }]}>
+                      Date format (planDateInputFormat)
+                    </Text>
+                    <View testID="pm-project-date-format" style={styles.formatRow}>
+                      {PM_PLAN_DATE_INPUT_FORMATS.map((fmt) => {
+                        const selectedFmt = (draft?.planDateInputFormat || "YYYY-MM-DD") === fmt;
+                        return (
+                          <Pressable
+                            key={fmt}
+                            testID={`pm-project-format-${fmt.replace(/[^A-Za-z0-9]/g, "_")}`}
+                            onPress={() =>
+                              setDraft((d) => (d ? { ...d, planDateInputFormat: fmt } : d))
+                            }
+                            style={[
+                              styles.formatChip,
+                              {
+                                borderColor: selectedFmt ? themeColors.primary : themeColors.border,
+                                backgroundColor: selectedFmt
+                                  ? withAlpha(themeColors.primary, 0.15)
+                                  : "transparent",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.formatText,
+                                {
+                                  color: selectedFmt ? themeColors.primary : themeColors.text,
+                                  fontWeight: selectedFmt ? "700" : "400",
+                                },
+                              ]}
+                            >
+                              {fmt}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {activeTab === 'TabPartners' && (
+                  <View testID="pm-project-tab-partners-content">
+                    <SelectElementFromCatalog
+                      testID="pm-project-main-supplier"
+                      label="Main Supplier (mainSupplierGUID)"
+                      placeholder="Select main supplier..."
+                      entityName={PARTNER_ENTITY}
+                      value={draft?.mainSupplierGUID}
+                      filterItem={(item) => Boolean(item.rowJSON?.partnerIsSupplier)}
+                      onChange={(guid) =>
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                mainSupplierGUID: guid,
+                                ...(d.mainSupplierGUID !== guid ? { mainSupplierContractGUID: null } : {}),
+                              }
+                            : d
+                        )
+                      }
+                    />
+
+                    <SelectElementFromCatalog
+                      testID="pm-project-main-supplier-contract"
+                      label="Main Supplier Contract (mainSupplierContractGUID)"
+                      placeholder="Select supplier contract..."
+                      entityName={CONTRACT_ENTITY}
+                      value={draft?.mainSupplierContractGUID}
+                      rowOwnerGUID={draft?.mainSupplierGUID ? draft.mainSupplierGUID : undefined}
+                      rowParentGUID="partner"
+                      filterItem={(item) =>
+                        Boolean(item.rowJSON?.supplierRole) &&
+                        (!draft?.mainSupplierGUID || item.rowOwnerGUID === draft.mainSupplierGUID)
+                      }
+                      onChange={(guid, row) =>
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                mainSupplierContractGUID: guid,
+                                ...(row?.rowOwnerGUID && !d.mainSupplierGUID ? { mainSupplierGUID: row.rowOwnerGUID } : {}),
+                              }
+                            : d
+                        )
+                      }
+                    />
+
+                    <View style={{ height: 16 }} />
+
+                    <SelectElementFromCatalog
+                      testID="pm-project-main-customer"
+                      label="Main Customer (mainCustomerGUID)"
+                      placeholder="Select main customer..."
+                      entityName={PARTNER_ENTITY}
+                      value={draft?.mainCustomerGUID}
+                      filterItem={(item) => Boolean(item.rowJSON?.partnerIsCustomer)}
+                      onChange={(guid) =>
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                mainCustomerGUID: guid,
+                                ...(d.mainCustomerGUID !== guid ? { mainCustomerContractGUID: null } : {}),
+                              }
+                            : d
+                        )
+                      }
+                    />
+
+                    <SelectElementFromCatalog
+                      testID="pm-project-main-customer-contract"
+                      label="Main Customer Contract (mainCustomerContractGUID)"
+                      placeholder="Select customer contract..."
+                      entityName={CONTRACT_ENTITY}
+                      value={draft?.mainCustomerContractGUID}
+                      rowOwnerGUID={draft?.mainCustomerGUID ? draft.mainCustomerGUID : undefined}
+                      rowParentGUID="partner"
+                      filterItem={(item) =>
+                        Boolean(item.rowJSON?.customerRole) &&
+                        (!draft?.mainCustomerGUID || item.rowOwnerGUID === draft.mainCustomerGUID)
+                      }
+                      onChange={(guid, row) =>
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                mainCustomerContractGUID: guid,
+                                ...(row?.rowOwnerGUID && !d.mainCustomerGUID ? { mainCustomerGUID: row.rowOwnerGUID } : {}),
+                              }
+                            : d
+                        )
+                      }
+                    />
+                  </View>
+                )}
+
+                {activeTab === 'TabKanban' && (
+                  <View testID="pm-project-tab-kanban-content" style={{ flex: 1 }}>
+                    <PMProjectKanbanStateList
+                      projectGUID={draft?.rowGUID}
+                      onOpenKanbanStages={() => setKanbanStagesOpen(true)}
+                    />
+                  </View>
+                )}
+              </ScrollView>
               {!!draftError && (
                 <Text style={{ color: themeColors.error, marginTop: 6 }}>
                   {draftError}
                 </Text>
               )}
-              {!!draft?.rowGUID && (
-                <PMDialogButton
-                  testID="pm-project-kanban-stages"
-                  kind="secondary"
-                  icon="view_column"
-                  title="Kanban Stages"
-                  color={themeColors.text}
-                  style={styles.kanbanStagesButton}
-                  onPress={() => setKanbanStagesOpen(true)}
-                />
-              )}
-              {!!draft?.rowGUID && (
-                <ImportExportProject
-                  ownerGUID={ownerGUID}
-                  projectGUID={draft.rowGUID}
-                  colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
-                  onImported={onImported}
-                />
-              )}
-              </ScrollView>
               <View
                 style={{
                   flexDirection: "row",
@@ -724,8 +906,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 16,
   },
-  modalCard: { width: "100%", maxWidth: 420, borderRadius: 12, padding: 16 },
+  modalCard: { width: "100%", maxWidth: 600, borderRadius: 12, padding: 16 },
   modalBody: { flex: 1, minHeight: 0 },
+  topTabsBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+    marginBottom: 10,
+    gap: 4,
+  },
+  topTabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  topTabText: {
+    fontSize: 13,
+  },
   kanbanStagesButton: { alignSelf: "flex-start", marginLeft: 0, marginTop: 10 },
   label: { fontSize: 12, opacity: 0.7, marginTop: 10, marginBottom: 4 },
   input: {

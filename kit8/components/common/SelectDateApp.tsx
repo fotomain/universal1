@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Pressable, Text, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, Pressable, Text, ViewStyle, StyleProp, Platform } from 'react-native';
 import { DatePickerModal, registerTranslation, en } from 'react-native-paper-dates';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './IconApp';
@@ -20,6 +20,8 @@ export interface SelectDateAppProps {
   visible?: boolean;
   /** Modal dismiss callback */
   onDismiss?: () => void;
+  /** Modal open callback */
+  onOpen?: () => void;
   /** Mode: 'single' (default), 'range', or 'multiple' */
   mode?: 'single' | 'range' | 'multiple';
   /** Locale (default 'en') */
@@ -73,6 +75,7 @@ export default function SelectDateApp({
   onSelect,
   visible,
   onDismiss,
+  onOpen,
   mode = 'single',
   locale = 'en',
   label = 'Select date',
@@ -94,8 +97,9 @@ export default function SelectDateApp({
 
   const handleOpen = useCallback(() => {
     if (disabled) return;
+    onOpen?.();
     if (!isControlled) setInternalOpen(true);
-  }, [disabled, isControlled]);
+  }, [disabled, isControlled, onOpen]);
 
   const handleDismiss = useCallback(() => {
     if (!isControlled) setInternalOpen(false);
@@ -119,12 +123,24 @@ export default function SelectDateApp({
     return `${y}-${m}-${d}`;
   }, [dateValue]);
 
+  const preventMouseDown = useCallback((e: any) => {
+    if (Platform.OS === 'web' && e?.preventDefault) {
+      e.preventDefault();
+    }
+  }, []);
+
   return (
     <>
       {typeof children === 'function' ? (
         children({ open: handleOpen, value: dateValue ?? null, formatted })
       ) : children ? (
-        <Pressable testID={`${testID}-trigger`} onPress={handleOpen} disabled={disabled} style={style}>
+        <Pressable
+          testID={`${testID}-trigger`}
+          onPress={handleOpen}
+          disabled={disabled}
+          style={style}
+          {...(Platform.OS === 'web' ? ({ onMouseDown: preventMouseDown } as any) : {})}
+        >
           {children}
         </Pressable>
       ) : trigger === 'icon' ? (
@@ -135,6 +151,7 @@ export default function SelectDateApp({
           style={[styles.iconButton, { borderColor: themeColors.border }, style]}
           accessibilityRole="button"
           accessibilityLabel={label}
+          {...(Platform.OS === 'web' ? ({ onMouseDown: preventMouseDown } as any) : {})}
         >
           <IconApp name="calendar_today" size={16} color={disabled ? themeColors.border : themeColors.primary} />
         </Pressable>
@@ -150,6 +167,7 @@ export default function SelectDateApp({
           ]}
           accessibilityRole="button"
           accessibilityLabel={label}
+          {...(Platform.OS === 'web' ? ({ onMouseDown: preventMouseDown } as any) : {})}
         >
           <Text
             style={[
@@ -169,6 +187,7 @@ export default function SelectDateApp({
           disabled={disabled}
           style={[styles.button, { backgroundColor: themeColors.primary }, style]}
           accessibilityRole="button"
+          {...(Platform.OS === 'web' ? ({ onMouseDown: preventMouseDown } as any) : {})}
         >
           <IconApp name="calendar_today" size={14} color="#fff" />
           <Text style={styles.buttonText}>{formatted || label}</Text>

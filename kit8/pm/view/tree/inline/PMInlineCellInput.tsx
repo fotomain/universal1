@@ -3,7 +3,7 @@
 // shared vertical scroll on the UI thread, so it stays glued to its row.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, TextInput } from 'react-native';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT } from '../../../model/constants';
 
@@ -26,6 +26,8 @@ export interface PMInlineCellInputProps {
   align?: 'left' | 'right' | 'center';
   /** optional element rendered on the right side of the input (e.g. date picker trigger) */
   rightElement?: React.ReactNode;
+  /** when true, onBlur does not close/commit the input (e.g. when date picker modal is open) */
+  preventBlur?: boolean;
 }
 
 export default function PMInlineCellInput({
@@ -43,6 +45,7 @@ export default function PMInlineCellInput({
   colors,
   align = 'right',
   rightElement,
+  preventBlur = false,
 }: PMInlineCellInputProps) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState(false);
@@ -105,6 +108,7 @@ export default function PMInlineCellInput({
           }}
           onSubmitEditing={commit}
           onBlur={() => {
+            if (preventBlur) return;
             // blur commits a valid value, cancels an invalid one
             if (done.current) return;
             const problem = onCommit(value.trim());
@@ -120,7 +124,14 @@ export default function PMInlineCellInput({
             Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
           ]}
         />
-        {rightElement}
+        {rightElement && (
+          <View
+            style={styles.rightElementBox}
+            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
+          >
+            {rightElement}
+          </View>
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -137,4 +148,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   input: { flex: 1, height: '100%', paddingHorizontal: 6, paddingVertical: 0, fontSize: 12, textAlign: 'right' },
+  rightElementBox: { justifyContent: 'center', alignItems: 'center', height: '100%' },
 });

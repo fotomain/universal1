@@ -2,7 +2,7 @@
 // Formatted and parsed according to project.rowJSON.planDateInputFormat.
 // Empty = as soon as possible (constraint removed). Stages are rolled up.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { SharedValue } from 'react-native-reanimated';
 import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
@@ -21,6 +21,7 @@ export default function EditTaskStartDate(props: {
   testID?: string;
 }) {
   const { guid, crud, testID } = props;
+  const [pickerOpen, setPickerOpen] = useState(false);
   const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
   const initial = usePMStore((s) => {
     const r = s.schedule[guid];
@@ -37,13 +38,17 @@ export default function EditTaskStartDate(props: {
       placeholder="ASAP"
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
+      preventBlur={pickerOpen}
       rightElement={
         <SelectDateApp
           value={startMs}
           trigger="icon"
           testID={`pm-tree-select-date-start-${guid}`}
           style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+          onOpen={() => setPickerOpen(true)}
+          onDismiss={() => setPickerOpen(false)}
           onSelect={(selectedDate) => {
+            setPickerOpen(false);
             if (!selectedDate) {
               crud.setStartConstraint(guid, null);
             } else {

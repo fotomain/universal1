@@ -2,7 +2,7 @@
 // Formatted and parsed according to project.rowJSON.planDateInputFormat.
 // Editing the finish date recalculates taskDuration based on taskStartDate and active planning units.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { SharedValue } from 'react-native-reanimated';
 import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
@@ -23,6 +23,7 @@ export default function EditTaskFinishDate(props: {
   testID?: string;
 }) {
   const { guid, crud, testID } = props;
+  const [pickerOpen, setPickerOpen] = useState(false);
   const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
   const planDay = usePMStore((s) => s.planDay);
   const planHour = usePMStore((s) => s.planHour);
@@ -54,13 +55,17 @@ export default function EditTaskFinishDate(props: {
       placeholder={planDateInputFormat}
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
+      preventBlur={pickerOpen}
       rightElement={
         <SelectDateApp
           value={finishDisplayMs}
           trigger="icon"
           testID={`pm-tree-select-date-finish-${guid}`}
           style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+          onOpen={() => setPickerOpen(true)}
+          onDismiss={() => setPickerOpen(false)}
           onSelect={(selectedDate) => {
+            setPickerOpen(false);
             if (!selectedDate || !scheduled) {
               close();
               return;

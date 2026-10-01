@@ -8,16 +8,18 @@ export const contractsTable = 'contractTable';
 /** SystemMetaData / redux entity key (reusableCrudSlice + reusableRootSaga). */
 export const CONTRACT_ENTITY = 'contractReusable';
 
-export const CONTRACT_PERIODS = {
-  OneTime: 'OneTime',
-  Day: 'Day',
-  Week: 'Week',
+export const contractPeriods = {
   Month: 'Month',
-  Quarter: 'Quarter',
+  Week: 'Week',
+  Day: 'Day',
   Year: 'Year',
+  OneTime: 'OneTime',
+  Quarter: 'Quarter',
 } as const;
 
-export type ContractPeriodType = keyof typeof CONTRACT_PERIODS;
+export const CONTRACT_PERIODS = contractPeriods;
+
+export type ContractPeriodType = keyof typeof contractPeriods;
 
 export const CONTRACT_STATUSES = {
   draft: 'Draft',
@@ -59,6 +61,10 @@ export interface ContractRowJSON {
   contractTotal: number;
   /** Additional notes or comments */
   notes?: string;
+  /** Role: supplier contract */
+  supplierRole?: boolean;
+  /** Role: customer contract */
+  customerRole?: boolean;
 }
 
 export interface ContractRow {
@@ -120,6 +126,8 @@ export const emptyContract = (partyType: 'person' | 'partner' = 'partner', defau
     contractVAT: 0,
     contractTotal: 0,
     notes: '',
+    supplierRole: false,
+    customerRole: false,
   };
 };
 
@@ -149,6 +157,8 @@ export function normalizeContract(v: Partial<ContractRowJSON>, decimalDigits = 2
     contractVAT,
     contractTotal,
     notes: String(v.notes ?? '').trim(),
+    supplierRole: Boolean(v.supplierRole),
+    customerRole: Boolean(v.customerRole),
   };
 }
 

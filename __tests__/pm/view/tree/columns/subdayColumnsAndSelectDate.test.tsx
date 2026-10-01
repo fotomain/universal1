@@ -346,4 +346,38 @@ describe('TaskTree date editing with SelectDateApp integration', () => {
 
     expect(crud.setDurationDays).toHaveBeenCalled();
   });
+
+  it('keeps editor open and allows date selection even when input receives blur while picker opens', () => {
+    const { byName } = seedStore();
+    const g = byName('Task 111').rowGUID;
+    const crud = fakeCrud();
+    act(() => usePMStore.getState().setCellEdit({ guid: g, field: 'taskStartDate' }));
+
+    renderUI(
+      <EditTaskStartDate
+        guid={g}
+        rowIndex={1}
+        x={0}
+        width={120}
+        scrollY={scrollY}
+        crud={crud}
+        colors={colors}
+      />
+    );
+
+    // Open date picker
+    press(`pm-tree-select-date-start-${g}-trigger`);
+
+    // Simulate input blur event (which happens when focus shifts to modal)
+    const input = q(`pm-tree-edit-taskStartDate-${g}`) as HTMLInputElement;
+    act(() => {
+      input.dispatchEvent(new Event('blur'));
+    });
+
+    // Editor should still be alive and date picker modal visible
+    expect(q('mock-date-picker-confirm')).not.toBeNull();
+    press('mock-date-picker-confirm');
+
+    expect(crud.setStartConstraint).toHaveBeenCalledWith(g, expect.any(Number));
+  });
 });
