@@ -100,7 +100,7 @@
   .tree .d { color: var(--muted); }
   details { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin: 10px 0; }
   details summary { cursor: pointer; font-weight: 600; }
-  .prompt { white-space: pre-wrap; font: 13px/1.6 var(--mono); background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 16px 18px; max-height: 620px; overflow: auto; }
+  .prompt { white-space: pre-wrap; font: 13px/1.6 var(--mono); background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 16px 18px; }
   .copy { float: right; margin: -4px 0 6px 10px; border: 1px solid var(--border-strong); background: var(--card); border-radius: 999px; padding: 4px 12px; font: 600 12.5px var(--font); cursor: pointer; color: var(--text-2); }
   .copy:hover { background: var(--purple-soft); color: var(--purple); }
   footer { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
@@ -662,11 +662,18 @@ EXPO_PUBLIC_WOO_PROXY_FUNCTION=woo-proxy</code></pre>
 <footer>UNIVERSAL1 · expo-app · documentation/PRODUCT_ENTITY_PLAN.html · plan only, no code changed</footer>
 
 <script>
+// keep the active menu button visible by scrolling ONLY the menu bar sideways (never the page)
+function keepNavLinkVisible(a) {
+  const nav = a && a.closest('nav'); if (!nav) return;
+  const nr = nav.getBoundingClientRect(), ar = a.getBoundingClientRect();
+  if (ar.left < nr.left) nav.scrollLeft += ar.left - nr.left - 12;
+  else if (ar.right > nr.right) nav.scrollLeft += ar.right - nr.right + 12;
+}
   // highlight the menu entry of the section in view
   const links = [...document.querySelectorAll('#nav a')];
   const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
   const io = new IntersectionObserver(es => es.forEach(e => {
-    if (e.isIntersecting) { links.forEach(l => l.classList.remove('active')); const a = map.get(e.target.id); if (a) { a.classList.add('active'); a.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } }
+    if (e.isIntersecting) { links.forEach(l => l.classList.remove('active')); const a = map.get(e.target.id); if (a) { a.classList.add('active'); keepNavLinkVisible(a); } }
   }), { rootMargin: '-40% 0px -55% 0px' });
   map.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
 </script>

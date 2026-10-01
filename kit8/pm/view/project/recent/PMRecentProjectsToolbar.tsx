@@ -39,6 +39,8 @@ import {
 } from "../scheduling";
 import { approvePM } from "../../../inner/PMApproveYesNoCancelModalWindow";
 import { PMDialogButton, PMIconButton, PMTipIcon } from "../../../inner/buttons";
+import { PMToolbarDivider } from "../../../inner/toolbars/PMToolbarPrimitives";
+import { PM_SETTINGS_BUTTON_WIDTH, PM_SETTINGS_ICON_SIZE } from "../../../model/constants";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
@@ -446,12 +448,15 @@ export default function PMRecentProjectsToolbar({
         color={themeColors.text}
         onPress={() => setCreateFromTemplateOpen(true)}
       />
+      <PMToolbarDivider color={themeColors.border} />
       <PMIconButton
         testID="pm-project-edit"
         icon="settings"
         title="Project settings"
         color={themeColors.text}
         disabled={!selected}
+        width={PM_SETTINGS_BUTTON_WIDTH}
+        size={PM_SETTINGS_ICON_SIZE}
         onPress={openEdit}
       />
       <PMAddProjectButton compact={compact} onPress={openNew} />
@@ -1019,7 +1024,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     paddingVertical: 8,
     zIndex: 20,
   },

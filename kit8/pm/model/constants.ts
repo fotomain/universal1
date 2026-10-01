@@ -87,6 +87,9 @@ export const PM_HOVER_PANEL_WIDTH = 250;
 export const PM_BAR_PANEL_WIDTH = 200; // chart hover CRUD panel (next to the bar)
 /** "Critical path" (chart bar) and "+ Project" (project bar) share this width. */
 export const PM_WIDE_ACTION_WIDTH = 132;
+/** Settings icon buttons on the project bar and Gantt bar share width & icon size so they align vertically. */
+export const PM_SETTINGS_BUTTON_WIDTH = 32;
+export const PM_SETTINGS_ICON_SIZE = 18;
 /** px around a dependency arrow that still counts as a hit (right-click / double-click / tap). */
 export const PM_LINK_HIT_TOLERANCE = 6;
 

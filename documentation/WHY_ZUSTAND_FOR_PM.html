@@ -432,15 +432,25 @@ store.dispatch(pmSlice.actions.setHovered(guid));
 <footer>WHY_ZUSTAND_FOR_PM · expo-app/documentation · report style: ONTREND REPORTS REQUIREMENTS (HTML, local, light Tamagui theme, sticky menu, filterable / sortable tables, input &amp; output samples, charts).</footer>
 
 <script>
+// keep the active menu button visible by scrolling ONLY the menu bar sideways (never the page)
+function keepNavLinkVisible(a) {
+  const nav = a && a.closest('nav'); if (!nav) return;
+  const nr = nav.getBoundingClientRect(), ar = a.getBoundingClientRect();
+  if (ar.left < nr.left) nav.scrollLeft += ar.left - nr.left - 12;
+  else if (ar.right > nr.right) nav.scrollLeft += ar.right - nr.right + 12;
+}
 // ---- sticky menu: highlight the section in view (re-activates while scrolling) ----
 (function () {
   const links = Array.from(document.querySelectorAll('#nav a'));
   const byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
   const sections = Array.from(byId.keys()).map((id) => document.getElementById(id)).filter(Boolean);
+  let lastActive = null;
   const setActive = (id) => {
+    if (id === lastActive) return;
+    lastActive = id;
     links.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
     const a = byId.get(id);
-    if (a && a.scrollIntoView) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (a) keepNavLinkVisible(a);
   };
   const onScroll = () => {
     const y = window.scrollY + 90;
@@ -449,7 +459,8 @@ store.dispatch(pmSlice.actions.setHovered(guid));
     if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 2) current = sections[sections.length - 1].id;
     setActive(current);
   };
-  window.addEventListener('scroll', onScroll, { passive: true });
+  let ticking = false;
+  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; onScroll(); }); } }, { passive: true });
   onScroll();
 })();
 

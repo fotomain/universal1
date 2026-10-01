@@ -43,6 +43,7 @@ import PMRecentProjectsToolbar from '../../../kit8/pm/view/project/recent/PMRece
 import PMApproveYesNoCancelModalWindow from '../../../kit8/pm/inner/PMApproveYesNoCancelModalWindow';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { PM_SETTINGS_BUTTON_WIDTH, PM_WIDE_ACTION_WIDTH } from '../../../kit8/pm/model/constants';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 
@@ -181,6 +182,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     act(() => usePMStore.getState().setRecentProjects([p2.rowGUID, p1.rowGUID]));
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     expectInOrder(['pm-project-search', 'pm-project-ribbon-left', `pm-project-chip-${p1.rowGUID}`, `pm-project-chip-${p2.rowGUID}`, 'pm-project-ribbon-right', 'pm-project-delete', 'pm-project-edit', 'pm-project-add']);
+    expect(mustGet('pm-project-edit').style.width).toBe(`${PM_SETTINGS_BUTTON_WIDTH}px`);
     expect(q('pm-project-demo')).toBeNull(); // Demo button removed from the bar
   });
 

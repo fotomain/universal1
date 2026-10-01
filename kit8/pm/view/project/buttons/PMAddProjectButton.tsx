@@ -23,7 +23,7 @@ export default function PMAddProjectButton({ onPress, compact }: { onPress: () =
       onPressIn={tip.onPressIn}
       onLongPress={tip.onLongPress}
       delayLongPress={tip.delayLongPress}
-      style={{ marginVertical: 0, marginLeft: 4 }}
+      style={{ marginVertical: 0, marginLeft: 0, marginRight: 2 }}
     />
   );
 }

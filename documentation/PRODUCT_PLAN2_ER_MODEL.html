@@ -39,7 +39,7 @@
   .toolbar input { cursor:text; font-weight:500; min-width:200px; }
   .toolbar button:hover { background:var(--bg-subtle); }
   .toolbar .zoomv { color:var(--muted); font-size:13px; min-width:48px; }
-  .viewport { border:1px solid var(--border); border-radius:var(--radius); background:#fff; overflow:auto; height:min(82vh,1100px); box-shadow:var(--shadow); cursor:grab; }
+  .viewport { border:1px solid var(--border); border-radius:var(--radius); background:#fff; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; box-shadow:var(--shadow); cursor:grab; }
   .viewport.drag { cursor:grabbing; }
   .viewport svg { display:block; transform-origin:0 0; }
   #er { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; }
@@ -321,8 +321,8 @@
   fit();
   // drag to pan
   let drag = null;
-  vp.addEventListener('mousedown', e => { if (e.button) return; drag = { x: e.clientX, y: e.clientY, l: vp.scrollLeft, t: vp.scrollTop, moved: false }; vp.classList.add('drag'); });
-  window.addEventListener('mousemove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; vp.scrollLeft = drag.l - dx; vp.scrollTop = drag.t - dy; });
+  vp.addEventListener('mousedown', e => { if (e.button) return; drag = { x: e.clientX, y: e.clientY, l: vp.scrollLeft, wy: window.scrollY, moved: false }; e.preventDefault(); vp.classList.add('drag'); });
+  window.addEventListener('mousemove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; vp.scrollLeft = drag.l - dx; window.scrollTo(window.scrollX, drag.wy - dy); });
   window.addEventListener('mouseup', () => { setTimeout(() => (drag = null), 0); vp.classList.remove('drag'); });
   // focus: node + all ancestors (up) + all descendants (down)
   const edges = [...svg.querySelectorAll('.edge')];
@@ -337,18 +337,21 @@
     svg.classList.add('focus'); all.forEach(k => nodes[k] && nodes[k].classList.add('on')); nodes[t].classList.add('hit');
     edges.forEach(e => { const f = e.dataset.from, to = e.dataset.to;
       if ((up.has(f) && up.has(to)) || (down.has(f) && down.has(to))) e.classList.add('on'); });
-    if (scroll) { const r = nodes[t].getBBox(), m = nodes[t].transform.baseVal.consolidate().matrix;
-      vp.scrollTo({ left: (m.e + r.width / 2) * z - vp.clientWidth / 2, top: (m.f + r.height / 2) * z - vp.clientHeight / 2, behavior: 'smooth' }); }
+    if (scroll) { const b = nodes[t].getBoundingClientRect(), v = vp.getBoundingClientRect();
+      vp.scrollTo({ left: vp.scrollLeft + b.left - v.left + b.width / 2 - vp.clientWidth / 2, behavior: 'smooth' });
+      window.scrollTo({ top: window.scrollY + b.top + Math.min(b.height, innerHeight * 0.6) / 2 - innerHeight / 2, behavior: 'smooth' }); }
   };
   Object.entries(nodes).forEach(([t, n]) => n.addEventListener('click', () => { if (drag && drag.moved) return; n.classList.contains('hit') ? clear() : focus(t, false); }));
   document.getElementById('clear').onclick = clear;
-  document.querySelectorAll('[data-focus]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); document.getElementById('diagram').scrollIntoView(); focus(a.dataset.focus, true); }));
+  document.querySelectorAll('[data-focus]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); focus(a.dataset.focus, true); }));
   const find = document.getElementById('find');
-  find.addEventListener('input', () => {
+  let findTimer = 0;
+  find.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(runFind, 350); });
+  const runFind = () => {
     const q = find.value.trim().toLowerCase(); if (!q) return clear();
     const hit = Object.keys(nodes).find(t => t.includes(q)) || Object.keys(nodes).find(t => nodes[t].textContent.toLowerCase().includes(q));
     if (hit) focus(hit, true);
-  });
+  };
 })();
 </script>
 </body>

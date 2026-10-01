@@ -3,7 +3,11 @@
 // ⚙ = Gantt settings (PMGanttUXUISettinsModalWindow) · Critical path = showCriticalPath.
 
 import React from 'react';
-import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
+import {
+  PM_SETTINGS_BUTTON_WIDTH,
+  PM_SETTINGS_ICON_SIZE,
+  PM_WIDE_ACTION_WIDTH,
+} from '../../../model/constants';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
@@ -54,6 +58,8 @@ export default function PMGanttViewToggles({
         icon="settings"
         title="Gantt settings (progress lines, colors, arrows, critical path)"
         color={palette.text}
+        width={PM_SETTINGS_BUTTON_WIDTH}
+        size={PM_SETTINGS_ICON_SIZE}
         onPress={() => usePMStore.getState().setUxuiSettingsOpen(true)}
       />
       <PMIconButton

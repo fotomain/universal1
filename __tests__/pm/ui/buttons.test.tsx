@@ -13,6 +13,7 @@ import PMGanttViewToggles from '../../../kit8/pm/view/gantt/buttons/PMGanttViewT
 import PMRowActionButtons from '../../../kit8/pm/inner/buttons/PMRowActionButtons';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { PM_SETTINGS_BUTTON_WIDTH, PM_SETTINGS_ICON_SIZE, PM_WIDE_ACTION_WIDTH } from '../../../kit8/pm/model/constants';
 import { PM_ZOOM_PRESETS } from '../../../kit8/pm/view/gantt/ganttGeometry';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
@@ -111,6 +112,10 @@ describe('Gantt bar buttons', () => {
     expect(crud.toggleCriticalPath).toHaveBeenCalled();
     press('pm-gantt-uxui-settings');
     expect(usePMStore.getState().uxuiSettingsOpen).toBe(true);
+    const settingsBtn = mustGet('pm-gantt-uxui-settings');
+    const criticalBtn = mustGet('pm-gantt-critical');
+    expect(settingsBtn.style.width).toBe(`${PM_SETTINGS_BUTTON_WIDTH}px`);
+    expect(criticalBtn.style.width).toBe(`${PM_WIDE_ACTION_WIDTH}px`);
   });
 });
 
