@@ -412,10 +412,10 @@ export default function PMTaskEditModal({
                 ))}
               </View>
 
-              {!summary && (
+              {!summary ? (
                 <View style={styles.row}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={labelStyle}>Duration (working days)</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>Duration (working days)</Text>
                     <TextInput
                       testID="pm-edit-days"
                       value={kind === 'milestone' ? '0' : days}
@@ -426,7 +426,7 @@ export default function PMTaskEditModal({
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={labelStyle}>Progress %</Text>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>Progress %</Text>
                     <TextInput
                       testID="pm-edit-progress"
                       value={progress}
@@ -436,20 +436,31 @@ export default function PMTaskEditModal({
                       style={inputStyle}
                     />
                   </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>Kanban stage progress %</Text>
+                    <TextInput
+                      testID="pm-edit-kanban-progress"
+                      value={kanbanProgress}
+                      selectTextOnFocus
+                      onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
+                      keyboardType="number-pad"
+                      style={inputStyle}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View style={{ marginTop: 2 }}>
+                  <Text style={labelStyle}>Kanban stage progress %</Text>
+                  <TextInput
+                    testID="pm-edit-kanban-progress"
+                    value={kanbanProgress}
+                    selectTextOnFocus
+                    onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
+                    keyboardType="number-pad"
+                    style={inputStyle}
+                  />
                 </View>
               )}
-
-              <View style={{ marginTop: summary ? 8 : 2 }}>
-                <Text style={labelStyle}>Kanban stage progress %</Text>
-                <TextInput
-                  testID="pm-edit-kanban-progress"
-                  value={kanbanProgress}
-                  selectTextOnFocus
-                  onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
-                  keyboardType="number-pad"
-                  style={inputStyle}
-                />
-              </View>
 
               {/* Dates Section: Start and Finish editing with sub-units */}
               {!summary && (
@@ -695,7 +706,7 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 12, opacity: 0.7, marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14 },
-  row: { flexDirection: 'row' },
+  row: { flexDirection: 'row', gap: 8 },
   segment: { flexDirection: 'row' },
   segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderWidth: 1 },
   segmentFirst: { borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
