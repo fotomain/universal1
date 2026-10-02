@@ -28,7 +28,7 @@ import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMKanbanDashboard from '../kanban/PMKanbanDashboard';
 import PMKanbanTreeDragGhost from '../kanban/PMKanbanTreeDragGhost';
 import { useKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
-import PMProjectVersionsList from '../../version/view/version/PMProjectVersionsList';
+import PMProjectVersionsList from '../../version/view/list/PMProjectVersionsList';
 import { usePMVersionStore } from '../../version/store/store_version';
 import { overlaysRange } from '../../version/model/versionCompare';
 

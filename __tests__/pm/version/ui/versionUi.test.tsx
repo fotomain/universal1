@@ -33,11 +33,11 @@ import ModalWindowListToSelect from '../../../../kit8/components/common/ModalWin
 import PMGanttToolbar from '../../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
 import PMRecentProjectsToolbar from '../../../../kit8/pm/view/project/recent/PMRecentProjectsToolbar';
 import GanttToNetworkViewToggleButtons from '../../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';
-import PMGanttVersionButtons from '../../../../kit8/pm/version/view/version/PMGanttVersionButtons';
-import PMVersionTitleModalWindow from '../../../../kit8/pm/version/view/version/PMVersionTitleModalWindow';
-import PMVersionWindows from '../../../../kit8/pm/version/view/version/PMVersionWindows';
-import PMProjectVersionsList from '../../../../kit8/pm/version/view/version/PMProjectVersionsList';
-import PMGanttVersionsLegend from '../../../../kit8/pm/version/view/version/PMGanttVersionsLegend';
+import PMGanttVersionButtons from '../../../../kit8/pm/version/view/buttons/PMGanttVersionButtons';
+import PMVersionTitleModalWindow from '../../../../kit8/pm/version/view/windows/PMVersionTitleModalWindow';
+import PMVersionWindows from '../../../../kit8/pm/version/view/windows/PMVersionWindows';
+import PMProjectVersionsList from '../../../../kit8/pm/version/view/list/PMProjectVersionsList';
+import PMGanttVersionsLegend from '../../../../kit8/pm/version/view/legend/PMGanttVersionsLegend';
 import { makePMPalette } from '../../../../kit8/pm/view/theme';
 import { pmMainViewOf, uxuiSettingsOf } from '../../../../kit8/pm/model/types';
 import { normalizeVersion, PM_VERSION_MAX_CHECKED } from '../../../../kit8/pm/version/model/versionTypes';

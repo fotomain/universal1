@@ -51,7 +51,7 @@ import PMGanttToolbar from './toolbars/PMGanttToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { usePMVersionStore } from '../../version/store/store_version';
 import { versionStripGeometry } from '../../version/model/versionCompare';
-import PMGanttVersionsLegend from '../../version/view/version/PMGanttVersionsLegend';
+import PMGanttVersionsLegend from '../../version/view/legend/PMGanttVersionsLegend';
 
 const IS_WEB = Platform.OS === 'web';
 const NO_VERSION_OVERLAYS: never[] = [];

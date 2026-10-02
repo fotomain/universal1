@@ -36,7 +36,7 @@ import { usePMCrud } from '../../crud/usePMCrud';
 import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
-import PMVersionWindows from '../../version/view/version/PMVersionWindows';
+import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
 
 export default function PMProjectDashboard() {
   return (

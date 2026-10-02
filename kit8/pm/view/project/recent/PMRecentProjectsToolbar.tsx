@@ -58,7 +58,7 @@ import SelectDateApp from "../../../../components/common/SelectDateApp";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
-import PMGanttVersionButtons from "../../../version/view/version/PMGanttVersionButtons";
+import PMGanttVersionButtons from "../../../version/view/buttons/PMGanttVersionButtons";
 import PMContextMenu from "../../../inner/menu/PMContextMenu";
 import { usePMVersionStore } from "../../../version/store/store_version";
 
