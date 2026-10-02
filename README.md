@@ -19,6 +19,8 @@ git push origin main1:main --force
 npx expo start --web
 npm run web
 
+
+
 # CLEAR
 taskkill /f /im node.exe
 npm cache clean --force
