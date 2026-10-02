@@ -1,6 +1,6 @@
 // PMGanttToolbar - the Gantt bar (toolbar above the chart canvas):
 //   Undo | Zoom out · Zoom in · Fit to screen | Today | Day · Week · Month · Year · arrow shape
-//   ..................................................  % · ⇅ | Gantt · Network | ⚙ · Critical path
+//   ..................................  % · ⇅ | Gantt · Kanban · Network · Versions | ⚙ · Critical path
 // In tap-to-link mode it shows PMGanttLinkModeHint instead.
 
 import React from 'react';

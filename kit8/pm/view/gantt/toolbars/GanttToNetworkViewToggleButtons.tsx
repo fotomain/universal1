@@ -1,7 +1,8 @@
-// Main view switch (same look as the "Dependency arrows" selector): Gantt | Kanban | Network
+// Main view switch (same look as the "Dependency arrows" selector): Gantt | Kanban | Network | Versions
 //   ganttVsNetworkView = 'showGanttChart'  -> the Gantt chart (tree + Skia chart)
 //   ganttVsNetworkView = 'showKanbanView'  -> tree + PMKanbanDashboard (view/kanban)
 //   ganttVsNetworkView = 'showNetworkView' -> PMNetworkView (network diagram / network schedule)
+//   ganttVsNetworkView = 'showVersionsView' -> tree + PMProjectVersionsList (kit8/pm/version)
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);
 // read-only views pass a local setter instead. The same control sits on the Gantt bar, the Kanban bar
 // and the network view's bar, so the user can always switch.
@@ -30,6 +31,12 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     icon: 'account_tree',
     label: 'Network',
     title: 'Network view: network diagram / network schedule',
+  },
+  {
+    value: 'showVersionsView',
+    icon: 'layers',
+    label: 'Versions',
+    title: 'Project versions: save, restore and check the versions to compare on the Gantt chart',
   },
 ];
 

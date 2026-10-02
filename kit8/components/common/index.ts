@@ -17,6 +17,7 @@ export { default as SelectItemFromListApp, SelectItemFromListAppProps, SelectIte
 export * from './fab';
 export { default as SnackbarApp, SnackbarAppProps } from './SnackbarApp';
 export { default as ModalAskComponent, ModalAskComponentProps } from './ModalAskComponent';
+export { default as ModalWindowListToSelect, ModalWindowListToSelectProps, ModalWindowListItem } from './ModalWindowListToSelect';
 export { default as AskBeforeDeletePostComponent, AskBeforeDeletePostComponentProps } from './AskBeforeDeletePostComponent';
 export { ReceiveDraggableFilesComponent } from './ReceiveDraggableFilesComponent';
 export type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDraggableFilesComponent.types';

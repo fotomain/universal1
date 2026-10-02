@@ -72,3 +72,19 @@
         realtime      = supabase_realtime publication -> redux-saga realtime scoped by rowOwnerGUID
         security      = Authenticated only (GDPR compliant)
 
+# Project versions (kit8/pm/version, documentation/PM_VERSION_STRUCTURE.html)
+
+    Table name = 'version_' + original table name. Every version table has rowVersionGUID (one value per saved
+    version); the rows keep the ORIGINAL rowGUID, so rows of two versions and of the live project match by rowGUID.
+    Written only by the RPCs pm_version_save / pm_version_restore / pm_version_set_title; clients: SELECT + DELETE.
+
+    version_project_table (kit8/sql/init/done/create_tables.sql 5b, RN: versionProjectTable = "version_project_table")
+        rowVersionGUID = the version (primary key)
+        rowGUID        = project_table.rowGUID (the project; its versions are deleted with it)
+        rowOwnerGUID   = the user (Supabase auth uid)
+        orderInList    = version number inside the project (1, 2, 3 ...)
+        rowJSON        = project rowJSON + { versionTitle, versionCreatedAt, versionNumber, versionTaskCount }
+
+    version_project_task_table / version_project_task_dependencies_table /
+    version_project_kanban_stage_table / version_project_task_kanban_state_table
+        rowVersionGUID = version_project_table.rowVersionGUID (deleted with it), then the original columns unchanged

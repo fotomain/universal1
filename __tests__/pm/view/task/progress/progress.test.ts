@@ -43,6 +43,7 @@ describe('uxuiSettingsOf', () => {
   it('defaults', () => {
     expect(uxuiSettingsOf(undefined)).toEqual({
       showCriticalPath: true,
+      checkedProjectVersions: [],
       ganttArrowsForm: 'smoothForm',
       showTaskProgressOnGantt: false,
       taskProgressLinePosition: 'onTop',

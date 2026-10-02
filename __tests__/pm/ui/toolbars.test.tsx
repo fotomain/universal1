@@ -36,6 +36,19 @@ jest.mock('../../../kit8/pm/crud/exchange/project/ImportExportProject', () => {
   return { __esModule: true, default: (props: any) => (mockImportExport(props), R.createElement(View, { testID: 'pm-project-exchange' })) };
 });
 
+const mockCreateFromTemplate = jest.fn();
+jest.mock('../../../kit8/pm/view/project/CreateProjectFromTemplate', () => {
+  const R = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: any) =>
+      props.visible
+        ? (mockCreateFromTemplate(props), R.createElement(View, { testID: 'pm-create-from-template-modal' }))
+        : null,
+  };
+});
+
 import React from 'react';
 import PMGanttToolbar from '../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
 import PMTreeToolbar from '../../../kit8/pm/view/tree/toolbars/PMTreeToolbar';
@@ -43,6 +56,7 @@ import PMRecentProjectsToolbar from '../../../kit8/pm/view/project/recent/PMRece
 import PMApproveYesNoCancelModalWindow from '../../../kit8/pm/inner/PMApproveYesNoCancelModalWindow';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { usePMVersionStore } from '../../../kit8/pm/version/store/store_version';
 import { PM_SETTINGS_BUTTON_WIDTH, PM_WIDE_ACTION_WIDTH } from '../../../kit8/pm/model/constants';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
@@ -201,15 +215,60 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(usePMStore.getState().projectsById[p1.rowGUID]).toBeDefined(); // not deleted
   });
 
-  it('+ Project -> dialog -> Create inserts the project', () => {
+  it('+ Project -> menu -> New -> dialog -> Create inserts the project', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-add');
+    expect(q('pm-project-add-menu')).not.toBeNull();
+    press('pm-project-add-menu-new');
     typeInto('pm-project-name', 'Project 3');
     press('pm-project-save');
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockCreate.mock.calls[0][0].rowJSON.name).toBe('Project 3');
     expect(q('pm-project-name')).toBeNull(); // dialog closed
+  });
+
+  it('+ Project menu shows New, From template, and From the version (enabled when project is active)', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    expect(q('pm-project-add-menu')).not.toBeNull();
+    expect(q('pm-project-add-menu-new')).not.toBeNull();
+    expect(q('pm-project-add-menu-from-template')).not.toBeNull();
+    expect(q('pm-project-add-menu-from-version')).not.toBeNull();
+
+    // With active project, From template and From the version are enabled
+    expect(q('pm-project-add-menu-from-template')?.getAttribute('aria-disabled')).toBeFalsy();
+    expect(q('pm-project-add-menu-from-version')?.getAttribute('aria-disabled')).toBeFalsy();
+  });
+
+  it('+ Project menu disables "From template" and "From the version" when no project is active in Gantt', () => {
+    seedStore();
+    act(() => usePMStore.getState().selectProject(null));
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    expect(q('pm-project-add-menu')).not.toBeNull();
+    expect(q('pm-project-add-menu-new')?.getAttribute('aria-disabled')).toBeFalsy();
+    expect(q('pm-project-add-menu-from-template')?.getAttribute('aria-disabled')).toBe('true');
+    expect(q('pm-project-add-menu-from-version')?.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('+ Project menu -> From template opens CreateProjectFromTemplate modal', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    press('pm-project-add-menu-from-template');
+    expect(q('pm-project-add-menu')).toBeNull(); // menu closed
+    expect(q('pm-create-from-template-modal')).not.toBeNull();
+  });
+
+  it('+ Project menu -> From the version opens version restore picker', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    press('pm-project-add-menu-from-version');
+    expect(q('pm-project-add-menu')).toBeNull(); // menu closed
+    expect(usePMVersionStore.getState().restorePickerOpen).toBe(true);
   });
 
   it('⇅ on the Gantt bar opens the Project settings of the selected project with Import / Export', () => {
@@ -241,6 +300,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(h).toMatch(/^\d+px$/);
     press('pm-project-cancel');
     press('pm-project-add');
+    press('pm-project-add-menu-new');
     expect(getComputedStyle(q('pm-project-settings-window')!).height).toBe(h);
   });
 
@@ -248,6 +308,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-add');
+    press('pm-project-add-menu-new');
     expect(q('pm-project-name')).not.toBeNull();
     expect(q('pm-project-exchange')).toBeNull();
   });

@@ -254,6 +254,8 @@ export interface PMUxUiSettings {
   treeColumnSort?: PMTreeColumnSort | null;
   /** Tree: color of the filter icon on a filtered column header (default light vibrant red #FF4D6D). */
   columnFilterIconColor?: string;
+  /** Versions checked for the visual comparison on the Gantt (version_project_table.rowVersionGUID, see kit8/pm/version). */
+  checkedProjectVersions?: string[];
 }
 
 /**
@@ -266,10 +268,10 @@ export const PM_CONTEXT_COMMANDS_MODES: PMContextCommandsMode[] = ['onHoverPanel
 export const contextCommandsModeOf = (v: unknown): PMContextCommandsMode =>
   v === 'onRightClickMenuMode' ? 'onRightClickMenuMode' : 'onHoverPanelMode';
 
-/** Main view switch Gantt | Kanban | Network (GanttToNetworkViewToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView';
+/** Main view switch Gantt | Kanban | Network | Versions (GanttToNetworkViewToggleButtons). */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
-  v === 'showNetworkView' || v === 'showKanbanView' ? v : 'showGanttChart';
+  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' ? v : 'showGanttChart';
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
 /**
@@ -317,6 +319,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     treeColumnsFilters: normalizeTreeColumnsFilters(u.treeColumnsFilters),
     treeColumnSort: normalizeTreeColumnSort(u.treeColumnSort),
     columnFilterIconColor: columnFilterIconColorOf(u.columnFilterIconColor),
+    checkedProjectVersions: Array.isArray(u.checkedProjectVersions) ? u.checkedProjectVersions.filter((g): g is string => typeof g === 'string') : [],
   };
 }
 

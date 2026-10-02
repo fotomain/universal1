@@ -49,8 +49,12 @@ import { PMCrud } from '../../crud/usePMCrud';
 import PMGanttBarHoverPanel from './panels/PMGanttBarHoverPanel';
 import PMGanttToolbar from './toolbars/PMGanttToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
+import { usePMVersionStore } from '../../version/store/store_version';
+import { versionStripGeometry } from '../../version/model/versionCompare';
+import PMGanttVersionsLegend from '../../version/view/version/PMGanttVersionsLegend';
 
 const IS_WEB = Platform.OS === 'web';
+const NO_VERSION_OVERLAYS: never[] = [];
 
 // hit-test zones / drag modes (numbers so they live happily in worklets)
 const Z_NONE = 0;
@@ -248,6 +252,43 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     }
     return out;
   }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold]);
+
+  // =====================================================================================
+  // Project versions (kit8/pm/version): the checked versions are drawn on the SAME chart as the
+  // live project - one thin read-only bar per (version, row) under the task bar, one color per
+  // version, matched by rowGUID. One Skia path per version (window rows only).
+  // =====================================================================================
+  const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
+  const versionOverlaysAll = usePMVersionStore((s) => s.overlays);
+  const versionProjectGUID = usePMVersionStore((s) => s.projectGUID);
+  const versionOverlays = !readOnly && versionProjectGUID === selectedProjectGUID ? versionOverlaysAll : NO_VERSION_OVERLAYS;
+  const versionPaths = useMemo(() => {
+    const n = versionOverlays.length;
+    if (!n) return [];
+    return versionOverlays.map((o, k) => {
+      const p = Skia.Path.Make();
+      const g = versionStripGeometry(n, k);
+      for (let i = win.firstRow; i <= win.lastRow && i < visibleRows.length; i++) {
+        const b = o.bars[visibleRows[i]];
+        if (!b) continue;
+        const x = xOf(b.startMs);
+        const y = i * PM_ROW_HEIGHT + g.offsetY;
+        if (b.isMilestone) p.addRect(Skia.XYWHRect(x - 3, y, 6, g.height));
+        else p.addRect(Skia.XYWHRect(x, y, Math.max(2, xOf(b.finishMs) - x), g.height));
+      }
+      return { key: o.versionGUID, color: o.color, path: p };
+    });
+  }, [versionOverlays, win.firstRow, win.lastRow, visibleRows, xOf]);
+  // version colors must differ from the colors the live project uses
+  useEffect(() => {
+    if (readOnly) return;
+    const custom = new Set<string>();
+    for (const guid in tasksById) {
+      const c = taskColorOf(tasksById[guid].rowJSON);
+      if (c) custom.add(c);
+    }
+    usePMVersionStore.getState().setAvoidColors([palette.bar, palette.critical, palette.milestone, palette.summary, ...Array.from(custom).sort()]);
+  }, [readOnly, tasksById, palette.bar, palette.critical, palette.milestone, palette.summary]);
 
   // =====================================================================================
   // Dependency links: one path per style (normal / critical / highlighted) + arrows
@@ -1057,6 +1098,11 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
                     <BarShape key={b.guid} bar={b} palette={palette} fonts={fonts} selected={b.guid === selectedGUID} linkSource={b.guid === linkSourceGUID} />
                   ))}
 
+                  {/* checked project versions: thin bars under the task bars (kit8/pm/version) */}
+                  {versionPaths.map((v) => (
+                    <Path key={`ver-${v.key}`} path={v.path} color={v.color} />
+                  ))}
+
                   {/* handles (link circles, resize grips, progress knob) on hover/selection */}
                   {handleBars.map((b) => (
                     <BarHandles key={`h-${b.guid}`} bar={b} palette={palette} />
@@ -1128,6 +1174,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
           </Canvas>
 
           {!readOnly && panelTask && <PMGanttBarHoverPanel guid={panelTask.rowGUID} crud={crud} palette={palette} animatedStyle={panelStyle} />}
+          {versionOverlays.length > 0 && <PMGanttVersionsLegend palette={palette} />}
         </View>
       </GestureDetector>
     </View>

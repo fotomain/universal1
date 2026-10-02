@@ -2,7 +2,7 @@
 -- UNIVERSAL1 - DROP EVERYTHING created by kit8/sql/init/done/create_tables.sql
 --
 -- WARNING: IRREVERSIBLE. Deletes the data of ALL users: projects, tasks, dependencies,
--- templates, Kanban, catalogs (countries, currencies, rates, organizations, departaments,
+-- templates, project versions, Kanban, catalogs (countries, currencies, rates, organizations, departaments,
 -- persons, partners, contracts) and the generic app tables (themeStore, raciMember, mediaPost...).
 -- Make a backup first (Supabase Dashboard -> Database -> Backups, or pg_dump).
 --
@@ -41,6 +41,13 @@ END $$;
 -- ---- 2. views ---------------------------------------------------------------------------
 DROP VIEW IF EXISTS public.project_task_schedule_view;
 DROP VIEW IF EXISTS public.templates_project_task_schedule_view;   -- older scripts
+
+-- ---- 2b. PM project versions (children first) -------------------------------------------
+DROP TABLE IF EXISTS public.version_project_task_kanban_state_table CASCADE;
+DROP TABLE IF EXISTS public.version_project_kanban_stage_table CASCADE;
+DROP TABLE IF EXISTS public.version_project_task_dependencies_table CASCADE;
+DROP TABLE IF EXISTS public.version_project_task_table CASCADE;
+DROP TABLE IF EXISTS public.version_project_table CASCADE;
 
 -- ---- 3. PM templates (children first; CASCADE removes triggers, policies, FKs, indexes) --
 DROP TABLE IF EXISTS public.templates_project_user_settings_table CASCADE;
@@ -95,6 +102,11 @@ DECLARE
   f text;
 BEGIN
   FOREACH f IN ARRAY ARRAY[
+    -- PM project versions
+    'public.pm_version_restore(uuid, text)',
+    'public.pm_version_save(uuid, text)',
+    'public.pm_version_set_title(uuid, text)',
+    'public.pm_owns_version(uuid)',
     -- PM templates
     'public.pm_template_task_dependency_after_delete()',
     'public.pm_template_rebuild_dependency_closure(uuid)',

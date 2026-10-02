@@ -15,6 +15,7 @@ Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
    Kanban: run `create_pm_kanban_tables.sql` after it (non-destructive, safe to re-run; also after every
    `create_pm_tables.sql`, which drops the project Kanban tables). Remove: `delete_pm_kanban_tables.sql`.
    Remove everything: `delete_pm_tables.sql`.
+   Project versions (`kit8/pm/version`): the `version_*` tables + RPCs are section 5b of `kit8/sql/init/done/create_tables.sql`.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
 3. Sign in (RLS: every row belongs to `auth.uid()`), open **Projects**, press **Demo** to load the use case.
@@ -350,6 +351,39 @@ Main view switch **Gantt | Kanban | Network** (`GanttToNetworkViewToggleButtons`
 * Not in the Gantt undo; not part of the project export file.
 * Tests: `__tests__/pm/view/kanban/kanbanModel.test.ts`, `__tests__/pm/crud/kanban/kanbanRealtime.test.ts`,
   `__tests__/pm/crud/pmKanbanCrud.test.tsx`, `__tests__/pm/ui/kanbanUi.test.tsx`.
+
+## Project versions (`kit8/pm/version`)
+
+Full description: `documentation/PM_VERSION_STRUCTURE.html`. SQL: `create_tables.sql` section 5b (run it once; idempotent).
+
+* **Tables** - `version_` + original name, every one with `rowVersionGUID`; rows keep their original `rowGUID`:
+  `version_project_table` (1 row per version; `rowJSON.versionTitle`, `versionCreatedAt`, `versionNumber`, `versionTaskCount`;
+  `orderInList` = version number), `version_project_task_table`, `version_project_task_dependencies_table`,
+  `version_project_kanban_stage_table`, `version_project_task_kanban_state_table`. Not stored: closure, schedule view,
+  user settings, Kanban catalog, undo. Clients: SELECT + DELETE of a version; writes only through the RPCs.
+* **RPCs** - `pm_version_save(project, title)` · `pm_version_restore(version, backupTitle)` (saves the current plan as
+  "Before restore …" first, then replaces tasks / dependencies / Kanban with the version's rows, same `rowGUID`s; closure +
+  progress rebuilt) · `pm_version_set_title(version, title)`.
+* **Project bar** (after the template buttons, before the project settings button) - **Save project version** (`PMVersionTitleModalWindow`, default title = project name + date time)
+  and **Restore project from version** (pick it in the reusable `kit8/components/common/ModalWindowListToSelect`; asks first;
+  the Gantt undo history of the project is cleared).
+* **Versions view** - view switch **Gantt | Kanban | Network | Versions** (`ganttVsNetworkView = 'showVersionsView'`,
+  `PMGanttSurface rightPane="versions"`): `PMProjectVersionsList` replaces the chart, the tree stays. `ProjectVersionCard`:
+  round check box (same look as the CRUD list cards), title, version number / date / rows, differences to the project now
+  (added / removed / moved / changed, finish shift), **Restore from version**, rename, delete.
+* **Visual comparison** - checked versions (at most `PM_VERSION_MAX_CHECKED` = 4, saved per project and user in
+  `uxuiSettings.checkedProjectVersions`) are drawn on the Gantt together with the live project: one thin read-only bar per
+  (version, row) under the task bar, matched by `rowGUID`, one color per version (`assignVersionColors`: different from each
+  other and from the project's bar / critical / milestone / stage / custom task colors), legend bottom right
+  (`PMGanttVersionsLegend`). Versions are scheduled client-side with the project's scheduler and the version's own start
+  date + calendar (`scheduleVersion`). The time line is widened to the versions' range.
+* **Limits** - fixed row height (2-4 versions: thinner bars, the upper ones overlap the task bar's lower edge); a task that
+  exists only in a version has no Gantt row (counted as "removed" on the card); no hover details on version bars.
+* **Data** - `crud/api/versionApi.ts` -> `crud/version/versionQueries.ts` (React Query) -> `store/store_version.ts`
+  (Zustand `usePMVersionStore`: versions, checkedGUIDs, overlays); commands `crud/version/useVersionCommands.ts`;
+  pure logic `model/versionCompare.ts`. `PMVersionWindows` is mounted once in `PMProjectDashboard`.
+* Tables missing (SQL not run): the Versions view shows a hint, Save is disabled.
+* Tests: `__tests__/pm/version/` (model, crud API, commands on the in-memory Supabase, UI).
 
 ## Dependencies
 

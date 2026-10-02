@@ -301,7 +301,8 @@ describe('Project settings window TopTabs', () => {
   it('shows save reminder on TabKanban for new unsaved project', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
-    press('pm-project-add'); // new project
+    press('pm-project-add'); // new project menu
+    press('pm-project-add-menu-new');
 
     press('pm-project-tab-TabKanban');
     expect(q('pm-project-tab-kanban-content')?.textContent).toContain(

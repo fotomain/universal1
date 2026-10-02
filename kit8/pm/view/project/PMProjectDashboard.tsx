@@ -2,8 +2,8 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
-//   Gantt | Kanban | Network switch (uxuiSettings.ganttVsNetworkView): Kanban = tree + view/kanban/PMKanbanDashboard,
-//   Network = view/network/PMNetworkView
+//   Gantt | Kanban | Network | Versions switch (uxuiSettings.ganttVsNetworkView): Kanban = tree + view/kanban/PMKanbanDashboard,
+//   Network = view/network/PMNetworkView, Versions = tree + version/view/version/PMProjectVersionsList
 //
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
 // Undo: PMUndoProvider (expo-sqlite on native) keeps one undoGanttAction per action.
@@ -36,6 +36,7 @@ import { usePMCrud } from '../../crud/usePMCrud';
 import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import PMVersionWindows from '../../version/view/version/PMVersionWindows';
 
 export default function PMProjectDashboard() {
   return (
@@ -188,7 +189,7 @@ function PMProjectDashboardInner() {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : 'gantt'}
+              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : 'gantt'}
             />
           )}
           {rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
@@ -207,6 +208,8 @@ function PMProjectDashboardInner() {
       <PMCustomColumnNameModalWindow crud={crud} />
       <PMTreeColumnFilterPopup crud={crud} />
       <PMGanttUXUISettinsModalWindow crud={crud} />
+      {/* project versions: store sync + "Save project version" / "Restore project from version" windows */}
+      <PMVersionWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
       <PMApproveYesNoCancelModalWindow />
       <PMTooltipLayer />
     </View>

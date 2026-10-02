@@ -32,6 +32,11 @@
 --        templates_project_task_dependencies_table, templates_project_task_dependency_closure_table,
 --        templates_project_kanban_stage_table, templates_project_user_settings_table
 --        (same tree / DAG / closure integrity as the real project tables, owner RLS)
+--   5b. PM project versions (kit8/pm/version): read-only copies of a whole project plan
+--        version_project_table, version_project_task_table,
+--        version_project_task_dependencies_table, version_project_kanban_stage_table,
+--        version_project_task_kanban_state_table
+--        + RPCs pm_version_save, pm_version_restore, pm_version_set_title, pm_owns_version
 --   6. data migrations of older databases (all no-ops on a fresh database)
 --   7. realtime publication + PostgREST schema reload
 --
@@ -1720,6 +1725,290 @@ CREATE POLICY templates_project_user_settings_update ON public.templates_project
   USING ("rowParentGUID" = auth.uid()) WITH CHECK ("rowParentGUID" = auth.uid() AND public.pm_owns_template("rowOwnerGUID"));
 CREATE POLICY templates_project_user_settings_delete ON public.templates_project_user_settings_table FOR DELETE TO authenticated
   USING ("rowParentGUID" = auth.uid());
+
+-- =====================================================================================
+-- 5b. PM project versions (kit8/pm/version, documentation/PM_VERSION_STRUCTURE.html)
+--    A version = a full, read-only copy of ONE project plan, taken on the user's command.
+--    Table name = 'version_' + original table name. Every version table has
+--    "rowVersionGUID" (one value per saved version); rows keep their ORIGINAL "rowGUID",
+--    so tasks / dependencies of two versions (and of the live project) match by "rowGUID".
+--      version_project_table                    1 row per version ("rowGUID" = the project)
+--        rowJSON = project rowJSON + versionTitle, versionCreatedAt, versionNumber, versionTaskCount
+--        orderInList = versionNumber (1, 2, 3 ... inside the project)
+--      version_project_task_table               stages / tasks / milestones of the version
+--      version_project_task_dependencies_table  its dependencies
+--      version_project_kanban_stage_table       its Kanban columns
+--      version_project_task_kanban_state_table  its Kanban cards
+--    Not stored: the dependency closure, project_task_schedule_view (derived),
+--    project_user_settings_table (per user view settings), kanban_stage_table (catalog).
+--    No tree / DAG / progress triggers here: the rows are written ONLY by the RPCs
+--      pm_version_save(project, title)   -> new rowVersionGUID
+--      pm_version_restore(version, backupTitle) -> rowVersionGUID of the automatic backup
+--      pm_version_set_title(version, title)
+--    Clients: SELECT (owner) + DELETE of version_project_table (children follow: FK cascade).
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS public.version_project_table (
+  "rowVersionGUID" UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowGUID"        UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "treePath"       LTREE       NOT NULL,
+  "rowOwnerGUID"   UUID        NOT NULL,
+  "rowDuration"    TIMESTAMPTZ,
+  "rowProgress"    NUMERIC     NOT NULL DEFAULT 0,
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,    -- version number inside the project
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowVersionGUID")
+);
+CREATE INDEX IF NOT EXISTS idx_version_project_project_order ON public.version_project_table ("rowGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS idx_version_project_owner ON public.version_project_table ("rowOwnerGUID");
+DROP TRIGGER IF EXISTS trg_version_project_table_touch ON public.version_project_table;
+CREATE TRIGGER trg_version_project_table_touch BEFORE UPDATE ON public.version_project_table
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.version_project_task_table (
+  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
+  "rowGUID"        UUID        NOT NULL,
+  "treePath"       LTREE       NOT NULL,
+  "projectGUID"    UUID        NOT NULL,
+  "rowOwnerGUID"   UUID        NOT NULL,
+  "rowDuration"    TIMESTAMPTZ,                       -- scheduled finish when the version was saved
+  "rowProgress"    NUMERIC     NOT NULL DEFAULT 0,
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb, -- rowJSON.startAt = scheduled start
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowVersionGUID", "rowGUID")
+);
+CREATE INDEX IF NOT EXISTS idx_version_project_task_order ON public.version_project_task_table ("rowVersionGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS idx_version_project_task_project ON public.version_project_task_table ("projectGUID");
+
+CREATE TABLE IF NOT EXISTS public.version_project_task_dependencies_table (
+  "rowVersionGUID"   UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
+  "rowGUID"          UUID        NOT NULL,
+  "rowDependsOnGUID" UUID        NOT NULL,
+  "projectGUID"      UUID        NOT NULL,
+  "rowOwnerGUID"     UUID        NOT NULL,
+  "linkType"         TEXT        NOT NULL DEFAULT 'FS',
+  "lagDays"          NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"          JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowVersionGUID", "rowGUID", "rowDependsOnGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.version_project_kanban_stage_table (
+  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
+  "rowGUID"        UUID        NOT NULL,
+  "rowOwnerGUID"   UUID        NOT NULL,                -- the project
+  "rowParentGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowVersionGUID", "rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.version_project_task_kanban_state_table (
+  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
+  "rowGUID"        UUID        NOT NULL,
+  "rowOwnerGUID"   UUID        NOT NULL,                -- the project
+  "rowParentGUID"  UUID        NOT NULL,                -- the task
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowVersionGUID", "rowGUID")
+);
+
+-- ownership helper (RLS of the child tables + RPCs)
+CREATE OR REPLACE FUNCTION public.pm_owns_version(p_version uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.version_project_table v
+                  WHERE v."rowVersionGUID" = p_version AND v."rowOwnerGUID" = auth.uid());
+$$;
+
+-- RPC: save the whole project plan as a new version (one transaction). Returns its rowVersionGUID.
+CREATE OR REPLACE FUNCTION public.pm_version_save(p_project uuid, p_title text DEFAULT NULL)
+RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_version uuid := gen_random_uuid();
+  v_no      numeric;
+  v_now     timestamptz := clock_timestamp();
+  v_title   text := NULLIF(btrim(COALESCE(p_title, '')), '');
+  v_count   int;
+BEGIN
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'pm_gantt: project not found';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('pm_version:' || p_project::text));
+  SELECT COALESCE(MAX("orderInList"), 0) + 1 INTO v_no FROM public.version_project_table WHERE "rowGUID" = p_project;
+  SELECT COUNT(*) INTO v_count FROM public.project_task_table WHERE "projectGUID" = p_project;
+
+  INSERT INTO public.version_project_table
+    ("rowVersionGUID", "rowGUID", "treePath", "rowOwnerGUID", "rowDuration", "rowProgress", "orderInList", "rowJSON", "created_at", "updated_at")
+  SELECT v_version, p."rowGUID", p."treePath", p."rowOwnerGUID", p."rowDuration", p."rowProgress", v_no,
+         p."rowJSON" || jsonb_build_object(
+           'versionTitle', COALESCE(v_title, 'Version ' || v_no),
+           'versionCreatedAt', to_char(v_now AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+           'versionNumber', v_no,
+           'versionTaskCount', v_count),
+         v_now, v_now
+    FROM public.project_table p WHERE p."rowGUID" = p_project;
+
+  INSERT INTO public.version_project_task_table
+    ("rowVersionGUID", "rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowDuration", "rowProgress", "orderInList", "rowJSON", "created_at", "updated_at")
+  SELECT v_version, t."rowGUID", t."treePath", t."projectGUID", t."rowOwnerGUID", t."rowDuration", t."rowProgress", t."orderInList", t."rowJSON", t."created_at", t."updated_at"
+    FROM public.project_task_table t WHERE t."projectGUID" = p_project;
+
+  INSERT INTO public.version_project_task_dependencies_table
+    ("rowVersionGUID", "rowGUID", "rowDependsOnGUID", "projectGUID", "rowOwnerGUID", "linkType", "lagDays", "rowJSON", "created_at")
+  SELECT v_version, d."rowGUID", d."rowDependsOnGUID", d."projectGUID", d."rowOwnerGUID", d."linkType", d."lagDays", d."rowJSON", d."created_at"
+    FROM public.project_task_dependencies_table d WHERE d."projectGUID" = p_project;
+
+  INSERT INTO public.version_project_kanban_stage_table
+    ("rowVersionGUID", "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON", "created_at", "updated_at")
+  SELECT v_version, k."rowGUID", k."rowOwnerGUID", k."rowParentGUID", k."orderInList", k."rowJSON", k."created_at", k."updated_at"
+    FROM public.project_kanban_stage_table k WHERE k."rowOwnerGUID" = p_project;
+
+  INSERT INTO public.version_project_task_kanban_state_table
+    ("rowVersionGUID", "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON", "created_at", "updated_at")
+  SELECT v_version, s."rowGUID", s."rowOwnerGUID", s."rowParentGUID", s."orderInList", s."rowJSON", s."created_at", s."updated_at"
+    FROM public.project_task_kanban_state_table s WHERE s."rowOwnerGUID" = p_project;
+
+  RETURN v_version;
+END;
+$$;
+
+-- RPC: replace the project's plan (project row data, tasks, dependencies, Kanban) with the
+-- version's rows, keeping the original rowGUIDs. The current plan is saved first as a new
+-- version (p_backup_title); its rowVersionGUID is returned. Closure + progress are rebuilt.
+CREATE OR REPLACE FUNCTION public.pm_version_restore(p_version uuid, p_backup_title text DEFAULT NULL)
+RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v         public.version_project_table%ROWTYPE;
+  v_project uuid;
+  v_backup  uuid;
+BEGIN
+  SELECT * INTO v FROM public.version_project_table
+   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = auth.uid();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'pm_gantt: version not found';
+  END IF;
+  v_project := v."rowGUID";
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'pm_gantt: project not found';
+  END IF;
+
+  v_backup := public.pm_version_save(
+    v_project,
+    COALESCE(NULLIF(btrim(COALESCE(p_backup_title, '')), ''),
+             'Before restore ' || to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI')));
+
+  -- remove the current plan (dependencies + Kanban states follow: FK cascade)
+  DELETE FROM public.project_task_table WHERE "projectGUID" = v_project;
+  DELETE FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = v_project;
+
+  UPDATE public.project_table
+     SET "rowJSON" = v."rowJSON" - 'versionTitle' - 'versionCreatedAt' - 'versionNumber' - 'versionTaskCount',
+         "rowDuration" = v."rowDuration",
+         "rowProgress" = v."rowProgress"
+   WHERE "rowGUID" = v_project;
+
+  -- parents before children (the tree trigger checks that the parent exists)
+  INSERT INTO public.project_task_table
+    ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowDuration", "rowProgress", "orderInList", "rowJSON", "created_at")
+  SELECT t."rowGUID", t."treePath", v_project, t."rowOwnerGUID", t."rowDuration", t."rowProgress", t."orderInList", t."rowJSON", t."created_at"
+    FROM public.version_project_task_table t
+   WHERE t."rowVersionGUID" = p_version
+   ORDER BY nlevel(t."treePath"), t."orderInList";
+
+  INSERT INTO public.project_kanban_stage_table
+    ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON", "created_at")
+  SELECT k."rowGUID", v_project, k."rowParentGUID", k."orderInList", k."rowJSON", k."created_at"
+    FROM public.version_project_kanban_stage_table k
+   WHERE k."rowVersionGUID" = p_version;
+
+  INSERT INTO public.project_task_dependencies_table
+    ("rowGUID", "rowDependsOnGUID", "projectGUID", "rowOwnerGUID", "linkType", "lagDays", "rowJSON", "created_at")
+  SELECT d."rowGUID", d."rowDependsOnGUID", v_project, d."rowOwnerGUID", d."linkType", d."lagDays", d."rowJSON", d."created_at"
+    FROM public.version_project_task_dependencies_table d
+   WHERE d."rowVersionGUID" = p_version;
+
+  INSERT INTO public.project_task_kanban_state_table
+    ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON", "created_at")
+  SELECT s."rowGUID", v_project, s."rowParentGUID", s."orderInList", s."rowJSON", s."created_at"
+    FROM public.version_project_task_kanban_state_table s
+   WHERE s."rowVersionGUID" = p_version
+     AND EXISTS (SELECT 1 FROM public.project_task_table t WHERE t."rowGUID" = s."rowParentGUID");
+
+  PERFORM public.pm_rebuild_dependency_closure(v_project);
+  PERFORM public.pm_recalc_project_progress(v_project);
+  RETURN v_backup;
+END;
+$$;
+
+-- RPC: the only editable field of a version
+CREATE OR REPLACE FUNCTION public.pm_version_set_title(p_version uuid, p_title text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_title text := NULLIF(btrim(COALESCE(p_title, '')), '');
+BEGIN
+  IF v_title IS NULL THEN
+    RAISE EXCEPTION 'pm_gantt: the version title is empty';
+  END IF;
+  UPDATE public.version_project_table
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('versionTitle', v_title)
+   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = auth.uid();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'pm_gantt: version not found';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.pm_version_save(uuid, text)      FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.pm_version_restore(uuid, text)   FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.pm_version_set_title(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pm_version_save(uuid, text)      TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pm_version_restore(uuid, text)   TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pm_version_set_title(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pm_owns_version(uuid)            TO authenticated;
+
+-- ---- Row Level Security: read own versions, delete own versions; writes only through the RPCs
+ALTER TABLE public.version_project_table                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.version_project_task_table              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.version_project_task_dependencies_table ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.version_project_kanban_stage_table      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.version_project_task_kanban_state_table ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.version_project_table, public.version_project_task_table,
+              public.version_project_task_dependencies_table, public.version_project_kanban_stage_table,
+              public.version_project_task_kanban_state_table FROM anon, authenticated;
+GRANT SELECT, DELETE ON public.version_project_table TO authenticated;
+GRANT SELECT ON public.version_project_task_table, public.version_project_task_dependencies_table,
+                public.version_project_kanban_stage_table, public.version_project_task_kanban_state_table TO authenticated;
+
+DROP POLICY IF EXISTS version_project_table_select ON public.version_project_table;
+DROP POLICY IF EXISTS version_project_table_delete ON public.version_project_table;
+CREATE POLICY version_project_table_select ON public.version_project_table FOR SELECT TO authenticated
+  USING ("rowOwnerGUID" = auth.uid());
+CREATE POLICY version_project_table_delete ON public.version_project_table FOR DELETE TO authenticated
+  USING ("rowOwnerGUID" = auth.uid());
+
+DROP POLICY IF EXISTS version_project_task_select ON public.version_project_task_table;
+CREATE POLICY version_project_task_select ON public.version_project_task_table FOR SELECT TO authenticated
+  USING (public.pm_owns_version("rowVersionGUID"));
+DROP POLICY IF EXISTS version_project_task_dep_select ON public.version_project_task_dependencies_table;
+CREATE POLICY version_project_task_dep_select ON public.version_project_task_dependencies_table FOR SELECT TO authenticated
+  USING (public.pm_owns_version("rowVersionGUID"));
+DROP POLICY IF EXISTS version_project_kanban_stage_select ON public.version_project_kanban_stage_table;
+CREATE POLICY version_project_kanban_stage_select ON public.version_project_kanban_stage_table FOR SELECT TO authenticated
+  USING (public.pm_owns_version("rowVersionGUID"));
+DROP POLICY IF EXISTS version_project_task_kanban_state_select ON public.version_project_task_kanban_state_table;
+CREATE POLICY version_project_task_kanban_state_select ON public.version_project_task_kanban_state_table FOR SELECT TO authenticated
+  USING (public.pm_owns_version("rowVersionGUID"));
 
 -- =====================================================================================
 -- 6. Data migrations of older databases (no-ops on a fresh database)

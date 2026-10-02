@@ -1,6 +1,7 @@
 // The Skia-rendered Gantt surface: [ tree | splitter | chart ] sharing ONE viewport.
 // Kanban mode (rightPane='kanban'): [ tree | splitter | PMKanbanDashboard ]; tree rows can be dragged onto
 // the board through view/kanban/kanbanTreeBridge.ts.
+// Versions mode (rightPane='versions'): [ tree | splitter | PMProjectVersionsList ] (kit8/pm/version).
 // On web this module (and everything that imports Skia) is loaded lazily, after
 // CanvasKit has been initialised (see PMGanttSurfaceLoader.web.tsx).
 //
@@ -27,6 +28,9 @@ import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMKanbanDashboard from '../kanban/PMKanbanDashboard';
 import PMKanbanTreeDragGhost from '../kanban/PMKanbanTreeDragGhost';
 import { useKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
+import PMProjectVersionsList from '../../version/view/version/PMProjectVersionsList';
+import { usePMVersionStore } from '../../version/store/store_version';
+import { overlaysRange } from '../../version/model/versionCompare';
 
 const MIN_CHART_WIDTH = 160;
 const RESIZE_SETTLE_MS = 180;
@@ -34,8 +38,8 @@ const RESIZE_SETTLE_MS = 180;
 export interface PMGanttSurfaceProps {
   ownerGUID: string;
   projectGUID: string;
-  /** right pane: the Skia Gantt chart (default) or the Kanban board (tree rows can be dragged onto it) */
-  rightPane?: 'gantt' | 'kanban';
+  /** right pane: the Skia Gantt chart (default), the Kanban board (tree rows can be dragged onto it) or the project versions list */
+  rightPane?: 'gantt' | 'kanban' | 'versions';
   readOnly?: boolean;
   hideTree?: boolean;
 }
@@ -48,6 +52,7 @@ export default function PMGanttSurface({
   hideTree = false,
 }: PMGanttSurfaceProps) {
   const isKanban = rightPane === 'kanban';
+  const isVersions = rightPane === 'versions';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
   const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
@@ -111,6 +116,11 @@ export default function PMGanttSurface({
   const projectStartMs = usePMStore((s) => s.projectStartMs);
   const projectFinishMs = usePMStore((s) => s.projectFinishMs);
   const selectedGUID = usePMStore((s) => s.selectedGUID);
+  // checked project versions (kit8/pm/version) widen the time line so their bars are never cut off
+  const versionOverlays = usePMVersionStore((s) => s.overlays);
+  const versionRange = useMemo(() => (readOnly ? null : overlaysRange(versionOverlays)), [versionOverlays, readOnly]);
+  const rangeStartMs = versionRange ? Math.min(projectStartMs, versionRange.startMs) : projectStartMs;
+  const rangeFinishMs = versionRange ? Math.max(projectFinishMs, versionRange.finishMs) : projectFinishMs;
 
   // phones: the tree takes at most ~45% so the chart stays usable
   const treeWidth = size.w ? Math.round(Math.min(storeTreeWidth, Math.max(160, size.w * 0.45))) : storeTreeWidth;
@@ -125,13 +135,13 @@ export default function PMGanttSurface({
 
   // timeline = project range + padding, starting on a Monday, at least one screen wide
   const timelineStartMs = useMemo(
-    () => mondayOnOrBefore(Math.min(projectStartMs, todayUTC()) - PM_TIMELINE_PAD_DAYS * DAY_MS),
-    [projectStartMs]
+    () => mondayOnOrBefore(Math.min(rangeStartMs, todayUTC()) - PM_TIMELINE_PAD_DAYS * DAY_MS),
+    [rangeStartMs]
   );
   const totalDays = useMemo(() => {
-    const end = Math.max(projectFinishMs, todayUTC()) + PM_TIMELINE_PAD_DAYS * 2 * DAY_MS;
+    const end = Math.max(rangeFinishMs, todayUTC()) + PM_TIMELINE_PAD_DAYS * 2 * DAY_MS;
     return Math.max(diffDaysMs(end, timelineStartMs), Math.ceil(chartWidth / PM_DAY_WIDTH_MIN) + 7);
-  }, [projectFinishMs, timelineStartMs, chartWidth]);
+  }, [rangeFinishMs, timelineStartMs, chartWidth]);
 
   const commitZoom = useCallback((dw: number) => usePMStore.getState().setDayWidth(dw), []);
   const viewport = useGanttViewport({ rowCount, bodyHeight, chartWidth, totalDays, dayWidth, onCommitZoom: commitZoom });
@@ -182,7 +192,7 @@ export default function PMGanttSurface({
   const treeWidthRef = useRef(treeWidth);
   treeWidthRef.current = treeWidth;
   const isKanbanRef = useRef(isKanban);
-  isKanbanRef.current = isKanban;
+  isKanbanRef.current = isKanban || isVersions; // the right pane scrolls natively
   useEffect(() => () => {
     if (zoomCommitTimer.current) clearTimeout(zoomCommitTimer.current);
   }, []);
@@ -253,7 +263,9 @@ export default function PMGanttSurface({
               </GestureDetector>
             </>
           )}
-          {isKanban ? (
+          {isVersions ? (
+            <PMProjectVersionsList ownerGUID={ownerGUID} projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
+          ) : isKanban ? (
             <PMKanbanDashboard
               projectGUID={projectGUID}
               width={chartWidth}

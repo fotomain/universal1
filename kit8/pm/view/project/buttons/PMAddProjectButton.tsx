@@ -5,7 +5,7 @@ import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { usePMTip } from '../../../inner/tooltip/PMTooltip';
 import ButtonApp from '../../../../components/common/ButtonApp';
 
-export default function PMAddProjectButton({ onPress, compact }: { onPress: () => void; compact?: boolean }) {
+export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?: any) => void; compact?: boolean }) {
   const tip = usePMTip('New project');
   return (
     <ButtonApp

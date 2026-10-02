@@ -58,6 +58,9 @@ import SelectDateApp from "../../../../components/common/SelectDateApp";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
+import PMGanttVersionButtons from "../../../version/view/version/PMGanttVersionButtons";
+import PMContextMenu from "../../../inner/menu/PMContextMenu";
+import { usePMVersionStore } from "../../../version/store/store_version";
 
 export type ProjectSettingsTab = 'TabMain' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
@@ -112,6 +115,24 @@ export default function PMRecentProjectsToolbar({
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [createFromTemplateOpen, setCreateFromTemplateOpen] = useState(false);
+  const addBtnRef = useRef<View>(null);
+  const [addMenuCoords, setAddMenuCoords] = useState<{ x: number; y: number } | null>(null);
+
+  const handleOpenAddMenu = (e?: any) => {
+    if (e?.currentTarget?.getBoundingClientRect) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setAddMenuCoords({ x: rect.left, y: rect.bottom + 4 });
+      return;
+    }
+    const pageX = e?.nativeEvent?.pageX ?? e?.pageX;
+    const pageY = e?.nativeEvent?.pageY ?? e?.pageY;
+    if (typeof pageX === 'number' && typeof pageY === 'number' && (pageX > 0 || pageY > 0)) {
+      setAddMenuCoords({ x: pageX, y: pageY + 8 });
+      return;
+    }
+    setAddMenuCoords({ x: Math.max(10, win.width - 220), y: 50 });
+  };
+
   useEffect(() => {
     if (!draft) setKanbanStagesOpen(false);
   }, [draft]);
@@ -449,6 +470,9 @@ export default function PMRecentProjectsToolbar({
         onPress={() => setCreateFromTemplateOpen(true)}
       />
       <PMToolbarDivider color={themeColors.border} />
+      {/* project versions: Save project version · Restore project from version (kit8/pm/version) */}
+      <PMGanttVersionButtons palette={{ text: themeColors.text }} />
+      <PMToolbarDivider color={themeColors.border} />
       <PMIconButton
         testID="pm-project-edit"
         icon="settings"
@@ -459,7 +483,60 @@ export default function PMRecentProjectsToolbar({
         size={PM_SETTINGS_ICON_SIZE}
         onPress={openEdit}
       />
-      <PMAddProjectButton compact={compact} onPress={openNew} />
+      <View ref={addBtnRef} collapsable={false}>
+        <PMAddProjectButton compact={compact} onPress={handleOpenAddMenu} />
+      </View>
+
+      {!!addMenuCoords && (
+        <PMContextMenu
+          testID="pm-project-add-menu"
+          caption="+ Project"
+          x={addMenuCoords.x}
+          y={addMenuCoords.y}
+          width={200}
+          onClose={() => setAddMenuCoords(null)}
+          items={[
+            {
+              testID: "pm-project-add-menu-new",
+              label: "New",
+              icon: "add",
+              onPress: () => {
+                setAddMenuCoords(null);
+                openNew();
+              },
+            },
+            {
+              testID: "pm-project-add-menu-from-template",
+              label: "From template",
+              icon: "library_add",
+              disabled: !selected,
+              onPress: () => {
+                setAddMenuCoords(null);
+                if (!selected) return;
+                setCreateFromTemplateOpen(true);
+              },
+            },
+            {
+              testID: "pm-project-add-menu-from-version",
+              label: "From the version",
+              icon: "history",
+              disabled: !selected,
+              onPress: () => {
+                setAddMenuCoords(null);
+                if (!selected) return;
+                const missing = usePMVersionStore.getState().tablesMissing;
+                if (missing) {
+                  usePMStore.getState().setError(
+                    "Project versions are not installed yet: run kit8/sql/init/done/create_tables.sql in the Supabase SQL editor (it only adds the version_ tables, nothing is deleted), then reload."
+                  );
+                } else {
+                  usePMVersionStore.getState().setRestorePickerOpen(true);
+                }
+              },
+            },
+          ]}
+        />
+      )}
 
       {!!draft && (
         <Modal
