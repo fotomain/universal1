@@ -21,6 +21,24 @@ export interface UxuiState {
   bottomTabsAreVisible: boolean;
   askBeforeDeletePost: boolean;
   snackbar: SnackbarState;
+  /** JSON of the record the user is looking at (project settings, edit task, task page, dependency ...):
+   *  "Share screenshot + JSON" of the app three dots menu sends it together with the screenshot. */
+  currentJSON: UxuiCurrentJSON | null;
+  /** Project dashboard: app bar buttons (kit8/ui/AppBar.tsx -> PMAppBarButtons) */
+  hideProjectToolBar: boolean;
+  hideGanttToolBar: boolean;
+  hideGanttChartNode: boolean;
+  hideTreeNode: boolean;
+  /** counter: every "refresh" press adds 1; the Project dashboard re-reads its data when it changes */
+  refreshProjectData: number;
+}
+
+/** uxui.currentJSON: what the JSON is (shown as the file name / caption) + the JSON itself. */
+export interface UxuiCurrentJSON {
+  /** e.g. 'project', 'task', 'dependency' */
+  kind: string;
+  title?: string;
+  json: any;
 }
 
 const uxuiInitialState: UxuiState = {
@@ -30,6 +48,12 @@ const uxuiInitialState: UxuiState = {
   iconsVariant: 'materialIconsOnly',
   bottomTabsAreVisible: false,
   askBeforeDeletePost: true,
+  currentJSON: null,
+  hideProjectToolBar: false,
+  hideGanttToolBar: false,
+  hideGanttChartNode: false,
+  hideTreeNode: false,
+  refreshProjectData: 0,
   snackbar: {
     visible: false,
     message: '',
@@ -67,6 +91,27 @@ const uxuiSlice = createSlice({
     },
     toggleAskBeforeDeletePost: (state) => {
       state.askBeforeDeletePost = !state.askBeforeDeletePost;
+    },
+    setCurrentJSON: (state, action: PayloadAction<UxuiCurrentJSON | null>) => {
+      state.currentJSON = action.payload;
+    },
+    setHideProjectToolBar: (state, action: PayloadAction<boolean>) => {
+      state.hideProjectToolBar = action.payload;
+    },
+    setHideGanttToolBar: (state, action: PayloadAction<boolean>) => {
+      state.hideGanttToolBar = action.payload;
+    },
+    /** the chart and the tree are never hidden together: hiding one shows the other */
+    setHideGanttChartNode: (state, action: PayloadAction<boolean>) => {
+      state.hideGanttChartNode = action.payload;
+      if (action.payload) state.hideTreeNode = false;
+    },
+    setHideTreeNode: (state, action: PayloadAction<boolean>) => {
+      state.hideTreeNode = action.payload;
+      if (action.payload) state.hideGanttChartNode = false;
+    },
+    refreshProjectData: (state) => {
+      state.refreshProjectData = (state.refreshProjectData || 0) + 1;
     },
     showSnackbar: (
       state,
@@ -129,6 +174,12 @@ export const {
   setBottomTabsAreVisible,
   setAskBeforeDeletePost,
   toggleAskBeforeDeletePost,
+  setCurrentJSON,
+  setHideProjectToolBar,
+  setHideGanttToolBar,
+  setHideGanttChartNode,
+  setHideTreeNode,
+  refreshProjectData,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,

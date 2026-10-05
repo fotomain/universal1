@@ -16,6 +16,14 @@ export interface PMKanbanTreeDrag {
   name: string;
   /** stage (column) under the pointer, null = not over a column */
   overStageGUID: string | null;
+  /** rows dragged together (multi selection: the dragged row is checked) */
+  count?: number;
+}
+
+/** Sorting of ONE Kanban column by a tree column (key = tree column key, e.g. 'name', 'taskStartDate', 'cc_...'). */
+export interface PMKanbanColumnSort {
+  key: string;
+  direction: 'asc' | 'desc';
 }
 
 export interface PMKanbanStoreState {
@@ -30,6 +38,9 @@ export interface PMKanbanStoreState {
   scopeGUID: string | null;
   treeDrag: PMKanbanTreeDrag | null;
   stagesEditorProjectGUID: string | null;
+  /** stage GUID -> sorting of that column (none = the saved card order). Session only. */
+  columnSort: Record<string, PMKanbanColumnSort>;
+  setColumnSort: (stageGUID: string, sort: PMKanbanColumnSort | null) => void;
 
   hydrateCatalog: (rows: PMKanbanStageRow[], missing: boolean) => void;
   hydrateProject: (projectGUID: string, stages: PMProjectKanbanStageRow[], states: PMTaskKanbanStateRow[], missing: boolean) => void;
@@ -50,6 +61,14 @@ export const usePMKanbanStore = create<PMKanbanStoreState>((set, get) => ({
   scopeGUID: null,
   treeDrag: null,
   stagesEditorProjectGUID: null,
+  columnSort: {},
+  setColumnSort: (stageGUID, sort) =>
+    set((st) => {
+      const columnSort = { ...st.columnSort };
+      if (sort) columnSort[stageGUID] = sort;
+      else delete columnSort[stageGUID];
+      return { columnSort };
+    }),
 
   hydrateCatalog: (rows, missing) => set({ catalog: rows, catalogMissing: missing }),
   hydrateProject: (projectGUID, stages, states, missing) => {

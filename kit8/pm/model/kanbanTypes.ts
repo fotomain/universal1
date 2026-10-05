@@ -5,6 +5,8 @@
 //   project_task_kanban_state_table  states   rowOwnerGUID = project · rowParentGUID = task · rowJSON.stageGUID
 //
 // Every task of a project uses the project's stage set. No state row (or an unknown stage) = the FIRST stage.
+// kanbanNoState: a state row with rowJSON.stageGUID = 'kanbanNoState' = the task is in NO column (like empty):
+// it is not shown on the board, the tree's Kanban cell says "No state" and the tree can be filtered by it.
 // The Kanban stage is independent of the task progress % (project_task_table.rowProgress).
 
 export {
@@ -92,6 +94,14 @@ export const PM_KANBAN_DEFAULT_STAGES: Required<Pick<PMKanbanStageJSON, 'stageCo
 
 /** Colors offered in the "Kanban Stages" window. */
 export const PM_KANBAN_STAGE_COLORS = ['#94A3B8', '#6366F1', '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16', '#F59E0B', '#F97316', '#EF4444', '#EC4899', '#A855F7', '#64748B'];
+
+/** rowJSON.stageGUID of a task that is in no Kanban column ("kanbanNoState", like empty). */
+export const PM_KANBAN_NO_STATE = 'kanbanNoState';
+/** Text of the tree's Kanban cell / pickers for kanbanNoState. */
+export const PM_KANBAN_NO_STATE_LABEL = 'No state';
+export const PM_KANBAN_NO_STATE_COLOR = '#9CA3AF';
+
+export const isKanbanNoState = (state: PMTaskKanbanStateRow | undefined | null): boolean => state?.rowJSON?.stageGUID === PM_KANBAN_NO_STATE;
 
 /** Step between two orderInList values written by the Kanban (fractional inserts stay possible). */
 export const PM_KANBAN_ORDER_STEP = 1024;

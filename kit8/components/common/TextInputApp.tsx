@@ -31,6 +31,8 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   style?: any;
   left?: any;
   right?: any;
+  /** no clear (x) icon inside the input (read-only values such as GUIDs) */
+  hideClearIcon?: boolean;
 }
 
 export const TextInputApp: React.FC<TextInputAppProps> = ({
@@ -54,6 +56,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   style,
   left,
   right,
+  hideClearIcon = false,
   ...props
 }) => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
@@ -74,6 +77,9 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
   }
 
+  /** the clear (x) icon: only for a filled, enabled input that did not switch it off */
+  const showClearIcon = currentValue.length > 0 && !disabled && !hideClearIcon;
+
   const handleClear = () => {
     if (onChangeText) {
       onChangeText('');
@@ -90,7 +96,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
 
       const rightProp = right !== undefined
         ? right
-        : (currentValue.length > 0 && !disabled ? (
+        : (showClearIcon ? (
             <PaperTextInput.Icon
               icon="close"
               onPress={handleClear}
@@ -185,7 +191,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {currentValue.length > 0 && !disabled && (
+            {showClearIcon && (
               <IconApp testID="b79dce01-4ac8-9b01-39e5-678901234d16" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
@@ -251,7 +257,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {currentValue.length > 0 && !disabled && (
+            {showClearIcon && (
               <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e17" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
@@ -307,7 +313,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {currentValue.length > 0 && !disabled && (
+            {showClearIcon && (
               <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f18" name="close" size={18} color="#64748b" onPress={handleClear} />
             )}
           </View>
@@ -391,7 +397,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {currentValue.length > 0 && !disabled && (
+            {showClearIcon && (
               <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a19" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>

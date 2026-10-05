@@ -24,8 +24,9 @@
 //                           drag & drop of rows also works on the Task name and # columns.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { Canvas, Group, Path, Rect, RoundedRect, Skia, Text as SkText, rect } from '@shopify/react-native-skia';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Canvas, Group, Path, Rect, RoundedRect, Skia, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
+import { registerScreenshotCanvas, skiaCanvasSnapshotBase64 } from '../../../lib/shareScreenshot';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT, PM_TOOLBAR_HEIGHT, PM_TREE_INDENT } from '../../model/constants';
@@ -42,8 +43,8 @@ import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
 import { usePMKanbanStore } from '../../store/store_kanban';
-import { kanbanStageOfTask, derivedKanbanStage, derivedKanbanProgress } from '../kanban/kanbanModel';
-import { kanbanStageColorOf, kanbanStageProgressOf } from '../../model/kanbanTypes';
+import { kanbanStageForRow, derivedKanbanProgress } from '../kanban/kanbanModel';
+import { kanbanStageColorOf, kanbanStageProgressOf, PM_KANBAN_NO_STATE_COLOR, PM_KANBAN_NO_STATE_LABEL } from '../../model/kanbanTypes';
 import PMInlineCellEditor from './inline/PMInlineCellEditor';
 import {
   PMTreeColumnKey,
@@ -78,6 +79,21 @@ const HBAR_GRAB_H = 12;
 /** Fingers need a wider grab zone around a header separator than a mouse. */
 const RESIZE_GRAB = IS_WEB ? PM_TREE_RESIZE_GRAB : 12;
 const BOOL_BOX = 12;
+/** Width of the multi-selection column (round check boxes) - always the FIRST column, left of the grid. */
+export const PM_TREE_SELECT_WIDTH = 30;
+
+function RoundCheck({ checked, partial, color, muted }: { checked: boolean; partial?: boolean; color: string; muted: string }) {
+  return (
+    <View style={[selectStyles.circle, { borderColor: checked || partial ? color : muted, backgroundColor: checked ? color : 'transparent' }]}>
+      {checked ? <Text style={selectStyles.mark}>✓</Text> : partial ? <View style={[selectStyles.dash, { backgroundColor: color }]} /> : null}
+    </View>
+  );
+}
+const selectStyles = StyleSheet.create({
+  circle: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  mark: { color: '#fff', fontSize: 11, fontWeight: '800', lineHeight: 13 },
+  dash: { width: 8, height: 2, borderRadius: 1 },
+});
 
 /** Editable cell of a column (null = Task name / # column). */
 const cellFieldOf = (key: PMTreeColumnKey | null): PMCellField | null =>
@@ -107,9 +123,16 @@ interface Props {
   crud: PMCrud;
   /** Kanban mode: dragging a row to the right of the tree drops it onto the board (view/kanban/kanbanTreeBridge.ts) */
   kanbanBridge?: PMKanbanTreeBridge;
+  /** uxui.hideGanttToolBar: no tree toolbar (the chart hides its bar too, so the rows stay aligned) */
+  hideToolbar?: boolean;
 }
 
-export default function PMProjectTasksTree({ viewport, width, height, palette, crud, kanbanBridge }: Props) {
+export default function PMProjectTasksTree({ viewport, width: paneWidth, height, palette, crud, kanbanBridge, hideToolbar = false }: Props) {
+  /** the grid (Skia canvas) starts after the multi-selection column */
+  const width = Math.max(40, paneWidth - PM_TREE_SELECT_WIDTH);
+  const TB = hideToolbar ? 0 : PM_TOOLBAR_HEIGHT;
+  const skiaRef = useCanvasRef();
+  const checkedGUIDs = usePMStore((s) => s.checkedGUIDs);
   const fonts = usePMFonts();
   const visibleRows = usePMStore((s) => s.visibleRows);
   const tasksById = usePMStore((s) => s.tasksById);
@@ -138,7 +161,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   /** uxuiSettings.projectTreeContextCommandsMode: row commands in a right-click / long-press menu instead of the hover panel */
   const rowMenuMode = usePMStore((s) => s.projectTreeContextCommandsMode === 'onRightClickMenuMode');
 
-  const canvasH = Math.max(0, height - PM_TOOLBAR_HEIGHT);
+  const canvasH = Math.max(0, height - TB);
   // ---- grid columns (tree/columns): saved order + widths, "#" switch, custom columns, responsive hiding ----
   /** column being resized right now (live, saved on release) */
   const [liveWidth, setLiveWidth] = useState<{ key: PMTreeColumnKey; width: number } | null>(null);
@@ -296,11 +319,10 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
 
       let kanban: { text: string; color: string; bgColor: string; pillX: number; pillW: number; dotX: number; textX: number } | null = null;
       if (kanbanCol) {
-        const stage = summary || hasChildren
-          ? derivedKanbanStage(guid, tasksById, tree, kanbanStages, kanbanStates) ?? (kanbanStages.length ? kanbanStages[0] : null)
-          : kanbanStages.find((s) => s.rowGUID === kanbanStageOfTask(guid, kanbanStages, kanbanStates)) ?? (kanbanStages.length ? kanbanStages[0] : null);
-        const stageName = stage?.rowJSON?.stageName || (kanbanStages.length ? '—' : 'None');
-        const stageColor = kanbanStageColorOf(stage?.rowJSON);
+        // null = kanbanNoState (the task is in no column)
+        const stage = kanbanStageForRow(guid, tasksById, tree, kanbanStages, kanbanStates);
+        const stageName = stage ? stage.rowJSON?.stageName || '—' : kanbanStages.length ? PM_KANBAN_NO_STATE_LABEL : 'None';
+        const stageColor = stage ? kanbanStageColorOf(stage.rowJSON) : PM_KANBAN_NO_STATE_COLOR;
         const maxTextW = Math.max(10, kanbanCol.w - 28);
         const ellipsized = ellipsize(stageName, maxTextW, measureSmall);
         const textW = measureSmall(ellipsized);
@@ -720,7 +742,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       const y = e.clientY - r.top;
       if (y < 0) return;
       if (y >= PM_SCALE_HEIGHT) {
-        if (!rowMenuMode) return;
+        // right-click a row = PMTaskRowMenu in both command modes (the hover panel has the same commands)
         const idx = Math.floor((y - PM_SCALE_HEIGHT + scrollY.value) / PM_ROW_HEIGHT);
         if (idx < 0 || idx >= usePMStore.getState().visibleRows.length) return;
         e.preventDefault();
@@ -885,7 +907,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         if (dragFrom.value < 0) return;
         dragY.value += e.changeY;
         // Kanban: to the right of the tree the row is dragged onto the board (surface coords: canvas is below the toolbar)
-        if (bridge && kanbanBridgeMove(bridge, e.x, e.y + PM_TOOLBAR_HEIGHT, dragFrom.value)) return;
+        if (bridge && kanbanBridgeMove(bridge, e.x + PM_TREE_SELECT_WIDTH, e.y + TB, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
         dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
       })
@@ -952,7 +974,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
     /** touch + onRightClickMenuMode: long-press a row and release without moving = PMTaskRowMenu
      *  (long-press and drag still reorders the row) */
     const rowMenu = Gesture.LongPress()
-      .enabled(rowMenuMode && !IS_WEB)
+      .enabled(!IS_WEB)
       .minDuration(450)
       .maxDistance(12)
       .onTouchesDown((e, m) => {
@@ -996,8 +1018,8 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
         dragY.value += e.changeY;
         if (bridge) {
           // the handle is the panel's last button: its surface point + the finger's translation
-          const handleX = treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
-          const handleY = PM_TOOLBAR_HEIGHT + PM_SCALE_HEIGHT + handleStartY.value - handleStartScroll.value;
+          const handleX = PM_TREE_SELECT_WIDTH + treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
+          const handleY = TB + PM_SCALE_HEIGHT + handleStartY.value - handleStartScroll.value;
           if (kanbanBridgeMove(bridge, handleX + e.translationX, handleY + e.translationY, dragFrom.value)) return;
         }
         const contentY = handleStartY.value + e.translationY + (scrollY.value - handleStartScroll.value);
@@ -1033,7 +1055,34 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB]);
+
+  // ---- multi selection column (round check boxes): rows follow the vertical scroll on the UI thread ----
+  const selectRowsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -scrollY.value }] }));
+  const checkedCount = useMemo(() => Object.keys(checkedGUIDs).length, [checkedGUIDs]);
+  const allChecked = visibleRows.length > 0 && visibleRows.every((g) => checkedGUIDs[g]);
+  const toggleAllChecked = useCallback(() => {
+    const s = usePMStore.getState();
+    const all = s.visibleRows.length > 0 && s.visibleRows.every((g) => s.checkedGUIDs[g]);
+    if (all || (Object.keys(s.checkedGUIDs).length > 0 && !s.visibleRows.some((g) => !s.checkedGUIDs[g]))) s.clearChecked();
+    else s.setChecked(s.visibleRows, true);
+  }, []);
+  const selectScroll = useMemo(
+    () =>
+      Gesture.Pan()
+        .minDistance(6)
+        .onChange((e) => {
+          'worklet';
+          scrollY.value = clampValue(scrollY.value - e.changeY, 0, maxScrollY(rowCount.value, bodyH.value));
+        }),
+    [scrollY, rowCount, bodyH]
+  );
+
+  // "Share screenshot": html2canvas cannot read a Skia (WebGL) canvas back - give it a snapshot
+  useEffect(() => {
+    if (!IS_WEB) return;
+    return registerScreenshotCanvas('pm-tree', { element: () => canvasBoxRef.current, snapshot: () => skiaCanvasSnapshotBase64(skiaRef) });
+  }, [skiaRef]);
 
   const panelStyle = useAnimatedStyle(() => {
     const top = PM_SCALE_HEIGHT + panelIndex * PM_ROW_HEIGHT - scrollY.value;
@@ -1049,17 +1098,50 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
   const cursor = headerCursor || (hoverCellField === 'kanban' ? 'pointer' : hoverInCells ? 'text' : 'default');
 
   return (
-    <View style={{ width, height, backgroundColor: palette.surface }}>
+    <View style={{ width: paneWidth, height, backgroundColor: palette.surface }}>
       {/* ---- container CRUD panel ---- */}
-      <PMTreeToolbar crud={crud} palette={palette} />
+      {!hideToolbar && <PMTreeToolbar crud={crud} palette={palette} />}
 
+      <View style={{ flexDirection: 'row', width: paneWidth, height: canvasH }}>
+      {/* ---- multi selection: round check box = FIRST column (stages and tasks) ---- */}
+      <GestureDetector gesture={selectScroll}>
+        <View testID="pm-tree-select-column" style={{ width: PM_TREE_SELECT_WIDTH, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+          <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: PM_TREE_SELECT_WIDTH, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
+            <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PM_TREE_SELECT_WIDTH }, selectRowsStyle]}>
+              {rows.map((r) => (
+                <Pressable
+                  key={r.guid}
+                  testID={`pm-tree-check-${r.guid}`}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: !!checkedGUIDs[r.guid] }}
+                  accessibilityLabel={`Select ${r.name}`}
+                  onPress={() => usePMStore.getState().toggleChecked(r.guid)}
+                  style={{ position: 'absolute', left: 0, top: r.y, width: PM_TREE_SELECT_WIDTH, height: PM_ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: checkedGUIDs[r.guid] ? palette.selected : 'transparent' }}
+                >
+                  <RoundCheck checked={!!checkedGUIDs[r.guid]} color={palette.primary} muted={palette.textMuted} />
+                </Pressable>
+              ))}
+            </Animated.View>
+          </View>
+          <Pressable
+            testID="pm-tree-check-all"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: allChecked }}
+            accessibilityLabel={checkedCount ? `Clear the selection (${checkedCount})` : 'Select all rows'}
+            onPress={toggleAllChecked}
+            style={{ height: PM_SCALE_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}
+          >
+            <RoundCheck checked={allChecked} partial={checkedCount > 0} color={palette.primary} muted={palette.textMuted} />
+          </Pressable>
+        </View>
+      </GestureDetector>
       <GestureDetector gesture={gesture}>
         <View
           ref={canvasBoxRef}
           style={[{ width, height: canvasH, overflow: 'hidden' }, IS_WEB ? ({ cursor } as any) : null]}
           collapsable={false}
         >
-          <Canvas style={{ width, height: canvasH }}>
+          <Canvas ref={skiaRef} style={{ width, height: canvasH }}>
             <Rect x={0} y={0} width={width} height={canvasH} color={palette.surface} />
 
             {/* ---- rows (virtualized, translated on the UI thread) ---- */}
@@ -1194,6 +1276,7 @@ export default function PMProjectTasksTree({ viewport, width, height, palette, c
           )}
         </View>
       </GestureDetector>
+      </View>
     </View>
   );
 }

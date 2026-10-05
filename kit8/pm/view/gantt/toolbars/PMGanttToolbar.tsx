@@ -17,6 +17,7 @@ import PMGanttScaleButtons from '../buttons/PMGanttScaleButtons';
 import PMGanttViewToggles from '../buttons/PMGanttViewToggles';
 import PMGanttLinkModeHint from './PMGanttLinkModeHint';
 import GanttToNetworkViewToggleButtons from './GanttToNetworkViewToggleButtons';
+import PMGanttPeriodButton from '../buttons/PMGanttPeriodButton';
 
 export interface PMGanttToolbarActions {
   zoomBy: (factor: number) => void;
@@ -47,6 +48,7 @@ export default function PMGanttToolbar({
           <PMToolbarDivider color={palette.border} />
           <PMGanttZoomButtons palette={palette} onZoomOut={() => actions.zoomBy(1 / 1.5)} onZoomIn={() => actions.zoomBy(1.5)} onFit={actions.fit} />
           <PMToolbarDivider color={palette.border} />
+          <PMGanttPeriodButton palette={palette} />
           <PMIconButton testID="pm-gantt-today" icon="today" label="Today" color={palette.text} onPress={actions.goToday} />
           <PMToolbarDivider color={palette.border} />
           <PMGanttScaleButtons palette={palette} activeUnit={activeUnit} onZoom={actions.setZoom} />

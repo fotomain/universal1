@@ -8,7 +8,12 @@
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
 // Undo: PMUndoProvider (expo-sqlite on native) keeps one undoGanttAction per action.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSafeSelector } from '../../../redux/storeRef';
+import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
+import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
+import { usePMKanbanStore } from '../../store/store_kanban';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -90,6 +95,70 @@ function PMProjectDashboardInner() {
 
   useKeyboardShortcuts(crud);
 
+  // ---- app bar buttons (kit8/ui/AppBar.tsx) -> Redux uxuiState ----
+  const hideProjectToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideProjectToolBar);
+  const hideGanttToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideGanttToolBar);
+  const hideGanttChartNode = useSafeSelector((s) => !!s?.uxuiState?.hideGanttChartNode);
+  const hideTreeNode = useSafeSelector((s) => !!s?.uxuiState?.hideTreeNode);
+  /** uxui.refreshProjectData: a counter - every change re-reads projects, the project, Kanban, settings, versions */
+  const refreshNonce = useSafeSelector((s) => Number(s?.uxuiState?.refreshProjectData) || 0);
+  const queryClient = useQueryClient();
+  const [seenRefresh, setSeenRefresh] = useState(refreshNonce);
+  useEffect(() => {
+    if (refreshNonce === seenRefresh) return;
+    setSeenRefresh(refreshNonce);
+    // every PM query key starts with 'pm' (crud/shared/queryShared.ts pmKeys)
+    queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && String(q.queryKey[0]).startsWith('pm') });
+    if (selectedProjectGUID) setAwaitingProject(selectedProjectGUID);
+  }, [refreshNonce, seenRefresh, queryClient, selectedProjectGUID]);
+
+  // ---- uxui.currentJSON ("Share screenshot + JSON"): the selected project + the selected task ----
+  const selectedTaskGUID = usePMStore((s) => s.selectedGUID);
+  const currentProjectRow = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID] : undefined));
+  const currentTaskRow = usePMStore((s) => (s.selectedGUID ? s.tasksById[s.selectedGUID] : undefined));
+  useUxuiCurrentJSON(
+    currentProjectRow
+      ? { kind: 'project', title: currentProjectRow.rowJSON?.name || 'project', json: { project: currentProjectRow, selectedTask: currentTaskRow ?? null } }
+      : null
+  );
+
+  // ---- main FAB (FABProvider): the CRUD commands of this screen, for the current view + selection ----
+  const selectedIsLeaf = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID] && !(s.tree.childrenById[s.selectedGUID]?.length)));
+  const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
+  const undoCount = usePMStore((s) => s.undoCount);
+  const fabActions = useMemo((): FABContextAction[] | null => {
+    if (!ownerGUID) return null;
+    const sel = selectedTaskGUID && currentTaskRow ? selectedTaskGUID : null;
+    const a: FABContextAction[] = [];
+    if (!selectedProjectGUID) {
+      a.push({ icon: 'plus', label: 'New project', onPress: () => usePMStore.getState().openProjectSettings('new') });
+      return a;
+    }
+    const isKanbanView = ganttVsNetworkView === 'showKanbanView';
+    // nearest to the FAB first (the list grows upwards): the most used commands
+    a.push({ icon: 'plus', label: sel ? 'Add task (after / inside the selected row)' : 'Add task', onPress: () => crud.createTask(sel) });
+    a.push({ icon: 'folder-plus-outline', label: 'Add stage', onPress: () => (sel ? crud.createStageBelow(sel) : crud.createStage(null)) });
+    a.push({ icon: 'flag-outline', label: 'Add milestone', onPress: () => crud.createTask(sel, 'milestone') });
+    if (sel) {
+      a.push({ icon: 'pencil-outline', label: 'Edit', onPress: () => crud.edit(sel) });
+      a.push({ icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(sel) });
+      a.push({ icon: 'calendar-plus', label: 'Add to Google Calendar', onPress: () => crud.addToGoogleCalendar(sel) });
+      a.push({ icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(sel) });
+      a.push({ icon: 'open-in-new', label: 'Open task info', onPress: () => crud.openInfo(sel) });
+      if (isKanbanView && selectedIsLeaf) a.push({ icon: 'layers-off-outline', label: 'Kanban: to "No state"', onPress: () => kanban.clearTreeRowKanbanState(sel) });
+      a.push({ icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(sel) });
+    }
+    if (checkedCount > 0) {
+      a.push({ icon: 'delete-sweep-outline', label: `Delete the ${checkedCount} selected rows`, color: themeColors.error, onPress: () => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs)) });
+      a.push({ icon: 'checkbox-multiple-blank-circle-outline', label: 'Clear the selection', onPress: () => usePMStore.getState().clearChecked() });
+    }
+    if (isKanbanView) a.push({ icon: 'view-column-outline', label: 'Kanban Stages', onPress: () => usePMKanbanStore.getState().openStagesEditor(selectedProjectGUID) });
+    if (undoCount > 0) a.push({ icon: 'undo', label: 'Undo', onPress: () => crud.undoGanttAction() });
+    a.push({ icon: 'cog-outline', label: 'Project settings', onPress: () => usePMStore.getState().openProjectSettings(selectedProjectGUID) });
+    return a;
+  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, selectedIsLeaf, checkedCount, undoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
+  useFABContextActions('pm-project-dashboard', fabActions);
+
   // The Gantt | Network view follows the user across projects (store.selectProject keeps it);
   // save it to the newly selected project too, so a reload opens that project in the same view.
   useEffect(() => {
@@ -129,7 +198,7 @@ function PMProjectDashboardInner() {
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.background }]}>
-      <PMRecentProjectsToolbar ownerGUID={ownerGUID} />
+      <PMRecentProjectsToolbar ownerGUID={ownerGUID} hidden={hideProjectToolBar} />
 
       {!!lastError && (
         <Pressable onPress={() => usePMStore.getState().setError(null)} style={[styles.banner, { backgroundColor: `${themeColors.error}18`, borderColor: themeColors.error }]}>
@@ -190,6 +259,9 @@ function PMProjectDashboardInner() {
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
               rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : 'gantt'}
+              hideTree={hideTreeNode}
+              hideRight={hideGanttChartNode}
+              hideToolbars={hideGanttToolBar}
             />
           )}
           {rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (

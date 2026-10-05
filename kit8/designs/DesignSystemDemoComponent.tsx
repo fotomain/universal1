@@ -38,7 +38,7 @@ export const DesignSystemDemoComponent: React.FC = () => {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: themeColors.background }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
     >
       {/* Header */}
       <TextApp variant="heading" style={{ marginBottom: 4 }}>

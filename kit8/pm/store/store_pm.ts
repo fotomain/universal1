@@ -146,6 +146,37 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   focusRequest: null,
   undoCount: 0,
   undoLabel: null,
+  checkedGUIDs: {},
+  toggleChecked: (rowGUID) =>
+    set((s) => {
+      const next = { ...s.checkedGUIDs };
+      if (next[rowGUID]) delete next[rowGUID];
+      else next[rowGUID] = true;
+      return { checkedGUIDs: next };
+    }),
+  setChecked: (rowGUIDs, checked) =>
+    set((s) => {
+      const next = { ...s.checkedGUIDs };
+      for (const g of rowGUIDs) {
+        if (checked) next[g] = true;
+        else delete next[g];
+      }
+      return { checkedGUIDs: next };
+    }),
+  clearChecked: () => {
+    if (Object.keys(get().checkedGUIDs).length) set({ checkedGUIDs: {} });
+  },
+  ganttPeriod: null,
+  setGanttPeriod: (period) =>
+    set((s) => ({
+      ganttPeriod:
+        period && Number.isFinite(period.startMs) && Number.isFinite(period.finishMs) && period.finishMs > period.startMs
+          ? { startMs: period.startMs, finishMs: period.finishMs, nonce: (s.ganttPeriod?.nonce ?? 0) + 1 }
+          : null,
+    })),
+  ganttPeriodOpen: false,
+  setGanttPeriodOpen: (open) => set({ ganttPeriodOpen: open }),
+  refreshTreeRows: () => set((state) => rowsOf(state)),
 
   setProjects: (projects) =>
     set((state) => {
@@ -209,6 +240,9 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             treeFilterMatchCount: null,
             undoCount: 0,
             undoLabel: null,
+            checkedGUIDs: {},
+            ganttPeriod: null,
+            ganttPeriodOpen: false,
             recentProjectGUIDs:
               rowGUID && !state.recentProjectGUIDs.includes(rowGUID) ? [...state.recentProjectGUIDs, rowGUID] : state.recentProjectGUIDs,
           }
@@ -227,6 +261,10 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         tasksById,
         selectedGUID: state.selectedGUID && tasksById[state.selectedGUID] ? state.selectedGUID : null,
         hoveredGUID: state.hoveredGUID && tasksById[state.hoveredGUID] ? state.hoveredGUID : null,
+        // checked rows that were deleted (here or in another browser) leave the multi selection
+        ...(Object.keys(state.checkedGUIDs).some((g) => !tasksById[g])
+          ? { checkedGUIDs: Object.fromEntries(Object.keys(state.checkedGUIDs).filter((g) => tasksById[g]).map((g) => [g, true as const])) }
+          : {}),
         ...derive(next, projectGUID),
       };
     }),

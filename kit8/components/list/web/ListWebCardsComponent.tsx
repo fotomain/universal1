@@ -940,7 +940,9 @@ export function ListWebCardsComponent({
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      // width 100% + stretch: a parent with alignItems "center" must never make the list wider than the screen
+      // (phones: the list was cut off at the left edge)
+      style={{ flex: 1, width: "100%", maxWidth: "100%", alignSelf: "stretch", backgroundColor: theme.colors.background }}
       contentContainerStyle={[styles.container, { maxWidth: crudListWidth, width: "100%" }]}
       keyboardShouldPersistTaps="handled"
     >

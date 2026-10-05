@@ -59,7 +59,7 @@ export const FABColorSelectorComponent: React.FC = () => {
         titleStyle={{ fontWeight: '700', fontSize: 16, color: paperTheme.colors.primary }}
         subtitle="Select a custom color palette for all FAB buttons"
       />
-      <Card.Content>
+      <Card.Content style={{ paddingBottom: 16 }}>
         {/* Color Swatches Grid */}
         <View style={styles.swatchGrid}>
           {FAB_PRESETS.map((preset, idx) => {

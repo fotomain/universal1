@@ -29,6 +29,13 @@ import { PMKanbanCardDragData } from './PMKanbanCard';
 import { buildKanbanBoard, derivedKanbanStage, isKanbanCardRow } from './kanbanModel';
 import { kanbanColumnWidth, PM_KANBAN_GAP, PM_KANBAN_PADDING } from './kanbanLayout';
 import { PMKanbanTreeBridge } from './kanbanTreeBridge';
+import PMContextMenu from '../../inner/menu/PMContextMenu';
+import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
+import { compareFilterValues, treeCellFilterValue, treeColumnDataType } from '../tree/filter/treeColumnFilter';
+import { treeColumnTitle } from '../tree/columns/treeColumns';
+
+/** Tree columns a Kanban column can be sorted by (in the tree's column order; custom columns too). */
+const SORTABLE_BUILTIN = ['name', 'wbs', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanbanStageProgressPercent'];
 
 export interface PMKanbanDashboardProps {
   projectGUID: string;
@@ -41,6 +48,8 @@ export interface PMKanbanDashboardProps {
   bridge?: PMKanbanTreeBridge;
   /** x of the board inside PMGanttSurface (tree + splitter) */
   boardLeft?: number;
+  /** uxui.hideGanttToolBar: no Kanban bar */
+  hideToolbar?: boolean;
 }
 
 type DragPayload = { x: number; y: number; tx: number; ty: number };
@@ -72,7 +81,7 @@ function isInside(guid: string, ancestor: string, parentById: Record<string, str
   return false;
 }
 
-export default function PMKanbanDashboard({ projectGUID, width, height, palette, crud, kanban, bridge, boardLeft = 0 }: PMKanbanDashboardProps) {
+export default function PMKanbanDashboard({ projectGUID, width, height, palette, crud, kanban, bridge, boardLeft = 0, hideToolbar = false }: PMKanbanDashboardProps) {
   useReadKanbanStageCatalogQuery(); // keeps the shared catalog live (realtime) for the Kanban Stages window
 
   const tasksById = usePMStore((s) => s.tasksById);
@@ -87,6 +96,12 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
   const scopeGUID = usePMKanbanStore((s) => s.scopeGUID);
   const treeDragOver = usePMKanbanStore((s) => s.treeDrag?.overStageGUID ?? null);
   const setScope = usePMKanbanStore((s) => s.setScope);
+  const columnSort = usePMKanbanStore((s) => s.columnSort);
+  const checkedGUIDs = usePMStore((s) => s.checkedGUIDs);
+  const treeColumnsOrder = usePMStore((s) => s.treeColumnsOrder);
+  const customColumns = usePMStore((s) => s.customColumns);
+  const noStateFilterOn = usePMStore((s) => s.treeColumnsFilters.kanban?.filterVariantForColumn === 'isEmpty');
+  const kanbanFilterActive = usePMStore((s) => !!s.treeColumnsFilters.kanban || !!s.treeColumnsFilters.kanbanStageProgressPercent || s.treeColumnSort?.key === 'kanban' || s.treeColumnSort?.key === 'kanbanStageProgressPercent');
 
   const readOnly = tablesMissing;
   const stages = tablesMissing ? DEFAULT_STAGE_ROWS : storeStages;
@@ -94,6 +109,37 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
     () => buildKanbanBoard({ tasksById, tree, schedule, stages, statesByTask: tablesMissing ? {} : statesByTask, scopeGUID }),
     [tasksById, tree, schedule, stages, statesByTask, tablesMissing, scopeGUID]
   );
+  // the tree's Kanban filter / sort reads the Kanban store: re-apply it when the states change
+  useEffect(() => {
+    if (kanbanFilterActive) usePMStore.getState().refreshTreeRows();
+  }, [kanbanFilterActive, statesByTask, storeStages]);
+
+  // ---- sorting of single columns by a tree column (store_kanban.columnSort) ----
+  const sortFields = useMemo(() => {
+    const keys = [...treeColumnsOrder.filter((k) => SORTABLE_BUILTIN.includes(k) || customColumns.some((c) => c.key === k))];
+    for (const k of SORTABLE_BUILTIN) if (!keys.includes(k as any)) keys.push(k as any);
+    return keys.map((key) => ({ key: key as string, title: key === 'wbs' ? '# (hierarchy number)' : key === 'progress' ? 'Progress %' : treeColumnTitle(key, customColumns) }));
+  }, [treeColumnsOrder, customColumns]);
+  const columns = useMemo(() => {
+    const ctx = { tasksById, schedule, tree, customColumns, kanbanStages: stages, kanbanStates: statesByTask };
+    return board.columns.map((col) => {
+      const sort = columnSort[col.stage.rowGUID];
+      const type = sort ? treeColumnDataType(sort.key, customColumns) : null;
+      if (!sort || !type) return col;
+      const t: any = String(type).toLowerCase();
+      const dir = sort.direction === 'desc' ? -1 : 1;
+      const keyed = col.cards.map((c, i) => ({ c, i, v: treeCellFilterValue(sort.key, c.guid, ctx) }));
+      const empty = (v: any) => v === null || v === undefined || v === '';
+      keyed.sort((a, b) => {
+        const ea = empty(a.v);
+        const eb = empty(b.v);
+        if (ea || eb) return ea === eb ? a.i - b.i : ea ? 1 : -1; // empty values last
+        return dir * compareFilterValues(a.v as any, b.v as any, t) || a.i - b.i;
+      });
+      return { ...col, cards: keyed.map((k) => k.c) };
+    });
+  }, [board, columnSort, tasksById, schedule, tree, customColumns, stages, statesByTask]);
+
   const scopeRow = scopeGUID ? tasksById[scopeGUID] : undefined;
   const scopeStage = useMemo(
     () => (scopeRow && !isKanbanCardRow(scopeRow, tree) ? derivedKanbanStage(scopeRow.rowGUID, tasksById, tree, stages, statesByTask) : null),
@@ -146,15 +192,35 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
 
   const boardRef = useRef(board);
   boardRef.current = board;
+  const rootRef = useRef<View>(null);
+  const droppedOnColumn = useRef(false);
+
+  /** Cards moved together with `guid`: every checked card when it is checked (multi selection). */
+  const cardsWith = useCallback((guid: string): string[] => {
+    const s = usePMStore.getState();
+    if (!s.checkedGUIDs[guid]) return [guid];
+    const leaves = new Set<string>();
+    for (const g of Object.keys(s.checkedGUIDs)) for (const l of isKanbanCardRow(s.tasksById[g], s.tree) ? [g] : []) leaves.add(l);
+    leaves.add(guid);
+    return Array.from(leaves).sort((a, b) => (s.rowIndexById[a] ?? 1e9) - (s.rowIndexById[b] ?? 1e9));
+  }, []);
 
   const onDropCard = useCallback(
     async (data: PMKanbanCardDragData, stageGUID: string) => {
+      droppedOnColumn.current = true;
       const col = boardRef.current.columns.find((c) => c.stage.rowGUID === stageGUID);
       if (!col) return;
+      const moving = cardsWith(data.guid);
+      if (moving.length > 1) {
+        // multi selection: the checked cards go to the end of the column, like one task
+        kanban.moveTasksToStage(moving, stageGUID);
+        return;
+      }
       const drag = lastDrag.current;
+      const sorted = !!usePMKanbanStore.getState().columnSort[stageGUID];
       const others = col.cards.filter((c) => c.guid !== data.guid);
       let index: number | undefined;
-      if (drag && others.length) {
+      if (drag && others.length && !sorted) {
         const [self, ...boxes] = await Promise.all([measureBox(cardRefs.current.get(data.guid)), ...others.map((c) => measureBox(cardRefs.current.get(c.guid)))]);
         const centerY = drag.y + drag.ty + (self?.height ?? 80) / 2;
         const i = boxes.findIndex((b) => !!b && centerY < b.pageY + b.height / 2);
@@ -163,20 +229,31 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
       }
       kanban.moveTasksToStage([data.guid], stageGUID, index);
     },
-    [kanban]
+    [kanban, cardsWith]
   );
   const onDragStart = useCallback((data: PMKanbanCardDragData) => {
     lastDrag.current = null;
+    droppedOnColumn.current = false;
     setDraggingStage(data.stageGUID);
     usePMStore.getState().setSelected(data.guid);
   }, []);
-  const onDragEnd = useCallback(() => {
-    // after the library has processed the drop: remount the cards (drops the Draggable translation)
-    setTimeout(() => {
-      setDraggingStage(null);
-      setEpoch((e) => e + 1);
-    }, 60);
-  }, []);
+  const onDragEnd = useCallback(
+    (data?: PMKanbanCardDragData) => {
+      // after the library has processed the drop: remount the cards (drops the Draggable translation)
+      setTimeout(() => {
+        setDraggingStage(null);
+        setEpoch((e) => e + 1);
+        // released over the TREE (left of the board), not on a column: the card(s) leave the board = kanbanNoState
+        const drag = lastDrag.current;
+        const node: any = rootRef.current;
+        if (!data || droppedOnColumn.current || !drag || !node?.measureInWindow || boardLeft <= 0) return;
+        node.measureInWindow((bx: number) => {
+          if (drag.x + drag.tx + 40 < bx) kanban.clearTasksKanbanState(cardsWith(data.guid));
+        });
+      }, 60);
+    },
+    [kanban, cardsWith, boardLeft]
+  );
 
   const onSelect = useCallback((guid: string) => usePMStore.getState().revealRow(guid), []);
   const onEdit = useCallback((guid: string) => crud.edit(guid), [crud]);
@@ -185,10 +262,76 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
       const b = boardRef.current;
       const ci = b.columnOfTask[guid];
       const target = ci === undefined ? undefined : b.columns[ci + dir];
-      if (target) kanban.moveTasksToStage([guid], target.stage.rowGUID);
+      if (target) kanban.moveTasksToStage(cardsWith(guid), target.stage.rowGUID);
     },
-    [kanban]
+    [kanban, cardsWith]
   );
+  const onToggleChecked = useCallback((guid: string) => usePMStore.getState().toggleChecked(guid), []);
+
+  // ---- column menus: ⋮ / right-click / long-press of a header, and the sort button ----
+  const [colMenu, setColMenu] = useState<{ kind: 'menu' | 'sort'; stageGUID: string; x: number; y: number } | null>(null);
+  const onOpenMenu = useCallback((stageGUID: string, x: number, y: number) => setColMenu({ kind: 'menu', stageGUID, x, y }), []);
+  const onOpenSort = useCallback((stageGUID: string, x: number, y: number) => setColMenu({ kind: 'sort', stageGUID, x, y }), []);
+  const colMenuItems = useMemo((): PMMenuItemProps[] => {
+    if (!colMenu) return [];
+    const close = () => setColMenu(null);
+    const col = columns.find((c) => c.stage.rowGUID === colMenu.stageGUID);
+    const guids = col ? col.cards.map((c) => c.guid) : [];
+    const pm = usePMStore.getState();
+    const kst = usePMKanbanStore.getState();
+    const sort = columnSort[colMenu.stageGUID];
+    const sortItems: PMMenuItemProps[] = [
+      { testID: 'pm-kanban-sort-none', label: 'Saved card order', icon: 'drag_indicator', checked: !sort, onPress: () => (close(), kst.setColumnSort(colMenu.stageGUID, null)) },
+      ...sortFields.map((f) => ({
+        testID: `pm-kanban-sort-${f.key}`,
+        label: `${f.title}${sort?.key === f.key ? (sort.direction === 'asc' ? '  ↑' : '  ↓') : ''}`,
+        icon: sort?.key === f.key && sort.direction === 'asc' ? 'arrow_downward' : 'arrow_upward',
+        checked: sort?.key === f.key,
+        // pressing the sorted field again turns the direction round
+        onPress: () => (close(), kst.setColumnSort(colMenu.stageGUID, { key: f.key, direction: sort?.key === f.key && sort.direction === 'asc' ? 'desc' : 'asc' })),
+      })),
+    ];
+    if (colMenu.kind === 'sort') return sortItems;
+    const allChecked = guids.length > 0 && guids.every((g) => pm.checkedGUIDs[g]);
+    const others = board.columns.filter((c) => c.stage.rowGUID !== colMenu.stageGUID);
+    return [
+      {
+        testID: 'pm-kanban-col-select-all',
+        label: allChecked ? 'Deselect all tasks' : 'Select all tasks',
+        icon: allChecked ? 'remove_done' : 'done_all',
+        disabled: !guids.length,
+        onPress: () => (close(), pm.setChecked(guids, !allChecked)),
+      },
+      {
+        testID: 'pm-kanban-col-move-all',
+        label: 'Move all tasks to…',
+        icon: 'drive_file_move',
+        disabled: !guids.length || !others.length,
+        onPress: () => {},
+        submenu: others.map((c) => ({
+          testID: `pm-kanban-col-move-all-${c.stage.rowGUID}`,
+          label: c.stage.rowJSON.stageName || '—',
+          icon: 'arrow_forward',
+          onPress: () => (close(), kanban.moveTasksToStage(guids, c.stage.rowGUID)),
+        })),
+      },
+      {
+        testID: 'pm-kanban-col-clear',
+        label: 'Clear: all tasks to "No state"',
+        icon: 'layers_clear',
+        danger: true,
+        disabled: !guids.length,
+        onPress: () => (close(), kanban.clearTasksKanbanState(guids)),
+      },
+      { testID: 'pm-kanban-col-sort', label: 'Sort by', icon: 'sort', onPress: () => {}, submenu: sortItems },
+    ];
+  }, [colMenu, columns, board, columnSort, sortFields, kanban]);
+
+  /** Kanban bar "No state" button: tree filter Kanban = Is empty (press again = filter off). */
+  const toggleNoStateFilter = useCallback(() => {
+    if (usePMStore.getState().treeColumnsFilters.kanban?.filterVariantForColumn === 'isEmpty') crud.setTreeColumnFilter('kanban' as any, null);
+    else crud.setTreeColumnFilter('kanban' as any, { filterVariantForColumn: 'isEmpty' } as any);
+  }, [crud]);
 
   const onProgressChange = useCallback(
     (guid: string, percent: number) => {
@@ -205,12 +348,22 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
   );
 
   const [stagesOpen, setStagesOpen] = useState(false);
+  // "Kanban Stages" asked from outside the board (main FAB): store_kanban.openStagesEditor(projectGUID)
+  const stagesRequest = usePMKanbanStore((s) => s.stagesEditorProjectGUID);
+  useEffect(() => {
+    if (stagesRequest !== projectGUID) return;
+    setStagesOpen(true);
+    usePMKanbanStore.getState().openStagesEditor(null);
+  }, [stagesRequest, projectGUID]);
   const columnsHeight = Math.max(160, (area.h || height) - PM_KANBAN_PADDING * 2);
   const waiting = !tablesMissing && (!loaded || !storeStages.length);
 
   return (
-    <View style={{ width, height, backgroundColor: palette.background }} testID="pm-kanban-dashboard">
-      <PMKanbanToolbar
+    <View ref={rootRef} collapsable={false} style={{ width, height, backgroundColor: palette.background }} testID="pm-kanban-dashboard">
+      {!hideToolbar && <PMKanbanToolbar
+        noStateCount={board.noStateGUIDs.length}
+        noStateFilterOn={noStateFilterOn}
+        onToggleNoStateFilter={toggleNoStateFilter}
         crud={crud}
         palette={palette}
         scopeName={scopeRow ? scopeRow.rowJSON?.name || '(no name)' : null}
@@ -218,7 +371,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
         cardCount={board.cardCount}
         onClearScope={() => setScope(null)}
         onOpenStages={() => setStagesOpen(true)}
-      />
+      />}
       {tablesMissing && (
         <View style={[styles.banner, { borderColor: palette.error }]}>
           <Text style={{ color: palette.error, fontSize: 12 }}>
@@ -251,7 +404,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
               contentContainerStyle={styles.row}
               testID="pm-kanban-columns"
             >
-              {board.columns.map((col, i) => (
+              {columns.map((col, i) => (
                 <View key={col.stage.rowGUID} style={{ marginRight: i < board.columns.length - 1 ? PM_KANBAN_GAP : 0 }}>
                   <PMKanbanColumn
                     column={col}
@@ -273,12 +426,29 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}
                     onProgressChange={onProgressChange}
+                    checkedGUIDs={checkedGUIDs}
+                    onToggleChecked={onToggleChecked}
+                    sortLabel={columnSort[col.stage.rowGUID] ? sortFields.find((f) => f.key === columnSort[col.stage.rowGUID].key)?.title : undefined}
+                    sortDirection={columnSort[col.stage.rowGUID]?.direction}
+                    onOpenSort={onOpenSort}
+                    onOpenMenu={onOpenMenu}
                   />
                 </View>
               ))}
             </ScrollView>
           </ScrollView>
         </DropProvider>
+      )}
+      {!!colMenu && (
+        <PMContextMenu
+          testID={colMenu.kind === 'sort' ? 'pm-kanban-sort-menu' : 'pm-kanban-column-menu'}
+          x={colMenu.x}
+          y={colMenu.y}
+          width={230}
+          caption={`${columns.find((c) => c.stage.rowGUID === colMenu.stageGUID)?.stage.rowJSON.stageName ?? ''}${colMenu.kind === 'sort' ? ' · sort by' : ''}`}
+          items={colMenuItems}
+          onClose={() => setColMenu(null)}
+        />
       )}
       <PMKanbanStagesModalWindow projectGUID={projectGUID} projectName={projectName} visible={stagesOpen} onClose={() => setStagesOpen(false)} />
     </View>

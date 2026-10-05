@@ -1,7 +1,9 @@
 import React from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   Modal,
   Platform,
+  Share,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,25 @@ import { create } from 'zustand';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './IconApp';
 import ButtonPrimaryApp from './ButtonPrimaryApp';
+
+/** The whole error as plain text (Copy / Share buttons of the window). */
+export function errorModalText(error: AppErrorPayload, title?: string): string {
+  const lines: string[] = [];
+  if (title) lines.push(title);
+  if (error.code != null) lines.push(`Code: ${error.code}`);
+  lines.push(`Message: ${error.message || 'An unexpected error occurred.'}`);
+  if (error.hint) lines.push(`Hint: ${error.hint}`);
+  if (error.details) lines.push(`Details: ${error.details}`);
+  const extra = Object.keys(error).filter((k) => !['code', 'message', 'hint', 'details', 'name'].includes(k));
+  if (extra.length) {
+    try {
+      lines.push(`Additional information:\n${JSON.stringify(error, null, 2)}`);
+    } catch {
+      // not serializable: the lines above are enough
+    }
+  }
+  return lines.join('\n');
+}
 
 export interface AppErrorPayload {
   code?: string | number | null;
@@ -113,6 +134,11 @@ export default function ErrorModalWindow({
     if (!isControlled) hideError();
   };
 
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => {
+    if (!isVisible) setCopied(false);
+  }, [isVisible]);
+
   if (!isVisible || !activeError) return null;
 
   const code = activeError.code != null ? String(activeError.code) : null;
@@ -128,6 +154,38 @@ export default function ErrorModalWindow({
       : code
       ? `Error (${code})`
       : 'Application Error');
+
+  const errorText = errorModalText(activeError, headerTitle);
+  const handleCopy = async () => {
+    try {
+      await Clipboard.setStringAsync(errorText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
+  /** native: share sheet · web: Web Share API where the browser has it, otherwise the text is copied */
+  const handleShare = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+        if (nav?.share) {
+          try {
+            await nav.share({ title: headerTitle, text: errorText });
+            return;
+          } catch (e: any) {
+            if (e?.name === 'AbortError') return;
+          }
+        }
+        await handleCopy();
+        return;
+      }
+      await Share.share({ title: headerTitle, message: errorText });
+    } catch {
+      // nothing else to do
+    }
+  };
 
   const cardBg = isDark ? '#1f1e24' : '#ffffff';
   const errorRed = themeColors?.error || '#d32f2f';
@@ -276,6 +334,27 @@ export default function ErrorModalWindow({
 
           {/* Footer Action */}
           <View style={styles.footer}>
+            <Pressable
+              onPress={handleCopy}
+              accessibilityRole="button"
+              accessibilityLabel="Copy the error text"
+              style={[styles.footerBtn, { borderColor: errorRed }]}
+              testID={`${testID}-copy-btn`}
+            >
+              <IconApp name={copied ? 'check' : 'content_copy'} size={18} color={errorRed} />
+              <Text style={[styles.footerBtnText, { color: errorRed }]}>{copied ? 'Copied' : 'Copy'}</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel="Share the error text"
+              style={[styles.footerBtn, { borderColor: errorRed }]}
+              testID={`${testID}-share-btn`}
+            >
+              <IconApp name="share" size={18} color={errorRed} />
+              <Text style={[styles.footerBtnText, { color: errorRed }]}>Share</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
             <ButtonPrimaryApp
               testID={`${testID}-close-btn`}
               color={errorRed}
@@ -392,8 +471,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginRight: 8,
+  },
+  footerBtnText: { fontSize: 13, fontWeight: '600', marginLeft: 6 },
   footer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    rowGap: 8,
     justifyContent: 'flex-end',
     paddingHorizontal: 18,
     paddingVertical: 14,

@@ -20,7 +20,15 @@ export default function PMKanbanToolbar({
   cardCount,
   onClearScope,
   onOpenStages,
+  noStateCount = 0,
+  noStateFilterOn = false,
+  onToggleNoStateFilter,
 }: {
+  /** tasks of the scope in no column (kanbanNoState) */
+  noStateCount?: number;
+  /** the tree is filtered to them (Kanban = Is empty) */
+  noStateFilterOn?: boolean;
+  onToggleNoStateFilter?: () => void;
   crud: PMCrud;
   palette: PMPalette;
   /** null = whole project */
@@ -57,6 +65,19 @@ export default function PMKanbanToolbar({
       <Text style={[styles.count, { color: palette.textMuted }]} testID="pm-kanban-count">
         {cardCount} {cardCount === 1 ? 'task' : 'tasks'}
       </Text>
+      {!!onToggleNoStateFilter && (noStateCount > 0 || noStateFilterOn) && (
+        <PMIconButton
+          testID="pm-kanban-no-state"
+          icon={noStateFilterOn ? 'filter_alt_off' : 'filter_alt'}
+          label="No state"
+          title={noStateFilterOn ? 'Show all tasks in the tree again' : `Filter the tree: ${noStateCount} task(s) in no column ("No state") - drag them from the tree onto a column`}
+          color={palette.text}
+          active={noStateFilterOn}
+          activeColor={palette.primary}
+          badge={noStateCount || undefined}
+          onPress={onToggleNoStateFilter}
+        />
+      )}
       <PMToolbarSpacer />
       <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
       <PMToolbarDivider color={palette.border} />

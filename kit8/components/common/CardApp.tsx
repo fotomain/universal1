@@ -43,7 +43,9 @@ export const CardApp: React.FC<CardAppProps> = ({
           ]}
         >
           {(title || subtitle) && <PaperCard.Title title={title} subtitle={subtitle} />}
-          {children && <PaperCard.Content>{children}</PaperCard.Content>}
+          {/* explicit paddings: Paper only pads the first / last child, and the empty title / footer slots count as children,
+              so the content touched the bottom edge of the card */}
+          {children && <PaperCard.Content style={{ paddingTop: title || subtitle ? 0 : 16, paddingBottom: footer ? 0 : 16 }}>{children}</PaperCard.Content>}
           {footer && <PaperCard.Actions>{footer}</PaperCard.Actions>}
         </PaperCard>
       );

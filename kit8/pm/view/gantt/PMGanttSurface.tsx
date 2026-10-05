@@ -42,15 +42,36 @@ export interface PMGanttSurfaceProps {
   rightPane?: 'gantt' | 'kanban' | 'versions';
   readOnly?: boolean;
   hideTree?: boolean;
+  /** uxui.hideGanttChartNode: only the tree (no splitter, no chart / board / versions list) */
+  hideRight?: boolean;
+  /** uxui.hideGanttToolBar: no tree toolbar and no Gantt / Kanban bar (both, so the rows stay aligned) */
+  hideToolbars?: boolean;
 }
+
+const IS_COARSE =
+  Platform.OS !== 'web' ||
+  (typeof window !== 'undefined' && typeof (window as any).matchMedia === 'function' && !!(window as any).matchMedia('(pointer: coarse)')?.matches);
+/** touch: transparent grab zone around the 6px divider (a finger cannot hit 6px) */
+const SPLITTER_GRAB = 28;
 
 export default function PMGanttSurface({
   ownerGUID,
   projectGUID,
   rightPane = 'gantt',
   readOnly = false,
-  hideTree = false,
+  hideTree: hideTreeProp = false,
+  hideRight: hideRightProp = false,
+  hideToolbars = false,
 }: PMGanttSurfaceProps) {
+  // never both hidden
+  const hideRight = hideRightProp && !hideTreeProp;
+  const hideTree = hideTreeProp;
+  const TB = hideToolbars ? 0 : PM_TOOLBAR_HEIGHT;
+  const ganttPeriod = usePMStore((s) => s.ganttPeriod);
+  const [splitterActive, setSplitterActive] = useState(false);
+  /** narrow panes (phones): the width the user dragged the divider to (null = the default 45 %) */
+  const [narrowTreeWidth, setNarrowTreeWidth] = useState<number | null>(null);
+  const narrowRef = useRef(false);
   const isKanban = rightPane === 'kanban';
   const isVersions = rightPane === 'versions';
   const { themeColors, isDark } = useDesignSystem();
@@ -119,11 +140,24 @@ export default function PMGanttSurface({
   // checked project versions (kit8/pm/version) widen the time line so their bars are never cut off
   const versionOverlays = usePMVersionStore((s) => s.overlays);
   const versionRange = useMemo(() => (readOnly ? null : overlaysRange(versionOverlays)), [versionOverlays, readOnly]);
-  const rangeStartMs = versionRange ? Math.min(projectStartMs, versionRange.startMs) : projectStartMs;
-  const rangeFinishMs = versionRange ? Math.max(projectFinishMs, versionRange.finishMs) : projectFinishMs;
+  // ... and so does the custom period of the Gantt bar (period button)
+  let rangeStartMs = versionRange ? Math.min(projectStartMs, versionRange.startMs) : projectStartMs;
+  let rangeFinishMs = versionRange ? Math.max(projectFinishMs, versionRange.finishMs) : projectFinishMs;
+  if (ganttPeriod && !readOnly) {
+    rangeStartMs = Math.min(rangeStartMs, ganttPeriod.startMs);
+    rangeFinishMs = Math.max(rangeFinishMs, ganttPeriod.finishMs);
+  }
 
   // phones: the tree takes at most ~45% so the chart stays usable
-  const treeWidth = size.w ? Math.round(Math.min(storeTreeWidth, Math.max(160, size.w * 0.45))) : storeTreeWidth;
+  // (the user may drag the divider further on a phone: up to the pane minus a minimal chart)
+  const narrow = size.w > 0 && size.w < 640;
+  const treeWidth = hideRight
+    ? size.w
+    : narrow && narrowTreeWidth !== null
+    ? Math.round(Math.max(96, Math.min(narrowTreeWidth, size.w - MIN_CHART_WIDTH - PM_SPLITTER_WIDTH)))
+    : size.w
+    ? Math.round(Math.min(storeTreeWidth, Math.max(160, size.w * 0.45)))
+    : storeTreeWidth;
   const effectiveTreeWidth = hideTree ? 0 : treeWidth;
   const chartWidth = hideTree
     ? Math.max(MIN_CHART_WIDTH, size.w)
@@ -131,7 +165,7 @@ export default function PMGanttSurface({
   useEffect(() => {
     kanbanBridge.treeWidth.value = effectiveTreeWidth;
   }, [kanbanBridge, effectiveTreeWidth]);
-  const bodyHeight = Math.max(0, size.h - PM_TOOLBAR_HEIGHT - PM_SCALE_HEIGHT);
+  const bodyHeight = Math.max(0, size.h - TB - PM_SCALE_HEIGHT);
 
   // timeline = project range + padding, starting on a Monday, at least one screen wide
   const timelineStartMs = useMemo(
@@ -233,17 +267,28 @@ export default function PMGanttSurface({
   }, [scrollX, scrollY, dayWidthLive, bodyH, chartW, rc, td, treeScrollX, treeMaxScrollX, commitZoom]);
 
   // ---- splitter between tree and chart ----
+  // mouse: drag it. touch: LONG TOUCH the divider (it lights up), then drag - a plain swipe over it still scrolls.
   const splitStart = useRef(treeWidth);
-  const splitter = useMemo(
-    () =>
-      Gesture.Pan()
-        .runOnJS(true)
-        .onBegin(() => {
-          splitStart.current = usePMStore.getState().treeWidth;
-        })
-        .onChange((e) => usePMStore.getState().setTreeWidth(splitStart.current + e.translationX)),
-    []
-  );
+  const shownTreeWidth = useRef(treeWidth);
+  shownTreeWidth.current = treeWidth;
+  narrowRef.current = narrow;
+  const splitter = useMemo(() => {
+    const g = Gesture.Pan()
+      .runOnJS(true)
+      .onStart(() => {
+        // start from the width on screen (phones clamp the saved width)
+        splitStart.current = shownTreeWidth.current;
+        setSplitterActive(true);
+      })
+      .onChange((e) => {
+        const w = splitStart.current + e.translationX;
+        if (narrowRef.current) setNarrowTreeWidth(w);
+        else usePMStore.getState().setTreeWidth(w);
+      })
+      .onFinalize(() => setSplitterActive(false));
+    if (IS_COARSE) g.activateAfterLongPress(220);
+    return g;
+  }, []);
 
   return (
     <View ref={rootRef} style={[styles.root, { backgroundColor: palette.background }]} onLayout={onLayout}>
@@ -251,19 +296,32 @@ export default function PMGanttSurface({
         <React.Fragment key={`gantt-${layoutEpoch}`}>
           {!hideTree && (
             <>
-              <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} kanbanBridge={isKanban ? kanbanBridge : undefined} />
-              <GestureDetector gesture={splitter}>
+              <PMProjectTasksTree viewport={viewport} width={treeWidth} height={size.h} palette={palette} crud={crud} kanbanBridge={isKanban && !hideRight ? kanbanBridge : undefined} hideToolbar={hideToolbars} />
+              {!hideRight && (
                 <View
+                  testID="pm-splitter"
                   style={[
                     styles.splitter,
-                    { width: PM_SPLITTER_WIDTH, backgroundColor: palette.header, borderColor: palette.border },
-                    Platform.OS === 'web' ? ({ cursor: 'col-resize' } as any) : null,
+                    { width: PM_SPLITTER_WIDTH, backgroundColor: splitterActive ? palette.primary : palette.header, borderColor: palette.border, zIndex: 30 },
                   ]}
-                />
-              </GestureDetector>
+                >
+                  <GestureDetector gesture={splitter}>
+                    <View
+                      testID="pm-splitter-grab"
+                      style={[
+                        IS_COARSE ? { position: 'absolute', top: 0, bottom: 0, left: -(SPLITTER_GRAB - PM_SPLITTER_WIDTH) / 2, width: SPLITTER_GRAB } : StyleSheet.absoluteFill,
+                        Platform.OS === 'web' ? ({ cursor: 'col-resize', touchAction: 'none' } as any) : null,
+                      ]}
+                    >
+                      {/* grip mark */}
+                      <View pointerEvents="none" style={[styles.grip, { backgroundColor: splitterActive ? palette.surface : palette.textMuted, left: (IS_COARSE ? SPLITTER_GRAB : PM_SPLITTER_WIDTH) / 2 - 1 }]} />
+                    </View>
+                  </GestureDetector>
+                </View>
+              )}
             </>
           )}
-          {isVersions ? (
+          {hideRight ? null : isVersions ? (
             <PMProjectVersionsList ownerGUID={ownerGUID} projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isKanban ? (
             <PMKanbanDashboard
@@ -275,6 +333,7 @@ export default function PMGanttSurface({
               kanban={kanban}
               bridge={kanbanBridge}
               boardLeft={hideTree ? 0 : treeWidth + PM_SPLITTER_WIDTH}
+              hideToolbar={hideToolbars}
             />
           ) : (
             <PMProjectGanttChart
@@ -286,9 +345,10 @@ export default function PMGanttSurface({
               timelineStartMs={timelineStartMs}
               totalDays={totalDays}
               readOnly={readOnly}
+              hideToolbar={hideToolbars}
             />
           )}
-          {isKanban && !hideTree && <PMKanbanTreeDragGhost bridge={kanbanBridge} palette={palette} />}
+          {isKanban && !hideTree && !hideRight && <PMKanbanTreeDragGhost bridge={kanbanBridge} palette={palette} />}
         </React.Fragment>
       )}
     </View>
@@ -297,5 +357,6 @@ export default function PMGanttSurface({
 
 const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', overflow: 'hidden' },
-  splitter: { height: '100%', borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth },
+  splitter: { height: '100%', borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth, overflow: 'visible' },
+  grip: { position: 'absolute', top: '50%', marginTop: -14, width: 2, height: 28, borderRadius: 1, opacity: 0.7 },
 });

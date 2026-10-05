@@ -157,7 +157,7 @@ export function activeUserFromSupabaseUser(user: Pick<User, 'id' | 'email' | 'us
 // the app waits for:
 //   'otpCode' - type the code  -> verifyOtp()
 //   'webLink' - click the link -> Supabase /verify redirects to emailRedirectTo with the session
-//               (#access_token=...&refresh_token=...  or  ?code=... with PKCE, or #error=...)
+//               (#access_token=...&auto_refresh_token=...  or  ?code=... with PKCE, or #error=...)
 // ---------------------------------------------------------------------------------------------
 
 export type EmailConfirmationWay = 'otpCode' | 'webLink';

@@ -3,7 +3,9 @@
 // "#" hierarchy numbers on / off (uxuiSettings.showTreeHierarchyNumbers) · expand / collapse all ·
 // clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns).
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { View } from 'react-native';
+import PMContextMenu from '../../../inner/menu/PMContextMenu';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
@@ -19,6 +21,17 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
   const matchCount = usePMStore((s) => s.treeFilterMatchCount);
   const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
   const text = palette.text;
+  const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
+  /** the active (selected) row is a stage: "+ Stage" asks Stage / Substage */
+  const stageActive = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID]?.rowJSON.rowKind === 'stage'));
+  const stageBtnRef = useRef<View>(null);
+  const [stageMenu, setStageMenu] = useState<{ x: number; y: number } | null>(null);
+  const onAddStage = () => {
+    if (!stageActive) return void crud.createStage(selectedGUID);
+    const node: any = stageBtnRef.current;
+    if (node?.measureInWindow) node.measureInWindow((x: number, y: number, _w: number, h: number) => setStageMenu({ x, y: y + h + 2 }));
+    else setStageMenu({ x: 8, y: 120 });
+  };
   const withSel = (fn: (guid: string) => void) => () => {
     const g = usePMStore.getState().selectedGUID;
     if (g && usePMStore.getState().tasksById[g]) fn(g);
@@ -26,7 +39,22 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
 
   return (
     <PMToolbar background={palette.surface} border={palette.border}>
-      <PMIconButton testID="pm-tree-add-stage" icon="create_new_folder" label="Stage" title="Add stage" color={palette.primary} onPress={() => crud.createStage(selectedGUID)} />
+      <View ref={stageBtnRef} collapsable={false}>
+        <PMIconButton testID="pm-tree-add-stage" icon="create_new_folder" label="Stage" title={stageActive ? 'Add stage / substage' : 'Add stage'} color={palette.primary} onPress={onAddStage} />
+      </View>
+      {!!stageMenu && (
+        <PMContextMenu
+          testID="pm-tree-add-stage-menu"
+          x={stageMenu.x}
+          y={stageMenu.y}
+          caption="+ Stage"
+          onClose={() => setStageMenu(null)}
+          items={[
+            { testID: 'pm-tree-add-stage-menu-stage', label: 'Stage', icon: 'create_new_folder', onPress: () => (setStageMenu(null), void (selectedGUID ? crud.createStageBelow(selectedGUID) : crud.createStage(null))) },
+            { testID: 'pm-tree-add-stage-menu-substage', label: 'Substage', icon: 'subdirectory_arrow_right', onPress: () => (setStageMenu(null), void (selectedGUID && crud.createSubStage(selectedGUID))) },
+          ]}
+        />
+      )}
       <PMIconButton testID="pm-tree-add-task" icon="add" label="Task" title="Add task (inside the selected stage / after the selected task)" color={palette.primary} onPress={() => crud.createTask(selectedGUID)} />
       <PMIconButton testID="pm-tree-add-milestone" icon="flag" title="Add milestone" color={palette.primary} onPress={() => crud.createTask(selectedGUID, 'milestone')} />
       <PMToolbarDivider color={palette.border} />
@@ -38,6 +66,13 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
       <PMIconButton testID="pm-tree-edit" icon="edit" title="Edit selected" color={text} disabled={!hasSelection} onPress={withSel(crud.edit)} />
       <PMIconButton testID="pm-tree-duplicate" icon="control_point_duplicate" title="Duplicate selected (copy below)" color={text} disabled={!hasSelection} onPress={withSel(crud.duplicateTask)} />
       <PMIconButton testID="pm-tree-delete" icon="delete" title="Delete selected" color={palette.error} disabled={!hasSelection} onPress={withSel(crud.deleteTask)} />
+      {checkedCount > 0 && (
+        <>
+          <PMToolbarDivider color={palette.border} />
+          <PMIconButton testID="pm-tree-clear-checked" icon="deselect" label={`${checkedCount}`} title={`${checkedCount} row(s) selected with the check boxes - clear the selection`} color={palette.primary} onPress={() => usePMStore.getState().clearChecked()} />
+          <PMIconButton testID="pm-tree-delete-checked" icon="delete_sweep" title={`Delete the ${checkedCount} selected row(s)`} color={palette.error} onPress={() => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs))} />
+        </>
+      )}
       <PMToolbarSpacer />
       {(filterCount > 0 || sorted) && (
         <PMIconButton

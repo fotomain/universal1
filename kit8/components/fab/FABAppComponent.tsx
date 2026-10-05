@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import { Text, Surface, useTheme } from 'react-native-paper';
 import FABApp from '../common/FABApp';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
-import { useFAB } from '../../providers/FABProvider';
+import { useFAB, useFABCurrentContextActions } from '../../providers/FABProvider';
 import { CustomLightTheme } from '../../theme/palettes';
 import { getFabMainColors, getFabMiniColors } from './fabColors';
 
@@ -32,6 +32,9 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   const fabAnimationVariant = uxuiState?.fabAnimationVariant || 'defaultFABAnimation';
   const bottomTabsAreVisible = uxuiState?.bottomTabsAreVisible || false;
   const { registerFAB, notifyFABOpen, notifyFABClose } = useFAB();
+  /** commands of the open screen (FABProvider.useFABContextActions), e.g. the project management screens */
+  const contextActions = useFABCurrentContextActions();
+  const win = useWindowDimensions();
 
   const fabIdRef = useRef('app-global-fab');
   const [isOpen, setIsOpen] = useState(false);
@@ -89,7 +92,10 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
     }
   }, [isOpen, fabAnimationVariant, animVal, opacityAnimVal]);
 
-  const isReanimated = fabAnimationVariant === 'reanimatedBasicFABAnimation';
+  const isReanimated = fabAnimationVariant === 'reanimatedBasicFABAnimation' && !(contextActions && contextActions.length > 4 && !actions);
+
+  /** default animation: a scrollable list; reanimated variant: the original absolutely stacked rows */
+  const ActionsBox: any = isReanimated ? View : ScrollView;
 
   const toggleOpen = () => {
     const fabId = fabIdRef.current;
@@ -124,7 +130,9 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
     },
   ];
 
-  const effectiveActions = actions || defaultActions;
+  const effectiveActions = actions || (contextActions && contextActions.length ? contextActions : defaultActions);
+  /** long command lists (context commands on phones) scroll instead of leaving the screen */
+  const manyActions = effectiveActions.length > 4;
 
   const fabMainColors = getFabMainColors(selectedFabColor);
 
@@ -148,7 +156,18 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
       <View style={[styles.container, { bottom: bottomOffset }]} pointerEvents="box-none">
         {/* Actions List */}
         {isOpen && (
-          <View style={isReanimated ? styles.actionsListReanimated : styles.actionsList}>
+          <ActionsBox
+            testID="fab-main-actions"
+            {...(isReanimated
+              ? { style: styles.actionsListReanimated }
+              : {
+                  style: [styles.actionsList, manyActions ? { maxHeight: Math.max(160, win.height - bottomOffset - 150) } : null],
+                  contentContainerStyle: styles.actionsListContent,
+                  showsVerticalScrollIndicator: false,
+                  scrollEnabled: manyActions,
+                  keyboardShouldPersistTaps: 'handled',
+                })}
+          >
             {effectiveActions.map((act, idx) => {
               let translateY: any;
               let scale: any;
@@ -217,7 +236,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
                 </Animated.View>
               );
             })}
-          </View>
+          </ActionsBox>
         )}
 
         {/* Main Large FAB Button */}
@@ -269,9 +288,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 72,
     right: 0,
+    zIndex: 100000,
+  },
+  actionsListContent: {
     alignItems: 'flex-end',
     gap: 12,
-    zIndex: 100000,
+    paddingVertical: 4,
+    paddingLeft: 12,
   },
   actionsListReanimated: {
     position: 'absolute',

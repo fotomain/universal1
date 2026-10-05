@@ -19,7 +19,7 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 110 }} /* room for the main FAB under the last card */>
       <View style={styles.header}>
         <Text variant="headlineMedium" style={{ color: theme.colors.primary, fontWeight: 'bold', marginBottom: 8 }}>
           {t('menu.settings')}

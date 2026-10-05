@@ -6,7 +6,8 @@
 //   derivedKanbanStage the stage of a stage row = the EARLIEST stage of its tasks
 //
 // Rules: every task of a project uses the project's stage set; no state row (or a deleted stage) =
-// the first stage. Cards = tasks + milestones (leaf rows); stages (summary rows) are not cards.
+// the first stage; stageGUID 'kanbanNoState' = in NO column (not a card of the board, "No state" in the tree).
+// Cards = tasks + milestones (leaf rows); stages (summary rows) are not cards.
 // The Kanban stage never changes the task progress % and vice versa.
 
 import { ROOT_KEY, PMTreeIndex } from '../project/scheduling';
@@ -15,6 +16,7 @@ import { taskColorOf } from '../../model/types';
 import {
   PMProjectKanbanStageRow,
   PMTaskKanbanStateRow,
+  PM_KANBAN_NO_STATE,
   PM_KANBAN_ORDER_STEP,
   kanbanStageProgressOf,
 } from '../../model/kanbanTypes';
@@ -50,7 +52,11 @@ export interface PMKanbanBoard {
   /** task guid -> column index */
   columnOfTask: Record<string, number>;
   cardCount: number;
+  /** tasks / milestones of the scope that are in no column (kanbanNoState) */
+  noStateGUIDs: string[];
 }
+
+export type PMKanbanStateWritePlan = { taskGUID: string; stageGUID: string; orderInList: number; kanbanStageProgressPercent?: number };
 
 export interface PMKanbanInput {
   tasksById: Record<string, PMTaskRow>;
@@ -89,11 +95,51 @@ export function kanbanLeavesOf(guid: string, tasksById: Record<string, PMTaskRow
   return depthFirst(tree, guid).filter((g) => isKanbanCardRow(tasksById[g], tree));
 }
 
-/** Stage GUID of a task: its saved stage when that stage still exists, else the first stage. */
-export function kanbanStageOfTask(taskGUID: string, stages: PMProjectKanbanStageRow[], statesByTask: Record<string, PMTaskKanbanStateRow>): string | null {
+/** Stage GUID of a task: its saved stage when that stage still exists, else the first stage; null = kanbanNoState (no column). */
+export function kanbanStageOfTask(taskGUID: string, stages: readonly PMProjectKanbanStageRow[], statesByTask: Record<string, PMTaskKanbanStateRow | undefined>): string | null {
   if (!stages.length) return null;
   const saved = statesByTask[taskGUID]?.rowJSON?.stageGUID;
+  if (saved === PM_KANBAN_NO_STATE) return null;
   return saved && stages.some((s) => s.rowGUID === saved) ? saved : stages[0].rowGUID;
+}
+
+/** true when the task is in no Kanban column (rowJSON.stageGUID = 'kanbanNoState'). */
+export function isTaskKanbanNoState(taskGUID: string, statesByTask: Record<string, PMTaskKanbanStateRow | undefined>): boolean {
+  return statesByTask[taskGUID]?.rowJSON?.stageGUID === PM_KANBAN_NO_STATE;
+}
+
+/**
+ * Stage shown in the tree's Kanban cell: a task = its stage (null = kanbanNoState); a stage row = the
+ * earliest stage of its tasks (null when all of them are kanbanNoState; the first stage when it has none).
+ */
+export function kanbanStageForRow(
+  guid: string,
+  tasksById: Record<string, PMTaskRow>,
+  tree: PMTreeIndex,
+  stages: readonly PMProjectKanbanStageRow[],
+  statesByTask: Record<string, PMTaskKanbanStateRow | undefined>
+): PMProjectKanbanStageRow | null {
+  if (!stages.length) return null;
+  if (isKanbanCardRow(tasksById[guid], tree)) {
+    const s = kanbanStageOfTask(guid, stages, statesByTask);
+    return s ? stages.find((x) => x.rowGUID === s) ?? null : null;
+  }
+  const derived = derivedKanbanStage(guid, tasksById, tree, stages as PMProjectKanbanStageRow[], statesByTask as Record<string, PMTaskKanbanStateRow>);
+  if (derived) return derived;
+  return kanbanLeavesOf(guid, tasksById, tree).length ? null : [...stages].sort((a, b) => a.orderInList - b.orderInList)[0];
+}
+
+/** State rows that put `taskGUIDs` into kanbanNoState (no column); tasks already there are skipped. */
+export function planKanbanClear(statesByTask: Record<string, PMTaskKanbanStateRow | undefined>, taskGUIDs: string[]): PMKanbanStateWritePlan[] {
+  const writes: PMKanbanStateWritePlan[] = [];
+  for (const g of Array.from(new Set(taskGUIDs))) {
+    const st = statesByTask[g];
+    if (st?.rowJSON?.stageGUID === PM_KANBAN_NO_STATE) continue;
+    const w: PMKanbanStateWritePlan = { taskGUID: g, stageGUID: PM_KANBAN_NO_STATE, orderInList: st?.orderInList ?? PM_KANBAN_ORDER_STEP };
+    if (st?.rowJSON?.kanbanStageProgressPercent !== undefined) w.kanbanStageProgressPercent = st.rowJSON.kanbanStageProgressPercent;
+    writes.push(w);
+  }
+  return writes;
 }
 
 export function buildKanbanBoard(input: PMKanbanInput): PMKanbanBoard {
@@ -109,9 +155,15 @@ export function buildKanbanBoard(input: PMKanbanInput): PMKanbanBoard {
   const colIndex: Record<string, number> = {};
   sorted.forEach((s, i) => (colIndex[s.rowGUID] = i));
   const columnOfTask: Record<string, number> = {};
-  if (!columns.length) return { columns, columnOfTask, cardCount: 0 };
+  const noStateGUIDs: string[] = [];
+  if (!columns.length) return { columns, columnOfTask, cardCount: 0, noStateGUIDs };
 
   for (const g of rows) {
+    // kanbanNoState: in no column
+    if (statesByTask[g]?.rowJSON?.stageGUID === PM_KANBAN_NO_STATE) {
+      noStateGUIDs.push(g);
+      continue;
+    }
     const t = tasksById[g];
     const sch = schedule[g];
     const parent = tree.parentById[g];
@@ -151,7 +203,7 @@ export function buildKanbanBoard(input: PMKanbanInput): PMKanbanBoard {
       return a.treeIndex - b.treeIndex;
     });
   }
-  return { columns, columnOfTask, cardCount: rows.length };
+  return { columns, columnOfTask, cardCount: rows.length - noStateGUIDs.length, noStateGUIDs };
 }
 
 /**

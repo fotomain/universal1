@@ -178,10 +178,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
   },
   headerLeft: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

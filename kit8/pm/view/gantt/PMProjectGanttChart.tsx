@@ -14,7 +14,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { Canvas, Circle, Group, Path, Rect, RoundedRect, Skia, SkPath, Text as SkText, rect } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Path, Rect, RoundedRect, Skia, SkPath, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
+import { registerScreenshotCanvas, skiaCanvasSnapshotBase64 } from '../../../lib/shareScreenshot';
+import PMGanttPeriodModalWindow from './PMGanttPeriodModalWindow';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withDecay } from 'react-native-reanimated';
 import {
@@ -54,6 +56,16 @@ import { versionStripGeometry } from '../../version/model/versionCompare';
 import PMGanttVersionsLegend from '../../version/view/legend/PMGanttVersionsLegend';
 
 const IS_WEB = Platform.OS === 'web';
+/** Fingers (phones / tablets, also in the mobile browser): bigger link circles + grab zones, shown on the selected bar. */
+const COARSE =
+  !IS_WEB ||
+  (typeof window !== 'undefined' && typeof (window as any).matchMedia === 'function' && !!(window as any).matchMedia('(pointer: coarse)')?.matches);
+const LINK_HIT_X = COARSE ? 18 : 7;
+const LINK_HIT_Y = COARSE ? 15 : 8;
+const LINK_HANDLE_R = COARSE ? 7 : 4.5;
+/** touch: the bar panel sits one row BELOW its bar (it must not cover the bar, its grips and link circles) */
+const PANEL_ROW_SHIFT = COARSE ? 1 : 0;
+const PANEL_GAP = COARSE ? 0 : 26;
 const NO_VERSION_OVERLAYS: never[] = [];
 
 // hit-test zones / drag modes (numbers so they live happily in worklets)
@@ -109,6 +121,8 @@ interface Props {
   timelineStartMs: number;
   totalDays: number;
   readOnly?: boolean;
+  /** uxui.hideGanttToolBar: no Gantt bar (the tree hides its toolbar too, so the rows stay aligned) */
+  hideToolbar?: boolean;
 }
 
 interface BarDesc {
@@ -135,11 +149,15 @@ interface BarDesc {
 
 function linkHandleOffset(kind: number): number {
   'worklet';
+  // touch: further from the bar end, so the link circle and the resize grip never share a finger
+  if (COARSE) return kind === K_MILESTONE ? MILESTONE_HALF + 16 : 18;
   return kind === K_MILESTONE ? MILESTONE_HALF + 8 : 9;
 }
 
-export default function PMProjectGanttChart({ viewport, width, height, palette, crud, timelineStartMs, totalDays, readOnly }: Props) {
+export default function PMProjectGanttChart({ viewport, width, height, palette, crud, timelineStartMs, totalDays, readOnly, hideToolbar = false }: Props) {
   const fonts = usePMFonts();
+  const skiaRef = useCanvasRef();
+  const ganttPeriod = usePMStore((s) => s.ganttPeriod);
   const visibleRows = usePMStore((s) => s.visibleRows);
   const rowIndexById = usePMStore((s) => s.rowIndexById);
   const criticalPriority = usePMStore((s) => s.criticalPathColorHasPriorityOverTheCustomTaskColor);
@@ -169,7 +187,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const menuY = useSharedValue(0);
 
   const { scrollX, scrollY, dayWidthLive, bodyH, chartW, rowCount, totalDays: totalDaysSV, hoverRow, dragging, win, dayWidth } = viewport;
-  const canvasH = Math.max(0, height - PM_TOOLBAR_HEIGHT);
+  const canvasH = Math.max(0, height - (hideToolbar ? 0 : PM_TOOLBAR_HEIGHT));
   const bodyPx = Math.max(0, canvasH - PM_SCALE_HEIGHT);
   const xOf = useCallback((ms: number) => ((ms - timelineStartMs) / DAY_MS) * dayWidth, [timelineStartMs, dayWidth]);
 
@@ -453,6 +471,8 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const downX = useSharedValue(0);
   const downY = useSharedValue(0);
   const pendingZone = useSharedValue(Z_NONE);
+  /** selected row index (touch: the link circles are shown - and can be grabbed - on the selected bar only) */
+  const selRowSV = useSharedValue(-1);
   const linkX1 = useSharedValue(0);
   const linkY1 = useSharedValue(0);
   const linkX2 = useSharedValue(0);
@@ -582,10 +602,10 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const panelHit = (x: number, y: number) => {
     'worklet';
     const idx = panelRow.value;
-    if (!IS_WEB || idx < 0 || rowAt(y) !== idx) return false;
+    if (!IS_WEB || idx < 0 || rowAt(y) !== idx + PANEL_ROW_SHIFT) return false;
     const b = barsSV.value;
     const r = dayWidthLive.value / b.dw;
-    const left = Math.min(b.x[idx] * r - scrollX.value + b.w[idx] * r + 26, chartW.value - PM_BAR_PANEL_WIDTH - SCROLLBAR - 4);
+    const left = Math.min(b.x[idx] * r - scrollX.value + (COARSE ? 0 : b.w[idx] * r) + PANEL_GAP, chartW.value - Math.min(PM_BAR_PANEL_WIDTH, Math.max(120, chartW.value - 12)) - SCROLLBAR - 4);
     return x >= left && x <= left + PM_BAR_PANEL_WIDTH;
   };
 
@@ -608,9 +628,9 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     const bw = b.w[idx] * r;
     const cy = PM_SCALE_HEIGHT + idx * PM_ROW_HEIGHT - scrollY.value + PM_ROW_HEIGHT / 2;
     const off = linkHandleOffset(kind);
-    if (Math.abs(y - cy) <= 8) {
-      if (Math.abs(x - (bx - off)) <= 7) return Z_LINK_START;
-      if (Math.abs(x - (bx + bw + off)) <= 7) return Z_LINK_FINISH;
+    if (Math.abs(y - cy) <= LINK_HIT_Y && (!COARSE || idx === selRowSV.value)) {
+      if (Math.abs(x - (bx - off)) <= LINK_HIT_X) return Z_LINK_START;
+      if (Math.abs(x - (bx + bw + off)) <= LINK_HIT_X) return Z_LINK_FINISH;
     }
     if (kind === K_SUMMARY) return x >= bx && x <= bx + bw && Math.abs(y - cy) <= 8 ? Z_BAR_ONLY : Z_NONE;
     if (kind === K_MILESTONE) return Math.abs(x - bx) <= MILESTONE_HALF + 1 && Math.abs(y - cy) <= MILESTONE_HALF + 1 ? Z_MOVE : Z_NONE;
@@ -771,7 +791,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       const y = e.clientY - r.top;
       const ref = hitLinkAt(x, y);
       if (!ref) {
-        if (!rowMenuMode || !isBarZone(hitTest(x, y))) return;
+        if (!isBarZone(hitTest(x, y))) return; // right-click a bar = PMTaskRowMenu in both command modes
         e.preventDefault();
         openRowMenu(rowAt(y), e.clientX, e.clientY);
         return;
@@ -928,6 +948,46 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
             const zone = hitTest(e.x, e.y);
             if (zone !== Z_NONE && zone !== Z_BAR_ONLY && zone !== Z_THUMB_X && zone !== Z_THUMB_Y) startDrag(zone, e.x, e.y);
           });
+    /**
+     * touch: drawing a dependency starts AT ONCE when the finger goes down on a link circle of the
+     * selected bar and moves (no long-press) - before it only selected the task / arrow.
+     */
+    const linkDraw = Gesture.Pan()
+      .enabled(!IS_WEB)
+      .manualActivation(true)
+      .onTouchesDown((e, m) => {
+        'worklet';
+        const t = e.allTouches[0];
+        const zone = t ? hitTest(t.x, t.y) : Z_NONE;
+        if (!t || (zone !== Z_LINK_START && zone !== Z_LINK_FINISH)) {
+          m.fail();
+          return;
+        }
+        pendingZone.value = zone;
+        downX.value = t.x;
+        downY.value = t.y;
+      })
+      .onTouchesMove((e, m) => {
+        'worklet';
+        const t = e.allTouches[0];
+        if (t && Math.abs(t.x - downX.value) + Math.abs(t.y - downY.value) > 4) m.activate();
+      })
+      .onStart(() => {
+        'worklet';
+        startDrag(pendingZone.value, downX.value, downY.value);
+      })
+      .onChange((e) => {
+        'worklet';
+        moveDrag(e.x, e.y, e.changeX, e.changeY);
+      })
+      .onEnd((e) => {
+        'worklet';
+        endDrag(e.x, e.y);
+      })
+      .onFinalize(() => {
+        'worklet';
+        finalize();
+      });
     edit
       .onChange((e) => {
         'worklet';
@@ -996,7 +1056,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     /** touch + onRightClickMenuMode: long-press a bar and release without moving = PMTaskRowMenu
      *  (long-press and drag still moves / resizes the bar; a drag without movement changes nothing) */
     const rowMenu = Gesture.LongPress()
-      .enabled(rowMenuMode && !IS_WEB)
+      .enabled(!IS_WEB)
       .minDuration(450)
       .maxDistance(12)
       .onStart((e) => {
@@ -1014,7 +1074,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         runOnJS(openRowMenu)(idx, e.absoluteX, e.absoluteY);
       });
 
-    return Gesture.Simultaneous(hover, pinch, rowMenu, Gesture.Race(Gesture.Exclusive(edit, scroll), Gesture.Exclusive(doubleTap, tap)));
+    return Gesture.Simultaneous(hover, pinch, rowMenu, Gesture.Race(Gesture.Exclusive(linkDraw, edit, scroll), Gesture.Exclusive(doubleTap, tap)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dwCommitted, onHover, onTap, onDoubleTap, commitBarDrag, commitLink, commitZoom, rowMenuMode, openRowMenu]);
 
@@ -1036,8 +1096,8 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const panelStyle = useAnimatedStyle(() => {
     if (!panelBar) return { opacity: 0, transform: [{ translateX: -9999 }, { translateY: 0 }] };
     const r = dayWidthLive.value / panelBar.dw;
-    const left = Math.min(panelBar.x * r - scrollX.value + panelBar.w * r + 26, chartW.value - PM_BAR_PANEL_WIDTH - SCROLLBAR - 4);
-    const top = PM_SCALE_HEIGHT + panelIndex * PM_ROW_HEIGHT - scrollY.value + 4;
+    const left = Math.min(panelBar.x * r - scrollX.value + (COARSE ? 0 : panelBar.w * r) + PANEL_GAP, chartW.value - Math.min(PM_BAR_PANEL_WIDTH, Math.max(120, chartW.value - 12)) - SCROLLBAR - 4);
+    const top = PM_SCALE_HEIGHT + (panelIndex + PANEL_ROW_SHIFT) * PM_ROW_HEIGHT - scrollY.value + 4;
     const visible = dragging.value === 0 && top >= PM_SCALE_HEIGHT - 2 && top + PM_ROW_HEIGHT - 8 <= PM_SCALE_HEIGHT + bodyH.value && left > -PM_BAR_PANEL_WIDTH;
     return { opacity: visible ? 1 : 0, transform: [{ translateX: Math.max(4, left) }, { translateY: top }] };
   }, [panelBar, panelIndex]);
@@ -1055,17 +1115,50 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   };
   const toolbarActions = { zoomBy, setZoom: (dw: number) => viewport.setZoom(dw), fit, goToday };
 
+  // custom period (period button before "Today"): zoom so that it fills the pane, then scroll to its start;
+  // period removed ("Whole project") = fit to screen
+  const periodNonce = useRef(0);
+  useEffect(() => {
+    const p = ganttPeriod;
+    if (!p) {
+      if (periodNonce.current) {
+        periodNonce.current = 0;
+        fit();
+      }
+      return;
+    }
+    if (periodNonce.current === p.nonce) return;
+    periodNonce.current = p.nonce;
+    const days = Math.max(1, (p.finishMs - p.startMs) / DAY_MS);
+    const dw = clampValue(chartW.value / days, PM_DAY_WIDTH_MIN, PM_DAY_WIDTH_MAX);
+    viewport.setZoom(dw);
+    const t = setTimeout(() => viewport.scrollToX(((p.startMs - timelineStartMs) / DAY_MS) * dw, false), 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ganttPeriod, timelineStartMs]);
+
+  useEffect(() => {
+    selRowSV.value = selectedGUID ? rowIndexById[selectedGUID] ?? -1 : -1;
+  }, [selectedGUID, rowIndexById, selRowSV]);
+
+  // "Share screenshot": html2canvas cannot read a Skia (WebGL) canvas back - give it a snapshot
+  useEffect(() => {
+    if (!IS_WEB) return;
+    return registerScreenshotCanvas('pm-gantt', { element: () => canvasBoxRef.current, snapshot: () => skiaCanvasSnapshotBase64(skiaRef) });
+  }, [skiaRef]);
+
   const hoverBar = hoveredGUID && hoveredGUID !== selectedGUID ? bars.find((b) => b.guid === hoveredGUID) : undefined;
   const selectedBar = selectedGUID ? bars.find((b) => b.guid === selectedGUID) : undefined;
   const handleBars = [hoverBar, selectedBar].filter(Boolean) as BarDesc[];
 
   return (
     <View style={{ width, height, backgroundColor: palette.background }}>
-      <PMGanttToolbar crud={crud} palette={palette} activeUnit={levels.bottom} actions={toolbarActions} />
+      {!hideToolbar && <PMGanttToolbar crud={crud} palette={palette} activeUnit={levels.bottom} actions={toolbarActions} />}
+      <PMGanttPeriodModalWindow />
 
       <GestureDetector gesture={gesture}>
         <View ref={canvasBoxRef} style={[{ width, height: canvasH }, IS_WEB ? ({ cursor } as any) : null]} collapsable={false}>
-          <Canvas style={{ width, height: canvasH }}>
+          <Canvas ref={skiaRef} style={{ width, height: canvasH }}>
             <Rect x={0} y={0} width={width} height={canvasH} color={palette.background} />
 
             {/* ================= body ================= */}
@@ -1173,7 +1266,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
             <RoundedRect x={hThumbX} y={canvasH - SCROLLBAR} width={hThumbW} height={SCROLLBAR - 2} r={3} color={palette.gridStrong} />
           </Canvas>
 
-          {!readOnly && panelTask && <PMGanttBarHoverPanel guid={panelTask.rowGUID} crud={crud} palette={palette} animatedStyle={panelStyle} />}
+          {!readOnly && panelTask && <PMGanttBarHoverPanel guid={panelTask.rowGUID} crud={crud} palette={palette} animatedStyle={panelStyle} maxWidth={width} />}
           {versionOverlays.length > 0 && <PMGanttVersionsLegend palette={palette} />}
         </View>
       </GestureDetector>
@@ -1290,10 +1383,10 @@ const BarHandles = React.memo(function BarHandles({ bar, palette }: { bar: BarDe
   const y = bar.y + PM_BAR_VPAD;
   return (
     <Group>
-      <Circle cx={bar.x - off} cy={bar.cy} r={4.5} color={palette.surface} />
-      <Circle cx={bar.x - off} cy={bar.cy} r={4.5} style="stroke" strokeWidth={1.5} color={palette.handle} />
-      <Circle cx={bar.x + bar.w + off} cy={bar.cy} r={4.5} color={palette.surface} />
-      <Circle cx={bar.x + bar.w + off} cy={bar.cy} r={4.5} style="stroke" strokeWidth={1.5} color={palette.handle} />
+      <Circle cx={bar.x - off} cy={bar.cy} r={LINK_HANDLE_R} color={palette.surface} />
+      <Circle cx={bar.x - off} cy={bar.cy} r={LINK_HANDLE_R} style="stroke" strokeWidth={COARSE ? 2 : 1.5} color={palette.handle} />
+      <Circle cx={bar.x + bar.w + off} cy={bar.cy} r={LINK_HANDLE_R} color={palette.surface} />
+      <Circle cx={bar.x + bar.w + off} cy={bar.cy} r={LINK_HANDLE_R} style="stroke" strokeWidth={COARSE ? 2 : 1.5} color={palette.handle} />
       {bar.kind === K_TASK && bar.w > 16 && (
         <>
           <Rect x={bar.x + 2} y={y + 5} width={2} height={h - 10} color={palette.textOnBar} opacity={0.8} />

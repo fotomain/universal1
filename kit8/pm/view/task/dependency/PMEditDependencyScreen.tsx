@@ -18,6 +18,8 @@ import { LINK_TYPES } from '../../project/scheduling';
 import { PMLinkType } from '../../../model/types';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../../inner/buttons';
+import { useUxuiCurrentJSON } from '../../../../redux/useUxuiCurrentJSON';
+import ShareScreenshotButton from '../../../../components/common/ShareScreenshotButton';
 
 export const DEPENDENCY_COLOR_SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#64748b'];
 
@@ -94,7 +96,8 @@ function CopyableGUID({ label, value, testID, colors }: { label: string; value: 
   return (
     <View style={styles.guidRow}>
       <View style={{ flex: 1 }}>
-        <TextInputApp testID={testID} label={label} value={value} editable={false} selectTextOnFocus />
+        {/* read-only: no clear (x) icon inside the input */}
+        <TextInputApp testID={testID} label={label} value={value} editable={false} selectTextOnFocus hideClearIcon />
       </View>
       <PMIconButton testID={`${testID}-copy`} icon={copied ? 'check' : 'content_copy'} label={copied ? 'Copied' : undefined} title={`Copy ${label}`} color={colors.primary} onPress={copy} />
     </View>
@@ -110,6 +113,8 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
   const fromName = usePMStore((s) => (dep ? s.tasksById[dep.rowDependsOnGUID]?.rowJSON.name : undefined));
   const toName = usePMStore((s) => (dep ? s.tasksById[dep.rowGUID]?.rowJSON.name : undefined));
   const close = () => usePMStore.getState().setEditingDep(null);
+  // uxui.currentJSON while the window is open ("Share screenshot + JSON")
+  useUxuiCurrentJSON(dep ? { kind: 'dependency', title: `${fromName || '?'} -> ${toName || '?'}`, json: dep } : null);
 
   const [linkType, setLinkType] = useState<PMLinkType>('FS');
   const [lag, setLag] = useState('0');
@@ -154,6 +159,7 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: c.text }]}>Edit dependency</Text>
+            <ShareScreenshotButton testID="pm-dep-share" color={c.text} />
             <PMIconButton testID="pm-dep-close" icon="close" title="Close without saving" color={c.text} onPress={close} />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled">
@@ -202,9 +208,11 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
 
           <View style={styles.actions}>
             <PMDialogButton testID="pm-dep-delete" kind="danger" icon="link_off" title="Delete dependency" style={{ marginLeft: 0 }} onPress={() => crud.deleteDependency(ref)} />
-            <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-dep-cancel" kind="secondary" title="Cancel" color={c.text} onPress={close} />
-            <PMDialogButton testID="pm-dep-save" kind="primary" title="Save" onPress={save} />
+            {/* Cancel + Save stay together on the right; on a phone they wrap under "Delete dependency" as ONE group */}
+            <View style={styles.actionsRight}>
+              <PMDialogButton testID="pm-dep-cancel" kind="secondary" title="Cancel" color={c.text} style={{ marginLeft: 0 }} onPress={close} />
+              <PMDialogButton testID="pm-dep-save" kind="primary" title="Save" onPress={save} />
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -227,5 +235,6 @@ const styles = StyleSheet.create({
   swatches: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   swatch: { width: 30, height: 30, borderRadius: 15, marginRight: 8, marginBottom: 6 },
   defaultSwatch: { height: 30, paddingHorizontal: 10, borderRadius: 15, marginRight: 8, marginBottom: 6, alignItems: 'center', justifyContent: 'center' },
-  actions: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
+  actions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 16, rowGap: 8 },
+  actionsRight: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', flexShrink: 0 },
 });

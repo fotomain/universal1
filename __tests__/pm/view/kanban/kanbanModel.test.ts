@@ -130,3 +130,60 @@ it('planKanbanMove: dropping a card where it already is writes nothing', () => {
   expect(planKanbanMove(board, {}, [t2.rowGUID], 's-wait', 1)).toEqual([]);
   expect(planKanbanMove(board, {}, [t2.rowGUID], 's-wait', 2)).toEqual([]);
 });
+
+// ---- kanbanNoState: stageGUID 'kanbanNoState' = in no column (like empty) ----
+import { isTaskKanbanNoState, kanbanStageForRow, planKanbanClear } from '../../../../kit8/pm/view/kanban/kanbanModel';
+import { PM_KANBAN_NO_STATE } from '../../../../kit8/pm/model/kanbanTypes';
+import { compileTreeColumnFilter, treeCellFilterValue, treeColumnCanBeEmpty } from '../../../../kit8/pm/view/tree/filter/treeColumnFilter';
+
+describe('kanbanNoState', () => {
+  const noState = { [t1.rowGUID]: state(t1.rowGUID, PM_KANBAN_NO_STATE, 1024), [t2.rowGUID]: state(t2.rowGUID, 's-exec', 1024) };
+
+  it('a task with kanbanNoState is in NO column and is counted apart', () => {
+    const b = buildKanbanBoard({ tasksById, tree, schedule: {}, stages, statesByTask: noState, scopeGUID: null });
+    expect(b.columns.flatMap((c) => c.cards.map((x) => x.name))).not.toContain('Task 1');
+    expect(b.noStateGUIDs).toEqual([t1.rowGUID]);
+    expect(b.cardCount).toBe(3);
+    expect(b.columnOfTask[t1.rowGUID]).toBeUndefined();
+    expect(kanbanStageOfTask(t1.rowGUID, stages, noState)).toBeNull();
+    expect(isTaskKanbanNoState(t1.rowGUID, noState)).toBe(true);
+    expect(isTaskKanbanNoState(t4.rowGUID, noState)).toBe(false); // no row = first stage
+  });
+
+  it('planKanbanClear writes kanbanNoState once and keeps the stage progress %', () => {
+    const st = { [t2.rowGUID]: { ...state(t2.rowGUID, 's-exec', 2048), rowJSON: { stageGUID: 's-exec', kanbanStageProgressPercent: 70 } } };
+    const writes = planKanbanClear(st, [t2.rowGUID, t4.rowGUID, t2.rowGUID]);
+    expect(writes).toEqual([
+      { taskGUID: t2.rowGUID, stageGUID: PM_KANBAN_NO_STATE, orderInList: 2048, kanbanStageProgressPercent: 70 },
+      { taskGUID: t4.rowGUID, stageGUID: PM_KANBAN_NO_STATE, orderInList: 1024 },
+    ]);
+    const after = Object.fromEntries(applyKanbanStateWrites(Object.values(st), P, writes).map((s) => [s.rowParentGUID, s]));
+    expect(planKanbanClear(after, [t2.rowGUID, t4.rowGUID])).toEqual([]); // already there
+  });
+
+  it('moving a kanbanNoState task onto a column brings it back', () => {
+    const b = buildKanbanBoard({ tasksById, tree, schedule: {}, stages, statesByTask: noState, scopeGUID: null });
+    const writes = planKanbanMove(b, noState, [t1.rowGUID], 's-plan');
+    expect(writes).toEqual([{ taskGUID: t1.rowGUID, stageGUID: 's-plan', orderInList: 1024 }]);
+  });
+
+  it('tree cell: task = null stage; stage row = earliest stage of its tasks, null when all have no state', () => {
+    expect(kanbanStageForRow(t1.rowGUID, tasksById, tree, stages, noState)).toBeNull();
+    expect(kanbanStageForRow(t2.rowGUID, tasksById, tree, stages, noState)?.rowGUID).toBe('s-exec');
+    expect(kanbanStageForRow(A.rowGUID, tasksById, tree, stages, noState)?.rowGUID).toBe('s-wait'); // m3 has no row
+    const all = Object.fromEntries([t1, t2, m3].map((t) => [t.rowGUID, state(t.rowGUID, PM_KANBAN_NO_STATE, 1)]));
+    expect(kanbanStageForRow(A.rowGUID, tasksById, tree, stages, all)).toBeNull();
+    expect(kanbanStageForRow(C.rowGUID, tasksById, tree, stages, all)?.rowGUID).toBe('s-wait'); // empty stage
+  });
+
+  it('tree filter: Kanban "Is empty" finds the kanbanNoState tasks', () => {
+    const sorted = [...stages].sort((a, b) => a.orderInList - b.orderInList);
+    const ctx = { tasksById, schedule: {}, tree, customColumns: [], kanbanStages: sorted, kanbanStates: noState };
+    expect(treeColumnCanBeEmpty('kanban')).toBe(true);
+    const f = compileTreeColumnFilter({ filterVariantForColumn: 'isEmpty' } as any, 'text') as any;
+    expect(f.test(treeCellFilterValue('kanban', t1.rowGUID, ctx))).toBe(true);
+    expect(f.test(treeCellFilterValue('kanban', t2.rowGUID, ctx))).toBe(false);
+    expect(treeCellFilterValue('kanban', t4.rowGUID, ctx)).toBe('Waiting');
+    expect(treeCellFilterValue('kanban', A.rowGUID, ctx)).toBe('Waiting');
+  });
+});

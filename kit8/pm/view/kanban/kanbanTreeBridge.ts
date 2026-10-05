@@ -120,7 +120,10 @@ export function useKanbanTreeBridge(kanban: PMKanbanCommands): PMKanbanTreeBridg
         const s = usePMStore.getState();
         const guid = s.visibleRows[rowIndex];
         const row = guid ? s.tasksById[guid] : undefined;
-        if (row) usePMKanbanStore.getState().setTreeDrag({ guid, name: row.rowJSON?.name || '', overStageGUID: null });
+        if (!row) return;
+        // multi selection: a checked row drags every checked row with it
+        const count = s.checkedGUIDs[guid] ? Object.keys(s.checkedGUIDs).length : 1;
+        usePMKanbanStore.getState().setTreeDrag({ guid, name: count > 1 ? `${count} rows` : row.rowJSON?.name || '', overStageGUID: null, count });
       },
       onHover: (column: number) => usePMKanbanStore.getState().setTreeDragOver(stageAt(column)),
       onDrop: (rowIndex: number, column: number) => {

@@ -9,6 +9,7 @@ import { useSQLNative } from "../providers/WithSQLiteNative";
 import { useSupabase } from "../providers/WithSupabase";
 import { useWorkPlace } from "../providers/WithWorkPlace";
 import { storePrepared } from "./storePrepared";
+import { setAppStore } from "./storeRef";
 
 const WithState = (props: any) => {
     const router = useRouter();
@@ -29,6 +30,7 @@ const WithState = (props: any) => {
     console.log("██████████ dbAdapters0", dbAdapters);
 
     const storeReady: any = storePrepared({ dbAdapters });
+    setAppStore(storeReady.storeLocal); // non-React access (kit8/redux/storeRef.ts)
 
     return (
         <Provider store={storeReady.storeLocal}>

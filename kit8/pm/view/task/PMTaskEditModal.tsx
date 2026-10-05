@@ -39,6 +39,9 @@ const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string }[] = [
 
 export type TaskEditTab = 'TabMain' | 'TabUXUI';
 
+import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
+import ShareScreenshotButton from '../../../components/common/ShareScreenshotButton';
+
 export default function PMTaskEditModal({
   crud,
   kanban: kanbanProp,
@@ -49,6 +52,8 @@ export default function PMTaskEditModal({
   const { themeColors } = useDesignSystem();
   const editingGUID = usePMStore((s) => s.editingGUID);
   const task = usePMStore((s) => (s.editingGUID ? s.tasksById[s.editingGUID] : undefined));
+  // uxui.currentJSON while the window is open ("Share screenshot + JSON")
+  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.name || 'task', json: task } : null);
   const sched = usePMStore((s) => (s.editingGUID ? s.schedule[s.editingGUID] : undefined));
   const hasChildren = usePMStore((s) => (s.editingGUID ? (s.tree.childrenById[s.editingGUID]?.length ?? 0) > 0 : false));
   const projectGUID = usePMStore((s) => s.selectedProjectGUID);
@@ -327,6 +332,8 @@ export default function PMTaskEditModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: themeColors.text }]}>Edit {summary ? 'stage' : kind}</Text>
+            <PMIconButton testID="pm-edit-google-calendar" icon="event" title="Add to Google Calendar" color={themeColors.text} onPress={() => crud.addToGoogleCalendar(task.rowGUID)} />
+            <ShareScreenshotButton testID="pm-edit-share" color={themeColors.text} />
             <PMIconButton testID="pm-edit-close" icon="close" title="Cancel (close without saving)" color={themeColors.text} onPress={close} />
           </View>
 
@@ -672,9 +679,11 @@ export default function PMTaskEditModal({
           <View style={styles.actions}>
             <PMDialogButton testID="pm-edit-delete" kind="danger" title="Delete" style={{ marginLeft: 0 }} onPress={() => { close(); crud.deleteTask(task.rowGUID); }} />
             <PMDialogButton testID="pm-edit-open" kind="text" title="Details" onPress={() => { close(); crud.openInfo(task.rowGUID); }} />
-            <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-edit-cancel" kind="secondary" title="Cancel" color={themeColors.text} onPress={close} />
-            <PMDialogButton testID="pm-edit-save" kind="primary" title="Save" onPress={save} />
+            {/* Cancel + Save always stay together on the right (phones: they wrap as ONE group) */}
+            <View style={styles.actionsRight}>
+              <PMDialogButton testID="pm-edit-cancel" kind="secondary" title="Cancel" color={themeColors.text} style={{ marginLeft: 0 }} onPress={close} />
+              <PMDialogButton testID="pm-edit-save" kind="primary" title="Save" onPress={save} />
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -719,5 +728,6 @@ const styles = StyleSheet.create({
   swatches: { flexDirection: 'row', flexWrap: 'wrap' },
   swatch: { width: 30, height: 30, borderRadius: 15, marginRight: 8, marginBottom: 6, alignItems: 'center', justifyContent: 'center' },
   hint: { marginTop: 10, fontSize: 12, opacity: 0.75 },
-  actions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 14 },
+  actions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 14, rowGap: 8 },
+  actionsRight: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', flexShrink: 0 },
 });

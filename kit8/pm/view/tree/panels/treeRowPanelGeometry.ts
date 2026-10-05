@@ -10,9 +10,9 @@ export const PM_TREE_ROW_PANEL_ICON_WIDTH = 26;
 const PANEL_PAD = 8; // panel paddingHorizontal + border
 const EDGE = 4; // gap to the tree edges
 
-/** Buttons in the panel: add below · add above · (stage: add inside) · 7 row actions (PMRowActionButtons) · drag handle (last). */
+/** Buttons in the panel: add below · add above · (stage: add inside) · 10 row actions (incl. add stage below / above, Google Calendar) (PMRowActionButtons) · drag handle (last). */
 export function treeRowPanelIconCount(isSummary: boolean) {
-  return 2 + (isSummary ? 1 : 0) + 7 + 1;
+  return 2 + (isSummary ? 1 : 0) + 10 + 1;
 }
 
 export function treeRowPanelNaturalWidth(isSummary: boolean) {

@@ -24,6 +24,10 @@ import { PMTaskRow } from '../../model/types';
 import { PMCustomColumnValue, taskCustomValuesOf } from '../../view/tree/columns/customColumns';
 import type { PMUndo } from '../../view/undo/useUndoGanttAction';
 import { copyTaskInfo, shareTask } from '../../view/task/taskShare';
+import { addTaskToGoogleCalendar } from '../../view/task/taskGoogleCalendar';
+import * as Clipboard from 'expo-clipboard';
+import { appDispatch } from '../../../redux/storeRef';
+import { showSnackbar } from '../../../redux/uxuiSlice';
 
 export type PMBarEditMode = 'move' | 'resize-start' | 'resize-end';
 
@@ -116,9 +120,75 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
       return g;
     };
 
+    /** Row a new stage is placed next to: the row itself when it is a stage, else the stage it is in (a root task: itself). */
+    const stageAnchorOf = (guid: string) => {
+      const s = st();
+      if (s.tasksById[guid]?.rowJSON.rowKind === 'stage') return guid;
+      return s.tree.parentById[guid] ?? guid;
+    };
+
     return {
       createStage: (afterGUID: string | null = null) =>
         insertRow({ parentGUID: null, afterGUID: afterGUID ? rootOf(afterGUID) : null, rowKind: 'stage', name: 'New stage', durationDays: 0 }),
+
+      /** "Add stage below": a new stage right after the row's stage (same level; after the row itself when it is a stage). */
+      createStageBelow: (guid: string) => {
+        const s = st();
+        if (!s.tasksById[guid]) return null;
+        const anchor = stageAnchorOf(guid);
+        return insertRow({ parentGUID: s.tree.parentById[anchor] ?? null, afterGUID: anchor, rowKind: 'stage', name: 'New stage', durationDays: 0 });
+      },
+
+      /** "Add stage above": a new stage right before the row's stage (same level). */
+      createStageAbove: (guid: string) => {
+        const s = st();
+        if (!s.tasksById[guid]) return null;
+        const anchor = stageAnchorOf(guid);
+        return insertRow({ parentGUID: s.tree.parentById[anchor] ?? null, afterGUID: null, beforeGUID: anchor, rowKind: 'stage', name: 'New stage', durationDays: 0 });
+      },
+
+      /** "+ Stage" -> Substage: a new stage as the last row INSIDE the stage. */
+      createSubStage: (stageGUID: string) => {
+        const s = st();
+        if (!s.tasksById[stageGUID]) return null;
+        return insertRow({ parentGUID: stageGUID, afterGUID: null, rowKind: 'stage', name: 'New substage', durationDays: 0 });
+      },
+
+      /** Row menu "Copy GUID": the row's rowGUID on the clipboard. */
+      copyTaskGUID: async (guid: string) => {
+        try {
+          await Clipboard.setStringAsync(guid);
+          appDispatch(showSnackbar({ message: `GUID copied: ${guid}`, duration: 2500 }));
+          return true;
+        } catch {
+          return false;
+        }
+      },
+
+      /** "Add to Google Calendar": opens the pre-filled event (view/task/taskGoogleCalendar.ts). */
+      addToGoogleCalendar: (guid: string) => addTaskToGoogleCalendar(guid),
+
+      /** Multi selection (round check boxes): delete the checked rows after ONE question. One Undo step. */
+      deleteTasks: async (guids: string[]) => {
+        const s = st();
+        // a row inside another checked row goes with its parent
+        const set = new Set(guids.filter((g) => !!s.tasksById[g]));
+        const tops = Array.from(set).filter((g) => {
+          for (let p = s.tree.parentById[g]; p; p = s.tree.parentById[p]) if (set.has(p)) return false;
+          return true;
+        });
+        if (!tops.length) return;
+        const ok = await approvePM({
+          title: `Delete ${tops.length} selected row${tops.length === 1 ? '' : 's'}?`,
+          message: 'The rows inside them and all their dependencies will be deleted too. You can undo it with the Undo button.',
+          yesLabel: 'Delete',
+          destructive: true,
+        });
+        if (!ok) return;
+        record('task-delete', `Delete ${tops.length} rows`);
+        for (const g of tops) if (st().tasksById[g]) deleteTaskMutation.mutate(g);
+        st().clearChecked();
+      },
 
       /** "+" on a row: inside a stage -> new last child, on a task -> new sibling below it. */
       createTask: (guid: string | null, rowKind: 'task' | 'milestone' = 'task') => {
@@ -260,8 +330,8 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         const above = slot > 0 ? rows[slot - 1] : null;
         const below = slot < rows.length ? rows[slot] : null;
 
-        if (s.tasksById[guid]?.rowJSON.rowKind === 'stage') {
-          // stages live directly under the project
+        if (s.tasksById[guid]?.rowJSON.rowKind === 'stage' && !s.tree.parentById[guid]) {
+          // top-level stages stay directly under the project (substages move like any other row)
           const roots = siblingsOf(null).map((t) => t.rowGUID).filter((g) => g !== guid);
           let target: string | null = below ? rootOf(below) : null;
           if (below && target !== below) target = roots[roots.indexOf(target as string) + 1] ?? null;

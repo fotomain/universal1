@@ -116,7 +116,7 @@ describe('tree row hover panel placement', () => {
   });
 
   it('ends at the Task name column right edge when it fits there', () => {
-    const l = layoutTreeColumns(800, PM_TREE_COLUMNS_DEFAULT_ORDER);
+    const l = layoutTreeColumns(1100, PM_TREE_COLUMNS_DEFAULT_ORDER);
     const name = l.byKey.name!;
     const box = placeTreeRowPanel(l, false);
     expect(box.left + box.width).toBe(name.x + name.w - 4);

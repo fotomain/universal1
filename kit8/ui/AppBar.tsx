@@ -9,6 +9,64 @@ import { useDesignSystem } from '../providers/WithDesignSystem';
 import IconApp from '../components/common/IconApp';
 import ArrowToLeftApp from '../components/common/ArrowToLeftApp';
 import { useAppSignOut } from '../hooks/useAppSignOut';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  refreshProjectData,
+  setHideGanttChartNode,
+  setHideGanttToolBar,
+  setHideProjectToolBar,
+  setHideTreeNode,
+  showSnackbar,
+} from '../redux/uxuiSlice';
+import { shareScreenshot, shareScreenshotResultText } from '../lib/shareScreenshot';
+
+/** Project dashboard route: the app bar shows the view buttons there (before the three dots menu). */
+const PROJECT_DASHBOARD_PATH = '/pm/project/dashboard';
+
+/**
+ * App bar buttons of the Project dashboard, right-justified before the three dots menu. They only switch
+ * Redux flags (uxuiState): hideProjectToolBar · hideGanttToolBar · hideGanttChartNode · hideTreeNode ·
+ * refreshProjectData (a counter - the dashboard re-reads the project when it changes).
+ */
+function AppBarProjectButtons({ color, activeColor }: { color: string; activeColor: string }) {
+  const dispatch = useDispatch();
+  const hideProjectToolBar = useSelector((s: any) => !!s.uxuiState?.hideProjectToolBar);
+  const hideGanttToolBar = useSelector((s: any) => !!s.uxuiState?.hideGanttToolBar);
+  const hideGanttChartNode = useSelector((s: any) => !!s.uxuiState?.hideGanttChartNode);
+  const hideTreeNode = useSelector((s: any) => !!s.uxuiState?.hideTreeNode);
+  const btn = (testID: string, icon: string, hidden: boolean, label: string, onPress: () => void) => (
+    <TouchableOpacity
+      key={testID}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={`${hidden ? 'Show' : 'Hide'} ${label}`}
+      accessibilityState={{ selected: !hidden }}
+      onPress={onPress}
+      style={[styles.pmBtn, hidden ? { opacity: 0.45 } : { backgroundColor: `${activeColor}1F` }]}
+      {...({ title: `${hidden ? 'Show' : 'Hide'} ${label}` } as any)}
+    >
+      <IconApp testID={`${testID}-icon`} name={icon} size={20} color={hidden ? color : activeColor} />
+    </TouchableOpacity>
+  );
+  return (
+    <View style={styles.pmBtns} testID="appbar-project-buttons">
+      {btn('appbar-pm-project-toolbar', 'toolbar', hideProjectToolBar, 'the project tool bar', () => dispatch(setHideProjectToolBar(!hideProjectToolBar)))}
+      {btn('appbar-pm-gantt-toolbar', 'construction', hideGanttToolBar, 'the tree / Gantt tool bars', () => dispatch(setHideGanttToolBar(!hideGanttToolBar)))}
+      {btn('appbar-pm-tree-node', 'account_tree', hideTreeNode, 'the task tree', () => dispatch(setHideTreeNode(!hideTreeNode)))}
+      {btn('appbar-pm-chart-node', 'view_timeline', hideGanttChartNode, 'the chart (Gantt / Kanban / Versions)', () => dispatch(setHideGanttChartNode(!hideGanttChartNode)))}
+      <TouchableOpacity
+        testID="appbar-pm-refresh"
+        accessibilityRole="button"
+        accessibilityLabel="Refresh the project data"
+        onPress={() => dispatch(refreshProjectData())}
+        style={styles.pmBtn}
+        {...({ title: 'Refresh the project data' } as any)}
+      >
+        <IconApp testID="appbar-pm-refresh-icon" name="refresh" size={20} color={color} />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function AppBar({ route, options }: DrawerHeaderProps) {
   const navigation = useNavigation();
@@ -20,6 +78,19 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
   const title = options?.title || route?.name || t('menu.home');
 
   const [visible, setVisible] = useState(false);
+  const dispatch = useDispatch();
+  const isProjectDashboard = !!pathname && pathname.startsWith(PROJECT_DASHBOARD_PATH);
+  const hasCurrentJSON = useSelector((s: any) => !!s.uxuiState?.currentJSON);
+
+  /** Three dots menu: "Share screenshot" / "Share screenshot + JSON" (uxui.currentJSON). */
+  const handleShareScreenshot = (withJSON: boolean) => {
+    setVisible(false);
+    // after the menu has faded out, so it is not in the picture
+    setTimeout(async () => {
+      const r = await shareScreenshot({ withJSON });
+      if (r !== 'shared') dispatch(showSnackbar(shareScreenshotResultText(r, withJSON)));
+    }, 350);
+  };
 
   const isHome = pathname === '/home' || pathname === '/' || route?.name === 'home' || route?.name === 'index';
 
@@ -108,6 +179,23 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
 
             <View style={{ height: 1, backgroundColor: themeColors.border, marginVertical: 4 }} />
 
+            <TouchableOpacity testID="appbar-menu-share-screenshot" style={styles.menuRow} onPress={() => handleShareScreenshot(false)}>
+              <IconApp testID="appbar-menu-share-screenshot-icon" name="screenshot_monitor" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <Text style={{ fontSize: 15, color: themeColors.text }}>Share screenshot</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="appbar-menu-share-screenshot-json"
+              style={[styles.menuRow, !hasCurrentJSON && { opacity: 0.45 }]}
+              disabled={!hasCurrentJSON}
+              onPress={() => handleShareScreenshot(true)}
+            >
+              <IconApp testID="appbar-menu-share-screenshot-json-icon" name="data_object" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <Text style={{ fontSize: 15, color: themeColors.text }}>Share screenshot + JSON</Text>
+            </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: themeColors.border, marginVertical: 4 }} />
+
             <TouchableOpacity style={styles.menuRow} onPress={handleDesigns}>
               <IconApp testID="fd138467-6ki4-1lm3-5va7-890123456b38" name="palette" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>Kit8 Designs</Text>
@@ -149,6 +237,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
             />
           )}
           <Appbar.Content title={title} />
+          {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
             <IconApp testID="bf350689-8mk6-3no5-7xc9-012345678d40" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -173,7 +262,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
             },
           ]}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
             <div
               onClick={handleOpenDrawer}
               style={{
@@ -198,11 +287,13 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
             )}
 
             <Text
+              numberOfLines={1}
               style={{
                 fontSize: 18,
                 fontWeight: '700',
                 color: themeColors.text,
                 marginLeft: 8,
+                flexShrink: 1,
               }}
             >
               {title}
@@ -210,6 +301,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
             <TouchableOpacity onPress={openMenu} style={styles.actionBtn}>
               <IconApp testID="dh5728a1-0om8-5pq7-9ze1-234567890f42" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
             </TouchableOpacity>
@@ -244,8 +336,10 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingRight: 12,
   },
+  pmBtns: { flexDirection: 'row', alignItems: 'center', marginRight: 2 },
+  pmBtn: { padding: 6, borderRadius: 16, marginHorizontal: 1 },
   dropdownMenu: {
-    width: 200,
+    width: 230,
     paddingVertical: 8,
     borderWidth: 1,
     boxShadow: '0px 4px 16px rgba(0,0,0,0.2)',

@@ -4,7 +4,7 @@
 // the right and flips to the left near the screen edge.
 
 import React, { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import PMMenuItem, { PMMenuItemProps } from './PMMenuItem';
 
@@ -29,7 +29,9 @@ export default function PMContextMenu({ x, y, caption, items, onClose, testID, w
   const { themeColors: c } = useDesignSystem();
   const win = useWindowDimensions();
   const [openSub, setOpenSub] = useState(-1);
-  const menuH = PM_MENU_ITEM_HEIGHT * items.length + (caption ? CAPTION_H + PAD : 2 * PAD);
+  // long menus (phones): never taller than the window - the items scroll
+  const maxH = Math.max(120, win.height - 16);
+  const menuH = Math.min(maxH, PM_MENU_ITEM_HEIGHT * items.length + (caption ? CAPTION_H + PAD : 2 * PAD));
   const left = Math.max(8, Math.min(x, win.width - width - 8));
   const top = Math.max(8, Math.min(y, win.height - menuH - 8));
 
@@ -37,7 +39,7 @@ export default function PMContextMenu({ x, y, caption, items, onClose, testID, w
   let subLeft = 0;
   let subTop = 0;
   if (sub) {
-    const subH = PM_MENU_ITEM_HEIGHT * sub.length + 2 * PAD;
+    const subH = Math.min(maxH, PM_MENU_ITEM_HEIGHT * sub.length + 2 * PAD);
     subLeft = left + width - 6 + width <= win.width - 8 ? left + width - 6 : Math.max(8, left - width + 6);
     subTop = Math.max(8, Math.min(top + (caption ? CAPTION_H : PAD) + openSub * PM_MENU_ITEM_HEIGHT - PAD, win.height - subH - 8));
   }
@@ -45,27 +47,31 @@ export default function PMContextMenu({ x, y, caption, items, onClose, testID, w
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <Pressable testID={`${testID}-backdrop`} style={StyleSheet.absoluteFill} onPress={onClose} onLongPress={onClose} />
-      <View style={[styles.menu, { left, top, width, backgroundColor: c.surface, borderColor: c.border }]} testID={testID}>
+      <View style={[styles.menu, { left, top, width, maxHeight: maxH, backgroundColor: c.surface, borderColor: c.border }]} testID={testID}>
         {!!caption && (
           <Text numberOfLines={1} style={[styles.caption, { color: c.text }]} testID={`${testID}-caption`}>
             {caption}
           </Text>
         )}
-        {items.map((item, i) => (
-          <PMMenuItem
-            key={item.testID}
-            {...item}
-            highlighted={!!item.submenu && openSub === i}
-            onHoverIn={Platform.OS === 'web' ? () => setOpenSub(item.submenu ? i : -1) : undefined}
-            onPress={item.submenu ? () => setOpenSub(openSub === i ? -1 : i) : item.onPress}
-          />
-        ))}
+        <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+          {items.map((item, i) => (
+            <PMMenuItem
+              key={item.testID}
+              {...item}
+              highlighted={!!item.submenu && openSub === i}
+              onHoverIn={Platform.OS === 'web' ? () => setOpenSub(item.submenu ? i : -1) : undefined}
+              onPress={item.submenu ? () => setOpenSub(openSub === i ? -1 : i) : item.onPress}
+            />
+          ))}
+        </ScrollView>
       </View>
       {sub && (
-        <View style={[styles.menu, { left: subLeft, top: subTop, width, backgroundColor: c.surface, borderColor: c.border }]} testID={`${testID}-submenu`}>
-          {sub.map((item) => (
-            <PMMenuItem key={item.testID} {...item} />
-          ))}
+        <View style={[styles.menu, { left: subLeft, top: subTop, width, maxHeight: maxH, backgroundColor: c.surface, borderColor: c.border }]} testID={`${testID}-submenu`}>
+          <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+            {sub.map((item) => (
+              <PMMenuItem key={item.testID} {...item} />
+            ))}
+          </ScrollView>
         </View>
       )}
     </Modal>

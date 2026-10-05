@@ -3,7 +3,7 @@
 // (follows the shared scroll on the UI thread).
 
 import React from 'react';
-import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { ScrollView, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { PM_ROW_HEIGHT } from '../../model/constants';
 
@@ -15,7 +15,10 @@ export default function PMFloatingRowPanel({
   animatedStyle,
   style,
   testID,
+  scroll,
 }: {
+  /** narrow panes (phones): the buttons scroll horizontally instead of being cut off */
+  scroll?: boolean;
   children: React.ReactNode;
   width: number;
   background: string;
@@ -30,7 +33,13 @@ export default function PMFloatingRowPanel({
       testID={testID}
       style={[styles.panel, { pointerEvents: 'box-none' }, { width, backgroundColor: background, borderColor: border }, style, animatedStyle]}
     >
-      {children}
+      {scroll ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ alignItems: 'center' }}>
+          {children}
+        </ScrollView>
+      ) : (
+        children
+      )}
     </Animated.View>
   );
 }

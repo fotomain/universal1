@@ -84,7 +84,7 @@ export const PM_TIMELINE_PAD_DAYS = 21; // empty days before/after the project r
 
 /** @deprecated the tree row panel is sized by tree/panels/treeRowPanelGeometry (kept for older imports). */
 export const PM_HOVER_PANEL_WIDTH = 250;
-export const PM_BAR_PANEL_WIDTH = 200; // chart hover CRUD panel (next to the bar)
+export const PM_BAR_PANEL_WIDTH = 296; // chart hover CRUD panel (next to the bar)
 /** "Critical path" (chart bar) and "+ Project" (project bar) share this width. */
 export const PM_WIDE_ACTION_WIDTH = 132;
 /** Settings icon buttons on the project bar and Gantt bar share width & icon size so they align vertically. */

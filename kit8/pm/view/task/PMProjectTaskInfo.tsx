@@ -40,6 +40,9 @@ import ActivityIndicatorCircleApp from '../../../components/activityindicator/Ac
 
 const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Start → Start', FF: 'Finish → Finish', SF: 'Start → Finish' };
 
+import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
+import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
+
 export default function PMProjectTaskInfo(props: { taskGUID: string; projectGUID?: string }) {
   return (
     <PMUndoProvider>
@@ -88,6 +91,24 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
 
   const crud = usePMCrud(ownerGUID, projectGUID);
   const kanban = useKanbanCommands(projectGUID);
+  // uxui.currentJSON ("Share screenshot + JSON") + the main FAB commands of the task page
+  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.name || 'task', json: task } : null);
+  const fabActions = useMemo(
+    (): FABContextAction[] | null =>
+      task
+        ? [
+            { icon: 'pencil-outline', label: 'Edit', onPress: () => crud.edit(taskGUID) },
+            { icon: 'calendar-plus', label: 'Add to Google Calendar', onPress: () => crud.addToGoogleCalendar(taskGUID) },
+            { icon: 'content-copy', label: 'Copy task info', onPress: () => crud.copyTaskInfo(taskGUID) },
+            { icon: 'fingerprint', label: 'Copy GUID', onPress: () => crud.copyTaskGUID(taskGUID) },
+            { icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(taskGUID) },
+            { icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(taskGUID) },
+            { icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(taskGUID) },
+          ]
+        : null,
+    [task, taskGUID, crud, themeColors.error]
+  );
+  useFABContextActions('pm-task-info', fabActions);
   const upstream = useReadTaskClosureQuery(task ? taskGUID : null, 'up');
   const downstream = useReadTaskClosureQuery(task ? taskGUID : null, 'down');
 
@@ -230,10 +251,15 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
           {[projectName, ...breadcrumb].filter(Boolean).join('  ›  ')}
         </Text>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: c.text }]}>{task.rowJSON.name}</Text>
+          <Text style={[styles.title, { color: c.text, flexShrink: 1 }]}>{task.rowJSON.name}</Text>
           <View style={[styles.kind, { backgroundColor: `${c.primary}1f` }]}>
             <Text style={{ color: c.primary, fontSize: 11, fontWeight: '800' }}>{(isSummary ? 'stage' : task.rowJSON.rowKind).toUpperCase()}</Text>
           </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
+          <PMIconButton testID="pm-info-google-calendar" icon="event" label="Add to Google Calendar" title="Add to Google Calendar" color={c.primary} onPress={() => crud.addToGoogleCalendar(taskGUID)} />
+          <PMIconButton testID="pm-info-copy-guid" icon="fingerprint" label="Copy GUID" title="Copy the task GUID" color={c.text} onPress={() => crud.copyTaskGUID(taskGUID)} />
         </View>
 
         {/* ---- schedule facts ---- */}
@@ -421,7 +447,7 @@ function ClosureList({
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  container: { padding: 16, paddingBottom: 48, maxWidth: 820, width: '100%', alignSelf: 'center' },
+  container: { padding: 16, paddingBottom: 110, maxWidth: 820, width: '100%', alignSelf: 'center' },
   backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 12 },
   title: { fontSize: 22, fontWeight: '800', flexShrink: 1 },

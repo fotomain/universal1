@@ -7,6 +7,7 @@ import { PMLinkLineForm, PMProjectRow, PMUxUiSettings, uxuiSettingsOf } from '..
 import type { PMStoreState } from './storeTypes';
 import { filterAndSortTreeRows } from '../view/tree/filter/treeColumnFilter';
 import type { PMTaskRow } from '../model/types';
+import { usePMKanbanStore } from './store_kanban';
 
 const NO_CONTEXT: Record<string, true> = Object.freeze({}) as Record<string, true>;
 
@@ -32,7 +33,16 @@ export function treeRowsOf(
       tasksById = {};
       for (const t of s.tasks ?? []) tasksById[t.rowGUID] = t;
     }
-    const r = filterAndSortTreeRows(s.tree, expanded, { tasksById, schedule: s.schedule, tree: s.tree, customColumns: s.customColumns ?? [] }, filters, s.treeColumnSort);
+    // the Kanban / Kanban % columns read the Kanban store (store.refreshTreeRows() re-applies them when it changes)
+    const k = usePMKanbanStore.getState();
+    const kanbanStages = [...k.stages].sort((a, b) => a.orderInList - b.orderInList);
+    const r = filterAndSortTreeRows(
+      s.tree,
+      expanded,
+      { tasksById, schedule: s.schedule, tree: s.tree, customColumns: s.customColumns ?? [], kanbanStages, kanbanStates: k.statesByTask },
+      filters,
+      s.treeColumnSort
+    );
     visibleRows = r.visibleRows;
     if (r.contextGUIDs && Object.keys(r.contextGUIDs).length) treeFilterContextGUIDs = r.contextGUIDs;
     treeFilterMatchCount = r.matchCount;

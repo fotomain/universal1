@@ -39,6 +39,9 @@ export interface PMKanbanCardProps {
   onDragStart: (data: PMKanbanCardDragData) => void;
   onDragEnd: (data: PMKanbanCardDragData) => void;
   onProgressChange?: (guid: string, percent: number) => void;
+  /** multi selection: round check box (checked cards are dragged / moved together) */
+  checked?: boolean;
+  onToggleChecked?: (guid: string) => void;
 }
 
 function PMKanbanCardInner({
@@ -57,6 +60,8 @@ function PMKanbanCardInner({
   onDragStart,
   onDragEnd,
   onProgressChange,
+  checked,
+  onToggleChecked,
 }: PMKanbanCardProps) {
   const lastTap = useRef(0);
   const criticalPriority = usePMStore((s) => s.criticalPathColorHasPriorityOverTheCustomTaskColor);
@@ -128,12 +133,25 @@ function PMKanbanCardInner({
       testID={`pm-kanban-card-${card.guid}`}
       style={[
         styles.card,
-        { backgroundColor: palette.surface, borderColor: selected ? palette.primary : palette.border, borderLeftColor: accent },
+        { backgroundColor: checked ? withAlpha(palette.primary, 0.1) : palette.surface, borderColor: selected || checked ? palette.primary : palette.border, borderLeftColor: accent },
         selected ? { borderWidth: 2, borderLeftWidth: 4 } : null,
       ]}
     >
+      {!!onToggleChecked && !readOnly && (
+        <Pressable
+          testID={`pm-kanban-check-${card.guid}`}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: !!checked }}
+          accessibilityLabel={`Select ${card.name}`}
+          hitSlop={6}
+          onPress={() => onToggleChecked(card.guid)}
+          style={[styles.check, { borderColor: checked ? palette.primary : palette.textMuted, backgroundColor: checked ? palette.primary : 'transparent' }]}
+        >
+          {checked && <Text style={styles.checkMark}>✓</Text>}
+        </Pressable>
+      )}
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={card.name} style={IS_WEB ? ({ cursor: readOnly ? 'pointer' : 'grab' } as any) : null}>
-        <View style={styles.titleRow}>
+        <View style={[styles.titleRow, !!onToggleChecked && !readOnly ? { paddingRight: 24 } : null]}>
           {card.kind === 'milestone' && <PMTipIcon tip="Milestone" testID={`pm-kanban-ms-${card.guid}`} name="flag" size={14} color={palette.milestone} style={{ marginRight: 4 }} />}
           <Text style={[styles.title, { color: palette.text }]} numberOfLines={2}>
             {card.name || '(no name)'}
@@ -250,6 +268,8 @@ const styles = StyleSheet.create({
   slot: { marginBottom: 8 },
   card: { borderWidth: StyleSheet.hairlineWidth, borderLeftWidth: 4, borderRadius: 8, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  check: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  checkMark: { color: '#fff', fontSize: 11, fontWeight: '800', lineHeight: 13 },
   title: { flex: 1, fontSize: 13, fontWeight: '600' },
   criticalDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 6, marginTop: 4 },
   meta: { fontSize: 11, marginTop: 2 },

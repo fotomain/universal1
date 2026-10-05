@@ -3,6 +3,9 @@
 //
 //   moveTasksToStage(taskGUIDs, stageGUID, index?)  cards -> column (index = place in the column as shown)
 //   moveTreeRowToStage(guid, stageGUID, index?)     a tree row: a task, or a stage = all its tasks
+//                                                   (a CHECKED row moves every checked row with it - multi selection)
+//   clearTasksKanbanState(taskGUIDs)                tasks -> kanbanNoState (in no column, "No state" in the tree)
+//   clearTreeRowKanbanState(guid)                   the same for a tree row (task / stage / the checked rows)
 //   createStage(name, color) · updateStage(guid, patch) · moveStage(guid, -1 | 1) · deleteStage(guid)
 //
 // The stage of a task is independent of its progress % (never written here).
@@ -14,11 +17,33 @@ import { usePMKanbanStore } from '../../store/store_kanban';
 import { newGUID } from '../api/apiUtils';
 import { PMKanbanStateWrite } from '../api/kanbanApi';
 import { PMKanbanStageJSON, PMProjectKanbanData, PMProjectKanbanStageRow, PMTaskKanbanStateRow, PM_KANBAN_ORDER_STEP, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
-import { applyKanbanStateWrites, buildKanbanBoard, kanbanLeavesOf, planKanbanMove } from '../../view/kanban/kanbanModel';
+import { applyKanbanStateWrites, buildKanbanBoard, kanbanLeavesOf, planKanbanClear, planKanbanMove } from '../../view/kanban/kanbanModel';
 import { pmKeys, usePMApi } from '../shared/queryShared';
 import { useKanbanMutation } from './kanbanQueries';
 
 const readOnlyMessage = 'The Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.';
+
+/**
+ * Cards a dragged / picked row stands for. Multi selection: when the row is checked (round check box),
+ * every checked row goes with it; a stage row stands for all tasks / milestones inside it.
+ */
+export function kanbanLeavesForRow(guid: string): string[] {
+  const s = usePMStore.getState();
+  const rows = s.checkedGUIDs[guid] ? Object.keys(s.checkedGUIDs) : [guid];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  // tree order, so the cards land in the column in the order of the tree
+  const order = (g: string) => s.rowIndexById[g] ?? Number.MAX_SAFE_INTEGER;
+  for (const row of [...rows].sort((a, b) => order(a) - order(b))) {
+    for (const leaf of kanbanLeavesOf(row, s.tasksById, s.tree)) {
+      if (!seen.has(leaf)) {
+        seen.add(leaf);
+        out.push(leaf);
+      }
+    }
+  }
+  return out;
+}
 
 export function useKanbanCommands(projectGUID: string | null | undefined) {
   const api = usePMApi();
@@ -108,7 +133,7 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
   const moveTreeRowToStage = useCallback(
     (guid: string, stageGUID: string, index?: number) => {
       const s = usePMStore.getState();
-      const leaves = kanbanLeavesOf(guid, s.tasksById, s.tree);
+      const leaves = kanbanLeavesForRow(guid);
       if (!leaves.length) {
         s.setError('This stage has no tasks yet - add tasks to it first.');
         return;
@@ -117,6 +142,21 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     },
     [moveTasksToStage]
   );
+
+  /** Tasks -> kanbanNoState: they leave every column (not deleted; the tree shows "No state"). */
+  const clearTasksKanbanState = useCallback(
+    (taskGUIDs: string[]) => {
+      const cur = current();
+      const s = usePMStore.getState();
+      if (!cur || s.loadedProjectGUID !== projectGUID) return;
+      const writes = planKanbanClear(cur.statesByTask, taskGUIDs.filter((g) => !!s.tasksById[g]));
+      if (writes.length) saveStates.mutate(writes);
+    },
+    [current, projectGUID, saveStates]
+  );
+
+  /** A tree row (task, stage = its tasks, or all checked rows) -> kanbanNoState. */
+  const clearTreeRowKanbanState = useCallback((guid: string) => clearTasksKanbanState(kanbanLeavesForRow(guid)), [clearTasksKanbanState]);
 
   const createStage = useCallback(
     (name: string, color: string) => {
@@ -226,6 +266,8 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     () => ({
       moveTasksToStage,
       moveTreeRowToStage,
+      clearTasksKanbanState,
+      clearTreeRowKanbanState,
       setTaskKanbanProgress,
       setTasksKanbanProgress,
       createStage,
@@ -237,6 +279,8 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     [
       moveTasksToStage,
       moveTreeRowToStage,
+      clearTasksKanbanState,
+      clearTreeRowKanbanState,
       setTaskKanbanProgress,
       setTasksKanbanProgress,
       createStage,

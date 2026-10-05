@@ -10,8 +10,8 @@ import { usePMStore } from '../../../store/store_pm';
 import { usePMKanbanStore } from '../../../store/store_kanban';
 import { useKanbanCommands } from '../../../crud/kanban/useKanbanCommands';
 import { PMCrud } from '../../../crud/usePMCrud';
-import { derivedKanbanStage, kanbanStageOfTask } from '../../kanban/kanbanModel';
-import { kanbanStageColorOf, PM_KANBAN_DEFAULT_STAGES, PMProjectKanbanStageRow } from '../../../model/kanbanTypes';
+import { kanbanStageForRow } from '../../kanban/kanbanModel';
+import { kanbanStageColorOf, PM_KANBAN_DEFAULT_STAGES, PM_KANBAN_NO_STATE, PM_KANBAN_NO_STATE_COLOR, PM_KANBAN_NO_STATE_LABEL, PMProjectKanbanStageRow } from '../../../model/kanbanTypes';
 import { withAlpha } from '../../theme';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT } from '../../../model/constants';
 import IconApp from '../../../../components/common/IconApp';
@@ -46,7 +46,7 @@ export default function PMKanbanChangeStageInTree({
   const statesByTask = usePMKanbanStore((s) => s.statesByTask);
   const kanban = useKanbanCommands(projectGUID);
 
-  const stages: PMProjectKanbanStageRow[] = useMemo(() => {
+  const realStages: PMProjectKanbanStageRow[] = useMemo(() => {
     if (storeStages.length > 0) return storeStages;
     return PM_KANBAN_DEFAULT_STAGES.map((s, i) => ({
       rowGUID: s.stageCode,
@@ -56,15 +56,19 @@ export default function PMKanbanChangeStageInTree({
       rowJSON: { stageName: s.stageName, stageColor: s.stageColor, stageCode: s.stageCode },
     }));
   }, [storeStages, projectGUID]);
+  /** first option = kanbanNoState: the task leaves every column */
+  const stages: PMProjectKanbanStageRow[] = useMemo(
+    () => [
+      { rowGUID: PM_KANBAN_NO_STATE, rowOwnerGUID: projectGUID || '', rowParentGUID: 'empty', orderInList: 0, rowJSON: { stageName: PM_KANBAN_NO_STATE_LABEL, stageColor: PM_KANBAN_NO_STATE_COLOR } },
+      ...realStages,
+    ],
+    [realStages, projectGUID]
+  );
 
-  const currentStageGUID = useMemo(() => {
-    const isSummary = !!schedule[guid]?.isSummary || (tree.childrenById[guid]?.length ?? 0) > 0;
-    if (isSummary) {
-      const derived = derivedKanbanStage(guid, tasksById, tree, stages, statesByTask);
-      return derived ? derived.rowGUID : stages[0]?.rowGUID ?? null;
-    }
-    return kanbanStageOfTask(guid, stages, statesByTask);
-  }, [guid, schedule, tree, tasksById, stages, statesByTask]);
+  const currentStageGUID = useMemo(
+    () => kanbanStageForRow(guid, tasksById, tree, realStages, statesByTask)?.rowGUID ?? PM_KANBAN_NO_STATE,
+    [guid, tree, tasksById, realStages, statesByTask]
+  );
 
   const currentIndex = useMemo(() => {
     const idx = stages.findIndex((s) => s.rowGUID === currentStageGUID);
@@ -83,7 +87,8 @@ export default function PMKanbanChangeStageInTree({
   const selectStage = (stageGUID: string) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    kanban.moveTreeRowToStage(guid, stageGUID);
+    if (stageGUID === PM_KANBAN_NO_STATE) kanban.clearTreeRowKanbanState(guid);
+    else kanban.moveTreeRowToStage(guid, stageGUID);
     usePMStore.getState().setCellEdit(null);
   };
 

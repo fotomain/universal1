@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "skipLibCheck": true },
+  "include": ["../kit8/pm/**/*.ts", "../kit8/pm/**/*.tsx", "../kit8/redux/storeRef.ts", "../kit8/redux/useUxuiCurrentJSON.ts", "../kit8/lib/shareScreenshot.ts", "../kit8/ui/AppBar.tsx", "../kit8/providers/FABProvider.tsx", "../kit8/components/fab/FABAppComponent.tsx", "../kit8/components/common/ShareScreenshotButton.tsx", "../kit8/components/common/ErrorModalWindow.tsx"]
+}

@@ -2,7 +2,7 @@
 node_modules/
 /.pnp
 .pnp.js
-
+android/
 # Expo
 .expo/
 dist/
@@ -36,3 +36,4 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.bak
+android_build.log

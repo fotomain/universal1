@@ -195,6 +195,21 @@ export interface PMStoreState {
   /** Undo stack info for the current project (the entries live in expo-sqlite). */
   undoCount: number;
   undoLabel: string | null;
+  /** Rows checked with the round check boxes (first tree column, Kanban cards): multi selection of
+   *  stages and tasks - moved together by drag & drop (tree <-> Kanban columns), deleted together. */
+  checkedGUIDs: Record<string, true>;
+  toggleChecked: (rowGUID: string) => void;
+  setChecked: (rowGUIDs: string[], checked: boolean) => void;
+  clearChecked: () => void;
+  /** Custom period of the Gantt chart (period button before "Today"): the time line is widened to it and
+   *  the chart zooms / scrolls so that the period fills the pane. Session only (not saved). */
+  ganttPeriod: { startMs: number; finishMs: number; nonce: number } | null;
+  setGanttPeriod: (period: { startMs: number; finishMs: number } | null) => void;
+  /** "Custom period" window of the Gantt bar is open */
+  ganttPeriodOpen: boolean;
+  setGanttPeriodOpen: (open: boolean) => void;
+  /** Re-applies the tree filters / sort (the Kanban column of the tree reads store_kanban, which changed). */
+  refreshTreeRows: () => void;
 
   // ---- actions ----------------------------------------------------------------------
   setProjects: (projects: PMProjectRow[]) => void;

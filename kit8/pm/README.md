@@ -453,3 +453,33 @@ Skia `PMTreeColumnsHeader` - import it by path) · `customColumns/` `PMTreeHeade
   indent / drag-drop / delete with approval / dependencies / view settings / optimistic rollback / undo of
   every action type), `pmProjectCrud.test.tsx` (projects, search, demo seed, schedule write-back, undo storage), `pmCustomColumnsCrud.test.tsx` (add / rename / delete custom columns, values, header colors, column widths).
 * Files ending in `TestKit.ts(x)` are helpers, excluded from the run in `jest.config.js`.
+
+## 2026-10-05: selection, kanbanNoState, app bar / FAB, sharing
+
+* **Multi selection** - round check box = FIRST tree column (`PM_TREE_SELECT_WIDTH`, outside the Skia grid; header box = all visible
+  rows) and on every Kanban card. `store.checkedGUIDs` (`toggleChecked` / `setChecked` / `clearChecked`), stages and tasks.
+  A checked row / card moves every checked one with it: tree -> Kanban column, card -> column, ‹ ›. Tree toolbar: selected count
+  (clear) + delete selected (`crud.deleteTasks`, one question, one Undo step).
+* **kanbanNoState** - `rowJSON.stageGUID = 'kanbanNoState'` (`PM_KANBAN_NO_STATE`, no SQL change): the task is in NO column; the
+  tree's Kanban cell says "No state" (also the first option of its picker). Tree filter: Kanban -> **Is empty**, or the Kanban
+  bar button **No state (N)**. Board -> tree: drop a card on the tree = No state. A task WITHOUT a state row is still in the first stage.
+  Commands: `kanban.clearTasksKanbanState(guids)`, `kanban.clearTreeRowKanbanState(guid)`; pure: `planKanbanClear`, `kanbanStageForRow`.
+* **Kanban column header** - ⋮ / right-click / long-press = menu: Select all tasks · Move all tasks to ▸ · Clear: all tasks to
+  "No state" · Sort by ▸. **Sort button**: by any tree column (name, #, start, finish, duration, %, Kanban %, custom columns),
+  press the field again = other direction; the field name + ↑ / ↓ is shown under the column title (`store_kanban.columnSort`, session only).
+* **Row menu** (`PMTaskRowMenu`) - now opens in BOTH command modes (web: right-click, touch: long-press and release). New items:
+  Add stage below / Add stage above (before Edit), Copy GUID, Add to Google Calendar. Hover panels: add stage below / above (before
+  Edit) + Google Calendar. `crud.createStageBelow` / `createStageAbove` / `createSubStage` / `copyTaskGUID` / `addToGoogleCalendar`.
+* **"+ Stage"** with a stage selected -> menu Stage / Substage (a stage inside the stage).
+* **Add to Google Calendar** (`view/task/taskGoogleCalendar.ts`) - opens Google Calendar's pre-filled "new event" page (no OAuth):
+  row menu, hover panels, Edit task window, task page, main FAB.
+* **Chart period** - Gantt bar button before Today -> `PMGanttPeriodModalWindow` (From / To or a preset): zooms + scrolls to the
+  period, the time line is widened to it (`store.ganttPeriod`, session only); "Whole project" = fit.
+* **App bar buttons on the dashboard** (`kit8/ui/AppBar.tsx`, Redux `uxuiState`): `hideProjectToolBar`, `hideGanttToolBar` (tree +
+  Gantt / Kanban bars together - the rows stay aligned), `hideTreeNode`, `hideGanttChartNode`, `refreshProjectData` (counter).
+* **Main FAB** - `FABProvider.useFABContextActions(id, actions)`: the dashboard and the task page publish their CRUD commands.
+* **Share screenshot / Share screenshot + JSON** (app ⋮ menu, and a button in Project settings / Edit task / Edit dependency):
+  `kit8/lib/shareScreenshot.ts` - base64 only, nothing is written to a public folder. `uxuiState.currentJSON` is published with
+  `useUxuiCurrentJSON` (dashboard, Project settings, Edit task, task page, dependency). The Skia canvases register a snapshot.
+* **Touch** - dependency drawing starts at once from the (bigger) link circles of the SELECTED bar; the bar panel sits one row
+  below the bar; the Tree | Gantt divider moves after a long touch (wide grab zone); the project bar scrolls horizontally.

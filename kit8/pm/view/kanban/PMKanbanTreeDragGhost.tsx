@@ -5,13 +5,14 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { usePMKanbanStore } from '../../store/store_kanban';
 import { usePMStore } from '../../store/store_pm';
 import { PMPalette } from '../theme';
-import { kanbanLeavesOf } from './kanbanModel';
+import { kanbanLeavesForRow } from '../../crud/kanban/useKanbanCommands';
 import { PMKanbanTreeBridge } from './kanbanTreeBridge';
 
 export default function PMKanbanTreeDragGhost({ bridge, palette }: { bridge: PMKanbanTreeBridge; palette: PMPalette }) {
   const drag = usePMKanbanStore((s) => s.treeDrag);
   const target = usePMKanbanStore((s) => (s.treeDrag?.overStageGUID ? s.stages.find((x) => x.rowGUID === s.treeDrag!.overStageGUID)?.rowJSON.stageName : null));
-  const count = usePMStore((s) => (drag ? kanbanLeavesOf(drag.guid, s.tasksById, s.tree).length : 0));
+  // re-counted when the tree / multi selection changes
+  const count = usePMStore((s) => (drag && s.tasksById[drag.guid] ? kanbanLeavesForRow(drag.guid).length : 0));
   const style = useAnimatedStyle(() => ({
     opacity: bridge.active.value,
     transform: [{ translateX: bridge.x.value + 12 }, { translateY: bridge.y.value - 14 }],

@@ -137,8 +137,8 @@ export function treeColumnDataType(key: string, customColumns: readonly PMCustom
   return def.type === 'integer' || def.type === 'float' ? 'number' : def.type;
 }
 
-/** Custom cells can be empty (built-in cells always have a value). */
-export const treeColumnCanBeEmpty = (key: string) => isCustomColumnKey(key);
+/** Custom cells can be empty; so can the Kanban cell (kanbanNoState = "Is empty"). Other built-in cells always have a value. */
+export const treeColumnCanBeEmpty = (key: string) => isCustomColumnKey(key) || key === 'kanban';
 
 const COMPARE_VARIANTS: PMFilterVariantForColumn[] = ['after', 'before', 'lessThanOrEqual', 'greaterThanOrEqual', 'between'];
 
@@ -282,6 +282,27 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       const stages = ctx.kanbanStages;
       if (!stages || !stages.length) return '';
       const saved = ctx.kanbanStates?.[guid]?.rowJSON?.stageGUID;
+      // kanbanNoState (in no column) = empty: "Is empty" finds those tasks
+      if (saved === 'kanbanNoState') return null;
+      const kids = ctx.tree.childrenById[guid];
+      if (kids && kids.length) {
+        // a stage row: the earliest stage of the tasks inside it (empty when they all have no state)
+        let best = -1;
+        let leaves = 0;
+        const visit = (g: string) => {
+          const ks = ctx.tree.childrenById[g];
+          if (ks && ks.length) return ks.forEach(visit);
+          leaves++;
+          const sv = ctx.kanbanStates?.[g]?.rowJSON?.stageGUID;
+          if (sv === 'kanbanNoState') return;
+          const i = sv ? stages.findIndex((s) => s.rowGUID === sv) : 0;
+          const idx = i >= 0 ? i : 0;
+          if (best < 0 || idx < best) best = idx;
+        };
+        kids.forEach(visit);
+        if (leaves && best < 0) return null;
+        return stages[Math.max(0, best)]?.rowJSON?.stageName ?? '';
+      }
       const stage = (saved && stages.find((s) => s.rowGUID === saved)) || stages[0];
       return stage?.rowJSON?.stageName ?? '';
     }

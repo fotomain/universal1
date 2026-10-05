@@ -61,6 +61,8 @@ import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
 import PMGanttVersionButtons from "../../../version/view/buttons/PMGanttVersionButtons";
 import PMContextMenu from "../../../inner/menu/PMContextMenu";
 import { usePMVersionStore } from "../../../version/store/store_version";
+import { useUxuiCurrentJSON } from "../../../../redux/useUxuiCurrentJSON";
+import ShareScreenshotButton from "../../../../components/common/ShareScreenshotButton";
 
 export type ProjectSettingsTab = 'TabMain' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
@@ -84,10 +86,16 @@ interface Draft {
 
 export default function PMRecentProjectsToolbar({
   ownerGUID,
+  hidden = false,
 }: {
   ownerGUID: string;
+  /** uxui.hideProjectToolBar: the bar is not shown (its windows - Project settings ... - still open) */
+  hidden?: boolean;
 }) {
   const { themeColors } = useDesignSystem();
+  /** widths for the horizontally scrollable buttons (phones: "+ Project" is always reachable) */
+  const [barW, setBarW] = useState(0);
+  const [buttonsW, setButtonsW] = useState(0);
   const projectOrder = usePMStore((s) => s.projectOrder);
   const projectsById = usePMStore((s) => s.projectsById);
   const recentProjectGUIDs = usePMStore((s) => s.recentProjectGUIDs);
@@ -177,6 +185,13 @@ export default function PMRecentProjectsToolbar({
     scrollRef.current?.scrollTo({ x, animated: true });
   };
 
+  // uxui.currentJSON while the Project settings window is open: the project row + the values being edited
+  useUxuiCurrentJSON(
+    draft
+      ? { kind: "projectSettings", title: draft.name || "New project", json: { project: draft.rowGUID ? projectsById[draft.rowGUID] ?? null : null, draft } }
+      : null,
+  );
+
   const closeChip = useCallback((guid: string) => {
     const s = usePMStore.getState();
     s.removeRecentProject(guid);
@@ -242,7 +257,9 @@ export default function PMRecentProjectsToolbar({
   useEffect(() => {
     if (!settingsRequest) return;
     const s = usePMStore.getState();
-    openEditFor(s.projectsById[settingsRequest.guid]);
+    // 'new' = the "New project" window (main FAB)
+    if (settingsRequest.guid === 'new') openNew();
+    else openEditFor(s.projectsById[settingsRequest.guid]);
     s.openProjectSettings(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsRequest]);
@@ -355,6 +372,7 @@ export default function PMRecentProjectsToolbar({
           borderColor: themeColors.border,
           backgroundColor: themeColors.surface,
         },
+        hidden ? { display: "none" } : null,
       ]}
     >
       {!compact && (
@@ -372,6 +390,17 @@ export default function PMRecentProjectsToolbar({
         width={compact ? 150 : 220}
       />
 
+      {/* everything after the project search scrolls horizontally (like the Gantt bar): on a phone in
+          portrait mode every button - "+ Project" too - can be reached */}
+      <ScrollView
+        testID="pm-project-bar-scroll"
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.barContent}
+        onLayout={(e: LayoutChangeEvent) => setBarW(e.nativeEvent.layout.width)}
+      >
       <PMIconButton
         compact
         testID="pm-project-ribbon-left"
@@ -385,7 +414,8 @@ export default function PMRecentProjectsToolbar({
         ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flex: 1 }}
+        nestedScrollEnabled
+        style={{ flexGrow: 0, flexShrink: 0, width: Math.max(compact ? 110 : 140, barW - buttonsW - 64) }}
         contentContainerStyle={styles.chips}
         onScroll={onScroll}
         scrollEventThrottle={32}
@@ -437,6 +467,7 @@ export default function PMRecentProjectsToolbar({
         onPress={() => scrollBy(1)}
       />
 
+      <View style={styles.barButtons} onLayout={(e: LayoutChangeEvent) => setButtonsW(e.nativeEvent.layout.width)}>
       {selected && !compact && (
         <Text
           style={[styles.range, { color: themeColors.text }]}
@@ -486,6 +517,8 @@ export default function PMRecentProjectsToolbar({
       <View ref={addBtnRef} collapsable={false}>
         <PMAddProjectButton compact={compact} onPress={handleOpenAddMenu} />
       </View>
+      </View>
+      </ScrollView>
 
       {!!addMenuCoords && (
         <PMContextMenu
@@ -553,16 +586,19 @@ export default function PMRecentProjectsToolbar({
                 { height: settingsHeight, backgroundColor: themeColors.surface },
               ]}
             >
-              <Text
-                style={{
-                  color: themeColors.text,
-                  fontWeight: "700",
-                  fontSize: 16,
-                  marginBottom: 8,
-                }}
-              >
-                {draft?.rowGUID ? "Project settings" : "New project"}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Text
+                  style={{
+                    flex: 1,
+                    color: themeColors.text,
+                    fontWeight: "700",
+                    fontSize: 16,
+                  }}
+                >
+                  {draft?.rowGUID ? "Project settings" : "New project"}
+                </Text>
+                <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} />
+              </View>
 
               {/* TopTabs Bar: TabMain, TabUXUI, TabPartners, TabKanban */}
               <View testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
@@ -1105,6 +1141,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     zIndex: 20,
   },
+  barContent: { flexGrow: 1, flexDirection: "row", alignItems: "center" },
+  barButtons: { flexDirection: "row", alignItems: "center" },
   chips: {
     alignItems: "center",
     paddingRight: 8,

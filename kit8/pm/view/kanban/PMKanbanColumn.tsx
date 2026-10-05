@@ -4,7 +4,8 @@
 // Highlighted while a card or a tree row is dragged over it.
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { Droppable } from 'react-native-reanimated-dnd';
 import { PMPalette, withAlpha } from '../theme';
 import { kanbanStageColorOf } from '../../model/kanbanTypes';
@@ -35,7 +36,21 @@ export interface PMKanbanColumnProps {
   onDragStart: (data: PMKanbanCardDragData) => void;
   onDragEnd: (data: PMKanbanCardDragData) => void;
   onProgressChange?: (guid: string, percent: number) => void;
+  /** multi selection (round check boxes): checked rows of the PM store */
+  checkedGUIDs?: Record<string, true>;
+  onToggleChecked?: (guid: string) => void;
+  /** sorting of this column: field title + direction (undefined = saved card order) */
+  sortLabel?: string;
+  sortDirection?: 'asc' | 'desc';
+  /** header buttons / right-click (touch: long-press) of the header: window point */
+  onOpenSort?: (stageGUID: string, x: number, y: number) => void;
+  onOpenMenu?: (stageGUID: string, x: number, y: number) => void;
 }
+
+const pointOf = (e: any): { x: number; y: number } => {
+  const n = e?.nativeEvent ?? e ?? {};
+  return { x: n.pageX ?? n.clientX ?? 0, y: n.pageY ?? n.clientY ?? 0 };
+};
 
 export default function PMKanbanColumn(p: PMKanbanColumnProps) {
   const { column, palette } = p;
@@ -43,18 +58,75 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
   const color = kanbanStageColorOf(stage.rowJSON);
   const wip = stage.rowJSON.wipLimit && stage.rowJSON.wipLimit > 0 ? stage.rowJSON.wipLimit : 0;
   const overWip = wip > 0 && column.cards.length > wip;
+  const headerRef = React.useRef<View>(null);
+  /** window point under the header (buttons report no usable point on every platform) */
+  const openAt = (fn: ((stageGUID: string, x: number, y: number) => void) | undefined, e?: any) => {
+    if (!fn) return;
+    const p = pointOf(e);
+    if (p.x || p.y) return fn(stage.rowGUID, p.x, p.y);
+    const node: any = headerRef.current;
+    if (node?.measureInWindow) node.measureInWindow((x: number, y: number, w: number, h: number) => fn(stage.rowGUID, x + w - 200, y + h));
+    else fn(stage.rowGUID, 0, 0);
+  };
+  // web: right-click the header = column menu
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || p.readOnly) return;
+    const el = headerRef.current as unknown as HTMLElement | null;
+    if (!el || typeof el.addEventListener !== 'function') return;
+    const onCtx = (e: MouseEvent) => {
+      e.preventDefault();
+      p.onOpenMenu?.(stage.rowGUID, e.clientX, e.clientY);
+    };
+    el.addEventListener('contextmenu', onCtx);
+    return () => el.removeEventListener('contextmenu', onCtx);
+  }, [p.onOpenMenu, p.readOnly, stage.rowGUID]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const content = (
     <>
-      <View style={[styles.header, { borderBottomColor: color }]}>
+      <Pressable
+        ref={headerRef}
+        testID={`pm-kanban-colhead-${stage.rowGUID}`}
+        onLongPress={p.readOnly ? undefined : (e) => openAt(p.onOpenMenu, e)}
+        delayLongPress={450}
+        style={[styles.header, { borderBottomColor: color }]}
+      >
         <View style={[styles.dot, { backgroundColor: color }]} />
-        <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
-          {stage.rowJSON.stageName || '—'}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
+            {stage.rowJSON.stageName || '—'}
+          </Text>
+          {!!p.sortLabel && (
+            <Text style={[styles.sortText, { color: palette.primary }]} numberOfLines={1} testID={`pm-kanban-colsortlabel-${stage.rowGUID}`}>
+              {p.sortDirection === 'desc' ? '↓' : '↑'} {p.sortLabel}
+            </Text>
+          )}
+        </View>
         <Text style={[styles.count, { color: overWip ? palette.error : palette.textMuted, borderColor: overWip ? palette.error : palette.border }]}>
           {wip ? `${column.cards.length}/${wip}` : column.cards.length}
         </Text>
-      </View>
+        {!!p.onOpenSort && (
+          <PMIconButton
+            compact
+            size={16}
+            testID={`pm-kanban-colsort-${stage.rowGUID}`}
+            icon="sort"
+            title={p.sortLabel ? `Sorted by ${p.sortLabel} - change the sorting` : 'Sort the cards of this column'}
+            color={p.sortLabel ? palette.primary : palette.text}
+            onPress={() => openAt(p.onOpenSort)}
+          />
+        )}
+        {!!p.onOpenMenu && !p.readOnly && (
+          <PMIconButton
+            compact
+            size={16}
+            testID={`pm-kanban-colmenu-${stage.rowGUID}`}
+            icon="more_vert"
+            title="Column menu: select all tasks, clear the column"
+            color={palette.text}
+            onPress={() => openAt(p.onOpenMenu)}
+          />
+        )}
+      </Pressable>
       <View style={styles.body}>
         {column.cards.map((card, i) => (
           <PMKanbanCard
@@ -74,6 +146,8 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
             onDragStart={p.onDragStart}
             onDragEnd={p.onDragEnd}
             onProgressChange={p.onProgressChange}
+            checked={!!p.checkedGUIDs?.[card.guid]}
+            onToggleChecked={p.onToggleChecked}
           />
         ))}
         {!column.cards.length && (
@@ -120,7 +194,8 @@ const styles = StyleSheet.create({
   raised: { zIndex: 20, elevation: 20 },
   header: { height: PM_KANBAN_COLUMN_HEADER, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderBottomWidth: 2 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  title: { flex: 1, fontWeight: '700', fontSize: 13 },
+  title: { fontWeight: '700', fontSize: 13 },
+  sortText: { fontSize: 10, fontWeight: '600' },
   count: { fontSize: 11, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1, overflow: 'hidden' },
   body: { padding: 8 },
   empty: { fontSize: 12, textAlign: 'center', paddingVertical: 18, borderWidth: 1, borderStyle: 'dashed', borderRadius: 8 },
