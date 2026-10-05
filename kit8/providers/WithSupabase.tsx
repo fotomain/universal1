@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { createClient, SupabaseClient } from "@supabase/supabase-js"
 import { SystemMetaData } from "../redux/SystemMetaData"
+import { loginWithSupabaseTokenAutoRefresh, supabaseAuthOptions } from "../supabase/auto_refresh_token/loginWithSupabaseTokenAutoRefresh"
 
 interface SupabaseContextType {
   supabase: SupabaseClient;
@@ -42,15 +43,18 @@ const WithSupabase = (props: any) => {
   const { children, initialConfig } = props
   const [supabase, setSupabase] = useState<SupabaseClient>(() => {
     if (!supabaseClientInstance) {
-      supabaseClientInstance = createClient(initialConfig.url, initialConfig.key);
+      supabaseClientInstance = createClient(initialConfig.url, initialConfig.key, supabaseAuthOptions);
     }
     return supabaseClientInstance;
   });
 
   const updateSupabaseConfig = (newConfig: { url: string; key: string }) => {
-    supabaseClientInstance = createClient(newConfig.url, newConfig.key);
+    supabaseClientInstance = createClient(newConfig.url, newConfig.key, supabaseAuthOptions);
     setSupabase(supabaseClientInstance);
   }
+
+  // Keep the user signed in: renew the session shortly before it expires, also while idle.
+  useEffect(() => loginWithSupabaseTokenAutoRefresh(supabase), [supabase]);
 
   // themeStore-ticket-step2: call supabaseOnUpdateTrigger inside supabase provider
   useEffect(() => {

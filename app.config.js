@@ -49,6 +49,18 @@ module.exports = {
     userInterfaceStyle: 'light',
     assetBundlePatterns: ['**/*'],
     web: { favicon: './assets/favicon.png' },
+    plugins: [
+      'expo-router',
+      'expo-build-properties',
+      'expo-font',
+      'expo-image',
+      'expo-localization',
+      'expo-secure-store',
+      'expo-splash-screen',
+      'expo-sqlite',
+      'expo-status-bar',
+      'expo-web-browser',
+    ],
     owner: 'foto888999',
     extra: {
       appName,
@@ -64,6 +76,7 @@ module.exports = {
     android: variant.android,
     icon: variant.icon,
     splash: variant.splash,
-    scheme: variant.scheme,
+    // 'myapp' is the scheme Google sign-in redirects to on native (myapp://auth)
+    scheme: [variant.scheme, 'myapp'],
   },
 };

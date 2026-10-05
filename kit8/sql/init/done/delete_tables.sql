@@ -85,6 +85,7 @@ DROP TABLE IF EXISTS public."themeStoreTable" CASCADE;
 DROP TABLE IF EXISTS public."mediaPostTable" CASCADE;
 DROP TABLE IF EXISTS public."mediaPostTableArchive" CASCADE;
 DROP TABLE IF EXISTS public."userTable" CASCADE;
+DROP FUNCTION IF EXISTS public.app_user_guid() CASCADE;
 DROP TABLE IF EXISTS public."userAuthTable" CASCADE;
 DROP TABLE IF EXISTS public."aiSessionTable" CASCADE;
 DROP TABLE IF EXISTS public."dtcTaskFinishedTable" CASCADE;

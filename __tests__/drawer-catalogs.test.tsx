@@ -5,7 +5,7 @@ import React, { act } from 'react';
 const mockNavigate = jest.fn();
 let mockPath = '/home';
 jest.mock('expo-router', () => ({ useRouter: () => ({ navigate: mockNavigate, replace: jest.fn() }), usePathname: () => mockPath }));
-jest.mock('@react-navigation/drawer', () => {
+jest.mock('expo-router/drawer', () => {
   const R = require('react');
   const { View } = require('react-native');
   return { DrawerContentScrollView: ({ children }: any) => R.createElement(View, null, children) };

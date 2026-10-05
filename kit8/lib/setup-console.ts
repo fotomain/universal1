@@ -40,27 +40,33 @@ patchComponentProps(Image, ImagePropTypes);
 // Polyfill removed/deprecated React Native APIs required by legacy packages like antd-mobile-rn
 const RN = require('react-native');
 if (RN) {
-  if (!RN.TabBarIOS) {
-    const DummyTabBarIOSItem: any = () => null;
-    const DummyTabBarIOS: any = () => null;
-    DummyTabBarIOS.Item = DummyTabBarIOSItem;
-    RN.TabBarIOS = DummyTabBarIOS;
-  }
-  if (!RN.SegmentedControlIOS) {
-    RN.SegmentedControlIOS = () => null;
-  }
-  if (!RN.DatePickerIOS) {
-    RN.DatePickerIOS = () => null;
-  }
-  if (!RN.ProgressViewIOS) {
-    RN.ProgressViewIOS = () => null;
-  }
-  if (!RN.ActionSheetIOS) {
-    RN.ActionSheetIOS = {
-      showActionSheetWithOptions: () => {},
-      showShareActionSheetWithOptions: () => {},
-    };
-  }
+  const safeDefine = (prop: string, val: any) => {
+    try {
+      Object.defineProperty(RN, prop, {
+        configurable: true,
+        writable: true,
+        enumerable: true,
+        value: val,
+      });
+    } catch (_) {
+      try {
+        RN[prop] = val;
+      } catch (__) {}
+    }
+  };
+
+  const DummyTabBarIOSItem: any = () => null;
+  const DummyTabBarIOS: any = () => null;
+  DummyTabBarIOS.Item = DummyTabBarIOSItem;
+
+  safeDefine('TabBarIOS', DummyTabBarIOS);
+  safeDefine('SegmentedControlIOS', () => null);
+  safeDefine('DatePickerIOS', () => null);
+  safeDefine('ProgressViewIOS', () => null);
+  safeDefine('ActionSheetIOS', {
+    showActionSheetWithOptions: () => {},
+    showShareActionSheetWithOptions: () => {},
+  });
 }
 
 if (Platform.OS === 'web') {

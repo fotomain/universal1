@@ -21,6 +21,7 @@ import WithState from '../kit8/redux/WithState';
 import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
+import { loginUserTable } from '../kit8/auth/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
@@ -172,20 +173,34 @@ function SupabaseAuthSync() {
   useAuthRedirectHandler(supabase);
 
   useEffect(() => {
+    let cancelled = false;
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        const supabaseUID = session.user.id;
-        /* userGUID32 */
-        const activeUserGUID = formatTo32CharGUID(supabaseUID); /* userGUID32 */
-        const userEmail = session.user.email || '';
-        const meta = session.user.user_metadata || {};
+        const sessionUser = session.user;
+        // Run after the auth event (Supabase must not be called from inside its own auth callback).
+        setTimeout(async () => {
+        const supabaseUID = sessionUser.id;
+        const userEmail = sessionUser.email || '';
+        const meta = sessionUser.user_metadata || {};
         const fullName = meta.full_name || meta.name || '';
         const userFirstName = meta.first_name || fullName.split(' ')[0] || userEmail.split('@')[0] || 'User';
         const userLastName = meta.last_name || fullName.split(' ').slice(1).join(' ') || '';
 
+        // RULE: login -> userTable row of this email -> userTable.rowGUID is the user's GUID everywhere.
+        let userGUID = supabaseUID;
+        try {
+          userGUID = await loginUserTable(supabase, { email: userEmail, authUID: supabaseUID, firstName: userFirstName, lastName: userLastName });
+        } catch (e: any) {
+          console.error('userTable login step failed, using the Supabase user id:', e?.message || e);
+        }
+        if (cancelled) return;
+        /* userGUID32 */
+        const activeUserGUID = formatTo32CharGUID(userGUID); /* userGUID32 */
+
         saveUserData(activeUserGUID /* userGUID32 */, userEmail, userFirstName, userLastName);
         dispatch(setActiveUser({
           activeUserGUID, /* userGUID32 */
+          userGUID,
           activeUserEmail: userEmail,
           activeUserFirstName: userFirstName,
           activeUserLastName: userLastName,
@@ -398,10 +413,12 @@ function SupabaseAuthSync() {
         checkAndSeedDefaultCountries();
         checkAndSeedDefaultRoles();
         checkAndCreateUserRoles();
+        }, 0);
       }
     });
 
     return () => {
+      cancelled = true;
       authListener?.subscription.unsubscribe();
     };
   }, [supabase, dispatch]);

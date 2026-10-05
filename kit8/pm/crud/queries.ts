@@ -13,7 +13,8 @@
 // Zustand themselves - they call a mutation; the mutation edits the React Query cache
 // optimistically; the cache hydrates Zustand; Skia repaints.
 
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ReactReduxContext } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../providers/WithSupabase';
 import { PMScheduleWrite } from './api/api_pm';
@@ -31,14 +32,26 @@ export * from './template/templateQueries';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const noSubscribe = () => () => {};
+
 /**
- * Owner of PM rows = the REAL Supabase auth uid (what RLS compares with auth.uid()).
+ * Owner of PM rows = the user's ONE GUID: userTable.rowGUID of his email, kept in redux as
+ * activeUserState.userGUID by the login step (kit8/auth/userTableLogin.ts). RLS compares the owner
+ * with the same value (SQL public.app_user_guid()). Needs a Supabase session - without one RLS
+ * shows nothing. Until the login step has answered, the Supabase auth uid is used (for a user
+ * created by this app they are the same value).
  * Do not use redux activeUserGUID here: it is truncated to 32 chars ("userGUID32"),
  * which is not a valid uuid and makes PostgREST answer 400 Bad Request.
  */
 export function usePMOwnerGUID(): string {
   const { supabase } = useSupabase();
   const [uid, setUid] = useState('');
+  const redux = useContext(ReactReduxContext); // absent in some tests
+  const userGUID = useSyncExternalStore(
+    redux ? redux.store.subscribe : noSubscribe,
+    () => (redux?.store.getState() as any)?.activeUserState?.userGUID || '',
+    () => '',
+  );
   useEffect(() => {
     let alive = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -50,7 +63,8 @@ export function usePMOwnerGUID(): string {
       data.subscription.unsubscribe();
     };
   }, [supabase]);
-  return UUID_RE.test(uid) ? uid : '';
+  if (!UUID_RE.test(uid)) return ''; // no Supabase session
+  return UUID_RE.test(userGUID) ? userGUID : uid;
 }
 
 // Realtime auto refresh (all browsers of the user): crud/realtime/useProjectRealtime.ts

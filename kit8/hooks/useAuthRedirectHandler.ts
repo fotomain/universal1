@@ -95,6 +95,8 @@ export function useAuthRedirectHandler(supabase: Pick<SupabaseClient, 'auth'>) {
 
     let alive = true;
     const handle = async (url: string | null) => {
+      // Google sign-in links (Android auth server) carry their own code; useAuth.android.ts handles them
+      if (url && /[?&]auth_flow=google(&|#|$)/.test(url)) return;
       if (!url || handled.has(url) || !parseAuthRedirectUrl(url)) return;
       handled.add(url); // tokens are single use - never apply the same URL twice
       const res = await completeAuthRedirect(supabase, url);

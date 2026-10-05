@@ -1,4 +1,4 @@
-import storage from "redux-persist/lib/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { persistReducer, persistStore } from "redux-persist";
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import createSagaMiddleware from "redux-saga";
@@ -24,7 +24,7 @@ const storePrepared: any = (params: any) => {
   const appVersion = "ver-14";
   const persistConfig = {
     key: "root" + appVersion,
-    storage,
+    storage: AsyncStorage,
     whitelist: ["activeUserState", "userState", "uxuiState", "systemState", "mediaPostState", "userTheme", "onTrendState"], // onTrendState persisted
   };
 

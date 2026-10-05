@@ -55,8 +55,11 @@ export default function PMTreeColumnsHeader({
 }) {
   const { width, separators, columns, contentWidth } = layout;
   const xTransform = useDerivedValue(() => [{ translateX: -scrollX.value }]);
+  // Take the shared value out first: a worklet copies everything it uses to the UI thread, and
+  // `resize` also holds the gesture object, which cannot be copied ("Cannot copy value of type PanGesture").
+  const resizing = resize.resizing;
   const guideX = useDerivedValue(() => {
-    const i = resize.resizing.value;
+    const i = resizing.value;
     const g = geometry.value;
     return i >= 0 && i < g.xs.length ? g.xs[i] + g.ws[i] - 1 : -10;
   });

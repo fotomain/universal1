@@ -46,7 +46,10 @@
 --   * PM: ltree labels = rowGUID with '-' -> '_' (client: scheduling.ts toLtreeLabel()).
 --     rowJSON.startAt = start, "rowDuration" = finish (exclusive). Errors raised by triggers
 --     start with 'pm_gantt: ' (the client strips it: apiUtils.errorMessage()).
---   * PM rows belong to auth.uid() ("rowOwnerGUID" uuid) - RLS on every PM table.
+--   * USER ID: one GUID per user = "userTable"."rowGUID"; "userTable"."rowOwnerGUID" = the user's
+--     email (lower case, unique). Supabase auth is linked BY EMAIL: public.app_user_guid() returns
+--     the userTable GUID of the signed-in email. Users can be imported with their own GUIDs.
+--   * PM rows belong to public.app_user_guid() ("rowOwnerGUID" uuid) - RLS on every PM table.
 -- =====================================================================================
 
 -- =====================================================================================
@@ -159,6 +162,59 @@ END $$;
 -- one row per owner (pm33 create_tables.sql "additional indexes")
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_dtcTaskProgressTable_rowOwnerGUID" ON public."dtcTaskProgressTable" ("rowOwnerGUID");
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_userTable_rowOwnerGUID" ON public."userTable" ("rowOwnerGUID");
+
+-- ---- userTable: THE user record ---------------------------------------------------------
+--   rowGUID      = the user's GUID in the whole app (userState.userGUID, project "rowOwnerGUID", ...).
+--                  Any GUID: users can be imported from other systems with the GUIDs they had there.
+--                  (PM tables store owners as uuid, so a user who owns projects needs a uuid here.)
+--   rowOwnerGUID = the user's email, lower case, UNIQUE (index above). This is the only link to
+--                  Supabase auth: a signed-in session is matched to its userTable row by email.
+--   rowJSON      = { userEmail, userGUID, firstName, secondName, ... }
+-- Life cycle: 1) user signs in  2) the app makes sure the userTable row of that email exists
+--             3) userTable.rowGUID -> userState.userGUID -> project.rowOwnerGUID
+-- Access (replaces the open policies of the loop above - whoever could edit this table could
+-- make himself another user): a signed-in user reads / creates only the row of his own email
+-- and may change only rowJSON / orderInList. GUIDs and emails are changed (and users are
+-- imported) in the SQL editor or with the service key only.
+REVOKE ALL ON public."userTable" FROM anon, authenticated;
+GRANT SELECT, INSERT ON public."userTable" TO authenticated;
+GRANT UPDATE ("rowJSON", "orderInList") ON public."userTable" TO authenticated;
+DROP POLICY IF EXISTS "Allow anon select" ON public."userTable";
+DROP POLICY IF EXISTS "Allow anon insert" ON public."userTable";
+DROP POLICY IF EXISTS "Allow anon update" ON public."userTable";
+DROP POLICY IF EXISTS "Allow anon delete" ON public."userTable";
+DROP POLICY IF EXISTS "userTable_select_own" ON public."userTable";
+DROP POLICY IF EXISTS "userTable_insert_own" ON public."userTable";
+DROP POLICY IF EXISTS "userTable_update_own" ON public."userTable";
+CREATE POLICY "userTable_select_own" ON public."userTable" FOR SELECT TO authenticated
+  USING ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+CREATE POLICY "userTable_insert_own" ON public."userTable" FOR INSERT TO authenticated
+  WITH CHECK ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+CREATE POLICY "userTable_update_own" ON public."userTable" FOR UPDATE TO authenticated
+  USING ("rowOwnerGUID" = lower(auth.jwt()->>'email'))
+  WITH CHECK ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+
+-- The GUID of the signed-in user = userTable.rowGUID of the session's email.
+-- No row yet (first seconds of a first sign-in) or a GUID that is not a uuid -> the Supabase
+-- auth uid, which is also the GUID the app gives a new user. No session -> NULL.
+CREATE OR REPLACE FUNCTION public.app_user_guid() RETURNS uuid
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(nullif(auth.jwt()->>'email', ''));
+  v_guid  text;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN NULL; END IF;
+  IF v_email IS NOT NULL THEN
+    SELECT "rowGUID" INTO v_guid FROM public."userTable" WHERE "rowOwnerGUID" = v_email;
+    IF v_guid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+      RETURN v_guid::uuid;
+    END IF;
+  END IF;
+  RETURN auth.uid();
+END;
+$$;
+REVOKE ALL ON FUNCTION public.app_user_guid() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.app_user_guid() TO anon, authenticated;
 
 -- =====================================================================================
 -- 2. Catalogs (kit8/catalog/*) - defTable.md pattern, TEXT ids
@@ -576,7 +632,7 @@ CREATE INDEX IF NOT EXISTS idx_task_dep_closure_project ON public.project_task_d
 -- ownership helper (used by RLS policies and RPCs)
 CREATE OR REPLACE FUNCTION public.pm_owns_project(p_project uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
-  SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = auth.uid());
+  SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
 $$;
 
 DROP TRIGGER IF EXISTS trg_project_table_touch ON public.project_table;
@@ -806,7 +862,7 @@ CREATE TRIGGER trg_pm_task_dependency_after_delete
   AFTER DELETE ON public.project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_dependency_after_delete();
 
--- ---- Row Level Security: everything belongs to auth.uid() ------------------------------
+-- ---- Row Level Security: everything belongs to app_user_guid() ------------------------------
 --   table                                       SELECT  INSERT  UPDATE  DELETE
 --   project_table                           owner   owner   owner   owner
 --   project_task_table                      owner   owner   owner   owner
@@ -832,40 +888,40 @@ DROP POLICY IF EXISTS project_table_insert ON public.project_table;
 DROP POLICY IF EXISTS project_table_update ON public.project_table;
 DROP POLICY IF EXISTS project_table_delete ON public.project_table;
 CREATE POLICY project_table_select ON public.project_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_table_insert ON public.project_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid());
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_table_update ON public.project_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid()) WITH CHECK ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_table_delete ON public.project_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS project_task_select ON public.project_task_table;
 DROP POLICY IF EXISTS project_task_insert ON public.project_task_table;
 DROP POLICY IF EXISTS project_task_update ON public.project_task_table;
 DROP POLICY IF EXISTS project_task_delete ON public.project_task_table;
 CREATE POLICY project_task_select ON public.project_task_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_task_insert ON public.project_task_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_project("projectGUID"));
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
 CREATE POLICY project_task_update ON public.project_task_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid())
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_project("projectGUID"));
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()))
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
 CREATE POLICY project_task_delete ON public.project_task_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS project_task_dep_select ON public.project_task_dependencies_table;
 DROP POLICY IF EXISTS project_task_dep_insert ON public.project_task_dependencies_table;
 DROP POLICY IF EXISTS project_task_dep_update ON public.project_task_dependencies_table;
 DROP POLICY IF EXISTS project_task_dep_delete ON public.project_task_dependencies_table;
 CREATE POLICY project_task_dep_select ON public.project_task_dependencies_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_task_dep_insert ON public.project_task_dependencies_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_project("projectGUID"));
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
 CREATE POLICY project_task_dep_update ON public.project_task_dependencies_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid()) WITH CHECK ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_task_dep_delete ON public.project_task_dependencies_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS project_task_dep_closure_select ON public.project_task_dependency_closure_table;
 CREATE POLICY project_task_dep_closure_select ON public.project_task_dependency_closure_table FOR SELECT TO authenticated
@@ -1041,7 +1097,7 @@ GRANT EXECUTE ON FUNCTION public.pm_task_downstream(uuid) TO authenticated;
 -- -------------------------------------------------------------------------------------
 -- Demo data. Signed-in: select public.pm_seed_demo();  SQL editor: select public.pm_seed_demo('<user uuid>');
 -- -------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.pm_seed_demo(p_owner uuid DEFAULT auth.uid(), p_start date DEFAULT CURRENT_DATE)
+CREATE OR REPLACE FUNCTION public.pm_seed_demo(p_owner uuid DEFAULT public.app_user_guid(), p_start date DEFAULT CURRENT_DATE)
 RETURNS void
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
 DECLARE
@@ -1129,13 +1185,13 @@ DROP POLICY IF EXISTS project_user_settings_insert ON public.project_user_settin
 DROP POLICY IF EXISTS project_user_settings_update ON public.project_user_settings_table;
 DROP POLICY IF EXISTS project_user_settings_delete ON public.project_user_settings_table;
 CREATE POLICY project_user_settings_select ON public.project_user_settings_table FOR SELECT TO authenticated
-  USING ("rowParentGUID" = auth.uid());
+  USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY project_user_settings_insert ON public.project_user_settings_table FOR INSERT TO authenticated
-  WITH CHECK ("rowParentGUID" = auth.uid() AND public.pm_owns_project("rowOwnerGUID"));
+  WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
 CREATE POLICY project_user_settings_update ON public.project_user_settings_table FOR UPDATE TO authenticated
-  USING ("rowParentGUID" = auth.uid()) WITH CHECK ("rowParentGUID" = auth.uid() AND public.pm_owns_project("rowOwnerGUID"));
+  USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
 CREATE POLICY project_user_settings_delete ON public.project_user_settings_table FOR DELETE TO authenticated
-  USING ("rowParentGUID" = auth.uid());
+  USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
 -- =====================================================================================
 -- 4. PM Kanban (kit8/pm/crud/api/kanbanApi.ts)
@@ -1366,7 +1422,7 @@ CREATE INDEX IF NOT EXISTS idx_templates_task_dep_closure_project ON public.temp
 -- ownership helper (used by RLS policies and RPCs)
 CREATE OR REPLACE FUNCTION public.pm_owns_template(p_project uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
-  SELECT EXISTS (SELECT 1 FROM public.templates_project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = auth.uid());
+  SELECT EXISTS (SELECT 1 FROM public.templates_project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
 $$;
 
 DROP TRIGGER IF EXISTS trg_templates_project_table_touch ON public.templates_project_table;
@@ -1596,7 +1652,7 @@ CREATE TRIGGER trg_pm_template_task_dependency_after_delete
   AFTER DELETE ON public.templates_project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_dependency_after_delete();
 
--- ---- Row Level Security: everything belongs to auth.uid() ------------------------------
+-- ---- Row Level Security: everything belongs to app_user_guid() ------------------------------
 --   table                                       SELECT  INSERT  UPDATE  DELETE
 --   templates_project_table                           owner   owner   owner   owner
 --   templates_project_task_table                      owner   owner   owner   owner
@@ -1622,40 +1678,40 @@ DROP POLICY IF EXISTS templates_project_table_insert ON public.templates_project
 DROP POLICY IF EXISTS templates_project_table_update ON public.templates_project_table;
 DROP POLICY IF EXISTS templates_project_table_delete ON public.templates_project_table;
 CREATE POLICY templates_project_table_select ON public.templates_project_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_table_insert ON public.templates_project_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid());
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_table_update ON public.templates_project_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid()) WITH CHECK ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_table_delete ON public.templates_project_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS templates_project_task_select ON public.templates_project_task_table;
 DROP POLICY IF EXISTS templates_project_task_insert ON public.templates_project_task_table;
 DROP POLICY IF EXISTS templates_project_task_update ON public.templates_project_task_table;
 DROP POLICY IF EXISTS templates_project_task_delete ON public.templates_project_task_table;
 CREATE POLICY templates_project_task_select ON public.templates_project_task_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_task_insert ON public.templates_project_task_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_template("projectGUID"));
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
 CREATE POLICY templates_project_task_update ON public.templates_project_task_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid())
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_template("projectGUID"));
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()))
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
 CREATE POLICY templates_project_task_delete ON public.templates_project_task_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS templates_project_task_dep_select ON public.templates_project_task_dependencies_table;
 DROP POLICY IF EXISTS templates_project_task_dep_insert ON public.templates_project_task_dependencies_table;
 DROP POLICY IF EXISTS templates_project_task_dep_update ON public.templates_project_task_dependencies_table;
 DROP POLICY IF EXISTS templates_project_task_dep_delete ON public.templates_project_task_dependencies_table;
 CREATE POLICY templates_project_task_dep_select ON public.templates_project_task_dependencies_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_task_dep_insert ON public.templates_project_task_dependencies_table FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = auth.uid() AND public.pm_owns_template("projectGUID"));
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
 CREATE POLICY templates_project_task_dep_update ON public.templates_project_task_dependencies_table FOR UPDATE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid()) WITH CHECK ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_task_dep_delete ON public.templates_project_task_dependencies_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS templates_project_task_dep_closure_select ON public.templates_project_task_dependency_closure_table;
 CREATE POLICY templates_project_task_dep_closure_select ON public.templates_project_task_dependency_closure_table FOR SELECT TO authenticated
@@ -1718,13 +1774,13 @@ DROP POLICY IF EXISTS templates_project_user_settings_insert ON public.templates
 DROP POLICY IF EXISTS templates_project_user_settings_update ON public.templates_project_user_settings_table;
 DROP POLICY IF EXISTS templates_project_user_settings_delete ON public.templates_project_user_settings_table;
 CREATE POLICY templates_project_user_settings_select ON public.templates_project_user_settings_table FOR SELECT TO authenticated
-  USING ("rowParentGUID" = auth.uid());
+  USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY templates_project_user_settings_insert ON public.templates_project_user_settings_table FOR INSERT TO authenticated
-  WITH CHECK ("rowParentGUID" = auth.uid() AND public.pm_owns_template("rowOwnerGUID"));
+  WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("rowOwnerGUID"));
 CREATE POLICY templates_project_user_settings_update ON public.templates_project_user_settings_table FOR UPDATE TO authenticated
-  USING ("rowParentGUID" = auth.uid()) WITH CHECK ("rowParentGUID" = auth.uid() AND public.pm_owns_template("rowOwnerGUID"));
+  USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("rowOwnerGUID"));
 CREATE POLICY templates_project_user_settings_delete ON public.templates_project_user_settings_table FOR DELETE TO authenticated
-  USING ("rowParentGUID" = auth.uid());
+  USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
 -- =====================================================================================
 -- 5b. PM project versions (kit8/pm/version, documentation/PM_VERSION_STRUCTURE.html)
@@ -1824,7 +1880,7 @@ CREATE TABLE IF NOT EXISTS public.version_project_task_kanban_state_table (
 CREATE OR REPLACE FUNCTION public.pm_owns_version(p_version uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.version_project_table v
-                  WHERE v."rowVersionGUID" = p_version AND v."rowOwnerGUID" = auth.uid());
+                  WHERE v."rowVersionGUID" = p_version AND v."rowOwnerGUID" = public.app_user_guid());
 $$;
 
 -- RPC: save the whole project plan as a new version (one transaction). Returns its rowVersionGUID.
@@ -1892,7 +1948,7 @@ DECLARE
   v_backup  uuid;
 BEGIN
   SELECT * INTO v FROM public.version_project_table
-   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = auth.uid();
+   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = public.app_user_guid();
   IF NOT FOUND THEN
     RAISE EXCEPTION 'pm_gantt: version not found';
   END IF;
@@ -1961,7 +2017,7 @@ BEGIN
   END IF;
   UPDATE public.version_project_table
      SET "rowJSON" = "rowJSON" || jsonb_build_object('versionTitle', v_title)
-   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = auth.uid();
+   WHERE "rowVersionGUID" = p_version AND "rowOwnerGUID" = public.app_user_guid();
   IF NOT FOUND THEN
     RAISE EXCEPTION 'pm_gantt: version not found';
   END IF;
@@ -1993,9 +2049,9 @@ GRANT SELECT ON public.version_project_task_table, public.version_project_task_d
 DROP POLICY IF EXISTS version_project_table_select ON public.version_project_table;
 DROP POLICY IF EXISTS version_project_table_delete ON public.version_project_table;
 CREATE POLICY version_project_table_select ON public.version_project_table FOR SELECT TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 CREATE POLICY version_project_table_delete ON public.version_project_table FOR DELETE TO authenticated
-  USING ("rowOwnerGUID" = auth.uid());
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
 DROP POLICY IF EXISTS version_project_task_select ON public.version_project_task_table;
 CREATE POLICY version_project_task_select ON public.version_project_task_table FOR SELECT TO authenticated
@@ -2035,6 +2091,47 @@ SELECT p."rowGUID", p."rowOwnerGUID", jsonb_build_object('uxuiSettings', p."rowJ
   FROM public.project_table p
  WHERE jsonb_typeof(p."rowJSON"->'uxuiSettings') = 'object'
 ON CONFLICT ("rowOwnerGUID", "rowParentGUID") DO NOTHING;
+
+-- ---- users: one GUID per user (userTable) -------------------------------------------------
+-- a) every existing Supabase auth user gets his userTable row. No row for the email yet ->
+--    rowGUID = his auth uid, so the projects he already owns stay his.
+INSERT INTO public."userTable" ("rowGUID", "rowOwnerGUID", "rowJSON")
+SELECT u.id::text, lower(u.email), jsonb_build_object('userEmail', lower(u.email), 'userGUID', u.id::text)
+  FROM auth.users u
+ WHERE COALESCE(u.email, '') <> ''
+ON CONFLICT DO NOTHING;
+
+-- b) the email already had a userTable row with ANOTHER GUID (older app versions created them,
+--    imported users): that GUID is the user's GUID, so the rows he owns under his auth uid
+--    (projects, tasks, templates, versions, his per-project settings) move to it.
+--    Triggers are off for the move: only the owner id changes, nothing has to be recalculated.
+DO $$
+DECLARE
+  r record;
+  c record;
+BEGIN
+  FOR r IN
+    SELECT u.id AS old_guid, t."rowGUID"::uuid AS new_guid
+      FROM auth.users u
+      JOIN public."userTable" t ON t."rowOwnerGUID" = lower(u.email)
+     WHERE t."rowGUID" ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+       AND t."rowGUID"::uuid <> u.id
+  LOOP
+    FOR c IN
+      SELECT col.table_name, col.column_name
+        FROM information_schema.columns col
+        JOIN information_schema.tables tab
+          ON tab.table_schema = col.table_schema AND tab.table_name = col.table_name AND tab.table_type = 'BASE TABLE'
+       WHERE col.table_schema = 'public' AND col.data_type = 'uuid'
+         AND col.column_name IN ('rowOwnerGUID', 'rowParentGUID')
+    LOOP
+      EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER USER', c.table_name);
+      EXECUTE format('UPDATE public.%I SET %I = $1 WHERE %I = $2', c.table_name, c.column_name, c.column_name)
+        USING r.new_guid, r.old_guid;
+      EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER USER', c.table_name);
+    END LOOP;
+  END LOOP;
+END $$;
 
 -- closures + progress of every existing project / template (cheap; keeps them consistent)
 SELECT public.pm_rebuild_dependency_closure("rowGUID") FROM public.project_table;

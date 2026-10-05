@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
 import { Appbar } from 'react-native-paper';
 import { useNavigation, useRouter, usePathname } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
-import { DrawerHeaderProps } from '@react-navigation/drawer';
+import { DrawerHeaderProps } from 'expo-router/drawer';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../providers/WithDesignSystem';
 import IconApp from '../components/common/IconApp';
@@ -213,7 +212,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
 
   const handleOpenDrawer = () => {
     try {
-      navigation.dispatch(DrawerActions.openDrawer());
+      (navigation as any)?.dispatch?.({ type: 'OPEN_DRAWER' });
     } catch (e) {
       try {
         (navigation as any)?.openDrawer?.();

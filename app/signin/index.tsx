@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
 import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
 import ActivityIndicatorCircleApp from '../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
+import SignInWithGoogleButton from '../../kit8/components/auth/SignInWithGoogleButton';
 import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
@@ -135,19 +136,9 @@ export default function SignInScreen() {
           {googleLoading ? (
             <ActivityIndicatorCircleApp />
           ) : (
-            <ButtonPrimaryApp 
-              icon={({ size }: { size: number }) => (
-                <Image 
-                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png' }}
-                  style={{ width: size, height: size }}
-                  resizeMode="contain"
-                />
-              )}
-              onPress={signInWithGoogle} 
-              style={{ borderColor: theme.colors.outline }}
-            >
+            <SignInWithGoogleButton onPress={signInWithGoogle}>
               {t('screens.signInWithGoogle')}
-            </ButtonPrimaryApp>
+            </SignInWithGoogleButton>
           )}
         </View>
 

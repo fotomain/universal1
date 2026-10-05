@@ -7,12 +7,19 @@ export const GUEST_USER_EMAIL = "user@example.com";
 export interface ActiveUserData {
   /** string(32) - 32 character GUID */
   activeUserGUID: string; /* userGUID32 */
+  /**
+   * The user's ONE GUID = userTable.rowGUID of his email, full length (kit8/auth/userTableLogin.ts).
+   * Only the login step passes it. Owner of projects (project.rowOwnerGUID).
+   * activeUserGUID is this value cut to 32 characters (older tables are keyed by that).
+   */
+  userGUID?: string;
   activeUserEmail: string;
   activeUserFirstName: string;
   activeUserLastName: string;
 }
 
 export interface ActiveUserState extends ActiveUserData {
+  userGUID: string;
   /** activeUserEmail !== GUEST_USER_EMAIL - kept in sync by every reducer */
   isLoggedIn: boolean;
 }
@@ -47,6 +54,7 @@ const guestUser: ActiveUserData = {
 
 const initialState: ActiveUserState = {
   ...guestUser,
+  userGUID: "",
   isLoggedIn: computeIsLoggedIn(guestUser.activeUserEmail), // false
 };
 
@@ -56,7 +64,11 @@ export const activeUserSlice = createSlice({
   reducers: {
     setActiveUser: (state, action: PayloadAction<ActiveUserData>) => {
       /* userGUID32 */
-      state.activeUserGUID = formatTo32CharGUID(action.payload.activeUserGUID); /* userGUID32 */
+      // userGUID comes only from the userTable login step. Other callers (they know just the auth
+      // uid) must not replace it for the same user; a different email starts without one.
+      if (action.payload.userGUID !== undefined) state.userGUID = action.payload.userGUID;
+      else if (state.activeUserEmail !== action.payload.activeUserEmail) state.userGUID = "";
+      state.activeUserGUID = formatTo32CharGUID(state.userGUID || action.payload.activeUserGUID); /* userGUID32 */
       state.activeUserEmail = action.payload.activeUserEmail;
       state.activeUserFirstName = action.payload.activeUserFirstName;
       state.activeUserLastName = action.payload.activeUserLastName;

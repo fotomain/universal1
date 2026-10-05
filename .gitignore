@@ -37,3 +37,8 @@ yarn-error.log*
 *.tmp
 *.bak
 android_build.log
+android_screen.png
+.android_screen.tmp
+android_emulator_build.log
+.android_rerun
+auth_server.log

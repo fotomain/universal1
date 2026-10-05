@@ -1,3 +1,4 @@
+import 'intl-pluralrules'; // Hermes has no Intl.PluralRules; i18next needs it for plural forms
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
