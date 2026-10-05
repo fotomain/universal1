@@ -11,7 +11,6 @@ mediaPostJSON->rowJSON,
 ListWebCardsComponent.tsx:489  POST https://czgrxgzdmodkkmbmraub.supabase.co/rest/v1/mediaPostTable?select=* 400 (Bad Request)
 
 ## ███ Git
-
 git push origin main1 --force
 git push origin main1:main --force
 
