@@ -34,6 +34,16 @@ export type PMRowKind = 'project' | 'stage' | 'task' | 'milestone';
  */
 export type PMLinkType = 'FS' | 'SS' | 'FF' | 'SF';
 
+/** rowJSON.intent: what another app shared when the row was created ({ intentURL, intentMIME, ... }). */
+export interface PMIntentLink {
+  intentURL?: string | null;
+  intentMIME?: string | null;
+  intentText?: string | null;
+  intentTitle?: string | null;
+  intentFiles?: { path: string; mimeType?: string | null; fileName?: string | null; size?: number | null }[];
+  intentReceivedAt?: string;
+}
+
 /** Free-form per-row payload kept in rowJSON. */
 export interface PMRowJSON {
   rowKind: PMRowKind;
@@ -49,6 +59,8 @@ export interface PMRowJSON {
   /** Computed by the scheduler and written back (ISO timestamptz). Finish lives in rowDuration. */
   startAt?: string | null;
   notes?: string;
+  /** The row was added from content shared into the app (kit8/providers/WithIntent.tsx): the link to it. */
+  intent?: PMIntentLink | null;
   // ---- task planning units fields ----
   /** Start hour when planHour is enabled. */
   startHourStart?: number | string | null;

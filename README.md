@@ -67,4 +67,3 @@ Save to repository `universal1` on chronological branch `expo-YYYY-MM-DD-HH-MM` 
 npm run save_to_github
 ```
 git push origin HEAD:main
-

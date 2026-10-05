@@ -31,6 +31,43 @@ export interface UxuiState {
   hideTreeNode: boolean;
   /** counter: every "refresh" press adds 1; the Project dashboard re-reads its data when it changes */
   refreshProjectData: number;
+  /** Task tree: the "select lines" column (round check boxes) is hidden (tree tool bar button) */
+  hideTreeSelectColumn: boolean;
+  /** What another app shared into this app (kit8/providers/WithIntent.tsx); null = nothing waiting. */
+  intentInfo: UxuiIntentInfo | null;
+}
+
+/** uxui.intentInfo: what was received + what the user decided to add from it. */
+export type UxuiIntentTarget = 'projectTask' | 'projectStage' | 'calendarTask' | 'mediaPost';
+export type UxuiIntentPostType = 'youtube' | 'webpage' | 'file' | 'text';
+
+export interface UxuiIntentFile {
+  path: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+  size?: number | null;
+}
+
+export interface UxuiIntentInfo {
+  /** one id per received share */
+  intentGUID: string;
+  /** ISO time it arrived */
+  intentReceivedAt: string;
+  /** the shared link, or the path / content uri of the first shared file */
+  intentURL: string | null;
+  /** MIME type: of the first file, 'text/uri-list' for a link, 'text/plain' for text */
+  intentMIME: string | null;
+  /** shared plain text (may contain the link) */
+  intentText: string | null;
+  /** page / video title when the sharing app sent one */
+  intentTitle: string | null;
+  intentFiles: UxuiIntentFile[];
+  /** detected post type: YouTube link, other web link, local file, plain text */
+  intentPostType: UxuiIntentPostType;
+  /** new = the "what to add" question is open; routed = the user chose, the target screen takes it; done */
+  intentStatus: 'new' | 'routed' | 'done';
+  /** what the user chose in RadioSetApp */
+  intentTarget?: UxuiIntentTarget | null;
 }
 
 /** uxui.currentJSON: what the JSON is (shown as the file name / caption) + the JSON itself. */
@@ -54,6 +91,8 @@ const uxuiInitialState: UxuiState = {
   hideGanttChartNode: false,
   hideTreeNode: false,
   refreshProjectData: 0,
+  hideTreeSelectColumn: false,
+  intentInfo: null,
   snackbar: {
     visible: false,
     message: '',
@@ -112,6 +151,17 @@ const uxuiSlice = createSlice({
     },
     refreshProjectData: (state) => {
       state.refreshProjectData = (state.refreshProjectData || 0) + 1;
+    },
+    setHideTreeSelectColumn: (state, action: PayloadAction<boolean>) => {
+      state.hideTreeSelectColumn = action.payload;
+    },
+    /** a new share arrived (null = forget it) */
+    setIntentInfo: (state, action: PayloadAction<UxuiIntentInfo | null>) => {
+      state.intentInfo = action.payload;
+    },
+    /** the user chose what to add / the target screen finished */
+    updateIntentInfo: (state, action: PayloadAction<Partial<UxuiIntentInfo>>) => {
+      if (state.intentInfo) state.intentInfo = { ...state.intentInfo, ...action.payload };
     },
     showSnackbar: (
       state,
@@ -180,6 +230,9 @@ export const {
   setHideGanttChartNode,
   setHideTreeNode,
   refreshProjectData,
+  setHideTreeSelectColumn,
+  setIntentInfo,
+  updateIntentInfo,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,

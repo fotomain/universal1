@@ -60,9 +60,10 @@ const IS_WEB = Platform.OS === 'web';
 const COARSE =
   !IS_WEB ||
   (typeof window !== 'undefined' && typeof (window as any).matchMedia === 'function' && !!(window as any).matchMedia('(pointer: coarse)')?.matches);
-const LINK_HIT_X = COARSE ? 18 : 7;
-const LINK_HIT_Y = COARSE ? 15 : 8;
-const LINK_HANDLE_R = COARSE ? 7 : 4.5;
+// touch: the whole row height and a finger-wide zone around the circle start a link
+const LINK_HIT_X = COARSE ? 24 : 7;
+const LINK_HIT_Y = COARSE ? PM_ROW_HEIGHT / 2 : 8;
+const LINK_HANDLE_R = COARSE ? 9 : 4.5;
 /** touch: the bar panel sits one row BELOW its bar (it must not cover the bar, its grips and link circles) */
 const PANEL_ROW_SHIFT = COARSE ? 1 : 0;
 const PANEL_GAP = COARSE ? 0 : 26;
@@ -150,7 +151,7 @@ interface BarDesc {
 function linkHandleOffset(kind: number): number {
   'worklet';
   // touch: further from the bar end, so the link circle and the resize grip never share a finger
-  if (COARSE) return kind === K_MILESTONE ? MILESTONE_HALF + 16 : 18;
+  if (COARSE) return kind === K_MILESTONE ? MILESTONE_HALF + 20 : 22;
   return kind === K_MILESTONE ? MILESTONE_HALF + 8 : 9;
 }
 
@@ -478,6 +479,15 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const linkX2 = useSharedValue(0);
   const linkY2 = useSharedValue(0);
   const linkTarget = useSharedValue(-1);
+  /**
+   * The dependency being drawn: zone it started from (Z_LINK_START / Z_LINK_FINISH, 0 = none), its row and
+   * the gesture that draws it (1 = linkDraw on touch, 2 = edit). Kept apart from dragMode / dragRow: when
+   * linkDraw activates, the other gestures of the same touch are cancelled and their onFinalize resets
+   * dragMode / dragRow - that used to drop the link at the moment the finger was lifted.
+   */
+  const linkDrag = useSharedValue(0);
+  const linkFrom = useSharedValue(-1);
+  const linkOwner = useSharedValue(0);
   const pinchBase = useSharedValue(dayWidth);
   const panelRow = useSharedValue(-1);
   const hoverZone = useSharedValue(Z_NONE);
@@ -542,15 +552,15 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
 
   const linkPath = useDerivedValue(() => {
     const p = Skia.Path.Make();
-    if (dragMode.value !== Z_LINK_START && dragMode.value !== Z_LINK_FINISH) return p;
-    const dir = dragMode.value === Z_LINK_FINISH ? 1 : -1;
+    if (linkDrag.value === 0) return p;
+    const dir = linkDrag.value === Z_LINK_FINISH ? 1 : -1;
     const bend = Math.max(20, Math.abs(linkX2.value - linkX1.value) / 2);
     p.moveTo(linkX1.value, linkY1.value);
     p.cubicTo(linkX1.value + dir * bend, linkY1.value, linkX2.value - bend * Math.sign(linkX2.value - linkX1.value || 1), linkY2.value, linkX2.value, linkY2.value);
     return p;
   });
   const linkTargetY = useDerivedValue(() => PM_SCALE_HEIGHT + Math.max(0, linkTarget.value) * PM_ROW_HEIGHT - scrollY.value);
-  const linkTargetOpacity = useDerivedValue(() => (linkTarget.value >= 0 && (dragMode.value === Z_LINK_START || dragMode.value === Z_LINK_FINISH) ? 1 : 0));
+  const linkTargetOpacity = useDerivedValue(() => (linkTarget.value >= 0 && linkDrag.value !== 0 ? 1 : 0));
 
   const stickyIndex = useDerivedValue(() => {
     const cells = topCellsSV.value;
@@ -811,7 +821,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   // Gestures
   // =====================================================================================
   const gesture = useMemo(() => {
-    const startDrag = (zone: number, x: number, y: number) => {
+    const startDrag = (zone: number, x: number, y: number, owner = 2) => {
       'worklet';
       runOnJS(hidePMTip)();
       const idx = rowAt(y);
@@ -835,12 +845,22 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         linkX2.value = x;
         linkY2.value = y;
         linkTarget.value = -1;
+        linkFrom.value = idx;
+        linkOwner.value = owner;
+        linkDrag.value = zone;
       }
       dragMode.value = zone;
     };
 
     const moveDrag = (x: number, y: number, changeX: number, changeY: number) => {
       'worklet';
+      if (linkDrag.value !== 0) {
+        linkX2.value = x;
+        linkY2.value = y;
+        const t = rowAt(y);
+        linkTarget.value = t !== linkFrom.value ? t : -1;
+        return;
+      }
       const m = dragMode.value;
       if (m === Z_THUMB_Y) {
         const max = maxScrollY(rowCount.value, bodyH.value);
@@ -860,8 +880,25 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       }
     };
 
-    const endDrag = (x: number, y: number) => {
+    const endDrag = (_x: number, _y: number) => {
       'worklet';
+      if (linkDrag.value !== 0) {
+        // the last point the finger was seen at (the end event of a touch may carry no usable position)
+        const from = linkFrom.value;
+        const zone = linkDrag.value;
+        const t = rowAt(linkY2.value);
+        linkDrag.value = 0;
+        linkOwner.value = 0;
+        linkTarget.value = -1;
+        dragMode.value = Z_NONE;
+        if (from >= 0 && t >= 0 && t !== from) {
+          const b = barsSV.value;
+          const r = dayWidthLive.value / b.dw;
+          const mid = b.x[t] * r - scrollX.value + (b.w[t] * r) / 2;
+          runOnJS(commitLink)(from, zone === Z_LINK_START ? 0 : 1, t, linkX2.value < mid ? 0 : 1);
+        }
+        return;
+      }
       const m = dragMode.value;
       if (m === Z_MOVE || m === Z_RESIZE_START || m === Z_RESIZE_END || m === Z_PROGRESS) {
         const days = Math.round(dragDX.value / dayWidthLive.value);
@@ -871,20 +908,15 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         runOnJS(commitBarDrag)(m, dragRow.value, days, progress);
         return;
       }
-      if (m === Z_LINK_START || m === Z_LINK_FINISH) {
-        const t = rowAt(y);
-        if (t >= 0 && t !== dragRow.value) {
-          const b = barsSV.value;
-          const r = dayWidthLive.value / b.dw;
-          const mid = b.x[t] * r - scrollX.value + (b.w[t] * r) / 2;
-          runOnJS(commitLink)(dragRow.value, m === Z_LINK_START ? 0 : 1, t, x < mid ? 0 : 1);
-        }
-      }
       dragMode.value = Z_NONE;
     };
 
-    const finalize = () => {
+    const finalize = (owner = 2) => {
       'worklet';
+      // a link drawn by ANOTHER gesture of the same touch is still in progress: leave everything to it
+      if (linkDrag.value !== 0 && linkOwner.value !== owner) return;
+      linkDrag.value = 0;
+      linkOwner.value = 0;
       if (dragMode.value !== Z_HOLD) {
         dragMode.value = Z_NONE;
         dragRow.value = -1;
@@ -974,7 +1006,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       })
       .onStart(() => {
         'worklet';
-        startDrag(pendingZone.value, downX.value, downY.value);
+        startDrag(pendingZone.value, downX.value, downY.value, 1);
       })
       .onChange((e) => {
         'worklet';
@@ -986,7 +1018,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       })
       .onFinalize(() => {
         'worklet';
-        finalize();
+        finalize(1);
       });
     edit
       .onChange((e) => {

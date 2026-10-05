@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import SelectDateApp from '../../../components/common/SelectDateApp';
 import { DAY_MS } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import { formatDateISO, parseDateISO, todayUTC } from '../project/scheduling';
@@ -67,7 +68,19 @@ export default function PMGanttPeriodModalWindow() {
     usePMStore.getState().setGanttPeriod(null);
     close();
   };
-  const input = [styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.background }];
+  // the calendar works with local dates, the chart with UTC days: carry year / month / day across
+  const pickerValue = (text: string) => {
+    const ms = parseDateISO(text.trim());
+    if (ms === null) return null;
+    const d = new Date(ms);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  };
+  const picked = (d: Date | null, set: (text: string) => void) => {
+    if (!d) return;
+    set(formatDateISO(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())));
+    setError(null);
+  };
+  const input = [styles.input, styles.inputFlex, { color: c.text, borderColor: c.border, backgroundColor: c.background }];
   const onKey = Platform.OS === 'web' ? { onSubmitEditing: () => apply(parseDateISO(from.trim()), parseDateISO(to.trim())) } : {};
 
   return (
@@ -83,11 +96,17 @@ export default function PMGanttPeriodModalWindow() {
             <View style={styles.row}>
               <View style={styles.field}>
                 <Text style={[styles.label, { color: c.text }]}>From (YYYY-MM-DD)</Text>
-                <TextInput testID="pm-gantt-period-from" value={from} onChangeText={setFrom} autoCapitalize="none" autoCorrect={false} placeholder="2026-01-01" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
+                <View style={styles.inputRow}>
+                  <TextInput testID="pm-gantt-period-from" value={from} onChangeText={setFrom} autoCapitalize="none" autoCorrect={false} placeholder="2026-01-01" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
+                  <SelectDateApp testID="pm-gantt-period-from-picker" label="Pick the date" trigger="icon" value={pickerValue(from)} onSelect={(d) => picked(d, setFrom)} style={styles.pickerBtn} />
+                </View>
               </View>
               <View style={styles.field}>
                 <Text style={[styles.label, { color: c.text }]}>To (YYYY-MM-DD)</Text>
-                <TextInput testID="pm-gantt-period-to" value={to} onChangeText={setTo} autoCapitalize="none" autoCorrect={false} placeholder="2026-12-31" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
+                <View style={styles.inputRow}>
+                  <TextInput testID="pm-gantt-period-to" value={to} onChangeText={setTo} autoCapitalize="none" autoCorrect={false} placeholder="2026-12-31" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
+                  <SelectDateApp testID="pm-gantt-period-to-picker" label="Pick the date" trigger="icon" value={pickerValue(to)} onSelect={(d) => picked(d, setTo)} style={styles.pickerBtn} />
+                </View>
               </View>
             </View>
             {!!error && <Text style={{ color: c.error, marginTop: 6 }}>{error}</Text>}
@@ -130,6 +149,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 },
   field: { flexGrow: 1, flexBasis: 150, paddingHorizontal: 4 },
   label: { fontSize: 12, opacity: 0.7, marginTop: 10, marginBottom: 4 },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  inputFlex: { flex: 1, minWidth: 0 },
+  pickerBtn: { marginLeft: 6 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, marginRight: 6, marginBottom: 6 },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, useWindowDimensions } from 'react-native';
 import { Appbar } from 'react-native-paper';
 import { useNavigation, useRouter, usePathname } from 'expo-router';
 import { DrawerHeaderProps } from 'expo-router/drawer';
@@ -17,7 +17,42 @@ import {
   setHideTreeNode,
   showSnackbar,
 } from '../redux/uxuiSlice';
+import { usePMTip } from '../pm/inner/tooltip/PMTooltip';
 import { shareScreenshot, shareScreenshotResultText } from '../lib/shareScreenshot';
+
+/** User calendar route (kit8/catalog/user/calendar). */
+const USER_CALENDAR_PATH = '/user/calendar';
+
+/**
+ * App bar icon button with a tip: hover on web, long-press on touch (kit8/pm/inner/tooltip).
+ * The bubble is drawn by the root layout's tip layer (scope 'app': it covers the whole window, app bar included).
+ */
+function AppBarTipButton({ testID, icon, tip, onPress, color, active, activeColor, dimmed, size = 20 }: { testID: string; icon: string; tip: string; onPress: () => void; color: string; active?: boolean; activeColor?: string; dimmed?: boolean; size?: number }) {
+  const t = usePMTip(tip, 'app');
+  return (
+    <Pressable
+      ref={t.ref}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={tip}
+      accessibilityState={active === undefined ? undefined : { selected: active }}
+      onPress={onPress}
+      onHoverIn={t.onHoverIn}
+      onHoverOut={t.onHoverOut}
+      onPressIn={t.onPressIn}
+      onLongPress={t.onLongPress}
+      delayLongPress={t.delayLongPress}
+      style={({ pressed }) => [styles.pmBtn, dimmed ? { opacity: 0.45 } : active && activeColor ? { backgroundColor: `${activeColor}1F` } : null, pressed ? { opacity: 0.6 } : null]}
+    >
+      <IconApp testID={`${testID}-icon`} name={icon} size={size} color={active && activeColor ? activeColor : color} />
+    </Pressable>
+  );
+}
+
+/** "Go to the user calendar": on every screen, right before the three dots menu. */
+function AppBarCalendarButton({ color, activeColor, active, onPress }: { color: string; activeColor: string; active: boolean; onPress: () => void }) {
+  return <AppBarTipButton testID="appbar-user-calendar" icon="calendar_month" tip="Calendar" size={22} onPress={onPress} color={color} active={active} activeColor={activeColor} />;
+}
 
 /** Project dashboard route: the app bar shows the view buttons there (before the three dots menu). */
 const PROJECT_DASHBOARD_PATH = '/pm/project/dashboard';
@@ -34,18 +69,7 @@ function AppBarProjectButtons({ color, activeColor }: { color: string; activeCol
   const hideGanttChartNode = useSelector((s: any) => !!s.uxuiState?.hideGanttChartNode);
   const hideTreeNode = useSelector((s: any) => !!s.uxuiState?.hideTreeNode);
   const btn = (testID: string, icon: string, hidden: boolean, label: string, onPress: () => void) => (
-    <TouchableOpacity
-      key={testID}
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={`${hidden ? 'Show' : 'Hide'} ${label}`}
-      accessibilityState={{ selected: !hidden }}
-      onPress={onPress}
-      style={[styles.pmBtn, hidden ? { opacity: 0.45 } : { backgroundColor: `${activeColor}1F` }]}
-      {...({ title: `${hidden ? 'Show' : 'Hide'} ${label}` } as any)}
-    >
-      <IconApp testID={`${testID}-icon`} name={icon} size={20} color={hidden ? color : activeColor} />
-    </TouchableOpacity>
+    <AppBarTipButton key={testID} testID={testID} icon={icon} tip={`${hidden ? 'Show' : 'Hide'} ${label}`} onPress={onPress} color={color} active={!hidden} activeColor={activeColor} dimmed={hidden} />
   );
   return (
     <View style={styles.pmBtns} testID="appbar-project-buttons">
@@ -53,16 +77,7 @@ function AppBarProjectButtons({ color, activeColor }: { color: string; activeCol
       {btn('appbar-pm-gantt-toolbar', 'construction', hideGanttToolBar, 'the tree / Gantt tool bars', () => dispatch(setHideGanttToolBar(!hideGanttToolBar)))}
       {btn('appbar-pm-tree-node', 'account_tree', hideTreeNode, 'the task tree', () => dispatch(setHideTreeNode(!hideTreeNode)))}
       {btn('appbar-pm-chart-node', 'view_timeline', hideGanttChartNode, 'the chart (Gantt / Kanban / Versions)', () => dispatch(setHideGanttChartNode(!hideGanttChartNode)))}
-      <TouchableOpacity
-        testID="appbar-pm-refresh"
-        accessibilityRole="button"
-        accessibilityLabel="Refresh the project data"
-        onPress={() => dispatch(refreshProjectData())}
-        style={styles.pmBtn}
-        {...({ title: 'Refresh the project data' } as any)}
-      >
-        <IconApp testID="appbar-pm-refresh-icon" name="refresh" size={20} color={color} />
-      </TouchableOpacity>
+      <AppBarTipButton testID="appbar-pm-refresh" icon="refresh" tip="Refresh the project data" onPress={() => dispatch(refreshProjectData())} color={color} />
     </View>
   );
 }
@@ -80,6 +95,15 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
   const dispatch = useDispatch();
   const isProjectDashboard = !!pathname && pathname.startsWith(PROJECT_DASHBOARD_PATH);
   const hasCurrentJSON = useSelector((s: any) => !!s.uxuiState?.currentJSON);
+  // Phone width: the Project dashboard has 7 buttons on the right. The title gives its place to them
+  // (otherwise the three dots menu is pushed off the screen).
+  const { width: windowWidth } = useWindowDimensions();
+  const hideTitle = isProjectDashboard && windowWidth < 480;
+  const isUserCalendar = !!pathname && pathname.startsWith(USER_CALENDAR_PATH);
+  const handleCalendar = () => {
+    if (!isUserCalendar) router.push(USER_CALENDAR_PATH as any);
+  };
+  const calendarButton = <AppBarCalendarButton color={themeColors.text} activeColor={themeColors.primary} active={isUserCalendar} onPress={handleCalendar} />;
 
   /** Three dots menu: "Share screenshot" / "Share screenshot + JSON" (uxui.currentJSON). */
   const handleShareScreenshot = (withJSON: boolean) => {
@@ -235,8 +259,9 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
               onPress={handleBack}
             />
           )}
-          <Appbar.Content title={title} />
+          {hideTitle ? <View style={{ flex: 1 }} /> : <Appbar.Content title={title} />}
           {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
+          {calendarButton}
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
             <IconApp testID="bf350689-8mk6-3no5-7xc9-012345678d40" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -285,7 +310,7 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
               </TouchableOpacity>
             )}
 
-            <Text
+            {!hideTitle && <Text
               numberOfLines={1}
               style={{
                 fontSize: 18,
@@ -296,11 +321,12 @@ export default function AppBar({ route, options }: DrawerHeaderProps) {
               }}
             >
               {title}
-            </Text>
+            </Text>}
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
+            {calendarButton}
             <TouchableOpacity onPress={openMenu} style={styles.actionBtn}>
               <IconApp testID="dh5728a1-0om8-5pq7-9ze1-234567890f42" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
             </TouchableOpacity>
@@ -336,7 +362,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   pmBtns: { flexDirection: 'row', alignItems: 'center', marginRight: 2 },
-  pmBtn: { padding: 6, borderRadius: 16, marginHorizontal: 1 },
+  pmBtn: { padding: 5, borderRadius: 16, marginHorizontal: 1 },
   dropdownMenu: {
     width: 230,
     paddingVertical: 8,

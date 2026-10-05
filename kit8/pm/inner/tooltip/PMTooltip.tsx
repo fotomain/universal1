@@ -3,28 +3,35 @@
 //   touch: long-press -> tip for 1.6 s (buttons keep their normal onPress)
 // One <PMTooltipLayer/> per screen renders the bubble above everything, so tips are never
 // clipped by toolbars / scroll views. Anything can request a tip via usePMTip() or showPMTip().
+// Scopes: 'screen' (default) = the layer of the current screen; 'app' = the layer of the root layout,
+// which covers the whole window - the app bar buttons use it (a screen layer starts BELOW the app bar,
+// so a tip of an app bar button would be cut off there).
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { create } from 'zustand';
 
+export type PMTipScope = 'screen' | 'app';
+
 interface TipState {
   text: string | null;
+  scope: PMTipScope;
   x: number; // target rect in window coordinates
   y: number;
   w: number;
   h: number;
-  show: (text: string, x: number, y: number, w: number, h: number) => void;
+  show: (text: string, x: number, y: number, w: number, h: number, scope?: PMTipScope) => void;
   hide: () => void;
 }
 
 const useTipStore = create<TipState>((set) => ({
   text: null,
+  scope: 'screen',
   x: 0,
   y: 0,
   w: 0,
   h: 0,
-  show: (text, x, y, w, h) => set({ text, x, y, w, h }),
+  show: (text, x, y, w, h, scope = 'screen') => set({ text, x, y, w, h, scope }),
   hide: () => set({ text: null }),
 }));
 
@@ -39,9 +46,9 @@ function clearPending() {
 }
 
 /** Show a tip for a window-coordinate rect (used by the Skia canvases for bar handles). */
-export function showPMTip(text: string, x: number, y: number, w = 0, h = 0, delay = SHOW_DELAY_MS) {
+export function showPMTip(text: string, x: number, y: number, w = 0, h = 0, delay = SHOW_DELAY_MS, scope: PMTipScope = 'screen') {
   clearPending();
-  pendingTimer = setTimeout(() => useTipStore.getState().show(text, x, y, w, h), delay);
+  pendingTimer = setTimeout(() => useTipStore.getState().show(text, x, y, w, h, scope), delay);
 }
 
 export function hidePMTip() {
@@ -50,7 +57,7 @@ export function hidePMTip() {
 }
 
 /** Spread the result onto a Pressable: <Pressable {...usePMTip('Delete')} onPress={...} /> */
-export function usePMTip(text: string | undefined) {
+export function usePMTip(text: string | undefined, scope: PMTipScope = 'screen') {
   const ref = useRef<View>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -60,9 +67,9 @@ export function usePMTip(text: string | undefined) {
   const measureAndShow = useCallback(
     (delay: number) => {
       if (!text || !ref.current) return;
-      ref.current.measureInWindow((x, y, w, h) => showPMTip(text, x, y, w, h, delay));
+      ref.current.measureInWindow((x, y, w, h) => showPMTip(text, x, y, w, h, delay, scope));
     },
-    [text]
+    [text, scope]
   );
 
   const onHoverIn = useCallback(() => measureAndShow(SHOW_DELAY_MS), [measureAndShow]);
@@ -85,8 +92,10 @@ export function usePMTip(text: string | undefined) {
 }
 
 /** Renders the bubble. Place once, as the last child of a screen's root View. */
-export function PMTooltipLayer({ background = '#1e293b', color = '#f8fafc' }: { background?: string; color?: string }) {
-  const tip = useTipStore();
+export function PMTooltipLayer({ background = '#1e293b', color = '#f8fafc', scope = 'screen' }: { background?: string; color?: string; scope?: PMTipScope }) {
+  const state = useTipStore();
+  // a layer shows only the tips of its own scope
+  const tip = state.scope === scope ? state : { ...state, text: null };
   const layerRef = useRef<View>(null);
   const [origin, setOrigin] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [bubble, setBubble] = useState({ w: 0, h: 0 });
@@ -109,7 +118,7 @@ export function PMTooltipLayer({ background = '#1e293b', color = '#f8fafc' }: { 
   }
 
   return (
-    <View ref={layerRef} pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={measureLayer}>
+    <View ref={layerRef} pointerEvents="none" style={[StyleSheet.absoluteFill, scope === 'app' ? { zIndex: 9999 } : null]} onLayout={measureLayer}>
       {!!tip.text && (
         <View
           onLayout={(e) => {

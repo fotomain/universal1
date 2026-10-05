@@ -1,10 +1,13 @@
 // PMTreeToolbar - tree container CRUD toolbar (above the tree canvas):
 // add stage / task / milestone · move up / down · outdent / indent · edit / duplicate / delete ·
 // "#" hierarchy numbers on / off (uxuiSettings.showTreeHierarchyNumbers) · expand / collapse all ·
-// clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns).
+// clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns) ·
+// "select lines" column (round check boxes) on / off (uxui.hideTreeSelectColumn, the same on every project).
 
 import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { setHideTreeSelectColumn } from '../../../../redux/uxuiSlice';
 import PMContextMenu from '../../../inner/menu/PMContextMenu';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
@@ -21,6 +24,13 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
   const matchCount = usePMStore((s) => s.treeFilterMatchCount);
   const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
   const text = palette.text;
+  const dispatch = useDispatch();
+  const hideSelectColumn = useSelector((s: any) => !!s.uxuiState?.hideTreeSelectColumn);
+  const toggleSelectColumn = () => {
+    // hiding the column also clears the check marks, so no hidden selection can be deleted by mistake
+    if (!hideSelectColumn) usePMStore.getState().clearChecked();
+    dispatch(setHideTreeSelectColumn(!hideSelectColumn));
+  };
   const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
   /** the active (selected) row is a stage: "+ Stage" asks Stage / Substage */
   const stageActive = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID]?.rowJSON.rowKind === 'stage'));
@@ -84,6 +94,15 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
           onPress={crud.clearTreeColumnsFilters}
         />
       )}
+      <PMIconButton
+        testID="pm-tree-toggle-select-column"
+        icon="checklist"
+        title={hideSelectColumn ? 'Show the select lines column (check boxes)' : 'Hide the select lines column (check boxes)'}
+        color={text}
+        active={!hideSelectColumn}
+        activeColor={palette.primary}
+        onPress={toggleSelectColumn}
+      />
       <PMIconButton
         testID="pm-tree-toggle-numbers"
         icon="format_list_numbered"

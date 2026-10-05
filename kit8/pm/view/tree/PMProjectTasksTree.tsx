@@ -25,6 +25,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
 import { Canvas, Group, Path, Rect, RoundedRect, Skia, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
 import { registerScreenshotCanvas, skiaCanvasSnapshotBase64 } from '../../../lib/shareScreenshot';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -71,6 +72,12 @@ import { treeFilterIconAt } from './filter/treeFilterIconGeometry';
 import { describeTreeColumnFilter, isTreeColumnFilterActive, sortLabels, treeColumnDataType } from './filter/treeColumnFilter';
 
 const IS_WEB = Platform.OS === 'web';
+/**
+ * The main pointer is a finger: phones / tablets, also in a mobile browser. There a drag scrolls the
+ * tree (rows AND columns - horizontal scroll), a long-press-drag reorders, a long-press opens the menus.
+ * A desktop browser keeps mouse-drag = reorder (the wheel / scroll bar scrolls).
+ */
+const IS_TOUCH_UI = !IS_WEB || (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
 const CHEVRON_W = 16;
 const ICON_W = 16;
 /** Horizontal scroll bar (only when the columns are wider than the pane). */
@@ -128,8 +135,11 @@ interface Props {
 }
 
 export default function PMProjectTasksTree({ viewport, width: paneWidth, height, palette, crud, kanbanBridge, hideToolbar = false }: Props) {
+  /** uxui.hideTreeSelectColumn: the "select lines" column is switched off with the tree tool bar button */
+  const showSelectColumn = !useSelector((s: any) => !!s.uxuiState?.hideTreeSelectColumn);
+  const selectW = showSelectColumn ? PM_TREE_SELECT_WIDTH : 0;
   /** the grid (Skia canvas) starts after the multi-selection column */
-  const width = Math.max(40, paneWidth - PM_TREE_SELECT_WIDTH);
+  const width = Math.max(40, paneWidth - selectW);
   const TB = hideToolbar ? 0 : PM_TOOLBAR_HEIGHT;
   const skiaRef = useCanvasRef();
   const checkedGUIDs = usePMStore((s) => s.checkedGUIDs);
@@ -451,6 +461,10 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const hbarX = useDerivedValue(() => (treeMaxScrollX.value > 0 ? (treeScrollX.value / treeMaxScrollX.value) * (width - hbarW) : 0), [width, hbarW]);
 
   const dragFrom = useSharedValue(-1);
+  /** mouse: the current drag scrolls the columns (pressed a row and moved left / right) */
+  const sidePan = useSharedValue(0);
+  /** touch: the current scroll gesture gave way to a row reorder */
+  const scrollOff = useSharedValue(0);
   /** touch long-press row menu (onRightClickMenuMode): row + start point */
   const menuRow = useSharedValue(-1);
   const menuX = useSharedValue(0);
@@ -762,7 +776,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   // web: only while the pointer is over the tree - hovering a Gantt bar highlights the row but shows no tree panel
   const treeHovered = treeHoverGUID && treeHoverGUID === hoveredGUID ? treeHoverGUID : null;
   // onRightClickMenuMode: no panel - the same commands are in PMTaskRowMenu
-  const panelGUID = handleDragGUID ?? (rowMenuMode || linkSourceGUID || cellEdit ? null : IS_WEB ? (hoverInCells ? null : treeHovered) : selectedGUID);
+  const panelGUID = handleDragGUID ?? (rowMenuMode || linkSourceGUID || cellEdit ? null : IS_TOUCH_UI ? selectedGUID : hoverInCells ? null : treeHovered);
   const panelIndex = panelGUID ? rowIndexById[panelGUID] ?? -1 : -1;
   const panelIsSummary = panelGUID ? !!schedule[panelGUID]?.isSummary : false;
   // the panel takes the width its icons need (not only the Task name column)
@@ -893,6 +907,14 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       .minDistance(6)
       .onStart((e) => {
         'worklet';
+        // mouse: press a row (e.g. the task name) and move LEFT / RIGHT = scroll the columns;
+        // move up / down = reorder the row (fingers scroll with the `scroll` gesture below)
+        sidePan.value = 0;
+        if (!IS_TOUCH_UI && e.y >= PM_SCALE_HEIGHT && treeMaxScrollX.value > 0 && Math.abs(e.translationX) > Math.abs(e.translationY)) {
+          sidePan.value = 1;
+          runOnJS(hidePMTip)();
+          return;
+        }
         const idx = rowAt(e.y);
         // drag & drop only from the Task name / # columns (the cells are for inline editing)
         if (idx < 0 || !inRowDragZone(cx(e.x)) || onPanel(idx, e.x)) return;
@@ -904,10 +926,14 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       })
       .onChange((e) => {
         'worklet';
+        if (sidePan.value === 1) {
+          treeScrollX.value = clampValue(treeScrollX.value - e.changeX, 0, treeMaxScrollX.value);
+          return;
+        }
         if (dragFrom.value < 0) return;
         dragY.value += e.changeY;
         // Kanban: to the right of the tree the row is dragged onto the board (surface coords: canvas is below the toolbar)
-        if (bridge && kanbanBridgeMove(bridge, e.x + PM_TREE_SELECT_WIDTH, e.y + TB, dragFrom.value)) return;
+        if (bridge && kanbanBridgeMove(bridge, e.x + selectW, e.y + TB, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
         dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
       })
@@ -919,22 +945,32 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       })
       .onFinalize(() => {
         'worklet';
+        sidePan.value = 0;
         dragFrom.value = -1;
         dropSlot.value = -1;
         dragging.value = 0;
         if (bridge) kanbanBridgeFinish(bridge);
       });
-    if (!IS_WEB) reorder.activateAfterLongPress(350);
+    if (IS_TOUCH_UI) reorder.activateAfterLongPress(350);
 
     const scroll = Gesture.Pan()
       .minDistance(4)
       .onChange((e) => {
         'worklet';
+        // a long-press-drag is reordering a row: the tree must not scroll under it
+        if (dragFrom.value >= 0) {
+          scrollOff.value = 1;
+          return;
+        }
         scrollY.value = clampValue(scrollY.value - e.changeY, 0, maxScrollY(rowCount.value, bodyH.value));
         if (treeMaxScrollX.value > 0) treeScrollX.value = clampValue(treeScrollX.value - e.changeX, 0, treeMaxScrollX.value);
       })
       .onEnd((e) => {
         'worklet';
+        if (scrollOff.value === 1) {
+          scrollOff.value = 0;
+          return;
+        }
         scrollY.value = withDecay({ velocity: -e.velocityY, clamp: [0, maxScrollY(rowCount.value, bodyH.value)] });
         if (treeMaxScrollX.value > 0) treeScrollX.value = withDecay({ velocity: -e.velocityX, clamp: [0, treeMaxScrollX.value] });
       });
@@ -974,7 +1010,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     /** touch + onRightClickMenuMode: long-press a row and release without moving = PMTaskRowMenu
      *  (long-press and drag still reorders the row) */
     const rowMenu = Gesture.LongPress()
-      .enabled(!IS_WEB)
+      .enabled(IS_TOUCH_UI)
       .minDuration(450)
       .maxDistance(12)
       .onTouchesDown((e, m) => {
@@ -1018,7 +1054,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         dragY.value += e.changeY;
         if (bridge) {
           // the handle is the panel's last button: its surface point + the finger's translation
-          const handleX = PM_TREE_SELECT_WIDTH + treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
+          const handleX = selectW + treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
           const handleY = TB + PM_SCALE_HEIGHT + handleStartY.value - handleStartScroll.value;
           if (kanbanBridgeMove(bridge, handleX + e.translationX, handleY + e.translationY, dragFrom.value)) return;
         }
@@ -1041,21 +1077,23 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       });
 
     // web: mouse-drag = reorder (wheel scrolls); touch: long-press-drag = reorder, drag = scroll
-    const pans = IS_WEB ? reorder : Gesture.Exclusive(reorder, scroll);
+    // touch: both run together - a finger that moves scrolls AT ONCE (rows and columns, also when it went
+    // down on the task name); a finger that stays 350 ms starts the reorder, and `scroll` then stands still
+    const pans = IS_TOUCH_UI ? Gesture.Simultaneous(reorder, scroll) : reorder;
     // header first: resize (fails at once away from a separator) > long-press menu (touch) > column drag;
     // they all fail at once outside the header, so rows are not delayed
-    const header = IS_WEB
-      ? Gesture.Exclusive(hbar, colResize.gesture, colDrag.gesture)
-      : Gesture.Exclusive(hbar, colResize.gesture, headerMenu, colDrag.gesture);
+    const header = IS_TOUCH_UI
+      ? Gesture.Exclusive(hbar, colResize.gesture, headerMenu, colDrag.gesture)
+      : Gesture.Exclusive(hbar, colResize.gesture, colDrag.gesture);
     // the drag handle wins over every canvas gesture that the same touch starts
-    if (IS_WEB) handle.blocksExternalGesture(reorder, tap, doubleTap);
-    else handle.blocksExternalGesture(reorder, scroll, tap, doubleTap);
+    if (IS_TOUCH_UI) handle.blocksExternalGesture(reorder, scroll, tap, doubleTap);
+    else handle.blocksExternalGesture(reorder, tap, doubleTap);
     return {
       gesture: Gesture.Simultaneous(hover, rowMenu, Gesture.Race(Gesture.Exclusive(header, pans), Gesture.Exclusive(doubleTap, tap))),
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, selectW]);
 
   // ---- multi selection column (round check boxes): rows follow the vertical scroll on the UI thread ----
   const selectRowsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -scrollY.value }] }));
@@ -1103,7 +1141,8 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       {!hideToolbar && <PMTreeToolbar crud={crud} palette={palette} />}
 
       <View style={{ flexDirection: 'row', width: paneWidth, height: canvasH }}>
-      {/* ---- multi selection: round check box = FIRST column (stages and tasks) ---- */}
+      {/* ---- multi selection: round check box = FIRST column (stages and tasks); tool bar button shows / hides it ---- */}
+      {showSelectColumn && (
       <GestureDetector gesture={selectScroll}>
         <View testID="pm-tree-select-column" style={{ width: PM_TREE_SELECT_WIDTH, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
           <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: PM_TREE_SELECT_WIDTH, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
@@ -1135,6 +1174,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           </Pressable>
         </View>
       </GestureDetector>
+      )}
       <GestureDetector gesture={gesture}>
         <View
           ref={canvasBoxRef}

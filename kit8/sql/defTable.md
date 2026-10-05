@@ -88,3 +88,22 @@
     version_project_task_table / version_project_task_dependencies_table /
     version_project_kanban_stage_table / version_project_task_kanban_state_table
         rowVersionGUID = version_project_table.rowVersionGUID (deleted with it), then the original columns unchanged
+
+# User calendar (kit8/register/user_calendar, kit8/sql/init/create_user_calendar_tables.sql)
+
+    user_calendar_table (RN: userCalendarTable = "user_calendar_table")
+        rowOwnerGUID  = the user (userState.userGUID), rowParentGUID = 'empty'
+        rowJSON       = { calendarCode: 'my'|'tasks'|'birthdays'|'projectTasks', calendarTitle, calendarColor, isVisible }
+
+    user_calendar_event_table (RN: userCalendarEventTable = "user_calendar_event_table")
+        rowOwnerGUID  = the user, rowParentGUID = user_calendar_table.rowGUID or 'empty'
+        orderInList   = start in ms since 1970
+        rowJSON       = { kind: 'event'|'task'|'birthday'|'projectTask', title, allDay, startAt, endAt, startDate, endDate,
+                          recurrence, exDates, notifications, guests, location, description, color, done, deadline,
+                          googleEventId, intent, projectGUID, projectTaskGUID, projectTitle }
+        kind 'projectTask' rows are written by the trigger on project_task_table (one per task / milestone)
+        realtime      = scoped by rowOwnerGUID -> React Query invalidation
+
+    user_calendar_invitation_table (RN: userCalendarInvitationTable = "user_calendar_invitation_table")
+        rowOwnerGUID  = the user who invited, rowParentGUID = user_calendar_event_table.rowGUID
+        rowJSON       = { email, status: 'sent'|'failed', sentAt, error, resendId }

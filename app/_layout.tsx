@@ -4,6 +4,7 @@ import React, {useEffect} from 'react';
 import {Platform} from 'react-native';
 
 import {Drawer} from 'expo-router/drawer';
+import {PMTooltipLayer} from '../kit8/pm/inner/tooltip/PMTooltip';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {PaperProvider} from 'react-native-paper';
@@ -33,6 +34,9 @@ import WithDesignSystem from '../kit8/providers/WithDesignSystem';
 import IconApp from '../kit8/components/common/IconApp';
 import SnackbarApp from '../kit8/components/common/SnackbarApp';
 import { ErrorModalWindow, showErrorModal } from '../kit8/components/common';
+import UserCalendarNotifier from '../kit8/catalog/user/calendar/UserCalendarNotifier';
+import WithIntent from '../kit8/providers/WithIntent';
+import IntentAddModalWindow from '../kit8/components/intent/IntentAddModalWindow';
 
 const blockError=true
 
@@ -426,6 +430,11 @@ function SupabaseAuthSync() {
   return null;
 }
 
+/** Tips of the app bar buttons (hover on web, long-press on touch): one layer over the whole window. */
+function AppTooltipLayer() {
+  return <PMTooltipLayer scope="app" />;
+}
+
 function RootLayoutContent() {
   const { theme } = useMaterial3Theme();
   const { t } = useTranslation();
@@ -530,6 +539,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
               <Drawer.Screen name="kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
+              <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />
+              <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
               <Drawer.Screen name="record/recordvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoWeb') }} />
@@ -539,7 +550,12 @@ function RootLayoutContent() {
               <Drawer.Screen name="record/recordaudioweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioWeb') }} />
               <Drawer.Screen name="record/recordaudionative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioNative') }} />
             </Drawer>
+            <AppTooltipLayer />
             <FABAppComponent />
+            {/* calendar: reminders (open the entry as a modal window) + the entry windows, on every screen */}
+            <UserCalendarNotifier />
+            {/* share intent (uxui.intentInfo): RadioSetApp asks what to add */}
+            <IntentAddModalWindow />
             <SnackbarApp />
             <ErrorModalWindow />
           </FABProvider>
@@ -563,7 +579,10 @@ export default function RootLayout() {
         <WithSQLiteNative>
           <WithState>
             <QueryClientProvider client={pmGanttQueryClient}>
-              <RootLayoutContent />
+              {/* mobile: content shared from other apps -> uxui.intentInfo -> "what to add?" */}
+              <WithIntent>
+                <RootLayoutContent />
+              </WithIntent>
             </QueryClientProvider>
           </WithState>
         </WithSQLiteNative>
