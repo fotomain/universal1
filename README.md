@@ -66,5 +66,6 @@ Save to repository `universal1` on chronological branch `expo-YYYY-MM-DD-HH-MM` 
 # or
 npm run save_to_github
 ```
+
 git remote set-url origin https://github.com/fotomain/universal1.git
 git remote -v
