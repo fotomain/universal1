@@ -5,7 +5,7 @@ import {
   ActivityIndicatorCircleApp,
   ACTIVITY_INDICATOR_CIRCLE_APP_SIZE,
   PM_ACTIVITY_INDICATOR_SIZE,
-} from '../kit8/components/activityindicator/ActivityIndicatorCircleApp';
+} from '../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMActivityIndicator from '../kit8/pm/inner/PMActivityIndicator';
 
 const mockThemeColors = { primary: '#123456' };

@@ -1,0 +1,48 @@
+import React, { useState } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import H1App from './common/H1App';
+import H2App from './common/H2App';
+import ArticleTextApp from './common/ArticleTextApp';
+import TextInputApp from './common/TextInputApp';
+import ButtonPrimaryApp from './common/ButtonPrimaryApp';
+
+export default function FeedbackFormMi() {
+  const { t } = useTranslation();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = () => {
+    Alert.alert('Feedback submitted', `Name: ${name}\nEmail: ${email}\nMessage: ${message}`);
+  };
+
+  return (
+    <View style={styles.container}>
+      <H1App>{t('menu.feedback')}</H1App>
+      <H2App>{t('body.weValueInput')}</H2App>
+      <ArticleTextApp>{t('body.feedbackDescription')}</ArticleTextApp>
+      <TextInputApp label={t('body.yourName')} value={name} onChangeText={setName} placeholder={t('body.yourName')} />
+      <TextInputApp label={t('screens.email')} value={email} onChangeText={setEmail} placeholder="your@email.com" keyboardType="email-address" />
+      <TextInputApp
+        label={t('body.yourFeedback')}
+        value={message}
+        onChangeText={setMessage}
+        placeholder={t('body.yourFeedback')}
+        multiline
+        numberOfLines={4}
+      />
+      <ButtonPrimaryApp title={t('screens.submitFeedback')} onPress={handleSubmit} />
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    maxWidth: 400,
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+});

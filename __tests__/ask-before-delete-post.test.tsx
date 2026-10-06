@@ -1,6 +1,6 @@
 import React from 'react';
-import { ModalAskComponent, ModalAskComponentProps } from '../kit8/components/common/ModalAskComponent';
-import { AskBeforeDeletePostComponent, AskBeforeDeletePostComponentProps } from '../kit8/components/common/AskBeforeDeletePostComponent';
+import { ModalAskComponent, ModalAskComponentProps } from '../kit8/ui/components/common/ModalAskComponent';
+import { AskBeforeDeletePostComponent, AskBeforeDeletePostComponentProps } from '../kit8/ui/components/common/AskBeforeDeletePostComponent';
 
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });

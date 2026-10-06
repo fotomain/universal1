@@ -6,7 +6,7 @@ import {
   PM_TREE_COLUMN_TITLES,
   PM_TREE_COLUMN_WIDTHS,
 } from '../../../../../kit8/pm/view/tree/columns/treeColumns';
-import SelectDateApp, { normalizeDateValue } from '../../../../../kit8/components/common/SelectDateApp';
+import SelectDateApp, { normalizeDateValue } from '../../../../../kit8/ui/components/common/SelectDateApp';
 import EditTaskPlanningUnitField from '../../../../../kit8/pm/view/tree/inline/EditTaskPlanningUnitField';
 import EditTaskStartDate from '../../../../../kit8/pm/view/tree/inline/EditTaskStartDate';
 import EditTaskFinishDate from '../../../../../kit8/pm/view/tree/inline/EditTaskFinishDate';

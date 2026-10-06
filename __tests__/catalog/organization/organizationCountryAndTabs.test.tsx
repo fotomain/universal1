@@ -34,7 +34,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSearchParams,
 }));
 
-jest.mock('../../../kit8/components/common/IconApp', () => {
+jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   const R = require('react');
   const { Text } = require('react-native');
   return ({ name, testID }: any) => R.createElement(Text, { testID }, name);

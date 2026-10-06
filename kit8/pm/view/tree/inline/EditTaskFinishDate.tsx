@@ -11,8 +11,8 @@ import { DAY_MS } from '../../../model/constants';
 import { utcMidnight, workDaysBetween } from '../../project/scheduling';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
-import SelectDateApp from '../../../../components/common/SelectDateApp';
-import IconApp from '../../../../components/common/IconApp';
+import SelectDateApp from '../../../../ui/components/common/SelectDateApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 
 export default function EditTaskFinishDate(props: {
   guid: string;

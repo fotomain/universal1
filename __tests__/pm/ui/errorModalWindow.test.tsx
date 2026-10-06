@@ -7,7 +7,7 @@ import ErrorModalWindow, {
   showErrorModal,
   hideErrorModal,
   useErrorModalStore,
-} from '../../../kit8/components/common/ErrorModalWindow';
+} from '../../../kit8/ui/components/common/ErrorModalWindow';
 
 afterEach(() => {
   act(() => {

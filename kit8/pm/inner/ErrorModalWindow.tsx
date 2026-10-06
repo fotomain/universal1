@@ -1,2 +1,2 @@
-export { default } from '../../components/common/ErrorModalWindow';
-export * from '../../components/common/ErrorModalWindow';
+export { default } from '../../ui/components/common/ErrorModalWindow';
+export * from '../../ui/components/common/ErrorModalWindow';

@@ -16,15 +16,15 @@ jest.mock('react-redux', () => ({ useSelector: (sel: any) => sel({ activeUserSta
 jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
 }));
-jest.mock('../kit8/components/common/IconApp', () => {
+jest.mock('../kit8/ui/components/common/IconApp', () => {
   const R = require('react');
   const { Text } = require('react-native');
   return { __esModule: true, default: ({ name }: any) => R.createElement(Text, null, name) };
 });
-jest.mock('../kit8/components/LanguageSelectorComponent', () => ({ __esModule: true, default: () => null }));
-jest.mock('../kit8/components/DarkThemeSwitchComponent', () => ({ __esModule: true, default: () => null }));
+jest.mock('../kit8/ui/components/LanguageSelectorComponent', () => ({ __esModule: true, default: () => null }));
+jest.mock('../kit8/ui/components/DarkThemeSwitchComponent', () => ({ __esModule: true, default: () => null }));
 
-import CustomDrawerContent, { DRAWER_SUBITEM_HEIGHT } from '../kit8/components/CustomDrawerContent';
+import CustomDrawerContent, { DRAWER_SUBITEM_HEIGHT } from '../kit8/ui/components/CustomDrawerContent';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');

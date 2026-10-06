@@ -3,8 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { DesignSystemType, IconsVariant, setDesignSystem, setIconsVariant, toggleDarkMode } from '../redux/uxuiSlice';
 import { toggleThemeMode } from '../redux/userThemeSlice';
 import tamaguiConfig from '../../tamagui.config';
-import loadMaterialWebCdn from '../components/common/googlemd3web/loadMaterialWebCdn';
-import { appleMacUITheme, appleMacUIThemeColors, AppleMacUITheme } from '../applemacui/appleMacUITheme';
+import loadMaterialWebCdn from '../ui/components/common/googlemd3web/loadMaterialWebCdn';
+import { appleMacUITheme, appleMacUIThemeColors, AppleMacUITheme } from '../ui/applemacui/appleMacUITheme';
 
 export type { DesignSystemType, IconsVariant };
 

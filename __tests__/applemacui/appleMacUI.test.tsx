@@ -1,22 +1,22 @@
 /** @jest-environment jsdom */
-// kit8/applemacui: tokens, provider and every component's states (jsdom + react-native-web; the PM test kit supplies
+// kit8/ui/applemacui: tokens, provider and every component's states (jsdom + react-native-web; the PM test kit supplies
 // the Reanimated / gesture-handler / icon mocks and the DOM helpers).
 import { act } from 'react';
 import { cleanupUI, inputValue, mustGet, press, q, renderUI, textOf, typeInto } from '../pm/ui/pmUiTestKit';
 import React from 'react';
 // jsdom = the web build: Metro would pick AppleDatePicker.web.tsx there
-jest.mock('../../kit8/applemacui/components/AppleDatePicker', () => require('../../kit8/applemacui/components/AppleDatePicker.web'));
-import { appleMacUIAlpha, appleMacUIDarkTheme, appleMacUILightTheme, appleMacUITheme, appleMacUIThemeColors } from '../../kit8/applemacui/appleMacUITheme';
-import { useAppleMacUI, WithAppleMacUI } from '../../kit8/applemacui/WithAppleMacUI';
-import { AppleButton } from '../../kit8/applemacui/components/AppleButton';
-import { AppleTextField } from '../../kit8/applemacui/components/AppleTextField';
-import { AppleSwitch } from '../../kit8/applemacui/components/AppleSwitch';
-import { AppleSegmentedControl } from '../../kit8/applemacui/components/AppleSegmentedControl';
-import { AppleGroupedList, AppleListRow } from '../../kit8/applemacui/components/AppleList';
-import { AppleSheet, resolveSheetRelease } from '../../kit8/applemacui/components/AppleSheet';
-import { AppleDatePicker } from '../../kit8/applemacui/components/AppleDatePicker.web';
-import { clampDate, formatPickerValue, fromInputValue, toInputValue } from '../../kit8/applemacui/components/appleDatePickerShared';
-import AppleMacUIDemoScreen from '../../kit8/applemacui/AppleMacUIDemoScreen';
+jest.mock('../../kit8/ui/applemacui/components/AppleDatePicker', () => require('../../kit8/ui/applemacui/components/AppleDatePicker.web'));
+import { appleMacUIAlpha, appleMacUIDarkTheme, appleMacUILightTheme, appleMacUITheme, appleMacUIThemeColors } from '../../kit8/ui/applemacui/appleMacUITheme';
+import { useAppleMacUI, WithAppleMacUI } from '../../kit8/ui/applemacui/WithAppleMacUI';
+import { AppleButton } from '../../kit8/ui/applemacui/components/AppleButton';
+import { AppleTextField } from '../../kit8/ui/applemacui/components/AppleTextField';
+import { AppleSwitch } from '../../kit8/ui/applemacui/components/AppleSwitch';
+import { AppleSegmentedControl } from '../../kit8/ui/applemacui/components/AppleSegmentedControl';
+import { AppleGroupedList, AppleListRow } from '../../kit8/ui/applemacui/components/AppleList';
+import { AppleSheet, resolveSheetRelease } from '../../kit8/ui/applemacui/components/AppleSheet';
+import { AppleDatePicker } from '../../kit8/ui/applemacui/components/AppleDatePicker.web';
+import { clampDate, formatPickerValue, fromInputValue, toInputValue } from '../../kit8/ui/applemacui/components/appleDatePickerShared';
+import AppleMacUIDemoScreen from '../../kit8/ui/applemacui/AppleMacUIDemoScreen';
 
 afterEach(() => cleanupUI());
 // StyleSheet.create styles are CSS classes on react-native-web: read the computed style

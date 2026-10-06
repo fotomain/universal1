@@ -13,7 +13,7 @@ import {
 import { useDispatch } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../../../../providers/WithDesignSystem';
-import IconApp from '../../../../../components/common/IconApp';
+import IconApp from '../../../../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../../../../redux/SystemMetaData';
 import { PROJECT_TASK_KANBAN_STATE_ENTITY } from '../../../../model/constants';
 import { usePMStore } from '../../../../store/store_pm';

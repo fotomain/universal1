@@ -5,7 +5,7 @@
 import { cleanupUI, fakeCrud, mustGet, press, q, qa, renderUI, textOf, typeInto } from './pmUiTestKit';
 import React from 'react';
 import { act } from 'react';
-import SelectItemFromListApp from '../../../kit8/components/common/SelectItemFromListApp';
+import SelectItemFromListApp from '../../../kit8/ui/components/common/SelectItemFromListApp';
 import PMTreeColumnFilterPopup from '../../../kit8/pm/view/tree/filter/PMTreeColumnFilterPopup';
 import PMTreeHeaderMenu from '../../../kit8/pm/view/tree/customColumns/PMTreeHeaderMenu';
 import PMTreeToolbar from '../../../kit8/pm/view/tree/toolbars/PMTreeToolbar';

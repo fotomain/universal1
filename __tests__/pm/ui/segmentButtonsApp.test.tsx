@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
-// kit8/components/common/SegmentButtonsApp + its use in PMTaskEditModal (Stage | Task | Milestone).
+// kit8/ui/components/common/SegmentButtonsApp + its use in PMTaskEditModal (Stage | Task | Milestone).
 import { cleanupUI, mustGet, press, renderUI, textOf } from './pmUiTestKit';
 import React from 'react';
-import SegmentButtonsApp from '../../../kit8/components/common/SegmentButtonsApp';
+import SegmentButtonsApp from '../../../kit8/ui/components/common/SegmentButtonsApp';
 
 afterEach(() => cleanupUI());
 

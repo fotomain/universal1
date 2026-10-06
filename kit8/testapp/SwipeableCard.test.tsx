@@ -59,9 +59,9 @@ RNWPanResponder.create = (config: any) => {
   };
 };
 
-import { SwipeableCard } from "../components/list/web/lib/SwipeableCard";
-import { CardSwipeUnderlayLeftComponent } from "../components/list/web/lib/CardSwipeUnderlayLeftComponent";
-import { CardSwipeUnderlayRightComponent } from "../components/list/web/lib/CardSwipeUnderlayRightComponent";
+import { SwipeableCard } from "../ui/components/list/web/lib/SwipeableCard";
+import { CardSwipeUnderlayLeftComponent } from "../ui/components/list/web/lib/CardSwipeUnderlayLeftComponent";
+import { CardSwipeUnderlayRightComponent } from "../ui/components/list/web/lib/CardSwipeUnderlayRightComponent";
 
 describe("SwipeableCard & Archivation Jest Tests", () => {
   const dummyItem = { id: "card-1", title: "Test Card", description: "Test Description" };
@@ -362,7 +362,7 @@ describe("urlIsYouTube helper tests", () => {
 
 describe("ListWebTopBarComponent tests", () => {
   test("renders ListWebTopBarComponent with createNewItem, scrollToCurrent, scrollTop, and scrollBottom icons", () => {
-    const { ListWebTopBarComponent } = require("../components/list/web/ListWebTopBarComponent");
+    const { ListWebTopBarComponent } = require("../ui/components/list/web/ListWebTopBarComponent");
     const onNewMock = jest.fn();
     const onScrollCurrentMock = jest.fn();
     const onScrollTopMock = jest.fn();

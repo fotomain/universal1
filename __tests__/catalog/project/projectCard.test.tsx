@@ -21,7 +21,7 @@ jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   }),
 }));
 
-jest.mock('../../../kit8/components/common/IconApp', () => {
+jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
   return ({ testID, name, onPress }: any) =>

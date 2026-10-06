@@ -4,7 +4,7 @@
 //   * ModalWindowListToSelect           "Restore project from version": pick the version, then approve
 
 import React, { useMemo } from 'react';
-import ModalWindowListToSelect, { ModalWindowListItem } from '../../../../components/common/ModalWindowListToSelect';
+import ModalWindowListToSelect, { ModalWindowListItem } from '../../../../ui/components/common/ModalWindowListToSelect';
 import { formatVersionDateTime } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';
 import { useReadProjectVersionsQuery } from '../../crud/version/versionQueries';

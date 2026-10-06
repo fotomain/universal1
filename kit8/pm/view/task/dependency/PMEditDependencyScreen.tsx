@@ -12,14 +12,14 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
-import TextInputApp from '../../../../components/common/TextInputApp';
+import TextInputApp from '../../../../ui/components/common/TextInputApp';
 import { usePMStore } from '../../../store/store_pm';
 import { LINK_TYPES } from '../../project/scheduling';
 import { PMLinkType } from '../../../model/types';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../../inner/buttons';
 import { useUxuiCurrentJSON } from '../../../../redux/useUxuiCurrentJSON';
-import ShareScreenshotButton from '../../../../components/common/ShareScreenshotButton';
+import ShareScreenshotButton from '../../../../ui/components/common/ShareScreenshotButton';
 import { pmT } from '../../../i18n/pmT';
 
 export const DEPENDENCY_COLOR_SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#64748b'];

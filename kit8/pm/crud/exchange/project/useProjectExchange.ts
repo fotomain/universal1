@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { usePMStore } from '../../../store/store_pm';
 import { effectiveUxuiSettings } from '../../../store/storeDerive';
 import { approvePM } from '../../../inner/PMApproveYesNoCancelModalWindow';
-import type { DroppedFileItem } from '../../../../components/common/ReceiveDraggableFilesComponent.types';
+import type { DroppedFileItem } from '../../../../ui/components/common/ReceiveDraggableFilesComponent.types';
 import { errorMessage } from '../../api/apiUtils';
 import { pmKeys, usePMApi } from '../../shared/queryShared';
 import { useSaveProjectUserSettings } from '../../project/projectUserSettingsQueries';

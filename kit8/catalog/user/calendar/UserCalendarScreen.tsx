@@ -13,7 +13,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
-import { ModalWindowListToSelect } from '../../../components/common';
+import { ModalWindowListToSelect } from '../../../ui/components/common';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { showSnackbar } from '../../../redux/uxuiSlice';
 import {

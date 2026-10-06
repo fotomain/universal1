@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { usePMTip } from '../tooltip/PMTooltip';
 import { pmT } from '../../i18n/pmT';
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
-import ActivityIndicatorCircleApp from '../../components/activityindicator/ActivityIndicatorCircleApp';
+import IconApp from '../../ui/components/common/IconApp';
+import ActivityIndicatorCircleApp from '../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMUndoProvider from '../../pm/view/undo/PMUndoProvider';
 import PMGanttSurfaceLoader from '../../pm/view/gantt/PMGanttSurfaceLoader';
 import { usePMStore } from '../../pm/store/store_pm';

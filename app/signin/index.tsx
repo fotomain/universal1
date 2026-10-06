@@ -4,15 +4,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/components/common';
-import ActivityIndicatorCircleApp from '../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
-import SignInWithGoogleButton from '../../kit8/components/auth/SignInWithGoogleButton';
-import SignInWithEmailOtp from '../../kit8/components/auth/SignInWithEmailOtp';
+import { ButtonPrimaryApp, ButtonTextApp } from '../../kit8/ui/components/common';
+import ActivityIndicatorCircleApp from '../../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
+import SignInWithGoogleButton from '../../kit8/ui/components/auth/SignInWithGoogleButton';
+import SignInWithEmailOtp from '../../kit8/ui/components/auth/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../kit8/lib/localSecureStorage';
 import { setActiveUser, formatTo32CharGUID } from '../../kit8/redux/activeUserSlice';
-import TextInputApp from '../../kit8/components/common/TextInputApp';
+import TextInputApp from '../../kit8/ui/components/common/TextInputApp';
 
 export default function SignInScreen() {
   const router = useRouter();

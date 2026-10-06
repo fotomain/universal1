@@ -7,12 +7,12 @@ const mockReplace = jest.fn();
 let mockParams: any = {};
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }), useLocalSearchParams: () => mockParams, router: { push: mockPush } }));
-jest.mock('../../../kit8/components/common/IconApp', () => () => null);
+jest.mock('../../../kit8/ui/components/common/IconApp', () => () => null);
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'new-guid-1' }));
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
 }));
-jest.mock('../../../kit8/components/common', () => {
+jest.mock('../../../kit8/ui/components/common', () => {
   const R = require('react');
   const { Pressable, Text, TextInput, Switch, View } = require('react-native');
   const Btn = ({ testID, onPress, disabled, children }: any) => R.createElement(Pressable, { testID, onPress, disabled }, R.createElement(Text, null, children));

@@ -8,7 +8,7 @@
 import type { PMApi } from '../../../api/api_pm';
 import { newGUID } from '../../../api/apiUtils';
 import { PMProjectRow } from '../../../../model/types';
-import type { DroppedFileItem } from '../../../../../components/common/ReceiveDraggableFilesComponent.types';
+import type { DroppedFileItem } from '../../../../../ui/components/common/ReceiveDraggableFilesComponent.types';
 import { parseProjectExchangeFile, PMProjectExchangeError } from '../projectExchangeFormat';
 import { planProjectImport, PMProjectImportPlan } from './planProjectImport';
 import { readDroppedFileText } from './readDroppedFileText';

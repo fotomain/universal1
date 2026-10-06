@@ -1,6 +1,6 @@
 // WithIntent (mobile): receives what other apps share into this app - a link, text, pictures, video,
 // files - with expo-share-intent, and puts it into Redux as uxui.intentInfo (kit8/redux/uxuiSlice.ts).
-// The "what to add?" window (kit8/components/intent/IntentAddModalWindow.tsx, RadioSetApp) reads it.
+// The "what to add?" window (kit8/ui/components/intent/IntentAddModalWindow.tsx, RadioSetApp) reads it.
 // Same approach as expo-w1 mi/providers/WithIntent.tsx, without the debug views: the provider only
 // listens; nothing is rendered here. Web: WithIntent.web.tsx (no share intents in a browser).
 //
@@ -11,7 +11,7 @@ import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
 import { setIntentInfo } from '../redux/uxuiSlice';
-import { buildIntentInfo } from '../components/intent/intentInfo';
+import { buildIntentInfo } from '../ui/components/intent/intentInfo';
 
 function IntentToRedux() {
   const dispatch = useDispatch();

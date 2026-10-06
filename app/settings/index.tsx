@@ -2,10 +2,10 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Text, Surface } from 'react-native-paper';
-import ModifyThemeColorsComponent from '../../kit8/components/ModifyThemeColorsComponent';
-import { FABColorSelectorComponent, FABAnimationSelectorComponent } from '../../kit8/components/fab';
-import ThemeSyncStatusComponent from '../../kit8/components/ThemeSyncStatusComponent';
-import DesignSystemSelectorComponent from '../../kit8/components/DesignSystemSelectorComponent';
+import ModifyThemeColorsComponent from '../../kit8/ui/components/ModifyThemeColorsComponent';
+import { FABColorSelectorComponent, FABAnimationSelectorComponent } from '../../kit8/ui/components/fab';
+import ThemeSyncStatusComponent from '../../kit8/ui/components/ThemeSyncStatusComponent';
+import DesignSystemSelectorComponent from '../../kit8/ui/components/DesignSystemSelectorComponent';
 import { useDesignSystem } from '../../kit8/providers/WithDesignSystem';
 
 export default function SettingsScreen() {

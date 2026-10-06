@@ -10,8 +10,8 @@ jest.mock('expo-crypto', () => ({ randomUUID: () => 'new-rate-1' }));
 jest.mock('../../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
 }));
-jest.mock('../../../../kit8/components/common/IconApp', () => () => null);
-jest.mock('../../../../kit8/components/common', () => {
+jest.mock('../../../../kit8/ui/components/common/IconApp', () => () => null);
+jest.mock('../../../../kit8/ui/components/common', () => {
   const R = require('react');
   const { Pressable, Text, TextInput, View } = require('react-native');
   const Btn = ({ testID, onPress, disabled, children }: any) => R.createElement(Pressable, { testID, onPress, disabled }, R.createElement(Text, null, children));

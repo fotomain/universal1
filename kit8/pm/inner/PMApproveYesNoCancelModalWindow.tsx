@@ -13,7 +13,7 @@ import React, { useEffect } from 'react';
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { create } from 'zustand';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
+import IconApp from '../../ui/components/common/IconApp';
 import { PMDialogButton } from './buttons/PMDialogButton';
 import { pmT } from '../i18n/pmT';
 

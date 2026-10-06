@@ -11,7 +11,7 @@ jest.mock('../../../kit8/pm/crud/exchange/project/useProjectExchange', () => ({
 }));
 // the drop zone: a button that "drops" a file (drag & drop itself is the browser's job)
 const mockDropProps = jest.fn();
-jest.mock('../../../kit8/components/common/ReceiveDraggableFilesComponent', () => {
+jest.mock('../../../kit8/ui/components/common/ReceiveDraggableFilesComponent', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
   const C = (props: any) => {

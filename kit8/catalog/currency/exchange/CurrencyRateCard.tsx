@@ -4,7 +4,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { CurrencyExchangeRowJSON, formatDay, formatRatio, ratioChangePercent, RateCardItem, todayISO } from './currencyExchangeModel';
 
 export interface CurrencyRateCardProps {

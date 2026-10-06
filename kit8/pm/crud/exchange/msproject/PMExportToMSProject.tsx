@@ -12,7 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { PM_DIALOG_BUTTON_WIDTH } from '../../../model/constants';

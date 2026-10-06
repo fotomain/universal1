@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import React from 'react';
 import { cleanupUI, q, renderUI } from './pm/ui/pmUiTestKit';
-import { ReceiveDraggableFilesComponent } from '../kit8/components/common/ReceiveDraggableFilesComponent';
+import { ReceiveDraggableFilesComponent } from '../kit8/ui/components/common/ReceiveDraggableFilesComponent';
 import { PM_EXPORT_BUTTON_WIDTH } from '../kit8/pm/model/constants';
 
 jest.mock('expo-drag-drop-content-view', () => {

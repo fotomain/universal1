@@ -1,6 +1,6 @@
 // Text of a file from ReceiveDraggableFilesComponent (drop or "Choose file…"):
 //   web: File/Blob · iOS / Android: file uri (expo-file-system) or base64
-import type { DroppedFileItem } from '../../../../../components/common/ReceiveDraggableFilesComponent.types';
+import type { DroppedFileItem } from '../../../../../ui/components/common/ReceiveDraggableFilesComponent.types';
 
 function blobText(blob: Blob): Promise<string> {
   if (typeof (blob as any).text === 'function') return (blob as any).text();

@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { PM_VERSION_TITLE_MAX, validateVersionTitle } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';

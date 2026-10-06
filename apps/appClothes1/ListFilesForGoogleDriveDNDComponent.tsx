@@ -19,7 +19,7 @@ import {
     TextInputApp,
     IconApp,
     type DroppedFileItem,
-} from '../../kit8/components/common';
+} from '../../kit8/ui/components/common';
 import {
     setShopImagesCount,
     setTrendImagesCount,

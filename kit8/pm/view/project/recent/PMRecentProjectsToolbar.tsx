@@ -23,7 +23,7 @@ import {
   View,
 } from "react-native";
 import { useDesignSystem } from "../../../../providers/WithDesignSystem";
-import IconApp from "../../../../components/common/IconApp";
+import IconApp from "../../../../ui/components/common/IconApp";
 import { usePMStore } from "../../../store/store_pm";
 import {
   useBuildProjectRow,
@@ -48,8 +48,8 @@ import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
-import SwitchApp from "../../../../components/common/SwitchApp";
-import TextInputApp from "../../../../components/common/TextInputApp";
+import SwitchApp from "../../../../ui/components/common/SwitchApp";
+import TextInputApp from "../../../../ui/components/common/TextInputApp";
 import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
 import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat, PMContextCommandsMode, PMUxUiSettings } from "../../../model/types";
 import { PM_PLAN_DATE_INPUT_FORMATS, contextCommandsModeOf } from "../../../model/types";
@@ -66,7 +66,7 @@ import PMGanttVersionButtons from "../../../version/view/buttons/PMGanttVersionB
 import PMContextMenu from "../../../inner/menu/PMContextMenu";
 import { usePMVersionStore } from "../../../version/store/store_version";
 import { useUxuiCurrentJSON } from "../../../../redux/useUxuiCurrentJSON";
-import ShareScreenshotButton from "../../../../components/common/ShareScreenshotButton";
+import ShareScreenshotButton from "../../../../ui/components/common/ShareScreenshotButton";
 
 export type ProjectSettingsTab = 'TabMain' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 

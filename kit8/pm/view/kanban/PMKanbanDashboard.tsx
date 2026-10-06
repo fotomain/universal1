@@ -21,7 +21,7 @@ import { PMCrud } from '../../crud/usePMCrud';
 import { PMKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import { useReadKanbanStageCatalogQuery } from '../../crud/kanban/kanbanQueries';
 import { PMProjectKanbanStageRow, PM_KANBAN_DEFAULT_STAGES } from '../../model/kanbanTypes';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMKanbanToolbar from './PMKanbanToolbar';
 import PMKanbanColumn from './PMKanbanColumn';
 import PMKanbanStagesModalWindow from './PMKanbanStagesModalWindow';

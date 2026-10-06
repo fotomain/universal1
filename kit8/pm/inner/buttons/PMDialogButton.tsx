@@ -3,7 +3,7 @@
 //         dangerOutlined · dangerContained
 
 import React from 'react';
-import ButtonApp from '../../../components/common/ButtonApp';
+import ButtonApp from '../../../ui/components/common/ButtonApp';
 import { pmT } from '../../i18n/pmT';
 
 export type PMDialogButtonKind = 'primary' | 'secondary' | 'text' | 'danger' | 'dangerOutlined' | 'dangerContained';

@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
 import Clothes1UploadToDriveComponent from '../appClothes1/Clothes1UploadToDriveComponent';
 import RunComputationButton from './RunComputationButton';
-import {TextApp} from "../../kit8/components/common";
+import {TextApp} from "../../kit8/ui/components/common";
 
 export default function OnTrendDasboardScreen() {
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);

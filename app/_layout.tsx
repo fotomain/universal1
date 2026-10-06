@@ -12,8 +12,8 @@ import {useMaterial3Theme} from '@pchmn/expo-material3-theme';
 import {useTranslation} from 'react-i18next';
 import {useDispatch, useSelector} from 'react-redux';
 import '../kit8/i18n/i18n';
-import AppBar from '../kit8/ui/AppBar';
-import CustomDrawerContent from '../kit8/components/CustomDrawerContent';
+import ApplicationBarApp from '../kit8/ui/components/common/ApplicationBarApp';
+import CustomDrawerContent from '../kit8/ui/components/CustomDrawerContent';
 import WithSQLiteNative from '../kit8/providers/WithSQLiteNative';
 import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
 import { useAuthRedirectHandler } from '../kit8/hooks/useAuthRedirectHandler';
@@ -25,20 +25,20 @@ import {saveUserData} from '../kit8/lib/localSecureStorage';
 import { loginUserTable } from '../kit8/auth/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
 
-import {CustomDarkTheme, CustomLightTheme} from '../kit8/theme/palettes';
+import {CustomDarkTheme, CustomLightTheme} from '../kit8/ui/theme/palettes';
 import {FABProvider} from '../kit8/providers/FABProvider';
-import {FABAppComponent} from '../kit8/components/fab';
+import {FABAppComponent} from '../kit8/ui/components/fab';
 import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
 import WithDesignSystem from '../kit8/providers/WithDesignSystem';
-import { WithAppleMacUI } from '../kit8/applemacui/WithAppleMacUI';
-import { appleMacUITheme } from '../kit8/applemacui/appleMacUITheme';
-import IconApp from '../kit8/components/common/IconApp';
-import SnackbarApp from '../kit8/components/common/SnackbarApp';
-import { ErrorModalWindow, showErrorModal } from '../kit8/components/common';
+import { WithAppleMacUI } from '../kit8/ui/applemacui/WithAppleMacUI';
+import { appleMacUITheme } from '../kit8/ui/applemacui/appleMacUITheme';
+import IconApp from '../kit8/ui/components/common/IconApp';
+import SnackbarApp from '../kit8/ui/components/common/SnackbarApp';
+import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
 import UserCalendarNotifier from '../kit8/catalog/user/calendar/UserCalendarNotifier';
 import WithIntent from '../kit8/providers/WithIntent';
-import IntentAddModalWindow from '../kit8/components/intent/IntentAddModalWindow';
+import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
 
 const blockError=true
 
@@ -507,7 +507,7 @@ function RootLayoutContent() {
             <Drawer
               drawerContent={(props) => <CustomDrawerContent {...props} />}
               screenOptions={{ 
-                header: (props) => <AppBar {...props} />,
+                header: (props) => <ApplicationBarApp {...props} />,
                 sceneStyle: { backgroundColor: paperTheme.colors.background },
                 drawerIcon: renderHomeDrawerIcon,
               }}

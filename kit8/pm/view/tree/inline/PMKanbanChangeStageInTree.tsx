@@ -14,7 +14,7 @@ import { kanbanStageForRow } from '../../kanban/kanbanModel';
 import { kanbanStageColorOf, PM_KANBAN_DEFAULT_STAGES, PM_KANBAN_NO_STATE, PM_KANBAN_NO_STATE_COLOR, PM_KANBAN_NO_STATE_LABEL, PMProjectKanbanStageRow } from '../../../model/kanbanTypes';
 import { withAlpha } from '../../theme';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT } from '../../../model/constants';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { pmT } from '../../../i18n/pmT';
 
 const POPUP_WIDTH = 180;

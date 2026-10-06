@@ -2,9 +2,9 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { ButtonApp, ButtonPrimaryApp } from '../../kit8/components/common';
-import H1Mi from '../../kit8/ui/H1Mi';
-import ArticleTextApp from '../../kit8/components/common/ArticleTextApp';
+import { ButtonApp, ButtonPrimaryApp } from '../../kit8/ui/components/common';
+import H1App from '../../kit8/ui/components/common/H1App';
+import ArticleTextApp from '../../kit8/ui/components/common/ArticleTextApp';
 import OnTrendDasboardScreen from './OnTrendDasboardScreen';
 
 export default function HomeAppOnTrend() {
@@ -15,7 +15,7 @@ export default function HomeAppOnTrend() {
     <View style={styles.container}>
       <OnTrendDasboardScreen />
 
-      <H1Mi>{t('body.welcomeAppOnTrend') || 'Welcome to App OnTrend'}</H1Mi>
+      <H1App>{t('body.welcomeAppOnTrend') || 'Welcome to App OnTrend'}</H1App>
       <ArticleTextApp>{t('body.homeAppOnTrendDesc') || 'This is the home page for the OnTrend app variant.'}</ArticleTextApp>
 
       <ButtonPrimaryApp

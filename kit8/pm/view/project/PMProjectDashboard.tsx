@@ -40,7 +40,7 @@ import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadPro
 import { usePMCrud } from '../../crud/usePMCrud';
 import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 
@@ -98,7 +98,7 @@ function PMProjectDashboardInner() {
 
   useKeyboardShortcuts(crud);
 
-  // ---- app bar buttons (kit8/ui/AppBar.tsx) -> Redux uxuiState ----
+  // ---- app bar buttons (kit8/ui/components/common/ApplicationBarApp.tsx) -> Redux uxuiState ----
   const hideProjectToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideProjectToolBar);
   const hideGanttToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideGanttToolBar);
   const hideGanttChartNode = useSafeSelector((s) => !!s?.uxuiState?.hideGanttChartNode);

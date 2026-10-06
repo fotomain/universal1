@@ -3,7 +3,7 @@
 //   rowGUID · rowOwnerGUID = ORGANIZATION_CATALOG_OWNER · rowParentGUID = 'empty' ·
 //   orderInList · rowJSON = OrganizationRowJSON · created_at / updated_at
 
-import type { CardItem } from '../../components/list/web/lib';
+import type { CardItem } from '../../ui/components/list/web/lib';
 
 /** Supabase table name (SQL: organizationTable). */
 export const organizationTable = 'organizationTable';

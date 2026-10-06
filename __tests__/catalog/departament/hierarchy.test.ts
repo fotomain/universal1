@@ -1,5 +1,5 @@
-import { organizeCardsHierarchy } from '../../../kit8/components/list/web/lib/hierarchy';
-import type { CardItem } from '../../../kit8/components/list/web/lib/types';
+import { organizeCardsHierarchy } from '../../../kit8/ui/components/list/web/lib/hierarchy';
+import type { CardItem } from '../../../kit8/ui/components/list/web/lib/types';
 
 describe('organizeCardsHierarchy', () => {
   const cards: CardItem[] = [

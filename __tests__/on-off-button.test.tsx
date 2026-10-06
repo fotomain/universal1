@@ -10,7 +10,7 @@ jest.mock('../kit8/providers/WithDesignSystem', () => ({
   }),
 }));
 
-import { OnOffButtonApp, OnOffButtonAppProps } from '../kit8/components/common/OnOffButtonApp';
+import { OnOffButtonApp, OnOffButtonAppProps } from '../kit8/ui/components/common/OnOffButtonApp';
 
 describe('OnOffButtonApp component', () => {
   it('exports OnOffButtonApp as a valid React component', () => {

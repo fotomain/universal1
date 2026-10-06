@@ -10,8 +10,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ModalWindowListToSelect, SelectDateApp, SwitchApp } from '../../../components/common';
-import IconApp from '../../../components/common/IconApp';
+import { ModalWindowListToSelect, SelectDateApp, SwitchApp } from '../../../ui/components/common';
+import IconApp from '../../../ui/components/common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import {
   addDays,

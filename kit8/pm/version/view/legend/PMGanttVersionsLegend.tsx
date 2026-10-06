@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { PMPalette } from '../../../view/theme';
 import { usePMVersionStore } from '../../store/store_version';
 import { pmT } from '../../../i18n/pmT';

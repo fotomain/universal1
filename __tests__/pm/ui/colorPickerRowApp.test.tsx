@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
-// kit8/components/common/ColorPickerRowApp: auto swatch, Default chip, swatches, Custom… chip.
+// kit8/ui/components/common/ColorPickerRowApp: auto swatch, Default chip, swatches, Custom… chip.
 import { cleanupUI, mustGet, press, q, qa, renderUI, textOf } from './pmUiTestKit';
 import React from 'react';
-import ColorPickerRowApp, { normalizeHexColor, readableOn } from '../../../kit8/components/common/ColorPickerRowApp';
+import ColorPickerRowApp, { normalizeHexColor, readableOn } from '../../../kit8/ui/components/common/ColorPickerRowApp';
 
 afterEach(() => cleanupUI());
 const SW = ['#6366f1', '#ef4444'];

@@ -2,7 +2,7 @@
 // (no custom colors: the progress lines only use PM_PROGRESS_LINE_SWATCHES).
 
 import React from 'react';
-import ColorPickerRowApp from '../../../../../components/common/ColorPickerRowApp';
+import ColorPickerRowApp from '../../../../../ui/components/common/ColorPickerRowApp';
 import { PM_PROGRESS_LINE_SWATCHES } from './progressLineConstants';
 import { pmT } from '../../../../i18n/pmT';
 

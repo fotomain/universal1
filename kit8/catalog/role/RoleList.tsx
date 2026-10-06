@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
+import IconApp from '../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
@@ -22,7 +22,7 @@ import { useIsAppAdmin } from './useIsAppAdmin';
 
 const ListWebCardsComponent: any =
   Platform.OS === 'web'
-    ? require('../../components/list/web/ListWebCardsComponent').ListWebCardsComponent
+    ? require('../../ui/components/list/web/ListWebCardsComponent').ListWebCardsComponent
     : null;
 
 export default function RoleList() {

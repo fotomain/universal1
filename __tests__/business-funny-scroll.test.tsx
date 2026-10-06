@@ -1,4 +1,4 @@
-import { getBusinessMotto } from '../kit8/components/list/web/BusinessFunnyScrollComponent';
+import { getBusinessMotto } from '../kit8/ui/components/list/web/BusinessFunnyScrollComponent';
 
 describe('BusinessFunnyScrollComponent', () => {
   it('calculates correct business mottos based on scroll percentage', () => {

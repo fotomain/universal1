@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
+import IconApp from '../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import { matchRow } from '../../redux/reusable/realtimeRows';

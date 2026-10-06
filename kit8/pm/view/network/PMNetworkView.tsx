@@ -13,7 +13,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { usePMStore } from '../../store/store_pm';
 import { makePMPalette, PMPalette, withAlpha } from '../theme';

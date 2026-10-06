@@ -1,11 +1,11 @@
 import React from 'react';
-import { FABForCardComponent, FABForCardComponentProps } from '../kit8/components/fab/FABForCardComponent';
-import { createBeforeCurrent } from '../kit8/components/list/web/lib/createBeforeCurrent';
-import { createAfterCurrent } from '../kit8/components/list/web/lib/createAfterCurrent';
-import { copyPasteBeforeCurrent } from '../kit8/components/list/web/lib/copyPasteBeforeCurrent';
-import { copyPasteAfterCurrent } from '../kit8/components/list/web/lib/copyPasteAfterCurrent';
-import { calculateNewOrderInList } from '../kit8/components/list/web/lib/calculateNewOrderInList';
-import { CardItem } from '../kit8/components/list/web/lib/types';
+import { FABForCardComponent, FABForCardComponentProps } from '../kit8/ui/components/fab/FABForCardComponent';
+import { createBeforeCurrent } from '../kit8/ui/components/list/web/lib/createBeforeCurrent';
+import { createAfterCurrent } from '../kit8/ui/components/list/web/lib/createAfterCurrent';
+import { copyPasteBeforeCurrent } from '../kit8/ui/components/list/web/lib/copyPasteBeforeCurrent';
+import { copyPasteAfterCurrent } from '../kit8/ui/components/list/web/lib/copyPasteAfterCurrent';
+import { calculateNewOrderInList } from '../kit8/ui/components/list/web/lib/calculateNewOrderInList';
+import { CardItem } from '../kit8/ui/components/list/web/lib/types';
 
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });

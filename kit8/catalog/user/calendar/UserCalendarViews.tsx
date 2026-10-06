@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import {
   addDays,
   DAY_MS,

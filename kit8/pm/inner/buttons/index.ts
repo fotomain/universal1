@@ -1,4 +1,4 @@
-// Buttons of the PM Gantt module - all built on kit8/components/common/ButtonApp
+// Buttons of the PM Gantt module - all built on kit8/ui/components/common/ButtonApp
 // (variant "toolbar" for icon buttons, contained / outlined / text for dialogs).
 export { PMIconButton } from './PMIconButton';
 export type { PMIconButtonProps } from './PMIconButton';

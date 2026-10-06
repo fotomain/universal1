@@ -2,7 +2,7 @@
 // (hover on web, long-press on touch). Lives in kit8/pm/inner/buttons.
 
 import React from 'react';
-import ButtonApp from '../../../components/common/ButtonApp';
+import ButtonApp from '../../../ui/components/common/ButtonApp';
 import { usePMTip } from '../tooltip/PMTooltip';
 import { pmT } from '../../i18n/pmT';
 

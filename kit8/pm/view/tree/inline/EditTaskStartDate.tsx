@@ -9,8 +9,8 @@ import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
-import SelectDateApp from '../../../../components/common/SelectDateApp';
-import IconApp from '../../../../components/common/IconApp';
+import SelectDateApp from '../../../../ui/components/common/SelectDateApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { pmT } from '../../../i18n/pmT';
 
 export default function EditTaskStartDate(props: {

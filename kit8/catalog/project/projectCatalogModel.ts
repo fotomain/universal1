@@ -2,7 +2,7 @@
 // Reuses PMProjectRow and types from kit8/pm/model/types
 
 import type { PMProjectRow } from '../../pm/model/types';
-import type { CardItem } from '../../components/list/web/lib';
+import type { CardItem } from '../../ui/components/list/web/lib';
 import { formatDateShort } from '../../pm/view/project/scheduling';
 
 export const PROJECT_ENTITY = 'projectReusable';

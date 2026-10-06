@@ -22,8 +22,8 @@ import {
   useReadTemplatesQuery,
 } from '../../crud/template/templateQueries';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
-import IconApp from '../../../components/common/IconApp';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import IconApp from '../../../ui/components/common/IconApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMDateInput from '../../inner/inputs/PMDateInput';
 import { formatDateISO, parseDateISO, todayUTC } from './scheduling';
 import { PMProjectRow } from '../../model/types';

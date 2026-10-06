@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { PM_ROUTES } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import {
@@ -36,7 +36,7 @@ import PMApproveYesNoCancelModalWindow from '../../inner/PMApproveYesNoCancelMod
 import PMUndoProvider from '../undo/PMUndoProvider';
 import { PMDialogButton, PMIconButton, PMTipPressable } from '../../inner/buttons';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 
 const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Start → Start', FF: 'Finish → Finish', SF: 'Start → Finish' };
 

@@ -24,7 +24,7 @@ export interface UxuiState {
   /** JSON of the record the user is looking at (project settings, edit task, task page, dependency ...):
    *  "Share screenshot + JSON" of the app three dots menu sends it together with the screenshot. */
   currentJSON: UxuiCurrentJSON | null;
-  /** Project dashboard: app bar buttons (kit8/ui/AppBar.tsx -> PMAppBarButtons) */
+  /** Project dashboard: app bar buttons (kit8/ui/components/common/ApplicationBarApp.tsx -> PMAppBarButtons) */
   hideProjectToolBar: boolean;
   hideGanttToolBar: boolean;
   hideGanttChartNode: boolean;

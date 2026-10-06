@@ -4,8 +4,8 @@ import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-nativ
 import { useDispatch } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../components/common';
-import SwitchApp from '../../components/common/SwitchApp';
+import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../ui/components/common';
+import SwitchApp from '../../ui/components/common/SwitchApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import {
   CONTRACT_ENTITY,

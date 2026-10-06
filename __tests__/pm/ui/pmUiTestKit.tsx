@@ -36,7 +36,7 @@ jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   }),
 }));
 
-jest.mock('../../../kit8/components/common/IconApp', () => {
+jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
   const IconApp = ({ testID, name, onPress }: any) =>
@@ -44,7 +44,7 @@ jest.mock('../../../kit8/components/common/IconApp', () => {
   return { __esModule: true, default: IconApp, IconApp };
 });
 
-jest.mock('../../../kit8/components/common/TextInputApp', () => {
+jest.mock('../../../kit8/ui/components/common/TextInputApp', () => {
   const R = require('react');
   const { TextInput } = require('react-native');
   const TextInputApp = ({ testID, value, editable, onChangeText, label }: any) =>
@@ -52,7 +52,7 @@ jest.mock('../../../kit8/components/common/TextInputApp', () => {
   return { __esModule: true, default: TextInputApp, TextInputApp };
 });
 
-jest.mock('../../../kit8/components/common/TextAreaApp', () => {
+jest.mock('../../../kit8/ui/components/common/TextAreaApp', () => {
   const R = require('react');
   const { TextInput } = require('react-native');
   const TextAreaApp = ({ testID, value, editable, onChangeText, label }: any) =>
@@ -60,7 +60,7 @@ jest.mock('../../../kit8/components/common/TextAreaApp', () => {
   return { __esModule: true, default: TextAreaApp, TextAreaApp };
 });
 
-jest.mock('../../../kit8/components/common/googlemd3web/GoogleMD3WebButton', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../kit8/ui/components/common/googlemd3web/GoogleMD3WebButton', () => ({ __esModule: true, default: () => null }));
 
 jest.mock('react-native-paper', () => {
   const Stub = () => null;

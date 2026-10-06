@@ -6,7 +6,7 @@
 
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../../view/theme';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';

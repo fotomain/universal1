@@ -2,8 +2,8 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../../../providers/WithDesignSystem';
-import IconApp from '../../../../../components/common/IconApp';
-import type { CardItem } from '../../../../../components/list/web/lib/types';
+import IconApp from '../../../../../ui/components/common/IconApp';
+import type { CardItem } from '../../../../../ui/components/list/web/lib/types';
 import { usePMStore } from '../../../../store/store_pm';
 import { usePMKanbanStore } from '../../../../store/store_kanban';
 import { pmT } from '../../../../i18n/pmT';

@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { MD3Theme, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
-import { CustomLightTheme, CustomDarkTheme } from "../theme/palettes";
+import { CustomLightTheme, CustomDarkTheme } from "../ui/theme/palettes";
 
 export interface UserThemeState {
   isDark: boolean;

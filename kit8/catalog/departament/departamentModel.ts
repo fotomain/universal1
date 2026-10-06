@@ -4,7 +4,7 @@
 //   rowParentGUID = parent departament rowGUID | 'empty' (hierarchy as a tree) ·
 //   orderInList · rowJSON = DepartamentRowJSON · created_at / updated_at
 
-import type { CardItem } from '../../components/list/web/lib/types';
+import type { CardItem } from '../../ui/components/list/web/lib/types';
 
 /** Supabase table name (SQL: departamentTable). */
 export const departamentTable = 'departamentTable';

@@ -8,11 +8,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../components/common';
+import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../ui/components/common';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from './CurrencyRealtimeBadge';
-import IconApp from '../../components/common/IconApp';
+import IconApp from '../../ui/components/common/IconApp';
 import { CURRENCY_EXCHANGE_ROUTES } from './exchange/currencyExchangeModel';
 import {
   CURRENCY_CATALOG_OWNER,

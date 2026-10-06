@@ -14,7 +14,7 @@ import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 import { useProjectKanbanData } from '../../crud/kanban/kanbanQueries';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import { kanbanStageColorOf, PMProjectKanbanStageRow, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { pmT } from '../../i18n/pmT';
 
 export interface PMKanbanStagesModalWindowProps {

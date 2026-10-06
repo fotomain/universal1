@@ -5,7 +5,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { pmT } from '../../i18n/pmT';
 
 export interface PMMenuItemProps {

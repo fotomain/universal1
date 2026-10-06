@@ -1,4 +1,4 @@
-import type { CardItem } from '../../components/list/web/lib/types';
+import type { CardItem } from '../../ui/components/list/web/lib/types';
 
 export const userRolesTable = "userRoleTable";
 export const USER_ROLE_ENTITY = "userRoleReusable";

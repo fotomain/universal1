@@ -1,4 +1,4 @@
-import { getWebFallbackGlyph } from '../kit8/components/list/web/lib/CardThreeDotsMenu';
+import { getWebFallbackGlyph } from '../kit8/ui/components/list/web/lib/CardThreeDotsMenu';
 
 describe('CardThreeDotsMenu web fallback', () => {
   it('uses a visible glyph instead of the font-based more-vert icon on web', () => {

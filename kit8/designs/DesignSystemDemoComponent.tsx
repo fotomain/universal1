@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../providers/WithDesignSystem';
-import ThemeSwitcher from '../components/ThemeSwitcher';
-import TextApp from '../components/common/TextApp';
-import TextInputApp from '../components/common/TextInputApp';
-import ButtonPrimaryApp from '../components/common/ButtonPrimaryApp';
-import ButtonSecondaryApp from '../components/common/ButtonSecondaryApp';
-import CardApp from '../components/common/CardApp';
-import SwitchApp from '../components/common/SwitchApp';
+import ThemeSwitcher from '../ui/components/ThemeSwitcher';
+import TextApp from '../ui/components/common/TextApp';
+import TextInputApp from '../ui/components/common/TextInputApp';
+import ButtonPrimaryApp from '../ui/components/common/ButtonPrimaryApp';
+import ButtonSecondaryApp from '../ui/components/common/ButtonSecondaryApp';
+import CardApp from '../ui/components/common/CardApp';
+import SwitchApp from '../ui/components/common/SwitchApp';
 
 export const DesignSystemDemoComponent: React.FC = () => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();

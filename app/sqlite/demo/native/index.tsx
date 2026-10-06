@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import ActivityIndicatorCircleApp from '../../../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { useTranslation } from 'react-i18next';
 import { useAuthWithGoogle } from '../../../../kit8/hooks/useAuth';
 import { getUserData } from '../../../../kit8/lib/localSecureStorage';
-import H1Mi from '../../../../kit8/ui/H1Mi';
-import TextInputApp from '../../../../kit8/components/common/TextInputApp';
-import ButtonApp from '../../../../kit8/components/common/ButtonApp';
+import H1App from '../../../../kit8/ui/components/common/H1App';
+import TextInputApp from '../../../../kit8/ui/components/common/TextInputApp';
+import ButtonApp from '../../../../kit8/ui/components/common/ButtonApp';
 
 interface Item {
   id: number;
@@ -148,7 +148,7 @@ export default function SQLiteNativeDemoScreen() {
 
   return (
     <View style={styles.container}>
-      <H1Mi>{t('menu.sqliteDemo')}</H1Mi>
+      <H1App>{t('menu.sqliteDemo')}</H1App>
 
       <Text style={styles.dbInfoText}>
         Database: <Text style={styles.boldText}>{currentUserId ? `user_${currentUserId}.db` : 'demo.db'}</Text>

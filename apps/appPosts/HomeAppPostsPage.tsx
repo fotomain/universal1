@@ -2,16 +2,16 @@ import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useRouter} from 'expo-router';
-import {ButtonApp, ButtonPrimaryApp} from '../../kit8/components/common';
-import H1Mi from '../../kit8/ui/H1Mi';
-import ArticleTextApp from '../../kit8/components/common/ArticleTextApp';
+import {ButtonApp, ButtonPrimaryApp} from '../../kit8/ui/components/common';
+import H1App from '../../kit8/ui/components/common/H1App';
+import ArticleTextApp from '../../kit8/ui/components/common/ArticleTextApp';
 
 export default function HomeAppPostsPage() {
   const { t } = useTranslation();
   const router = useRouter();
   return (
     <View style={styles.container}>
-      <H1Mi>{t('body.welcomeAppPosts')}</H1Mi>
+      <H1App>{t('body.welcomeAppPosts')}</H1App>
       <ArticleTextApp>{t('body.homeAppPostsDesc')}</ArticleTextApp>
       <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
 

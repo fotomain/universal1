@@ -11,7 +11,7 @@ import { Text, View } from 'react-native';
 // @ts-ignore - canvaskit-wasm ships no types for this entry point
 import CanvasKitInit from 'canvaskit-wasm/bin/full/canvaskit';
 import type { PMGanttSurfaceProps } from './PMGanttSurface';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { pmT } from '../../i18n/pmT';
 
 const CANVASKIT_VERSION = '0.40.0'; // must match node_modules/canvaskit-wasm (react-native-skia 2.4.x)

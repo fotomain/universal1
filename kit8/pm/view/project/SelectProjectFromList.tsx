@@ -7,8 +7,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
-import IconApp from '../../../components/common/IconApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { usePMStore } from '../../store/store_pm';
 import { useProjectSearchQuery } from '../../crud/queries';
 import { formatDateShort } from './scheduling';

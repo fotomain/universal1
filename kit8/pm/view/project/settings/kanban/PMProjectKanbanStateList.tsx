@@ -4,19 +4,19 @@ import { FlatList, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../../../../providers/WithDesignSystem';
-import IconApp from '../../../../../components/common/IconApp';
+import IconApp from '../../../../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../../../redux/reusable/useRealtimeEntity';
 import { PROJECT_KANBAN_STAGE_ENTITY } from '../../../../model/constants';
 import { PM_KANBAN_STAGE_COLORS } from '../../../../model/kanbanTypes';
 import KanbanStageCard from '../../../../../catalog/kanbanstage/KanbanStageCard';
-import type { CardItem } from '../../../../../components/list/web/lib/types';
+import type { CardItem } from '../../../../../ui/components/list/web/lib/types';
 import { pmT } from '../../../../i18n/pmT';
 
 // Web only: ListWebCardsComponent renders DOM (@hello-pangea/dnd)
 const ListWebCardsComponent: any =
   Platform.OS === 'web'
-    ? require('../../../../../components/list/web/ListWebCardsComponent').ListWebCardsComponent
+    ? require('../../../../../ui/components/list/web/ListWebCardsComponent').ListWebCardsComponent
     : null;
 
 export interface PMProjectKanbanStateListProps {

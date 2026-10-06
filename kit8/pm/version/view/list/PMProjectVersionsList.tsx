@@ -17,7 +17,7 @@ import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { PMDialogButton, PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import GanttToNetworkViewToggleButtons from '../../../view/gantt/toolbars/GanttToNetworkViewToggleButtons';
-import ActivityIndicatorCircleApp from '../../../../components/activityindicator/ActivityIndicatorCircleApp';
+import ActivityIndicatorCircleApp from '../../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { PM_VERSION_MAX_CHECKED } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';
 import { useVersionCommands } from '../../crud/version/useVersionCommands';

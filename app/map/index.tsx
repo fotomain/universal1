@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import MapMi from '../../kit8/components/MapMi/MapMi';
-import H1Mi from '../../kit8/ui/H1Mi';
+import MapMi from '../../kit8/ui/components/MapMi/MapMi';
+import H1App from '../../kit8/ui/components/common/H1App';
 
 export default function MapScreen() {
   const { t } = useTranslation();
   return (
     <View style={styles.container}>
-      <H1Mi>{t('menu.map')}</H1Mi>
+      <H1App>{t('menu.map')}</H1App>
       <MapMi />
     </View>
   );

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useSelector } from 'react-redux';
-import ListWebCardsComponent, { CardFullVersion } from '../../../kit8/components/list/web';
-import { CreateNewCardBasicForm } from '../../../kit8/components/list/forms';
+import ListWebCardsComponent, { CardFullVersion } from '../../../kit8/ui/components/list/web';
+import { CreateNewCardBasicForm } from '../../../kit8/ui/components/list/forms';
 import { ActiveUserState } from '../../../kit8/redux/activeUserSlice';
 
 export default function MediaPostCrudScreen() {

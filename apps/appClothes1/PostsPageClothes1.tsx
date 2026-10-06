@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import H1Mi from '../../kit8/ui/H1Mi';
-import ArticleTextApp from '../../kit8/components/common/ArticleTextApp';
+import H1App from '../../kit8/ui/components/common/H1App';
+import ArticleTextApp from '../../kit8/ui/components/common/ArticleTextApp';
 
 export default function PostsPageClothes1() {
   const { t } = useTranslation();
   return (
     <View style={styles.container}>
-      <H1Mi>{t('body.postsAppClothes1Title') || 'Posts - App Clothes1'}</H1Mi>
+      <H1App>{t('body.postsAppClothes1Title') || 'Posts - App Clothes1'}</H1App>
       <ArticleTextApp>{t('body.postsAppClothes1Desc') || 'This is the posts page for the Clothes1 app.'}</ArticleTextApp>
     </View>
   );

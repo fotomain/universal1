@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { ReceiveDraggableFilesComponent } from '../../../../components/common/ReceiveDraggableFilesComponent';
+import { ReceiveDraggableFilesComponent } from '../../../../ui/components/common/ReceiveDraggableFilesComponent';
 import { PMDialogButton } from '../../../inner/buttons';
 import { PM_EXPORT_BUTTON_WIDTH } from '../../../model/constants';
 import { pmT } from '../../../i18n/pmT';

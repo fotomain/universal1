@@ -1,8 +1,8 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import ListWebCardsComponent from '../../../kit8/components/list/web';
-import { CreateRaciMemberForm } from '../../../kit8/components/list/forms/CreateRaciMemberForm';
-import { RaciMemberListCard } from '../../../kit8/components/list/cards/RaciMemberListCard';
+import ListWebCardsComponent from '../../../kit8/ui/components/list/web';
+import { CreateRaciMemberForm } from '../../../kit8/ui/components/list/forms/CreateRaciMemberForm';
+import { RaciMemberListCard } from '../../../kit8/ui/components/list/cards/RaciMemberListCard';
 import { ActiveUserState } from '../../../kit8/redux/activeUserSlice';
 
 export default function RaciMemberCrudScreen() {

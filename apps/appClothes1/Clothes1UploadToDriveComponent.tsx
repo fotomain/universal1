@@ -29,7 +29,7 @@ import {
     SpeedDialFAB,
     TextInputApp,
     IconApp,
-} from '../../kit8/components/common';
+} from '../../kit8/ui/components/common';
 import { useDispatch } from 'react-redux';
 import {
     setShopImagesCount,

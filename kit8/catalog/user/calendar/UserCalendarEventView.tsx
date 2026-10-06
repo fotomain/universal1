@@ -5,8 +5,8 @@
 import React, { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ModalWindowListToSelect } from '../../../components/common';
-import IconApp from '../../../components/common/IconApp';
+import { ModalWindowListToSelect } from '../../../ui/components/common';
+import IconApp from '../../../ui/components/common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { colorOfEvent, eventWhenText, notificationLabel, recurrenceLabel, USER_CALENDAR_KIND_LABELS } from '../../../register/user_calendar';
 import { CalButton, CalIconButton, CalWindow } from './calendarUi';

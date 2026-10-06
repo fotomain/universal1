@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
-import IconApp from '../../../../components/common/IconApp';
+import IconApp from '../../../../ui/components/common/IconApp';
 import { usePMStore } from '../../../store/store_pm';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';

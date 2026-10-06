@@ -2,8 +2,8 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
-import type { CardItem } from '../../components/list/web/lib/types';
+import IconApp from '../../ui/components/common/IconApp';
+import type { CardItem } from '../../ui/components/list/web/lib/types';
 import { canEditOrganization, type OrganizationRowJSON } from './organizationModel';
 
 export interface OrganizationCardProps {

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, useWindowDimensions, View, ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 
 export type CalendarColors = ReturnType<typeof useDesignSystem>['themeColors'];

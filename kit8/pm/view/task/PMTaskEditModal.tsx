@@ -25,14 +25,14 @@ import { usePMKanbanStore } from '../../store/store_kanban';
 import { useKanbanCommands, PMKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import { kanbanStageProgressOf } from '../../model/kanbanTypes';
 import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
-import IconApp from '../../../components/common/IconApp';
-import ColorPickerRowApp from '../../../components/common/ColorPickerRowApp';
-import TextAreaApp from '../../../components/common/TextAreaApp';
+import IconApp from '../../../ui/components/common/IconApp';
+import ColorPickerRowApp from '../../../ui/components/common/ColorPickerRowApp';
+import TextAreaApp from '../../../ui/components/common/TextAreaApp';
 import DateInputApp from '../../inner/inputs/PMDateInput';
-import NumberInputApp from '../../../components/common/NumberInputApp';
-import TextInputApp from '../../../components/common/TextInputApp';
-import SegmentButtonsApp from '../../../components/common/SegmentButtonsApp';
-import NumberStepperInputApp, { NUMBER_STEPPER_MIN_WIDTH } from '../../../components/common/NumberStepperInputApp';
+import NumberInputApp from '../../../ui/components/common/NumberInputApp';
+import TextInputApp from '../../../ui/components/common/TextInputApp';
+import SegmentButtonsApp from '../../../ui/components/common/SegmentButtonsApp';
+import NumberStepperInputApp, { NUMBER_STEPPER_MIN_WIDTH } from '../../../ui/components/common/NumberStepperInputApp';
 import { pmT } from '../../i18n/pmT';
 
 const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
@@ -45,7 +45,7 @@ const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string; icon: string 
 export type TaskEditTab = 'TabMain' | 'TabUXUI';
 
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
-import ShareScreenshotButton from '../../../components/common/ShareScreenshotButton';
+import ShareScreenshotButton from '../../../ui/components/common/ShareScreenshotButton';
 
 export default function PMTaskEditModal({
   crud,

@@ -1,7 +1,7 @@
 # kit8/pm — Skia Gantt for Expo (iOS / Android / Web)
 
 Routes: `/pm/project/dashboard` (view/project/PMProjectDashboard) · `/pm/project/task?taskGUID=…` (view/task/PMProjectTaskInfo).
-Drawer item: **Projects** (kit8/components/CustomDrawerContent.tsx).
+Drawer item: **Projects** (kit8/ui/components/CustomDrawerContent.tsx).
 
 ## Setup
 
@@ -160,7 +160,7 @@ red `#FF4D6D`, ⚙ → Tree tab). A small **↑ / ↓** left of it = the sorted 
 * **Sort** A to Z / Z to A (dates: oldest ↔ newest, numbers: smallest ↔ largest) - applied at once; press the active
   one again = tree order. Siblings are sorted inside every parent; empty values are last; one sorted column at a time.
   Drag & drop of rows is blocked while sorted (message in the error bar).
-* **filterVariantForColumn** (chosen with `kit8/components/common/SelectItemFromListApp`, link trigger "begins with ⌄"):
+* **filterVariantForColumn** (chosen with `kit8/ui/components/common/SelectItemFromListApp`, link trigger "begins with ⌄"):
   Is exactly / Is equal to · Is not · Is one of (comma separated) · Contains · Does not contain · Begins with ·
   After / Greater than · Before / Less than · Less than or equal (dates: On or before) · Greater than or equal ·
   Between A and B (two inputs) · Matches (old AX / D365 syntax: `*` `?` `!` `a..b` `..b` `a..` `>` `<` `,` `""`, dates
@@ -365,7 +365,7 @@ Full description: `documentation/PM_VERSION_STRUCTURE.html`. SQL: `create_tables
   "Before restore …" first, then replaces tasks / dependencies / Kanban with the version's rows, same `rowGUID`s; closure +
   progress rebuilt) · `pm_version_set_title(version, title)`.
 * **Project bar** (after the template buttons, before the project settings button) - **Save project version** (`PMVersionTitleModalWindow`, default title = project name + date time)
-  and **Restore project from version** (pick it in the reusable `kit8/components/common/ModalWindowListToSelect`; asks first;
+  and **Restore project from version** (pick it in the reusable `kit8/ui/components/common/ModalWindowListToSelect`; asks first;
   the Gantt undo history of the project is cleared).
 * **Versions view** - view switch **Gantt | Kanban | Network | Versions** (`ganttVsNetworkView = 'showVersionsView'`,
   `PMGanttSurface rightPane="versions"`): `PMProjectVersionsList` replaces the chart, the tree stays. `ProjectVersionCard`:
@@ -408,7 +408,7 @@ Delete; double-click → `PMEditDependencyScreen` (from/to GUIDs with copy, link
 `crud/{project,task,dependency}/` React Query hooks + commands per entity (`crud/shared/queryShared.ts`) ·
 `crud/queries.ts` (owner, write-back; re-exports the hooks) · `crud/realtime/` realtime auto refresh (`useProjectRealtime` + pure `projectRealtime.ts`) · `crud/usePMCrud.ts` all commands in one object
 (`crud/project/useProjectCustomColumns.ts` = custom tree columns) ·
-**`inner/`** shared building blocks: `inner/buttons/` every button, built on `kit8/components/common/ButtonApp` (improved: `variant="toolbar"`, `active`,
+**`inner/`** shared building blocks: `inner/buttons/` every button, built on `kit8/ui/components/common/ButtonApp` (improved: `variant="toolbar"`, `active`,
 `badge`, `compact`, `width`, `danger`, `textColor`, `iconSize`, `testID`, hover / long-press handlers, forwarded
 ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / secondary / text / danger…),
 `PMRowActionButtons`, `PMDragHandleButton` (row drag handle), `PMTipIcon` / `PMTipPressable` ·
@@ -475,7 +475,7 @@ Skia `PMTreeColumnsHeader` - import it by path) · `customColumns/` `PMTreeHeade
   row menu, hover panels, Edit task window, task page, main FAB.
 * **Chart period** - Gantt bar button before Today -> `PMGanttPeriodModalWindow` (From / To or a preset): zooms + scrolls to the
   period, the time line is widened to it (`store.ganttPeriod`, session only); "Whole project" = fit.
-* **App bar buttons on the dashboard** (`kit8/ui/AppBar.tsx`, Redux `uxuiState`): `hideProjectToolBar`, `hideGanttToolBar` (tree +
+* **App bar buttons on the dashboard** (`kit8/ui/components/common/ApplicationBarApp.tsx`, Redux `uxuiState`): `hideProjectToolBar`, `hideGanttToolBar` (tree +
   Gantt / Kanban bars together - the rows stay aligned), `hideTreeNode`, `hideGanttChartNode`, `refreshProjectData` (counter).
 * **Main FAB** - `FABProvider.useFABContextActions(id, actions)`: the dashboard and the task page publish their CRUD commands.
 * **Share screenshot / Share screenshot + JSON** (app ⋮ menu, and a button in Project settings / Edit task / Edit dependency):
@@ -530,7 +530,7 @@ The Project settings window uses outlined buttons only.
 
 ### Date fields = `DateInputApp`
 
-`kit8/components/common/date_input/DateInputApp.tsx` looks like `TextInputApp` in the active design system:
+`kit8/ui/components/common/date_input/DateInputApp.tsx` looks like `TextInputApp` in the active design system:
 calendar icon **inside the input at the left** (opens `DatePickerModal`), close / clear icon **inside at the right**
 (when there is text), the text stays editable. `parse` / `format` props convert text ↔ the calendar's local Date
 (`dateInputFormat.ts`). testIDs: `testID` (input), `${pickerTestID ?? testID + '-datepicker'}-trigger`, `${testID}-clear`.
@@ -562,20 +562,20 @@ The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es,
 
 ### 2026-10-06 (2): task editor - SegmentButtonsApp, inputs on one line
 
-* `kit8/components/common/SegmentButtonsApp.tsx` - one choice out of a few, in every design system: paper =
+* `kit8/ui/components/common/SegmentButtonsApp.tsx` - one choice out of a few, in every design system: paper =
   react-native-paper `SegmentedButtons`; tamagui / ant / expo / googlemd3web / native = the same control drawn in the
   look of that system. Props `value`, `onValueChange`, `buttons: [{ value, label, icon?, disabled?, testID? }]`,
   `label`, `compact`, `showSelectedCheck`. `PMTaskEditModal` uses it for **Stage | Task | Milestone** (`pm-edit-kind-*`).
 * `PMTaskEditModal`: Duration / Progress % / Kanban stage progress % are bottom-aligned, so the three inputs stand on
   one line when a label wraps to two lines (tamagui, expo, native draw the label above the input).
-* `kit8/components/common/NumberStepperInputApp.tsx` = `TextInputApp` with a clear button inside at the left and
+* `kit8/ui/components/common/NumberStepperInputApp.tsx` = `TextInputApp` with a clear button inside at the left and
   increase / decrease arrows inside at the right (`min`, `max`, `step`, `maxDigits`; hold an arrow = repeat).
   `TextInputApp` now draws custom `left` / `right` elements in ant / expo / native too. `PMTaskEditModal` uses it for
   Duration (min 1), Progress % and Kanban stage progress % (0–100). The three fields are one row when each gets at
   least `NUMBER_STEPPER_MIN_WIDTH` (150 px) of the measured row width, else one field per row (phone portrait).
 * Layout of the three number fields: web = always one row; iOS / Android = one row, or one field per row when the
   row is too narrow (phone portrait).
-* `kit8/components/common/ColorPickerRowApp.tsx` - reusable color row in the look of the active design system
+* `kit8/ui/components/common/ColorPickerRowApp.tsx` - reusable color row in the look of the active design system
   (auto swatch · Default chip · swatches with ring + check · Custom… chip with the full picker). `ColorPickerApp` and
   `PMColorSwatchPicker` are thin wrappers of it, so every PM color choice uses it: task bar color (task editor),
   dependency color, Kanban stage color, critical path / filter icon colors, progress line colors.

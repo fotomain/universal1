@@ -11,8 +11,8 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../components/common';
-import IconApp from '../../components/common/IconApp';
+import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../ui/components/common';
+import IconApp from '../../ui/components/common/IconApp';
 import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import {

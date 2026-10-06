@@ -1,4 +1,4 @@
-import {SearchTextApp, SearchTextAppProps} from '../kit8/components/common/SearchTextApp';
+import {SearchTextApp, SearchTextAppProps} from '../kit8/ui/components/common/SearchTextApp';
 
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-clipboard', () => ({}), { virtual: true });

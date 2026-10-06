@@ -1,15 +1,15 @@
 /** @jest-environment jsdom */
-// kit8/components/common/NumberStepperInputApp: clear button inside at the left, increase / decrease arrows inside
+// kit8/ui/components/common/NumberStepperInputApp: clear button inside at the left, increase / decrease arrows inside
 // at the right of the REAL TextInputApp (the PM test kit replaces TextInputApp by a plain input for other tests).
 import { cleanupUI, inputValue, mustGet, press, q, renderUI, typeInto } from './pmUiTestKit';
 import React from 'react';
 
-const INPUT = '../../../kit8/components/common/TextInputApp';
+const INPUT = '../../../kit8/ui/components/common/TextInputApp';
 let NumberStepperInputApp: any;
 let stepNumberText: any;
 beforeAll(() => {
   jest.doMock(INPUT, () => jest.requireActual(INPUT));
-  const m = require('../../../kit8/components/common/NumberStepperInputApp');
+  const m = require('../../../kit8/ui/components/common/NumberStepperInputApp');
   NumberStepperInputApp = m.default;
   stepNumberText = m.stepNumberText;
 });

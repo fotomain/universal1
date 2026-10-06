@@ -3,7 +3,7 @@
 import React from 'react';
 import { PM_WIDE_ACTION_HEIGHT, PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { usePMTip } from '../../../inner/tooltip/PMTooltip';
-import ButtonApp from '../../../../components/common/ButtonApp';
+import ButtonApp from '../../../../ui/components/common/ButtonApp';
 import { pmT } from '../../../i18n/pmT';
 
 export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?: any) => void; compact?: boolean }) {

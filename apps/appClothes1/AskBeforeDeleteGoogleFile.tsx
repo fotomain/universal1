@@ -6,8 +6,8 @@ import {
     Text,
     TouchableOpacity,
 } from 'react-native';
-import ActivityIndicatorCircleApp from '../../kit8/components/activityindicator/ActivityIndicatorCircleApp';
-import { IconApp } from '../../kit8/components/common/IconApp';
+import ActivityIndicatorCircleApp from '../../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
+import { IconApp } from '../../kit8/ui/components/common/IconApp';
 import type { DriveFile } from '../../kit8/google/drive/googleDrive';
 
 export interface AskBeforeDeleteGoogleFileProps {

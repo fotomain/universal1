@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 
 export interface SelectElementFromCatalogProps {

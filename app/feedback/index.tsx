@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import FeedbackFormMi from '../../kit8/components/FeedbackFormMi';
+import FeedbackFormMi from '../../kit8/ui/components/FeedbackFormMi';
 
 export default function FeedbackScreen() {
   const theme = useTheme();

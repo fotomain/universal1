@@ -16,9 +16,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
-import IconApp from '../../../../components/common/IconApp';
-import TextInputApp from '../../../../components/common/TextInputApp';
-import SelectItemFromListApp, { SelectItemFromListItem } from '../../../../components/common/SelectItemFromListApp';
+import IconApp from '../../../../ui/components/common/IconApp';
+import TextInputApp from '../../../../ui/components/common/TextInputApp';
+import SelectItemFromListApp, { SelectItemFromListItem } from '../../../../ui/components/common/SelectItemFromListApp';
 import { usePMStore } from '../../../store/store_pm';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';

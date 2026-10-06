@@ -18,8 +18,8 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { usePMStore } from '../../store/store_pm';
 import { useCreateTemplateFromProjectMutation } from '../../crud/template/templateQueries';
 import { PMDialogButton } from '../../inner/buttons';
-import IconApp from '../../../components/common/IconApp';
-import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import IconApp from '../../../ui/components/common/IconApp';
+import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { PMProjectRow } from '../../model/types';
 import { pmT } from '../../i18n/pmT';
 

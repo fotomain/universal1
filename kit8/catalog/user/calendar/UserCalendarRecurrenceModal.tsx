@@ -4,8 +4,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ModalWindowListToSelect, SelectDateApp } from '../../../components/common';
-import IconApp from '../../../components/common/IconApp';
+import { ModalWindowListToSelect, SelectDateApp } from '../../../ui/components/common';
+import IconApp from '../../../ui/components/common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import {
   addDays,

@@ -6,7 +6,7 @@ import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-nat
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
+import IconApp from '../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyCard from './CurrencyCard';
@@ -14,7 +14,7 @@ import CurrencyRealtimeBadge from './CurrencyRealtimeBadge';
 import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY, CURRENCY_READ_PARAMS, CURRENCY_ROUTES, currencyToCard } from './currencyModel';
 
 // web only: ListWebCardsComponent renders DOM (drag & drop) - never loaded on iOS / Android
-const ListWebCardsComponent: any = Platform.OS === 'web' ? require('../../components/list/web/ListWebCardsComponent').ListWebCardsComponent : null;
+const ListWebCardsComponent: any = Platform.OS === 'web' ? require('../../ui/components/list/web/ListWebCardsComponent').ListWebCardsComponent : null;
 
 export default function CurrencyList() {
   const router = useRouter();

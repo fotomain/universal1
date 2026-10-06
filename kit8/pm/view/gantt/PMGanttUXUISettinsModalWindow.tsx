@@ -18,13 +18,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import SwitchApp from '../../../components/common/SwitchApp';
+import SwitchApp from '../../../ui/components/common/SwitchApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import TextInputApp from '../../../components/common/TextInputApp';
+import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
-import ColorPickerApp from '../../../components/common/ColorPickerApp';
+import ColorPickerApp from '../../../ui/components/common/ColorPickerApp';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 // direct file import: the progress/line index also exports Skia components, which must not

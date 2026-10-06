@@ -29,7 +29,7 @@ jest.mock('../../../../kit8/pm/version/crud/version/versionQueries', () => ({
 }));
 
 import React from 'react';
-import ModalWindowListToSelect from '../../../../kit8/components/common/ModalWindowListToSelect';
+import ModalWindowListToSelect from '../../../../kit8/ui/components/common/ModalWindowListToSelect';
 import PMGanttToolbar from '../../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
 import PMRecentProjectsToolbar from '../../../../kit8/pm/view/project/recent/PMRecentProjectsToolbar';
 import GanttToNetworkViewToggleButtons from '../../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';

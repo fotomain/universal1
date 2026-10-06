@@ -12,7 +12,7 @@ import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
 import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
-import BottomTabsRoutingComponent from '../../kit8/components/navigation/BottomTabsRoutingComponent';
+import BottomTabsRoutingComponent from '../../kit8/ui/components/navigation/BottomTabsRoutingComponent';
 
 const homeComponentsMap = {
   appPosts: HomeAppPostsPage,

@@ -6,7 +6,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
-import IconApp from '../../../components/common/IconApp';
+import IconApp from '../../../ui/components/common/IconApp';
 import { usePMTip } from '../tooltip/PMTooltip';
 
 export function PMDragHandleButton({

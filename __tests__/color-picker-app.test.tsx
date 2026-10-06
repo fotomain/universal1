@@ -3,7 +3,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import ColorPickerApp, { normalizeHexColor } from '../kit8/components/common/ColorPickerApp';
+import ColorPickerApp, { normalizeHexColor } from '../kit8/ui/components/common/ColorPickerApp';
 
 jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ themeColors: { text: '#000', border: '#ccc', background: '#fff', primary: '#6366f1' } }),

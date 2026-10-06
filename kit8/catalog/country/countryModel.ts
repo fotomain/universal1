@@ -3,7 +3,7 @@
 //   rowGUID · rowOwnerGUID = COUNTRY_CATALOG_OWNER (shared catalog) · rowParentGUID = 'empty' ·
 //   orderInList · rowJSON = CountryRowJSON · created_at / updated_at
 
-import type { CardItem } from '../../components/list/web/lib/types';
+import type { CardItem } from '../../ui/components/list/web/lib/types';
 
 /** Supabase table name (SQL: countryTable). */
 export const countryTable = 'countryTable';

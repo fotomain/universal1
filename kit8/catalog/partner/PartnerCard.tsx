@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../components/common/IconApp';
-import type { CardItem } from '../../components/list/web/lib/types';
+import IconApp from '../../ui/components/common/IconApp';
+import type { CardItem } from '../../ui/components/list/web/lib/types';
 import type { PartnerRowJSON } from './partnerModel';
 import ContractList from '../contract/ContractList';
 

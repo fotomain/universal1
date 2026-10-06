@@ -15,15 +15,15 @@ const mockDownload = jest.fn(async () => 'downloaded');
 jest.mock('../../../kit8/pm/crud/exchange/project/export/downloadTextFile', () => ({ downloadTextFile: (...a: any[]) => (mockDownload as any)(...a) }));
 const mockExchange = { exportProject: jest.fn(async () => null), importProject: jest.fn(), status: { kind: 'idle' }, busy: false };
 jest.mock('../../../kit8/pm/crud/exchange/project/useProjectExchange', () => ({ useProjectExchange: () => mockExchange }));
-jest.mock('../../../kit8/components/common/ReceiveDraggableFilesComponent', () => ({ __esModule: true, default: () => null, ReceiveDraggableFilesComponent: () => null }));
+jest.mock('../../../kit8/ui/components/common/ReceiveDraggableFilesComponent', () => ({ __esModule: true, default: () => null, ReceiveDraggableFilesComponent: () => null }));
 
 import React from 'react';
 import PMGanttExportButton from '../../../kit8/pm/view/gantt/buttons/PMGanttExportButton';
 import PMExportToMSProject from '../../../kit8/pm/crud/exchange/msproject/PMExportToMSProject';
 import ImportExportProject from '../../../kit8/pm/crud/exchange/project/ImportExportProject';
-import DateInputApp from '../../../kit8/components/common/date_input/DateInputApp';
+import DateInputApp from '../../../kit8/ui/components/common/date_input/DateInputApp';
 import PMDateInput from '../../../kit8/pm/inner/inputs/PMDateInput';
-import { defaultFormatDateInput, defaultParseDateInput } from '../../../kit8/components/common/date_input/dateInputFormat';
+import { defaultFormatDateInput, defaultParseDateInput } from '../../../kit8/ui/components/common/date_input/dateInputFormat';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { PM_DIALOG_BUTTON_WIDTH, PM_EXPORT_BUTTON_WIDTH } from '../../../kit8/pm/model/constants';
 
