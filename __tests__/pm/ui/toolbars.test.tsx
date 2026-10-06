@@ -74,6 +74,7 @@ describe('PMGanttToolbar (Gantt bar)', () => {
     renderUI(<PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={actions()} />);
     expectInOrder([
       'pm-gantt-undo',
+      'pm-gantt-redo',
       'pm-gantt-zoom-out',
       'pm-gantt-zoom-in',
       'pm-gantt-fit',

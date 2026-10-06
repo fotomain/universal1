@@ -47,7 +47,7 @@
 47|Projekt wählen…
 48|Löschen
 49|Auswahl aufheben
-50|Leeren: alle Aufgaben auf „Kein Status“
+50|Leeren: auf „Kein Status“
 51|Klicken, um die Dauer zu ändern
 52|Klicken, um den Fortschritt % zu ändern
 53|Schließen
@@ -437,3 +437,13 @@
 437|Verringern
 438|Eigene…
 439|auto
+440|Wiederholen
+441|Nichts zu wiederholen
+442|Rückgängig-Verlauf löschen
+443|Wiederholen-Verlauf löschen
+444|Rückgängig-Verlauf löschen?
+445|Wiederholen-Verlauf löschen?
+446|{{count}} Rückgängig-Schritt(e) werden vergessen. Das Projekt selbst ändert sich nicht.
+447|{{count}} Wiederholen-Schritt(e) werden vergessen. Das Projekt selbst ändert sich nicht.
+448|Nichts rückgängig zu machen
+449|Rechtsklick / langes Drücken: Menü

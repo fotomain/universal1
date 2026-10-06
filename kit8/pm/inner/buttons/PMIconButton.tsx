@@ -25,9 +25,11 @@ export interface PMIconButtonProps {
   width?: number;
   /** small counter bubble (e.g. undo steps) */
   badge?: number;
+  /** long press (touch) does this instead of showing the tip, e.g. opens a menu */
+  onLongPress?: () => void;
 }
 
-export function PMIconButton({ icon, label, onPress, color, activeColor, active, disabled, testID, title, size, compact, width, badge }: PMIconButtonProps) {
+export function PMIconButton({ icon, label, onPress, color, activeColor, active, disabled, testID, title, size, compact, width, badge, onLongPress }: PMIconButtonProps) {
   // title / label are English texts: shown in the app language (i18n/pmT)
   const tipText = pmT(title || label || humanize(icon));
   const tip = usePMTip(disabled ? pmT('{{tip}} (not available now)', { tip: tipText }) : tipText);
@@ -45,7 +47,7 @@ export function PMIconButton({ icon, label, onPress, color, activeColor, active,
       onHoverIn={tip.onHoverIn}
       onHoverOut={tip.onHoverOut}
       onPressIn={tip.onPressIn}
-      onLongPress={tip.onLongPress}
+      onLongPress={onLongPress || tip.onLongPress}
       delayLongPress={tip.delayLongPress}
       color={color}
       active={active}

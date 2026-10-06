@@ -51,7 +51,7 @@ describe('Gantt bar: Export menu', () => {
     expect(ids).toEqual(['pm-gantt-export-pdf', 'pm-gantt-export-json', 'pm-gantt-export-msproject']);
     expect(textOf('pm-gantt-export-pdf')).toContain('Export to PDF');
     expect(textOf('pm-gantt-export-json')).toContain('Export to JSON');
-    expect(textOf('pm-gantt-export-msproject')).toContain('Export to MSProject');
+    expect(textOf('pm-gantt-export-msproject')).toContain('Export to MS Project');
     press('pm-gantt-export-menu-backdrop');
     expect(q('pm-gantt-export-menu')).toBeNull();
   });
@@ -82,7 +82,7 @@ describe('Gantt bar: Export menu', () => {
     expect(file.tasks.length).toBe(demo.tasks.filter((t: any) => t.projectGUID === P).length);
   });
 
-  it('Export to MSProject opens PMExportToMSProject', () => {
+  it('Export to MS Project opens PMExportToMSProject', () => {
     seedStore();
     renderUI(<PMGanttExportButton palette={palette} />);
     expect(q('pm-export-msproject-window')).toBeNull();

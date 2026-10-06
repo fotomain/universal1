@@ -197,6 +197,9 @@ export interface PMStoreState {
   /** Undo stack info for the current project (the entries live in expo-sqlite). */
   undoCount: number;
   undoLabel: string | null;
+  /** undone actions that Redo can apply again (newest first) + the label of the next one */
+  redoCount: number;
+  redoLabel: string | null;
   /** Rows checked with the round check boxes (first tree column, Kanban cards): multi selection of
    *  stages and tasks - moved together by drag & drop (tree <-> Kanban columns), deleted together. */
   checkedGUIDs: Record<string, true>;
@@ -239,4 +242,5 @@ export interface PMStoreState {
   /** Expands all ancestors of the row and selects it (no scrolling). */
   revealRow: (rowGUID: string) => void;
   setUndoInfo: (count: number, label: string | null) => void;
+  setRedoInfo: (count: number, label: string | null) => void;
 }

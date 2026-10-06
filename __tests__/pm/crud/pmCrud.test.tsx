@@ -468,3 +468,117 @@ describe('undo (undoGanttAction)', () => {
     await h.until(() => snapshot() === start, 'second undo');
   });
 });
+
+describe('redo (redoGanttAction)', () => {
+  const snapshot = () =>
+    JSON.stringify({
+      tasks: h.db.rows('project_task_table').filter((t) => t.projectGUID === h.P1).map(({ rowGUID, treePath, orderInList, rowProgress, rowJSON }) => ({ rowGUID, treePath, orderInList, rowProgress, name: rowJSON.name, d: rowJSON.durationDays, s: rowJSON.manualStartAt ?? null })).sort((a, b) => a.rowGUID.localeCompare(b.rowGUID)),
+      deps: dbDeps().map((d) => `${d.rowDependsOnGUID}>${d.rowGUID}:${d.linkType}:${d.lagDays}`).sort(),
+    });
+
+  it('nothing to redo before an undo; redo does nothing then', async () => {
+    await run(() => h.crud.setProgress(g('Task 111'), 10));
+    await h.until(() => h.store().undoCount === 1);
+    expect(h.store().redoCount).toBe(0);
+    const s = snapshot();
+    await run(() => h.crud.redoGanttAction());
+    expect(snapshot()).toBe(s);
+  });
+
+  it.each([
+    ['progress', () => h.crud.setProgress(g('Task 112'), 70)],
+    ['delete task', () => h.crud.deleteTask(g('Task 111'))],
+    ['delete stage', () => h.crud.deleteTask(g('Stage 1'))],
+    ['add task', () => h.crud.createTaskBelow(g('Task 112'))],
+    ['move bar', () => h.crud.applyBarEdit(g('Task 111'), 'move', 3)],
+    ['indent', () => h.crud.indent(g('Task 113'))],
+    ['link', () => h.crud.link(g('Task 111'), g('Task 121'))],
+    ['unlink', () => h.crud.deleteDependency({ rowGUID: g('Task 113'), dependsOnGUID: g('Task 111') })],
+  ])('undo then redo brings the action back: %s', async (_name, action) => {
+    const before = snapshot();
+    await run(action as () => unknown);
+    await h.until(() => h.store().undoCount === 1, 'undo step recorded');
+    const after = snapshot();
+    expect(after).not.toBe(before);
+    await run(() => h.crud.undoGanttAction());
+    await h.until(() => snapshot() === before && h.store().undoCount === 0 && h.store().redoCount === 1, 'undone, redo available');
+    expect(h.store().redoLabel).toBeTruthy();
+    await run(() => h.crud.redoGanttAction());
+    await h.until(() => snapshot() === after && h.store().redoCount === 0 && h.store().undoCount === 1, 'redone, undo available again');
+    // and it can be undone once more
+    await run(() => h.crud.undoGanttAction());
+    await h.until(() => snapshot() === before && h.store().redoCount === 1, 'undone again');
+  });
+
+  it('several steps: redo follows the order of the undos; redo does not ask', async () => {
+    const s0 = snapshot();
+    await run(() => h.crud.setProgress(g('Task 111'), 10));
+    const s1 = snapshot();
+    await run(() => h.crud.deleteTask(g('Task 112')));
+    const s2 = snapshot();
+    await h.until(() => h.store().undoCount === 2);
+    await run(() => h.crud.undoGanttAction());
+    await run(() => h.crud.undoGanttAction());
+    await h.until(() => snapshot() === s0 && h.store().redoCount === 2, 'both undone');
+    mockApprove.mockClear();
+    await run(() => h.crud.redoGanttAction());
+    await h.until(() => snapshot() === s1 && h.store().redoCount === 1, 'first redo');
+    await run(() => h.crud.redoGanttAction());
+    await h.until(() => snapshot() === s2 && h.store().redoCount === 0 && h.store().undoCount === 2, 'second redo');
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it('a new action after an undo clears the redo history', async () => {
+    await run(() => h.crud.setProgress(g('Task 111'), 10));
+    await h.until(() => h.store().undoCount === 1);
+    await run(() => h.crud.undoGanttAction());
+    await h.until(() => h.store().redoCount === 1, 'redo available');
+    await run(() => h.crud.setProgress(g('Task 112'), 55));
+    await h.until(() => h.store().redoCount === 0 && h.store().undoCount === 1, 'redo cleared');
+    const s = snapshot();
+    await run(() => h.crud.redoGanttAction());
+    expect(snapshot()).toBe(s);
+  });
+});
+
+describe('clearUndo / clearRedo', () => {
+  const steps = async () => {
+    await run(() => h.crud.setProgress(g('Task 111'), 10));
+    await run(() => h.crud.setProgress(g('Task 112'), 20));
+    await run(() => h.crud.setProgress(g('Task 113'), 30));
+    await h.until(() => h.store().undoCount === 3, '3 undo steps');
+    await run(() => h.crud.undoGanttAction());
+    await h.until(() => h.store().undoCount === 2 && h.store().redoCount === 1, '2 undo + 1 redo');
+  };
+
+  it('clearUndo asks, forgets the undo steps only and leaves the data', async () => {
+    await steps();
+    const p111 = dbTask('Task 111').rowProgress;
+    mockApprove.mockImplementationOnce(async () => false);
+    await run(() => h.crud.clearUndo());
+    expect(mockApprove).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Clear the undo history?', destructive: true }));
+    expect(h.store().undoCount).toBe(2); // "No" keeps it
+    await run(() => h.crud.clearUndo());
+    await h.until(() => h.store().undoCount === 0, 'undo cleared');
+    expect(h.store().redoCount).toBe(1);
+    expect(dbTask('Task 111').rowProgress).toBe(p111);
+    // the redo step still works
+    await run(() => h.crud.redoGanttAction());
+    await h.until(() => dbTask('Task 113').rowProgress === 30 && h.store().redoCount === 0, 'redo after clearUndo');
+  });
+
+  it('clearRedo asks, forgets the redo steps only', async () => {
+    await steps();
+    await run(() => h.crud.clearRedo());
+    expect(mockApprove).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Clear the redo history?' }));
+    await h.until(() => h.store().redoCount === 0, 'redo cleared');
+    expect(h.store().undoCount).toBe(2);
+    expect(dbTask('Task 113').rowProgress).not.toBe(30); // the undone action stays undone
+  });
+
+  it('nothing to clear: no question', async () => {
+    await run(() => h.crud.clearUndo());
+    await run(() => h.crud.clearRedo());
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+});

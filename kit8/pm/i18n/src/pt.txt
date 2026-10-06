@@ -47,7 +47,7 @@
 47|Escolha o projeto…
 48|Limpar
 49|Limpar a seleção
-50|Limpar: todas as tarefas para "Sem estado"
+50|Limpar: para "Sem estado"
 51|Clique para alterar a duração
 52|Clique para alterar o progresso %
 53|Fechar
@@ -437,3 +437,13 @@
 437|Diminuir
 438|Personalizada…
 439|auto
+440|Refazer
+441|Nada para refazer
+442|Limpar histórico de anular
+443|Limpar histórico de refazer
+444|Limpar o histórico de anular?
+445|Limpar o histórico de refazer?
+446|{{count}} passo(s) de anular serão esquecidos. O projeto em si não muda.
+447|{{count}} passo(s) de refazer serão esquecidos. O projeto em si não muda.
+448|Nada para anular
+449|clique direito / toque longo: menu

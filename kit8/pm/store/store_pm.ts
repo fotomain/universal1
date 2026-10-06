@@ -147,6 +147,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   focusRequest: null,
   undoCount: 0,
   undoLabel: null,
+  redoCount: 0,
+  redoLabel: null,
   checkedGUIDs: {},
   toggleChecked: (rowGUID) =>
     set((s) => {
@@ -241,6 +243,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             treeFilterMatchCount: null,
             undoCount: 0,
             undoLabel: null,
+            redoCount: 0,
+            redoLabel: null,
             checkedGUIDs: {},
             ganttPeriod: null,
             ganttPeriodOpen: false,
@@ -339,6 +343,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
     }),
 
   setUndoInfo: (count, label) => set({ undoCount: count, undoLabel: label }),
+  setRedoInfo: (count, label) => set({ redoCount: count, redoLabel: label }),
 }));
 
 /** Non-hook access for callbacks (gesture handlers, keyboard shortcuts). */

@@ -19,6 +19,7 @@ import { useMemo } from 'react';
 import { useTaskCommands } from './task/useTaskCommands';
 import { useDependencyCommands } from './dependency/useDependencyCommands';
 import { useUndoGanttAction } from '../view/undo/useUndoGanttAction';
+import { pmT } from '../i18n/pmT';
 import { useProjectViewSettings } from './project/useProjectViewSettings';
 import { useProjectCustomColumns } from './project/useProjectCustomColumns';
 import { useProjectTreeFilters } from './project/useProjectTreeFilters';
@@ -53,6 +54,25 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
         });
         if (ok) undo.undo();
       },
+      /** Applies the last undone action again (no question: it is the user's own action, and Undo takes it back). */
+      redoGanttAction: () => {
+        if (usePMStore.getState().redoCount) undo.redo();
+      },
+      /** clearUndo: asks first, then forgets every undo step of this project (the data is not changed). */
+      clearUndo: async () => {
+        const n = usePMStore.getState().undoCount;
+        if (!n) return;
+        const ok = await approvePM({ title: pmT('Clear the undo history?'), message: pmT('{{count}} undo step(s) will be forgotten. The project itself does not change.', { count: n }), yesLabel: pmT('Clear'), icon: 'delete_sweep', destructive: true });
+        if (ok) await undo.clearUndo();
+      },
+      /** clearRedo: asks first, then forgets every redo step of this project. */
+      clearRedo: async () => {
+        const n = usePMStore.getState().redoCount;
+        if (!n) return;
+        const ok = await approvePM({ title: pmT('Clear the redo history?'), message: pmT('{{count}} redo step(s) will be forgotten. The project itself does not change.', { count: n }), yesLabel: pmT('Clear'), icon: 'delete_sweep', destructive: true });
+        if (ok) await undo.clearRedo();
+      },
+      /** an undo or a redo is being written */
       isUndoing: undo.isUndoing,
     }),
     [task, dependency, view, customColumns, treeFilters, undo]

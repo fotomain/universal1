@@ -130,6 +130,7 @@ function PMProjectDashboardInner() {
   const isSummary = usePMStore((s) => (s.selectedGUID ? !!s.schedule[s.selectedGUID]?.isSummary : false));
   const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
   const undoCount = usePMStore((s) => s.undoCount);
+  const redoCount = usePMStore((s) => s.redoCount);
   const fabActions = useMemo((): FABContextAction[] | null => {
     if (!ownerGUID) return null;
     const sel = selectedTaskGUID && currentTaskRow ? selectedTaskGUID : null;
@@ -174,9 +175,10 @@ function PMProjectDashboardInner() {
     }
     if (isKanbanView) a.push({ icon: 'view-column-outline', label: 'Kanban Stages', onPress: () => usePMKanbanStore.getState().openStagesEditor(selectedProjectGUID) });
     if (undoCount > 0) a.push({ icon: 'undo', label: 'Undo', onPress: () => crud.undoGanttAction() });
+    if (redoCount > 0) a.push({ icon: 'redo', label: pmT('Redo'), onPress: () => crud.redoGanttAction() });
     a.push({ icon: 'cog-outline', label: 'Project settings', onPress: () => usePMStore.getState().openProjectSettings(selectedProjectGUID) });
     return a;
-  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
+  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, redoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
   useFABContextActions('pm-project-dashboard', fabActions);
 
   // The Gantt | Network view follows the user across projects (store.selectProject keeps it);
@@ -326,6 +328,12 @@ function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       const s = usePMStore.getState();
       if (s.editingGUID || s.editingDep || s.uxuiSettingsOpen || s.customColumnPrompt || isPMApproveOpen()) return;
+      // Redo: Ctrl/⌘+Shift+Z or Ctrl+Y
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || (!e.shiftKey && (e.key === 'y' || e.key === 'Y')))) {
+        e.preventDefault();
+        if (s.redoCount > 0) crud.redoGanttAction();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (s.undoCount > 0) crud.undoGanttAction();

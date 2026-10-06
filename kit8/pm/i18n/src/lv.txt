@@ -47,7 +47,7 @@
 47|Izvēlieties projektu…
 48|Notīrīt
 49|Notīrīt atlasi
-50|Notīrīt: visi uzdevumi uz "Nav stāvokļa"
+50|Notīrīt: uz "Nav stāvokļa"
 51|Noklikšķiniet, lai mainītu ilgumu
 52|Noklikšķiniet, lai mainītu izpildes %
 53|Aizvērt
@@ -437,3 +437,13 @@
 437|Samazināt
 438|Pielāgota…
 439|auto
+440|Atkārtot
+441|Nav ko atkārtot
+442|Notīrīt atsaukšanas vēsturi
+443|Notīrīt atkārtošanas vēsturi
+444|Notīrīt atsaukšanas vēsturi?
+445|Notīrīt atkārtošanas vēsturi?
+446|Tiks aizmirsti {{count}} atsaukšanas soļi. Pats projekts nemainās.
+447|Tiks aizmirsti {{count}} atkārtošanas soļi. Pats projekts nemainās.
+448|Nav ko atsaukt
+449|labais klikšķis / ilgs pieskāriens: izvēlne

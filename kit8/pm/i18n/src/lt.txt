@@ -47,7 +47,7 @@
 47|Pasirinkite projektą…
 48|Išvalyti
 49|Išvalyti pasirinkimą
-50|Išvalyti: visos užduotys į „Nėra būsenos“
+50|Išvalyti: į „Nėra būsenos“
 51|Spustelėkite, kad pakeistumėte trukmę
 52|Spustelėkite, kad pakeistumėte eigos %
 53|Uždaryti
@@ -437,3 +437,13 @@
 437|Mažinti
 438|Pasirinktinė…
 439|auto
+440|Grąžinti
+441|Nėra ką grąžinti
+442|Išvalyti anuliavimo istoriją
+443|Išvalyti grąžinimo istoriją
+444|Išvalyti anuliavimo istoriją?
+445|Išvalyti grąžinimo istoriją?
+446|Bus pamiršta anuliavimo žingsnių: {{count}}. Pats projektas nesikeičia.
+447|Bus pamiršta grąžinimo žingsnių: {{count}}. Pats projektas nesikeičia.
+448|Nėra ką anuliuoti
+449|dešinysis spustelėjimas / ilgas palietimas: meniu

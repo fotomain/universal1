@@ -495,7 +495,7 @@ opens a `PMContextMenu` under the button:
 |---|---|---|
 | **Export to PDF** | task tree + Gantt chart as on the screen, **project name above, start – finish dates under it**, the **main FAB is not in the picture** | `crud/exchange/pdf/exportDashboardToPdf.ts` (`exportProjectDashboardToPdf`, `dashboardPdfHeaderOf`), `pdfDocument.ts` (`PMPdfHeader`, `pdfHeaderLines`) |
 | **Export to JSON** | `project_data_<rowGUID>.json` from the open project (store, no DB round trip) | `crud/exchange/project/export/exportProjectToFile.ts` (`exportOpenProjectToFile`) |
-| **Export to MSProject** | opens `PMExportToMSProject` | `crud/exchange/msproject/` |
+| **Export to MS Project** | opens `PMExportToMSProject` | `crud/exchange/msproject/` |
 
 * PDF header: drawn into the picture before it is encoded. Web = 2D canvas with the system fonts (any alphabet -
   CanvasKit only has the bundled Latin font); iOS / Android = Skia `matchFont` system font. Dates use the project's
@@ -579,3 +579,17 @@ The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es,
   (auto swatch · Default chip · swatches with ring + check · Custom… chip with the full picker). `ColorPickerApp` and
   `PMColorSwatchPicker` are thin wrappers of it, so every PM color choice uses it: task bar color (task editor),
   dependency color, Kanban stage color, critical path / filter icon colors, progress line colors.
+
+### 2026-10-06 (3): Redo
+
+Gantt bar: **Undo · Redo** (`view/gantt/buttons/PMGanttRedoButton.tsx`, badge = steps that can be redone; web:
+Ctrl/⌘+Shift+Z or Ctrl+Y; main FAB: "Redo" while there is something to redo). `crud.redoGanttAction()` does not ask.
+
+* Second stack in the same `undoGanttActionTable` (SQLite / localStorage): key `redoGanttAction-<userGUID>-<projectGUID>`
+  (`redoGanttKey`). Every Undo pushes the state it replaced there; Redo restores that state and puts the step back on
+  the undo stack - Undo and Redo are one function (`step(fromKey, toKey)` in `useUndoGanttAction.ts`).
+* A new action clears the redo stack; restoring a project version clears both. Store: `redoCount`, `redoLabel`.
+* Tests: `__tests__/pm/crud/pmCrud.test.tsx` → "redo (redoGanttAction)".
+* **clearUndo / clearRedo**: right-click (web) or long touch on the Undo / Redo button opens a menu
+  (`view/gantt/buttons/PMGanttHistoryButton.tsx`) with "Clear undo history" / "Clear redo history".
+  `crud.clearUndo()` / `crud.clearRedo()` ask first and forget only that stack; the project data is not changed.

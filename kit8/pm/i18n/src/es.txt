@@ -47,7 +47,7 @@
 47|Elija el proyecto…
 48|Borrar
 49|Borrar la selección
-50|Borrar: todas las tareas a «Sin estado»
+50|Borrar: a «Sin estado»
 51|Haga clic para cambiar la duración
 52|Haga clic para cambiar el % de avance
 53|Cerrar
@@ -437,3 +437,13 @@
 437|Disminuir
 438|Personalizado…
 439|auto
+440|Rehacer
+441|Nada que rehacer
+442|Borrar historial de deshacer
+443|Borrar historial de rehacer
+444|¿Borrar el historial de deshacer?
+445|¿Borrar el historial de rehacer?
+446|Se olvidarán {{count}} paso(s) de deshacer. El proyecto no cambia.
+447|Se olvidarán {{count}} paso(s) de rehacer. El proyecto no cambia.
+448|Nada que deshacer
+449|clic derecho / pulsación larga: menú

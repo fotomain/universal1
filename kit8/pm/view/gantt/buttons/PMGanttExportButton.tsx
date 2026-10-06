@@ -2,7 +2,7 @@
 //   Export to PDF        the task tree + Gantt chart as shown on the screen, with the project name and its
 //                        start - finish dates above (crud/exchange/pdf/exportDashboardToPdf.ts)
 //   Export to JSON       project_data_<rowGUID>.json (crud/exchange/project)
-//   Export to MSProject  opens PMExportToMSProject (crud/exchange/msproject) - Microsoft Project XML
+//   Export to MS Project  opens PMExportToMSProject (crud/exchange/msproject) - Microsoft Project XML
 
 import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -96,7 +96,7 @@ export default function PMGanttExportButton({ palette }: { palette: PMPalette })
             {
               testID: 'pm-gantt-export-msproject',
               icon: 'account_tree',
-              label: pmT('Export to MSProject'),
+              label: pmT('Export to MS Project'),
               onPress: pick(() => setMsProjectOpen(true)),
             },
           ]}

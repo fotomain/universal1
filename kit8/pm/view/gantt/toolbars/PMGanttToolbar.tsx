@@ -1,5 +1,5 @@
 // PMGanttToolbar - the Gantt bar (toolbar above the chart canvas):
-//   Undo | Zoom out · Zoom in · Fit to screen | Today | Day · Week · Month · Year · arrow shape
+//   Undo · Redo | Zoom out · Zoom in · Fit to screen | Today | Day · Week · Month · Year · arrow shape
 //   ..................................  % · ⇅ | Gantt · Kanban · Network · Versions | ⚙ · Critical path
 // In tap-to-link mode it shows PMGanttLinkModeHint instead.
 
@@ -12,6 +12,7 @@ import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../../inner/too
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import DependencyArrowLineFormSelector from '../../task/dependency/DependencyArrowLineFormSelector';
 import PMGanttUndoButton from '../buttons/PMGanttUndoButton';
+import PMGanttRedoButton from '../buttons/PMGanttRedoButton';
 import PMGanttZoomButtons from '../buttons/PMGanttZoomButtons';
 import PMGanttScaleButtons from '../buttons/PMGanttScaleButtons';
 import PMGanttViewToggles from '../buttons/PMGanttViewToggles';
@@ -46,6 +47,7 @@ export default function PMGanttToolbar({
       ) : (
         <>
           <PMGanttUndoButton crud={crud} palette={palette} />
+          <PMGanttRedoButton crud={crud} palette={palette} />
           <PMToolbarDivider color={palette.border} />
           <PMGanttZoomButtons palette={palette} onZoomOut={() => actions.zoomBy(1 / 1.5)} onZoomIn={() => actions.zoomBy(1.5)} onFit={actions.fit} />
           <PMToolbarDivider color={palette.border} />

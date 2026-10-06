@@ -62,3 +62,12 @@ export const UNDO_GANTT_KEEP_LAST = 100;
 export function undoGanttKey(userGUID: string, projectGUID: string): string {
   return `undoGanttAction-${userGUID}-${projectGUID}`;
 }
+
+/**
+ * Redo: the same table, a second stack per user + project. One record = one UNDONE action; its `before` is the
+ * project as it was right before the undo (= with the action applied), so Redo restores that state.
+ * A new action clears the stack - what was undone can no longer be redone.
+ */
+export function redoGanttKey(userGUID: string, projectGUID: string): string {
+  return `redoGanttAction-${userGUID}-${projectGUID}`;
+}

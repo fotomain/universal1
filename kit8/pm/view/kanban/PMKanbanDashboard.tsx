@@ -318,7 +318,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
       },
       {
         testID: 'pm-kanban-col-clear',
-        label: 'Clear: all tasks to "No state"',
+        label: 'Clear: to "No state"',
         icon: 'layers_clear',
         danger: true,
         disabled: !guids.length,

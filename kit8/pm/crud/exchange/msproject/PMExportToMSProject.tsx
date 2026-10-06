@@ -1,4 +1,4 @@
-// PMExportToMSProject - "Export to MS Project" window (Gantt bar: Export > Export to MSProject, and
+// PMExportToMSProject - "Export to MS Project" window (Gantt bar: Export > Export to MS Project, and
 // Project settings > Import / Export > Export).
 //
 //   Export custom fields:

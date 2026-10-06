@@ -47,7 +47,7 @@
 47|Kies het project…
 48|Wissen
 49|Selectie wissen
-50|Wissen: alle taken naar "Geen status"
+50|Wissen: naar "Geen status"
 51|Klik om de duur te wijzigen
 52|Klik om de voortgang % te wijzigen
 53|Sluiten
@@ -437,3 +437,13 @@
 437|Verlagen
 438|Aangepast…
 439|auto
+440|Opnieuw
+441|Niets om opnieuw te doen
+442|Geschiedenis van ongedaan maken wissen
+443|Geschiedenis van opnieuw wissen
+444|Geschiedenis van ongedaan maken wissen?
+445|Geschiedenis van opnieuw wissen?
+446|{{count}} stap(pen) voor ongedaan maken worden vergeten. Het project zelf verandert niet.
+447|{{count}} stap(pen) voor opnieuw worden vergeten. Het project zelf verandert niet.
+448|Niets om ongedaan te maken
+449|rechtsklik / lang indrukken: menu

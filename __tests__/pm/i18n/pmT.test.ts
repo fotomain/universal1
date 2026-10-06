@@ -43,7 +43,7 @@ describe('PM translations', () => {
   });
 
   it('the texts of the export / date input features are in the dictionary', () => {
-    for (const k of ['Export', 'Export to PDF', 'Export to JSON', 'Export to MSProject', 'Export to MS Project', 'Export custom fields', 'Export Kanban Stage', 'Export Kanban Percent', 'Select date', 'Clear', 'Start', 'Finish', 'Save as template']) {
+    for (const k of ['Export', 'Export to PDF', 'Export to JSON', 'Export to MS Project', 'Export custom fields', 'Export Kanban Stage', 'Export Kanban Percent', 'Select date', 'Clear', 'Start', 'Finish', 'Save as template']) {
       expect(PM_KEYS).toContain(k);
     }
   });

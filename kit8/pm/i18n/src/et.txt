@@ -47,7 +47,7 @@
 47|Vali projekt…
 48|Tühjenda
 49|Tühista valik
-50|Tühjenda: kõik ülesanded olekusse "Olek puudub"
+50|Tühjenda: olekusse "Olek puudub"
 51|Klõpsa kestuse muutmiseks
 52|Klõpsa edenemise % muutmiseks
 53|Sulge
@@ -437,3 +437,13 @@
 437|Vähenda
 438|Kohandatud…
 439|auto
+440|Tee uuesti
+441|Pole midagi uuesti teha
+442|Tühjenda tagasivõtmise ajalugu
+443|Tühjenda uuestitegemise ajalugu
+444|Kas tühjendada tagasivõtmise ajalugu?
+445|Kas tühjendada uuestitegemise ajalugu?
+446|Unustatakse {{count}} tagasivõtmise sammu. Projekt ise ei muutu.
+447|Unustatakse {{count}} uuestitegemise sammu. Projekt ise ei muutu.
+448|Pole midagi tagasi võtta
+449|paremklõps / pikk puudutus: menüü

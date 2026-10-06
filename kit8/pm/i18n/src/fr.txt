@@ -47,7 +47,7 @@
 47|Choisissez le projet…
 48|Effacer
 49|Effacer la sélection
-50|Effacer : toutes les tâches vers « Aucun état »
+50|Effacer : vers « Aucun état »
 51|Cliquez pour modifier la durée
 52|Cliquez pour modifier l'avancement %
 53|Fermer
@@ -437,3 +437,13 @@
 437|Diminuer
 438|Personnalisée…
 439|auto
+440|Rétablir
+441|Rien à rétablir
+442|Effacer l'historique d'annulation
+443|Effacer l'historique de rétablissement
+444|Effacer l'historique d'annulation ?
+445|Effacer l'historique de rétablissement ?
+446|{{count}} étape(s) d'annulation seront oubliées. Le projet lui-même ne change pas.
+447|{{count}} étape(s) de rétablissement seront oubliées. Le projet lui-même ne change pas.
+448|Rien à annuler
+449|clic droit / appui long : menu
