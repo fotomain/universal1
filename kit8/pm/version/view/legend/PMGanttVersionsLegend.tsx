@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import IconApp from '../../../../components/common/IconApp';
 import { PMPalette } from '../../../view/theme';
 import { usePMVersionStore } from '../../store/store_version';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttVersionsLegend({ palette, onRemove }: { palette: PMPalette; onRemove?: (versionGUID: string) => void }) {
   const overlays = usePMVersionStore((s) => s.overlays);
@@ -16,7 +17,7 @@ export default function PMGanttVersionsLegend({ palette, onRemove }: { palette: 
         <View style={styles.item}>
           <View style={[styles.swatchTask, { backgroundColor: palette.bar }]} />
           <Text style={[styles.text, { color: palette.text }]} numberOfLines={1}>
-            Project (now)
+            {pmT('Project (now)')}
           </Text>
         </View>
         {overlays.map((o) => (

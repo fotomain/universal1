@@ -4,6 +4,7 @@ import { useTheme, Text, Avatar } from 'react-native-paper';
 import { ViewDrop, MapKeysMultiItems, type FileInfo, type AvAssetType } from 'react-native-viewdrop-ios';
 import type { ReceiveDraggableFilesProps, DroppedFileItem } from './ReceiveDraggableFilesComponent.types';
 import { pickFilesForDrop } from './pickFilesForDrop';
+import ButtonApp from './ButtonApp';
 
 export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps> = ({
     folderName,
@@ -21,6 +22,8 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
     pickMimeTypes,
     disabled = false,
     testID,
+    pickButtonWidth,
+    pickButtonStyle,
 }) => {
     const theme = useTheme();
     const [isInternalHovered, setIsInternalHovered] = useState(false);
@@ -31,18 +34,17 @@ export const ReceiveDraggableFilesComponent: React.FC<ReceiveDraggableFilesProps
         if (files.length) onFilesDropped(files);
     };
     const pickButton = pickable ? (
-        <Pressable
+        <ButtonApp
             testID={testID ? `${testID}-pick` : undefined}
-            accessibilityRole="button"
             accessibilityLabel={pickLabel}
             disabled={disabled}
+            variant="outlined"
+            size="small"
+            width={pickButtonWidth}
+            title={pickLabel}
             onPress={onPick}
-            style={[styles.pickButton, { borderColor: theme.colors.primary, opacity: disabled ? 0.5 : 1 }]}
-        >
-            <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '600' }}>
-                {pickLabel}
-            </Text>
-        </Pressable>
+            style={[{ marginVertical: 0, marginTop: 10, alignSelf: 'center' }, pickButtonStyle]}
+        />
     ) : null;
 
     const handleFileItemsReceived = (data: Record<MapKeysMultiItems, FileInfo[]>) => {

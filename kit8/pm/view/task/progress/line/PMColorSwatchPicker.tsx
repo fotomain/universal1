@@ -3,6 +3,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PM_PROGRESS_LINE_SWATCHES } from './progressLineConstants';
+import { pmT } from '../../../../i18n/pmT';
 
 export { PM_PROGRESS_LINE_SWATCHES };
 
@@ -28,12 +29,12 @@ export default function PMColorSwatchPicker({
     <View style={styles.row} testID={testID}>
       <Pressable
         testID={`${testID}-default`}
-        accessibilityLabel="Default color"
+        accessibilityLabel={pmT('Default color')}
         onPress={() => onChange(null)}
         style={[styles.defaultChip, { borderColor: isDefault ? colors.text : colors.border, borderWidth: isDefault ? 2 : 1, backgroundColor: colors.background }]}
       >
         <View style={[styles.dot, { backgroundColor: defaultColor, borderColor: colors.border }]} />
-        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Default</Text>
+        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>{pmT('Default')}</Text>
       </Pressable>
       {swatches.map((c) => {
         const selected = !isDefault && value === c;

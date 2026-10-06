@@ -15,6 +15,7 @@ import { useProjectKanbanData } from '../../crud/kanban/kanbanQueries';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import { kanbanStageColorOf, PMProjectKanbanStageRow, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import { pmT } from '../../i18n/pmT';
 
 export interface PMKanbanStagesModalWindowProps {
   projectGUID: string | null;
@@ -62,7 +63,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
         <View style={[styles.card, { height, backgroundColor: c.surface }]} testID="pm-kanban-stages-window">
           <Text style={[styles.title, { color: c.text }]}>Kanban Stages{projectName ? ` · ${projectName}` : ''}</Text>
           <Text style={[styles.hint, { color: c.text }]}>
-            Every task of the project is in one of these stages (new tasks: the first one). The stage is independent of the task progress %.
+            {pmT('Every task of the project is in one of these stages (new tasks: the first one). The stage is independent of the task progress %.')}
           </Text>
 
           {query.isLoading || (!missing && !stages.length && !query.isError) ? (
@@ -109,19 +110,19 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
                 />
               ))}
 
-              <Text style={[styles.section, { color: c.text }]}>Add a stage</Text>
+              <Text style={[styles.section, { color: c.text }]}>{pmT('Add a stage')}</Text>
               <View style={styles.row}>
                 <TextInput
                   testID="pm-kanban-stage-new-name"
                   value={newName}
                   onChangeText={setNewName}
-                  placeholder="Stage name"
+                  placeholder={pmT('Stage name')}
                   placeholderTextColor={c.border}
                   maxLength={PM_KANBAN_STAGE_NAME_MAX}
                   onSubmitEditing={add}
                   style={[styles.input, { color: c.text, borderColor: c.border, flex: 1 }]}
                 />
-                <PMIconButton testID="pm-kanban-stage-add" icon="add" label="Add" color={c.primary} onPress={add} />
+                <PMIconButton testID="pm-kanban-stage-add" icon="add" label={pmT('Add')} color={c.primary} onPress={add} />
               </View>
               <Swatches value={newColor} onChange={setNewColor} border={c.border} testID="pm-kanban-stage-new-color" />
             </ScrollView>
@@ -129,7 +130,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
 
           {!!error && <Text style={{ color: c.error, marginTop: 6 }}>{error}</Text>}
           <View style={styles.footer}>
-            <PMDialogButton testID="pm-kanban-stages-close" kind="primary" title="Close" onPress={onClose} />
+            <PMDialogButton testID="pm-kanban-stages-close" kind="primary" title={pmT('Close')} onPress={onClose} />
           </View>
         </View>
       </View>
@@ -187,7 +188,7 @@ function StageRow({
       <View style={styles.row}>
         <Pressable
           testID={`pm-kanban-stage-color-${id}`}
-          accessibilityLabel="Stage color"
+          accessibilityLabel={pmT('Stage color')}
           onPress={onColorToggle}
           style={[styles.swatch, { backgroundColor: color, borderColor: c.border }]}
         />
@@ -211,16 +212,16 @@ function StageRow({
           keyboardType="number-pad"
           style={[styles.input, styles.wip, { color: c.text, borderColor: c.border }]}
         />
-        <PMIconButton testID={`pm-kanban-stage-left-${id}`} icon="arrow_upward" title="Move up = earlier stage (column to the left)" color={c.text} compact disabled={first} onPress={() => onMove(-1)} />
-        <PMIconButton testID={`pm-kanban-stage-right-${id}`} icon="arrow_downward" title="Move down = later stage (column to the right)" color={c.text} compact disabled={last} onPress={() => onMove(1)} />
-        <PMIconButton testID={`pm-kanban-stage-delete-${id}`} icon="delete" title="Delete stage" color={c.error} compact disabled={onlyOne} onPress={onAskDelete} />
+        <PMIconButton testID={`pm-kanban-stage-left-${id}`} icon="arrow_upward" title={pmT('Move up = earlier stage (column to the left)')} color={c.text} compact disabled={first} onPress={() => onMove(-1)} />
+        <PMIconButton testID={`pm-kanban-stage-right-${id}`} icon="arrow_downward" title={pmT('Move down = later stage (column to the right)')} color={c.text} compact disabled={last} onPress={() => onMove(1)} />
+        <PMIconButton testID={`pm-kanban-stage-delete-${id}`} icon="delete" title={pmT('Delete stage')} color={c.error} compact disabled={onlyOne} onPress={onAskDelete} />
       </View>
       {pickingColor && <Swatches value={color} onChange={onColor} border={c.border} testID={`pm-kanban-stage-colors-${id}`} />}
       {confirmingDelete && (
         <View style={[styles.row, { marginTop: 6 }]}>
           <Text style={{ color: c.error, flex: 1, fontSize: 12 }}>Delete "{stage.rowJSON.stageName}"? Its tasks move to the first stage.</Text>
-          <PMDialogButton testID={`pm-kanban-stage-delete-no-${id}`} kind="text" title="No" color={c.text} onPress={onCancelDelete} />
-          <PMDialogButton testID={`pm-kanban-stage-delete-yes-${id}`} kind="dangerContained" title="Delete" onPress={onDelete} />
+          <PMDialogButton testID={`pm-kanban-stage-delete-no-${id}`} kind="text" title={pmT('No')} color={c.text} onPress={onCancelDelete} />
+          <PMDialogButton testID={`pm-kanban-stage-delete-yes-${id}`} kind="dangerContained" title={pmT('Delete')} onPress={onDelete} />
         </View>
       )}
     </View>

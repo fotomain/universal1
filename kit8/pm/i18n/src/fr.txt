@@ -1,0 +1,435 @@
+1|+ Projet
+2|+ Étape
+3|0 = illimité
+4|Un projet a besoin d'au moins une étape Kanban.
+5|Une étape a besoin d'un nom.
+6|Activités sur flèches : les événements sont des cercles, les tâches des flèches
+7|Activités sur nœuds : les tâches sont des boîtes, les dépendances des flèches
+8|Ajouter
+9|Ajouter une étape
+10|Ajouter un prédécesseur (une tâche que celle-ci attend)
+11|Ajouter une étape
+12|Ajouter la colonne
+13|Ajouter une colonne personnalisée
+14|Ajouter un jalon
+15|Ajouter une étape
+16|Ajouter une étape / sous-étape
+17|Ajouter une étape au-dessus
+18|Ajouter une étape en dessous
+19|Ajouter une tâche
+20|Ajouter une tâche (après / dans la ligne sélectionnée)
+21|Ajouter une tâche (dans l'étape sélectionnée / après la tâche sélectionnée)
+22|Ajouter une tâche au-dessus
+23|Ajouter une tâche en dessous
+24|Ajouter une tâche en dessous / dedans
+25|Ajouter une tâche dedans
+26|Ajouter une tâche dans cette étape
+27|Ajouter la première étape
+28|Ajouter à Google Agenda
+29|Après
+30|Après ou égal
+31|Toutes
+32|Tous les bloqueurs (transitif)
+33|Appliquer
+34|Couleur de la flèche
+35|Retour au diagramme de Gantt
+36|Barres, flèches et nœuds du réseau sur le chemin critique
+37|Avant
+38|Avant ou égal
+39|Bloque (successeurs)
+40|Bleu
+41|Périmètre du tableau : sélectionnez une étape dans l'arbre pour ne voir que ses tâches
+42|Boutons sur la ligne survolée (web) / sélectionnée (tactile)
+43|Annuler
+44|Annuler (fermer sans enregistrer)
+45|Période du diagramme
+46|Choisir un fichier…
+47|Choisissez le projet…
+48|Effacer
+49|Effacer la sélection
+50|Effacer : toutes les tâches vers « Aucun état »
+51|Cliquez pour modifier la durée
+52|Cliquez pour modifier l'avancement %
+53|Fermer
+54|Fermer le sélecteur de tâches
+55|Fermer sans enregistrer
+56|Réduire
+57|Tout réduire
+58|Couleur
+59|Couleurs
+60|Menu de colonne : sélectionner toutes les tâches, vider la colonne
+61|Nom de la colonne
+62|Compact
+63|Blocs compacts : nom, durée, dates
+64|Comparaison avec le projet…
+65|Contrainte
+66|Copier le GUID
+67|Copier les infos de la tâche
+68|Copier le GUID de la tâche
+69|Impossible de charger les projets
+70|Impossible de charger les lignes de la version
+71|Impossible d'ouvrir Google Agenda.
+72|Créer
+73|Créer le projet
+74|Créer un modèle à partir du projet
+75|Créer un projet à partir d'un modèle
+76|Créer un modèle à partir du projet
+77|Création du projet...
+78|Création…
+79|Critique
+80|Chemin critique
+81|La couleur du chemin critique est prioritaire sur la couleur personnalisée de la tâche
+82|Couleur des tâches du chemin critique
+83|Couleur personnalisée de la tâche
+84|Format de date (planDateInputFormat)
+85|Les dates doivent être au format YYYY-MM-DD.
+86|Jour
+87|Par défaut
+88|Couleur par défaut
+89|Couleur de dépendance par défaut
+90|Ordre par défaut
+91|Largeur par défaut
+92|Largeur par défaut (remplir)
+93|Largeurs par défaut
+94|Valeurs par défaut
+95|Supprimer
+96|Supprimer et importer
+97|Supprimer la colonne personnalisée
+98|Supprimer la dépendance
+99|Supprimer le projet
+100|Supprimer la sélection
+101|Supprimer l'étape
+102|Supprimer cette dépendance ?
+103|Supprimer cette version ?
+104|Supprimer la version
+105|Dépendance
+106|Flèches de dépendance
+107|Flèches de dépendance : lisses / à angle droit
+108|Flèches de dépendance : courbes lisses
+109|Flèches de dépendance : lignes à angle droit
+110|Couleur de la dépendance
+111|Description / notes
+112|Désélectionner toutes les tâches
+113|Détails
+114|Ignorer
+115|Faites glisser pour déplacer la tâche (réordonner / changer de parent)
+116|Faites glisser pour réordonner
+117|Déposez ici un project_data_….json
+118|Déposez les tâches ici
+119|Fictive
+120|Dupliquer
+121|Dupliquer (copie en dessous)
+122|Dupliquer la sélection (copie en dessous)
+123|Durée
+124|Durée (jours ouvrés)
+125|Modifier
+126|Modifier l'étape
+127|Modifier l'état Kanban de la tâche
+128|Modifier la dépendance
+129|Modifier la dépendance (type, décalage, couleur)
+130|Modifier la sélection
+131|Modifier la tâche (nom, avancement %, dates…)
+132|Saisissez le nom de l'étape.
+133|Erreur
+134|Événements
+135|Événements en cercles à 4 secteurs (numéro / au plus tôt / au plus tard / prédécesseur)
+136|Chaque tâche du projet est dans l'une de ces étapes (nouvelles tâches : la première). L'étape est indépendante de l'avancement % de la tâche.
+137|Tout ce qu'elle retarde (transitif)
+138|Développer
+139|Tout développer
+140|Exporter
+141|Exporter le pourcentage Kanban
+142|Exporter l'étape Kanban
+143|Exporter les champs personnalisés
+144|Exporter le projet : PDF, JSON, MS Project
+145|Exporter en JSON
+146|Exporter vers MS Project
+147|Exporter vers MSProject
+148|Exporter en PDF
+149|{{file}} exporté ({{count}} tâches).
+150|Filtrer et trier
+151|Couleur de l'icône de filtre
+152|Couleur de l'icône de filtre d'un en-tête de colonne filtrée
+153|Rechercher un projet…
+154|Fin
+155|Heure de fin (0-23)
+156|Min. de fin (0-59)
+157|Sec. de fin (0-59)
+158|La date de fin ne peut pas précéder la date de début.
+159|Ajuster à l'écran
+160|Marge libre
+161|Du (YYYY-MM-DD)
+162|À partir d'un modèle
+163|À partir de la version
+164|Diagramme de Gantt
+165|Diagramme de Gantt : commandes de barre
+166|Diagramme de Gantt : commandes de barre (panneau au survol / menu contextuel)
+167|Paramètres Gantt (lignes d'avancement, couleurs, flèches, chemin critique)
+168|Aller à la connexion
+169|Supérieur à
+170|Vert
+171|Gris
+172|Couleur de l'en-tête
+173|Masquer les numéros hiérarchiques (colonne #)
+174|Masquer l'avancement des tâches sur les barres
+175|Masquer la colonne de sélection des lignes (cases à cocher)
+176|Les heures doivent être comprises entre 0 et 23.
+177|Panneau au survol
+178|Importer
+179|Importer / Exporter
+180|Importer / exporter le projet (project_data_….json) - ouvre les paramètres du projet
+181|Augmenter le retrait
+182|Dans l'étape (peut être vide)
+183|N'est pas
+184|N'est pas le
+185|Elle est ajoutée comme dernière colonne de l'arbre des tâches.
+186|Étape Kanban
+187|Étapes Kanban
+188|Étapes Kanban de ce projet (colonnes)
+189|Tableau Kanban : étapes des tâches (faites glisser des tâches de l'arbre vers une colonne)
+190|Avancement % de l'étape Kanban
+191|Kanban : vers « Aucun état »
+192|Décalage (jours ouvrés, négatif = avance)
+193|Décalage +1 jour
+194|Décalage -1 jour (négatif = avance)
+195|Le décalage doit être un nombre de jours ouvrés (négatif = avance).
+196|Inférieur à
+197|Lien copié
+198|Lier à…
+199|Type de lien
+200|Lier : touchez ensuite la tâche qui doit attendre celle-ci
+201|Charger la démo : Projet 1 + Projet 2
+202|Chargement des modèles...
+203|Chargement…
+204|Général
+205|Client principal (mainCustomerGUID)
+206|Contrat du client principal (mainCustomerContractGUID)
+207|Fournisseur principal (mainSupplierGUID)
+208|Contrat du fournisseur principal (mainSupplierContractGUID)
+209|Menu au clic droit (web) / appui long puis relâchement (tactile)
+210|Fichier XML Microsoft Project (.xml) avec toutes les étapes, tâches, jalons et dépendances. Dans MS Project : File > Open > le fichier > As a new project.
+211|Jalon
+212|Les jalons n'ont pas de durée
+213|Les minutes doivent être comprises entre 0 et 59.
+214|Mois
+215|Déplacer toutes les tâches vers…
+216|Descendre
+217|Descendre = étape ultérieure (colonne à droite)
+218|Monter
+219|Monter = étape antérieure (colonne à gauche)
+220|Nom
+221|Réseau
+222|Diagramme de réseau
+223|Planning de réseau
+224|Vue réseau : diagramme de réseau / planning de réseau
+225|Nouvelle étape Kanban
+226|Nouveau projet à partir d'un modèle
+227|Nouveau jalon
+228|Nouveau projet
+229|Nouvelle tâche
+230|2 prochaines semaines
+231|3 prochains mois
+232|Mois prochain
+233|Étape suivante
+234|Non
+235|Aucun fichier.
+236|Aucune étape Kanban configurée pour l'instant.
+237|Aucun projet correspondant
+238|Aucun modèle de projet trouvé.
+239|Aucun projet
+240|Pas encore de projets
+241|Aucun paramètre trouvé
+242|Aucun projet source sélectionné.
+243|Sans étape - directement sous le projet
+244|Aucun état
+245|Aucune tâche
+246|Aucune tâche trouvée dans ce projet.
+247|Aucune tâche à afficher pour l'instant.
+248|Aucune version enregistrée pour l'instant
+249|Pas encore de versions
+250|Aucune.
+251|Notes
+252|Rien n'attend cette ligne.
+253|Le ou après
+254|Le ou avant
+255|Ouvrir les infos de la tâche
+256|Ouvrir le tableau de bord du projet
+257|Ouvrez d'abord le projet dans le tableau de bord.
+258|Ouvrir cette tâche
+259|Notes ou instructions facultatives pour ce modèle...
+260|Ou créer à partir d'un modèle
+261|Diminuer le retrait
+262|PDF et MS Project exportent le projet ouvert dans le tableau de bord.
+263|Export PDF
+264|Échec de l'export PDF
+265|Export PDF : ouvrez d'abord l'arbre des tâches / le diagramme de Gantt
+266|Export PDF : l'écran n'a pas pu être capturé
+267|Export PDF : l'arbre des tâches / le diagramme de Gantt n'est pas à l'écran
+268|Partenaires
+269|Rose
+270|Planifier en jours (planDay)
+271|Planifier en heures (planHour)
+272|Planifier en minutes (planMinute)
+273|Planifier en secondes (planSecond)
+274|Veuillez saisir une date de début valide (YYYY-MM-DD).
+275|Veuillez sélectionner une étape Kanban.
+276|Veuillez sélectionner une tâche.
+277|Veuillez sélectionner un modèle.
+278|Étape précédente
+279|Avancement %
+280|Avancement % (0–100)
+281|Projet
+282|Projet (actuel)
+283|Date de fin du projet (projectFinishDate)
+284|Nom du projet *
+285|Date de début du projet (projectStartDate)
+286|Date de début du projet *
+287|Nom du projet
+288|Le nom du projet est obligatoire.
+289|Ligne d'avancement du projet
+290|Ligne d'avancement du projet : position dans l'échelle de temps, couleur
+291|Paramètres du projet
+292|Versions du projet
+293|Versions du projet : enregistrez, restaurez et cochez les versions à comparer sur le diagramme de Gantt
+294|Projets
+295|Projets (Gantt)
+296|Les projets sont stockés par utilisateur dans Supabase (sécurité au niveau des lignes).
+297|Périodes rapides
+298|Lecture seule
+299|Rouge
+300|Supprimer la contrainte de début (commencer dès que possible)
+301|Supprimer cette dépendance
+302|Renommer
+303|Renommer la colonne personnalisée
+304|Renommer la version
+305|Remplace les tâches de « {{name}} » (demande d'abord)
+306|Restaurer
+307|Restaurer depuis une version
+308|Restaurer le projet depuis une version
+309|Restaurer le projet depuis une version - aucune version enregistrée
+310|Restaurer le projet depuis cette version ?
+311|Menu contextuel
+312|Synthèse des lignes de cette étape
+313|Synthèse des tâches contenues (pondérée par la durée).
+314|Mise à niveau SQL requise
+315|Enregistrer
+316|Enregistrez d'abord un projet actif comme modèle avec « Enregistrer comme modèle ».
+317|Enregistrer comme modèle
+318|Enregistrer comme modèle
+319|Enregistrer une version du projet
+320|Enregistrer une version du projet (tout le plan : tâches, dépendances, Kanban)
+321|Enregistrer la première version
+322|Enregistrez d'abord ce projet pour gérer les états Kanban des tâches.
+323|Enregistrer la version
+324|Ordre des cartes enregistré
+325|Enregistrement...
+326|Faire défiler les projets vers la gauche
+327|Faire défiler les projets vers la droite
+328|Recherchez-le dans le champ projet ci-dessus ou créez-en un avec « + Projet ».
+329|Rechercher des paramètres
+330|Rechercher des tâches…
+331|Les secondes doivent être comprises entre 0 et 59.
+332|Sélectionnez un modèle *
+333|Sélectionnez un projet
+334|Sélectionner toutes les tâches
+335|Sélectionnez le contrat client...
+336|Sélectionner une date
+337|Sélectionnez le client principal...
+338|Sélectionnez le fournisseur principal...
+339|Sélectionnez le contrat fournisseur...
+340|Sélectionnez la version. Le plan actuel est enregistré comme nouvelle version avant d'être remplacé.
+341|Séparez les valeurs par des virgules.
+342|Définir l'état Kanban de la tâche
+343|Paramètre
+344|Partager la tâche
+345|Afficher les numéros hiérarchiques (colonne « # ») dans l'arbre des tâches
+346|Afficher les numéros hiérarchiques (colonne #)
+347|Afficher l'avancement des tâches sur le Gantt (lignes + %)
+348|Afficher l'avancement des tâches sur les barres (ligne + %)
+349|Afficher le chemin critique
+350|Afficher la colonne de sélection des lignes (cases à cocher)
+351|Afficher tout le projet
+352|Affiché lorsque « Afficher l'avancement des tâches » (onglet Tâche) est activé.
+353|Connectez-vous pour ajouter une tâche à un projet.
+354|Connectez-vous pour gérer les projets
+355|Connexion requise
+356|Marge
+357|Lisses
+358|Trier par
+359|Projet source
+360|À angle droit
+361|Étape
+362|Étape (peut être vide)
+363|Nom de l'étape
+364|Couleur de l'étape
+365|Nom de l'étape
+366|Début
+367|Heure de début (0-23)
+368|Min. de début (0-59)
+369|Sec. de début (0-59)
+370|La date de début ne peut pas être postérieure à la date de fin.
+371|Début au plus tôt le (YYYY-MM-DD, vide = dès que possible)
+372|Commence dès que le projet (ou sa contrainte) le permet.
+373|Enregistre la structure du modèle, les tâches, dépendances, étapes et paramètres dans les tables de modèles. Les valeurs d'étape Kanban des tâches sont exclues.
+374|Sous-étape
+375|Tâche
+376|Couleur de la barre de tâche
+377|Infos de la tâche copiées
+378|Nom de la tâche
+379|Tâche introuvable.
+380|Ligne d'avancement de la tâche
+381|Ligne d'avancement de la tâche : position sur la barre, couleur
+382|Colonnes de l'arbre des tâches (faites glisser un en-tête pour le déplacer, un séparateur pour redimensionner, clic droit / appui long sur un en-tête pour ajouter une colonne personnalisée)
+383|Colonnes de l'arbre des tâches : ordre et largeurs par défaut
+384|Arbre des tâches : commandes de ligne
+385|Arbre des tâches : commandes de ligne (panneau au survol / menu contextuel)
+386|Nom du modèle *
+387|Le nom du modèle est obligatoire.
+388|Le moteur de rendu Gantt n'a pas pu démarrer.
+389|L'export a échoué.
+390|Le fichier ne contient pas de projet.
+391|Le fichier ne contient pas de liste de tâches.
+392|Le fichier n'est pas un JSON valide.
+393|Le projet n'existe pas (ou plus).
+394|Le projet avec toutes ses étapes, tâches, jalons et dépendances (+ vos paramètres Gantt).
+395|Tout le plan est stocké : données du projet, étapes, tâches, jalons, dépendances et Kanban. Une version ne change plus jamais ensuite.
+396|Ce n'est pas un fichier de données de projet (project_data_….json).
+397|Ce mois-ci
+398|Cette étape n'a pas encore de tâches - ajoutez-en d'abord.
+399|Cette tâche n'a pas encore de dates - elle ne peut pas être ajoutée à Google Agenda.
+400|Cette semaine
+401|Cette année
+402|À l'échelle du temps
+403|Réseau à l'échelle du temps : longueur de flèche = durée, pointillé = marge libre
+404|Au (YYYY-MM-DD)
+405|Aujourd'hui
+406|Aujourd'hui → fin du projet
+407|Arbre
+408|Type
+409|Décocher toutes les versions (rien n'est comparé)
+410|Annuler
+411|Annuler la dernière action ?
+412|Titre de la version
+413|Versions
+414|Les versions ne sont pas encore installées
+415|Via l'étape
+416|Violet
+417|Limite WIP (facultatif)
+418|Attend (prédécesseurs)
+419|Semaine
+420|Tout le projet
+421|Jours ouvrés uniquement (ignorer les week-ends)
+422|Année
+423|Année (trimestres)
+424|Jaune
+425|Vous n'avez pas encore de projets - créez-en un dans le tableau de bord
+426|Zoom avant
+427|Zoom arrière
+428|dès que possible
+429|ex. Référence approuvée par le client
+430|ex. En cours
+431|ex. Refonte du site web T4
+432|ex. Modèle standard d'application web
+433|ex. flèches, avancement, colonne
+434|l'arbre des tâches / le diagramme de Gantt n'est pas à l'écran
+435|{{tip}} (indisponible pour le moment)

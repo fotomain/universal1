@@ -1,0 +1,435 @@
+1|+ Projekts
+2|+ Posms
+3|0 = bez ierobežojuma
+4|Projektam vajadzīgs vismaz viens Kanban posms.
+5|Posmam vajadzīgs nosaukums.
+6|Darbi uz bultām: notikumi ir apļi, uzdevumi ir bultas
+7|Darbi mezglos: uzdevumi ir taisnstūri, atkarības ir bultas
+8|Pievienot
+9|Pievienot posmu
+10|Pievienot priekšteci (uzdevumu, kuru šis gaida)
+11|Pievienot posmu
+12|Pievienot kolonnu
+13|Pievienot pielāgotu kolonnu
+14|Pievienot atskaites punktu
+15|Pievienot posmu
+16|Pievienot posmu / apakšposmu
+17|Pievienot posmu virs
+18|Pievienot posmu zem
+19|Pievienot uzdevumu
+20|Pievienot uzdevumu (pēc izvēlētās rindas / tajā)
+21|Pievienot uzdevumu (izvēlētajā posmā / pēc izvēlētā uzdevuma)
+22|Pievienot uzdevumu virs
+23|Pievienot uzdevumu zem
+24|Pievienot uzdevumu zem / iekšā
+25|Pievienot uzdevumu iekšā
+26|Pievienot uzdevumu šajā posmā
+27|Pievienot pirmo posmu
+28|Pievienot Google kalendāram
+29|Pēc
+30|Pēc vai vienāds
+31|Visi
+32|Visi bloķētāji (tranzitīvi)
+33|Lietot
+34|Bultas krāsa
+35|Atpakaļ uz Ganta diagrammu
+36|Joslas, bultas un tīkla mezgli uz kritiskā ceļa
+37|Pirms
+38|Pirms vai vienāds
+39|Bloķē (pēcteči)
+40|Zils
+41|Dēļa tvērums: izvēlieties posmu kokā, lai redzētu tikai tā uzdevumus
+42|Pogas uz rindas zem kursora (tīmeklī) / izvēlētās rindas (skārienā)
+43|Atcelt
+44|Atcelt (aizvērt nesaglabājot)
+45|Diagrammas periods
+46|Izvēlēties failu…
+47|Izvēlieties projektu…
+48|Notīrīt
+49|Notīrīt atlasi
+50|Notīrīt: visi uzdevumi uz "Nav stāvokļa"
+51|Noklikšķiniet, lai mainītu ilgumu
+52|Noklikšķiniet, lai mainītu izpildes %
+53|Aizvērt
+54|Aizvērt uzdevumu izvēli
+55|Aizvērt nesaglabājot
+56|Sakļaut
+57|Sakļaut visu
+58|Krāsa
+59|Krāsas
+60|Kolonnas izvēlne: atlasīt visus uzdevumus, notīrīt kolonnu
+61|Kolonnas nosaukums
+62|Kompakts
+63|Kompakti bloki: nosaukums, ilgums, datumi
+64|Salīdzina ar projektu…
+65|Ierobežojums
+66|Kopēt GUID
+67|Kopēt uzdevuma informāciju
+68|Kopēt uzdevuma GUID
+69|Neizdevās ielādēt projektus
+70|Neizdevās ielādēt versijas rindas
+71|Neizdevās atvērt Google kalendāru.
+72|Izveidot
+73|Izveidot projektu
+74|Izveidot veidni no projekta
+75|Izveidot projektu no veidnes
+76|Izveidot veidni no projekta
+77|Veido projektu...
+78|Veido…
+79|Kritisks
+80|Kritiskais ceļš
+81|Kritiskā ceļa krāsai ir prioritāte pār pielāgoto uzdevuma krāsu
+82|Kritiskā ceļa uzdevumu krāsa
+83|Pielāgota uzdevuma krāsa
+84|Datuma formāts (planDateInputFormat)
+85|Datumiem jābūt formātā YYYY-MM-DD.
+86|Diena
+87|Noklusējums
+88|Noklusējuma krāsa
+89|Atkarības noklusējuma krāsa
+90|Noklusējuma secība
+91|Noklusējuma platums
+92|Noklusējuma platums (aizpildīt)
+93|Noklusējuma platumi
+94|Noklusējumi
+95|Dzēst
+96|Dzēst un importēt
+97|Dzēst pielāgoto kolonnu
+98|Dzēst atkarību
+99|Dzēst projektu
+100|Dzēst izvēlēto
+101|Dzēst posmu
+102|Dzēst šo atkarību?
+103|Dzēst šo versiju?
+104|Dzēst versiju
+105|Atkarība
+106|Atkarību bultas
+107|Atkarību bultas: gludas / taisnleņķa
+108|Atkarību bultas: gludas līknes
+109|Atkarību bultas: taisnleņķa līnijas
+110|Atkarības krāsa
+111|Apraksts / piezīmes
+112|Noņemt atlasi visiem uzdevumiem
+113|Detaļas
+114|Aizvērt
+115|Velciet, lai pārvietotu uzdevumu (mainītu secību / vecāku)
+116|Velciet, lai mainītu secību
+117|Nometiet šeit project_data_….json
+118|Nometiet uzdevumus šeit
+119|Fiktīvs
+120|Dublēt
+121|Dublēt (kopija zemāk)
+122|Dublēt izvēlēto (kopija zemāk)
+123|Ilgums
+124|Ilgums (darba dienas)
+125|Rediģēt
+126|Rediģēt posmu
+127|Rediģēt uzdevuma Kanban stāvokli
+128|Rediģēt atkarību
+129|Rediģēt atkarību (tips, nobīde, krāsa)
+130|Rediģēt izvēlēto
+131|Rediģēt uzdevumu (nosaukums, izpilde %, datumi…)
+132|Ievadiet posma nosaukumu.
+133|Kļūda
+134|Notikumi
+135|Notikumi kā 4 sektoru apļi (numurs / agrākais / vēlākais / priekštecis)
+136|Katrs projekta uzdevums ir vienā no šiem posmiem (jauni uzdevumi: pirmajā). Posms nav atkarīgs no uzdevuma izpildes %.
+137|Viss, ko tas aizkavē (tranzitīvi)
+138|Izvērst
+139|Izvērst visu
+140|Eksportēt
+141|Eksportēt Kanban procentus
+142|Eksportēt Kanban posmu
+143|Eksportēt pielāgotos laukus
+144|Eksportēt projektu: PDF, JSON, MS Project
+145|Eksportēt uz JSON
+146|Eksportēt uz MS Project
+147|Eksportēt uz MSProject
+148|Eksportēt uz PDF
+149|Eksportēts {{file}} ({{count}} uzdevumi).
+150|Filtrēt un kārtot
+151|Filtra ikonas krāsa
+152|Filtrētas kolonnas galvenes filtra ikonas krāsa
+153|Meklēt projektu…
+154|Beigas
+155|Beigu stunda (0-23)
+156|Beigu min. (0-59)
+157|Beigu sek. (0-59)
+158|Beigu datums nevar būt pirms sākuma datuma.
+159|Ietilpināt ekrānā
+160|Brīvā rezerve
+161|No (YYYY-MM-DD)
+162|No veidnes
+163|No versijas
+164|Ganta diagramma
+165|Ganta diagramma: joslu komandas
+166|Ganta diagramma: joslu komandas (uzvedināšanas panelis / labā klikšķa izvēlne)
+167|Ganta iestatījumi (izpildes līnijas, krāsas, bultas, kritiskais ceļš)
+168|Doties uz pieteikšanos
+169|Lielāks par
+170|Zaļš
+171|Pelēks
+172|Galvenes krāsa
+173|Slēpt hierarhijas numurus (# kolonna)
+174|Slēpt uzdevumu izpildi uz joslām
+175|Slēpt rindu atlases kolonnu (izvēles rūtiņas)
+176|Stundām jābūt no 0 līdz 23.
+177|Uzvedināšanas panelis
+178|Importēt
+179|Imports / eksports
+180|Importēt / eksportēt projektu (project_data_….json) - atver projekta iestatījumus
+181|Palielināt atkāpi
+182|Posma iekšpusē (var būt tukšs)
+183|Nav
+184|Nav datumā
+185|Tā tiek pievienota kā pēdējā uzdevumu koka kolonna.
+186|Kanban posms
+187|Kanban posmi
+188|Šī projekta Kanban posmi (kolonnas)
+189|Kanban dēlis: uzdevumu posmi (velciet uzdevumus no koka uz kolonnu)
+190|Kanban posma izpilde %
+191|Kanban: uz "Nav stāvokļa"
+192|Nobīde (darba dienas, negatīva = apsteigums)
+193|Nobīde +1 diena
+194|Nobīde -1 diena (negatīva = apsteigums)
+195|Nobīdei jābūt darba dienu skaitam (negatīva = apsteigums).
+196|Mazāks par
+197|Saite nokopēta
+198|Saistīt ar…
+199|Saites tips
+200|Saite: pēc tam pieskarieties uzdevumam, kuram jāgaida šis
+201|Ielādēt demo: Projekts 1 + Projekts 2
+202|Ielādē veidnes...
+203|Ielādē…
+204|Galvenais
+205|Galvenais klients (mainCustomerGUID)
+206|Galvenā klienta līgums (mainCustomerContractGUID)
+207|Galvenais piegādātājs (mainSupplierGUID)
+208|Galvenā piegādātāja līgums (mainSupplierContractGUID)
+209|Izvēlne ar labo klikšķi (tīmeklī) / ilgu pieskārienu un atlaišanu (skārienā)
+210|Microsoft Project XML fails (.xml) ar visiem posmiem, uzdevumiem, atskaites punktiem un atkarībām. MS Project: File > Open > fails > As a new project.
+211|Atskaites punkts
+212|Atskaites punktiem nav ilguma
+213|Minūtēm jābūt no 0 līdz 59.
+214|Mēnesis
+215|Pārvietot visus uzdevumus uz…
+216|Pārvietot uz leju
+217|Uz leju = vēlāks posms (kolonna pa labi)
+218|Pārvietot uz augšu
+219|Uz augšu = agrāks posms (kolonna pa kreisi)
+220|Nosaukums
+221|Tīkls
+222|Tīkla diagramma
+223|Tīkla grafiks
+224|Tīkla skats: tīkla diagramma / tīkla grafiks
+225|Jauns Kanban posms
+226|Jauns projekts no veidnes
+227|Jauns atskaites punkts
+228|Jauns projekts
+229|Jauns uzdevums
+230|Nākamās 2 nedēļas
+231|Nākamie 3 mēneši
+232|Nākamais mēnesis
+233|Nākamais posms
+234|Nē
+235|Nav faila.
+236|Kanban posmi vēl nav konfigurēti.
+237|Nav atbilstoša projekta
+238|Projektu veidnes nav atrastas.
+239|Nav projektu
+240|Projektu vēl nav
+241|Iestatījumi nav atrasti
+242|Nav izvēlēts avota projekts.
+243|Bez posma - tieši zem projekta
+244|Nav stāvokļa
+245|Nav uzdevumu
+246|Šajā projektā uzdevumi nav atrasti.
+247|Pagaidām nav uzdevumu, ko rādīt.
+248|Vēl nav saglabātu versiju
+249|Versiju vēl nav
+250|Nav.
+251|Piezīmes
+252|Šo rindu nekas negaida.
+253|Datumā vai pēc
+254|Datumā vai pirms
+255|Atvērt uzdevuma informāciju
+256|Atvērt projekta paneli
+257|Vispirms atveriet projektu panelī.
+258|Atvērt šo uzdevumu
+259|Neobligātas piezīmes vai norādījumi šai veidnei...
+260|Vai izveidot no veidnes
+261|Samazināt atkāpi
+262|PDF un MS Project eksportē projektu, kas atvērts panelī.
+263|PDF eksports
+264|PDF eksports neizdevās
+265|PDF eksports: vispirms atveriet uzdevumu koku / Ganta diagrammu
+266|PDF eksports: neizdevās uzņemt ekrānu
+267|PDF eksports: uzdevumu koks / Ganta diagramma nav redzama ekrānā
+268|Partneri
+269|Rozā
+270|Plānot dienās (planDay)
+271|Plānot stundās (planHour)
+272|Plānot minūtēs (planMinute)
+273|Plānot sekundēs (planSecond)
+274|Lūdzu, ievadiet derīgu sākuma datumu (YYYY-MM-DD).
+275|Lūdzu, izvēlieties Kanban posmu.
+276|Lūdzu, izvēlieties uzdevumu.
+277|Lūdzu, izvēlieties veidni.
+278|Iepriekšējais posms
+279|Izpilde %
+280|Izpilde % (0–100)
+281|Projekts
+282|Projekts (tagad)
+283|Projekta beigu datums (projectFinishDate)
+284|Projekta nosaukums *
+285|Projekta sākuma datums (projectStartDate)
+286|Projekta sākuma datums *
+287|Projekta nosaukums
+288|Projekta nosaukums ir obligāts.
+289|Projekta izpildes līnija
+290|Projekta izpildes līnija: novietojums laika skalā, krāsa
+291|Projekta iestatījumi
+292|Projekta versijas
+293|Projekta versijas: saglabājiet, atjaunojiet un atzīmējiet versijas salīdzināšanai Ganta diagrammā
+294|Projekti
+295|Projekti (Gants)
+296|Projekti tiek glabāti katram lietotājam Supabase (rindu līmeņa drošība).
+297|Ātrie periodi
+298|Tikai lasāms
+299|Sarkans
+300|Noņemt sākuma ierobežojumu (sākt pēc iespējas ātrāk)
+301|Noņemt šo atkarību
+302|Pārdēvēt
+303|Pārdēvēt pielāgoto kolonnu
+304|Pārdēvēt versiju
+305|Aizstāj "{{name}}" uzdevumus (vispirms jautā)
+306|Atjaunot
+307|Atjaunot no versijas
+308|Atjaunot projektu no versijas
+309|Atjaunot projektu no versijas - vēl nav saglabātu versiju
+310|Atjaunot projektu no šīs versijas?
+311|Labā klikšķa izvēlne
+312|Apkopots no rindām šajā posmā
+313|Apkopots no iekšējiem uzdevumiem (svērts pēc ilguma).
+314|Nepieciešams SQL jauninājums
+315|Saglabāt
+316|Vispirms saglabājiet kādu aktīvu projektu kā veidni ar "Saglabāt kā veidni".
+317|Saglabāt kā veidni
+318|Saglabāt kā veidni
+319|Saglabāt projekta versiju
+320|Saglabāt projekta versiju (viss plāns: uzdevumi, atkarības, Kanban)
+321|Saglabāt pirmo versiju
+322|Vispirms saglabājiet šo projektu, lai pārvaldītu uzdevumu Kanban stāvokļus.
+323|Saglabāt versiju
+324|Saglabātā kartīšu secība
+325|Saglabā...
+326|Ritināt projektus pa kreisi
+327|Ritināt projektus pa labi
+328|Meklējiet to projekta laukā augstāk vai izveidojiet jaunu ar “+ Projekts”.
+329|Meklēt iestatījumus
+330|Meklēt uzdevumus…
+331|Sekundēm jābūt no 0 līdz 59.
+332|Izvēlieties veidni *
+333|Izvēlieties projektu
+334|Atlasīt visus uzdevumus
+335|Izvēlieties klienta līgumu...
+336|Izvēlēties datumu
+337|Izvēlieties galveno klientu...
+338|Izvēlieties galveno piegādātāju...
+339|Izvēlieties piegādātāja līgumu...
+340|Izvēlieties versiju. Pašreizējais plāns pirms aizstāšanas tiek saglabāts kā jauna versija.
+341|Atdaliet vērtības ar komatiem.
+342|Iestatīt uzdevuma Kanban stāvokli
+343|Iestatījums
+344|Kopīgot uzdevumu
+345|Rādīt hierarhijas numurus ("#" kolonna) uzdevumu kokā
+346|Rādīt hierarhijas numurus (# kolonna)
+347|Rādīt uzdevumu izpildi Ganta diagrammā (līnijas + %)
+348|Rādīt uzdevumu izpildi uz joslām (līnija + %)
+349|Rādīt kritisko ceļu
+350|Rādīt rindu atlases kolonnu (izvēles rūtiņas)
+351|Rādīt visu projektu
+352|Tiek rādīts, kad ieslēgts "Rādīt uzdevumu izpildi" (cilne Uzdevums).
+353|Piesakieties, lai pievienotu uzdevumu projektam.
+354|Piesakieties, lai pārvaldītu projektus
+355|Nepieciešama pieteikšanās
+356|Rezerve
+357|Gludas
+358|Kārtot pēc
+359|Avota projekts
+360|Taisnleņķa
+361|Posms
+362|Posms (var būt tukšs)
+363|Posma nosaukums
+364|Posma krāsa
+365|Posma nosaukums
+366|Sākums
+367|Sākuma stunda (0-23)
+368|Sākuma min. (0-59)
+369|Sākuma sek. (0-59)
+370|Sākuma datums nevar būt pēc beigu datuma.
+371|Sākt ne agrāk par (YYYY-MM-DD, tukšs = pēc iespējas ātrāk)
+372|Sākas, tiklīdz to atļauj projekts (vai tā ierobežojums).
+373|Saglabā veidnes struktūru, uzdevumus, atkarības, posmus un iestatījumus veidņu tabulās. Uzdevumu Kanban posmu vērtības netiek iekļautas.
+374|Apakšposms
+375|Uzdevums
+376|Uzdevuma joslas krāsa
+377|Uzdevuma informācija nokopēta
+378|Uzdevuma nosaukums
+379|Uzdevums nav atrasts.
+380|Uzdevuma izpildes līnija
+381|Uzdevuma izpildes līnija: novietojums uz joslas, krāsa
+382|Uzdevumu koka kolonnas (velciet kolonnas galveni, lai to pārvietotu, velciet galvenes atdalītāju, lai mainītu platumu, ar labo klikšķi / ilgu pieskārienu galvenei pievienojiet pielāgotu kolonnu)
+383|Uzdevumu koka kolonnas: noklusējuma secība, noklusējuma platumi
+384|Uzdevumu koks: rindu komandas
+385|Uzdevumu koks: rindu komandas (uzvedināšanas panelis / labā klikšķa izvēlne)
+386|Veidnes nosaukums *
+387|Veidnes nosaukums ir obligāts.
+388|Ganta zīmētāju neizdevās palaist.
+389|Eksports neizdevās.
+390|Failā nav projekta.
+391|Failā nav uzdevumu saraksta.
+392|Fails nav derīgs JSON.
+393|Projekts (vairs) nepastāv.
+394|Projekts ar visiem posmiem, uzdevumiem, atskaites punktiem un atkarībām (+ jūsu Ganta iestatījumi).
+395|Tiek saglabāts viss plāns: projekta dati, posmi, uzdevumi, atskaites punkti, atkarības un Kanban. Versija pēc tam nekad nemainās.
+396|Šis nav projekta datu fails (project_data_….json).
+397|Šis mēnesis
+398|Šajā posmā vēl nav uzdevumu - vispirms pievienojiet tos.
+399|Šim uzdevumam vēl nav datumu - to nevar pievienot Google kalendāram.
+400|Šī nedēļa
+401|Šis gads
+402|Laika mērogā
+403|Tīkls laika mērogā: bultas garums = ilgums, punktēts = brīvā rezerve
+404|Līdz (YYYY-MM-DD)
+405|Šodien
+406|Šodien → projekta beigas
+407|Koks
+408|Tips
+409|Noņemt atzīmi visām versijām (nekas netiek salīdzināts)
+410|Atsaukt
+411|Atsaukt pēdējo darbību?
+412|Versijas nosaukums
+413|Versijas
+414|Versijas vēl nav uzstādītas
+415|Caur posmu
+416|Violets
+417|WIP limits (neobligāts)
+418|Gaida (priekšteči)
+419|Nedēļa
+420|Viss projekts
+421|Tikai darba dienas (izlaist nedēļas nogales)
+422|Gads
+423|Gads (ceturkšņi)
+424|Dzeltens
+425|Jums vēl nav projektu - izveidojiet to panelī
+426|Tuvināt
+427|Tālināt
+428|pēc iespējas ātrāk
+429|piem., Klienta apstiprinātais bāzes plāns
+430|piem., Procesā
+431|piem., Q4 mājaslapas pārveide
+432|piem., Standarta tīmekļa lietotnes veidne
+433|piem., bultas, izpilde, kolonna
+434|uzdevumu koks / Ganta diagramma nav redzama ekrānā
+435|{{tip}} (pašlaik nav pieejams)

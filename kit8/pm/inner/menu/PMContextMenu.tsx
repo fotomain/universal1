@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import PMMenuItem, { PMMenuItemProps } from './PMMenuItem';
+import { pmT } from '../../i18n/pmT';
 
 export const PM_MENU_WIDTH = 196;
 export const PM_MENU_ITEM_HEIGHT = 40;
@@ -50,7 +51,7 @@ export default function PMContextMenu({ x, y, caption, items, onClose, testID, w
       <View style={[styles.menu, { left, top, width, maxHeight: maxH, backgroundColor: c.surface, borderColor: c.border }]} testID={testID}>
         {!!caption && (
           <Text numberOfLines={1} style={[styles.caption, { color: c.text }]} testID={`${testID}-caption`}>
-            {caption}
+            {pmT(caption)}
           </Text>
         )}
         <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">

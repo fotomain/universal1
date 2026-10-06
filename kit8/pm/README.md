@@ -483,3 +483,79 @@ Skia `PMTreeColumnsHeader` - import it by path) · `customColumns/` `PMTreeHeade
   `useUxuiCurrentJSON` (dashboard, Project settings, Edit task, task page, dependency). The Skia canvases register a snapshot.
 * **Touch** - dependency drawing starts at once from the (bigger) link circles of the SELECTED bar; the bar panel sits one row
   below the bar; the Tree | Gantt divider moves after a long touch (wide grab zone); the project bar scrolls horizontally.
+
+## 2026-10-06: Export menu (PDF / JSON / MS Project), DateInputApp, outlined buttons, translations
+
+### Export (Gantt bar → **Export**)
+
+`view/gantt/buttons/PMGanttExportButton.tsx` (replaces the PDF button; **⇅** still opens Project settings → Import / Export)
+opens a `PMContextMenu` under the button:
+
+| item | does | code |
+|---|---|---|
+| **Export to PDF** | task tree + Gantt chart as on the screen, **project name above, start – finish dates under it**, the **main FAB is not in the picture** | `crud/exchange/pdf/exportDashboardToPdf.ts` (`exportProjectDashboardToPdf`, `dashboardPdfHeaderOf`), `pdfDocument.ts` (`PMPdfHeader`, `pdfHeaderLines`) |
+| **Export to JSON** | `project_data_<rowGUID>.json` from the open project (store, no DB round trip) | `crud/exchange/project/export/exportProjectToFile.ts` (`exportOpenProjectToFile`) |
+| **Export to MSProject** | opens `PMExportToMSProject` | `crud/exchange/msproject/` |
+
+* PDF header: drawn into the picture before it is encoded. Web = 2D canvas with the system fonts (any alphabet -
+  CanvasKit only has the bundled Latin font); iOS / Android = Skia `matchFont` system font. Dates use the project's
+  `planDateInputFormat` when it is a full date format, else YYYY-MM-DD; finish = last day (the store's finish is exclusive).
+* FAB: `captureAppScreenshot({ hideFab: true })` (`kit8/lib/shareScreenshot.ts`) → `useHiddenDuringScreenshot()` makes
+  `FABAppComponent` render nothing while the picture is taken. "Share screenshot" still shows the FAB.
+* **`PMExportToMSProject.tsx`**: "Export custom fields" check boxes **Export Kanban Stage** (→ custom field `Text1`,
+  alias "Kanban Stage") and **Export Kanban Percent** (→ `Number1`, alias "Kanban Percent"), buttons Cancel / **Export**
+  (equal size). Result: `<Project_name>_<time>.xml`. Open in MS Project: File → Open → the file → *As a new project*.
+* `msProjectXml.ts` (pure, `buildMSProjectXml`) follows the Project XML Data Interchange schema
+  ([elements and structure](https://learn.microsoft.com/en-us/office-project/xml-data-interchange/project-elements-and-xml-structure?view=project-client-2016),
+  [schema reference](https://learn.microsoft.com/en-us/office-project/xml-data-interchange/project-xml-data-interchange-schema-reference?view=project-client-2016)):
+  `<Project xmlns="http://schemas.microsoft.com/project">` → Name / StartDate / FinishDate / calendar settings →
+  `<ExtendedAttributes>` (definitions of the checked custom fields) → `<Calendars>` (one "Standard" base calendar:
+  Mon–Fri when the project skips weekends, else 7 days; 08:00–12:00 + 13:00–17:00) → `<Tasks>`: every stage / task /
+  milestone in tree order with UID, ID, Name, WBS, OutlineNumber, OutlineLevel, Start, Finish, Duration (`PT16H0M0S` =
+  2 working days), Milestone, Summary, Critical, PercentComplete, ConstraintType (4 = start no earlier than) +
+  ConstraintDate, Notes, `<PredecessorLink>` per dependency (Type 0 FF · 1 FS · 2 SF · 3 SS, LinkLag in tenths of a
+  minute) and `<ExtendedAttribute>` values. Elements are written in the order of the schema.
+  Data = store tasks + CPM schedule + `store_kanban` (`exportProjectToMSProject.ts`).
+* Project settings → Import / Export → **Export** tab: three buttons of equal size - Export to JSON · Export to PDF
+  (closes the window first) · Export to MS Project. PDF / MS Project need the project to be the one open on the dashboard.
+* Tests: `__tests__/pm/crud/exchange/msProjectXml.test.ts`, `__tests__/pm/ui/exportUi.test.tsx`.
+
+### Buttons
+
+`ButtonApp` `variant="outlined"` = transparent background + border and label in the button color (primary by default)
+in every design system; contained and outlined buttons have the same outer size. New props `minWidth`, `height`;
+`width` = fixed size (label cut with …). `PMDialogButton` got `minWidth`. Equal-size groups use
+`PM_DIALOG_BUTTON_WIDTH` (Cancel / Save, Cancel / Export) and `PM_EXPORT_BUTTON_WIDTH` (export buttons, Save as template).
+The Project settings window uses outlined buttons only.
+
+### Date fields = `DateInputApp`
+
+`kit8/components/common/date_input/DateInputApp.tsx` looks like `TextInputApp` in the active design system:
+calendar icon **inside the input at the left** (opens `DatePickerModal`), close / clear icon **inside at the right**
+(when there is text), the text stays editable. `parse` / `format` props convert text ↔ the calendar's local Date
+(`dateInputFormat.ts`). testIDs: `testID` (input), `${pickerTestID ?? testID + '-datepicker'}-trigger`, `${testID}-clear`.
+
+PM wrapper `inner/inputs/PMDateInput.tsx` (`dateFormat` = project `planDateInputFormat`, UTC days; a picked day is the
+same calendar day in every time zone). Used by: Project settings (start, finish), Chart period (from, to), task editor
+(start no earlier than, finish), New project from template (start). The inline cell editors of the tree
+(`EditTaskStartDate` / `EditTaskFinishDate`) keep their compact `SelectDateApp` icon - a 44 px field does not fit a tree row.
+
+### Translations (`kit8/pm/i18n`)
+
+The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es, ar, fr, bn, pt, ru, de, nl, lv, fa, lt, et).
+
+* `pmT('English text', values?)` - **the English text is the key**; a text without a translation is shown in English.
+  `{{name}}` placeholders. `usePMLanguage()` re-creates the dashboard / task page when the language changes.
+* Translated automatically at the shared building blocks: `PMIconButton` (label + tip), `PMDialogButton`, `PMMenuItem`,
+  `PMContextMenu` caption, `PMTooltip` (every tip), the error bar. Static `<Text>` contents and `label / title /
+  placeholder` props of the PM screens are wrapped in `pmT(...)`.
+* Dictionaries: `i18n/src/<lang>.txt` (`N|translation`, N = position in `i18n/locales/keys.ts`) →
+  `python3 kit8/pm/i18n/src/build.py` → `i18n/locales/<lang>.ts` + `index.ts` (generated). 435 texts × 14 languages.
+  The translations were written by the assistant and were not reviewed by native speakers.
+* Add a text: use `pmT('New text')` in the code, append `"New text",` to `keys.ts`, add the `N|…` line to every
+  `src/<lang>.txt`, run `build.py`. `__tests__/pm/i18n/pmT.test.ts` fails when a language misses a key.
+* Still English (not wrapped yet): texts built from template strings with values inside (e.g. "Delete the 3 selected
+  row(s)", approval questions, status lines of import), demo data, SQL-setup hints, and everything **drawn by Skia**
+  (tree column titles, month names of the time scale, bar labels): the bundled Skia font (Space Grotesk) has Latin
+  glyphs only, so Cyrillic / Arabic / CJK / Indic text cannot be drawn there until another font is bundled.
+* Not done: right-to-left layout for ar / fa, calendar (`DatePickerModal`) locales other than English.

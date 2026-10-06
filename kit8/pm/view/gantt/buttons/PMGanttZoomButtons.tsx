@@ -3,6 +3,7 @@
 import React from 'react';
 import { PMPalette } from '../../theme';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttZoomButtons({
   palette,
@@ -17,9 +18,9 @@ export default function PMGanttZoomButtons({
 }) {
   return (
     <>
-      <PMIconButton testID="pm-gantt-zoom-out" icon="zoom_out" title="Zoom out" color={palette.text} onPress={onZoomOut} />
-      <PMIconButton testID="pm-gantt-zoom-in" icon="zoom_in" title="Zoom in" color={palette.text} onPress={onZoomIn} />
-      <PMIconButton testID="pm-gantt-fit" icon="fit_screen" title="Fit to screen" color={palette.text} onPress={onFit} />
+      <PMIconButton testID="pm-gantt-zoom-out" icon="zoom_out" title={pmT('Zoom out')} color={palette.text} onPress={onZoomOut} />
+      <PMIconButton testID="pm-gantt-zoom-in" icon="zoom_in" title={pmT('Zoom in')} color={palette.text} onPress={onZoomIn} />
+      <PMIconButton testID="pm-gantt-fit" icon="fit_screen" title={pmT('Fit to screen')} color={palette.text} onPress={onFit} />
     </>
   );
 }

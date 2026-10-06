@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useFAB, useFABCurrentContextActions } from '../../providers/FABProvider';
 import { CustomLightTheme } from '../../theme/palettes';
 import { getFabMainColors, getFabMiniColors } from './fabColors';
+import { useHiddenDuringScreenshot } from '../../lib/shareScreenshot';
 
 export interface FABAppAction {
   icon: string;
@@ -35,6 +36,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   /** commands of the open screen (FABProvider.useFABContextActions), e.g. the project management screens */
   const contextActions = useFABCurrentContextActions();
   const win = useWindowDimensions();
+  const hiddenForScreenshot = useHiddenDuringScreenshot();
 
   const fabIdRef = useRef('app-global-fab');
   const [isOpen, setIsOpen] = useState(false);
@@ -138,6 +140,9 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
 
   // If bottom tabs are visible, raise the FAB higher so it doesn't overlap
   const bottomOffset = bottomTabsAreVisible ? 80 : 24;
+
+  // a picture without the floating button is being taken (project management: Export to PDF)
+  if (hiddenForScreenshot) return null;
 
   return (
     <View style={styles.fixedWrapper} pointerEvents="box-none">

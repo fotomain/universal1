@@ -1,1 +1,0 @@
-{"extends": "./tsconfig.json", "compilerOptions": {"noEmit": true, "skipLibCheck": true}, "include": ["__tests__/pm/**/*", "kit8/pm/**/*", "kit8/components/common/ButtonApp.tsx", "expo-env.d.ts"]}

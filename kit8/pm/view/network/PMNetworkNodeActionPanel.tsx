@@ -9,6 +9,7 @@ import PMRowActionButtons from '../../inner/buttons/PMRowActionButtons';
 import PMFloatingRowPanel from '../../inner/panels/PMFloatingRowPanel';
 import { PMPalette } from '../theme';
 import { PMCrud } from '../../crud/usePMCrud';
+import { pmT } from '../../i18n/pmT';
 
 export const PM_NET_PANEL_HEIGHT = 26;
 
@@ -40,7 +41,7 @@ export default function PMNetworkNodeActionPanel({
         size={16}
         testID={`pm-net-node-add-${guid}`}
         icon="add"
-        title="Add task below"
+        title={pmT('Add task below')}
         color={palette.primary}
         onPress={() => crud.createTask(guid)}
       />

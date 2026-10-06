@@ -4,6 +4,7 @@
 import React from 'react';
 import ButtonApp from '../../../components/common/ButtonApp';
 import { usePMTip } from '../tooltip/PMTooltip';
+import { pmT } from '../../i18n/pmT';
 
 const humanize = (icon: string) => icon.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
@@ -27,8 +28,9 @@ export interface PMIconButtonProps {
 }
 
 export function PMIconButton({ icon, label, onPress, color, activeColor, active, disabled, testID, title, size, compact, width, badge }: PMIconButtonProps) {
-  const tipText = title || label || humanize(icon);
-  const tip = usePMTip(disabled ? `${tipText} (not available now)` : tipText);
+  // title / label are English texts: shown in the app language (i18n/pmT)
+  const tipText = pmT(title || label || humanize(icon));
+  const tip = usePMTip(disabled ? pmT('{{tip}} (not available now)', { tip: tipText }) : tipText);
   return (
     <ButtonApp
       ref={tip.ref}
@@ -36,7 +38,7 @@ export function PMIconButton({ icon, label, onPress, color, activeColor, active,
       testID={testID}
       icon={icon}
       iconSize={size}
-      title={label}
+      title={label ? pmT(label) : label}
       accessibilityLabel={tipText}
       accessibilityHint={tip.accessibilityHint}
       onPress={onPress}

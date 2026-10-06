@@ -13,6 +13,7 @@ import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { PMTipIcon } from '../../inner/buttons';
 import { usePMStore } from '../../store/store_pm';
 import type { PMKanbanCard as Card } from './kanbanModel';
+import { pmT } from '../../i18n/pmT';
 
 const IS_WEB = Platform.OS === 'web';
 const DOUBLE_TAP_MS = 320;
@@ -152,7 +153,7 @@ function PMKanbanCardInner({
       )}
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={card.name} style={IS_WEB ? ({ cursor: readOnly ? 'pointer' : 'grab' } as any) : null}>
         <View style={[styles.titleRow, !!onToggleChecked && !readOnly ? { paddingRight: 24 } : null]}>
-          {card.kind === 'milestone' && <PMTipIcon tip="Milestone" testID={`pm-kanban-ms-${card.guid}`} name="flag" size={14} color={palette.milestone} style={{ marginRight: 4 }} />}
+          {card.kind === 'milestone' && <PMTipIcon tip={pmT('Milestone')} testID={`pm-kanban-ms-${card.guid}`} name="flag" size={14} color={palette.milestone} style={{ marginRight: 4 }} />}
           <Text style={[styles.title, { color: palette.text }]} numberOfLines={2}>
             {card.name || '(no name)'}
           </Text>
@@ -234,9 +235,9 @@ function PMKanbanCardInner({
         </Text>
         {!readOnly && (
           <>
-            <PMIconButton testID={`pm-kanban-left-${card.guid}`} icon="chevron_left" title="Previous stage" color={palette.text} size={16} compact disabled={!canMoveLeft} onPress={() => onMoveBy(card.guid, -1)} />
-            <PMIconButton testID={`pm-kanban-right-${card.guid}`} icon="chevron_right" title="Next stage" color={palette.text} size={16} compact disabled={!canMoveRight} onPress={() => onMoveBy(card.guid, 1)} />
-            <PMIconButton testID={`pm-kanban-edit-${card.guid}`} icon="edit" title="Edit task (name, progress %, dates…)" color={palette.text} size={16} compact onPress={() => onEdit(card.guid)} />
+            <PMIconButton testID={`pm-kanban-left-${card.guid}`} icon="chevron_left" title={pmT('Previous stage')} color={palette.text} size={16} compact disabled={!canMoveLeft} onPress={() => onMoveBy(card.guid, -1)} />
+            <PMIconButton testID={`pm-kanban-right-${card.guid}`} icon="chevron_right" title={pmT('Next stage')} color={palette.text} size={16} compact disabled={!canMoveRight} onPress={() => onMoveBy(card.guid, 1)} />
+            <PMIconButton testID={`pm-kanban-edit-${card.guid}`} icon="edit" title={pmT('Edit task (name, progress %, dates…)')} color={palette.text} size={16} compact onPress={() => onEdit(card.guid)} />
           </>
         )}
       </View>

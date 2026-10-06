@@ -28,7 +28,8 @@ import { kanbanStageProgressOf } from '../../model/kanbanTypes';
 import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 import IconApp from '../../../components/common/IconApp';
 import ColorPickerApp from '../../../components/common/ColorPickerApp';
-import SelectDateApp from '../../../components/common/SelectDateApp';
+import PMDateInput from '../../inner/inputs/PMDateInput';
+import { pmT } from '../../i18n/pmT';
 
 const SWATCHES = [null, '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string }[] = [
@@ -332,9 +333,9 @@ export default function PMTaskEditModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: themeColors.text }]}>Edit {summary ? 'stage' : kind}</Text>
-            <PMIconButton testID="pm-edit-google-calendar" icon="event" title="Add to Google Calendar" color={themeColors.text} onPress={() => crud.addToGoogleCalendar(task.rowGUID)} />
+            <PMIconButton testID="pm-edit-google-calendar" icon="event" title={pmT('Add to Google Calendar')} color={themeColors.text} onPress={() => crud.addToGoogleCalendar(task.rowGUID)} />
             <ShareScreenshotButton testID="pm-edit-share" color={themeColors.text} />
-            <PMIconButton testID="pm-edit-close" icon="close" title="Cancel (close without saving)" color={themeColors.text} onPress={close} />
+            <PMIconButton testID="pm-edit-close" icon="close" title={pmT('Cancel (close without saving)')} color={themeColors.text} onPress={close} />
           </View>
 
           {/* TopTabs Bar: TabMain, TabUXUI */}
@@ -373,7 +374,7 @@ export default function PMTaskEditModal({
                       },
                     ]}
                   >
-                    {tab.label}
+                    {pmT(tab.label)}
                   </Text>
                 </Pressable>
               );
@@ -386,7 +387,7 @@ export default function PMTaskEditModal({
               testID="pm-task-tab-main-content"
               style={activeTab === 'TabMain' ? undefined : { display: 'none' }}
             >
-              <Text style={labelStyle}>Name</Text>
+              <Text style={labelStyle}>{pmT('Name')}</Text>
               <TextInput
                 testID="pm-edit-name"
                 value={name}
@@ -396,7 +397,7 @@ export default function PMTaskEditModal({
                 onSubmitEditing={save}
               />
 
-              <Text style={labelStyle}>Type</Text>
+              <Text style={labelStyle}>{pmT('Type')}</Text>
               <View style={styles.segment}>
                 {KINDS.map((k, i) => (
                   <Pressable
@@ -422,7 +423,7 @@ export default function PMTaskEditModal({
               {!summary ? (
                 <View style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>Duration (working days)</Text>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Duration (working days)')}</Text>
                     <TextInput
                       testID="pm-edit-days"
                       value={kind === 'milestone' ? '0' : days}
@@ -433,7 +434,7 @@ export default function PMTaskEditModal({
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>Progress %</Text>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Progress %')}</Text>
                     <TextInput
                       testID="pm-edit-progress"
                       value={progress}
@@ -444,7 +445,7 @@ export default function PMTaskEditModal({
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>Kanban stage progress %</Text>
+                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Kanban stage progress %')}</Text>
                     <TextInput
                       testID="pm-edit-kanban-progress"
                       value={kanbanProgress}
@@ -457,7 +458,7 @@ export default function PMTaskEditModal({
                 </View>
               ) : (
                 <View style={{ marginTop: 2 }}>
-                  <Text style={labelStyle}>Kanban stage progress %</Text>
+                  <Text style={labelStyle}>{pmT('Kanban stage progress %')}</Text>
                   <TextInput
                     testID="pm-edit-kanban-progress"
                     value={kanbanProgress}
@@ -473,35 +474,21 @@ export default function PMTaskEditModal({
               {!summary && (
                 <View style={styles.datesContainer}>
                   {/* Start Date */}
-                  <Text style={labelStyle}>Start no earlier than (YYYY-MM-DD, empty = ASAP)</Text>
-                  <View style={styles.dateRow}>
-                    <TextInput
-                      testID="pm-edit-start"
-                      value={start}
-                      onChangeText={handleStartChange}
-                      placeholder="as soon as possible"
-                      placeholderTextColor={themeColors.border}
-                      style={[inputStyle, { flex: 1 }]}
-                      autoCapitalize="none"
-                    />
-                    <SelectDateApp
-                      trigger="icon"
-                      testID="pm-edit-start-datepicker"
-                      style={{ marginLeft: 6 }}
-                      value={start.trim() ? (parsePlanDate(start, planDateInputFormat) ?? parseDateISO(start)) : undefined}
-                      onSelect={(d) => {
-                        if (d) handleStartChange(planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), planDateInputFormat));
-                        else handleStartChange('');
-                      }}
-                    />
-                  </View>
+                  <Text style={labelStyle}>{pmT('Start no earlier than (YYYY-MM-DD, empty = ASAP)')}</Text>
+                  <PMDateInput
+                    testID="pm-edit-start"
+                    dateFormat={planDateInputFormat}
+                    value={start}
+                    onChangeText={handleStartChange}
+                    placeholder={pmT('as soon as possible')}
+                  />
 
                   {/* Start sub-units: hours, minutes, seconds */}
                   {(planHour || planMinute || planSecond) && (
                     <View style={styles.subUnitsRow}>
                       {planHour && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>Start Hour (0-23)</Text>
+                          <Text style={styles.subUnitLabel}>{pmT('Start Hour (0-23)')}</Text>
                           <TextInput
                             testID="pm-edit-start-hour"
                             value={startHour}
@@ -513,7 +500,7 @@ export default function PMTaskEditModal({
                       )}
                       {planMinute && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>Start Min (0-59)</Text>
+                          <Text style={styles.subUnitLabel}>{pmT('Start Min (0-59)')}</Text>
                           <TextInput
                             testID="pm-edit-start-minute"
                             value={startMinute}
@@ -525,7 +512,7 @@ export default function PMTaskEditModal({
                       )}
                       {planSecond && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>Start Sec (0-59)</Text>
+                          <Text style={styles.subUnitLabel}>{pmT('Start Sec (0-59)')}</Text>
                           <TextInput
                             testID="pm-edit-start-second"
                             value={startSecond}
@@ -542,34 +529,20 @@ export default function PMTaskEditModal({
                   {kind !== 'milestone' && (
                     <>
                       <Text style={labelStyle}>Finish date ({planDateInputFormat})</Text>
-                      <View style={styles.dateRow}>
-                        <TextInput
-                          testID="pm-edit-finish"
-                          value={finish}
-                          onChangeText={handleFinishChange}
-                          placeholder={planDateInputFormat}
-                          placeholderTextColor={themeColors.border}
-                          style={[inputStyle, { flex: 1 }]}
-                          autoCapitalize="none"
-                        />
-                        <SelectDateApp
-                          trigger="icon"
-                          testID="pm-edit-finish-datepicker"
-                          style={{ marginLeft: 6 }}
-                          value={finish.trim() ? (parsePlanDate(finish, planDateInputFormat) ?? parseDateISO(finish)) : undefined}
-                          onSelect={(d) => {
-                            if (d) handleFinishChange(planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), planDateInputFormat));
-                            else handleFinishChange('');
-                          }}
-                        />
-                      </View>
+                      <PMDateInput
+                        testID="pm-edit-finish"
+                        dateFormat={planDateInputFormat}
+                        value={finish}
+                        onChangeText={handleFinishChange}
+                        placeholder={planDateInputFormat}
+                      />
 
                       {/* Finish sub-units: hours, minutes, seconds */}
                       {(planHour || planMinute || planSecond) && (
                         <View style={styles.subUnitsRow}>
                           {planHour && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>Finish Hour (0-23)</Text>
+                              <Text style={styles.subUnitLabel}>{pmT('Finish Hour (0-23)')}</Text>
                               <TextInput
                                 testID="pm-edit-finish-hour"
                                 value={finishHour}
@@ -581,7 +554,7 @@ export default function PMTaskEditModal({
                           )}
                           {planMinute && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>Finish Min (0-59)</Text>
+                              <Text style={styles.subUnitLabel}>{pmT('Finish Min (0-59)')}</Text>
                               <TextInput
                                 testID="pm-edit-finish-minute"
                                 value={finishMinute}
@@ -593,7 +566,7 @@ export default function PMTaskEditModal({
                           )}
                           {planSecond && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>Finish Sec (0-59)</Text>
+                              <Text style={styles.subUnitLabel}>{pmT('Finish Sec (0-59)')}</Text>
                               <TextInput
                                 testID="pm-edit-finish-second"
                                 value={finishSecond}
@@ -617,7 +590,7 @@ export default function PMTaskEditModal({
                 </Text>
               )}
 
-              <Text style={labelStyle}>Notes</Text>
+              <Text style={labelStyle}>{pmT('Notes')}</Text>
               <TextInput
                 testID="pm-edit-notes"
                 value={notes}
@@ -634,8 +607,8 @@ export default function PMTaskEditModal({
             >
               {/* TabUXUI -> Colors */}
               <View testID="pm-task-colors-section">
-                <Text style={[labelStyle, { fontWeight: '700', fontSize: 13, marginBottom: 8 }]}>Colors</Text>
-                <Text style={labelStyle}>Task bar color</Text>
+                <Text style={[labelStyle, { fontWeight: '700', fontSize: 13, marginBottom: 8 }]}>{pmT('Colors')}</Text>
+                <Text style={labelStyle}>{pmT('Task bar color')}</Text>
                 <View style={styles.swatches}>
                   {SWATCHES.map((c) => (
                     <Pressable
@@ -651,7 +624,7 @@ export default function PMTaskEditModal({
                         },
                       ]}
                     >
-                      {!c && <Text style={{ fontSize: 10, color: themeColors.text }}>auto</Text>}
+                      {!c && <Text style={{ fontSize: 10, color: themeColors.text }}>{pmT('auto')}</Text>}
                     </Pressable>
                   ))}
                 </View>
@@ -662,7 +635,7 @@ export default function PMTaskEditModal({
                     value={color}
                     onChange={setColor}
                     defaultColor={themeColors.primary}
-                    title="Custom task color"
+                    title={pmT('Custom task color')}
                   />
                 </View>
               </View>
@@ -677,12 +650,12 @@ export default function PMTaskEditModal({
 
           {/* Footer Actions */}
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-edit-delete" kind="danger" title="Delete" style={{ marginLeft: 0 }} onPress={() => { close(); crud.deleteTask(task.rowGUID); }} />
-            <PMDialogButton testID="pm-edit-open" kind="text" title="Details" onPress={() => { close(); crud.openInfo(task.rowGUID); }} />
+            <PMDialogButton testID="pm-edit-delete" kind="danger" title={pmT('Delete')} style={{ marginLeft: 0 }} onPress={() => { close(); crud.deleteTask(task.rowGUID); }} />
+            <PMDialogButton testID="pm-edit-open" kind="text" title={pmT('Details')} onPress={() => { close(); crud.openInfo(task.rowGUID); }} />
             {/* Cancel + Save always stay together on the right (phones: they wrap as ONE group) */}
             <View style={styles.actionsRight}>
-              <PMDialogButton testID="pm-edit-cancel" kind="secondary" title="Cancel" color={themeColors.text} style={{ marginLeft: 0 }} onPress={close} />
-              <PMDialogButton testID="pm-edit-save" kind="primary" title="Save" onPress={save} />
+              <PMDialogButton testID="pm-edit-cancel" kind="secondary" title={pmT('Cancel')} color={themeColors.text} style={{ marginLeft: 0 }} onPress={close} />
+              <PMDialogButton testID="pm-edit-save" kind="primary" title={pmT('Save')} onPress={save} />
             </View>
           </View>
         </View>

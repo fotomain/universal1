@@ -11,6 +11,9 @@ export interface ButtonAppProps {
   onPress: () => void;
   /**
    * contained / outlined / text follow the active design system.
+   * outlined = transparent background + a border in the button color (primary by default) and the label in the
+   * same color - in EVERY design system. Contained and outlined buttons have the same outer size (a contained
+   * button carries a border of its own color), so a row / column of mixed buttons lines up.
    * toolbar = compact icon (+ optional label) button for toolbars and floating panels:
    * transparent, hover highlight (web), `active` state, optional `badge` - same look in
    * every design system.
@@ -33,8 +36,12 @@ export interface ButtonAppProps {
   /** text / icon color override (default: white on contained, `color` otherwise) */
   textColor?: string;
   iconSize?: number;
-  /** fixed width, content centered */
+  /** fixed width, content centered (the label is cut with … when it does not fit) */
   width?: number;
+  /** at least this wide (buttons of one group: same minWidth = equal size, still grows for a long label) */
+  minWidth?: number;
+  /** fixed height (overrides the vertical padding of the design system) */
+  height?: number;
   onLongPress?: () => void;
   delayLongPress?: number;
   onPressIn?: () => void;
@@ -69,6 +76,8 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     textColor,
     iconSize,
     width,
+    minWidth,
+    height,
     onLongPress,
     delayLongPress,
     onPressIn,
@@ -99,7 +108,17 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     delayLongPress,
     onPressIn,
   };
-  const widthStyle = width ? { width, justifyContent: 'center' as const } : null;
+  // fixed width: never shrinks / grows inside a row or a horizontally scrolling toolbar
+  const fixedWidthStyle = width ? { width, minWidth: width, maxWidth: width, flexGrow: 0, flexShrink: 0, justifyContent: 'center' as const } : null;
+  const widthStyle =
+    fixedWidthStyle || minWidth || height
+      ? { ...(fixedWidthStyle || {}), ...(minWidth && !width ? { minWidth } : null), ...(height ? { height, paddingVertical: 0 } : null) }
+      : null;
+  // a fixed-width button never wraps its label onto a second line
+  const labelProps: any = width ? { numberOfLines: 1, ellipsizeMode: 'tail' } : {};
+  const labelFit = width ? { flexShrink: 1 } : null;
+  const isContained = variant === 'contained';
+  const isOutlined = variant === 'outlined';
 
   if (variant === 'toolbar') {
     const tint = active && activeColor ? activeColor : textColor || color || themeColors.text;
@@ -162,7 +181,13 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           }
           buttonColor={variant === 'contained' ? btnColor : undefined}
           textColor={textColor || (variant === 'contained' ? '#ffffff' : btnColor)}
-          style={[{ marginVertical: 6 }, widthStyle, style]}
+          style={[
+            { marginVertical: 6 },
+            // same outer size for contained and outlined; outlined = border in the button color
+            isContained ? { borderWidth: 1, borderColor: disabled ? 'transparent' : btnColor } : isOutlined ? { borderWidth: 1, borderColor: btnColor } : null,
+            widthStyle,
+            style,
+          ]}
         >
           {children || buttonText}
         </PaperButton>
@@ -170,8 +195,6 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     }
 
     case 'tamagui': {
-      const isContained = variant === 'contained';
-      const isOutlined = variant === 'outlined';
 
       const paddingV = size === 'small' ? 8 : size === 'large' ? 14 : 11;
       const paddingH = size === 'small' ? 14 : size === 'large' ? 24 : 18;
@@ -184,15 +207,9 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           activeOpacity={0.8}
           style={[
             {
-              backgroundColor: disabled
-                ? isDark
-                  ? '#374151'
-                  : '#e5e7eb'
-                : isContained
-                ? btnColor
-                : 'transparent',
-              borderWidth: isOutlined ? 1.5 : 0,
-              borderColor: isOutlined ? btnColor : 'transparent',
+              backgroundColor: !isContained ? 'transparent' : disabled ? (isDark ? '#374151' : '#e5e7eb') : btnColor,
+              borderWidth: isOutlined || isContained ? 1.5 : 0,
+              borderColor: isOutlined ? (disabled ? '#9ca3af' : btnColor) : isContained ? (disabled ? 'transparent' : btnColor) : 'transparent',
               borderRadius: 12,
               paddingVertical: paddingV,
               paddingHorizontal: paddingH,
@@ -212,6 +229,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <>
               {icon && <IconApp testID="b5d10e4f-2a6c-7b89-1d23-456789012d04" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
               <Text
+                {...labelProps}
                 style={{
                   color: disabled
                     ? '#9ca3af'
@@ -221,6 +239,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
                   fontSize: size === 'small' ? 13 : size === 'large' ? 17 : 15,
                   fontWeight: '700',
                   letterSpacing: 0.2,
+                  ...labelFit,
                 }}
               >
                 {buttonText}
@@ -232,8 +251,6 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     }
 
     case 'ant': {
-      const isContained = variant === 'contained';
-      const isOutlined = variant === 'outlined';
 
       return (
         <TouchableOpacity
@@ -243,14 +260,10 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           activeOpacity={0.7}
           style={[
             {
-              backgroundColor: disabled
-                ? '#f5f5f5'
-                : isContained
-                ? btnColor
-                : 'transparent',
+              backgroundColor: !isContained ? 'transparent' : disabled ? '#f5f5f5' : btnColor,
               borderWidth: 1,
               borderColor: disabled
-                ? '#d9d9d9'
+                ? variant === 'text' ? 'transparent' : '#d9d9d9'
                 : isOutlined
                 ? btnColor
                 : isContained
@@ -274,6 +287,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <>
               {icon && <IconApp testID="c6e21f50-3b7d-8c90-2e34-567890123e05" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
               <Text
+                {...labelProps}
                 style={{
                   color: disabled
                     ? '#00000040'
@@ -282,6 +296,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
                     : textColor || btnColor,
                   fontSize: size === 'small' ? 13 : 15,
                   fontWeight: '500',
+                  ...labelFit,
                 }}
               >
                 {buttonText}
@@ -293,7 +308,6 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     }
 
     case 'expo': {
-      const isContained = variant === 'contained';
       return (
         <TouchableOpacity
           {...common}
@@ -302,13 +316,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           activeOpacity={0.85}
           style={[
             {
-              backgroundColor: disabled
-                ? isDark
-                  ? '#334155'
-                  : '#e2e8f0'
-                : isContained
-                ? btnColor
-                : 'transparent',
+              backgroundColor: !isContained ? 'transparent' : disabled ? (isDark ? '#334155' : '#e2e8f0') : btnColor,
               borderRadius: 24,
               paddingVertical: 12,
               paddingHorizontal: 22,
@@ -316,8 +324,9 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
               justifyContent: 'center',
               flexDirection: 'row',
               marginVertical: 6,
-              borderWidth: variant === 'outlined' ? 2 : 0,
-              borderColor: btnColor,
+              borderWidth: isOutlined || isContained ? 2 : 0,
+              borderColor: disabled ? (isOutlined ? '#94a3b8' : 'transparent') : btnColor,
+              opacity: disabled && !isContained ? 0.6 : 1,
             },
             widthStyle,
             style,
@@ -329,10 +338,12 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <>
               {icon && <IconApp testID="d7f32a61-4c8e-9d01-3f45-678901234f06" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
               <Text
+                {...labelProps}
                 style={{
                   color: isContained ? textColor || '#ffffff' : textColor || btnColor,
                   fontSize: 16,
                   fontWeight: '800',
+                  ...labelFit,
                 }}
               >
                 {buttonText}
@@ -364,8 +375,6 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
 
     case 'native':
     default: {
-      const isContained = variant === 'contained';
-      const isOutlined = variant === 'outlined';
 
       return (
         <TouchableOpacity
@@ -375,15 +384,9 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           activeOpacity={0.7}
           style={[
             {
-              backgroundColor: disabled
-                ? isDark
-                  ? '#27272a'
-                  : '#e4e4e7'
-                : isContained
-                ? btnColor
-                : 'transparent',
-              borderWidth: isOutlined ? 1 : 0,
-              borderColor: btnColor,
+              backgroundColor: !isContained ? 'transparent' : disabled ? (isDark ? '#27272a' : '#e4e4e7') : btnColor,
+              borderWidth: isOutlined || isContained ? 1 : 0,
+              borderColor: isContained && disabled ? 'transparent' : btnColor,
               borderRadius: 4,
               paddingVertical: 10,
               paddingHorizontal: 16,
@@ -403,10 +406,12 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <>
               {icon && <IconApp testID="e8043b72-5d9f-0e12-4056-789012345a07" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
               <Text
+                {...labelProps}
                 style={{
                   color: isContained ? textColor || '#ffffff' : textColor || btnColor,
                   fontSize: 15,
                   fontWeight: '600',
+                  ...labelFit,
                 }}
               >
                 {buttonText}

@@ -11,6 +11,7 @@ import { PROJECT_KANBAN_STAGE_ENTITY } from '../../../../model/constants';
 import { PM_KANBAN_STAGE_COLORS } from '../../../../model/kanbanTypes';
 import KanbanStageCard from '../../../../../catalog/kanbanstage/KanbanStageCard';
 import type { CardItem } from '../../../../../components/list/web/lib/types';
+import { pmT } from '../../../../i18n/pmT';
 
 // Web only: ListWebCardsComponent renders DOM (@hello-pangea/dnd)
 const ListWebCardsComponent: any =
@@ -87,7 +88,7 @@ export default function PMProjectKanbanStateList({
       <View style={[styles.placeholderCard, { backgroundColor: `${c.border}20`, borderColor: c.border }]}>
         <IconApp name="info" size={24} color={c.text} />
         <Text style={[styles.placeholderText, { color: c.text }]}>
-          Save this project first to manage task Kanban states.
+          {pmT('Save this project first to manage task Kanban states.')}
         </Text>
       </View>
     );
@@ -104,7 +105,7 @@ export default function PMProjectKanbanStateList({
           >
             <IconApp name="view_column" size={16} color={c.primary} />
             <Text style={[styles.stagesBtnText, { color: c.primary }]}>
-              Kanban Stages
+              {pmT('Kanban Stages')}
             </Text>
           </Pressable>
         )}
@@ -115,7 +116,7 @@ export default function PMProjectKanbanStateList({
           style={[styles.addBtn, { backgroundColor: c.primary }]}
         >
           <IconApp name="add" size={16} color="#fff" />
-          <Text style={styles.addBtnText}>Add Stage</Text>
+          <Text style={styles.addBtnText}>{pmT('Add Stage')}</Text>
         </Pressable>
       </View>
 
@@ -142,7 +143,7 @@ export default function PMProjectKanbanStateList({
           contentContainerStyle={{ paddingVertical: 8, gap: 8 }}
           ListEmptyComponent={
             <Text style={[styles.emptyText, { color: `${c.text}88` }]}>
-              No kanban stages configured yet.
+              {pmT('No kanban stages configured yet.')}
             </Text>
           }
           renderItem={({ item, index }) => (
@@ -232,16 +233,16 @@ function StageEditDialog({
             {initialRow ? 'Edit Stage' : 'New Kanban Stage'}
           </Text>
 
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Stage Name</Text>
+          <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('Stage Name')}</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g. In Progress"
+            placeholder={pmT('e.g. In Progress')}
             placeholderTextColor={c.border}
             style={[styles.input, { color: c.text, borderColor: c.border }]}
           />
 
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Color</Text>
+          <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('Color')}</Text>
           <View style={styles.colorRow}>
             {PM_KANBAN_STAGE_COLORS.slice(0, 8).map((clr) => (
               <Pressable
@@ -256,11 +257,11 @@ function StageEditDialog({
             ))}
           </View>
 
-          <Text style={[styles.fieldLabel, { color: c.text }]}>WIP Limit (optional)</Text>
+          <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('WIP Limit (optional)')}</Text>
           <TextInput
             value={wip}
             onChangeText={setWip}
-            placeholder="0 = unlimited"
+            placeholder={pmT('0 = unlimited')}
             placeholderTextColor={c.border}
             keyboardType="numeric"
             style={[styles.input, { color: c.text, borderColor: c.border }]}
@@ -268,10 +269,10 @@ function StageEditDialog({
 
           <View style={styles.dialogActions}>
             <Pressable onPress={onClose} style={[styles.dialogBtn, { borderColor: c.border, borderWidth: 1 }]}>
-              <Text style={{ color: c.text }}>Cancel</Text>
+              <Text style={{ color: c.text }}>{pmT('Cancel')}</Text>
             </Pressable>
             <Pressable onPress={save} style={[styles.dialogBtn, { backgroundColor: c.primary }]}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{pmT('Save')}</Text>
             </Pressable>
           </View>
         </View>

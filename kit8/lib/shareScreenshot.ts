@@ -12,6 +12,7 @@
 //            Android: the picture is put on the clipboard (expo-clipboard setImageAsync) and the share
 //            sheet gets the text (Android's text share sheet cannot carry a base64 picture).
 
+import { useEffect, useState } from 'react';
 import { Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { getUxuiState } from '../redux/storeRef';
@@ -120,9 +121,44 @@ async function captureNative(): Promise<string | null> {
   }
 }
 
+// ---- parts of the app that must not be in a picture (the main FAB over a PDF export) ----
+let hiddenDuringScreenshot = false;
+const hiddenListeners = new Set<(hidden: boolean) => void>();
+
+function setHiddenDuringScreenshot(hidden: boolean) {
+  hiddenDuringScreenshot = hidden;
+  hiddenListeners.forEach((l) => l(hidden));
+}
+
+/** true while a screenshot WITHOUT the floating buttons is taken: the main FAB renders nothing meanwhile. */
+export function useHiddenDuringScreenshot(): boolean {
+  const [hidden, setHidden] = useState(hiddenDuringScreenshot);
+  useEffect(() => {
+    hiddenListeners.add(setHidden);
+    setHidden(hiddenDuringScreenshot);
+    return () => {
+      hiddenListeners.delete(setHidden);
+    };
+  }, []);
+  return hidden;
+}
+
+export interface CaptureAppScreenshotOptions {
+  /** take the picture without the main FAB (FABAppComponent) */
+  hideFab?: boolean;
+}
+
 /** PNG screenshot of the app as base64 (no "data:" prefix); null when it could not be taken. */
-export function captureAppScreenshot(): Promise<string | null> {
-  return Platform.OS === 'web' ? captureWeb() : captureNative();
+export async function captureAppScreenshot(opts: CaptureAppScreenshotOptions = {}): Promise<string | null> {
+  if (!opts.hideFab) return Platform.OS === 'web' ? captureWeb() : captureNative();
+  setHiddenDuringScreenshot(true);
+  try {
+    // let React remove the button and the screen repaint before the picture is taken
+    await new Promise((r) => setTimeout(r, 120));
+    return await (Platform.OS === 'web' ? captureWeb() : captureNative());
+  } finally {
+    setHiddenDuringScreenshot(false);
+  }
 }
 
 function base64ToBlob(b64: string, type: string): Blob {

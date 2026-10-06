@@ -4,6 +4,7 @@
 
 import React from 'react';
 import ButtonApp from '../../../components/common/ButtonApp';
+import { pmT } from '../../i18n/pmT';
 
 export type PMDialogButtonKind = 'primary' | 'secondary' | 'text' | 'danger' | 'dangerOutlined' | 'dangerContained';
 
@@ -17,6 +18,7 @@ export function PMDialogButton({
   loading,
   color,
   width,
+  minWidth,
   style,
 }: {
   title: string;
@@ -29,13 +31,15 @@ export function PMDialogButton({
   /** override the theme color (e.g. themeColors.text for a neutral "Cancel") */
   color?: string;
   width?: number;
+  /** buttons of one group with the same minWidth are equal in size */
+  minWidth?: number;
   style?: any;
 }) {
   const variant = kind === 'primary' || kind === 'dangerContained' ? 'contained' : kind === 'secondary' || kind === 'dangerOutlined' ? 'outlined' : 'text';
   return (
     <ButtonApp
       testID={testID}
-      title={title}
+      title={pmT(title)}
       onPress={onPress}
       variant={variant}
       danger={kind === 'danger' || kind === 'dangerOutlined' || kind === 'dangerContained'}
@@ -45,6 +49,7 @@ export function PMDialogButton({
       loading={loading}
       size="small"
       width={width}
+      minWidth={minWidth}
       style={[{ marginVertical: 0, marginLeft: 8 }, style]}
     />
   );

@@ -13,6 +13,7 @@ import { usePMStore } from '../../store/store_pm';
 import { useProjectSearchQuery } from '../../crud/queries';
 import { formatDateShort } from './scheduling';
 import { PMProjectRow } from '../../model/types';
+import { pmT } from '../../i18n/pmT';
 
 const DEBOUNCE_MS = 220;
 
@@ -99,7 +100,7 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
           onFocus={onFocus}
           onBlur={onBlur}
           onSubmitEditing={() => results[0] && pick(results[0])}
-          placeholder="Find project…"
+          placeholder={pmT('Find project…')}
           placeholderTextColor={`${c.text}88`}
           selectTextOnFocus
           autoCorrect={false}

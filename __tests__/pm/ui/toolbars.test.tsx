@@ -86,6 +86,7 @@ describe('PMGanttToolbar (Gantt bar)', () => {
       'pm-gantt-line-form-squareForm',
       'pm-gantt-task-progress',
       'pm-gantt-import-export',
+      'pm-gantt-export',
       'pm-gantt-vs-network-showGanttChart',
       'pm-gantt-vs-network-showNetworkView',
       'pm-gantt-uxui-settings',

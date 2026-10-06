@@ -21,6 +21,7 @@ import { PMDialogButton } from '../../inner/buttons';
 import IconApp from '../../../components/common/IconApp';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 import { PMProjectRow } from '../../model/types';
+import { pmT } from '../../i18n/pmT';
 
 export interface CreateTemplateFromProjectProps {
   visible: boolean;
@@ -114,13 +115,13 @@ export default function CreateTemplateFromProject({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <IconApp name="bookmark_add" size={22} color={c.primary} style={{ marginRight: 8 }} />
-              <Text style={[styles.title, { color: c.text }]}>Create Template from Project</Text>
+              <Text style={[styles.title, { color: c.text }]}>{pmT('Create Template from Project')}</Text>
             </View>
             <Pressable
               testID="pm-template-close-btn"
               onPress={onClose}
               hitSlop={8}
-              accessibilityLabel="Close"
+              accessibilityLabel={pmT('Close')}
             >
               <IconApp name="close" size={20} color={c.text} />
             </Pressable>
@@ -128,7 +129,7 @@ export default function CreateTemplateFromProject({
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
             {/* Source Project Selector */}
-            <Text style={[styles.label, { color: c.text }]}>Source Project</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Source Project')}</Text>
             <View style={[styles.sourceBox, { borderColor: c.border, backgroundColor: c.background }]}>
               <Text style={[styles.sourceText, { color: c.text }]} numberOfLines={1}>
                 {sourceName}
@@ -136,7 +137,7 @@ export default function CreateTemplateFromProject({
             </View>
 
             {/* Template Name */}
-            <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>Template Name *</Text>
+            <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>{pmT('Template Name *')}</Text>
             <TextInput
               testID="pm-template-name-input"
               value={templateName}
@@ -144,7 +145,7 @@ export default function CreateTemplateFromProject({
                 setTemplateName(t);
                 if (error) setError(null);
               }}
-              placeholder="e.g. Standard Web App Template"
+              placeholder={pmT('e.g. Standard Web App Template')}
               placeholderTextColor={c.text + '66'}
               style={[
                 styles.input,
@@ -158,12 +159,12 @@ export default function CreateTemplateFromProject({
             />
 
             {/* Description */}
-            <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>Description / Notes</Text>
+            <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>{pmT('Description / Notes')}</Text>
             <TextInput
               testID="pm-template-description-input"
               value={description}
               onChangeText={setDescription}
-              placeholder="Optional notes or instructions for this template..."
+              placeholder={pmT('Optional notes or instructions for this template...')}
               placeholderTextColor={c.text + '66'}
               multiline
               numberOfLines={3}
@@ -190,8 +191,7 @@ export default function CreateTemplateFromProject({
             >
               <IconApp name="info" size={16} color={c.primary} style={{ marginRight: 6 }} />
               <Text style={[styles.infoText, { color: c.text + 'CC' }]}>
-                Stores template structure, tasks, dependencies, closure, stages, and settings in
-                template tables. Task Kanban stage values are excluded.
+                {pmT('Stores template structure, tasks, dependencies, closure, stages, and settings in template tables. Task Kanban stage values are excluded.')}
               </Text>
             </View>
 
@@ -208,7 +208,7 @@ export default function CreateTemplateFromProject({
           <View style={[styles.footer, { borderTopColor: c.border }]}>
             <PMDialogButton
               testID="pm-template-cancel-btn"
-              title="Cancel"
+              title={pmT('Cancel')}
               variant="outline"
               color={c.text}
               onPress={onClose}

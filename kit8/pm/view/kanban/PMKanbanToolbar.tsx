@@ -11,6 +11,7 @@ import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../inner/toolba
 import GanttToNetworkViewToggleButtons from '../gantt/toolbars/GanttToNetworkViewToggleButtons';
 import type { PMProjectKanbanStageRow } from '../../model/kanbanTypes';
 import { kanbanStageColorOf } from '../../model/kanbanTypes';
+import { pmT } from '../../i18n/pmT';
 
 export default function PMKanbanToolbar({
   crud,
@@ -42,7 +43,7 @@ export default function PMKanbanToolbar({
   return (
     <PMToolbar background={palette.surface} border={palette.border}>
       <PMTipIcon
-        tip="Board scope: select a stage in the tree to see only its tasks"
+        tip={pmT('Board scope: select a stage in the tree to see only its tasks')}
         testID="pm-kanban-scope-icon"
         name="account_tree"
         size={18}
@@ -61,7 +62,7 @@ export default function PMKanbanToolbar({
           </View>
         )}
       </View>
-      {!!scopeName && <PMIconButton testID="pm-kanban-scope-all" icon="select_all" label="All" title="Show the whole project" color={palette.text} onPress={onClearScope} />}
+      {!!scopeName && <PMIconButton testID="pm-kanban-scope-all" icon="select_all" label={pmT('All')} title={pmT('Show the whole project')} color={palette.text} onPress={onClearScope} />}
       <Text style={[styles.count, { color: palette.textMuted }]} testID="pm-kanban-count">
         {cardCount} {cardCount === 1 ? 'task' : 'tasks'}
       </Text>
@@ -69,7 +70,7 @@ export default function PMKanbanToolbar({
         <PMIconButton
           testID="pm-kanban-no-state"
           icon={noStateFilterOn ? 'filter_alt_off' : 'filter_alt'}
-          label="No state"
+          label={pmT('No state')}
           title={noStateFilterOn ? 'Show all tasks in the tree again' : `Filter the tree: ${noStateCount} task(s) in no column ("No state") - drag them from the tree onto a column`}
           color={palette.text}
           active={noStateFilterOn}
@@ -81,7 +82,7 @@ export default function PMKanbanToolbar({
       <PMToolbarSpacer />
       <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
       <PMToolbarDivider color={palette.border} />
-      <PMIconButton testID="pm-kanban-stages" icon="view_column" label="Kanban Stages" title="Kanban Stages of this project (columns)" color={palette.text} onPress={onOpenStages} />
+      <PMIconButton testID="pm-kanban-stages" icon="view_column" label={pmT('Kanban Stages')} title={pmT('Kanban Stages of this project (columns)')} color={palette.text} onPress={onOpenStages} />
     </PMToolbar>
   );
 }

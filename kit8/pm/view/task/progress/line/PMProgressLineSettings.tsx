@@ -6,6 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { PMProgressLinePosition, PM_DEFAULT_PROGRESS_LINE_COLOR } from './progressLineConstants';
 import PMProgressLinePositionSelector from './PMProgressLinePositionSelector';
 import PMColorSwatchPicker from './PMColorSwatchPicker';
+import { pmT } from '../../../../i18n/pmT';
 
 export function PMProgressLinePreview({ color, bar, border }: { color: string; bar: string; border: string }) {
   return (
@@ -44,7 +45,7 @@ export default function PMProgressLineSettings({
       <Text style={[styles.section, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.label, { color: colors.text }]}>{positionLabel}</Text>
       <PMProgressLinePositionSelector testID={`${testID}-pos`} value={position} onChange={onPosition} colors={colors} />
-      <Text style={[styles.label, { color: colors.text }]}>Color</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{pmT('Color')}</Text>
       <PMColorSwatchPicker
         testID={`${testID}-color`}
         value={color === PM_DEFAULT_PROGRESS_LINE_COLOR ? null : color}

@@ -28,6 +28,7 @@ import PMNetworkRadioGroup, { PMRadioOption } from './PMNetworkRadioGroup';
 import PMNetworkDiagram from './PMNetworkDiagram';
 import PMNetworkSchedule from './PMNetworkSchedule';
 import { canEdit, useActivityNetwork, useNetworkViewSetters } from './useNetworkView';
+import { pmT } from '../../i18n/pmT';
 
 export const PM_NETWORK_VIEW_MODES: PMRadioOption<PMNetworkViewMode>[] = [
   {
@@ -103,7 +104,7 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
                   },
                 ]}
               >
-                Read-only
+                {pmT('Read-only')}
               </Text>
             )}
             {showGanttToggle && (
@@ -115,7 +116,7 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
             <PMIconButton
               testID="pm-net-critical"
               icon="route"
-              label="Critical path"
+              label={pmT('Critical path')}
               width={PM_WIDE_ACTION_WIDTH}
               active={showCritical}
               activeColor={palette.critical}

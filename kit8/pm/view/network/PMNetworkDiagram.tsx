@@ -37,6 +37,7 @@ import { arrowHead, edgePath, endAngle, labelAnchor, PMPt, svgPressProps } from 
 import { layeredLayout, linkLabel, NET_FINISH, NET_START, PMActivityNetwork, PMNetActivity } from './networkModel';
 import { PMNetworkInteraction, useNetworkInteraction, useNetworkViewSetters } from './useNetworkView';
 import { PMNetworkDiagramVariant } from '../../model/types';
+import { pmT } from '../../i18n/pmT';
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -123,7 +124,7 @@ export default function PMNetworkDiagram({ net, palette, crud, readOnly }: { net
         <PMToolbarDivider color={palette.border} />
         <DependencyArrowLineFormSelector color={palette.text} activeColor={palette.primary} border={palette.border} onChange={setters.setLinkLineForm} />
         <PMToolbarSpacer />
-        {variant === 'cpmNodes' && <Text style={[styles.key, { color: palette.textMuted }]}>ES · D · EF / LS · TF · LF (working days)</Text>}
+        {variant === 'cpmNodes' && <Text style={[styles.key, { color: palette.textMuted }]}>{pmT('ES · D · EF / LS · TF · LF (working days)')}</Text>}
         <PMNetworkLegend
           palette={palette}
           items={legendItems(palette, {
@@ -136,7 +137,7 @@ export default function PMNetworkDiagram({ net, palette, crud, readOnly }: { net
       <View style={styles.body}>
         {net.activities.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={{ color: palette.textMuted }}>No tasks to show yet.</Text>
+            <Text style={{ color: palette.textMuted }}>{pmT('No tasks to show yet.')}</Text>
           </View>
         ) : (
           <PMNetworkCanvas

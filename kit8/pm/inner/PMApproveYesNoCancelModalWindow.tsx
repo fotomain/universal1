@@ -15,6 +15,7 @@ import { create } from 'zustand';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from '../../components/common/IconApp';
 import { PMDialogButton } from './buttons/PMDialogButton';
+import { pmT } from '../i18n/pmT';
 
 export type PMApproveAnswer = 'yes' | 'no' | 'cancel';
 
@@ -122,7 +123,7 @@ export default function PMApproveYesNoCancelModalWindow() {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => answer('cancel')}>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => answer('cancel')} accessibilityLabel="Cancel" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => answer('cancel')} accessibilityLabel={pmT('Cancel')} />
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-approve-window" accessibilityRole="alert">
           <View style={styles.header}>
             <View style={[styles.iconBubble, { backgroundColor: `${yesColor}1f` }]}>

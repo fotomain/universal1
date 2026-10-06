@@ -5,12 +5,13 @@ import React from 'react';
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import IconApp from '../../../components/common/IconApp';
 import { usePMTip } from '../tooltip/PMTooltip';
+import { pmT } from '../../i18n/pmT';
 
 /** A non-button icon that still shows its tip on hover (web) / long-press (touch). */
 export function PMTipIcon({ tip, style, ...icon }: { tip: string; name: string; size?: number; color?: string; testID: string; style?: StyleProp<ViewStyle> }) {
   const tipProps = usePMTip(tip);
   return (
-    <Pressable {...tipProps} accessibilityLabel={tip} style={style}>
+    <Pressable {...tipProps} accessibilityLabel={pmT(tip)} style={style}>
       <IconApp {...icon} />
     </Pressable>
   );
@@ -19,5 +20,5 @@ export function PMTipIcon({ tip, style, ...icon }: { tip: string; name: string; 
 /** Any Pressable with a tip. */
 export function PMTipPressable({ tip, ...props }: PressableProps & { tip: string }) {
   const tipProps = usePMTip(tip);
-  return <Pressable {...tipProps} accessibilityLabel={tip} {...props} />;
+  return <Pressable {...tipProps} accessibilityLabel={pmT(tip)} {...props} />;
 }

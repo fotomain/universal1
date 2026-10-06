@@ -14,6 +14,7 @@ import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { compareVersionWithCurrent, describeVersionDiff, scheduleVersion } from '../../model/versionCompare';
 import { formatVersionDateTime, PMProjectVersionRow } from '../../model/versionTypes';
 import { useVersionDataQuery } from '../../crud/version/versionQueries';
+import { pmT } from '../../../i18n/pmT';
 
 export interface ProjectVersionCardProps {
   version: PMProjectVersionRow;
@@ -84,12 +85,12 @@ export default function ProjectVersionCard({ version, checked, color, palette, d
           testID={`pm-version-card-restore-${id}`}
           kind="secondary"
           icon="settings_backup_restore"
-          title="Restore from version"
+          title={pmT('Restore from version')}
           disabled={disabled}
           onPress={() => onRestore(id)}
         />
-        <PMIconButton testID={`pm-version-card-rename-${id}`} icon="edit" title="Rename version" color={palette.text} disabled={disabled} onPress={() => onRename(id)} />
-        <PMIconButton testID={`pm-version-card-delete-${id}`} icon="delete" title="Delete version" color={palette.error} disabled={disabled} onPress={() => onDelete(id)} />
+        <PMIconButton testID={`pm-version-card-rename-${id}`} icon="edit" title={pmT('Rename version')} color={palette.text} disabled={disabled} onPress={() => onRename(id)} />
+        <PMIconButton testID={`pm-version-card-delete-${id}`} icon="delete" title={pmT('Delete version')} color={palette.error} disabled={disabled} onPress={() => onDelete(id)} />
       </View>
     </View>
   );

@@ -1,5 +1,6 @@
 // Per-project view switches (saved in project_table.rowJSON.uxuiSettings):
 // % = showTaskProgressOnGantt · ⇅ = import / export (Project settings window, crud/exchange/project) · [viewSwitch = Gantt | Network] ·
+// Export = menu: PDF (task tree + Gantt chart as on the screen) · JSON · MS Project (PMGanttExportButton) ·
 // ⚙ = Gantt settings (PMGanttUXUISettinsModalWindow) · Critical path = showCriticalPath.
 
 import React from 'react';
@@ -12,7 +13,9 @@ import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
+import PMGanttExportButton from './PMGanttExportButton';
 import { PMToolbarDivider } from '../../../inner/toolbars/PMToolbarPrimitives';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttViewToggles({
   crud,
@@ -41,11 +44,12 @@ export default function PMGanttViewToggles({
       <PMIconButton
         testID="pm-gantt-import-export"
         icon="import_export"
-        title="Import / export the project (project_data_….json) - opens the Project settings"
+        title={pmT('Import / export the project (project_data_….json) - opens the Project settings')}
         color={palette.text}
         disabled={!selectedProjectGUID}
         onPress={() => usePMStore.getState().openProjectSettings(selectedProjectGUID)}
       />
+      <PMGanttExportButton palette={palette} />
       {viewSwitch && (
         <>
           <PMToolbarDivider color={palette.border} />
@@ -56,7 +60,7 @@ export default function PMGanttViewToggles({
       <PMIconButton
         testID="pm-gantt-uxui-settings"
         icon="settings"
-        title="Gantt settings (progress lines, colors, arrows, critical path)"
+        title={pmT('Gantt settings (progress lines, colors, arrows, critical path)')}
         color={palette.text}
         width={PM_SETTINGS_BUTTON_WIDTH}
         size={PM_SETTINGS_ICON_SIZE}
@@ -65,7 +69,7 @@ export default function PMGanttViewToggles({
       <PMIconButton
         testID="pm-gantt-critical"
         icon="route"
-        label="Critical path"
+        label={pmT('Critical path')}
         width={PM_WIDE_ACTION_WIDTH}
         active={showCritical}
         activeColor={palette.critical}

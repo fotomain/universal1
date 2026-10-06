@@ -42,11 +42,13 @@ const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Sta
 
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
 import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
+import { pmT, usePMLanguage } from '../../i18n/pmT';
 
 export default function PMProjectTaskInfo(props: { taskGUID: string; projectGUID?: string }) {
+  const language = usePMLanguage();
   return (
     <PMUndoProvider>
-      <PMProjectTaskInfoInner {...props} />
+      <PMProjectTaskInfoInner key={language} {...props} />
     </PMUndoProvider>
   );
 }
@@ -146,7 +148,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <PMTipPressable tip="Back to the Gantt chart" testID="pm-task-header-back" onPress={back} style={{ paddingHorizontal: 14 }} hitSlop={8}>
+        <PMTipPressable tip={pmT('Back to the Gantt chart')} testID="pm-task-header-back" onPress={back} style={{ paddingHorizontal: 14 }} hitSlop={8}>
           <IconApp testID="pm-task-header-back-icon" name="arrow_back" size={22} color={c.text} />
         </PMTipPressable>
       ),
@@ -168,8 +170,8 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
           <ActivityIndicatorCircleApp testID="pm-task-loading" color={c.primary} />
         ) : (
           <>
-            <Text style={{ color: c.text, marginBottom: 12 }}>Task not found.</Text>
-            <PMDialogButton testID="pm-info-open-dashboard" kind="text" title="Open the Project dashboard" onPress={() => router.replace(PM_ROUTES.dashboard as any)} />
+            <Text style={{ color: c.text, marginBottom: 12 }}>{pmT('Task not found.')}</Text>
+            <PMDialogButton testID="pm-info-open-dashboard" kind="text" title={pmT('Open the Project dashboard')} onPress={() => router.replace(PM_ROUTES.dashboard as any)} />
           </>
         )}
       </View>
@@ -196,7 +198,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
 
   const renderDep = (d: PMTaskDependencyRow, other: string, direction: 'pred' | 'succ') => (
     <View key={`${direction}-${other}`} style={[styles.depRow, { borderColor: c.border }]}>
-      <PMTipPressable tip="Open this task" style={{ flex: 1 }} onPress={() => router.setParams({ taskGUID: other } as any)}>
+      <PMTipPressable tip={pmT('Open this task')} style={{ flex: 1 }} onPress={() => router.setParams({ taskGUID: other } as any)}>
         <Text style={{ color: c.text, fontWeight: '600' }} numberOfLines={1}>
           {nameOf(other)}
         </Text>
@@ -212,18 +214,18 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
       >
         <Text style={{ color: c.primary, fontWeight: '700', fontSize: 12 }}>{d.linkType || 'FS'}</Text>
       </PMTipPressable>
-      <PMIconButton compact size={16} testID={`pm-info-lag-minus-${other}`} icon="remove" title="Lag -1 day (negative = lead)" color={c.text} onPress={() => bumpLag(d, -1)} />
+      <PMIconButton compact size={16} testID={`pm-info-lag-minus-${other}`} icon="remove" title={pmT('Lag -1 day (negative = lead)')} color={c.text} onPress={() => bumpLag(d, -1)} />
       <Text style={{ color: c.text, width: 44, textAlign: 'center', fontSize: 12 }}>
         {(Number(d.lagDays) || 0) >= 0 ? '+' : ''}
         {Number(d.lagDays) || 0}d
       </Text>
-      <PMIconButton compact size={16} testID={`pm-info-lag-plus-${other}`} icon="add" title="Lag +1 day" color={c.text} onPress={() => bumpLag(d, 1)} />
+      <PMIconButton compact size={16} testID={`pm-info-lag-plus-${other}`} icon="add" title={pmT('Lag +1 day')} color={c.text} onPress={() => bumpLag(d, 1)} />
       <PMIconButton
         compact
         size={16}
         testID={`pm-info-dep-edit-${other}`}
         icon="tune"
-        title="Edit dependency (type, lag, color)"
+        title={pmT('Edit dependency (type, lag, color)')}
         color={c.text}
         onPress={() => crud.openDependencyEditor({ rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID })}
       />
@@ -232,7 +234,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         size={16}
         testID={`pm-info-unlink-${other}`}
         icon="link_off"
-        title="Remove this dependency"
+        title={pmT('Remove this dependency')}
         color={c.error}
         onPress={() => (direction === 'pred' ? crud.unlink(other, taskGUID) : crud.unlink(taskGUID, other))}
       />
@@ -242,9 +244,9 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <PMTipPressable tip="Back to the Gantt chart" onPress={back} style={styles.backRow} hitSlop={8}>
+        <PMTipPressable tip={pmT('Back to the Gantt chart')} onPress={back} style={styles.backRow} hitSlop={8}>
           <IconApp testID="pm-task-info-back" name="arrow_back" size={18} color={c.primary} />
-          <Text style={{ color: c.primary, marginLeft: 4, fontWeight: '600' }}>Gantt</Text>
+          <Text style={{ color: c.primary, marginLeft: 4, fontWeight: '600' }}>{pmT('Gantt')}</Text>
         </PMTipPressable>
 
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }} numberOfLines={1}>
@@ -258,27 +260,27 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         </View>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
-          <PMIconButton testID="pm-info-google-calendar" icon="event" label="Add to Google Calendar" title="Add to Google Calendar" color={c.primary} onPress={() => crud.addToGoogleCalendar(taskGUID)} />
-          <PMIconButton testID="pm-info-copy-guid" icon="fingerprint" label="Copy GUID" title="Copy the task GUID" color={c.text} onPress={() => crud.copyTaskGUID(taskGUID)} />
+          <PMIconButton testID="pm-info-google-calendar" icon="event" label={pmT('Add to Google Calendar')} title={pmT('Add to Google Calendar')} color={c.primary} onPress={() => crud.addToGoogleCalendar(taskGUID)} />
+          <PMIconButton testID="pm-info-copy-guid" icon="fingerprint" label={pmT('Copy GUID')} title={pmT('Copy the task GUID')} color={c.text} onPress={() => crud.copyTaskGUID(taskGUID)} />
         </View>
 
         {/* ---- schedule facts ---- */}
         {sched && (
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Fact label="Start" value={formatDateISO(sched.startMs)} color={c.text} />
-            <Fact label="Finish" value={formatDateISO(sched.finishMs - 1)} color={c.text} />
-            <Fact label="Duration" value={`${sched.durationDays} working day(s)`} color={c.text} />
+            <Fact label={pmT('Start')} value={formatDateISO(sched.startMs)} color={c.text} />
+            <Fact label={pmT('Finish')} value={formatDateISO(sched.finishMs - 1)} color={c.text} />
+            <Fact label={pmT('Duration')} value={`${sched.durationDays} working day(s)`} color={c.text} />
             <Fact
-              label="Slack"
+              label={pmT('Slack')}
               value={sched.inCycle ? 'in a dependency cycle' : sched.isCritical ? 'critical path (0 d)' : `${sched.totalFloatDays} d`}
               color={sched.isCritical ? c.error : c.text}
             />
             {task.rowJSON.manualStartAt && (
               <View style={styles.factRow}>
-                <Text style={[styles.factLabel, { color: c.text }]}>Constraint</Text>
+                <Text style={[styles.factLabel, { color: c.text }]}>{pmT('Constraint')}</Text>
                 <Text style={{ color: c.text, flex: 1 }}>start ≥ {formatDateISO(Date.parse(task.rowJSON.manualStartAt))}</Text>
-                <PMTipPressable tip="Remove the start constraint (start as soon as possible)" testID="pm-info-clear-constraint" onPress={() => crud.updateTask(taskGUID, { rowJSON: { ...task.rowJSON, manualStartAt: null } })}>
-                  <Text style={{ color: c.primary, fontWeight: '600' }}>Clear</Text>
+                <PMTipPressable tip={pmT('Remove the start constraint (start as soon as possible)')} testID="pm-info-clear-constraint" onPress={() => crud.updateTask(taskGUID, { rowJSON: { ...task.rowJSON, manualStartAt: null } })}>
+                  <Text style={{ color: c.primary, fontWeight: '600' }}>{pmT('Clear')}</Text>
                 </PMTipPressable>
               </View>
             )}
@@ -299,7 +301,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
             ))}
           </View>
         )}
-        {isSummary && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Rolled up from the tasks inside (weighted by duration).</Text>}
+        {isSummary && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Rolled up from the tasks inside (weighted by duration).')}</Text>}
 
         {/* ---- kanban stage progress ---- */}
         <Text style={[styles.section, { color: c.text }]}>Kanban Stage Progress {kanbanProgress}%</Text>
@@ -329,7 +331,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
 
         {/* ---- predecessors ---- */}
         <View style={styles.sectionRow}>
-          <Text style={[styles.section, { color: c.text, flex: 1 }]}>Waits for (predecessors)</Text>
+          <Text style={[styles.section, { color: c.text, flex: 1 }]}>{pmT('Waits for (predecessors)')}</Text>
           <PMIconButton testID="pm-info-add-pred" icon={adding ? 'close' : 'add_link'} title={adding ? 'Close the task picker' : 'Add a predecessor (a task this one waits for)'} color={c.primary} onPress={() => setAdding((v) => !v)} />
         </View>
         {adding && (
@@ -338,7 +340,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
               testID="pm-info-pred-search"
               value={search}
               onChangeText={setSearch}
-              placeholder="Search tasks…"
+              placeholder={pmT('Search tasks…')}
               placeholderTextColor={c.border}
               style={[styles.input, { color: c.text, borderColor: c.border }]}
             />
@@ -362,34 +364,34 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
             ))}
           </View>
         )}
-        {preds.length === 0 && <Text style={{ color: c.text, opacity: 0.6 }}>Starts as soon as the project (or its constraint) allows.</Text>}
+        {preds.length === 0 && <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('Starts as soon as the project (or its constraint) allows.')}</Text>}
         {preds.map((d) => renderDep(d, d.rowDependsOnGUID, 'pred'))}
 
         {/* ---- successors ---- */}
-        <Text style={[styles.section, { color: c.text }]}>Blocks (successors)</Text>
-        {succs.length === 0 && <Text style={{ color: c.text, opacity: 0.6 }}>Nothing waits for this row.</Text>}
+        <Text style={[styles.section, { color: c.text }]}>{pmT('Blocks (successors)')}</Text>
+        {succs.length === 0 && <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('Nothing waits for this row.')}</Text>}
         {succs.map((d) => renderDep(d, d.rowGUID, 'succ'))}
 
         {/* ---- closure table ---- */}
-        <Text style={[styles.section, { color: c.text }]}>All blockers (transitive)</Text>
+        <Text style={[styles.section, { color: c.text }]}>{pmT('All blockers (transitive)')}</Text>
         <ClosureList rows={upstream.data} loading={upstream.isLoading} nameOf={nameOf} color={c.text} kind="up" />
-        <Text style={[styles.section, { color: c.text }]}>Everything it delays (transitive)</Text>
+        <Text style={[styles.section, { color: c.text }]}>{pmT('Everything it delays (transitive)')}</Text>
         <ClosureList rows={downstream.data} loading={downstream.isLoading} nameOf={nameOf} color={c.text} kind="down" />
 
         {!!task.rowJSON.notes && (
           <>
-            <Text style={[styles.section, { color: c.text }]}>Notes</Text>
+            <Text style={[styles.section, { color: c.text }]}>{pmT('Notes')}</Text>
             <Text style={{ color: c.text }}>{task.rowJSON.notes}</Text>
           </>
         )}
 
         <View style={styles.actions}>
-          <PMDialogButton testID="pm-info-edit" kind="primary" icon="edit" title="Edit" style={{ marginLeft: 0 }} onPress={() => crud.edit(taskGUID)} />
+          <PMDialogButton testID="pm-info-edit" kind="primary" icon="edit" title={pmT('Edit')} style={{ marginLeft: 0 }} onPress={() => crud.edit(taskGUID)} />
           <PMDialogButton
             testID="pm-info-delete"
             kind="dangerOutlined"
             icon="delete"
-            title="Delete"
+            title={pmT('Delete')}
             onPress={async () => {
               await crud.deleteTask(taskGUID);
               if (!usePMStore.getState().tasksById[taskGUID]) back();
@@ -428,7 +430,7 @@ function ClosureList({
   kind: 'up' | 'down';
 }) {
   if (loading) return <ActivityIndicatorCircleApp size="small" color={color} />;
-  if (!rows?.length) return <Text style={{ color, opacity: 0.6 }}>None.</Text>;
+  if (!rows?.length) return <Text style={{ color, opacity: 0.6 }}>{pmT('None.')}</Text>;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
       {rows.map((r) => {

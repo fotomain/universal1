@@ -15,6 +15,7 @@ import { kanbanStageColorOf, PM_KANBAN_DEFAULT_STAGES, PM_KANBAN_NO_STATE, PM_KA
 import { withAlpha } from '../../theme';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT } from '../../../model/constants';
 import IconApp from '../../../../components/common/IconApp';
+import { pmT } from '../../../i18n/pmT';
 
 const POPUP_WIDTH = 180;
 const ITEM_HEIGHT = 32;
@@ -149,11 +150,11 @@ export default function PMKanbanChangeStageInTree({
       >
         <View style={[styles.header, { borderBottomColor: withAlpha(colors.text, 0.1) }]}>
           <Text style={[styles.headerTitle, { color: withAlpha(colors.text, 0.7) }]}>
-            Kanban Stage
+            {pmT('Kanban Stage')}
           </Text>
           <Pressable
             testID="pm-tree-edit-kanban-close"
-            accessibilityLabel="Close"
+            accessibilityLabel={pmT('Close')}
             onPress={close}
             hitSlop={8}
             style={styles.closeBtn}

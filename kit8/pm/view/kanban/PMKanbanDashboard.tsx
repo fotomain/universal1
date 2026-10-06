@@ -33,6 +33,7 @@ import PMContextMenu from '../../inner/menu/PMContextMenu';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 import { compareFilterValues, treeCellFilterValue, treeColumnDataType } from '../tree/filter/treeColumnFilter';
 import { treeColumnTitle } from '../tree/columns/treeColumns';
+import { pmT } from '../../i18n/pmT';
 
 /** Tree columns a Kanban column can be sorted by (in the tree's column order; custom columns too). */
 const SORTABLE_BUILTIN = ['name', 'wbs', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanbanStageProgressPercent'];
@@ -375,7 +376,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
       {tablesMissing && (
         <View style={[styles.banner, { borderColor: palette.error }]}>
           <Text style={{ color: palette.error, fontSize: 12 }}>
-            Read-only: the Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.
+            {pmT('Read-only: the Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.')}
           </Text>
         </View>
       )}

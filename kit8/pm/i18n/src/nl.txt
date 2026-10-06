@@ -1,0 +1,435 @@
+1|+ Project
+2|+ Fase
+3|0 = onbeperkt
+4|Een project heeft minstens één Kanban-fase nodig.
+5|Een fase heeft een naam nodig.
+6|Activiteit op pijl: gebeurtenissen zijn cirkels, taken zijn pijlen
+7|Activiteit op knoop: taken zijn blokken, afhankelijkheden zijn pijlen
+8|Toevoegen
+9|Fase toevoegen
+10|Voorganger toevoegen (een taak waarop deze wacht)
+11|Fase toevoegen
+12|Kolom toevoegen
+13|Aangepaste kolom toevoegen
+14|Mijlpaal toevoegen
+15|Fase toevoegen
+16|Fase / subfase toevoegen
+17|Fase erboven toevoegen
+18|Fase eronder toevoegen
+19|Taak toevoegen
+20|Taak toevoegen (na / in de geselecteerde rij)
+21|Taak toevoegen (in de geselecteerde fase / na de geselecteerde taak)
+22|Taak erboven toevoegen
+23|Taak eronder toevoegen
+24|Taak eronder / erin toevoegen
+25|Taak erin toevoegen
+26|Taak in deze fase toevoegen
+27|Eerste fase toevoegen
+28|Toevoegen aan Google Agenda
+29|Na
+30|Na of gelijk
+31|Alle
+32|Alle blokkades (transitief)
+33|Toepassen
+34|Pijlkleur
+35|Terug naar het Gantt-diagram
+36|Balken, pijlen en netwerkknopen op het kritieke pad
+37|Vóór
+38|Vóór of gelijk
+39|Blokkeert (opvolgers)
+40|Blauw
+41|Bordbereik: selecteer een fase in de boom om alleen de taken ervan te zien
+42|Knoppen op de rij onder de aanwijzer (web) / geselecteerde rij (touch)
+43|Annuleren
+44|Annuleren (sluiten zonder opslaan)
+45|Diagramperiode
+46|Bestand kiezen…
+47|Kies het project…
+48|Wissen
+49|Selectie wissen
+50|Wissen: alle taken naar "Geen status"
+51|Klik om de duur te wijzigen
+52|Klik om de voortgang % te wijzigen
+53|Sluiten
+54|Taakkiezer sluiten
+55|Sluiten zonder opslaan
+56|Samenvouwen
+57|Alles samenvouwen
+58|Kleur
+59|Kleuren
+60|Kolommenu: alle taken selecteren, kolom wissen
+61|Kolomnaam
+62|Compact
+63|Compacte blokken: naam, duur, datums
+64|Vergelijken met het project…
+65|Beperking
+66|GUID kopiëren
+67|Taakinfo kopiëren
+68|Taak-GUID kopiëren
+69|Projecten konden niet worden geladen
+70|Versierijen konden niet worden geladen
+71|Google Agenda kon niet worden geopend.
+72|Aanmaken
+73|Project aanmaken
+74|Sjabloon maken van project
+75|Project maken van sjabloon
+76|Sjabloon maken van project
+77|Project wordt aangemaakt...
+78|Aanmaken…
+79|Kritiek
+80|Kritiek pad
+81|Kleur van het kritieke pad heeft voorrang op aangepaste taakkleur
+82|Taakkleur van het kritieke pad
+83|Aangepaste taakkleur
+84|Datumnotatie (planDateInputFormat)
+85|Datums moeten YYYY-MM-DD zijn.
+86|Dag
+87|Standaard
+88|Standaardkleur
+89|Standaardkleur van afhankelijkheid
+90|Standaardvolgorde
+91|Standaardbreedte
+92|Standaardbreedte (vullen)
+93|Standaardbreedtes
+94|Standaardwaarden
+95|Verwijderen
+96|Verwijderen en importeren
+97|Aangepaste kolom verwijderen
+98|Afhankelijkheid verwijderen
+99|Project verwijderen
+100|Selectie verwijderen
+101|Fase verwijderen
+102|Deze afhankelijkheid verwijderen?
+103|Deze versie verwijderen?
+104|Versie verwijderen
+105|Afhankelijkheid
+106|Afhankelijkheidspijlen
+107|Afhankelijkheidspijlen: vloeiend / recht
+108|Afhankelijkheidspijlen: vloeiende curven
+109|Afhankelijkheidspijlen: rechte (haakse) lijnen
+110|Kleur van afhankelijkheid
+111|Beschrijving / notities
+112|Alle taken deselecteren
+113|Details
+114|Sluiten
+115|Sleep om de taak te verplaatsen (volgorde / bovenliggende rij)
+116|Sleep om te herschikken
+117|Zet hier een project_data_….json neer
+118|Zet taken hier neer
+119|Dummy
+120|Dupliceren
+121|Dupliceren (kopie eronder)
+122|Selectie dupliceren (kopie eronder)
+123|Duur
+124|Duur (werkdagen)
+125|Bewerken
+126|Fase bewerken
+127|Kanban-status van taak bewerken
+128|Afhankelijkheid bewerken
+129|Afhankelijkheid bewerken (type, vertraging, kleur)
+130|Selectie bewerken
+131|Taak bewerken (naam, voortgang %, datums…)
+132|Voer de fasenaam in.
+133|Fout
+134|Gebeurtenissen
+135|Gebeurtenissen als cirkels met 4 sectoren (nummer / vroeg / laat / voorganger)
+136|Elke taak van het project zit in een van deze fasen (nieuwe taken: de eerste). De fase staat los van de taakvoortgang %.
+137|Alles wat erdoor vertraagt (transitief)
+138|Uitvouwen
+139|Alles uitvouwen
+140|Exporteren
+141|Kanban-percentage exporteren
+142|Kanban-fase exporteren
+143|Aangepaste velden exporteren
+144|Project exporteren: PDF, JSON, MS Project
+145|Exporteren naar JSON
+146|Exporteren naar MS Project
+147|Exporteren naar MSProject
+148|Exporteren naar PDF
+149|{{file}} geëxporteerd ({{count}} taken).
+150|Filteren en sorteren
+151|Kleur van filterpictogram
+152|Kleur van het filterpictogram in een gefilterde kolomkop
+153|Project zoeken…
+154|Einde
+155|Einduur (0-23)
+156|Eindmin. (0-59)
+157|Eindsec. (0-59)
+158|De einddatum mag niet vóór de startdatum liggen.
+159|Passend op scherm
+160|Vrije speling
+161|Van (YYYY-MM-DD)
+162|Van sjabloon
+163|Van de versie
+164|Gantt-diagram
+165|Gantt-diagram: balkopdrachten
+166|Gantt-diagram: balkopdrachten (zweefpaneel / rechtsklikmenu)
+167|Gantt-instellingen (voortgangslijnen, kleuren, pijlen, kritiek pad)
+168|Naar aanmelden
+169|Groter dan
+170|Groen
+171|Grijs
+172|Kopkleur
+173|Hiërarchienummers verbergen (kolom #)
+174|Taakvoortgang op de balken verbergen
+175|Selectiekolom verbergen (selectievakjes)
+176|Uren moeten tussen 0 en 23 liggen.
+177|Zweefpaneel
+178|Importeren
+179|Importeren / exporteren
+180|Project importeren / exporteren (project_data_….json) - opent de projectinstellingen
+181|Inspringen
+182|In de fase (mag leeg zijn)
+183|Is niet
+184|Is niet op
+185|Deze wordt toegevoegd als laatste kolom van de takenboom.
+186|Kanban-fase
+187|Kanban-fasen
+188|Kanban-fasen van dit project (kolommen)
+189|Kanban-bord: taakfasen (sleep taken uit de boom naar een kolom)
+190|Voortgang % van Kanban-fase
+191|Kanban: naar "Geen status"
+192|Vertraging (werkdagen, negatief = voorsprong)
+193|Vertraging +1 dag
+194|Vertraging -1 dag (negatief = voorsprong)
+195|De vertraging moet een aantal werkdagen zijn (negatief = voorsprong).
+196|Kleiner dan
+197|Link gekopieerd
+198|Koppelen aan…
+199|Koppelingstype
+200|Koppelen: tik daarna op de taak die op deze moet wachten
+201|Demo laden: Project 1 + Project 2
+202|Sjablonen laden...
+203|Laden…
+204|Algemeen
+205|Hoofdklant (mainCustomerGUID)
+206|Contract van hoofdklant (mainCustomerContractGUID)
+207|Hoofdleverancier (mainSupplierGUID)
+208|Contract van hoofdleverancier (mainSupplierContractGUID)
+209|Menu met rechtsklik (web) / lang indrukken en loslaten (touch)
+210|Microsoft Project XML-bestand (.xml) met alle fasen, taken, mijlpalen en afhankelijkheden. In MS Project: File > Open > het bestand > As a new project.
+211|Mijlpaal
+212|Mijlpalen hebben geen duur
+213|Minuten moeten tussen 0 en 59 liggen.
+214|Maand
+215|Alle taken verplaatsen naar…
+216|Omlaag
+217|Omlaag = latere fase (kolom rechts)
+218|Omhoog
+219|Omhoog = eerdere fase (kolom links)
+220|Naam
+221|Netwerk
+222|Netwerkdiagram
+223|Netwerkplanning
+224|Netwerkweergave: netwerkdiagram / netwerkplanning
+225|Nieuwe Kanban-fase
+226|Nieuw project van sjabloon
+227|Nieuwe mijlpaal
+228|Nieuw project
+229|Nieuwe taak
+230|Komende 2 weken
+231|Komende 3 maanden
+232|Volgende maand
+233|Volgende fase
+234|Nee
+235|Geen bestand.
+236|Nog geen Kanban-fasen ingesteld.
+237|Geen overeenkomend project
+238|Geen projectsjablonen gevonden.
+239|Geen projecten
+240|Nog geen projecten
+241|Geen instellingen gevonden
+242|Geen bronproject geselecteerd.
+243|Geen fase - direct onder het project
+244|Geen status
+245|Geen taken
+246|Geen taken gevonden in dit project.
+247|Nog geen taken om te tonen.
+248|Nog geen versies opgeslagen
+249|Nog geen versies
+250|Geen.
+251|Notities
+252|Niets wacht op deze rij.
+253|Op of na
+254|Op of vóór
+255|Taakinfo openen
+256|Projectdashboard openen
+257|Open het project eerst op het dashboard.
+258|Deze taak openen
+259|Optionele notities of instructies voor dit sjabloon...
+260|Of maken van sjabloon
+261|Uitspringen
+262|PDF en MS Project exporteren het project dat op het dashboard is geopend.
+263|PDF-export
+264|PDF-export mislukt
+265|PDF-export: open eerst de takenboom / het Gantt-diagram
+266|PDF-export: het scherm kon niet worden vastgelegd
+267|PDF-export: de takenboom / het Gantt-diagram staat niet op het scherm
+268|Partners
+269|Roze
+270|Plannen in dagen (planDay)
+271|Plannen in uren (planHour)
+272|Plannen in minuten (planMinute)
+273|Plannen in seconden (planSecond)
+274|Voer een geldige startdatum in (YYYY-MM-DD).
+275|Selecteer een Kanban-fase.
+276|Selecteer een taak.
+277|Selecteer een sjabloon.
+278|Vorige fase
+279|Voortgang %
+280|Voortgang % (0–100)
+281|Project
+282|Project (nu)
+283|Einddatum van project (projectFinishDate)
+284|Projectnaam *
+285|Startdatum van project (projectStartDate)
+286|Startdatum van project *
+287|Projectnaam
+288|De projectnaam is verplicht.
+289|Voortgangslijn van project
+290|Voortgangslijn van project: positie in de tijdschaal, kleur
+291|Projectinstellingen
+292|Projectversies
+293|Projectversies: opslaan, herstellen en versies aanvinken om te vergelijken in het Gantt-diagram
+294|Projecten
+295|Projecten (Gantt)
+296|Projecten worden per gebruiker opgeslagen in Supabase (beveiliging op rijniveau).
+297|Snelle perioden
+298|Alleen-lezen
+299|Rood
+300|Startbeperking verwijderen (zo vroeg mogelijk starten)
+301|Deze afhankelijkheid verwijderen
+302|Naam wijzigen
+303|Naam van aangepaste kolom wijzigen
+304|Versienaam wijzigen
+305|Vervangt de taken van "{{name}}" (vraagt eerst)
+306|Herstellen
+307|Herstellen vanuit versie
+308|Project herstellen vanuit versie
+309|Project herstellen vanuit versie - nog geen versies opgeslagen
+310|Het project herstellen vanuit deze versie?
+311|Rechtsklikmenu
+312|Samengevat uit de rijen in deze fase
+313|Samengevat uit de onderliggende taken (gewogen naar duur).
+314|SQL-upgrade nodig
+315|Opslaan
+316|Sla eerst een actief project op als sjabloon met "Opslaan als sjabloon".
+317|Opslaan als sjabloon
+318|Opslaan als sjabloon
+319|Projectversie opslaan
+320|Projectversie opslaan (het hele plan: taken, afhankelijkheden, Kanban)
+321|Eerste versie opslaan
+322|Sla dit project eerst op om Kanban-statussen van taken te beheren.
+323|Versie opslaan
+324|Opgeslagen kaartvolgorde
+325|Opslaan...
+326|Projecten naar links scrollen
+327|Projecten naar rechts scrollen
+328|Zoek het in het projectveld hierboven of maak een nieuw aan met “+ Project”.
+329|Instellingen zoeken
+330|Taken zoeken…
+331|Seconden moeten tussen 0 en 59 liggen.
+332|Selecteer sjabloon *
+333|Selecteer een project
+334|Alle taken selecteren
+335|Selecteer klantcontract...
+336|Datum selecteren
+337|Selecteer hoofdklant...
+338|Selecteer hoofdleverancier...
+339|Selecteer leverancierscontract...
+340|Selecteer de versie. Het huidige plan wordt als nieuwe versie opgeslagen voordat het wordt vervangen.
+341|Scheid de waarden met komma's.
+342|Kanban-status van taak instellen
+343|Instelling
+344|Taak delen
+345|Hiërarchienummers (kolom "#") tonen in de takenboom
+346|Hiërarchienummers tonen (kolom #)
+347|Taakvoortgang tonen in het Gantt-diagram (lijnen + %)
+348|Taakvoortgang tonen op de balken (lijn + %)
+349|Kritiek pad tonen
+350|Selectiekolom tonen (selectievakjes)
+351|Hele project tonen
+352|Wordt getoond wanneer "Taakvoortgang tonen" (tabblad Taak) aan staat.
+353|Meld u aan om een taak aan een project toe te voegen.
+354|Meld u aan om projecten te beheren
+355|Aanmelden vereist
+356|Speling
+357|Vloeiend
+358|Sorteren op
+359|Bronproject
+360|Recht
+361|Fase
+362|Fase (mag leeg zijn)
+363|Fasenaam
+364|Fasekleur
+365|Fasenaam
+366|Start
+367|Startuur (0-23)
+368|Startmin. (0-59)
+369|Startsec. (0-59)
+370|De startdatum mag niet na de einddatum liggen.
+371|Niet eerder starten dan (YYYY-MM-DD, leeg = zo vroeg mogelijk)
+372|Start zodra het project (of de beperking) het toelaat.
+373|Slaat sjabloonstructuur, taken, afhankelijkheden, fasen en instellingen op in sjabloontabellen. Kanban-fasewaarden van taken worden niet opgenomen.
+374|Subfase
+375|Taak
+376|Kleur van taakbalk
+377|Taakinfo gekopieerd
+378|Taaknaam
+379|Taak niet gevonden.
+380|Voortgangslijn van taak
+381|Voortgangslijn van taak: positie op de balk, kleur
+382|Kolommen van de takenboom (sleep een kolomkop om te verplaatsen, sleep een scheidingslijn om de breedte te wijzigen, rechtsklik / lang indrukken op een kop om een aangepaste kolom toe te voegen)
+383|Kolommen van de takenboom: standaardvolgorde, standaardbreedtes
+384|Takenboom: rijopdrachten
+385|Takenboom: rijopdrachten (zweefpaneel / rechtsklikmenu)
+386|Sjabloonnaam *
+387|De sjabloonnaam is verplicht.
+388|De Gantt-renderer kon niet starten.
+389|De export is mislukt.
+390|Het bestand bevat geen project.
+391|Het bestand bevat geen takenlijst.
+392|Het bestand is geen geldige JSON.
+393|Het project bestaat niet (meer).
+394|Het project met alle fasen, taken, mijlpalen en afhankelijkheden (+ uw Gantt-instellingen).
+395|Het hele plan wordt opgeslagen: projectgegevens, fasen, taken, mijlpalen, afhankelijkheden en Kanban. Een versie verandert daarna nooit meer.
+396|Dit is geen projectgegevensbestand (project_data_….json).
+397|Deze maand
+398|Deze fase heeft nog geen taken - voeg ze eerst toe.
+399|Deze taak heeft nog geen datums - ze kan niet aan Google Agenda worden toegevoegd.
+400|Deze week
+401|Dit jaar
+402|Op tijdschaal
+403|Netwerk op tijdschaal: pijllengte = duur, gestippeld = vrije speling
+404|Tot (YYYY-MM-DD)
+405|Vandaag
+406|Vandaag → einde project
+407|Boom
+408|Type
+409|Alle versies uitvinken (er wordt niets vergeleken)
+410|Ongedaan maken
+411|Laatste actie ongedaan maken?
+412|Versietitel
+413|Versies
+414|Versies zijn nog niet geïnstalleerd
+415|Via fase
+416|Violet
+417|WIP-limiet (optioneel)
+418|Wacht op (voorgangers)
+419|Week
+420|Hele project
+421|Alleen werkdagen (weekends overslaan)
+422|Jaar
+423|Jaar (kwartalen)
+424|Geel
+425|U hebt nog geen projecten - maak er een op het dashboard
+426|Inzoomen
+427|Uitzoomen
+428|zo vroeg mogelijk
+429|bijv. Door de klant goedgekeurde basislijn
+430|bijv. In uitvoering
+431|bijv. Herontwerp website Q4
+432|bijv. Standaardsjabloon voor webapp
+433|bijv. pijlen, voortgang, kolom
+434|de takenboom / het Gantt-diagram staat niet op het scherm
+435|{{tip}} (nu niet beschikbaar)

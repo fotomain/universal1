@@ -7,6 +7,7 @@
 // which covers the whole window - the app bar buttons use it (a screen layer starts BELOW the app bar,
 // so a tip of an app bar button would be cut off there).
 
+import { pmT } from '../../i18n/pmT';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { create } from 'zustand';
@@ -48,7 +49,7 @@ function clearPending() {
 /** Show a tip for a window-coordinate rect (used by the Skia canvases for bar handles). */
 export function showPMTip(text: string, x: number, y: number, w = 0, h = 0, delay = SHOW_DELAY_MS, scope: PMTipScope = 'screen') {
   clearPending();
-  pendingTimer = setTimeout(() => useTipStore.getState().show(text, x, y, w, h, scope), delay);
+  pendingTimer = setTimeout(() => useTipStore.getState().show(pmT(text), x, y, w, h, scope), delay);
 }
 
 export function hidePMTip() {

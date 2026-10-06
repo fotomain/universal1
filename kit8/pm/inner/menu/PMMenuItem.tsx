@@ -6,6 +6,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../components/common/IconApp';
+import { pmT } from '../../i18n/pmT';
 
 export interface PMMenuItemProps {
   testID: string;
@@ -27,8 +28,10 @@ export interface PMMenuItemProps {
   onHoverIn?: () => void;
 }
 
-export default function PMMenuItem({ testID, label, icon, onPress, danger, disabled, iconColor, checked, submenu, highlighted, onHoverIn }: PMMenuItemProps) {
+export default function PMMenuItem({ testID, label: labelText, icon, onPress, danger, disabled, iconColor, checked, submenu, highlighted, onHoverIn }: PMMenuItemProps) {
   const { themeColors: c } = useDesignSystem();
+  // labels are English texts: shown in the app language (i18n/pmT)
+  const label = pmT(labelText);
   const color = danger ? c.error : c.text;
   const tint = danger ? c.error : c.primary;
   return (

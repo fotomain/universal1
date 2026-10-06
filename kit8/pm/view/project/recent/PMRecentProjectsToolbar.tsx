@@ -40,7 +40,10 @@ import {
 import { approvePM } from "../../../inner/PMApproveYesNoCancelModalWindow";
 import { PMDialogButton, PMIconButton, PMTipIcon } from "../../../inner/buttons";
 import { PMToolbarDivider } from "../../../inner/toolbars/PMToolbarPrimitives";
-import { PM_SETTINGS_BUTTON_WIDTH, PM_SETTINGS_ICON_SIZE } from "../../../model/constants";
+import { PM_DIALOG_BUTTON_WIDTH, PM_EXPORT_BUTTON_WIDTH, PM_SETTINGS_BUTTON_WIDTH, PM_SETTINGS_ICON_SIZE } from "../../../model/constants";
+import { exportProjectDashboardToPdf } from "../../../crud/exchange/pdf/exportDashboardToPdf";
+import { pmT } from "../../../i18n/pmT";
+import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
@@ -54,7 +57,6 @@ import SelectElementFromCatalog from "../../../../catalog/inner/select_element/S
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
-import SelectDateApp from "../../../../components/common/SelectDateApp";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -377,7 +379,7 @@ export default function PMRecentProjectsToolbar({
     >
       {!compact && (
         <PMTipIcon
-          tip="Projects"
+          tip={pmT('Projects')}
           testID="pm-project-icon"
           name="view_timeline"
           size={20}
@@ -405,7 +407,7 @@ export default function PMRecentProjectsToolbar({
         compact
         testID="pm-project-ribbon-left"
         icon="chevron_left"
-        title="Scroll the projects left"
+        title={pmT('Scroll the projects left')}
         color={themeColors.text}
         disabled={!canLeft}
         onPress={() => scrollBy(-1)}
@@ -461,7 +463,7 @@ export default function PMRecentProjectsToolbar({
         compact
         testID="pm-project-ribbon-right"
         icon="chevron_right"
-        title="Scroll the projects right"
+        title={pmT('Scroll the projects right')}
         color={themeColors.text}
         disabled={!canRight}
         onPress={() => scrollBy(1)}
@@ -480,7 +482,7 @@ export default function PMRecentProjectsToolbar({
       <PMIconButton
         testID="pm-project-delete"
         icon="delete"
-        title="Delete project"
+        title={pmT('Delete project')}
         color={themeColors.error}
         disabled={!selected}
         onPress={remove}
@@ -488,7 +490,7 @@ export default function PMRecentProjectsToolbar({
       <PMIconButton
         testID="pm-create-template-btn"
         icon="bookmark_add"
-        title="Create template from project"
+        title={pmT('Create template from project')}
         color={themeColors.text}
         disabled={!selected}
         onPress={() => setCreateTemplateOpen(true)}
@@ -496,7 +498,7 @@ export default function PMRecentProjectsToolbar({
       <PMIconButton
         testID="pm-create-from-template-btn"
         icon="library_add"
-        title="Create project from template"
+        title={pmT('Create project from template')}
         color={themeColors.text}
         onPress={() => setCreateFromTemplateOpen(true)}
       />
@@ -507,7 +509,7 @@ export default function PMRecentProjectsToolbar({
       <PMIconButton
         testID="pm-project-edit"
         icon="settings"
-        title="Project settings"
+        title={pmT('Project settings')}
         color={themeColors.text}
         disabled={!selected}
         width={PM_SETTINGS_BUTTON_WIDTH}
@@ -523,7 +525,7 @@ export default function PMRecentProjectsToolbar({
       {!!addMenuCoords && (
         <PMContextMenu
           testID="pm-project-add-menu"
-          caption="+ Project"
+          caption={pmT('+ Project')}
           x={addMenuCoords.x}
           y={addMenuCoords.y}
           width={200}
@@ -638,7 +640,7 @@ export default function PMRecentProjectsToolbar({
                           },
                         ]}
                       >
-                        {tab.label}
+                        {pmT(tab.label)}
                       </Text>
                     </Pressable>
                   );
@@ -649,7 +651,7 @@ export default function PMRecentProjectsToolbar({
                 {activeTab === 'TabMain' && (
                   <View testID="pm-project-tab-main-content">
                     <Text style={[styles.label, { color: themeColors.text }]}>
-                      Name
+                      {pmT('Name')}
                     </Text>
                     <TextInput
                       testID="pm-project-name"
@@ -657,7 +659,7 @@ export default function PMRecentProjectsToolbar({
                       onChangeText={(v) =>
                         setDraft((d) => (d ? { ...d, name: v } : d))
                       }
-                      placeholder="Project name"
+                      placeholder={pmT('Project name')}
                       placeholderTextColor={themeColors.border}
                       style={[
                         styles.input,
@@ -667,75 +669,27 @@ export default function PMRecentProjectsToolbar({
                       onSubmitEditing={saveDraft}
                     />
                     <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
-                      Project Start Date (projectStartDate)
+                      {pmT('Project Start Date (projectStartDate)')}
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <TextInput
-                        testID="pm-project-start"
-                        value={draft?.projectStartDate || draft?.start || ""}
-                        onChangeText={(v) =>
-                          setDraft((d) => (d ? { ...d, projectStartDate: v, start: v } : d))
-                        }
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={themeColors.border}
-                        style={[
-                          styles.input,
-                          { flex: 1, color: themeColors.text, borderColor: themeColors.border },
-                        ]}
-                        autoCapitalize="none"
-                      />
-                      <SelectDateApp
-                        trigger="icon"
-                        testID="pm-project-start-datepicker"
-                        style={{ marginLeft: 8 }}
-                        value={
-                          draft?.projectStartDate
-                            ? (parsePlanDate(draft.projectStartDate, draft.planDateInputFormat) ?? parseDateISO(draft.projectStartDate))
-                            : undefined
-                        }
-                        onSelect={(d) => {
-                          const val = d ? (draft?.planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), draft?.planDateInputFormat || 'YYYY-MM-DD')) : '';
-                          setDraft((prev) => prev ? { ...prev, projectStartDate: val, start: val } : prev);
-                        }}
-                      />
-                    </View>
+                    <PMDateInput
+                      testID="pm-project-start"
+                      dateFormat={draft?.planDateInputFormat}
+                      value={draft?.projectStartDate || draft?.start || ""}
+                      onChangeText={(v) => setDraft((d) => (d ? { ...d, projectStartDate: v, start: v } : d))}
+                    />
 
                     <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
-                      Project Finish Date (projectFinishDate)
+                      {pmT('Project Finish Date (projectFinishDate)')}
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <TextInput
-                        testID="pm-project-finish"
-                        value={draft?.projectFinishDate || ""}
-                        onChangeText={(v) =>
-                          setDraft((d) => (d ? { ...d, projectFinishDate: v } : d))
-                        }
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={themeColors.border}
-                        style={[
-                          styles.input,
-                          { flex: 1, color: themeColors.text, borderColor: themeColors.border },
-                        ]}
-                        autoCapitalize="none"
-                      />
-                      <SelectDateApp
-                        trigger="icon"
-                        testID="pm-project-finish-datepicker"
-                        style={{ marginLeft: 8 }}
-                        value={
-                          draft?.projectFinishDate
-                            ? (parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat) ?? parseDateISO(draft.projectFinishDate))
-                            : undefined
-                        }
-                        onSelect={(d) => {
-                          const val = d ? (draft?.planDateInputFormat === 'YYYY-MM-DD' ? formatDateISO(d.getTime()) : formatPlanDate(d.getTime(), draft?.planDateInputFormat || 'YYYY-MM-DD')) : '';
-                          setDraft((prev) => prev ? { ...prev, projectFinishDate: val } : prev);
-                        }}
-                      />
-                    </View>
+                    <PMDateInput
+                      testID="pm-project-finish"
+                      dateFormat={draft?.planDateInputFormat}
+                      value={draft?.projectFinishDate || ""}
+                      onChangeText={(v) => setDraft((d) => (d ? { ...d, projectFinishDate: v } : d))}
+                    />
                     <SwitchApp
                       testID="pm-project-weekends"
-                      label="Working days only (skip weekends)"
+                      label={pmT('Working days only (skip weekends)')}
                       value={!!draft?.skipWeekends}
                       onValueChange={(v) =>
                         setDraft((d) => (d ? { ...d, skipWeekends: v } : d))
@@ -749,23 +703,36 @@ export default function PMRecentProjectsToolbar({
                           projectGUID={draft.rowGUID}
                           colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
                           onImported={onImported}
+                          onExportPdf={(guid) => {
+                            // the window must not be in the picture: close it, then export the dashboard
+                            setDraft(null);
+                            exportProjectDashboardToPdf(guid, { delayMs: 450 }).catch((e: any) =>
+                              usePMStore.getState().setError(e?.message || pmT('PDF export failed')),
+                            );
+                          }}
                         />
-                        <View style={{ marginTop: 12 }}>
+                        <View style={styles.templateButtonRow}>
                           <PMDialogButton
                             testID="pm-settings-save-as-template"
-                            title="Save as template"
-                            color={themeColors.text}
+                            kind="secondary"
+                            icon="bookmark_add"
+                            title={pmT('Save as template')}
+                            width={PM_EXPORT_BUTTON_WIDTH}
+                            style={{ marginLeft: 0 }}
                             onPress={() => setCreateTemplateOpen(true)}
                           />
                         </View>
                       </>
                     )}
                     {!draft?.rowGUID && (
-                      <View style={{ marginTop: 12 }}>
+                      <View style={styles.templateButtonRow}>
                         <PMDialogButton
                           testID="pm-settings-new-from-template"
-                          title="Or create from template"
-                          color={themeColors.text}
+                          kind="secondary"
+                          icon="content_copy"
+                          title={pmT('Or create from template')}
+                          width={PM_EXPORT_BUTTON_WIDTH}
+                          style={{ marginLeft: 0 }}
                           onPress={() => {
                             setDraft(null);
                             setCreateFromTemplateOpen(true);
@@ -780,7 +747,7 @@ export default function PMRecentProjectsToolbar({
                   <View testID="pm-project-tab-uxui-content">
                     <SwitchApp
                       testID="pm-project-plan-day"
-                      label="Plan in days (planDay)"
+                      label={pmT('Plan in days (planDay)')}
                       value={draft?.planDay ?? true}
                       onValueChange={(v) =>
                         setDraft((d) => (d ? { ...d, planDay: v } : d))
@@ -789,7 +756,7 @@ export default function PMRecentProjectsToolbar({
                     />
                     <SwitchApp
                       testID="pm-project-plan-hour"
-                      label="Plan in hours (planHour)"
+                      label={pmT('Plan in hours (planHour)')}
                       value={!!draft?.planHour}
                       onValueChange={(v) =>
                         setDraft((d) => (d ? { ...d, planHour: v } : d))
@@ -798,7 +765,7 @@ export default function PMRecentProjectsToolbar({
                     />
                     <SwitchApp
                       testID="pm-project-plan-minute"
-                      label="Plan in minutes (planMinute)"
+                      label={pmT('Plan in minutes (planMinute)')}
                       value={!!draft?.planMinute}
                       onValueChange={(v) =>
                         setDraft((d) => (d ? { ...d, planMinute: v } : d))
@@ -807,7 +774,7 @@ export default function PMRecentProjectsToolbar({
                     />
                     <SwitchApp
                       testID="pm-project-plan-second"
-                      label="Plan in seconds (planSecond)"
+                      label={pmT('Plan in seconds (planSecond)')}
                       value={!!draft?.planSecond}
                       onValueChange={(v) =>
                         setDraft((d) => (d ? { ...d, planSecond: v } : d))
@@ -815,7 +782,7 @@ export default function PMRecentProjectsToolbar({
                       style={styles.switchRow}
                     />
                     <Text style={[styles.label, { color: themeColors.text, marginTop: 14 }]}>
-                      Date format (planDateInputFormat)
+                      {pmT('Date format (planDateInputFormat)')}
                     </Text>
                     <View testID="pm-project-date-format" style={styles.formatRow}>
                       {PM_PLAN_DATE_INPUT_FORMATS.map((fmt) => {
@@ -859,8 +826,8 @@ export default function PMRecentProjectsToolbar({
                   <View testID="pm-project-tab-partners-content">
                     <SelectElementFromCatalog
                       testID="pm-project-main-supplier"
-                      label="Main Supplier (mainSupplierGUID)"
-                      placeholder="Select main supplier..."
+                      label={pmT('Main Supplier (mainSupplierGUID)')}
+                      placeholder={pmT('Select main supplier...')}
                       entityName={PARTNER_ENTITY}
                       value={draft?.mainSupplierGUID}
                       filterItem={(item) => Boolean(item.rowJSON?.partnerIsSupplier)}
@@ -879,8 +846,8 @@ export default function PMRecentProjectsToolbar({
 
                     <SelectElementFromCatalog
                       testID="pm-project-main-supplier-contract"
-                      label="Main Supplier Contract (mainSupplierContractGUID)"
-                      placeholder="Select supplier contract..."
+                      label={pmT('Main Supplier Contract (mainSupplierContractGUID)')}
+                      placeholder={pmT('Select supplier contract...')}
                       entityName={CONTRACT_ENTITY}
                       value={draft?.mainSupplierContractGUID}
                       rowOwnerGUID={draft?.mainSupplierGUID ? draft.mainSupplierGUID : undefined}
@@ -914,8 +881,8 @@ export default function PMRecentProjectsToolbar({
 
                     <SelectElementFromCatalog
                       testID="pm-project-main-customer"
-                      label="Main Customer (mainCustomerGUID)"
-                      placeholder="Select main customer..."
+                      label={pmT('Main Customer (mainCustomerGUID)')}
+                      placeholder={pmT('Select main customer...')}
                       entityName={PARTNER_ENTITY}
                       value={draft?.mainCustomerGUID}
                       filterItem={(item) => Boolean(item.rowJSON?.partnerIsCustomer)}
@@ -934,8 +901,8 @@ export default function PMRecentProjectsToolbar({
 
                     <SelectElementFromCatalog
                       testID="pm-project-main-customer-contract"
-                      label="Main Customer Contract (mainCustomerContractGUID)"
-                      placeholder="Select customer contract..."
+                      label={pmT('Main Customer Contract (mainCustomerContractGUID)')}
+                      placeholder={pmT('Select customer contract...')}
                       entityName={CONTRACT_ENTITY}
                       value={draft?.mainCustomerContractGUID}
                       rowOwnerGUID={draft?.mainCustomerGUID ? draft.mainCustomerGUID : undefined}
@@ -991,14 +958,15 @@ export default function PMRecentProjectsToolbar({
                 <PMDialogButton
                   testID="pm-project-cancel"
                   kind="secondary"
-                  title="Cancel"
-                  color={themeColors.text}
+                  title={pmT('Cancel')}
+                  width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={() => setDraft(null)}
                 />
                 <PMDialogButton
                   testID="pm-project-save"
-                  kind="primary"
-                  title={draft?.rowGUID ? "Save" : "Create"}
+                  kind="secondary"
+                  title={pmT(draft?.rowGUID ? 'Save' : 'Create')}
+                  width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={saveDraft}
                 />
               </View>
@@ -1112,7 +1080,7 @@ function ProjectChip({
         <Pressable
           {...closeTip}
           testID={`pm-project-chip-close-${guid}`}
-          accessibilityLabel="Close"
+          accessibilityLabel={pmT('Close')}
           onPress={onClose}
           hitSlop={6}
           style={[
@@ -1141,8 +1109,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     zIndex: 20,
   },
+  // "Save as template" / "Or create from template": centered, same size as the export buttons above
+  templateButtonRow: { marginTop: 8, alignItems: "center" },
   barContent: { flexGrow: 1, flexDirection: "row", alignItems: "center" },
-  barButtons: { flexDirection: "row", alignItems: "center" },
+  // marginLeft auto: always at the right edge of the bar ("+ Project" above "Critical path")
+  barButtons: { flexDirection: "row", alignItems: "center", marginLeft: "auto" },
   chips: {
     alignItems: "center",
     paddingRight: 8,

@@ -1,0 +1,435 @@
+1|+ Projekt
+2|+ Etapp
+3|0 = piiramatu
+4|Projekt vajab vähemalt ühte Kanbani etappi.
+5|Etapil peab olema nimi.
+6|Tegevused nooltel: sündmused on ringid, ülesanded on nooled
+7|Tegevused sõlmedes: ülesanded on kastid, sõltuvused on nooled
+8|Lisa
+9|Lisa etapp
+10|Lisa eelkäija (ülesanne, mida see ootab)
+11|Lisa etapp
+12|Lisa veerg
+13|Lisa kohandatud veerg
+14|Lisa verstapost
+15|Lisa etapp
+16|Lisa etapp / alametapp
+17|Lisa etapp üles
+18|Lisa etapp alla
+19|Lisa ülesanne
+20|Lisa ülesanne (valitud rea järele / sisse)
+21|Lisa ülesanne (valitud etapi sisse / valitud ülesande järele)
+22|Lisa ülesanne üles
+23|Lisa ülesanne alla
+24|Lisa ülesanne alla / sisse
+25|Lisa ülesanne sisse
+26|Lisa ülesanne sellesse etappi
+27|Lisa esimene etapp
+28|Lisa Google'i kalendrisse
+29|Pärast
+30|Pärast või võrdne
+31|Kõik
+32|Kõik blokeerijad (transitiivselt)
+33|Rakenda
+34|Noole värv
+35|Tagasi Gantti diagrammile
+36|Ribad, nooled ja võrgusõlmed kriitilisel teel
+37|Enne
+38|Enne või võrdne
+39|Blokeerib (järglased)
+40|Sinine
+41|Tahvli ulatus: vali puus etapp, et näha ainult selle ülesandeid
+42|Nupud kursori all oleval (veeb) / valitud (puude) real
+43|Tühista
+44|Tühista (sulge salvestamata)
+45|Diagrammi periood
+46|Vali fail…
+47|Vali projekt…
+48|Tühjenda
+49|Tühista valik
+50|Tühjenda: kõik ülesanded olekusse "Olek puudub"
+51|Klõpsa kestuse muutmiseks
+52|Klõpsa edenemise % muutmiseks
+53|Sulge
+54|Sulge ülesande valija
+55|Sulge salvestamata
+56|Ahenda
+57|Ahenda kõik
+58|Värv
+59|Värvid
+60|Veeru menüü: vali kõik ülesanded, tühjenda veerg
+61|Veeru nimi
+62|Kompaktne
+63|Kompaktsed plokid: nimi, kestus, kuupäevad
+64|Võrdlemine projektiga…
+65|Piirang
+66|Kopeeri GUID
+67|Kopeeri ülesande info
+68|Kopeeri ülesande GUID
+69|Projekte ei õnnestunud laadida
+70|Versiooni ridu ei õnnestunud laadida
+71|Google'i kalendrit ei õnnestunud avada.
+72|Loo
+73|Loo projekt
+74|Loo projektist mall
+75|Loo projekt mallist
+76|Loo projektist mall
+77|Projekti loomine...
+78|Loomine…
+79|Kriitiline
+80|Kriitiline tee
+81|Kriitilise tee värv on ülesande kohandatud värvist tähtsam
+82|Kriitilise tee ülesannete värv
+83|Ülesande kohandatud värv
+84|Kuupäeva vorming (planDateInputFormat)
+85|Kuupäevad peavad olema kujul YYYY-MM-DD.
+86|Päev
+87|Vaikimisi
+88|Vaikevärv
+89|Sõltuvuse vaikevärv
+90|Vaikejärjestus
+91|Vaikelaius
+92|Vaikelaius (täida)
+93|Vaikelaiused
+94|Vaikeväärtused
+95|Kustuta
+96|Kustuta ja impordi
+97|Kustuta kohandatud veerg
+98|Kustuta sõltuvus
+99|Kustuta projekt
+100|Kustuta valitud
+101|Kustuta etapp
+102|Kas kustutada see sõltuvus?
+103|Kas kustutada see versioon?
+104|Kustuta versioon
+105|Sõltuvus
+106|Sõltuvuste nooled
+107|Sõltuvuste nooled: sujuvad / täisnurksed
+108|Sõltuvuste nooled: sujuvad kõverad
+109|Sõltuvuste nooled: täisnurksed jooned
+110|Sõltuvuse värv
+111|Kirjeldus / märkmed
+112|Tühista kõigi ülesannete valik
+113|Üksikasjad
+114|Sulge
+115|Lohista ülesande teisaldamiseks (järjestus / ülemrida)
+116|Lohista järjestuse muutmiseks
+117|Pukseeri siia project_data_….json
+118|Pukseeri ülesanded siia
+119|Fiktiivne
+120|Dubleeri
+121|Dubleeri (koopia alla)
+122|Dubleeri valitud (koopia alla)
+123|Kestus
+124|Kestus (tööpäevad)
+125|Muuda
+126|Muuda etappi
+127|Muuda ülesande Kanbani olekut
+128|Muuda sõltuvust
+129|Muuda sõltuvust (tüüp, viivitus, värv)
+130|Muuda valitut
+131|Muuda ülesannet (nimi, edenemine %, kuupäevad…)
+132|Sisesta etapi nimi.
+133|Viga
+134|Sündmused
+135|Sündmused 4 sektoriga ringidena (number / varaseim / hiliseim / eelkäija)
+136|Iga projekti ülesanne on ühes neist etappidest (uued ülesanded: esimeses). Etapp ei sõltu ülesande edenemise protsendist.
+137|Kõik, mida see viivitab (transitiivselt)
+138|Laienda
+139|Laienda kõik
+140|Ekspordi
+141|Ekspordi Kanbani protsent
+142|Ekspordi Kanbani etapp
+143|Ekspordi kohandatud väljad
+144|Ekspordi projekt: PDF, JSON, MS Project
+145|Ekspordi JSON-i
+146|Ekspordi MS Projecti
+147|Ekspordi MSProjecti
+148|Ekspordi PDF-i
+149|Eksporditud {{file}} ({{count}} ülesannet).
+150|Filtreeri ja sordi
+151|Filtriikooni värv
+152|Filtreeritud veeru päise filtriikooni värv
+153|Otsi projekti…
+154|Lõpp
+155|Lõputund (0-23)
+156|Lõpuminut (0-59)
+157|Lõpusekund (0-59)
+158|Lõppkuupäev ei saa olla enne alguskuupäeva.
+159|Mahuta ekraanile
+160|Vaba varu
+161|Alates (YYYY-MM-DD)
+162|Mallist
+163|Versioonist
+164|Gantti diagramm
+165|Gantti diagramm: riba käsud
+166|Gantti diagramm: riba käsud (hõljukpaneel / paremklõpsu menüü)
+167|Gantti seaded (edenemisjooned, värvid, nooled, kriitiline tee)
+168|Mine sisselogimisele
+169|Suurem kui
+170|Roheline
+171|Hall
+172|Päise värv
+173|Peida hierarhianumbrid (veerg #)
+174|Peida ülesannete edenemine ribadel
+175|Peida ridade valiku veerg (märkeruudud)
+176|Tunnid peavad olema vahemikus 0–23.
+177|Hõljukpaneel
+178|Impordi
+179|Import / eksport
+180|Impordi / ekspordi projekt (project_data_….json) - avab projekti seaded
+181|Suurenda taanet
+182|Etapi sees (võib olla tühi)
+183|Ei ole
+184|Ei ole kuupäeval
+185|See lisatakse ülesannete puu viimaseks veeruks.
+186|Kanbani etapp
+187|Kanbani etapid
+188|Selle projekti Kanbani etapid (veerud)
+189|Kanbani tahvel: ülesannete etapid (lohista ülesandeid puust veergu)
+190|Kanbani etapi edenemine %
+191|Kanban: olekusse "Olek puudub"
+192|Viivitus (tööpäevad, negatiivne = ennetus)
+193|Viivitus +1 päev
+194|Viivitus -1 päev (negatiivne = ennetus)
+195|Viivitus peab olema tööpäevade arv (negatiivne = ennetus).
+196|Väiksem kui
+197|Link kopeeritud
+198|Seo…
+199|Seose tüüp
+200|Sidumine: seejärel puuduta ülesannet, mis peab seda ootama
+201|Laadi demo: Projekt 1 + Projekt 2
+202|Mallide laadimine...
+203|Laadimine…
+204|Üldine
+205|Põhiklient (mainCustomerGUID)
+206|Põhikliendi leping (mainCustomerContractGUID)
+207|Põhitarnija (mainSupplierGUID)
+208|Põhitarnija leping (mainSupplierContractGUID)
+209|Menüü paremklõpsuga (veeb) / pika vajutuse ja vabastamisega (puude)
+210|Microsoft Projecti XML-fail (.xml) kõigi etappide, ülesannete, verstapostide ja sõltuvustega. MS Projectis: File > Open > fail > As a new project.
+211|Verstapost
+212|Verstapostidel ei ole kestust
+213|Minutid peavad olema vahemikus 0–59.
+214|Kuu
+215|Teisalda kõik ülesanded…
+216|Teisalda alla
+217|Alla = hilisem etapp (veerg paremal)
+218|Teisalda üles
+219|Üles = varasem etapp (veerg vasakul)
+220|Nimi
+221|Võrk
+222|Võrkdiagramm
+223|Võrkgraafik
+224|Võrguvaade: võrkdiagramm / võrkgraafik
+225|Uus Kanbani etapp
+226|Uus projekt mallist
+227|Uus verstapost
+228|Uus projekt
+229|Uus ülesanne
+230|Järgmised 2 nädalat
+231|Järgmised 3 kuud
+232|Järgmine kuu
+233|Järgmine etapp
+234|Ei
+235|Faili pole.
+236|Kanbani etappe pole veel seadistatud.
+237|Sobivat projekti ei leitud
+238|Projektimalle ei leitud.
+239|Projekte pole
+240|Projekte veel pole
+241|Seadeid ei leitud
+242|Lähteprojekti pole valitud.
+243|Etapita - otse projekti all
+244|Olek puudub
+245|Ülesandeid pole
+246|Selles projektis ülesandeid ei leitud.
+247|Näidatavaid ülesandeid veel pole.
+248|Salvestatud versioone veel pole
+249|Versioone veel pole
+250|Puudub.
+251|Märkmed
+252|Seda rida ei oota miski.
+253|Kuupäeval või pärast
+254|Kuupäeval või enne
+255|Ava ülesande info
+256|Ava projekti töölaud
+257|Ava projekt esmalt töölaual.
+258|Ava see ülesanne
+259|Valikulised märkmed või juhised selle malli jaoks...
+260|Või loo mallist
+261|Vähenda taanet
+262|PDF ja MS Project ekspordivad töölaual avatud projekti.
+263|PDF-eksport
+264|PDF-eksport nurjus
+265|PDF-eksport: ava esmalt ülesannete puu / Gantti diagramm
+266|PDF-eksport: ekraani ei õnnestunud jäädvustada
+267|PDF-eksport: ülesannete puu / Gantti diagramm ei ole ekraanil
+268|Partnerid
+269|Roosa
+270|Planeeri päevades (planDay)
+271|Planeeri tundides (planHour)
+272|Planeeri minutites (planMinute)
+273|Planeeri sekundites (planSecond)
+274|Sisesta kehtiv alguskuupäev (YYYY-MM-DD).
+275|Vali Kanbani etapp.
+276|Vali ülesanne.
+277|Vali mall.
+278|Eelmine etapp
+279|Edenemine %
+280|Edenemine % (0–100)
+281|Projekt
+282|Projekt (praegu)
+283|Projekti lõppkuupäev (projectFinishDate)
+284|Projekti nimi *
+285|Projekti alguskuupäev (projectStartDate)
+286|Projekti alguskuupäev *
+287|Projekti nimi
+288|Projekti nimi on kohustuslik.
+289|Projekti edenemisjoon
+290|Projekti edenemisjoon: asukoht ajaskaalal, värv
+291|Projekti seaded
+292|Projekti versioonid
+293|Projekti versioonid: salvesta, taasta ja märgi versioonid Gantti diagrammil võrdlemiseks
+294|Projektid
+295|Projektid (Gantt)
+296|Projekte hoitakse Supabase'is kasutajapõhiselt (reataseme turve).
+297|Kiirperioodid
+298|Kirjutuskaitstud
+299|Punane
+300|Eemalda alguspiirang (alusta nii vara kui võimalik)
+301|Eemalda see sõltuvus
+302|Nimeta ümber
+303|Nimeta kohandatud veerg ümber
+304|Nimeta versioon ümber
+305|Asendab projekti "{{name}}" ülesanded (küsib enne)
+306|Taasta
+307|Taasta versioonist
+308|Taasta projekt versioonist
+309|Taasta projekt versioonist - salvestatud versioone veel pole
+310|Kas taastada projekt sellest versioonist?
+311|Paremklõpsu menüü
+312|Koondatud selle etapi ridadest
+313|Koondatud sisemistest ülesannetest (kaalutud kestusega).
+314|Vajalik on SQL-i uuendus
+315|Salvesta
+316|Salvesta esmalt mõni aktiivne projekt mallina käsuga "Salvesta mallina".
+317|Salvesta mallina
+318|Salvesta mallina
+319|Salvesta projekti versioon
+320|Salvesta projekti versioon (kogu plaan: ülesanded, sõltuvused, Kanban)
+321|Salvesta esimene versioon
+322|Ülesannete Kanbani olekute haldamiseks salvesta esmalt see projekt.
+323|Salvesta versioon
+324|Salvestatud kaartide järjestus
+325|Salvestamine...
+326|Keri projekte vasakule
+327|Keri projekte paremale
+328|Otsi seda ülal projektiväljalt või loo uus nupuga “+ Projekt”.
+329|Otsi seadeid
+330|Otsi ülesandeid…
+331|Sekundid peavad olema vahemikus 0–59.
+332|Vali mall *
+333|Vali projekt
+334|Vali kõik ülesanded
+335|Vali kliendileping...
+336|Vali kuupäev
+337|Vali põhiklient...
+338|Vali põhitarnija...
+339|Vali tarnijaleping...
+340|Vali versioon. Praegune plaan salvestatakse enne asendamist uue versioonina.
+341|Eralda väärtused komadega.
+342|Määra ülesande Kanbani olek
+343|Seade
+344|Jaga ülesannet
+345|Näita ülesannete puus hierarhianumbreid (veerg "#")
+346|Näita hierarhianumbreid (veerg #)
+347|Näita ülesannete edenemist Ganttil (jooned + %)
+348|Näita ülesannete edenemist ribadel (joon + %)
+349|Näita kriitilist teed
+350|Näita ridade valiku veergu (märkeruudud)
+351|Näita kogu projekti
+352|Kuvatakse, kui "Näita ülesannete edenemist" (vahekaart Ülesanne) on sees.
+353|Logi sisse, et lisada projekti ülesanne.
+354|Logi sisse projektide haldamiseks
+355|Vajalik on sisselogimine
+356|Varu
+357|Sujuvad
+358|Sortimisalus
+359|Lähteprojekt
+360|Täisnurksed
+361|Etapp
+362|Etapp (võib olla tühi)
+363|Etapi nimi
+364|Etapi värv
+365|Etapi nimi
+366|Algus
+367|Algustund (0-23)
+368|Algusminut (0-59)
+369|Algussekund (0-59)
+370|Alguskuupäev ei saa olla pärast lõppkuupäeva.
+371|Alusta mitte varem kui (YYYY-MM-DD, tühi = nii vara kui võimalik)
+372|Algab kohe, kui projekt (või selle piirang) lubab.
+373|Salvestab malli struktuuri, ülesanded, sõltuvused, etapid ja seaded mallitabelitesse. Ülesannete Kanbani etappide väärtusi ei kaasata.
+374|Alametapp
+375|Ülesanne
+376|Ülesande riba värv
+377|Ülesande info kopeeritud
+378|Ülesande nimi
+379|Ülesannet ei leitud.
+380|Ülesande edenemisjoon
+381|Ülesande edenemisjoon: asukoht ribal, värv
+382|Ülesannete puu veerud (lohista veeru päist selle teisaldamiseks, lohista eraldajat laiuse muutmiseks, paremklõps / pikk vajutus päisel lisab kohandatud veeru)
+383|Ülesannete puu veerud: vaikejärjestus, vaikelaiused
+384|Ülesannete puu: rea käsud
+385|Ülesannete puu: rea käsud (hõljukpaneel / paremklõpsu menüü)
+386|Malli nimi *
+387|Malli nimi on kohustuslik.
+388|Gantti renderdajat ei õnnestunud käivitada.
+389|Eksport nurjus.
+390|Failis pole projekti.
+391|Failis pole ülesannete loendit.
+392|Fail ei ole kehtiv JSON.
+393|Projekti ei ole (enam) olemas.
+394|Projekt koos kõigi etappide, ülesannete, verstapostide ja sõltuvustega (+ sinu Gantti seaded).
+395|Salvestatakse kogu plaan: projekti andmed, etapid, ülesanded, verstapostid, sõltuvused ja Kanban. Versioon pärast seda enam ei muutu.
+396|See ei ole projekti andmefail (project_data_….json).
+397|See kuu
+398|Selles etapis pole veel ülesandeid - lisa need esmalt.
+399|Sellel ülesandel pole veel kuupäevi - seda ei saa Google'i kalendrisse lisada.
+400|See nädal
+401|See aasta
+402|Ajaskaalas
+403|Ajaskaalas võrk: noole pikkus = kestus, punktiir = vaba varu
+404|Kuni (YYYY-MM-DD)
+405|Täna
+406|Täna → projekti lõpp
+407|Puu
+408|Tüüp
+409|Eemalda kõigi versioonide märge (midagi ei võrrelda)
+410|Võta tagasi
+411|Kas võtta viimane toiming tagasi?
+412|Versiooni pealkiri
+413|Versioonid
+414|Versioonid pole veel paigaldatud
+415|Etapi kaudu
+416|Violetne
+417|WIP-limiit (valikuline)
+418|Ootab (eelkäijad)
+419|Nädal
+420|Kogu projekt
+421|Ainult tööpäevad (jäta nädalavahetused vahele)
+422|Aasta
+423|Aasta (kvartalid)
+424|Kollane
+425|Sul pole veel projekte - loo see töölaual
+426|Suurenda
+427|Vähenda
+428|nii vara kui võimalik
+429|nt Kliendi kinnitatud baasplaan
+430|nt Töös
+431|nt Veebilehe uuendus Q4
+432|nt Standardne veebirakenduse mall
+433|nt nooled, edenemine, veerg
+434|ülesannete puu / Gantti diagramm ei ole ekraanil
+435|{{tip}} (praegu pole saadaval)

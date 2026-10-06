@@ -18,6 +18,7 @@ import { SystemMetaData } from '../../../../../redux/SystemMetaData';
 import { PROJECT_TASK_KANBAN_STATE_ENTITY } from '../../../../model/constants';
 import { usePMStore } from '../../../../store/store_pm';
 import { usePMKanbanStore } from '../../../../store/store_kanban';
+import { pmT } from '../../../../i18n/pmT';
 
 export interface PMTaskKanbanStateEditModalProps {
   visible: boolean;
@@ -141,7 +142,7 @@ export default function PMTaskKanbanStateEditModal({
 
           <ScrollView style={styles.modalBody}>
             {/* Task selector */}
-            <Text style={[styles.fieldLabel, { color: c.text }]}>Task</Text>
+            <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('Task')}</Text>
             <View style={styles.chipsRow}>
               {projectTasks.map((t: any) => {
                 const active = selectedTaskGUID === t.rowGUID;
@@ -172,13 +173,13 @@ export default function PMTaskKanbanStateEditModal({
               })}
               {projectTasks.length === 0 && (
                 <Text style={[styles.hintText, { color: `${c.text}88` }]}>
-                  No tasks found in this project.
+                  {pmT('No tasks found in this project.')}
                 </Text>
               )}
             </View>
 
             {/* Stage selector */}
-            <Text style={[styles.fieldLabel, { color: c.text, marginTop: 12 }]}>Kanban Stage</Text>
+            <Text style={[styles.fieldLabel, { color: c.text, marginTop: 12 }]}>{pmT('Kanban Stage')}</Text>
             <View style={styles.chipsRow}>
               {stages.map((st: any) => {
                 const stId = st.rowGUID || st.id;
@@ -214,7 +215,7 @@ export default function PMTaskKanbanStateEditModal({
 
             {/* Progress percent */}
             <Text style={[styles.fieldLabel, { color: c.text, marginTop: 12 }]}>
-              Progress % (0–100)
+              {pmT('Progress % (0–100)')}
             </Text>
             <TextInput
               testID="kanban-state-progress-input"
@@ -233,14 +234,14 @@ export default function PMTaskKanbanStateEditModal({
               onPress={onClose}
               style={[styles.footerBtn, { borderColor: c.border, borderWidth: 1 }]}
             >
-              <Text style={{ color: c.text, fontWeight: '600' }}>Cancel</Text>
+              <Text style={{ color: c.text, fontWeight: '600' }}>{pmT('Cancel')}</Text>
             </Pressable>
             <Pressable
               testID="kanban-state-save"
               onPress={handleSave}
               style={[styles.footerBtn, { backgroundColor: c.primary }]}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{pmT('Save')}</Text>
             </Pressable>
           </View>
         </View>

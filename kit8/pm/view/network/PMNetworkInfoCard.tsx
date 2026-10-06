@@ -8,6 +8,7 @@ import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { addWorkDays, formatDateShort, PMCalendar } from '../project/scheduling';
 import { PMPalette, withAlpha } from '../theme';
 import { PMActivityNetwork, PMNetActivity, PMNetEvent } from './networkModel';
+import { pmT } from '../../i18n/pmT';
 
 const lastDay = (a: PMNetActivity) => (a.finishMs > a.startMs ? a.finishMs - DAY_MS : a.startMs);
 
@@ -54,7 +55,7 @@ export default function PMNetworkInfoCard({
         <Text numberOfLines={2} style={[styles.title, { color: palette.text }]}>
           {a ? `${a.kind === 'milestone' ? '◆ ' : ''}${a.name}` : `Event ${event!.number}`}
         </Text>
-        <PMIconButton compact size={16} testID="pm-net-info-close" icon="close" title="Close" color={palette.text} onPress={onClose} />
+        <PMIconButton compact size={16} testID="pm-net-info-close" icon="close" title={pmT('Close')} color={palette.text} onPress={onClose} />
       </View>
       {a ? (
         <>
@@ -72,7 +73,7 @@ export default function PMNetworkInfoCard({
                 },
               ]}
             >
-              Critical path
+              {pmT('Critical path')}
             </Text>
           )}
           <Row palette={palette} k="Dates" v={`${formatDateShort(a.startMs)} – ${formatDateShort(lastDay(a))}`} />

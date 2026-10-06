@@ -58,6 +58,7 @@ jest.mock('react-native-paper', () => {
     HelperText: Stub,
     Card: Stub,
     Text: Stub,
+    Avatar: Stub,
     useTheme: () => ({ colors: {} }),
     MD3LightTheme: { colors: {} },
     MD3DarkTheme: { colors: {} },

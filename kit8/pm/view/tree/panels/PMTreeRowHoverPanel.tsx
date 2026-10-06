@@ -13,6 +13,7 @@ import PMFloatingRowPanel from '../../../inner/panels/PMFloatingRowPanel';
 import PMRowActionButtons from '../../../inner/buttons/PMRowActionButtons';
 import { PMDragHandleButton } from '../../../inner/buttons/PMDragHandleButton';
 import type { GestureType } from 'react-native-gesture-handler';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMTreeRowHoverPanel({
   guid,
@@ -40,13 +41,13 @@ export default function PMTreeRowHoverPanel({
 }) {
   return (
     <PMFloatingRowPanel testID="pm-tree-row-panel" width={width} background={palette.surface} border={palette.border} animatedStyle={animatedStyle} style={left !== undefined ? { left } : { right: right ?? 0 }}>
-      <PMIconButton compact size={16} testID={`pm-tree-row-add-below-${guid}`} icon="add_row_below" title="Add task below" color={palette.primary} onPress={() => crud.createTaskBelow(guid)} />
-      <PMIconButton compact size={16} testID={`pm-tree-row-add-above-${guid}`} icon="add_row_above" title="Add task above" color={palette.primary} onPress={() => crud.createTaskAbove(guid)} />
+      <PMIconButton compact size={16} testID={`pm-tree-row-add-below-${guid}`} icon="add_row_below" title={pmT('Add task below')} color={palette.primary} onPress={() => crud.createTaskBelow(guid)} />
+      <PMIconButton compact size={16} testID={`pm-tree-row-add-above-${guid}`} icon="add_row_above" title={pmT('Add task above')} color={palette.primary} onPress={() => crud.createTaskAbove(guid)} />
       {isSummary && (
-        <PMIconButton compact size={16} testID={`pm-tree-row-add-${guid}`} icon="add" title="Add task inside this stage" color={palette.primary} onPress={() => crud.createTask(guid)} />
+        <PMIconButton compact size={16} testID={`pm-tree-row-add-${guid}`} icon="add" title={pmT('Add task inside this stage')} color={palette.primary} onPress={() => crud.createTask(guid)} />
       )}
       <PMRowActionButtons guid={guid} crud={crud} palette={palette} testIDPrefix="pm-tree-row" />
-      <PMDragHandleButton testID={`pm-tree-row-drag-${guid}`} gesture={dragGesture} color={palette.textMuted} title="Drag to move the task (reorder / re-parent)" />
+      <PMDragHandleButton testID={`pm-tree-row-drag-${guid}`} gesture={dragGesture} color={palette.textMuted} title={pmT('Drag to move the task (reorder / re-parent)')} />
     </PMFloatingRowPanel>
   );
 }

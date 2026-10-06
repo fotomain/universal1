@@ -20,6 +20,7 @@ import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../../inner/buttons';
 import { useUxuiCurrentJSON } from '../../../../redux/useUxuiCurrentJSON';
 import ShareScreenshotButton from '../../../../components/common/ShareScreenshotButton';
+import { pmT } from '../../../i18n/pmT';
 
 export const DEPENDENCY_COLOR_SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#64748b'];
 
@@ -43,11 +44,11 @@ export function DefaultDependencyColor({
   return (
     <Pressable
       testID="pm-dep-color-default"
-      accessibilityLabel="Default dependency color"
+      accessibilityLabel={pmT('Default dependency color')}
       onPress={onPress}
       style={[styles.defaultSwatch, { borderColor: selected ? colors.text : colors.border, borderWidth: selected ? 2 : 1, backgroundColor: colors.background }]}
     >
-      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Default</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>{pmT('Default')}</Text>
     </Pressable>
   );
 }
@@ -158,9 +159,9 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.header}>
-            <Text style={[styles.title, { color: c.text }]}>Edit dependency</Text>
+            <Text style={[styles.title, { color: c.text }]}>{pmT('Edit dependency')}</Text>
             <ShareScreenshotButton testID="pm-dep-share" color={c.text} />
-            <PMIconButton testID="pm-dep-close" icon="close" title="Close without saving" color={c.text} onPress={close} />
+            <PMIconButton testID="pm-dep-close" icon="close" title={pmT('Close without saving')} color={c.text} onPress={close} />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={{ color: c.text, marginBottom: 6 }} numberOfLines={2}>
@@ -169,10 +170,10 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
               <Text style={{ fontWeight: '700' }}>{toName || '?'}</Text>
             </Text>
 
-            <CopyableGUID label="fromTaskGUID" value={dep.rowDependsOnGUID} testID="pm-dep-from-guid" colors={c} />
-            <CopyableGUID label="toTaskGUID" value={dep.rowGUID} testID="pm-dep-to-guid" colors={c} />
+            <CopyableGUID label={pmT('fromTaskGUID')} value={dep.rowDependsOnGUID} testID="pm-dep-from-guid" colors={c} />
+            <CopyableGUID label={pmT('toTaskGUID')} value={dep.rowGUID} testID="pm-dep-to-guid" colors={c} />
 
-            <Text style={[styles.label, { color: c.text }]}>Link type</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Link type')}</Text>
             <View style={styles.segment}>
               {LINK_TYPES.map((t, i) => {
                 const active = linkType === t;
@@ -197,21 +198,21 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
               })}
             </View>
 
-            <Text style={[styles.label, { color: c.text }]}>Lag (working days, negative = lead)</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Lag (working days, negative = lead)')}</Text>
             <TextInput testID="pm-dep-lag" value={lag} onChangeText={(v) => setLag(v.replace(/[^0-9.,-]/g, ''))} keyboardType="numbers-and-punctuation" style={input} />
 
-            <Text style={[styles.label, { color: c.text }]}>Arrow color</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Arrow color')}</Text>
             <SelectDependencyColor value={color} onChange={setColor} colors={c} />
 
             {!!error && <Text style={{ color: c.error, marginTop: 8 }}>{error}</Text>}
           </ScrollView>
 
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-dep-delete" kind="danger" icon="link_off" title="Delete dependency" style={{ marginLeft: 0 }} onPress={() => crud.deleteDependency(ref)} />
+            <PMDialogButton testID="pm-dep-delete" kind="danger" icon="link_off" title={pmT('Delete dependency')} style={{ marginLeft: 0 }} onPress={() => crud.deleteDependency(ref)} />
             {/* Cancel + Save stay together on the right; on a phone they wrap under "Delete dependency" as ONE group */}
             <View style={styles.actionsRight}>
-              <PMDialogButton testID="pm-dep-cancel" kind="secondary" title="Cancel" color={c.text} style={{ marginLeft: 0 }} onPress={close} />
-              <PMDialogButton testID="pm-dep-save" kind="primary" title="Save" onPress={save} />
+              <PMDialogButton testID="pm-dep-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} style={{ marginLeft: 0 }} onPress={close} />
+              <PMDialogButton testID="pm-dep-save" kind="primary" title={pmT('Save')} onPress={save} />
             </View>
           </View>
         </View>

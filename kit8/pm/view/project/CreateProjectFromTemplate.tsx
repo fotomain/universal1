@@ -24,9 +24,10 @@ import {
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 import IconApp from '../../../components/common/IconApp';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
-import SelectDateApp from '../../../components/common/SelectDateApp';
+import PMDateInput from '../../inner/inputs/PMDateInput';
 import { formatDateISO, parseDateISO, todayUTC } from './scheduling';
 import { PMProjectRow } from '../../model/types';
+import { pmT } from '../../i18n/pmT';
 
 export interface CreateProjectFromTemplateProps {
   visible: boolean;
@@ -50,7 +51,6 @@ export default function CreateProjectFromTemplate({
   const [selectedTemplateGUID, setSelectedTemplateGUID] = useState<string>('');
   const [projectName, setProjectName] = useState('');
   const [startDateStr, setStartDateStr] = useState(formatDateISO(todayUTC()));
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createProjectMutation = useCreateProjectFromTemplateMutation(ownerGUID);
@@ -129,13 +129,13 @@ export default function CreateProjectFromTemplate({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <IconApp name="library_add" size={22} color={c.primary} style={{ marginRight: 8 }} />
-              <Text style={[styles.title, { color: c.text }]}>New Project from Template</Text>
+              <Text style={[styles.title, { color: c.text }]}>{pmT('New Project from Template')}</Text>
             </View>
             <Pressable
               testID="pm-create-from-template-close-btn"
               onPress={onClose}
               hitSlop={8}
-              accessibilityLabel="Close"
+              accessibilityLabel={pmT('Close')}
             >
               <IconApp name="close" size={20} color={c.text} />
             </Pressable>
@@ -143,11 +143,11 @@ export default function CreateProjectFromTemplate({
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
             {/* Template Selection */}
-            <Text style={[styles.label, { color: c.text }]}>Select Template *</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Select Template *')}</Text>
             {templatesQuery.isLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicatorCircleApp size={24} color={c.primary} />
-                <Text style={[styles.loadingText, { color: c.text }]}>Loading templates...</Text>
+                <Text style={[styles.loadingText, { color: c.text }]}>{pmT('Loading templates...')}</Text>
               </View>
             ) : templates.length === 0 ? (
               <View
@@ -156,10 +156,10 @@ export default function CreateProjectFromTemplate({
               >
                 <IconApp name="folder_open" size={28} color={c.text + '80'} style={{ marginBottom: 6 }} />
                 <Text style={[styles.emptyText, { color: c.text }]}>
-                  No project templates found.
+                  {pmT('No project templates found.')}
                 </Text>
                 <Text style={[styles.emptySubtext, { color: c.text + '99' }]}>
-                  Save any active project as a template first using "Save as Template".
+                  {pmT('Save any active project as a template first using "Save as Template".')}
                 </Text>
               </View>
             ) : (
@@ -213,7 +213,7 @@ export default function CreateProjectFromTemplate({
             {/* Project Name */}
             {templates.length > 0 && (
               <>
-                <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>Project Name *</Text>
+                <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>{pmT('Project Name *')}</Text>
                 <TextInput
                   testID="pm-new-project-name-input"
                   value={projectName}
@@ -221,7 +221,7 @@ export default function CreateProjectFromTemplate({
                     setProjectName(t);
                     if (error) setError(null);
                   }}
-                  placeholder="e.g. Q4 Website Redesign"
+                  placeholder={pmT('e.g. Q4 Website Redesign')}
                   placeholderTextColor={c.text + '66'}
                   style={[
                     styles.input,
@@ -235,52 +235,17 @@ export default function CreateProjectFromTemplate({
 
                 {/* Project Start Date */}
                 <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>
-                  Project Start Date *
+                  {pmT('Project Start Date *')}
                 </Text>
-                <View style={styles.dateRow}>
-                  <TextInput
-                    testID="pm-new-project-start-input"
-                    value={startDateStr}
-                    onChangeText={(t) => {
-                      setStartDateStr(t);
-                      if (error) setError(null);
-                    }}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={c.text + '66'}
-                    style={[
-                      styles.input,
-                      styles.dateInput,
-                      {
-                        color: c.text,
-                        borderColor: c.border,
-                        backgroundColor: c.background,
-                      },
-                    ]}
-                  />
-                  <PMIconButton
-                    testID="pm-new-project-date-btn"
-                    icon="calendar_today"
-                    title="Select start date"
-                    color={c.primary}
-                    onPress={() => setDatePickerOpen(true)}
-                  />
-                </View>
-
-                {/* Date Picker Modal */}
-                {datePickerOpen && (
-                  <SelectDateApp
-                    visible={datePickerOpen}
-                    onClose={() => setDatePickerOpen(false)}
-                    mode="single"
-                    dateValue={startDateStr}
-                    onSelect={(d: any) => {
-                      if (typeof d === 'string' && d) {
-                        setStartDateStr(d);
-                      }
-                      setDatePickerOpen(false);
-                    }}
-                  />
-                )}
+                <PMDateInput
+                  testID="pm-new-project-start-input"
+                  pickerTestID="pm-new-project-date"
+                  value={startDateStr}
+                  onChangeText={(t) => {
+                    setStartDateStr(t);
+                    if (error) setError(null);
+                  }}
+                />
               </>
             )}
 
@@ -297,7 +262,7 @@ export default function CreateProjectFromTemplate({
           <View style={[styles.footer, { borderTopColor: c.border }]}>
             <PMDialogButton
               testID="pm-create-from-template-cancel-btn"
-              title="Cancel"
+              title={pmT('Cancel')}
               variant="outline"
               color={c.text}
               onPress={onClose}

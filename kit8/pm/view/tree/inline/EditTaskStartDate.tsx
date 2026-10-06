@@ -9,6 +9,7 @@ import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
 import SelectDateApp from '../../../../components/common/SelectDateApp';
+import { pmT } from '../../../i18n/pmT';
 
 export default function EditTaskStartDate(props: {
   guid: string;
@@ -35,7 +36,7 @@ export default function EditTaskStartDate(props: {
       {...props}
       testID={testID ?? `pm-tree-edit-taskStartDate-${guid}`}
       initial={initial}
-      placeholder="ASAP"
+      placeholder={pmT('ASAP')}
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
       preventBlur={pickerOpen}

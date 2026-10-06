@@ -10,6 +10,7 @@ import { usePMVersionStore } from '../../store/store_version';
 import { useReadProjectVersionsQuery } from '../../crud/version/versionQueries';
 import { useVersionCommands } from '../../crud/version/useVersionCommands';
 import PMVersionTitleModalWindow from './PMVersionTitleModalWindow';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMVersionWindows({ ownerGUID, projectGUID }: { ownerGUID: string; projectGUID: string | null }) {
   useReadProjectVersionsQuery(ownerGUID ? projectGUID : null);
@@ -36,10 +37,10 @@ export default function PMVersionWindows({ ownerGUID, projectGUID }: { ownerGUID
       <ModalWindowListToSelect
         testID="pm-version-picker"
         visible={pickerOpen}
-        title="Restore project from version"
-        message="Select the version. The current plan is saved as a new version before it is replaced."
+        title={pmT('Restore project from version')}
+        message={pmT('Select the version. The current plan is saved as a new version before it is replaced.')}
         items={items}
-        emptyText="No versions saved yet"
+        emptyText={pmT('No versions saved yet')}
         searchPlaceholder="Search a version…"
         onClose={commands.closeRestorePicker}
         onSelect={(id) => {

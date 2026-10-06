@@ -18,6 +18,7 @@ import { errorMessage } from '../../crud/api/apiUtils';
 import { pmKeys, usePMApi, usePMOwnerGUID, useReadProjectsQuery } from '../../crud/queries';
 import { PM_ROUTES } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
+import { pmT } from '../../i18n/pmT';
 
 type Kind = 'task' | 'stage';
 
@@ -119,12 +120,12 @@ export default function PMNewTaskFromIntent() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" testID="pm-new-task-screen">
       {!ownerGUID ? (
-        <Text style={{ color: c.text, fontSize: 15 }}>Sign in to add a task to a project.</Text>
+        <Text style={{ color: c.text, fontSize: 15 }}>{pmT('Sign in to add a task to a project.')}</Text>
       ) : (
         <>
           <RadioSetApp
             testID="pm-new-task-kind"
-            title="Add"
+            title={pmT('Add')}
             horizontal
             value={kind}
             onChange={setKind}
@@ -153,7 +154,7 @@ export default function PMNewTaskFromIntent() {
           </Text>
 
           {label('Notes')}
-          <TextInput testID="pm-new-task-notes" value={notes} onChangeText={setNotes} multiline placeholder="Notes" placeholderTextColor={`${c.text}77`} style={[field, styles.input, { color: c.text, minHeight: 90, textAlignVertical: 'top' }]} />
+          <TextInput testID="pm-new-task-notes" value={notes} onChangeText={setNotes} multiline placeholder={pmT('Notes')} placeholderTextColor={`${c.text}77`} style={[field, styles.input, { color: c.text, minHeight: 90, textAlignVertical: 'top' }]} />
 
           {!!intent?.intentURL && (
             <Text numberOfLines={2} style={{ color: c.primary, fontSize: 12.5, marginTop: 8 }}>
@@ -162,7 +163,7 @@ export default function PMNewTaskFromIntent() {
           )}
 
           <View style={styles.actions}>
-            <ButtonTextApp testID="pm-new-task-cancel" title="Cancel" onPress={cancel} />
+            <ButtonTextApp testID="pm-new-task-cancel" title={pmT('Cancel')} onPress={cancel} />
             <ButtonPrimaryApp testID="pm-new-task-save" title={saving ? 'Adding…' : `Add ${kind} to the project`} onPress={save} disabled={!canSave} loading={saving} />
           </View>
         </>
@@ -171,11 +172,11 @@ export default function PMNewTaskFromIntent() {
       <ModalWindowListToSelect
         testID="pm-new-task-project-list"
         visible={menu === 'project'}
-        title="Project"
+        title={pmT('Project')}
         searchable
         items={projects.map((p) => ({ id: p.rowGUID, title: p.rowJSON.name || 'Project', icon: 'account_tree' }))}
         selectedId={projectGUID}
-        emptyText="No projects"
+        emptyText={pmT('No projects')}
         onSelect={(id) => {
           setProjectGUID(id);
           setStageGUID(null);
@@ -186,7 +187,7 @@ export default function PMNewTaskFromIntent() {
       <ModalWindowListToSelect
         testID="pm-new-task-stage-list"
         visible={menu === 'stage'}
-        title="Stage"
+        title={pmT('Stage')}
         searchable
         items={[{ id: '', title: 'No stage - directly under the project', icon: 'horizontal_rule' }, ...stages]}
         selectedId={stageGUID || ''}

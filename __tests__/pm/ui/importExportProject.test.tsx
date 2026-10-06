@@ -27,6 +27,7 @@ jest.mock('../../../kit8/components/common/ReceiveDraggableFilesComponent', () =
 
 import React from 'react';
 import ImportExportProject from '../../../kit8/pm/crud/exchange/project/ImportExportProject';
+import { PM_EXPORT_BUTTON_WIDTH } from '../../../kit8/pm/model/constants';
 import { downloadTextFile } from '../../../kit8/pm/crud/exchange/project/export/downloadTextFile';
 
 afterEach(() => {
@@ -73,7 +74,15 @@ describe('ImportExportProject', () => {
     const P = demo.projects[0].rowGUID;
     const onImported = jest.fn();
     renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} onImported={onImported} />);
-    expect(mockDropProps).toHaveBeenLastCalledWith(expect.objectContaining({ compact: true, pickable: true, accept: '.json,application/json', testID: 'pm-project-import-drop' }));
+    expect(mockDropProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compact: true,
+        pickable: true,
+        pickButtonWidth: PM_EXPORT_BUTTON_WIDTH,
+        accept: '.json,application/json',
+        testID: 'pm-project-import-drop',
+      })
+    );
     expect(mockDropProps.mock.calls[mockDropProps.mock.calls.length - 1][0].style).toMatchObject({ flexGrow: 1 }); // full height of the window
     await act(async () => {
       press('pm-project-import-drop');

@@ -4,6 +4,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import IconApp from '../../../components/common/IconApp';
 import { PMTipPressable } from '../../inner/buttons/PMTipPressables';
+import { pmT } from '../../i18n/pmT';
 
 export interface PMRadioOption<T extends string> {
   value: T;
@@ -51,7 +52,7 @@ export default function PMNetworkRadioGroup<T extends string>({
                 },
               ]}
             >
-              {o.label}
+              {pmT(o.label)}
             </Text>
           </PMTipPressable>
         );

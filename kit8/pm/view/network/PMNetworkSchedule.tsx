@@ -34,6 +34,7 @@ import PMNetworkNodeActionPanel from './PMNetworkNodeActionPanel';
 import { arrowHead, labelAnchor, PMPt, straightPath, towards, svgPressProps } from './networkGeometry';
 import { buildEventNetwork, layeredLayout, PMActivityNetwork, PMEventNetwork, PMNetArrow, PMNetEvent, timeScaledLayout } from './networkModel';
 import { PMNetworkInteraction, useNetworkInteraction, useNetworkViewSetters } from './useNetworkView';
+import { pmT } from '../../i18n/pmT';
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -126,7 +127,7 @@ export default function PMNetworkSchedule({ net, palette, crud, readOnly }: { ne
         <PMToolbarDivider color={palette.border} />
         <PMGanttZoomButtons palette={palette} onZoomOut={zoomCtl.zoomOut} onZoomIn={zoomCtl.zoomIn} onFit={zoomCtl.fit} />
         <PMToolbarSpacer />
-        {!timeScaled && <Text style={[styles.key, { color: palette.textMuted }]}>event: № / early · late / from №</Text>}
+        {!timeScaled && <Text style={[styles.key, { color: palette.textMuted }]}>{pmT('event: № / early · late / from №')}</Text>}
         <PMNetworkLegend
           palette={palette}
           items={legendItems(palette, {
@@ -140,7 +141,7 @@ export default function PMNetworkSchedule({ net, palette, crud, readOnly }: { ne
       <View style={styles.body}>
         {ev.events.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={{ color: palette.textMuted }}>No tasks to show yet.</Text>
+            <Text style={{ color: palette.textMuted }}>{pmT('No tasks to show yet.')}</Text>
           </View>
         ) : (
           <PMNetworkCanvas

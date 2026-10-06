@@ -1,0 +1,435 @@
+1|+ Projektas
+2|+ Etapas
+3|0 = neribota
+4|Projektui reikia bent vieno Kanban etapo.
+5|Etapui reikia pavadinimo.
+6|Darbai rodyklėse: įvykiai yra apskritimai, užduotys yra rodyklės
+7|Darbai mazguose: užduotys yra langeliai, priklausomybės yra rodyklės
+8|Pridėti
+9|Pridėti etapą
+10|Pridėti pirmtaką (užduotį, kurios ši laukia)
+11|Pridėti etapą
+12|Pridėti stulpelį
+13|Pridėti pasirinktinį stulpelį
+14|Pridėti gairę
+15|Pridėti etapą
+16|Pridėti etapą / poetapį
+17|Pridėti etapą aukščiau
+18|Pridėti etapą žemiau
+19|Pridėti užduotį
+20|Pridėti užduotį (po pasirinktos eilutės / jos viduje)
+21|Pridėti užduotį (pasirinktame etape / po pasirinktos užduoties)
+22|Pridėti užduotį aukščiau
+23|Pridėti užduotį žemiau
+24|Pridėti užduotį žemiau / viduje
+25|Pridėti užduotį viduje
+26|Pridėti užduotį šiame etape
+27|Pridėti pirmą etapą
+28|Pridėti į „Google“ kalendorių
+29|Po
+30|Po arba lygu
+31|Visi
+32|Visi blokuotojai (tranzityviai)
+33|Taikyti
+34|Rodyklės spalva
+35|Atgal į Ganto diagramą
+36|Juostos, rodyklės ir tinklo mazgai kritiniame kelyje
+37|Prieš
+38|Prieš arba lygu
+39|Blokuoja (paskesnės)
+40|Mėlyna
+41|Lentos aprėptis: pasirinkite etapą medyje, kad matytumėte tik jo užduotis
+42|Mygtukai eilutėje po žymekliu (žiniatinklis) / pasirinktoje eilutėje (lietimas)
+43|Atšaukti
+44|Atšaukti (uždaryti neišsaugojus)
+45|Diagramos laikotarpis
+46|Pasirinkti failą…
+47|Pasirinkite projektą…
+48|Išvalyti
+49|Išvalyti pasirinkimą
+50|Išvalyti: visos užduotys į „Nėra būsenos“
+51|Spustelėkite, kad pakeistumėte trukmę
+52|Spustelėkite, kad pakeistumėte eigos %
+53|Uždaryti
+54|Uždaryti užduočių parinkiklį
+55|Uždaryti neišsaugojus
+56|Sutraukti
+57|Sutraukti viską
+58|Spalva
+59|Spalvos
+60|Stulpelio meniu: pasirinkti visas užduotis, išvalyti stulpelį
+61|Stulpelio pavadinimas
+62|Kompaktiškas
+63|Kompaktiški blokai: pavadinimas, trukmė, datos
+64|Lyginama su projektu…
+65|Apribojimas
+66|Kopijuoti GUID
+67|Kopijuoti užduoties informaciją
+68|Kopijuoti užduoties GUID
+69|Nepavyko įkelti projektų
+70|Nepavyko įkelti versijos eilučių
+71|Nepavyko atidaryti „Google“ kalendoriaus.
+72|Sukurti
+73|Sukurti projektą
+74|Sukurti šabloną iš projekto
+75|Sukurti projektą iš šablono
+76|Sukurti šabloną iš projekto
+77|Kuriamas projektas...
+78|Kuriama…
+79|Kritinė
+80|Kritinis kelias
+81|Kritinio kelio spalva turi pirmenybę prieš pasirinktinę užduoties spalvą
+82|Kritinio kelio užduočių spalva
+83|Pasirinktinė užduoties spalva
+84|Datos formatas (planDateInputFormat)
+85|Datos turi būti YYYY-MM-DD.
+86|Diena
+87|Numatytasis
+88|Numatytoji spalva
+89|Numatytoji priklausomybės spalva
+90|Numatytoji tvarka
+91|Numatytasis plotis
+92|Numatytasis plotis (užpildyti)
+93|Numatytieji pločiai
+94|Numatytosios reikšmės
+95|Ištrinti
+96|Ištrinti ir importuoti
+97|Ištrinti pasirinktinį stulpelį
+98|Ištrinti priklausomybę
+99|Ištrinti projektą
+100|Ištrinti pasirinktą
+101|Ištrinti etapą
+102|Ištrinti šią priklausomybę?
+103|Ištrinti šią versiją?
+104|Ištrinti versiją
+105|Priklausomybė
+106|Priklausomybių rodyklės
+107|Priklausomybių rodyklės: glotnios / stačiakampės
+108|Priklausomybių rodyklės: glotnios kreivės
+109|Priklausomybių rodyklės: stačiakampės linijos
+110|Priklausomybės spalva
+111|Aprašymas / pastabos
+112|Atžymėti visas užduotis
+113|Išsamiau
+114|Atmesti
+115|Vilkite, kad perkeltumėte užduotį (pakeistumėte tvarką / tėvinę eilutę)
+116|Vilkite, kad pakeistumėte tvarką
+117|Numeskite čia project_data_….json
+118|Numeskite užduotis čia
+119|Fiktyvi
+120|Dubliuoti
+121|Dubliuoti (kopija žemiau)
+122|Dubliuoti pasirinktą (kopija žemiau)
+123|Trukmė
+124|Trukmė (darbo dienos)
+125|Redaguoti
+126|Redaguoti etapą
+127|Redaguoti užduoties Kanban būseną
+128|Redaguoti priklausomybę
+129|Redaguoti priklausomybę (tipas, vėlinimas, spalva)
+130|Redaguoti pasirinktą
+131|Redaguoti užduotį (pavadinimas, eiga %, datos…)
+132|Įveskite etapo pavadinimą.
+133|Klaida
+134|Įvykiai
+135|Įvykiai kaip 4 sektorių apskritimai (numeris / ankstyvas / vėlyvas / pirmtakas)
+136|Kiekviena projekto užduotis yra viename iš šių etapų (naujos užduotys: pirmame). Etapas nepriklauso nuo užduoties eigos %.
+137|Viskas, ką ji vėlina (tranzityviai)
+138|Išskleisti
+139|Išskleisti viską
+140|Eksportuoti
+141|Eksportuoti Kanban procentus
+142|Eksportuoti Kanban etapą
+143|Eksportuoti pasirinktinius laukus
+144|Eksportuoti projektą: PDF, JSON, MS Project
+145|Eksportuoti į JSON
+146|Eksportuoti į MS Project
+147|Eksportuoti į MSProject
+148|Eksportuoti į PDF
+149|Eksportuota {{file}} (užduočių: {{count}}).
+150|Filtruoti ir rikiuoti
+151|Filtro piktogramos spalva
+152|Filtruoto stulpelio antraštės filtro piktogramos spalva
+153|Ieškoti projekto…
+154|Pabaiga
+155|Pabaigos valanda (0-23)
+156|Pabaigos min. (0-59)
+157|Pabaigos sek. (0-59)
+158|Pabaigos data negali būti ankstesnė už pradžios datą.
+159|Talpinti ekrane
+160|Laisvas rezervas
+161|Nuo (YYYY-MM-DD)
+162|Iš šablono
+163|Iš versijos
+164|Ganto diagrama
+165|Ganto diagrama: juostų komandos
+166|Ganto diagrama: juostų komandos (užvedimo skydelis / dešiniojo spustelėjimo meniu)
+167|Ganto nustatymai (eigos linijos, spalvos, rodyklės, kritinis kelias)
+168|Eiti į prisijungimą
+169|Daugiau nei
+170|Žalia
+171|Pilka
+172|Antraštės spalva
+173|Slėpti hierarchijos numerius (# stulpelis)
+174|Slėpti užduočių eigą juostose
+175|Slėpti eilučių žymėjimo stulpelį (žymimieji langeliai)
+176|Valandos turi būti nuo 0 iki 23.
+177|Užvedimo skydelis
+178|Importuoti
+179|Importas / eksportas
+180|Importuoti / eksportuoti projektą (project_data_….json) - atidaro projekto nustatymus
+181|Didinti įtrauką
+182|Etapo viduje (gali būti tuščias)
+183|Nėra
+184|Ne tą dieną
+185|Jis pridedamas kaip paskutinis užduočių medžio stulpelis.
+186|Kanban etapas
+187|Kanban etapai
+188|Šio projekto Kanban etapai (stulpeliai)
+189|Kanban lenta: užduočių etapai (vilkite užduotis iš medžio į stulpelį)
+190|Kanban etapo eiga %
+191|Kanban: į „Nėra būsenos“
+192|Vėlinimas (darbo dienos, neigiamas = ankstinimas)
+193|Vėlinimas +1 diena
+194|Vėlinimas -1 diena (neigiamas = ankstinimas)
+195|Vėlinimas turi būti darbo dienų skaičius (neigiamas = ankstinimas).
+196|Mažiau nei
+197|Nuoroda nukopijuota
+198|Susieti su…
+199|Ryšio tipas
+200|Susieti: tada bakstelėkite užduotį, kuri turi laukti šios
+201|Įkelti demonstraciją: Projektas 1 + Projektas 2
+202|Įkeliami šablonai...
+203|Įkeliama…
+204|Pagrindinis
+205|Pagrindinis klientas (mainCustomerGUID)
+206|Pagrindinio kliento sutartis (mainCustomerContractGUID)
+207|Pagrindinis tiekėjas (mainSupplierGUID)
+208|Pagrindinio tiekėjo sutartis (mainSupplierContractGUID)
+209|Meniu dešiniuoju spustelėjimu (žiniatinklis) / ilgu paspaudimu ir atleidimu (lietimas)
+210|Microsoft Project XML failas (.xml) su visais etapais, užduotimis, gairėmis ir priklausomybėmis. MS Project: File > Open > failas > As a new project.
+211|Gairė
+212|Gairės neturi trukmės
+213|Minutės turi būti nuo 0 iki 59.
+214|Mėnuo
+215|Perkelti visas užduotis į…
+216|Perkelti žemyn
+217|Žemyn = vėlesnis etapas (stulpelis dešinėje)
+218|Perkelti aukštyn
+219|Aukštyn = ankstesnis etapas (stulpelis kairėje)
+220|Pavadinimas
+221|Tinklas
+222|Tinklo diagrama
+223|Tinklo grafikas
+224|Tinklo rodinys: tinklo diagrama / tinklo grafikas
+225|Naujas Kanban etapas
+226|Naujas projektas iš šablono
+227|Nauja gairė
+228|Naujas projektas
+229|Nauja užduotis
+230|Kitos 2 savaitės
+231|Kiti 3 mėnesiai
+232|Kitas mėnuo
+233|Kitas etapas
+234|Ne
+235|Nėra failo.
+236|Kanban etapai dar nesukonfigūruoti.
+237|Nėra atitinkančio projekto
+238|Projektų šablonų nerasta.
+239|Nėra projektų
+240|Projektų dar nėra
+241|Nustatymų nerasta
+242|Nepasirinktas šaltinio projektas.
+243|Be etapo - tiesiai po projektu
+244|Nėra būsenos
+245|Nėra užduočių
+246|Šiame projekte užduočių nerasta.
+247|Kol kas nėra rodytinų užduočių.
+248|Dar nėra išsaugotų versijų
+249|Versijų dar nėra
+250|Nėra.
+251|Pastabos
+252|Šios eilutės niekas nelaukia.
+253|Tą dieną arba vėliau
+254|Tą dieną arba anksčiau
+255|Atidaryti užduoties informaciją
+256|Atidaryti projekto skydelį
+257|Pirmiausia atidarykite projektą skydelyje.
+258|Atidaryti šią užduotį
+259|Neprivalomos pastabos ar nurodymai šiam šablonui...
+260|Arba sukurti iš šablono
+261|Mažinti įtrauką
+262|PDF ir MS Project eksportuoja skydelyje atidarytą projektą.
+263|PDF eksportas
+264|PDF eksportas nepavyko
+265|PDF eksportas: pirmiausia atidarykite užduočių medį / Ganto diagramą
+266|PDF eksportas: nepavyko užfiksuoti ekrano
+267|PDF eksportas: užduočių medžio / Ganto diagramos nėra ekrane
+268|Partneriai
+269|Rožinė
+270|Planuoti dienomis (planDay)
+271|Planuoti valandomis (planHour)
+272|Planuoti minutėmis (planMinute)
+273|Planuoti sekundėmis (planSecond)
+274|Įveskite galiojančią pradžios datą (YYYY-MM-DD).
+275|Pasirinkite Kanban etapą.
+276|Pasirinkite užduotį.
+277|Pasirinkite šabloną.
+278|Ankstesnis etapas
+279|Eiga %
+280|Eiga % (0–100)
+281|Projektas
+282|Projektas (dabar)
+283|Projekto pabaigos data (projectFinishDate)
+284|Projekto pavadinimas *
+285|Projekto pradžios data (projectStartDate)
+286|Projekto pradžios data *
+287|Projekto pavadinimas
+288|Projekto pavadinimas privalomas.
+289|Projekto eigos linija
+290|Projekto eigos linija: padėtis laiko skalėje, spalva
+291|Projekto nustatymai
+292|Projekto versijos
+293|Projekto versijos: išsaugokite, atkurkite ir pažymėkite versijas palyginimui Ganto diagramoje
+294|Projektai
+295|Projektai (Gantas)
+296|Projektai saugomi kiekvienam naudotojui atskirai Supabase (eilučių lygio sauga).
+297|Greitieji laikotarpiai
+298|Tik skaitymui
+299|Raudona
+300|Pašalinti pradžios apribojimą (pradėti kuo anksčiau)
+301|Pašalinti šią priklausomybę
+302|Pervadinti
+303|Pervadinti pasirinktinį stulpelį
+304|Pervadinti versiją
+305|Pakeičia „{{name}}“ užduotis (pirma paklausia)
+306|Atkurti
+307|Atkurti iš versijos
+308|Atkurti projektą iš versijos
+309|Atkurti projektą iš versijos - dar nėra išsaugotų versijų
+310|Atkurti projektą iš šios versijos?
+311|Dešiniojo spustelėjimo meniu
+312|Apibendrinta iš šio etapo eilučių
+313|Apibendrinta iš vidinių užduočių (pasverta pagal trukmę).
+314|Reikalingas SQL atnaujinimas
+315|Išsaugoti
+316|Pirmiausia išsaugokite bet kurį aktyvų projektą kaip šabloną naudodami „Išsaugoti kaip šabloną“.
+317|Išsaugoti kaip šabloną
+318|Išsaugoti kaip šabloną
+319|Išsaugoti projekto versiją
+320|Išsaugoti projekto versiją (visas planas: užduotys, priklausomybės, Kanban)
+321|Išsaugoti pirmą versiją
+322|Pirmiausia išsaugokite šį projektą, kad galėtumėte valdyti užduočių Kanban būsenas.
+323|Išsaugoti versiją
+324|Išsaugota kortelių tvarka
+325|Saugoma...
+326|Slinkti projektus kairėn
+327|Slinkti projektus dešinėn
+328|Ieškokite jo projekto lauke aukščiau arba sukurkite naują su „+ Projektas“.
+329|Ieškoti nustatymų
+330|Ieškoti užduočių…
+331|Sekundės turi būti nuo 0 iki 59.
+332|Pasirinkite šabloną *
+333|Pasirinkite projektą
+334|Pažymėti visas užduotis
+335|Pasirinkite kliento sutartį...
+336|Pasirinkti datą
+337|Pasirinkite pagrindinį klientą...
+338|Pasirinkite pagrindinį tiekėją...
+339|Pasirinkite tiekėjo sutartį...
+340|Pasirinkite versiją. Dabartinis planas prieš pakeitimą išsaugomas kaip nauja versija.
+341|Reikšmes atskirkite kableliais.
+342|Nustatyti užduoties Kanban būseną
+343|Nustatymas
+344|Bendrinti užduotį
+345|Rodyti hierarchijos numerius („#“ stulpelis) užduočių medyje
+346|Rodyti hierarchijos numerius (# stulpelis)
+347|Rodyti užduočių eigą Ganto diagramoje (linijos + %)
+348|Rodyti užduočių eigą juostose (linija + %)
+349|Rodyti kritinį kelią
+350|Rodyti eilučių žymėjimo stulpelį (žymimieji langeliai)
+351|Rodyti visą projektą
+352|Rodoma, kai įjungta „Rodyti užduočių eigą“ (skirtukas Užduotis).
+353|Prisijunkite, kad pridėtumėte užduotį prie projekto.
+354|Prisijunkite, kad valdytumėte projektus
+355|Reikia prisijungti
+356|Rezervas
+357|Glotnios
+358|Rikiuoti pagal
+359|Šaltinio projektas
+360|Stačiakampės
+361|Etapas
+362|Etapas (gali būti tuščias)
+363|Etapo pavadinimas
+364|Etapo spalva
+365|Etapo pavadinimas
+366|Pradžia
+367|Pradžios valanda (0-23)
+368|Pradžios min. (0-59)
+369|Pradžios sek. (0-59)
+370|Pradžios data negali būti vėlesnė už pabaigos datą.
+371|Pradėti ne anksčiau kaip (YYYY-MM-DD, tuščia = kuo anksčiau)
+372|Prasideda, kai tik leidžia projektas (arba jos apribojimas).
+373|Išsaugo šablono struktūrą, užduotis, priklausomybes, etapus ir nustatymus šablonų lentelėse. Užduočių Kanban etapų reikšmės neįtraukiamos.
+374|Poetapis
+375|Užduotis
+376|Užduoties juostos spalva
+377|Užduoties informacija nukopijuota
+378|Užduoties pavadinimas
+379|Užduotis nerasta.
+380|Užduoties eigos linija
+381|Užduoties eigos linija: padėtis juostoje, spalva
+382|Užduočių medžio stulpeliai (vilkite stulpelio antraštę, kad perkeltumėte, vilkite skirtuką, kad pakeistumėte plotį, dešiniuoju spustelėjimu / ilgu paspaudimu ant antraštės pridėkite pasirinktinį stulpelį)
+383|Užduočių medžio stulpeliai: numatytoji tvarka, numatytieji pločiai
+384|Užduočių medis: eilučių komandos
+385|Užduočių medis: eilučių komandos (užvedimo skydelis / dešiniojo spustelėjimo meniu)
+386|Šablono pavadinimas *
+387|Šablono pavadinimas privalomas.
+388|Nepavyko paleisti Ganto atvaizdavimo.
+389|Eksportas nepavyko.
+390|Faile nėra projekto.
+391|Faile nėra užduočių sąrašo.
+392|Failas nėra galiojantis JSON.
+393|Projekto (jau) nebėra.
+394|Projektas su visais etapais, užduotimis, gairėmis ir priklausomybėmis (+ jūsų Ganto nustatymai).
+395|Išsaugomas visas planas: projekto duomenys, etapai, užduotys, gairės, priklausomybės ir Kanban. Vėliau versija niekada nesikeičia.
+396|Tai ne projekto duomenų failas (project_data_….json).
+397|Šis mėnuo
+398|Šiame etape dar nėra užduočių - pirmiausia jas pridėkite.
+399|Ši užduotis dar neturi datų - jos negalima pridėti į „Google“ kalendorių.
+400|Ši savaitė
+401|Šie metai
+402|Laiko mastelyje
+403|Tinklas laiko mastelyje: rodyklės ilgis = trukmė, punktyras = laisvas rezervas
+404|Iki (YYYY-MM-DD)
+405|Šiandien
+406|Šiandien → projekto pabaiga
+407|Medis
+408|Tipas
+409|Atžymėti visas versijas (niekas nelyginama)
+410|Anuliuoti
+411|Anuliuoti paskutinį veiksmą?
+412|Versijos pavadinimas
+413|Versijos
+414|Versijos dar neįdiegtos
+415|Per etapą
+416|Violetinė
+417|WIP limitas (neprivaloma)
+418|Laukia (pirmtakai)
+419|Savaitė
+420|Visas projektas
+421|Tik darbo dienos (praleisti savaitgalius)
+422|Metai
+423|Metai (ketvirčiai)
+424|Geltona
+425|Dar neturite projektų - sukurkite jį skydelyje
+426|Artinti
+427|Tolinti
+428|kuo anksčiau
+429|pvz., Kliento patvirtintas bazinis planas
+430|pvz., Vykdoma
+431|pvz., Svetainės atnaujinimas Q4
+432|pvz., Standartinis žiniatinklio programos šablonas
+433|pvz., rodyklės, eiga, stulpelis
+434|užduočių medžio / Ganto diagramos nėra ekrane
+435|{{tip}} (šiuo metu nepasiekiama)

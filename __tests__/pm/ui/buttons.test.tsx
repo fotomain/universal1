@@ -116,6 +116,9 @@ describe('Gantt bar buttons', () => {
     const criticalBtn = mustGet('pm-gantt-critical');
     expect(settingsBtn.style.width).toBe(`${PM_SETTINGS_BUTTON_WIDTH}px`);
     expect(criticalBtn.style.width).toBe(`${PM_WIDE_ACTION_WIDTH}px`);
+    // never shrinks in a crowded toolbar: stays the same size as "+ Project"
+    expect(criticalBtn.style.minWidth).toBe(`${PM_WIDE_ACTION_WIDTH}px`);
+    expect(criticalBtn.style.flexShrink).toBe('0');
   });
 });
 

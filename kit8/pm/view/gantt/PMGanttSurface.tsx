@@ -23,6 +23,7 @@ import { diffDaysMs, todayUTC } from '../project/scheduling';
 import { usePMCrud } from '../../crud/usePMCrud';
 import PMProjectTasksTree from '../tree/PMProjectTasksTree';
 import PMProjectGanttChart from './PMProjectGanttChart';
+import { measureViewInWindow, registerDashboardPdfTarget } from '../../crud/exchange/pdf/exportDashboardToPdf';
 import { hidePMTip } from '../../inner/tooltip/PMTooltip';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMKanbanDashboard from '../kanban/PMKanbanDashboard';
@@ -93,6 +94,18 @@ export default function PMGanttSurface({
   const win = useWindowDimensions();
   const orientation = win.width >= win.height ? 'landscape' : 'portrait';
   const [layoutEpoch, setLayoutEpoch] = useState(0);
+  // "Export to PDF": the pictures = this surface without the tree toolbar / Gantt bar
+  const pdfToolbarH = useRef(TB);
+  pdfToolbarH.current = TB;
+  useEffect(
+    () =>
+      registerDashboardPdfTarget(async () => {
+        const r = await measureViewInWindow(rootRef.current);
+        const top = pdfToolbarH.current;
+        return r && r.height > top ? { x: r.x, y: r.y + top, width: r.width, height: r.height - top } : r;
+      }),
+    [],
+  );
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstSize = useRef(true);
   const scheduleRedraw = useCallback(() => {

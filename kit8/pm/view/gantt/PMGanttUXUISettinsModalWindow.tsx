@@ -35,6 +35,7 @@ import { withAlpha } from '../theme';
 import { PM_UXUI_TABS, PMUxUiOptionId, PMUxUiTab, PM_UXUI_OPTIONS, searchUxuiOptions, uxuiTabTitle } from './settings/uxuiSettingsIndex';
 import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder, treeColumnTitle } from '../tree/columns/treeColumns';
 import { PM_COLUMN_FILTER_ICON_COLORS, PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../tree/filter/treeColumnFilter';
+import { pmT } from '../../i18n/pmT';
 
 type Draft = Required<PMUxUiSettings>;
 
@@ -130,20 +131,20 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={pmT('Close')} />
         <View style={[styles.card, { height: cardHeight, backgroundColor: c.surface, borderColor: c.border }]} testID="pm-uxui-window">
           <View style={styles.header}>
             <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
               Gantt settings · {project.rowJSON.name}
             </Text>
-            <PMIconButton testID="pm-uxui-close" icon="close" title="Close without saving" color={c.text} onPress={close} />
+            <PMIconButton testID="pm-uxui-close" icon="close" title={pmT('Close without saving')} color={c.text} onPress={close} />
           </View>
 
           {/* ---- search: any setting by a substring of its name ---- */}
           <TextInputApp
             testID="pm-uxui-search"
-            label="Search settings"
-            placeholder="e.g. arrows, progress, column"
+            label={pmT('Search settings')}
+            placeholder={pmT('e.g. arrows, progress, column')}
             leftIcon="search"
             value={query}
             onChangeText={setQuery}
@@ -154,8 +155,8 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             (results.length > 0 ? (
               <View style={[styles.table, { borderColor: c.border }]} testID="pm-uxui-search-results">
                 <View style={[styles.tableRow, styles.tableHead, { borderColor: c.border }]}>
-                  <Text style={[styles.cellSetting, styles.headText, { color: c.text }]}>Setting</Text>
-                  <Text style={[styles.cellTab, styles.headText, { color: c.text }]}>Tab</Text>
+                  <Text style={[styles.cellSetting, styles.headText, { color: c.text }]}>{pmT('Setting')}</Text>
+                  <Text style={[styles.cellTab, styles.headText, { color: c.text }]}>{pmT('Tab')}</Text>
                 </View>
                 {results.map((o, i) => (
                   <Pressable
@@ -170,14 +171,14 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                       (hovered || pressed) && { backgroundColor: withAlpha(c.primary, 0.1) },
                     ]}
                   >
-                    <Text style={[styles.cellSetting, { color: c.text }]}>{o.label}</Text>
+                    <Text style={[styles.cellSetting, { color: c.text }]}>{pmT(o.label)}</Text>
                     <Text style={[styles.cellTab, { color: c.primary }]}>{uxuiTabTitle(o.tab)}</Text>
                   </Pressable>
                 ))}
               </View>
             ) : (
               <Text testID="pm-uxui-search-empty" style={[styles.label, { color: c.text }]}>
-                No settings found
+                {pmT('No settings found')}
               </Text>
             ))}
 
@@ -196,7 +197,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   onPress={() => switchTab(t.key)}
                   style={[styles.tab, { borderBottomColor: active ? c.primary : 'transparent' }]}
                 >
-                  <Text style={{ color: active ? c.primary : c.text, fontWeight: active ? '700' : '500' }}>{t.title}</Text>
+                  <Text style={{ color: active ? c.primary : c.text, fontWeight: active ? '700' : '500' }}>{pmT(t.title)}</Text>
                 </Pressable>
               );
             })}
@@ -208,7 +209,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             {tab === 'TabTask' && (
               <>
                 <Opt id="taskProgress">
-                  <Row label="Show task progress on the Gantt (lines + %)" color={c.text}>
+                  <Row label={pmT('Show task progress on the Gantt (lines + %)')} color={c.text}>
                     <SwitchApp testID="pm-uxui-progress" value={draft.showTaskProgressOnGantt} onValueChange={(v) => set('showTaskProgressOnGantt', v)} />
                   </Row>
                 </Opt>
@@ -216,7 +217,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   <View style={{ opacity: draft.showTaskProgressOnGantt ? 1 : 0.5 }}>
                     <PMProgressLineSettings
                       testID="pm-uxui-task-line"
-                      title="Task progress line"
+                      title={pmT('Task progress line')}
                       positionLabel="Position on the task bar"
                       position={draft.taskProgressLinePosition}
                       onPosition={(v) => set('taskProgressLinePosition', v)}
@@ -228,11 +229,11 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   </View>
                 </Opt>
                 <Opt id="criticalPathTaskColor">
-                  <Text style={[styles.section, { color: c.text }]}>Critical path task color</Text>
-                  <Text style={[styles.label, { color: c.text }]}>Bars, arrows and network nodes on the critical path</Text>
+                  <Text style={[styles.section, { color: c.text }]}>{pmT('Critical path task color')}</Text>
+                  <Text style={[styles.label, { color: c.text }]}>{pmT('Bars, arrows and network nodes on the critical path')}</Text>
                   <ColorPickerApp
                     testID="pm-uxui-critical-color"
-                    title="Critical path task color"
+                    title={pmT('Critical path task color')}
                     value={draft.criticalPathTaskColor === PM_DEFAULT_CRITICAL_PATH_TASK_COLOR ? null : draft.criticalPathTaskColor}
                     onChange={(v) => set('criticalPathTaskColor', v || PM_DEFAULT_CRITICAL_PATH_TASK_COLOR)}
                     swatches={PM_CRITICAL_PATH_TASK_COLORS}
@@ -241,7 +242,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   />
                 </Opt>
                 <Opt id="criticalPathColorHasPriorityOverTheCustomTaskColor">
-                  <Row label="Critical path color has priority over custom task color" color={c.text}>
+                  <Row label={pmT('Critical path color has priority over custom task color')} color={c.text}>
                     <SwitchApp
                       testID="pm-uxui-critical-priority"
                       value={!!draft.criticalPathColorHasPriorityOverTheCustomTaskColor}
@@ -256,7 +257,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
               <>
                 <Opt id="treeCommands">
                   <CommandsModeSelector
-                    label="Task tree: row commands"
+                    label={pmT('Task tree: row commands')}
                     testID="pm-uxui-tree-commands"
                     value={draft.projectTreeContextCommandsMode}
                     onChange={(v) => set('projectTreeContextCommandsMode', v)}
@@ -270,7 +271,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 </Opt>
                 <Opt id="treeColumns">
                   <Text style={[styles.label, { color: c.text }]}>
-                    Task tree columns (drag a column header in the tree to move it, drag a header separator to resize, right-click / long-press a header to add a custom column)
+                    {pmT('Task tree columns (drag a column header in the tree to move it, drag a header separator to resize, right-click / long-press a header to add a custom column)')}
                   </Text>
                   <View style={[styles.segment, { alignItems: 'center' }]}>
                     <Text testID="pm-uxui-tree-columns-order" style={{ color: c.text, flex: 1 }} numberOfLines={1}>
@@ -282,7 +283,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                       testID="pm-uxui-tree-columns-reset"
                       kind="text"
                       icon="restart_alt"
-                      title="Default order"
+                      title={pmT('Default order')}
                       color={c.text}
                       disabled={sameTreeColumnsOrder(normalizeTreeColumnsOrder(draft.treeColumnsOrder, customColumns.map((cc) => cc.key)), defaultOrder)}
                       onPress={() => set('treeColumnsOrder', defaultOrder)}
@@ -291,7 +292,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                       testID="pm-uxui-tree-columns-widths-reset"
                       kind="text"
                       icon="fit_width"
-                      title="Default widths"
+                      title={pmT('Default widths')}
                       color={c.text}
                       disabled={Object.keys(draft.treeColumnsWidths).length === 0}
                       onPress={() => set('treeColumnsWidths', {})}
@@ -299,13 +300,13 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   </View>
                 </Opt>
                 <Opt id="columnFilterIconColor">
-                  <Text style={[styles.section, { color: c.text }]}>Filter icon color</Text>
+                  <Text style={[styles.section, { color: c.text }]}>{pmT('Filter icon color')}</Text>
                   <Text style={[styles.label, { color: c.text }]}>
                     Funnel at the right of a filtered column header (click the ▾ of a header, or right-click / long-press it → Filter & sort)
                   </Text>
                   <ColorPickerApp
                     testID="pm-uxui-filter-icon-color"
-                    title="Filter icon color"
+                    title={pmT('Filter icon color')}
                     value={draft.columnFilterIconColor === PM_DEFAULT_COLUMN_FILTER_ICON_COLOR ? null : draft.columnFilterIconColor}
                     onChange={(v) => set('columnFilterIconColor', v || PM_DEFAULT_COLUMN_FILTER_ICON_COLOR)}
                     swatches={PM_COLUMN_FILTER_ICON_COLORS}
@@ -319,12 +320,12 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             {tab === 'TabGantt' && (
               <>
                 <Opt id="criticalPath">
-                  <Row label="Show the critical path" color={c.text}>
+                  <Row label={pmT('Show the critical path')} color={c.text}>
                     <SwitchApp testID="pm-uxui-critical" value={draft.showCriticalPath} onValueChange={(v) => set('showCriticalPath', v)} />
                   </Row>
                 </Opt>
                 <Opt id="arrows">
-                  <Text style={[styles.label, { color: c.text }]}>Dependency arrows</Text>
+                  <Text style={[styles.label, { color: c.text }]}>{pmT('Dependency arrows')}</Text>
                   <View style={styles.segment}>
                     {DEPENDENCY_LINE_FORMS.map((f) => (
                       <PMIconButton
@@ -343,7 +344,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 </Opt>
                 <Opt id="ganttCommands">
                   <CommandsModeSelector
-                    label="Gantt chart: bar commands"
+                    label={pmT('Gantt chart: bar commands')}
                     testID="pm-uxui-gantt-commands"
                     value={draft.projectGanttChartContextCommandsMode}
                     onChange={(v) => set('projectGanttChartContextCommandsMode', v)}
@@ -358,7 +359,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 <View style={{ opacity: draft.showTaskProgressOnGantt ? 1 : 0.5 }}>
                   <PMProgressLineSettings
                     testID="pm-uxui-project-line"
-                    title="Project progress line"
+                    title={pmT('Project progress line')}
                     positionLabel="Position in the time scale"
                     position={draft.projectProgressLinePosition}
                     onPosition={(v) => set('projectProgressLinePosition', v)}
@@ -369,7 +370,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   />
                 </View>
                 {!draft.showTaskProgressOnGantt && (
-                  <Text style={[styles.label, { color: c.text }]}>Shown when "Show task progress" (Task tab) is on.</Text>
+                  <Text style={[styles.label, { color: c.text }]}>{pmT('Shown when "Show task progress" (Task tab) is on.')}</Text>
                 )}
               </Opt>
             )}
@@ -377,10 +378,10 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
           </OptContext.Provider>
 
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-uxui-defaults" kind="text" icon="restart_alt" title="Defaults" color={c.text} style={{ marginLeft: 0 }} onPress={() => setDraft(uxuiSettingsOf(undefined))} />
+            <PMDialogButton testID="pm-uxui-defaults" kind="text" icon="restart_alt" title={pmT('Defaults')} color={c.text} style={{ marginLeft: 0 }} onPress={() => setDraft(uxuiSettingsOf(undefined))} />
             <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-uxui-cancel" kind="secondary" title="Cancel" color={c.text} onPress={close} />
-            <PMDialogButton testID="pm-uxui-save" kind="primary" title="Save" onPress={save} />
+            <PMDialogButton testID="pm-uxui-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} onPress={close} />
+            <PMDialogButton testID="pm-uxui-save" kind="primary" title={pmT('Save')} onPress={save} />
           </View>
         </View>
       </View>

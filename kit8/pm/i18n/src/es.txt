@@ -1,0 +1,435 @@
+1|+ Proyecto
+2|+ Etapa
+3|0 = sin límite
+4|Un proyecto necesita al menos una etapa Kanban.
+5|Una etapa necesita un nombre.
+6|Actividad en flecha: los eventos son círculos, las tareas son flechas
+7|Actividad en nodo: las tareas son cajas, las dependencias son flechas
+8|Añadir
+9|Añadir etapa
+10|Añadir un predecesor (una tarea a la que esta espera)
+11|Añadir una etapa
+12|Añadir columna
+13|Añadir columna personalizada
+14|Añadir hito
+15|Añadir etapa
+16|Añadir etapa / subetapa
+17|Añadir etapa encima
+18|Añadir etapa debajo
+19|Añadir tarea
+20|Añadir tarea (después / dentro de la fila seleccionada)
+21|Añadir tarea (dentro de la etapa seleccionada / después de la tarea seleccionada)
+22|Añadir tarea encima
+23|Añadir tarea debajo
+24|Añadir tarea debajo / dentro
+25|Añadir tarea dentro
+26|Añadir tarea dentro de esta etapa
+27|Añadir la primera etapa
+28|Añadir a Google Calendar
+29|Después
+30|Después o igual
+31|Todas
+32|Todos los bloqueadores (transitivo)
+33|Aplicar
+34|Color de la flecha
+35|Volver al diagrama de Gantt
+36|Barras, flechas y nodos de red en la ruta crítica
+37|Antes
+38|Antes o igual
+39|Bloquea (sucesoras)
+40|Azul
+41|Alcance del tablero: seleccione una etapa en el árbol para ver solo sus tareas
+42|Botones en la fila bajo el cursor (web) / seleccionada (táctil)
+43|Cancelar
+44|Cancelar (cerrar sin guardar)
+45|Periodo del diagrama
+46|Elegir archivo…
+47|Elija el proyecto…
+48|Borrar
+49|Borrar la selección
+50|Borrar: todas las tareas a «Sin estado»
+51|Haga clic para cambiar la duración
+52|Haga clic para cambiar el % de avance
+53|Cerrar
+54|Cerrar el selector de tareas
+55|Cerrar sin guardar
+56|Contraer
+57|Contraer todo
+58|Color
+59|Colores
+60|Menú de columna: seleccionar todas las tareas, vaciar la columna
+61|Nombre de la columna
+62|Compacto
+63|Bloques compactos: nombre, duración, fechas
+64|Comparando con el proyecto…
+65|Restricción
+66|Copiar GUID
+67|Copiar información de la tarea
+68|Copiar el GUID de la tarea
+69|No se pudieron cargar los proyectos
+70|No se pudieron cargar las filas de la versión
+71|No se pudo abrir Google Calendar.
+72|Crear
+73|Crear proyecto
+74|Crear plantilla desde el proyecto
+75|Crear proyecto desde plantilla
+76|Crear plantilla desde el proyecto
+77|Creando proyecto...
+78|Creando…
+79|Crítica
+80|Ruta crítica
+81|El color de la ruta crítica tiene prioridad sobre el color personalizado de la tarea
+82|Color de las tareas de la ruta crítica
+83|Color personalizado de la tarea
+84|Formato de fecha (planDateInputFormat)
+85|Las fechas deben ser YYYY-MM-DD.
+86|Día
+87|Predeterminado
+88|Color predeterminado
+89|Color predeterminado de dependencia
+90|Orden predeterminado
+91|Ancho predeterminado
+92|Ancho predeterminado (rellenar)
+93|Anchos predeterminados
+94|Valores predeterminados
+95|Eliminar
+96|Eliminar e importar
+97|Eliminar columna personalizada
+98|Eliminar dependencia
+99|Eliminar proyecto
+100|Eliminar selección
+101|Eliminar etapa
+102|¿Eliminar esta dependencia?
+103|¿Eliminar esta versión?
+104|Eliminar versión
+105|Dependencia
+106|Flechas de dependencia
+107|Flechas de dependencia: suaves / rectas
+108|Flechas de dependencia: curvas suaves
+109|Flechas de dependencia: líneas en ángulo recto
+110|Color de la dependencia
+111|Descripción / notas
+112|Deseleccionar todas las tareas
+113|Detalles
+114|Descartar
+115|Arrastre para mover la tarea (reordenar / cambiar de padre)
+116|Arrastre para reordenar
+117|Suelte aquí un project_data_….json
+118|Suelte las tareas aquí
+119|Ficticia
+120|Duplicar
+121|Duplicar (copia debajo)
+122|Duplicar selección (copia debajo)
+123|Duración
+124|Duración (días laborables)
+125|Editar
+126|Editar etapa
+127|Editar el estado Kanban de la tarea
+128|Editar dependencia
+129|Editar dependencia (tipo, retraso, color)
+130|Editar selección
+131|Editar tarea (nombre, % de avance, fechas…)
+132|Introduzca el nombre de la etapa.
+133|Error
+134|Eventos
+135|Eventos como círculos de 4 sectores (número / temprano / tardío / predecesor)
+136|Cada tarea del proyecto está en una de estas etapas (tareas nuevas: en la primera). La etapa es independiente del % de avance de la tarea.
+137|Todo lo que retrasa (transitivo)
+138|Expandir
+139|Expandir todo
+140|Exportar
+141|Exportar porcentaje Kanban
+142|Exportar etapa Kanban
+143|Exportar campos personalizados
+144|Exportar el proyecto: PDF, JSON, MS Project
+145|Exportar a JSON
+146|Exportar a MS Project
+147|Exportar a MSProject
+148|Exportar a PDF
+149|Exportado {{file}} ({{count}} tareas).
+150|Filtrar y ordenar
+151|Color del icono de filtro
+152|Color del icono de filtro en el encabezado de una columna filtrada
+153|Buscar proyecto…
+154|Fin
+155|Hora de fin (0-23)
+156|Min. de fin (0-59)
+157|Seg. de fin (0-59)
+158|La fecha de fin no puede ser anterior a la de inicio.
+159|Ajustar a la pantalla
+160|Holgura libre
+161|Desde (YYYY-MM-DD)
+162|Desde plantilla
+163|Desde la versión
+164|Diagrama de Gantt
+165|Diagrama de Gantt: comandos de barra
+166|Diagrama de Gantt: comandos de barra (panel flotante / menú contextual)
+167|Ajustes de Gantt (líneas de avance, colores, flechas, ruta crítica)
+168|Ir a Iniciar sesión
+169|Mayor que
+170|Verde
+171|Gris
+172|Color del encabezado
+173|Ocultar números de jerarquía (columna #)
+174|Ocultar el avance de las tareas en las barras
+175|Ocultar la columna de selección de filas (casillas)
+176|Las horas deben estar entre 0 y 23.
+177|Panel flotante
+178|Importar
+179|Importar / Exportar
+180|Importar / exportar el proyecto (project_data_….json): abre los ajustes del proyecto
+181|Aumentar sangría
+182|Dentro de la etapa (puede estar vacía)
+183|No es
+184|No es el
+185|Se añade como última columna del árbol de tareas.
+186|Etapa Kanban
+187|Etapas Kanban
+188|Etapas Kanban de este proyecto (columnas)
+189|Tablero Kanban: etapas de las tareas (arrastre tareas del árbol a una columna)
+190|% de avance de la etapa Kanban
+191|Kanban: a «Sin estado»
+192|Retraso (días laborables, negativo = adelanto)
+193|Retraso +1 día
+194|Retraso -1 día (negativo = adelanto)
+195|El retraso debe ser un número de días laborables (negativo = adelanto).
+196|Menor que
+197|Enlace copiado
+198|Vincular con…
+199|Tipo de vínculo
+200|Vincular: luego toque la tarea que debe esperar a esta
+201|Cargar demo: Proyecto 1 + Proyecto 2
+202|Cargando plantillas...
+203|Cargando…
+204|Principal
+205|Cliente principal (mainCustomerGUID)
+206|Contrato del cliente principal (mainCustomerContractGUID)
+207|Proveedor principal (mainSupplierGUID)
+208|Contrato del proveedor principal (mainSupplierContractGUID)
+209|Menú con clic derecho (web) / pulsación larga y soltar (táctil)
+210|Archivo XML de Microsoft Project (.xml) con todas las etapas, tareas, hitos y dependencias. En MS Project: File > Open > el archivo > As a new project.
+211|Hito
+212|Los hitos no tienen duración
+213|Los minutos deben estar entre 0 y 59.
+214|Mes
+215|Mover todas las tareas a…
+216|Bajar
+217|Bajar = etapa posterior (columna a la derecha)
+218|Subir
+219|Subir = etapa anterior (columna a la izquierda)
+220|Nombre
+221|Red
+222|Diagrama de red
+223|Cronograma de red
+224|Vista de red: diagrama de red / cronograma de red
+225|Nueva etapa Kanban
+226|Nuevo proyecto desde plantilla
+227|Nuevo hito
+228|Nuevo proyecto
+229|Nueva tarea
+230|Próximas 2 semanas
+231|Próximos 3 meses
+232|Próximo mes
+233|Etapa siguiente
+234|No
+235|Sin archivo.
+236|Aún no hay etapas Kanban configuradas.
+237|Ningún proyecto coincide
+238|No se encontraron plantillas de proyecto.
+239|Sin proyectos
+240|Aún no hay proyectos
+241|No se encontraron ajustes
+242|No se seleccionó un proyecto de origen.
+243|Sin etapa: directamente bajo el proyecto
+244|Sin estado
+245|Sin tareas
+246|No se encontraron tareas en este proyecto.
+247|Aún no hay tareas que mostrar.
+248|Aún no hay versiones guardadas
+249|Aún no hay versiones
+250|Ninguna.
+251|Notas
+252|Nada espera a esta fila.
+253|El día o después
+254|El día o antes
+255|Abrir información de la tarea
+256|Abrir el panel del proyecto
+257|Abra primero el proyecto en el panel.
+258|Abrir esta tarea
+259|Notas o instrucciones opcionales para esta plantilla...
+260|O crear desde plantilla
+261|Reducir sangría
+262|PDF y MS Project exportan el proyecto abierto en el panel.
+263|Exportación a PDF
+264|Error al exportar a PDF
+265|Exportación a PDF: abra primero el árbol de tareas / diagrama de Gantt
+266|Exportación a PDF: no se pudo capturar la pantalla
+267|Exportación a PDF: el árbol de tareas / diagrama de Gantt no está en pantalla
+268|Socios
+269|Rosa
+270|Planificar en días (planDay)
+271|Planificar en horas (planHour)
+272|Planificar en minutos (planMinute)
+273|Planificar en segundos (planSecond)
+274|Introduzca una fecha de inicio válida (YYYY-MM-DD).
+275|Seleccione una etapa Kanban.
+276|Seleccione una tarea.
+277|Seleccione una plantilla.
+278|Etapa anterior
+279|Avance %
+280|Avance % (0–100)
+281|Proyecto
+282|Proyecto (ahora)
+283|Fecha de fin del proyecto (projectFinishDate)
+284|Nombre del proyecto *
+285|Fecha de inicio del proyecto (projectStartDate)
+286|Fecha de inicio del proyecto *
+287|Nombre del proyecto
+288|El nombre del proyecto es obligatorio.
+289|Línea de avance del proyecto
+290|Línea de avance del proyecto: posición en la escala de tiempo, color
+291|Ajustes del proyecto
+292|Versiones del proyecto
+293|Versiones del proyecto: guarde, restaure y marque las versiones a comparar en el diagrama de Gantt
+294|Proyectos
+295|Proyectos (Gantt)
+296|Los proyectos se guardan por usuario en Supabase (seguridad a nivel de fila).
+297|Periodos rápidos
+298|Solo lectura
+299|Rojo
+300|Quitar la restricción de inicio (empezar lo antes posible)
+301|Quitar esta dependencia
+302|Renombrar
+303|Renombrar columna personalizada
+304|Renombrar versión
+305|Reemplaza las tareas de «{{name}}» (pregunta antes)
+306|Restaurar
+307|Restaurar desde versión
+308|Restaurar proyecto desde versión
+309|Restaurar proyecto desde versión: aún no hay versiones guardadas
+310|¿Restaurar el proyecto desde esta versión?
+311|Menú contextual
+312|Resumido de las filas dentro de esta etapa
+313|Resumido de las tareas internas (ponderado por duración).
+314|Se necesita actualizar SQL
+315|Guardar
+316|Guarde primero un proyecto activo como plantilla con «Guardar como plantilla».
+317|Guardar como plantilla
+318|Guardar como plantilla
+319|Guardar versión del proyecto
+320|Guardar versión del proyecto (todo el plan: tareas, dependencias, Kanban)
+321|Guardar la primera versión
+322|Guarde primero este proyecto para gestionar los estados Kanban de las tareas.
+323|Guardar versión
+324|Orden de tarjetas guardado
+325|Guardando...
+326|Desplazar los proyectos a la izquierda
+327|Desplazar los proyectos a la derecha
+328|Búsquelo en el campo de proyecto de arriba o cree uno nuevo con «+ Proyecto».
+329|Buscar ajustes
+330|Buscar tareas…
+331|Los segundos deben estar entre 0 y 59.
+332|Seleccione plantilla *
+333|Seleccione un proyecto
+334|Seleccionar todas las tareas
+335|Seleccione el contrato del cliente...
+336|Seleccionar fecha
+337|Seleccione el cliente principal...
+338|Seleccione el proveedor principal...
+339|Seleccione el contrato del proveedor...
+340|Seleccione la versión. El plan actual se guarda como nueva versión antes de reemplazarlo.
+341|Separe los valores con comas.
+342|Establecer el estado Kanban de la tarea
+343|Ajuste
+344|Compartir tarea
+345|Mostrar números de jerarquía (columna «#») en el árbol de tareas
+346|Mostrar números de jerarquía (columna #)
+347|Mostrar el avance de las tareas en el Gantt (líneas + %)
+348|Mostrar el avance de las tareas en las barras (línea + %)
+349|Mostrar la ruta crítica
+350|Mostrar la columna de selección de filas (casillas)
+351|Mostrar todo el proyecto
+352|Se muestra cuando «Mostrar el avance de las tareas» (pestaña Tarea) está activado.
+353|Inicie sesión para añadir una tarea a un proyecto.
+354|Inicie sesión para gestionar proyectos
+355|Se requiere iniciar sesión
+356|Holgura
+357|Suaves
+358|Ordenar por
+359|Proyecto de origen
+360|Rectas
+361|Etapa
+362|Etapa (puede estar vacía)
+363|Nombre de la etapa
+364|Color de la etapa
+365|Nombre de la etapa
+366|Inicio
+367|Hora de inicio (0-23)
+368|Min. de inicio (0-59)
+369|Seg. de inicio (0-59)
+370|La fecha de inicio no puede ser posterior a la de fin.
+371|No empezar antes de (YYYY-MM-DD, vacío = lo antes posible)
+372|Empieza en cuanto el proyecto (o su restricción) lo permite.
+373|Guarda la estructura de la plantilla, tareas, dependencias, etapas y ajustes en tablas de plantillas. No se incluyen los valores de etapa Kanban de las tareas.
+374|Subetapa
+375|Tarea
+376|Color de la barra de la tarea
+377|Información de la tarea copiada
+378|Nombre de la tarea
+379|Tarea no encontrada.
+380|Línea de avance de la tarea
+381|Línea de avance de la tarea: posición en la barra, color
+382|Columnas del árbol de tareas (arrastre un encabezado para moverlo, arrastre un separador para cambiar el ancho, clic derecho / pulsación larga en un encabezado para añadir una columna personalizada)
+383|Columnas del árbol de tareas: orden y anchos predeterminados
+384|Árbol de tareas: comandos de fila
+385|Árbol de tareas: comandos de fila (panel flotante / menú contextual)
+386|Nombre de la plantilla *
+387|El nombre de la plantilla es obligatorio.
+388|No se pudo iniciar el renderizador de Gantt.
+389|La exportación falló.
+390|El archivo no tiene proyecto.
+391|El archivo no tiene lista de tareas.
+392|El archivo no es un JSON válido.
+393|El proyecto (ya) no existe.
+394|El proyecto con todas sus etapas, tareas, hitos y dependencias (+ sus ajustes de Gantt).
+395|Se guarda todo el plan: datos del proyecto, etapas, tareas, hitos, dependencias y Kanban. Una versión no cambia nunca después.
+396|Este no es un archivo de datos de proyecto (project_data_….json).
+397|Este mes
+398|Esta etapa aún no tiene tareas: añádalas primero.
+399|Esta tarea aún no tiene fechas: no se puede añadir a Google Calendar.
+400|Esta semana
+401|Este año
+402|A escala de tiempo
+403|Red a escala de tiempo: longitud de la flecha = duración, punteado = holgura libre
+404|Hasta (YYYY-MM-DD)
+405|Hoy
+406|Hoy → fin del proyecto
+407|Árbol
+408|Tipo
+409|Desmarcar todas las versiones (no se compara nada)
+410|Deshacer
+411|¿Deshacer la última acción?
+412|Título de la versión
+413|Versiones
+414|Las versiones aún no están instaladas
+415|Vía etapa
+416|Violeta
+417|Límite WIP (opcional)
+418|Espera a (predecesoras)
+419|Semana
+420|Todo el proyecto
+421|Solo días laborables (omitir fines de semana)
+422|Año
+423|Año (trimestres)
+424|Amarillo
+425|Aún no tiene proyectos: cree uno en el panel
+426|Acercar
+427|Alejar
+428|lo antes posible
+429|p. ej., Línea base aprobada por el cliente
+430|p. ej., En curso
+431|p. ej., Rediseño del sitio web T4
+432|p. ej., Plantilla estándar de aplicación web
+433|p. ej., flechas, avance, columna
+434|el árbol de tareas / diagrama de Gantt no está en pantalla
+435|{{tip}} (no disponible ahora)

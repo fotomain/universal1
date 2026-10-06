@@ -1,0 +1,435 @@
+1|+ Projekt
+2|+ Phase
+3|0 = unbegrenzt
+4|Ein Projekt braucht mindestens eine Kanban-Phase.
+5|Eine Phase braucht einen Namen.
+6|Vorgangspfeilnetz: Ereignisse sind Kreise, Aufgaben sind Pfeile
+7|Vorgangsknotennetz: Aufgaben sind Kästen, Abhängigkeiten sind Pfeile
+8|Hinzufügen
+9|Phase hinzufügen
+10|Vorgänger hinzufügen (eine Aufgabe, auf die diese wartet)
+11|Phase hinzufügen
+12|Spalte hinzufügen
+13|Eigene Spalte hinzufügen
+14|Meilenstein hinzufügen
+15|Phase hinzufügen
+16|Phase / Unterphase hinzufügen
+17|Phase darüber hinzufügen
+18|Phase darunter hinzufügen
+19|Aufgabe hinzufügen
+20|Aufgabe hinzufügen (nach / in der gewählten Zeile)
+21|Aufgabe hinzufügen (in der gewählten Phase / nach der gewählten Aufgabe)
+22|Aufgabe darüber hinzufügen
+23|Aufgabe darunter hinzufügen
+24|Aufgabe darunter / darin hinzufügen
+25|Aufgabe darin hinzufügen
+26|Aufgabe in dieser Phase hinzufügen
+27|Erste Phase hinzufügen
+28|Zu Google Kalender hinzufügen
+29|Nach
+30|Nach oder gleich
+31|Alle
+32|Alle Blocker (transitiv)
+33|Anwenden
+34|Pfeilfarbe
+35|Zurück zum Gantt-Diagramm
+36|Balken, Pfeile und Netzknoten auf dem kritischen Pfad
+37|Vor
+38|Vor oder gleich
+39|Blockiert (Nachfolger)
+40|Blau
+41|Board-Bereich: Phase im Baum wählen, um nur deren Aufgaben zu sehen
+42|Schaltflächen auf der Zeile unter dem Zeiger (Web) / der gewählten Zeile (Touch)
+43|Abbrechen
+44|Abbrechen (ohne Speichern schließen)
+45|Diagrammzeitraum
+46|Datei wählen…
+47|Projekt wählen…
+48|Löschen
+49|Auswahl aufheben
+50|Leeren: alle Aufgaben auf „Kein Status“
+51|Klicken, um die Dauer zu ändern
+52|Klicken, um den Fortschritt % zu ändern
+53|Schließen
+54|Aufgabenauswahl schließen
+55|Ohne Speichern schließen
+56|Einklappen
+57|Alle einklappen
+58|Farbe
+59|Farben
+60|Spaltenmenü: alle Aufgaben auswählen, Spalte leeren
+61|Spaltenname
+62|Kompakt
+63|Kompakte Blöcke: Name, Dauer, Termine
+64|Vergleich mit dem Projekt…
+65|Einschränkung
+66|GUID kopieren
+67|Aufgabeninfo kopieren
+68|Aufgaben-GUID kopieren
+69|Projekte konnten nicht geladen werden
+70|Versionszeilen konnten nicht geladen werden
+71|Google Kalender konnte nicht geöffnet werden.
+72|Erstellen
+73|Projekt erstellen
+74|Vorlage aus Projekt erstellen
+75|Projekt aus Vorlage erstellen
+76|Vorlage aus Projekt erstellen
+77|Projekt wird erstellt...
+78|Wird erstellt…
+79|Kritisch
+80|Kritischer Pfad
+81|Farbe des kritischen Pfads hat Vorrang vor eigener Aufgabenfarbe
+82|Aufgabenfarbe des kritischen Pfads
+83|Eigene Aufgabenfarbe
+84|Datumsformat (planDateInputFormat)
+85|Datumsangaben müssen YYYY-MM-DD sein.
+86|Tag
+87|Standard
+88|Standardfarbe
+89|Standardfarbe der Abhängigkeit
+90|Standardreihenfolge
+91|Standardbreite
+92|Standardbreite (füllen)
+93|Standardbreiten
+94|Standardwerte
+95|Löschen
+96|Löschen und importieren
+97|Eigene Spalte löschen
+98|Abhängigkeit löschen
+99|Projekt löschen
+100|Auswahl löschen
+101|Phase löschen
+102|Diese Abhängigkeit löschen?
+103|Diese Version löschen?
+104|Version löschen
+105|Abhängigkeit
+106|Abhängigkeitspfeile
+107|Abhängigkeitspfeile: weich / eckig
+108|Abhängigkeitspfeile: weiche Kurven
+109|Abhängigkeitspfeile: eckige (rechtwinklige) Linien
+110|Abhängigkeitsfarbe
+111|Beschreibung / Notizen
+112|Alle Aufgaben abwählen
+113|Details
+114|Schließen
+115|Ziehen, um die Aufgabe zu verschieben (umsortieren / neu zuordnen)
+116|Ziehen zum Umsortieren
+117|project_data_….json hier ablegen
+118|Aufgaben hier ablegen
+119|Scheinvorgang
+120|Duplizieren
+121|Duplizieren (Kopie darunter)
+122|Auswahl duplizieren (Kopie darunter)
+123|Dauer
+124|Dauer (Arbeitstage)
+125|Bearbeiten
+126|Phase bearbeiten
+127|Kanban-Status der Aufgabe bearbeiten
+128|Abhängigkeit bearbeiten
+129|Abhängigkeit bearbeiten (Typ, Verzögerung, Farbe)
+130|Auswahl bearbeiten
+131|Aufgabe bearbeiten (Name, Fortschritt %, Termine…)
+132|Phasennamen eingeben.
+133|Fehler
+134|Ereignisse
+135|Ereignisse als Kreise mit 4 Sektoren (Nummer / früh / spät / Vorgänger)
+136|Jede Aufgabe des Projekts ist in einer dieser Phasen (neue Aufgaben: in der ersten). Die Phase ist unabhängig vom Aufgabenfortschritt %.
+137|Alles, was dadurch verzögert wird (transitiv)
+138|Ausklappen
+139|Alle ausklappen
+140|Exportieren
+141|Kanban-Prozent exportieren
+142|Kanban-Phase exportieren
+143|Benutzerdefinierte Felder exportieren
+144|Projekt exportieren: PDF, JSON, MS Project
+145|Als JSON exportieren
+146|Nach MS Project exportieren
+147|Nach MSProject exportieren
+148|Als PDF exportieren
+149|{{file}} exportiert ({{count}} Aufgaben).
+150|Filtern & sortieren
+151|Farbe des Filtersymbols
+152|Farbe des Filtersymbols einer gefilterten Spaltenüberschrift
+153|Projekt suchen…
+154|Ende
+155|Endstunde (0-23)
+156|Endminute (0-59)
+157|Endsekunde (0-59)
+158|Das Enddatum darf nicht vor dem Startdatum liegen.
+159|An Bildschirm anpassen
+160|Freier Puffer
+161|Von (YYYY-MM-DD)
+162|Aus Vorlage
+163|Aus der Version
+164|Gantt-Diagramm
+165|Gantt-Diagramm: Balkenbefehle
+166|Gantt-Diagramm: Balkenbefehle (Hover-Leiste / Rechtsklick-Menü)
+167|Gantt-Einstellungen (Fortschrittslinien, Farben, Pfeile, kritischer Pfad)
+168|Zur Anmeldung
+169|Größer als
+170|Grün
+171|Grau
+172|Kopfzeilenfarbe
+173|Hierarchienummern ausblenden (Spalte #)
+174|Aufgabenfortschritt auf den Balken ausblenden
+175|Auswahlspalte ausblenden (Kontrollkästchen)
+176|Stunden müssen zwischen 0 und 23 liegen.
+177|Hover-Leiste
+178|Importieren
+179|Import / Export
+180|Projekt importieren / exportieren (project_data_….json) – öffnet die Projekteinstellungen
+181|Einrücken
+182|In der Phase (kann leer sein)
+183|Ist nicht
+184|Ist nicht am
+185|Sie wird als letzte Spalte des Aufgabenbaums hinzugefügt.
+186|Kanban-Phase
+187|Kanban-Phasen
+188|Kanban-Phasen dieses Projekts (Spalten)
+189|Kanban-Board: Aufgabenphasen (Aufgaben aus dem Baum auf eine Spalte ziehen)
+190|Fortschritt der Kanban-Phase %
+191|Kanban: auf „Kein Status“
+192|Verzögerung (Arbeitstage, negativ = Vorlauf)
+193|Verzögerung +1 Tag
+194|Verzögerung -1 Tag (negativ = Vorlauf)
+195|Die Verzögerung muss eine Anzahl von Arbeitstagen sein (negativ = Vorlauf).
+196|Kleiner als
+197|Link kopiert
+198|Verknüpfen mit…
+199|Verknüpfungstyp
+200|Verknüpfen: dann die Aufgabe antippen, die auf diese warten muss
+201|Demo laden: Projekt 1 + Projekt 2
+202|Vorlagen werden geladen...
+203|Wird geladen…
+204|Allgemein
+205|Hauptkunde (mainCustomerGUID)
+206|Vertrag des Hauptkunden (mainCustomerContractGUID)
+207|Hauptlieferant (mainSupplierGUID)
+208|Vertrag des Hauptlieferanten (mainSupplierContractGUID)
+209|Menü per Rechtsklick (Web) / langem Drücken und Loslassen (Touch)
+210|Microsoft-Project-XML-Datei (.xml) mit allen Phasen, Aufgaben, Meilensteinen und Abhängigkeiten. In MS Project: File > Open > Datei > As a new project.
+211|Meilenstein
+212|Meilensteine haben keine Dauer
+213|Minuten müssen zwischen 0 und 59 liegen.
+214|Monat
+215|Alle Aufgaben verschieben nach…
+216|Nach unten
+217|Nach unten = spätere Phase (Spalte rechts)
+218|Nach oben
+219|Nach oben = frühere Phase (Spalte links)
+220|Name
+221|Netzplan
+222|Netzdiagramm
+223|Netzplan (Zeitplan)
+224|Netzansicht: Netzdiagramm / Netzplan
+225|Neue Kanban-Phase
+226|Neues Projekt aus Vorlage
+227|Neuer Meilenstein
+228|Neues Projekt
+229|Neue Aufgabe
+230|Nächste 2 Wochen
+231|Nächste 3 Monate
+232|Nächster Monat
+233|Nächste Phase
+234|Nein
+235|Keine Datei.
+236|Noch keine Kanban-Phasen konfiguriert.
+237|Kein passendes Projekt
+238|Keine Projektvorlagen gefunden.
+239|Keine Projekte
+240|Noch keine Projekte
+241|Keine Einstellungen gefunden
+242|Kein Quellprojekt ausgewählt.
+243|Keine Phase – direkt unter dem Projekt
+244|Kein Status
+245|Keine Aufgaben
+246|In diesem Projekt wurden keine Aufgaben gefunden.
+247|Noch keine Aufgaben anzuzeigen.
+248|Noch keine Versionen gespeichert
+249|Noch keine Versionen
+250|Keine.
+251|Notizen
+252|Nichts wartet auf diese Zeile.
+253|Am oder nach
+254|Am oder vor
+255|Aufgabeninfo öffnen
+256|Projekt-Dashboard öffnen
+257|Öffnen Sie das Projekt zuerst im Dashboard.
+258|Diese Aufgabe öffnen
+259|Optionale Notizen oder Anweisungen für diese Vorlage...
+260|Oder aus Vorlage erstellen
+261|Ausrücken
+262|PDF und MS Project exportieren das im Dashboard geöffnete Projekt.
+263|PDF-Export
+264|PDF-Export fehlgeschlagen
+265|PDF-Export: zuerst den Aufgabenbaum / das Gantt-Diagramm öffnen
+266|PDF-Export: der Bildschirm konnte nicht erfasst werden
+267|PDF-Export: Aufgabenbaum / Gantt-Diagramm ist nicht auf dem Bildschirm
+268|Partner
+269|Rosa
+270|In Tagen planen (planDay)
+271|In Stunden planen (planHour)
+272|In Minuten planen (planMinute)
+273|In Sekunden planen (planSecond)
+274|Bitte ein gültiges Startdatum eingeben (YYYY-MM-DD).
+275|Bitte eine Kanban-Phase wählen.
+276|Bitte eine Aufgabe wählen.
+277|Bitte eine Vorlage wählen.
+278|Vorherige Phase
+279|Fortschritt %
+280|Fortschritt % (0–100)
+281|Projekt
+282|Projekt (jetzt)
+283|Projektenddatum (projectFinishDate)
+284|Projektname *
+285|Projektstartdatum (projectStartDate)
+286|Projektstartdatum *
+287|Projektname
+288|Der Projektname ist erforderlich.
+289|Projektfortschrittslinie
+290|Projektfortschrittslinie: Position in der Zeitskala, Farbe
+291|Projekteinstellungen
+292|Projektversionen
+293|Projektversionen: speichern, wiederherstellen und Versionen zum Vergleich im Gantt-Diagramm markieren
+294|Projekte
+295|Projekte (Gantt)
+296|Projekte werden pro Benutzer in Supabase gespeichert (Sicherheit auf Zeilenebene).
+297|Schnellzeiträume
+298|Schreibgeschützt
+299|Rot
+300|Starteinschränkung entfernen (so früh wie möglich starten)
+301|Diese Abhängigkeit entfernen
+302|Umbenennen
+303|Eigene Spalte umbenennen
+304|Version umbenennen
+305|Ersetzt die Aufgaben von „{{name}}“ (fragt vorher)
+306|Wiederherstellen
+307|Aus Version wiederherstellen
+308|Projekt aus Version wiederherstellen
+309|Projekt aus Version wiederherstellen – noch keine Versionen gespeichert
+310|Projekt aus dieser Version wiederherstellen?
+311|Rechtsklick-Menü
+312|Zusammengefasst aus den Zeilen in dieser Phase
+313|Zusammengefasst aus den enthaltenen Aufgaben (nach Dauer gewichtet).
+314|SQL-Aktualisierung erforderlich
+315|Speichern
+316|Speichern Sie zuerst ein aktives Projekt mit „Als Vorlage speichern“ als Vorlage.
+317|Als Vorlage speichern
+318|Als Vorlage speichern
+319|Projektversion speichern
+320|Projektversion speichern (der ganze Plan: Aufgaben, Abhängigkeiten, Kanban)
+321|Erste Version speichern
+322|Speichern Sie dieses Projekt zuerst, um Kanban-Status der Aufgaben zu verwalten.
+323|Version speichern
+324|Gespeicherte Kartenreihenfolge
+325|Wird gespeichert...
+326|Projekte nach links scrollen
+327|Projekte nach rechts scrollen
+328|Suchen Sie es oben im Projektfeld oder erstellen Sie ein neues mit „+ Projekt“.
+329|Einstellungen suchen
+330|Aufgaben suchen…
+331|Sekunden müssen zwischen 0 und 59 liegen.
+332|Vorlage wählen *
+333|Projekt wählen
+334|Alle Aufgaben auswählen
+335|Kundenvertrag wählen...
+336|Datum wählen
+337|Hauptkunden wählen...
+338|Hauptlieferanten wählen...
+339|Lieferantenvertrag wählen...
+340|Wählen Sie die Version. Der aktuelle Plan wird vor dem Ersetzen als neue Version gespeichert.
+341|Werte durch Kommas trennen.
+342|Kanban-Status der Aufgabe setzen
+343|Einstellung
+344|Aufgabe teilen
+345|Hierarchienummern (Spalte „#“) im Aufgabenbaum anzeigen
+346|Hierarchienummern anzeigen (Spalte #)
+347|Aufgabenfortschritt im Gantt anzeigen (Linien + %)
+348|Aufgabenfortschritt auf den Balken anzeigen (Linie + %)
+349|Kritischen Pfad anzeigen
+350|Auswahlspalte anzeigen (Kontrollkästchen)
+351|Ganzes Projekt anzeigen
+352|Wird angezeigt, wenn „Aufgabenfortschritt anzeigen“ (Tab Aufgabe) aktiv ist.
+353|Melden Sie sich an, um eine Aufgabe zu einem Projekt hinzuzufügen.
+354|Melden Sie sich an, um Projekte zu verwalten
+355|Anmeldung erforderlich
+356|Puffer
+357|Weich
+358|Sortieren nach
+359|Quellprojekt
+360|Eckig
+361|Phase
+362|Phase (kann leer sein)
+363|Phasenname
+364|Phasenfarbe
+365|Phasenname
+366|Start
+367|Startstunde (0-23)
+368|Startminute (0-59)
+369|Startsekunde (0-59)
+370|Das Startdatum darf nicht nach dem Enddatum liegen.
+371|Start nicht früher als (YYYY-MM-DD, leer = so früh wie möglich)
+372|Startet, sobald das Projekt (oder die Einschränkung) es erlaubt.
+373|Speichert Vorlagenstruktur, Aufgaben, Abhängigkeiten, Phasen und Einstellungen in Vorlagentabellen. Kanban-Phasenwerte der Aufgaben sind nicht enthalten.
+374|Unterphase
+375|Aufgabe
+376|Farbe des Aufgabenbalkens
+377|Aufgabeninfo kopiert
+378|Aufgabenname
+379|Aufgabe nicht gefunden.
+380|Aufgabenfortschrittslinie
+381|Aufgabenfortschrittslinie: Position auf dem Balken, Farbe
+382|Spalten des Aufgabenbaums (Spaltenkopf ziehen zum Verschieben, Trennlinie ziehen zum Ändern der Breite, Rechtsklick / langes Drücken auf einen Kopf fügt eine eigene Spalte hinzu)
+383|Spalten des Aufgabenbaums: Standardreihenfolge, Standardbreiten
+384|Aufgabenbaum: Zeilenbefehle
+385|Aufgabenbaum: Zeilenbefehle (Hover-Leiste / Rechtsklick-Menü)
+386|Vorlagenname *
+387|Der Vorlagenname ist erforderlich.
+388|Der Gantt-Renderer konnte nicht gestartet werden.
+389|Der Export ist fehlgeschlagen.
+390|Die Datei enthält kein Projekt.
+391|Die Datei enthält keine Aufgabenliste.
+392|Die Datei ist kein gültiges JSON.
+393|Das Projekt existiert nicht (mehr).
+394|Das Projekt mit allen Phasen, Aufgaben, Meilensteinen und Abhängigkeiten (+ Ihre Gantt-Einstellungen).
+395|Der ganze Plan wird gespeichert: Projektdaten, Phasen, Aufgaben, Meilensteine, Abhängigkeiten und Kanban. Eine Version ändert sich danach nie.
+396|Dies ist keine Projektdatendatei (project_data_….json).
+397|Dieser Monat
+398|Diese Phase hat noch keine Aufgaben – fügen Sie zuerst welche hinzu.
+399|Diese Aufgabe hat noch keine Termine – sie kann nicht zu Google Kalender hinzugefügt werden.
+400|Diese Woche
+401|Dieses Jahr
+402|Zeitskaliert
+403|Zeitskaliertes Netz: Pfeillänge = Dauer, gepunktet = freier Puffer
+404|Bis (YYYY-MM-DD)
+405|Heute
+406|Heute → Projektende
+407|Baum
+408|Typ
+409|Alle Versionen abwählen (nichts wird verglichen)
+410|Rückgängig
+411|Letzte Aktion rückgängig machen?
+412|Versionstitel
+413|Versionen
+414|Versionen sind noch nicht installiert
+415|Über Phase
+416|Violett
+417|WIP-Limit (optional)
+418|Wartet auf (Vorgänger)
+419|Woche
+420|Ganzes Projekt
+421|Nur Arbeitstage (Wochenenden überspringen)
+422|Jahr
+423|Jahr (Quartale)
+424|Gelb
+425|Sie haben noch keine Projekte – erstellen Sie eines im Dashboard
+426|Vergrößern
+427|Verkleinern
+428|so früh wie möglich
+429|z. B. Vom Kunden freigegebener Basisplan
+430|z. B. In Arbeit
+431|z. B. Website-Relaunch Q4
+432|z. B. Standardvorlage für Web-Apps
+433|z. B. Pfeile, Fortschritt, Spalte
+434|Aufgabenbaum / Gantt-Diagramm ist nicht auf dem Bildschirm
+435|{{tip}} (derzeit nicht verfügbar)

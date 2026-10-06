@@ -4,6 +4,7 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { PMPalette } from '../../theme';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttLinkModeHint({ sourceName, palette, onCancel }: { sourceName: string; palette: PMPalette; onCancel: () => void }) {
   return (
@@ -11,7 +12,7 @@ export default function PMGanttLinkModeHint({ sourceName, palette, onCancel }: {
       <Text numberOfLines={1} style={[styles.hint, { color: palette.primary }]}>
         Tap the task that must wait for “{sourceName}”
       </Text>
-      <PMIconButton testID="pm-gantt-link-cancel" icon="close" label="Cancel" color={palette.text} onPress={onCancel} />
+      <PMIconButton testID="pm-gantt-link-cancel" icon="close" label={pmT('Cancel')} color={palette.text} onPress={onCancel} />
     </>
   );
 }

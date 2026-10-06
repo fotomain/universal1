@@ -22,6 +22,7 @@ import { PM_VERSION_MAX_CHECKED } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';
 import { useVersionCommands } from '../../crud/version/useVersionCommands';
 import ProjectVersionCard from '../card/ProjectVersionCard';
+import { pmT } from '../../../i18n/pmT';
 
 export interface PMProjectVersionsListProps {
   ownerGUID: string;
@@ -46,20 +47,20 @@ export default function PMProjectVersionsList({ ownerGUID, projectGUID, width, h
   return (
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-versions-list">
       <PMToolbar background={palette.surface} border={palette.border}>
-        <PMTipIcon tip="Project versions" testID="pm-versions-icon" name="layers" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
+        <PMTipIcon tip={pmT('Project versions')} testID="pm-versions-icon" name="layers" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
         <Text style={[styles.count, { color: palette.text }]} testID="pm-versions-count" numberOfLines={1}>
           {versions.length} {versions.length === 1 ? 'version' : 'versions'}
           {checked.length ? ` · ${checked.length} checked` : ''}
         </Text>
-        {checked.length > 0 && <PMIconButton testID="pm-versions-clear-checked" icon="deselect" label="Clear" title="Uncheck all versions (nothing is compared)" color={palette.text} onPress={commands.clearChecked} />}
+        {checked.length > 0 && <PMIconButton testID="pm-versions-clear-checked" icon="deselect" label={pmT('Clear')} title={pmT('Uncheck all versions (nothing is compared)')} color={palette.text} onPress={commands.clearChecked} />}
         <PMToolbarSpacer />
         <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
         <PMToolbarDivider color={palette.border} />
         <PMIconButton
           testID="pm-versions-save"
           icon="bookmark_add"
-          label="Save version"
-          title="Save project version (the whole plan: tasks, dependencies, Kanban)"
+          label={pmT('Save version')}
+          title={pmT('Save project version (the whole plan: tasks, dependencies, Kanban)')}
           color={palette.text}
           disabled={busy || missing}
           onPress={commands.openSaveVersion}
@@ -68,10 +69,10 @@ export default function PMProjectVersionsList({ ownerGUID, projectGUID, width, h
 
       {missing ? (
         <View style={styles.center}>
-          <PMTipIcon tip="SQL upgrade needed" testID="pm-versions-missing-icon" name="database" size={34} color={palette.primary} />
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>Versions are not installed yet</Text>
+          <PMTipIcon tip={pmT('SQL upgrade needed')} testID="pm-versions-missing-icon" name="database" size={34} color={palette.primary} />
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>{pmT('Versions are not installed yet')}</Text>
           <Text style={[styles.emptyText, { color: palette.textMuted }]} testID="pm-versions-missing">
-            Run kit8/sql/init/done/create_tables.sql in the Supabase SQL editor (it adds the version_ tables; nothing is deleted).
+            {pmT('Run kit8/sql/init/done/create_tables.sql in the Supabase SQL editor (it adds the version_ tables; nothing is deleted).')}
           </Text>
         </View>
       ) : !loaded ? (
@@ -80,12 +81,12 @@ export default function PMProjectVersionsList({ ownerGUID, projectGUID, width, h
         </View>
       ) : versions.length === 0 ? (
         <View style={styles.center}>
-          <PMTipIcon tip="Project versions" testID="pm-versions-empty-icon" name="layers" size={36} color={palette.primary} />
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>No versions yet</Text>
+          <PMTipIcon tip={pmT('Project versions')} testID="pm-versions-empty-icon" name="layers" size={36} color={palette.primary} />
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>{pmT('No versions yet')}</Text>
           <Text style={[styles.emptyText, { color: palette.textMuted }]}>
             Save the current plan of {projectName ? `"${projectName}"` : 'the project'} as a version. Later you can restore it or compare it with the project on the Gantt chart.
           </Text>
-          <PMDialogButton testID="pm-versions-empty-save" kind="primary" icon="bookmark_add" title="Save the first version" style={{ marginTop: 14, marginLeft: 0 }} onPress={commands.openSaveVersion} />
+          <PMDialogButton testID="pm-versions-empty-save" kind="primary" icon="bookmark_add" title={pmT('Save the first version')} style={{ marginTop: 14, marginLeft: 0 }} onPress={commands.openSaveVersion} />
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body}>

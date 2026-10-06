@@ -12,6 +12,7 @@ import { Text, View } from 'react-native';
 import CanvasKitInit from 'canvaskit-wasm/bin/full/canvaskit';
 import type { PMGanttSurfaceProps } from './PMGanttSurface';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
+import { pmT } from '../../i18n/pmT';
 
 const CANVASKIT_VERSION = '0.40.0'; // must match node_modules/canvaskit-wasm (react-native-skia 2.4.x)
 
@@ -56,7 +57,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: React.ReactNode }
     if (this.state.error) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Text style={{ fontWeight: '700', marginBottom: 6 }}>The Gantt renderer could not start.</Text>
+          <Text style={{ fontWeight: '700', marginBottom: 6 }}>{pmT('The Gantt renderer could not start.')}</Text>
           <Text style={{ opacity: 0.7, textAlign: 'center' }}>{this.state.error}</Text>
         </View>
       );

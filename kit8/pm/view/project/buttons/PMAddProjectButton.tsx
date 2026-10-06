@@ -1,9 +1,10 @@
-// "+ Project" (same width as "Critical path" on the Gantt bar).
+// "+ Project" (same width and height as "Critical path" on the Gantt bar).
 
 import React from 'react';
-import { PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
+import { PM_WIDE_ACTION_HEIGHT, PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { usePMTip } from '../../../inner/tooltip/PMTooltip';
 import ButtonApp from '../../../../components/common/ButtonApp';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?: any) => void; compact?: boolean }) {
   const tip = usePMTip('New project');
@@ -15,7 +16,7 @@ export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?:
       size="small"
       icon="add"
       title={compact ? undefined : 'Project'}
-      accessibilityLabel="New project"
+      accessibilityLabel={pmT('New project')}
       width={compact ? undefined : PM_WIDE_ACTION_WIDTH}
       onPress={onPress}
       onHoverIn={tip.onHoverIn}
@@ -23,7 +24,10 @@ export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?:
       onPressIn={tip.onPressIn}
       onLongPress={tip.onLongPress}
       delayLongPress={tip.delayLongPress}
-      style={{ marginVertical: 0, marginLeft: 0, marginRight: 2 }}
+      style={[
+        { marginVertical: 0, marginLeft: 0, marginRight: 2 },
+        compact ? null : { height: PM_WIDE_ACTION_HEIGHT, paddingVertical: 0, paddingHorizontal: 8 },
+      ]}
     />
   );
 }

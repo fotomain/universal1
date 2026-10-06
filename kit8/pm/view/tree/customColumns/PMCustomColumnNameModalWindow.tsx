@@ -10,6 +10,7 @@ import { usePMStore } from '../../../store/store_pm';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { PM_CUSTOM_COLUMN_NAME_MAX, PM_CUSTOM_COLUMN_TYPE_ICON, PM_CUSTOM_COLUMN_TYPE_LABEL } from '../columns/customColumns';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMCustomColumnNameModalWindow({ crud }: { crud: PMCrud }) {
   const { themeColors: c } = useDesignSystem();
@@ -39,7 +40,7 @@ export default function PMCustomColumnNameModalWindow({ crud }: { crud: PMCrud }
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Cancel" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={pmT('Cancel')} />
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-custom-column-window">
           <View style={styles.header}>
             <View style={[styles.iconBubble, { backgroundColor: `${c.primary}1f` }]}>
@@ -49,7 +50,7 @@ export default function PMCustomColumnNameModalWindow({ crud }: { crud: PMCrud }
               {renaming ? `Rename the ${typeLabel} column` : `New ${typeLabel} column`}
             </Text>
           </View>
-          <Text style={[styles.label, { color: c.text }]}>Column name</Text>
+          <Text style={[styles.label, { color: c.text }]}>{pmT('Column name')}</Text>
           <TextInput
             testID="pm-custom-column-name"
             value={name}
@@ -76,10 +77,10 @@ export default function PMCustomColumnNameModalWindow({ crud }: { crud: PMCrud }
               {error}
             </Text>
           )}
-          {!renaming && <Text style={[styles.hint, { color: c.text }]}>It is added as the last column of the task tree.</Text>}
+          {!renaming && <Text style={[styles.hint, { color: c.text }]}>{pmT('It is added as the last column of the task tree.')}</Text>}
           <View style={styles.actions}>
             <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-custom-column-cancel" kind="secondary" title="Cancel" color={c.text} onPress={close} />
+            <PMDialogButton testID="pm-custom-column-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} onPress={close} />
             <PMDialogButton testID="pm-custom-column-save" kind="primary" icon={renaming ? 'check' : 'add'} title={renaming ? 'Rename' : 'Add column'} onPress={submit} />
           </View>
         </View>

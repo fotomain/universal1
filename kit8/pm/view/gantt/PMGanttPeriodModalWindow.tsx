@@ -6,12 +6,13 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
-import SelectDateApp from '../../../components/common/SelectDateApp';
+import PMDateInput from '../../inner/inputs/PMDateInput';
 import { DAY_MS } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import { formatDateISO, parseDateISO, todayUTC } from '../project/scheduling';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 import { mondayOnOrBefore } from './ganttGeometry';
+import { pmT } from '../../i18n/pmT';
 
 interface Preset {
   id: string;
@@ -68,19 +69,6 @@ export default function PMGanttPeriodModalWindow() {
     usePMStore.getState().setGanttPeriod(null);
     close();
   };
-  // the calendar works with local dates, the chart with UTC days: carry year / month / day across
-  const pickerValue = (text: string) => {
-    const ms = parseDateISO(text.trim());
-    if (ms === null) return null;
-    const d = new Date(ms);
-    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  };
-  const picked = (d: Date | null, set: (text: string) => void) => {
-    if (!d) return;
-    set(formatDateISO(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())));
-    setError(null);
-  };
-  const input = [styles.input, styles.inputFlex, { color: c.text, borderColor: c.border, backgroundColor: c.background }];
   const onKey = Platform.OS === 'web' ? { onSubmitEditing: () => apply(parseDateISO(from.trim()), parseDateISO(to.trim())) } : {};
 
   return (
@@ -89,28 +77,22 @@ export default function PMGanttPeriodModalWindow() {
         <Pressable testID="pm-gantt-period-backdrop" style={StyleSheet.absoluteFill} onPress={close} />
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-gantt-period-window">
           <View style={styles.header}>
-            <Text style={[styles.title, { color: c.text }]}>Chart period</Text>
-            <PMIconButton testID="pm-gantt-period-close" icon="close" title="Close" color={c.text} onPress={close} />
+            <Text style={[styles.title, { color: c.text }]}>{pmT('Chart period')}</Text>
+            <PMIconButton testID="pm-gantt-period-close" icon="close" title={pmT('Close')} color={c.text} onPress={close} />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.row}>
               <View style={styles.field}>
-                <Text style={[styles.label, { color: c.text }]}>From (YYYY-MM-DD)</Text>
-                <View style={styles.inputRow}>
-                  <TextInput testID="pm-gantt-period-from" value={from} onChangeText={setFrom} autoCapitalize="none" autoCorrect={false} placeholder="2026-01-01" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
-                  <SelectDateApp testID="pm-gantt-period-from-picker" label="Pick the date" trigger="icon" value={pickerValue(from)} onSelect={(d) => picked(d, setFrom)} style={styles.pickerBtn} />
-                </View>
+                <Text style={[styles.label, { color: c.text }]}>{pmT('From (YYYY-MM-DD)')}</Text>
+                <PMDateInput testID="pm-gantt-period-from" pickerTestID="pm-gantt-period-from-picker" value={from} onChangeText={(t) => { setFrom(t); setError(null); }} placeholder="2026-01-01" {...onKey} />
               </View>
               <View style={styles.field}>
-                <Text style={[styles.label, { color: c.text }]}>To (YYYY-MM-DD)</Text>
-                <View style={styles.inputRow}>
-                  <TextInput testID="pm-gantt-period-to" value={to} onChangeText={setTo} autoCapitalize="none" autoCorrect={false} placeholder="2026-12-31" placeholderTextColor={`${c.text}66`} style={input} {...onKey} />
-                  <SelectDateApp testID="pm-gantt-period-to-picker" label="Pick the date" trigger="icon" value={pickerValue(to)} onSelect={(d) => picked(d, setTo)} style={styles.pickerBtn} />
-                </View>
+                <Text style={[styles.label, { color: c.text }]}>{pmT('To (YYYY-MM-DD)')}</Text>
+                <PMDateInput testID="pm-gantt-period-to" pickerTestID="pm-gantt-period-to-picker" value={to} onChangeText={(t) => { setTo(t); setError(null); }} placeholder="2026-12-31" {...onKey} />
               </View>
             </View>
             {!!error && <Text style={{ color: c.error, marginTop: 6 }}>{error}</Text>}
-            <Text style={[styles.label, { color: c.text }]}>Quick periods</Text>
+            <Text style={[styles.label, { color: c.text }]}>{pmT('Quick periods')}</Text>
             <View style={styles.chips}>
               {PM_GANTT_PERIOD_PRESETS.map((p) => (
                 <Pressable
@@ -124,16 +106,16 @@ export default function PMGanttPeriodModalWindow() {
                   }}
                   style={({ hovered, pressed }: any) => [styles.chip, { borderColor: c.border, backgroundColor: hovered || pressed ? `${c.primary}22` : 'transparent' }]}
                 >
-                  <Text style={{ color: c.text, fontSize: 13 }}>{p.label}</Text>
+                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT(p.label)}</Text>
                 </Pressable>
               ))}
             </View>
           </ScrollView>
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-gantt-period-reset" kind="text" icon="fit_screen" title="Whole project" color={c.text} style={{ marginLeft: 0 }} onPress={reset} />
+            <PMDialogButton testID="pm-gantt-period-reset" kind="text" icon="fit_screen" title={pmT('Whole project')} color={c.text} style={{ marginLeft: 0 }} onPress={reset} />
             <View style={{ flex: 1, minWidth: 8 }} />
-            <PMDialogButton testID="pm-gantt-period-cancel" kind="secondary" title="Cancel" color={c.text} onPress={close} />
-            <PMDialogButton testID="pm-gantt-period-apply" kind="primary" title="Apply" onPress={() => apply(parseDateISO(from.trim()), parseDateISO(to.trim()))} />
+            <PMDialogButton testID="pm-gantt-period-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} onPress={close} />
+            <PMDialogButton testID="pm-gantt-period-apply" kind="primary" title={pmT('Apply')} onPress={() => apply(parseDateISO(from.trim()), parseDateISO(to.trim()))} />
           </View>
         </View>
       </View>

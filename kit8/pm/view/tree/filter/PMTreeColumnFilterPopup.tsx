@@ -40,6 +40,7 @@ import {
   treeColumnCanBeEmpty,
   treeColumnDataType,
 } from './treeColumnFilter';
+import { pmT } from '../../../i18n/pmT';
 
 export const PM_TREE_FILTER_POPUP_WIDTH = 300;
 const EST_HEIGHT = 380;
@@ -176,7 +177,7 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={close}>
-      <Pressable testID="pm-tree-filter-backdrop" style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
+      <Pressable testID="pm-tree-filter-backdrop" style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={pmT('Close')} />
       <View
         testID="pm-tree-filter-popup"
         accessibilityRole={'dialog' as any}
@@ -190,7 +191,7 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
             {title}
           </Text>
           {filtered && <IconApp testID="pm-tree-filter-active-icon" name="filter_alt" size={16} color={iconColor} />}
-          <Pressable testID="pm-tree-filter-close" accessibilityLabel="Close" onPress={close} hitSlop={8} style={styles.headClose}>
+          <Pressable testID="pm-tree-filter-close" accessibilityLabel={pmT('Close')} onPress={close} hitSlop={8} style={styles.headClose}>
             <IconApp testID="pm-tree-filter-close-icon" name="close" size={18} color="#ffffff" />
           </Pressable>
         </View>
@@ -264,14 +265,14 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
               <TextInputApp {...inputProps('pm-tree-filter-value', value, setValue, true)} />
               {inputs === 2 && (
                 <>
-                  <Text style={[styles.and, { color: c.text }]}>and</Text>
+                  <Text style={[styles.and, { color: c.text }]}>{pmT('and')}</Text>
                   <TextInputApp {...inputProps('pm-tree-filter-value2', value2, setValue2, false)} />
                 </>
               )}
             </View>
           ) : null}
 
-          {variant === 'isOneOf' && <Text style={[styles.hint, { color: c.text }]}>Separate the values with commas.</Text>}
+          {variant === 'isOneOf' && <Text style={[styles.hint, { color: c.text }]}>{pmT('Separate the values with commas.')}</Text>}
           {variant === 'matches' && (
             <View testID="pm-tree-filter-matches-help" style={[styles.help, { borderColor: c.border }]}>
               {MATCHES_HELP.filter((h) => !h.types || h.types.includes(type)).map((h) => (
@@ -294,9 +295,9 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
           )}
 
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-tree-filter-clear" kind="secondary" title="Clear" icon="filter_alt_off" color={c.text} disabled={!filtered} onPress={clear} style={{ flex: 1 }} />
+            <PMDialogButton testID="pm-tree-filter-clear" kind="secondary" title={pmT('Clear')} icon="filter_alt_off" color={c.text} disabled={!filtered} onPress={clear} style={{ flex: 1 }} />
             <View style={{ width: 10 }} />
-            <PMDialogButton testID="pm-tree-filter-apply" kind="primary" title="Apply" icon="filter_alt" onPress={apply} style={{ flex: 1 }} />
+            <PMDialogButton testID="pm-tree-filter-apply" kind="primary" title={pmT('Apply')} icon="filter_alt" onPress={apply} style={{ flex: 1 }} />
           </View>
         </ScrollView>
       </View>

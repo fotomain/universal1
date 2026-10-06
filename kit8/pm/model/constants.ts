@@ -85,8 +85,14 @@ export const PM_TIMELINE_PAD_DAYS = 21; // empty days before/after the project r
 /** @deprecated the tree row panel is sized by tree/panels/treeRowPanelGeometry (kept for older imports). */
 export const PM_HOVER_PANEL_WIDTH = 250;
 export const PM_BAR_PANEL_WIDTH = 296; // chart hover CRUD panel (next to the bar)
-/** "Critical path" (chart bar) and "+ Project" (project bar) share this width. */
+/** "Critical path" (chart bar) and "+ Project" (project bar) share this size, so the two buttons (and the settings
+ *  icons on their left) form one column at the right edge of the two bars. */
 export const PM_WIDE_ACTION_WIDTH = 132;
+export const PM_WIDE_ACTION_HEIGHT = 30;
+/** Dialog buttons of one group (Cancel / Save, Cancel / Export) share this width = equal size. */
+export const PM_DIALOG_BUTTON_WIDTH = 120;
+/** The export / template buttons of the Project settings window share this width = equal size. */
+export const PM_EXPORT_BUTTON_WIDTH = 220;
 /** Settings icon buttons on the project bar and Gantt bar share width & icon size so they align vertically. */
 export const PM_SETTINGS_BUTTON_WIDTH = 32;
 export const PM_SETTINGS_ICON_SIZE = 18;

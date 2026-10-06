@@ -27,3 +27,5 @@ export { default as ActivityIndicatorCircleApp, ActivityIndicatorCircleAppProps 
 export { default as SelectDateApp, SelectDateAppProps } from './SelectDateApp';
 export { default as ErrorModalWindow, ErrorModalWindowProps, showErrorModal, hideErrorModal, useErrorModalStore, AppErrorPayload } from './ErrorModalWindow';
 
+export { DateInputApp } from './date_input';
+export type { DateInputAppProps } from './date_input';

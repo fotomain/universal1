@@ -42,11 +42,14 @@ import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../components/activityindicator/ActivityIndicatorCircleApp';
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
+import { pmT, usePMLanguage } from '../../i18n/pmT';
 
 export default function PMProjectDashboard() {
+  // the texts follow the app language (kit8/pm/i18n): a language change re-creates the screen
+  const language = usePMLanguage();
   return (
     <PMUndoProvider>
-      <PMProjectDashboardInner />
+      <PMProjectDashboardInner key={language} />
     </PMUndoProvider>
   );
 }
@@ -176,12 +179,12 @@ function PMProjectDashboardInner() {
   if (!ownerGUID) {
     return (
       <Centered color={themeColors.background}>
-        <PMTipIcon tip="Sign-in required" testID="pm-signin-icon" name="lock" size={32} color={themeColors.primary} />
-        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Sign in to manage projects</Text>
-        <Text style={{ color: themeColors.text, opacity: 0.7 }}>Projects are stored per user in Supabase (row level security).</Text>
+        <PMTipIcon tip={pmT('Sign-in required')} testID="pm-signin-icon" name="lock" size={32} color={themeColors.primary} />
+        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{pmT('Sign in to manage projects')}</Text>
+        <Text style={{ color: themeColors.text, opacity: 0.7 }}>{pmT('Projects are stored per user in Supabase (row level security).')}</Text>
         <PMDialogButton
           testID="pm-signin-button"
-          title="Go to Sign In"
+          title={pmT('Go to Sign In')}
           kind="primary"
           style={{ marginTop: 16 }}
           onPress={() => router.push('/signin')}
@@ -202,9 +205,9 @@ function PMProjectDashboardInner() {
 
       {!!lastError && (
         <Pressable onPress={() => usePMStore.getState().setError(null)} style={[styles.banner, { backgroundColor: `${themeColors.error}18`, borderColor: themeColors.error }]}>
-          <PMTipIcon tip="Error" testID="pm-error-icon" name="error" size={16} color={themeColors.error} />
-          <Text style={{ color: themeColors.error, marginLeft: 6, flex: 1 }}>{lastError}</Text>
-          <PMTipIcon tip="Dismiss" testID="pm-error-close" name="close" size={16} color={themeColors.error} />
+          <PMTipIcon tip={pmT('Error')} testID="pm-error-icon" name="error" size={16} color={themeColors.error} />
+          <Text style={{ color: themeColors.error, marginLeft: 6, flex: 1 }}>{pmT(lastError)}</Text>
+          <PMTipIcon tip={pmT('Dismiss')} testID="pm-error-close" name="close" size={16} color={themeColors.error} />
         </Pressable>
       )}
       {cycleCount > 0 && (
@@ -215,7 +218,7 @@ function PMProjectDashboardInner() {
 
       {loadError ? (
         <Centered color={themeColors.background}>
-          <Text style={[styles.emptyTitle, { color: themeColors.error }]}>Could not load projects</Text>
+          <Text style={[styles.emptyTitle, { color: themeColors.error }]}>{pmT('Could not load projects')}</Text>
           <Text style={{ color: themeColors.text, opacity: 0.7, textAlign: 'center' }}>
             {loadError.message}
             {'\n'}Did you run kit8/sql/init/done/create_tables.sql in Supabase?
@@ -230,16 +233,16 @@ function PMProjectDashboardInner() {
         </Centered>
       ) : !selectedProjectGUID && projectCount > 0 ? (
         <Centered color={themeColors.background}>
-          <PMTipIcon tip="Projects (Gantt)" testID="pm-pick-icon" name="search" size={36} color={themeColors.primary} />
-          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Select a project</Text>
+          <PMTipIcon tip={pmT('Projects (Gantt)')} testID="pm-pick-icon" name="search" size={36} color={themeColors.primary} />
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{pmT('Select a project')}</Text>
           <Text style={{ color: themeColors.text, opacity: 0.7, textAlign: 'center' }}>
-            Search it in the project field above, or create a new one with “+ Project”.
+            {pmT('Search it in the project field above, or create a new one with “+ Project”.')}
           </Text>
         </Centered>
       ) : !selectedProjectGUID ? (
         <Centered color={themeColors.background}>
-          <PMTipIcon tip="Projects (Gantt)" testID="pm-empty-icon" name="view_timeline" size={40} color={themeColors.primary} />
-          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No projects yet</Text>
+          <PMTipIcon tip={pmT('Projects (Gantt)')} testID="pm-empty-icon" name="view_timeline" size={40} color={themeColors.primary} />
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{pmT('No projects yet')}</Text>
           <PMDialogButton
             testID="pm-empty-demo"
             kind="primary"
@@ -266,7 +269,7 @@ function PMProjectDashboardInner() {
           )}
           {rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
             <View pointerEvents="box-none" style={styles.emptyOverlay}>
-              <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title="Add the first stage" style={styles.cta} onPress={() => crud.createStage()} />
+              <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} style={styles.cta} onPress={() => crud.createStage()} />
             </View>
           )}
         </View>

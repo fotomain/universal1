@@ -6,6 +6,7 @@ import IconApp from '../../../../../components/common/IconApp';
 import type { CardItem } from '../../../../../components/list/web/lib/types';
 import { usePMStore } from '../../../../store/store_pm';
 import { usePMKanbanStore } from '../../../../store/store_kanban';
+import { pmT } from '../../../../i18n/pmT';
 
 export interface PMTaskKanbanStateCardProps {
   card: CardItem;
@@ -60,7 +61,7 @@ export default function PMTaskKanbanStateCard({
       ]}
     >
       {Platform.OS === 'web' && dragHandleProps ? (
-        <div {...dragHandleProps} title="Drag to reorder" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', padding: 4 }}>
+        <div {...dragHandleProps} title={pmT('Drag to reorder')} style={{ cursor: 'grab', display: 'flex', alignItems: 'center', padding: 4 }}>
           <IconApp name="drag_indicator" size={18} color={c.text} />
         </div>
       ) : null}

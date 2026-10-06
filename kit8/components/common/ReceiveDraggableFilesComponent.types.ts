@@ -33,4 +33,8 @@ export interface ReceiveDraggableFilesProps {
     pickMimeTypes?: string[];
     disabled?: boolean;
     testID?: string;
+    /** optional fixed width for the picker button (e.g. to match dialog buttons) */
+    pickButtonWidth?: number;
+    /** optional style override for the picker button */
+    pickButtonStyle?: StyleProp<ViewStyle>;
 }

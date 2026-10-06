@@ -9,6 +9,7 @@ import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { PM_VERSION_TITLE_MAX, validateVersionTitle } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';
 import type { PMVersionCommands } from '../../crud/version/useVersionCommands';
+import { pmT } from '../../../i18n/pmT';
 
 export default function PMVersionTitleModalWindow({ commands }: { commands: PMVersionCommands }) {
   const { themeColors: c } = useDesignSystem();
@@ -43,7 +44,7 @@ export default function PMVersionTitleModalWindow({ commands }: { commands: PMVe
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Cancel" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={pmT('Cancel')} />
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-version-title-window">
           <View style={styles.header}>
             <View style={[styles.iconBubble, { backgroundColor: `${c.primary}1f` }]}>
@@ -53,7 +54,7 @@ export default function PMVersionTitleModalWindow({ commands }: { commands: PMVe
               {renaming ? 'Rename version' : 'Save project version'}
             </Text>
           </View>
-          <Text style={[styles.label, { color: c.text }]}>Version title</Text>
+          <Text style={[styles.label, { color: c.text }]}>{pmT('Version title')}</Text>
           <TextInput
             testID="pm-version-title-input"
             value={title}
@@ -61,7 +62,7 @@ export default function PMVersionTitleModalWindow({ commands }: { commands: PMVe
               setTitle(t.slice(0, PM_VERSION_TITLE_MAX));
               setError(null);
             }}
-            placeholder="e.g. Baseline approved by the customer"
+            placeholder={pmT('e.g. Baseline approved by the customer')}
             placeholderTextColor={`${c.text}66`}
             autoFocus
             selectTextOnFocus
@@ -79,12 +80,12 @@ export default function PMVersionTitleModalWindow({ commands }: { commands: PMVe
           )}
           {!renaming && (
             <Text style={[styles.hint, { color: c.text }]}>
-              The whole plan is stored: project data, stages, tasks, milestones, dependencies and Kanban. A version never changes afterwards.
+              {pmT('The whole plan is stored: project data, stages, tasks, milestones, dependencies and Kanban. A version never changes afterwards.')}
             </Text>
           )}
           <View style={styles.actions}>
             <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-version-title-cancel" kind="secondary" title="Cancel" color={c.text} onPress={close} />
+            <PMDialogButton testID="pm-version-title-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} onPress={close} />
             <PMDialogButton
               testID="pm-version-title-save"
               kind="primary"

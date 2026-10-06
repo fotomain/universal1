@@ -2,13 +2,21 @@
 // (view/project/recent/PMRecentProjectsToolbar; opened also by the ⇅ button after "Show task progress").
 // Top tabs: TabImport (default) · TabExport
 //   TabImport: drop the file on the zone (or "Choose file…") - asks before deleting the current data
-//   TabExport: project_data_<rowGUID>.json with the project and ALL its tasks - downloaded at once
+//   TabExport: three buttons of equal size (outlined):
+//                Export to JSON        project_data_<rowGUID>.json with the project and ALL its tasks - downloaded at once
+//                Export to PDF         the dashboard (task tree + Gantt chart) with the project name and dates; the
+//                                      settings window closes first (onExportPdf) so that it is not in the picture
+//                Export to MS Project  opens PMExportToMSProject (Microsoft Project XML)
+//              PDF / MS Project export what the dashboard shows: enabled for the project that is open there.
 // Logic: useProjectExchange.ts · export/ · import/ · projectExchangeFormat.ts
 
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ReceiveDraggableFilesComponent } from '../../../../components/common/ReceiveDraggableFilesComponent';
 import { PMDialogButton } from '../../../inner/buttons';
+import { PM_EXPORT_BUTTON_WIDTH } from '../../../model/constants';
+import { pmT } from '../../../i18n/pmT';
+import PMExportToMSProject from '../msproject/PMExportToMSProject';
 import { PMRowJSON } from '../../../model/types';
 import { usePMStore } from '../../../store/store_pm';
 import { projectDataFileName } from './projectExchangeFormat';
@@ -19,21 +27,27 @@ export default function ImportExportProject({
   projectGUID,
   colors,
   onImported,
+  onExportPdf,
 }: {
   ownerGUID: string;
   projectGUID: string;
   colors: { text: string; primary: string; error: string; border: string };
   /** after a successful import: the project's new rowJSON (the settings window refreshes its fields) */
   onImported?: (projectRowJSON: PMRowJSON) => void;
+  /** "Export to PDF" pressed: the host closes its window and exports the dashboard (no button without it) */
+  onExportPdf?: (projectGUID: string) => void;
 }) {
   const { exportProject, importProject, status, busy } = useProjectExchange(ownerGUID);
   const name = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON.name ?? '');
   const fileName = projectDataFileName(projectGUID);
   const [tab, setTab] = useState<PMExchangeTab>('TabImport');
+  // PDF / MS Project export the project that is open on the dashboard
+  const onDashboard = usePMStore((s) => s.loadedProjectGUID === projectGUID);
+  const [msProjectOpen, setMsProjectOpen] = useState(false);
 
   return (
     <View style={[styles.box, { borderColor: colors.border }]} testID="pm-project-exchange">
-      <Text style={[styles.title, { color: colors.text }]}>Import / Export</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{pmT('Import / Export')}</Text>
 
       {/* ---- top tabs ---- */}
       <View style={[styles.tabs, { borderColor: colors.border }]} accessibilityRole="tablist">
@@ -50,7 +64,7 @@ export default function ImportExportProject({
               onPress={() => setTab(t.key)}
               style={[styles.tab, { borderBottomColor: active ? colors.primary : 'transparent' }]}
             >
-              <Text style={{ color: active ? colors.primary : colors.text, fontWeight: active ? '700' : '500' }}>{t.title}</Text>
+              <Text style={{ color: active ? colors.primary : colors.text, fontWeight: active ? '700' : '500' }}>{pmT(t.title)}</Text>
             </Pressable>
           );
         })}
@@ -63,12 +77,13 @@ export default function ImportExportProject({
             folderName={name}
             compact
             pickable
-            pickLabel="Choose file…"
+            pickLabel={pmT('Choose file…')}
+            pickButtonWidth={PM_EXPORT_BUTTON_WIDTH}
             accept=".json,application/json"
             pickMimeTypes={['application/json', 'text/plain']}
             allowedMimeTypes={['application/json', 'text/plain', /json/]}
-            title="Drop a project_data_….json here"
-            subtitle={`Replaces the tasks of "${name}" (asks first)`}
+            title={pmT('Drop a project_data_….json here')}
+            subtitle={pmT('Replaces the tasks of "{{name}}" (asks first)', { name })}
             disabled={busy}
             style={styles.dropZone}
             onFilesDropped={async (files) => {
@@ -79,24 +94,53 @@ export default function ImportExportProject({
         ) : (
           <View style={styles.exportPanel} testID="pm-project-export-panel">
             <Text style={[styles.hint, { color: colors.text }]}>
-              The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).
+              {pmT('The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).')}
             </Text>
-            <View style={{ height: 16 }} />
+            <View style={{ height: 10 }} />
             <PMDialogButton
               testID="pm-project-export"
-              kind="primary"
-              icon="download"
-              title="Export to file"
+              kind="secondary"
+              icon="data_object"
+              title={pmT('Export to JSON')}
               disabled={busy}
+              width={PM_EXPORT_BUTTON_WIDTH}
               style={styles.exportButton}
               onPress={() => exportProject(projectGUID)}
+            />
+            {!!onExportPdf && (
+              <PMDialogButton
+                testID="pm-project-export-pdf"
+                kind="secondary"
+                icon="picture_as_pdf"
+                title={pmT('Export to PDF')}
+                disabled={busy || !onDashboard}
+                width={PM_EXPORT_BUTTON_WIDTH}
+                style={styles.exportButton}
+                onPress={() => onExportPdf(projectGUID)}
+              />
+            )}
+            <PMDialogButton
+              testID="pm-project-export-msproject"
+              kind="secondary"
+              icon="account_tree"
+              title={pmT('Export to MS Project')}
+              disabled={busy || !onDashboard}
+              width={PM_EXPORT_BUTTON_WIDTH}
+              style={styles.exportButton}
+              onPress={() => setMsProjectOpen(true)}
             />
             <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2} testID="pm-project-export-file-name">
               {fileName}
             </Text>
+            {!onDashboard && (
+              <Text style={[styles.fileName, { color: colors.text }]} testID="pm-project-export-dashboard-hint">
+                {pmT('PDF and MS Project export the project that is open on the dashboard.')}
+              </Text>
+            )}
           </View>
         )}
       </View>
+      <PMExportToMSProject visible={msProjectOpen} projectGUID={projectGUID} onClose={() => setMsProjectOpen(false)} />
       {status.kind !== 'idle' && (
         <Text
           testID="pm-project-exchange-status"
@@ -126,7 +170,8 @@ const styles = StyleSheet.create({
   dropZone: { flexGrow: 1, marginVertical: 0 },
   // Export tab: button, description and file name centered
   exportPanel: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
-  exportButton: { marginLeft: 0, marginTop: 12, alignSelf: 'center' },
+  // the export buttons: one column, equal size (PM_EXPORT_BUTTON_WIDTH)
+  exportButton: { marginLeft: 0, marginTop: 8, alignSelf: 'center' },
   hint: { fontSize: 12, opacity: 0.75, textAlign: 'center' },
   fileName: { fontSize: 11, opacity: 0.6, marginTop: 8, textAlign: 'center' },
   status: { marginTop: 6, fontSize: 12, textAlign: 'center' },

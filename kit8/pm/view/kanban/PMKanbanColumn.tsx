@@ -12,6 +12,7 @@ import { kanbanStageColorOf } from '../../model/kanbanTypes';
 import { PMKanbanCard, PMKanbanCardDragData } from './PMKanbanCard';
 import { PM_KANBAN_COLUMN_HEADER } from './kanbanLayout';
 import type { PMKanbanColumn as Column } from './kanbanModel';
+import { pmT } from '../../i18n/pmT';
 
 export interface PMKanbanColumnProps {
   column: Column;
@@ -121,7 +122,7 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
             size={16}
             testID={`pm-kanban-colmenu-${stage.rowGUID}`}
             icon="more_vert"
-            title="Column menu: select all tasks, clear the column"
+            title={pmT('Column menu: select all tasks, clear the column')}
             color={palette.text}
             onPress={() => openAt(p.onOpenMenu)}
           />
