@@ -190,6 +190,8 @@ export interface PMStoreState {
   editingDep: PMDepRef | null;
   /** Inline tree cell editor (Start / Days / %). */
   cellEdit: { guid: string; field: PMCellField } | null;
+  /** Timestamp when cellEdit was last closed (used to prevent mobile touch bleed-through). */
+  lastCellEditClosedAt?: number;
   /** "Reveal this row" request (e.g. back from the task page): consumed by the Gantt surface. */
   focusRequest: { guid: string; nonce: number } | null;
   /** Undo stack info for the current project (the entries live in expo-sqlite). */

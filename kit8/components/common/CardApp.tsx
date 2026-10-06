@@ -24,11 +24,31 @@ export const CardApp: React.FC<CardAppProps> = ({
   onPress,
   style,
 }) => {
-  const { activeSystem, themeColors, isDark } = useDesignSystem();
+  const { activeSystem, themeColors, isDark, appleMacUITheme: apple } = useDesignSystem();
 
   const Container = onPress ? TouchableOpacity : View;
 
   switch (activeSystem) {
+    case 'applemacui': {
+      // iOS inset grouped card: no border, no shadow, 12 pt continuous corners on the grouped background
+      const type = apple.typography;
+      return (
+        <Container
+          onPress={onPress}
+          activeOpacity={onPress ? 0.7 : 1}
+          style={[{ backgroundColor: apple.colors.secondarySystemGroupedBackground, borderRadius: apple.radii.card, padding: apple.space[4], marginVertical: apple.space[2] }, style]}
+        >
+          {!!title && <Text style={{ ...type.headline, fontFamily: apple.fontFamily, color: apple.colors.label }}>{title}</Text>}
+          {!!subtitle && <Text style={{ ...type.footnote, fontFamily: apple.fontFamily, color: apple.colors.secondaryLabel, marginTop: 2 }}>{subtitle}</Text>}
+          {(!!title || !!subtitle) && !!children && <View style={{ height: apple.space[3] }} />}
+          {children}
+          {!!footer && (
+            <View style={{ marginTop: apple.space[3], paddingTop: apple.space[3], borderTopWidth: apple.size.hairline, borderTopColor: apple.colors.separator }}>{footer}</View>
+          )}
+        </Container>
+      );
+    }
+
     case 'paper': {
       return (
         <PaperCard

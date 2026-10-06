@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {RadioButton, Surface, Text, useTheme} from 'react-native-paper';
 
-import TexInputMi from '../../../ui/TexInputMi';
+import TextInputApp from '../../common/TextInputApp';
 import {PronounType} from '../../../types/pronoun';
 import {FormErrorFieldComponent} from './FormErrorFieldComponent';
 import {ButtonPrimaryApp, ButtonSecondaryApp} from '../../common';
@@ -72,7 +72,7 @@ export function CreateRaciMemberForm({
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.fieldWrap}>
-          <TexInputMi
+          <TextInputApp
             label="Email *"
             value={raciEmail}
             onChangeText={(text) => {
@@ -91,7 +91,7 @@ export function CreateRaciMemberForm({
         </View>
 
         <View style={styles.fieldWrap}>
-          <TexInputMi
+          <TextInputApp
             label="First Name *"
             value={raciFirstName}
             onChangeText={(text) => {
@@ -107,7 +107,7 @@ export function CreateRaciMemberForm({
           )}
         </View>
 
-        <TexInputMi
+        <TextInputApp
           label="Last Name"
           value={raciLastName}
           onChangeText={setRaciLastName}
@@ -124,7 +124,7 @@ export function CreateRaciMemberForm({
           </RadioButton.Group>
         </View>
 
-        <TexInputMi
+        <TextInputApp
           label="Birthday (YYYY-MM-DD)"
           value={birthday}
           onChangeText={setBirthday}

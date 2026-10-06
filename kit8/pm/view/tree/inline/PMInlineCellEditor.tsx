@@ -3,6 +3,7 @@
 // translates this layer by the tree's horizontal scroll.
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { PMTreeColumnsLayout } from '../columns/treeColumns';
 import { isCustomColumnKey } from '../columns/customColumns';
 import { PMCellField, usePMStore } from '../../../store/store_pm';
@@ -16,6 +17,9 @@ import EditTaskCustomValue from './EditTaskCustomValue';
 import PMKanbanChangeStageInTree from './PMKanbanChangeStageInTree';
 import EditTaskKanbanProgress from './EditTaskKanbanProgress';
 import EditTaskPlanningUnitField from './EditTaskPlanningUnitField';
+
+// [clear (web only)] [date text] [date picker] - just enough for a full date, no empty space around
+const DATE_EDITOR_MIN_W = Platform.OS === 'web' ? 116 : 98;
 
 export default function PMInlineCellEditor({
   field,
@@ -50,12 +54,12 @@ export default function PMInlineCellEditor({
   }
   if (field === 'taskStartDate' || field === 'start') {
     // a date needs more room than the column: grow to the left (or right, at the pane's left edge)
-    const w = Math.min(Math.max(124, col.w - 4), contentW - 4);
+    const w = Math.min(Math.max(DATE_EDITOR_MIN_W, col.w - 4), contentW - 4);
     const x = Math.min(Math.max(2, col.x + col.w - 2 - w), contentW - 2 - w);
     return <EditTaskStartDate {...common} x={x} width={w} />;
   }
   if (field === 'taskFinishDate') {
-    const w = Math.min(Math.max(124, col.w - 4), contentW - 4);
+    const w = Math.min(Math.max(DATE_EDITOR_MIN_W, col.w - 4), contentW - 4);
     const x = Math.min(Math.max(2, col.x + col.w - 2 - w), contentW - 2 - w);
     return <EditTaskFinishDate {...common} x={x} width={w} />;
   }

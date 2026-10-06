@@ -18,7 +18,7 @@ export const TextApp: React.FC<TextAppProps> = ({
   numberOfLines,
   testID,
 }) => {
-  const { activeSystem, themeColors, isDark } = useDesignSystem();
+  const { activeSystem, themeColors, isDark, appleMacUITheme: apple } = useDesignSystem();
 
   const getFontSize = () => {
     switch (variant) {
@@ -53,6 +53,26 @@ export const TextApp: React.FC<TextAppProps> = ({
   };
 
   switch (activeSystem) {
+    case 'applemacui': {
+      // iOS text styles (Dynamic Type "Large"): heading = Title 1 bold · title = Title 3 semibold ·
+      // subtitle = Headline · body = Body · caption = Footnote (secondary label)
+      const t =
+        variant === 'heading'
+          ? { ...apple.typography.title1, fontWeight: '700' as const }
+          : variant === 'title'
+          ? { ...apple.typography.title3, fontWeight: '600' as const }
+          : variant === 'subtitle'
+          ? apple.typography.headline
+          : variant === 'caption'
+          ? apple.typography.footnote
+          : apple.typography.body;
+      return (
+        <RNText testID={testID} numberOfLines={numberOfLines} allowFontScaling style={[{ ...t, fontFamily: apple.fontFamily, color: variant === 'caption' ? apple.colors.secondaryLabel : apple.colors.label }, style]}>
+          {children}
+        </RNText>
+      );
+    }
+
     case 'paper': {
       const paperVariantMap: Record<string, any> = {
         heading: 'headlineMedium',

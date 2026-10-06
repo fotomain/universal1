@@ -433,3 +433,7 @@
 433|bijv. pijlen, voortgang, kolom
 434|de takenboom / het Gantt-diagram staat niet op het scherm
 435|{{tip}} (nu niet beschikbaar)
+436|Verhogen
+437|Verlagen
+438|Aangepast…
+439|auto

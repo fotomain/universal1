@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "p. ej., flechas, avance, columna",
   "the task tree / Gantt chart is not on the screen": "el árbol de tareas / diagrama de Gantt no está en pantalla",
   "{{tip}} (not available now)": "{{tip}} (no disponible ahora)",
+  "Increase": "Aumentar",
+  "Decrease": "Disminuir",
+  "Custom…": "Personalizado…",
+  "auto": "auto",
 };
 export default texts;

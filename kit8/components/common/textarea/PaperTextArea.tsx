@@ -5,6 +5,7 @@ import IconApp from '../IconApp';
 import { TextAreaSubcomponentProps } from './types';
 
 export const PaperTextArea: React.FC<TextAreaSubcomponentProps> = ({
+  testID,
   label,
   value = '',
   onChangeText,
@@ -23,6 +24,7 @@ export const PaperTextArea: React.FC<TextAreaSubcomponentProps> = ({
   return (
     <View style={[{ marginBottom: 12, width: '100%' }, style]}>
       <PaperTextInput
+        testID={testID}
         mode="outlined"
         label={label}
         value={currentValue}

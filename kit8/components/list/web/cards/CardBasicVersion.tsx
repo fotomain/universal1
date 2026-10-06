@@ -5,7 +5,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { CardItem } from "../lib/types";
 import { CardThreeDotsMenu } from "../lib/CardThreeDotsMenu";
 import { CardIconsBottomComponent } from "../lib/CardIconsBottomComponent";
-import TexInputMi from "../../../../ui/TexInputMi";
+import TextInputApp from "../../../common/TextInputApp";
 
 export interface CardBasicVersionProps {
   card: CardItem;
@@ -92,13 +92,13 @@ export const CardBasicVersion: React.FC<CardBasicVersionProps> = ({
 
       {/* Card Content - Show Title and Description */}
       <Card.Content style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 8 }}>
-        <TexInputMi
+        <TextInputApp
           label="Title"
           value={card.title}
           onChangeText={(val: string) => onFieldChange?.(card.id, "title", val)}
           inputMode="nativePaper"
         />
-        <TexInputMi
+        <TextInputApp
           label="Description"
           value={card.description}
           onChangeText={(val: string) => onFieldChange?.(card.id, "description", val)}

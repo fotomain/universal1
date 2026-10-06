@@ -10,6 +10,15 @@ import React from 'react';
 jest.mock('@material-symbols-svg/react-native', () => ({}), { virtual: true });
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }), { virtual: true });
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(() => Promise.resolve(true)) }));
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('react-redux', () => {
+  const actual = jest.requireActual('react-redux');
+  return {
+    ...actual,
+    useDispatch: () => jest.fn(),
+    useSelector: (fn: any) => fn({ uxuiState: {} }),
+  };
+});
 
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({
@@ -41,6 +50,14 @@ jest.mock('../../../kit8/components/common/TextInputApp', () => {
   const TextInputApp = ({ testID, value, editable, onChangeText, label }: any) =>
     R.createElement(TextInput, { testID, value, editable, onChangeText, accessibilityLabel: label });
   return { __esModule: true, default: TextInputApp, TextInputApp };
+});
+
+jest.mock('../../../kit8/components/common/TextAreaApp', () => {
+  const R = require('react');
+  const { TextInput } = require('react-native');
+  const TextAreaApp = ({ testID, value, editable, onChangeText, label }: any) =>
+    R.createElement(TextInput, { testID, value, editable, onChangeText, accessibilityLabel: label, multiline: true });
+  return { __esModule: true, default: TextAreaApp, TextAreaApp };
 });
 
 jest.mock('../../../kit8/components/common/googlemd3web/GoogleMD3WebButton', () => ({ __esModule: true, default: () => null }));
@@ -76,7 +93,8 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     useDerivedValue: (fn: any) => ({ value: fn() }),
     useAnimatedReaction: () => undefined,
-    withTiming: (v: any) => v,
+    withTiming: (v: any, _c?: any, cb?: any) => (cb?.(true), v),
+    withSpring: (v: any) => v,
     withDecay: () => 0,
     runOnJS: (fn: any) => fn,
   };

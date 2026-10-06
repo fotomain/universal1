@@ -12,7 +12,7 @@ import { useAuthWithGoogle } from '../../kit8/hooks/useAuth';
 import { useSupabase } from '../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../kit8/lib/localSecureStorage';
 import { setActiveUser, formatTo32CharGUID } from '../../kit8/redux/activeUserSlice';
-import TexInputMi from '../../kit8/ui/TexInputMi';
+import TextInputApp from '../../kit8/components/common/TextInputApp';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -152,7 +152,7 @@ export default function SignInScreen() {
               {t('screens.signInWithEmail')}
             </Text>
 
-            <TexInputMi
+            <TextInputApp
               label={t('screens.email')}
               value={email}
               onChangeText={setEmail}
@@ -162,7 +162,7 @@ export default function SignInScreen() {
               inputMode="nativePaper"
             />
 
-            <TexInputMi
+            <TextInputApp
               label={t('screens.password')}
               value={password}
               onChangeText={setPassword}

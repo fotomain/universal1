@@ -559,3 +559,23 @@ The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es,
   (tree column titles, month names of the time scale, bar labels): the bundled Skia font (Space Grotesk) has Latin
   glyphs only, so Cyrillic / Arabic / CJK / Indic text cannot be drawn there until another font is bundled.
 * Not done: right-to-left layout for ar / fa, calendar (`DatePickerModal`) locales other than English.
+
+### 2026-10-06 (2): task editor - SegmentButtonsApp, inputs on one line
+
+* `kit8/components/common/SegmentButtonsApp.tsx` - one choice out of a few, in every design system: paper =
+  react-native-paper `SegmentedButtons`; tamagui / ant / expo / googlemd3web / native = the same control drawn in the
+  look of that system. Props `value`, `onValueChange`, `buttons: [{ value, label, icon?, disabled?, testID? }]`,
+  `label`, `compact`, `showSelectedCheck`. `PMTaskEditModal` uses it for **Stage | Task | Milestone** (`pm-edit-kind-*`).
+* `PMTaskEditModal`: Duration / Progress % / Kanban stage progress % are bottom-aligned, so the three inputs stand on
+  one line when a label wraps to two lines (tamagui, expo, native draw the label above the input).
+* `kit8/components/common/NumberStepperInputApp.tsx` = `TextInputApp` with a clear button inside at the left and
+  increase / decrease arrows inside at the right (`min`, `max`, `step`, `maxDigits`; hold an arrow = repeat).
+  `TextInputApp` now draws custom `left` / `right` elements in ant / expo / native too. `PMTaskEditModal` uses it for
+  Duration (min 1), Progress % and Kanban stage progress % (0–100). The three fields are one row when each gets at
+  least `NUMBER_STEPPER_MIN_WIDTH` (150 px) of the measured row width, else one field per row (phone portrait).
+* Layout of the three number fields: web = always one row; iOS / Android = one row, or one field per row when the
+  row is too narrow (phone portrait).
+* `kit8/components/common/ColorPickerRowApp.tsx` - reusable color row in the look of the active design system
+  (auto swatch · Default chip · swatches with ring + check · Custom… chip with the full picker). `ColorPickerApp` and
+  `PMColorSwatchPicker` are thin wrappers of it, so every PM color choice uses it: task bar color (task editor),
+  dependency color, Kanban stage color, critical path / filter icon colors, progress line colors.

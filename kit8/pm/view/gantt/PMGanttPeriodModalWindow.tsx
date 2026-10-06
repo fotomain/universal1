@@ -83,12 +83,26 @@ export default function PMGanttPeriodModalWindow() {
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.row}>
               <View style={styles.field}>
-                <Text style={[styles.label, { color: c.text }]}>{pmT('From (YYYY-MM-DD)')}</Text>
-                <PMDateInput testID="pm-gantt-period-from" pickerTestID="pm-gantt-period-from-picker" value={from} onChangeText={(t) => { setFrom(t); setError(null); }} placeholder="2026-01-01" {...onKey} />
+                <PMDateInput
+                  testID="pm-gantt-period-from"
+                  pickerTestID="pm-gantt-period-from-picker"
+                  label={pmT('From (YYYY-MM-DD)')}
+                  value={from}
+                  onChangeText={(t) => { setFrom(t); setError(null); }}
+                  placeholder="2026-01-01"
+                  {...onKey}
+                />
               </View>
               <View style={styles.field}>
-                <Text style={[styles.label, { color: c.text }]}>{pmT('To (YYYY-MM-DD)')}</Text>
-                <PMDateInput testID="pm-gantt-period-to" pickerTestID="pm-gantt-period-to-picker" value={to} onChangeText={(t) => { setTo(t); setError(null); }} placeholder="2026-12-31" {...onKey} />
+                <PMDateInput
+                  testID="pm-gantt-period-to"
+                  pickerTestID="pm-gantt-period-to-picker"
+                  label={pmT('To (YYYY-MM-DD)')}
+                  value={to}
+                  onChangeText={(t) => { setTo(t); setError(null); }}
+                  placeholder="2026-12-31"
+                  {...onKey}
+                />
               </View>
             </View>
             {!!error && <Text style={{ color: c.error, marginTop: 6 }}>{error}</Text>}

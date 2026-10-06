@@ -29,3 +29,13 @@ export { default as ErrorModalWindow, ErrorModalWindowProps, showErrorModal, hid
 
 export { DateInputApp } from './date_input';
 export type { DateInputAppProps } from './date_input';
+
+export { default as NumberInputApp, NumberInputAppProps } from './NumberInputApp';
+export { default as TamaguiTextInputSub, TamaguiTextInputSubProps } from './tamagui/TamaguiTextInputSub';
+export { default as SegmentButtonsApp } from './SegmentButtonsApp';
+export type { SegmentButtonsAppProps, SegmentButtonApp } from './SegmentButtonsApp';
+export { default as NumberStepperInputApp, stepNumberText, NUMBER_STEPPER_MIN_WIDTH } from './NumberStepperInputApp';
+export type { NumberStepperInputAppProps } from './NumberStepperInputApp';
+export { default as ColorPickerRowApp, readableOn } from './ColorPickerRowApp';
+export type { ColorPickerRowAppProps } from './ColorPickerRowApp';
+export { default as ArticleTextApp } from './ArticleTextApp';

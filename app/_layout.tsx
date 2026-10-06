@@ -1,7 +1,7 @@
 import '../kit8/lib/setup-console';
 import '../kit8/lib/blurPressedButtonOnWeb'; // web: no "Blocked aria-hidden ... retained focus" warning on navigation
 import React, {useEffect} from 'react';
-import {Platform} from 'react-native';
+import {ColorValue, Platform} from 'react-native';
 
 import {Drawer} from 'expo-router/drawer';
 import {PMTooltipLayer} from '../kit8/pm/inner/tooltip/PMTooltip';
@@ -31,6 +31,8 @@ import {FABAppComponent} from '../kit8/components/fab';
 import {SystemMetaData} from '../kit8/redux/SystemMetaData';
 import {applyThemeFromSupabase} from '../kit8/redux/userThemeSlice';
 import WithDesignSystem from '../kit8/providers/WithDesignSystem';
+import { WithAppleMacUI } from '../kit8/applemacui/WithAppleMacUI';
+import { appleMacUITheme } from '../kit8/applemacui/appleMacUITheme';
 import IconApp from '../kit8/components/common/IconApp';
 import SnackbarApp from '../kit8/components/common/SnackbarApp';
 import { ErrorModalWindow, showErrorModal } from '../kit8/components/common';
@@ -444,8 +446,9 @@ function RootLayoutContent() {
   // Use userTheme if available, otherwise fallback to darkMode
   const paperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
 
-  const renderHomeDrawerIcon = ({ size, color }: { size: number; color: string }) => (
-    <IconApp testID="e2a87b1c-9d3f-4e56-8a90-123456789a01" name="home" size={size} color={color} />
+  // the drawer passes { color: ColorValue, size, focused }; IconApp takes a string color
+  const renderHomeDrawerIcon = ({ size, color }: { size: number; color: ColorValue; focused?: boolean }) => (
+    <IconApp testID="e2a87b1c-9d3f-4e56-8a90-123456789a01" name="home" size={size} color={typeof color === 'string' ? color : undefined} />
   );
 
   useEffect(() => {
@@ -496,6 +499,7 @@ function RootLayoutContent() {
       )}
       <WithDesignSystem>
         <PaperProvider theme={paperTheme}>
+          <WithAppleMacUI theme={appleMacUITheme}>
           <FABProvider>
             <SupabaseAuthSync />
             <ThemeStoreSyncManager />
@@ -559,6 +563,7 @@ function RootLayoutContent() {
             <SnackbarApp />
             <ErrorModalWindow />
           </FABProvider>
+          </WithAppleMacUI>
         </PaperProvider>
       </WithDesignSystem>
     </GestureHandlerRootView>

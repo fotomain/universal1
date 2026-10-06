@@ -17,7 +17,7 @@ export interface PMDateInputProps extends Omit<DateInputAppProps, 'parse' | 'for
   dateFormat?: PMPlanDateInputFormat;
 }
 
-export function PMDateInput({ dateFormat = 'YYYY-MM-DD', placeholder, style, ...rest }: PMDateInputProps) {
+export function PMDateInput({ dateFormat = 'YYYY-MM-DD', placeholder, style, compact, ...rest }: PMDateInputProps) {
   const fmt = DAY_FORMATS.includes(dateFormat) ? dateFormat : 'YYYY-MM-DD';
   const parse = useCallback(
     (text: string) => {
@@ -29,16 +29,17 @@ export function PMDateInput({ dateFormat = 'YYYY-MM-DD', placeholder, style, ...
   const format = useCallback((d: Date) => (fmt === 'YYYY-MM-DD' ? formatDateISO(localDateToUtcDay(d)) : formatPlanDate(localDateToUtcDay(d), fmt)), [fmt]);
   return (
     <DateInputApp
-      compact
+      compact={compact ?? false}
       placeholder={placeholder ?? fmt}
       pickerLabel={pmT('Select date')}
       clearLabel={pmT('Clear')}
       {...rest}
       parse={parse}
       format={format}
-      style={[{ marginBottom: 0 }, style]}
+      style={style}
     />
   );
 }
 
+export { PMDateInput as DateInputApp };
 export default PMDateInput;

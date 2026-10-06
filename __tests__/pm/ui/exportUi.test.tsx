@@ -98,11 +98,18 @@ describe('Gantt bar: Export menu', () => {
 describe('PMExportToMSProject', () => {
   const checked = (id: string) => mustGet(id).getAttribute('aria-checked') === 'true';
 
-  it('"Export custom fields" check boxes + Export -> exporter(project, choices)', async () => {
+  it('"Export custom fields" check boxes + Export -> exporter(project, choices), shows progress then success with Close button', async () => {
     const { demo } = seedStore();
     const P = demo.projects[0].rowGUID;
-    const exporter = jest.fn(async () => ({ fileName: 'x.xml', xml: '', tasks: 7, result: 'downloaded' as const }));
-    renderUI(<PMExportToMSProject visible projectGUID={P} onClose={jest.fn()} exporter={exporter as any} />);
+    let finishExport: () => void = () => {};
+    const exporter = jest.fn(
+      () =>
+        new Promise<any>((resolve) => {
+          finishExport = () => resolve({ fileName: 'x.xml', xml: '', tasks: 7, result: 'downloaded' as const });
+        }),
+    );
+    const onClose = jest.fn();
+    renderUI(<PMExportToMSProject visible projectGUID={P} onClose={onClose} exporter={exporter as any} />);
     expect(textOf('pm-export-msproject-window')).toContain('Export custom fields');
     expect(textOf('pm-export-msproject-kanban-stage')).toContain('Export Kanban Stage');
     expect(textOf('pm-export-msproject-kanban-percent')).toContain('Export Kanban Percent');
@@ -111,10 +118,33 @@ describe('PMExportToMSProject', () => {
     press('pm-export-msproject-kanban-percent');
     expect(checked('pm-export-msproject-kanban-percent')).toBe(false);
     expect(textOf('pm-export-msproject-export')).toContain('Export');
+
+    // Press Export -> shows export progress while busy
     press('pm-export-msproject-export');
-    await flush();
+    expect(q('pm-export-msproject-progress')).not.toBeNull();
+    expect(textOf('pm-export-msproject-progress')).toContain('Export in progress…');
+
+    // Finish export
+    await act(async () => {
+      finishExport();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
     expect(exporter).toHaveBeenCalledWith(P, { exportKanbanStage: true, exportKanbanPercent: false });
+    // Shows "Export successfully finished" and detail
+    expect(textOf('pm-export-msproject-status')).toContain('Export successfully finished');
     expect(textOf('pm-export-msproject-status')).toContain('x.xml');
+
+    // Export button is gone, Close button is primary with paper primary color
+    expect(q('pm-export-msproject-export')).toBeNull();
+    expect(textOf('pm-export-msproject-cancel')).toContain('Close');
+    const closeBtn = mustGet('pm-export-msproject-cancel');
+    expect(closeBtn.style.backgroundColor).toMatch(/99,\s?102,\s?241|#6366f1/i);
+
+    // Press Close button -> closes window
+    press('pm-export-msproject-cancel');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('the real export downloads a Microsoft Project XML of the open project', async () => {
@@ -140,6 +170,9 @@ describe('PMExportToMSProject', () => {
     renderUI(<PMExportToMSProject visible projectGUID={demo.projects[0].rowGUID} onClose={jest.fn()} exporter={exporter as any} />);
     expect(mustGet('pm-export-msproject-cancel').style.width).toBe(`${PM_DIALOG_BUTTON_WIDTH}px`);
     expect(mustGet('pm-export-msproject-export').style.width).toBe(`${PM_DIALOG_BUTTON_WIDTH}px`);
+    // Cancel is secondary (transparent), Export is primary (contained with primary color)
+    expect(mustGet('pm-export-msproject-cancel').style.backgroundColor).toMatch(/transparent|rgba\(0, 0, 0, 0\)/);
+    expect(mustGet('pm-export-msproject-export').style.backgroundColor).toMatch(/99,\s?102,\s?241|#6366f1/i);
     press('pm-export-msproject-export');
     await flush();
     expect(textOf('pm-export-msproject-status')).toContain('boom');
@@ -149,13 +182,19 @@ describe('PMExportToMSProject', () => {
 describe('Project settings: export buttons', () => {
   const colors = { text: '#000', primary: '#6366f1', error: '#dc2626', border: '#ccc' };
 
-  it('JSON / PDF / MS Project: equal size, outlined (transparent + primary border)', () => {
+  it('JSON / PDF / MS Project: equal size, outlined (transparent + primary border); Save as template on Export tab only', () => {
     const { demo } = seedStore();
     const P = demo.projects[0].rowGUID;
     const onExportPdf = jest.fn();
-    renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} onExportPdf={onExportPdf} />);
+    const onSaveAsTemplate = jest.fn();
+    renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} onExportPdf={onExportPdf} onSaveAsTemplate={onSaveAsTemplate} />);
+    // Not present on Import tab
+    expect(q('pm-settings-save-as-template')).toBeNull();
+
     press('pm-project-exchange-tab-TabExport');
-    for (const id of ['pm-project-export', 'pm-project-export-pdf', 'pm-project-export-msproject']) {
+    const group = mustGet('pm-project-export-button-group');
+    expect(getComputedStyle(group).gap || getComputedStyle(group).rowGap).toBe('2px');
+    for (const id of ['pm-project-export', 'pm-project-export-pdf', 'pm-project-export-msproject', 'pm-settings-save-as-template']) {
       const st = mustGet(id).style;
       expect(st.width).toBe(`${PM_EXPORT_BUTTON_WIDTH}px`);
       expect(st.backgroundColor).toMatch(/transparent|rgba\(0, 0, 0, 0\)/);
@@ -163,6 +202,8 @@ describe('Project settings: export buttons', () => {
     }
     press('pm-project-export-pdf');
     expect(onExportPdf).toHaveBeenCalledWith(P);
+    press('pm-settings-save-as-template');
+    expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
     press('pm-project-export-msproject');
     expect(q('pm-export-msproject-window')).not.toBeNull();
   });

@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthWithGoogle } from '../../../../kit8/hooks/useAuth';
 import { getUserData } from '../../../../kit8/lib/localSecureStorage';
 import H1Mi from '../../../../kit8/ui/H1Mi';
-import TexInputMi from '../../../../kit8/ui/TexInputMi';
-import ButtonMi from '../../../../kit8/ui/ButtonMi';
+import TextInputApp from '../../../../kit8/components/common/TextInputApp';
+import ButtonApp from '../../../../kit8/components/common/ButtonApp';
 
 interface Item {
   id: number;
@@ -162,7 +162,7 @@ export default function SQLiteNativeDemoScreen() {
         </View>
       )}
 
-      <TexInputMi
+      <TextInputApp
         label={t('screens.addItem')}
         value={text}
         onChangeText={setText}
@@ -170,7 +170,7 @@ export default function SQLiteNativeDemoScreen() {
         inputMode="nativePaper"
       />
 
-      <ButtonMi title={t('screens.addItem')} onPress={addItem} />
+      <ButtonApp title={t('screens.addItem')} onPress={addItem} />
 
       <Text style={styles.sectionHeader}>{t('screens.storedItems')}</Text>
 
@@ -180,7 +180,7 @@ export default function SQLiteNativeDemoScreen() {
         renderItem={({ item }) => (
           <View style={styles.itemRow}>
             <Text style={styles.itemText}>{item.value}</Text>
-            <ButtonMi title={t('screens.deleteItem')} onPress={() => deleteItem(item.id)} color="#d32f2f" />
+            <ButtonApp title={t('screens.deleteItem')} onPress={() => deleteItem(item.id)} color="#d32f2f" />
           </View>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>{t('screens.noItems')}</Text>}

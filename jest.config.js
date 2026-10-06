@@ -9,7 +9,7 @@ module.exports = {
     "^react-redux$": "<rootDir>/node_modules/react-redux/dist/cjs/index.js",
     "^react-native$": "react-native-web",
     "^react-native-paper-dates$": "<rootDir>/__mocks__/react-native-paper-dates.js",
-    "^expo-asset$": "<rootDir>/node_modules/expo/node_modules/expo-asset",
+    "^expo-asset$": "<rootDir>/node_modules/expo-asset",
   },
 };
 

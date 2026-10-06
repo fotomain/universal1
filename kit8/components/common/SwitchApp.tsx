@@ -5,6 +5,7 @@ import GoogleMD3WebSwitchSub from './switch/subcomponents/GoogleMD3WebSwitchSub'
 import AntSwitchSub from './switch/subcomponents/AntSwitchSub';
 import ExpoSwitchSub from './switch/subcomponents/ExpoSwitchSub';
 import NativeSwitchSub from './switch/subcomponents/NativeSwitchSub';
+import { AppleSwitch } from '../../applemacui/components/AppleSwitch';
 
 let useDesignSystem: any;
 try {
@@ -31,6 +32,8 @@ export const SwitchApp: React.FC<SwitchAppProps> = (props) => {
   } catch (e) {}
 
   switch (activeSystem) {
+    case 'applemacui':
+      return <AppleSwitch {...props} />;
     case 'paper':
       return <PaperSwitchSub {...props} />;
     case 'tamagui':

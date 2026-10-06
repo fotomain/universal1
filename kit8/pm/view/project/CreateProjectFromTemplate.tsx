@@ -234,17 +234,16 @@ export default function CreateProjectFromTemplate({
                 />
 
                 {/* Project Start Date */}
-                <Text style={[styles.label, { color: c.text, marginTop: 14 }]}>
-                  {pmT('Project Start Date *')}
-                </Text>
                 <PMDateInput
                   testID="pm-new-project-start-input"
                   pickerTestID="pm-new-project-date"
+                  label={pmT('Project Start Date *')}
                   value={startDateStr}
                   onChangeText={(t) => {
                     setStartDateStr(t);
                     if (error) setError(null);
                   }}
+                  style={{ marginTop: 10 }}
                 />
               </>
             )}

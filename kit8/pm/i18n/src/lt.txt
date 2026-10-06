@@ -433,3 +433,7 @@
 433|pvz., rodyklės, eiga, stulpelis
 434|užduočių medžio / Ganto diagramos nėra ekrane
 435|{{tip}} (šiuo metu nepasiekiama)
+436|Didinti
+437|Mažinti
+438|Pasirinktinė…
+439|auto

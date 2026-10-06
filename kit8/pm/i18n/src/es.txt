@@ -433,3 +433,7 @@
 433|p. ej., flechas, avance, columna
 434|el árbol de tareas / diagrama de Gantt no está en pantalla
 435|{{tip}} (no disponible ahora)
+436|Aumentar
+437|Disminuir
+438|Personalizado…
+439|auto

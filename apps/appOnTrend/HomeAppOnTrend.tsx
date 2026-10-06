@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { ButtonApp, ButtonPrimaryApp } from '../../kit8/components/common';
 import H1Mi from '../../kit8/ui/H1Mi';
-import ArticleTextMi from '../../kit8/ui/ArticleTextMi';
+import ArticleTextApp from '../../kit8/components/common/ArticleTextApp';
 import OnTrendDasboardScreen from './OnTrendDasboardScreen';
 
 export default function HomeAppOnTrend() {
@@ -16,7 +16,7 @@ export default function HomeAppOnTrend() {
       <OnTrendDasboardScreen />
 
       <H1Mi>{t('body.welcomeAppOnTrend') || 'Welcome to App OnTrend'}</H1Mi>
-      <ArticleTextMi>{t('body.homeAppOnTrendDesc') || 'This is the home page for the OnTrend app variant.'}</ArticleTextMi>
+      <ArticleTextApp>{t('body.homeAppOnTrendDesc') || 'This is the home page for the OnTrend app variant.'}</ArticleTextApp>
 
       <ButtonPrimaryApp
         style={styles.menuButton}

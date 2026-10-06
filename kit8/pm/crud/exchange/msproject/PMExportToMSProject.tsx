@@ -9,7 +9,8 @@
 // The choices are remembered while the app runs.
 
 import React, { useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../../../components/common/IconApp';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
@@ -22,7 +23,7 @@ import type { MSProjectExportOptions } from './msProjectXml';
 
 let remembered: Required<MSProjectExportOptions> = { exportKanbanStage: true, exportKanbanPercent: true };
 
-type Status = { kind: 'idle' } | { kind: 'busy' } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
+type Status = { kind: 'idle' } | { kind: 'busy'; text?: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
 
 export default function PMExportToMSProject({
   visible,
@@ -37,6 +38,7 @@ export default function PMExportToMSProject({
   exporter?: typeof exportProjectToMSProject;
 }) {
   const { themeColors: c } = useDesignSystem();
+  const paperTheme = useTheme();
   const projectName = usePMStore((s) => (projectGUID ? s.projectsById[projectGUID]?.rowJSON?.name ?? '' : ''));
   const [stage, setStage] = useState(remembered.exportKanbanStage);
   const [percent, setPercent] = useState(remembered.exportKanbanPercent);
@@ -51,10 +53,11 @@ export default function PMExportToMSProject({
 
   if (!visible) return null;
   const busy = status.kind === 'busy';
+  const done = status.kind === 'done';
   const run = async () => {
     if (busy || !projectGUID) return;
     remembered = { exportKanbanStage: stage, exportKanbanPercent: percent };
-    setStatus({ kind: 'busy' });
+    setStatus({ kind: 'busy', text: pmT('Export in progress…') });
     try {
       const r = await exporter(projectGUID, remembered);
       setStatus({ kind: 'done', text: pmT('Exported {{file}} ({{count}} tasks).', { file: r.fileName, count: r.tasks }) });
@@ -62,6 +65,8 @@ export default function PMExportToMSProject({
       setStatus({ kind: 'error', text: e?.message || pmT('The export failed.') });
     }
   };
+
+  const primaryColor = paperTheme.colors?.primary || c.primary;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -94,17 +99,77 @@ export default function PMExportToMSProject({
           </Text>
 
           <Text style={[styles.section, { color: c.text }]}>{pmT('Export custom fields')}</Text>
-          <CheckRow testID="pm-export-msproject-kanban-stage" label={pmT('Export Kanban Stage')} hint={pmT('Text1')} checked={stage} onChange={setStage} colors={c} disabled={busy} />
-          <CheckRow testID="pm-export-msproject-kanban-percent" label={pmT('Export Kanban Percent')} hint={pmT('Number1')} checked={percent} onChange={setPercent} colors={c} disabled={busy} />
+          <CheckRow testID="pm-export-msproject-kanban-stage" label={pmT('Export Kanban Stage')} hint={pmT('Text1')} checked={stage} onChange={setStage} colors={c} disabled={busy || done} />
+          <CheckRow testID="pm-export-msproject-kanban-percent" label={pmT('Export Kanban Percent')} hint={pmT('Number1')} checked={percent} onChange={setPercent} colors={c} disabled={busy || done} />
 
-          {(status.kind === 'done' || status.kind === 'error') && (
-            <Text testID="pm-export-msproject-status" accessibilityLiveRegion="polite" style={[styles.status, { color: status.kind === 'error' ? c.error : c.text }]}>
-              {status.text}
-            </Text>
+          {busy && (
+            <View testID="pm-export-msproject-progress" accessibilityLiveRegion="polite" style={styles.progressBox}>
+              <ActivityIndicator size="small" color={primaryColor} />
+              <Text style={[styles.progressText, { color: c.text }]}>
+                {status.text || pmT('Export in progress…')}
+              </Text>
+            </View>
           )}
+
+          {done && (
+            <View testID="pm-export-msproject-status" accessibilityLiveRegion="polite" style={styles.statusBox}>
+              <View style={styles.successRow}>
+                <IconApp testID="pm-export-msproject-success-icon" name="check_circle" size={18} color={primaryColor} />
+                <Text style={[styles.statusSuccess, { color: c.text }]}>
+                  {pmT('Export successfully finished')}
+                </Text>
+              </View>
+              {!!status.text && (
+                <Text style={[styles.statusDetail, { color: c.text }]}>
+                  {status.text}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {status.kind === 'error' && (
+            <View testID="pm-export-msproject-status" accessibilityLiveRegion="polite" style={styles.statusBox}>
+              <Text style={[styles.statusError, { color: c.error }]}>
+                {status.text}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-export-msproject-cancel" kind="secondary" title={pmT(status.kind === 'done' ? 'Close' : 'Cancel')} width={PM_DIALOG_BUTTON_WIDTH} style={{ marginLeft: 0 }} onPress={onClose} />
-            <PMDialogButton testID="pm-export-msproject-export" kind="secondary" icon="download" title={pmT('Export')} width={PM_DIALOG_BUTTON_WIDTH} disabled={!projectGUID} loading={busy} onPress={run} />
+            {done ? (
+              <PMDialogButton
+                testID="pm-export-msproject-cancel"
+                kind="primary"
+                color={primaryColor}
+                title={pmT('Close')}
+                width={PM_DIALOG_BUTTON_WIDTH}
+                style={{ marginLeft: 0 }}
+                onPress={onClose}
+              />
+            ) : (
+              <>
+                <PMDialogButton
+                  testID="pm-export-msproject-cancel"
+                  kind="secondary"
+                  title={pmT('Cancel')}
+                  width={PM_DIALOG_BUTTON_WIDTH}
+                  disabled={busy}
+                  style={{ marginLeft: 0 }}
+                  onPress={onClose}
+                />
+                <PMDialogButton
+                  testID="pm-export-msproject-export"
+                  kind="primary"
+                  color={primaryColor}
+                  icon="download"
+                  title={pmT('Export')}
+                  width={PM_DIALOG_BUTTON_WIDTH}
+                  disabled={!projectGUID || busy}
+                  loading={busy}
+                  onPress={run}
+                />
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -170,6 +235,19 @@ const styles = StyleSheet.create({
   check: { flexDirection: 'row', alignItems: 'center', minHeight: 40, paddingHorizontal: 6, borderRadius: 8 },
   checkLabel: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '500' },
   checkHint: { fontSize: 11, opacity: 0.5, marginLeft: 8 },
-  status: { marginTop: 12, fontSize: 12 },
+  progressBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  progressText: { fontSize: 13, fontWeight: '500' },
+  statusBox: { marginTop: 14, gap: 4 },
+  successRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusSuccess: { fontSize: 13, fontWeight: '600' },
+  statusDetail: { fontSize: 12, opacity: 0.7, marginLeft: 24 },
+  statusError: { fontSize: 12, fontWeight: '500' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 18 },
 });

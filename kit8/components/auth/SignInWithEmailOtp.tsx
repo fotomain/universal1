@@ -10,7 +10,7 @@ import { useTheme, Text } from 'react-native-paper';
 import type { User } from '@supabase/supabase-js';
 import { ButtonPrimaryApp, ButtonTextApp } from '../common';
 import ActivityIndicatorCircleApp from '../activityindicator/ActivityIndicatorCircleApp';
-import TexInputMi from '../../ui/TexInputMi';
+import TextInputApp from '../common/TextInputApp';
 import IconApp from '../common/IconApp';
 import { useSupabase } from '../../providers/WithSupabase';
 import { useEmailOtpSignIn } from '../../hooks/useEmailOtpSignIn';
@@ -94,7 +94,7 @@ export default function SignInWithEmailOtp({
 
       {otp.step === 'email' ? (
         <>
-          <TexInputMi
+          <TextInputApp
             testID={id('email')}
             label={t('screens.email')}
             value={otp.email}
@@ -176,7 +176,7 @@ export default function SignInWithEmailOtp({
           <Text variant="bodyMedium" style={[styles.hint, { color: theme.colors.onSurfaceVariant }]} testID={id('sent-to')}>
             {t('screens.codeSentTo', { email: otp.email })}
           </Text>
-          <TexInputMi
+          <TextInputApp
             testID={id('code')}
             label={t('screens.otpCode')}
             value={otp.code}

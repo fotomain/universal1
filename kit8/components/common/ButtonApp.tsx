@@ -5,6 +5,7 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import ActivityIndicatorCircleApp from '../activityindicator/ActivityIndicatorCircleApp';
 import IconApp from './IconApp';
 import GoogleMD3WebButton from './googlemd3web/GoogleMD3WebButton';
+import { AppleButton } from '../../applemacui/components/AppleButton';
 
 export interface ButtonAppProps {
   title?: string;
@@ -160,6 +161,30 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
   }
 
   switch (activeSystem) {
+    case 'applemacui': {
+      // contained = filled · outlined = tinted (iOS has no outlined button) · text = plain
+      return (
+        <AppleButton
+          testID={testID}
+          title={buttonText || undefined}
+          onPress={onPress}
+          onLongPress={onLongPress}
+          variant={isContained ? 'filled' : isOutlined ? 'tinted' : 'plain'}
+          size={size}
+          loading={loading}
+          disabled={disabled}
+          destructive={danger}
+          color={color}
+          icon={icon}
+          accessibilityLabel={common.accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+          style={[{ marginVertical: 6, alignSelf: 'auto' }, widthStyle, style]}
+        >
+          {typeof children !== 'string' ? children : null}
+        </AppleButton>
+      );
+    }
+
     case 'paper': {
       const mode = variant === 'contained' ? 'contained' : variant === 'outlined' ? 'outlined' : 'text';
       return (

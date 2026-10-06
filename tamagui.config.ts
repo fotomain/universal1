@@ -1,6 +1,25 @@
 // tamagui.config.ts - Base Tamagui configuration file
+// AppleMacUI: the iOS design tokens live in kit8/applemacui/appleMacUITheme.ts (one source); they are published here as the
+// themes apple_light / apple_dark and the token groups appleColor / appleRadius / appleSpace / appleSize / appleFont.
+import { appleMacUIDarkTheme, appleMacUILightTheme, APPLE_MAC_UI_FONT_FAMILY } from './kit8/applemacui/appleMacUITheme';
+
+const appleTheme = (t: typeof appleMacUILightTheme) => ({
+  bg: t.colors.systemBackground,
+  color: t.colors.label,
+  primary: t.tint,
+  secondary: t.colors.secondaryLabel,
+  accent: t.colors.systemGreen,
+  cardBg: t.colors.secondarySystemGroupedBackground,
+  borderColor: t.colors.separator,
+  inputBg: t.colors.tertiaryFill,
+  placeholder: t.colors.placeholderText,
+  ...t.colors,
+});
+
 export const tamaguiConfig = {
   themes: {
+    apple_light: appleTheme(appleMacUILightTheme),
+    apple_dark: appleTheme(appleMacUIDarkTheme),
     light: {
       bg: '#ffffff',
       color: '#111827',
@@ -25,6 +44,11 @@ export const tamaguiConfig = {
     },
   },
   tokens: {
+    appleColor: appleMacUILightTheme.colors,
+    appleRadius: appleMacUILightTheme.radii,
+    appleSpace: appleMacUILightTheme.space,
+    appleSize: appleMacUILightTheme.size,
+    appleFont: { family: APPLE_MAC_UI_FONT_FAMILY, ...appleMacUILightTheme.typography },
     color: {
       primary: '#6366f1',
       secondary: '#4f46e5',

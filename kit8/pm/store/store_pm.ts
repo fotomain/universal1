@@ -143,6 +143,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   depMenu: null,
   editingDep: null,
   cellEdit: null,
+  lastCellEditClosedAt: 0,
   focusRequest: null,
   undoCount: 0,
   undoLabel: null,
@@ -311,7 +312,11 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   setLinkLineForm: (form) => set({ linkLineForm: form }),
   setDepMenu: (menu) => set({ depMenu: menu }),
   setEditingDep: (ref) => set({ editingDep: ref, depMenu: null }),
-  setCellEdit: (edit) => set({ cellEdit: edit }),
+  setCellEdit: (edit) =>
+    set((s) => ({
+      cellEdit: edit,
+      lastCellEditClosedAt: edit === null && s.cellEdit !== null ? Date.now() : (s.lastCellEditClosedAt ?? 0),
+    })),
 
   requestFocus: (rowGUID) => set((s) => ({ focusRequest: rowGUID ? { guid: rowGUID, nonce: (s.focusRequest?.nonce ?? 0) + 1 } : null })),
 

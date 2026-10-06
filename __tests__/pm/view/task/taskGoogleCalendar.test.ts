@@ -21,30 +21,32 @@ beforeEach(() => {
   byName = (name) => usePMStore.getState().tasks.find((t) => t.rowJSON.name === name);
 });
 
-const day = (ms: number) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+const pad = (n: number) => String(n).padStart(2, '0');
+const timeStamp = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+};
 
 describe('taskGoogleCalendarURL', () => {
-  it('all-day event: task name, start / exclusive end day, details with the deep link', () => {
+  it('timed event (never all-day): task name, start / finish timestamps with task duration, details with deep link', () => {
     const t = byName('Task 113');
     const r = usePMStore.getState().schedule[t.rowGUID];
     const url = new URL(taskGoogleCalendarURL(t.rowGUID)!);
     expect(url.origin + url.pathname).toBe('https://calendar.google.com/calendar/render');
     expect(url.searchParams.get('action')).toBe('TEMPLATE');
     expect(url.searchParams.get('text')).toContain('Task 113');
-    expect(url.searchParams.get('dates')).toBe(`${day(r.startMs)}/${day(r.finishMs)}`);
+    expect(url.searchParams.get('dates')).toBe(`${timeStamp(r.startMs)}/${timeStamp(r.finishMs)}`);
     expect(url.searchParams.get('details')).toContain('/pm/project/task?taskGUID=');
   });
 
-  it('a milestone is one day; sub-day plans give a timed event; unknown rows give null', () => {
+  it('a milestone has 15 min duration from the day begin; unknown rows give null', () => {
     const s = usePMStore.getState();
     const ms = s.tasks.find((t) => s.schedule[t.rowGUID]?.isMilestone);
     if (ms) {
       const r = s.schedule[ms.rowGUID];
-      expect(new URL(taskGoogleCalendarURL(ms.rowGUID)!).searchParams.get('dates')).toBe(`${day(r.startMs)}/${day(r.startMs + 86400000)}`);
+      const url = new URL(taskGoogleCalendarURL(ms.rowGUID)!);
+      expect(url.searchParams.get('dates')).toBe(`${timeStamp(r.startMs)}/${timeStamp(r.startMs + 15 * 60 * 1000)}`);
     }
-    const t = byName('Task 113');
-    const timed = new URL(taskGoogleCalendarURL(t.rowGUID, { ...s, planHour: true })!).searchParams.get('dates')!;
-    expect(timed).toMatch(/^\d{8}T\d{6}Z\/\d{8}T\d{6}Z$/);
     expect(taskGoogleCalendarURL('nope')).toBeNull();
   });
 });

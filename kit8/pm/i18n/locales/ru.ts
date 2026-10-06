@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "напр., стрелки, выполнение, колонка",
   "the task tree / Gantt chart is not on the screen": "дерево задач / диаграмма Ганта не на экране",
   "{{tip}} (not available now)": "{{tip}} (сейчас недоступно)",
+  "Increase": "Увеличить",
+  "Decrease": "Уменьшить",
+  "Custom…": "Свой…",
+  "auto": "авто",
 };
 export default texts;

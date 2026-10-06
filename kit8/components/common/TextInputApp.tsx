@@ -4,6 +4,8 @@ import { TextInput as PaperTextInput, HelperText as PaperHelperText, TextInputPr
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './IconApp';
 import GoogleMD3WebTextInput from './googlemd3web/GoogleMD3WebTextInput';
+import TamaguiTextInputSub from './tamagui/TamaguiTextInputSub';
+import { AppleTextField } from '../../applemacui/components/AppleTextField';
 import { installNoAutofillHighlight } from '../../lib/webAutofillStyle';
 
 // web: no light-blue browser autofill background on any app input
@@ -29,10 +31,15 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   inputMode?: any;
   style?: any;
+  /** custom element inside the input box at the left / right (paper: a TextInput.Icon / TextInput.Affix) */
   left?: any;
   right?: any;
   /** no clear (x) icon inside the input (read-only values such as GUIDs) */
   hideClearIcon?: boolean;
+  /** Tamagui size token: '$2' | '$3' | '$4' | '$5' or 'small' | 'medium' | 'large' */
+  size?: '$2' | '$3' | '$4' | '$5' | 'small' | 'medium' | 'large';
+  /** unstyled variant in Tamagui */
+  unstyled?: boolean;
 }
 
 export const TextInputApp: React.FC<TextInputAppProps> = ({
@@ -57,6 +64,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   left,
   right,
   hideClearIcon = false,
+  size,
+  unstyled,
   ...props
 }) => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
@@ -87,6 +96,31 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   };
 
   switch (activeSystem) {
+    case 'applemacui': {
+      return (
+        <AppleTextField
+          {...(props as any)}
+          label={label}
+          value={currentValue}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          disabled={disabled}
+          error={hasError ? computedErrorMessage || true : false}
+          helperText={helperText}
+          secureTextEntry={secureTextEntry}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          leftIcon={leftIcon}
+          left={left}
+          right={right}
+          clearButton={!hideClearIcon}
+          style={style}
+        />
+      );
+    }
+
     case 'paper': {
       const leftProp = left !== undefined
         ? left
@@ -139,75 +173,34 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
 
     case 'tamagui': {
       return (
-        <View style={[{ marginBottom: 14, width: '100%' }, style]}>
-          {label && (
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '600',
-                color: themeColors.text,
-                marginBottom: 6,
-                letterSpacing: 0.3,
-                textTransform: 'uppercase',
-              }}
-            >
-              {label}
-            </Text>
-          )}
-          <View
-            style={{
-              backgroundColor: isDark ? '#1f2937' : '#f9fafb',
-              borderWidth: isFocused ? 2 : 1,
-              borderColor: hasError ? themeColors.error : isFocused ? '#6366f1' : '#e5e7eb',
-              borderRadius: 10,
-              paddingHorizontal: 14,
-              paddingVertical: multiline ? 10 : 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            {leftIcon && <IconApp testID="a68cbdf0-3fb7-8a90-28d4-567890123c15" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
-            <TextInput
-              value={currentValue}
-              onChangeText={onChangeText}
-              placeholder={placeholder}
-              placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
-              editable={!disabled}
-              secureTextEntry={secureTextEntry}
-              multiline={multiline}
-              numberOfLines={numberOfLines}
-              keyboardType={keyboardType}
-              autoCapitalize={autoCapitalize}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              style={{
-                flex: 1,
-                fontSize: 15,
-                color: themeColors.text,
-                fontFamily: 'System',
-                minHeight: multiline ? (numberOfLines || 3) * 20 : 24,
-                outlineStyle: 'none',
-                borderWidth: 0,
-              } as any}
-              {...(props as any)}
-            />
-            {showClearIcon && (
-              <IconApp testID="b79dce01-4ac8-9b01-39e5-678901234d16" name="close" size={18} color="#888" onPress={handleClear} />
-            )}
-          </View>
-          {(hasError || helperText) && (
-            <Text
-              style={{
-                fontSize: 12,
-                color: hasError ? themeColors.error : '#6b7280',
-                marginTop: 4,
-                marginLeft: 2,
-              }}
-            >
-              {hasError ? computedErrorMessage : helperText}
-            </Text>
-          )}
-        </View>
+        <TamaguiTextInputSub
+          label={label}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          disabled={disabled}
+          error={error}
+          errorCheck={errorCheck}
+          errorMessage={errorMessage}
+          showError={showError}
+          secureTextEntry={secureTextEntry}
+          helperText={helperText}
+          leftIcon={leftIcon}
+          rightIcon={rightIcon}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          style={style}
+          left={left}
+          right={right}
+          hideClearIcon={hideClearIcon}
+          size={size}
+          unstyled={unstyled}
+          themeColors={themeColors}
+          isDark={isDark}
+          {...(props as any)}
+        />
       );
     }
 
@@ -233,7 +226,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
                 {label}
               </Text>
             )}
-            {leftIcon && <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e18" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
+            {left !== undefined && left}
+            {left === undefined && leftIcon && <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e18" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -257,7 +251,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {showClearIcon && (
+            {right !== undefined && right}
+            {right === undefined && showClearIcon && (
               <IconApp testID="c80edf12-5bd9-0c12-4af6-789012345e17" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>
@@ -290,7 +285,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               alignItems: 'center',
             }}
           >
-            {leftIcon && <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f19" name={leftIcon} size={18} color="#64748b" style={{ marginRight: 8 }} />}
+            {left !== undefined && left}
+            {left === undefined && leftIcon && <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f19" name={leftIcon} size={18} color="#64748b" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -313,7 +309,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {showClearIcon && (
+            {right !== undefined && right}
+            {right === undefined && showClearIcon && (
               <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f18" name="close" size={18} color="#64748b" onPress={handleClear} />
             )}
           </View>
@@ -373,7 +370,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               paddingVertical: multiline ? 8 : 0,
             }}
           >
-            {leftIcon && <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a20" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
+            {left !== undefined && left}
+            {left === undefined && leftIcon && <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a20" name={leftIcon} size={18} color="#888" style={{ marginRight: 8 }} />}
             <TextInput
               value={currentValue}
               onChangeText={onChangeText}
@@ -397,7 +395,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               } as any}
               {...(props as any)}
             />
-            {showClearIcon && (
+            {right !== undefined && right}
+            {right === undefined && showClearIcon && (
               <IconApp testID="ea20f134-7dfb-2e34-6ch8-901234567a19" name="close" size={18} color="#888" onPress={handleClear} />
             )}
           </View>

@@ -1,3 +1,4 @@
+import { AppleTextField } from '../../applemacui/components/AppleTextField';
 import React from 'react';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { TextInputAppProps } from './TextInputApp';
@@ -56,6 +57,7 @@ export const TextAreaApp: React.FC<TextAreaAppProps> = ({
   };
 
   const sharedProps = {
+    testID: (props as any).testID,
     label,
     value: currentValue,
     onChangeText,
@@ -69,9 +71,26 @@ export const TextAreaApp: React.FC<TextAreaAppProps> = ({
     isDark,
     style,
     onClear: handleClear,
+    ...props,
   };
 
   switch (activeSystem) {
+    case 'applemacui':
+      return (
+        <AppleTextField
+          testID={(sharedProps as any).testID}
+          label={label}
+          value={currentValue}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          disabled={disabled}
+          error={hasError ? computedErrorMessage || true : false}
+          helperText={helperText}
+          multiline
+          numberOfLines={numberOfLines}
+          style={style}
+        />
+      );
     case 'paper':
       return <PaperTextArea {...sharedProps} />;
     case 'tamagui':

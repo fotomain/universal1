@@ -24,8 +24,10 @@ export interface PMInlineCellInputProps {
   colors: { text: string; background: string; primary: string; error: string };
   /** text alignment (default right: numbers / dates) */
   align?: 'left' | 'right' | 'center';
-  /** optional element rendered on the right side of the input (e.g. date picker trigger) */
-  rightElement?: React.ReactNode | ((currentValue: string) => React.ReactNode);
+  /** optional element rendered on the left side of the input (e.g. date picker trigger) */
+  leftElement?: React.ReactNode | ((currentValue: string, clear: () => void) => React.ReactNode);
+  /** optional element rendered on the right side of the input (e.g. date picker trigger or clear button) */
+  rightElement?: React.ReactNode | ((currentValue: string, clear: () => void) => React.ReactNode);
   /** when true, onBlur does not close/commit the input (e.g. when date picker modal is open) */
   preventBlur?: boolean;
 }
@@ -44,6 +46,7 @@ export default function PMInlineCellInput({
   onCancel,
   colors,
   align = 'right',
+  leftElement,
   rightElement,
   preventBlur = false,
 }: PMInlineCellInputProps) {
@@ -80,6 +83,11 @@ export default function PMInlineCellInput({
     done.current = true;
     onCancel();
   };
+  const clear = () => {
+    setError(false);
+    setValue('');
+    inputRef.current?.focus();
+  };
 
   return (
     <Animated.View style={[styles.box, { left: x, width }, style]}>
@@ -92,6 +100,14 @@ export default function PMInlineCellInput({
           },
         ]}
       >
+        {leftElement && (
+          <View
+            style={styles.leftElementBox}
+            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
+          >
+            {typeof leftElement === 'function' ? leftElement(value, clear) : leftElement}
+          </View>
+        )}
         <TextInput
           ref={inputRef}
           testID={testID}
@@ -121,6 +137,8 @@ export default function PMInlineCellInput({
           style={[
             styles.input,
             { color: colors.text, textAlign: align },
+            // icons at the sides: no empty space between them and the text
+            leftElement || rightElement ? { paddingHorizontal: 2 } : null,
             Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
           ]}
         />
@@ -129,7 +147,7 @@ export default function PMInlineCellInput({
             style={styles.rightElementBox}
             {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
           >
-            {typeof rightElement === 'function' ? rightElement(value) : rightElement}
+            {typeof rightElement === 'function' ? rightElement(value, clear) : rightElement}
           </View>
         )}
       </Animated.View>
@@ -147,6 +165,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  input: { flex: 1, height: '100%', paddingHorizontal: 6, paddingVertical: 0, fontSize: 12, textAlign: 'right' },
-  rightElementBox: { justifyContent: 'center', alignItems: 'center', height: '100%' },
+  // minWidth 0: a web <input> never shrinks below its ~150 px intrinsic width otherwise and pushes the
+  // right element (date picker) out of the box, where overflow: 'hidden' clips it
+  input: { flex: 1, minWidth: 0, height: '100%', paddingHorizontal: 6, paddingVertical: 0, fontSize: 12, textAlign: 'right' },
+  leftElementBox: { justifyContent: 'center', alignItems: 'center', height: '100%', paddingLeft: 2, flexShrink: 0 },
+  rightElementBox: { justifyContent: 'center', alignItems: 'center', height: '100%', paddingRight: 2, flexShrink: 0 },
 });

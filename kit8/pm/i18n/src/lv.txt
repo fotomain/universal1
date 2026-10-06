@@ -433,3 +433,7 @@
 433|piem., bultas, izpilde, kolonna
 434|uzdevumu koks / Ganta diagramma nav redzama ekrānā
 435|{{tip}} (pašlaik nav pieejams)
+436|Palielināt
+437|Samazināt
+438|Pielāgota…
+439|auto

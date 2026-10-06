@@ -11,7 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -27,15 +26,20 @@ import { useKanbanCommands, PMKanbanCommands } from '../../crud/kanban/useKanban
 import { kanbanStageProgressOf } from '../../model/kanbanTypes';
 import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 import IconApp from '../../../components/common/IconApp';
-import ColorPickerApp from '../../../components/common/ColorPickerApp';
-import PMDateInput from '../../inner/inputs/PMDateInput';
+import ColorPickerRowApp from '../../../components/common/ColorPickerRowApp';
+import TextAreaApp from '../../../components/common/TextAreaApp';
+import DateInputApp from '../../inner/inputs/PMDateInput';
+import NumberInputApp from '../../../components/common/NumberInputApp';
+import TextInputApp from '../../../components/common/TextInputApp';
+import SegmentButtonsApp from '../../../components/common/SegmentButtonsApp';
+import NumberStepperInputApp, { NUMBER_STEPPER_MIN_WIDTH } from '../../../components/common/NumberStepperInputApp';
 import { pmT } from '../../i18n/pmT';
 
-const SWATCHES = [null, '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
-const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string }[] = [
-  { kind: 'stage', label: 'Stage' },
-  { kind: 'task', label: 'Task' },
-  { kind: 'milestone', label: 'Milestone' },
+const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
+const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string; icon: string }[] = [
+  { kind: 'stage', label: 'Stage', icon: 'folder' },
+  { kind: 'task', label: 'Task', icon: 'task_alt' },
+  { kind: 'milestone', label: 'Milestone', icon: 'flag' },
 ];
 
 export type TaskEditTab = 'TabMain' | 'TabUXUI';
@@ -51,6 +55,10 @@ export default function PMTaskEditModal({
   kanban?: PMKanbanCommands;
 }) {
   const { themeColors } = useDesignSystem();
+  // width of the Duration / Progress / Kanban row (0 = not measured yet): too narrow for 3 fields -> one per row
+  const [numbersWidth, setNumbersWidth] = useState(0);
+  // web: always one row of 3 inputs; smartphones (iOS / Android): one input per row when the row is too narrow
+  const numbersStacked = Platform.OS !== 'web' && numbersWidth > 0 && (numbersWidth - 2 * 8) / 3 < NUMBER_STEPPER_MIN_WIDTH;
   const editingGUID = usePMStore((s) => s.editingGUID);
   const task = usePMStore((s) => (s.editingGUID ? s.tasksById[s.editingGUID] : undefined));
   // uxui.currentJSON while the window is open ("Share screenshot + JSON")
@@ -193,7 +201,7 @@ export default function PMTaskEditModal({
           ? parseDateISO(start)
           : parsePlanDate(start, planDateInputFormat);
       if (parsedStartMs === null) {
-        setError(`Start must be YYYY-MM-DD (or empty = as soon as possible).`);
+        setError(`Start must be ${planDateInputFormat} (or empty = as soon as possible).`);
         return;
       }
     }
@@ -319,10 +327,6 @@ export default function PMTaskEditModal({
     close();
   };
 
-  const inputStyle = [
-    styles.input,
-    { color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background },
-  ];
   const labelStyle = [styles.label, { color: themeColors.text }];
 
   return (
@@ -387,85 +391,75 @@ export default function PMTaskEditModal({
               testID="pm-task-tab-main-content"
               style={activeTab === 'TabMain' ? undefined : { display: 'none' }}
             >
-              <Text style={labelStyle}>{pmT('Name')}</Text>
-              <TextInput
+              <TextInputApp
                 testID="pm-edit-name"
+                label={pmT('Name')}
                 value={name}
                 onChangeText={setName}
-                style={inputStyle}
                 autoFocus={Platform.OS === 'web'}
                 onSubmitEditing={save}
               />
 
-              <Text style={labelStyle}>{pmT('Type')}</Text>
-              <View style={styles.segment}>
-                {KINDS.map((k, i) => (
-                  <Pressable
-                    key={k.kind}
-                    testID={`pm-edit-kind-${k.kind}`}
-                    onPress={() => {
-                      setKind(k.kind);
-                      if (k.kind === 'milestone') setDays('0');
-                    }}
-                    style={[
-                      styles.segmentBtn,
-                      { borderColor: themeColors.border, backgroundColor: kind === k.kind ? themeColors.primary : 'transparent' },
-                      i === 0 && styles.segmentFirst,
-                      i === KINDS.length - 1 && styles.segmentLast,
-                      i > 0 && { borderLeftWidth: 0 },
-                    ]}
-                  >
-                    <Text style={{ color: kind === k.kind ? '#fff' : themeColors.text, fontWeight: '600' }}>{k.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
               {!summary ? (
-                <View style={styles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Duration (working days)')}</Text>
-                    <TextInput
+                // one row when every field has room for its clear button + number + arrows (web, tablets, landscape),
+                // otherwise (phone portrait) one field per row
+                <View
+                  testID="pm-edit-numbers"
+                  onLayout={(e) => setNumbersWidth(e.nativeEvent.layout.width)}
+                  style={numbersStacked ? styles.numbersStacked : [styles.row, styles.rowInputsOnOneLine]}
+                >
+                  <View style={numbersStacked ? null : styles.numberCell}>
+                    <NumberStepperInputApp
                       testID="pm-edit-days"
+                      label={pmT('Duration (working days)')}
                       value={kind === 'milestone' ? '0' : days}
                       editable={kind !== 'milestone'}
+                      disabled={kind === 'milestone'}
+                      min={1}
+                      emptyValue={1}
                       onChangeText={handleDaysChange}
-                      keyboardType="number-pad"
-                      style={inputStyle}
+                      clearLabel={pmT('Clear')} increaseLabel={pmT('Increase')} decreaseLabel={pmT('Decrease')}
                     />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Progress %')}</Text>
-                    <TextInput
+                  <View style={numbersStacked ? null : styles.numberCell}>
+                    <NumberStepperInputApp
                       testID="pm-edit-progress"
+                      label={pmT('Progress %')}
                       value={progress}
                       selectTextOnFocus
-                      onChangeText={(v) => setProgress(v.replace(/[^0-9]/g, ''))}
-                      keyboardType="number-pad"
-                      style={inputStyle}
+                      min={0}
+                      max={100}
+                      maxDigits={3}
+                      onChangeText={setProgress}
+                      clearLabel={pmT('Clear')} increaseLabel={pmT('Increase')} decreaseLabel={pmT('Decrease')}
                     />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[labelStyle, { minHeight: 30 }]}>{pmT('Kanban stage progress %')}</Text>
-                    <TextInput
+                  <View style={numbersStacked ? null : styles.numberCell}>
+                    <NumberStepperInputApp
                       testID="pm-edit-kanban-progress"
+                      label={pmT('Kanban stage progress %')}
                       value={kanbanProgress}
                       selectTextOnFocus
-                      onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
-                      keyboardType="number-pad"
-                      style={inputStyle}
+                      min={0}
+                      max={100}
+                      maxDigits={3}
+                      onChangeText={setKanbanProgress}
+                      clearLabel={pmT('Clear')} increaseLabel={pmT('Increase')} decreaseLabel={pmT('Decrease')}
                     />
                   </View>
                 </View>
               ) : (
                 <View style={{ marginTop: 2 }}>
-                  <Text style={labelStyle}>{pmT('Kanban stage progress %')}</Text>
-                  <TextInput
+                  <NumberStepperInputApp
                     testID="pm-edit-kanban-progress"
+                    label={pmT('Kanban stage progress %')}
                     value={kanbanProgress}
                     selectTextOnFocus
-                    onChangeText={(v) => setKanbanProgress(v.replace(/[^0-9]/g, '').slice(0, 3))}
-                    keyboardType="number-pad"
-                    style={inputStyle}
+                    min={0}
+                    max={100}
+                    maxDigits={3}
+                    onChangeText={setKanbanProgress}
+                    clearLabel={pmT('Clear')} increaseLabel={pmT('Increase')} decreaseLabel={pmT('Decrease')}
                   />
                 </View>
               )}
@@ -474,9 +468,9 @@ export default function PMTaskEditModal({
               {!summary && (
                 <View style={styles.datesContainer}>
                   {/* Start Date */}
-                  <Text style={labelStyle}>{pmT('Start no earlier than (YYYY-MM-DD, empty = ASAP)')}</Text>
-                  <PMDateInput
+                  <DateInputApp
                     testID="pm-edit-start"
+                    label={pmT('Start no earlier than (YYYY-MM-DD, empty = ASAP)').replace('YYYY-MM-DD', planDateInputFormat)}
                     dateFormat={planDateInputFormat}
                     value={start}
                     onChangeText={handleStartChange}
@@ -488,37 +482,46 @@ export default function PMTaskEditModal({
                     <View style={styles.subUnitsRow}>
                       {planHour && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>{pmT('Start Hour (0-23)')}</Text>
-                          <TextInput
+                          <NumberInputApp
                             testID="pm-edit-start-hour"
+                            label={pmT('Start Hour (0-23)')}
+                            labelStyle={styles.subUnitLabel}
                             value={startHour}
                             onChangeText={(v) => setStartHour(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                            keyboardType="number-pad"
-                            style={inputStyle}
+                            min={0}
+                            max={23}
+                            step={1}
+                            compact
                           />
                         </View>
                       )}
                       {planMinute && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>{pmT('Start Min (0-59)')}</Text>
-                          <TextInput
+                          <NumberInputApp
                             testID="pm-edit-start-minute"
+                            label={pmT('Start Min (0-59)')}
+                            labelStyle={styles.subUnitLabel}
                             value={startMinute}
                             onChangeText={(v) => setStartMinute(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                            keyboardType="number-pad"
-                            style={inputStyle}
+                            min={0}
+                            max={59}
+                            step={1}
+                            compact
                           />
                         </View>
                       )}
                       {planSecond && (
                         <View style={styles.subUnitField}>
-                          <Text style={styles.subUnitLabel}>{pmT('Start Sec (0-59)')}</Text>
-                          <TextInput
+                          <NumberInputApp
                             testID="pm-edit-start-second"
+                            label={pmT('Start Sec (0-59)')}
+                            labelStyle={styles.subUnitLabel}
                             value={startSecond}
                             onChangeText={(v) => setStartSecond(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                            keyboardType="number-pad"
-                            style={inputStyle}
+                            min={0}
+                            max={59}
+                            step={1}
+                            compact
                           />
                         </View>
                       )}
@@ -527,61 +530,79 @@ export default function PMTaskEditModal({
 
                   {/* Finish Date */}
                   {kind !== 'milestone' && (
-                    <>
-                      <Text style={labelStyle}>Finish date ({planDateInputFormat})</Text>
-                      <PMDateInput
-                        testID="pm-edit-finish"
-                        dateFormat={planDateInputFormat}
-                        value={finish}
-                        onChangeText={handleFinishChange}
-                        placeholder={planDateInputFormat}
-                      />
+                    <DateInputApp
+                      testID="pm-edit-finish"
+                      label={`${pmT('Finish date')} (${planDateInputFormat})`}
+                      dateFormat={planDateInputFormat}
+                      value={finish}
+                      onChangeText={handleFinishChange}
+                      placeholder={planDateInputFormat}
+                    />
+                  )}
 
                       {/* Finish sub-units: hours, minutes, seconds */}
                       {(planHour || planMinute || planSecond) && (
                         <View style={styles.subUnitsRow}>
                           {planHour && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>{pmT('Finish Hour (0-23)')}</Text>
-                              <TextInput
+                              <NumberInputApp
                                 testID="pm-edit-finish-hour"
+                                label={pmT('Finish Hour (0-23)')}
+                                labelStyle={styles.subUnitLabel}
                                 value={finishHour}
                                 onChangeText={(v) => setFinishHour(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                                keyboardType="number-pad"
-                                style={inputStyle}
+                                min={0}
+                                max={23}
+                                step={1}
+                                compact
                               />
                             </View>
                           )}
                           {planMinute && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>{pmT('Finish Min (0-59)')}</Text>
-                              <TextInput
+                              <NumberInputApp
                                 testID="pm-edit-finish-minute"
+                                label={pmT('Finish Min (0-59)')}
+                                labelStyle={styles.subUnitLabel}
                                 value={finishMinute}
                                 onChangeText={(v) => setFinishMinute(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                                keyboardType="number-pad"
-                                style={inputStyle}
+                                min={0}
+                                max={59}
+                                step={1}
+                                compact
                               />
                             </View>
                           )}
                           {planSecond && (
                             <View style={styles.subUnitField}>
-                              <Text style={styles.subUnitLabel}>{pmT('Finish Sec (0-59)')}</Text>
-                              <TextInput
+                              <NumberInputApp
                                 testID="pm-edit-finish-second"
+                                label={pmT('Finish Sec (0-59)')}
+                                labelStyle={styles.subUnitLabel}
                                 value={finishSecond}
                                 onChangeText={(v) => setFinishSecond(v.replace(/[^0-9]/g, '').slice(0, 2))}
-                                keyboardType="number-pad"
-                                style={inputStyle}
+                                min={0}
+                                max={59}
+                                step={1}
+                                compact
                               />
                             </View>
                           )}
                         </View>
                       )}
-                    </>
-                  )}
                 </View>
               )}
+
+              <Text style={labelStyle}>{pmT('Type')}</Text>
+              <SegmentButtonsApp
+                testID="pm-edit-kind"
+                value={kind}
+                onValueChange={(k) => {
+                  setKind(k);
+                  if (k === 'milestone') setDays('0');
+                }}
+                buttons={KINDS.map((k) => ({ value: k.kind, label: pmT(k.label), icon: k.icon }))}
+              />
 
               {sched && (
                 <Text style={[styles.hint, { color: themeColors.text }]}>
@@ -590,13 +611,13 @@ export default function PMTaskEditModal({
                 </Text>
               )}
 
-              <Text style={labelStyle}>{pmT('Notes')}</Text>
-              <TextInput
+              <TextAreaApp
                 testID="pm-edit-notes"
+                label={pmT('Notes')}
                 value={notes}
                 onChangeText={setNotes}
-                multiline
-                style={[inputStyle, { minHeight: 64, textAlignVertical: 'top' }]}
+                numberOfLines={3}
+                style={{ marginTop: 8 }}
               />
             </View>
 
@@ -609,35 +630,18 @@ export default function PMTaskEditModal({
               <View testID="pm-task-colors-section">
                 <Text style={[labelStyle, { fontWeight: '700', fontSize: 13, marginBottom: 8 }]}>{pmT('Colors')}</Text>
                 <Text style={labelStyle}>{pmT('Task bar color')}</Text>
-                <View style={styles.swatches}>
-                  {SWATCHES.map((c) => (
-                    <Pressable
-                      key={c || 'auto'}
-                      testID={`pm-edit-color-${c || 'auto'}`}
-                      onPress={() => setColor(c)}
-                      style={[
-                        styles.swatch,
-                        {
-                          backgroundColor: c || themeColors.background,
-                          borderColor: color === c ? themeColors.text : themeColors.border,
-                          borderWidth: color === c ? 2 : 1,
-                        },
-                      ]}
-                    >
-                      {!c && <Text style={{ fontSize: 10, color: themeColors.text }}>{pmT('auto')}</Text>}
-                    </Pressable>
-                  ))}
-                </View>
-
-                <View style={{ marginTop: 12 }}>
-                  <ColorPickerApp
-                    testID="pm-task-color-picker"
-                    value={color}
-                    onChange={setColor}
-                    defaultColor={themeColors.primary}
-                    title={pmT('Custom task color')}
-                  />
-                </View>
+                <ColorPickerRowApp
+                  testID="pm-task-color-picker"
+                  value={color}
+                  onChange={setColor}
+                  showAuto
+                  swatches={SWATCHES}
+                  title={pmT('Custom task color')}
+                  autoLabel={pmT('auto')}
+                  customLabel={pmT('Custom…')}
+                  // ids of the old swatches: pm-edit-color-auto, pm-edit-color-#6366f1 …
+                  swatchTestID={(c) => `pm-edit-color-${SWATCHES.find((x) => x.toUpperCase() === (c || '').toUpperCase()) ?? c ?? 'auto'}`}
+                />
               </View>
             </View>
 
@@ -689,6 +693,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, opacity: 0.7, marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14 },
   row: { flexDirection: 'row', gap: 8 },
+  // fields whose labels wrap to a different number of lines (tamagui / expo / native draw the label above the
+  // input): bottoms aligned = the inputs stand on one line
+  rowInputsOnOneLine: { alignItems: 'flex-end' },
+  numberCell: { flex: 1, minWidth: 0 },
+  numbersStacked: { flexDirection: 'column' },
   segment: { flexDirection: 'row' },
   segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderWidth: 1 },
   segmentFirst: { borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },

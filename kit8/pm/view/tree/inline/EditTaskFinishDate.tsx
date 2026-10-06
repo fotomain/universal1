@@ -3,6 +3,7 @@
 // Editing the finish date recalculates taskDuration based on taskStartDate and active planning units.
 
 import React, { useState } from 'react';
+import { Platform, Pressable } from 'react-native';
 import { SharedValue } from 'react-native-reanimated';
 import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
@@ -11,6 +12,7 @@ import { utcMidnight, workDaysBetween } from '../../project/scheduling';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
 import SelectDateApp from '../../../../components/common/SelectDateApp';
+import IconApp from '../../../../components/common/IconApp';
 
 export default function EditTaskFinishDate(props: {
   guid: string;
@@ -56,6 +58,23 @@ export default function EditTaskFinishDate(props: {
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
       preventBlur={pickerOpen}
+      align="left"
+      // web only: close = clear button at the left; the date picker stays at the right
+      leftElement={
+        Platform.OS === 'web'
+          ? (_currentText, clear) => (
+          <Pressable
+            testID={`pm-tree-clear-date-finish-${guid}`}
+            onPress={clear}
+            hitSlop={4}
+            style={{ width: 18, height: 20, alignItems: 'center', justifyContent: 'center' }}
+            {...({ onMouseDown: (e: any) => e.preventDefault() } as any)}
+          >
+            <IconApp name="close" size={14} color={props.colors.text} />
+          </Pressable>
+            )
+          : undefined
+      }
       rightElement={(currentText) => {
         const parsed = currentText ? parsePlanDate(currentText, planDateInputFormat, finishDisplayMs) : null;
         return (
@@ -63,7 +82,7 @@ export default function EditTaskFinishDate(props: {
             value={parsed ?? finishDisplayMs}
             trigger="icon"
             testID={`pm-tree-select-date-finish-${guid}`}
-            style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+            style={{ width: 20, height: 20, borderWidth: 0 }}
             onOpen={() => setPickerOpen(true)}
             onDismiss={() => setPickerOpen(false)}
             onSelect={(selectedDate) => {

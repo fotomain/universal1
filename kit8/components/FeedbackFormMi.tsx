@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import H1Mi from '../ui/H1Mi';
 import H2Mi from '../ui/H2Mi';
-import ArticleTextMi from '../ui/ArticleTextMi';
+import ArticleTextApp from './common/ArticleTextApp';
 import TextInputApp from './common/TextInputApp';
 import ButtonPrimaryApp from './common/ButtonPrimaryApp';
 
@@ -21,7 +21,7 @@ export default function FeedbackFormMi() {
     <View style={styles.container}>
       <H1Mi>{t('menu.feedback')}</H1Mi>
       <H2Mi>{t('body.weValueInput')}</H2Mi>
-      <ArticleTextMi>{t('body.feedbackDescription')}</ArticleTextMi>
+      <ArticleTextApp>{t('body.feedbackDescription')}</ArticleTextApp>
       <TextInputApp label={t('body.yourName')} value={name} onChangeText={setName} placeholder={t('body.yourName')} />
       <TextInputApp label={t('screens.email')} value={email} onChangeText={setEmail} placeholder="your@email.com" keyboardType="email-address" />
       <TextInputApp

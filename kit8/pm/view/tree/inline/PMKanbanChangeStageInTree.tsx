@@ -82,7 +82,9 @@ export default function PMKanbanChangeStageInTree({
   const close = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    usePMStore.getState().setCellEdit(null);
+    setTimeout(() => {
+      usePMStore.getState().setCellEdit(null);
+    }, 60);
   };
 
   const selectStage = (stageGUID: string) => {
@@ -90,7 +92,9 @@ export default function PMKanbanChangeStageInTree({
     doneRef.current = true;
     if (stageGUID === PM_KANBAN_NO_STATE) kanban.clearTreeRowKanbanState(guid);
     else kanban.moveTreeRowToStage(guid, stageGUID);
-    usePMStore.getState().setCellEdit(null);
+    setTimeout(() => {
+      usePMStore.getState().setCellEdit(null);
+    }, 60);
   };
 
   // Keyboard navigation: Up / Down arrow moves focus, Enter selects, Escape cancels

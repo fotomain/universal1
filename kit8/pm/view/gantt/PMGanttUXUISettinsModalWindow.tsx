@@ -33,6 +33,7 @@ import PMProgressLineSettings from '../task/progress/line/PMProgressLineSettings
 import { DEPENDENCY_LINE_FORMS } from '../task/dependency/DependencyArrowLineFormSelector';
 import { withAlpha } from '../theme';
 import { PM_UXUI_TABS, PMUxUiOptionId, PMUxUiTab, PM_UXUI_OPTIONS, searchUxuiOptions, uxuiTabTitle } from './settings/uxuiSettingsIndex';
+import PMCommandsModeSelector from '../project/settings/PMCommandsModeSelector';
 import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder, treeColumnTitle } from '../tree/columns/treeColumns';
 import { PM_COLUMN_FILTER_ICON_COLORS, PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../tree/filter/treeColumnFilter';
 import { pmT } from '../../i18n/pmT';
@@ -256,7 +257,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             {tab === 'TabTree' && (
               <>
                 <Opt id="treeCommands">
-                  <CommandsModeSelector
+                  <PMCommandsModeSelector
                     label={pmT('Task tree: row commands')}
                     testID="pm-uxui-tree-commands"
                     value={draft.projectTreeContextCommandsMode}
@@ -343,7 +344,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   </View>
                 </Opt>
                 <Opt id="ganttCommands">
-                  <CommandsModeSelector
+                  <PMCommandsModeSelector
                     label={pmT('Gantt chart: bar commands')}
                     testID="pm-uxui-gantt-commands"
                     value={draft.projectGanttChartContextCommandsMode}
@@ -413,46 +414,7 @@ function Opt({ id, children }: { id: PMUxUiOptionId; children: React.ReactNode }
   );
 }
 
-const COMMANDS_MODE_UI: Record<PMContextCommandsMode, { icon: string; label: string; title: string }> = {
-  onHoverPanelMode: { icon: 'more_horiz', label: 'Hover panel', title: 'Buttons on the hovered (web) / selected (touch) row' },
-  onRightClickMenuMode: { icon: 'menu_open', label: 'Right-click menu', title: 'Menu on right-click (web) / long-press and release (touch)' },
-};
 
-/** Hover panel | Right-click menu (uxuiSettings.project…ContextCommandsMode) */
-function CommandsModeSelector({
-  label,
-  testID,
-  value,
-  onChange,
-  colors,
-}: {
-  label: string;
-  testID: string;
-  value: PMContextCommandsMode;
-  onChange: (v: PMContextCommandsMode) => void;
-  colors: { text: string; primary: string };
-}) {
-  return (
-    <>
-      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-      <View style={styles.segment} testID={testID}>
-        {PM_CONTEXT_COMMANDS_MODES.map((m) => (
-          <PMIconButton
-            key={m}
-            testID={`${testID}-${m}`}
-            icon={COMMANDS_MODE_UI[m].icon}
-            label={COMMANDS_MODE_UI[m].label}
-            title={COMMANDS_MODE_UI[m].title}
-            active={value === m}
-            activeColor={colors.primary}
-            color={colors.text}
-            onPress={() => onChange(m)}
-          />
-        ))}
-      </View>
-    </>
-  );
-}
 
 function Row({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
   return (

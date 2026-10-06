@@ -2,8 +2,9 @@
 // Opens Google Calendar's "new event" page pre-filled with the task: no OAuth, no API key - the user
 // reviews the event and presses Save in his own calendar (web: new tab, native: browser / Calendar app).
 //
-//   day plans      all-day event  dates=YYYYMMDD/YYYYMMDD (the end day is exclusive, like schedule.finishMs)
-//   sub-day plans  timed event    dates=YYYYMMDDTHHMMSSZ/...   (project.rowJSON.planHour / planMinute / planSecond)
+// Timed event (no all-day events): dates=YYYYMMDDTHHMMSSZ/YYYYMMDDTHHMMSSZ
+//   - If task has duration (not null): uses task duration / finishMs
+//   - Otherwise (null / milestone): 15-minute duration from the day's begin
 
 import { Linking, Platform } from 'react-native';
 import { DAY_MS } from '../../model/constants';
@@ -11,6 +12,8 @@ import { usePMStore } from '../../store/store_pm';
 import { buildTaskInfoText, taskShareURL } from './taskShare';
 
 type PMState = ReturnType<typeof usePMStore.getState>;
+
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const dayStamp = (ms: number) => {
@@ -27,16 +30,16 @@ export function taskGoogleCalendarURL(guid: string, s: PMState = usePMStore.getS
   const t = s.tasksById[guid];
   const r = s.schedule[guid];
   if (!t || !r) return null;
-  const subDay = !!(s.planHour || s.planMinute || s.planSecond);
-  let dates: string;
-  if (subDay) {
-    const finish = r.finishMs > r.startMs ? r.finishMs : r.startMs + 60 * 60 * 1000;
-    dates = `${timeStamp(r.startMs)}/${timeStamp(finish)}`;
-  } else {
-    // all-day: the end date is exclusive; a milestone = one day
-    const finish = r.finishMs > r.startMs ? r.finishMs : r.startMs + DAY_MS;
-    dates = `${dayStamp(r.startMs)}/${dayStamp(finish)}`;
-  }
+
+  // Never all-day event:
+  // 1) duration from task if not null
+  // 2) or 15 min duration from the day's begin
+  const hasTaskDuration = !r.isMilestone && (r.finishMs > r.startMs || (t.rowJSON.durationDays != null && t.rowJSON.durationDays > 0));
+  const finishMs = hasTaskDuration
+    ? (r.finishMs > r.startMs ? r.finishMs : r.startMs + (t.rowJSON.durationDays ?? 0) * DAY_MS)
+    : r.startMs + FIFTEEN_MIN_MS;
+
+  const dates = `${timeStamp(r.startMs)}/${timeStamp(finishMs)}`;
   const project = t.projectGUID ? s.projectsById[t.projectGUID] : undefined;
   const url = taskShareURL(guid, t.projectGUID);
   const details = buildTaskInfoText(guid, s, url) ?? url;

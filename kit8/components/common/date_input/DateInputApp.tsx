@@ -99,7 +99,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
   onSubmitEditing,
   autoFocus,
 }) => {
-  const { activeSystem, themeColors, isDark } = useDesignSystem();
+  const { activeSystem, themeColors, isDark, appleMacUITheme: apple } = useDesignSystem();
   const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
   const text = typeof value === 'string' ? value : '';
@@ -152,7 +152,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
 
   if (activeSystem === 'paper') {
     return (
-      <View style={[{ width: '100%' }, style]}>
+      <View style={[{ marginBottom: 12, width: '100%' }, style]}>
         <PaperTextInput
           mode="outlined"
           dense={compact}
@@ -185,7 +185,13 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
 
   // the same boxes as TextInputApp draws in each design system
   const look: Look =
-    activeSystem === 'tamagui'
+    activeSystem === 'applemacui'
+      ? {
+          background: apple.colors.tertiaryFill, border: 'transparent', borderFocused: apple.tint, borderWidth: 1, borderWidthFocused: 1,
+          radius: apple.radii.input, height: apple.size.touchTarget, paddingH: apple.space[3], fontSize: apple.typography.body.fontSize, icon: apple.colors.systemGray2, placeholder: apple.colors.placeholderText, marginBottom: apple.space[3],
+          labelStyle: { ...apple.typography.subhead, fontFamily: apple.fontFamily, color: apple.colors.secondaryLabel, marginBottom: 6, marginLeft: 4 },
+        }
+      : activeSystem === 'tamagui'
       ? {
           background: isDark ? '#1f2937' : '#f9fafb', border: '#e5e7eb', borderFocused: '#6366f1', borderWidth: 1, borderWidthFocused: 2,
           radius: 10, height: 42, paddingH: 14, fontSize: 15, icon: '#888', placeholder: isDark ? '#6b7280' : '#9ca3af', marginBottom: 14,
@@ -215,6 +221,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           labelStyle: { fontSize: 14, fontWeight: '500', color: themeColors.text, marginBottom: 4 },
         };
   const height = compact ? 36 : look.height;
+  const appleRing = activeSystem === 'applemacui' && Platform.OS === 'web';
   const iconColor = disabled ? look.placeholder : themeColors.primary;
 
   return (
@@ -231,6 +238,9 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           borderRadius: look.radius,
           paddingHorizontal: compact ? Math.min(10, look.paddingH) : look.paddingH,
           opacity: disabled ? 0.6 : 1,
+          // AppleMacUI on web: the same focus ring as AppleTextField (tint border + soft outer ring); the field is
+          // inset by the ring's width so the whole ring is visible inside a clipping scroll view / dialog
+          ...(appleRing ? ({ marginHorizontal: apple.focusRing.width, marginVertical: apple.focusRing.width, boxShadow: focused ? `0 0 0 ${apple.focusRing.width}px ${apple.focusRing.color}` : undefined } as any) : null),
         }}
       >
         <Pressable

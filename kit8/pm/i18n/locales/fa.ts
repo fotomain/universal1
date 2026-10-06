@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "مثلاً پیکان‌ها، پیشرفت، ستون",
   "the task tree / Gantt chart is not on the screen": "درخت وظایف / نمودار گانت روی صفحه نیست",
   "{{tip}} (not available now)": "{{tip}} (اکنون در دسترس نیست)",
+  "Increase": "افزایش",
+  "Decrease": "کاهش",
+  "Custom…": "سفارشی…",
+  "auto": "خودکار",
 };
 export default texts;

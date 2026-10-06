@@ -166,7 +166,11 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
             {...(isReanimated
               ? { style: styles.actionsListReanimated }
               : {
-                  style: [styles.actionsList, manyActions ? { maxHeight: Math.max(160, win.height - bottomOffset - 150) } : null],
+                  style: [
+                    styles.actionsList,
+                    { width: Math.min(380, Math.max(260, win.width - 48)) },
+                    manyActions ? { maxHeight: Math.max(160, win.height - bottomOffset - 150) } : null,
+                  ],
                   contentContainerStyle: styles.actionsListContent,
                   showsVerticalScrollIndicator: false,
                   scrollEnabled: manyActions,
@@ -293,6 +297,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 72,
     right: 0,
+    minWidth: 260,
     zIndex: 100000,
   },
   actionsListContent: {
@@ -312,6 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    maxWidth: '100%',
   },
   actionRowReanimated: {
     position: 'absolute',
@@ -325,10 +331,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    maxWidth: 300,
   },
   labelText: {
     fontSize: 13,
     fontWeight: '600',
+    flexShrink: 1,
   },
 });
 

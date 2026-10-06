@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "যেমন: তীর, অগ্রগতি, কলাম",
   "the task tree / Gantt chart is not on the screen": "কাজের ট্রি / গ্যান্ট চার্ট স্ক্রিনে নেই",
   "{{tip}} (not available now)": "{{tip}} (এখন উপলব্ধ নয়)",
+  "Increase": "বাড়ান",
+  "Decrease": "কমান",
+  "Custom…": "কাস্টম…",
+  "auto": "অটো",
 };
 export default texts;

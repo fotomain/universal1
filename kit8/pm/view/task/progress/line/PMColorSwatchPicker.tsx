@@ -1,7 +1,8 @@
-// Row of color swatches + a "Default" chip (null = default color).
+// Row of color swatches + a "Default" chip (null = default color) = ColorPickerRowApp limited to the given set
+// (no custom colors: the progress lines only use PM_PROGRESS_LINE_SWATCHES).
 
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import ColorPickerRowApp from '../../../../../components/common/ColorPickerRowApp';
 import { PM_PROGRESS_LINE_SWATCHES } from './progressLineConstants';
 import { pmT } from '../../../../i18n/pmT';
 
@@ -24,37 +25,18 @@ export default function PMColorSwatchPicker({
   colors: { text: string; border: string; background: string };
   testID: string;
 }) {
-  const isDefault = !value;
   return (
-    <View style={styles.row} testID={testID}>
-      <Pressable
-        testID={`${testID}-default`}
-        accessibilityLabel={pmT('Default color')}
-        onPress={() => onChange(null)}
-        style={[styles.defaultChip, { borderColor: isDefault ? colors.text : colors.border, borderWidth: isDefault ? 2 : 1, backgroundColor: colors.background }]}
-      >
-        <View style={[styles.dot, { backgroundColor: defaultColor, borderColor: colors.border }]} />
-        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>{pmT('Default')}</Text>
-      </Pressable>
-      {swatches.map((c) => {
-        const selected = !isDefault && value === c;
-        return (
-          <Pressable
-            key={c}
-            testID={`${testID}-${c}`}
-            accessibilityLabel={`Color ${c}`}
-            onPress={() => onChange(c)}
-            style={[styles.swatch, { backgroundColor: c, borderColor: selected ? colors.text : colors.border, borderWidth: selected ? 3 : 1 }]}
-          />
-        );
-      })}
-    </View>
+    <ColorPickerRowApp
+      testID={testID}
+      value={value}
+      onChange={onChange}
+      swatches={swatches}
+      defaultColor={defaultColor}
+      allowCustom={false}
+      defaultLabel={pmT('Default')}
+      colors={colors}
+      // the set's own spelling of the color stays in the testID
+      swatchTestID={(c) => `${testID}-${swatches.find((s) => s.toUpperCase() === (c || '').toUpperCase()) ?? c}`}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
-  defaultChip: { flexDirection: 'row', alignItems: 'center', height: 28, paddingHorizontal: 8, borderRadius: 14, marginRight: 8, marginBottom: 6 },
-  dot: { width: 12, height: 12, borderRadius: 6, borderWidth: StyleSheet.hairlineWidth, marginRight: 5 },
-  swatch: { width: 28, height: 28, borderRadius: 14, marginRight: 8, marginBottom: 6 },
-});

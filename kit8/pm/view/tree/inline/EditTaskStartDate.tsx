@@ -3,12 +3,14 @@
 // Empty = as soon as possible (constraint removed). Stages are rolled up.
 
 import React, { useState } from 'react';
+import { Platform, Pressable } from 'react-native';
 import { SharedValue } from 'react-native-reanimated';
 import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDate, parsePlanDate } from '../../../model/planDateFormats';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
 import SelectDateApp from '../../../../components/common/SelectDateApp';
+import IconApp from '../../../../components/common/IconApp';
 import { pmT } from '../../../i18n/pmT';
 
 export default function EditTaskStartDate(props: {
@@ -40,6 +42,23 @@ export default function EditTaskStartDate(props: {
       keyboardType="numbers-and-punctuation"
       sanitize={(t) => t.slice(0, 20)}
       preventBlur={pickerOpen}
+      align="left"
+      // web only: close = clear button at the left; the date picker stays at the right
+      leftElement={
+        Platform.OS === 'web'
+          ? (_currentText, clear) => (
+          <Pressable
+            testID={`pm-tree-clear-date-start-${guid}`}
+            onPress={clear}
+            hitSlop={4}
+            style={{ width: 18, height: 20, alignItems: 'center', justifyContent: 'center' }}
+            {...({ onMouseDown: (e: any) => e.preventDefault() } as any)}
+          >
+            <IconApp name="close" size={14} color={props.colors.text} />
+          </Pressable>
+            )
+          : undefined
+      }
       rightElement={(currentText) => {
         const parsed = currentText ? parsePlanDate(currentText, planDateInputFormat, startMs) : null;
         return (
@@ -47,7 +66,7 @@ export default function EditTaskStartDate(props: {
             value={parsed ?? startMs}
             trigger="icon"
             testID={`pm-tree-select-date-start-${guid}`}
-            style={{ width: 20, height: 20, marginRight: 2, borderWidth: 0 }}
+            style={{ width: 20, height: 20, borderWidth: 0 }}
             onOpen={() => setPickerOpen(true)}
             onDismiss={() => setPickerOpen(false)}
             onSelect={(selectedDate) => {

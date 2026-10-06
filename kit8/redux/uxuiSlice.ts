@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export type FABAnimationVariant = 'defaultFABAnimation' | 'reanimatedBasicFABAnimation';
-export type DesignSystemType = 'tamagui' | 'paper' | 'ant' | 'native' | 'expo' | 'googlemd3web';
+export type DesignSystemType = 'tamagui' | 'paper' | 'ant' | 'native' | 'expo' | 'googlemd3web' | 'applemacui';
 export type IconsVariant = 'materialIconsOnly' | 'platformOrientedIcons';
 
 export interface SnackbarState {

@@ -4,6 +4,7 @@ import { DesignSystemType, IconsVariant, setDesignSystem, setIconsVariant, toggl
 import { toggleThemeMode } from '../redux/userThemeSlice';
 import tamaguiConfig from '../../tamagui.config';
 import loadMaterialWebCdn from '../components/common/googlemd3web/loadMaterialWebCdn';
+import { appleMacUITheme, appleMacUIThemeColors, AppleMacUITheme } from '../applemacui/appleMacUITheme';
 
 export type { DesignSystemType, IconsVariant };
 
@@ -15,6 +16,12 @@ export interface WithDesignSystemType {
   isDark: boolean;
   toggleTheme: () => void;
   tamaguiConfig: typeof tamaguiConfig;
+  /** AppleMacUI tokens of the current mode (light / dark) - for every design system, used when activeSystem is 'applemacui' */
+  appleMacUITheme: AppleMacUITheme;
+  /** true when activeSystem === 'applemacui' */
+  isAppleMacUI: boolean;
+  /** the 7 colors every component reads. With AppleMacUI they are the iOS system colors (tint = systemBlue,
+   *  grouped backgrounds, label, separator, systemRed), not the Paper theme's. */
   themeColors: {
     primary: string;
     background: string;
@@ -56,6 +63,8 @@ const DesignSystemContext = createContext<WithDesignSystemType>({
   isDark: false,
   toggleTheme: () => {},
   tamaguiConfig,
+  appleMacUITheme: appleMacUITheme.light,
+  isAppleMacUI: false,
   themeColors: defaultColorsLight,
 });
 
@@ -66,7 +75,9 @@ export const WithDesignSystem: React.FC<{ children: React.ReactNode }> = ({ chil
   const uxuiState = useSelector((state: any) => state?.uxuiState);
   const userTheme = useSelector((state: any) => state?.userTheme);
 
-  const activeSystem: DesignSystemType = uxuiState?.activeDesignSystem || 'paper';
+  // 'appleui' = the old name of 'applemacui' (a value saved before the rename)
+  const savedSystem = uxuiState?.activeDesignSystem as string | undefined;
+  const activeSystem: DesignSystemType = (savedSystem === 'appleui' ? 'applemacui' : (savedSystem as DesignSystemType)) || 'paper';
   const iconsVariant: IconsVariant = uxuiState?.iconsVariant || 'materialIconsOnly';
   const isDark: boolean = userTheme?.isDark ?? uxuiState?.darkMode ?? false;
 
@@ -95,7 +106,11 @@ export const WithDesignSystem: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const currentAppleMacUITheme = isDark ? appleMacUITheme.dark : appleMacUITheme.light;
+
   const currentThemeColors = useMemo(() => {
+    // AppleMacUI brings its own palette: the app looks like iOS whatever Paper theme the user picked
+    if (activeSystem === 'applemacui') return appleMacUIThemeColors(currentAppleMacUITheme);
     if (userTheme?.theme?.colors) {
       const c = userTheme.theme.colors;
       return {
@@ -109,7 +124,7 @@ export const WithDesignSystem: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     }
     return isDark ? defaultColorsDark : defaultColorsLight;
-  }, [isDark, userTheme]);
+  }, [isDark, userTheme, activeSystem, currentAppleMacUITheme]);
 
   const value = useMemo(
     () => ({
@@ -120,9 +135,11 @@ export const WithDesignSystem: React.FC<{ children: React.ReactNode }> = ({ chil
       isDark,
       toggleTheme: handleToggleTheme,
       tamaguiConfig,
+      appleMacUITheme: currentAppleMacUITheme,
+      isAppleMacUI: activeSystem === 'applemacui',
       themeColors: currentThemeColors,
     }),
-    [activeSystem, iconsVariant, isDark, currentThemeColors]
+    [activeSystem, iconsVariant, isDark, currentThemeColors, currentAppleMacUITheme]
   );
 
   return (

@@ -1,4 +1,5 @@
 export interface TextAreaSubcomponentProps {
+  testID?: string;
   label?: string;
   value?: string;
   onChangeText?: (text: string) => void;

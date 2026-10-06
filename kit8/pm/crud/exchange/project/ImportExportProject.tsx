@@ -12,6 +12,7 @@
 
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { ReceiveDraggableFilesComponent } from '../../../../components/common/ReceiveDraggableFilesComponent';
 import { PMDialogButton } from '../../../inner/buttons';
 import { PM_EXPORT_BUTTON_WIDTH } from '../../../model/constants';
@@ -28,6 +29,7 @@ export default function ImportExportProject({
   colors,
   onImported,
   onExportPdf,
+  onSaveAsTemplate,
 }: {
   ownerGUID: string;
   projectGUID: string;
@@ -36,12 +38,16 @@ export default function ImportExportProject({
   onImported?: (projectRowJSON: PMRowJSON) => void;
   /** "Export to PDF" pressed: the host closes its window and exports the dashboard (no button without it) */
   onExportPdf?: (projectGUID: string) => void;
+  /** "Save as template" pressed */
+  onSaveAsTemplate?: () => void;
 }) {
   const { exportProject, importProject, status, busy } = useProjectExchange(ownerGUID);
   const name = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON.name ?? '');
   const fileName = projectDataFileName(projectGUID);
   const [tab, setTab] = useState<PMExchangeTab>('TabImport');
   // PDF / MS Project export the project that is open on the dashboard
+  const paperTheme = useTheme();
+  const primaryColor = paperTheme.colors?.primary || colors.primary;
   const onDashboard = usePMStore((s) => s.loadedProjectGUID === projectGUID);
   const [msProjectOpen, setMsProjectOpen] = useState(false);
 
@@ -97,38 +103,52 @@ export default function ImportExportProject({
               {pmT('The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).')}
             </Text>
             <View style={{ height: 10 }} />
-            <PMDialogButton
-              testID="pm-project-export"
-              kind="secondary"
-              icon="data_object"
-              title={pmT('Export to JSON')}
-              disabled={busy}
-              width={PM_EXPORT_BUTTON_WIDTH}
-              style={styles.exportButton}
-              onPress={() => exportProject(projectGUID)}
-            />
-            {!!onExportPdf && (
+            <View testID="pm-project-export-button-group" style={styles.exportButtonGroup}>
+              {!!onExportPdf && (
+                <PMDialogButton
+                  testID="pm-project-export-pdf"
+                  kind="secondary"
+                  color={primaryColor}
+                  icon="picture_as_pdf"
+                  title={pmT('Export to PDF')}
+                  disabled={busy || !onDashboard}
+                  width={PM_EXPORT_BUTTON_WIDTH}
+                  style={styles.exportButton}
+                  onPress={() => onExportPdf(projectGUID)}
+                />
+              )}
               <PMDialogButton
-                testID="pm-project-export-pdf"
+                testID="pm-project-export"
                 kind="secondary"
-                icon="picture_as_pdf"
-                title={pmT('Export to PDF')}
+                icon="data_object"
+                title={pmT('Export to JSON')}
+                disabled={busy}
+                width={PM_EXPORT_BUTTON_WIDTH}
+                style={styles.exportButton}
+                onPress={() => exportProject(projectGUID)}
+              />
+              <PMDialogButton
+                testID="pm-project-export-msproject"
+                kind="secondary"
+                icon="account_tree"
+                title={pmT('Export to MS Project')}
                 disabled={busy || !onDashboard}
                 width={PM_EXPORT_BUTTON_WIDTH}
                 style={styles.exportButton}
-                onPress={() => onExportPdf(projectGUID)}
+                onPress={() => setMsProjectOpen(true)}
               />
-            )}
-            <PMDialogButton
-              testID="pm-project-export-msproject"
-              kind="secondary"
-              icon="account_tree"
-              title={pmT('Export to MS Project')}
-              disabled={busy || !onDashboard}
-              width={PM_EXPORT_BUTTON_WIDTH}
-              style={styles.exportButton}
-              onPress={() => setMsProjectOpen(true)}
-            />
+              {!!onSaveAsTemplate && (
+                <PMDialogButton
+                  testID="pm-settings-save-as-template"
+                  kind="secondary"
+                  icon="bookmark_add"
+                  title={pmT('Save as template')}
+                  width={PM_EXPORT_BUTTON_WIDTH}
+                  style={styles.exportButton}
+                  onPress={onSaveAsTemplate}
+                />
+              )}
+            </View>
             <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2} testID="pm-project-export-file-name">
               {fileName}
             </Text>
@@ -170,8 +190,9 @@ const styles = StyleSheet.create({
   dropZone: { flexGrow: 1, marginVertical: 0 },
   // Export tab: button, description and file name centered
   exportPanel: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
-  // the export buttons: one column, equal size (PM_EXPORT_BUTTON_WIDTH)
-  exportButton: { marginLeft: 0, marginTop: 8, alignSelf: 'center' },
+  // the export buttons: one column, equal size (PM_EXPORT_BUTTON_WIDTH), 2 pixels gap between them
+  exportButtonGroup: { alignItems: 'center', gap: 2 },
+  exportButton: { marginLeft: 0, marginTop: 0, marginBottom: 0, marginVertical: 0, alignSelf: 'center' },
   hint: { fontSize: 12, opacity: 0.75, textAlign: 'center' },
   fileName: { fontSize: 11, opacity: 0.6, marginTop: 8, textAlign: 'center' },
   status: { marginTop: 6, fontSize: 12, textAlign: 'center' },

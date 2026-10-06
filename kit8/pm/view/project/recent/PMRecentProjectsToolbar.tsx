@@ -49,14 +49,16 @@ import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
 import SwitchApp from "../../../../components/common/SwitchApp";
+import TextInputApp from "../../../../components/common/TextInputApp";
 import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
-import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat } from "../../../model/types";
-import { PM_PLAN_DATE_INPUT_FORMATS } from "../../../model/types";
+import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat, PMContextCommandsMode, PMUxUiSettings } from "../../../model/types";
+import { PM_PLAN_DATE_INPUT_FORMATS, contextCommandsModeOf } from "../../../model/types";
 import { withAlpha } from "../../theme";
 import SelectElementFromCatalog from "../../../../catalog/inner/select_element/SelectElementFromCatalog";
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
+import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -80,6 +82,8 @@ interface Draft {
   planMinute: boolean;
   planSecond: boolean;
   planDateInputFormat: PMPlanDateInputFormat;
+  projectTreeContextCommandsMode?: PMContextCommandsMode;
+  projectGanttChartContextCommandsMode?: PMContextCommandsMode;
   mainSupplierGUID?: string | null;
   mainSupplierContractGUID?: string | null;
   mainCustomerGUID?: string | null;
@@ -218,6 +222,8 @@ export default function PMRecentProjectsToolbar({
       planMinute: false,
       planSecond: false,
       planDateInputFormat: 'YYYY-MM-DD',
+      projectTreeContextCommandsMode: 'onHoverPanelMode',
+      projectGanttChartContextCommandsMode: 'onHoverPanelMode',
       mainSupplierGUID: null,
       mainSupplierContractGUID: null,
       mainCustomerGUID: null,
@@ -234,6 +240,14 @@ export default function PMRecentProjectsToolbar({
     const finishStr = project.rowJSON.projectFinishDate || (project.rowDuration
       ? formatDateISO(Date.parse(project.rowDuration))
       : "");
+    const treeCmdMode = contextCommandsModeOf(
+      project.rowJSON.projectTreeContextCommandsMode ??
+      (project.rowJSON.uxuiSettings as PMUxUiSettings | undefined)?.projectTreeContextCommandsMode
+    );
+    const ganttCmdMode = contextCommandsModeOf(
+      project.rowJSON.projectGanttChartContextCommandsMode ??
+      (project.rowJSON.uxuiSettings as PMUxUiSettings | undefined)?.projectGanttChartContextCommandsMode
+    );
     setDraft({
       rowGUID: project.rowGUID,
       name: project.rowJSON.name || "",
@@ -246,6 +260,8 @@ export default function PMRecentProjectsToolbar({
       planMinute: !!project.rowJSON.planMinute,
       planSecond: !!project.rowJSON.planSecond,
       planDateInputFormat: project.rowJSON.planDateInputFormat || 'YYYY-MM-DD',
+      projectTreeContextCommandsMode: treeCmdMode,
+      projectGanttChartContextCommandsMode: ganttCmdMode,
       mainSupplierGUID: project.rowJSON.mainSupplierGUID ?? null,
       mainSupplierContractGUID: project.rowJSON.mainSupplierContractGUID ?? null,
       mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
@@ -284,6 +300,8 @@ export default function PMRecentProjectsToolbar({
             planMinute: json.planMinute ?? d.planMinute,
             planSecond: json.planSecond ?? d.planSecond,
             planDateInputFormat: json.planDateInputFormat || d.planDateInputFormat,
+            projectTreeContextCommandsMode: json.projectTreeContextCommandsMode ?? d.projectTreeContextCommandsMode,
+            projectGanttChartContextCommandsMode: json.projectGanttChartContextCommandsMode ?? d.projectGanttChartContextCommandsMode,
             mainSupplierGUID: json.mainSupplierGUID ?? d.mainSupplierGUID,
             mainSupplierContractGUID: json.mainSupplierContractGUID ?? d.mainSupplierContractGUID,
             mainCustomerGUID: json.mainCustomerGUID ?? d.mainCustomerGUID,
@@ -301,6 +319,8 @@ export default function PMRecentProjectsToolbar({
     if (!name) return setDraftError("Name is required.");
     if (startMs === null) return setDraftError("Start must be YYYY-MM-DD.");
     const finishMs = draft.projectFinishDate ? (parseDateISO(draft.projectFinishDate) ?? parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat)) : null;
+    const treeCmdMode = draft.projectTreeContextCommandsMode || 'onHoverPanelMode';
+    const ganttCmdMode = draft.projectGanttChartContextCommandsMode || 'onHoverPanelMode';
     if (draft.rowGUID) {
       const cur = projectsById[draft.rowGUID];
       updateProject.mutate({
@@ -318,6 +338,13 @@ export default function PMRecentProjectsToolbar({
             planMinute: draft.planMinute,
             planSecond: draft.planSecond,
             planDateInputFormat: draft.planDateInputFormat,
+            projectTreeContextCommandsMode: treeCmdMode,
+            projectGanttChartContextCommandsMode: ganttCmdMode,
+            uxuiSettings: {
+              ...(cur.rowJSON.uxuiSettings || {}),
+              projectTreeContextCommandsMode: treeCmdMode,
+              projectGanttChartContextCommandsMode: ganttCmdMode,
+            },
             mainSupplierGUID: draft.mainSupplierGUID ?? null,
             mainSupplierContractGUID: draft.mainSupplierContractGUID ?? null,
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
@@ -337,6 +364,13 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.planMinute = draft.planMinute;
       row.rowJSON.planSecond = draft.planSecond;
       row.rowJSON.planDateInputFormat = draft.planDateInputFormat;
+      row.rowJSON.projectTreeContextCommandsMode = treeCmdMode;
+      row.rowJSON.projectGanttChartContextCommandsMode = ganttCmdMode;
+      row.rowJSON.uxuiSettings = {
+        ...(row.rowJSON.uxuiSettings || {}),
+        projectTreeContextCommandsMode: treeCmdMode,
+        projectGanttChartContextCommandsMode: ganttCmdMode,
+      };
       row.rowJSON.mainSupplierGUID = draft.mainSupplierGUID ?? null;
       row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
@@ -650,42 +684,33 @@ export default function PMRecentProjectsToolbar({
               <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 {activeTab === 'TabMain' && (
                   <View testID="pm-project-tab-main-content">
-                    <Text style={[styles.label, { color: themeColors.text }]}>
-                      {pmT('Name')}
-                    </Text>
-                    <TextInput
+                    <TextInputApp
                       testID="pm-project-name"
+                      label={pmT('Name')}
                       value={draft?.name || ""}
                       onChangeText={(v) =>
                         setDraft((d) => (d ? { ...d, name: v } : d))
                       }
                       placeholder={pmT('Project name')}
-                      placeholderTextColor={themeColors.border}
-                      style={[
-                        styles.input,
-                        { color: themeColors.text, borderColor: themeColors.border },
-                      ]}
                       autoFocus
                       onSubmitEditing={saveDraft}
+                      style={{ marginBottom: 12 }}
                     />
-                    <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
-                      {pmT('Project Start Date (projectStartDate)')}
-                    </Text>
                     <PMDateInput
                       testID="pm-project-start"
+                      label={pmT('Project Start Date (projectStartDate)')}
                       dateFormat={draft?.planDateInputFormat}
                       value={draft?.projectStartDate || draft?.start || ""}
                       onChangeText={(v) => setDraft((d) => (d ? { ...d, projectStartDate: v, start: v } : d))}
+                      style={{ marginBottom: 12 }}
                     />
-
-                    <Text style={[styles.label, { color: themeColors.text, marginTop: 10 }]}>
-                      {pmT('Project Finish Date (projectFinishDate)')}
-                    </Text>
                     <PMDateInput
                       testID="pm-project-finish"
+                      label={pmT('Project Finish Date (projectFinishDate)')}
                       dateFormat={draft?.planDateInputFormat}
                       value={draft?.projectFinishDate || ""}
                       onChangeText={(v) => setDraft((d) => (d ? { ...d, projectFinishDate: v } : d))}
+                      style={{ marginBottom: 12 }}
                     />
                     <SwitchApp
                       testID="pm-project-weekends"
@@ -697,32 +722,20 @@ export default function PMRecentProjectsToolbar({
                       style={styles.switchRow}
                     />
                     {!!draft?.rowGUID && (
-                      <>
-                        <ImportExportProject
-                          ownerGUID={ownerGUID}
-                          projectGUID={draft.rowGUID}
-                          colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
-                          onImported={onImported}
-                          onExportPdf={(guid) => {
-                            // the window must not be in the picture: close it, then export the dashboard
-                            setDraft(null);
-                            exportProjectDashboardToPdf(guid, { delayMs: 450 }).catch((e: any) =>
-                              usePMStore.getState().setError(e?.message || pmT('PDF export failed')),
-                            );
-                          }}
-                        />
-                        <View style={styles.templateButtonRow}>
-                          <PMDialogButton
-                            testID="pm-settings-save-as-template"
-                            kind="secondary"
-                            icon="bookmark_add"
-                            title={pmT('Save as template')}
-                            width={PM_EXPORT_BUTTON_WIDTH}
-                            style={{ marginLeft: 0 }}
-                            onPress={() => setCreateTemplateOpen(true)}
-                          />
-                        </View>
-                      </>
+                      <ImportExportProject
+                        ownerGUID={ownerGUID}
+                        projectGUID={draft.rowGUID}
+                        colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}
+                        onImported={onImported}
+                        onExportPdf={(guid) => {
+                          // the window must not be in the picture: close it, then export the dashboard
+                          setDraft(null);
+                          exportProjectDashboardToPdf(guid, { delayMs: 450 }).catch((e: any) =>
+                            usePMStore.getState().setError(e?.message || pmT('PDF export failed')),
+                          );
+                        }}
+                        onSaveAsTemplate={() => setCreateTemplateOpen(true)}
+                      />
                     )}
                     {!draft?.rowGUID && (
                       <View style={styles.templateButtonRow}>
@@ -781,7 +794,28 @@ export default function PMRecentProjectsToolbar({
                       }
                       style={styles.switchRow}
                     />
-                    <Text style={[styles.label, { color: themeColors.text, marginTop: 14 }]}>
+
+                    <PMCommandsModeSelector
+                      label={pmT('Task tree: row commands')}
+                      testID="pm-project-tree-commands"
+                      value={draft?.projectTreeContextCommandsMode ?? 'onHoverPanelMode'}
+                      onChange={(v) =>
+                        setDraft((d) => (d ? { ...d, projectTreeContextCommandsMode: v } : d))
+                      }
+                      colors={{ text: themeColors.text, primary: themeColors.primary }}
+                    />
+
+                    <PMCommandsModeSelector
+                      label={pmT('Gantt chart: bar commands')}
+                      testID="pm-project-gantt-commands"
+                      value={draft?.projectGanttChartContextCommandsMode ?? 'onHoverPanelMode'}
+                      onChange={(v) =>
+                        setDraft((d) => (d ? { ...d, projectGanttChartContextCommandsMode: v } : d))
+                      }
+                      colors={{ text: themeColors.text, primary: themeColors.primary }}
+                    />
+
+                    <Text style={[styles.label, { color: themeColors.text, marginTop: 16, fontWeight: '600' }]}>
                       {pmT('Date format (planDateInputFormat)')}
                     </Text>
                     <View testID="pm-project-date-format" style={styles.formatRow}>
@@ -791,25 +825,42 @@ export default function PMRecentProjectsToolbar({
                           <Pressable
                             key={fmt}
                             testID={`pm-project-format-${fmt.replace(/[^A-Za-z0-9]/g, "_")}`}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: selectedFmt }}
                             onPress={() =>
                               setDraft((d) => (d ? { ...d, planDateInputFormat: fmt } : d))
                             }
-                            style={[
+                            style={({ hovered, pressed }: any) => [
                               styles.formatChip,
                               {
-                                borderColor: selectedFmt ? themeColors.primary : themeColors.border,
+                                borderColor: selectedFmt
+                                  ? themeColors.primary
+                                  : hovered || pressed
+                                  ? themeColors.primary
+                                  : themeColors.border,
                                 backgroundColor: selectedFmt
-                                  ? withAlpha(themeColors.primary, 0.15)
-                                  : "transparent",
+                                  ? themeColors.primary
+                                  : hovered || pressed
+                                  ? withAlpha(themeColors.primary, 0.08)
+                                  : themeColors.surface,
                               },
+                              selectedFmt && styles.formatChipSelected,
                             ]}
                           >
+                            {selectedFmt && (
+                              <IconApp
+                                name="check"
+                                size={14}
+                                color="#ffffff"
+                                style={{ marginRight: 6 }}
+                              />
+                            )}
                             <Text
                               style={[
                                 styles.formatText,
                                 {
-                                  color: selectedFmt ? themeColors.primary : themeColors.text,
-                                  fontWeight: selectedFmt ? "700" : "400",
+                                  color: selectedFmt ? "#ffffff" : themeColors.text,
+                                  fontWeight: selectedFmt ? "700" : "600",
                                 },
                               ]}
                             >
@@ -964,7 +1015,8 @@ export default function PMRecentProjectsToolbar({
                 />
                 <PMDialogButton
                   testID="pm-project-save"
-                  kind="secondary"
+                  kind="primary"
+                  color={themeColors.primary}
                   title={pmT(draft?.rowGUID ? 'Save' : 'Create')}
                   width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={saveDraft}
@@ -1180,12 +1232,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   switchRow: { flexDirection: "row", alignItems: "center", marginTop: 12 },
-  formatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+  formatRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   formatChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1.5,
   },
-  formatText: { fontSize: 11 },
+  formatChipSelected: {
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  formatText: {
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
 });

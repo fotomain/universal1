@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "例如：箭头、进度、列",
   "the task tree / Gantt chart is not on the screen": "任务树 / 甘特图不在屏幕上",
   "{{tip}} (not available now)": "{{tip}}（当前不可用）",
+  "Increase": "增加",
+  "Decrease": "减少",
+  "Custom…": "自定义…",
+  "auto": "自动",
 };
 export default texts;

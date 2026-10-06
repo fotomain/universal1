@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "bijv. pijlen, voortgang, kolom",
   "the task tree / Gantt chart is not on the screen": "de takenboom / het Gantt-diagram staat niet op het scherm",
   "{{tip}} (not available now)": "{{tip}} (nu niet beschikbaar)",
+  "Increase": "Verhogen",
+  "Decrease": "Verlagen",
+  "Custom…": "Aangepast…",
+  "auto": "auto",
 };
 export default texts;

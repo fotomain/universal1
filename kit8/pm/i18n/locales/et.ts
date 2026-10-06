@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "nt nooled, edenemine, veerg",
   "the task tree / Gantt chart is not on the screen": "ülesannete puu / Gantti diagramm ei ole ekraanil",
   "{{tip}} (not available now)": "{{tip}} (praegu pole saadaval)",
+  "Increase": "Suurenda",
+  "Decrease": "Vähenda",
+  "Custom…": "Kohandatud…",
+  "auto": "auto",
 };
 export default texts;

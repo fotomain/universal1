@@ -5,8 +5,8 @@ import * as Crypto from 'expo-crypto';
 import { SystemMetaData } from '../redux/SystemMetaData';
 import { mediaPostExample } from '../redux/lib/mediaPostExample';
 import H1Mi from '../ui/H1Mi';
-import TexInputMi from '../ui/TexInputMi';
-import ButtonMi from '../ui/ButtonMi';
+import TextInputApp from './common/TextInputApp';
+import ButtonApp from './common/ButtonApp';
 import { showSnackbar } from '../redux/uxuiSlice';
 import AskBeforeDeletePostComponent from './common/AskBeforeDeletePostComponent';
 import ActivityIndicatorCircleApp from './activityindicator/ActivityIndicatorCircleApp';
@@ -187,7 +187,7 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
             {/* Filter & Refresh Controls */}
             <View style={styles.card}>
                 <Text style={styles.cardHeader}>🔍 Search & Refresh</Text>
-                <TexInputMi
+                <TextInputApp
                     label="Search Filter"
                     value={filterText}
                     onChangeText={setFilterText}
@@ -195,35 +195,35 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                     inputMode="nativePaper"
                 />
                 <View style={styles.rowButtons}>
-                    <ButtonMi title="Search / Read Posts" onPress={() => handleRead(filterText)} />
+                    <ButtonApp title="Search / Read Posts" onPress={() => handleRead(filterText)} />
                 </View>
             </View>
 
             {/* Create New Post Form */}
             <View style={styles.card}>
                 <Text style={styles.cardHeader}>➕ Create New Media Post</Text>
-                <TexInputMi
+                <TextInputApp
                     label="Title"
                     value={title}
                     onChangeText={setTitle}
                     placeholder="Enter post title"
                     inputMode="nativePaper"
                 />
-                <TexInputMi
+                <TextInputApp
                     label="Subtitle"
                     value={subtitle}
                     onChangeText={setSubtitle}
                     placeholder="Enter post subtitle"
                     inputMode="nativePaper"
                 />
-                <TexInputMi
+                <TextInputApp
                     label="Description"
                     value={description}
                     onChangeText={setDescription}
                     placeholder="Enter post description"
                     inputMode="nativePaper"
                 />
-                <TexInputMi
+                <TextInputApp
                     label="Origin URL"
                     value={originUrl}
                     onChangeText={setOriginUrl}
@@ -231,8 +231,8 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                     inputMode="nativePaper"
                 />
                 <View style={styles.rowButtons}>
-                    <ButtonMi title="Create Post" onPress={handleCreate} />
-                    <ButtonMi title="Fill Sample Data" onPress={handleLoadExample} color="#555" />
+                    <ButtonApp title="Create Post" onPress={handleCreate} />
+                    <ButtonApp title="Fill Sample Data" onPress={handleLoadExample} color="#555" />
                 </View>
             </View>
 
@@ -253,21 +253,21 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                                 {isEditing ? (
                                     <View style={styles.editContainer}>
                                         <Text style={styles.editingHeader}>Editing Post ID: {guid}</Text>
-                                        <TexInputMi
+                                        <TextInputApp
                                             label="Title"
                                             value={editTitle}
                                             onChangeText={setEditTitle}
                                             inputMode="nativePaper"
                                         />
-                                        <TexInputMi
+                                        <TextInputApp
                                             label="Description"
                                             value={editDescription}
                                             onChangeText={setEditDescription}
                                             inputMode="nativePaper"
                                         />
                                         <View style={styles.rowButtons}>
-                                            <ButtonMi title="Save Changes" onPress={() => handleSaveEdit(guid)} color="#2e7d32" />
-                                            <ButtonMi title="Cancel" onPress={handleCancelEdit} color="#757575" />
+                                            <ButtonApp title="Save Changes" onPress={() => handleSaveEdit(guid)} color="#2e7d32" />
+                                            <ButtonApp title="Cancel" onPress={handleCancelEdit} color="#757575" />
                                         </View>
                                     </View>
                                 ) : (
@@ -285,8 +285,8 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                                         <Text style={styles.postGuid}>GUID: {guid}</Text>
 
                                         <View style={styles.rowButtons}>
-                                            <ButtonMi title="Edit" onPress={() => handleStartEdit(item)} color="#0288d1" />
-                                            <ButtonMi title="Delete" onPress={() => handleDelete(guid)} color="#d32f2f" />
+                                            <ButtonApp title="Edit" onPress={() => handleStartEdit(item)} color="#0288d1" />
+                                            <ButtonApp title="Delete" onPress={() => handleDelete(guid)} color="#d32f2f" />
                                         </View>
                                     </View>
                                 )}

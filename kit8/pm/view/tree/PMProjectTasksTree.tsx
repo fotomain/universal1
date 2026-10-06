@@ -155,6 +155,10 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const rowIndexById = usePMStore((s) => s.rowIndexById);
   const showCritical = usePMStore((s) => s.showCriticalPath);
   const cellEdit = usePMStore((s) => s.cellEdit);
+  const cellEditActiveSV = useSharedValue(false);
+  useEffect(() => {
+    cellEditActiveSV.value = !!cellEdit;
+  }, [cellEdit, cellEditActiveSV]);
   const headerColors = usePMStore((s) => s.treeHeadersBackgroundColors);
   const columnReveal = usePMStore((s) => s.treeColumnReveal);
   // ---- filter & sort (tree/filter) ----
@@ -587,20 +591,18 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     }
     if (zone.startsWith('filter:')) {
       const k = zone.slice(7) as PMTreeColumnKey;
-      const title = colsRef.current.byKey[k]?.title ?? '';
+      const title = colsRef.current.byKey[k]?.title ?? custom(k)?.name ?? k;
       const type = treeColumnDataType(k, s.customColumns);
       const f = s.treeColumnsFilters[k];
       const parts: string[] = [];
       if (f && type && isTreeColumnFilterActive(k, f, s.customColumns)) parts.push(`Filtered: ${describeTreeColumnFilter(f, type)}`);
       if (s.treeColumnSort?.key === k && type) parts.push(sortLabels(type)[s.treeColumnSort.direction].replace(/^Sort/, 'Sorted'));
-      return tipAt(parts.length ? `${title} · ${parts.join(' · ')} · click to change` : `Filter & sort "${title}"`, vx, y);
+      return tipAt(parts.length ? `${title} · ${parts.join(' · ')} · click to change` : title, vx, y);
     }
     if (zone.startsWith('head:')) {
-      const k = zone.slice(5);
-      const def = custom(k);
-      const what = def ? `${def.name} (${PM_CUSTOM_COLUMN_TYPE_LABEL[def.type]} column) · ` : '';
-      const move = colsRef.current.columns.length > 1 ? 'drag to move the column · ' : '';
-      return tipAt(`${what}${move}${IS_WEB ? 'right-click' : 'long-press'} for column options (filter & sort, add a custom column…)`, vx, y);
+      const k = zone.slice(5) as PMTreeColumnKey;
+      const title = colsRef.current.byKey[k]?.title ?? custom(k)?.name ?? k;
+      return tipAt(title, vx, y);
     }
     const expandedNow = s.selectedProjectGUID ? s.expandedByProject[s.selectedProjectGUID]?.[guid!] !== false : true;
     const summary = !!s.schedule[guid!]?.isSummary;
@@ -639,6 +641,15 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const onTapRow = useCallback(
     (idx: number, x: number) => {
       const s = usePMStore.getState();
+      // If a cell editor / menu was active or was closed very recently (e.g. mobile touch on a menu item),
+      // do not start editing another cell
+      if (s.cellEdit !== null) {
+        s.setCellEdit(null);
+        return;
+      }
+      if (Date.now() - (s.lastCellEditClosedAt ?? 0) < 500) {
+        return;
+      }
       const guid = s.visibleRows[idx];
       if (!guid) {
         s.setSelected(null);
@@ -661,6 +672,10 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
 
   const onDoubleTapRow = useCallback(
     (idx: number, x: number) => {
+      const s = usePMStore.getState();
+      if (s.cellEdit !== null || Date.now() - (s.lastCellEditClosedAt ?? 0) < 500) {
+        return;
+      }
       const field = cellFieldAt(x);
       if (field) {
         // a Boolean cell was already switched by the first click: a double-click must not switch it back and forth
@@ -880,6 +895,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       .onEnd((e, ok) => {
         'worklet';
         if (!ok) return;
+        if (cellEditActiveSV.value) return; // a cell editor was open: tap was consumed by it
         if (e.y >= canvasHSV.value - HBAR_GRAB_H && treeMaxScrollX.value > 0) return; // on the scroll bar
         const idx = rowAt(e.y);
         if (onPanel(idx, e.x)) return; // on the hover panel (its buttons handle the press)
@@ -895,6 +911,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       .onEnd((e, ok) => {
         'worklet';
         if (!ok) return;
+        if (cellEditActiveSV.value) return;
         if (e.y < PM_SCALE_HEIGHT) {
           runOnJS(onDoubleTapHeader)(cx(e.x));
           return;

@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "piem., bultas, izpilde, kolonna",
   "the task tree / Gantt chart is not on the screen": "uzdevumu koks / Ganta diagramma nav redzama ekrānā",
   "{{tip}} (not available now)": "{{tip}} (pašlaik nav pieejams)",
+  "Increase": "Palielināt",
+  "Decrease": "Samazināt",
+  "Custom…": "Pielāgota…",
+  "auto": "auto",
 };
 export default texts;

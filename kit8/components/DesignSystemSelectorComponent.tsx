@@ -35,6 +35,14 @@ const DESIGN_SYSTEMS: SystemOption[] = [
     url: 'https://callstack.github.io/react-native-paper/',
   },
   {
+    id: 'applemacui',
+    name: 'Apple Mac UI',
+    badge: 'iOS / HIG',
+    description: "Apple's iOS look and feel on iOS, Android and web (Human Interface Guidelines).",
+    color: '#007AFF',
+    url: 'https://developer.apple.com/design/human-interface-guidelines/',
+  },
+  {
     id: 'tamagui',
     name: 'Tamagui',
     badge: 'Tamagui v2',

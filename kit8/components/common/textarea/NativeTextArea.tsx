@@ -4,6 +4,7 @@ import IconApp from '../IconApp';
 import { TextAreaSubcomponentProps } from './types';
 
 export const NativeTextArea: React.FC<TextAreaSubcomponentProps> = ({
+  testID,
   label,
   value = '',
   onChangeText,
@@ -41,6 +42,7 @@ export const NativeTextArea: React.FC<TextAreaSubcomponentProps> = ({
         }}
       >
         <TextInput
+          testID={testID}
           value={currentValue}
           onChangeText={onChangeText}
           placeholder={placeholder}

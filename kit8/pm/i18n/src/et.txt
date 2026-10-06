@@ -433,3 +433,7 @@
 433|nt nooled, edenemine, veerg
 434|ülesannete puu / Gantti diagramm ei ole ekraanil
 435|{{tip}} (praegu pole saadaval)
+436|Suurenda
+437|Vähenda
+438|Kohandatud…
+439|auto

@@ -435,5 +435,9 @@ const texts: Record<string, string> = {
   "e.g. arrows, progress, column": "pvz., rodyklės, eiga, stulpelis",
   "the task tree / Gantt chart is not on the screen": "užduočių medžio / Ganto diagramos nėra ekrane",
   "{{tip}} (not available now)": "{{tip}} (šiuo metu nepasiekiama)",
+  "Increase": "Didinti",
+  "Decrease": "Mažinti",
+  "Custom…": "Pasirinktinė…",
+  "auto": "auto",
 };
 export default texts;

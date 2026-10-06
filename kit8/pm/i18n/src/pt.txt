@@ -433,3 +433,7 @@
 433|ex.: setas, progresso, coluna
 434|a árvore de tarefas / gráfico de Gantt não está no ecrã
 435|{{tip}} (indisponível agora)
+436|Aumentar
+437|Diminuir
+438|Personalizada…
+439|auto

@@ -437,4 +437,8 @@ export const PM_KEYS: readonly string[] = [
   "e.g. arrows, progress, column",
   "the task tree / Gantt chart is not on the screen",
   "{{tip}} (not available now)",
+  "Increase",
+  "Decrease",
+  "Custom…",
+  "auto",
 ];

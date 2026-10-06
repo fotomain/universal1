@@ -127,6 +127,7 @@ function PMProjectDashboardInner() {
 
   // ---- main FAB (FABProvider): the CRUD commands of this screen, for the current view + selection ----
   const selectedIsLeaf = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID] && !(s.tree.childrenById[s.selectedGUID]?.length)));
+  const isSummary = usePMStore((s) => (s.selectedGUID ? !!s.schedule[s.selectedGUID]?.isSummary : false));
   const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
   const undoCount = usePMStore((s) => s.undoCount);
   const fabActions = useMemo((): FABContextAction[] | null => {
@@ -138,19 +139,35 @@ function PMProjectDashboardInner() {
       return a;
     }
     const isKanbanView = ganttVsNetworkView === 'showKanbanView';
-    // nearest to the FAB first (the list grows upwards): the most used commands
-    a.push({ icon: 'plus', label: sel ? 'Add task (after / inside the selected row)' : 'Add task', onPress: () => crud.createTask(sel) });
-    a.push({ icon: 'folder-plus-outline', label: 'Add stage', onPress: () => (sel ? crud.createStageBelow(sel) : crud.createStage(null)) });
-    a.push({ icon: 'flag-outline', label: 'Add milestone', onPress: () => crud.createTask(sel, 'milestone') });
+
     if (sel) {
+      // When a task of Tree is selected, main FAB has all task context menu items with their texts
+      a.push({ icon: 'table-row-plus-after', label: 'Add task below', onPress: () => crud.createTaskBelow(sel) });
+      a.push({ icon: 'table-row-plus-before', label: 'Add task above', onPress: () => crud.createTaskAbove(sel) });
+      if (isSummary) {
+        a.push({ icon: 'plus-circle-outline', label: 'Add task inside', onPress: () => crud.createTask(sel) });
+      }
+      a.push({ icon: 'folder-plus-outline', label: 'Add stage below', onPress: () => crud.createStageBelow(sel) });
+      a.push({ icon: 'folder-upload-outline', label: 'Add stage above', onPress: () => crud.createStageAbove(sel) });
       a.push({ icon: 'pencil-outline', label: 'Edit', onPress: () => crud.edit(sel) });
       a.push({ icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(sel) });
-      a.push({ icon: 'calendar-plus', label: 'Add to Google Calendar', onPress: () => crud.addToGoogleCalendar(sel) });
+      a.push({ icon: 'content-copy', label: 'Copy task info', onPress: () => crud.copyTaskInfo(sel) });
+      a.push({ icon: 'fingerprint', label: 'Copy GUID', onPress: () => crud.copyTaskGUID(sel) });
       a.push({ icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(sel) });
+      a.push({ icon: 'calendar-plus', label: 'Add to Google Calendar', onPress: () => crud.addToGoogleCalendar(sel) });
+      a.push({ icon: 'link-variant', label: 'Link to…', onPress: () => crud.startLink(sel) });
       a.push({ icon: 'open-in-new', label: 'Open task info', onPress: () => crud.openInfo(sel) });
-      if (isKanbanView && selectedIsLeaf) a.push({ icon: 'layers-off-outline', label: 'Kanban: to "No state"', onPress: () => kanban.clearTreeRowKanbanState(sel) });
+      if (isKanbanView && selectedIsLeaf) {
+        a.push({ icon: 'layers-off-outline', label: 'Kanban: to "No state"', onPress: () => kanban.clearTreeRowKanbanState(sel) });
+      }
       a.push({ icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(sel) });
+    } else {
+      // Default project actions when no task is selected
+      a.push({ icon: 'plus', label: 'Add task', onPress: () => crud.createTask(null) });
+      a.push({ icon: 'folder-plus-outline', label: 'Add stage', onPress: () => crud.createStage(null) });
+      a.push({ icon: 'flag-outline', label: 'Add milestone', onPress: () => crud.createTask(null, 'milestone') });
     }
+
     if (checkedCount > 0) {
       a.push({ icon: 'delete-sweep-outline', label: `Delete the ${checkedCount} selected rows`, color: themeColors.error, onPress: () => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs)) });
       a.push({ icon: 'checkbox-multiple-blank-circle-outline', label: 'Clear the selection', onPress: () => usePMStore.getState().clearChecked() });
@@ -159,7 +176,7 @@ function PMProjectDashboardInner() {
     if (undoCount > 0) a.push({ icon: 'undo', label: 'Undo', onPress: () => crud.undoGanttAction() });
     a.push({ icon: 'cog-outline', label: 'Project settings', onPress: () => usePMStore.getState().openProjectSettings(selectedProjectGUID) });
     return a;
-  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, selectedIsLeaf, checkedCount, undoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
+  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
   useFABContextActions('pm-project-dashboard', fabActions);
 
   // The Gantt | Network view follows the user across projects (store.selectProject keeps it);

@@ -8,7 +8,7 @@ import { useDispatch } from 'react-redux';
 import { useTheme, Text } from 'react-native-paper';
 import type { User } from '@supabase/supabase-js';
 import { ButtonPrimaryApp, ButtonTextApp } from '../common';
-import TexInputMi from '../../ui/TexInputMi';
+import TextInputApp from '../common/TextInputApp';
 import IconApp from '../common/IconApp';
 import { useSupabase } from '../../providers/WithSupabase';
 import { usePasswordReset } from '../../hooks/usePasswordReset';
@@ -67,7 +67,7 @@ export default function ForgotPassword({ initialEmail, onDone, onBack, testIDPre
 
   const passwordFields = (
     <>
-      <TexInputMi
+      <TextInputApp
         testID={id('password')}
         label={t('screens.newPassword')}
         value={pr.password}
@@ -81,7 +81,7 @@ export default function ForgotPassword({ initialEmail, onDone, onBack, testIDPre
         editable={!pr.saving}
         inputMode="nativePaper"
       />
-      <TexInputMi
+      <TextInputApp
         testID={id('confirm')}
         label={t('screens.confirmNewPassword')}
         value={pr.confirm}
@@ -122,7 +122,7 @@ export default function ForgotPassword({ initialEmail, onDone, onBack, testIDPre
           <Text variant="bodyMedium" style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
             {t('screens.resetPasswordHint')}
           </Text>
-          <TexInputMi
+          <TextInputApp
             testID={id('email')}
             label={t('screens.email')}
             value={pr.email}
@@ -165,7 +165,7 @@ export default function ForgotPassword({ initialEmail, onDone, onBack, testIDPre
               {t('screens.resetCodeHint')}
             </Text>
           </View>
-          <TexInputMi
+          <TextInputApp
             testID={id('code')}
             label={t('screens.otpCode')}
             value={pr.code}

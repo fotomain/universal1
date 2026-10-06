@@ -433,3 +433,7 @@
 433|z. B. Pfeile, Fortschritt, Spalte
 434|Aufgabenbaum / Gantt-Diagramm ist nicht auf dem Bildschirm
 435|{{tip}} (derzeit nicht verfügbar)
+436|Erhöhen
+437|Verringern
+438|Eigene…
+439|auto
