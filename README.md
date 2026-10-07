@@ -16,8 +16,11 @@ git push origin main1 --force
 git push origin main1:main --force
 
 ## ███ RUN
-npx expo start --web
 npm run web
+npx expo start --web
+
+
+
 [Documents](../../Documents)
 # CLEAR
 taskkill /f /im node.exe

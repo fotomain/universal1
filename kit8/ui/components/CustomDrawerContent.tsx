@@ -76,6 +76,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     },
 
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
+    { id: 'reusabletable', label: 'Reusable Table', icon: 'view_column', route: 'demo/reusabletable' },
 
 
   ];
