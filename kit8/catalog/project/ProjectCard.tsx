@@ -68,12 +68,16 @@ export default function ProjectCard({
         styles.card,
         {
           minHeight: crudCardHeight,
-          backgroundColor: isCurrentGantt || isSelected ? `${c.primary}18` : c.surface,
+          // opaque: the swipe underlay (its delete icon) of the web list must not show through the card
+          backgroundColor: c.surface,
           borderColor: isCurrentGantt || isSelected ? c.primary : c.border,
         },
         isDragging && styles.dragging,
       ]}
     >
+      {(isCurrentGantt || isSelected) && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: `${c.primary}18`, borderRadius: 9 }]} />
+      )}
       {Platform.OS === 'web' && dragHandleProps ? (
         <div
           {...dragHandleProps}

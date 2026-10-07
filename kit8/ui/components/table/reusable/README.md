@@ -22,7 +22,7 @@ searchEnabled, contextMenuEnabled, extraMenuItems, onRowsChange, rowHeight, tabl
 Column types (`reusableTableTypes.ts`): `rowNumber` · `catalog` (stores a catalog rowGUID, shows its title through
 SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalog, cleared when that column changes;
 `detailsRoute` = a "…" button in the cell that opens the details page of the selected element; the page gets
-`returnTo` = this screen + `focusRowGUID`, so the app's Back button returns to the same row - kit8/lib/returnTo.ts) ·
+`returnTo` = this screen + `focusRowGUID`, so the app's Back button returns to the same row - kit8/lib/returnToRoute.ts) ·
 `integer` / `number` (− / + buttons by default; `stepper: false`, `step`) · `text` · `custom`.
 
 Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate, move up / down / first / last, copy GUID,

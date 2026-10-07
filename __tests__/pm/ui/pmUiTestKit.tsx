@@ -16,7 +16,8 @@ jest.mock('react-redux', () => {
   return {
     ...actual,
     useDispatch: () => jest.fn(),
-    useSelector: (fn: any) => fn({ uxuiState: {} }),
+    // a test can provide redux state (catalog rows ...): globalThis.__pmTestReduxState = {...}
+    useSelector: (fn: any) => fn({ uxuiState: {}, ...((globalThis as any).__pmTestReduxState || {}) }),
   };
 });
 

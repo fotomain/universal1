@@ -105,6 +105,17 @@ export interface PMRowJSON {
   mainCustomerGUID?: string | null;
   /** Selected main customer contract rowGUID (contractTable) */
   mainCustomerContractGUID?: string | null;
+  // ---- project_table only: Finances (Project settings -> TabFinances) ----
+  /** ISO 4217 code (currency catalog) of the project budgets */
+  currencyForBudget?: string | null;
+  /** ISO 4217 code (currency catalog) of the project accounting */
+  currencyForAccounting?: string | null;
+  /** ISO 4217 code (currency catalog): default currency for contracts */
+  currencyForContract?: string | null;
+  /** Budgets: the project needs a revenue budget */
+  projectRevenueBudgetNeeded?: boolean;
+  /** Budgets: the project needs an expense budget */
+  projectExpenseBudgetNeeded?: boolean;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */

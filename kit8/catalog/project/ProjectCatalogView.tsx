@@ -14,6 +14,7 @@ import {
   useReadProjectUserSettingsQuery,
 } from '../../pm/crud/queries';
 import ProjectList from './ProjectList';
+import PMRecentProjectsToolbar from '../../pm/view/project/recent/PMRecentProjectsToolbar';
 
 export default function ProjectCatalogView() {
   return (
@@ -101,6 +102,9 @@ function ProjectCatalogViewInner() {
           </Pressable>
         </View>
       )}
+
+      {/* hidden project bar: only its windows (Project settings - the gear of a project card) */}
+      {!!ownerGUID && <PMRecentProjectsToolbar ownerGUID={ownerGUID} hidden />}
 
       {/* Content Area */}
       <View style={styles.mainLayout}>

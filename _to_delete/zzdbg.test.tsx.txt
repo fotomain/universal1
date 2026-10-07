@@ -1,0 +1,17 @@
+/** @jest-environment jsdom */
+import React from 'react';
+import { OWNER, press, q, renderUI, seedStore } from './pmUiTestKit';
+jest.mock('../../../kit8/pm/crud/queries', () => ({
+  useBuildProjectRow: () => () => ({}), useCreateProjectMutation: () => ({ mutate: jest.fn() }), useUpdateProjectMutation: () => ({ mutate: jest.fn() }),
+  useDeleteProjectMutation: () => ({ mutate: jest.fn() }), useProjectSearchQuery: () => ({ data: undefined, isFetching: false }),
+}));
+jest.mock('../../../kit8/pm/crud/exchange/project/ImportExportProject', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../kit8/pm/view/kanban/PMKanbanStagesModalWindow', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../kit8/redux/reusable/useRealtimeEntity', () => ({ useRealtimeEntity: jest.fn() }));
+const mockState: any = { partnerReusable: { entityDataFromServer: [{ rowGUID: 'p1', rowOwnerGUID: 'x', rowParentGUID: 'empty', orderInList: 0, rowJSON: { partnerTitle: 'AAA', partnerIsSupplier: true } }] } };
+jest.mock('react-redux', () => ({ ...jest.requireActual('react-redux'), useSelector: (fn: any) => fn(mockState), useDispatch: () => jest.fn() }));
+import T from '../../../kit8/pm/view/project/recent/PMRecentProjectsToolbar';
+it('dbg', () => {
+  seedStore(); renderUI(<T ownerGUID={OWNER} />); press('pm-project-edit'); press('pm-project-tab-TabPartners'); press('pm-project-main-supplier-trigger');
+  console.log('MODAL>>', q('pm-project-main-supplier-modal')?.innerHTML.slice(0, 3000));
+});

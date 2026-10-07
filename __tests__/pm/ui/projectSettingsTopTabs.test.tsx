@@ -133,6 +133,11 @@ const sampleContracts = [
   },
 ];
 
+const sampleCurrencies = [
+  { rowGUID: 'cur-eur', rowOwnerGUID: 'currencyCatalog', rowParentGUID: 'empty', orderInList: 0, rowJSON: { currencyCode: 'EUR', currencyName: 'Euro', currencySymbol: '€', decimalDigits: 2, isActive: true } },
+  { rowGUID: 'cur-usd', rowOwnerGUID: 'currencyCatalog', rowParentGUID: 'empty', orderInList: 1, rowJSON: { currencyCode: 'USD', currencyName: 'US Dollar', currencySymbol: '$', decimalDigits: 2, isActive: true } },
+];
+
 const sampleKanbanStates = [
   {
     rowGUID: 'kstate-1',
@@ -151,8 +156,11 @@ describe('Project settings window TopTabs', () => {
     mockReduxState = {
       partnerReusable: { entityDataFromServer: samplePartners },
       contractReusable: { entityDataFromServer: sampleContracts },
+      currencyReusable: { entityDataFromServer: sampleCurrencies },
       projectTaskKanbanStateReusable: { entityDataFromServer: sampleKanbanStates },
     };
+    // pmUiTestKit's react-redux mock is the one in effect: it reads this state
+    (globalThis as any).__pmTestReduxState = mockReduxState;
     mockCreate.mockClear();
     mockUpdate.mockClear();
     mockDelete.mockClear();
@@ -161,18 +169,23 @@ describe('Project settings window TopTabs', () => {
 
   afterEach(() => {
     cleanupUI();
+    delete (globalThis as any).__pmTestReduxState;
     jest.clearAllMocks();
   });
 
-  it('renders all 4 TopTabs and defaults to TabMain', () => {
+  it('renders all 5 TopTabs and defaults to TabMain', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
 
     expect(q('pm-project-settings-toptabs')).not.toBeNull();
     expect(q('pm-project-tab-TabMain')).not.toBeNull();
+    expect(q('pm-project-tab-TabFinances')).not.toBeNull();
     expect(q('pm-project-tab-TabUXUI')).not.toBeNull();
     expect(q('pm-project-tab-TabPartners')).not.toBeNull();
+    // TabFinances comes right after TabMain
+    const tabIds = Array.from(q('pm-project-settings-toptabs')!.querySelectorAll('[data-testid^="pm-project-tab-"]')).map((e: any) => e.getAttribute('data-testid'));
+    expect(tabIds.slice(0, 2)).toEqual(['pm-project-tab-TabMain', 'pm-project-tab-TabFinances']);
     expect(q('pm-project-tab-TabKanban')).not.toBeNull();
 
     // Default tab is TabMain
@@ -212,6 +225,33 @@ describe('Project settings window TopTabs', () => {
     const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
     expect(patchRowJSON.planHour).toBe(true);
     expect(patchRowJSON.planDateInputFormat).toBe('DD.MM.YYYY');
+  });
+
+  it('switches to TabFinances and saves the 3 currencies and the budget checkboxes to rowJSON', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+
+    press('pm-project-tab-TabFinances');
+    expect(q('pm-project-tab-finances-content')).not.toBeNull();
+    expect(q('pm-project-tab-main-content')).toBeNull();
+
+    press('pm-project-currencyForBudget-trigger');
+    press('pm-project-currencyForBudget-item-cur-eur');
+    press('pm-project-currencyForAccounting-trigger');
+    press('pm-project-currencyForAccounting-item-cur-usd');
+    press('pm-project-currencyForContract-trigger');
+    press('pm-project-currencyForContract-item-cur-eur');
+    toggleSwitch('pm-project-revenue-budget-needed');
+
+    press('pm-project-save');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.currencyForBudget).toBe('EUR');
+    expect(patchRowJSON.currencyForAccounting).toBe('USD');
+    expect(patchRowJSON.currencyForContract).toBe('EUR');
+    expect(patchRowJSON.projectRevenueBudgetNeeded).toBe(true);
+    expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(false);
   });
 
   it('switches to TabPartners and supports supplier & customer selection with contract cascading', () => {

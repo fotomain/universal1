@@ -62,6 +62,14 @@ export default function ProjectList({
     onSelectProject?.(projectGUID);
   };
 
+  /** gear of a card: the Project settings window (PMRecentProjectsToolbar of ProjectCatalogView) */
+  const handleSettings = (projectGUID: string) => {
+    const s = usePMStore.getState();
+    s.addRecentProject(projectGUID);
+    s.selectProject(projectGUID);
+    s.openProjectSettings(projectGUID);
+  };
+
   return (
     <View
       style={[
@@ -95,19 +103,19 @@ export default function ProjectList({
           CardComponent={ProjectCard}
           mapItemToCard={projectToCard}
           onCreateNewItem={handleCreateNew}
-          onEditCard={handleSelect}
+          onEditCard={handleSettings}
           crudCardHeight={76}
           crudListWidth={typeof width === 'number' ? width : 460}
           crudGapBetweenCards={8}
         />
       ) : (
-        <NativeProjectList onSelect={handleSelect} />
+        <NativeProjectList onSelect={handleSelect} onEdit={handleSettings} />
       )}
     </View>
   );
 }
 
-function NativeProjectList({ onSelect }: { onSelect: (id: string) => void }) {
+function NativeProjectList({ onSelect, onEdit }: { onSelect: (id: string) => void; onEdit: (id: string) => void }) {
   const dispatch = useDispatch();
   const rows: any[] = useSelector((s: any) => s?.[PROJECT_ENTITY]?.entityDataFromServer) || [];
   const { themeColors: c } = useDesignSystem();
@@ -127,6 +135,7 @@ function NativeProjectList({ onSelect }: { onSelect: (id: string) => void }) {
         <ProjectCard
           card={projectToCard(item, index)}
           onSelect={onSelect}
+          onEdit={onEdit}
           onDelete={(id) => actions?.deleteOne && dispatch(actions.deleteOne({ rowGUID: id }))}
         />
       )}

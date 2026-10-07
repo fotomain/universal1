@@ -1,4 +1,4 @@
-import {call, cancel, cancelled, fork, getContext, put, select, take, takeEvery, takeLatest} from "redux-saga/effects";
+import {call, cancel, cancelled, flush, fork, getContext, put, select, take, takeEvery, takeLatest} from "redux-saga/effects";
 import {createSupabaseTableChannel} from "./createSupabaseTableChannel";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
@@ -485,6 +485,8 @@ export const reusableRootSaga = (p: any) => {
     // startRealtime({ filter?, readParams? }) opens ONE channel for the table; every row change is applied
     // with applyRealtimeChange. On every SUBSCRIBED (first connect and reconnects) a catch-up readData runs,
     // so changes made while the socket was down are not lost. stopRealtime (or a new start) closes it.
+    /** more row changes than this in one burst -> one read of the list */
+    const REALTIME_BULK_LIMIT = 20;
     function* realtimeWorker(action: any): Generator<any, void, any> {
         const {filter, readParams} = action.payload || {};
         // scoped list (readParams.match): changes of other owners are ignored, rows moved out are removed
@@ -495,26 +497,53 @@ export const reusableRootSaga = (p: any) => {
             yield put(actions.realtimeStatusChanged({status: "CHANNEL_ERROR", error: "Supabase realtime is not available"}));
             return;
         }
-        const chan: any = yield call(createSupabaseTableChannel, supabase, {
-            table: tableName,
-            filter,
-            channelName: `reusable:${entityKey}:${tableName}:${filter || "all"}:${Date.now()}`,
-        });
+        // An error here must never leave this task: it would cancel EVERY saga of the entity (read / create /
+        // update / delete), and the screen would stop working until a reload.
+        let chan: any = null;
+        try {
+            chan = yield call(createSupabaseTableChannel, supabase, {
+                table: tableName,
+                filter,
+                channelName: `reusable:${entityKey}:${tableName}:${filter || "all"}:${Date.now()}`,
+            });
+        } catch (e: any) {
+            console.warn(`realtime ${entityKey}: the channel could not be opened`, e);
+            yield put(actions.realtimeStatusChanged({status: "CHANNEL_ERROR", error: String(e?.message || e)}));
+            return;
+        }
+        const catchUpRead = () => actions.readData({paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {})});
         try {
             while (true) {
-                const msg: any = yield take(chan);
-                if (msg.kind === "status") {
-                    yield put(actions.realtimeStatusChanged({status: msg.status, error: msg.error}));
-                    if (msg.status === "SUBSCRIBED") {
-                        yield put(actions.readData({paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {})}));
+                const first: any = yield take(chan);
+                // everything that is already waiting (a bulk insert sends one message per row)
+                const waiting: any[] = yield flush(chan);
+                const msgs = [first, ...(Array.isArray(waiting) ? waiting : [])];
+                try {
+                    const changes = msgs.filter((m) => m?.kind === "change" && m.payload?.table === tableName);
+                    let read = false;
+                    for (const msg of msgs) {
+                        if (msg?.kind !== "status") continue;
+                        yield put(actions.realtimeStatusChanged({status: msg.status, error: msg.error}));
+                        if (msg.status === "SUBSCRIBED") read = true;
                     }
-                } else if (msg.kind === "change" && msg.payload?.table === tableName) {
-                    const change = scopeRealtimeChange(msg.payload, match);
-                    if (change) yield put(actions.applyRealtimeChange(change));
+                    // many rows at once: ONE read of the list instead of hundreds of single updates
+                    if (changes.length > REALTIME_BULK_LIMIT) read = true;
+                    if (read) {
+                        yield put(catchUpRead());
+                    } else {
+                        for (const msg of changes) {
+                            const change = scopeRealtimeChange(msg.payload, match);
+                            if (change) yield put(actions.applyRealtimeChange(change));
+                        }
+                    }
+                } catch (e: any) {
+                    // one bad message / a failing screen update: report it and keep listening
+                    console.warn(`realtime ${entityKey}: a change could not be applied`, e);
+                    yield put(actions.realtimeStatusChanged({status: "CHANNEL_ERROR", error: String(e?.message || e)}));
                 }
             }
         } finally {
-            chan.close();
+            try { chan.close(); } catch (e) { console.warn(`realtime ${entityKey}: the channel could not be closed`, e); }
             if (yield cancelled()) {
                 yield put(actions.realtimeStatusChanged({status: "CLOSED"}));
             }

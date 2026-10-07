@@ -24,9 +24,13 @@ export interface CurrencyCardProps {
   dragHandleProps?: any;
   crudCardHeight?: number;
   testID?: string;
+  /** refresh icon: add the missing exchange rates of this currency (kit8/catalog/currency/refresh) */
+  onRefreshRates?: (id: string) => void;
+  /** this currency (or all of them) is being refreshed now */
+  refreshingRates?: boolean;
 }
 
-export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onDelete, dragHandleProps, crudCardHeight = 88 }: CurrencyCardProps) {
+export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onDelete, dragHandleProps, crudCardHeight = 88, onRefreshRates, refreshingRates }: CurrencyCardProps) {
   const { themeColors: c } = useDesignSystem();
   const j: Partial<CurrencyRowJSON> = card.rawItem?.rowJSON || {};
   const inactive = j.isActive === false;
@@ -82,6 +86,19 @@ export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onD
         <IconApp name="currency_exchange" size={18} color={c.primary} />
         <Text style={[styles.ratesText, { color: c.primary }]}>Rates</Text>
       </Pressable>
+      {!!onRefreshRates && (
+        <Pressable
+          testID={`currency-card-refresh-rates-${id}`}
+          disabled={refreshingRates}
+          onPress={() => onRefreshRates(id)}
+          accessibilityRole="button"
+          accessibilityLabel={`Refresh the exchange rates of ${j.currencyCode || 'currency'}`}
+          {...(Platform.OS === 'web' ? ({ title: 'Refresh rates: add the missing days of the last months' } as any) : {})}
+          style={{ padding: 4, marginRight: 8, opacity: refreshingRates ? 0.35 : 1 }}
+        >
+          <IconApp name="sync" size={20} color={c.primary} />
+        </Pressable>
+      )}
       <IconApp testID={`currency-card-edit-${id}`} name="edit" size={20} color={c.text} onPress={() => onEdit?.(id)} />
       <View style={{ width: 8 }} />
       <IconApp testID={`currency-card-delete-${id}`} name="delete" size={20} color={c.error} onPress={() => onDelete?.(id)} />
