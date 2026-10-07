@@ -1,3 +1,11 @@
-export { default as ReusableTable, compareValues } from './ReusableTable';
+export { default as ReusableTable } from './ReusableTable';
 export { default as ReusableTableDemo } from './ReusableTableDemo';
-export type { ReusableTableColumn, ReusableTableProps, SortDirection, ColumnAlign } from './reusableTableTypes';
+export { default as TaskExpenseInputTable } from './example/TaskExpenseInputTable';
+export * from './example/taskExpenseInputModel';
+export { useReusableTableCrud } from './useReusableTableCrud';
+export * from './tableRows';
+export * from './tableFilter';
+export * from './tableExport';
+export * from './tableExportActions';
+export { buildTablePdf, buildTextTablePdf } from './tablePdf';
+export type * from './reusableTableTypes';

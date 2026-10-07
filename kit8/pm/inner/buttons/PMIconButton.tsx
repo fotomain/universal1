@@ -3,7 +3,7 @@
 
 import React from 'react';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
-import { usePMTip } from '../tooltip/PMTooltip';
+import { usePMTip, PMTipScope } from '../tooltip/PMTooltip';
 import { pmT } from '../../i18n/pmT';
 
 const humanize = (icon: string) => icon.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -27,12 +27,14 @@ export interface PMIconButtonProps {
   badge?: number;
   /** long press (touch) does this instead of showing the tip, e.g. opens a menu */
   onLongPress?: () => void;
+  /** which tooltip layer shows the tip: 'screen' (default, PM screens) or 'app' (root layout - works on every screen) */
+  tipScope?: PMTipScope;
 }
 
-export function PMIconButton({ icon, label, onPress, color, activeColor, active, disabled, testID, title, size, compact, width, badge, onLongPress }: PMIconButtonProps) {
+export function PMIconButton({ icon, label, onPress, color, activeColor, active, disabled, testID, title, size, compact, width, badge, onLongPress, tipScope }: PMIconButtonProps) {
   // title / label are English texts: shown in the app language (i18n/pmT)
   const tipText = pmT(title || label || humanize(icon));
-  const tip = usePMTip(disabled ? pmT('{{tip}} (not available now)', { tip: tipText }) : tipText);
+  const tip = usePMTip(disabled ? pmT('{{tip}} (not available now)', { tip: tipText }) : tipText, tipScope);
   return (
     <ButtonApp
       ref={tip.ref}

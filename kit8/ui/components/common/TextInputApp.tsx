@@ -11,6 +11,9 @@ import { installNoAutofillHighlight } from '../../../lib/webAutofillStyle';
 // web: no light-blue browser autofill background on any app input
 installNoAutofillHighlight();
 
+export interface TextInputLeftIcon { icon: string; onPress?: () => void; testID?: string; accessibilityLabel?: string; disabled?: boolean }
+export type TextInputHeightVariant = 'normalHeight' | 'mediumHeight' | 'smallestHeight';
+
 export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInputProps, 'inputMode' | 'style' | 'error'> {
   label?: string;
   value?: string;
@@ -38,6 +41,12 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   hideClearIcon?: boolean;
   /** Tamagui size token: '$2' | '$3' | '$4' | '$5' or 'small' | 'medium' | 'large' */
   size?: '$2' | '$3' | '$4' | '$5' | 'small' | 'medium' | 'large';
+  /** icons inside the input at the left, in this order (e.g. search = refresh · expand_more = history · close = clear) */
+  leftIcons?: TextInputLeftIcon[];
+  /** lower input (tool bars, table bars): about 32 px instead of the form height (= heightVariant 'smallestHeight') */
+  compact?: boolean;
+  /** input height: normalHeight (form height, default) · mediumHeight · smallestHeight */
+  heightVariant?: TextInputHeightVariant;
   /** unstyled variant in Tamagui */
   unstyled?: boolean;
 }
@@ -65,6 +74,9 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   right,
   hideClearIcon = false,
   size,
+  compact = false,
+  heightVariant,
+  leftIcons,
   unstyled,
   ...props
 }) => {
@@ -95,6 +107,23 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
   };
 
+  /** 0 = normal, 1 = medium, 2 = smallest */
+  const lower = heightVariant === 'smallestHeight' || (!heightVariant && compact) ? 2 : heightVariant === 'mediumHeight' ? 1 : 0;
+
+  // leftIcons: ONE custom left element (the branches below render `left` as it is; paper puts it before the input)
+  const iconsRow = leftIcons && leftIcons.length > 0 && left === undefined ? (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 6, gap: 4 }}>
+      {leftIcons.map((ic, i) => (
+        <TouchableOpacity key={`${ic.icon}-${i}`} testID={ic.testID} disabled={ic.disabled || !ic.onPress} onPress={ic.onPress} accessibilityRole="button" accessibilityLabel={ic.accessibilityLabel}
+          hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }} style={{ opacity: ic.disabled ? 0.3 : 1 }}>
+          <IconApp name={ic.icon} size={18} color={themeColors.text} />
+        </TouchableOpacity>
+      ))}
+    </View>
+  ) : null;
+  const leftForPaper = left;
+  if (iconsRow) left = iconsRow;
+
   switch (activeSystem) {
     case 'applemacui': {
       return (
@@ -122,8 +151,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
 
     case 'paper': {
-      const leftProp = left !== undefined
-        ? left
+      const leftProp = iconsRow ? undefined : leftForPaper !== undefined
+        ? leftForPaper
         : (leftIcon ? (
             <PaperTextInput.Icon icon={leftIcon === 'search' ? 'magnify' : leftIcon} />
           ) : undefined);
@@ -142,8 +171,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
 
       return (
         <View style={[{ marginBottom: 12, width: '100%' }, style]}>
+          {/* paper takes ONE left adornment: several icons are laid over the left part of the input (inside its outline) */}
+          {iconsRow && <View style={{ position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', zIndex: 2 }}>{iconsRow}</View>}
           <PaperTextInput
+            contentStyle={iconsRow ? { paddingLeft: 14 + (leftIcons?.length ?? 0) * 22 } : undefined}
             mode="outlined"
+            dense={lower > 0}
             label={label}
             value={currentValue}
             onChangeText={onChangeText}
@@ -195,7 +228,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           left={left}
           right={right}
           hideClearIcon={hideClearIcon}
-          size={size}
+          size={size ?? (lower === 2 ? '$2' : lower === 1 ? '$3' : undefined)}
           unstyled={unstyled}
           themeColors={themeColors}
           isDark={isDark}
@@ -218,7 +251,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : '#d9d9d9',
               borderRadius: 4,
               paddingHorizontal: 11,
-              paddingVertical: isMultiline ? 8 : 6,
+              paddingVertical: isMultiline ? 8 : [6, 4, 2][lower],
             }}
           >
             {label && (
@@ -278,7 +311,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
               borderRadius: 20,
               paddingHorizontal: 16,
-              paddingVertical: 10,
+              paddingVertical: [10, 7, 4][lower],
               borderWidth: 1.5,
               borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : 'transparent',
               flexDirection: 'row',
@@ -366,7 +399,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               borderRadius: 6,
               paddingHorizontal: 12,
               backgroundColor: themeColors.surface,
-              height: multiline ? undefined : 44,
+              height: multiline ? undefined : [44, 38, 32][lower],
               paddingVertical: multiline ? 8 : 0,
             }}
           >

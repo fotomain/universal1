@@ -260,6 +260,8 @@ export interface PMUxUiSettings {
   projectTreeContextCommandsMode?: PMContextCommandsMode;
   /** Gantt chart: bar commands in a hover panel (default) or in a right-click / long-press menu. */
   projectGanttChartContextCommandsMode?: PMContextCommandsMode;
+  /** Row selection check boxes (task tree, ReusableTable): round (default) or square. */
+  selectRowCheckBoxForm?: PMSelectRowCheckBoxForm;
   /** Tree: column filters { [columnKey]: { filterVariantForColumn, value, value2 } } - all AND-ed (tree/filter). */
   treeColumnsFilters?: PMTreeColumnsFilters;
   /** Tree: sorted column (siblings sorted inside every parent), null = tree order. */
@@ -279,6 +281,11 @@ export type PMContextCommandsMode = 'onHoverPanelMode' | 'onRightClickMenuMode';
 export const PM_CONTEXT_COMMANDS_MODES: PMContextCommandsMode[] = ['onHoverPanelMode', 'onRightClickMenuMode'];
 export const contextCommandsModeOf = (v: unknown): PMContextCommandsMode =>
   v === 'onRightClickMenuMode' ? 'onRightClickMenuMode' : 'onHoverPanelMode';
+
+/** Form of the "select row" check boxes: formRound (default) | formSquare. */
+export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';
+export const PM_SELECT_ROW_CHECK_BOX_FORMS: PMSelectRowCheckBoxForm[] = ['formRound', 'formSquare'];
+export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => (v === 'formSquare' ? 'formSquare' : 'formRound');
 
 /** Main view switch Gantt | Kanban | Network | Versions (GanttToNetworkViewToggleButtons). */
 export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView';
@@ -328,6 +335,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
     projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),
     projectGanttChartContextCommandsMode: contextCommandsModeOf(u.projectGanttChartContextCommandsMode),
+    selectRowCheckBoxForm: selectRowCheckBoxFormOf(u.selectRowCheckBoxForm),
     treeColumnsFilters: normalizeTreeColumnsFilters(u.treeColumnsFilters),
     treeColumnSort: normalizeTreeColumnSort(u.treeColumnSort),
     columnFilterIconColor: columnFilterIconColorOf(u.columnFilterIconColor),

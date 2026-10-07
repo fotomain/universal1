@@ -90,8 +90,10 @@ const BOOL_BOX = 12;
 export const PM_TREE_SELECT_WIDTH = 30;
 
 function RoundCheck({ checked, partial, color, muted }: { checked: boolean; partial?: boolean; color: string; muted: string }) {
+  // uxuiSettings.selectRowCheckBoxForm: formRound (default) | formSquare
+  const square = usePMStore((s) => s.selectRowCheckBoxForm === 'formSquare');
   return (
-    <View style={[selectStyles.circle, { borderColor: checked || partial ? color : muted, backgroundColor: checked ? color : 'transparent' }]}>
+    <View style={[selectStyles.circle, square && { borderRadius: 4 }, { borderColor: checked || partial ? color : muted, backgroundColor: checked ? color : 'transparent' }]}>
       {checked ? <Text style={selectStyles.mark}>✓</Text> : partial ? <View style={[selectStyles.dash, { backgroundColor: color }]} /> : null}
     </View>
   );

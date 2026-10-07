@@ -23,7 +23,7 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
-import { PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
+import { PM_SELECT_ROW_CHECK_BOX_FORMS, PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
 import ColorPickerApp from '../../../ui/components/common/ColorPickerApp';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
@@ -269,6 +269,24 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                   <Row label='Show hierarchy numbers ("#" column) in the task tree' color={c.text}>
                     <SwitchApp testID="pm-uxui-tree-numbers" value={draft.showTreeHierarchyNumbers} onValueChange={(v) => set('showTreeHierarchyNumbers', v)} />
                   </Row>
+                </Opt>
+                <Opt id="selectRowCheckBoxForm">
+                  <Text style={[styles.label, { color: c.text }]}>{pmT('Select row check box')}</Text>
+                  <View style={styles.segment} testID="pm-uxui-select-row-check-box-form">
+                    {PM_SELECT_ROW_CHECK_BOX_FORMS.map((f) => (
+                      <PMIconButton
+                        key={f}
+                        testID={`pm-uxui-select-row-check-box-form-${f}`}
+                        icon={f === 'formSquare' ? 'check_box' : 'check_circle'}
+                        label={pmT(f === 'formSquare' ? 'Square' : 'Round')}
+                        title={pmT(f === 'formSquare' ? 'Square check boxes' : 'Round check boxes')}
+                        active={draft.selectRowCheckBoxForm === f}
+                        activeColor={c.primary}
+                        color={c.text}
+                        onPress={() => set('selectRowCheckBoxForm', f)}
+                      />
+                    ))}
+                  </View>
                 </Opt>
                 <Opt id="treeColumns">
                   <Text style={[styles.label, { color: c.text }]}>

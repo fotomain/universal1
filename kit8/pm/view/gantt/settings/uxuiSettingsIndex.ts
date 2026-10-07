@@ -20,6 +20,7 @@ export type PMUxUiOptionId =
   | 'criticalPathColorHasPriorityOverTheCustomTaskColor'
   | 'treeCommands'
   | 'treeNumbers'
+  | 'selectRowCheckBoxForm'
   | 'treeColumns'
   | 'columnFilterIconColor'
   | 'criticalPath'
@@ -43,6 +44,7 @@ export const PM_UXUI_OPTIONS: PMUxUiOption[] = [
   { id: 'criticalPathColorHasPriorityOverTheCustomTaskColor', tab: 'TabTask', label: 'Critical path color has priority over custom task color', keywords: 'criticalPathColorHasPriorityOverTheCustomTaskColor priority custom task color override' },
   { id: 'treeCommands', tab: 'TabTree', label: 'Task tree: row commands (hover panel / right-click menu)', keywords: 'projectTreeContextCommandsMode context menu long-press buttons' },
   { id: 'treeNumbers', tab: 'TabTree', label: 'Show hierarchy numbers ("#" column) in the task tree', keywords: 'showTreeHierarchyNumbers wbs outline number' },
+  { id: 'selectRowCheckBoxForm', tab: 'TabTree', label: 'Select row check box: round / square', keywords: 'selectRowCheckBoxForm formRound formSquare checkbox selection table' },
   { id: 'treeColumns', tab: 'TabTree', label: 'Task tree columns: default order, default widths', keywords: 'treeColumnsOrder treeColumnsWidths reset resize width custom column' },
   { id: 'columnFilterIconColor', tab: 'TabTree', label: 'Filter icon color of a filtered column header', keywords: 'columnFilterIconColor filter sort funnel colour treeColumnsFilters' },
   { id: 'criticalPath', tab: 'TabGantt', label: 'Show the critical path', keywords: 'showCriticalPath cpm float' },

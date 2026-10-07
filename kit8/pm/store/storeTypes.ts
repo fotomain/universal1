@@ -2,7 +2,7 @@
 import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
 import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
-import type { PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow, PMPlanDateInputFormat } from '../model/types';
+import type { PMSelectRowCheckBoxForm, PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow, PMPlanDateInputFormat } from '../model/types';
 
 /** Tree cells that can be edited inline (click on taskStartDate / taskFinishDate / taskDuration / % / Kanban / Kanban % or on a custom column cell). */
 export type PMCellField =
@@ -154,6 +154,8 @@ export interface PMStoreState {
   projectTreeContextCommandsMode: PMContextCommandsMode;
   /** rowJSON.uxuiSettings.projectGanttChartContextCommandsMode - Gantt bar commands: hover panel or right-click menu. */
   projectGanttChartContextCommandsMode: PMContextCommandsMode;
+  /** rowJSON.uxuiSettings.selectRowCheckBoxForm - "select row" check boxes: round (default) or square. */
+  selectRowCheckBoxForm: PMSelectRowCheckBoxForm;
   /** project_user_settings_table rows of the signed-in user: projectGUID -> rowJSON.uxuiSettings. */
   userSettingsByProject: Record<string, PMUxUiSettings>;
   /** project_user_settings_table does not exist yet (SQL upgrade not run) -> saves go to project_table.rowJSON. */

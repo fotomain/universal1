@@ -78,6 +78,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers,
     projectTreeContextCommandsMode: u.projectTreeContextCommandsMode,
     projectGanttChartContextCommandsMode: u.projectGanttChartContextCommandsMode,
+    selectRowCheckBoxForm: u.selectRowCheckBoxForm,
     treeColumnsOrder: u.treeColumnsOrder,
     treeColumnsWidths: u.treeColumnsWidths,
     treeColumnsFilters: u.treeColumnsFilters,

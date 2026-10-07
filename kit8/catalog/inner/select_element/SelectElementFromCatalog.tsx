@@ -44,6 +44,8 @@ export interface SelectElementFromCatalogProps {
   titleExtractor?: (row: any) => string;
   /** Custom function to extract item subtitle */
   subtitleExtractor?: (row: any) => string | undefined;
+  /** extra style of the trigger box (e.g. { borderRadius: 0 } inside a table cell) */
+  triggerStyle?: any;
   /** testID for automated tests */
   testID?: string;
   /** Whether to scope the DB fetch by rowOwnerGUID in match params (default false: in-memory filtering) */
@@ -123,6 +125,7 @@ export default function SelectElementFromCatalog({
   subtitleExtractor = defaultSubtitleExtractor,
   testID = 'select-element-from-catalog',
   scopeFetchByOwner = true,
+  triggerStyle,
 }: SelectElementFromCatalogProps) {
   const { themeColors: c } = useDesignSystem();
   const [modalOpen, setModalOpen] = useState(false);
@@ -236,6 +239,7 @@ export default function SelectElementFromCatalog({
             backgroundColor: disabled ? `${c.border}20` : c.surface,
             opacity: disabled ? 0.6 : 1,
           },
+          triggerStyle,
         ]}
       >
         <Pressable
@@ -482,6 +486,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 6,
     paddingVertical: 6,
+    // web: no browser focus ring inside the search box (the box itself has the border)
+    ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
   list: {
     maxHeight: 340,

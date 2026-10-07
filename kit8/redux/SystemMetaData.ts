@@ -14,6 +14,7 @@ import {PROJECT_KANBAN_STAGE_ENTITY, PROJECT_TASK_KANBAN_STATE_ENTITY, projectKa
 import {ROLE_ENTITY, rolesTable, emptyRole} from "../catalog/role/roleModel";
 import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userrole/userRoleModel";
 import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
+import {TASK_EXPENSE_INPUT_ENTITY, taskExpenseInputTable, emptyTaskExpenseInput} from "../ui/components/table/reusable/example/taskExpenseInputModel";
 
 // MD.
 const SystemMetaData:any = {
@@ -69,6 +70,18 @@ const SystemMetaData:any = {
             return { newItem: p.action.payload };
         },
         prepareReadApi: (p:any)=>{},
+    },
+    // TableExample2 (kit8/ui/components/table/reusable): expense lines of a task - person GUID + contract GUID + hours,
+    // rowOwnerGUID = project, rowParentGUID = task, Supabase Realtime sync. Route /demo/reusabletable
+    [TASK_EXPENSE_INPUT_ENTITY]: {
+        tableName: taskExpenseInputTable,
+        itemLabel: "Expense",
+        updateValidator: () => {},
+        defaultData: emptyTaskExpenseInput(),
+        prepareCreateApi: (p: any) => {
+            return { newItem: p.action.payload };
+        },
+        prepareReadApi: (p: any) => {},
     },
     // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
     [PERSON_ENTITY]: {

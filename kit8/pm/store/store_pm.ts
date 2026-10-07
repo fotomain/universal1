@@ -97,6 +97,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   showTreeHierarchyNumbers: true,
   projectTreeContextCommandsMode: 'onHoverPanelMode',
   projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+  selectRowCheckBoxForm: 'formRound',
   rowMenu: null,
   setRowMenu: (menu) => set({ rowMenu: menu }),
   projectSettingsRequest: null,
