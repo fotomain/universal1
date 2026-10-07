@@ -11,6 +11,11 @@ jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   const { Text } = require('react-native');
   return { __esModule: true, default: ({ name, testID }: any) => R.createElement(Text, { testID }, name) };
 });
+const mockPush = jest.fn();
+let mockRouteParams: any = {};
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }), usePathname: () => '/demo/reusabletable', useGlobalSearchParams: () => mockRouteParams }));
+// the default header background comes from the react-native-paper theme (MD3 light surfaceVariant)
+jest.mock('react-native-paper', () => ({ useTheme: () => ({ colors: { surfaceVariant: 'rgb(231, 224, 236)' } }) }));
 jest.mock('expo-crypto', () => { let n = 0; return { randomUUID: () => `new-${++n}` }; });
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(() => Promise.resolve()) }));
 jest.mock('../../../kit8/redux/reusable/useRealtimeEntity', () => ({ useRealtimeEntity: jest.fn() }));
@@ -273,11 +278,15 @@ it('uxuiTable: delimiter lines + square cells + 100% width by default; fixedWidt
   expect(getComputedStyle(q('t')!).width).toBe('100%');
   expect(q('t-search')!.parentElement!.getAttribute('aria-label')).toBe('smallestHeight');
   expect(Array.from(q('t-search')!.parentElement!.children).map((e) => e.textContent)).toEqual(['search', 'expand_more', '']); // left: search, history; then the input (clear appears at the right when filled)
-  expect(getComputedStyle(q('t-headers')!).backgroundColor).toBe('rgb(236, 239, 243)'); // light gray by default
+  expect(getComputedStyle(q('t-headers')!).backgroundColor).toBe('rgb(231, 224, 236)'); // react-native-paper surfaceVariant (#e7e0ec)
+  expect(getComputedStyle(q('t-row-r1')!).minHeight).toBe('32px'); // minimumTableRowHeight
+  expect(getComputedStyle(q('t-footer')!).minHeight).toBe('32px'); // useTableFooterHeightAsLineHeight
+  expect(getComputedStyle(q('t-cell-r1-hours')!.parentElement!).height).toBe('30px');
+  expect(getComputedStyle(q('t-total-hours')!.parentElement!).justifyContent).toBe('center'); // justifyTotalsOfFieldsMode
   expect(q('t-fixed-width-scroll')).toBeNull();
   act(() => root.unmount());
   document.body.innerHTML = '';
-  render({ verticalDelimitersForCells: false, verticalDelimitersForColumnNames: false, roundedCells: true, borderedCells: true, colorForColumnHeadersBackground: 'transparent', fixedWidth: 1200, tableBarLayoutVariant: 'leftTitle_rightSearchCrudPanel' });
+  render({ verticalDelimitersForCells: false, verticalDelimitersForColumnNames: false, roundedCells: true, borderedCells: true, colorForColumnHeadersBackground: 'transparent', minimumTableRowHeight: false, useTableFooterHeightAsLineHeight: false, justifyTotalsOfFieldsMode: 'justifyTextRight', fixedWidth: 1200, tableBarLayoutVariant: 'leftTitle_rightSearchCrudPanel' });
   expect(q('t-bar-left')!.contains(q('t-title'))).toBe(true);
   expect(q('t-bar-right')!.contains(q('t-crud-panel'))).toBe(true);
   expect(getComputedStyle(q('t-cell-r1-hours')!.parentElement!).borderTopWidth).toBe('1px');
@@ -286,6 +295,10 @@ it('uxuiTable: delimiter lines + square cells + 100% width by default; fixedWidt
   expect(getComputedStyle(q('t-header-hours')!).borderRightWidth).not.toBe('1px');
   expect(getComputedStyle(q('t')!).width).toBe('1200px');
   expect(getComputedStyle(q('t-headers')!).backgroundColor).toMatch(/transparent|rgba\(0, 0, 0, 0\)/);
+  expect(getComputedStyle(q('t-row-r1')!).minHeight).toBe('52px');
+  expect(getComputedStyle(q('t-footer')!).minHeight).toBe('38px');
+  expect(getComputedStyle(q('t-cell-r1-hours')!.parentElement!).height).toBe('40px');
+  expect(getComputedStyle(q('t-total-hours')!.parentElement!).justifyContent).toBe('flex-end');
   expect(q('t-fixed-width-scroll')).not.toBeNull();
 });
 
@@ -396,4 +409,30 @@ it('arrows move all selected rows together', () => {
   expect(mockActions.updateOne).toHaveBeenCalledTimes(1);
   expect(mockActions.updateOne.mock.calls[0][0]).toMatchObject({ rowGUID: 'r1', field: 'orderInList' });
   expect(mockActions.updateOne.mock.calls[0][0].value).toBeGreaterThan(300);
+});
+
+it('catalog cells have a "…" button that opens the details of the selected element', () => {
+  mount(seed());
+  press(`${T}-cell-r2-person-details`);
+  // the details page also gets the place to return to: this screen + the row the user left from
+  const target = { pathname: '/catalog/person/edit', params: { rowGUID: 'p1', returnTo: '/demo/reusabletable?focusRowGUID=r2' } };
+  expect(mockPush).toHaveBeenLastCalledWith(target);
+  press(`${T}-cell-r2-contract-details`); // a contract opens its person
+  expect(mockPush).toHaveBeenLastCalledWith(target);
+  mockPush.mockClear();
+  press(`${T}-cell-r1-person-details`); // nothing selected
+  expect(mockPush).not.toHaveBeenCalled();
+});
+
+it('returning with focusRowGUID marks that row; other route parameters are kept in returnTo', () => {
+  mockRouteParams = { tab: 'x', focusRowGUID: 'r2', returnTo: '/old' };
+  mount(seed());
+  expect(q(`${T}-row-r2`)!.getAttribute('aria-current')).toBe('true');
+  expect(q(`${T}-row-r1`)!.getAttribute('aria-current')).toBeNull();
+  // the marker does not take part in the layout: the cells of the focused row start at the same x as the others
+  expect(getComputedStyle(q(`${T}-focus-marker`)!).position).toBe('absolute');
+  expect(getComputedStyle(q(`${T}-row-r2`)!).borderLeftWidth).toBe('0px');
+  press(`${T}-cell-r2-person-details`);
+  expect(mockPush.mock.calls[0][0].params.returnTo).toBe('/demo/reusabletable?tab=x&focusRowGUID=r2');
+  mockRouteParams = {};
 });

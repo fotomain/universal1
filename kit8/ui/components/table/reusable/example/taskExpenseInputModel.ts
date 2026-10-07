@@ -7,7 +7,7 @@
 //     orderInList    the order of the lines (drag & drop)
 //     rowJSON        { personGUID, contractGUID, hours }
 //   Only GUIDs are stored; the titles are read from the catalogs when the table is shown.
-import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../../../catalog/person/personModel';
+import { PERSON_CATALOG_OWNER, PERSON_ENTITY, PERSON_ROUTES } from '../../../../../catalog/person/personModel';
 import { CONTRACT_ENTITY } from '../../../../../catalog/contract/contractModel';
 import type { VisualColumn } from '../reusableTableTypes';
 
@@ -39,12 +39,16 @@ export const taskExpenseInputColumns: VisualColumn[] = [
     key: 'person', title: 'Person', type: 'catalog', field: 'personGUID', width: 230,
     catalogEntityName: PERSON_ENTITY, catalogRowOwnerGUID: PERSON_CATALOG_OWNER,
     titleExtractor: personFullName, placeholder: 'Select person…',
+    // … = the person's page
+    detailsRoute: PERSON_ROUTES.edit,
   },
   {
     key: 'contract', title: 'Contract', type: 'catalog', field: 'contractGUID', width: 260,
     catalogEntityName: CONTRACT_ENTITY, catalogRowParentGUID: 'person',
     // the contracts of the person selected in the previous column
     dependsOn: 'person', dependsOnMessage: 'Select a person first', placeholder: 'Select contract…',
+    // a contract has no page of its own: … opens its person, whose page lists and edits the contracts
+    detailsRoute: (_guid, row) => (row.rowJSON?.personGUID ? { pathname: PERSON_ROUTES.edit, params: { rowGUID: String(row.rowJSON.personGUID) } } : null),
   },
   { key: 'hours', title: 'Hours', type: 'integer', field: 'hours', width: 130, min: 0, max: 100000 },
 ];

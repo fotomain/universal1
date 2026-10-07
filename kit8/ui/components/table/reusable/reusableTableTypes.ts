@@ -56,6 +56,12 @@ export interface CatalogColumn extends ColumnBase {
   /** shown in the disabled cell, e.g. "Select a person first" */
   dependsOnMessage?: string;
   placeholder?: string;
+  /**
+   * "…" button in the cell: opens the details of the selected element.
+   *  string   = the route, opened with ?rowGUID=<selected GUID>           e.g. '/catalog/person/edit'
+   *  function = any route for this GUID / table row (string or { pathname, params })
+   */
+  detailsRoute?: string | ((guid: string, tableRow: ReusableTableRow) => string | { pathname: string; params?: Record<string, string> } | null);
   titleExtractor?: (catalogRow: any) => string;
   subtitleExtractor?: (catalogRow: any) => string | undefined;
   filterItem?: (catalogRow: any) => boolean;
@@ -104,10 +110,18 @@ export interface ReusableTableUxUi {
   tableBarLayoutVariant?: ReusableTableBarLayoutVariant;
   /** height of the search input: 'smallestHeight' (default) | 'mediumHeight' | 'normalHeight' */
   searchInputHeight?: 'normalHeight' | 'mediumHeight' | 'smallestHeight';
-  /** background of the column headers row: any color or 'transparent' (default: light gray; dark theme: dark gray) */
+  /** background of the column headers row: any color or 'transparent' (default: the table header color of the react-native-paper theme - surfaceVariant - as hex) */
   colorForColumnHeadersBackground?: string;
   /** the bar above the table is as low as possible (default true); false = roomy padding */
   minimumTableToolBarHeight?: boolean;
+  /** rows as low as possible (default true, about 32 px); false = roomy rows (about 52 px). An explicit rowHeight prop wins */
+  minimumTableRowHeight?: boolean;
+  /** totals of the number columns (bottom row): 'justifyTextCenter' (default) | 'justifyTextRight' */
+  justifyTotalsOfFieldsMode?: 'justifyTextCenter' | 'justifyTextRight';
+  /** the footer (count + totals) is as high as a table row (default true); false = the header height (38 px) */
+  useTableFooterHeightAsLineHeight?: boolean;
+  /** the same setting, as it was first spelled */
+  useTableFooterHeightAlLineHeight?: boolean;
   /** border around every input cell (default false = flat cells, like a spreadsheet) */
   borderedCells?: boolean;
   /** width of the table: px or '50%' ... (default '100%'). Wider than the screen = the table scrolls horizontally */

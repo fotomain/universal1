@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeReturnToRoute } from '../../lib/returnToRoute';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
@@ -83,7 +84,7 @@ export default function PersonEdit() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
-  const params = useLocalSearchParams<{ rowGUID?: string }>();
+  const params = useLocalSearchParams<{ rowGUID?: string; returnTo?: string }>();
   const rowGUID = typeof params.rowGUID === 'string' && params.rowGUID ? params.rowGUID : null;
 
   const status = useRealtimeEntity(PERSON_ENTITY, { readParams: PERSON_READ_PARAMS });
@@ -142,7 +143,8 @@ export default function PersonEdit() {
     setErrors((e) => ({ ...e, [k]: undefined }));
   };
 
-  const back = () => router.replace(PERSON_ROUTES.list as any);
+  // opened from another place (returnTo, e.g. a table cell): go back there; otherwise to the persons list
+  const back = () => router.replace((safeReturnToRoute(params.returnTo) ?? PERSON_ROUTES.list) as any);
 
   const save = () => {
     const value = fromForm(form);

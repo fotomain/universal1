@@ -12,7 +12,7 @@
 
 Same parameters as ListWebCardsComponent: `entityName, entityForArchivationName, crudListTitle, listOwnerGUID, itemLabel,
 realtime, readParams, reorderEnabled`. Table parameters: `listParentGUID, visualColumns, defaultRowJSON, selectionEnabled,
-uxuiTable { verticalDelimitersForCells = true, verticalDelimitersForColumnNames = true, roundedCells = false, borderedCells = false, minimumTableToolBarHeight = true, colorForColumnHeadersBackground = light gray ('transparent' possible), searchInputHeight = 'smallestHeight' | 'mediumHeight' | 'normalHeight',
+uxuiTable { verticalDelimitersForCells = true, verticalDelimitersForColumnNames = true, roundedCells = false, borderedCells = false, minimumTableToolBarHeight = true, minimumTableRowHeight = true, useTableFooterHeightAsLineHeight = true, justifyTotalsOfFieldsMode = 'justifyTextCenter' | 'justifyTextRight', colorForColumnHeadersBackground = react-native-paper surfaceVariant as hex ('transparent' possible), searchInputHeight = 'smallestHeight' | 'mediumHeight' | 'normalHeight',
 tableBarLayoutVariant = 'leftCrudPanel_rightSearch' (default) | 'leftCrudPanel_rightSearchTitle' | 'leftTitle_rightSearchCrudPanel', fixedWidth = '100%' (px: horizontal scroll) },
 selectRowCheckBoxForm ('formRound' | 'formSquare' - project UX/UI setting), dragAndDropColumns, resizeColumnWidth,
 columnSortAndFilter (▾ on a header: sort + filter, default on), crudPanelEnabled (icon panel, default on),
@@ -20,7 +20,9 @@ columnsOrder, columnsWidths, onColumnsOrderChange, onColumnsWidthsChange,
 searchEnabled, contextMenuEnabled, extraMenuItems, onRowsChange, rowHeight, tableMaxWidth, emptyText`.
 
 Column types (`reusableTableTypes.ts`): `rowNumber` · `catalog` (stores a catalog rowGUID, shows its title through
-SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalog, cleared when that column changes) ·
+SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalog, cleared when that column changes;
+`detailsRoute` = a "…" button in the cell that opens the details page of the selected element; the page gets
+`returnTo` = this screen + `focusRowGUID`, so the app's Back button returns to the same row - kit8/lib/returnTo.ts) ·
 `integer` / `number` (− / + buttons by default; `stepper: false`, `step`) · `text` · `custom`.
 
 Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate, move up / down / first / last, copy GUID,

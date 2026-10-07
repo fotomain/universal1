@@ -9,12 +9,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
+import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 
 export interface SelectElementFromCatalogProps {
@@ -44,6 +44,8 @@ export interface SelectElementFromCatalogProps {
   titleExtractor?: (row: any) => string;
   /** Custom function to extract item subtitle */
   subtitleExtractor?: (row: any) => string | undefined;
+  /** low trigger (about 30 px) for dense places such as table rows */
+  compact?: boolean;
   /** extra style of the trigger box (e.g. { borderRadius: 0 } inside a table cell) */
   triggerStyle?: any;
   /** testID for automated tests */
@@ -126,6 +128,7 @@ export default function SelectElementFromCatalog({
   testID = 'select-element-from-catalog',
   scopeFetchByOwner = true,
   triggerStyle,
+  compact = false,
 }: SelectElementFromCatalogProps) {
   const { themeColors: c } = useDesignSystem();
   const [modalOpen, setModalOpen] = useState(false);
@@ -239,6 +242,7 @@ export default function SelectElementFromCatalog({
             backgroundColor: disabled ? `${c.border}20` : c.surface,
             opacity: disabled ? 0.6 : 1,
           },
+          compact && { minHeight: 30 },
           triggerStyle,
         ]}
       >
@@ -246,7 +250,7 @@ export default function SelectElementFromCatalog({
           testID={`${testID}-trigger`}
           disabled={disabled}
           onPress={openPicker}
-          style={styles.triggerPressable}
+          style={[styles.triggerPressable, compact && { paddingVertical: 4 }]}
           accessibilityRole="button"
           accessibilityLabel={label || 'Select element'}
         >
@@ -268,7 +272,7 @@ export default function SelectElementFromCatalog({
           <Pressable
             testID={`${testID}-clear`}
             onPress={handleClear}
-            style={styles.iconButton}
+            style={[styles.iconButton, compact && { padding: 3 }]}
             accessibilityRole="button"
             accessibilityLabel="Clear selection"
           >
@@ -279,7 +283,7 @@ export default function SelectElementFromCatalog({
         <Pressable
           disabled={disabled}
           onPress={openPicker}
-          style={styles.iconButton}
+          style={[styles.iconButton, compact && { padding: 3 }]}
         >
           <IconApp name="expand_more" size={18} color={disabled ? `${c.text}44` : c.text} />
         </Pressable>
@@ -316,23 +320,16 @@ export default function SelectElementFromCatalog({
                 </Pressable>
               </View>
 
-              <View style={[styles.searchBox, { borderColor: c.border, backgroundColor: `${c.border}15` }]}>
-                <IconApp name="search" size={18} color={c.text} />
-                <TextInput
-                  testID={`${testID}-search-input`}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search..."
-                  placeholderTextColor={`${c.text}80`}
-                  style={[styles.searchInput, { color: c.text }]}
-                  autoFocus
-                />
-                {!!searchQuery && (
-                  <Pressable onPress={() => setSearchQuery('')}>
-                    <IconApp name="close" size={16} color={c.text} />
-                  </Pressable>
-                )}
-              </View>
+              <TextInputApp
+                testID={`${testID}-search-input`}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search..."
+                leftIcon="search"
+                heightVariant="mediumHeight"
+                autoFocus
+                style={styles.searchField}
+              />
 
               <FlatList
                 ref={flatListRef}
@@ -472,6 +469,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  searchField: { marginBottom: 12, width: '100%' },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',

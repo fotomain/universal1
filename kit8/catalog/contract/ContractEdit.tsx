@@ -1,11 +1,13 @@
 // ContractEdit - modal dialog / form for creating or modifying a contract.
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../ui/components/common';
 import SwitchApp from '../../ui/components/common/SwitchApp';
+import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
+import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY } from '../currency/currencyModel';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import {
   CONTRACT_ENTITY,
@@ -94,6 +96,11 @@ export default function ContractEdit({
       setErrors({});
     }
   }, [visible, contractRow, partyType, defaultCurrency]);
+
+  // Currency = an element of the currency catalog; the contract keeps its ISO code (contractCurrency: "EUR")
+  const currencies: any[] = useSelector((s: any) => s?.[CURRENCY_ENTITY]?.entityDataFromServer) || [];
+  const currencyCode = String(form.contractCurrency || '').toUpperCase();
+  const currencyRow = currencies.find((r) => String(r?.rowJSON?.currencyCode || '').toUpperCase() === currencyCode);
 
   if (!visible) return null;
 
@@ -192,7 +199,24 @@ export default function ContractEdit({
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>{input('contractSignedDate', 'Signed Date')}</View>
-              <View style={{ flex: 1 }}>{input('contractCurrency', 'Currency (e.g. EUR)', { autoCapitalize: 'characters', maxLength: 3 })}</View>
+              <View style={{ flex: 1 }}>
+                <SelectElementFromCatalog
+                  testID="contract-edit-contractCurrency"
+                  label="Currency"
+                  entityName={CURRENCY_ENTITY}
+                  rowOwnerGUID={CURRENCY_CATALOG_OWNER}
+                  scopeFetchByOwner={false}
+                  value={currencyRow?.rowGUID ?? null}
+                  // a code that is not in the catalog (yet) stays visible until another currency is picked
+                  placeholder={currencyCode || 'Select currency…'}
+                  // inactive currencies are not offered (the one already on the contract stays)
+                  filterItem={(r: any) => r?.rowJSON?.isActive !== false || r?.rowGUID === currencyRow?.rowGUID}
+                  titleExtractor={(r: any) => [r?.rowJSON?.currencyCode, r?.rowJSON?.currencyName].filter(Boolean).join(' — ')}
+                  subtitleExtractor={(r: any) => r?.rowJSON?.currencySymbol || undefined}
+                  onChange={(_guid, r) => set('contractCurrency', String(r?.rowJSON?.currencyCode || '').toUpperCase())}
+                />
+                {!!errors.contractCurrency && <Text style={{ color: c.error, fontSize: 12 }}>{errors.contractCurrency}</Text>}
+              </View>
             </View>
 
             {/* Period selector */}

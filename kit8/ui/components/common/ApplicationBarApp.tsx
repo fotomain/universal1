@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, useWindowDimensions } from 'react-native';
 import { Appbar } from 'react-native-paper';
-import { useNavigation, useRouter, usePathname } from 'expo-router';
+import { useNavigation, useRouter, usePathname, useGlobalSearchParams } from 'expo-router';
+import { safeReturnToRoute } from '../../../lib/returnToRoute';
 import { DrawerHeaderProps } from 'expo-router/drawer';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -117,8 +118,12 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
 
   const isHome = pathname === '/home' || pathname === '/' || route?.name === 'home' || route?.name === 'index';
 
+  /** the screen was opened from another place (e.g. the "…" of a table cell): Back returns exactly there */
+  const returnTo = safeReturnToRoute(useGlobalSearchParams<{ returnTo?: string }>().returnTo);
   const handleBack = () => {
-    if (router.canGoBack()) {
+    if (returnTo) {
+      router.navigate(returnTo as any);
+    } else if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/home');

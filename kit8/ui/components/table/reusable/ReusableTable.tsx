@@ -8,9 +8,12 @@
 //   rows      like the Tasks Tree: context menu (right-click / long-press / ⋮), drag & drop by the ⠿ handle
 //             (web), move up / down / first / last, add above / below, duplicate, selection + delete selected
 // Example: ./example/TaskExpenseInputTable.tsx, route /demo/reusabletable.
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
+import { useTheme as usePaperTheme } from 'react-native-paper';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
+import { buildReturnToRoute } from '../../../../lib/returnToRoute';
 import TextInputApp from '../../common/TextInputApp';
 import PMContextMenu from '../../../../pm/inner/menu/PMContextMenu';
 import type { PMMenuItemProps } from '../../../../pm/inner/menu/PMMenuItem';
@@ -29,7 +32,7 @@ import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
-import { moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, fieldOf, moveColumn, rowSearchText, widthOf } from './tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, fieldOf, moveColumn, rowSearchText, widthOf } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -65,7 +68,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   const {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, uxuiTable,
-    selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight = 52, tableMaxWidth,
+    selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
     emptyText, testID = 'reusable-table',
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
@@ -82,8 +85,14 @@ export default function ReusableTable(props: ReusableTableProps) {
   const roundedCells = !!uxuiTable?.roundedCells;
   const borderedCells = !!uxuiTable?.borderedCells;
   /** the bar above the table is as low as its content (default) or has the roomy padding */
+  const minimumRows = uxuiTable?.minimumTableRowHeight !== false;
+  const rowHeight = rowHeightProp ?? (minimumRows ? 32 : 52);
+  const footerAsRow = (uxuiTable?.useTableFooterHeightAsLineHeight ?? uxuiTable?.useTableFooterHeightAlLineHeight) !== false;
   const minimumBar = uxuiTable?.minimumTableToolBarHeight !== false;
-  const headersBackground = uxuiTable?.colorForColumnHeadersBackground ?? (isDark ? '#2b2f36' : '#eceff3');
+  // default: the table header color of the react-native-paper theme (MD3 surfaceVariant), as hex
+  const paperTheme = usePaperTheme();
+  const headersBackground = uxuiTable?.colorForColumnHeadersBackground
+    ?? colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
   const fixedWidth = uxuiTable?.fixedWidth ?? '100%';
   /** px of the table body (measured): the columns are stretched to fill it */
   const [bodyWidth, setBodyWidth] = useState(0);
@@ -105,6 +114,30 @@ export default function ReusableTable(props: ReusableTableProps) {
   const onColumnResizeEnd = (key: string, width: number) => onColumnsWidthsChange?.({ ...columnsWidths, [key]: clampColumnWidth(width) });
 
   const dispatch = useDispatch();
+  const router = useRouter();
+  const pathname = usePathname();
+  const routeParams = useGlobalSearchParams<Record<string, string>>();
+  /**
+   * "…" of a catalog cell: the details route of the selected element. The route also gets `returnTo` = this screen
+   * with its parameters + focusRowGUID (the row the user left from), so the app's Back button returns to this place.
+   */
+  const openDetails = (col: VisualColumn, guid: string, row: ReusableTableRow) => {
+    if (col.type !== 'catalog' || !col.detailsRoute) return;
+    const target = typeof col.detailsRoute === 'function' ? col.detailsRoute(guid, row) : { pathname: col.detailsRoute, params: { rowGUID: guid } };
+    if (!target) return;
+    const returnTo = buildReturnToRoute(pathname, routeParams, { focusRowGUID: row.rowGUID });
+    if (typeof target === 'string') router.push(`${target}${target.includes('?') ? '&' : '?'}returnTo=${encodeURIComponent(returnTo)}` as any);
+    else router.push({ pathname: target.pathname, params: { ...(target.params || {}), returnTo } } as any);
+  };
+  /** the row the user returned to (route parameter focusRowGUID): marked, and scrolled into view on web */
+  const focusRowGUID = typeof routeParams.focusRowGUID === 'string' ? routeParams.focusRowGUID : null;
+  const focusRowShown = !!focusRowGUID && crud.rows.some((r) => r.rowGUID === focusRowGUID);
+  useEffect(() => {
+    if (!focusRowShown || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const el: any = document.getElementById(`${testID}-row-${focusRowGUID}`);
+    el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, [focusRowShown, focusRowGUID, testID]);
+
   // ---- service columns: "select row" (1st) and "drag row" (2nd); the user can swap these two with each other only ----
   const [serviceOrder, setServiceOrder] = useState<ServiceColumn[]>(['select', 'drag']);
   const swapServiceColumns = () => setServiceOrder((o) => [o[1], o[0]]);
@@ -196,15 +229,19 @@ export default function ReusableTable(props: ReusableTableProps) {
 
   const renderRow = (row: ReusableTableRow, index: number, opts: { dragHandle: React.ReactNode; isDragging: boolean; ghost: boolean }) => {
     const isSelected = selectedHere.includes(row.rowGUID);
-    const bg = opts.isDragging ? c.surface : isSelected ? c.primary + '18' : index % 2 === 1 ? c.background : c.surface;
+    const isFocus = row.rowGUID === focusRowGUID;
+    const bg = opts.isDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : index % 2 === 1 ? c.background : c.surface;
     return (
-      <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} style={[styles.row, { minHeight: rowHeight, backgroundColor: bg, borderBottomColor: c.border, minWidth: totalWidth }]}>
+      <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} aria-current={isFocus ? 'true' : undefined}
+        style={[styles.row, { minHeight: rowHeight, backgroundColor: bg, borderBottomColor: c.border, minWidth: totalWidth }]}>
+        {/* the row the user returned to: a marker laid OVER the row (a border would shift its cells and delimiter lines) */}
+        {isFocus && <View pointerEvents="none" testID={`${testID}-focus-marker`} style={[styles.focusMarker, { backgroundColor: c.primary }]} />}
         {serviceColumns.map((kind) => (kind === 'select'
           ? <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: CHECK_W }]}>{checkbox(isSelected, () => toggle(row.rowGUID), `${testID}-select-${row.rowGUID}`)}</View>
           : <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: HANDLE_W }]}>{opts.dragHandle}</View>))}
         {visualColumns.map((col) => (
-          <View key={col.key} style={[styles.cell, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }]}>
-            <ReusableTableCell col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost} rounded={roundedCells} bordered={borderedCells} testID={testID}
+          <View key={col.key} style={[styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }]}>
+            <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
               onChange={(key, value) => crud.setCell(row.rowGUID, key, value)} onPatch={(patch) => crud.patchRow(row.rowGUID, patch)} />
           </View>
         ))}
@@ -340,12 +377,12 @@ export default function ReusableTable(props: ReusableTableProps) {
           )}
 
           {/* ---- footer: count + totals of the number columns ---- */}
-          <View style={[styles.row, styles.headerRow, { backgroundColor: c.background, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: c.border }]}>
+          <View testID={`${testID}-footer`} style={[styles.row, styles.headerRow, footerAsRow ? { minHeight: rowHeight } : null, { backgroundColor: c.background, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: c.border }]}>
             {serviceColumns.map((kind) => <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: kind === 'select' ? CHECK_W : HANDLE_W }]} />)}
             {visualColumns.map((col, i) => (
-              <View key={col.key} style={[styles.cell, delimiterStyle, { width: widthOf(col), justifyContent: numericCols.includes(col) ? justify({ ...col, align: col.align ?? 'right' } as VisualColumn) : 'flex-start' }]}>
+              <View key={col.key} style={[styles.cell, footerAsRow && minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: numericCols.includes(col) ? (uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? 'flex-end' : 'center') : 'flex-start' }]}>
                 {numericCols.includes(col) ? (
-                  <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text, paddingRight: 10 }]}>{total(col)}</Text>
+                  <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text }, uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? { paddingRight: 10 } : null]}>{total(col)}</Text>
                 ) : i === (visualColumns[0]?.type === 'rowNumber' ? 1 : 0) ? (
                   <Text testID={`${testID}-count`} numberOfLines={1} style={{ color: c.text, opacity: 0.7, fontSize: 13 }}>
                     {filtered ? `${visible.length} of ${rows.length}` : `${rows.length}`} {rows.length === 1 ? itemLabel.toLowerCase() : `${itemLabel.toLowerCase()}s`}
@@ -416,6 +453,8 @@ const styles = StyleSheet.create({
   cell: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', paddingHorizontal: 6, paddingVertical: 6 },
   serviceCell: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   checkCell: { flex: 1, minWidth: 0 },
+  focusMarker: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, zIndex: 1 },
+  cellMinimum: { paddingVertical: 1 },
   fixedCell: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   headerText: { fontSize: 13, fontWeight: '700' },
   box: { width: 18, height: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

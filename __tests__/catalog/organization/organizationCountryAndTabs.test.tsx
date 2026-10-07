@@ -40,6 +40,12 @@ jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   return ({ name, testID }: any) => R.createElement(Text, { testID }, name);
 });
 
+// SelectElementFromCatalog's search field is TextInputApp: here a plain input with the same testID
+jest.mock('../../../kit8/ui/components/common/TextInputApp', () => {
+  const R = require('react');
+  const { TextInput } = require('react-native');
+  return { __esModule: true, default: ({ leftIcon, heightVariant, autoFocus, ...p }: any) => R.createElement(TextInput, p) };
+});
 jest.mock('../../../kit8/redux/reusable/useRealtimeEntity', () => ({
   useRealtimeEntity: jest.fn(),
 }));

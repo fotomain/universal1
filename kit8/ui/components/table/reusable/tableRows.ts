@@ -208,3 +208,15 @@ export function moveSelectedRows(rows: ReusableTableRow[], ids: string[], direct
   }
   return { rows: list, moved };
 }
+
+/** 'rgb(231, 224, 236)' / 'rgba(…)' / '#abc' -> '#e7e0ec' (alpha kept as #rrggbbaa); anything else is returned as it is */
+export function colorToHex(color: string): string {
+  const c = String(color || '').trim();
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(c);
+  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase();
+  const m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?\s*\)$/i.exec(c);
+  if (!m) return c.startsWith('#') ? c.toLowerCase() : c;
+  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  const alpha = m[4] === undefined ? 1 : Number(m[4]);
+  return `#${h(+m[1])}${h(+m[2])}${h(+m[3])}${alpha < 1 ? h(alpha * 255) : ''}`;
+}

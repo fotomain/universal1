@@ -1,9 +1,10 @@
 // ReusableTable pure helpers: order, dependent columns, number input, search text.
-import { moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
 import { filterRows, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
 import { buildTableExport, exportFileName, exportToCSV, exportToJSON } from '../../../kit8/ui/components/table/reusable/tableExport';
 import { buildTextTablePdf, layoutTablePdf, approxMeasure, pdfString } from '../../../kit8/ui/components/table/reusable/tablePdf';
 import { addToSearchHistory } from '../../../kit8/ui/components/table/reusable/useSearchHistory';
+import { buildReturnToRoute, safeReturnToRoute } from '../../../kit8/lib/returnToRoute';
 import { personFullName, taskExpenseInputColumns as cols } from '../../../kit8/ui/components/table/reusable/example/taskExpenseInputModel';
 
 const rows = [
@@ -185,4 +186,23 @@ it('moveSelectedRows: selected rows move together, blocks keep their order, edge
   expect(moveSelectedRows(five, ['e'], 1).moved).toEqual([]);
   const sorted = [...up.rows].sort((x, y) => x.orderInList! - y.orderInList!);
   expect(ids(sorted)).toBe('acdbe'); // the new orders give the same sequence after a re-read
+});
+
+it('returnTo: only in-app paths; built from the current path, its parameters and the extras', () => {
+  expect(safeReturnToRoute('/demo/reusabletable?focusRowGUID=r1')).toBe('/demo/reusabletable?focusRowGUID=r1');
+  expect(safeReturnToRoute(['/a'])).toBe('/a');
+  expect(safeReturnToRoute('//evil.example')).toBeNull();
+  expect(safeReturnToRoute('https://evil.example')).toBeNull();
+  expect(safeReturnToRoute('/\\evil.example')).toBeNull();
+  expect(safeReturnToRoute(undefined)).toBeNull();
+  expect(buildReturnToRoute('/pm/task', { taskGUID: 't1', returnTo: '/old', focusRowGUID: 'old' }, { focusRowGUID: 'r 1' })).toBe('/pm/task?taskGUID=t1&focusRowGUID=r%201');
+  expect(buildReturnToRoute('/x', null)).toBe('/x');
+});
+
+it('colorToHex', () => {
+  expect(colorToHex('rgb(231, 224, 236)')).toBe('#e7e0ec');
+  expect(colorToHex('rgba(0, 0, 0, 0.5)')).toBe('#00000080');
+  expect(colorToHex('#ABC')).toBe('#aabbcc');
+  expect(colorToHex('#E7E0EC')).toBe('#e7e0ec');
+  expect(colorToHex('transparent')).toBe('transparent');
 });
