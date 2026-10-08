@@ -1,7 +1,7 @@
 // ReusableTable - export data (pure, unit-tested): what the table shows (titles, numbers) and, when asked,
 // the stored GUIDs behind it (catalog GUIDs + rowGUID / rowOwnerGUID / rowParentGUID).
 import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
-import { fieldOf } from './tableRows';
+import { cellValue, displayText } from './tableRows';
 import type { CatalogTitleFn } from './tableFilter';
 
 export interface TableExportData {
@@ -13,15 +13,14 @@ export interface TableExportData {
   records: Record<string, any>[];
 }
 
+/** catalog / select columns store a GUID (or code) behind the visible title */
+const hasGuid = (col: VisualColumn) => col.type === 'catalog' || col.type === 'select';
 const text = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
 /** visible value of a cell (catalog = the title of the selected element) */
 export function visibleCell(row: ReusableTableRow, col: VisualColumn, index: number, catalogTitle: CatalogTitleFn): string {
   if (col.type === 'rowNumber') return String(index + 1);
-  if (col.type === 'custom') return col.searchText ? col.searchText(row) : '';
-  const v = row.rowJSON?.[fieldOf(col)];
-  if (v === null || v === undefined || v === '') return '';
-  return col.type === 'catalog' ? catalogTitle(col, String(v)) || '' : String(v);
+  return displayText(row, col, catalogTitle) || '';
 }
 
 /**
@@ -34,7 +33,7 @@ export function buildTableExport(args: { title: string; rows: ReusableTableRow[]
   const headers: string[] = [];
   for (const col of cols) {
     headers.push(col.title);
-    if (withGuids && col.type === 'catalog') headers.push(`${col.title} GUID`);
+    if (withGuids && hasGuid(col)) headers.push(`${col.title} GUID`);
   }
   if (withGuids) headers.push('rowGUID', 'rowOwnerGUID', 'rowParentGUID');
 
@@ -46,9 +45,9 @@ export function buildTableExport(args: { title: string; rows: ReusableTableRow[]
     for (const col of cols) {
       const shown = visibleCell(row, col, index, catalogTitle);
       line.push(shown);
-      if (withGuids && col.type === 'catalog') line.push(text(row.rowJSON?.[fieldOf(col)]));
+      if (withGuids && hasGuid(col)) line.push(text(cellValue(row, col)));
       if (col.type !== 'rowNumber') {
-        const raw = row.rowJSON?.[fieldOf(col)];
+        const raw = cellValue(row, col);
         visible[col.title] = (col.type === 'integer' || col.type === 'number') && typeof raw === 'number' ? raw : shown === '' ? null : shown;
       }
     }

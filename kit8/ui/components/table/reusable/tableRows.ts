@@ -1,10 +1,125 @@
 // ReusableTable - pure helpers (unit-tested: __tests__/ui/table/reusableTableRows.test.ts).
 import { calculateNewOrderInList } from '../../list/web/lib/calculateNewOrderInList';
-import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
+import { REUSABLE_TABLE_ALL } from './reusableTableTypes';
+import type { CellTarget, NewRowDefaults, ReusableTableRow, SelectOption, VisualColumn } from './reusableTableTypes';
 
 export const fieldOf = (col: VisualColumn): string => col.field || col.key;
-export const DEFAULT_WIDTH: Record<VisualColumn['type'], number> = { rowNumber: 48, catalog: 240, integer: 100, number: 110, text: 200, custom: 160 };
+export const DEFAULT_WIDTH: Record<VisualColumn['type'], number> = {
+  rowNumber: 48, catalog: 240, integer: 100, number: 110, text: 200, custom: 160,
+  boolean: 90, select: 180, multiSelect: 220, date: 130, color: 130, json: 220,
+};
 export const widthOf = (col: VisualColumn): number => col.width ?? DEFAULT_WIDTH[col.type];
+
+// ───────────── where a cell is stored: rowJSON[field] (default) or a root column of the row ─────────────
+export const targetOf = (col: VisualColumn): CellTarget => col.target ?? 'rowJSON';
+/** columns that hold no stored value */
+export const isStoredColumn = (col: VisualColumn) => col.type !== 'rowNumber' && col.type !== 'custom';
+
+/** the stored value of a cell */
+export function cellValue(row: ReusableTableRow | null | undefined, col: VisualColumn): any {
+  if (!row) return undefined;
+  const target = targetOf(col);
+  if (target !== 'rowJSON') {
+    const v = row[target];
+    // 'empty' is the "no parent / no owner" marker of the def-table pattern (kit8/sql/defTable.md)
+    return v === 'empty' ? null : v;
+  }
+  return row.rowJSON?.[fieldOf(col)];
+}
+
+/** a cell change, split by where it is stored */
+export interface CellPatch {
+  rowJSON: Record<string, any>;
+  /** root columns (rowOwnerGUID / rowParentGUID) */
+  columns: Record<string, any>;
+}
+
+/** one edited cell: its value + null for every column that depends on it, split into rowJSON / root columns */
+export function cellPatch(columns: VisualColumn[], key: string, value: any): CellPatch {
+  const out: CellPatch = { rowJSON: {}, columns: {} };
+  const col = columns.find((c) => c.key === key);
+  if (!col) return out;
+  const put = (c: VisualColumn, v: any) => {
+    const target = targetOf(c);
+    // a root column is NOT NULL in SQL: "nothing selected" is stored as 'empty'
+    if (target === 'rowJSON') out.rowJSON[fieldOf(c)] = v ?? null;
+    else out.columns[target] = v === null || v === undefined || v === '' ? 'empty' : v;
+  };
+  put(col, value);
+  for (const dep of dependentColumns(columns, key)) put(dep, null);
+  return out;
+}
+
+/** the scope (column equality) of a table: '*' / undefined columns are not part of it */
+export function tableScope(listOwnerGUID?: string, listParentGUID?: string | null, match?: Record<string, any> | null): Record<string, any> {
+  const scope: Record<string, any> = {};
+  if (listOwnerGUID !== undefined && listOwnerGUID !== REUSABLE_TABLE_ALL) scope.rowOwnerGUID = listOwnerGUID;
+  if (listParentGUID !== undefined && listParentGUID !== null && listParentGUID !== REUSABLE_TABLE_ALL) scope.rowParentGUID = listParentGUID;
+  return { ...scope, ...(match || {}) };
+}
+
+/** rowOwnerGUID / rowParentGUID of a new row: newRowDefaults > the list scope > 'empty' */
+export function newRowColumns(listOwnerGUID: string | undefined, listParentGUID: string | null | undefined, defaults?: NewRowDefaults | null): { rowOwnerGUID: string; rowParentGUID: string } {
+  const pick = (scoped: string | null | undefined, fallback: string | undefined) => {
+    if (fallback !== undefined && fallback !== null && fallback !== '') return fallback;
+    if (scoped !== undefined && scoped !== null && scoped !== REUSABLE_TABLE_ALL) return scoped;
+    return 'empty';
+  };
+  return { rowOwnerGUID: pick(listOwnerGUID, defaults?.rowOwnerGUID), rowParentGUID: pick(listParentGUID, defaults?.rowParentGUID) };
+}
+
+// ───────────── select / multiSelect options + the visible text of any cell ─────────────
+export function optionsOf(col: VisualColumn, row: ReusableTableRow | null | undefined): SelectOption[] {
+  if (col.type !== 'select' && col.type !== 'multiSelect') return [];
+  const o = typeof col.options === 'function' ? (row ? col.options(row) : []) : col.options;
+  return Array.isArray(o) ? o : [];
+}
+/** label of a stored option value (unknown value = the value itself) */
+export function optionLabel(options: SelectOption[], value: any): string {
+  if (value === null || value === undefined || value === '') return '';
+  const found = options.find((o) => o.value === String(value));
+  return found ? found.label : String(value);
+}
+/** options whose label / hint / value contain the typed text */
+export function filterOptions(options: SelectOption[], query: string): SelectOption[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return options;
+  return options.filter((o) => `${o.label} ${o.hint ?? ''} ${o.value}`.toLowerCase().includes(q));
+}
+/** stored multiSelect value -> string[] (a single string is one value) */
+export const asStringArray = (v: any): string[] => (Array.isArray(v) ? v.map(String) : v === null || v === undefined || v === '' ? [] : [String(v)]);
+
+/** what a cell shows as text: catalog / select = title, boolean = Yes / No, json = compact JSON */
+export function displayText(row: ReusableTableRow, col: VisualColumn, catalogTitle: (col: VisualColumn, guid: string) => string): string {
+  if (col.type === 'rowNumber') return '';
+  if (col.type === 'custom') return col.searchText ? col.searchText(row) : '';
+  const v = cellValue(row, col);
+  if (col.type === 'boolean') return v === true ? 'Yes' : v === false ? 'No' : '';
+  if (v === null || v === undefined || v === '') return '';
+  if (col.type === 'catalog') return catalogTitle(col, String(v));
+  if (col.type === 'select') return optionLabel(optionsOf(col, row), v);
+  if (col.type === 'multiSelect') { const opts = optionsOf(col, row); return asStringArray(v).map((x) => optionLabel(opts, x)).join(', '); }
+  if (col.type === 'json') { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch { return String(v); } }
+  return String(v);
+}
+
+/** 'YYYY-MM-DD' of a real day */
+export function isValidDay(s: unknown): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s ?? ''));
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+}
+/** '#RGB' / '#RRGGBB' */
+export const isHexColor = (s: unknown): boolean => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(s ?? ''));
+
+/** the built-in check of a typed value (date / color); null = ok */
+export function builtInCellError(col: VisualColumn, value: any): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (col.type === 'date' && !isValidDay(value)) return `${col.title}: use the form YYYY-MM-DD (e.g. 2026-10-08)`;
+  if (col.type === 'color' && !isHexColor(value)) return `${col.title}: use the form #RRGGBB (e.g. #D32F2F)`;
+  return null;
+}
 
 const orderOf = (r: ReusableTableRow) => Number(r?.orderInList ?? 0);
 
@@ -56,17 +171,16 @@ export function dependentColumns(columns: VisualColumn[], key: string): VisualCo
 
 /** rowJSON patch of one edited cell: the value + null for every column that depends on it */
 export function patchForCell(columns: VisualColumn[], key: string, value: any): Record<string, any> {
-  const col = columns.find((c) => c.key === key);
-  if (!col) return {};
-  const patch: Record<string, any> = { [fieldOf(col)]: value ?? null };
-  for (const dep of dependentColumns(columns, key)) patch[fieldOf(dep)] = null;
-  return patch;
+  return cellPatch(columns, key, value).rowJSON;
 }
 
-/** rowJSON of a new row: every stored column field = null */
+/** rowJSON of a new row: every stored rowJSON field = null (boolean = false, multiSelect = []) */
 export function emptyRowJSON(columns: VisualColumn[]): Record<string, any> {
   const json: Record<string, any> = {};
-  for (const col of columns) if (col.type !== 'rowNumber' && col.type !== 'custom') json[fieldOf(col)] = null;
+  for (const col of columns) {
+    if (!isStoredColumn(col) || targetOf(col) !== 'rowJSON') continue;
+    json[fieldOf(col)] = col.type === 'boolean' ? false : col.type === 'multiSelect' ? [] : null;
+  }
   return json;
 }
 
@@ -96,14 +210,11 @@ export function sanitizeNumberText(text: string, integer: boolean, allowNegative
 
 /** catalogTitle(col, guid) = the visible title of a stored catalog GUID */
 export function rowSearchText(row: ReusableTableRow, columns: VisualColumn[], catalogTitle: (col: VisualColumn, guid: string) => string): string {
-  const json = row?.rowJSON || {};
   const parts: string[] = [];
   for (const col of columns) {
     if (col.type === 'rowNumber') continue;
-    if (col.type === 'custom') { if (col.searchText) parts.push(col.searchText(row)); continue; }
-    const v = json[fieldOf(col)];
-    if (v === null || v === undefined || v === '') continue;
-    parts.push(col.type === 'catalog' ? catalogTitle(col, String(v)) : String(v));
+    const t = displayText(row, col, catalogTitle);
+    if (t) parts.push(t);
   }
   return parts.join(' ').toLowerCase();
 }

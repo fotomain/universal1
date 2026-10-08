@@ -1,5 +1,5 @@
 // refreshCurrencyRatio - fills the exchange rates (currencyExchangeRateTable) of the last months from the
-// Frankfurter API v2. ONLY days that have no rate yet are added: a rate somebody entered or corrected is never changed.
+// Frankfurter API v2-1. ONLY days that have no rate yet are added: a rate somebody entered or corrected is never changed.
 //   currencyRatio = units of the currency for 1 base currency (EXPO_PUBLIC_CURRENCY_RATES_BASE, default EUR).
 import { currencyExchangeRateTable, isValidISODate, orderInListForDate, todayISO } from '../exchange/currencyExchangeModel';
 import { currencyRefreshConfig, CurrencyRefreshConfig } from './currencyRefreshConfig';

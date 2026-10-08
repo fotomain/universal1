@@ -29,10 +29,10 @@ function fakeSupabase(answers: { tables?: Record<string, { data?: any; error?: a
 
 describe('versionApi', () => {
   it('readProjectVersions: versions of the project, newest first, normalized', async () => {
-    const f = fakeSupabase({ tables: { version_project_table: { data: [{ rowVersionGUID: 'v2', rowGUID: 'p', orderInList: '2', rowProgress: '50', rowJSON: { versionTitle: 'Second', versionCreatedAt: 'x' } }] } } });
+    const f = fakeSupabase({ tables: { version_project_table: { data: [{ rowVersionGUID: 'v2-1', rowGUID: 'p', orderInList: '2', rowProgress: '50', rowJSON: { versionTitle: 'Second', versionCreatedAt: 'x' } }] } } });
     const r = await createVersionApi(f.sb).readProjectVersions('p');
     expect(r.missing).toBe(false);
-    expect(r.rows[0]).toMatchObject({ rowVersionGUID: 'v2', orderInList: 2, rowProgress: 50 });
+    expect(r.rows[0]).toMatchObject({ rowVersionGUID: 'v2-1', orderInList: 2, rowProgress: 50 });
     expect(f.calls[0]).toMatchObject({ table: 'version_project_table', op: 'select', filters: [['rowGUID', 'p']], order: ['orderInList', { ascending: false }] });
   });
 

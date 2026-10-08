@@ -9,7 +9,7 @@ export interface ThemeSwitcherProps {
 const SYSTEMS: { id: DesignSystemType; label: string; badge: string; icon: string }[] = [
   { id: 'paper', label: 'Paper', badge: 'MD3', icon: '📄' },
   { id: 'applemacui', label: 'Apple Mac UI', badge: 'iOS', icon: '🍎' },
-  { id: 'tamagui', label: 'Tamagui', badge: 'v2', icon: '🎨' },
+  { id: 'tamagui', label: 'Tamagui', badge: 'v2-1', icon: '🎨' },
   { id: 'ant', label: 'Ant Design', badge: 'RN', icon: '🐜' },
   { id: 'expo', label: 'Expo UI', badge: 'Swift/Native', icon: '🚀' },
   { id: 'native', label: 'RN Native', badge: 'Core', icon: '📱' },

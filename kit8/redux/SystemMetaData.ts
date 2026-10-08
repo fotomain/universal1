@@ -14,6 +14,7 @@ import {PROJECT_KANBAN_STAGE_ENTITY, PROJECT_TASK_KANBAN_STATE_ENTITY, projectKa
 import {ROLE_ENTITY, rolesTable, emptyRole} from "../catalog/role/roleModel";
 import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userrole/userRoleModel";
 import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
+import {productSystemMetaData} from "../catalog/product/productMetaData";
 import {TASK_EXPENSE_INPUT_ENTITY, taskExpenseInputTable, emptyTaskExpenseInput} from "../ui/components/table/reusable/example/taskExpenseInputModel";
 
 // MD.
@@ -83,6 +84,11 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p: any) => {},
     },
+    // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 17 tables - measureUnit, descriptorGenus,
+    // descriptorValue, descriptorMode, descriptorDestination, descriptorPlan, productType, productFolder, product,
+    // propertyValue, variant, variantValue, productPackaging, productSeries, productBarcode, priceType, productPrice.
+    // Screen /catalog/product/dashboard, SQL kit8/sql/init/create_product_tables.sql, Supabase Realtime sync
+    ...productSystemMetaData(),
     // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
     [PERSON_ENTITY]: {
         tableName: personsTable,

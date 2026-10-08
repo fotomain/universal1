@@ -1,11 +1,12 @@
 // ReusableTable - one cell: shows the value of a visualColumn and lets the user change it in place.
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../common/IconApp';
 import SelectElementFromCatalog from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
 import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
-import { fieldOf, parseNumberInput, sanitizeNumberText, stepNumber } from './tableRows';
+import { asStringArray, cellValue, isHexColor, optionLabel, optionsOf, parseNumberInput, sanitizeNumberText, stepNumber } from './tableRows';
+import ReusableTableOptionPicker from './ReusableTableOptionPicker';
 
 export interface ReusableTableCellProps {
   col: VisualColumn;
@@ -34,7 +35,6 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
   const border = bordered ? 1 : 0;
   const h = dense ? 30 : 40;
   const { themeColors: c } = useDesignSystem();
-  const json = row.rowJSON || {};
   const id = `${testID}-cell-${row.rowGUID}-${col.key}`;
   const align = col.align === 'right' ? 'right' : col.align === 'center' ? 'center' : 'left';
 
@@ -43,13 +43,14 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
   }
   if (col.type === 'custom') return <>{col.renderCell(row, rowIndex, onPatch)}</>;
 
-  const value = json[fieldOf(col)];
+  const value = cellValue(row, col);
   const editable = col.editable !== false && !readOnly;
 
   if (col.type === 'catalog') {
     const parentCol = col.dependsOn ? columns.find((x) => x.key === col.dependsOn) : undefined;
-    const parentValue = parentCol ? json[fieldOf(parentCol)] : undefined;
+    const parentValue = parentCol ? cellValue(row, parentCol) : undefined;
     const waitsForParent = !!col.dependsOn && !parentValue;
+    const scopeByParent = !!col.dependsOn && col.dependsOnScopesCatalog !== false;
     return (
       <View style={styles.catalogCell}>
         <View style={styles.selectWrap}>
@@ -59,13 +60,13 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
           value={value ?? null}
           onChange={(guid) => onChange(col.key, guid)}
           // the rows of the element chosen in the column this one depends on (person -> his contracts)
-          rowOwnerGUID={col.dependsOn ? (parentValue ? String(parentValue) : undefined) : col.catalogRowOwnerGUID}
+          rowOwnerGUID={scopeByParent ? (parentValue ? String(parentValue) : undefined) : col.catalogRowOwnerGUID}
           rowParentGUID={col.catalogRowParentGUID}
           // every row of the table shares ONE read of the catalog; the owner filter is applied in memory
           scopeFetchByOwner={false}
           compact={dense}
           triggerStyle={{ ...(col.detailsRoute ? { paddingRight: 2 } : {}), borderRadius: radius, borderWidth: border, ...(bordered ? {} : { backgroundColor: 'transparent' }) }}
-          filterItem={col.filterItem}
+          filterItem={col.filterItem ? (catalogRow: any) => col.filterItem!(catalogRow, row) : undefined}
           placeholder={col.placeholder ?? 'Select…'}
           disabled={!editable || waitsForParent}
           disabledMessage={waitsForParent ? col.dependsOnMessage ?? 'Fill the previous column first' : undefined}
@@ -88,7 +89,108 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
     return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} onCommit={(n) => onChange(col.key, n)} />;
   }
 
+  if (col.type === 'boolean') {
+    const on = value === true;
+    return (
+      <Pressable testID={id} accessibilityRole="checkbox" aria-checked={on} disabled={!editable} onPress={() => onChange(col.key, !on)} hitSlop={6}
+        style={[styles.boolCell, { justifyContent: col.align === 'left' ? 'flex-start' : col.align === 'right' ? 'flex-end' : 'center' }]}>
+        <View style={[styles.boolBox, { borderColor: on ? c.primary : c.text + '80', backgroundColor: on ? c.primary : 'transparent', opacity: editable ? 1 : 0.6 }]}>
+          {on ? <Text style={styles.boolTick}>✓</Text> : null}
+        </View>
+      </Pressable>
+    );
+  }
+
+  if (col.type === 'select' || col.type === 'multiSelect') {
+    const multi = col.type === 'multiSelect';
+    const options = optionsOf(col, row);
+    const selectedValues = multi ? asStringArray(value) : value === null || value === undefined || value === '' ? [] : [String(value)];
+    const shown = selectedValues.map((v) => optionLabel(options, v)).join(', ');
+    const dot = !multi && selectedValues[0] ? options.find((o) => o.value === selectedValues[0])?.color : undefined;
+    return (
+      <OptionCell testID={id} title={col.title} shown={shown} dot={dot} placeholder={col.placeholder ?? (multi ? 'Select…' : 'Select…')} editable={editable} h={h} radius={radius} border={border}
+        options={options} multi={multi} selected={selectedValues} allowEmpty={col.type === 'select' ? col.allowEmpty !== false : true}
+        onCommit={(next) => onChange(col.key, multi ? next : next[0] ?? null)} />
+    );
+  }
+
+  if (col.type === 'color') {
+    return (
+      <View style={styles.colorCell}>
+        <View testID={`${id}-swatch`} style={[styles.swatch, { borderColor: c.border, backgroundColor: isHexColor(value) ? String(value) : 'transparent' }]} />
+        <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder ?? '#RRGGBB'} align="left" onCommit={(t) => onChange(col.key, t.trim() === '' ? null : t.trim())} />
+      </View>
+    );
+  }
+
+  if (col.type === 'json') {
+    return <JsonCell testID={id} title={col.title} value={value} editable={editable} h={h} onCommit={(v) => onChange(col.key, v)} />;
+  }
+
+  if (col.type === 'date') {
+    return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder ?? 'YYYY-MM-DD'} align={align} onCommit={(t) => onChange(col.key, t.trim() === '' ? null : t.trim())} />;
+  }
+
   return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder} align={align} onCommit={(t) => onChange(col.key, t)} />;
+}
+
+/** select / multiSelect: the chosen labels; a press opens the picker */
+function OptionCell({ testID, title, shown, dot, placeholder, editable, h, radius, border, options, multi, selected, allowEmpty, onCommit }: {
+  testID: string; title: string; shown: string; dot?: string; placeholder: string; editable: boolean; h: number; radius: number; border: number;
+  options: import('./reusableTableTypes').SelectOption[]; multi: boolean; selected: string[]; allowEmpty: boolean; onCommit: (values: string[]) => void;
+}) {
+  const { themeColors: c } = useDesignSystem();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable testID={testID} disabled={!editable} onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`${title}: ${shown || placeholder}`}
+        style={[styles.optionTrigger, { height: h, borderRadius: radius, borderWidth: border, borderColor: c.border }]}>
+        {dot ? <View style={[styles.dot, { backgroundColor: dot, borderColor: c.border }]} /> : null}
+        <Text numberOfLines={1} style={{ flex: 1, color: c.text, opacity: shown ? 1 : 0.45, fontSize: 14 }}>{shown || placeholder}</Text>
+        {editable ? <IconApp name="expand_more" size={16} color={c.text} /> : null}
+      </Pressable>
+      {open && (
+        <ReusableTableOptionPicker testID={`${testID}-picker`} title={title} options={options} multi={multi} selected={selected} allowEmpty={allowEmpty}
+          onClose={() => setOpen(false)} onPick={(values) => { setOpen(false); onCommit(values); }} />
+      )}
+    </>
+  );
+}
+
+/** json: compact text; a press opens a window with the formatted JSON (saved only when it parses) */
+function JsonCell({ testID, title, value, editable, h, onCommit }: { testID: string; title: string; value: any; editable: boolean; h: number; onCommit: (v: any) => void }) {
+  const { themeColors: c } = useDesignSystem();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const compact = value === null || value === undefined ? '' : (() => { try { return JSON.stringify(value); } catch { return String(value); } })();
+  const save = () => {
+    const t = (draft ?? '').trim();
+    if (t === '') { onCommit(null); setDraft(null); return; }
+    try { onCommit(JSON.parse(t)); setDraft(null); setError(''); } catch (e: any) { setError(`Not valid JSON: ${e?.message || e}`); }
+  };
+  return (
+    <>
+      <Pressable testID={testID} onPress={() => { setError(''); setDraft(value === null || value === undefined ? '' : JSON.stringify(value, null, 2)); }} style={[styles.optionTrigger, { height: h }]}>
+        <Text numberOfLines={1} style={{ flex: 1, color: c.text, opacity: compact ? 0.85 : 0.45, fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>{compact || '{ }'}</Text>
+      </Pressable>
+      {draft !== null && (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setDraft(null)}>
+          <Pressable style={styles.backdrop} onPress={() => setDraft(null)}>
+            <Pressable style={[styles.jsonWindow, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => {}}>
+              <Text style={{ color: c.text, fontWeight: '700', fontSize: 16, marginBottom: 8 }}>{title}</Text>
+              <TextInput testID={`${testID}-editor`} multiline editable={editable} value={draft} onChangeText={setDraft} autoCapitalize="none" autoCorrect={false}
+                style={[styles.jsonInput, { color: c.text, borderColor: error ? c.error : c.border }]} />
+              {!!error && <Text testID={`${testID}-error`} style={{ color: c.error, marginTop: 6 }}>{error}</Text>}
+              <View style={styles.jsonButtons}>
+                <Pressable testID={`${testID}-cancel`} onPress={() => setDraft(null)} style={[styles.jsonBtn, { borderColor: c.border }]}><Text style={{ color: c.text }}>Cancel</Text></Pressable>
+                {editable && <Pressable testID={`${testID}-save`} onPress={save} style={[styles.jsonBtn, { borderColor: c.primary, backgroundColor: c.primary }]}><Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text></Pressable>}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+    </>
+  );
 }
 
 /** number input: free typing, saved on blur / Enter (only when the value really changed) */
@@ -163,6 +265,18 @@ function TextCell({ radius, border, h, value, editable, placeholder, align, onCo
 }
 
 const styles = StyleSheet.create({
+  boolCell: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },
+  boolBox: { width: 18, height: 18, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+  boolTick: { color: '#fff', fontSize: 12, lineHeight: 14, fontWeight: '900' },
+  optionTrigger: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 },
+  dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
+  colorCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  swatch: { width: 16, height: 16, borderRadius: 4, borderWidth: 1, marginLeft: 4 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  jsonWindow: { width: '100%', maxWidth: 560, borderWidth: 1, borderRadius: 12, padding: 16 },
+  jsonInput: { minHeight: 220, borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 13, textAlignVertical: 'top', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }) },
+  jsonButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+  jsonBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, height: 36, alignItems: 'center', justifyContent: 'center' },
   catalogCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   detailsBtn: { width: 18, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
   // SelectElementFromCatalog has its own vertical margin: removed inside a table row

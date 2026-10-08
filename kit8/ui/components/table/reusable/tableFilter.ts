@@ -1,7 +1,7 @@
 // ReusableTable - column sort + column filters, the light version of the Tasks Tree "Filter & sort"
 // (kit8/pm/view/tree/filter). Pure, unit-tested. Catalog columns sort / filter by the visible TITLE, not the GUID.
 import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
-import { fieldOf } from './tableRows';
+import { cellValue, displayText } from './tableRows';
 
 export type ColumnFilterOp = 'contains' | 'eq' | 'gte' | 'lte' | 'empty' | 'notEmpty';
 export interface ColumnFilter { op: ColumnFilterOp; value?: string }
@@ -18,11 +18,12 @@ export const filterNeedsValue = (op: ColumnFilterOp) => op !== 'empty' && op !==
 
 /** the value a column is compared by: number (number columns), catalog title or text; null = empty cell */
 export function columnValue(row: ReusableTableRow, col: VisualColumn, catalogTitle: CatalogTitleFn): string | number | null {
-  const v = row?.rowJSON?.[fieldOf(col)];
-  if (v === null || v === undefined || v === '') return null;
-  if (isNumeric(col)) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-  if (col.type === 'catalog') return catalogTitle(col, String(v)) || String(v);
-  return String(v);
+  const v = cellValue(row, col);
+  if (isNumeric(col)) { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+  const shown = displayText(row, col, catalogTitle);
+  if (shown !== '') return shown;
+  // a catalog GUID whose element is not loaded: compare by the GUID
+  return v === null || v === undefined || v === '' || col.type === 'boolean' ? null : String(v);
 }
 
 export function matchesFilter(value: string | number | null, f: ColumnFilter): boolean {

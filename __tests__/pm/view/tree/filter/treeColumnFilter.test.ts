@@ -99,7 +99,7 @@ describe('text filters (case-insensitive)', () => {
     expect(splitFilterList('a, "b, c" ,, d')).toEqual(['a', '"b, c"', 'd']);
     expect(test1(f('isOneOf', 'Design, Build'), 'text', 'build')).toBe(true);
     expect(test1(f('isOneOf', 'Design, Build'), 'text', 'Test')).toBe(false);
-    expect(test1(f('isOneOf', '"Plan, v2", x'), 'text', 'plan, v2')).toBe(true);
+    expect(test1(f('isOneOf', '"Plan, v2-1", x'), 'text', 'plan, v2-1')).toBe(true);
   });
 
   it('after / before / <= / >= / between use the natural order (1.9 < 1.10)', () => {

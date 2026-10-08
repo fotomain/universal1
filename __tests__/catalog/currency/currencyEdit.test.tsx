@@ -101,8 +101,8 @@ it('existing currency: updateOne with rowJSON; delete asks twice', () => {
 
 it('changed in another browser: clean form follows; dirty form offers Reload / Keep mine', () => {
   mount({ rowGUID: 'eur' });
-  remote({ eventType: 'UPDATE', table: 'currencyTable', new: { ...EUR, updated_at: 't2', rowJSON: { ...EUR.rowJSON, currencyName: 'Euro v2' } }, old: null });
-  expect(value('currency-edit-currencyName')).toBe('Euro v2');
+  remote({ eventType: 'UPDATE', table: 'currencyTable', new: { ...EUR, updated_at: 't2', rowJSON: { ...EUR.rowJSON, currencyName: 'Euro v2-1' } }, old: null });
+  expect(value('currency-edit-currencyName')).toBe('Euro v2-1');
   expect(q('currency-edit-remote-changed')).toBeNull();
 
   typeInto('currency-edit-currencySymbol', 'EUR€');

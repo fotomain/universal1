@@ -5,7 +5,7 @@ import { __clearFrankfurterCache, fetchRatesRange } from '../../../../kit8/catal
 const cfg = { apiUrl: 'https://api.test/v2', base: 'EUR', months: 2, providers: '' };
 const cur = (g: string, code: string) => ({ rowGUID: g, rowJSON: { currencyCode: code } });
 const byDay = { '2026-10-05': { USD: 1.0841239, GBP: 0.86 }, '2026-10-06': { USD: 1.09, GBP: 0.87 } };
-// v2: a flat array, one row per day and quote
+// v2-1: a flat array, one row per day and quote
 const answer = Object.entries(byDay).flatMap(([date, r]) => Object.entries(r).map(([quote, rate]) => ({ date, base: 'EUR', quote, rate })));
 const currencies = ['USD', 'GBP', 'EUR'].map((iso_code) => ({ iso_code, name: iso_code }));
 const makeFetch = () => jest.fn(async (url: string) => ({

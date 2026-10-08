@@ -19,19 +19,31 @@ columnSortAndFilter (▾ on a header: sort + filter, default on), crudPanelEnabl
 columnsOrder, columnsWidths, onColumnsOrderChange, onColumnsWidthsChange,
 searchEnabled, contextMenuEnabled, extraMenuItems, onRowsChange, rowHeight, tableMaxWidth, emptyText`.
 
-Column types (`reusableTableTypes.ts`): `rowNumber` · `catalog` (stores a catalog rowGUID, shows its title through
+**All-rows mode** (catalog dashboards, e.g. kit8/catalog/product/dashboard): `listOwnerGUID={REUSABLE_TABLE_ALL}` (and
+`listParentGUID={REUSABLE_TABLE_ALL}`) = the rows of every owner / parent; the read has no `match`, so the redux entity
+keeps the whole table for every other screen. `rowFilter` filters the shown rows on the client (master -> detail),
+`newRowDefaults` gives a new row its rowOwnerGUID / rowParentGUID / rowJSON, `computeRowJSON` adds derived fields to a
+change, `toolbarExtra` puts more buttons after the CRUD panel.
+
+**Where a cell is stored**: `target: 'rowJSON'` (default, rowJSON[field]) or `'rowOwnerGUID'` / `'rowParentGUID'`
+(the root column, saved with `updateOne({ columns })`; "nothing" = 'empty'). `validate(value, row)` refuses a value
+with a snackbar. Number columns: `total: false` = no footer sum (prices, ratios).
+
+Column types (`reusableTableTypes.ts`): `boolean` (check box) · `select` (one value of `options`, fixed or `(row) => options`;
+picker with search from 8 options, color dot, hint) · `multiSelect` (string[]) · `date` ('YYYY-MM-DD', checked) ·
+`color` ('#RRGGBB' + swatch) · `json` (any JSON, edited in a window) · `rowNumber` · `catalog` (stores a catalog rowGUID, shows its title through
 SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalog, cleared when that column changes;
-`detailsRoute` = a "…" button in the cell that opens the details page of the selected element; the page gets
+`dependsOnScopesCatalog: false` = only disable / clear, `filterItem(catalogRow, tableRow)`; `detailsRoute` = a "…" button in the cell that opens the details page of the selected element; the page gets
 `returnTo` = this screen + `focusRowGUID`, so the app's Back button returns to the same row - kit8/lib/returnToRoute.ts) ·
 `integer` / `number` (− / + buttons by default; `stepper: false`, `step`) · `text` · `custom`.
 
 Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate, move up / down / first / last, copy GUID,
 archive, delete (+ Undo snackbar). Web: drag the ⠿ handle to reorder (orderInList). iOS / Android: reorder from the menu.
 
-Files: `ReusableTable.tsx` (view) · `useReusableTableCrud.ts` (data + commands) · `tableRows.ts` (pure helpers) ·
+Files: `ReusableTable.tsx` (view) · `ReusableTableOptionPicker.tsx` (select / multiSelect picker) · `useReusableTableCrud.ts` (data + commands) · `tableRows.ts` (pure helpers) ·
 `ReusableTableCell.tsx` · `ReusableTableRowMenu.tsx` · `ReusableTableBodyWeb.tsx` (drag & drop, web only) ·
 `example/` TableExample2 = `task_expense_input_table` (SQL: `kit8/sql/init/create_task_expense_input_table.sql`).
-Tests: `__tests__/ui/table`.
+Tests: `__tests__/ui/table` (`reusableTableAllRows.test.tsx`, `reusableTableFields.test.ts` for the all-rows mode and the new types).
 
 Bar: Search is a `TextInputApp`; the clock icon lists the last 10 search substrings of this table (kept on the device,
 `useSearchHistory.ts`). The ⋮ menu: Default settings (column order / widths, sort, filters, search) · Export · Share,

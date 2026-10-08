@@ -29,8 +29,32 @@ interface ColumnBase {
   align?: ColumnAlign;
   /** rowJSON field the cell reads / writes (default: key) */
   field?: string;
+  /**
+   * where the value is stored (default 'rowJSON' = rowJSON[field]).
+   * 'rowOwnerGUID' / 'rowParentGUID' = the ROOT column of the row (e.g. product -> its product type / folder);
+   * such a cell is saved with updateOne({ columns: { rowOwnerGUID } }).
+   */
+  target?: CellTarget;
   /** false = shown, not editable */
   editable?: boolean;
+  /**
+   * checked before a changed value is saved: a message = the value is refused (snackbar), null = ok.
+   * `row` is the row BEFORE the change.
+   */
+  validate?: (value: any, row: ReusableTableRow) => string | null | undefined;
+}
+
+/** where a column value is stored */
+export type CellTarget = 'rowJSON' | 'rowOwnerGUID' | 'rowParentGUID';
+
+/** one choice of a select / multiSelect column */
+export interface SelectOption {
+  value: string;
+  label: string;
+  /** small color dot before the label (e.g. a color descriptor value) */
+  color?: string;
+  /** second line in the picker */
+  hint?: string;
 }
 
 /** 1, 2, 3 ... - the position in the list (not stored) */
@@ -55,6 +79,11 @@ export interface CatalogColumn extends ColumnBase {
   dependsOn?: string;
   /** shown in the disabled cell, e.g. "Select a person first" */
   dependsOnMessage?: string;
+  /**
+   * false: `dependsOn` only disables / clears this cell; the catalog is NOT scoped by the owner GUID
+   * (use filterItem(catalogRow, tableRow) for any other relation). Default true.
+   */
+  dependsOnScopesCatalog?: boolean;
   placeholder?: string;
   /**
    * "…" button in the cell: opens the details of the selected element.
@@ -64,7 +93,8 @@ export interface CatalogColumn extends ColumnBase {
   detailsRoute?: string | ((guid: string, tableRow: ReusableTableRow) => string | { pathname: string; params?: Record<string, string> } | null);
   titleExtractor?: (catalogRow: any) => string;
   subtitleExtractor?: (catalogRow: any) => string | undefined;
-  filterItem?: (catalogRow: any) => boolean;
+  /** which catalog rows can be picked; tableRow = the row of THIS table (e.g. values of the row's descriptor) */
+  filterItem?: (catalogRow: any, tableRow: ReusableTableRow) => boolean;
 }
 
 export interface NumberColumn extends ColumnBase {
@@ -77,9 +107,42 @@ export interface NumberColumn extends ColumnBase {
   stepper?: boolean;
   /** what one press of − / + changes (default 1) */
   step?: number;
+  /** false: no sum in the footer (prices, ratios ... where a sum means nothing). Default true */
+  total?: boolean;
 }
 
 export interface TextColumn extends ColumnBase { type: 'text'; placeholder?: string }
+
+/** true / false - a check box */
+export interface BooleanColumn extends ColumnBase { type: 'boolean' }
+
+/**
+ * One value of a fixed or computed list (stores option.value, shows option.label).
+ * `options` may depend on the row (e.g. "a product type OR a product", the descriptor values of the row's genus).
+ */
+export interface SelectColumn extends ColumnBase {
+  type: 'select';
+  options: SelectOption[] | ((row: ReusableTableRow) => SelectOption[]);
+  placeholder?: string;
+  /** the picker offers "— none —" (stores null). Default true */
+  allowEmpty?: boolean;
+}
+
+/** several values of a list, stored as string[] */
+export interface MultiSelectColumn extends ColumnBase {
+  type: 'multiSelect';
+  options: SelectOption[] | ((row: ReusableTableRow) => SelectOption[]);
+  placeholder?: string;
+}
+
+/** 'YYYY-MM-DD' (typed; refused when it is not a real day) */
+export interface DateColumn extends ColumnBase { type: 'date'; placeholder?: string }
+
+/** '#RRGGBB' with a color swatch */
+export interface ColorColumn extends ColumnBase { type: 'color'; placeholder?: string }
+
+/** any JSON value (object / array / scalar) edited as text in a window */
+export interface JsonColumn extends ColumnBase { type: 'json' }
 
 export interface CustomColumn extends ColumnBase {
   type: 'custom';
@@ -88,7 +151,18 @@ export interface CustomColumn extends ColumnBase {
   searchText?: (row: ReusableTableRow) => string;
 }
 
-export type VisualColumn = RowNumberColumn | CatalogColumn | NumberColumn | TextColumn | CustomColumn;
+export type VisualColumn = RowNumberColumn | CatalogColumn | NumberColumn | TextColumn | CustomColumn
+  | BooleanColumn | SelectColumn | MultiSelectColumn | DateColumn | ColorColumn | JsonColumn;
+
+/** listOwnerGUID / listParentGUID value: no scope by that column - the table shows the rows of ALL owners / parents */
+export const REUSABLE_TABLE_ALL = '*';
+
+/** what a new row gets besides rowJSON (all-rows mode: the owner / parent of the new row) */
+export interface NewRowDefaults {
+  rowOwnerGUID?: string;
+  rowParentGUID?: string;
+  rowJSON?: Record<string, any>;
+}
 
 /**
  * Layout of the bar above the table:
@@ -135,7 +209,11 @@ export interface ReusableTableProps {
   /** SystemMetaData key of the archive entity ('' / undefined = no "Archive" command) */
   entityForArchivationName?: string;
   crudListTitle?: string;
-  /** rowOwnerGUID of every row of this table (no owner = "awaiting owner" empty state) */
+  /**
+   * rowOwnerGUID of every row of this table (no owner = "awaiting owner" empty state).
+   * REUSABLE_TABLE_ALL ('*') = the rows of every owner (a catalog dashboard); the owner of a new row comes from
+   * newRowDefaults / a column with target 'rowOwnerGUID'.
+   */
   listOwnerGUID?: string;
   /** "Row", "Expense", ... in user messages */
   itemLabel?: string;
@@ -147,8 +225,22 @@ export interface ReusableTableProps {
   reorderEnabled?: boolean;
 
   // ---- table parameters ----
-  /** rowParentGUID of every row of this table (default 'empty') */
+  /** rowParentGUID of every row of this table (default 'empty'); REUSABLE_TABLE_ALL ('*') = every parent */
   listParentGUID?: string;
+  /**
+   * client-side filter of the shown rows (the server read stays the same, so other screens sharing the redux
+   * entity keep every row): master -> detail, e.g. the property values of ONE product
+   */
+  rowFilter?: (row: ReusableTableRow) => boolean;
+  /** rowOwnerGUID / rowParentGUID / rowJSON of a new row (merged over listOwnerGUID / listParentGUID / defaultRowJSON) */
+  newRowDefaults?: NewRowDefaults | (() => NewRowDefaults);
+  /**
+   * derived fields: called with the row AFTER a cell change; the returned patch is saved together with the change
+   * (e.g. a title built from other cells). null / {} = nothing more
+   */
+  computeRowJSON?: (rowJSON: Record<string, any>, row: ReusableTableRow) => Record<string, any> | null | undefined;
+  /** more buttons in the bar, after the CRUD panel */
+  toolbarExtra?: ReactNode;
   /** the columns: what is shown and how it is entered / stored */
   visualColumns: VisualColumn[];
   /** rowJSON of a new row (default: every column field = null) */

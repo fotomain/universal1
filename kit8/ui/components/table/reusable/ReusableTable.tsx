@@ -32,7 +32,7 @@ import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
-import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, fieldOf, moveColumn, rowSearchText, widthOf } from './tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -69,7 +69,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, uxuiTable,
     selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
-    emptyText, testID = 'reusable-table',
+    emptyText, testID = 'reusable-table', toolbarExtra,
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
   const crud = useReusableTableCrud(props);
@@ -264,8 +264,9 @@ export default function ReusableTable(props: ReusableTableProps) {
     );
   }
 
-  const numericCols = visualColumns.filter((col) => col.type === 'integer' || col.type === 'number');
-  const total = (col: VisualColumn) => visible.reduce((sum, r) => sum + (Number(r.rowJSON?.[fieldOf(col)]) || 0), 0);
+  // totals of the number columns (not of those with total: false - prices, ratios ...)
+  const numericCols = visualColumns.filter((col) => (col.type === 'integer' || col.type === 'number') && col.total !== false);
+  const total = (col: VisualColumn) => Math.round(visible.reduce((sum, r) => sum + (Number(cellValue(r, col)) || 0), 0) * 1e6) / 1e6;
 
   // ---- the parts of the bar above the table (placed by uxuiTable.tableBarLayoutVariant) ----
   const barLayout = uxuiTable?.tableBarLayoutVariant ?? 'leftCrudPanel_rightSearch';
@@ -322,11 +323,11 @@ export default function ReusableTable(props: ReusableTableProps) {
     <View style={[styles.root, { backgroundColor: c.surface, borderColor: c.border, width: fixedWidth as any, maxWidth: tableMaxWidth }]} testID={testID}>
       {/* ---- top bar ---- */}
       <View style={[styles.toolbar, minimumBar ? styles.toolbarMinimum : null, { borderBottomColor: c.border }]} testID={`${testID}-bar-${barLayout}`}>
-        <View style={styles.barSide} testID={`${testID}-bar-left`}>{barLayout === 'leftTitle_rightSearchCrudPanel' ? titleEl : panelEl}</View>
+        <View style={styles.barSide} testID={`${testID}-bar-left`}>{barLayout === 'leftTitle_rightSearchCrudPanel' ? titleEl : panelEl}{barLayout !== 'leftTitle_rightSearchCrudPanel' ? toolbarExtra : null}</View>
         <View style={[styles.barSide, styles.barRight]} testID={`${testID}-bar-right`}
           onStartShouldSetResponderCapture={(e: any) => { lastPress.current = pressPoint(e); return false; }}>
           {searchEl}
-          {barLayout === 'leftTitle_rightSearchCrudPanel' ? panelEl : barLayout === 'leftCrudPanel_rightSearchTitle' ? titleEl : null}
+          {barLayout === 'leftTitle_rightSearchCrudPanel' ? <>{panelEl}{toolbarExtra}</> : barLayout === 'leftCrudPanel_rightSearchTitle' ? titleEl : null}
           {moreEl}
         </View>
       </View>

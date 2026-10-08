@@ -93,6 +93,14 @@ it('Catalogs comes right before Projects', () => {
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-pm-projects') - 1);
 });
 
+it('Products (product catalog dashboard) is a menu item after Projects and opens the dashboard', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-products')).toBe(ids.indexOf('drawer-item-pm-projects') + 1);
+  press('drawer-item-products');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/product/dashboard');
+});
+
 it('opens by itself on a catalog page (list or edit)', () => {
   mount('/currency/list');
   expect(q('drawer-subitem-currencies')).not.toBeNull();

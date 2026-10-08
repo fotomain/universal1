@@ -7,20 +7,30 @@ import * as Crypto from 'expo-crypto';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../../redux/reusable/useRealtimeEntity';
 import { matchRow } from '../../../../redux/reusable/realtimeRows';
+import { showSnackbar } from '../../../../redux/uxuiSlice';
 import type { ReusableTableProps, ReusableTableRow } from './reusableTableTypes';
-import { emptyRowJSON, insertRow, moveRow, moveSelectedRows, patchForCell, sortRows } from './tableRows';
+import { builtInCellError, cellPatch, emptyRowJSON, insertRow, moveRow, moveSelectedRows, newRowColumns, sortRows, tableScope } from './tableRows';
 
-type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange'>;
+type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON'>;
 
-export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange }: Args) {
+export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, rowFilter, newRowDefaults, computeRowJSON }: Args) {
   const dispatch = useDispatch();
   const entityState = useSelector((s: any) => s?.[entityName]);
   const actions = SystemMetaData[entityName]?.actions;
   const archiveActions = entityForArchivationName ? SystemMetaData[entityForArchivationName]?.actions : undefined;
 
-  /** scope of this table: the rows of ONE owner + ONE parent (server read, realtime and the shown rows) */
-  const scope = useMemo(() => ({ rowOwnerGUID: listOwnerGUID, rowParentGUID: listParentGUID, ...(readParams?.match || {}) }), [listOwnerGUID, listParentGUID, readParams]);
-  const fullReadParams = useMemo(() => ({ paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {}), match: scope }), [readParams, scope]);
+  /**
+   * scope of this table: the rows of ONE owner + ONE parent (server read, realtime and the shown rows);
+   * REUSABLE_TABLE_ALL ('*') leaves that column out (all-rows mode)
+   */
+  const scope = useMemo(() => tableScope(listOwnerGUID, listParentGUID, readParams?.match), [listOwnerGUID, listParentGUID, readParams]);
+  /** the owner every row of this table has (undefined in all-rows mode) */
+  const scopedOwner: string | undefined = scope.rowOwnerGUID;
+  const fullReadParams = useMemo(() => {
+    const p: Record<string, any> = { paginationSize: 1000, originationCurrentPage: 0, ...(readParams || {}) };
+    if (Object.keys(scope).length > 0) p.match = scope; else delete p.match;
+    return p;
+  }, [readParams, scope]);
   const readKey = JSON.stringify(fullReadParams);
 
   useRealtimeEntity(entityName, { enabled: realtime && !!listOwnerGUID, readParams: fullReadParams });
@@ -46,23 +56,26 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   useEffect(() => {
     const all = entityState?.entityDataFromServer;
     if (!Array.isArray(all)) return;
-    const scoped = all.filter((r: any) => matchRow(r, scope));
+    const scoped = all.filter((r: any) => matchRow(r, scope) && (!rowFilter || rowFilter(r)));
     // an empty list is real only after a read or a realtime change (not the initial empty state)
     if (scoped.length === 0 && all.length === 0 && !(entityState?.readSuccessful === 1 || entityState?.lastRealtimeEvent)) return;
     setRows(sortRows(scoped), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityState?.entityDataFromServer, readKey]);
+  }, [entityState?.entityDataFromServer, readKey, rowFilter]);
 
   const loading = !!listOwnerGUID && entityState?.readSuccessful !== 1 && !entityState?.lastRealtimeEvent && rows.length === 0 && !entityState?.readErrorData;
 
   // ---- create ----
-  const newRow = useCallback((rowJSON?: Record<string, any>): ReusableTableRow => ({
-    rowGUID: Crypto.randomUUID(),
-    rowOwnerGUID: listOwnerGUID,
-    rowParentGUID: listParentGUID,
-    orderInList: Date.now(),
-    rowJSON: rowJSON ?? (typeof defaultRowJSON === 'function' ? defaultRowJSON() : defaultRowJSON) ?? emptyRowJSON(visualColumns),
-  }), [listOwnerGUID, listParentGUID, defaultRowJSON, visualColumns]);
+  const newRow = useCallback((rowJSON?: Record<string, any>): ReusableTableRow => {
+    const defaults = typeof newRowDefaults === 'function' ? newRowDefaults() : newRowDefaults;
+    const base = (typeof defaultRowJSON === 'function' ? defaultRowJSON() : defaultRowJSON) ?? emptyRowJSON(visualColumns);
+    return {
+      rowGUID: Crypto.randomUUID(),
+      ...newRowColumns(listOwnerGUID, listParentGUID, defaults),
+      orderInList: Date.now(),
+      rowJSON: rowJSON ?? { ...base, ...(defaults?.rowJSON || {}) },
+    };
+  }, [listOwnerGUID, listParentGUID, defaultRowJSON, visualColumns, newRowDefaults]);
 
   const createAt = useCallback((index: number, rowJSON?: Record<string, any>): string | null => {
     if (!listOwnerGUID) return null;
@@ -88,14 +101,46 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   }, [createAt]);
 
   // ---- update ----
-  /** merge a rowJSON patch into the row (optimistic) and save it */
-  const patchRow = useCallback((id: string, rowJSONPatch: Record<string, any>) => {
-    if (!rowJSONPatch || Object.keys(rowJSONPatch).length === 0) return;
-    setRows(rowsRef.current.map((r) => (r.rowGUID === id ? { ...r, rowJSON: { ...(r.rowJSON || {}), ...rowJSONPatch } } : r)));
-    if (actions?.updateOne) dispatch(actions.updateOne({ rowGUID: id, rowOwnerGUID: listOwnerGUID, rowJSON: rowJSONPatch }));
-  }, [actions, dispatch, listOwnerGUID, setRows]);
-  /** one edited cell: its value + the cells that depend on it are cleared */
-  const setCell = useCallback((id: string, columnKey: string, value: any) => patchRow(id, patchForCell(visualColumns, columnKey, value)), [patchRow, visualColumns]);
+  /**
+   * merge a rowJSON patch (+ root columns rowOwnerGUID / rowParentGUID) into the row (optimistic) and save it.
+   * In a scoped table a row whose owner / parent changed leaves the table (it belongs to another scope now).
+   */
+  const patchRow = useCallback((id: string, rowJSONPatch: Record<string, any>, columnsPatch?: Record<string, any>) => {
+    const hasJSON = !!rowJSONPatch && Object.keys(rowJSONPatch).length > 0;
+    const hasColumns = !!columnsPatch && Object.keys(columnsPatch).length > 0;
+    if (!hasJSON && !hasColumns) return;
+    const current = rowsRef.current.find((r) => r.rowGUID === id);
+    setRows(rowsRef.current
+      .map((r) => (r.rowGUID === id ? { ...r, ...(hasColumns ? columnsPatch : {}), rowJSON: { ...(r.rowJSON || {}), ...(hasJSON ? rowJSONPatch : {}) } } : r))
+      .filter((r) => r.rowGUID !== id || (matchRow(r, scope) && (!rowFilter || rowFilter(r)))));
+    if (actions?.updateOne) {
+      dispatch(actions.updateOne({
+        rowGUID: id,
+        rowOwnerGUID: scopedOwner ?? current?.rowOwnerGUID,
+        ...(hasJSON ? { rowJSON: rowJSONPatch } : {}),
+        ...(hasColumns ? { columns: columnsPatch } : {}),
+      }));
+    }
+  }, [actions, dispatch, scopedOwner, scope, rowFilter, setRows]);
+  /**
+   * one edited cell: checked (column validate + date / color form), its value + the cells that depend on it are
+   * cleared, derived fields (computeRowJSON) are added. false = refused (a snackbar says why)
+   */
+  const setCell = useCallback((id: string, columnKey: string, value: any): boolean => {
+    const col = visualColumns.find((c) => c.key === columnKey);
+    const row = rowsRef.current.find((r) => r.rowGUID === id);
+    if (!col || !row) return false;
+    const error = builtInCellError(col, value) || (col.validate ? col.validate(value, row) : null);
+    if (error) { dispatch(showSnackbar({ message: error })); return false; }
+    const patch = cellPatch(visualColumns, columnKey, value);
+    if (computeRowJSON) {
+      const nextJSON = { ...(row.rowJSON || {}), ...patch.rowJSON };
+      const extra = computeRowJSON(nextJSON, { ...row, ...patch.columns, rowJSON: nextJSON });
+      if (extra && typeof extra === 'object') Object.assign(patch.rowJSON, extra);
+    }
+    patchRow(id, patch.rowJSON, patch.columns);
+    return true;
+  }, [computeRowJSON, dispatch, patchRow, visualColumns]);
 
   // ---- reorder (orderInList) ----
   const moveTo = useCallback((from: number, to: number) => {
@@ -103,16 +148,16 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     const { rows: next, moved } = moveRow(rowsRef.current, from, to);
     if (!moved) return;
     setRows(next);
-    if (actions?.updateOne) dispatch(actions.updateOne({ rowGUID: moved.rowGUID, rowOwnerGUID: listOwnerGUID, field: 'orderInList', value: moved.orderInList }));
-  }, [actions, dispatch, listOwnerGUID, reorderEnabled, setRows]);
+    if (actions?.updateOne) dispatch(actions.updateOne({ rowGUID: moved.rowGUID, rowOwnerGUID: scopedOwner ?? moved.rowOwnerGUID, field: 'orderInList', value: moved.orderInList }));
+  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows]);
   /** the selected rows one step up (-1) / down (1), together */
   const moveSelected = useCallback((ids: string[], direction: 1 | -1) => {
     if (!reorderEnabled) return;
     const { rows: next, moved } = moveSelectedRows(rowsRef.current, ids, direction);
     if (moved.length === 0) return;
     setRows(next);
-    if (actions?.updateOne) moved.forEach((m) => dispatch(actions.updateOne({ rowGUID: m.rowGUID, rowOwnerGUID: listOwnerGUID, field: 'orderInList', value: m.orderInList })));
-  }, [actions, dispatch, listOwnerGUID, reorderEnabled, setRows]);
+    if (actions?.updateOne) moved.forEach((m) => dispatch(actions.updateOne({ rowGUID: m.rowGUID, rowOwnerGUID: scopedOwner ?? m.rowOwnerGUID, field: 'orderInList', value: m.orderInList })));
+  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows]);
   const moveUp = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i - 1); }, [moveTo]);
   const moveDown = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i + 1); }, [moveTo]);
   const makeFirst = useCallback((id: string) => moveTo(indexOf(id), 0), [moveTo]);
@@ -122,8 +167,8 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   const remove = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     setRows(rowsRef.current.filter((r) => !ids.includes(r.rowGUID)));
-    if (actions?.deleteOne) ids.forEach((rowGUID) => dispatch(actions.deleteOne({ rowGUID, ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}) })));
-  }, [actions, dispatch, listOwnerGUID, setRows]);
+    if (actions?.deleteOne) ids.forEach((rowGUID) => dispatch(actions.deleteOne({ rowGUID, ...(scopedOwner ? { rowOwnerGUID: scopedOwner } : {}) })));
+  }, [actions, dispatch, scopedOwner, setRows]);
   const canArchive = !!archiveActions?.createOne;
   const archive = useCallback((id: string) => {
     // no archive entity: archiving must not silently delete the row

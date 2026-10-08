@@ -9,3 +9,5 @@ export * from './tableExport';
 export * from './tableExportActions';
 export { buildTablePdf, buildTextTablePdf } from './tablePdf';
 export type * from './reusableTableTypes';
+export { REUSABLE_TABLE_ALL } from './reusableTableTypes';
+export { default as ReusableTableOptionPicker } from './ReusableTableOptionPicker';

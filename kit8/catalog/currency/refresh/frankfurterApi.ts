@@ -1,4 +1,4 @@
-// Frankfurter API v2 (https://frankfurter.dev/javascript/): exchange rates as JSON. No SDK, no key, CORS open -
+// Frankfurter API v2-1 (https://frankfurter.dev/javascript/): exchange rates as JSON. No SDK, no key, CORS open -
 // plain fetch works in the browser and in React Native.
 //   GET {api}/rates?base=EUR&quotes=USD,GBP&from=2026-08-07&to=2026-10-07[&providers=ECB]
 //       -> a flat array, one row per day and quote: [{ date, base, quote, rate }, ...]

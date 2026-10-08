@@ -45,7 +45,7 @@ const DESIGN_SYSTEMS: SystemOption[] = [
   {
     id: 'tamagui',
     name: 'Tamagui',
-    badge: 'Tamagui v2',
+    badge: 'Tamagui v2-1',
     description: 'High-performance universal styles and optimized animations.',
     color: '#ec4899',
     url: 'https://tamagui.dev/',

@@ -216,6 +216,7 @@ export const reusableRootSaga = (p: any) => {
 
         try {
             // columns: root columns to set too, e.g. { rowParentGUID: '2026-09-29' } (only the whitelisted ones)
+            // - alone (no rowJSON / field) they are the whole update
             const {rowGUID, field, value, rowJSON, orderInList, columns} = action.payload || {};
 
             // @ts-ignore
@@ -284,8 +285,9 @@ export const reusableRootSaga = (p: any) => {
                 updatePayload = { rowJSON: updatedJSON };
             }
 
+            // rowOwnerGUID: a table cell with target 'rowOwnerGUID' (ReusableTable all-rows mode, e.g. product -> type)
             if (columns && typeof columns === "object") {
-                for (const col of ["rowParentGUID", "orderInList"]) {
+                for (const col of ["rowOwnerGUID", "rowParentGUID", "orderInList"]) {
                     if (columns[col] !== undefined) updatePayload[col] = columns[col];
                 }
             }

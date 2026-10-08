@@ -108,8 +108,8 @@ it('existing stage: updateOne; delete asks twice', () => {
 it('realtime: clean form follows, dirty form offers Reload; deleted elsewhere blocks saving', () => {
   mount({ rowGUID: 'plan' });
   const remote = (change: any) => act(() => { store.dispatch(slice.actions.applyRealtimeChange(change)); });
-  remote({ eventType: 'UPDATE', table: 'kanban_stage_table', new: { ...PLAN, updated_at: 't2', rowJSON: { ...PLAN.rowJSON, stageName: 'Plan v2' } }, old: null });
-  expect(value('kanban-stage-edit-stageName')).toBe('Plan v2');
+  remote({ eventType: 'UPDATE', table: 'kanban_stage_table', new: { ...PLAN, updated_at: 't2', rowJSON: { ...PLAN.rowJSON, stageName: 'Plan v2-1' } }, old: null });
+  expect(value('kanban-stage-edit-stageName')).toBe('Plan v2-1');
   typeInto('kanban-stage-edit-stageColor', '#000000');
   remote({ eventType: 'UPDATE', table: 'kanban_stage_table', new: { ...PLAN, updated_at: 't3', rowJSON: { ...PLAN.rowJSON, stageName: 'Plan v3' } }, old: null });
   expect(q('kanban-stage-edit-remote-changed')).not.toBeNull();
