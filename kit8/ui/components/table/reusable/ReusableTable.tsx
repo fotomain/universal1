@@ -7,6 +7,9 @@
 //   headers   ▾ = sort + filter of the column (light Tasks Tree "Filter & sort"); optional column drag & resize
 //   rows      like the Tasks Tree: context menu (right-click / long-press / ⋮), drag & drop by the ⠿ handle
 //             (web), move up / down / first / last, add above / below, duplicate, selection + delete selected
+//   folders   uxuiTable.showFoldersTree + the foldersTree prop: a FolderTreeReusable beside the table - pick a folder = filter
+//             the rows (with subfolders), drag rows (⠿) onto a folder = save their folder column, "Add" inside a folder
+//             creates the row in it; uxuiTable.foldersTree* calibrate position, width, heights, row alignment, stacking
 // Example: ./example/TaskExpenseInputTable.tsx, route /demo/reusabletable.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -24,6 +27,11 @@ import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../common/IconApp';
 import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostComponent';
 import { defaultTitleExtractor } from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
+import FolderTreeReusable from '../../tree/FolderTreeReusable';
+import FolderTreeDragGhost from '../../tree/FolderTreeDragGhost';
+import type { FolderDragPayload } from '../../tree/folderTreeDnd';
+import { buildTreeIndex, countItemsByFolder, subtreeIds, TREE_ALL_ID, TREE_NONE_ID } from '../../tree/folderTreeModel';
+import ReusableTableFolderGrip from './ReusableTableFolderGrip';
 import ReusableTableCell from './ReusableTableCell';
 import ReusableTableRowMenu, { RowMenuState } from './ReusableTableRowMenu';
 import { useReusableTableCrud } from './useReusableTableCrud';
@@ -72,7 +80,37 @@ export default function ReusableTable(props: ReusableTableProps) {
     emptyText, testID = 'reusable-table', toolbarExtra,
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
-  const crud = useReusableTableCrud(props);
+  const dispatch = useDispatch();
+
+  // ---- folders tree beside the table (uxuiTable.showFoldersTree + foldersTree) ----
+  const foldersTree = props.foldersTree;
+  const showTree = !!uxuiTable?.showFoldersTree && !!foldersTree;
+  const folderTarget = foldersTree?.folderTarget ?? 'rowParentGUID';
+  const noFolderValue = foldersTree?.noFolderValue ?? 'empty';
+  const includeSubfolders = foldersTree?.includeSubfolders !== false;
+  const [innerFolder, setInnerFolder] = useState<string>(TREE_ALL_ID);
+  /** the tree is hidden (button in the table bar): the table shows every row again */
+  const [treeHidden, setTreeHidden] = useState(!!uxuiTable?.foldersTreeCollapsed);
+  const folderSel = foldersTree?.selectedFolderId ?? innerFolder;
+  const selectFolder = useCallback((id: string) => { setInnerFolder(id); foldersTree?.onSelectedFolderChange?.(id); }, [foldersTree?.onSelectedFolderChange]);
+  const treeIndex = useMemo(() => (showTree && foldersTree ? buildTreeIndex(foldersTree.nodes) : null), [showTree, foldersTree?.nodes]);
+  /** the folder id a row is in (anything that is no folder of the tree = "no folder") */
+  const folderField = foldersTree?.folderField ?? 'folderGUID';
+  const rowFolder = useCallback((row: ReusableTableRow): string => {
+    const v = folderTarget === 'rowJSON' ? row.rowJSON?.[folderField] : (row as any)[folderTarget];
+    return v == null || v === '' ? noFolderValue : String(v);
+  }, [folderTarget, folderField, noFolderValue]);
+  /** a new row is created in the picked folder */
+  const folderNewRowDefaults = useMemo(() => {
+    if (!showTree || treeHidden) return props.newRowDefaults;
+    return () => {
+      const base = typeof props.newRowDefaults === 'function' ? props.newRowDefaults() : props.newRowDefaults;
+      if (folderSel === TREE_ALL_ID || folderSel === TREE_NONE_ID || !treeIndex?.idToIdx.has(folderSel)) return base || {};
+      if (folderTarget === 'rowJSON') return { ...(base || {}), rowJSON: { ...(base?.rowJSON || {}), [folderField]: folderSel } };
+      return { ...(base || {}), [folderTarget]: folderSel };
+    };
+  }, [showTree, treeHidden, props.newRowDefaults, folderSel, treeIndex, folderTarget, folderField]);
+  const crud = useReusableTableCrud(showTree ? { ...props, newRowDefaults: folderNewRowDefaults } : props);
   const { rows } = crud;
   const askBeforeDelete = useSelector((s: any) => s?.uxuiState?.askBeforeDeletePost ?? true);
 
@@ -96,7 +134,10 @@ export default function ReusableTable(props: ReusableTableProps) {
   const fixedWidth = uxuiTable?.fixedWidth ?? '100%';
   /** px of the table body (measured): the columns are stretched to fill it */
   const [bodyWidth, setBodyWidth] = useState(0);
-  const fixedColsWidth = (Platform.OS === 'web' && reorderEnabled ? HANDLE_W : 0) + (selectionEnabled ? CHECK_W : 0) + (contextMenuEnabled ? MENU_W : 0);
+  /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
+  const folderDragOn = showTree && !treeHidden;
+  const showHandle = (Platform.OS === 'web' && reorderEnabled) || folderDragOn;
+  const fixedColsWidth = (showHandle ? HANDLE_W : 0) + (selectionEnabled ? CHECK_W : 0) + (contextMenuEnabled ? MENU_W : 0);
   const visualColumns = useMemo(
     () => stretchColumns(arrangeColumns(columnsProp, columnsOrder, columnsWidths), bodyWidth - fixedColsWidth, columnsWidths),
     [columnsProp, columnsOrder, columnsWidths, bodyWidth, fixedColsWidth],
@@ -113,7 +154,6 @@ export default function ReusableTable(props: ReusableTableProps) {
   const onColumnResize = (key: string, width: number) => setColumnsWidths((w) => ({ ...w, [key]: clampColumnWidth(width) }));
   const onColumnResizeEnd = (key: string, width: number) => onColumnsWidthsChange?.({ ...columnsWidths, [key]: clampColumnWidth(width) });
 
-  const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
   const routeParams = useGlobalSearchParams<Record<string, string>>();
@@ -165,12 +205,24 @@ export default function ReusableTable(props: ReusableTableProps) {
   }, [catalogCols, catalogRows]);
   const q = search.trim().toLowerCase();
   const hasColumnFilter = visualColumns.some((col) => isActiveFilter(columnFilters[col.key]));
+  // folders tree: only the rows of the picked folder (and of its subfolders)
+  const folderFilter = useMemo<((row: ReusableTableRow) => boolean) | null>(() => {
+    if (!showTree || treeHidden || !treeIndex || folderSel === TREE_ALL_ID) return null;
+    if (folderSel === TREE_NONE_ID) return (row) => !treeIndex.idToIdx.has(rowFolder(row));
+    const at = treeIndex.idToIdx.get(folderSel);
+    if (at === undefined) return null;
+    const ids = new Set(includeSubfolders ? subtreeIds(treeIndex, at) : [folderSel]);
+    return (row) => ids.has(rowFolder(row));
+  }, [showTree, treeHidden, treeIndex, folderSel, includeSubfolders, rowFolder]);
   const visible = useMemo(() => {
-    const found = q ? rows.filter((r) => rowSearchText(r, visualColumns, catalogTitle).includes(q)) : rows;
+    const inFolder = folderFilter ? rows.filter(folderFilter) : rows;
+    const found = q ? inFolder.filter((r) => rowSearchText(r, visualColumns, catalogTitle).includes(q)) : inFolder;
     return sortRowsByColumn(filterRows(found, visualColumns, columnFilters, catalogTitle), visualColumns, columnSort, catalogTitle);
-  }, [rows, q, visualColumns, catalogTitle, columnFilters, columnSort]);
+  }, [rows, folderFilter, q, visualColumns, catalogTitle, columnFilters, columnSort]);
   /** the view is not the stored list (search / filter / sort): rows cannot be reordered by position */
   const filtered = q !== '' || hasColumnFilter || !!columnSort;
+  /** ... a picked folder does the same, but "Clear filters" does not clear it (the tree does) */
+  const viewFiltered = filtered || !!folderFilter;
   const clearSortAndFilters = () => { setColumnSort(null); setColumnFilters({}); setSearch(''); };
   /** "Default settings": columns back to their order and widths, no sort, no filters, no search */
   const resetToDefaultSettings = () => {
@@ -191,7 +243,7 @@ export default function ReusableTable(props: ReusableTableProps) {
       dispatch(showSnackbar({ message: `${share ? 'Share' : 'Export'} failed: ${e?.message || e}` }));
     }
   };
-  const canDrag = reorderEnabled && !filtered;
+  const canDrag = reorderEnabled && !viewFiltered;
 
   // ---- selection ----
   const selectedHere = selected.filter((id) => rows.some((r) => r.rowGUID === id));
@@ -208,14 +260,72 @@ export default function ReusableTable(props: ReusableTableProps) {
   /** the ONE selected row: target of the panel's duplicate button */
   const one = selectedHere.length === 1 ? selectedHere[0] : null;
   /** the arrows move ALL selected rows together (not while the view is searched / filtered / sorted) */
-  const canMoveSelected = (direction: 1 | -1) => selectedHere.length > 0 && !filtered && moveSelectedRows(rows, selectedHere, direction).moved.length > 0;
+  const canMoveSelected = (direction: 1 | -1) => selectedHere.length > 0 && !viewFiltered && moveSelectedRows(rows, selectedHere, direction).moved.length > 0;
 
   const openMenu = contextMenuEnabled ? (guid: string, x: number, y: number) => setMenu({ guid, x, y }) : undefined;
+
+  // ---- folders tree: what is dragged, counts per folder, what a drop saves ----
+  /** the dragged row - or all selected rows when the dragged one is selected */
+  const rowsDragPayload = (row: ReusableTableRow): FolderDragPayload => {
+    const ids = selectedHere.includes(row.rowGUID) ? selectedHere : [row.rowGUID];
+    const textCol = visualColumns.find((col) => col.type === 'text');
+    const name = String((textCol ? cellValue(row, textCol) : '') ?? '').trim() || itemLabel;
+    return { kind: 'items', ids, label: ids.length > 1 ? `${ids.length} ${itemLabel.toLowerCase()}s` : name, source: testID };
+  };
+  const folderCounts = useMemo(() => {
+    if (!showTree || !treeIndex) return null;
+    const direct = countItemsByFolder(rows, rowFolder);
+    let none = 0;
+    for (const r of rows) if (!treeIndex.idToIdx.has(rowFolder(r))) none++;
+    return { direct, none };
+  }, [showTree, treeIndex, rows, rowFolder]);
+  const dropRowsOnFolder = (folderId: string | null, payload: FolderDragPayload) => {
+    if (payload.source !== testID || !treeIndex) return;
+    const target = folderId ?? noFolderValue;
+    const byId = new Map(rows.map((r) => [r.rowGUID, r] as const));
+    const moving = payload.ids.filter((id) => byId.has(id) && rowFolder(byId.get(id) as ReusableTableRow) !== target);
+    if (moving.length === 0) return;
+    if (foldersTree?.onRowsDrop) foldersTree.onRowsDrop(moving, folderId);
+    else moving.forEach((id) => (folderTarget === 'rowJSON' ? crud.patchRow(id, { [folderField]: target }) : crud.patchRow(id, {}, { [folderTarget]: target })));
+    const at = folderId ? treeIndex.idToIdx.get(folderId) : undefined;
+    const where = at === undefined ? 'No folder' : treeIndex.nodes[at].title;
+    dispatch(showSnackbar({ message: `${moving.length} ${moving.length === 1 ? itemLabel.toLowerCase() : `${itemLabel.toLowerCase()}s`} moved to ${where}` }));
+  };
+
+  // ---- folders tree: layout + calibration with the table (uxuiTable.foldersTree*) ----
+  const treePosition = uxuiTable?.foldersTreePosition ?? 'left';
+  const treeGap = uxuiTable?.foldersTreeGap ?? 8;
+  const treeMinW = uxuiTable?.foldersTreeMinWidth ?? 160;
+  const treeMaxW = uxuiTable?.foldersTreeMaxWidth ?? 520;
+  const treeAlign = uxuiTable?.foldersTreeAlignRows !== false;
+  const [treeWidth, setTreeWidth] = useState(() => Math.max(treeMinW, Math.min(treeMaxW, uxuiTable?.foldersTreeWidth ?? 260)));
+  const [wrapW, setWrapW] = useState(0);
+  const [measured, setMeasured] = useState({ bar: 0, head: 0, table: 0 });
+  const measure = (key: 'bar' | 'head' | 'table') => (e: any) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setMeasured((m) => (m[key] === h ? m : { ...m, [key]: h }));
+  };
+  const stacked = wrapW > 0 && wrapW < (uxuiTable?.foldersTreeStackBelowWidth ?? 720);
+  const treeHeight = stacked
+    ? uxuiTable?.foldersTreeStackedHeight ?? 240
+    : typeof uxuiTable?.foldersTreeHeight === 'number'
+      ? uxuiTable.foldersTreeHeight
+      : Math.max(uxuiTable?.foldersTreeMinHeight ?? 260, Math.min(uxuiTable?.foldersTreeMaxHeight ?? 720, measured.table || 400));
+  const splitLive = useRef({ width: treeWidth, position: treePosition, min: treeMinW, max: treeMaxW, start: 0 });
+  splitLive.current = { ...splitLive.current, width: treeWidth, position: treePosition, min: treeMinW, max: treeMaxW };
+  const splitter = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { splitLive.current.start = splitLive.current.width; },
+    onPanResponderMove: (_e, g) => {
+      const l = splitLive.current;
+      setTreeWidth(Math.max(l.min, Math.min(l.max, Math.round(l.start + (l.position === 'left' ? g.dx : -g.dx)))));
+    },
+    onPanResponderTerminationRequest: () => false,
+  }), []);
 
   const columnsWidth = visualColumns.reduce((w, col) => w + widthOf(col), 0);
   const totalWidth = columnsWidth + fixedColsWidth;
   const justify = (col: VisualColumn) => (col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start');
-  const showHandle = Platform.OS === 'web' && reorderEnabled;
   const serviceColumns = serviceOrder.filter((kind) => (kind === 'select' ? selectionEnabled : showHandle));
 
   const checkbox = (checked: boolean, onPress: () => void, id: string, partial = false) => (
@@ -319,15 +429,20 @@ export default function ReusableTable(props: ReusableTableProps) {
           </View>
         );
 
+  /** show / hide the folders tree */
+  const treeToggleEl = showTree && uxuiTable?.foldersTreeCollapsible !== false ? (
+    <PMIconButton tipScope="app" testID={`${testID}-folders-toggle`} icon="account_tree" title={treeHidden ? 'Show the folders tree' : 'Hide the folders tree'} color={c.text} active={!treeHidden} activeColor={c.primary} onPress={() => setTreeHidden((v) => !v)} />
+  ) : null;
+
   const table = (
-    <View style={[styles.root, { backgroundColor: c.surface, borderColor: c.border, width: fixedWidth as any, maxWidth: tableMaxWidth }]} testID={testID}>
+    <View onLayout={showTree ? measure('table') : undefined} style={[styles.root, { backgroundColor: c.surface, borderColor: c.border, width: fixedWidth as any, maxWidth: tableMaxWidth }]} testID={testID}>
       {/* ---- top bar ---- */}
-      <View style={[styles.toolbar, minimumBar ? styles.toolbarMinimum : null, { borderBottomColor: c.border }]} testID={`${testID}-bar-${barLayout}`}>
-        <View style={styles.barSide} testID={`${testID}-bar-left`}>{barLayout === 'leftTitle_rightSearchCrudPanel' ? titleEl : panelEl}{barLayout !== 'leftTitle_rightSearchCrudPanel' ? toolbarExtra : null}</View>
+      <View onLayout={showTree ? measure('bar') : undefined} style={[styles.toolbar, minimumBar ? styles.toolbarMinimum : null, { borderBottomColor: c.border }]} testID={`${testID}-bar-${barLayout}`}>
+        <View style={styles.barSide} testID={`${testID}-bar-left`}>{barLayout === 'leftTitle_rightSearchCrudPanel' ? titleEl : panelEl}{barLayout !== 'leftTitle_rightSearchCrudPanel' ? <>{treeToggleEl}{toolbarExtra}</> : null}</View>
         <View style={[styles.barSide, styles.barRight]} testID={`${testID}-bar-right`}
           onStartShouldSetResponderCapture={(e: any) => { lastPress.current = pressPoint(e); return false; }}>
           {searchEl}
-          {barLayout === 'leftTitle_rightSearchCrudPanel' ? <>{panelEl}{toolbarExtra}</> : barLayout === 'leftCrudPanel_rightSearchTitle' ? titleEl : null}
+          {barLayout === 'leftTitle_rightSearchCrudPanel' ? <>{panelEl}{treeToggleEl}{toolbarExtra}</> : barLayout === 'leftCrudPanel_rightSearchTitle' ? titleEl : null}
           {moreEl}
         </View>
       </View>
@@ -336,7 +451,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         onLayout={(e) => { const w = Math.floor(e.nativeEvent.layout.width); if (w !== bodyWidth) setBodyWidth(w); }}>
         <View style={{ minWidth: totalWidth, flex: 1 }}>
           {/* ---- header ---- */}
-          <View testID={`${testID}-headers`} style={[styles.row, styles.headerRow, { backgroundColor: headersBackground, borderBottomColor: c.border }]}>
+          <View testID={`${testID}-headers`} onLayout={showTree ? measure('head') : undefined} style={[styles.row, styles.headerRow, { backgroundColor: headersBackground, borderBottomColor: c.border }]}>
             {serviceColumns.map((kind, i) => (
               <ServiceHeaderCell key={kind} testID={`${testID}-service-header-${kind}`} width={kind === 'select' ? CHECK_W : HANDLE_W}
                 // only these two columns can be exchanged, and only with each other
@@ -364,15 +479,16 @@ export default function ReusableTable(props: ReusableTableProps) {
           ) : visible.length === 0 ? (
             <View style={styles.state}>
               <Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.6 }}>
-                {crud.error ? `Could not read the table: ${String(crud.error?.message ?? crud.error)}` : filtered ? 'No matches found.' : emptyText ?? `No ${itemLabel.toLowerCase()}s yet. Press "+ Add".`}
+                {crud.error ? `Could not read the table: ${String(crud.error?.message ?? crud.error)}` : viewFiltered ? 'No matches found.' : emptyText ?? `No ${itemLabel.toLowerCase()}s yet. Press "+ Add".`}
               </Text>
             </View>
           ) : BodyWeb ? (
-            <BodyWeb rows={visible} canDrag={canDrag} onMove={crud.moveTo} onRowMenu={openMenu} renderRow={renderRow} handleColor={c.text} testID={testID} />
+            <BodyWeb rows={visible} canDrag={canDrag} onMove={crud.moveTo} onRowMenu={openMenu} renderRow={renderRow} handleColor={c.text} testID={testID}
+              folderDrag={folderDragOn ? { getPayload: rowsDragPayload } : undefined} />
           ) : (
             visible.map((row, index) => (
               <Pressable key={row.rowGUID} delayLongPress={350} onLongPress={openMenu ? (e: any) => openMenu(row.rowGUID, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}>
-                {renderRow(row, index, { dragHandle: null, isDragging: false, ghost: false })}
+                {renderRow(row, index, { dragHandle: folderDragOn ? <ReusableTableFolderGrip testID={`${testID}-drag-${row.rowGUID}`} color={c.text} getPayload={() => rowsDragPayload(row)} /> : null, isDragging: false, ghost: false })}
               </Pressable>
             ))
           )}
@@ -386,7 +502,7 @@ export default function ReusableTable(props: ReusableTableProps) {
                   <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text }, uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? { paddingRight: 10 } : null]}>{total(col)}</Text>
                 ) : i === (visualColumns[0]?.type === 'rowNumber' ? 1 : 0) ? (
                   <Text testID={`${testID}-count`} numberOfLines={1} style={{ color: c.text, opacity: 0.7, fontSize: 13 }}>
-                    {filtered ? `${visible.length} of ${rows.length}` : `${rows.length}`} {rows.length === 1 ? itemLabel.toLowerCase() : `${itemLabel.toLowerCase()}s`}
+                    {viewFiltered ? `${visible.length} of ${rows.length}` : `${rows.length}`} {rows.length === 1 ? itemLabel.toLowerCase() : `${itemLabel.toLowerCase()}s`}
                   </Text>
                 ) : null}
               </View>
@@ -396,7 +512,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </ScrollView>
 
-      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} filtered={filtered}
+      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} filtered={viewFiltered}
         onDelete={(guid) => askDelete([guid])} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
       {columnMenu && visualColumns.some((col) => col.key === columnMenu.key) && (
         <ReusableTableColumnMenu testID={testID} col={visualColumns.find((col) => col.key === columnMenu.key)!} x={columnMenu.x} y={columnMenu.y}
@@ -427,13 +543,63 @@ export default function ReusableTable(props: ReusableTableProps) {
     </View>
   );
   // a fixed px width may be wider than the screen: the whole table scrolls horizontally
-  return typeof fixedWidth === 'number' ? (
+  const tableBlock = typeof fixedWidth === 'number' ? (
     <ScrollView horizontal showsHorizontalScrollIndicator testID={`${testID}-fixed-width-scroll`} style={{ flexGrow: 0, width: '100%' }}
       // centered while the screen is wider than the table; scrolls from the left edge when it is narrower
       contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
       {table}
     </ScrollView>
   ) : table;
+  if (!showTree || !foldersTree || !treeIndex) return tableBlock;
+
+  // ---- table + folders tree ----
+  const treeOpts = foldersTree.tree || {};
+  const treeRowH = treeAlign ? rowHeight : 28;
+  const sticky = Platform.OS === 'web' && uxuiTable?.foldersTreeSticky !== false && !stacked;
+  const treeEl = (
+    <FolderTreeReusable
+      {...treeOpts}
+      testID={`${testID}-folders`}
+      nodes={foldersTree.nodes}
+      index={treeIndex}
+      title={treeOpts.title ?? 'Folders'}
+      rowHeight={treeRowH}
+      // the tree's bar + search row are as high as the table's bar + column header: the first folder row is level with the first table row
+      toolbarHeight={treeAlign && measured.bar ? measured.bar : undefined}
+      searchHeight={treeAlign && measured.head ? measured.head - 1 : undefined}
+      height={treeHeight}
+      selectedId={folderSel}
+      onSelect={selectFolder}
+      showAllNode={treeOpts.showAllNode ?? true}
+      allLabel={treeOpts.allLabel ?? `All ${itemLabel.toLowerCase()}s`}
+      showNoneNode={treeOpts.showNoneNode ?? true}
+      noneLabel={treeOpts.noneLabel ?? 'No folder'}
+      itemCounts={folderCounts?.direct}
+      totalCount={rows.length}
+      noneCount={folderCounts?.none}
+      onDropItems={dropRowsOnFolder}
+      dragGhost={false}
+      confirmDelete={treeOpts.confirmDelete ?? askBeforeDelete}
+      onMessage={treeOpts.onMessage ?? ((message) => dispatch(showSnackbar({ message })))}
+    />
+  );
+  const spacer = !stacked && !treeHidden && uxuiTable?.foldersTreeResizable !== false ? (
+    <View {...splitter.panHandlers} testID={`${testID}-folders-splitter`} accessibilityLabel="Resize the folders tree"
+      style={[{ width: Math.max(treeGap, 8), alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }, Platform.OS === 'web' ? ({ cursor: 'col-resize', userSelect: 'none' } as any) : null]}>
+      <View style={{ width: 2, height: 32, borderRadius: 1, backgroundColor: c.border }} />
+    </View>
+  ) : <View style={stacked ? { height: treeGap } : { width: treeGap }} />;
+  return (
+    <View testID={`${testID}-with-folders`} onLayout={(e) => setWrapW(Math.round(e.nativeEvent.layout.width))}
+      style={{ width: '100%', flexDirection: stacked ? 'column' : treePosition === 'left' ? 'row' : 'row-reverse', alignItems: stacked ? 'stretch' : 'flex-start' }}>
+      {!treeHidden && (
+        <View testID={`${testID}-folders-panel`} style={[{ width: stacked ? '100%' : treeWidth, height: treeHeight, flexShrink: 0 }, sticky ? ({ position: 'sticky', top: 0 } as any) : null]}>{treeEl}</View>
+      )}
+      {!treeHidden && spacer}
+      <View style={{ flex: 1, minWidth: 0, width: stacked ? '100%' : undefined }}>{tableBlock}</View>
+      <FolderTreeDragGhost testID={`${testID}-ghost`} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

@@ -41,9 +41,22 @@ Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate,
 archive, delete (+ Undo snackbar). Web: drag the ⠿ handle to reorder (orderInList). iOS / Android: reorder from the menu.
 
 Files: `ReusableTable.tsx` (view) · `ReusableTableOptionPicker.tsx` (select / multiSelect picker) · `useReusableTableCrud.ts` (data + commands) · `tableRows.ts` (pure helpers) ·
-`ReusableTableCell.tsx` · `ReusableTableRowMenu.tsx` · `ReusableTableBodyWeb.tsx` (drag & drop, web only) ·
+`ReusableTableCell.tsx` · `ReusableTableRowMenu.tsx` · `ReusableTableBodyWeb.tsx` (drag & drop, web only) · `ReusableTableFolderGrip.tsx` (native grip for the folders tree) ·
 `example/` TableExample2 = `task_expense_input_table` (SQL: `kit8/sql/init/create_task_expense_input_table.sql`).
 Tests: `__tests__/ui/table` (`reusableTableAllRows.test.tsx`, `reusableTableFields.test.ts` for the all-rows mode and the new types).
+
+**Folders tree** (`uxuiTable.showFoldersTree` + the `foldersTree` prop; `kit8/ui/components/tree` = FolderTreeReusable): a tree beside the table.
+`foldersTree = { nodes, folderTarget = 'rowParentGUID' | 'rowOwnerGUID' | 'rowJSON' (+ folderField), noFolderValue = 'empty',
+includeSubfolders = true, selectedFolderId / onSelectedFolderChange, onRowsDrop, tree: { onCreate, onRename, onMove, onDelete, title ... } }`.
+Pick a folder = only its rows (with subfolders; "All rows" / "No folder" are pinned; reorder by position is off while a folder filters),
+"Add" creates the row in the picked folder, the ⠿ of a row (all selected rows when it is selected) dropped on a folder saves the folder
+column (`onRowsDrop` replaces that), counts per folder come from the rows. Web: the ⠿ that reorders also drags onto the tree; iOS / Android: a
+⠿ grip column (`ReusableTableFolderGrip`). The bar gets a button that hides / shows the tree (hidden = no folder filter).
+Calibration, all in `uxuiTable`: `foldersTreePosition = 'left' | 'right'`, `foldersTreeWidth = 260` (`Min/MaxWidth` 160 / 520, `foldersTreeResizable`
+splitter), `foldersTreeCollapsible`, `foldersTreeCollapsed`, `foldersTreeGap = 8`, `foldersTreeAlignRows = true` (tree rows as high as table rows and the
+tree header as high as table bar + column header, so lines are level), `foldersTreeHeight = 'matchTable' | px` (`Min/MaxHeight` 260 / 720),
+`foldersTreeSticky` (web, stays in view), `foldersTreeStackBelowWidth = 720` (narrower: tree above the table, `foldersTreeStackedHeight = 240`).
+Product catalog: `ProductsWithTree` (kit8/catalog/product/dashboard). Tests: `reusableTableFolders.test.tsx`.
 
 Bar: Search is a `TextInputApp`; the clock icon lists the last 10 search substrings of this table (kept on the device,
 `useSearchHistory.ts`). The ⋮ menu: Default settings (column order / widths, sort, filters, search) · Export · Share,

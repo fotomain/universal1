@@ -79,7 +79,7 @@ it('overview: numbers of the seed, no check errors, every table in the menu', ()
   expect(q('product-tile-products-value')!.textContent).toBe('106');
   expect(q('product-tile-types-value')!.textContent).toBe('11');
   expect(q('product-checks')!.textContent).not.toMatch(/Errors [1-9]/);
-  expect(qa('product-nav-').filter((e) => !String(e.getAttribute('data-testid')).endsWith('-issues'))).toHaveLength(19);
+  expect(qa('product-nav-').filter((e) => !String(e.getAttribute('data-testid')).endsWith('-issues'))).toHaveLength(20);
   expect(q('product-setup')).toBeNull();
 });
 

@@ -22,6 +22,8 @@ Built from the Google Sheet **"W1 V3 ER DESCRIPTORS PLAN"** (1C:ERP style: produ
 | `crud/productLabels.ts` | titles and pick lists (folder paths, "Type · Smartphone", variant labels …) |
 | `dashboard/ProductDashboard.tsx` | the screen: Overview, Product card, 17 CRUD tables (ReusableTable all-rows mode) |
 | `dashboard/productDashboardTables.tsx` | columns, filters and row commands of every table |
+| `dashboard/ProductsWithTree.tsx` | tab **Products & folders**: the folders tree (FolderTreeReusable) beside the Products table; pick a folder, drag products onto folders, folder CRUD |
+| `tree/` | `useProductFolderTree` (nodes + CRUD saved to productFolderTable), `ProductFolderTree` (stand-alone tree), `productFolderTreeActions` (folder delete keeps its products: they get no folder) |
 | `dashboard/ProductDashboardOverview.tsx` | numbers, products per type / folder, Checks with fixes |
 | `dashboard/GenerateVariantsWindow.tsx` | cartesian product of descriptor values → variants + variant values |
 | `dashboard/DescriptorValueCell.tsx` | property value input by the descriptor's value type |
@@ -51,5 +53,5 @@ dashboard **Checks** panel. No foreign keys: owners are polymorphic and Undo of 
 
 ## Tests
 
-`__tests__/catalog/product` (tools, validation, dashboard on the SQL seed), `__tests__/ui/table` (ReusableTable).
+`__tests__/catalog/product` (tools, validation, dashboard + `productsWithTree` on the SQL seed), `__tests__/ui/table` (ReusableTable), `__tests__/ui/tree` (folder tree).
 The seed fixture `__tests__/catalog/product/productSeed.json` is the data of `create_product_tables.sql`.

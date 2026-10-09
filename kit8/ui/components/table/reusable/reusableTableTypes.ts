@@ -7,6 +7,8 @@
 // rowParentGUID (the entity one level higher in the hierarchy) · orderInList · rowJSON (all other fields).
 import type { ReactNode } from 'react';
 import type { PMMenuItemProps } from '../../../../pm/inner/menu/PMMenuItem';
+import type { FolderTreeNode } from '../../tree/folderTreeModel';
+import type { FolderTreeReusableProps } from '../../tree/FolderTreeReusable';
 
 export type ColumnAlign = 'left' | 'center' | 'right';
 
@@ -200,6 +202,64 @@ export interface ReusableTableUxUi {
   borderedCells?: boolean;
   /** width of the table: px or '50%' ... (default '100%'). Wider than the screen = the table scrolls horizontally */
   fixedWidth?: number | string;
+
+  // ---- folders tree next to the table (needs the `foldersTree` prop: FolderTreeReusable, see ../../tree) ----
+  /** show the folders tree beside the table: pick a folder = filter the rows, drag rows onto a folder = move them (default false) */
+  showFoldersTree?: boolean;
+  /** calibration: side of the tree (default 'left') */
+  foldersTreePosition?: 'left' | 'right';
+  /** calibration: tree width in px (default 260; the user can drag the splitter when foldersTreeResizable) */
+  foldersTreeWidth?: number;
+  foldersTreeMinWidth?: number;
+  foldersTreeMaxWidth?: number;
+  /** the splitter between tree and table can be dragged (default true) */
+  foldersTreeResizable?: boolean;
+  /** a button in the table bar hides / shows the tree (default true) */
+  foldersTreeCollapsible?: boolean;
+  /** start with the tree hidden (default false) */
+  foldersTreeCollapsed?: boolean;
+  /** px between tree and table (default 8) */
+  foldersTreeGap?: number;
+  /**
+   * calibration: the tree's header is as high as the table's bar + column header and its rows are as high as the table
+   * rows, so folders and table rows line up (default true). false: the tree uses its own heights (rows 28 px)
+   */
+  foldersTreeAlignRows?: boolean;
+  /** height of the tree: 'matchTable' = as high as the table, between the min and the max (default) | px */
+  foldersTreeHeight?: 'matchTable' | number;
+  foldersTreeMinHeight?: number;
+  foldersTreeMaxHeight?: number;
+  /** web: the tree stays in view while a long table scrolls (default true) */
+  foldersTreeSticky?: boolean;
+  /** a container narrower than this puts the tree ABOVE the table (default 720) */
+  foldersTreeStackBelowWidth?: number;
+  /** height of the tree when it is above the table (default 240) */
+  foldersTreeStackedHeight?: number;
+}
+
+/**
+ * The folders of the tree beside a table and how rows relate to them.
+ * A row is "in" a folder through ONE of its columns (default rowParentGUID, as productTable -> productFolderTable).
+ * Needs uxuiTable.showFoldersTree.
+ */
+export interface ReusableTableFoldersTree {
+  /** the folders: flat list { id, parentId, title, order } */
+  nodes: FolderTreeNode[];
+  /** where a row stores its folder: 'rowParentGUID' (default) | 'rowOwnerGUID' | 'rowJSON' (+ folderField) */
+  folderTarget?: CellTarget;
+  /** rowJSON field of the folder id (folderTarget 'rowJSON') */
+  folderField?: string;
+  /** stored when a row has no folder (default 'empty') */
+  noFolderValue?: string;
+  /** picking a folder also shows the rows of its subfolders (default true) */
+  includeSubfolders?: boolean;
+  /** the picked folder: FolderTreeReusable's TREE_ALL_ID (default) | TREE_NONE_ID | a folder id (controlled) */
+  selectedFolderId?: string;
+  onSelectedFolderChange?: (folderId: string) => void;
+  /** rows dropped on a folder (null = no folder). Default: the table saves the folder column of every dropped row */
+  onRowsDrop?: (rowGUIDs: string[], folderId: string | null) => void;
+  /** the tree's own options: CRUD callbacks (onCreate / onRename / onDelete / onMove), title, extraMenuItems ... */
+  tree?: Omit<FolderTreeReusableProps, 'nodes' | 'index' | 'selectedId' | 'onSelect' | 'itemCounts' | 'totalCount' | 'noneCount' | 'onDropItems' | 'rowHeight' | 'toolbarHeight' | 'searchHeight' | 'height' | 'dragGhost' | 'testID' | 'style'>;
 }
 
 export interface ReusableTableProps {
@@ -241,6 +301,8 @@ export interface ReusableTableProps {
   computeRowJSON?: (rowJSON: Record<string, any>, row: ReusableTableRow) => Record<string, any> | null | undefined;
   /** more buttons in the bar, after the CRUD panel */
   toolbarExtra?: ReactNode;
+  /** folders tree beside the table (shown when uxuiTable.showFoldersTree is true) */
+  foldersTree?: ReusableTableFoldersTree;
   /** the columns: what is shown and how it is entered / stored */
   visualColumns: VisualColumn[];
   /** rowJSON of a new row (default: every column field = null) */

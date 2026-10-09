@@ -1,13 +1,15 @@
 // ProductDashboard - one screen for the whole product catalog of "W1 V3 ER DESCRIPTORS PLAN"
 // (1C:ERP style: product type -> product -> Properties + Variants, both built on Descriptors).
 //   Overview      headline numbers, products per type / folder, Checks (rules R1-R13) with one-click fixes
+//   Products & folders  the Products table with the product FOLDERS tree beside it: pick a folder = its products, drag products
+//                 onto a folder, create / rename / move / delete folders (ProductsWithTree, FolderTreeReusable)
 //   Product card  everything about one product: properties, variants with today's prices, barcodes, packs, series
 //   17 tables     full CRUD with ReusableTable (all-rows mode): add / duplicate / reorder / delete + Undo, in-place
 //                 editing (owner / parent columns too), search, column sort + filter, export / share, realtime
 //   Filters       above every table: master -> detail (the values of ONE product ...); new rows get the filter values
 //   Commands      Generate variants (cartesian product of descriptor values), Rebuild variant titles / keys,
 //                 Assign next EAN-13, Delete orphans
-// Route: /catalog/product/dashboard (?tab=<table key>|overview|card &product=<rowGUID> &focusRowGUID=<rowGUID>)
+// Route: /catalog/product/dashboard (?tab=<table key>|overview|card|productsTree &product=<rowGUID> &focusRowGUID=<rowGUID>)
 // SQL: kit8/sql/init/create_product_tables.sql
 import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -32,9 +34,10 @@ import { useProductCatalogData } from './useProductCatalogData';
 import { buildDashboardTables, DASHBOARD_GROUPS, DASHBOARD_TABLE_ORDER, matchesScopeFilters, newRowFromScopeFilters, ScopeFilterDef } from './productDashboardTables';
 import ProductDashboardOverview from './ProductDashboardOverview';
 import GenerateVariantsWindow from './GenerateVariantsWindow';
+import ProductsWithTree from './ProductsWithTree';
 import { assignNextBarcode, createPlannedVariants, deleteRows, rebuildVariants } from './productDashboardActions';
 
-type Tab = 'overview' | 'card' | ProductTableKey;
+type Tab = 'overview' | 'card' | 'productsTree' | ProductTableKey;
 const isTableKey = (t: unknown): t is ProductTableKey => typeof t === 'string' && t in PRODUCT_TABLES;
 
 export default function ProductDashboard() {
@@ -52,7 +55,7 @@ export default function ProductDashboard() {
   const issuesPerTable = useMemo(() => issuesByTable(issues), [issues]);
 
   // ---- tab + filters (tab and the card's product live in the route: deep links, Back button) ----
-  const tab: Tab = params.tab === 'card' ? 'card' : isTableKey(params.tab) ? params.tab : 'overview';
+  const tab: Tab = params.tab === 'card' ? 'card' : params.tab === 'productsTree' ? 'productsTree' : isTableKey(params.tab) ? params.tab : 'overview';
   const [filters, setFilters] = useState<Partial<Record<ProductTableKey, Record<string, string | null>>>>({});
   const [generateFor, setGenerateFor] = useState<string | null | undefined>(undefined);
   const [pickFilter, setPickFilter] = useState<ScopeFilterDef | null>(null);
@@ -119,6 +122,7 @@ export default function ProductDashboard() {
     <>
       {navItem('overview', 'Overview', 'dashboard', undefined, issues.filter((i) => i.severity === 'error').length || undefined)}
       {navItem('card', 'Product card', 'badge')}
+      {navItem('productsTree', 'Products & folders', 'account_tree', data.product.length)}
       {DASHBOARD_GROUPS.map((g) => (
         <React.Fragment key={g}>
           {wide && <Text style={[styles.navGroup, { color: c.text }]}>{g}</Text>}
@@ -225,6 +229,9 @@ export default function ProductDashboard() {
           {tab === 'overview' && (
             <ProductDashboardOverview data={data} labels={labels} issues={issues} wide={wide} tableTitle={(k) => tables[k].title}
               onOpenTable={(k, f, focus) => openTable(k, f || {}, focus)} onRebuildVariants={doRebuild} onDeleteRows={doDelete} />
+          )}
+          {tab === 'productsTree' && (
+            <ProductsWithTree data={data} cfg={tables.product} onReload={reload} selectRowCheckBoxForm={selectRowCheckBoxForm} />
           )}
           {tab === 'card' && (
             <ProductCardView data={data} labels={labels} productGUID={typeof params.product === 'string' ? params.product : null}
