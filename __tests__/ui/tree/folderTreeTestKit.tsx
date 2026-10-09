@@ -28,6 +28,15 @@ export function dragWithMouse(el: Element, path: [number, number][]) {
   for (const [x, y] of path.slice(1)) act(() => { window.dispatchEvent(pointer('pointermove', x, y)); });
   const [lx, ly] = path[path.length - 1];
   act(() => { window.dispatchEvent(pointer('pointerup', lx, ly)); });
+  releaseResponder();
+}
+
+/** RN-web's responder system saw a pointerdown: give it the matching mouse release, or it keeps "a press in progress" */
+export function releaseResponder() {
+  act(() => {
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
 }
 
 export const rowTop = (el: HTMLElement) => parseFloat(el.style.top || '0');

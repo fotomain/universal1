@@ -31,6 +31,8 @@ export interface FolderTreeRowProps {
   menuEnabled: boolean;
   /** how many rows the tree has (aria) */
   level: number;
+  /** double click: open / close the folder, or rename it */
+  doubleClick: 'toggleOpenClose' | 'openToEdit';
   testID: string;
   onToggle: (id: string) => void;
   onPress: (id: string) => void;
@@ -48,16 +50,28 @@ function FolderTreeRow(p: FolderTreeRowProps) {
   const [draft, setDraft] = useState(p.title);
   useEffect(() => { if (p.editing) setDraft(p.title); }, [p.editing, p.title]);
   const done = useRef(false);
-  useEffect(() => { done.current = false; }, [p.editing]);
+  const focused = useRef(false);
+  // reset when editing ENDS (an effect that ran at the start would wipe the focus the autofocus just gave the input)
+  useEffect(() => { if (!p.editing) { done.current = false; focused.current = false; } }, [p.editing]);
 
-  // web: right-click = the row menu
+  // web: right-click = the row menu, double click = open / close the folder or rename it (uxuiFolders.doubleClickOnBranch).
+  // DOM listeners: RN-web's Pressable does not pass onDoubleClick on.
+  const live = useRef({ onDouble: () => {} });
+  const onDouble = () => {
+    if (special) return;
+    if (p.doubleClick === 'openToEdit') p.onStartEdit(id);
+    else if (p.hasKids) p.onToggle(id);
+  };
+  live.current = { onDouble };
   useEffect(() => {
-    if (Platform.OS !== 'web' || special) return;
+    if (Platform.OS !== 'web') return;
     const el: HTMLElement | null = drag.ref.current;
     if (!el?.addEventListener) return;
-    const h = (e: MouseEvent) => { e.preventDefault(); p.onMenu(id, e.clientX, e.clientY); };
-    el.addEventListener('contextmenu', h);
-    return () => el.removeEventListener('contextmenu', h);
+    const menu = (e: MouseEvent) => { if (special) return; e.preventDefault(); p.onMenu(id, e.clientX, e.clientY); };
+    const dbl = (e: MouseEvent) => { if ((e.target as HTMLElement | null)?.closest?.('input')) return; live.current.onDouble(); };
+    el.addEventListener('contextmenu', menu);
+    el.addEventListener('dblclick', dbl);
+    return () => { el.removeEventListener('contextmenu', menu); el.removeEventListener('dblclick', dbl); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, special, p.onMenu]);
 
@@ -82,7 +96,6 @@ function FolderTreeRow(p: FolderTreeRowProps) {
         accessibilityRole="button"
         accessibilityState={{ selected: p.selected, expanded: p.hasKids ? p.open : undefined }}
         style={({ hovered }: any) => [styles.fill, { paddingLeft: 4 + p.depth * p.indent, backgroundColor: hovered && !p.selected && p.dropState === null ? c.primary + '0d' : bg }]}
-        {...(Platform.OS === 'web' ? ({ onDoubleClick: () => (special ? undefined : p.hasKids ? p.onToggle(id) : p.onStartEdit(id)) } as any) : {})}
       >
         {/* chevron: its own press target, so a tap on the arrow never selects */}
         <Pressable testID={`${p.testID}-toggle`} disabled={!p.hasKids || special} onPress={() => p.onToggle(id)} hitSlop={6} style={styles.chevron}>
@@ -96,7 +109,9 @@ function FolderTreeRow(p: FolderTreeRowProps) {
             onChangeText={setDraft}
             autoFocus
             selectTextOnFocus
-            onBlur={commit}
+            onFocus={() => { focused.current = true; }}
+            // a blur before the input ever had the focus is the page taking it back (a closing menu), not the user leaving
+            onBlur={() => { if (focused.current) commit(); }}
             onSubmitEditing={commit}
             onKeyPress={(e: any) => { if (e?.nativeEvent?.key === 'Escape') cancel(); }}
             style={[styles.input, { color: c.text, borderColor: c.primary, backgroundColor: c.background }]}

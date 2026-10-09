@@ -39,8 +39,11 @@ export const DASHBOARD_GROUPS = ['Catalog', 'Descriptors', 'Product data', 'Pric
 export interface DashboardTableContext {
   /** give a barcode row the next free EAN-13 */
   assignBarcode: (row: ReusableTableRow) => void;
-  /** open another table filtered by this row */
-  openTable: (key: ProductTableKey, filters: Record<string, string>) => void;
+  /**
+   * open another table filtered by this row; `fromRowGUID` = the row the user comes from (the table shows a back arrow that
+   * returns to that row)
+   */
+  openTable: (key: ProductTableKey, filters: Record<string, string>, fromRowGUID?: string) => void;
   /** today 'YYYY-MM-DD' (prices valid now) */
   today?: string;
 }
@@ -110,6 +113,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         typeColumn(),
         { key: 'folder', title: 'Folder', type: 'select', target: 'rowParentGUID', options: O.folders, width: 200 },
         { key: 'unit', title: 'Unit', type: 'select', options: O.units, width: 100 },
+        { key: 'productVATRate', title: 'VAT rate', type: 'select', options: O.vatRates, width: 110, placeholder: 'Type default' },
         { key: 'description', title: 'Description', type: 'text', width: 240 },
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('variants', 'Variants', (r) => variantsOfProduct(data, productById.get(r.rowGUID)).length),
@@ -120,9 +124,9 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         }, 120),
       ],
       extraMenuItems: (row, close) => [
-        { testID: `product-open-properties-${row.rowGUID}`, label: 'Property values', icon: 'tune', onPress: () => { close(); ctx.openTable('propertyValue', { product: row.rowGUID }); } },
-        { testID: `product-open-prices-${row.rowGUID}`, label: 'Prices', icon: 'sell', onPress: () => { close(); ctx.openTable('productPrice', { product: row.rowGUID }); } },
-        { testID: `product-open-barcodes-${row.rowGUID}`, label: 'Barcodes', icon: 'barcode', onPress: () => { close(); ctx.openTable('productBarcode', { product: row.rowGUID }); } },
+        { testID: `product-open-properties-${row.rowGUID}`, label: 'Property values', icon: 'tune', onPress: () => { close(); ctx.openTable('propertyValue', { product: row.rowGUID }, row.rowGUID); } },
+        { testID: `product-open-prices-${row.rowGUID}`, label: 'Prices', icon: 'sell', onPress: () => { close(); ctx.openTable('productPrice', { product: row.rowGUID }, row.rowGUID); } },
+        { testID: `product-open-barcodes-${row.rowGUID}`, label: 'Barcodes', icon: 'barcode', onPress: () => { close(); ctx.openTable('productBarcode', { product: row.rowGUID }, row.rowGUID); } },
       ],
     },
     productType: {
@@ -131,6 +135,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         rowNo,
         { key: 'title', title: 'Title', type: 'text', width: 160 },
         { key: 'baseUnit', title: 'Base unit', type: 'select', options: O.units, width: 110 },
+        { key: 'productVATDefaultRate', title: 'Default VAT rate', type: 'select', options: O.vatRates, width: 130 },
         { key: 'variantMode', title: 'Variants', type: 'select', options: VARIANT_MODES, allowEmpty: false, width: 150 },
         { key: 'propertySet', title: 'Property set', type: 'select', width: 200,
           options: (row) => O.destinations.filter((d) => destById.get(d.value)?.rowOwnerGUID === row.rowGUID && destById.get(d.value)?.rowParentGUID === MODE_PROPERTY) },
@@ -147,8 +152,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         count('products', 'Products', (r) => productsPerType(r.rowGUID)),
       ],
       extraMenuItems: (row, close) => [
-        { testID: `type-open-products-${row.rowGUID}`, label: 'Products of this type', icon: 'inventory_2', onPress: () => { close(); ctx.openTable('product', { type: row.rowGUID }); } },
-        { testID: `type-open-sets-${row.rowGUID}`, label: 'Descriptor sets', icon: 'view_list', onPress: () => { close(); ctx.openTable('descriptorDestination', { type: row.rowGUID }); } },
+        { testID: `type-open-products-${row.rowGUID}`, label: 'Products of this type', icon: 'inventory_2', onPress: () => { close(); ctx.openTable('product', { type: row.rowGUID }, row.rowGUID); } },
+        { testID: `type-open-sets-${row.rowGUID}`, label: 'Descriptor sets', icon: 'view_list', onPress: () => { close(); ctx.openTable('descriptorDestination', { type: row.rowGUID }, row.rowGUID); } },
       ],
     },
     productFolder: {
@@ -161,6 +166,12 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         count('path', 'Path', (r) => L.folderPath(r.rowGUID), 260),
         count('products', 'Products', (r) => productsPerFolder(r.rowGUID)),
       ],
+    },
+    valueAddedTax: {
+      key: 'valueAddedTax', title: 'VAT rates', icon: 'percent', group: 'Catalog', filters: [],
+      columns: [rowNo, { key: 'vatTableTitle', title: 'Title', type: 'text', width: 160 },
+        { key: 'vatTablePercent', title: 'Percent', type: 'number', width: 110, min: 0, total: false },
+        count('used', 'Types / products', (r) => data.productType.filter((t) => t.rowJSON?.productVATDefaultRate === r.rowGUID).length + data.product.filter((p) => p.rowJSON?.productVATRate === r.rowGUID).length)],
     },
     measureUnit: {
       key: 'measureUnit', title: 'Units', icon: 'straighten', group: 'Catalog', filters: [],
@@ -181,7 +192,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         count('values', 'Values', (r) => valuesPerGenus(r.rowGUID)),
       ],
       extraMenuItems: (row, close) => [
-        { testID: `genus-open-values-${row.rowGUID}`, label: 'Values', icon: 'list', onPress: () => { close(); ctx.openTable('descriptorValue', { genus: row.rowGUID }); } },
+        { testID: `genus-open-values-${row.rowGUID}`, label: 'Values', icon: 'list', onPress: () => { close(); ctx.openTable('descriptorValue', { genus: row.rowGUID }, row.rowGUID); } },
       ],
     },
     descriptorValue: {
@@ -210,7 +221,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         count('lines', 'Lines', (r) => linesPerSet(r.rowGUID)),
       ],
       extraMenuItems: (row, close) => [
-        { testID: `set-open-lines-${row.rowGUID}`, label: 'Plan lines', icon: 'checklist', onPress: () => { close(); ctx.openTable('descriptorPlan', { set: row.rowGUID }); } },
+        { testID: `set-open-lines-${row.rowGUID}`, label: 'Plan lines', icon: 'checklist', onPress: () => { close(); ctx.openTable('descriptorPlan', { set: row.rowGUID }, row.rowGUID); } },
       ],
     },
     descriptorPlan: {
@@ -281,7 +292,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         count('barcodes', 'Barcodes', (r) => barcodesPerVariant(r.rowGUID)),
       ],
       extraMenuItems: (row, close) => [
-        { testID: `variant-open-values-${row.rowGUID}`, label: 'Variant values', icon: 'tune', onPress: () => { close(); ctx.openTable('variantValue', { variant: row.rowGUID }); } },
+        { testID: `variant-open-values-${row.rowGUID}`, label: 'Variant values', icon: 'tune', onPress: () => { close(); ctx.openTable('variantValue', { variant: row.rowGUID }, row.rowGUID); } },
       ],
     },
     variantValue: {
@@ -386,7 +397,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
 
 /** the order of the tables in the menu */
 export const DASHBOARD_TABLE_ORDER: ProductTableKey[] = [
-  'product', 'productType', 'productFolder', 'measureUnit',
+  'product', 'productType', 'productFolder', 'valueAddedTax', 'measureUnit',
   'descriptorGenus', 'descriptorValue', 'descriptorDestination', 'descriptorPlan', 'descriptorMode',
   'propertyValue', 'variant', 'variantValue',
   'productPrice', 'priceType',

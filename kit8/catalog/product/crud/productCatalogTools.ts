@@ -26,10 +26,19 @@ export function sortBySort<T extends DefRow<any>>(rows: T[]): T[] {
   return [...rows].sort((a, b) => sortKey(a) - sortKey(b) || Number(a.orderInList ?? 0) - Number(b.orderInList ?? 0));
 }
 
+/** the VAT rate of a product: its own productVATRate, else the productVATDefaultRate of its product type (1C: Номенклатура.СтавкаНДС <- ВидыНоменклатуры) */
+export function vatRateOfProduct(data: ProductCatalogData, product: DefRow<any> | undefined | null): DefRow<any> | undefined {
+  if (!product) return undefined;
+  const own = product.rowJSON?.productVATRate;
+  const type = data.productType.find((t) => t.rowGUID === product.rowOwnerGUID);
+  const guid = isSet(own) ? own : type?.rowJSON?.productVATDefaultRate;
+  return isSet(guid) ? data.valueAddedTax.find((v) => v.rowGUID === guid) : undefined;
+}
+
 /** the title of any catalog row ('' = none) */
 export function rowTitle(r: DefRow<any> | undefined | null): string {
   const j = r?.rowJSON || {};
-  return String(j.title ?? j.number ?? j.serialNumber ?? j.barcode ?? r?.rowGUID ?? '');
+  return String(j.title ?? j.vatTableTitle ?? j.number ?? j.serialNumber ?? j.barcode ?? r?.rowGUID ?? '');
 }
 
 // ───────────── descriptor sets ─────────────

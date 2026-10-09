@@ -1,8 +1,9 @@
 // Product catalog - rules of the descriptor model (R6 / R9 / R10 / R13), variant generation, barcodes, labels.
 import {
-  buildVariantTitle, computedVariant, currentPrice, descriptorKey, isValidGtin, nextEan13, plannedVariants, propertyLinesOfProduct,
+  vatRateOfProduct, buildVariantTitle, computedVariant, currentPrice, descriptorKey, isValidGtin, nextEan13, plannedVariants, propertyLinesOfProduct,
   setOfType, variantLinesOfOwner, variantOwnerOfProduct, variantsOfProduct, variantsToRebuild,
 } from '../../../kit8/catalog/product/crud/productCatalogTools';
+import { validateProductCatalog } from '../../../kit8/catalog/product/crud/productValidation';
 import { buildProductLabels } from '../../../kit8/catalog/product/crud/productLabels';
 import { productSystemMetaData } from '../../../kit8/catalog/product/productMetaData';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
@@ -21,7 +22,7 @@ describe('seed (create_product_tables.sql)', () => {
   });
   it('one SystemMetaData entity per table', () => {
     const md = productSystemMetaData();
-    expect(Object.keys(md)).toHaveLength(17);
+    expect(Object.keys(md)).toHaveLength(18);
     expect(md.productReusable.tableName).toBe('productTable');
     expect(md[PRODUCT_TABLES.variant.entity].defaultData).toEqual({ title: null, descriptorKey: null, isActive: true });
   });
@@ -163,5 +164,26 @@ describe('labels + pick lists', () => {
     expect(owners).not.toContain('tablet1');
     expect(owners).not.toContain('prod1');
     expect(L.options.valuesOf('color')[0]).toMatchObject({ value: 'dv1', label: 'Red', color: '#D32F2F' });
+  });
+});
+
+describe('VAT rates (valueAddedTaxTable)', () => {
+  it('seed: 7 rates 21 18 15 12 10 5 0', () => {
+    expect(data.valueAddedTax.map((r) => r.rowJSON.vatTablePercent)).toEqual([21, 18, 15, 12, 10, 5, 0]);
+    expect(data.valueAddedTax.every((r) => r.rowOwnerGUID === 'valueAddedTaxCatalog')).toBe(true);
+    expect(PRODUCT_TABLES.valueAddedTax.emptyRowJSON()).toEqual({ vatTableTitle: null, vatTablePercent: 0 });
+  });
+  it('a product uses its own rate, else the product type default', () => {
+    const p = product('prod2');
+    expect(vatRateOfProduct(data, p)?.rowGUID).toBe('vat_21');
+    const own = { ...p, rowJSON: { ...p.rowJSON, productVATRate: 'vat_12' } };
+    expect(vatRateOfProduct(data, own)?.rowJSON.vatTablePercent).toBe(12);
+    expect(vatRateOfProduct(data, undefined)).toBeUndefined();
+  });
+  it('R1: an unknown rate GUID is reported', () => {
+    const bad = seedCatalog();
+    bad.productType[0].rowJSON.productVATDefaultRate = 'vat_99';
+    expect(validateProductCatalog(bad).some((i) => i.rule === 'R1' && i.table === 'productType' && /VAT rate/.test(i.message))).toBe(true);
+    expect(validateProductCatalog(data).some((i) => /VAT rate/.test(i.message))).toBe(false);
   });
 });

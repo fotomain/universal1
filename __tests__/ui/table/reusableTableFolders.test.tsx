@@ -249,3 +249,42 @@ describe('calibration (uxuiTable.foldersTree*)', () => {
     expect(q(`${T}-folders-toggle`)).not.toBeNull();
   });
 });
+
+describe('alwaysFullHeight (foldersTree.uxuiFolders, default true)', () => {
+  const { Dimensions } = require('react-native');
+  let spy: jest.SpyInstance;
+  beforeEach(() => { spy = jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1000, height: 800, scale: 1, fontScale: 1 }); });
+  afterEach(() => spy.mockRestore());
+  it('tree and table are as high as the screen; the rows scroll inside the table', () => {
+    mount();
+    expect(q(`${T}-folders-panel`)!.style.height).toBe('784px');
+    expect(q(T)!.style.height).toBe('784px');
+    expect(q(`${T}-body-scroll`)).not.toBeNull();
+    // the header and the footer stay outside the scrolling body
+    expect(q(`${T}-body-scroll`)!.contains(q(`${T}-footer`))).toBe(false);
+    expect(q(`${T}-body-scroll`)!.contains(q(`${T}-headers`))).toBe(false);
+    expect(q(`${T}-body-scroll`)!.querySelectorAll('[data-testid^="t-row-"]').length).toBe(5);
+  });
+  it('fullHeightBottomOffset / fullHeightMin', () => {
+    mount({ foldersTree: { ...folders, uxuiFolders: { fullHeightBottomOffset: 100 } } });
+    expect(q(T)!.style.height).toBe('700px');
+    act(() => root.unmount());
+    spy.mockReturnValue({ width: 1000, height: 200, scale: 1, fontScale: 1 });
+    mount({ foldersTree: { ...folders, uxuiFolders: { fullHeightMin: 410 } } });
+    expect(q(T)!.style.height).toBe('410px');
+  });
+  it('alwaysFullHeight: false, or a fixed foldersTreeHeight: the table grows with its rows, no inner scroll', () => {
+    mount({ foldersTree: { ...folders, uxuiFolders: { alwaysFullHeight: false } } });
+    expect(q(`${T}-body-scroll`)).toBeNull();
+    expect(q(T)!.style.height).toBe('');
+    act(() => root.unmount());
+    mount({ uxuiTable: { showFoldersTree: true, foldersTreeHeight: 400 } });
+    expect(q(`${T}-body-scroll`)).toBeNull();
+    expect(q(`${T}-folders-panel`)!.style.height).toBe('400px');
+  });
+  it('doubleClickOnBranch reaches the tree', () => {
+    mount({ foldersTree: { ...folders, uxuiFolders: { doubleClickOnBranch: 'openToEdit' }, tree: { onRename: jest.fn() } } });
+    act(() => { q(`${TREE}-row-f1`)!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+    expect(q(`${TREE}-row-f1-input`)).not.toBeNull();
+  });
+});

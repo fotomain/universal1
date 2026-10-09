@@ -84,7 +84,7 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p: any) => {},
     },
-    // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 17 tables - measureUnit, descriptorGenus,
+    // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 18 tables - valueAddedTax, measureUnit, descriptorGenus,
     // descriptorValue, descriptorMode, descriptorDestination, descriptorPlan, productType, productFolder, product,
     // propertyValue, variant, variantValue, productPackaging, productSeries, productBarcode, priceType, productPrice.
     // Screen /catalog/product/dashboard, SQL kit8/sql/init/create_product_tables.sql, Supabase Realtime sync

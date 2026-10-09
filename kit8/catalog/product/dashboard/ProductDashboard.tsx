@@ -4,14 +4,14 @@
 //   Products & folders  the Products table with the product FOLDERS tree beside it: pick a folder = its products, drag products
 //                 onto a folder, create / rename / move / delete folders (ProductsWithTree, FolderTreeReusable)
 //   Product card  everything about one product: properties, variants with today's prices, barcodes, packs, series
-//   17 tables     full CRUD with ReusableTable (all-rows mode): add / duplicate / reorder / delete + Undo, in-place
+//   18 tables     full CRUD with ReusableTable (all-rows mode): add / duplicate / reorder / delete + Undo, in-place
 //                 editing (owner / parent columns too), search, column sort + filter, export / share, realtime
 //   Filters       above every table: master -> detail (the values of ONE product ...); new rows get the filter values
 //   Commands      Generate variants (cartesian product of descriptor values), Rebuild variant titles / keys,
 //                 Assign next EAN-13, Delete orphans
 // Route: /catalog/product/dashboard (?tab=<table key>|overview|card|productsTree &product=<rowGUID> &focusRowGUID=<rowGUID>)
 // SQL: kit8/sql/init/create_product_tables.sql
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
@@ -35,9 +35,12 @@ import { buildDashboardTables, DASHBOARD_GROUPS, DASHBOARD_TABLE_ORDER, matchesS
 import ProductDashboardOverview from './ProductDashboardOverview';
 import GenerateVariantsWindow from './GenerateVariantsWindow';
 import ProductsWithTree from './ProductsWithTree';
+import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
 import { assignNextBarcode, createPlannedVariants, deleteRows, rebuildVariants } from './productDashboardActions';
 
 type Tab = 'overview' | 'card' | 'productsTree' | ProductTableKey;
+/** where a table was opened from (a row menu: Prices, Barcodes ...): the back arrow of the table returns there */
+interface Origin { tab: Tab; params: Record<string, string | undefined>; rowGUID?: string }
 const isTableKey = (t: unknown): t is ProductTableKey => typeof t === 'string' && t in PRODUCT_TABLES;
 
 export default function ProductDashboard() {
@@ -59,18 +62,25 @@ export default function ProductDashboard() {
   const [filters, setFilters] = useState<Partial<Record<ProductTableKey, Record<string, string | null>>>>({});
   const [generateFor, setGenerateFor] = useState<string | null | undefined>(undefined);
   const [pickFilter, setPickFilter] = useState<ScopeFilterDef | null>(null);
+  const [origin, setOrigin] = useState<Origin | null>(null);
+  /** the folder picked in "Products & folders" (kept while another table is open) */
+  const [treeFolder, setTreeFolder] = useState<string>(TREE_ALL_ID);
+  const here = useRef({ tab, product: params.product });
+  here.current = { tab, product: params.product };
 
   const go = useCallback((next: Tab, extra: Record<string, string | undefined> = {}) => {
     (router as any).setParams({ tab: next, focusRowGUID: undefined, ...extra });
   }, [router]);
-  const openTable = useCallback((key: ProductTableKey, f: Record<string, string> = {}, focusRowGUID?: string) => {
+  const openTable = useCallback((key: ProductTableKey, f: Record<string, string> = {}, focusRowGUID?: string, fromRowGUID?: string) => {
     setFilters((all) => ({ ...all, [key]: f }));
+    const from = here.current.tab;
+    if (from !== key) setOrigin({ tab: from, params: from === 'card' ? { product: here.current.product } : {}, rowGUID: fromRowGUID });
     go(key, focusRowGUID ? { focusRowGUID } : {});
   }, [go]);
 
   const tables = useMemo(() => buildDashboardTables(data, labels, {
     today: todayISO(),
-    openTable: (key, f) => openTable(key, f),
+    openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
     assignBarcode: (row) => {
       const code = assignNextBarcode(dispatch, data, row);
       if (code) dispatch(showSnackbar({ message: `Barcode ${code} assigned` }));
@@ -106,7 +116,7 @@ export default function ProductDashboard() {
   const navItem = (key: Tab, label: string, icon: string, n?: number, bad?: number) => {
     const active = tab === key;
     return (
-      <Pressable key={key} testID={`product-nav-${key}`} onPress={() => go(key)} accessibilityRole="tab" aria-selected={active}
+      <Pressable key={key} testID={`product-nav-${key}`} onPress={() => { setOrigin(null); go(key); }} accessibilityRole="tab" aria-selected={active}
         style={({ hovered }: any) => [wide ? styles.navRow : styles.navChip, {
           backgroundColor: active ? c.primary + '1c' : hovered ? c.primary + '0b' : wide ? 'transparent' : c.surface,
           borderColor: active ? c.primary : c.border, borderLeftColor: active ? c.primary : 'transparent',
@@ -132,10 +142,21 @@ export default function ProductDashboard() {
     </>
   );
 
+  // ---- back arrow: the table was opened from a row menu of another tab ----
+  const tabTitle = (t: Tab) => (t === 'overview' ? 'Overview' : t === 'card' ? 'Product card' : t === 'productsTree' ? 'Products & folders' : tables[t].title);
+  const goBack = () => {
+    if (!origin) return;
+    setOrigin(null);
+    go(origin.tab, { ...origin.params, focusRowGUID: origin.rowGUID });
+  };
+
   // ---- one table ----
   const tableView = cfg && tableKey && (
     <View style={{ gap: 10 }}>
       <View style={styles.tableHead}>
+        {origin && origin.tab !== tableKey && (
+          <PMIconButton tipScope="app" testID="product-table-back" icon="arrow_back" title={`Back to ${tabTitle(origin.tab)}${origin.rowGUID ? ' (the row you came from)' : ''}`} color={c.primary} onPress={goBack} />
+        )}
         <IconApp name={cfg.icon} size={22} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text testID="product-table-title" style={[styles.h2, { color: c.text }]}>{cfg.title}</Text>
@@ -225,13 +246,14 @@ export default function ProductDashboard() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.chips} testID="product-nav">{nav}</ScrollView>
         )}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { padding: wide ? 16 : 10 }]} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { padding: wide ? 16 : 10 }, tab === 'productsTree' ? { paddingBottom: 12 } : null]} keyboardShouldPersistTaps="handled">
           {tab === 'overview' && (
             <ProductDashboardOverview data={data} labels={labels} issues={issues} wide={wide} tableTitle={(k) => tables[k].title}
               onOpenTable={(k, f, focus) => openTable(k, f || {}, focus)} onRebuildVariants={doRebuild} onDeleteRows={doDelete} />
           )}
           {tab === 'productsTree' && (
-            <ProductsWithTree data={data} cfg={tables.product} onReload={reload} selectRowCheckBoxForm={selectRowCheckBoxForm} />
+            <ProductsWithTree data={data} cfg={tables.product} onReload={reload} selectRowCheckBoxForm={selectRowCheckBoxForm}
+              selectedFolderId={treeFolder} onSelectedFolderChange={setTreeFolder} />
           )}
           {tab === 'card' && (
             <ProductCardView data={data} labels={labels} productGUID={typeof params.product === 'string' ? params.product : null}

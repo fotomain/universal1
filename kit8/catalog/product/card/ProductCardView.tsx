@@ -8,7 +8,7 @@ import IconApp from '../../../ui/components/common/IconApp';
 import ReusableTableOptionPicker from '../../../ui/components/table/reusable/ReusableTableOptionPicker';
 import { ProductTableKey, todayISO } from '../productModel';
 import {
-  currentPrice, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantOwnerOfProduct, variantsOfProduct,
+  currentPrice, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantOwnerOfProduct, variantsOfProduct, vatRateOfProduct,
 } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
 
@@ -27,6 +27,8 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
   const product = useMemo(() => data.product.find((p) => p.rowGUID === productGUID), [data.product, productGUID]);
   const type = product ? data.productType.find((t) => t.rowGUID === product.rowOwnerGUID) : undefined;
   const lines = useMemo(() => propertyLinesOfProduct(data, product), [data, product]);
+  const vatRate = vatRateOfProduct(data, product);
+  const vatText = vatRate ? `${rowTitle(vatRate)} (${Number(vatRate.rowJSON?.vatTablePercent) || 0} %)${isSet(product?.rowJSON?.productVATRate) ? '' : ' - type default'}` : '';
   const variants = useMemo(() => variantsOfProduct(data, product), [data, product]);
   const priceTypes = data.priceType.filter((p) => priceTypeForProducts(p));
   const barcodes = product ? data.productBarcode.filter((b) => b.rowOwnerGUID === product.rowGUID) : [];
@@ -83,6 +85,7 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
             <>
               {kv('SKU', String(product.rowJSON?.sku ?? ''), 'sku')}
               {kv('Unit', L.title('measureUnit', product.rowJSON?.unit), 'unit')}
+              {kv('VAT rate', vatText, 'vat')}
               {kv('Variants', type?.rowJSON?.variantMode === 'none' || !variantOwnerOfProduct(data, product) ? 'none' : `${variants.length} (${L.ownerLabel(variantOwnerOfProduct(data, product))})`, 'variants')}
               {priceTypes.map((pt) => kv(`${rowTitle(pt)}${pt.rowJSON?.vatIncluded ? ' (VAT incl.)' : ''}`, price(null, pt.rowGUID), `price-${pt.rowGUID}`))}
             </>

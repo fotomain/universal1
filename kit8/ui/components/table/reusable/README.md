@@ -52,6 +52,7 @@ Pick a folder = only its rows (with subfolders; "All rows" / "No folder" are pin
 "Add" creates the row in the picked folder, the ⠿ of a row (all selected rows when it is selected) dropped on a folder saves the folder
 column (`onRowsDrop` replaces that), counts per folder come from the rows. Web: the ⠿ that reorders also drags onto the tree; iOS / Android: a
 ⠿ grip column (`ReusableTableFolderGrip`). The bar gets a button that hides / shows the tree (hidden = no folder filter).
+`foldersTree.uxuiFolders` (FolderTreeReusable): `alwaysFullHeight` (default **true**: tree and table are as high as the screen, the rows scroll INSIDE the table, header + footer stay in view; a numeric `foldersTreeHeight` turns it off), `doubleClickOnBranch` ('toggleOpenClose' default | 'openToEdit'), `commandsInMainFab`.
 Calibration, all in `uxuiTable`: `foldersTreePosition = 'left' | 'right'`, `foldersTreeWidth = 260` (`Min/MaxWidth` 160 / 520, `foldersTreeResizable`
 splitter), `foldersTreeCollapsible`, `foldersTreeCollapsed`, `foldersTreeGap = 8`, `foldersTreeAlignRows = true` (tree rows as high as table rows and the
 tree header as high as table bar + column header, so lines are level), `foldersTreeHeight = 'matchTable' | px` (`Min/MaxHeight` 260 / 720),

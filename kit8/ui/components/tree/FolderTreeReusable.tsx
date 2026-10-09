@@ -17,8 +17,9 @@
 //   const { nodes, treeProps } = useLocalFolderTree(initialNodes);
 //   <FolderTreeReusable nodes={nodes} {...treeProps} />
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextInput, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
 import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
 import PMContextMenu from '../../../pm/inner/menu/PMContextMenu';
 import type { PMMenuItemProps } from '../../../pm/inner/menu/PMMenuItem';
@@ -46,6 +47,27 @@ export interface FolderTreeHandle {
   scrollToNode: (id: string) => void;
 }
 
+/** how the tree looks and behaves (prop `uxuiFolders`) */
+export interface FolderTreeUxUi {
+  /**
+   * The tree (and the table beside it in ReusableTable) is as high as the screen: from its top edge down to the bottom of the
+   * window, so everything is visible without scrolling the page; the rows scroll inside (default true).
+   * An explicit `height` prop wins. false = the height the parent gives it (default '100%').
+   */
+  alwaysFullHeight?: boolean;
+  /** px kept free below the tree when alwaysFullHeight (default 16) */
+  fullHeightBottomOffset?: number;
+  /** smallest height when alwaysFullHeight (default 260) */
+  fullHeightMin?: number;
+  /**
+   * double click (web) on a folder: 'toggleOpenClose' (default) = open / close its subfolders (a folder without subfolders: nothing)
+   * | 'openToEdit' = rename it in place
+   */
+  doubleClickOnBranch?: 'toggleOpenClose' | 'openToEdit';
+  /** the main FAB (bottom right) shows the folder commands while the tree is on the screen (default true) */
+  commandsInMainFab?: boolean;
+}
+
 export interface FolderTreeMove { id: string; parentId: string | null; order: number }
 
 export interface FolderTreeReusableProps {
@@ -69,6 +91,8 @@ export interface FolderTreeReusableProps {
   style?: StyleProp<ViewStyle>
   /** no CRUD, no drag & drop of folders (selection, search and item drops still work) */
   readOnly?: boolean;
+  /** look + behaviour: alwaysFullHeight (default true), doubleClickOnBranch (default 'toggleOpenClose'), commandsInMainFab (default true) */
+  uxuiFolders?: FolderTreeUxUi;
 
   // ---- selection ----
   /** TREE_ALL_ID / TREE_NONE_ID / a folder id (controlled) */
@@ -172,6 +196,19 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
   const canDelete = !readOnly && !!onDelete;
   const canMove = !readOnly && !!onMove;
   const canDrag = canMove && dragEnabled;
+  const ux = props.uxuiFolders;
+  const alwaysFullHeight = ux?.alwaysFullHeight !== false;
+  const doubleClick = ux?.doubleClickOnBranch ?? 'toggleOpenClose';
+  const commandsInMainFab = ux?.commandsInMainFab !== false;
+
+  // ---- full screen height: from the top edge of the tree to the bottom of the window ----
+  const win = useWindowDimensions();
+  const [topEdge, setTopEdge] = useState<number | null>(null);
+  const measureTop = useCallback(() => measureViewRect(rootRef.current, (r) => { if (r) setTopEdge((p) => (p !== null && Math.abs(p - r.top) < 1 ? p : r.top)); }), []);
+  const fullHeight = height === undefined && alwaysFullHeight && topEdge !== null
+    ? Math.max(ux?.fullHeightMin ?? 260, Math.round(win.height - topEdge - (ux?.fullHeightBottomOffset ?? 16)))
+    : undefined;
+  useEffect(() => { measureTop(); }, [win.height, measureTop]);
 
   const rootRef = useRef<any>(null);
 
@@ -510,29 +547,64 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
     const i = index.idToIdx.get(id);
     if (i === undefined) return [];
     const node = index.nodes[i];
+    // the menu is a Modal: it gives the focus back to the page while it closes, which would end an inline rename that started
+    // at the same moment. So every command runs after the menu has gone.
     const close = () => setMenu(null);
+    const later = (fn: () => void) => () => { close(); setTimeout(fn, 250); };
     const t = `${testID}-menu`;
     const kids = hasChildren(index, i);
     const items: PMMenuItemProps[] = [];
     if (canCreate) {
-      items.push({ testID: `${t}-new-sub`, label: 'New subfolder', icon: 'create_new_folder', onPress: () => { close(); createFolder(id); } });
-      items.push({ testID: `${t}-new-same`, label: 'New folder below', icon: 'add', onPress: () => { close(); createFolder(index.parent[i] === index.n ? null : index.nodes[index.parent[i]].id, id); } });
+      items.push({ testID: `${t}-new-sub`, label: 'New subfolder', icon: 'create_new_folder', onPress: later(() => createFolder(id)) });
+      items.push({ testID: `${t}-new-same`, label: 'New folder below', icon: 'add', onPress: later(() => createFolder(index.parent[i] === index.n ? null : index.nodes[index.parent[i]].id, id)) });
     }
-    if (canRename) items.push({ testID: `${t}-rename`, label: 'Rename', icon: 'edit', onPress: () => { close(); startEdit(id); } });
-    if (canCreate) items.push({ testID: `${t}-duplicate`, label: kids ? 'Duplicate with subfolders' : 'Duplicate', icon: 'content_copy', onPress: () => { close(); duplicate(id); } });
+    if (canRename) items.push({ testID: `${t}-rename`, label: 'Rename', icon: 'edit', onPress: later(() => startEdit(id)) });
+    if (canCreate) items.push({ testID: `${t}-duplicate`, label: kids ? 'Duplicate with subfolders' : 'Duplicate', icon: 'content_copy', onPress: later(() => duplicate(id)) });
     if (canMove) {
-      items.push({ testID: `${t}-up`, label: 'Move up', icon: 'arrow_upward', disabled: !planStep(index, i, -1)?.ok, onPress: () => { close(); step(id, -1); } });
-      items.push({ testID: `${t}-down`, label: 'Move down', icon: 'arrow_downward', disabled: !planStep(index, i, 1)?.ok, onPress: () => { close(); step(id, 1); } });
+      items.push({ testID: `${t}-up`, label: 'Move up', icon: 'arrow_upward', disabled: !planStep(index, i, -1)?.ok, onPress: later(() => step(id, -1)) });
+      items.push({ testID: `${t}-down`, label: 'Move down', icon: 'arrow_downward', disabled: !planStep(index, i, 1)?.ok, onPress: later(() => step(id, 1)) });
     }
     if (kids) {
-      items.push({ testID: `${t}-expand`, label: 'Expand all below', icon: 'unfold_more', onPress: () => { close(); expandBelow(id, true); } });
-      items.push({ testID: `${t}-collapse`, label: 'Collapse all below', icon: 'unfold_less', onPress: () => { close(); expandBelow(id, false); } });
+      items.push({ testID: `${t}-expand`, label: 'Expand all below', icon: 'unfold_more', onPress: later(() => expandBelow(id, true)) });
+      items.push({ testID: `${t}-collapse`, label: 'Collapse all below', icon: 'unfold_less', onPress: later(() => expandBelow(id, false)) });
     }
     if (extraMenuItems) items.push(...extraMenuItems(node, close));
-    if (canDelete) items.push({ testID: `${t}-delete`, label: 'Delete', icon: 'delete', danger: true, onPress: () => { close(); askDelete(id); } });
+    if (canDelete) items.push({ testID: `${t}-delete`, label: 'Delete', icon: 'delete', danger: true, onPress: later(() => askDelete(id)) });
     return items;
   };
   const menuEnabled = canCreate || canRename || canMove || canDelete || !!extraMenuItems;
+
+  // ---------------- main FAB: the same commands as the context menu, for the selected folder ----------------
+  const fabActions = useMemo<FABContextAction[] | null>(() => {
+    if (!commandsInMainFab) return null;
+    const out: FABContextAction[] = [];
+    const add = (icon: string, label: string, onPress: () => void, color?: string) => out.push({ icon, label, onPress, color, testID: `${testID}-fab-${icon}` });
+    if (canCreate) add('folder-plus-outline', 'New top level folder', () => createFolder(null));
+    if (selectedNode) {
+      const i = selectedNodeIdx as number;
+      const kids = hasChildren(index, i);
+      if (canCreate) {
+        add('folder-plus', `New subfolder in "${selectedNode.title}"`, () => createFolder(selectedNode.id));
+        add('plus', 'New folder below', () => createFolder(index.parent[i] === index.n ? null : index.nodes[index.parent[i]].id, selectedNode.id));
+      }
+      if (canRename) add('pencil-outline', `Rename "${selectedNode.title}"`, () => startEdit(selectedNode.id));
+      if (canCreate) add('content-copy', kids ? 'Duplicate with subfolders' : 'Duplicate', () => duplicate(selectedNode.id));
+      if (canMove && planStep(index, i, -1)?.ok) add('arrow-up', 'Move up', () => step(selectedNode.id, -1));
+      if (canMove && planStep(index, i, 1)?.ok) add('arrow-down', 'Move down', () => step(selectedNode.id, 1));
+      if (kids) {
+        add('unfold-more-horizontal', 'Expand all below', () => expandBelow(selectedNode.id, true));
+        add('unfold-less-horizontal', 'Collapse all below', () => expandBelow(selectedNode.id, false));
+      }
+      if (extraMenuItems) for (const m of extraMenuItems(selectedNode, () => {})) if (!m.disabled && !m.submenu) add(String(m.icon).replace(/_/g, '-'), m.label, m.onPress, m.danger ? c.error : undefined);
+      if (canDelete) add('delete-outline', `Delete "${selectedNode.title}"`, () => askDelete(selectedNode.id), c.error);
+    }
+    add('unfold-more-horizontal', 'Expand all folders', expandAll);
+    add('unfold-less-horizontal', 'Collapse all folders', collapseAll);
+    if (onRefresh) add('refresh', 'Refresh folders', onRefresh);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commandsInMainFab, canCreate, canRename, canMove, canDelete, index, selectedNode, selectedNodeIdx, extraMenuItems, onRefresh, createFolder, startEdit, duplicate, step, expandBelow, askDelete, expandAll, collapseAll, c.error, testID]);
+  useFABContextActions(`folder-tree-${treeId}`, fabActions);
 
   // ---------------- keyboard (web) ----------------
   const onKeyDown = (e: any) => {
@@ -613,7 +685,7 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
   const deleteName = pendingDelete ? index.nodes[index.idToIdx.get(pendingDelete.id) ?? 0]?.title ?? '' : '';
   const specialRow = (id: string, label: string, top: number, count: number | null | undefined, icon: string) => (
     <FolderTreeRow key={id} id={id} testID={`${testID}-row-${id}`} title={label} top={top} height={rowHeight} depth={0} indent={indent} hasKids={false} open={false}
-      selected={selectedId === id} special icon={icon} count={count ?? null} editing={false} dropState={dropStateOf(id)} dragEnabled={false} menuEnabled={false} level={1}
+      selected={selectedId === id} special doubleClick={doubleClick} icon={icon} count={count ?? null} editing={false} dropState={dropStateOf(id)} dragEnabled={false} menuEnabled={false} level={1}
       onToggle={toggle} onPress={select} onMenu={openMenu} onCommitEdit={commitEdit} onCancelEdit={cancelEdit} onStartEdit={startEdit} dragPayload={dragPayload} />
   );
 
@@ -621,9 +693,9 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
     <View
       ref={rootRef}
       testID={testID}
-      onLayout={measureAll}
+      onLayout={() => { measureAll(); measureTop(); }}
       {...(Platform.OS === 'web' ? ({ tabIndex: 0, onKeyDown, role: 'tree', 'aria-label': title } as any) : {})}
-      style={[styles.root, { borderColor: c.border, backgroundColor: c.surface, height: (height ?? '100%') as any }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null, style]}
+      style={[styles.root, { borderColor: c.border, backgroundColor: c.surface, height: (height ?? fullHeight ?? '100%') as any }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null, style]}
     >
       {showHeader && (
         <View style={[styles.header, { borderBottomColor: c.border }]}>
@@ -692,6 +764,7 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
                   hasKids={kids}
                   open={open}
                   selected={selectedId === node.id}
+                  doubleClick={doubleClick}
                   icon={node.icon}
                   color={node.color}
                   count={counts(idx, node.id)}

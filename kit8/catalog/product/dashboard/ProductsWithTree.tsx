@@ -23,12 +23,15 @@ export interface ProductsWithTreeProps {
   /** the Products table of buildDashboardTables(): columns + row menu */
   cfg: DashboardTableConfig;
   onReload?: () => void;
+  /** the picked folder (controlled by the dashboard, so it survives opening another table and coming back) */
+  selectedFolderId?: string;
+  onSelectedFolderChange?: (folderId: string) => void;
   selectRowCheckBoxForm?: 'formRound' | 'formSquare';
   /** calibration of table + tree (uxuiTable.foldersTree*) */
   uxuiTable?: ReusableTableUxUi;
 }
 
-export default function ProductsWithTree({ data, cfg, onReload, selectRowCheckBoxForm, uxuiTable }: ProductsWithTreeProps) {
+export default function ProductsWithTree({ data, cfg, onReload, selectRowCheckBoxForm, uxuiTable, selectedFolderId, onSelectedFolderChange }: ProductsWithTreeProps) {
   const { themeColors: c } = useDesignSystem();
   const { foldersTree } = useProductFolderTree(data, onReload);
   const def = PRODUCT_TABLES.product;
@@ -57,7 +60,7 @@ export default function ProductsWithTree({ data, cfg, onReload, selectRowCheckBo
         dragAndDropColumns
         resizeColumnWidth
         realtime
-        foldersTree={foldersTree}
+        foldersTree={selectedFolderId !== undefined ? { ...foldersTree, selectedFolderId, onSelectedFolderChange } : foldersTree}
         uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270, ...uxuiTable }}
       />
     </View>

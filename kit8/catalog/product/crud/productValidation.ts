@@ -42,6 +42,7 @@ export function validateProductCatalog(data: ProductCatalogData): ProductIssue[]
     issues.push({ rule, severity, table, rowGUID, message, ...(fix ? { fix } : {}) });
 
   const units = byGUID(data.measureUnit);
+  const vatRates = byGUID(data.valueAddedTax);
   const genus = byGUID(data.descriptorGenus);
   const values = byGUID(data.descriptorValue);
   const dests = byGUID(data.descriptorDestination);
@@ -87,6 +88,7 @@ export function validateProductCatalog(data: ProductCatalogData): ProductIssue[]
   for (const t of data.productType) {
     const j = t.rowJSON || {};
     if (isSet(j.baseUnit) && !units.has(j.baseUnit)) add('R1', 'error', 'productType', t.rowGUID, `Type ${T(t)}: base unit "${j.baseUnit}" is missing`);
+    if (isSet(j.productVATDefaultRate) && !vatRates.has(j.productVATDefaultRate)) add('R1', 'error', 'productType', t.rowGUID, `Type ${T(t)}: VAT rate "${j.productVATDefaultRate}" is missing`);
     for (const [field, mode] of [['propertySet', MODE_PROPERTY], ['variantSet', MODE_VARIANT]] as const) {
       const s = j[field];
       if (!isSet(s)) continue;
@@ -114,6 +116,7 @@ export function validateProductCatalog(data: ProductCatalogData): ProductIssue[]
     if (!types.has(pr.rowOwnerGUID)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: choose its product type`);
     if (isSet(pr.rowParentGUID) && !folders.has(pr.rowParentGUID)) add('R1', 'warning', 'product', pr.rowGUID, `Product ${T(pr)}: its folder is missing`);
     if (isSet(pr.rowJSON?.unit) && !units.has(pr.rowJSON.unit)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: unit "${pr.rowJSON.unit}" is missing`);
+    if (isSet(pr.rowJSON?.productVATRate) && !vatRates.has(pr.rowJSON.productVATRate)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: VAT rate "${pr.rowJSON.productVATRate}" is missing`);
     const sku = String(pr.rowJSON?.sku ?? '').trim().toLowerCase();
     if (sku) { if (skus.has(sku)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: SKU "${pr.rowJSON.sku}" is used twice`); else skus.set(sku, pr.rowGUID); }
   }

@@ -2,7 +2,7 @@
 // TREE.PLUGIN - FolderTreeReusable: windowed rows (200k), select / expand / search, CRUD callbacks, keyboard,
 // pointer-driven drag & drop (folder before / after / inside, rows onto a folder, "No folder", into itself).
 import React, { act } from 'react';
-import { dragWithMouse, mockRects, pointer, rowTop } from './folderTreeTestKit';
+import { dragWithMouse, mockRects, pointer, releaseResponder, rowTop } from './folderTreeTestKit';
 
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
@@ -17,7 +17,11 @@ jest.mock('../../../kit8/pm/inner/buttons/PMIconButton', () => {
   const { Pressable, Text } = require('react-native');
   return { PMIconButton: ({ testID, icon, onPress, disabled }: any) => R.createElement(Pressable, { testID, onPress, disabled }, R.createElement(Text, null, icon)) };
 });
-jest.mock('../../../kit8/pm/inner/menu/PMContextMenu', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../kit8/pm/inner/menu/PMContextMenu', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ items, testID }: any) => R.createElement(View, { testID }, items.map((i: any) => R.createElement(Pressable, { key: i.testID, testID: i.testID, onPress: i.onPress }, R.createElement(Text, null, i.label)))) };
+});
 jest.mock('../../../kit8/ui/components/common/AskBeforeDeletePostComponent', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
@@ -30,6 +34,7 @@ jest.mock('../../../kit8/ui/components/common/AskBeforeDeletePostComponent', () 
 });
 
 import FolderTreeReusable from '../../../kit8/ui/components/tree/FolderTreeReusable';
+import { FABProvider, useFABCurrentContextActions } from '../../../kit8/providers/FABProvider';
 import { beginFolderDrag, endFolderDrag } from '../../../kit8/ui/components/tree/folderTreeDnd';
 import { generateFolderNodes } from '../../../kit8/ui/components/tree/folderTreeDemoData';
 import { FolderTreeNode, TREE_ALL_ID, TREE_NONE_ID } from '../../../kit8/ui/components/tree/folderTreeModel';
@@ -259,5 +264,123 @@ describe('drag & drop (pointer events)', () => {
     act(() => { window.dispatchEvent(pointer('pointermove', 40, yOfRow('A'))); });
     expect(document.querySelector('[data-testid*="-drop-"]')).toBeNull();
     act(() => { window.dispatchEvent(pointer('pointerup', 40, yOfRow('A'))); });
+    releaseResponder();
+  });
+});
+
+describe('uxuiFolders', () => {
+  const dbl = (id: string) => act(() => { row(id).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  it('double click on a branch opens / closes it (default toggleOpenClose); a folder without subfolders does nothing', () => {
+    mount({ onRename: jest.fn() });
+    expect(ids()).not.toContain('A1a');
+    dbl('A1');
+    expect(ids()).toContain('A1a');
+    dbl('A1');
+    expect(ids()).not.toContain('A1a');
+    dbl('A2');
+    expect(q(`${T}-row-A2-input`)).toBeNull();
+  });
+  it("doubleClickOnBranch: 'openToEdit' renames in place instead", () => {
+    mount({ onRename: jest.fn(), uxuiFolders: { doubleClickOnBranch: 'openToEdit' } });
+    dbl('A1');
+    expect(q(`${T}-row-A1-input`)).not.toBeNull();
+    expect(ids()).not.toContain('A1a');
+  });
+  it('alwaysFullHeight (default): as high as the screen below the tree\'s top edge; an explicit height wins; false = the parent decides', () => {
+    const style = () => q(T)!.style.height;
+    // jsdom has no window size here: give the app one
+    const { Dimensions } = require('react-native');
+    const spy = jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1000, height: 800, scale: 1, fontScale: 1 });
+    const win = 800;
+    mount();
+    expect(style()).toBe(`${win - 16}px`);
+    act(() => root.unmount()); restore();
+    mount({ height: 300 });
+    expect(style()).toBe('300px');
+    act(() => root.unmount()); restore();
+    mount({ uxuiFolders: { alwaysFullHeight: false } });
+    expect(style()).toBe('100%');
+    act(() => root.unmount()); restore();
+    mount({ uxuiFolders: { fullHeightBottomOffset: 100 } });
+    expect(style()).toBe(`${win - 100}px`);
+    spy.mockRestore();
+  });
+});
+
+describe('context menu', () => {
+  const menuOn = (id: string) => act(() => { row(id).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })); });
+  it('Rename runs AFTER the menu has closed (a closing modal gives the focus back to the page and would end the rename)', async () => {
+    const onRename = jest.fn();
+    mount({ onRename });
+    menuOn('A2');
+    expect(q(`${T}-context-menu`)).not.toBeNull();
+    press(`${T}-menu-rename`);
+    expect(q(`${T}-context-menu`)).toBeNull();
+    expect(q(`${T}-row-A2-input`)).toBeNull(); // not yet
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)); });
+    expect(q(`${T}-row-A2-input`)).not.toBeNull();
+  });
+  it('a blur after the input had the focus saves the rename', () => {
+    {
+      const onRename = jest.fn();
+      mount({ onRename });
+      pressRow('A2');
+      press(`${T}-rename`);
+      const input = q(`${T}-row-A2-input`) as HTMLInputElement;
+      act(() => { input.focus(); });
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Two');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      act(() => { input.blur(); });
+      expect(onRename).toHaveBeenCalledWith('A2', 'Two', 'Alpha two');
+    }
+  });
+});
+
+describe('main FAB (FABProvider.useFABContextActions)', () => {
+  function Probe() {
+    const a = useFABCurrentContextActions();
+    return <>{(a || []).map((x, i) => <button key={i} data-testid={`fab-${i}`} onClick={x.onPress}>{x.label}</button>)}</>;
+  }
+  function mountFab(props: any = {}) {
+    restore = mockRects({ [T]: { left: 0, top: 0, width: 300, height: 500 } });
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    root = createRoot(el);
+    act(() => root.render(<FABProvider><FolderTreeReusable testID={T} nodes={sample} rowHeight={RH} {...props} /><Probe /></FABProvider>));
+  }
+  const labels = () => Array.from(document.querySelectorAll('[data-testid^="fab-"]')).map((e) => e.textContent);
+  const fab = (label: string) => act(() => { (Array.from(document.querySelectorAll('[data-testid^="fab-"]')).find((e) => e.textContent === label) as HTMLElement).click(); });
+  it('with a folder selected: the commands of its context menu, named after it', () => {
+    const onCreate = jest.fn(); const onDelete = jest.fn(); const onMove = jest.fn();
+    mountFab({ onCreate, onDelete, onMove, onRename: jest.fn(), confirmDelete: false, newId: () => 'n1', defaultSelectedId: 'A2' });
+    expect(labels()).toEqual(expect.arrayContaining(['New top level folder', 'New subfolder in "Alpha two"', 'New folder below', 'Rename "Alpha two"', 'Duplicate', 'Move up', 'Delete "Alpha two"', 'Expand all folders', 'Collapse all folders']));
+    expect(labels()).not.toContain('Move down'); // the last child
+    fab('New subfolder in "Alpha two"');
+    expect(onCreate).toHaveBeenLastCalledWith({ id: 'n1', parentId: 'A2', title: 'New folder', order: 1000 });
+    fab('Delete "Alpha two"');
+    expect(onDelete).toHaveBeenCalledWith(['A2'], 'A2');
+    fab('Move up');
+    expect(onMove).toHaveBeenCalledWith({ id: 'A2', parentId: 'A', order: 0 });
+  });
+  it('follows the selection; nothing is selected: only the tree wide commands', () => {
+    mountFab({ onCreate: jest.fn() });
+    expect(labels()).toEqual(['New top level folder', 'Expand all folders', 'Collapse all folders']);
+    pressRow('B');
+    expect(labels()).toContain('New subfolder in "Beta"');
+  });
+  it('a command that is not available is not offered (read only)', () => {
+    mountFab({ defaultSelectedId: 'A' });
+    expect(labels()).toEqual(['Expand all below', 'Collapse all below', 'Expand all folders', 'Collapse all folders']);
+  });
+  it('commandsInMainFab: false publishes nothing; the commands leave with the tree', () => {
+    mountFab({ onCreate: jest.fn(), uxuiFolders: { commandsInMainFab: false } });
+    expect(labels()).toEqual([]);
+    act(() => root.unmount());
+    mountFab({ onCreate: jest.fn() });
+    expect(labels().length).toBeGreaterThan(0);
+    act(() => root.render(<FABProvider><Probe /></FABProvider>));
+    expect(labels()).toEqual([]);
   });
 });

@@ -28,6 +28,9 @@ export interface ProductTableDef {
 const def = (d: ProductTableDef) => d;
 
 export const PRODUCT_TABLES = {
+  valueAddedTax: def({ table: 'valueAddedTaxTable', entity: 'valueAddedTaxReusable', itemLabel: 'VAT rate', catalogOwner: 'valueAddedTaxCatalog',
+    purpose: 'VAT rates (21 %, 12 %, 0 % ...) a product type or a product can point to, so a rate is changed in one place.', analog1C: 'Справочник СтавкиНДС',
+    emptyRowJSON: () => ({ vatTableTitle: null, vatTablePercent: 0 }) }),
   measureUnit: def({ table: 'measureUnitTable', entity: 'measureUnitReusable', itemLabel: 'Unit', catalogOwner: 'measureUnitCatalog',
     purpose: 'Base units in which products are counted, stocked and sold (pcs, portion, kg).', analog1C: 'Base units of measure',
     emptyRowJSON: () => ({ title: null, code: null }) }),
@@ -48,13 +51,13 @@ export const PRODUCT_TABLES = {
     emptyRowJSON: () => ({ required: false, sort: null, inVariantTitle: false, showInCard: true }) }),
   productType: def({ table: 'productTypeTable', entity: 'productTypeReusable', itemLabel: 'Product type', catalogOwner: 'productTypeCatalog',
     purpose: 'Groups products of the same kind; decides which descriptor sets they use and who owns their variants.', analog1C: 'Справочник ВидыНоменклатуры',
-    emptyRowJSON: () => ({ title: null, baseUnit: 'unit_pcs', propertySet: null, variantSet: null, variantMode: 'none', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, useSerialNumbers: false, usePackaging: false, useSeries: false, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, baseUnit: 'unit_pcs', productVATDefaultRate: null, propertySet: null, variantSet: null, variantMode: 'none', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, useSerialNumbers: false, usePackaging: false, useSeries: false, isActive: true }) }),
   productFolder: def({ table: 'productFolderTable', entity: 'productFolderReusable', itemLabel: 'Folder', catalogOwner: 'productFolderCatalog',
     purpose: 'The catalog tree (Electronics → Mobile devices) for navigation and reports.', analog1C: 'Groups of Справочник Номенклатура',
     emptyRowJSON: () => ({ title: null }) }),
   product: def({ table: 'productTable', entity: 'productReusable', itemLabel: 'Product', catalogOwner: null,
     purpose: 'The catalog item customers see and order (iPhone 11, Chicken nuggets).', analog1C: 'Справочник Номенклатура',
-    emptyRowJSON: () => ({ title: null, sku: null, unit: 'unit_pcs', description: null, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, sku: null, unit: 'unit_pcs', productVATRate: null, description: null, isActive: true }) }),
   propertyValue: def({ table: 'propertyValueTable', entity: 'propertyValueReusable', itemLabel: 'Property value', catalogOwner: null,
     purpose: 'The Property values of each product (Brand = Apple, Calories = 290) for cards, filters and search.', analog1C: 'Номенклатура.ДополнительныеРеквизиты',
     emptyRowJSON: () => ({ descriptorValueGUID: null, value: null }) }),
@@ -133,15 +136,17 @@ export interface DefRow<J = Record<string, any>> {
   created_at?: string;
   updated_at?: string;
 }
+/** one VAT rate; vatTablePercent e.g. 21 */
+export interface ValueAddedTaxJSON { vatTableTitle: string; vatTablePercent: number }
 export interface DescriptorGenusJSON { title: string; valueType: DescriptorValueType; unit?: string | null; allowedDescriptionModes: DescriptionMode[]; targetKinds: TargetKind[]; isActive?: boolean }
 export interface DescriptorValueJSON { code: string; title: string; hex?: string | null; num?: number | null; sort?: number | null }
 export interface DescriptorPlanJSON { required: boolean; sort: number | null; inVariantTitle?: boolean; showInCard?: boolean }
 export interface ProductTypeJSON {
-  title: string; baseUnit: string; propertySet?: string | null; variantSet?: string | null; variantMode: VariantMode;
+  title: string; baseUnit: string; /** valueAddedTaxTable rowGUID: default VAT rate of the products of this type */ productVATDefaultRate?: string | null; propertySet?: string | null; variantSet?: string | null; variantMode: VariantMode;
   variantSharedTypeGUID?: string | null; uniqueVariants?: boolean; variantTitleTemplate?: string | null;
   useSerialNumbers?: boolean; usePackaging?: boolean; useSeries?: boolean; isActive?: boolean;
 }
-export interface ProductJSON { title: string; sku?: string | null; unit?: string | null; description?: string | null; isActive?: boolean }
+export interface ProductJSON { title: string; sku?: string | null; unit?: string | null; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
 /** ref genus -> descriptorValueGUID; scalar genus -> value */
 export interface PropertyValueJSON { descriptorValueGUID?: string | null; value?: string | number | boolean | null }
 export interface VariantJSON { title: string; descriptorKey: string; isActive?: boolean }

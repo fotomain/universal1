@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react';
 import type { PMMenuItemProps } from '../../../../pm/inner/menu/PMMenuItem';
 import type { FolderTreeNode } from '../../tree/folderTreeModel';
-import type { FolderTreeReusableProps } from '../../tree/FolderTreeReusable';
+import type { FolderTreeReusableProps, FolderTreeUxUi } from '../../tree/FolderTreeReusable';
 
 export type ColumnAlign = 'left' | 'center' | 'right';
 
@@ -258,8 +258,13 @@ export interface ReusableTableFoldersTree {
   onSelectedFolderChange?: (folderId: string) => void;
   /** rows dropped on a folder (null = no folder). Default: the table saves the folder column of every dropped row */
   onRowsDrop?: (rowGUIDs: string[], folderId: string | null) => void;
+  /**
+   * look + behaviour of the folders: alwaysFullHeight (default true: tree AND table are as high as the screen, the rows scroll inside
+   * the table), doubleClickOnBranch ('toggleOpenClose' default | 'openToEdit'), commandsInMainFab (default true)
+   */
+  uxuiFolders?: FolderTreeUxUi;
   /** the tree's own options: CRUD callbacks (onCreate / onRename / onDelete / onMove), title, extraMenuItems ... */
-  tree?: Omit<FolderTreeReusableProps, 'nodes' | 'index' | 'selectedId' | 'onSelect' | 'itemCounts' | 'totalCount' | 'noneCount' | 'onDropItems' | 'rowHeight' | 'toolbarHeight' | 'searchHeight' | 'height' | 'dragGhost' | 'testID' | 'style'>;
+  tree?: Omit<FolderTreeReusableProps, 'nodes' | 'index' | 'selectedId' | 'onSelect' | 'itemCounts' | 'totalCount' | 'noneCount' | 'onDropItems' | 'rowHeight' | 'toolbarHeight' | 'searchHeight' | 'height' | 'dragGhost' | 'testID' | 'style' | 'uxuiFolders'>;
 }
 
 export interface ReusableTableProps {

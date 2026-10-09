@@ -15,7 +15,7 @@
 --
 -- Seed: the sheet rows (product side, sheet GUIDs kept: smartphone1, dv1, dp1, pv1, prod1 ...) + 100 more
 -- products (prod7..prod106) in 11 product types with variants, property values, prices, barcodes, series.
--- Rows: measureUnitTable 6, descriptorGenusTable 23, descriptorValueTable 80, descriptorModeTable 2, descriptorDestinationTable 19, descriptorPlanTable 44, productTypeTable 11, productFolderTable 13, productTable 106, propertyValueTable 272, variantTable 185, variantValueTable 360, productPackagingTable 6, productSeriesTable 13, productBarcodeTable 332, priceTypeTable 4, productPriceTable 385
+-- Rows: valueAddedTaxTable 7, measureUnitTable 6, descriptorGenusTable 23, descriptorValueTable 80, descriptorModeTable 2, descriptorDestinationTable 19, descriptorPlanTable 44, productTypeTable 11, productFolderTable 13, productTable 106, propertyValueTable 272, variantTable 185, variantValueTable 360, productPackagingTable 6, productSeriesTable 13, productBarcodeTable 332, priceTypeTable 4, productPriceTable 385
 --
 -- Integrity (rules R1-R14 of the sheet): unique indexes below (R1, R2, R8, R9, barcode, SKU, one price per
 -- day) + checks of the fixed lists; the rest (R3-R7, R10, R13) is checked by the dashboard "Checks" panel
@@ -51,6 +51,22 @@ $$;
 -- =====================================================================================
 -- 1. Tables
 -- =====================================================================================
+
+-- valueAddedTaxTable: VAT rates (1C: СтавкиНДС). owner = 'valueAddedTaxCatalog'
+-- rowJSON: vatTableTitle, vatTablePercent. productTypeTable.productVATDefaultRate / productTable.productVATRate hold its rowGUID
+CREATE TABLE IF NOT EXISTS public."valueAddedTaxTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'valueAddedTaxCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_owner_order" ON public."valueAddedTaxTable" ("rowOwnerGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_parent" ON public."valueAddedTaxTable" ("rowParentGUID");
+SELECT public.kit8_setup_def_table('valueAddedTaxTable');
 
 -- measureUnitTable: base units of measure (1C: base units). owner = 'measureUnitCatalog'
 CREATE TABLE IF NOT EXISTS public."measureUnitTable" (
@@ -340,7 +356,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
@@ -357,6 +373,17 @@ END $$;
 -- =====================================================================================
 -- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
 -- =====================================================================================
+
+-- valueAddedTaxTable: 7 rows
+INSERT INTO public."valueAddedTaxTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('vat_21', 'valueAddedTaxCatalog', 'empty', 1000, '{"vatTableTitle": "21 %", "vatTablePercent": 21}'::jsonb),
+  ('vat_18', 'valueAddedTaxCatalog', 'empty', 2000, '{"vatTableTitle": "18 %", "vatTablePercent": 18}'::jsonb),
+  ('vat_15', 'valueAddedTaxCatalog', 'empty', 3000, '{"vatTableTitle": "15 %", "vatTablePercent": 15}'::jsonb),
+  ('vat_12', 'valueAddedTaxCatalog', 'empty', 4000, '{"vatTableTitle": "12 %", "vatTablePercent": 12}'::jsonb),
+  ('vat_10', 'valueAddedTaxCatalog', 'empty', 5000, '{"vatTableTitle": "10 %", "vatTablePercent": 10}'::jsonb),
+  ('vat_5', 'valueAddedTaxCatalog', 'empty', 6000, '{"vatTableTitle": "5 %", "vatTablePercent": 5}'::jsonb),
+  ('vat_0', 'valueAddedTaxCatalog', 'empty', 7000, '{"vatTableTitle": "0 %", "vatTablePercent": 0}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- measureUnitTable: 6 rows
 INSERT INTO public."measureUnitTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
@@ -558,17 +585,17 @@ ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- productTypeTable: 11 rows
 INSERT INTO public."productTypeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
-  ('smartphone1', 'productTypeCatalog', 'empty', 1000, '{"title": "Smartphone", "baseUnit": "unit_pcs", "propertySet": "ds_sp_prop", "variantSet": "ds_sp_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{color} / {deviceMemory}", "useSerialNumbers": true, "usePackaging": true, "isActive": true}'::jsonb),
-  ('tablet1', 'productTypeCatalog', 'empty', 2000, '{"title": "Tablet", "baseUnit": "unit_pcs", "propertySet": "ds_tb_prop", "variantSet": "", "variantMode": "sharedWithType", "uniqueVariants": true, "useSerialNumbers": true, "variantSharedTypeGUID": "smartphone1", "isActive": true}'::jsonb),
-  ('meal1', 'productTypeCatalog', 'empty', 3000, '{"title": "Meal", "baseUnit": "unit_portion", "propertySet": "ds_meal_prop", "variantSet": "ds_meal_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{portionSize}, {sauceKind}", "useSeries": true, "isActive": true}'::jsonb),
-  ('laptop1', 'productTypeCatalog', 'empty', 4000, '{"title": "Laptop", "baseUnit": "unit_pcs", "propertySet": "ds_lt_prop", "variantSet": "ds_lt_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{ramSize} RAM / {deviceMemory}", "useSerialNumbers": true, "isActive": true}'::jsonb),
-  ('headphones1', 'productTypeCatalog', 'empty', 5000, '{"title": "Headphones", "baseUnit": "unit_pcs", "propertySet": "ds_hp_prop", "variantSet": "ds_hp_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{color}", "usePackaging": false, "isActive": true}'::jsonb),
-  ('tshirt1', 'productTypeCatalog', 'empty', 6000, '{"title": "T-shirt", "baseUnit": "unit_pcs", "propertySet": "ds_ts_prop", "variantSet": "ds_ts_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{apparelSize} / {color}", "usePackaging": true, "isActive": true}'::jsonb),
-  ('shoes1', 'productTypeCatalog', 'empty', 7000, '{"title": "Shoes", "baseUnit": "unit_pcs", "propertySet": "ds_sh_prop", "variantSet": "ds_sh_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{shoeSize} / {color}", "isActive": true}'::jsonb),
-  ('coffee1', 'productTypeCatalog', 'empty', 8000, '{"title": "Coffee", "baseUnit": "unit_pcs", "propertySet": "ds_cf_prop", "variantSet": "ds_cf_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{packWeight}, {grindType}", "useSeries": true, "usePackaging": true, "isActive": true}'::jsonb),
-  ('drink1', 'productTypeCatalog', 'empty', 9000, '{"title": "Drink", "baseUnit": "unit_pcs", "propertySet": "ds_dr_prop", "variantSet": "ds_dr_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{drinkVolume}", "useSeries": true, "usePackaging": true, "isActive": true}'::jsonb),
-  ('book1', 'productTypeCatalog', 'empty', 10000, '{"title": "Book", "baseUnit": "unit_pcs", "propertySet": "ds_bk_prop", "variantSet": "", "variantMode": "none", "uniqueVariants": true, "isActive": true}'::jsonb),
-  ('accessory1', 'productTypeCatalog', 'empty', 11000, '{"title": "Accessory", "baseUnit": "unit_pcs", "propertySet": "ds_ac_prop", "variantSet": "", "variantMode": "none", "uniqueVariants": true, "isActive": true}'::jsonb)
+  ('smartphone1', 'productTypeCatalog', 'empty', 1000, '{"title": "Smartphone", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_sp_prop", "variantSet": "ds_sp_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{color} / {deviceMemory}", "useSerialNumbers": true, "usePackaging": true, "isActive": true}'::jsonb),
+  ('tablet1', 'productTypeCatalog', 'empty', 2000, '{"title": "Tablet", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_tb_prop", "variantSet": "", "variantMode": "sharedWithType", "uniqueVariants": true, "useSerialNumbers": true, "variantSharedTypeGUID": "smartphone1", "isActive": true}'::jsonb),
+  ('meal1', 'productTypeCatalog', 'empty', 3000, '{"title": "Meal", "baseUnit": "unit_portion", "productVATDefaultRate": "vat_21", "propertySet": "ds_meal_prop", "variantSet": "ds_meal_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{portionSize}, {sauceKind}", "useSeries": true, "isActive": true}'::jsonb),
+  ('laptop1', 'productTypeCatalog', 'empty', 4000, '{"title": "Laptop", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_lt_prop", "variantSet": "ds_lt_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{ramSize} RAM / {deviceMemory}", "useSerialNumbers": true, "isActive": true}'::jsonb),
+  ('headphones1', 'productTypeCatalog', 'empty', 5000, '{"title": "Headphones", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_hp_prop", "variantSet": "ds_hp_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{color}", "usePackaging": false, "isActive": true}'::jsonb),
+  ('tshirt1', 'productTypeCatalog', 'empty', 6000, '{"title": "T-shirt", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_ts_prop", "variantSet": "ds_ts_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{apparelSize} / {color}", "usePackaging": true, "isActive": true}'::jsonb),
+  ('shoes1', 'productTypeCatalog', 'empty', 7000, '{"title": "Shoes", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_sh_prop", "variantSet": "ds_sh_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{shoeSize} / {color}", "isActive": true}'::jsonb),
+  ('coffee1', 'productTypeCatalog', 'empty', 8000, '{"title": "Coffee", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_cf_prop", "variantSet": "ds_cf_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{packWeight}, {grindType}", "useSeries": true, "usePackaging": true, "isActive": true}'::jsonb),
+  ('drink1', 'productTypeCatalog', 'empty', 9000, '{"title": "Drink", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_dr_prop", "variantSet": "ds_dr_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{drinkVolume}", "useSeries": true, "usePackaging": true, "isActive": true}'::jsonb),
+  ('book1', 'productTypeCatalog', 'empty', 10000, '{"title": "Book", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_bk_prop", "variantSet": "", "variantMode": "none", "uniqueVariants": true, "isActive": true}'::jsonb),
+  ('accessory1', 'productTypeCatalog', 'empty', 11000, '{"title": "Accessory", "baseUnit": "unit_pcs", "productVATDefaultRate": "vat_21", "propertySet": "ds_ac_prop", "variantSet": "", "variantMode": "none", "uniqueVariants": true, "isActive": true}'::jsonb)
 ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- productFolderTable: 13 rows
@@ -2311,7 +2338,7 @@ BEGIN
   IF v_all THEN
     RETURN;
   END IF;
-  FOREACH t IN ARRAY ARRAY['measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
                     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);

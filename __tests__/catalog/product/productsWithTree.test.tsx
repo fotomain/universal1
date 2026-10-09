@@ -32,7 +32,11 @@ let mockState: any = {};
 const mockDispatch = jest.fn();
 jest.mock('react-redux', () => ({ ...jest.requireActual('react-redux'), useSelector: (fn: any) => fn(mockState), useDispatch: () => mockDispatch, shallowEqual: jest.requireActual('react-redux').shallowEqual }));
 jest.mock('../../../kit8/catalog/inner/select_element/SelectElementFromCatalog', () => ({ __esModule: true, defaultTitleExtractor: (r: any) => r?.rowJSON?.title || '', default: () => null }));
-jest.mock('../../../kit8/pm/inner/menu/PMContextMenu', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../kit8/pm/inner/menu/PMContextMenu', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ items, testID }: any) => R.createElement(View, { testID }, items.map((i: any) => R.createElement(Pressable, { key: i.testID, testID: i.testID, onPress: i.onPress }, R.createElement(Text, null, i.label)))) };
+});
 jest.mock('../../../kit8/ui/components/common/AskBeforeDeletePostComponent', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
@@ -153,6 +157,7 @@ describe('folders: CRUD is saved to productFolderTable', () => {
     pickFolder('fld_audio');
     press(`${TREE}-rename`);
     const input = q(`${TREE}-row-fld_audio-input`) as HTMLInputElement;
+    act(() => { input.focus(); });
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Sound');
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -186,5 +191,56 @@ describe('folders: CRUD is saved to productFolderTable', () => {
     mount();
     dragWithMouse(q(`${TREE}-row-fld_elec`)!, [[40, rowY('fld_elec')], [40, rowY('fld_elec') + 9], [40, rowY('fld_audio')]]);
     expect(calls('update', 'productFolderReusable')).toHaveLength(0);
+  });
+});
+
+describe('a table opened from a row menu has a back arrow to the row it came from', () => {
+  const rerender = () => act(() => root.render(<ProductDashboard />));
+  it('Products & folders -> Prices -> back: the same tab, the product row focused', () => {
+    mount();
+    press(`${TABLE}-menu-button-prod1`);
+    press('product-open-prices-prod1');
+    expect(mockSetParams).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'productPrice' }));
+    rerender();
+    expect(q('product-table-title')!.textContent).toBe('Prices');
+    expect(q('product-table-back')).not.toBeNull();
+    mockSetParams.mockClear();
+    press('product-table-back');
+    expect(mockSetParams).toHaveBeenCalledWith({ tab: 'productsTree', focusRowGUID: 'prod1' });
+    rerender();
+    expect(q('product-table-back')).toBeNull();
+    expect(q('products-with-tree')).not.toBeNull();
+  });
+  it('the picked folder is still picked after coming back', () => {
+    mount();
+    pickFolder('fld_mobile');
+    expect(productRows()).toHaveLength(24);
+    press(`${TABLE}-menu-button-prod1`);
+    press('product-open-barcodes-prod1');
+    rerender();
+    press('product-table-back');
+    rerender();
+    expect(productRows()).toHaveLength(24);
+  });
+  it('a menu item of the menu (not the back arrow) clears it', () => {
+    mount();
+    press(`${TABLE}-menu-button-prod1`);
+    press('product-open-prices-prod1');
+    rerender();
+    press('product-nav-productBarcode');
+    rerender();
+    expect(q('product-table-back')).toBeNull();
+  });
+  it('from the Products table too (the plain tab)', () => {
+    mockParams = { tab: 'product' };
+    mount();
+    mockParams = { tab: 'product' };
+    rerender();
+    press('product-table-product-menu-button-prod1');
+    press('product-open-prices-prod1');
+    rerender();
+    mockSetParams.mockClear();
+    press('product-table-back');
+    expect(mockSetParams).toHaveBeenCalledWith({ tab: 'product', focusRowGUID: 'prod1' });
   });
 });

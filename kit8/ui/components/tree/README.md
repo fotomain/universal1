@@ -33,6 +33,18 @@ Other props: `title`, `showHeader / showToolbar / showSearch`, `showAllNode` + `
 `hoverExpandMs`, `acceptItemKinds`, `onMessage`, `onRefresh`. A ref gives `expandAll / collapseAll / reveal(id) / select / startCreate /
 startRename / scrollToNode`.
 
+## `uxuiFolders` (look + behaviour)
+
+| Option | Default | |
+|---|---|---|
+| `alwaysFullHeight` | `true` | the tree is as high as the screen: from its top edge down to the bottom of the window. Inside `ReusableTable` the **table is too** (fixed height, header + footer stay in view, the rows scroll inside). An explicit `height` prop (tree) or numeric `uxuiTable.foldersTreeHeight` (table) wins; `false` = the parent decides |
+| `fullHeightBottomOffset` / `fullHeightMin` | 16 / 260 (table 320) | px kept free below / smallest height |
+| `doubleClickOnBranch` | `'toggleOpenClose'` | double click (web) opens / closes a folder that has subfolders; `'openToEdit'` renames it in place |
+| `commandsInMainFab` | `true` | the **main FAB** (bottom right, `FABProvider.useFABContextActions`) shows the commands of the selected folder - the same as its context menu: new top level folder / subfolder / folder below, rename, duplicate, move up / down, expand / collapse below, your `extraMenuItems`, delete - plus expand / collapse all and refresh. They are named after the folder ("Rename "Audio"") and follow the selection; they leave when the tree unmounts |
+
+Rename from the right-click menu: the menu is a Modal that gives the focus back to the page while it closes; commands of the menu therefore
+run 250 ms after it has closed, and a rename input ignores a blur that happens before it ever had the focus.
+
 ## Why it is fast (`folderTreeModel.ts`, pure, unit-tested)
 
 * `buildTreeIndex(nodes)`: typed arrays (parent index + CSR child lists), O(n); siblings sorted by `order` only when needed;

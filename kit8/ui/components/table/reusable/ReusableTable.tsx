@@ -12,7 +12,7 @@
 //             creates the row in it; uxuiTable.foldersTree* calibrate position, width, heights, row alignment, stacking
 // Example: ./example/TaskExpenseInputTable.tsx, route /demo/reusabletable.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useTheme as usePaperTheme } from 'react-native-paper';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
@@ -29,7 +29,7 @@ import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostCompon
 import { defaultTitleExtractor } from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
 import FolderTreeReusable from '../../tree/FolderTreeReusable';
 import FolderTreeDragGhost from '../../tree/FolderTreeDragGhost';
-import type { FolderDragPayload } from '../../tree/folderTreeDnd';
+import { FolderDragPayload, measureViewRect } from '../../tree/folderTreeDnd';
 import { buildTreeIndex, countItemsByFolder, subtreeIds, TREE_ALL_ID, TREE_NONE_ID } from '../../tree/folderTreeModel';
 import ReusableTableFolderGrip from './ReusableTableFolderGrip';
 import ReusableTableCell from './ReusableTableCell';
@@ -306,8 +306,24 @@ export default function ReusableTable(props: ReusableTableProps) {
     setMeasured((m) => (m[key] === h ? m : { ...m, [key]: h }));
   };
   const stacked = wrapW > 0 && wrapW < (uxuiTable?.foldersTreeStackBelowWidth ?? 720);
-  const treeHeight = stacked
-    ? uxuiTable?.foldersTreeStackedHeight ?? 240
+  // alwaysFullHeight (foldersTree.uxuiFolders, default true): tree + table are as high as the screen - from their top edge to the
+  // bottom of the window; the rows scroll INSIDE the table, the header and the footer stay in view
+  const win = useWindowDimensions();
+  const wrapRef = useRef<any>(null);
+  const [wrapTop, setWrapTop] = useState<number | null>(null);
+  const measureWrap = useCallback(() => measureViewRect(wrapRef.current, (r) => { if (r) setWrapTop((p) => (p !== null && Math.abs(p - r.top) < 1 ? p : r.top)); }), []);
+  useEffect(() => { if (showTree) measureWrap(); }, [showTree, win.height, measureWrap]);
+  const fullHeightOn = showTree && foldersTree?.uxuiFolders?.alwaysFullHeight !== false && typeof uxuiTable?.foldersTreeHeight !== 'number';
+  const fullH = fullHeightOn && wrapTop !== null
+    ? Math.max(foldersTree?.uxuiFolders?.fullHeightMin ?? 320, Math.round(win.height - wrapTop - (foldersTree?.uxuiFolders?.fullHeightBottomOffset ?? 16)))
+    : null;
+  const stackedTreeH = uxuiTable?.foldersTreeStackedHeight ?? 240;
+  /** the table card is a fixed height with its own vertical scroll */
+  const tableFixedH = fullH === null ? null : stacked ? Math.max(280, fullH - stackedTreeH - treeGap) : fullH;
+  const treeHeight = fullH !== null
+    ? stacked ? stackedTreeH : fullH
+    : stacked
+    ? stackedTreeH
     : typeof uxuiTable?.foldersTreeHeight === 'number'
       ? uxuiTable.foldersTreeHeight
       : Math.max(uxuiTable?.foldersTreeMinHeight ?? 260, Math.min(uxuiTable?.foldersTreeMaxHeight ?? 720, measured.table || 400));
@@ -435,7 +451,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   ) : null;
 
   const table = (
-    <View onLayout={showTree ? measure('table') : undefined} style={[styles.root, { backgroundColor: c.surface, borderColor: c.border, width: fixedWidth as any, maxWidth: tableMaxWidth }]} testID={testID}>
+    <View onLayout={showTree ? measure('table') : undefined} style={[styles.root, { backgroundColor: c.surface, borderColor: c.border, width: fixedWidth as any, maxWidth: tableMaxWidth }, tableFixedH !== null ? { height: tableFixedH } : null]} testID={testID}>
       {/* ---- top bar ---- */}
       <View onLayout={showTree ? measure('bar') : undefined} style={[styles.toolbar, minimumBar ? styles.toolbarMinimum : null, { borderBottomColor: c.border }]} testID={`${testID}-bar-${barLayout}`}>
         <View style={styles.barSide} testID={`${testID}-bar-left`}>{barLayout === 'leftTitle_rightSearchCrudPanel' ? titleEl : panelEl}{barLayout !== 'leftTitle_rightSearchCrudPanel' ? <>{treeToggleEl}{toolbarExtra}</> : null}</View>
@@ -447,7 +463,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ minWidth: '100%' }} keyboardShouldPersistTaps="handled"
+      <ScrollView horizontal showsHorizontalScrollIndicator style={tableFixedH !== null ? { flex: 1 } : undefined} contentContainerStyle={tableFixedH !== null ? { minWidth: '100%', height: '100%' } : { minWidth: '100%' }} keyboardShouldPersistTaps="handled"
         onLayout={(e) => { const w = Math.floor(e.nativeEvent.layout.width); if (w !== bodyWidth) setBodyWidth(w); }}>
         <View style={{ minWidth: totalWidth, flex: 1 }}>
           {/* ---- header ---- */}
@@ -473,8 +489,11 @@ export default function ReusableTable(props: ReusableTableProps) {
             {contextMenuEnabled && <View style={{ width: MENU_W }} />}
           </View>
 
-          {/* ---- body ---- */}
-          {crud.loading ? (
+          {/* ---- body ---- (fixed height: the rows scroll here, between the header and the footer) */}
+          {(() => {
+            const bodyEl = (
+              <>
+                {crud.loading ? (
             <View style={styles.state}><ActivityIndicator color={c.primary} /></View>
           ) : visible.length === 0 ? (
             <View style={styles.state}>
@@ -492,6 +511,12 @@ export default function ReusableTable(props: ReusableTableProps) {
               </Pressable>
             ))
           )}
+              </>
+            );
+            return tableFixedH !== null
+              ? <ScrollView testID={`${testID}-body-scroll`} style={{ flex: 1 }} nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>{bodyEl}</ScrollView>
+              : bodyEl;
+          })()}
 
           {/* ---- footer: count + totals of the number columns ---- */}
           <View testID={`${testID}-footer`} style={[styles.row, styles.headerRow, footerAsRow ? { minHeight: rowHeight } : null, { backgroundColor: c.background, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: c.border }]}>
@@ -555,7 +580,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   // ---- table + folders tree ----
   const treeOpts = foldersTree.tree || {};
   const treeRowH = treeAlign ? rowHeight : 28;
-  const sticky = Platform.OS === 'web' && uxuiTable?.foldersTreeSticky !== false && !stacked;
+  const sticky = Platform.OS === 'web' && uxuiTable?.foldersTreeSticky !== false && !stacked && fullH === null;
   const treeEl = (
     <FolderTreeReusable
       {...treeOpts}
@@ -570,6 +595,7 @@ export default function ReusableTable(props: ReusableTableProps) {
       height={treeHeight}
       selectedId={folderSel}
       onSelect={selectFolder}
+      uxuiFolders={foldersTree.uxuiFolders}
       showAllNode={treeOpts.showAllNode ?? true}
       allLabel={treeOpts.allLabel ?? `All ${itemLabel.toLowerCase()}s`}
       showNoneNode={treeOpts.showNoneNode ?? true}
@@ -590,7 +616,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     </View>
   ) : <View style={stacked ? { height: treeGap } : { width: treeGap }} />;
   return (
-    <View testID={`${testID}-with-folders`} onLayout={(e) => setWrapW(Math.round(e.nativeEvent.layout.width))}
+    <View ref={wrapRef} testID={`${testID}-with-folders`} onLayout={(e) => { setWrapW(Math.round(e.nativeEvent.layout.width)); measureWrap(); }}
       style={{ width: '100%', flexDirection: stacked ? 'column' : treePosition === 'left' ? 'row' : 'row-reverse', alignItems: stacked ? 'stretch' : 'flex-start' }}>
       {!treeHidden && (
         <View testID={`${testID}-folders-panel`} style={[{ width: stacked ? '100%' : treeWidth, height: treeHeight, flexShrink: 0 }, sticky ? ({ position: 'sticky', top: 0 } as any) : null]}>{treeEl}</View>
