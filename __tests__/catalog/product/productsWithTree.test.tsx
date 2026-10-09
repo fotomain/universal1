@@ -304,17 +304,24 @@ describe('ProductItemEditModalCard (right-click a product -> Edit)', () => {
     expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.title === 'iPhone 11 Pro')).toBe(true);
   });
 
-  it('Prices / Properties: the rows of THIS product only, without the product column', () => {
+  it('Prices / Properties: the rows of THIS product only, without the product column, with the unit the price is for', () => {
     mount();
-    openCard('prod2');
+    // a product that really has prices (prod2 has none in the seed)
+    const withPrices = data.product.find((p) => pricesOf(p.rowGUID).length >= 2)!;
+    const g = withPrices.rowGUID;
+    expect(pricesOf(g).length).toBeGreaterThanOrEqual(2);
+    openCard(g);
+    expect(q(`${CARD}-tab-prices`)!.textContent).toBe(`Prices (${pricesOf(g).length})`);
     press(`${CARD}-tab-prices`);
     const T = `${CARD}-prices`;
-    const shown = qa(`${T}-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${T}-row-`, '')).filter((g) => !g.includes('-'));
-    expect(shown.sort()).toEqual(pricesOf('prod2').sort());
-    expect(q(`${T}-cell-${pricesOf('prod2')[0]}-product`)).toBeNull();
+    const shown = qa(`${T}-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${T}-row-`, '')).filter((x) => !x.includes('-'));
+    expect(shown.sort()).toEqual(pricesOf(g).sort());
+    expect(q(`${T}-cell-${pricesOf(g)[0]}-product`)).toBeNull();
+    // the price is the price of ONE unit: a "Per 1 unit" cell showing the unit of the units catalog
+    expect(q(`${T}-cell-${pricesOf(g)[0]}-measureUnit`)!.textContent).toContain('pcs');
     press(`${CARD}-tab-properties`);
     const P = `${CARD}-properties`;
-    const props = data.propertyValue.filter((p) => p.rowOwnerGUID === 'prod2').map((p) => p.rowGUID);
+    const props = data.propertyValue.filter((p) => p.rowOwnerGUID === g).map((p) => p.rowGUID);
     expect(props.length).toBeGreaterThan(0);
     expect(props.every((g) => q(`${P}-row-${g}`))).toBe(true);
   });
@@ -349,6 +356,37 @@ describe('ProductItemEditModalCard (right-click a product -> Edit)', () => {
     expect(q(`${CARD}-main-cell-prod2-isActive`)!.getAttribute('aria-checked')).toBe('false');
     press(`${CARD}-main-cell-prod2-isActive`);
     expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.isActive === true)).toBe(true);
+  });
+});
+
+describe('ProductItemEditModalCard: Units section', () => {
+  const CARD = `${TABLE}-edit`;
+  const open = (g = 'prod2') => { press(`${TABLE}-menu-button-${g}`); press(`${TABLE}-menu-edit`); };
+  it('Main has a Units section: unit for inventory + default unit, both from the ONE units catalog, no "none"', () => {
+    mount();
+    open();
+    expect(q(`${CARD}-section-units`)!.textContent).toBe('Units');
+    for (const f of ['measureUnitForInventory', 'measureUnitDefault']) {
+      expect(q(`${CARD}-main-cell-prod2-${f}`)).not.toBeNull();
+      expect(q(`${CARD}-main-cell-prod2-${f}-option-unit_kg`)).not.toBeNull();
+      expect(q(`${CARD}-main-cell-prod2-${f}-option-none`)).toBeNull();
+    }
+    expect(q(`${CARD}-unit-hint`)!.textContent).toBe('Counted, stocked and offered in the same unit.');
+  });
+  it('each field saves its own value only (the other unit is not touched)', () => {
+    mount();
+    open();
+    press(`${CARD}-main-cell-prod2-measureUnitDefault-option-unit_kg`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.measureUnitDefault === 'unit_kg' && p.rowJSON?.measureUnitForInventory === undefined)).toBe(true);
+    press(`${CARD}-main-cell-prod2-measureUnitForInventory-option-unit_portion`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.measureUnitForInventory === 'unit_portion')).toBe(true);
+  });
+  it('a product without units is flagged in the card', () => {
+    const data = seedCatalog();
+    delete data.product.find((p) => p.rowGUID === 'prod2')!.rowJSON.measureUnitDefault;
+    mount(data);
+    open();
+    expect(q(`${CARD}-unit-hint`)!.textContent).toContain('needs one unit for inventory and one default unit');
   });
 });
 

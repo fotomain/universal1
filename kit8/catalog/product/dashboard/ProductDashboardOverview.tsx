@@ -1,6 +1,6 @@
 // Product dashboard - Overview: headline numbers, products per type / folder, and the Checks panel (rules R1-R13
 // of the descriptors plan) with one-click fixes (rebuild variant title + key, delete orphan rows).
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
@@ -8,6 +8,7 @@ import { PRODUCT_TABLES, ProductTableKey } from '../productModel';
 import { isSet, ProductCatalogData, rowTitle, variantsOfProduct } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
 import { ProductIssue, RULES } from '../crud/productValidation';
+import CatalogChecksPanel from './CatalogChecksPanel';
 
 export interface ProductDashboardOverviewProps {
   data: ProductCatalogData;
@@ -23,7 +24,7 @@ export interface ProductDashboardOverviewProps {
 }
 
 /** one horizontal bar per entry (magnitude, single series): label · bar · value */
-function BarList({ title, rows, testID, onPress }: { title: string; rows: { key: string; label: string; value: number }[]; testID: string; onPress?: (key: string) => void }) {
+export function BarList({ title, rows, testID, onPress }: { title: string; rows: { key: string; label: string; value: number }[]; testID: string; onPress?: (key: string) => void }) {
   const { themeColors: c } = useDesignSystem();
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
@@ -47,8 +48,6 @@ function BarList({ title, rows, testID, onPress }: { title: string; rows: { key:
 
 export default function ProductDashboardOverview({ data, labels: L, issues, tableTitle, onOpenTable, onRebuildVariants, onDeleteRows, wide }: ProductDashboardOverviewProps) {
   const { themeColors: c } = useDesignSystem();
-  const [showAll, setShowAll] = useState(false);
-  const [severity, setSeverity] = useState<'all' | 'error' | 'warning'>('all');
 
   const stats = useMemo(() => {
     const active = data.product.filter((p) => p.rowJSON?.isActive !== false).length;
@@ -66,9 +65,6 @@ export default function ProductDashboardOverview({ data, labels: L, issues, tabl
 
   const errors = issues.filter((i) => i.severity === 'error').length;
   const warnings = issues.length - errors;
-  const shown = issues.filter((i) => severity === 'all' || i.severity === severity);
-  const rebuildable = issues.filter((i) => i.fix === 'rebuildVariant');
-  const orphans = issues.filter((i) => i.fix === 'deleteRow');
 
   const tiles: { key: string; label: string; value: string; hint: string; icon: string; open?: ProductTableKey }[] = [
     { key: 'products', label: 'Products', value: String(data.product.length), hint: `${stats.active} active`, icon: 'inventory_2', open: 'product' },
@@ -77,7 +73,7 @@ export default function ProductDashboardOverview({ data, labels: L, issues, tabl
     { key: 'sellable', label: 'Sellable items', value: String(stats.sellable), hint: 'product × variant', icon: 'shopping_cart' },
     { key: 'descriptors', label: 'Descriptors', value: String(data.descriptorGenus.length), hint: `${data.descriptorValue.length} values`, icon: 'label', open: 'descriptorGenus' },
     { key: 'prices', label: 'Prices', value: String(data.productPrice.length), hint: `${data.priceType.length} price types`, icon: 'sell', open: 'productPrice' },
-    { key: 'barcodes', label: 'Barcodes', value: String(data.productBarcode.length), hint: `${data.productPackaging.length} packs`, icon: 'barcode', open: 'productBarcode' },
+    { key: 'barcodes', label: 'Barcodes', value: String(data.productBarcode.length), hint: `${data.productPackage.length} packs`, icon: 'barcode', open: 'productBarcode' },
     { key: 'checks', label: 'Checks', value: issues.length ? String(issues.length) : 'OK', hint: issues.length ? `${errors} errors · ${warnings} warnings` : 'no issues', icon: issues.length ? 'warning' : 'verified' },
   ];
 
@@ -102,57 +98,13 @@ export default function ProductDashboardOverview({ data, labels: L, issues, tabl
         <View style={{ flex: 1 }}><BarList testID="product-per-folder" title="Products per top folder" rows={perTopFolder} /></View>
       </View>
 
-      <View testID="product-checks" style={[styles.card, { borderColor: c.border, backgroundColor: c.surface }]}>
-        <View style={styles.checksHead}>
-          <Text style={[styles.cardTitle, { color: c.text, marginBottom: 0, flex: 1 }]}>Checks</Text>
-          {(['all', 'error', 'warning'] as const).map((s) => (
-            <Pressable key={s} testID={`product-checks-filter-${s}`} onPress={() => setSeverity(s)} style={[styles.pill, { borderColor: severity === s ? c.primary : c.border, backgroundColor: severity === s ? c.primary + '18' : 'transparent' }]}>
-              <Text style={{ color: severity === s ? c.primary : c.text, fontSize: 12, fontWeight: '600' }}>{s === 'all' ? `All ${issues.length}` : s === 'error' ? `Errors ${errors}` : `Warnings ${warnings}`}</Text>
-            </Pressable>
-          ))}
-        </View>
-        {(rebuildable.length > 0 || orphans.length > 0) && (
-          <View style={styles.fixBar}>
-            {rebuildable.length > 0 && (
-              <Pressable testID="product-checks-rebuild-all" onPress={() => onRebuildVariants()} style={[styles.fixBtn, { borderColor: c.primary }]}>
-                <IconApp name="autorenew" size={14} color={c.primary} />
-                <Text style={{ color: c.primary, fontWeight: '700' }}>Rebuild {rebuildable.length} variant title{rebuildable.length === 1 ? '' : 's'} / key{rebuildable.length === 1 ? '' : 's'}</Text>
-              </Pressable>
-            )}
-            {orphans.length > 0 && (
-              <Pressable testID="product-checks-delete-orphans" onPress={() => {
-                const byTable = new Map<ProductTableKey, { rowGUID: string; rowOwnerGUID?: string }[]>();
-                orphans.forEach((o) => { const row = data[o.table].find((r) => r.rowGUID === o.rowGUID); byTable.set(o.table, [...(byTable.get(o.table) || []), { rowGUID: o.rowGUID, rowOwnerGUID: row?.rowOwnerGUID }]); });
-                byTable.forEach((rows, key) => onDeleteRows(key, rows));
-              }} style={[styles.fixBtn, { borderColor: c.error }]}>
-                <IconApp name="delete_sweep" size={14} color={c.error} />
-                <Text style={{ color: c.error, fontWeight: '700' }}>Delete {orphans.length} orphan row{orphans.length === 1 ? '' : 's'}</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-        {shown.length === 0 && (
-          <View style={styles.okRow}><IconApp name="verified" size={18} color={c.primary} /><Text style={{ color: c.text }}>{issues.length ? 'Nothing of this kind.' : 'All rules of the descriptors plan are met.'}</Text></View>
-        )}
-        {(showAll ? shown : shown.slice(0, 25)).map((i, n) => (
-          <View key={`${i.rule}-${i.table}-${i.rowGUID}-${n}`} testID={`product-issue-${i.rule}-${i.rowGUID}`} style={[styles.issue, { borderTopColor: c.border }]}>
-            <IconApp name={i.severity === 'error' ? 'error' : 'warning'} size={16} color={i.severity === 'error' ? c.error : '#b26a00'} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ color: c.text }}>{i.message}</Text>
-              <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }}>{i.rule} · {RULES[i.rule] ?? ''} · {tableTitle(i.table)}</Text>
-            </View>
-            {i.fix === 'rebuildVariant' && (
-              <Pressable testID={`product-issue-fix-${i.rowGUID}`} onPress={() => onRebuildVariants([i.rowGUID])} hitSlop={6}><Text style={{ color: c.primary, fontWeight: '700' }}>Fix</Text></Pressable>
-            )}
-            <Pressable testID={`product-issue-open-${i.rowGUID}`} onPress={() => onOpenTable(i.table, {}, i.rowGUID)} hitSlop={6}><Text style={{ color: c.primary, fontWeight: '700' }}>Open</Text></Pressable>
-          </View>
-        ))}
-        {shown.length > 25 && (
-          <Pressable testID="product-checks-more" onPress={() => setShowAll((v) => !v)} style={{ paddingTop: 8 }}>
-            <Text style={{ color: c.primary, fontWeight: '700' }}>{showAll ? 'Show fewer' : `Show all ${shown.length}`}</Text>
-          </Pressable>
-        )}
-      </View>
+      <CatalogChecksPanel idPrefix="product" issues={issues} rules={RULES} tableTitle={tableTitle} allOkText="All rules of the descriptors plan are met."
+        onOpenTable={(table, focus) => onOpenTable(table as ProductTableKey, {}, focus)} onRebuildVariants={onRebuildVariants}
+        onDeleteOrphans={(orphans) => {
+          const byTable = new Map<ProductTableKey, { rowGUID: string; rowOwnerGUID?: string }[]>();
+          orphans.forEach((o) => { const row = data[o.table].find((r) => r.rowGUID === o.rowGUID); byTable.set(o.table, [...(byTable.get(o.table) || []), { rowGUID: o.rowGUID, rowOwnerGUID: row?.rowOwnerGUID }]); });
+          byTable.forEach((rows, key) => onDeleteRows(key, rows));
+        }} />
 
       <View style={[styles.card, { borderColor: c.border, backgroundColor: c.surface }]}>
         <Text style={[styles.cardTitle, { color: c.text }]}>How the catalog is built</Text>
@@ -181,11 +133,5 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, height: 12 },
   bar: { height: 12, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   barValue: { width: 36, textAlign: 'right', fontSize: 13, fontWeight: '600' },
-  checksHead: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
-  pill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4 },
-  fixBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  fixBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  okRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  issue: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
   howRow: { flexDirection: 'row', gap: 10, paddingVertical: 6 },
 });

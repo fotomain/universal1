@@ -78,6 +78,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
     // product catalog: all product tables (CRUD), checks, product card
     { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
+    // resource role catalog: role types, roles (folder tree + table), properties, variants, hourly rates, checks
+    { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
     { id: 'reusabletable', label: 'Reusable Table', icon: 'view_column', route: 'demo/reusabletable' },
 
 

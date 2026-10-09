@@ -1,6 +1,6 @@
 -- =====================================================================================
 -- UNIVERSAL1 - PRODUCT CATALOG: kit8/sql/init/update_product_vat.sql
--- Makes every product 21 % VAT (1C:ERP: Ставка НДС of ВидыНоменклатуры + Номенклатура).
+-- Makes every product 21 % VAT (the default rate of every product type + no own rate on the products).
 --   1. valueAddedTaxTable gets the row 'vat_21' when it is missing (create_product_tables.sql seeds it too)
 --   2. productTypeTable.rowJSON.productVATDefaultRate = 'vat_21' for EVERY product type
 --   3. productTable.rowJSON.productVATRate is removed from EVERY product (= the product uses its type default, so

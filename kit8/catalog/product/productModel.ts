@@ -1,5 +1,5 @@
 // Product catalog - tables, redux entities and row shapes (pure).
-// Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (1C:ERP style: product type -> product -> Properties + Variants,
+// Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (product type -> product -> Properties + Variants,
 // both built on Descriptors). Product side only: no resource-role tables yet.
 //   SQL: kit8/sql/init/create_product_tables.sql (+ delete_product_tables.sql), defTable.md pattern:
 //   rowGUID · rowOwnerGUID · rowParentGUID ('empty' = none) · orderInList · rowJSON
@@ -19,8 +19,6 @@ export interface ProductTableDef {
   catalogOwner: string | null;
   /** what the table is for (Business destination of the sheet) */
   purpose: string;
-  /** 1C analog */
-  analog1C: string;
   /** rowJSON of a new row */
   emptyRowJSON: () => Record<string, any>;
 }
@@ -29,62 +27,59 @@ const def = (d: ProductTableDef) => d;
 
 export const PRODUCT_TABLES = {
   valueAddedTax: def({ table: 'valueAddedTaxTable', entity: 'valueAddedTaxReusable', itemLabel: 'VAT rate', catalogOwner: 'valueAddedTaxCatalog',
-    purpose: 'VAT rates (21 %, 12 %, 0 % ...) a product type or a product can point to, so a rate is changed in one place.', analog1C: 'Справочник СтавкиНДС',
+    purpose: 'VAT rates (21 %, 12 %, 0 % ...) a product type or a product can point to, so a rate is changed in one place.',
     emptyRowJSON: () => ({ vatTableTitle: null, vatTablePercent: 0 }) }),
-  measureUnitForInventory: def({ table: 'measureUnitForInventoryTable', entity: 'measureUnitForInventoryReusable', itemLabel: 'Unit for inventory', catalogOwner: 'measureUnitForInventoryCatalog',
-    purpose: 'Units in which products are counted and stocked (pcs, portion, kg): the unit of a product / product type and of its packs.', analog1C: 'Единица хранения остатков (base units of measure)',
-    emptyRowJSON: () => ({ title: null, code: null }) }),
-  measureUnitDefault: def({ table: 'measureUnitDefaultTable', entity: 'measureUnitDefaultReusable', itemLabel: 'Default unit', catalogOwner: 'measureUnitDefaultCatalog',
-    purpose: 'Units a product is offered, ordered and reported in by default (box, dozen, kg ...); empty on a product = the unit for inventory.', analog1C: 'Единица для отчетов / заказов (units for reports and orders)',
+  measureUnit: def({ table: 'measureUnitTable', entity: 'measureUnitReusable', itemLabel: 'Unit', catalogOwner: 'measureUnitCatalog',
+    purpose: 'The units of measure (pcs, portion, kg ...). A product picks TWO of them: measureUnitForInventory (counted and stocked in) and measureUnitDefault (offered, ordered and reported in).',
     emptyRowJSON: () => ({ title: null, code: null }) }),
   descriptorGenus: def({ table: 'descriptorGenusTable', entity: 'descriptorGenusReusable', itemLabel: 'Descriptor', catalogOwner: 'descriptorGenusCatalog',
-    purpose: 'Every descriptor defined ONCE (Color, Memory, Brand…) so any product type can reuse it as a Property or a Variant.', analog1C: 'ПВХ ДополнительныеРеквизитыИСведения',
+    purpose: 'Every descriptor defined ONCE (Color, Memory, Brand…) so any product type can reuse it as a Property or a Variant.',
     emptyRowJSON: () => ({ title: null, valueType: 'ref', unit: null, allowedDescriptionModes: ['property', 'variant'], targetKinds: ['productType'], isActive: true }) }),
   descriptorValue: def({ table: 'descriptorValueTable', entity: 'descriptorValueReusable', itemLabel: 'Descriptor value', catalogOwner: null,
-    purpose: 'The possible values of each descriptor (Red, 256 GB, Apple…) so users pick from a list instead of typing.', analog1C: 'Справочник ЗначенияСвойствОбъектов',
+    purpose: 'The possible values of each descriptor (Red, 256 GB, Apple…) so users pick from a list instead of typing.',
     emptyRowJSON: () => ({ code: null, title: null, hex: null, num: null, sort: null }) }),
   descriptorMode: def({ table: 'descriptorModeTable', entity: 'descriptorModeReusable', itemLabel: 'Description mode', catalogOwner: 'descriptorModeCatalog',
-    purpose: 'Fixed list: Property (describes the product) or Variant (creates sellable variants).', analog1C: 'Enum',
+    purpose: 'Fixed list: Property (describes the product) or Variant (creates sellable variants).',
     emptyRowJSON: () => ({ title: null, createsVariant: false, sort: null }) }),
   descriptorDestination: def({ table: 'descriptorDestinationTable', entity: 'descriptorDestinationReusable', itemLabel: 'Descriptor set', catalogOwner: null,
-    purpose: 'The descriptor set of a product type per description mode (max one Property set and one Variant set per type).', analog1C: 'НаборыДополнительныхРеквизитовИСведений',
+    purpose: 'The descriptor set of a product type per description mode (max one Property set and one Variant set per type).',
     emptyRowJSON: () => ({ title: null }) }),
   descriptorPlan: def({ table: 'descriptorPlanTable', entity: 'descriptorPlanReusable', itemLabel: 'Plan line', catalogOwner: null,
-    purpose: 'Which descriptors are in each set, which are required, and their order on the card and in the variant title.', analog1C: 'Tabular section ДополнительныеРеквизиты of the set',
+    purpose: 'Which descriptors are in each set, which are required, and their order on the card and in the variant title.',
     emptyRowJSON: () => ({ required: false, sort: null, inVariantTitle: false, showInCard: true }) }),
   productType: def({ table: 'productTypeTable', entity: 'productTypeReusable', itemLabel: 'Product type', catalogOwner: 'productTypeCatalog',
-    purpose: 'Groups products of the same kind; decides which descriptor sets they use and who owns their variants.', analog1C: 'Справочник ВидыНоменклатуры',
+    purpose: 'Groups products of the same kind; decides which descriptor sets they use and who owns their variants.',
     emptyRowJSON: () => ({ title: null, baseUnit: 'unit_pcs', productVATDefaultRate: null, propertySet: null, variantSet: null, variantMode: 'none', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, useSerialNumbers: false, usePackaging: false, useSeries: false, isActive: true }) }),
   productFolder: def({ table: 'productFolderTable', entity: 'productFolderReusable', itemLabel: 'Folder', catalogOwner: 'productFolderCatalog',
-    purpose: 'The catalog tree (Electronics → Mobile devices) for navigation and reports.', analog1C: 'Groups of Справочник Номенклатура',
+    purpose: 'The catalog tree (Electronics → Mobile devices) for navigation and reports.',
     emptyRowJSON: () => ({ title: null }) }),
   product: def({ table: 'productTable', entity: 'productReusable', itemLabel: 'Product', catalogOwner: null,
-    purpose: 'The catalog item customers see and order (iPhone 11, Chicken nuggets).', analog1C: 'Справочник Номенклатура',
-    emptyRowJSON: () => ({ title: null, sku: null, unit: 'unit_pcs', unitDefault: null, productVATRate: null, description: null, isActive: true }) }),
+    purpose: 'The catalog item customers see and order (iPhone 11, Chicken nuggets).',
+    emptyRowJSON: () => ({ title: null, sku: null, measureUnitForInventory: 'unit_pcs', measureUnitDefault: 'unit_pcs', productVATRate: null, description: null, isActive: true }) }),
   propertyValue: def({ table: 'propertyValueTable', entity: 'propertyValueReusable', itemLabel: 'Property value', catalogOwner: null,
-    purpose: 'The Property values of each product (Brand = Apple, Calories = 290) for cards, filters and search.', analog1C: 'Номенклатура.ДополнительныеРеквизиты',
+    purpose: 'The Property values of each product (Brand = Apple, Calories = 290) for cards, filters and search.',
     emptyRowJSON: () => ({ descriptorValueGUID: null, value: null }) }),
   variant: def({ table: 'variantTable', entity: 'variantReusable', itemLabel: 'Variant', catalogOwner: null,
-    purpose: 'Each sellable Variant (Red / 256 GB) with its own price, barcode and stock.', analog1C: 'Справочник ХарактеристикиНоменклатуры',
+    purpose: 'Each sellable Variant (Red / 256 GB) with its own price, barcode and stock.',
     emptyRowJSON: () => ({ title: null, descriptorKey: null, isActive: true }) }),
   variantValue: def({ table: 'variantValueTable', entity: 'variantValueReusable', itemLabel: 'Variant value', catalogOwner: null,
-    purpose: 'Which descriptor values make up each Variant; source of the variant title and descriptorKey.', analog1C: 'ХарактеристикиНоменклатуры.ДополнительныеРеквизиты',
+    purpose: 'Which descriptor values make up each Variant; source of the variant title and descriptorKey.',
     emptyRowJSON: () => ({ descriptorValueGUID: null }) }),
-  productPackaging: def({ table: 'productPackagingTable', entity: 'productPackagingReusable', itemLabel: 'Pack', catalogOwner: null,
-    purpose: 'Packs (Box of 10, Family box) and how many base units each contains.', analog1C: 'УпаковкиЕдиницыИзмерения (packs)',
+  productPackage: def({ table: 'productPackageTable', entity: 'productPackageReusable', itemLabel: 'Pack', catalogOwner: null,
+    purpose: 'Packs (Box of 10, Family box) and how many base units each contains.',
     emptyRowJSON: () => ({ title: null, ratio: 1 }) }),
   productSeries: def({ table: 'productSeriesTable', entity: 'productSeriesReusable', itemLabel: 'Series', catalogOwner: null,
-    purpose: 'Batches, serial numbers and expiry dates for traceability and recalls.', analog1C: 'СерииНоменклатуры',
+    purpose: 'Batches, serial numbers and expiry dates for traceability and recalls.',
     emptyRowJSON: () => ({ number: null, serialNumber: null, producedAt: null, expiresAt: null }) }),
   productBarcode: def({ table: 'productBarcodeTable', entity: 'productBarcodeReusable', itemLabel: 'Barcode', catalogOwner: null,
-    purpose: 'Maps a scanned barcode to product + variant + pack for POS and warehouse.', analog1C: 'РС ШтрихкодыНоменклатуры',
+    purpose: 'Maps a scanned barcode to product + variant + pack for POS and warehouse.',
     emptyRowJSON: () => ({ barcode: null, packagingGUID: null }) }),
   priceType: def({ table: 'priceTypeTable', entity: 'priceTypeReusable', itemLabel: 'Price type', catalogOwner: 'priceTypeCatalog',
-    purpose: 'Price lists (Retail, Wholesale, Customer A…) with currency and VAT rule.', analog1C: 'Справочник ВидыЦен',
+    purpose: 'Price lists (Retail, Wholesale, Customer A…) with currency and VAT rule.',
     emptyRowJSON: () => ({ title: null, currency: 'EUR', vatIncluded: true, appliesTo: ['product'] }) }),
   productPrice: def({ table: 'productPriceTable', entity: 'productPriceReusable', itemLabel: 'Price', catalogOwner: null,
-    purpose: 'Prices per product / variant and price list, with a start date to keep price history.', analog1C: 'РС ЦеныНоменклатуры (periodic)',
-    emptyRowJSON: () => ({ priceTypeGUID: null, price: null, validFrom: todayISO() }) }),
+    purpose: 'Prices per product / variant, price list and unit of measure (the price of ONE unit: 1 pcs, 1 kg ...), with a start date to keep price history.',
+    emptyRowJSON: () => ({ priceTypeGUID: null, price: null, measureUnit: 'unit_pcs', validFrom: todayISO() }) }),
 } as const;
 
 export type ProductTableKey = keyof typeof PRODUCT_TABLES;
@@ -149,12 +144,13 @@ export interface ProductTypeJSON {
   variantSharedTypeGUID?: string | null; uniqueVariants?: boolean; variantTitleTemplate?: string | null;
   useSerialNumbers?: boolean; usePackaging?: boolean; useSeries?: boolean; isActive?: boolean;
 }
-export interface ProductJSON { title: string; sku?: string | null; unit?: string | null; /** measureUnitDefaultTable rowGUID; null = the unit for inventory */ unitDefault?: string | null; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
+export interface ProductJSON { title: string; sku?: string | null; /** measureUnitTable rowGUID (required): the unit the product is counted and stocked in */ measureUnitForInventory: string; /** measureUnitTable rowGUID (required): the unit the product is offered, ordered and reported in */ measureUnitDefault: string; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
 /** ref genus -> descriptorValueGUID; scalar genus -> value */
 export interface PropertyValueJSON { descriptorValueGUID?: string | null; value?: string | number | boolean | null }
 export interface VariantJSON { title: string; descriptorKey: string; isActive?: boolean }
 export interface PriceTypeJSON { title: string; currency: string; vatIncluded: boolean; appliesTo: PriceAppliesTo[] }
-export interface ProductPriceJSON { priceTypeGUID: string; price: number; validFrom: string }
+/** price = the price of ONE `measureUnit` (measureUnitTable rowGUID, required; default unit_pcs) */
+export interface ProductPriceJSON { priceTypeGUID: string; price: number; measureUnit: string; validFrom: string }
 
 /** GUIDs of the fixed description-mode rows */
 export const MODE_PROPERTY = 'property';

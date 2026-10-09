@@ -73,9 +73,9 @@
         security      = Authenticated only (GDPR compliant)
 
     Product catalog (kit8/sql/init/create_product_tables.sql, kit8/catalog/product, screen /catalog/product/dashboard)
-      Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (1C:ERP: product type -> product -> Properties + Variants on Descriptors).
-      Product side only (no resource-role tables yet). TEXT rowGUIDs (sheet ids kept: smartphone1, dv1, dp1, pv1, prod1 ...).
-      measureUnitForInventoryTable           owner 'measureUnitForInventoryCatalog'                       rowJSON { title, code }
+      Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (product type -> product -> Properties + Variants on Descriptors).
+      Product side; the resource role side is below. TEXT rowGUIDs (sheet ids kept: smartphone1, dv1, dp1, pv1, prod1 ...).
+      measureUnitTable           owner 'measureUnitCatalog'                       rowJSON { title, code }
       descriptorGenusTable       owner 'descriptorGenusCatalog'                   rowJSON { title, valueType ref|string|number|boolean|date, unit, allowedDescriptionModes[], targetKinds[], isActive }
       descriptorValueTable       owner = descriptorGenus                          rowJSON { code, title, hex, num, sort }
       descriptorModeTable        owner 'descriptorModeCatalog', rowGUID property|variant   rowJSON { title, createsVariant, sort }
@@ -87,11 +87,26 @@
       propertyValueTable         owner = product, parent = descriptorPlan        rowJSON { descriptorValueGUID } | { value }
       variantTable               owner = productType | product (variantMode)     rowJSON { title, descriptorKey, isActive }
       variantValueTable          owner = variant, parent = descriptorPlan        rowJSON { descriptorValueGUID }
-      productPackagingTable      owner = productType | product, parent = unit   rowJSON { title, ratio }
+      productPackageTable      owner = productType | product, parent = unit   rowJSON { title, ratio }
       productSeriesTable         owner = productType                             rowJSON { number, serialNumber, producedAt, expiresAt }
       productBarcodeTable        owner = product, parent = variant | 'empty'     rowJSON { barcode, packagingGUID }
       priceTypeTable             owner 'priceTypeCatalog'                         rowJSON { title, currency, vatIncluded, appliesTo[] }
       productPriceTable          owner = product, parent = variant | 'empty'     rowJSON { priceTypeGUID, price, validFrom }
+      realtime = supabase_realtime publication -> redux-saga realtime (ReusableTable all-rows mode, one channel per table)
+      security = Authenticated only
+
+    Resource role catalog (kit8/sql/init/create_resource_role_tables.sql - run AFTER create_product_tables.sql, kit8/catalog/resourcerole,
+    screen /catalog/resourcerole/dashboard). Same sheet: resourceRoleType = productType, resourceRole = product, rolePrice = productPrice,
+    on the SAME descriptor tables (Property = what a role requires, Variant = a bookable level, Rate = the hourly price).
+      resourceRoleTypeTable      owner 'resourceRoleTypeCatalog'                  rowJSON { title, description, baseUnit (unit_hour), roleVATDefaultRate, propertySet, variantSet, variantMode none|perType|perProduct|sharedWithType, variantSharedTypeGUID, uniqueVariants, variantTitleTemplate, isActive }
+      resourceRoleFolderTable    owner 'resourceRoleFolderCatalog', parent = parent folder | 'empty'   rowJSON { title }
+      resourceRoleTable          owner = resourceRoleType, parent = resourceRoleFolder | 'empty'       rowJSON { title, description, roleVATRate, isActive }   (no rate fields: rule R14)
+      rolePriceTable             owner = resourceRole, parent = variant | 'empty' rowJSON { priceTypeGUID, price, measureUnit (unit_hour), validFrom }   (the same as productPriceTable; one per role + variant + price list + unit + day)
+      shared tables (rows of both sides, the owner tells the side):
+        descriptorDestinationTable owner = productType | resourceRoleType     descriptorPlanTable  owner = a destination of either
+        propertyValueTable         owner = product | resourceRole             variantTable         owner = productType | product | resourceRoleType | resourceRole
+        variantValueTable          owner = variant                            priceTypeTable       appliesTo[] product | resourceRoleType (Bill rate, Cost rate, Customer A ...)
+        descriptorGenusTable       targetKinds[] productType | resourceRoleType
       realtime = supabase_realtime publication -> redux-saga realtime (ReusableTable all-rows mode, one channel per table)
       security = Authenticated only
 

@@ -20,7 +20,7 @@ export interface ProductLabels {
   valueText: (row: DefRow<any>) => string;
   /** pick lists */
   options: {
-    units: SelectOption[]; unitsDefault: SelectOption[]; vatRates: SelectOption[]; genus: SelectOption[]; types: SelectOption[]; folders: SelectOption[]; products: SelectOption[];
+    units: SelectOption[]; vatRates: SelectOption[]; genus: SelectOption[]; types: SelectOption[]; folders: SelectOption[]; products: SelectOption[];
     destinations: SelectOption[]; priceTypes: SelectOption[]; variants: SelectOption[];
     /** owners a variant may have: perType types + perProduct products */
     variantOwners: SelectOption[];
@@ -33,11 +33,11 @@ export interface ProductLabels {
 
 export function buildProductLabels(data: ProductCatalogData): ProductLabels {
   const idx = {
-    valueAddedTax: byGUID(data.valueAddedTax), measureUnitForInventory: byGUID(data.measureUnitForInventory), measureUnitDefault: byGUID(data.measureUnitDefault), descriptorGenus: byGUID(data.descriptorGenus), descriptorValue: byGUID(data.descriptorValue),
+    valueAddedTax: byGUID(data.valueAddedTax), measureUnit: byGUID(data.measureUnit), descriptorGenus: byGUID(data.descriptorGenus), descriptorValue: byGUID(data.descriptorValue),
     descriptorMode: byGUID(data.descriptorMode), descriptorDestination: byGUID(data.descriptorDestination), descriptorPlan: byGUID(data.descriptorPlan),
     productType: byGUID(data.productType), productFolder: byGUID(data.productFolder), product: byGUID(data.product),
     propertyValue: byGUID(data.propertyValue), variant: byGUID(data.variant), variantValue: byGUID(data.variantValue),
-    productPackaging: byGUID(data.productPackaging), productSeries: byGUID(data.productSeries), productBarcode: byGUID(data.productBarcode),
+    productPackage: byGUID(data.productPackage), productSeries: byGUID(data.productSeries), productBarcode: byGUID(data.productBarcode),
     priceType: byGUID(data.priceType), productPrice: byGUID(data.productPrice),
   } as Record<keyof ProductCatalogData, Map<string, DefRow<any>>>;
 
@@ -92,8 +92,7 @@ export function buildProductLabels(data: ProductCatalogData): ProductLabels {
     vatRates: data.valueAddedTax
       .slice().sort((a, b) => (Number(b.rowJSON?.vatTablePercent) || 0) - (Number(a.rowJSON?.vatTablePercent) || 0))
       .map((r) => ({ value: r.rowGUID, label: rowTitle(r) || r.rowGUID, hint: `${Number(r.rowJSON?.vatTablePercent) || 0} %` })),
-    unitsDefault: opt(data.measureUnitDefault, rowTitle, (r) => (r.rowJSON?.code ? `code ${r.rowJSON.code}` : undefined)),
-    units: opt(data.measureUnitForInventory, rowTitle, (r) => (r.rowJSON?.code ? `code ${r.rowJSON.code}` : undefined)),
+    units: opt(data.measureUnit, rowTitle, (r) => (r.rowJSON?.code ? `code ${r.rowJSON.code}` : undefined)),
     genus: opt(data.descriptorGenus, rowTitle, (r) => [r.rowJSON?.valueType, r.rowJSON?.unit].filter(Boolean).join(' · ')),
     types: opt(data.productType, rowTitle, (r) => r.rowJSON?.variantMode),
     folders: opt(data.productFolder, (r) => folderPath(r.rowGUID)),

@@ -15,6 +15,7 @@ import {ROLE_ENTITY, rolesTable, emptyRole} from "../catalog/role/roleModel";
 import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userrole/userRoleModel";
 import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
 import {productSystemMetaData} from "../catalog/product/productMetaData";
+import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMetaData";
 import {TASK_EXPENSE_INPUT_ENTITY, taskExpenseInputTable, emptyTaskExpenseInput} from "../ui/components/table/reusable/example/taskExpenseInputModel";
 
 // MD.
@@ -84,11 +85,15 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p: any) => {},
     },
-    // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 18 tables - valueAddedTax, measureUnitForInventory, descriptorGenus,
+    // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 18 tables - valueAddedTax, measureUnit, descriptorGenus,
     // descriptorValue, descriptorMode, descriptorDestination, descriptorPlan, productType, productFolder, product,
-    // propertyValue, variant, variantValue, productPackaging, productSeries, productBarcode, priceType, productPrice.
+    // propertyValue, variant, variantValue, productPackage, productSeries, productBarcode, priceType, productPrice.
     // Screen /catalog/product/dashboard, SQL kit8/sql/init/create_product_tables.sql, Supabase Realtime sync
     ...productSystemMetaData(),
+    // Resource role catalog (kit8/catalog/resourcerole): resourceRoleType, resourceRoleFolder, resourceRole, rolePrice - the work-resource
+    // twins of productType / productFolder / product / productPrice; descriptors, property values and variants are the product tables.
+    // Screen /catalog/resourcerole/dashboard, SQL kit8/sql/init/create_resource_role_tables.sql
+    ...resourceRoleSystemMetaData(),
     // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
     [PERSON_ENTITY]: {
         tableName: personsTable,

@@ -8,7 +8,7 @@ import type { PMMenuItemProps } from '../../../pm/inner/menu/PMMenuItem';
 import type { ReusableTableRow, SelectOption, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { DESCRIPTION_MODES, MODE_PROPERTY, MODE_VARIANT, PRICE_APPLIES_TO, PRODUCT_TABLES, ProductTableKey, TARGET_KINDS, todayISO, VALUE_TYPES, VARIANT_MODES } from '../productModel';
 import {
-  byGUID, currentPrice, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantLinesOfOwner, variantsOfProduct,
+  byGUID, currentPrice, currentPriceOfProduct, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantLinesOfOwner, variantsOfProduct,
 } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
 import DescriptorValueCell from './DescriptorValueCell';
@@ -52,13 +52,13 @@ function Dim({ children, testID }: { children: React.ReactNode; testID?: string 
   const { themeColors: c } = useDesignSystem();
   return <Text testID={testID} numberOfLines={1} style={{ color: c.text, opacity: 0.75, fontSize: 13, flex: 1 }}>{children}</Text>;
 }
-const count = (key: string, title: string, fn: (row: ReusableTableRow) => number | string, width = 90): VisualColumn => ({
+export const count = (key: string, title: string, fn: (row: ReusableTableRow) => number | string, width = 90): VisualColumn => ({
   key, title, type: 'custom', width, editable: false,
   renderCell: (row) => <Dim testID={`count-${key}-${row.rowGUID}`}>{String(fn(row))}</Dim>,
   searchText: (row) => String(fn(row)),
 });
-const rowNo: VisualColumn = { key: 'n', title: '#', type: 'rowNumber' };
-const lower = (s: any) => String(s ?? '').trim().toLowerCase();
+export const rowNo: VisualColumn = { key: 'n', title: '#', type: 'rowNumber' };
+export const lower = (s: any) => String(s ?? '').trim().toLowerCase();
 
 export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels, ctx: DashboardTableContext): Record<ProductTableKey, DashboardTableConfig> {
   const O = L.options;
@@ -112,15 +112,17 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
           validate: (v, row) => (lower(v) && data.product.some((p) => p.rowGUID !== row.rowGUID && lower(p.rowJSON?.sku) === lower(v)) ? `SKU "${v}" is already used` : null) },
         typeColumn(),
         { key: 'folder', title: 'Folder', type: 'select', target: 'rowParentGUID', options: O.folders, width: 200 },
-        { key: 'unit', title: 'Unit', type: 'select', options: O.units, width: 100 },
+        // a product has ONE unit for inventory and ONE default unit, both from the units catalog (measureUnitTable)
+        { key: 'measureUnitForInventory', title: 'Unit for inventory', type: 'select', options: O.units, allowEmpty: false, width: 130 },
+        { key: 'measureUnitDefault', title: 'Default unit', type: 'select', options: O.units, allowEmpty: false, width: 120 },
         { key: 'productVATRate', title: 'VAT rate', type: 'select', options: O.vatRates, width: 110, placeholder: 'Type default' },
         { key: 'description', title: 'Description', type: 'text', width: 240 },
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('variants', 'Variants', (r) => variantsOfProduct(data, productById.get(r.rowGUID)).length),
         count('price', retail ? `${rowTitle(retail)} now` : 'Price now', (r) => {
           if (!retail) return '';
-          const p = currentPrice(data.productPrice, r.rowGUID, null, retail.rowGUID, today);
-          return p ? fmtPrice(p.rowJSON?.price, retail.rowJSON?.currency) : '—';
+          const p = currentPriceOfProduct(data.productPrice, r as any, null, retail.rowGUID, today);
+          return p ? `${fmtPrice(p.rowJSON?.price, retail.rowJSON?.currency)}${isSet(p.rowJSON?.measureUnit) ? ` / ${L.title('measureUnit', p.rowJSON.measureUnit)}` : ''}` : '—';
         }, 120),
       ],
       extraMenuItems: (row, close) => [
@@ -173,10 +175,10 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { key: 'vatTablePercent', title: 'Percent', type: 'number', width: 110, min: 0, total: false },
         count('used', 'Types / products', (r) => data.productType.filter((t) => t.rowJSON?.productVATDefaultRate === r.rowGUID).length + data.product.filter((p) => p.rowJSON?.productVATRate === r.rowGUID).length)],
     },
-    measureUnitForInventory: {
-      key: 'measureUnitForInventory', title: 'Units', icon: 'straighten', group: 'Catalog', filters: [],
+    measureUnit: {
+      key: 'measureUnit', title: 'Units', icon: 'straighten', group: 'Catalog', filters: [],
       columns: [rowNo, { key: 'title', title: 'Title', type: 'text', width: 160 }, { key: 'code', title: 'Code (UN/ECE, OKEI)', type: 'text', width: 160 },
-        count('used', 'Products', (r) => data.product.filter((p) => p.rowJSON?.unit === r.rowGUID).length)],
+        count('used', 'Products', (r) => data.product.filter((p) => p.rowJSON?.measureUnitForInventory === r.rowGUID || p.rowJSON?.measureUnitDefault === r.rowGUID).length)],
     },
     // ───────────── Descriptors ─────────────
     descriptorGenus: {
@@ -324,12 +326,14 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { key: 'priceType', title: 'Price type', type: 'select', field: 'priceTypeGUID', width: 190, allowEmpty: false,
           options: O.priceTypes.filter((p) => priceTypeForProducts(priceTypeById.get(p.value))) },
         { key: 'price', title: 'Price', type: 'number', width: 110, min: 0, stepper: false, total: false, align: 'right' },
+        // the price is the price of ONE unit of this measureUnit (1 pcs, 1 kg ...), a unit of the units catalog
+        { key: 'measureUnit', title: 'Per 1 unit', type: 'select', options: O.units, allowEmpty: false, width: 110 },
         count('currency', 'Currency', (r) => priceTypeById.get(r.rowJSON?.priceTypeGUID)?.rowJSON?.currency ?? '', 80),
         { key: 'validFrom', title: 'Valid from', type: 'date', width: 120 },
         count('now', 'Valid now', (r) => {
           const pt = r.rowJSON?.priceTypeGUID;
           if (!isSet(pt)) return '';
-          const cur = currentPrice(data.productPrice, r.rowOwnerGUID ?? "", isSet(r.rowParentGUID) ? r.rowParentGUID : null, pt, today);
+          const cur = currentPrice(data.productPrice, r.rowOwnerGUID ?? "", isSet(r.rowParentGUID) ? r.rowParentGUID : null, pt, today, r.rowJSON?.measureUnit);
           return cur?.rowGUID === r.rowGUID ? '✓ now' : String(r.rowJSON?.validFrom ?? '') > today ? 'future' : '';
         }, 90),
       ],
@@ -357,8 +361,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { key: 'pack', title: 'Pack', type: 'select', field: 'packagingGUID', width: 170, placeholder: 'Single unit',
           options: (row) => {
             const p = productById.get(row.rowOwnerGUID ?? "");
-            return data.productPackaging.filter((k) => k.rowOwnerGUID === row.rowOwnerGUID || (p && k.rowOwnerGUID === p.rowOwnerGUID))
-              .map((k) => ({ value: k.rowGUID, label: rowTitle(k), hint: `${k.rowJSON?.ratio ?? '?'} × ${L.title('measureUnitForInventory', k.rowParentGUID)}` }));
+            return data.productPackage.filter((k) => k.rowOwnerGUID === row.rowOwnerGUID || (p && k.rowOwnerGUID === p.rowOwnerGUID))
+              .map((k) => ({ value: k.rowGUID, label: rowTitle(k), hint: `${k.rowJSON?.ratio ?? '?'} × ${L.title('measureUnit', k.rowParentGUID)}` }));
           } },
         { key: 'barcode', title: 'Barcode', type: 'text', width: 170,
           validate: (v, row) => (String(v ?? '').trim() && data.productBarcode.some((b) => b.rowGUID !== row.rowGUID && String(b.rowJSON?.barcode ?? '').trim() === String(v).trim()) ? `Barcode ${v} is already used` : null) },
@@ -367,8 +371,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { testID: `barcode-assign-${row.rowGUID}`, label: 'Assign next EAN-13', icon: 'qr_code', onPress: () => { close(); ctx.assignBarcode(row); } },
       ],
     },
-    productPackaging: {
-      key: 'productPackaging', title: 'Packs', icon: 'package_2', group: 'Logistics',
+    productPackage: {
+      key: 'productPackage', title: 'Packs', icon: 'package_2', group: 'Logistics',
       filters: [{ key: 'owner', label: 'Owner', target: 'rowOwnerGUID', options: O.packOwners }],
       columns: [
         rowNo,
@@ -397,11 +401,11 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
 
 /** the order of the tables in the menu */
 export const DASHBOARD_TABLE_ORDER: ProductTableKey[] = [
-  'product', 'productType', 'productFolder', 'valueAddedTax', 'measureUnitForInventory',
+  'product', 'productType', 'productFolder', 'valueAddedTax', 'measureUnit',
   'descriptorGenus', 'descriptorValue', 'descriptorDestination', 'descriptorPlan', 'descriptorMode',
   'propertyValue', 'variant', 'variantValue',
   'productPrice', 'priceType',
-  'productBarcode', 'productPackaging', 'productSeries',
+  'productBarcode', 'productPackage', 'productSeries',
 ];
 
 /** rows that pass the scope filters of a table */

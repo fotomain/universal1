@@ -1,5 +1,6 @@
 // ProductItemEditModalCard - edits ONE product in a modal window (the EditRowModalCard of the Products table).
-//   Main        every editable column of the Products table as a form: title, SKU, product type, folder, unit, VAT rate, description, active
+//   Main        every editable column of the Products table as a form: title, SKU, product type, folder, a Units section (unit for inventory +
+//               default unit, both required, both from measureUnitTable), VAT rate, description, active
 //   Prices      the prices of the product (productPriceTable) - a ReusableTable of its rows, add / edit / delete in place
 //   Variants    the variants of the product (variantTable): owned by its type / by the product, see variantOwnerOfProduct
 //   Properties  the property values of the product (propertyValueTable)
@@ -78,7 +79,7 @@ export function productModalLook(system: DesignSystemType, isDark: boolean, appl
 }
 
 /** a text typed into a field: shown at once, saved 0.6 s after the last key and when the field goes away (card closed / tab changed) */
-function useDebouncedCommit(value: string, commit: (text: string) => void): [string, (text: string) => void] {
+export function useDebouncedCommit(value: string, commit: (text: string) => void): [string, (text: string) => void] {
   const [draft, setDraft] = useState(value);
   const live = useRef({ draft, commit });
   live.current.commit = commit;
@@ -102,7 +103,7 @@ function useDebouncedCommit(value: string, commit: (text: string) => void): [str
 }
 
 /** one text / number column as a TextInputApp */
-function TextField({ col, row, setCell, testID }: { col: VisualColumn; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; testID: string }) {
+export function TextField({ col, row, setCell, testID }: { col: VisualColumn; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; testID: string }) {
   const numeric = col.type === 'integer' || col.type === 'number';
   const current = cellValue(row, col);
   const shown = current === null || current === undefined ? '' : String(current);
@@ -119,7 +120,7 @@ function TextField({ col, row, setCell, testID }: { col: VisualColumn; row: Reus
 }
 
 /** one select column as a SelectorFromApp ('' = none) */
-function SelectField({ col, row, setCell, testID }: { col: VisualColumn; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; testID: string }) {
+export function SelectField({ col, row, setCell, testID }: { col: VisualColumn; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; testID: string }) {
   const options = optionsOf(col as any, row);
   const allowEmpty = (col as any).allowEmpty !== false;
   const value = cellValue(row, col);
@@ -131,7 +132,7 @@ function SelectField({ col, row, setCell, testID }: { col: VisualColumn; row: Re
 }
 
 /** the field of one column in the Main tab, in the design system's own control */
-function MainField({ col, columns, row, setCell, patchRow, testID }: { col: VisualColumn; columns: VisualColumn[]; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; patchRow: EditRowModalCardProps['patchRow']; testID: string }) {
+export function MainField({ col, columns, row, setCell, patchRow, testID }: { col: VisualColumn; columns: VisualColumn[]; row: ReusableTableRow; setCell: EditRowModalCardProps['setCell']; patchRow: EditRowModalCardProps['patchRow']; testID: string }) {
   const id = `${testID}-cell-${row.rowGUID}-${col.key}`;
   if (col.type === 'text' || col.type === 'integer' || col.type === 'number') return <TextField col={col} row={row} setCell={setCell} testID={id} />;
   if (col.type === 'select') return <SelectField col={col} row={row} setCell={setCell} testID={id} />;
@@ -140,41 +141,50 @@ function MainField({ col, columns, row, setCell, patchRow, testID }: { col: Visu
   }
   // multiSelect / date / color / json / catalog: the table's own cell (themed by the design system colors)
   return (
-    <View style={styles.cellBox}>
+    <View style={modalCardStyles.cellBox}>
       <TextApp variant="caption">{col.title}</TextApp>
       <ReusableTableCell col={col} columns={columns} row={row} rowIndex={0} rounded dense testID={testID} onChange={(key, value) => setCell(key, value)} onPatch={patchRow} />
     </View>
   );
 }
 
-/** the table of ONE owner's rows of a product table, with the owner column left out (it is the product / owner itself) */
-function OwnerTable({ tableKey, tables, ownerGUID, hideColumn, testID }: {
-  tableKey: 'productPrice' | 'variant' | 'propertyValue'; tables: ProductItemEditModalCardProps['tables']; ownerGUID: string; hideColumn: string; testID: string;
+/** the table of ONE owner's rows of a catalog table, with the owner column left out (it is the product / role / owner itself) */
+export function OwnerRowsTable({ entity, itemLabel, emptyRowJSON, cfg, ownerGUID, hideColumn, testID }: {
+  entity: string; itemLabel: string; emptyRowJSON: () => Record<string, any>;
+  /** the dashboard configuration of the table (title, columns, row menu) */
+  cfg: Pick<DashboardTableConfig, 'title' | 'columns' | 'extraMenuItems'>;
+  ownerGUID: string; hideColumn: string; testID: string;
 }) {
-  const def = PRODUCT_TABLES[tableKey];
-  const cfg = tables[tableKey];
   const columns = useMemo<VisualColumn[]>(() => cfg.columns.filter((col) => col.key !== hideColumn), [cfg.columns, hideColumn]);
   const rowFilter = useMemo(() => (row: ReusableTableRow) => row.rowOwnerGUID === ownerGUID, [ownerGUID]);
   const newRowDefaults = useMemo(() => () => ({ rowOwnerGUID: ownerGUID }), [ownerGUID]);
   return (
     <ReusableTable
       testID={testID}
-      entityName={def.entity}
+      entityName={entity}
       crudListTitle={cfg.title}
-      itemLabel={def.itemLabel}
+      itemLabel={itemLabel}
       listOwnerGUID={REUSABLE_TABLE_ALL}
       listParentGUID={REUSABLE_TABLE_ALL}
       visualColumns={columns}
-      defaultRowJSON={def.emptyRowJSON}
+      defaultRowJSON={emptyRowJSON}
       rowFilter={rowFilter}
       newRowDefaults={newRowDefaults}
       extraMenuItems={cfg.extraMenuItems}
       realtime
       resizeColumnWidth
-      emptyText={`No ${def.itemLabel.toLowerCase()}s yet. Press "+" to add one.`}
+      emptyText={`No ${itemLabel.toLowerCase()}s yet. Press "+" to add one.`}
       uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch' }}
     />
   );
+}
+
+/** OwnerRowsTable of a product table */
+function OwnerTable({ tableKey, tables, ownerGUID, hideColumn, testID }: {
+  tableKey: 'productPrice' | 'variant' | 'propertyValue'; tables: ProductItemEditModalCardProps['tables']; ownerGUID: string; hideColumn: string; testID: string;
+}) {
+  const def = PRODUCT_TABLES[tableKey];
+  return <OwnerRowsTable entity={def.entity} itemLabel={def.itemLabel} emptyRowJSON={def.emptyRowJSON} cfg={tables[tableKey]} ownerGUID={ownerGUID} hideColumn={hideColumn} testID={testID} />;
 }
 
 export default function ProductItemEditModalCard({ row, itemLabel, visualColumns, setCell, patchRow, onClose, testID, data, tables, initialTab = 'main' }: ProductItemEditModalCardProps) {
@@ -192,6 +202,11 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
   };
   const fields = useMemo(() => visualColumns.filter((col) => col.type !== 'rowNumber' && col.type !== 'custom'), [visualColumns]);
   const title = rowTitle(row as any);
+  const unitName = (guid: unknown) => (isSet(guid) ? rowTitle(data.measureUnit.find((u) => u.rowGUID === guid) as any) : '');
+  const unitTitle = unitName(product?.rowJSON?.measureUnitForInventory);
+  const defaultUnitTitle = unitName(product?.rowJSON?.measureUnitDefault);
+  const unitsOk = !!unitTitle && !!defaultUnitTitle;
+  const sameUnit = unitsOk && product.rowJSON.measureUnitForInventory === product.rowJSON.measureUnitDefault;
   const subtitle = [product?.rowJSON?.sku, data.productType.find((t) => t.rowGUID === product?.rowOwnerGUID)?.rowJSON?.title].filter(Boolean).join(' · ');
   const hair = { borderColor: c.border, borderWidth: 0, borderBottomWidth: look.hairline };
   const shadow = look.shadow === 'elevation' ? { elevation: 8 }
@@ -200,10 +215,10 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: look.backdrop }]} onPress={onClose}>
+      <Pressable style={[modalCardStyles.backdrop, { backgroundColor: look.backdrop }]} onPress={onClose}>
         <Pressable testID={testID} onPress={() => {}}
-          style={[styles.window, shadow, { backgroundColor: c.surface, borderColor: c.border, borderWidth: look.borderWidth, borderRadius: look.radius, width: Math.min(width - 24, 980), height: Math.min(height - 40, 760) }]}>
-          <View style={[styles.head, hair, look.headerBand ? { backgroundColor: look.headerBand } : null]}>
+          style={[modalCardStyles.window, shadow, { backgroundColor: c.surface, borderColor: c.border, borderWidth: look.borderWidth, borderRadius: look.radius, width: Math.min(width - 24, 980), height: Math.min(height - 40, 760) }]}>
+          <View style={[modalCardStyles.head, hair, look.headerBand ? { backgroundColor: look.headerBand } : null]}>
             <IconApp name="inventory_2" size={22} color={c.primary} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <TextApp testID={`${testID}-title`} variant="title" numberOfLines={1}>{title && title !== row.rowGUID ? title : `New ${itemLabel.toLowerCase()}`}</TextApp>
@@ -212,18 +227,33 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
             <ButtonApp testID={`${testID}-close`} variant="toolbar" icon="close" accessibilityLabel="Close" onPress={onClose} />
           </View>
 
-          <View style={[styles.tabs, hair]}>
+          <View style={[modalCardStyles.tabs, hair]}>
             <SegmentButtonsApp testID={`${testID}-tabs`} compact value={tab} onValueChange={(v) => setTab(v as ProductItemTab)}
               buttons={TABS.map((t) => ({ value: t.key, label: counts[t.key] === undefined ? t.label : `${t.label} (${counts[t.key]})`, icon: t.icon, testID: `${testID}-tab-${t.key}` }))} />
           </View>
 
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={modalCardStyles.body} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {tab === 'main' && (
-              <View testID={`${testID}-main`} style={styles.form}>
+              <View testID={`${testID}-main`} style={modalCardStyles.form}>
                 {fields.map((col) => (
-                  <View key={col.key} style={[styles.field, width >= 760 && col.key !== 'description' ? { width: '48.5%' } : { width: '100%' }]}>
-                    <MainField col={col} columns={visualColumns} row={row} setCell={setCell} patchRow={patchRow} testID={`${testID}-main`} />
-                  </View>
+                  <React.Fragment key={col.key}>
+                    {/* Units: the unit products are counted / stocked in + the unit they are offered, ordered and reported in */}
+                    {col.key === 'measureUnitForInventory' && (
+                      <View style={modalCardStyles.section}><TextApp testID={`${testID}-section-units`} variant="subtitle">Units</TextApp></View>
+                    )}
+                    <View style={[modalCardStyles.field, width >= 760 && col.key !== 'description' ? { width: '48.5%' } : { width: '100%' }]}>
+                      <MainField col={col} columns={visualColumns} row={row} setCell={setCell} patchRow={patchRow} testID={`${testID}-main`} />
+                    </View>
+                    {col.key === 'measureUnitDefault' && (
+                      <View style={modalCardStyles.section}>
+                        <TextApp testID={`${testID}-unit-hint`} variant="caption" style={{ opacity: unitsOk ? 0.65 : 1, color: unitsOk ? undefined : c.error }}>
+                          {unitsOk
+                            ? (sameUnit ? 'Counted, stocked and offered in the same unit.' : `Counted and stocked in ${unitTitle}, offered / ordered / reported in ${defaultUnitTitle}.`)
+                            : 'A product needs one unit for inventory and one default unit (both from the units catalog).'}
+                        </TextApp>
+                      </View>
+                    )}
+                  </React.Fragment>
                 ))}
               </View>
             )}
@@ -243,7 +273,7 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
               : <TextApp testID={`${testID}-variants-none`} style={{ opacity: 0.7 }}>The product type has no variants: the product itself is sold.</TextApp>)}
           </ScrollView>
 
-          <View style={[styles.foot, { borderColor: c.border, borderTopWidth: look.hairline }]}>
+          <View style={[modalCardStyles.foot, { borderColor: c.border, borderTopWidth: look.hairline }]}>
             <TextApp variant="caption" style={{ opacity: 0.55, flex: 1 }}>Changes are saved as you make them.</TextApp>
             <ButtonApp testID={`${testID}-done`} title="Done" variant="contained" onPress={onClose} />
           </View>
@@ -253,7 +283,7 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
   );
 }
 
-const styles = StyleSheet.create({
+export const modalCardStyles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
   window: { overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
@@ -261,6 +291,7 @@ const styles = StyleSheet.create({
   body: { padding: 16, gap: 12 },
   form: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   field: { gap: 4 },
+  section: { width: '100%', marginTop: 4 },
   cellBox: { gap: 4 },
   foot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
 });

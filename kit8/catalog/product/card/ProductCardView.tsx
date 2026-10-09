@@ -8,7 +8,7 @@ import IconApp from '../../../ui/components/common/IconApp';
 import ReusableTableOptionPicker from '../../../ui/components/table/reusable/ReusableTableOptionPicker';
 import { ProductTableKey, todayISO } from '../productModel';
 import {
-  currentPrice, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantOwnerOfProduct, variantsOfProduct, vatRateOfProduct,
+  currentPriceOfProduct, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantOwnerOfProduct, variantsOfProduct, vatRateOfProduct,
 } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
 
@@ -32,13 +32,15 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
   const variants = useMemo(() => variantsOfProduct(data, product), [data, product]);
   const priceTypes = data.priceType.filter((p) => priceTypeForProducts(p));
   const barcodes = product ? data.productBarcode.filter((b) => b.rowOwnerGUID === product.rowGUID) : [];
-  const packs = product ? data.productPackaging.filter((k) => k.rowOwnerGUID === product.rowGUID || k.rowOwnerGUID === product.rowOwnerGUID) : [];
+  const packs = product ? data.productPackage.filter((k) => k.rowOwnerGUID === product.rowGUID || k.rowOwnerGUID === product.rowOwnerGUID) : [];
   const series = type ? data.productSeries.filter((s) => s.rowOwnerGUID === type.rowGUID) : [];
   const price = (variantGUID: string | null, pt: string) => {
     if (!product) return '';
-    const p = currentPrice(data.productPrice, product.rowGUID, variantGUID, pt, today);
+    const p = currentPriceOfProduct(data.productPrice, product, variantGUID, pt, today);
     const cur = data.priceType.find((x) => x.rowGUID === pt)?.rowJSON?.currency ?? '';
-    return p && typeof p.rowJSON?.price === 'number' ? `${p.rowJSON.price.toFixed(2)} ${cur}` : '—';
+    // the price of ONE unit: "12.00 EUR / pcs"
+    const per = p && isSet(p.rowJSON?.measureUnit) ? ` / ${L.title('measureUnit', p.rowJSON.measureUnit)}` : '';
+    return p && typeof p.rowJSON?.price === 'number' ? `${p.rowJSON.price.toFixed(2)} ${cur}${per}` : '—';
   };
   const link = (label: string, key: ProductTableKey, filters: Record<string, string>, id: string) => (
     <Pressable testID={`product-card-edit-${id}`} onPress={() => onOpenTable(key, filters)} hitSlop={6} style={styles.link}>
@@ -84,8 +86,8 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
           {section('Main data', link('Edit', 'product', {}, 'product'), (
             <>
               {kv('SKU', String(product.rowJSON?.sku ?? ''), 'sku')}
-              {kv('Unit', L.title('measureUnitForInventory', product.rowJSON?.unit), 'unit')}
-              {kv('VAT rate', vatText, 'vat')}
+              {kv('Unit for inventory', L.title('measureUnit', product.rowJSON?.measureUnitForInventory), 'unit')}
+              {kv('Default unit', L.title('measureUnit', product.rowJSON?.measureUnitDefault), 'unit-default')}
               {kv('Variants', type?.rowJSON?.variantMode === 'none' || !variantOwnerOfProduct(data, product) ? 'none' : `${variants.length} (${L.ownerLabel(variantOwnerOfProduct(data, product))})`, 'variants')}
               {priceTypes.map((pt) => kv(`${rowTitle(pt)}${pt.rowJSON?.vatIncluded ? ' (VAT incl.)' : ''}`, price(null, pt.rowGUID), `price-${pt.rowGUID}`))}
             </>
@@ -115,7 +117,7 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
           {section(`Barcodes, packs, series`, link('Barcodes', 'productBarcode', { product: product.rowGUID }, 'barcodes'), (
             <>
               {kv('Barcodes', barcodes.filter((b) => !isSet(b.rowParentGUID)).map((b) => b.rowJSON?.barcode).join(', ') || (barcodes.length ? `${barcodes.length} (per variant)` : ''), 'barcodes')}
-              {kv('Packs', packs.map((k) => `${rowTitle(k)} (${k.rowJSON?.ratio ?? '?'} ${L.title('measureUnitForInventory', k.rowParentGUID)})`).join(', '), 'packs')}
+              {kv('Packs', packs.map((k) => `${rowTitle(k)} (${k.rowJSON?.ratio ?? '?'} ${L.title('measureUnit', k.rowParentGUID)})`).join(', '), 'packs')}
               {kv(type?.rowJSON?.useSerialNumbers ? 'Serial numbers / batches' : 'Batches', series.map((s) => rowTitle(s) + (s.rowJSON?.expiresAt ? ` → ${s.rowJSON.expiresAt}` : '')).join(', '), 'series')}
             </>
           ), 'logistics')}

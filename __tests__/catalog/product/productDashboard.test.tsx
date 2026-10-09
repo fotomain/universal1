@@ -130,9 +130,9 @@ it('a menu item opens the table (route parameter tab); the type filter shows onl
 });
 
 it('a catalog table without owner column: new rows get the catalog owner', () => {
-  mount({ tab: 'measureUnitForInventory' });
-  press('product-table-measureUnitForInventory-add');
-  expect(mockCalls[0]).toEqual(['create', 'measureUnitForInventoryReusable', expect.objectContaining({ rowOwnerGUID: 'measureUnitForInventoryCatalog' })]);
+  mount({ tab: 'measureUnit' });
+  press('product-table-measureUnit-add');
+  expect(mockCalls[0]).toEqual(['create', 'measureUnitReusable', expect.objectContaining({ rowOwnerGUID: 'measureUnitCatalog' })]);
 });
 
 it('product card: properties, variants with today prices', () => {

@@ -1,6 +1,6 @@
 // Product catalog - rules of the descriptor model (R6 / R9 / R10 / R13), variant generation, barcodes, labels.
 import {
-  vatRateOfProduct, buildVariantTitle, computedVariant, currentPrice, descriptorKey, isValidGtin, nextEan13, plannedVariants, propertyLinesOfProduct,
+  vatRateOfProduct, currentPriceOfProduct, buildVariantTitle, computedVariant, currentPrice, descriptorKey, isValidGtin, nextEan13, plannedVariants, propertyLinesOfProduct,
   setOfType, variantLinesOfOwner, variantOwnerOfProduct, variantsOfProduct, variantsToRebuild,
 } from '../../../kit8/catalog/product/crud/productCatalogTools';
 import { validateProductCatalog } from '../../../kit8/catalog/product/crud/productValidation';
@@ -185,5 +185,82 @@ describe('VAT rates (valueAddedTaxTable)', () => {
     bad.productType[0].rowJSON.productVATDefaultRate = 'vat_99';
     expect(validateProductCatalog(bad).some((i) => i.rule === 'R1' && i.table === 'productType' && /VAT rate/.test(i.message))).toBe(true);
     expect(validateProductCatalog(data).some((i) => /VAT rate/.test(i.message))).toBe(false);
+  });
+});
+
+describe('units: one catalog (measureUnitTable), two required fields of a product', () => {
+  it('one units catalog; no second one', () => {
+    expect(PRODUCT_TABLES.measureUnit).toMatchObject({ table: 'measureUnitTable', entity: 'measureUnitReusable', catalogOwner: 'measureUnitCatalog' });
+    expect((PRODUCT_TABLES as any).measureUnitDefault).toBeUndefined();
+    expect((PRODUCT_TABLES as any).measureUnitForInventory).toBeUndefined();
+    expect(data.measureUnit).toHaveLength(6);
+  });
+  it('every seed product has exactly one measureUnitForInventory and one measureUnitDefault, rows of the catalog; the old unit field is gone', () => {
+    const guids = new Set(data.measureUnit.map((u) => u.rowGUID));
+    for (const p of data.product) {
+      expect(guids.has(p.rowJSON.measureUnitForInventory)).toBe(true);
+      expect(guids.has(p.rowJSON.measureUnitDefault)).toBe(true);
+      expect(p.rowJSON.unit).toBeUndefined();
+      expect(p.rowJSON.unitDefault).toBeUndefined();
+    }
+  });
+  it('a new product starts with both units; both selectors list the ONE catalog', () => {
+    expect(PRODUCT_TABLES.product.emptyRowJSON()).toMatchObject({ measureUnitForInventory: 'unit_pcs', measureUnitDefault: 'unit_pcs' });
+    expect(buildProductLabels(data).options.units.map((o) => o.value)).toEqual(expect.arrayContaining(['unit_pcs', 'unit_kg', 'unit_portion']));
+  });
+  it('R1: a missing or unknown unit of either field is reported, valid units are not', () => {
+    const msgs = (d: typeof data) => validateProductCatalog(d).filter((i) => i.table === 'product' && /unit/.test(i.message)).map((i) => i.message);
+    expect(msgs(data)).toEqual([]);
+    const bad = seedCatalog();
+    delete bad.product[0].rowJSON.measureUnitForInventory;
+    bad.product[1].rowJSON.measureUnitDefault = 'unit_nope';
+    bad.product[2].rowJSON.measureUnitDefault = null;
+    const m = msgs(bad);
+    expect(m.some((x) => /choose the unit for inventory/.test(x))).toBe(true);
+    expect(m.some((x) => /default unit "unit_nope" is missing/.test(x))).toBe(true);
+    expect(m.some((x) => /choose the default unit/.test(x))).toBe(true);
+  });
+});
+
+describe('productPackageTable (was productPackagingTable)', () => {
+  it('the table, entity and key are renamed', () => {
+    expect(PRODUCT_TABLES.productPackage).toMatchObject({ table: 'productPackageTable', entity: 'productPackageReusable' });
+    expect((PRODUCT_TABLES as any).productPackaging).toBeUndefined();
+    expect(data.productPackage).toHaveLength(6);
+    expect(data.productPackage.every((k) => data.measureUnit.some((u) => u.rowGUID === k.rowParentGUID))).toBe(true);
+  });
+});
+
+describe('prices are per measureUnit (price of ONE unit)', () => {
+  it('seed: every price is the price of 1 unit_pcs; a new price starts with unit_pcs', () => {
+    expect(data.productPrice.length).toBeGreaterThan(300);
+    expect(data.productPrice.every((p) => p.rowJSON.measureUnit === 'unit_pcs')).toBe(true);
+    expect(PRODUCT_TABLES.productPrice.emptyRowJSON()).toMatchObject({ measureUnit: 'unit_pcs' });
+  });
+  const prices = [
+    { rowGUID: 'pcs', rowOwnerGUID: 'p', rowParentGUID: 'empty', orderInList: 1, rowJSON: { priceTypeGUID: 'r', price: 2, measureUnit: 'unit_pcs', validFrom: '2026-01-01' } },
+    { rowGUID: 'kg', rowOwnerGUID: 'p', rowParentGUID: 'empty', orderInList: 2, rowJSON: { priceTypeGUID: 'r', price: 9, measureUnit: 'unit_kg', validFrom: '2026-02-01' } },
+  ];
+  it('currentPrice with a unit only sees the prices of that unit; without a unit it sees all', () => {
+    expect(currentPrice(prices, 'p', null, 'r', '2026-10-08', 'unit_pcs')?.rowGUID).toBe('pcs');
+    expect(currentPrice(prices, 'p', null, 'r', '2026-10-08', 'unit_kg')?.rowGUID).toBe('kg');
+    expect(currentPrice(prices, 'p', null, 'r', '2026-10-08', 'unit_l')).toBeNull();
+    expect(currentPrice(prices, 'p', null, 'r', '2026-10-08')?.rowGUID).toBe('kg');
+  });
+  it('currentPriceOfProduct prefers the default unit, then the unit for inventory, then any', () => {
+    const prod = (inv: string, def: string) => ({ rowGUID: 'p', rowOwnerGUID: 't', rowParentGUID: 'empty', orderInList: 1, rowJSON: { measureUnitForInventory: inv, measureUnitDefault: def } });
+    expect(currentPriceOfProduct(prices, prod('unit_pcs', 'unit_kg'), null, 'r', '2026-10-08')?.rowGUID).toBe('kg');
+    expect(currentPriceOfProduct(prices, prod('unit_pcs', 'unit_l'), null, 'r', '2026-10-08')?.rowGUID).toBe('pcs');
+    expect(currentPriceOfProduct(prices, prod('unit_l', 'unit_l'), null, 'r', '2026-10-08')?.rowGUID).toBe('kg');
+  });
+  it('R1: a price without a unit or with an unknown unit is reported', () => {
+    const msgs = (d: typeof data) => validateProductCatalog(d).filter((i) => i.table === 'productPrice' && /unit/.test(i.message)).map((i) => i.message);
+    expect(msgs(data)).toEqual([]);
+    const bad = seedCatalog();
+    delete bad.productPrice[0].rowJSON.measureUnit;
+    bad.productPrice[1].rowJSON.measureUnit = 'unit_nope';
+    const m = msgs(bad);
+    expect(m.some((x) => /choose the unit the price is for/.test(x))).toBe(true);
+    expect(m.some((x) => /unit "unit_nope" is missing/.test(x))).toBe(true);
   });
 });

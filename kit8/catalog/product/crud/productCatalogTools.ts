@@ -26,7 +26,7 @@ export function sortBySort<T extends DefRow<any>>(rows: T[]): T[] {
   return [...rows].sort((a, b) => sortKey(a) - sortKey(b) || Number(a.orderInList ?? 0) - Number(b.orderInList ?? 0));
 }
 
-/** the VAT rate of a product: its own productVATRate, else the productVATDefaultRate of its product type (1C: Номенклатура.СтавкаНДС <- ВидыНоменклатуры) */
+/** the VAT rate of a product: its own productVATRate, else the productVATDefaultRate of its product type */
 export function vatRateOfProduct(data: ProductCatalogData, product: DefRow<any> | undefined | null): DefRow<any> | undefined {
   if (!product) return undefined;
   const own = product.rowJSON?.productVATRate;
@@ -225,11 +225,13 @@ export function plannedVariants(data: ProductCatalogData, ownerGUID: string, opt
  * The price valid on `day` for a product (+ variant) and price type: the latest validFrom <= day; a row of the
  * variant beats the "all variants" row (rowParentGUID 'empty'). null = no price.
  */
-export function currentPrice(prices: DefRow<any>[], productGUID: string, variantGUID: string | null, priceTypeGUID: string, day: string): DefRow<any> | null {
+export function currentPrice(prices: DefRow<any>[], productGUID: string, variantGUID: string | null, priceTypeGUID: string, day: string, measureUnit?: string | null): DefRow<any> | null {
   const pick = (variant: string | null) => {
     let best: DefRow<any> | null = null;
     for (const p of prices) {
       if (p.rowOwnerGUID !== productGUID || p.rowJSON?.priceTypeGUID !== priceTypeGUID) continue;
+      // a price is the price of ONE measureUnit: with `measureUnit` only the prices of that unit count
+      if (isSet(measureUnit) && p.rowJSON?.measureUnit !== measureUnit) continue;
       const pv = isSet(p.rowParentGUID) ? p.rowParentGUID : null;
       if (pv !== variant) continue;
       const from = String(p.rowJSON?.validFrom ?? '');
@@ -239,6 +241,19 @@ export function currentPrice(prices: DefRow<any>[], productGUID: string, variant
     return best;
   };
   return (variantGUID ? pick(variantGUID) : null) ?? pick(null);
+}
+
+/**
+ * currentPrice for a product, preferring the prices of its units: first its default unit, then its unit for inventory, then any unit.
+ * (the price of ONE unit - the caller shows `measureUnit` of the returned row next to the amount)
+ */
+export function currentPriceOfProduct(prices: DefRow<any>[], product: DefRow<any>, variantGUID: string | null, priceTypeGUID: string, day: string): DefRow<any> | null {
+  const j = product?.rowJSON || {};
+  for (const unit of [j.measureUnitDefault, j.measureUnitForInventory]) {
+    const p = isSet(unit) ? currentPrice(prices, product.rowGUID, variantGUID, priceTypeGUID, day, unit) : null;
+    if (p) return p;
+  }
+  return currentPrice(prices, product.rowGUID, variantGUID, priceTypeGUID, day);
 }
 
 /** price type may be used for products (appliesTo) */
