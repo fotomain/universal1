@@ -15,7 +15,7 @@
 --
 -- Seed: the sheet rows (product side, sheet GUIDs kept: smartphone1, dv1, dp1, pv1, prod1 ...) + 100 more
 -- products (prod7..prod106) in 11 product types with variants, property values, prices, barcodes, series.
--- Rows: valueAddedTaxTable 7, measureUnitTable 6, descriptorGenusTable 23, descriptorValueTable 80, descriptorModeTable 2, descriptorDestinationTable 19, descriptorPlanTable 44, productTypeTable 11, productFolderTable 13, productTable 106, propertyValueTable 272, variantTable 185, variantValueTable 360, productPackagingTable 6, productSeriesTable 13, productBarcodeTable 332, priceTypeTable 4, productPriceTable 385
+-- Rows: valueAddedTaxTable 7, measureUnitForInventoryTable 6, descriptorGenusTable 23, descriptorValueTable 80, descriptorModeTable 2, descriptorDestinationTable 19, descriptorPlanTable 44, productTypeTable 11, productFolderTable 13, productTable 106, propertyValueTable 272, variantTable 185, variantValueTable 360, productPackagingTable 6, productSeriesTable 13, productBarcodeTable 332, priceTypeTable 4, productPriceTable 385
 --
 -- Integrity (rules R1-R14 of the sheet): unique indexes below (R1, R2, R8, R9, barcode, SKU, one price per
 -- day) + checks of the fixed lists; the rest (R3-R7, R10, R13) is checked by the dashboard "Checks" panel
@@ -68,10 +68,10 @@ CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_owner_order" ON public."value
 CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_parent" ON public."valueAddedTaxTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('valueAddedTaxTable');
 
--- measureUnitTable: base units of measure (1C: base units). owner = 'measureUnitCatalog'
-CREATE TABLE IF NOT EXISTS public."measureUnitTable" (
+-- measureUnitForInventoryTable: base units of measure (1C: base units). owner = 'measureUnitForInventoryCatalog'
+CREATE TABLE IF NOT EXISTS public."measureUnitForInventoryTable" (
   "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'measureUnitCatalog',
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'measureUnitForInventoryCatalog',
   "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
   "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
   "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
@@ -79,9 +79,9 @@ CREATE TABLE IF NOT EXISTS public."measureUnitTable" (
   "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID")
 );
-CREATE INDEX IF NOT EXISTS "idx_measureUnitTable_owner_order" ON public."measureUnitTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_measureUnitTable_parent" ON public."measureUnitTable" ("rowParentGUID");
-SELECT public.kit8_setup_def_table('measureUnitTable');
+CREATE INDEX IF NOT EXISTS "idx_measureUnitForInventoryTable_owner_order" ON public."measureUnitForInventoryTable" ("rowOwnerGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS "idx_measureUnitForInventoryTable_parent" ON public."measureUnitForInventoryTable" ("rowParentGUID");
+SELECT public.kit8_setup_def_table('measureUnitForInventoryTable');
 
 -- descriptorGenusTable: every descriptor once (Color, Memory, Brand ...). owner = 'descriptorGenusCatalog'
 CREATE TABLE IF NOT EXISTS public."descriptorGenusTable" (
@@ -248,7 +248,7 @@ CREATE INDEX IF NOT EXISTS "idx_variantValueTable_owner_order" ON public."varian
 CREATE INDEX IF NOT EXISTS "idx_variantValueTable_parent" ON public."variantValueTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('variantValueTable');
 
--- productPackagingTable: packs. owner = productType | product, parent = measureUnit
+-- productPackagingTable: packs. owner = productType | product, parent = measureUnitForInventory
 CREATE TABLE IF NOT EXISTS public."productPackagingTable" (
   "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
   "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
@@ -356,7 +356,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitForInventoryTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
@@ -385,14 +385,14 @@ INSERT INTO public."valueAddedTaxTable" ("rowGUID", "rowOwnerGUID", "rowParentGU
   ('vat_0', 'valueAddedTaxCatalog', 'empty', 7000, '{"vatTableTitle": "0 %", "vatTablePercent": 0}'::jsonb)
 ON CONFLICT ("rowGUID") DO NOTHING;
 
--- measureUnitTable: 6 rows
-INSERT INTO public."measureUnitTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
-  ('unit_pcs', 'measureUnitCatalog', 'empty', 1000, '{"title": "pcs", "code": "796"}'::jsonb),
-  ('unit_portion', 'measureUnitCatalog', 'empty', 2000, '{"title": "portion", "code": "—"}'::jsonb),
-  ('unit_kg', 'measureUnitCatalog', 'empty', 3000, '{"title": "kg", "code": "166"}'::jsonb),
-  ('unit_hour', 'measureUnitCatalog', 'empty', 4000, '{"title": "hour", "code": "356"}'::jsonb),
-  ('unit_g', 'measureUnitCatalog', 'empty', 5000, '{"title": "g", "code": "163"}'::jsonb),
-  ('unit_l', 'measureUnitCatalog', 'empty', 6000, '{"title": "l", "code": "112"}'::jsonb)
+-- measureUnitForInventoryTable: 6 rows
+INSERT INTO public."measureUnitForInventoryTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('unit_pcs', 'measureUnitForInventoryCatalog', 'empty', 1000, '{"title": "pcs", "code": "796"}'::jsonb),
+  ('unit_portion', 'measureUnitForInventoryCatalog', 'empty', 2000, '{"title": "portion", "code": "—"}'::jsonb),
+  ('unit_kg', 'measureUnitForInventoryCatalog', 'empty', 3000, '{"title": "kg", "code": "166"}'::jsonb),
+  ('unit_hour', 'measureUnitForInventoryCatalog', 'empty', 4000, '{"title": "hour", "code": "356"}'::jsonb),
+  ('unit_g', 'measureUnitForInventoryCatalog', 'empty', 5000, '{"title": "g", "code": "163"}'::jsonb),
+  ('unit_l', 'measureUnitForInventoryCatalog', 'empty', 6000, '{"title": "l", "code": "112"}'::jsonb)
 ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- descriptorGenusTable: 23 rows
@@ -2338,7 +2338,7 @@ BEGIN
   IF v_all THEN
     RETURN;
   END IF;
-  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['valueAddedTaxTable', 'measureUnitForInventoryTable', 'descriptorGenusTable', 'descriptorValueTable', 'descriptorModeTable', 'descriptorDestinationTable', 'descriptorPlanTable', 'productTypeTable', 'productFolderTable', 'productTable', 'propertyValueTable', 'variantTable', 'variantValueTable', 'productPackagingTable', 'productSeriesTable', 'productBarcodeTable', 'priceTypeTable', 'productPriceTable'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
                     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);

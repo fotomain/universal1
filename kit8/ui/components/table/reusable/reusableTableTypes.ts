@@ -5,7 +5,7 @@
 //
 // SQL concept (kit8/sql/defTable.md): rowGUID · rowOwnerGUID (the more generic entity) ·
 // rowParentGUID (the entity one level higher in the hierarchy) · orderInList · rowJSON (all other fields).
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type { PMMenuItemProps } from '../../../../pm/inner/menu/PMMenuItem';
 import type { FolderTreeNode } from '../../tree/folderTreeModel';
 import type { FolderTreeReusableProps, FolderTreeUxUi } from '../../tree/FolderTreeReusable';
@@ -174,8 +174,32 @@ export interface NewRowDefaults {
  */
 export type ReusableTableBarLayoutVariant = 'leftCrudPanel_rightSearch' | 'leftCrudPanel_rightSearchTitle' | 'leftTitle_rightSearchCrudPanel';
 
+/**
+ * What the table hands to its `EditRowModalCard`: the row (always the fresh one from the table) and the commands to save
+ * changes exactly like an in-place edit (validation, computeRowJSON, root columns rowOwnerGUID / rowParentGUID).
+ */
+export interface EditRowModalCardProps {
+  row: ReusableTableRow;
+  /** "Product", "Row" ... */
+  itemLabel: string;
+  /** every column of the table: the card may show them as a form */
+  visualColumns: VisualColumn[];
+  /** save one cell (columnKey = VisualColumn.key) */
+  setCell: (columnKey: string, value: any) => void;
+  /** merge a rowJSON patch */
+  patchRow: (rowJSONPatch: Record<string, any>) => void;
+  /** close the card */
+  onClose: () => void;
+  testID: string;
+}
+
 /** how the table looks */
 export interface ReusableTableUxUi {
+  /**
+   * cells are edited in place (default true). false = cells are read-only, a click / tap on a row opens the `EditRowModalCard`
+   * (needs that prop; without it the cells stay editable)
+   */
+  inlineEdit?: boolean;
   /** vertical lines between the cells of the rows (and the totals row) (default true) */
   verticalDelimitersForCells?: boolean;
   /** vertical lines between the column names in the header (default true) */
@@ -336,6 +360,11 @@ export interface ReusableTableProps {
   searchEnabled?: boolean;
   /** right-click / long-press / ⋮ row menu (default true) */
   contextMenuEnabled?: boolean;
+  /**
+   * The card that edits ONE row in a modal window: "Edit" in the row menu (right-click / long-press / ⋮) opens it, and with
+   * uxuiTable.inlineEdit = false a click on a row does too. It gets EditRowModalCardProps.
+   */
+  EditRowModalCard?: ComponentType<EditRowModalCardProps>;
   /** more commands at the end of the row menu */
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
   /** called after every change the user made (create / update / delete / reorder) */

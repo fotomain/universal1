@@ -31,8 +31,11 @@ export const PRODUCT_TABLES = {
   valueAddedTax: def({ table: 'valueAddedTaxTable', entity: 'valueAddedTaxReusable', itemLabel: 'VAT rate', catalogOwner: 'valueAddedTaxCatalog',
     purpose: 'VAT rates (21 %, 12 %, 0 % ...) a product type or a product can point to, so a rate is changed in one place.', analog1C: 'Справочник СтавкиНДС',
     emptyRowJSON: () => ({ vatTableTitle: null, vatTablePercent: 0 }) }),
-  measureUnit: def({ table: 'measureUnitTable', entity: 'measureUnitReusable', itemLabel: 'Unit', catalogOwner: 'measureUnitCatalog',
-    purpose: 'Base units in which products are counted, stocked and sold (pcs, portion, kg).', analog1C: 'Base units of measure',
+  measureUnitForInventory: def({ table: 'measureUnitForInventoryTable', entity: 'measureUnitForInventoryReusable', itemLabel: 'Unit for inventory', catalogOwner: 'measureUnitForInventoryCatalog',
+    purpose: 'Units in which products are counted and stocked (pcs, portion, kg): the unit of a product / product type and of its packs.', analog1C: 'Единица хранения остатков (base units of measure)',
+    emptyRowJSON: () => ({ title: null, code: null }) }),
+  measureUnitDefault: def({ table: 'measureUnitDefaultTable', entity: 'measureUnitDefaultReusable', itemLabel: 'Default unit', catalogOwner: 'measureUnitDefaultCatalog',
+    purpose: 'Units a product is offered, ordered and reported in by default (box, dozen, kg ...); empty on a product = the unit for inventory.', analog1C: 'Единица для отчетов / заказов (units for reports and orders)',
     emptyRowJSON: () => ({ title: null, code: null }) }),
   descriptorGenus: def({ table: 'descriptorGenusTable', entity: 'descriptorGenusReusable', itemLabel: 'Descriptor', catalogOwner: 'descriptorGenusCatalog',
     purpose: 'Every descriptor defined ONCE (Color, Memory, Brand…) so any product type can reuse it as a Property or a Variant.', analog1C: 'ПВХ ДополнительныеРеквизитыИСведения',
@@ -57,7 +60,7 @@ export const PRODUCT_TABLES = {
     emptyRowJSON: () => ({ title: null }) }),
   product: def({ table: 'productTable', entity: 'productReusable', itemLabel: 'Product', catalogOwner: null,
     purpose: 'The catalog item customers see and order (iPhone 11, Chicken nuggets).', analog1C: 'Справочник Номенклатура',
-    emptyRowJSON: () => ({ title: null, sku: null, unit: 'unit_pcs', productVATRate: null, description: null, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, sku: null, unit: 'unit_pcs', unitDefault: null, productVATRate: null, description: null, isActive: true }) }),
   propertyValue: def({ table: 'propertyValueTable', entity: 'propertyValueReusable', itemLabel: 'Property value', catalogOwner: null,
     purpose: 'The Property values of each product (Brand = Apple, Calories = 290) for cards, filters and search.', analog1C: 'Номенклатура.ДополнительныеРеквизиты',
     emptyRowJSON: () => ({ descriptorValueGUID: null, value: null }) }),
@@ -146,7 +149,7 @@ export interface ProductTypeJSON {
   variantSharedTypeGUID?: string | null; uniqueVariants?: boolean; variantTitleTemplate?: string | null;
   useSerialNumbers?: boolean; usePackaging?: boolean; useSeries?: boolean; isActive?: boolean;
 }
-export interface ProductJSON { title: string; sku?: string | null; unit?: string | null; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
+export interface ProductJSON { title: string; sku?: string | null; unit?: string | null; /** measureUnitDefaultTable rowGUID; null = the unit for inventory */ unitDefault?: string | null; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
 /** ref genus -> descriptorValueGUID; scalar genus -> value */
 export interface PropertyValueJSON { descriptorValueGUID?: string | null; value?: string | number | boolean | null }
 export interface VariantJSON { title: string; descriptorKey: string; isActive?: boolean }

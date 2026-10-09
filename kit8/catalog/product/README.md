@@ -37,7 +37,7 @@ back arrow left of its title; it returns to where the user came from and marks t
 
 | Table | rowOwnerGUID | rowParentGUID |
 |---|---|---|
-| valueAddedTaxTable, measureUnitTable, descriptorGenusTable, descriptorModeTable, productTypeTable, productFolderTable, priceTypeTable | `<name>Catalog` | 'empty' (folder: parent folder) |
+| valueAddedTaxTable, measureUnitForInventoryTable, descriptorGenusTable, descriptorModeTable, productTypeTable, productFolderTable, priceTypeTable | `<name>Catalog` | 'empty' (folder: parent folder) |
 | descriptorValueTable | descriptor | — |
 | descriptorDestinationTable (set) | product type | mode (property / variant) |
 | descriptorPlanTable (set line) | set | descriptor |
@@ -68,3 +68,17 @@ Seed: 21 / 18 / 15 / 12 / 10 / 5 / 0 % (GUIDs `vat_21` ... `vat_0`).
 - `productTable.rowJSON.productVATRate` - own rate of a product; `null` = use the type default (1C: Номенклатура.СтавкаНДС).
 - `vatRateOfProduct(data, product)` (`crud/productCatalogTools.ts`) resolves `productVATRate ?? type.productVATDefaultRate`.
 - Rule R1 reports a rate GUID that does not exist.
+
+## Product card in a modal (`card/ProductItemEditModalCard.tsx`)
+
+"Products & folders": right-click a product (or ⋮) -> **Edit** opens `ProductItemEditModalCard` through the table's `EditRowModalCard` prop
+(see `kit8/ui/components/table/reusable/README.md`). Tabs: **Main** (the editable columns of the Products table as a form) · **Prices**
+(`productPriceTable` of the product) · **Variants** (`variantTable` of `variantOwnerOfProduct`: its type or the product itself) · **Properties**
+(`propertyValueTable`). The three tabs are ReusableTables built from the dashboard column definitions (`buildDashboardTables`), filtered by owner.
+
+SQL `kit8/sql/init/update_product_vat.sql`: every product type gets `productVATDefaultRate = 'vat_21'` and the products lose their own
+`productVATRate` (= all products 21 %).
+
+The card follows the active design system: its controls are the app's own components (`TextInputApp`, `SwitchApp`, `SelectorFromApp`, `SegmentButtonsApp`
+for the tabs, `ButtonApp`, `TextApp`), and the window (corners, border, shadow, header band, backdrop) comes from `productModalLook(system)`.
+Text fields save ~0.6 s after typing stops and when the card closes.

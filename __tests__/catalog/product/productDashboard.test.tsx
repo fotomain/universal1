@@ -46,6 +46,36 @@ jest.mock('../../../kit8/ui/components/common/TextInputApp', () => {
   return { __esModule: true, default: ({ leftIcons, heightVariant, ...p }: any) => R.createElement(TextInput, p) };
 });
 jest.mock('../../../kit8/redux/uxuiSlice', () => ({ showSnackbar: (p: any) => ({ type: 'snackbar', p }) }));
+// design-system components of the product card: light stand-ins (the real ones switch on the active design system)
+jest.mock('../../../kit8/ui/components/common/TextApp', () => {
+  const R = require('react');
+  const { Text } = require('react-native');
+  return { __esModule: true, default: ({ children, testID }: any) => R.createElement(Text, { testID }, children) };
+});
+jest.mock('../../../kit8/ui/components/common/ButtonApp', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  const ButtonApp = ({ title, icon, onPress, testID }: any) => R.createElement(Pressable, { testID, onPress }, R.createElement(Text, null, title ?? icon));
+  return { __esModule: true, default: ButtonApp, ButtonApp };
+});
+jest.mock('../../../kit8/ui/components/common/SegmentButtonsApp', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ buttons, value, onValueChange, testID }: any) => R.createElement(View, { testID },
+    buttons.map((b: any) => R.createElement(Pressable, { key: b.value, testID: b.testID, 'aria-selected': b.value === value, onPress: () => onValueChange(b.value) }, R.createElement(Text, null, b.label)))) };
+});
+jest.mock('../../../kit8/ui/components/common/SwitchApp', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  return { __esModule: true, default: ({ value, onValueChange, label, testID }: any) => R.createElement(Pressable, { testID, 'aria-checked': value, onPress: () => onValueChange(!value) }, R.createElement(Text, null, label)) };
+});
+jest.mock('../../../kit8/ui/components/common/SelectorFromApp', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ options, value, onValueChange, label, testID }: any) => R.createElement(View, { testID, 'data-value': value },
+    R.createElement(Text, null, label),
+    options.map((o: any) => R.createElement(Pressable, { key: o.value, testID: `${testID}-option-${o.value || 'none'}`, onPress: () => onValueChange(o.value) }, R.createElement(Text, null, o.label)))) };
+});
 
 import ProductDashboard from '../../../kit8/catalog/product/dashboard/ProductDashboard';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
@@ -100,9 +130,9 @@ it('a menu item opens the table (route parameter tab); the type filter shows onl
 });
 
 it('a catalog table without owner column: new rows get the catalog owner', () => {
-  mount({ tab: 'measureUnit' });
-  press('product-table-measureUnit-add');
-  expect(mockCalls[0]).toEqual(['create', 'measureUnitReusable', expect.objectContaining({ rowOwnerGUID: 'measureUnitCatalog' })]);
+  mount({ tab: 'measureUnitForInventory' });
+  press('product-table-measureUnitForInventory-add');
+  expect(mockCalls[0]).toEqual(['create', 'measureUnitForInventoryReusable', expect.objectContaining({ rowOwnerGUID: 'measureUnitForInventoryCatalog' })]);
 });
 
 it('product card: properties, variants with today prices', () => {

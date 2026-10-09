@@ -75,7 +75,7 @@
     Product catalog (kit8/sql/init/create_product_tables.sql, kit8/catalog/product, screen /catalog/product/dashboard)
       Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (1C:ERP: product type -> product -> Properties + Variants on Descriptors).
       Product side only (no resource-role tables yet). TEXT rowGUIDs (sheet ids kept: smartphone1, dv1, dp1, pv1, prod1 ...).
-      measureUnitTable           owner 'measureUnitCatalog'                       rowJSON { title, code }
+      measureUnitForInventoryTable           owner 'measureUnitForInventoryCatalog'                       rowJSON { title, code }
       descriptorGenusTable       owner 'descriptorGenusCatalog'                   rowJSON { title, valueType ref|string|number|boolean|date, unit, allowedDescriptionModes[], targetKinds[], isActive }
       descriptorValueTable       owner = descriptorGenus                          rowJSON { code, title, hex, num, sort }
       descriptorModeTable        owner 'descriptorModeCatalog', rowGUID property|variant   rowJSON { title, createsVariant, sort }

@@ -173,8 +173,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { key: 'vatTablePercent', title: 'Percent', type: 'number', width: 110, min: 0, total: false },
         count('used', 'Types / products', (r) => data.productType.filter((t) => t.rowJSON?.productVATDefaultRate === r.rowGUID).length + data.product.filter((p) => p.rowJSON?.productVATRate === r.rowGUID).length)],
     },
-    measureUnit: {
-      key: 'measureUnit', title: 'Units', icon: 'straighten', group: 'Catalog', filters: [],
+    measureUnitForInventory: {
+      key: 'measureUnitForInventory', title: 'Units', icon: 'straighten', group: 'Catalog', filters: [],
       columns: [rowNo, { key: 'title', title: 'Title', type: 'text', width: 160 }, { key: 'code', title: 'Code (UN/ECE, OKEI)', type: 'text', width: 160 },
         count('used', 'Products', (r) => data.product.filter((p) => p.rowJSON?.unit === r.rowGUID).length)],
     },
@@ -358,7 +358,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
           options: (row) => {
             const p = productById.get(row.rowOwnerGUID ?? "");
             return data.productPackaging.filter((k) => k.rowOwnerGUID === row.rowOwnerGUID || (p && k.rowOwnerGUID === p.rowOwnerGUID))
-              .map((k) => ({ value: k.rowGUID, label: rowTitle(k), hint: `${k.rowJSON?.ratio ?? '?'} × ${L.title('measureUnit', k.rowParentGUID)}` }));
+              .map((k) => ({ value: k.rowGUID, label: rowTitle(k), hint: `${k.rowJSON?.ratio ?? '?'} × ${L.title('measureUnitForInventory', k.rowParentGUID)}` }));
           } },
         { key: 'barcode', title: 'Barcode', type: 'text', width: 170,
           validate: (v, row) => (String(v ?? '').trim() && data.productBarcode.some((b) => b.rowGUID !== row.rowGUID && String(b.rowJSON?.barcode ?? '').trim() === String(v).trim()) ? `Barcode ${v} is already used` : null) },
@@ -397,7 +397,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
 
 /** the order of the tables in the menu */
 export const DASHBOARD_TABLE_ORDER: ProductTableKey[] = [
-  'product', 'productType', 'productFolder', 'valueAddedTax', 'measureUnit',
+  'product', 'productType', 'productFolder', 'valueAddedTax', 'measureUnitForInventory',
   'descriptorGenus', 'descriptorValue', 'descriptorDestination', 'descriptorPlan', 'descriptorMode',
   'propertyValue', 'variant', 'variantValue',
   'productPrice', 'priceType',

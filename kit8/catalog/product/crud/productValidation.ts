@@ -41,7 +41,8 @@ export function validateProductCatalog(data: ProductCatalogData): ProductIssue[]
   const add = (rule: string, severity: IssueSeverity, table: ProductTableKey, rowGUID: string, message: string, fix?: ProductIssue['fix']) =>
     issues.push({ rule, severity, table, rowGUID, message, ...(fix ? { fix } : {}) });
 
-  const units = byGUID(data.measureUnit);
+  const units = byGUID(data.measureUnitForInventory);
+  const defaultUnits = byGUID(data.measureUnitDefault);
   const vatRates = byGUID(data.valueAddedTax);
   const genus = byGUID(data.descriptorGenus);
   const values = byGUID(data.descriptorValue);
@@ -116,6 +117,7 @@ export function validateProductCatalog(data: ProductCatalogData): ProductIssue[]
     if (!types.has(pr.rowOwnerGUID)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: choose its product type`);
     if (isSet(pr.rowParentGUID) && !folders.has(pr.rowParentGUID)) add('R1', 'warning', 'product', pr.rowGUID, `Product ${T(pr)}: its folder is missing`);
     if (isSet(pr.rowJSON?.unit) && !units.has(pr.rowJSON.unit)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: unit "${pr.rowJSON.unit}" is missing`);
+    if (isSet(pr.rowJSON?.unitDefault) && !defaultUnits.has(pr.rowJSON.unitDefault)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: default unit "${pr.rowJSON.unitDefault}" is missing`);
     if (isSet(pr.rowJSON?.productVATRate) && !vatRates.has(pr.rowJSON.productVATRate)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: VAT rate "${pr.rowJSON.productVATRate}" is missing`);
     const sku = String(pr.rowJSON?.sku ?? '').trim().toLowerCase();
     if (sku) { if (skus.has(sku)) add('R1', 'error', 'product', pr.rowGUID, `Product ${T(pr)}: SKU "${pr.rowJSON.sku}" is used twice`); else skus.set(sku, pr.rowGUID); }

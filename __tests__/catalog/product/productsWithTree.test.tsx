@@ -57,6 +57,36 @@ jest.mock('../../../kit8/ui/components/common/TextInputApp', () => {
   return { __esModule: true, default: ({ leftIcons, heightVariant, ...p }: any) => R.createElement(TextInput, p) };
 });
 jest.mock('../../../kit8/redux/uxuiSlice', () => ({ showSnackbar: (p: any) => ({ type: 'snackbar', p }) }));
+// design-system components of the product card: light stand-ins (the real ones switch on the active design system)
+jest.mock('../../../kit8/ui/components/common/TextApp', () => {
+  const R = require('react');
+  const { Text } = require('react-native');
+  return { __esModule: true, default: ({ children, testID }: any) => R.createElement(Text, { testID }, children) };
+});
+jest.mock('../../../kit8/ui/components/common/ButtonApp', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  const ButtonApp = ({ title, icon, onPress, testID }: any) => R.createElement(Pressable, { testID, onPress }, R.createElement(Text, null, title ?? icon));
+  return { __esModule: true, default: ButtonApp, ButtonApp };
+});
+jest.mock('../../../kit8/ui/components/common/SegmentButtonsApp', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ buttons, value, onValueChange, testID }: any) => R.createElement(View, { testID },
+    buttons.map((b: any) => R.createElement(Pressable, { key: b.value, testID: b.testID, 'aria-selected': b.value === value, onPress: () => onValueChange(b.value) }, R.createElement(Text, null, b.label)))) };
+});
+jest.mock('../../../kit8/ui/components/common/SwitchApp', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  return { __esModule: true, default: ({ value, onValueChange, label, testID }: any) => R.createElement(Pressable, { testID, 'aria-checked': value, onPress: () => onValueChange(!value) }, R.createElement(Text, null, label)) };
+});
+jest.mock('../../../kit8/ui/components/common/SelectorFromApp', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ options, value, onValueChange, label, testID }: any) => R.createElement(View, { testID, 'data-value': value },
+    R.createElement(Text, null, label),
+    options.map((o: any) => R.createElement(Pressable, { key: o.value, testID: `${testID}-option-${o.value || 'none'}`, onPress: () => onValueChange(o.value) }, R.createElement(Text, null, o.label)))) };
+});
 
 import ProductDashboard from '../../../kit8/catalog/product/dashboard/ProductDashboard';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
@@ -242,5 +272,98 @@ describe('a table opened from a row menu has a back arrow to the row it came fro
     mockSetParams.mockClear();
     press('product-table-back');
     expect(mockSetParams).toHaveBeenCalledWith({ tab: 'product', focusRowGUID: 'prod1' });
+  });
+});
+
+describe('ProductItemEditModalCard (right-click a product -> Edit)', () => {
+  const CARD = `${TABLE}-edit`;
+  const openCard = (guid: string) => { press(`${TABLE}-menu-button-${guid}`); press(`${TABLE}-menu-edit`); };
+  const data = seedCatalog();
+  const pricesOf = (g: string) => data.productPrice.filter((p) => p.rowOwnerGUID === g).map((p) => p.rowGUID);
+
+  it('the row menu has Edit; the card opens on Main with the product fields', () => {
+    mount();
+    expect(q(CARD)).toBeNull();
+    openCard('prod2');
+    expect(q(CARD)).not.toBeNull();
+    expect(q(`${CARD}-title`)!.textContent).toBe('iPhone 11');
+    for (const t of ['main', 'prices', 'variants', 'properties']) expect(q(`${CARD}-tab-${t}`)).not.toBeNull();
+    expect((q(`${CARD}-main-cell-prod2-title`) as HTMLInputElement).value).toBe('iPhone 11');
+    expect(q(`${CARD}-main-cell-prod2-productVATRate`)).not.toBeNull();
+    expect(q(`${CARD}-tab-prices`)!.textContent).toBe(`Prices (${pricesOf('prod2').length})`);
+  });
+
+  it('Main: a changed text field is saved like an in-place edit when the card closes (and not once per key)', () => {
+    mount();
+    openCard('prod2');
+    const input = q(`${CARD}-main-cell-prod2-title`) as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    act(() => { setter.call(input, 'iPhone 11 Pro'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(calls('update', PRODUCT_TABLES.product.entity).filter((p) => p.rowGUID === 'prod2')).toHaveLength(0);
+    press(`${CARD}-done`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.title === 'iPhone 11 Pro')).toBe(true);
+  });
+
+  it('Prices / Properties: the rows of THIS product only, without the product column', () => {
+    mount();
+    openCard('prod2');
+    press(`${CARD}-tab-prices`);
+    const T = `${CARD}-prices`;
+    const shown = qa(`${T}-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${T}-row-`, '')).filter((g) => !g.includes('-'));
+    expect(shown.sort()).toEqual(pricesOf('prod2').sort());
+    expect(q(`${T}-cell-${pricesOf('prod2')[0]}-product`)).toBeNull();
+    press(`${CARD}-tab-properties`);
+    const P = `${CARD}-properties`;
+    const props = data.propertyValue.filter((p) => p.rowOwnerGUID === 'prod2').map((p) => p.rowGUID);
+    expect(props.length).toBeGreaterThan(0);
+    expect(props.every((g) => q(`${P}-row-${g}`))).toBe(true);
+  });
+
+  it('Variants: the variants of the owner (the type for perType) with a note, without the owner column', () => {
+    mount();
+    openCard('prod2');
+    press(`${CARD}-tab-variants`);
+    const V = `${CARD}-variants`;
+    const own = data.variant.filter((v) => v.rowOwnerGUID === 'smartphone1').map((v) => v.rowGUID);
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.every((g) => q(`${V}-row-${g}`))).toBe(true);
+    expect(q(`${CARD}-variants-owner`)!.textContent).toContain('Smartphone');
+    expect(q(`${V}-cell-${own[0]}-owner`)).toBeNull();
+  });
+
+  it('Done closes the card', () => {
+    mount();
+    openCard('prod2');
+    press(`${CARD}-done`);
+    expect(q(CARD)).toBeNull();
+  });
+
+  it('Main: lists are SelectorFromApp, yes / no is SwitchApp; both save through setCell (VAT rate, Active)', () => {
+    mount();
+    openCard('prod2');
+    press(`${CARD}-main-cell-prod2-productVATRate-option-vat_12`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.productVATRate === 'vat_12')).toBe(true);
+    press(`${CARD}-main-cell-prod2-productVATRate-option-none`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.productVATRate === null)).toBe(true);
+    // prod2 has no isActive in the seed: off, exactly like the boolean cell of the table
+    expect(q(`${CARD}-main-cell-prod2-isActive`)!.getAttribute('aria-checked')).toBe('false');
+    press(`${CARD}-main-cell-prod2-isActive`);
+    expect(calls('update', PRODUCT_TABLES.product.entity).some((p) => p.rowGUID === 'prod2' && p.rowJSON?.isActive === true)).toBe(true);
+  });
+});
+
+describe('productModalLook (window per design system)', () => {
+  const { productModalLook } = require('../../../kit8/catalog/product/card/ProductItemEditModalCard');
+  it('every design system has its own corners; Material = 28, Ant gets a header band, Apple uses its backdrop', () => {
+    const systems = ['tamagui', 'paper', 'ant', 'native', 'expo', 'googlemd3web', 'applemacui'] as const;
+    const looks = Object.fromEntries(systems.map((s) => [s, productModalLook(s, false)]));
+    expect(looks.paper.radius).toBe(28);
+    expect(looks.googlemd3web.radius).toBe(28);
+    expect(looks.native.radius).toBeLessThan(looks.tamagui.radius);
+    expect(looks.ant.headerBand).toBe('#fafafa');
+    expect(productModalLook('ant', true).headerBand).toBe('#1a2234');
+    expect(looks.applemacui.borderWidth).toBe(0);
+    expect(productModalLook('applemacui', false, 'rgba(1,2,3,0.4)').backdrop).toBe('rgba(1,2,3,0.4)');
+    expect(productModalLook('native', true).backdrop).not.toBe(productModalLook('native', false).backdrop);
   });
 });

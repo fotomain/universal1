@@ -35,7 +35,7 @@ import ReusableTableFolderGrip from './ReusableTableFolderGrip';
 import ReusableTableCell from './ReusableTableCell';
 import ReusableTableRowMenu, { RowMenuState } from './ReusableTableRowMenu';
 import { useReusableTableCrud } from './useReusableTableCrud';
-import type { CatalogColumn, ReusableTableProps, ReusableTableRow, VisualColumn } from './reusableTableTypes';
+import type { CatalogColumn, EditRowModalCardProps, ReusableTableProps, ReusableTableRow, VisualColumn } from './reusableTableTypes';
 import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
@@ -77,7 +77,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, uxuiTable,
     selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
-    emptyText, testID = 'reusable-table', toolbarExtra,
+    emptyText, testID = 'reusable-table', toolbarExtra, EditRowModalCard,
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
   const dispatch = useDispatch();
@@ -132,6 +132,10 @@ export default function ReusableTable(props: ReusableTableProps) {
   const headersBackground = uxuiTable?.colorForColumnHeadersBackground
     ?? colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
   const fixedWidth = uxuiTable?.fixedWidth ?? '100%';
+  // ---- edit in a modal card (EditRowModalCard): menu "Edit"; inlineEdit = false: a click on a row opens it ----
+  const [editGUID, setEditGUID] = useState<string | null>(null);
+  const inlineEdit = uxuiTable?.inlineEdit !== false || !EditRowModalCard;
+  const openEdit = EditRowModalCard ? (guid: string) => setEditGUID(guid) : undefined;
   /** px of the table body (measured): the columns are stretched to fill it */
   const [bodyWidth, setBodyWidth] = useState(0);
   /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
@@ -365,12 +369,17 @@ export default function ReusableTable(props: ReusableTableProps) {
         {serviceColumns.map((kind) => (kind === 'select'
           ? <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: CHECK_W }]}>{checkbox(isSelected, () => toggle(row.rowGUID), `${testID}-select-${row.rowGUID}`)}</View>
           : <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: HANDLE_W }]}>{opts.dragHandle}</View>))}
-        {visualColumns.map((col) => (
-          <View key={col.key} style={[styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }]}>
-            <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
+        {visualColumns.map((col) => {
+          const cellStyle = [styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }];
+          const cell = (
+            <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost || !inlineEdit} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
               onChange={(key, value) => crud.setCell(row.rowGUID, key, value)} onPatch={(patch) => crud.patchRow(row.rowGUID, patch)} />
-          </View>
-        ))}
+          );
+          // inlineEdit = false: the cells only show, a click opens the EditRowModalCard
+          return inlineEdit || opts.ghost
+            ? <View key={col.key} style={cellStyle}>{cell}</View>
+            : <Pressable key={col.key} testID={`${testID}-open-${row.rowGUID}-${col.key}`} accessibilityRole="button" onPress={() => openEdit?.(row.rowGUID)} style={cellStyle}>{cell}</Pressable>;
+        })}
         {contextMenuEnabled && (
           <Pressable testID={`${testID}-menu-button-${row.rowGUID}`} accessibilityLabel="Row menu" hitSlop={6} style={[styles.fixedCell, { width: MENU_W }]}
             onPress={(e: any) => openMenu?.(row.rowGUID, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0)}>
@@ -538,7 +547,18 @@ export default function ReusableTable(props: ReusableTableProps) {
       </ScrollView>
 
       <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} filtered={viewFiltered}
-        onDelete={(guid) => askDelete([guid])} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
+        onDelete={(guid) => askDelete([guid])} onEdit={openEdit} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
+      {EditRowModalCard && editGUID && (() => {
+        const editRow = rows.find((x) => x.rowGUID === editGUID);
+        if (!editRow) return null;
+        const cardProps: EditRowModalCardProps = {
+          row: editRow, itemLabel, visualColumns, testID: `${testID}-edit`,
+          setCell: (key, value) => { crud.setCell(editGUID, key, value); },
+          patchRow: (patch) => crud.patchRow(editGUID, patch),
+          onClose: () => setEditGUID(null),
+        };
+        return <EditRowModalCard {...cardProps} />;
+      })()}
       {columnMenu && visualColumns.some((col) => col.key === columnMenu.key) && (
         <ReusableTableColumnMenu testID={testID} col={visualColumns.find((col) => col.key === columnMenu.key)!} x={columnMenu.x} y={columnMenu.y}
           sort={columnSort} filter={columnFilters[columnMenu.key]} onSort={setColumnSort}

@@ -18,12 +18,14 @@ export interface ReusableTableRowMenuProps {
   /** rows are filtered by the search box: positions are not the real ones -> no move commands */
   filtered: boolean;
   onDelete: (guid: string) => void;
+  /** opens the EditRowModalCard of the table (menu item "Edit" is shown when set) */
+  onEdit?: (guid: string) => void;
   onClose: () => void;
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
   testID: string;
 }
 
-export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, filtered, onDelete, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
+export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, filtered, onDelete, onEdit, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
   if (!menu) return null;
   const index = rows.findIndex((r) => r.rowGUID === menu.guid);
   const row = rows[index];
@@ -34,6 +36,7 @@ export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reor
   const canMove = reorderEnabled && !filtered;
   const lower = itemLabel.toLowerCase();
   const items: PMMenuItemProps[] = [
+    ...(onEdit ? [{ testID: id('edit'), label: `Edit ${lower}`, icon: 'edit', onPress: run(() => onEdit(guid)) }] : []),
     { testID: id('add-below'), label: `Add ${lower} below`, icon: 'add_row_below', onPress: run(() => crud.createAfter(guid)) },
     { testID: id('add-above'), label: `Add ${lower} above`, icon: 'add_row_above', onPress: run(() => crud.createBefore(guid)) },
     { testID: id('duplicate'), label: 'Duplicate', icon: 'control_point_duplicate', onPress: run(() => crud.duplicate(guid)) },

@@ -252,7 +252,7 @@ export default function ProductDashboard() {
               onOpenTable={(k, f, focus) => openTable(k, f || {}, focus)} onRebuildVariants={doRebuild} onDeleteRows={doDelete} />
           )}
           {tab === 'productsTree' && (
-            <ProductsWithTree data={data} cfg={tables.product} onReload={reload} selectRowCheckBoxForm={selectRowCheckBoxForm}
+            <ProductsWithTree data={data} cfg={tables.product} tables={tables} onReload={reload} selectRowCheckBoxForm={selectRowCheckBoxForm}
               selectedFolderId={treeFolder} onSelectedFolderChange={setTreeFolder} />
           )}
           {tab === 'card' && (

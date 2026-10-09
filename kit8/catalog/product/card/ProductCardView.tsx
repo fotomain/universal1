@@ -84,7 +84,7 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
           {section('Main data', link('Edit', 'product', {}, 'product'), (
             <>
               {kv('SKU', String(product.rowJSON?.sku ?? ''), 'sku')}
-              {kv('Unit', L.title('measureUnit', product.rowJSON?.unit), 'unit')}
+              {kv('Unit', L.title('measureUnitForInventory', product.rowJSON?.unit), 'unit')}
               {kv('VAT rate', vatText, 'vat')}
               {kv('Variants', type?.rowJSON?.variantMode === 'none' || !variantOwnerOfProduct(data, product) ? 'none' : `${variants.length} (${L.ownerLabel(variantOwnerOfProduct(data, product))})`, 'variants')}
               {priceTypes.map((pt) => kv(`${rowTitle(pt)}${pt.rowJSON?.vatIncluded ? ' (VAT incl.)' : ''}`, price(null, pt.rowGUID), `price-${pt.rowGUID}`))}
@@ -115,7 +115,7 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
           {section(`Barcodes, packs, series`, link('Barcodes', 'productBarcode', { product: product.rowGUID }, 'barcodes'), (
             <>
               {kv('Barcodes', barcodes.filter((b) => !isSet(b.rowParentGUID)).map((b) => b.rowJSON?.barcode).join(', ') || (barcodes.length ? `${barcodes.length} (per variant)` : ''), 'barcodes')}
-              {kv('Packs', packs.map((k) => `${rowTitle(k)} (${k.rowJSON?.ratio ?? '?'} ${L.title('measureUnit', k.rowParentGUID)})`).join(', '), 'packs')}
+              {kv('Packs', packs.map((k) => `${rowTitle(k)} (${k.rowJSON?.ratio ?? '?'} ${L.title('measureUnitForInventory', k.rowParentGUID)})`).join(', '), 'packs')}
               {kv(type?.rowJSON?.useSerialNumbers ? 'Serial numbers / batches' : 'Batches', series.map((s) => rowTitle(s) + (s.rowJSON?.expiresAt ? ` → ${s.rowJSON.expiresAt}` : '')).join(', '), 'series')}
             </>
           ), 'logistics')}

@@ -12,12 +12,18 @@
 
 Same parameters as ListWebCardsComponent: `entityName, entityForArchivationName, crudListTitle, listOwnerGUID, itemLabel,
 realtime, readParams, reorderEnabled`. Table parameters: `listParentGUID, visualColumns, defaultRowJSON, selectionEnabled,
-uxuiTable { verticalDelimitersForCells = true, verticalDelimitersForColumnNames = true, roundedCells = false, borderedCells = false, minimumTableToolBarHeight = true, minimumTableRowHeight = true, useTableFooterHeightAsLineHeight = true, justifyTotalsOfFieldsMode = 'justifyTextCenter' | 'justifyTextRight', colorForColumnHeadersBackground = react-native-paper surfaceVariant as hex ('transparent' possible), searchInputHeight = 'smallestHeight' | 'mediumHeight' | 'normalHeight',
+uxuiTable { inlineEdit = true, verticalDelimitersForCells = true, verticalDelimitersForColumnNames = true, roundedCells = false, borderedCells = false, minimumTableToolBarHeight = true, minimumTableRowHeight = true, useTableFooterHeightAsLineHeight = true, justifyTotalsOfFieldsMode = 'justifyTextCenter' | 'justifyTextRight', colorForColumnHeadersBackground = react-native-paper surfaceVariant as hex ('transparent' possible), searchInputHeight = 'smallestHeight' | 'mediumHeight' | 'normalHeight',
 tableBarLayoutVariant = 'leftCrudPanel_rightSearch' (default) | 'leftCrudPanel_rightSearchTitle' | 'leftTitle_rightSearchCrudPanel', fixedWidth = '100%' (px: horizontal scroll) },
 selectRowCheckBoxForm ('formRound' | 'formSquare' - project UX/UI setting), dragAndDropColumns, resizeColumnWidth,
 columnSortAndFilter (▾ on a header: sort + filter, default on), crudPanelEnabled (icon panel, default on),
 columnsOrder, columnsWidths, onColumnsOrderChange, onColumnsWidthsChange,
 searchEnabled, contextMenuEnabled, extraMenuItems, onRowsChange, rowHeight, tableMaxWidth, emptyText`.
+
+**Edit in a modal card** (`EditRowModalCard` prop): a component `(EditRowModalCardProps) => ReactNode` that edits ONE row in a window.
+It gets `row` (always the fresh row), `itemLabel`, `visualColumns`, `setCell(columnKey, value)` / `patchRow(rowJSONPatch)` (saved exactly like an
+in-place edit: `validate`, `computeRowJSON`, root columns) and `onClose`. The row menu (right-click / long-press / ⋮) gets **Edit** as its first
+command. `uxuiTable.inlineEdit` (default **true**) = cells are edited in place; `false` = cells only show and a click / tap on a row opens the card
+(without an `EditRowModalCard` the cells stay editable). Product catalog: `ProductItemEditModalCard` (Main · Prices · Variants · Properties).
 
 **All-rows mode** (catalog dashboards, e.g. kit8/catalog/product/dashboard): `listOwnerGUID={REUSABLE_TABLE_ALL}` (and
 `listParentGUID={REUSABLE_TABLE_ALL}`) = the rows of every owner / parent; the read has no `match`, so the redux entity
