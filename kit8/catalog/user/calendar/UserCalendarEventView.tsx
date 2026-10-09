@@ -1,6 +1,6 @@
 // Quick view of a calendar entry (forai: CalendarEventOn1ClickView): opened by a tap on an entry and
 // by a reminder ("auto notifications": the entry opens as a modal window on web and mobile).
-// Buttons: edit · delete (this one / all, for repeating entries) · e-mail the guests · more · close.
+// Buttons: edit · sql_for_delete (this one / all, for repeating entries) · e-mail the guests · more · close.
 
 import React, { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';

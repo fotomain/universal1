@@ -6,7 +6,7 @@
 //   Rate     = the hourly price of a role / variant per price list          rolePriceTable       owner = role (like productPriceTable)
 //   SQL: kit8/sql/init/create_resource_role_tables.sql (needs create_product_tables.sql first), defTable.md pattern:
 //   rowGUID · rowOwnerGUID · rowParentGUID ('empty' = none) · orderInList · rowJSON
-//   Screen: ResourceRoleDashboard (./dashboard), route RESOURCE_ROLE_ROUTES.dashboard
+//   Screen: ResourceRoleDashboardCRUD (./dashboard), route RESOURCE_ROLE_ROUTES.dashboard
 import { PRODUCT_TABLES, todayISO } from '../product/productModel';
 import type { ProductTableDef, ProductTableKey } from '../product/productModel';
 
@@ -18,15 +18,15 @@ const def = (d: ProductTableDef) => d;
 export const RESOURCE_ROLE_OWN_TABLES = {
   resourceRoleType: def({ table: 'resourceRoleTypeTable', entity: 'resourceRoleTypeReusable', itemLabel: 'Role type', catalogOwner: 'resourceRoleTypeCatalog',
     purpose: 'Groups roles of the same kind (Project manager, Data analyst); decides which descriptor sets they use and who owns their variants - like a product type.',
-    emptyRowJSON: () => ({ title: null, description: null, baseUnit: 'unit_hour', roleVATDefaultRate: null, propertySet: null, variantSet: null, variantMode: 'perType', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, description: null, managementGenus: null, baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', propertySet: null, variantSet: null, variantMode: 'perType', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, isActive: true }) }),
   resourceRoleFolder: def({ table: 'resourceRoleFolderTable', entity: 'resourceRoleFolderReusable', itemLabel: 'Folder', catalogOwner: 'resourceRoleFolderCatalog',
     purpose: 'The role tree (Engineering → Frontend) for navigation and reports.',
     emptyRowJSON: () => ({ title: null }) }),
   resourceRole: def({ table: 'resourceRoleTable', entity: 'resourceRoleReusable', itemLabel: 'Role', catalogOwner: null,
-    purpose: 'The concrete role a project books (BI data analyst, React Native developer): owns its requirements (Properties) and rates; its Variants come from the role type - like a product.',
+    purpose: 'The concrete role a project books (BI data analyst, React Native developer): owns its requirements (Properties) and its cost; its Variants come from the role type - like a product.',
     emptyRowJSON: () => ({ title: null, description: null, roleVATRate: null, isActive: true }) }),
-  rolePrice: def({ table: 'rolePriceTable', entity: 'rolePriceReusable', itemLabel: 'Rate', catalogOwner: null,
-    purpose: 'Hourly rates of a role per variant (empty = all variants), price list and unit of measure (the price of ONE unit: 1 hour), with a start date to keep rate history - the same shape as the product prices.',
+  rolePrice: def({ table: 'rolePriceTable', entity: 'rolePriceReusable', itemLabel: 'Cost', catalogOwner: null,
+    purpose: 'The cost of a role (hourly rates) per variant (empty = all variants), price list and unit of measure (the price of ONE unit: 1 hour), with a start date to keep rate history - the same shape as the product prices.',
     emptyRowJSON: () => ({ priceTypeGUID: null, price: null, measureUnit: 'unit_hour', validFrom: todayISO() }) }),
 } as const;
 
@@ -67,7 +67,9 @@ export const PRODUCT_SLOT_AS_ROLE: Partial<Record<ProductTableKey, ResourceRoleO
 // ───────────── row shapes ─────────────
 /** a role type; the descriptor / variant fields are those of ProductTypeJSON */
 export interface ResourceRoleTypeJSON {
-  title: string; description?: string | null; /** measureUnitTable rowGUID - 'unit_hour' */ baseUnit: string;
+  title: string; description?: string | null;
+  /** managementGenusTable rowGUID: timeGenus (human resources), materialGenus, expenseGenus ... */ managementGenus?: string | null;
+  /** measureUnitTable rowGUID - 'unit_hour' */ baseUnit: string;
   /** valueAddedTaxTable rowGUID: default VAT rate of the roles of this type */ roleVATDefaultRate?: string | null;
   propertySet?: string | null; variantSet?: string | null; variantMode: 'none' | 'perType' | 'perProduct' | 'sharedWithType';
   variantSharedTypeGUID?: string | null; uniqueVariants?: boolean; variantTitleTemplate?: string | null; isActive?: boolean;

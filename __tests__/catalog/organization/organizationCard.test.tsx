@@ -61,7 +61,7 @@ describe('OrganizationCard', () => {
     },
   };
 
-  it('renders creator organization as editable with delete button for the creator', () => {
+  it('renders creator organization as editable with sql_for_delete button for the creator', () => {
     mockReduxState = {
       activeUserState: { activeUserEmail: 'creator@universal1.io', isLoggedIn: true },
     };
@@ -80,16 +80,16 @@ describe('OrganizationCard', () => {
     expect(document.body.textContent).toContain('Timber Holding SIA');
     expect(document.body.textContent).toContain('Your Organization');
     expect(q('organization-edit-org-456')).not.toBeNull();
-    expect(q('organization-delete-org-456')).not.toBeNull();
+    expect(q('organization-sql_for_delete-org-456')).not.toBeNull();
 
     press('organization-edit-org-456');
     expect(onEdit).toHaveBeenCalledWith('org-456');
 
-    press('organization-delete-org-456');
+    press('organization-sql_for_delete-org-456');
     expect(onDelete).toHaveBeenCalledWith('org-456');
   });
 
-  it('renders as read-only with no delete button for other users', () => {
+  it('renders as read-only with no sql_for_delete button for other users', () => {
     mockReduxState = {
       activeUserState: { activeUserEmail: 'stranger@universal1.io', isLoggedIn: true },
     };
@@ -109,6 +109,6 @@ describe('OrganizationCard', () => {
     expect(document.body.textContent).toContain('Read-Only');
     expect(q('organization-edit-org-456')).not.toBeNull();
     // Delete button must NOT be rendered for non-creators
-    expect(q('organization-delete-org-456')).toBeNull();
+    expect(q('organization-sql_for_delete-org-456')).toBeNull();
   });
 });

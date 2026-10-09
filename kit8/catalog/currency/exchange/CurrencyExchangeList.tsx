@@ -1,5 +1,5 @@
 // CurrencyExchangeList - route /currency/exchange/list?currencyGUID=… : the exchange rates of ONE currency,
-// newest day first. Web: ListWebCardsComponent (search, delete + Undo, fixed date order) with CurrencyRateCard;
+// newest day first. Web: ListWebCardsComponent (search, sql_for_delete + Undo, fixed date order) with CurrencyRateCard;
 // iOS / Android: a FlatList of the same cards. Both follow Supabase Realtime (other browsers / devices) through
 // the reusable saga, scoped to the currency with readParams.match = { rowOwnerGUID: currencyGUID }.
 import React, { useCallback, useMemo } from 'react';

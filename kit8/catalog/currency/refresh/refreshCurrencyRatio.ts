@@ -1,5 +1,6 @@
 // refreshCurrencyRatio - fills the exchange rates (currencyExchangeRateTable) of the last months from the
 // Frankfurter API v2-1. ONLY days that have no rate yet are added: a rate somebody entered or corrected is never changed.
+//   The refreshed rates are of the Default rate type; a Budget rate (key 'day|Budget') of the same day never blocks them.
 //   currencyRatio = units of the currency for 1 base currency (EXPO_PUBLIC_CURRENCY_RATES_BASE, default EUR).
 import { currencyExchangeRateTable, isValidISODate, orderInListForDate, todayISO } from '../exchange/currencyExchangeModel';
 import { currencyRefreshConfig, CurrencyRefreshConfig } from './currencyRefreshConfig';
@@ -45,7 +46,7 @@ export function missingRateRows(currencies: any[], rates: RatesByDay, existing: 
         rowOwnerGUID: cur.rowGUID,
         rowParentGUID: day,
         orderInList: orderInListForDate(day),
-        rowJSON: { startingDate: day, currencyRatio: Math.round(ratio * 1e6) / 1e6, rateSource: 'frankfurter', rateBase: base, ...(providers ? { rateProviders: providers } : {}) },
+        rowJSON: { startingDate: day, currencyRatio: Math.round(ratio * 1e6) / 1e6, rateType: 'Default', rateSource: 'frankfurter', rateBase: base, ...(providers ? { rateProviders: providers } : {}) },
       });
     }
   }

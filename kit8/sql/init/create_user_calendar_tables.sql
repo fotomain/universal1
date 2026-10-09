@@ -24,7 +24,7 @@
 --       rowJSON       = { email, status: 'sent'|'failed', sentAt, error, resendId }
 --
 -- PROJECT TASKS: every task / milestone of project_task_table is mirrored automatically into
--- user_calendar_event_table (kind 'projectTask') by triggers: insert, update and delete of a
+-- user_calendar_event_table (kind 'projectTask') by triggers: insert, update and sql_for_delete of a
 -- project task do the same to its calendar row. The calendar row belongs to the task's owner.
 -- =====================================================================================
 
@@ -97,7 +97,7 @@ BEGIN
 END $$;
 
 -- =====================================================================================
--- Project tasks -> calendar (automatic create / update / delete)
+-- Project tasks -> calendar (automatic create / update / sql_for_delete)
 -- =====================================================================================
 -- Calendar rowJSON of one project task. Day plans = all-day (the finish is exclusive, so the
 -- last day is finish - 1 day); hour / minute / second plans = timed.

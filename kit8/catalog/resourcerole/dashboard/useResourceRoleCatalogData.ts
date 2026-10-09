@@ -10,6 +10,9 @@ import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 import { PRODUCT_READ_PARAMS } from '../../product/dashboard/useProductCatalogData';
 import { sideOf, SideOwnedKey } from '../../product/crud/catalogSides';
 import { PRODUCT_TABLES } from '../../product/productModel';
+import { PERSON_ENTITY } from '../../person/personModel';
+import { PERSON_TYPE_TABLE } from '../../person/personTypeModel';
+import { MANAGEMENT_GENUS_TABLE } from '../../management/genus/managementGenusModel';
 import { RESOURCE_ROLE_TABLE_KEYS, RESOURCE_ROLE_TABLES, ResourceRoleTableKey } from '../resourceRoleModel';
 import type { ResourceRoleCatalogData } from '../crud/resourceRoleCatalogTools';
 
@@ -26,7 +29,10 @@ function useTableRealtime(key: ResourceRoleTableKey, enabled: boolean) {
   return useRealtimeEntity(RESOURCE_ROLE_TABLES[key].entity, { readParams: PRODUCT_READ_PARAMS, enabled });
 }
 
-const PRODUCT_OWNER_ENTITIES = [PRODUCT_TABLES.productType.entity, PRODUCT_TABLES.product.entity];
+/** the OTHER sides of the shared descriptor tables: products and persons (types first, then items) */
+const PRODUCT_OWNER_ENTITIES = [PRODUCT_TABLES.productType.entity, PRODUCT_TABLES.product.entity, PERSON_TYPE_TABLE.entity, PERSON_ENTITY];
+/** read only (no realtime, not in `status`): the role types point at it; without its table the dashboard still works */
+const MANAGEMENT_GENUS_ENTITY = MANAGEMENT_GENUS_TABLE.entity;
 
 export function useResourceRoleCatalogData(enabled = true): {
   data: ResourceRoleCatalogData; status: Record<ResourceRoleTableKey, ResourceRoleTableStatus>; reload: () => void;
@@ -37,6 +43,7 @@ export function useResourceRoleCatalogData(enabled = true): {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   RESOURCE_ROLE_TABLE_KEYS.forEach((k) => useTableRealtime(k, enabled));
 
+  const genusRows: any[] | undefined = useSelector((s: any) => s?.[MANAGEMENT_GENUS_ENTITY]?.entityDataFromServer, shallowEqual);
   const productOwnerLists: any[] = useSelector((s: any) => PRODUCT_OWNER_ENTITIES.map((e) => s?.[e]?.entityDataFromServer), shallowEqual);
   const lists: any[] = useSelector((s: any) => RESOURCE_ROLE_TABLE_KEYS.map((k) => s?.[RESOURCE_ROLE_TABLES[k].entity]?.entityDataFromServer), shallowEqual);
   const flags: any[] = useSelector((s: any) => RESOURCE_ROLE_TABLE_KEYS.flatMap((k) => {
@@ -49,7 +56,7 @@ export function useResourceRoleCatalogData(enabled = true): {
       const actions = SystemMetaData[RESOURCE_ROLE_TABLES[k].entity]?.actions;
       if (actions?.readData) dispatch(actions.readData(PRODUCT_READ_PARAMS));
     }
-    for (const entity of PRODUCT_OWNER_ENTITIES) {
+    for (const entity of [...PRODUCT_OWNER_ENTITIES, MANAGEMENT_GENUS_ENTITY]) {
       const actions = SystemMetaData[entity]?.actions;
       if (actions?.readData) dispatch(actions.readData(PRODUCT_READ_PARAMS));
     }
@@ -59,13 +66,13 @@ export function useResourceRoleCatalogData(enabled = true): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  const [productTypes, products] = productOwnerLists;
+  const [productTypes, products, personTypes, persons] = productOwnerLists;
   const { data, productOwned } = useMemo(() => {
-    const all = {} as ResourceRoleCatalogData;
+    const all = { managementGenus: Array.isArray(genusRows) ? genusRows : [] } as unknown as ResourceRoleCatalogData;
     RESOURCE_ROLE_TABLE_KEYS.forEach((k, i) => { all[k] = Array.isArray(lists[i]) ? lists[i] : []; });
-    const side = sideOf(all, productTypes || [], products || []);
+    const side = sideOf(all, [...(productTypes || []), ...(personTypes || [])], [...(products || []), ...(persons || [])]);
     return { data: side.data, productOwned: side.otherOwned };
-  }, [lists, productTypes, products]);
+  }, [lists, productTypes, products, personTypes, persons, genusRows]);
 
   const status = useMemo(() => {
     const out = {} as Record<ResourceRoleTableKey, ResourceRoleTableStatus>;

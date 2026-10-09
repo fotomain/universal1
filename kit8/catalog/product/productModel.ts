@@ -3,7 +3,7 @@
 // both built on Descriptors). Product side only: no resource-role tables yet.
 //   SQL: kit8/sql/init/create_product_tables.sql (+ delete_product_tables.sql), defTable.md pattern:
 //   rowGUID · rowOwnerGUID · rowParentGUID ('empty' = none) · orderInList · rowJSON
-//   Screen: ProductDashboard (./dashboard), route PRODUCT_ROUTES.dashboard
+//   Screen: ProductDashboardCRUD (./dashboard), route PRODUCT_ROUTES.dashboard
 
 export const PRODUCT_ROUTES = { dashboard: '/catalog/product/dashboard' } as const;
 
@@ -95,7 +95,7 @@ export function todayISO(d = new Date()): string {
 export type DescriptionMode = 'property' | 'variant';
 export type DescriptorValueType = 'ref' | 'string' | 'number' | 'boolean' | 'date';
 export type VariantMode = 'none' | 'perType' | 'perProduct' | 'sharedWithType';
-export type TargetKind = 'productType' | 'resourceRoleType';
+export type TargetKind = 'productType' | 'resourceRoleType' | 'personType';
 export type PriceAppliesTo = 'product' | 'resourceRoleType';
 
 export const DESCRIPTION_MODES: { value: DescriptionMode; label: string }[] = [
@@ -118,6 +118,7 @@ export const VARIANT_MODES: { value: VariantMode; label: string; hint: string }[
 export const TARGET_KINDS: { value: TargetKind; label: string }[] = [
   { value: 'productType', label: 'Product type' },
   { value: 'resourceRoleType', label: 'Resource role type' },
+  { value: 'personType', label: 'Person type' },
 ];
 export const PRICE_APPLIES_TO: { value: PriceAppliesTo; label: string }[] = [
   { value: 'product', label: 'Products' },
@@ -136,7 +137,15 @@ export interface DefRow<J = Record<string, any>> {
 }
 /** one VAT rate; vatTablePercent e.g. 21 */
 export interface ValueAddedTaxJSON { vatTableTitle: string; vatTablePercent: number }
-export interface DescriptorGenusJSON { title: string; valueType: DescriptorValueType; unit?: string | null; allowedDescriptionModes: DescriptionMode[]; targetKinds: TargetKind[]; isActive?: boolean }
+export interface DescriptorGenusJSON {
+  title: string; valueType: DescriptorValueType; unit?: string | null; allowedDescriptionModes: DescriptionMode[]; targetKinds: TargetKind[]; isActive?: boolean;
+  /** the owner may have SEVERAL values of this descriptor (a person's certifications): one propertyValue row each; rule R8 is relaxed */
+  multiple?: boolean;
+  /** person side: this descriptor answers the requirement of that role descriptor (experienceYears satisfies minExperienceYears) */
+  satisfies?: string | null;
+  /** how a person's value is compared with the requirement of the role: 'atLeast' (numbers, default) | 'equals' | 'includes' (lists, default) */
+  matchRule?: 'atLeast' | 'equals' | 'includes';
+}
 export interface DescriptorValueJSON { code: string; title: string; hex?: string | null; num?: number | null; sort?: number | null }
 export interface DescriptorPlanJSON { required: boolean; sort: number | null; inVariantTitle?: boolean; showInCard?: boolean }
 export interface ProductTypeJSON {

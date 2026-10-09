@@ -12,7 +12,7 @@ import type { ScopeFilterDef } from '../../product/dashboard/productDashboardTab
 import DescriptorValueCell from '../../product/dashboard/DescriptorValueCell';
 import { ResourceRoleTableKey } from '../resourceRoleModel';
 import {
-  byGUID, currentRate, isSet, priceTypeForRoles, ResourceRoleCatalogData, roleAsProductData, roleKeyOfSlot, rowTitle, variantOwnerOfRole, variantsOfRole,
+  byGUID, currentRate, isSet, priceTypeForRoles, ResourceRoleCatalogData, roleAsProductData, roleKeyOfSlot, rowTitle, variantOwnerOfRole, variantsOfRole, vatPercentOfRole,
 } from '../crud/resourceRoleCatalogTools';
 import type { ResourceRoleLabels } from '../crud/resourceRoleLabels';
 
@@ -26,12 +26,12 @@ export interface ResourceRoleTableConfig {
   group: string;
   columns: VisualColumn[];
   filters: ScopeFilterDef[];
-  /** false: a fixed list (no add / delete) */
+  /** false: a fixed list (no add / sql_for_delete) */
   crud?: boolean;
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
 }
 
-export const ROLE_DASHBOARD_GROUPS = ['Catalog', 'Descriptors', 'Role data', 'Rates'] as const;
+export const ROLE_DASHBOARD_GROUPS = ['Catalog', 'Descriptors', 'Role data', 'Cost'] as const;
 
 export interface ResourceRoleTableContext {
   /** open another table filtered by this row; `fromRowGUID` = the row the user comes from (the table shows a back arrow to it) */
@@ -104,10 +104,12 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
         typeColumn(),
         { key: 'folder', title: 'Folder', type: 'select', target: 'rowParentGUID', options: O.folders, width: 200 },
         { key: 'roleVATRate', title: 'VAT rate', type: 'select', options: O.vatRates, width: 110, placeholder: 'Type default' },
+        // what applies: its own rate, else the role type's default, else 0 % when both are empty
+        count('vatNow', 'VAT now', (r) => `${vatPercentOfRole(data, roleById.get(r.rowGUID) ?? (r as any))} %`, 90),
         { key: 'description', title: 'Description', type: 'text', width: 320 },
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('variants', 'Variants', (r) => variantsOfRole(data, roleById.get(r.rowGUID)).length),
-        count('rate', bill ? `${rowTitle(bill)} now` : 'Rate now', (r) => {
+        count('rate', bill ? `${rowTitle(bill)} now` : 'Cost now', (r) => {
           if (!bill) return '';
           const p = currentRate(data.rolePrice, r as any, typeById.get(r.rowOwnerGUID ?? ''), null, bill.rowGUID, today);
           return p ? `${fmtRate(p.rowJSON?.price, bill.rowJSON?.currency)}${isSet(p.rowJSON?.measureUnit) ? ` / ${L.title('measureUnit', p.rowJSON.measureUnit)}` : ''}` : '—';
@@ -115,7 +117,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
       ],
       extraMenuItems: (row, close) => [
         { testID: `role-open-properties-${row.rowGUID}`, label: 'Property values', icon: 'tune', onPress: () => { close(); ctx.openTable('propertyValue', { role: row.rowGUID }, row.rowGUID); } },
-        { testID: `role-open-rates-${row.rowGUID}`, label: 'Rates', icon: 'sell', onPress: () => { close(); ctx.openTable('rolePrice', { role: row.rowGUID }, row.rowGUID); } },
+        { testID: `role-open-rates-${row.rowGUID}`, label: 'Cost', icon: 'sell', onPress: () => { close(); ctx.openTable('rolePrice', { role: row.rowGUID }, row.rowGUID); } },
         ...(isSet(variantOwnerOfRole(data, roleById.get(row.rowGUID)))
           ? [{ testID: `role-open-variants-${row.rowGUID}`, label: 'Variants', icon: 'style', onPress: () => { close(); ctx.openTable('variant', { owner: variantOwnerOfRole(data, roleById.get(row.rowGUID))! }, row.rowGUID); } }]
           : []),
@@ -127,6 +129,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
         rowNo,
         { key: 'title', title: 'Title', type: 'text', width: 170 },
         { key: 'description', title: 'Description', type: 'text', width: 300 },
+        { key: 'managementGenus', title: 'Management genus', type: 'select', options: O.managementGenus, width: 170, placeholder: 'Choose genus…' },
         { key: 'baseUnit', title: 'Base unit', type: 'select', options: O.units, width: 110 },
         { key: 'roleVATDefaultRate', title: 'Default VAT rate', type: 'select', options: O.vatRates, width: 130 },
         { key: 'variantMode', title: 'Variants', type: 'select', options: VARIANT_MODES, allowEmpty: false, width: 150 },
@@ -166,7 +169,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
     measureUnit: {
       ...shared('measureUnit', 'Catalog'),
       columns: [rowNo, { key: 'title', title: 'Title', type: 'text', width: 160 }, { key: 'code', title: 'Code (UN/ECE, OKEI)', type: 'text', width: 160 },
-        count('used', 'Role types / rates', (r) => data.resourceRoleType.filter((t) => t.rowJSON?.baseUnit === r.rowGUID).length + data.rolePrice.filter((p) => p.rowJSON?.measureUnit === r.rowGUID).length)],
+        count('used', 'Role types / cost', (r) => data.resourceRoleType.filter((t) => t.rowJSON?.baseUnit === r.rowGUID).length + data.rolePrice.filter((p) => p.rowJSON?.measureUnit === r.rowGUID).length)],
     },
     // ───────────── Descriptors ─────────────
     descriptorGenus: shared('descriptorGenus', 'Descriptors'),
@@ -245,7 +248,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
         count('values', 'Values', (r) => vvSummary(r.rowGUID) || '—', 200),
         { key: 'descriptorKey', title: 'Descriptor key', type: 'text', width: 200, editable: false },
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
-        count('rates', 'Rates', (r) => ratesPerVariant(r.rowGUID)),
+        count('rates', 'Cost', (r) => ratesPerVariant(r.rowGUID)),
       ],
       extraMenuItems: (row, close) => [
         { testID: `variant-open-values-${row.rowGUID}`, label: 'Variant values', icon: 'tune', onPress: () => { close(); ctx.openTable('variantValue', { variant: row.rowGUID }, row.rowGUID); } },
@@ -266,7 +269,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
     },
     // ───────────── Rates ─────────────
     rolePrice: {
-      key: 'rolePrice', title: 'Rates', icon: 'sell', group: 'Rates',
+      key: 'rolePrice', title: 'Cost', icon: 'sell', group: 'Cost',
       filters: [
         { key: 'role', label: 'Role', target: 'rowOwnerGUID', options: O.roles },
         { key: 'priceType', label: 'Price type', target: 'priceTypeGUID', options: O.rateTypes },
@@ -279,7 +282,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
           options: (row) => variantsOfRole(data, roleById.get(row.rowOwnerGUID ?? '')).map((v) => ({ value: v.rowGUID, label: rowTitle(v) })) },
         { key: 'priceType', title: 'Price type', type: 'select', field: 'priceTypeGUID', width: 190, allowEmpty: false,
           options: O.rateTypes },
-        { key: 'price', title: 'Rate', type: 'number', width: 110, min: 0, stepper: false, total: false, align: 'right' },
+        { key: 'price', title: 'Cost', type: 'number', width: 110, min: 0, stepper: false, total: false, align: 'right' },
         // the rate is the price of ONE unit of this measureUnit (1 hour), a unit of the units catalog - as in the product prices
         { key: 'measureUnit', title: 'Per 1 unit', type: 'select', options: O.units, allowEmpty: false, width: 110 },
         count('currency', 'Currency', (r) => priceTypeById.get(r.rowJSON?.priceTypeGUID)?.rowJSON?.currency ?? '', 80),
@@ -293,14 +296,14 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
       ],
     },
     priceType: {
-      key: 'priceType', title: 'Price types', icon: 'request_quote', group: 'Rates', filters: [],
+      key: 'priceType', title: 'Price types', icon: 'request_quote', group: 'Cost', filters: [],
       columns: [
         rowNo,
         { key: 'title', title: 'Title', type: 'text', width: 220 },
         { key: 'currency', title: 'Currency', type: 'text', width: 90, validate: (v) => (v && !/^[A-Z]{3}$/.test(String(v)) ? 'Currency: 3 capital letters (ISO 4217), e.g. EUR' : null) },
         { key: 'vatIncluded', title: 'VAT included', type: 'boolean', width: 105 },
         { key: 'appliesTo', title: 'Used for', type: 'multiSelect', options: PRICE_APPLIES_TO, width: 200 },
-        count('rates', 'Rates', (r) => data.rolePrice.filter((p) => p.rowJSON?.priceTypeGUID === r.rowGUID).length),
+        count('rates', 'Cost', (r) => data.rolePrice.filter((p) => p.rowJSON?.priceTypeGUID === r.rowGUID).length),
       ],
     },
   };

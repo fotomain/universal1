@@ -271,6 +271,47 @@ export function stepNumber(value: unknown, direction: 1 | -1, opts: { step?: num
 }
 
 /**
+ * "Fit to width": the width of EVERY column so that all of them are visible at once - together exactly `available` px (the table body without the
+ * service columns). The columns keep their proportions (a wide column stays wider than a narrow one), a row number column keeps its width, and no
+ * column gets narrower than MIN_COLUMN_WIDTH (or wider than MAX_COLUMN_WIDTH): a column that hits a limit is fixed there and the others share the rest.
+ * When even the minimum widths do not fit, every column gets the minimum (the table then scrolls). Returns { [column key]: width }.
+ */
+export function fitColumnWidths(columns: VisualColumn[], available: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  const flexible: VisualColumn[] = [];
+  let fixedTotal = 0;
+  for (const col of columns) {
+    if (col.type === 'rowNumber') { out[col.key] = widthOf(col); fixedTotal += widthOf(col); } else flexible.push(col);
+  }
+  if (!flexible.length) return out;
+  let target = Math.floor(available - fixedTotal);
+  if (!(target > flexible.length * MIN_COLUMN_WIDTH)) { for (const col of flexible) out[col.key] = MIN_COLUMN_WIDTH; return out; }
+  // columns stuck at a limit leave the share; the rest is scaled until nothing new gets stuck
+  let free = flexible.slice();
+  for (let guard = 0; guard <= flexible.length; guard++) {
+    const total = free.reduce((w, col) => w + widthOf(col), 0);
+    const scale = target / total;
+    const stuck = free.filter((col) => widthOf(col) * scale < MIN_COLUMN_WIDTH || widthOf(col) * scale > MAX_COLUMN_WIDTH);
+    if (!stuck.length) break;
+    for (const col of stuck) {
+      const w = widthOf(col) * scale < MIN_COLUMN_WIDTH ? MIN_COLUMN_WIDTH : MAX_COLUMN_WIDTH;
+      out[col.key] = w;
+      target -= w;
+    }
+    free = free.filter((col) => !stuck.includes(col));
+    if (!free.length) return out;
+  }
+  const total = free.reduce((w, col) => w + widthOf(col), 0);
+  let left = target;
+  free.forEach((col, i) => {
+    const w = i === free.length - 1 ? left : Math.floor((widthOf(col) * target) / total);
+    out[col.key] = w;
+    left -= w;
+  });
+  return out;
+}
+
+/**
  * Columns fill the table: when the table is wider than its columns, the extra px are shared (proportionally)
  * by the columns the user did not resize; row number columns keep their width.
  */

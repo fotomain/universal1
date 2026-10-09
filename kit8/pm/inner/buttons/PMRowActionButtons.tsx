@@ -1,5 +1,5 @@
 // Row action buttons shared by the tree hover panel, the chart bar panel and the network node panel:
-// edit · duplicate · copy task info · share · link · open task info · delete.
+// edit · duplicate · copy task info · share · link · open task info · sql_for_delete.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { PMPalette } from '../../view/theme';

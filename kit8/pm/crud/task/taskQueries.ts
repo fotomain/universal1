@@ -1,6 +1,6 @@
 // React Query hooks for rows of project_task_table (stages / tasks / milestones):
 // per-project data (tasks + deps), deep-link task lookup, optimistic create / update /
-// move / delete, and the fractional ordering helpers used by the tree.
+// move / sql_for_delete, and the fractional ordering helpers used by the tree.
 
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';

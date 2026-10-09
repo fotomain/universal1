@@ -1,6 +1,6 @@
 // ProjectVersionCard - one saved version in PMProjectVersionsList:
 //   [ (✓) round check box ]  title · "Version 3 · 2026-10-02 14:05 · 8 rows" · differences to the live project
-//   [ Restore from version ] [ rename ] [ delete ]
+//   [ Restore from version ] [ rename ] [ sql_for_delete ]
 // The check box (same round look as the CRUD list cards) = "draw this version on the Gantt chart";
 // a checked version shows the color of its bars.
 

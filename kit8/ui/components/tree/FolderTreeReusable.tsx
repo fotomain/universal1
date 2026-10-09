@@ -3,7 +3,7 @@
 //   data       flat nodes { id, parentId, title, order } (controlled: the caller keeps them in redux / state)
 //   speed      typed-array index (folderTreeModel) + a windowed list: only the rows in view are mounted (~40),
 //              expand / collapse / search / select never touch the other rows
-//   CRUD       create folder / subfolder (inline rename right away) · rename (F2, double click, menu) · delete with its
+//   CRUD       create folder / subfolder (inline rename right away) · rename (F2, double click, menu) · sql_for_delete with its
 //              subfolders (asks first) · duplicate with subfolders · move up / down · every command is a callback;
 //              a callback that is not given hides its command
 //   drag&drop  drag a folder to reorder it (line before / after) or to nest it (inside); drop ROWS of a table (any
@@ -132,7 +132,7 @@ export interface FolderTreeReusableProps {
   newId?: () => string;
   /** ask before deleting (default true) */
   confirmDelete?: boolean;
-  /** what the delete question says besides the folder name */
+  /** what the sql_for_delete question says besides the folder name */
   deleteHint?: string;
   /** duplicate with subfolders is refused above this many folders (default 2000) */
   maxDuplicateNodes?: number;

@@ -1,5 +1,5 @@
 // Commands of the user calendar shared by the screen, the editor, the quick view and reminders:
-// save (+ e-mail invitations), delete (one occurrence / all), duplicate, done on / off, Google sync.
+// save (+ e-mail invitations), sql_for_delete (one occurrence / all), duplicate, done on / off, Google sync.
 
 import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';

@@ -31,7 +31,7 @@ export interface PMVersionStoreState {
   avoidColors: string[];
   titlePrompt: PMVersionTitlePrompt | null;
   restorePickerOpen: boolean;
-  /** a save / restore / delete is running */
+  /** a save / restore / sql_for_delete is running */
   busy: boolean;
 
   hydrateVersions: (projectGUID: string, rows: PMProjectVersionRow[], missing: boolean) => void;

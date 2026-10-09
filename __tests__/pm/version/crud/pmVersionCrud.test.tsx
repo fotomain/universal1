@@ -195,7 +195,7 @@ describe('project versions (commands)', () => {
     expect(h.store().undoCount).toBe(0); // the undo history described the replaced rows
   });
 
-  it('rename and delete (asks first); a deleted version leaves the comparison', async () => {
+  it('rename and sql_for_delete (asks first); a deleted version leaves the comparison', async () => {
     await mount();
     const v1 = await save('Baseline');
     await act(async () => void (await c().renameVersion(v1, ' Approved ')));

@@ -1,4 +1,5 @@
-// TableExample2 - "many catalog GUIDs in one table": input and storage pattern.
+// TEST FIXTURE of the ReusableTable tests (it was the demo kit8/ui/components/table/reusable/example, route /demo/reusabletable, now removed):
+// "many catalog GUIDs in one table" - input and storage pattern.
 //   Entity name: task_expense_input_table      SQL: public.task_expense_input_table
 //   (kit8/sql/init/create_task_expense_input_table.sql, kit8/sql/defTable.md pattern)
 //     rowGUID        the expense line
@@ -7,9 +8,9 @@
 //     orderInList    the order of the lines (drag & drop)
 //     rowJSON        { personGUID, contractGUID, hours }
 //   Only GUIDs are stored; the titles are read from the catalogs when the table is shown.
-import { PERSON_CATALOG_OWNER, PERSON_ENTITY, PERSON_ROUTES } from '../../../../../catalog/person/personModel';
-import { CONTRACT_ENTITY } from '../../../../../catalog/contract/contractModel';
-import type { VisualColumn } from '../reusableTableTypes';
+import { PERSON_CATALOG_OWNER, PERSON_ENTITY, PERSON_ROUTES } from '../../../../kit8/catalog/person/personModel';
+import { CONTRACT_ENTITY } from '../../../../kit8/catalog/contract/contractModel';
+import type { VisualColumn } from '../../../../kit8/ui/components/table/reusable/reusableTableTypes';
 
 /** Supabase table name. */
 export const taskExpenseInputTable = 'task_expense_input_table';

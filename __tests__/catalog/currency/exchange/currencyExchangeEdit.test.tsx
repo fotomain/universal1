@@ -11,6 +11,12 @@ jest.mock('../../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
 }));
 jest.mock('../../../../kit8/ui/components/common/IconApp', () => () => null);
+jest.mock('../../../../kit8/ui/components/common/SegmentButtonsApp', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ buttons, value, onValueChange, testID }: any) => R.createElement(View, { testID, 'data-value': value },
+    buttons.map((b: any) => R.createElement(Pressable, { key: b.value, testID: b.testID, 'aria-selected': b.value === value, onPress: () => onValueChange(b.value) }, R.createElement(Text, null, b.label)))) };
+});
 jest.mock('../../../../kit8/ui/components/common', () => {
   const R = require('react');
   const { Pressable, Text, TextInput, View } = require('react-native');
@@ -54,6 +60,7 @@ const typeInto = (id: string, text: string) => {
   act(() => { setter.call(el, text); el.dispatchEvent(new Event('input', { bubbles: true })); });
 };
 const value = (id: string) => (q(id) as HTMLInputElement).value;
+const chosenType = () => ['Default', 'Budget'].find((t) => q(`currency-exchange-edit-rateType-${t}`)?.getAttribute('aria-selected') === 'true');
 
 function mount(params: any, rows: any[] = [R1, G1]) {
   if (root) act(() => root.unmount());
@@ -96,24 +103,24 @@ it('new rate: one per day (other currencies do not count), then createOne with o
   const create = dispatched.find((a) => a.type === `${E}/createOne`);
   expect(create.payload).toEqual({
     rowGUID: 'new-rate-1', rowOwnerGUID: 'usd', rowParentGUID: '2026-09-29', orderInList: orderInListForDate('2026-09-29'),
-    rowJSON: { startingDate: '2026-09-29', currencyRatio: 1.09 },
+    rowJSON: { startingDate: '2026-09-29', currencyRatio: 1.09, rateType: 'Default' },
   });
   expect(mockReplace).toHaveBeenCalledWith({ pathname: '/currency/exchange/list', params: { currencyGUID: 'usd' } });
 });
 
-it('existing rate: a new date moves rowParentGUID + orderInList; delete asks twice', () => {
+it('existing rate: a new date moves rowParentGUID + orderInList; sql_for_delete asks twice', () => {
   mount({ currencyGUID: 'usd', rowGUID: 'r1' });
   press('currency-exchange-edit-prev-day');
   typeInto('currency-exchange-edit-currencyRatio', '1.07');
   press('currency-exchange-edit-save');
   expect(dispatched.find((a) => a.type === `${E}/updateOne`).payload).toEqual({
-    rowGUID: 'r1', rowOwnerGUID: 'usd', rowJSON: { startingDate: '2026-09-27', currencyRatio: 1.07 },
+    rowGUID: 'r1', rowOwnerGUID: 'usd', rowJSON: { startingDate: '2026-09-27', currencyRatio: 1.07, rateType: 'Default' },
     orderInList: orderInListForDate('2026-09-27'), columns: { rowParentGUID: '2026-09-27' },
   });
   mount({ currencyGUID: 'usd', rowGUID: 'r1' });
-  press('currency-exchange-edit-delete');
+  press('currency-exchange-edit-sql_for_delete');
   expect(dispatched.some((a) => a.type === `${E}/deleteOne`)).toBe(false);
-  press('currency-exchange-edit-delete');
+  press('currency-exchange-edit-sql_for_delete');
   expect(dispatched.find((a) => a.type === `${E}/deleteOne`).payload).toEqual({ rowGUID: 'r1', rowOwnerGUID: 'usd' });
 });
 
@@ -132,4 +139,44 @@ it('changed in another browser: clean form follows; dirty form offers Reload; de
   expect(q('currency-exchange-edit-gone')!.textContent).toMatch(/deleted in another window/);
   press('currency-exchange-edit-save');
   expect(dispatched.some((a) => a.type === `${E}/updateOne`)).toBe(false);
+});
+
+describe('rate type (Default | Budget, as D365 FO)', () => {
+  it('a Default rate and a Budget rate of the same day can both exist: the key of a Budget rate is "day|Budget"', () => {
+    mount({ currencyGUID: 'usd' });
+    expect(chosenType()).toBe('Default');
+    typeInto('currency-exchange-edit-startingDate', '2026-09-28'); // R1 is a Default rate of that day
+    typeInto('currency-exchange-edit-currencyRatio', '1,20');
+    press('currency-exchange-edit-rateType-Budget');
+    expect(chosenType()).toBe('Budget');
+    press('currency-exchange-edit-save');
+    expect(q('currency-exchange-edit-startingDate-error')).toBeNull();
+    const create = dispatched.find((a) => a.type === `${E}/createOne`);
+    expect(create.payload).toEqual({
+      rowGUID: 'new-rate-1', rowOwnerGUID: 'usd', rowParentGUID: '2026-09-28|Budget', orderInList: orderInListForDate('2026-09-28'),
+      rowJSON: { startingDate: '2026-09-28', currencyRatio: 1.2, rateType: 'Budget' },
+    });
+  });
+
+  it('two rates of the same type and day are refused, with a link to the existing one', () => {
+    const B1 = { ...R1, rowGUID: 'b1', rowParentGUID: '2026-09-28|Budget', rowJSON: { startingDate: '2026-09-28', currencyRatio: 1.2, rateType: 'Budget' } };
+    mount({ currencyGUID: 'usd' }, [R1, B1, G1]);
+    typeInto('currency-exchange-edit-startingDate', '2026-09-28');
+    typeInto('currency-exchange-edit-currencyRatio', '1.3');
+    press('currency-exchange-edit-rateType-Budget');
+    press('currency-exchange-edit-save');
+    expect(q('currency-exchange-edit-startingDate-error')!.textContent).toMatch(/Budget rate for 2026-09-28 already exists/);
+    expect(dispatched.some((a) => a.type === `${E}/createOne`)).toBe(false);
+    press('currency-exchange-edit-open-duplicate');
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/currency/exchange/edit', params: { currencyGUID: 'usd', rowGUID: 'b1' } });
+  });
+
+  it('an existing Budget rate opens with its type; changing the type moves rowParentGUID', () => {
+    const B1 = { ...R1, rowGUID: 'b1', rowParentGUID: '2026-09-28|Budget', rowJSON: { startingDate: '2026-09-28', currencyRatio: 1.2, rateType: 'Budget' } };
+    mount({ currencyGUID: 'usd', rowGUID: 'b1' }, [B1]);
+    expect(chosenType()).toBe('Budget');
+    press('currency-exchange-edit-rateType-Default');
+    press('currency-exchange-edit-save');
+    expect(dispatched.find((a) => a.type === `${E}/updateOne`).payload).toMatchObject({ rowGUID: 'b1', columns: { rowParentGUID: '2026-09-28' }, rowJSON: { rateType: 'Default' } });
+  });
 });

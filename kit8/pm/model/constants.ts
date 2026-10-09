@@ -35,6 +35,8 @@ export const pmRpcKanbanEnsureProjectStages = 'pm_kanban_ensure_project_stages';
 // SQL functions (see kit8/sql/init/create_pm_tables.sql)
 export const pmRpcApplySchedule = 'pm_apply_schedule';
 export const pmRpcDependencyCreatesCycle = 'pm_dependency_creates_cycle';
+/** RPC: saves project_task_table.rowJSON.lastEditPlace only (kit8/sql/init/create_pm_task_line_table.sql) */
+export const pmRpcSetTaskLastEditPlace = 'pm_set_task_last_edit_place';
 
 export const PM_ROUTES = {
   dashboard: '/pm/project/dashboard',

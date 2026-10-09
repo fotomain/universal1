@@ -3,8 +3,8 @@
 // Gantt always needs both at once (one round-trip, one cache entry).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { pmRpcApplySchedule, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
-import { PMProjectData, PMTaskRow } from '../../model/types';
+import { pmRpcApplySchedule, pmRpcSetTaskLastEditPlace, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
+import { PMLastEditPlace, PMProjectData, PMTaskRow } from '../../model/types';
 import { buildTreePath, projectTreePath } from '../../view/project/scheduling';
 import { check, newGUID, normalizeDep, normalizeTask } from './apiUtils';
 
@@ -87,6 +87,11 @@ export function createTaskApi(sb: SupabaseClient) {
     check(await sb.from(projectTaskTable).delete().eq('projectGUID', projectGUID));
   }
 
+  /** rowJSON.lastEditPlace of one task (null removes it) - the rest of rowJSON is not sent, so nothing else can be overwritten */
+  async function setTaskLastEditPlace(rowGUID: string, place: PMLastEditPlace | null): Promise<void> {
+    check(await sb.rpc(pmRpcSetTaskLastEditPlace, { p_task_guid: rowGUID, p_place: place }));
+  }
+
   async function applySchedule(
     projectGUID: string,
     rows: PMScheduleWrite[],
@@ -110,6 +115,7 @@ export function createTaskApi(sb: SupabaseClient) {
     readTask,
     updateTask,
     deleteTask,
+    setTaskLastEditPlace,
     deleteProjectTasks,
     // batch / per project / helpers
     createTasks,

@@ -1,6 +1,6 @@
 // KanbanStageList - route /kanbanstage/list (hamburger menu → Catalogs → Kanban Stages): the DEFAULT Kanban
 // stages (kanban_stage_table) that every new project's Kanban starts with. Web: ListWebCardsComponent (drag &
-// drop = column order, search, delete + Undo) with KanbanStageCard; iOS / Android: a plain list of the same
+// drop = column order, search, sql_for_delete + Undo) with KanbanStageCard; iOS / Android: a plain list of the same
 // cards. Live in every browser / device through the reusable saga (useRealtimeEntity).
 import React from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';

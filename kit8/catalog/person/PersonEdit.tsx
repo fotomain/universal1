@@ -34,6 +34,8 @@ type Form = {
   personPhone: string;
   isActive: boolean;
   personIsEmployee: boolean;
+  /** personTypeTable.rowGUID: not edited here (Persons dashboard), but kept when the form saves */
+  personType: string | null;
   employeeNumber: string;
   position: string;
   department: string;
@@ -52,6 +54,7 @@ const toForm = (j?: Partial<PersonRowJSON>): Form => {
     personPhone: v.personPhone || '',
     isActive: v.isActive !== false,
     personIsEmployee: Boolean(v.personIsEmployee),
+    personType: v.personType || null,
     employeeNumber: emp.employeeNumber || '',
     position: emp.position || '',
     department: emp.department || '',
@@ -69,6 +72,7 @@ const fromForm = (f: Form): PersonRowJSON =>
     personPhone: f.personPhone,
     isActive: f.isActive,
     personIsEmployee: f.personIsEmployee,
+    personType: f.personType,
     employeeData: {
       employeeNumber: f.employeeNumber,
       position: f.position,
@@ -294,7 +298,7 @@ export default function PersonEdit() {
       <View style={styles.actions}>
         {rowGUID && !deletedElsewhere && !notFound ? (
           <ButtonTextApp testID="person-edit-delete" onPress={remove} color={c.error}>
-            {confirmDelete ? 'Press again to delete' : 'Delete'}
+            {confirmDelete ? 'Press again to sql_for_delete' : 'Delete'}
           </ButtonTextApp>
         ) : (
           <View />

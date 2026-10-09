@@ -500,7 +500,7 @@ export const reusableRootSaga = (p: any) => {
             return;
         }
         // An error here must never leave this task: it would cancel EVERY saga of the entity (read / create /
-        // update / delete), and the screen would stop working until a reload.
+        // update / sql_for_delete), and the screen would stop working until a reload.
         let chan: any = null;
         try {
             chan = yield call(createSupabaseTableChannel, supabase, {

@@ -1,5 +1,5 @@
-// ProductsWithTree - the Products table with the product FOLDERS tree beside it (a tab of ProductDashboard).
-//   tree    productFolderTable: create / rename / duplicate / delete / reorder / nest folders (FolderTreeReusable)
+// ProductsWithTree - the Products table with the product FOLDERS tree beside it (a tab of ProductDashboardCRUD).
+//   tree    productFolderTable: create / rename / duplicate / sql_for_delete / reorder / nest folders (FolderTreeReusable)
 //   table   productTable (ReusableTable, all-rows mode): picking a folder shows its products (with subfolders),
 //           "Add" inside a folder creates the product in it, drag the ⠿ of a row (or of all selected rows) onto a
 //           folder = the product's folder changes (rowParentGUID); drop on "No folder" = no folder

@@ -1,7 +1,7 @@
 // ProductItemEditModalCard - edits ONE product in a modal window (the EditRowModalCard of the Products table).
 //   Main        every editable column of the Products table as a form: title, SKU, product type, folder, a Units section (unit for inventory +
 //               default unit, both required, both from measureUnitTable), VAT rate, description, active
-//   Prices      the prices of the product (productPriceTable) - a ReusableTable of its rows, add / edit / delete in place
+//   Prices      the prices of the product (productPriceTable) - a ReusableTable of its rows, add / edit / sql_for_delete in place
 //   Variants    the variants of the product (variantTable): owned by its type / by the product, see variantOwnerOfProduct
 //   Properties  the property values of the product (propertyValueTable)
 // The three tables reuse the column definitions of the dashboard (buildDashboardTables), so a cell works exactly as there.

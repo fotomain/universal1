@@ -1,5 +1,5 @@
 // PMTreeToolbar - tree container CRUD toolbar (above the tree canvas):
-// add stage / task / milestone · move up / down · outdent / indent · edit / duplicate / delete ·
+// add stage / task / milestone · move up / down · outdent / indent · edit / duplicate / sql_for_delete ·
 // "#" hierarchy numbers on / off (uxuiSettings.showTreeHierarchyNumbers) · expand / collapse all ·
 // clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns) ·
 // "select lines" column (round check boxes) on / off (uxui.hideTreeSelectColumn, the same on every project).

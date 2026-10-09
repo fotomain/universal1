@@ -105,7 +105,7 @@ describe('PersonCard', () => {
     press('person-card-edit-per-456');
     expect(onEdit).toHaveBeenCalledWith('per-456');
 
-    press('person-card-delete-per-456');
+    press('person-card-sql_for_delete-per-456');
     expect(onDelete).toHaveBeenCalledWith('per-456');
   });
 

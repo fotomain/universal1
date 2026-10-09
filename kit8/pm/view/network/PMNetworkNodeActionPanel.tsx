@@ -1,5 +1,5 @@
 // CRUD panel above the selected activity (NOT rendered in read-only mode):
-// add task below · edit · link · open task info · delete - the same commands as the Gantt
+// add task below · edit · link · open task info · sql_for_delete - the same commands as the Gantt
 // bar panel (PMGanttBarHoverPanel), so undo / approvals work identically.
 
 import React from 'react';

@@ -1,7 +1,4 @@
 export { default as ReusableTable } from './ReusableTable';
-export { default as ReusableTableDemo } from './ReusableTableDemo';
-export { default as TaskExpenseInputTable } from './example/TaskExpenseInputTable';
-export * from './example/taskExpenseInputModel';
 export { useReusableTableCrud } from './useReusableTableCrud';
 export * from './tableRows';
 export * from './tableFilter';

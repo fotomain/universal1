@@ -1,5 +1,5 @@
 // PMApproveYesNoCancelModalWindow: the PM module's own approval dialog (instead of
-// window.confirm / Alert.alert) - used before every delete and before undo.
+// window.confirm / Alert.alert) - used before every sql_for_delete and before undo.
 //
 //   const answer = await askPMApprove({ title, message, yesLabel: 'Delete', destructive: true });
 //   if (answer === 'yes') ...            // 'yes' | 'no' | 'cancel'
@@ -22,7 +22,7 @@ export type PMApproveAnswer = 'yes' | 'no' | 'cancel';
 export interface PMApproveRequest {
   title: string;
   message?: string;
-  /** Material symbol shown next to the title (default: delete / help). */
+  /** Material symbol shown next to the title (default: sql_for_delete / help). */
   icon?: string;
   yesLabel?: string; // default 'Yes'
   noLabel?: string; // default 'No'

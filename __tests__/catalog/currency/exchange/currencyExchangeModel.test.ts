@@ -10,6 +10,9 @@ import {
   orderInListForDate,
   parseRatio,
   ratioChangePercent,
+  RATE_TYPES,
+  rateKeyOf,
+  rateTypeOf,
   rateToCard,
   sortRatesNewestFirst,
   todayISO,
@@ -45,7 +48,7 @@ it('ratio parsing accepts a decimal comma, rejects text', () => {
   expect(parseRatio(' 150 ')).toBe(150);
   expect(parseRatio('abc')).toBeNaN();
   expect(parseRatio('')).toBeNaN();
-  expect(normalizeRate({ startingDate: ' 2026-09-29 ', currencyRatio: '0.85' })).toEqual({ startingDate: '2026-09-29', currencyRatio: 0.85 });
+  expect(normalizeRate({ startingDate: ' 2026-09-29 ', currencyRatio: '0.85' })).toEqual({ startingDate: '2026-09-29', currencyRatio: 0.85, rateType: 'Default' });
 });
 
 it('validation: date, ratio > 0, one rate per currency per day (other currencies do not count)', () => {
@@ -69,4 +72,45 @@ it('card: title / description for search, previous rate = newest older day', () 
   expect(ratioChangePercent(1.1, 1.0)).toBeCloseTo(10);
   expect(ratioChangePercent(1.1, undefined)).toBeNull();
   expect(formatRatio(1.084200)).toBe('1.0842');
+});
+
+describe('rate types (as D365 FO: Default and Budget)', () => {
+  const typed = (id: string, day: string, ratio: number, rateType?: string, owner = 'usd') => ({
+    rowGUID: id, rowOwnerGUID: owner, rowParentGUID: rateKeyOf(day, rateType), orderInList: orderInListForDate(day), rowJSON: { startingDate: day, currencyRatio: ratio, ...(rateType ? { rateType } : {}) },
+  });
+
+  it('the key of a rate: the day for a Default rate, "day|Type" for another type - one currency + day + type = one row', () => {
+    expect(rateKeyOf('2026-01-01')).toBe('2026-01-01');
+    expect(rateKeyOf('2026-01-01', 'Default')).toBe('2026-01-01');
+    expect(rateKeyOf('2026-01-01', 'Budget')).toBe('2026-01-01|Budget');
+    expect(rateKeyOf('2026-01-01', ' ')).toBe('2026-01-01');
+  });
+  it('the type of a row: a row without a type is a Default rate', () => {
+    expect(rateTypeOf(rate('a', '2026-01-01', 1))).toBe('Default');
+    expect(rateTypeOf(typed('b', '2026-01-01', 1, 'Budget'))).toBe('Budget');
+    expect(rateTypeOf(null)).toBe('Default');
+    expect(RATE_TYPES.map((t) => t.value)).toEqual(['Default', 'Budget']);
+  });
+  it('a Default and a Budget rate of the SAME day do not clash; two of the same type do', () => {
+    const rows = [typed('a', '2026-01-01', 1.1), typed('b', '2026-01-01', 1.2, 'Budget')];
+    expect(validateRate({ startingDate: '2026-01-01', currencyRatio: 1.3, rateType: 'Budget' }, rows, 'usd', 'new')).toMatchObject({ duplicateRowGUID: 'b' });
+    expect(validateRate({ startingDate: '2026-01-01', currencyRatio: 1.3, rateType: 'Default' }, rows, 'usd', 'new')).toMatchObject({ duplicateRowGUID: 'a' });
+    expect(validateRate({ startingDate: '2026-01-02', currencyRatio: 1.3, rateType: 'Budget' }, rows, 'usd', 'new')).toEqual({});
+    expect(validateRate({ startingDate: '2026-01-01', currencyRatio: 1.3, rateType: 'Budget' }, [typed('a', '2026-01-01', 1.1)], 'usd', 'new')).toEqual({});
+    expect(validateRate({ startingDate: '2026-01-01', currencyRatio: 1.3, rateType: 'Budget' }, rows, 'usd', 'b')).toEqual({}); // editing the row itself
+    expect(validateRate({ startingDate: '2026-01-01', currencyRatio: 1.3, rateType: 'Budget' }, rows, 'usd', 'new').startingDate).toContain('Budget rate');
+  });
+  it('the card: the day is read from startingDate (the key may have a suffix), the previous rate is of the same type, the type is named', () => {
+    const rows = [typed('a', '2026-01-01', 1.1), typed('b', '2026-02-01', 1.2), typed('c', '2026-01-15', 9, 'Budget'), typed('d', '2026-03-01', 9.9, 'Budget')];
+    expect(rateToCard(rows[1], 0, rows).previousRatio).toBe(1.1);
+    const budget = rateToCard(rows[3], 3, rows);
+    expect(budget.previousRatio).toBe(9);
+    expect(budget.title).toBe('2026-03-01 — 9.9');
+    expect(budget.description).toMatch(/· Budget$/);
+    expect(rateToCard(rows[1], 0, rows).description).not.toMatch(/Budget/);
+  });
+  it('sorting uses the day, not the key', () => {
+    const rows = [typed('a', '2026-01-01', 1, 'Budget'), typed('b', '2026-02-01', 1)];
+    expect(sortRatesNewestFirst(rows).map((r) => r.rowGUID)).toEqual(['b', 'a']);
+  });
 });

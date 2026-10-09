@@ -1,7 +1,7 @@
 // importProjectFromFile: project_data_….json -> the TARGET project (the one open in "Project settings").
 //   1. read + check the file            2. plan (new ids, rebuilt tree paths, project settings)
-//   3. target already has tasks? -> ask "delete the current data?" (no = nothing changes)
-//   4. delete the target's tasks (dependencies go with them), insert tasks (parents first) + dependencies,
+//   3. target already has tasks? -> ask "sql_for_delete the current data?" (no = nothing changes)
+//   4. sql_for_delete the target's tasks (dependencies go with them), insert tasks (parents first) + dependencies,
 //      update the project's rowJSON; the caller refreshes the caches and applies plan.uxuiSettings.
 // Not undoable (the undo history of the project is about single edits).
 

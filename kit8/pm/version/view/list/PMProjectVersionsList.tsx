@@ -3,7 +3,7 @@
 //
 //   toolbar   N versions · M checked · [Clear] ........ [Gantt | Kanban | Network | Versions] [Save version]
 //   cards     ProjectVersionCard per version (newest first): check box = compare on the Gantt chart,
-//             Restore from version, rename, delete
+//             Restore from version, rename, sql_for_delete
 //
 // Checked versions are drawn on the Gantt chart together with the live project (press "Gantt"):
 // thin bars under the task bars, one color per version (PMGanttVersionBars + PMGanttVersionsLegend).

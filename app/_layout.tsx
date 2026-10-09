@@ -535,11 +535,13 @@ function RootLayoutContent() {
 
               <Drawer.Screen name="raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
-              <Drawer.Screen name="demo/reusabletable/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Reusable Table' }} />
               <Drawer.Screen name="demo/foldertree/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Folder tree 200k' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
               <Drawer.Screen name="catalog/product/dashboard/index" options={{ title: 'Products', drawerLabel: 'Products' }} />
               <Drawer.Screen name="catalog/resourcerole/dashboard/index" options={{ title: 'Resource roles', drawerLabel: 'Resource roles' }} />
+              <Drawer.Screen name="catalog/management/genus/list/index" options={{ title: 'Management genus', drawerLabel: 'Management genus' }} />
+              <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
+              <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />
               <Drawer.Screen name="currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
               <Drawer.Screen name="currency/exchange/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rates' }} />

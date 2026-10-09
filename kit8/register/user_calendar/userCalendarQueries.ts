@@ -43,7 +43,7 @@ export function useUserCalendarEventsQuery(ownerGUID: string | null | undefined)
   });
 }
 
-/** Create / update / delete with an optimistic cache update (rolled back on error). */
+/** Create / update / sql_for_delete with an optimistic cache update (rolled back on error). */
 export function useUserCalendarEventMutations(ownerGUID: string | null | undefined) {
   const api = useUserCalendarApi();
   const qc = useQueryClient();

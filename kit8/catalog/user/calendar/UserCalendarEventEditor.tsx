@@ -3,7 +3,7 @@
 //
 //   title · kind chips · all-day · start / end (date + time) · repeat (presets + custom recurrence) ·
 //   notifications · guests (+ e-mail invitations) · location · description · deadline (task) · color ·
-//   more actions: duplicate / delete
+//   more actions: duplicate / sql_for_delete
 // Project tasks (kind 'projectTask') are copies made by the database: their title and dates are
 // changed in the project; here the user adds reminders, guests and a color.
 

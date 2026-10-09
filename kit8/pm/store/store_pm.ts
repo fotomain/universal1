@@ -79,8 +79,9 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       return {
         userSettingsByProject: byProject,
         userSettingsTableMissing: tableMissing,
-        // the selected project's rows arrive after selectProject: apply them (the Gantt | Network mode
-        // only for the first project of the session - later it follows the user, see selectProject)
+        // the selected project's rows arrive after selectProject: apply them. The main view is applied ONCE (the first rows of the
+        // selected project); later refreshes (realtime, another browser) never switch the view under the user's hands
+        ...(v ? { keepWorkspaceMode: true } : {}),
         ...applied,
         ...(v ? rowsOf({ ...state, ...applied }) : {}),
       };
@@ -191,8 +192,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       const selectedProjectGUID =
         state.selectedProjectGUID && projectsById[state.selectedProjectGUID] ? state.selectedProjectGUID : null;
       const recentProjectGUIDs = state.recentProjectGUIDs.filter((g) => !!projectsById[g]);
-      // ganttVsNetworkView / networkViewMode are NOT re-applied here: they are a workspace mode
-      // that follows the user across projects (see selectProject); the setters update the store.
+      // ganttVsNetworkView / networkViewMode are NOT re-applied here: the view is applied when a project is selected
+      // (see selectProject); the setters update the store.
       const view = selectedProjectGUID ? withoutWorkspaceMode(viewSettingsOf(projectsById[selectedProjectGUID], state.userSettingsByProject[selectedProjectGUID])) : {};
       const next = { ...state, projectsById, projectOrder, selectedProjectGUID, ...view };
       // project settings (start date, calendar) feed the scheduler
@@ -213,13 +214,12 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         ? {}
         : {
             selectedProjectGUID: rowGUID,
-            keepWorkspaceMode: !!(rowGUID && state.selectedProjectGUID) || (state.keepWorkspaceMode && !!rowGUID),
+            // the main view (Gantt | Kanban | Network | Versions | Finances) belongs to the user AND the project: the project opens in the view
+            // it was left in (its saved settings). When its settings are not read yet, setAllProjectUserSettings applies them once.
+            keepWorkspaceMode: !!rowGUID && !!state.userSettingsByProject[rowGUID],
             ...viewSettingsOf(rowGUID ? state.projectsById[rowGUID] : undefined, rowGUID ? state.userSettingsByProject[rowGUID] : undefined),
-            // Project 1 in PMNetworkView -> switch to Project N: stay in PMNetworkView (same mode).
-            // The first project opened in a session uses its own saved setting.
-            ...(rowGUID && state.selectedProjectGUID
-              ? { ganttVsNetworkView: state.ganttVsNetworkView, networkViewMode: state.networkViewMode }
-              : {}),
+            // only the sub-mode of the Network view (diagram | schedule) follows the user from project to project
+            ...(rowGUID && state.selectedProjectGUID ? { networkViewMode: state.networkViewMode } : {}),
             loadedProjectGUID: null,
             tasks: [],
             tasksById: {},

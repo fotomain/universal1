@@ -16,7 +16,10 @@ import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userro
 import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
 import {productSystemMetaData} from "../catalog/product/productMetaData";
 import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMetaData";
-import {TASK_EXPENSE_INPUT_ENTITY, taskExpenseInputTable, emptyTaskExpenseInput} from "../ui/components/table/reusable/example/taskExpenseInputModel";
+import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
+import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
+import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
+import {templateResourceContractSystemMetaData} from "../catalog/management/templateresourcecontract/templateResourceContractMetaData";
 
 // MD.
 const SystemMetaData:any = {
@@ -73,18 +76,6 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p:any)=>{},
     },
-    // TableExample2 (kit8/ui/components/table/reusable): expense lines of a task - person GUID + contract GUID + hours,
-    // rowOwnerGUID = project, rowParentGUID = task, Supabase Realtime sync. Route /demo/reusabletable
-    [TASK_EXPENSE_INPUT_ENTITY]: {
-        tableName: taskExpenseInputTable,
-        itemLabel: "Expense",
-        updateValidator: () => {},
-        defaultData: emptyTaskExpenseInput(),
-        prepareCreateApi: (p: any) => {
-            return { newItem: p.action.payload };
-        },
-        prepareReadApi: (p: any) => {},
-    },
     // Product catalog (kit8/catalog/product, "W1 V3 ER DESCRIPTORS PLAN"): 18 tables - valueAddedTax, measureUnit, descriptorGenus,
     // descriptorValue, descriptorMode, descriptorDestination, descriptorPlan, productType, productFolder, product,
     // propertyValue, variant, variantValue, productPackage, productSeries, productBarcode, priceType, productPrice.
@@ -94,6 +85,18 @@ const SystemMetaData:any = {
     // twins of productType / productFolder / product / productPrice; descriptors, property values and variants are the product tables.
     // Screen /catalog/resourcerole/dashboard, SQL kit8/sql/init/create_resource_role_tables.sql
     ...resourceRoleSystemMetaData(),
+    // Management genus (kit8/catalog/management/genus): managementGenusTable, a tree; resourceRoleTypeTable.rowJSON.managementGenus points at it.
+    // Screen /catalog/management/genus/list, SQL kit8/sql/init/create_management_genus_table.sql
+    ...managementGenusSystemMetaData(),
+    // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,
+    // rowParentGUID = management genus. SQL kit8/sql/init/create_pm_task_line_table.sql
+    ...taskLineSystemMetaData(),
+    // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.
+    // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql
+    ...personTypeSystemMetaData(),
+    // Template of the resource contract of a task line (kit8/catalog/management/templateresourcecontract): rowOwnerGUID = management genus.
+    // Screen /catalog/management/templateresourcecontract/list, SQL kit8/sql/init/create_template_resource_contract_table.sql
+    ...templateResourceContractSystemMetaData(),
     // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
     [PERSON_ENTITY]: {
         tableName: personsTable,

@@ -4,6 +4,7 @@ import type { SelectOption } from '../../../ui/components/table/reusable/reusabl
 import { buildProductLabels, ProductLabels } from '../../product/crud/productLabels';
 import { ProductCatalogData } from '../../product/crud/productCatalogTools';
 import { ROLE_AS_PRODUCT_SLOT, ResourceRoleOwnKey, ResourceRoleTableKey } from '../resourceRoleModel';
+import { managementGenusItems, managementGenusPath } from '../../management/genus/managementGenusModel';
 import { priceTypeForRoles, ResourceRoleCatalogData, roleAsProductData } from './resourceRoleCatalogTools';
 
 export interface ResourceRoleLabels extends ProductLabels {
@@ -16,6 +17,8 @@ export interface ResourceRoleLabels extends ProductLabels {
     roleGenus: SelectOption[];
     /** the roles: 'IT project manager' (hint: type) */
     roles: SelectOption[];
+    /** the management genus a role type can have - the items, not the folders: 'Costs › Time' */
+    managementGenus: SelectOption[];
   };
 }
 
@@ -38,6 +41,7 @@ export function buildResourceRoleLabels(data: ResourceRoleCatalogData, adapted: 
       rateTypes: O.priceTypes.filter((o) => ptRows.has(o.value)),
       roleGenus: O.genus.filter((o) => roleGenus.has(o.value)),
       roles: O.products,
+      managementGenus: managementGenusItems(data.managementGenus ?? []).map((g) => ({ value: g.rowGUID, label: managementGenusPath(data.managementGenus, g.rowGUID) || g.rowGUID })).sort((a, b) => a.label.localeCompare(b.label)),
     },
   };
 }

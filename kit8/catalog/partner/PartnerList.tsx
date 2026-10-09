@@ -1,4 +1,4 @@
-// PartnerList - route /partner/list. Web: ListWebCardsComponent (drag & drop order, search, delete +
+// PartnerList - route /partner/list. Web: ListWebCardsComponent (drag & drop order, search, sql_for_delete +
 // Undo) with PartnerCard; iOS / Android: a plain list of PartnerCard. Both stay in sync with Supabase
 // Realtime through the reusable saga (useRealtimeEntity).
 import React from 'react';

@@ -18,7 +18,7 @@ export interface FABContextAction {
   icon: string;
   label: string;
   onPress: () => void;
-  /** mini FAB color (e.g. red for delete) */
+  /** mini FAB color (e.g. red for sql_for_delete) */
   color?: string;
   testID?: string;
 }

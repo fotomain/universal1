@@ -2,6 +2,7 @@
 // Kanban mode (rightPane='kanban'): [ tree | splitter | PMKanbanDashboard ]; tree rows can be dragged onto
 // the board through view/kanban/kanbanTreeBridge.ts.
 // Versions mode (rightPane='versions'): [ tree | splitter | PMProjectVersionsList ] (kit8/pm/version).
+// Finances mode (rightPane='finances'): [ tree | splitter | PMProjectFinancesView ] (the lines of the selected task, view/task/finances).
 // On web this module (and everything that imports Skia) is loaded lazily, after
 // CanvasKit has been initialised (see PMGanttSurfaceLoader.web.tsx).
 //
@@ -32,6 +33,7 @@ import { useKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
 import PMProjectVersionsList from '../../version/view/list/PMProjectVersionsList';
 import { usePMVersionStore } from '../../version/store/store_version';
 import { overlaysRange } from '../../version/model/versionCompare';
+import PMProjectFinancesView from '../task/finances/PMProjectFinancesView';
 
 const MIN_CHART_WIDTH = 160;
 const RESIZE_SETTLE_MS = 180;
@@ -40,7 +42,7 @@ export interface PMGanttSurfaceProps {
   ownerGUID: string;
   projectGUID: string;
   /** right pane: the Skia Gantt chart (default), the Kanban board (tree rows can be dragged onto it) or the project versions list */
-  rightPane?: 'gantt' | 'kanban' | 'versions';
+  rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances';
   readOnly?: boolean;
   hideTree?: boolean;
   /** uxui.hideGanttChartNode: only the tree (no splitter, no chart / board / versions list) */
@@ -75,6 +77,7 @@ export default function PMGanttSurface({
   const narrowRef = useRef(false);
   const isKanban = rightPane === 'kanban';
   const isVersions = rightPane === 'versions';
+  const isFinances = rightPane === 'finances';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
   const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
@@ -239,7 +242,7 @@ export default function PMGanttSurface({
   const treeWidthRef = useRef(treeWidth);
   treeWidthRef.current = treeWidth;
   const isKanbanRef = useRef(isKanban);
-  isKanbanRef.current = isKanban || isVersions; // the right pane scrolls natively
+  isKanbanRef.current = isKanban || isVersions || isFinances; // the right pane scrolls natively
   useEffect(() => () => {
     if (zoomCommitTimer.current) clearTimeout(zoomCommitTimer.current);
   }, []);
@@ -334,7 +337,9 @@ export default function PMGanttSurface({
               )}
             </>
           )}
-          {hideRight ? null : isVersions ? (
+          {hideRight ? null : isFinances ? (
+            <PMProjectFinancesView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
+          ) : isVersions ? (
             <PMProjectVersionsList ownerGUID={ownerGUID} projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isKanban ? (
             <PMKanbanDashboard

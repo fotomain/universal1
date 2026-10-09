@@ -1,5 +1,5 @@
 // Tree row CRUD panel (web: on hover, touch: on the selected row): add task below · add task above ·
-// (stage: add inside) · edit · duplicate · copy info · share · link · details · delete · drag handle (LAST:
+// (stage: add inside) · edit · duplicate · copy info · share · link · details · sql_for_delete · drag handle (LAST:
 // press + drag it to move the row - the gesture comes from the tree, see PMProjectTasksTree).
 // It gets the width its icons need (treeRowPanelGeometry.placeTreeRowPanel), not only the width of
 // the Task name column: it ends at the name column's right edge and grows over the neighbouring

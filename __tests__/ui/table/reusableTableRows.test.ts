@@ -1,11 +1,11 @@
 // ReusableTable pure helpers: order, dependent columns, number input, search text.
-import { colorToHex, moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
+import { fitColumnWidths, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, colorToHex, moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
 import { filterRows, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
 import { buildTableExport, exportFileName, exportToCSV, exportToJSON } from '../../../kit8/ui/components/table/reusable/tableExport';
 import { buildTextTablePdf, layoutTablePdf, approxMeasure, pdfString } from '../../../kit8/ui/components/table/reusable/tablePdf';
 import { addToSearchHistory } from '../../../kit8/ui/components/table/reusable/useSearchHistory';
 import { buildReturnToRoute, safeReturnToRoute } from '../../../kit8/lib/returnToRoute';
-import { personFullName, taskExpenseInputColumns as cols } from '../../../kit8/ui/components/table/reusable/example/taskExpenseInputModel';
+import { personFullName, taskExpenseInputColumns as cols } from './fixtures/taskExpenseInputModel';
 
 const rows = [
   { rowGUID: 'a', orderInList: 100, rowJSON: {} },
@@ -205,4 +205,54 @@ it('colorToHex', () => {
   expect(colorToHex('#ABC')).toBe('#aabbcc');
   expect(colorToHex('#E7E0EC')).toBe('#e7e0ec');
   expect(colorToHex('transparent')).toBe('transparent');
+});
+
+describe('fitColumnWidths ("Fit to width": all columns visible)', () => {
+  const col = (key: string, width: number, type: any = 'text') => ({ key, title: key, type, width }) as any;
+  const sum = (w: Record<string, number>) => Object.values(w).reduce((a, b) => a + b, 0);
+
+  it('shrinks a too wide table to exactly the available width, keeping the proportions; the row number keeps its width', () => {
+    const cols = [col('n', 50, 'rowNumber'), col('a', 400), col('b', 200), col('c', 200)];
+    const w = fitColumnWidths(cols, 450);
+    expect(w.n).toBe(50);
+    expect(sum(w)).toBe(450);
+    expect(w.a).toBe(200);
+    expect(w.b).toBe(100);
+    expect(w.c).toBe(100);
+  });
+
+  it('widens a narrow table too, so the columns fill it', () => {
+    const w = fitColumnWidths([col('a', 100), col('b', 100)], 600);
+    expect(w).toEqual({ a: 300, b: 300 });
+  });
+
+  it('the pixels left by rounding go to the last column: the sum is exact', () => {
+    const w = fitColumnWidths([col('a', 100), col('b', 100), col('c', 100)], 500);
+    expect(sum(w)).toBe(500);
+    expect(w.a).toBe(166);
+    expect(w.c).toBe(168);
+  });
+
+  it('a column never gets narrower than the minimum: it stays at it and the others share the rest', () => {
+    const w = fitColumnWidths([col('a', 1000), col('b', 20), col('c', 1000)], 400);
+    expect(w.b).toBe(MIN_COLUMN_WIDTH);
+    expect(sum(w)).toBe(400);
+    expect(w.a).toBe(180);
+    expect(w.c).toBe(180);
+  });
+
+  it('a column never gets wider than the maximum', () => {
+    const w = fitColumnWidths([col('a', 100), col('b', 100)], 3000);
+    expect(w.a).toBe(MAX_COLUMN_WIDTH);
+    expect(w.b).toBe(MAX_COLUMN_WIDTH);
+  });
+
+  it('too little room for even the minimum widths: every column gets the minimum (the table scrolls)', () => {
+    expect(fitColumnWidths([col('a', 300), col('b', 300), col('c', 300)], 90)).toEqual({ a: MIN_COLUMN_WIDTH, b: MIN_COLUMN_WIDTH, c: MIN_COLUMN_WIDTH });
+  });
+
+  it('only a row number column, or no columns: nothing to fit', () => {
+    expect(fitColumnWidths([col('n', 50, 'rowNumber')], 800)).toEqual({ n: 50 });
+    expect(fitColumnWidths([], 800)).toEqual({});
+  });
 });

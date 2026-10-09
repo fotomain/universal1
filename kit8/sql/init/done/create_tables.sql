@@ -151,11 +151,11 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS "Allow anon select" ON public.%I', t);
     EXECUTE format('DROP POLICY IF EXISTS "Allow anon insert" ON public.%I', t);
     EXECUTE format('DROP POLICY IF EXISTS "Allow anon update" ON public.%I', t);
-    EXECUTE format('DROP POLICY IF EXISTS "Allow anon delete" ON public.%I', t);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow anon sql_for_delete" ON public.%I', t);
     EXECUTE format('CREATE POLICY "Allow anon select" ON public.%I FOR SELECT TO anon, authenticated USING (true)', t);
     EXECUTE format('CREATE POLICY "Allow anon insert" ON public.%I FOR INSERT TO anon, authenticated WITH CHECK (true)', t);
     EXECUTE format('CREATE POLICY "Allow anon update" ON public.%I FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true)', t);
-    EXECUTE format('CREATE POLICY "Allow anon delete" ON public.%I FOR DELETE TO anon, authenticated USING (true)', t);
+    EXECUTE format('CREATE POLICY "Allow anon sql_for_delete" ON public.%I FOR DELETE TO anon, authenticated USING (true)', t);
   END LOOP;
 END $$;
 
@@ -318,7 +318,7 @@ SELECT v.ord, jsonb_build_object('currencyCode', v.code, 'currencyName', v.name,
 
 -- ---- currencyExchangeRateTable: rowOwnerGUID = currency, rowParentGUID = 'YYYY-MM-DD' -------
 --      one rate per currency per day; orderInList = -(days since 1970-01-01); no FK on purpose
---      (an undone currency delete re-creates the same rowGUID and gets its rates back)
+--      (an undone currency sql_for_delete re-creates the same rowGUID and gets its rates back)
 CREATE TABLE IF NOT EXISTS public."currencyExchangeRateTable" (
   "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
   "rowOwnerGUID"  TEXT        NOT NULL,
@@ -350,7 +350,7 @@ CREATE POLICY "currencyExchangeRateTable_update" ON public."currencyExchangeRate
 CREATE POLICY "currencyExchangeRateTable_delete" ON public."currencyExchangeRateTable" FOR DELETE TO authenticated USING (true);
 
 -- ---- organizationTable: rowOwnerGUID 'organizationCatalog'. Created on first login ----------
---      (app/_layout.tsx). Read: signed-in; update / delete: only rowJSON.createdByUser
+--      (app/_layout.tsx). Read: signed-in; update / sql_for_delete: only rowJSON.createdByUser
 CREATE TABLE IF NOT EXISTS public."organizationTable" (
   "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
   "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'organizationCatalog',
@@ -780,7 +780,7 @@ LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW."rowGUID" <> OLD."rowGUID" OR NEW."rowDependsOnGUID" <> OLD."rowDependsOnGUID"
      OR NEW."projectGUID" <> OLD."projectGUID" THEN
-    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (delete + insert instead)'
+    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (sql_for_delete + insert instead)'
       USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
@@ -813,7 +813,7 @@ BEGIN
 END;
 $$;
 
--- a DAG can have several paths between two nodes, so a delete is not undone locally:
+-- a DAG can have several paths between two nodes, so a sql_for_delete is not undone locally:
 -- the closure of THAT project is rebuilt (small at PM scale, always correct)
 CREATE OR REPLACE FUNCTION public.pm_rebuild_dependency_closure(p_project uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -1570,7 +1570,7 @@ LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW."rowGUID" <> OLD."rowGUID" OR NEW."rowDependsOnGUID" <> OLD."rowDependsOnGUID"
      OR NEW."projectGUID" <> OLD."projectGUID" THEN
-    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (delete + insert instead)'
+    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (sql_for_delete + insert instead)'
       USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
@@ -1603,7 +1603,7 @@ BEGIN
 END;
 $$;
 
--- a DAG can have several paths between two nodes, so a delete is not undone locally:
+-- a DAG can have several paths between two nodes, so a sql_for_delete is not undone locally:
 -- the closure of THAT project is rebuilt (small at PM scale, always correct)
 CREATE OR REPLACE FUNCTION public.pm_template_rebuild_dependency_closure(p_project uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -2032,7 +2032,7 @@ GRANT EXECUTE ON FUNCTION public.pm_version_restore(uuid, text)   TO authenticat
 GRANT EXECUTE ON FUNCTION public.pm_version_set_title(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pm_owns_version(uuid)            TO authenticated;
 
--- ---- Row Level Security: read own versions, delete own versions; writes only through the RPCs
+-- ---- Row Level Security: read own versions, sql_for_delete own versions; writes only through the RPCs
 ALTER TABLE public.version_project_table                   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.version_project_task_table              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.version_project_task_dependencies_table ENABLE ROW LEVEL SECURITY;

@@ -134,7 +134,7 @@ export const AskBeforeDeleteGoogleFile: React.FC<AskBeforeDeleteGoogleFileProps>
                             {isCompleted
                                 ? 'The folder is now empty.'
                                 : isFolderClear
-                                ? 'This action will permanently delete all files in this dataset folder and cannot be undone.'
+                                ? 'This action will permanently sql_for_delete all files in this dataset folder and cannot be undone.'
                                 : 'This action cannot be undone.'}
                         </Text>
 

@@ -8,7 +8,7 @@
 //                       the UI thread; one JS call commits the edit on release
 //  * links            = smooth (cubic Bézier) or square (orthogonal) paths between bar ends
 //                       (FS/SS/FF/SF) + arrows, per-dependency color (rowJSON.dependencyColor)
-//  * link actions     = right-click (web) / tap (touch) an arrow -> menu (edit, delete);
+//  * link actions     = right-click (web) / tap (touch) an arrow -> menu (edit, sql_for_delete);
 //                       double-click an arrow -> PMEditDependencyScreen
 //  * hover CRUD panel = next to the hovered (web) / selected (touch) bar
 
@@ -752,7 +752,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         else s.setLinkSource(null);
         return;
       }
-      // touch devices have no right-click: a tap on an arrow opens its menu (edit / delete)
+      // touch devices have no right-click: a tap on an arrow opens its menu (edit / sql_for_delete)
       if (!IS_WEB && (zone === Z_NONE || zone === Z_BAR_ONLY)) {
         const ref = hitLinkAt(x, y);
         if (ref) return openLinkMenuAt(ref, x, y);
@@ -789,7 +789,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     return zone !== Z_NONE && zone !== Z_THUMB_X && zone !== Z_THUMB_Y && zone !== Z_HOLD;
   };
 
-  // web: right-click on an arrow -> context menu (edit, delete); on a bar (onRightClickMenuMode) ->
+  // web: right-click on an arrow -> context menu (edit, sql_for_delete); on a bar (onRightClickMenuMode) ->
   // PMTaskRowMenu; elsewhere the browser menu
   useEffect(() => {
     if (!IS_WEB) return;

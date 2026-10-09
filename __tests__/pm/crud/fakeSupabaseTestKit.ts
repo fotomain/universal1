@@ -1,7 +1,7 @@
 // In-memory stand-in for the Supabase client used by kit8/pm/crud/* (PostgREST subset):
-//   from(table).select / insert(...).select() / upsert(row, { onConflict }).select() / update(...) / delete()
+//   from(table).select / insert(...).select() / upsert(row, { onConflict }).select() / update(...) / sql_for_delete()
 //     .eq .ilike('rowJSON->>name', pattern) .order .limit .single .maybeSingle   (awaitable)
-//   rpc('pm_apply_schedule', args)
+//   rpc('pm_apply_schedule', args) · rpc('pm_set_task_last_edit_place', args)
 // It also plays the SQL triggers the PM module relies on:
 //   - deleting a task deletes its subtree (ltree) and every dependency touching it
 //   - changing a task's treePath re-paths its subtree
@@ -112,6 +112,17 @@ export class FakeSupabase {
         if (args.p_project_progress !== null) p.rowProgress = args.p_project_progress;
       }
       return { data: (args.p_rows || []).length, error: null };
+    }
+    if (fn === 'pm_set_task_last_edit_place') {
+      const t = this.task(args.p_task_guid);
+      if (!t) return { data: 0, error: null };
+      if (args.p_place === null || args.p_place === undefined) {
+        const { lastEditPlace: _p, ...rest } = t.rowJSON || {};
+        t.rowJSON = rest;
+      } else {
+        t.rowJSON = { ...t.rowJSON, lastEditPlace: args.p_place };
+      }
+      return { data: 1, error: null };
     }
     return { data: null, error: { message: `unknown rpc ${fn}` } };
   }
@@ -275,7 +286,7 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
       return this.returning ? this.shape(rows) : { data: null, error: null };
     }
 
-    // delete
+    // sql_for_delete
     const doomed = all.filter((r) => this.matches(r));
     if (this.table === TASKS) {
       // trigger: subtree + FK cascade on dependencies

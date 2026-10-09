@@ -215,17 +215,17 @@ describe('googleDrive Module CRUD Operations', () => {
     });
 
     describe('3. deleteFile', () => {
-        it('should delete a file by ID', async () => {
+        it('should sql_for_delete a file by ID', async () => {
             mockedAxios.delete.mockResolvedValueOnce({ data: {} });
 
             const result = await googleDrive.deleteFile(
                 mockCredentials,
-                { id: 'file-to-delete-456' },
+                { id: 'file-to-sql_for_delete-456' },
                 {}
             );
 
             expect(result.success).toBe(true);
-            expect(result.id).toBe('file-to-delete-456');
+            expect(result.id).toBe('file-to-sql_for_delete-456');
             expect(mockedAxios.delete).toHaveBeenCalledWith(
                 'https://www.googleapis.com/drive/v3/files/file-to-delete-456',
                 expect.objectContaining({
@@ -328,7 +328,7 @@ describe('googleDrive Module CRUD Operations', () => {
     });
 
     describe('7. deleteFolderContents', () => {
-        it('should list and delete all files in a folder', async () => {
+        it('should list and sql_for_delete all files in a folder', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 data: {
                     files: [

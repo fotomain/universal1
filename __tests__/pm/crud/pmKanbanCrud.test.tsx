@@ -127,7 +127,7 @@ describe('Kanban CRUD', () => {
     expect(h.db.rows('project_task_table').map((t) => [t.rowGUID, t.rowProgress])).toEqual(before);
   });
 
-  it('stages: add, rename / recolor, move, delete (tasks fall back to the first stage)', async () => {
+  it('stages: add, rename / recolor, move, sql_for_delete (tasks fall back to the first stage)', async () => {
     await mountKanban();
     await run(() => k().createStage('Review', '#EF4444'));
     expect(ks().stages.map((s) => s.rowJSON.stageName)).toEqual(['Waiting', 'Plan', 'Analyse', 'Construct', 'Execute', 'Review']);

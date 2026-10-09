@@ -1,5 +1,5 @@
 // React Query hooks for projects (project_table): list, database search, create /
-// update / delete with optimistic updates, and the demo seed.
+// update / sql_for_delete with optimistic updates, and the demo seed.
 
 import { useEffect } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

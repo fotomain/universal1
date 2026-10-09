@@ -87,7 +87,7 @@ describe('model', () => {
   it('SystemMetaData entries for the four tables', () => {
     const md = resourceRoleSystemMetaData();
     expect(Object.keys(md).sort()).toEqual(['resourceRoleFolderReusable', 'resourceRoleReusable', 'resourceRoleTypeReusable', 'rolePriceReusable']);
-    expect(md.rolePriceReusable).toMatchObject({ tableName: 'rolePriceTable', itemLabel: 'Rate' });
+    expect(md.rolePriceReusable).toMatchObject({ tableName: 'rolePriceTable', itemLabel: 'Cost' });
   });
 });
 
@@ -214,7 +214,7 @@ describe('Checks (R1-R14)', () => {
       'Role "IT project manager": choose its role type',
       'Role "ERP business analyst": VAT rate "vat_99" is missing',
       'Role type "Data analyst": base unit "unit_nope" is missing',
-      'Role type "Backend developer": choose the base unit of its rates (hour)',
+      'Role type "Backend developer": choose the base unit of its cost (hour)',
     ]));
     // roles have no unit for inventory / SKU
     expect(m.some((i) => /unit for inventory|SKU/.test(i.message))).toBe(false);
@@ -239,10 +239,10 @@ describe('Checks (R1-R14)', () => {
     expect(variantsToRebuild(roleAsProductData(d)).map((x) => [x.variant.rowGUID, x.title])).toEqual([['pv7', 'Senior, English']]);
   });
 
-  it('R14: a rate in the role itself belongs in the Rates table', () => {
+  it('R14: a rate in the role itself belongs in the Cost table', () => {
     const d = seedRoleCatalog();
     byId(d.resourceRole, 'role3').rowJSON.ratePerHour = 45;
-    expect(messages(d, 'R14')).toEqual(['Role "BI data analyst (Power BI)": "ratePerHour" belongs in the Rates table (rolePriceTable), not in the role']);
+    expect(messages(d, 'R14')).toEqual(['Role "BI data analyst (Power BI)": "ratePerHour" belongs in the Cost table (rolePriceTable), not in the role']);
   });
 
   it('R8: a required property without value; folders: a missing parent', () => {

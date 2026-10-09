@@ -153,7 +153,7 @@ describe('CRUD callbacks (a missing callback hides its command)', () => {
     expect(onRename).toHaveBeenCalledWith('A2', 'Renamed', 'Alpha two');
     expect(q(`${T}-row-A2-input`)).toBeNull();
   });
-  it('delete asks first and reports the folder + all its subfolders', () => {
+  it('sql_for_delete asks first and reports the folder + all its subfolders', () => {
     const onDelete = jest.fn();
     mount({ onDelete });
     pressRow('A');

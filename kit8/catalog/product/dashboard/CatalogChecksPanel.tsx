@@ -1,5 +1,5 @@
 // The "Checks" panel of a catalog dashboard: the findings of the validation rules (R1-R14) with severity filter, one-click fixes
-// (rebuild variant title + key, delete orphan rows) and a link to the row. Shared by the product and the resource role dashboard
+// (rebuild variant title + key, sql_for_delete orphan rows) and a link to the row. Shared by the product and the resource role dashboard
 // (idPrefix 'product' | 'role' keeps their test ids apart).
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

@@ -11,9 +11,9 @@ import { showSnackbar } from '../../../../redux/uxuiSlice';
 import type { ReusableTableProps, ReusableTableRow } from './reusableTableTypes';
 import { builtInCellError, cellPatch, emptyRowJSON, insertRow, moveRow, moveSelectedRows, newRowColumns, sortRows, tableScope } from './tableRows';
 
-type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON'>;
+type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'onRowEdit' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON'>;
 
-export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, rowFilter, newRowDefaults, computeRowJSON }: Args) {
+export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, onRowEdit, rowFilter, newRowDefaults, computeRowJSON }: Args) {
   const dispatch = useDispatch();
   const entityState = useSelector((s: any) => s?.[entityName]);
   const actions = SystemMetaData[entityName]?.actions;
@@ -85,8 +85,9 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
       const { rowGUID, rowOwnerGUID, rowParentGUID, orderInList, rowJSON: json } = inserted;
       dispatch(actions.createOne({ rowGUID, rowOwnerGUID, rowParentGUID, orderInList, rowJSON: json }));
     }
+    onRowEdit?.(inserted.rowGUID, 'create');
     return inserted.rowGUID;
-  }, [actions, dispatch, listOwnerGUID, newRow, setRows]);
+  }, [actions, dispatch, listOwnerGUID, newRow, setRows, onRowEdit]);
 
   const indexOf = (id: string) => rowsRef.current.findIndex((r) => r.rowGUID === id);
   const createFirst = useCallback(() => createAt(0), [createAt]);
@@ -121,7 +122,8 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
         ...(hasColumns ? { columns: columnsPatch } : {}),
       }));
     }
-  }, [actions, dispatch, scopedOwner, scope, rowFilter, setRows]);
+    onRowEdit?.(id, 'update');
+  }, [actions, dispatch, scopedOwner, scope, rowFilter, setRows, onRowEdit]);
   /**
    * one edited cell: checked (column validate + date / color form), its value + the cells that depend on it are
    * cleared, derived fields (computeRowJSON) are added. false = refused (a snackbar says why)
@@ -149,7 +151,8 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     if (!moved) return;
     setRows(next);
     if (actions?.updateOne) dispatch(actions.updateOne({ rowGUID: moved.rowGUID, rowOwnerGUID: scopedOwner ?? moved.rowOwnerGUID, field: 'orderInList', value: moved.orderInList }));
-  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows]);
+    onRowEdit?.(moved.rowGUID, 'move');
+  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows, onRowEdit]);
   /** the selected rows one step up (-1) / down (1), together */
   const moveSelected = useCallback((ids: string[], direction: 1 | -1) => {
     if (!reorderEnabled) return;
@@ -157,21 +160,23 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     if (moved.length === 0) return;
     setRows(next);
     if (actions?.updateOne) moved.forEach((m) => dispatch(actions.updateOne({ rowGUID: m.rowGUID, rowOwnerGUID: scopedOwner ?? m.rowOwnerGUID, field: 'orderInList', value: m.orderInList })));
-  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows]);
+    moved.forEach((m) => onRowEdit?.(m.rowGUID, 'move'));
+  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows, onRowEdit]);
   const moveUp = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i - 1); }, [moveTo]);
   const moveDown = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i + 1); }, [moveTo]);
   const makeFirst = useCallback((id: string) => moveTo(indexOf(id), 0), [moveTo]);
   const makeLast = useCallback((id: string) => moveTo(indexOf(id), rowsRef.current.length - 1), [moveTo]);
 
-  // ---- delete / archive (the saga shows "… successfully deleted" + Undo) ----
+  // ---- sql_for_delete / archive (the saga shows "… successfully deleted" + Undo) ----
   const remove = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     setRows(rowsRef.current.filter((r) => !ids.includes(r.rowGUID)));
     if (actions?.deleteOne) ids.forEach((rowGUID) => dispatch(actions.deleteOne({ rowGUID, ...(scopedOwner ? { rowOwnerGUID: scopedOwner } : {}) })));
-  }, [actions, dispatch, scopedOwner, setRows]);
+    ids.forEach((rowGUID) => onRowEdit?.(rowGUID, 'delete'));
+  }, [actions, dispatch, scopedOwner, setRows, onRowEdit]);
   const canArchive = !!archiveActions?.createOne;
   const archive = useCallback((id: string) => {
-    // no archive entity: archiving must not silently delete the row
+    // no archive entity: archiving must not silently sql_for_delete the row
     if (!archiveActions?.createOne) return;
     const row = rowsRef.current.find((r) => r.rowGUID === id);
     if (!row) return;

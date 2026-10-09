@@ -1,5 +1,5 @@
 // Chart bar CRUD panel next to the hovered (web) / selected (touch) bar:
-// edit · add task below / inside · link · details · delete.
+// edit · add task below / inside · link · details · sql_for_delete.
 
 import React from 'react';
 import { PM_BAR_PANEL_WIDTH } from '../../../model/constants';

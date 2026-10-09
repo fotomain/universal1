@@ -14,6 +14,7 @@
 //   crud/project/useProjectViewSettings.ts   view settings in project_table.rowJSON
 //   crud/project/useProjectCustomColumns.ts  custom tree columns (project_table.rowJSON.customColumns)
 //   crud/project/useProjectTreeFilters.ts    filter & sort of the tree columns (uxuiSettings.treeColumnsFilters / treeColumnSort)
+//   crud/task/useTaskLastEditPlace.ts        recordEditPlace: rowJSON.lastEditPlace of a task (where the user edited last)
 
 import { useMemo } from 'react';
 import { useTaskCommands } from './task/useTaskCommands';
@@ -23,6 +24,7 @@ import { pmT } from '../i18n/pmT';
 import { useProjectViewSettings } from './project/useProjectViewSettings';
 import { useProjectCustomColumns } from './project/useProjectCustomColumns';
 import { useProjectTreeFilters } from './project/useProjectTreeFilters';
+import { useTaskLastEditPlace } from './task/useTaskLastEditPlace';
 import { usePMStore } from '../store/store_pm';
 import { approvePM } from '../inner/PMApproveYesNoCancelModalWindow';
 
@@ -35,6 +37,7 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
   const view = useProjectViewSettings(ownerGUID, projectGUID);
   const customColumns = useProjectCustomColumns(ownerGUID, projectGUID);
   const treeFilters = useProjectTreeFilters(ownerGUID, projectGUID);
+  const editPlace = useTaskLastEditPlace(ownerGUID, projectGUID);
   return useMemo(
     () => ({
       ...task,
@@ -42,6 +45,8 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
       ...view,
       ...customColumns,
       ...treeFilters,
+      /** rowJSON.lastEditPlace: remember where in the task the user edited (quiet, only when the place changes) */
+      ...editPlace,
       /** Asks first (PMApproveYesNoCancelModalWindow), then undoes the last action. */
       undoGanttAction: async () => {
         const { undoCount, undoLabel } = usePMStore.getState();
@@ -75,7 +80,7 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
       /** an undo or a redo is being written */
       isUndoing: undo.isUndoing,
     }),
-    [task, dependency, view, customColumns, treeFilters, undo]
+    [task, dependency, view, customColumns, treeFilters, editPlace, undo]
   );
 }
 

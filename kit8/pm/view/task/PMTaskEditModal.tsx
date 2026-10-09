@@ -1,5 +1,6 @@
 // "Lightbox" editor (DHTMLX-style) for one row, opened by double-tap / edit buttons.
-// Header: title + close (X). TopTabs: TabMain · TabUXUI (Colors).
+// Header: title + close (X). TopTabs: TabMain · TabUXUI (Colors). The window opens on the tab the task was edited on last
+// (rowJSON.lastEditPlace, model/lastEditPlace.ts); Save remembers the tab that holds what was changed.
 // Footer: Delete · Details · Cancel · Save. The bar color is stored as rowJSON.taskColor.
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { usePMStore } from '../../store/store_pm';
+import { lastEditPlaceOf, modalEditedTab, modalTabOf } from '../../model/lastEditPlace';
 import { addWorkDays, formatDateISO, parseDateISO, utcMidnight, workDaysBetween } from '../project/scheduling';
 import { formatPlanDate, parsePlanDate } from '../../model/planDateFormats';
 import { DAY_MS } from '../../model/constants';
@@ -104,9 +106,17 @@ export default function PMTaskEditModal({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // What the user changed in the window (lastEditPlace): the form as it was when the window opened vs when Save is pressed.
+  // The fields are filled by an effect, so the snapshot is taken in the render after it.
+  const formNow = () => ({
+    main: [name, kind, days, start, finish, startHour, startMinute, startSecond, finishHour, finishMinute, finishSecond, progress, kanbanProgress, notes].join('\u0001'),
+    uxui: color ?? '',
+  });
+  const formSnapshot = useRef<'none' | 'pending' | 'settling' | { main: string; uxui: string }>('none');
+
   useEffect(() => {
     if (!task) return;
-    setActiveTab('TabMain');
+    setActiveTab(modalTabOf(lastEditPlaceOf(task.rowJSON)));
     setName(task.rowJSON.name || '');
     setKind((task.rowJSON.rowKind as any) === 'project' ? 'task' : (task.rowJSON.rowKind as Exclude<PMRowKind, 'project'>) || 'task');
     setDays(String(task.rowJSON.durationDays ?? 1));
@@ -145,11 +155,18 @@ export default function PMTaskEditModal({
       ? derivedKanbanProgress(task.rowGUID, tasksById, tree, statesByTask)
       : kanbanStageProgressOf(statesByTask[task.rowGUID], 0);
     setKanbanProgress(String(Math.round(initialKanbanProg)));
+    formSnapshot.current = 'pending';
     setColor(taskColorOf(task.rowJSON));
     setNotes(task.rowJSON.notes || '');
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingGUID]);
+
+  // (declared AFTER the effect that fills the form: same commit 'pending' -> 'settling', the next render has the filled form -> snapshot)
+  useEffect(() => {
+    if (formSnapshot.current === 'pending') formSnapshot.current = 'settling';
+    else if (formSnapshot.current === 'settling') formSnapshot.current = formNow();
+  });
 
   if (!task) return null;
   const summary = hasChildren || kind === 'stage';
@@ -305,16 +322,27 @@ export default function PMTaskEditModal({
       updatedJSON.planSecondFinish = fS;
     }
 
+    const newProgress = Math.min(100, Math.max(0, parseInt(progress, 10) || 0));
+    const kanbanPct = Math.min(100, Math.max(0, parseInt(kanbanProgress, 10) || 0));
+
+    // remember where the user edited: the tab that holds what changed (nothing changed = the place stays)
+    const editedTab = modalEditedTab(
+      typeof formSnapshot.current === 'object'
+        ? { main: formNow().main !== formSnapshot.current.main, uxui: formNow().uxui !== formSnapshot.current.uxui }
+        : { main: false, uxui: false },
+      activeTab,
+    );
+    if (editedTab) crud.recordEditPlace?.(task.rowGUID, { surface: 'editModal', section: editedTab });
+
     crud.updateTask(
       task.rowGUID,
       {
-        rowProgress: Math.min(100, Math.max(0, parseInt(progress, 10) || 0)),
+        rowProgress: newProgress,
         rowJSON: updatedJSON,
       },
       `Edit "${name.trim() || task.rowJSON.name}"`
     );
 
-    const kanbanPct = Math.min(100, Math.max(0, parseInt(kanbanProgress, 10) || 0));
     if (summary) {
       const leaves = kanbanLeavesOf(task.rowGUID, tasksById, tree);
       if (leaves.length) {

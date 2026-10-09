@@ -253,7 +253,7 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
         />
       </View>
 
-      {/* CardIconsBottomComponent: Drag handle + archive & delete icons */}
+      {/* CardIconsBottomComponent: Drag handle + archive & sql_for_delete icons */}
       <CardIconsBottomComponent
         onArchive={() => onArchive?.(card.id)}
         onDelete={() => onDelete?.(card.id)}

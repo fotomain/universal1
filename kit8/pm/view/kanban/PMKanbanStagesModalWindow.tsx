@@ -1,5 +1,5 @@
 // "Kanban Stages" window (Project settings → Kanban Stages, and the Kanban bar): the columns of ONE
-// project = project_kanban_stage_table rows. Rename, recolor, WIP limit, move left / right, delete, add.
+// project = project_kanban_stage_table rows. Rename, recolor, WIP limit, move left / right, sql_for_delete, add.
 // Every task of the project uses this stage set; tasks of a deleted stage go back to the first stage.
 // Saved at once (optimistic, realtime auto refresh in other browsers). The task progress % is not touched.
 //

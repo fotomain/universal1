@@ -88,7 +88,7 @@ describe('project.rowJSON.customColumns', () => {
     expect(projectCustomColumnsOf(undefined)).toEqual({ columns: [], headersBackgroundColors: {} });
   });
 
-  it('add / delete / header color edits are pure', () => {
+  it('add / sql_for_delete / header color edits are pure', () => {
     const json = { customColumns: withCustomColumnAdded(undefined, budget) };
     const two = { customColumns: withCustomColumnAdded(json, ok) };
     expect(projectCustomColumnsOf(two).columns.map((c) => c.key)).toEqual(['cc_budget01', 'cc_approved']);

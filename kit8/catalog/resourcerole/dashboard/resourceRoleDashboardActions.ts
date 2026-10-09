@@ -1,6 +1,6 @@
 // Resource role dashboard - commands that change several rows (dispatched to the reusable sagas of the role / product entities).
 // Variants and variant values are the product tables' (same entities and rules): the product commands run on the role data
-// seen as product data (roleAsProductData), only the delete is written for the role dashboard tables.
+// seen as product data (roleAsProductData), only the sql_for_delete is written for the role dashboard tables.
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { createPlannedVariants, rebuildVariants } from '../../product/dashboard/productDashboardActions';
 import type { PlannedVariant } from '../../product/crud/productCatalogTools';

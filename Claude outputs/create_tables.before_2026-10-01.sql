@@ -130,12 +130,12 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Allow all select ' || table_name, table_name);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Allow all insert ' || table_name, table_name);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Allow all update ' || table_name, table_name);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Allow all delete ' || table_name, table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Allow all sql_for_delete ' || table_name, table_name);
 
     EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT USING (true)', 'Allow all select ' || table_name, table_name);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT WITH CHECK (true)', 'Allow all insert ' || table_name, table_name);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE USING (true) WITH CHECK (true)', 'Allow all update ' || table_name, table_name);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE USING (true)', 'Allow all delete ' || table_name, table_name);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE USING (true)', 'Allow all sql_for_delete ' || table_name, table_name);
 
     EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL', table_name);
     IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -1479,7 +1479,7 @@ LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW."rowGUID" <> OLD."rowGUID" OR NEW."rowDependsOnGUID" <> OLD."rowDependsOnGUID"
      OR NEW."projectGUID" <> OLD."projectGUID" THEN
-    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (delete + insert instead)'
+    RAISE EXCEPTION 'pm_gantt: dependency endpoints are immutable (sql_for_delete + insert instead)'
       USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
@@ -1822,7 +1822,7 @@ LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW."rowGUID" <> OLD."rowGUID" OR NEW."rowDependsOnGUID" <> OLD."rowDependsOnGUID"
      OR NEW."projectGUID" <> OLD."projectGUID" THEN
-    RAISE EXCEPTION 'pm_template: dependency endpoints are immutable (delete + insert instead)'
+    RAISE EXCEPTION 'pm_template: dependency endpoints are immutable (sql_for_delete + insert instead)'
       USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;

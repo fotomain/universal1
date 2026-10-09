@@ -1,4 +1,4 @@
-// CurrencyList - route /currency/list. Web: ListWebCardsComponent (drag & drop order, search, delete +
+// CurrencyList - route /currency/list. Web: ListWebCardsComponent (drag & drop order, search, sql_for_delete +
 // Undo) with CurrencyCard; iOS / Android: a plain list of CurrencyCard. Both stay in sync with Supabase
 // Realtime (other browsers / devices) through the reusable saga (useRealtimeEntity / realtime prop).
 import React, { useMemo, useRef } from 'react';

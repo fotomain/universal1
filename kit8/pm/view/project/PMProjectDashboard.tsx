@@ -2,7 +2,7 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
-//   Gantt | Kanban | Network | Versions switch (uxuiSettings.ganttVsNetworkView): Kanban = tree + view/kanban/PMKanbanDashboard,
+//   Gantt | Kanban | Network | Versions | Finances switch (uxuiSettings.ganttVsNetworkView, remembered per user AND project): Kanban = tree + view/kanban/PMKanbanDashboard,
 //   Network = view/network/PMNetworkView, Versions = tree + version/view/version/PMProjectVersionsList
 //
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
@@ -35,7 +35,6 @@ import { useRecentProjects } from './recent/recentProjects';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
 import { PMDialogButton, PMTipIcon } from '../../inner/buttons';
 import { usePMStore } from '../../store/store_pm';
-import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
 import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
@@ -170,7 +169,7 @@ function PMProjectDashboardInner() {
     }
 
     if (checkedCount > 0) {
-      a.push({ icon: 'delete-sweep-outline', label: `Delete the ${checkedCount} selected rows`, color: themeColors.error, onPress: () => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs)) });
+      a.push({ icon: 'sql_for_delete-sweep-outline', label: `Delete the ${checkedCount} selected rows`, color: themeColors.error, onPress: () => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs)) });
       a.push({ icon: 'checkbox-multiple-blank-circle-outline', label: 'Clear the selection', onPress: () => usePMStore.getState().clearChecked() });
     }
     if (isKanbanView) a.push({ icon: 'view-column-outline', label: 'Kanban Stages', onPress: () => usePMKanbanStore.getState().openStagesEditor(selectedProjectGUID) });
@@ -180,20 +179,6 @@ function PMProjectDashboardInner() {
     return a;
   }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, redoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
   useFABContextActions('pm-project-dashboard', fabActions);
-
-  // The Gantt | Network view follows the user across projects (store.selectProject keeps it);
-  // save it to the newly selected project too, so a reload opens that project in the same view.
-  useEffect(() => {
-    if (!selectedProjectGUID) return;
-    const s = usePMStore.getState();
-    const project = s.projectsById[selectedProjectGUID];
-    if (!project) return;
-    const saved = effectiveUxuiSettings(s, selectedProjectGUID);
-    if (saved.ganttVsNetworkView !== s.ganttVsNetworkView || saved.networkViewMode !== s.networkViewMode) {
-      crud.setGanttViewSettings({ ganttVsNetworkView: s.ganttVsNetworkView, networkViewMode: s.networkViewMode });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProjectGUID]);
 
   if (!ownerGUID) {
     return (
@@ -280,7 +265,7 @@ function PMProjectDashboardInner() {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : 'gantt'}
+              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}
@@ -319,7 +304,7 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
   );
 }
 
-/** Web: Ctrl/⌘+Z = undo, Del = delete, Enter/F2 = edit, Esc = cancel link / clear, Alt+↑↓ = move, Tab/Shift+Tab = indent. */
+/** Web: Ctrl/⌘+Z = undo, Del = sql_for_delete, Enter/F2 = edit, Esc = cancel link / clear, Alt+↑↓ = move, Tab/Shift+Tab = indent. */
 function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;

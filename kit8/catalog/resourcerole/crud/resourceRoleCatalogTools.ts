@@ -10,10 +10,13 @@ import { RESOURCE_ROLE_TABLE_KEYS, ROLE_AS_PRODUCT_SLOT, ResourceRoleTableKey } 
 export { byGUID, EMPTY, isSet, rowTitle, sortBySort } from '../../product/crud/productCatalogTools';
 
 /** every table of the role dashboard (rows as read into redux; the shared rows are those of the role side) */
-export type ResourceRoleCatalogData = Record<ResourceRoleTableKey, DefRow<any>[]>;
+export type ResourceRoleCatalogData = Record<ResourceRoleTableKey, DefRow<any>[]> & {
+  /** managementGenusTable (kit8/catalog/management/genus): the genus a role type points at with rowJSON.managementGenus */
+  managementGenus: DefRow<any>[];
+};
 
 export const emptyResourceRoleData = (): ResourceRoleCatalogData =>
-  RESOURCE_ROLE_TABLE_KEYS.reduce((acc, k) => ({ ...acc, [k]: [] }), {} as ResourceRoleCatalogData);
+  RESOURCE_ROLE_TABLE_KEYS.reduce((acc, k) => ({ ...acc, [k]: [] }), { managementGenus: [] } as unknown as ResourceRoleCatalogData);
 
 /** the role catalog as the product catalog the shared rules are written for (no packs, series, barcodes) */
 export function roleAsProductData(d: ResourceRoleCatalogData): ProductCatalogData {
@@ -30,14 +33,25 @@ export function roleAsProductData(d: ResourceRoleCatalogData): ProductCatalogDat
 export const roleKeyOfSlot = (slot: ProductTableKey): ResourceRoleTableKey =>
   (Object.entries(ROLE_AS_PRODUCT_SLOT).find(([, s]) => s === slot)?.[0] as ResourceRoleTableKey | undefined) ?? (slot as ResourceRoleTableKey);
 
-/** the VAT rate of a role: its own roleVATRate, else the roleVATDefaultRate of its role type */
+/** the rate a resource has when its VAT is empty: 0 % (valueAddedTaxTable row 'vat_0') */
+export const ZERO_VAT_RATE = 'vat_0';
+
+/**
+ * The VAT rate of a role: its own roleVATRate, else the roleVATDefaultRate of its role type, else - when both are empty - 0 %.
+ * undefined only for a missing role (or when the VAT table has no 0 % row).
+ */
 export function vatRateOfRole(data: ResourceRoleCatalogData, role: DefRow<any> | undefined | null): DefRow<any> | undefined {
   if (!role) return undefined;
   const own = role.rowJSON?.roleVATRate;
   const type = data.resourceRoleType.find((t) => t.rowGUID === role.rowOwnerGUID);
   const guid = isSet(own) ? own : type?.rowJSON?.roleVATDefaultRate;
-  return isSet(guid) ? data.valueAddedTax.find((v) => v.rowGUID === guid) : undefined;
+  if (isSet(guid)) return data.valueAddedTax.find((v) => v.rowGUID === guid);
+  return data.valueAddedTax.find((v) => v.rowGUID === ZERO_VAT_RATE) ?? data.valueAddedTax.find((v) => Number(v.rowJSON?.vatTablePercent) === 0);
 }
+
+/** the VAT percent of a role (0 when its VAT is empty) */
+export const vatPercentOfRole = (data: ResourceRoleCatalogData, role: DefRow<any> | undefined | null): number =>
+  Number(vatRateOfRole(data, role)?.rowJSON?.vatTablePercent) || 0;
 
 // ───────────── variants of a role (rule R6: perType -> the role type owns them) ─────────────
 export const variantOwnerOfRole = (data: ResourceRoleCatalogData, role: DefRow<any> | undefined) => variantOwnerOfProduct(roleAsProductData(data), role);

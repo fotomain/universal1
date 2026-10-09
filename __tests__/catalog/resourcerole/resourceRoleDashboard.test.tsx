@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
-// ResourceRoleDashboard on the SQL seeds (products + roles, the shared tables hold both): overview + checks, tables with filters,
-// the role folder tree beside the roles table, the role card (Main, Rates, Variants, Properties), generate variants - and the
-// ProductDashboard next to role rows in the shared tables.
+// ResourceRoleDashboardCRUD on the SQL seeds (products + roles, the shared tables hold both): overview + checks, tables with filters,
+// the role folder tree beside the roles table, the role card (Main, Cost, Variants, Properties), generate variants - and the
+// ProductDashboardCRUD next to role rows in the shared tables.
 import React, { act } from 'react';
 import { rawProductTables, rawRoleTables, seedRoleCatalog } from './resourceRoleTestKit';
 import { mockRects, rowTop } from '../../ui/tree/folderTreeTestKit';
@@ -89,11 +89,12 @@ jest.mock('../../../kit8/ui/components/common/SelectorFromApp', () => {
     options.map((o: any) => R.createElement(Pressable, { key: o.value, testID: `${testID}-option-${o.value || 'none'}`, onPress: () => onValueChange(o.value) }, R.createElement(Text, null, o.label)))) };
 });
 
-import ResourceRoleDashboard from '../../../kit8/catalog/resourcerole/dashboard/ResourceRoleDashboard';
-import ProductDashboard from '../../../kit8/catalog/product/dashboard/ProductDashboard';
+import ResourceRoleDashboardCRUD from '../../../kit8/catalog/resourcerole/dashboard/ResourceRoleDashboardCRUD';
+import ProductDashboardCRUD from '../../../kit8/catalog/product/dashboard/ProductDashboardCRUD';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
 import { RESOURCE_ROLE_TABLE_KEYS, RESOURCE_ROLE_TABLES } from '../../../kit8/catalog/resourcerole/resourceRoleModel';
 import type { ResourceRoleCatalogData } from '../../../kit8/catalog/resourcerole/crud/resourceRoleCatalogTools';
+import { MANAGEMENT_GENUS_TABLE } from '../../../kit8/catalog/management/genus/managementGenusModel';
 import { buildResourceRoleLabels } from '../../../kit8/catalog/resourcerole/crud/resourceRoleLabels';
 import { buildResourceRoleTables, ROLE_DASHBOARD_TABLE_ORDER } from '../../../kit8/catalog/resourcerole/dashboard/resourceRoleDashboardTables';
 import { beginFolderDrag, endFolderDrag } from '../../../kit8/ui/components/tree/folderTreeDnd';
@@ -115,6 +116,7 @@ function stateOf(raw: ResourceRoleCatalogData = rawRoleTables()) {
   const product = rawProductTables();
   for (const k of PRODUCT_TABLE_KEYS) s[PRODUCT_TABLES[k].entity] = { entityDataFromServer: product[k], readSuccessful: 1 };
   for (const k of RESOURCE_ROLE_TABLE_KEYS) s[RESOURCE_ROLE_TABLES[k].entity] = { entityDataFromServer: raw[k], readSuccessful: 1 };
+  s[MANAGEMENT_GENUS_TABLE.entity] = { entityDataFromServer: raw.managementGenus, readSuccessful: 1 };
   return s;
 }
 function mountRoles(params: Record<string, string> = {}, raw?: ResourceRoleCatalogData) {
@@ -123,9 +125,9 @@ function mountRoles(params: Record<string, string> = {}, raw?: ResourceRoleCatal
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<ResourceRoleDashboard />));
+  act(() => root.render(<ResourceRoleDashboardCRUD />));
 }
-const rerender = () => act(() => root.render(<ResourceRoleDashboard />));
+const rerender = () => act(() => root.render(<ResourceRoleDashboardCRUD />));
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; restore?.(); jest.clearAllMocks(); mockCalls.length = 0; });
 
 describe('overview', () => {
@@ -177,6 +179,16 @@ describe('tables', () => {
     expect(mockCalls.find((c) => c[0] === 'create')).toEqual(['create', 'resourceRoleReusable', expect.objectContaining({ rowOwnerGUID: 'dataAnalyst', rowParentGUID: 'empty' })]);
   });
 
+  it('VAT now: the own rate, else the type default, else 0 %', () => {
+    const raw = rawRoleTables({ withResources: true });
+    raw.resourceRoleType.find((t) => t.rowGUID === 'expenseResources')!.rowJSON.roleVATDefaultRate = null;
+    mountRoles({ tab: 'resourceRole' }, raw);
+    expect(q('count-vatNow-mat_epoxy')!.textContent).toBe('21 %');   // its own
+    expect(q('count-vatNow-hr_pm')!.textContent).toBe('21 %');       // the type default
+    expect(q('count-vatNow-exp_van')!.textContent).toBe('0 %');      // empty -> 0 %
+    expect(q('count-vatNow-role3')!.textContent).toBe('21 %');
+  });
+
   it('role type column and VAT: the type default is the placeholder', () => {
     mountRoles({ tab: 'resourceRole' });
     expect(q('role-table-resourceRole-cell-role3-type')!.textContent).toContain('Data analyst');
@@ -184,7 +196,24 @@ describe('tables', () => {
     expect(q('count-rate-role3')!.textContent).toBe('45.00 EUR / hour');
   });
 
-  it('Rates: same columns as the product prices; filter by role; the unit defaults to hour', () => {
+  it('Role types: the management genus column shows the path of the genus; a new type has none yet', () => {
+    mountRoles({ tab: 'resourceRoleType' }, rawRoleTables({ withResources: true }));
+    expect(rowIds('role-table-resourceRoleType')).toHaveLength(9);
+    expect(q('role-table-resourceRoleType-cell-revenueResources-managementGenus')!.textContent).toContain('Revenues › Revenue');
+    expect(q('role-table-resourceRoleType-cell-humanResources-managementGenus')!.textContent).toContain('Costs › Time');
+    expect(q('role-table-resourceRoleType-cell-materialResources-managementGenus')!.textContent).toContain('Costs › Material');
+    expect(q('role-table-resourceRoleType-cell-expenseResources-managementGenus')!.textContent).toContain('Costs › Expense');
+    expect(q('count-roles-humanResources')!.textContent).toBe('5');
+  });
+
+  it('with the demo resources: 35 roles, 89 cost rows, no check errors, the folder tree has the expense domains', () => {
+    mountRoles({}, rawRoleTables({ withResources: true }));
+    expect(q('role-tile-roles-value')!.textContent).toBe('35');
+    expect(q('role-tile-rates-value')!.textContent).toBe('89');
+    expect(q('role-tile-checks-value')!.textContent).toBe('OK');
+  });
+
+  it('Cost: same columns as the product prices; filter by role; the unit defaults to hour', () => {
     mountRoles({ tab: 'rolePrice' });
     expect(rowIds('role-table-rolePrice')).toHaveLength(32);
     press('role-filter-role');
@@ -239,7 +268,7 @@ describe('table configurations', () => {
     for (const k of RESOURCE_ROLE_TABLE_KEYS) expect(T[k].key).toBe(k);
   });
 
-  it('the Rates table has the columns of the product Prices table (per 1 unit, valid from)', () => {
+  it('the Cost table has the columns of the product Prices table (per 1 unit, valid from)', () => {
     expect(T.rolePrice.columns.map((c) => c.key)).toEqual(['n', 'role', 'variant', 'priceType', 'price', 'measureUnit', 'currency', 'validFrom', 'now']);
   });
 
@@ -249,9 +278,9 @@ describe('table configurations', () => {
     expect(col.options({ rowOwnerGUID: 'ds_pm_prop' }).map((o: any) => o.value).sort()).toEqual(['certification', 'minExperienceYears', 'workLanguage']);
   });
 
-  it('row menu of a role: property values, rates, variants of its type', () => {
+  it('row menu of a role: property values, cost, variants of its type', () => {
     const items = T.resourceRole.extraMenuItems!({ rowGUID: 'role3' } as any, () => {});
-    expect(items.map((i) => i.label)).toEqual(['Property values', 'Rates', 'Variants']);
+    expect(items.map((i) => i.label)).toEqual(['Property values', 'Cost', 'Variants']);
     items[1].onPress!();
     expect(opened.pop()).toEqual(['rolePrice', { role: 'role3' }, 'role3']);
     items[2].onPress!();
@@ -352,12 +381,12 @@ describe('the role card (right-click a role -> Edit)', () => {
     for (const t of ['main', 'rates', 'variants', 'properties']) expect(q(`${CARD}-tab-${t}`)).not.toBeNull();
     expect((q(`${CARD}-main-cell-role3-title`) as HTMLInputElement).value).toBe('BI data analyst (Power BI)');
     expect(q(`${CARD}-main-cell-role3-roleVATRate`)).not.toBeNull();
-    expect(q(`${CARD}-tab-rates`)!.textContent).toBe('Rates (5)');
+    expect(q(`${CARD}-tab-rates`)!.textContent).toBe('Cost (5)');
     expect(q(`${CARD}-tab-variants`)!.textContent).toBe('Variants (2)');
     expect(q(`${CARD}-tab-properties`)!.textContent).toBe('Properties (2)');
   });
 
-  it('Rates / Properties: the rows of THIS role only, without the role column', () => {
+  it('Cost / Properties: the rows of THIS role only, without the role column', () => {
     mountTree();
     openCard('role3');
     press(`${CARD}-tab-rates`);
@@ -426,20 +455,20 @@ describe('commands', () => {
     const raw = rawRoleTables();
     raw.resourceRole = raw.resourceRole.filter((r) => r.rowGUID !== 'role8');
     mountRoles({}, raw);
-    press('role-checks-delete-orphans');
+    press('role-checks-sql_for_delete-orphans');
     expect(calls('delete', 'rolePriceReusable').map((p) => p.rowGUID).sort()).toEqual(['rp28', 'rp29', 'rp30', 'rp31']);
     expect(calls('delete', 'propertyValueReusable').map((p) => p.rowGUID)).toEqual(['pp17']);
   });
 });
 
-describe('ProductDashboard next to role rows in the shared tables', () => {
+describe('ProductDashboardCRUD next to role rows in the shared tables', () => {
   function mountProducts(params: Record<string, string> = {}) {
     mockParams = params;
     mockState = stateOf();
     const el = document.createElement('div');
     document.body.appendChild(el);
     root = createRoot(el);
-    act(() => root.render(<ProductDashboard />));
+    act(() => root.render(<ProductDashboardCRUD />));
   }
 
   it('the numbers and the checks are those of the products alone', () => {

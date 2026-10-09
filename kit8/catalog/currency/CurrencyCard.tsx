@@ -1,6 +1,6 @@
 // CurrencyCard - one currency in ListWebCardsComponent (web, drag & drop) and in the native list.
 // Tap / Edit -> /currency/edit?rowGUID=… · Rates -> /currency/exchange/list?currencyGUID=… ·
-// Delete -> the list's delete (asks when "ask before delete" is on).
+// Delete -> the list's sql_for_delete (asks when "ask before sql_for_delete" is on).
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';

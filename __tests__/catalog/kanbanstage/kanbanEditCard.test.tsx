@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// kit8/catalog/kanbanstage/KanbanEditCard: create / update / delete through the reusable saga actions; the
+// kit8/catalog/kanbanstage/KanbanEditCard: create / update / sql_for_delete through the reusable saga actions; the
 // form follows realtime changes made in another browser.
 import React, { act } from 'react';
 
@@ -91,7 +91,7 @@ it('new stage: code follows the name, duplicates are refused, createOne goes las
   expect(mockReplace).toHaveBeenCalledWith('/catalog/kanbanstage/list');
 });
 
-it('existing stage: updateOne; delete asks twice', () => {
+it('existing stage: updateOne; sql_for_delete asks twice', () => {
   mount({ rowGUID: 'plan' });
   expect(value('kanban-stage-edit-stageName')).toBe('Plan');
   typeInto('kanban-stage-edit-stageName', 'Planning');
@@ -99,9 +99,9 @@ it('existing stage: updateOne; delete asks twice', () => {
   press('kanban-stage-edit-save');
   expect(dispatched.find((a) => a.type === 'kanbanStageReusable/updateOne').payload).toMatchObject({ rowGUID: 'plan', rowJSON: { stageName: 'Planning', stageCode: 'plan' } });
   mount({ rowGUID: 'plan' });
-  press('kanban-stage-edit-delete');
+  press('kanban-stage-edit-sql_for_delete');
   expect(dispatched.some((a) => a.type === 'kanbanStageReusable/deleteOne')).toBe(false);
-  press('kanban-stage-edit-delete');
+  press('kanban-stage-edit-sql_for_delete');
   expect(dispatched.find((a) => a.type === 'kanbanStageReusable/deleteOne').payload).toMatchObject({ rowGUID: 'plan', rowOwnerGUID: 'kanbanStageCatalog' });
 });
 

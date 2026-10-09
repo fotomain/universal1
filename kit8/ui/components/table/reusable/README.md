@@ -4,10 +4,10 @@
 = one table row, one `visualColumn` = one cell edited in place and stored in `rowJSON`.
 
     <ReusableTable
-      entityName="task_expense_input_table"   // SystemMetaData key
+      entityName="task_expense_input_table"   // SystemMetaData key (any reusable entity, e.g. productReusable)
       listOwnerGUID={projectGUID}              // rowOwnerGUID  (the more generic entity)
       listParentGUID={taskGUID}                // rowParentGUID (one level higher)
-      visualColumns={taskExpenseInputColumns}
+      visualColumns={columns}                  // VisualColumn[]
     />
 
 Same parameters as ListWebCardsComponent: `entityName, entityForArchivationName, crudListTitle, listOwnerGUID, itemLabel,
@@ -24,6 +24,10 @@ It gets `row` (always the fresh row), `itemLabel`, `visualColumns`, `setCell(col
 in-place edit: `validate`, `computeRowJSON`, root columns) and `onClose`. The row menu (right-click / long-press / ⋮) gets **Edit** as its first
 command. `uxuiTable.inlineEdit` (default **true**) = cells are edited in place; `false` = cells only show and a click / tap on a row opens the card
 (without an `EditRowModalCard` the cells stay editable). Product catalog: `ProductItemEditModalCard` (Main · Prices · Variants · Properties).
+
+**Which row the user touched** (`onRowEdit(rowGUID, 'create' | 'update' | 'move' | 'delete')`): called for the ONE row each change of the user touched - not for
+rows that arrive from the server / realtime (`onRowsChange` gets the whole list). **Marked row** (`focusRowGUID`): the row to mark and scroll into view; default
+the route parameter `focusRowGUID`. Used by the task finances (`kit8/pm/view/task/finances`).
 
 **All-rows mode** (catalog dashboards, e.g. kit8/catalog/product/dashboard): `listOwnerGUID={REUSABLE_TABLE_ALL}` (and
 `listParentGUID={REUSABLE_TABLE_ALL}`) = the rows of every owner / parent; the read has no `match`, so the redux entity
@@ -66,6 +70,8 @@ tree header as high as table bar + column header, so lines are level), `foldersT
 Product catalog: `ProductsWithTree` (kit8/catalog/product/dashboard). Tests: `reusableTableFolders.test.tsx`.
 
 Bar: Search is a `TextInputApp`; the clock icon lists the last 10 search substrings of this table (kept on the device,
-`useSearchHistory.ts`). The ⋮ menu: Default settings (column order / widths, sort, filters, search) · Export · Share,
+`useSearchHistory.ts`). The **⚙ settings** button (right before the ⋮; `${testID}-settings`): **Fit to width** (every column gets a width so that ALL columns are visible at once - the widths add up to the
+table body, the proportions stay, a column keeps at least 40 px, the row number column keeps its width; `fitColumnWidths` in `tableRows.ts`; the widths are reported through
+`onColumnsWidthsChange` like a dragged separator) · **Default settings** (column order / widths, sort, filters, search). The ⋮ menu: Export · Share,
 each to JSON, CSV, PDF - full data, PDF - visible (`tableExport.ts`, `tablePdf.ts`, `tableExportActions.ts`).
 Exports take the rows and columns as shown now; JSON / CSV / PDF full data add the GUIDs, PDF visible does not.

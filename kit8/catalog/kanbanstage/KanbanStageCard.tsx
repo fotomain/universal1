@@ -1,5 +1,5 @@
 // KanbanStageCard - one default Kanban stage in ListWebCardsComponent (web, drag & drop = column order)
-// and in the native list. Tap / Edit -> /kanbanstage/edit?rowGUID=… · Delete -> the list's delete.
+// and in the native list. Tap / Edit -> /kanbanstage/edit?rowGUID=… · Delete -> the list's sql_for_delete.
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';

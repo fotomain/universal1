@@ -26,7 +26,7 @@
 --
 -- Integrity (rules R1-R14 of the sheet): unique indexes below (one price per day) + checks of the fixed lists; the rest
 -- (R3-R7, R10-R14) is checked by the dashboard "Checks" panel (kit8/catalog/resourcerole/crud/resourceRoleValidation.ts).
--- No foreign keys: owners are polymorphic and Undo of a delete must be able to re-create a row.
+-- No foreign keys: owners are polymorphic and Undo of a sql_for_delete must be able to re-create a row.
 -- =====================================================================================
 
 DO $$

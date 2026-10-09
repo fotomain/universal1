@@ -1,8 +1,8 @@
-// TableExample2: the expense lines of ONE task (person · contract of that person · hours).
+// TEST FIXTURE (the former demo table of kit8/ui/components/table/reusable/example): the expense lines of ONE task (person · contract of that person · hours).
 import React from 'react';
-import ReusableTable from '../ReusableTable';
-import type { ReusableTableUxUi } from '../reusableTableTypes';
-import { usePMStore } from '../../../../../pm/store/store_pm';
+import ReusableTable from '../../../../kit8/ui/components/table/reusable/ReusableTable';
+import type { ReusableTableUxUi } from '../../../../kit8/ui/components/table/reusable/reusableTableTypes';
+import { usePMStore } from '../../../../kit8/pm/store/store_pm';
 import { emptyTaskExpenseInput, TASK_EXPENSE_INPUT_ENTITY, taskExpenseInputColumns } from './taskExpenseInputModel';
 
 export interface TaskExpenseInputTableProps {

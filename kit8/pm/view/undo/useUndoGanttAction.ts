@@ -13,8 +13,8 @@
 //                          the redo stack (redoGanttKey), redo restores that state and puts the step back on
 //                          the undo stack. A new action (record) clears the redo stack.
 //
-// Works for every action that goes through usePMCrud: stretch (resize), move, delete
-// task, delete dependency, add task/dependency, progress, reorder, indent, inline edits...
+// Works for every action that goes through usePMCrud: stretch (resize), move, sql_for_delete
+// task, sql_for_delete dependency, add task/dependency, progress, reorder, indent, inline edits...
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

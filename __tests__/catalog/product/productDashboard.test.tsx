@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// ProductDashboard with the SQL seed in redux: overview numbers + checks, tables with filters, product card,
+// ProductDashboardCRUD with the SQL seed in redux: overview numbers + checks, tables with filters, product card,
 // generate variants, rebuild variant titles.
 import React, { act } from 'react';
 import { seedCatalog } from './productTestKit';
@@ -77,7 +77,7 @@ jest.mock('../../../kit8/ui/components/common/SelectorFromApp', () => {
     options.map((o: any) => R.createElement(Pressable, { key: o.value, testID: `${testID}-option-${o.value || 'none'}`, onPress: () => onValueChange(o.value) }, R.createElement(Text, null, o.label)))) };
 });
 
-import ProductDashboard from '../../../kit8/catalog/product/dashboard/ProductDashboard';
+import ProductDashboardCRUD from '../../../kit8/catalog/product/dashboard/ProductDashboardCRUD';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
 import type { ProductCatalogData } from '../../../kit8/catalog/product/crud/productCatalogTools';
 
@@ -99,9 +99,9 @@ function mount(params: Record<string, string> = {}, data = seedCatalog()) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<ProductDashboard />));
+  act(() => root.render(<ProductDashboardCRUD />));
 }
-const rerender = () => act(() => root.render(<ProductDashboard />));
+const rerender = () => act(() => root.render(<ProductDashboardCRUD />));
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockCalls.length = 0; });
 
 it('overview: numbers of the seed, no check errors, every table in the menu', () => {

@@ -123,7 +123,7 @@ describe('Gantt bar buttons', () => {
 });
 
 describe('PMRowActionButtons', () => {
-  it('edit · duplicate · copy info · share · link · details · delete call crud with the row', () => {
+  it('edit · duplicate · copy info · share · link · details · sql_for_delete call crud with the row', () => {
     const { byName } = seedStore();
     const guid = byName('Task 111').rowGUID;
     const crud = fakeCrud();

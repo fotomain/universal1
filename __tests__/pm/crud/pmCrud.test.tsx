@@ -212,7 +212,7 @@ describe('reorder / re-parent', () => {
   });
 });
 
-describe('delete (asks first)', () => {
+describe('sql_for_delete (asks first)', () => {
   it('No keeps the task', async () => {
     mockApprove.mockImplementation(async () => false);
     await run(() => h.crud.deleteTask(g('Task 111')));
@@ -344,6 +344,39 @@ describe('Gantt view settings (project_user_settings_table: one row per project 
     expect(h.db.calls.some((c) => c.table === 'project_table' && c.op === 'update')).toBe(false);
   });
 
+  it('the main view (Finances ...) is saved in the user row of THAT project; each project opens in the view it was left in', async () => {
+    await run(() => h.crud.setGanttVsNetworkView('showFinancesView'));
+    expect(uxui().ganttVsNetworkView).toBe('showFinancesView');
+    expect(h.store().ganttVsNetworkView).toBe('showFinancesView');
+    expect(userRow(h.P2)).toBeUndefined(); // Project 2 was not touched
+
+    await act(async () => h.store().selectProject(h.P2)); // never customized: the default view, not the one of Project 1
+    await h.settle();
+    expect(h.store().ganttVsNetworkView).toBe('showGanttChart');
+    await run(() => h.crud.setGanttVsNetworkView('showKanbanView'));
+    expect(userRow(h.P2)!.rowJSON.uxuiSettings.ganttVsNetworkView).toBe('showKanbanView');
+    expect(uxui().ganttVsNetworkView).toBe('showFinancesView'); // Project 1 keeps its own
+
+    await act(async () => h.store().selectProject(h.P1));
+    await h.settle();
+    expect(h.store().ganttVsNetworkView).toBe('showFinancesView');
+    await act(async () => h.store().selectProject(h.P2));
+    await h.settle();
+    expect(h.store().ganttVsNetworkView).toBe('showKanbanView');
+  });
+
+  it('a reload opens the project in the saved main view (the rows are read from the database)', async () => {
+    unmountPM();
+    h = await mountPM({
+      seed: (db, demo) => {
+        const P1 = demo.projects[0].rowGUID;
+        const owner = demo.projects[0].rowOwnerGUID;
+        db.seed('project_user_settings_table', [{ rowGUID: 'a0000000-0000-4000-8000-000000000003', rowOwnerGUID: P1, rowParentGUID: owner, orderInList: 0, rowJSON: { uxuiSettings: { ganttVsNetworkView: 'showFinancesView' } } }]);
+      },
+    });
+    await h.until(() => h.store().ganttVsNetworkView === 'showFinancesView', 'saved main view applied');
+  });
+
   it('criticalPathTaskColor is saved in the user row and reaches the store', async () => {
     await run(() => h.crud.setGanttViewSettings({ criticalPathTaskColor: '#00F0FF' }));
     expect(uxui().criticalPathTaskColor).toBe('#00F0FF');
@@ -432,8 +465,8 @@ describe('undo (undoGanttAction)', () => {
   });
 
   it.each([
-    ['delete task', () => h.crud.deleteTask(g('Task 111'))],
-    ['delete stage', () => h.crud.deleteTask(g('Stage 1'))],
+    ['sql_for_delete task', () => h.crud.deleteTask(g('Task 111'))],
+    ['sql_for_delete stage', () => h.crud.deleteTask(g('Stage 1'))],
     ['add task', () => h.crud.createTaskBelow(g('Task 112'))],
     ['duplicate task', () => h.crud.duplicateTask(g('Task 112'))],
     ['duplicate stage', () => h.crud.duplicateTask(g('Stage 1'))],
@@ -487,8 +520,8 @@ describe('redo (redoGanttAction)', () => {
 
   it.each([
     ['progress', () => h.crud.setProgress(g('Task 112'), 70)],
-    ['delete task', () => h.crud.deleteTask(g('Task 111'))],
-    ['delete stage', () => h.crud.deleteTask(g('Stage 1'))],
+    ['sql_for_delete task', () => h.crud.deleteTask(g('Task 111'))],
+    ['sql_for_delete stage', () => h.crud.deleteTask(g('Stage 1'))],
     ['add task', () => h.crud.createTaskBelow(g('Task 112'))],
     ['move bar', () => h.crud.applyBarEdit(g('Task 111'), 'move', 3)],
     ['indent', () => h.crud.indent(g('Task 113'))],

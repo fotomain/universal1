@@ -21,7 +21,7 @@
 -- Integrity (rules R1-R14 of the sheet): unique indexes below (R1, R2, R8, R9, barcode, SKU, one price per
 -- day) + checks of the fixed lists; the rest (R3-R7, R10, R13) is checked by the dashboard "Checks" panel
 -- (kit8/catalog/product/crud/productValidation.ts). No foreign keys: owners are polymorphic (type OR product)
--- and Undo of a delete must be able to re-create a row.
+-- and Undo of a sql_for_delete must be able to re-create a row.
 -- =====================================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -352,7 +352,11 @@ ALTER TABLE public."productPackageTable" DROP CONSTRAINT IF EXISTS "productPacka
 ALTER TABLE public."productPackageTable" ADD CONSTRAINT "productPackageTable_ratio_chk" CHECK (jsonb_typeof("rowJSON"->'ratio') IS DISTINCT FROM 'number' OR ("rowJSON"->>'ratio')::numeric > 0);
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorDestinationTable_owner_mode" ON public."descriptorDestinationTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorPlanTable_set_genus" ON public."descriptorPlanTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_plan" ON public."propertyValueTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
+-- one value per owner + plan line (R8) - EXCEPT a descriptor with "multiple": true (a person's certifications: one row each). So the key holds the list value too:
+-- a scalar descriptor (value '' here) still has ONE row per owner + plan line, a list descriptor never the same value twice; "two different values of a
+-- single-value list descriptor" is rule R8 of the dashboard Checks (it cannot see the descriptor). The old two-column index of this name is replaced.
+DROP INDEX IF EXISTS public."idx_propertyValueTable_owner_plan";
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_plan" ON public."propertyValueTable" ("rowOwnerGUID", "rowParentGUID", (coalesce("rowJSON"->>'descriptorValueGUID', ''))) WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_variantValueTable_owner_plan" ON public."variantValueTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_variantTable_owner_key" ON public."variantTable" ("rowOwnerGUID", ("rowJSON"->>'descriptorKey')) WHERE NOT coalesce("rowJSON"->>'descriptorKey', '') = '';
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorValueTable_genus_code" ON public."descriptorValueTable" ("rowOwnerGUID", lower("rowJSON"->>'code')) WHERE NOT coalesce("rowJSON"->>'code', '') = '';

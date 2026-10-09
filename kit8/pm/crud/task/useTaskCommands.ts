@@ -168,7 +168,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
       /** "Add to Google Calendar": opens the pre-filled event (view/task/taskGoogleCalendar.ts). */
       addToGoogleCalendar: (guid: string) => addTaskToGoogleCalendar(guid),
 
-      /** Multi selection (round check boxes): delete the checked rows after ONE question. One Undo step. */
+      /** Multi selection (round check boxes): sql_for_delete the checked rows after ONE question. One Undo step. */
       deleteTasks: async (guids: string[]) => {
         const s = st();
         // a row inside another checked row goes with its parent

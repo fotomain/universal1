@@ -1,5 +1,5 @@
 // Dependency (arrow) commands: link / unlink from the chart, the tree and the task page;
-// edit + recolor + delete from the arrow's context menu and PMEditDependencyScreen.
+// edit + recolor + sql_for_delete from the arrow's context menu and PMEditDependencyScreen.
 // Deleting a dependency never deletes a task, and is undoable (undoGanttAction).
 
 import { useMemo } from 'react';

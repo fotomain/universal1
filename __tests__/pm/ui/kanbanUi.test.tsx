@@ -156,7 +156,7 @@ describe('PMKanbanStagesModalWindow (Kanban Stages)', () => {
     renderUI(<PMKanbanStagesModalWindow projectGUID="p" visible={false} onClose={jest.fn()} />);
     expect(q('pm-kanban-stages-window')).toBeNull();
   });
-  it('add / rename / reorder / delete (confirmed inline)', () => {
+  it('add / rename / reorder / sql_for_delete (confirmed inline)', () => {
     open();
     expect(q('pm-kanban-stages-window')).not.toBeNull();
     typeInto('pm-kanban-stage-new-name', 'Review');
@@ -167,9 +167,9 @@ describe('PMKanbanStagesModalWindow (Kanban Stages)', () => {
     expect(mockKanban.createStage).toHaveBeenCalledTimes(1);
     press('pm-kanban-stage-right-s-wait');
     expect(mockKanban.moveStage).toHaveBeenCalledWith('s-wait', 1);
-    press('pm-kanban-stage-delete-s-plan');
+    press('pm-kanban-stage-sql_for_delete-s-plan');
     expect(mockKanban.deleteStage).not.toHaveBeenCalled();
-    press('pm-kanban-stage-delete-yes-s-plan');
+    press('pm-kanban-stage-sql_for_delete-yes-s-plan');
     expect(mockKanban.deleteStage).toHaveBeenCalledWith('s-plan');
     press('pm-kanban-stage-color-s-exec');
     press('pm-kanban-stage-colors-s-exec-#EF4444');

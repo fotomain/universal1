@@ -703,7 +703,7 @@ export function ListWebCardsComponent({
 
   // Archive item handler: adds current post into entityForArchivationName & deletes current post from entityName
   const handleArchive = (id: string) => {
-    // no archive entity (catalogs, rates): archiving must not silently delete the row
+    // no archive entity (catalogs, rates): archiving must not silently sql_for_delete the row
     if (!archiveActions?.createOne) return;
     const targetCard = cards.find((item) => item.id === id);
 

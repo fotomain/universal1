@@ -45,7 +45,7 @@ describe('PMTaskEditModal', () => {
     expect(inputValue('pm-edit-name')).toBe('Task 111');
     for (const id of [
       'pm-edit-close', 'pm-edit-kind-stage', 'pm-edit-kind-task', 'pm-edit-kind-milestone', 'pm-edit-days', 'pm-edit-progress', 'pm-edit-kanban-progress',
-      'pm-edit-start', 'pm-edit-color-auto', 'pm-edit-notes', 'pm-edit-delete', 'pm-edit-open', 'pm-edit-cancel', 'pm-edit-save',
+      'pm-edit-start', 'pm-edit-color-auto', 'pm-edit-notes', 'pm-edit-sql_for_delete', 'pm-edit-open', 'pm-edit-cancel', 'pm-edit-save',
     ]) expect(q(id)).not.toBeNull();
   });
 
@@ -103,7 +103,7 @@ describe('PMTaskEditModal', () => {
     const crud = fakeCrud();
     renderUI(<PMTaskEditModal crud={crud} />);
     act(() => usePMStore.getState().setEditing(g));
-    press('pm-edit-delete');
+    press('pm-edit-sql_for_delete');
     expect(crud.deleteTask).toHaveBeenCalledWith(g);
     act(() => usePMStore.getState().setEditing(g));
     press('pm-edit-open');
@@ -121,7 +121,7 @@ describe('PMEditDependencyScreen', () => {
     act(() => usePMStore.getState().setEditingDep({ rowGUID: dep.rowGUID, dependsOnGUID: dep.rowDependsOnGUID }));
     expect(inputValue('pm-dep-from-guid')).toBe(dep.rowDependsOnGUID);
     expect(inputValue('pm-dep-to-guid')).toBe(dep.rowGUID);
-    for (const id of ['pm-dep-close', 'pm-dep-from-guid-copy', 'pm-dep-to-guid-copy', 'pm-dep-type-FS', 'pm-dep-type-SS', 'pm-dep-type-FF', 'pm-dep-type-SF', 'pm-dep-lag', 'pm-dep-color-default', 'pm-dep-delete', 'pm-dep-cancel', 'pm-dep-save'])
+    for (const id of ['pm-dep-close', 'pm-dep-from-guid-copy', 'pm-dep-to-guid-copy', 'pm-dep-type-FS', 'pm-dep-type-SS', 'pm-dep-type-FF', 'pm-dep-type-SF', 'pm-dep-lag', 'pm-dep-color-default', 'pm-dep-sql_for_delete', 'pm-dep-cancel', 'pm-dep-save'])
       expect(q(id)).not.toBeNull();
   });
 
@@ -157,7 +157,7 @@ describe('PMEditDependencyScreen', () => {
     expect(crud.updateDependency).toHaveBeenCalledWith(ref, expect.objectContaining({ linkType: 'SS', lagDays: 2, rowJSON: expect.objectContaining({ dependencyColor: swatch.replace('pm-dep-color-', '') }) }));
 
     act(() => usePMStore.getState().setEditingDep(ref));
-    press('pm-dep-delete');
+    press('pm-dep-sql_for_delete');
     expect(crud.deleteDependency).toHaveBeenCalledWith(ref);
   });
 });

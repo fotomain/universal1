@@ -22,11 +22,11 @@ const { GTIN: _gtin, ...PRODUCT_RULES } = RULES;
 export const ROLE_RULES: Record<string, string> = {
   ...PRODUCT_RULES,
   R3: 'A descriptor appears only once per role type (Property OR Variant)',
-  R7: 'Rates use variants allowed for their role',
+  R7: 'Cost rows use variants allowed for their role',
   R11: 'A plan line descriptor is meant for role types',
-  R12: 'Role side mirrors the product side: sets and variants are owned by the role TYPE, property values and rates by the ROLE',
+  R12: 'Role side mirrors the product side: sets and variants are owned by the role TYPE, property values and cost by the ROLE',
   R13: 'Price type is meant for resource roles',
-  R14: 'Rates are stored ONLY in rolePriceTable (no rate fields in a role or variant)',
+  R14: 'Cost is stored ONLY in rolePriceTable (no rate fields in a role or variant)',
 };
 
 /** rate-like fields a role / variant must not carry (rule R14) */
@@ -37,15 +37,19 @@ export function validateResourceRoleCatalog(data: ResourceRoleCatalogData): Reso
   const issues = validateProductCatalog(roleAsProductData(data), ROLE_KIND) as ResourceRoleIssue[];
   const T = (r: Parameters<typeof rowTitle>[0]) => `"${rowTitle(r)}"`;
   const units = byGUID(data.measureUnit);
+  const genus = byGUID(data.managementGenus ?? []);
   for (const t of data.resourceRoleType) {
+    // managementGenus: a row of managementGenusTable (only checked once that table is loaded)
+    const g = t.rowJSON?.managementGenus;
+    if (isSet(g) && genus.size > 0 && !genus.has(g)) issues.push({ rule: 'R1', severity: 'error', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: management genus "${g}" is missing` });
     const unit = t.rowJSON?.baseUnit;
-    if (!isSet(unit)) issues.push({ rule: 'R1', severity: 'warning', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: choose the base unit of its rates (hour)` });
+    if (!isSet(unit)) issues.push({ rule: 'R1', severity: 'warning', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: choose the base unit of its cost (hour)` });
     else if (!units.has(unit)) issues.push({ rule: 'R1', severity: 'error', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: base unit "${unit}" is missing` });
   }
   const rateField = (j: Record<string, any> | undefined) => RATE_FIELDS.find((f) => j && j[f] !== undefined && j[f] !== null);
   for (const r of data.resourceRole) {
     const f = rateField(r.rowJSON);
-    if (f) issues.push({ rule: 'R14', severity: 'warning', table: 'resourceRole', rowGUID: r.rowGUID, message: `Role ${T(r)}: "${f}" belongs in the Rates table (rolePriceTable), not in the role` });
+    if (f) issues.push({ rule: 'R14', severity: 'warning', table: 'resourceRole', rowGUID: r.rowGUID, message: `Role ${T(r)}: "${f}" belongs in the Cost table (rolePriceTable), not in the role` });
   }
   return issues;
 }

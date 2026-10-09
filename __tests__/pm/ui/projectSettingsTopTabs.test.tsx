@@ -254,6 +254,22 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(false);
   });
 
+  it('Finances tab: the exchange RATE TYPES of the accounting and the budget currency (D365 style): Default / Budget by default, saved to rowJSON', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-tab-TabFinances');
+    expect(q('pm-project-exchangeRateTypeForAccounting')).not.toBeNull();
+    expect(q('pm-project-exchangeRateTypeForAccounting-Default')!.getAttribute('aria-selected')).toBe('true');
+    expect(q('pm-project-exchangeRateTypeForBudget-Budget')!.getAttribute('aria-selected')).toBe('true');
+    press('pm-project-exchangeRateTypeForBudget-Default');
+    expect(q('pm-project-exchangeRateTypeForBudget-Default')!.getAttribute('aria-selected')).toBe('true');
+    press('pm-project-save');
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.exchangeRateTypeForAccounting).toBe('Default');
+    expect(patchRowJSON.exchangeRateTypeForBudget).toBe('Default');
+  });
+
   it('switches to TabPartners and supports supplier & customer selection with contract cascading', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);

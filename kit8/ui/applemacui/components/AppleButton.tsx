@@ -19,7 +19,7 @@ export interface AppleButtonProps {
   size?: AppleButtonSize;
   loading?: boolean;
   disabled?: boolean;
-  /** red (systemRed) instead of the tint: delete, remove … */
+  /** red (systemRed) instead of the tint: sql_for_delete, remove … */
   destructive?: boolean;
   /** tint override (default: theme.tint) */
   color?: string;

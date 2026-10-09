@@ -8,6 +8,8 @@ import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES, ProductTableKey } from '../productModel';
+import { PERSON_ENTITY } from '../../person/personModel';
+import { PERSON_TYPE_TABLE } from '../../person/personTypeModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../resourcerole/resourceRoleModel';
 import type { ProductCatalogData } from '../crud/productCatalogTools';
 import { sideOf, SideOwnedKey } from '../crud/catalogSides';
@@ -26,7 +28,8 @@ function useTableRealtime(key: ProductTableKey, enabled: boolean) {
   return useRealtimeEntity(PRODUCT_TABLES[key].entity, { readParams: PRODUCT_READ_PARAMS, enabled });
 }
 
-const ROLE_OWNER_ENTITIES = [RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity, RESOURCE_ROLE_OWN_TABLES.resourceRole.entity];
+/** the OTHER sides of the shared descriptor tables: resource roles and persons (types first, then items) */
+const ROLE_OWNER_ENTITIES = [RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity, RESOURCE_ROLE_OWN_TABLES.resourceRole.entity, PERSON_TYPE_TABLE.entity, PERSON_ENTITY];
 
 export function useProductCatalogData(enabled = true): {
   data: ProductCatalogData; status: Record<ProductTableKey, ProductTableStatus>; reload: () => void;
@@ -60,13 +63,13 @@ export function useProductCatalogData(enabled = true): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  const [roleTypes, roles] = roleOwnerLists;
+  const [roleTypes, roles, personTypes, persons] = roleOwnerLists;
   const { data, roleOwned } = useMemo(() => {
     const all = {} as ProductCatalogData;
     PRODUCT_TABLE_KEYS.forEach((k, i) => { all[k] = Array.isArray(lists[i]) ? lists[i] : []; });
-    const side = sideOf(all, roleTypes || [], roles || []);
+    const side = sideOf(all, [...(roleTypes || []), ...(personTypes || [])], [...(roles || []), ...(persons || [])]);
     return { data: side.data, roleOwned: side.otherOwned };
-  }, [lists, roleTypes, roles]);
+  }, [lists, roleTypes, roles, personTypes, persons]);
 
   const status = useMemo(() => {
     const out = {} as Record<ProductTableKey, ProductTableStatus>;

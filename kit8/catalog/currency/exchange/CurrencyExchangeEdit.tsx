@@ -1,5 +1,5 @@
 // CurrencyExchangeEdit - route /currency/exchange/edit?currencyGUID=… (new rate) or …&rowGUID=… (existing).
-// One rate per currency per day: rowParentGUID = the day, checked here (and by a unique index in SQL).
+// One rate per currency, day and RATE TYPE (Default | Budget, as D365 FO): rowParentGUID = the day, or 'day|Budget', checked here (and by a unique index in SQL).
 // Live: the row follows Supabase Realtime. Changed in another browser while this form is clean -> the
 // form shows the new values; while it has unsaved edits -> a banner offers Reload / Keep mine.
 // Deleted in another browser -> the form says so and cannot save.
@@ -10,6 +10,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../../ui/components/common';
+import SegmentButtonsApp from '../../../ui/components/common/SegmentButtonsApp';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 import { matchRow } from '../../../redux/reusable/realtimeRows';
@@ -28,15 +29,18 @@ import {
   isValidISODate,
   normalizeRate,
   orderInListForDate,
+  rateKeyOf,
+  RATE_TYPES,
+  rateTypeOf,
   todayISO,
   validateRate,
 } from './currencyExchangeModel';
 
-type Form = { startingDate: string; currencyRatio: string };
+type Form = { startingDate: string; currencyRatio: string; rateType: string };
 
 const toForm = (j?: Partial<CurrencyExchangeRowJSON>): Form => {
   const v = { ...emptyRate(), ...(j || {}) };
-  return { startingDate: v.startingDate, currencyRatio: Number.isFinite(Number(v.currencyRatio)) ? String(v.currencyRatio) : '' };
+  return { startingDate: v.startingDate, currencyRatio: Number.isFinite(Number(v.currencyRatio)) ? String(v.currencyRatio) : '', rateType: rateTypeOf({ rowJSON: v }) };
 };
 const rowVersion = (r?: CurrencyExchangeRow) => (r ? `${r.updated_at ?? ''}|${r.rowParentGUID}|${JSON.stringify(r.rowJSON)}` : '');
 
@@ -102,7 +106,7 @@ export default function CurrencyExchangeEdit() {
   const set = <K extends keyof Form>(k: K, v: Form[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
     setDirty(true);
-    setErrors((e) => ({ ...e, [k]: undefined, ...(k === 'startingDate' ? { duplicateRowGUID: undefined } : {}) }));
+    setErrors((e) => ({ ...e, [k]: undefined, ...(k === 'startingDate' || k === 'rateType' ? { duplicateRowGUID: undefined } : {}) }));
   };
   const back = () => router.replace({ pathname: CURRENCY_EXCHANGE_ROUTES.list, params: { currencyGUID } } as any);
   const openRow = (id: string) => router.replace({ pathname: CURRENCY_EXCHANGE_ROUTES.edit, params: { currencyGUID, rowGUID: id } } as any);
@@ -119,8 +123,8 @@ export default function CurrencyExchangeEdit() {
           rowOwnerGUID: currencyGUID,
           rowJSON: value,
           orderInList: orderInListForDate(value.startingDate),
-          // the day is the row's parent: moving the rate to another day moves rowParentGUID too
-          columns: { rowParentGUID: value.startingDate },
+          // the day (and the rate type) is the row's key: moving the rate to another day / type moves rowParentGUID too
+          columns: { rowParentGUID: rateKeyOf(value.startingDate, value.rateType) },
         })
       );
     } else {
@@ -128,7 +132,7 @@ export default function CurrencyExchangeEdit() {
         actions.createOne({
           rowGUID: Crypto.randomUUID(),
           rowOwnerGUID: currencyGUID,
-          rowParentGUID: value.startingDate,
+          rowParentGUID: rateKeyOf(value.startingDate, value.rateType),
           orderInList: orderInListForDate(value.startingDate),
           rowJSON: value,
         })
@@ -218,6 +222,13 @@ export default function CurrencyExchangeEdit() {
           + 1 day
         </ButtonTextApp>
       </View>
+      <SegmentButtonsApp
+        testID="currency-exchange-edit-rateType"
+        value={form.rateType}
+        onValueChange={(v: string) => set('rateType', v)}
+        buttons={RATE_TYPES.map((t) => ({ value: t.value, label: t.label, testID: `currency-exchange-edit-rateType-${t.value}` }))}
+      />
+      <Text style={[styles.hint, { color: c.text, marginTop: 4, marginBottom: 8, textAlign: 'left' }]}>{RATE_TYPES.find((t) => t.value === form.rateType)?.hint ?? ''}</Text>
       {errors.duplicateRowGUID ? (
         <Pressable onPress={() => openRow(errors.duplicateRowGUID!)} accessibilityRole="link" testID="currency-exchange-edit-open-duplicate">
           <Text style={[styles.link, { color: c.primary }]}>Open the rate of {form.startingDate}</Text>
@@ -239,7 +250,7 @@ export default function CurrencyExchangeEdit() {
       <View style={styles.actions}>
         {rowGUID && !deletedElsewhere && !notFound ? (
           <ButtonTextApp testID="currency-exchange-edit-delete" onPress={remove} color={c.error}>
-            {confirmDelete ? 'Press again to delete' : 'Delete'}
+            {confirmDelete ? 'Press again to sql_for_delete' : 'Delete'}
           </ButtonTextApp>
         ) : (
           <View />
@@ -254,7 +265,7 @@ export default function CurrencyExchangeEdit() {
         </View>
       </View>
       <Text style={[styles.hint, { color: c.text }]}>
-        One rate per currency per day.{Platform.OS === 'web' ? ' Changes appear in every open browser automatically.' : ''}
+        One rate per currency, day and rate type.{Platform.OS === 'web' ? ' Changes appear in every open browser automatically.' : ''}
       </Text>
     </ScrollView>
   );

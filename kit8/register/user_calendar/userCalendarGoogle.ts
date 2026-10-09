@@ -4,7 +4,7 @@
 //         user_calendar_event_table (matched by rowJSON.googleEventId)
 //   push  entries made in the app are created in Google; later edits are patched (a content hash,
 //         rowJSON.googleHash, tells whether the app copy changed since the last sync - no clocks)
-//   delete an app entry that is linked to Google is removed there too (deleteGoogleEvent)
+//   sql_for_delete an app entry that is linked to Google is removed there too (deleteGoogleEvent)
 //
 // Needs a Google access token with the scope GOOGLE_CALENDAR_SCOPE: useGoogleCalendarConnect.ts
 // ("Connect Google Calendar" button). Project tasks are only pushed when asked (they can be many).

@@ -1,6 +1,6 @@
 // ReusableTable - types.
 // The table works like ListWebCardsComponent (reusable redux entity: read by owner, realtime, optimistic
-// create / update / delete + Undo, orderInList drag & drop) but shows the rows as a TABLE: one row of the
+// create / update / sql_for_delete + Undo, orderInList drag & drop) but shows the rows as a TABLE: one row of the
 // SQL table = one table row, one visualColumn = one input cell stored in rowJSON.
 //
 // SQL concept (kit8/sql/defTable.md): rowGUID · rowOwnerGUID (the more generic entity) ·
@@ -155,6 +155,8 @@ export interface CustomColumn extends ColumnBase {
 
 export type VisualColumn = RowNumberColumn | CatalogColumn | NumberColumn | TextColumn | CustomColumn
   | BooleanColumn | SelectColumn | MultiSelectColumn | DateColumn | ColorColumn | JsonColumn;
+
+export type ReusableTableRowEditKind = 'create' | 'update' | 'move' | 'delete';
 
 /** listOwnerGUID / listParentGUID value: no scope by that column - the table shows the rows of ALL owners / parents */
 export const REUSABLE_TABLE_ALL = '*';
@@ -336,7 +338,7 @@ export interface ReusableTableProps {
   visualColumns: VisualColumn[];
   /** rowJSON of a new row (default: every column field = null) */
   defaultRowJSON?: Record<string, any> | (() => Record<string, any>);
-  /** checkbox column + "delete selected" (default true) */
+  /** checkbox column + "sql_for_delete selected" (default true) */
   selectionEnabled?: boolean;
   /** look of the table: column delimiter lines, rounded cells, width */
   uxuiTable?: ReusableTableUxUi;
@@ -354,7 +356,7 @@ export interface ReusableTableProps {
   onColumnsWidthsChange?: (widths: Record<string, number>) => void;
   /** ▾ on a column header: sort by the column + filter it, as in the Tasks Tree (default true) */
   columnSortAndFilter?: boolean;
-  /** icon panel above the table: add first / add / duplicate / move up / move down / delete (default true) */
+  /** icon panel above the table: add first / add / duplicate / move up / move down / sql_for_delete (default true) */
   crudPanelEnabled?: boolean;
   /** search box (default true) */
   searchEnabled?: boolean;
@@ -367,11 +369,15 @@ export interface ReusableTableProps {
   EditRowModalCard?: ComponentType<EditRowModalCardProps>;
   /** more commands at the end of the row menu */
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
-  /** called after every change the user made (create / update / delete / reorder) */
+  /** called after every change the user made (create / update / sql_for_delete / reorder) */
   onRowsChange?: (rows: ReusableTableRow[]) => void;
+  /** called for the ONE row each change of the user touched (not for changes that arrive from the server / realtime) */
+  onRowEdit?: (rowGUID: string, kind: ReusableTableRowEditKind) => void;
   rowHeight?: number;
   /** max width of the table card in px (default: none - see uxuiTable.fixedWidth) */
   tableMaxWidth?: number;
   emptyText?: string;
+  /** the row to mark and scroll into view (default: the route parameter focusRowGUID, set by the Back button of a details page) */
+  focusRowGUID?: string | null;
   testID?: string;
 }

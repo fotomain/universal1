@@ -3,7 +3,7 @@
 //
 //   Filter & sort                                                  -> PMTreeColumnFilterPopup (tree/filter)
 //   Add custom column ▸ Text · Date · Boolean · Integer · Float   -> PMCustomColumnNameModalWindow
-//   Rename custom column / Delete custom column                    (custom columns only; delete asks first)
+//   Rename custom column / Delete custom column                    (custom columns only; sql_for_delete asks first)
 //   Header color ▸ Default · swatches                              -> project.rowJSON.customColumns.headersBackgroundColors
 //   Default width                                                  (when the column was resized)
 //
@@ -72,7 +72,7 @@ export default function PMTreeHeaderMenu({ crud }: { crud: PMCrud }) {
   if (custom) {
     items.push(
       { testID: 'pm-tree-header-menu-rename', label: 'Rename custom column', icon: 'edit', onPress: then(() => crud.promptRenameCustomColumn(custom.key)) },
-      { testID: 'pm-tree-header-menu-delete', label: 'Delete custom column', icon: 'delete', danger: true, onPress: then(() => crud.deleteCustomColumn(custom.key)) }
+      { testID: 'pm-tree-header-menu-sql_for_delete', label: 'Delete custom column', icon: 'delete', danger: true, onPress: then(() => crud.deleteCustomColumn(custom.key)) }
     );
   }
   if (key) {

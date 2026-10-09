@@ -95,10 +95,17 @@
       realtime = supabase_realtime publication -> redux-saga realtime (ReusableTable all-rows mode, one channel per table)
       security = Authenticated only
 
+    Management genus (kit8/sql/init/create_management_genus_table.sql, RN: managementGenusReusable = "managementGenusTable", kit8/catalog/management/genus, screen /catalog/management/genus/list)
+        rowGUID       = the code: FOLDERS costsGenus > timeGenus, materialGenus, expenseGenus · revenuesGenus > revenueGenus · paymentsGenus > inboundPaymentGenus, outboundPaymentGenus
+        rowOwnerGUID  = 'managementGenusCatalog', rowParentGUID = the folder | 'empty' (= the row is a folder; level 2 are items, only items are used as genus)
+        rowJSON       = { title, description }
+        used by       = resourceRoleTypeTable.rowJSON.managementGenus (a rowGUID of this table)
+        realtime      = supabase_realtime publication -> redux-saga realtime; security = Authenticated only
+
     Resource role catalog (kit8/sql/init/create_resource_role_tables.sql - run AFTER create_product_tables.sql, kit8/catalog/resourcerole,
     screen /catalog/resourcerole/dashboard). Same sheet: resourceRoleType = productType, resourceRole = product, rolePrice = productPrice,
     on the SAME descriptor tables (Property = what a role requires, Variant = a bookable level, Rate = the hourly price).
-      resourceRoleTypeTable      owner 'resourceRoleTypeCatalog'                  rowJSON { title, description, baseUnit (unit_hour), roleVATDefaultRate, propertySet, variantSet, variantMode none|perType|perProduct|sharedWithType, variantSharedTypeGUID, uniqueVariants, variantTitleTemplate, isActive }
+      resourceRoleTypeTable      owner 'resourceRoleTypeCatalog'                  rowJSON { title, description, managementGenus, baseUnit (unit_hour), roleVATDefaultRate, propertySet, variantSet, variantMode none|perType|perProduct|sharedWithType, variantSharedTypeGUID, uniqueVariants, variantTitleTemplate, isActive }
       resourceRoleFolderTable    owner 'resourceRoleFolderCatalog', parent = parent folder | 'empty'   rowJSON { title }
       resourceRoleTable          owner = resourceRoleType, parent = resourceRoleFolder | 'empty'       rowJSON { title, description, roleVATRate, isActive }   (no rate fields: rule R14)
       rolePriceTable             owner = resourceRole, parent = variant | 'empty' rowJSON { priceTypeGUID, price, measureUnit (unit_hour), validFrom }   (the same as productPriceTable; one per role + variant + price list + unit + day)

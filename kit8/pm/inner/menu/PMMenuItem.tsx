@@ -14,7 +14,7 @@ export interface PMMenuItemProps {
   icon: string;
   /** not called for items with a submenu (they open it) */
   onPress: () => void;
-  /** red icon + label (delete) */
+  /** red icon + label (sql_for_delete) */
   danger?: boolean;
   disabled?: boolean;
   /** icon color override (e.g. a color swatch) */

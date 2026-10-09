@@ -53,12 +53,12 @@ describe('PMContextMenu submenu', () => {
 });
 
 describe('PMTreeHeaderMenu', () => {
-  it('on a built-in header: Add custom column ▸ 5 types · Header color ▸ (no delete)', () => {
+  it('on a built-in header: Add custom column ▸ 5 types · Header color ▸ (no sql_for_delete)', () => {
     const crud = fakeCrud();
     setStore({ treeHeaderMenu: { x: 5, y: 5, columnKey: 'name' } });
     renderUI(<PMTreeHeaderMenu crud={crud} />);
     expect(textOf('pm-tree-header-menu-caption')).toBe('Column: Task name');
-    expect(q('pm-tree-header-menu-delete')).toBeNull();
+    expect(q('pm-tree-header-menu-sql_for_delete')).toBeNull();
     expect(q('pm-tree-header-menu-width-reset')).toBeNull();
     press('pm-tree-header-menu-add');
     expect(qa('pm-tree-header-menu-add-').filter((id) => !/-(icon|more)$/.test(id))).toEqual([
@@ -83,12 +83,12 @@ describe('PMTreeHeaderMenu', () => {
     });
     renderUI(<PMTreeHeaderMenu crud={crud} />);
     expect(textOf('pm-tree-header-menu-caption')).toBe('Column: Budget · Float');
-    expectInOrder(['pm-tree-header-menu-add', 'pm-tree-header-menu-rename', 'pm-tree-header-menu-delete', 'pm-tree-header-menu-color', 'pm-tree-header-menu-width-reset']);
+    expectInOrder(['pm-tree-header-menu-add', 'pm-tree-header-menu-rename', 'pm-tree-header-menu-sql_for_delete', 'pm-tree-header-menu-color', 'pm-tree-header-menu-width-reset']);
     press('pm-tree-header-menu-color');
     expect(q('pm-tree-header-menu-color-blue-checked')).not.toBeNull(); // current color
     press('pm-tree-header-menu-color-green');
     expect(crud.setTreeHeaderBackgroundColor).toHaveBeenCalledWith(budget.key, '#dcfce7');
-    press('pm-tree-header-menu-delete');
+    press('pm-tree-header-menu-sql_for_delete');
     expect(crud.deleteCustomColumn).toHaveBeenCalledWith(budget.key);
     press('pm-tree-header-menu-rename');
     expect(crud.promptRenameCustomColumn).toHaveBeenCalledWith(budget.key);
@@ -135,7 +135,7 @@ describe('PMCustomColumnNameModalWindow', () => {
 });
 
 describe('PMTreeRowHoverPanel drag handle', () => {
-  it('"drag & drop" is the LAST button - after delete', () => {
+  it('"drag & drop" is the LAST button - after sql_for_delete', () => {
     for (const isSummary of [false, true]) {
       renderUI(<PMTreeRowHoverPanel guid={G} isSummary={isSummary} crud={fakeCrud()} palette={palette} width={300} left={0} animatedStyle={{}} />);
       const buttons = qa('pm-tree-row-').filter((id) => id !== 'pm-tree-row-panel' && !id.endsWith('-icon'));

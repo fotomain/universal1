@@ -1,5 +1,5 @@
-// ResourceRolesWithTree - the Roles table with the role FOLDERS tree beside it (a tab of ResourceRoleDashboard).
-//   tree    resourceRoleFolderTable: create / rename / duplicate / delete / reorder / nest folders (FolderTreeReusable)
+// ResourceRolesWithTree - the Roles table with the role FOLDERS tree beside it (a tab of ResourceRoleDashboardCRUD).
+//   tree    resourceRoleFolderTable: create / rename / duplicate / sql_for_delete / reorder / nest folders (FolderTreeReusable)
 //   table   resourceRoleTable (ReusableTable, all-rows mode): picking a folder shows its roles (with subfolders), "Add" inside a
 //           folder creates the role in it, drag the ⠿ of a row (or of all selected rows) onto a folder = the role's folder changes
 //           (rowParentGUID); drop on "No folder" = no folder. Right-click -> Edit opens the role card (Main, Rates, Variants, Properties).
@@ -52,7 +52,7 @@ export default function ResourceRolesWithTree({ data, cfg, tables, onReload, sel
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text testID="roles-with-tree-title" style={[styles.h2, { color: c.text }]}>Roles &amp; folders</Text>
           <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>
-            Pick a folder to see its roles · right-click a role to edit it (Main, Rates, Variants, Properties) · drag the ⠿ of a role (or of all checked roles) onto a folder to move it · right-click a folder for its menu
+            Pick a folder to see its roles · right-click a role to edit it (Main, Cost, Variants, Properties) · drag the ⠿ of a role (or of all checked roles) onto a folder to move it · right-click a folder for its menu
           </Text>
         </View>
       </View>

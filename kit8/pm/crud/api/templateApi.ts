@@ -1,6 +1,6 @@
 // Supabase CRUD for project templates (templates_project_* tables).
 // Supports:
-//   - List, read, create, update, delete templates (templates_project_table)
+//   - List, read, create, update, sql_for_delete templates (templates_project_table)
 //   - Create template from an existing project (copies project, tasks, dependencies, closure, stages, settings; excludes task stages)
 //   - Create new project from a template (remapping IDs, shifting dates by deltaMs)
 //   - Editing template tasks, dependencies, stages, and settings like a real project (excluding task kanban stages)

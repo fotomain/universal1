@@ -1,6 +1,6 @@
 // Pure diff: what must be written to turn the CURRENT project data back into the
 // snapshot taken before an action (restores tasks AND dependencies, whatever the action
-// changed - delete, move, stretch, reorder, re-parent, link, color, ...).
+// changed - sql_for_delete, move, stretch, reorder, re-parent, link, color, ...).
 //
 // Scheduler outputs (rowJSON.startAt, rowDuration) are ignored when comparing: they are
 // recomputed and written back automatically after the restore.
@@ -8,9 +8,9 @@
 import { depKey, PMProjectData, PMTaskDependencyRow, PMTaskRow } from '../../model/types';
 
 export interface UndoGanttPlan {
-  /** dependencies to delete (present now, absent in the snapshot) */
+  /** dependencies to sql_for_delete (present now, absent in the snapshot) */
   deleteDeps: PMTaskDependencyRow[];
-  /** top-most rows to delete (their subtrees go with them) */
+  /** top-most rows to sql_for_delete (their subtrees go with them) */
   deleteTasks: PMTaskRow[];
   /** inserts + updates, ordered parents first (by target tree depth) */
   writeTasks: { kind: 'insert' | 'update'; row: PMTaskRow }[];
@@ -44,7 +44,7 @@ export function computeUndoPlan(current: PMProjectData, target: PMProjectData): 
   const curTasks = new Map(current.tasks.map((t) => [t.rowGUID, t]));
   const tgtTasks = new Map(target.tasks.map((t) => [t.rowGUID, t]));
 
-  // ---- tasks to delete: keep only the top-most (the DB deletes subtrees) ----
+  // ---- tasks to sql_for_delete: keep only the top-most (the DB deletes subtrees) ----
   const gone = current.tasks.filter((t) => !tgtTasks.has(t.rowGUID));
   const gonePaths = gone.map((t) => t.treePath);
   const deleteTasks = gone.filter((t) => !gonePaths.some((p) => p !== t.treePath && t.treePath.startsWith(p + '.')));

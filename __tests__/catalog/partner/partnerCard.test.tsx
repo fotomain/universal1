@@ -105,7 +105,7 @@ describe('PartnerCard', () => {
     press('partner-card-edit-part-123');
     expect(onEdit).toHaveBeenCalledWith('part-123');
 
-    press('partner-card-delete-part-123');
+    press('partner-card-sql_for_delete-part-123');
     expect(onDelete).toHaveBeenCalledWith('part-123');
   });
 

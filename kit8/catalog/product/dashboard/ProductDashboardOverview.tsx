@@ -1,5 +1,5 @@
 // Product dashboard - Overview: headline numbers, products per type / folder, and the Checks panel (rules R1-R13
-// of the descriptors plan) with one-click fixes (rebuild variant title + key, delete orphan rows).
+// of the descriptors plan) with one-click fixes (rebuild variant title + key, sql_for_delete orphan rows).
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';

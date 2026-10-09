@@ -1,5 +1,5 @@
 // Resource role dashboard - Overview: headline numbers, roles per type / folder, and the Checks panel (rules R1-R14 of the
-// descriptors plan) with one-click fixes (rebuild variant title + key, delete orphan rows).
+// descriptors plan) with one-click fixes (rebuild variant title + key, sql_for_delete orphan rows).
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -50,7 +50,7 @@ export default function ResourceRoleDashboardOverview({ data, labels: L, issues,
     { key: 'variants', label: 'Variants', value: String(data.variant.length), hint: `${data.variantValue.length} values`, icon: 'style', open: 'variant' },
     { key: 'bookable', label: 'Bookable items', value: String(stats.bookable), hint: 'role × variant', icon: 'event_available' },
     { key: 'descriptors', label: 'Descriptors', value: String(L.options.roleGenus.length), hint: `${data.descriptorPlan.length} plan lines`, icon: 'label', open: 'descriptorGenus' },
-    { key: 'rates', label: 'Rates', value: String(data.rolePrice.length), hint: `${L.options.rateTypes.length} price types`, icon: 'sell', open: 'rolePrice' },
+    { key: 'rates', label: 'Cost', value: String(data.rolePrice.length), hint: `${L.options.rateTypes.length} price types`, icon: 'sell', open: 'rolePrice' },
     { key: 'properties', label: 'Property values', value: String(data.propertyValue.length), hint: 'requirements of the roles', icon: 'tune', open: 'propertyValue' },
     { key: 'checks', label: 'Checks', value: issues.length ? String(issues.length) : 'OK', hint: issues.length ? `${errors} errors · ${warnings} warnings` : 'no issues', icon: issues.length ? 'warning' : 'verified' },
   ];

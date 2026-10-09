@@ -1,5 +1,5 @@
 // Product dashboard - commands that change several rows (dispatched to the reusable sagas of the product entities):
-// create planned variants (+ their values), rebuild variant titles / keys, delete rows, give a barcode the next EAN-13.
+// create planned variants (+ their values), rebuild variant titles / keys, sql_for_delete rows, give a barcode the next EAN-13.
 import * as Crypto from 'expo-crypto';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { PRODUCT_TABLES, ProductTableKey } from '../productModel';

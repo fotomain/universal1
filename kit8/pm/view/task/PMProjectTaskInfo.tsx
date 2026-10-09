@@ -3,6 +3,10 @@
 // dependents straight from the closure table. Works as a deep link too: it looks the
 // task up, selects its project and loads that project's data.
 //
+// Finances (view/task/finances): the Time / Material / Expense / Revenue lines of the task. The place of the task the user edited last
+// (rowJSON.lastEditPlace: a section of this page, or a genus tab + line of Finances) is activated ONCE when the task is opened: the page
+// scrolls to that section (and keeps it in view while the content above it is still loading), Finances opens its tab and marks the line.
+//
 // Back (the in-page arrow, the header arrow, Android back, browser back): the user
 // returns to the dashboard and this task is activated in the tree (parents expanded,
 // row selected and scrolled into view) - see store.requestFocus / PMGanttSurface.
@@ -31,6 +35,9 @@ import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 import { formatDateISO, LINK_TYPES, validateNewDependency } from '../project/scheduling';
 import { PMTaskDependencyRow } from '../../model/types';
 import PMTaskEditModal from './PMTaskEditModal';
+import PMProjectTaskFinancesCRUD from './finances/PMProjectTaskFinancesCRUD';
+import { PMTaskPageSection } from '../../model/lastEditPlace';
+import { useTaskPlaceActivation } from './useTaskPlaceActivation';
 import PMEditDependencyScreen from './dependency/PMEditDependencyScreen';
 import PMApproveYesNoCancelModalWindow from '../../inner/PMApproveYesNoCancelModalWindow';
 import PMUndoProvider from '../undo/PMUndoProvider';
@@ -117,6 +124,17 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
 
+  // ---- lastEditPlace: remember where the user edits; activate the remembered place when the task is opened ----
+  const mark = useCallback(
+    (section: PMTaskPageSection) => crud.recordEditPlace?.(taskGUID, { surface: 'taskPage', section }),
+    [crud, taskGUID]
+  );
+  const markFinances = useCallback(
+    (p: { genus: string; lineGUID?: string }) => crud.recordEditPlace?.(taskGUID, { surface: 'taskPage', section: 'finances', genus: p.genus, lineGUID: p.lineGUID }),
+    [crud, taskGUID]
+  );
+  const { ready: placeReady, financesPlace, scrollRef, sectionLayout, disarm } = useTaskPlaceActivation(taskGUID, !!task);
+
   const preds = useMemo(() => deps.filter((d) => d.rowGUID === taskGUID), [deps, taskGUID]);
   const succs = useMemo(() => deps.filter((d) => d.rowDependsOnGUID === taskGUID), [deps, taskGUID]);
   const candidates = useMemo(() => {
@@ -181,10 +199,13 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   const nameOf = (guid: string) => tasksById[guid]?.rowJSON.name || guid.slice(0, 8);
   const cycleType = (d: PMTaskDependencyRow) => {
     const next = LINK_TYPES[(LINK_TYPES.indexOf(d.linkType || 'FS') + 1) % LINK_TYPES.length];
+    mark('dependencies');
     crud.updateDependency({ rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID }, { linkType: next }, 'Change link type');
   };
-  const bumpLag = (d: PMTaskDependencyRow, delta: number) =>
+  const bumpLag = (d: PMTaskDependencyRow, delta: number) => {
+    mark('dependencies');
     crud.updateDependency({ rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID }, { lagDays: (Number(d.lagDays) || 0) + delta }, 'Change lag');
+  };
 
   const isSummary = !!sched?.isSummary;
   const progress = Math.round(sched?.progress ?? task.rowProgress ?? 0);
@@ -227,7 +248,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         icon="tune"
         title={pmT('Edit dependency (type, lag, color)')}
         color={c.text}
-        onPress={() => crud.openDependencyEditor({ rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID })}
+        onPress={() => { mark('dependencies'); crud.openDependencyEditor({ rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID }); }}
       />
       <PMIconButton
         compact
@@ -236,14 +257,14 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         icon="link_off"
         title={pmT('Remove this dependency')}
         color={c.error}
-        onPress={() => (direction === 'pred' ? crud.unlink(other, taskGUID) : crud.unlink(taskGUID, other))}
+        onPress={() => { mark('dependencies'); if (direction === 'pred') crud.unlink(other, taskGUID); else crud.unlink(taskGUID, other); }}
       />
     </View>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} onTouchStart={disarm} onScrollBeginDrag={disarm}>
         <PMTipPressable tip={pmT('Back to the Gantt chart')} onPress={back} style={styles.backRow} hitSlop={8}>
           <IconApp testID="pm-task-info-back" name="arrow_back" size={18} color={c.primary} />
           <Text style={{ color: c.primary, marginLeft: 4, fontWeight: '600' }}>{pmT('Gantt')}</Text>
@@ -288,6 +309,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         )}
 
         {/* ---- progress ---- */}
+        <View onLayout={sectionLayout('progress')}>
         <Text style={[styles.section, { color: c.text }]}>Progress {progress}%</Text>
         <View style={[styles.progressTrack, { backgroundColor: `${c.primary}22` }]}>
           <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: c.primary }]} />
@@ -295,15 +317,17 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         {!isSummary && (
           <View style={styles.progressBtns}>
             {[0, 25, 50, 75, 100].map((p) => (
-              <PMTipPressable tip={`Set progress to ${p}%`} key={p} testID={`pm-info-progress-${p}`} onPress={() => crud.setProgress(taskGUID, p)} style={[styles.pill, { borderColor: c.border, marginRight: 6 }]}>
+              <PMTipPressable tip={`Set progress to ${p}%`} key={p} testID={`pm-info-progress-${p}`} onPress={() => { mark('progress'); crud.setProgress(taskGUID, p); }} style={[styles.pill, { borderColor: c.border, marginRight: 6 }]}>
                 <Text style={{ color: progress === p ? c.primary : c.text, fontWeight: progress === p ? '700' : '400' }}>{p}%</Text>
               </PMTipPressable>
             ))}
           </View>
         )}
         {isSummary && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Rolled up from the tasks inside (weighted by duration).')}</Text>}
+        </View>
 
         {/* ---- kanban stage progress ---- */}
+        <View onLayout={sectionLayout('kanbanProgress')}>
         <Text style={[styles.section, { color: c.text }]}>Kanban Stage Progress {kanbanProgress}%</Text>
         <View style={[styles.progressTrack, { backgroundColor: `${c.primary}22` }]}>
           <View style={[styles.progressFill, { width: `${kanbanProgress}%`, backgroundColor: c.primary }]} />
@@ -315,6 +339,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
               key={p}
               testID={`pm-info-kanban-progress-${p}`}
               onPress={() => {
+                mark('kanbanProgress');
                 if (isSummary) {
                   const leaves = kanbanLeavesOf(taskGUID, tasksById, tree);
                   if (leaves.length) kanban.setTasksKanbanProgress(leaves, p);
@@ -329,7 +354,18 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
           ))}
         </View>
 
+        </View>
+
+        {/* ---- finances: the Time / Material / Expense / Revenue lines of this task ---- */}
+        <View onLayout={sectionLayout('finances')} testID="pm-task-finances-section">
+          <Text style={[styles.section, { color: c.text }]}>{pmT('Finances')}</Text>
+          {projectGUID && placeReady && (
+            <PMProjectTaskFinancesCRUD key={taskGUID} projectGUID={projectGUID} taskGUID={taskGUID} initialPlace={financesPlace} onEditPlace={markFinances} testID="pm-task-finances" />
+          )}
+        </View>
+
         {/* ---- predecessors ---- */}
+        <View onLayout={sectionLayout('dependencies')}>
         <View style={styles.sectionRow}>
           <Text style={[styles.section, { color: c.text, flex: 1 }]}>{pmT('Waits for (predecessors)')}</Text>
           <PMIconButton testID="pm-info-add-pred" icon={adding ? 'close' : 'add_link'} title={adding ? 'Close the task picker' : 'Add a predecessor (a task this one waits for)'} color={c.primary} onPress={() => setAdding((v) => !v)} />
@@ -350,6 +386,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
                 testID={`pm-info-pred-${t.rowGUID}`}
                 disabled={!!problem}
                 onPress={() => {
+                  mark('dependencies');
                   crud.link(t.rowGUID, taskGUID, 'FS');
                   setAdding(false);
                   setSearch('');
@@ -377,6 +414,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         <ClosureList rows={upstream.data} loading={upstream.isLoading} nameOf={nameOf} color={c.text} kind="up" />
         <Text style={[styles.section, { color: c.text }]}>{pmT('Everything it delays (transitive)')}</Text>
         <ClosureList rows={downstream.data} loading={downstream.isLoading} nameOf={nameOf} color={c.text} kind="down" />
+        </View>
 
         {!!task.rowJSON.notes && (
           <>

@@ -102,7 +102,7 @@ export function effectiveUxuiSettings(
   return uxuiSettingsOf(projectGUID ? s.projectsById[projectGUID]?.rowJSON : undefined, projectGUID ? s.userSettingsByProject[projectGUID] : undefined);
 }
 
-/** Gantt | Network view + network sub-mode: kept when switching projects. */
+/** The main view (Gantt | Kanban | Network | Versions | Finances) + the network sub-mode: applied when a project is selected, never by a refresh. */
 export function withoutWorkspaceMode<T extends { ganttVsNetworkView: unknown; networkViewMode: unknown }>(v: T) {
   const { ganttVsNetworkView: _v, networkViewMode: _m, ...rest } = v;
   return rest;

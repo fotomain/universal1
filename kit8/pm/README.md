@@ -16,6 +16,10 @@ Drawer item: **Projects** (kit8/ui/components/CustomDrawerContent.tsx).
    `create_pm_tables.sql`, which drops the project Kanban tables). Remove: `delete_pm_kanban_tables.sql`.
    Remove everything: `delete_pm_tables.sql`.
    Project versions (`kit8/pm/version`): the `version_*` tables + RPCs are section 5b of `kit8/sql/init/done/create_tables.sql`.
+   **All SQL files of the catalogs, persons, contract templates and finances, in the right order: `kit8/sql/init/RUN_ORDER.md`.**
+   Finances + the remembered place of a task: run `kit8/sql/init/create_pm_task_line_table.sql` (non-destructive, safe to re-run: `task_line_table` +
+   RPC `pm_set_task_last_edit_place`; needs `managementGenusTable` / the role + product catalogs for the pickers). Remove: `delete_pm_task_line_table.sql`.
+   Without it the **Finances** view / section shows "Could not read the table" and the place of the last edit is simply not saved.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
 3. Sign in (RLS: every row belongs to `auth.uid()`), open **Projects**, press **Demo** to load the use case.
@@ -250,6 +254,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 
 | key | values (default) | UI |
 |---|---|---|
+| `ganttVsNetworkView` | 'showGanttChart' \| 'showKanbanView' \| 'showNetworkView' \| 'showVersionsView' \| 'showFinancesView' ('showGanttChart') | the view switch of every bar. **Remembered per project AND user**: a project opens in the view it was left in (`store.selectProject`); only the sub-mode `networkViewMode` follows the user from project to project. A refresh (realtime, another browser) never switches the view under the user's hands |
 | `showCriticalPath` | bool (true) | Critical path button |
 | `criticalPathTaskColor` | #FCFF00 · #FFAA00 · #FF5500 · #00FF66 · #00F0FF · #4455FF · #9D00FF · #FF007F · #FF0033 · #000000 ('#FF0033') | ⚙ → Task tab: color of the critical path bars, arrows and network nodes (`model/criticalPathColors.ts`, other values → default) |
 | `ganttArrowsForm` | 'smoothForm' \| 'squareForm' ('smoothForm') | arrow shape selector |
@@ -352,6 +357,23 @@ Main view switch **Gantt | Kanban | Network** (`GanttToNetworkViewToggleButtons`
 * Tests: `__tests__/pm/view/kanban/kanbanModel.test.ts`, `__tests__/pm/crud/kanban/kanbanRealtime.test.ts`,
   `__tests__/pm/crud/pmKanbanCrud.test.tsx`, `__tests__/pm/ui/kanbanUi.test.tsx`.
 
+## Finances (`kit8/pm/view/task/finances`) and the place of the last edit
+
+Full description: `kit8/pm/view/task/finances/README.md`.
+
+* **Finances button** - the last button of the view switch (Gantt | Kanban | Network | Versions | **Finances**, `GanttToNetworkViewToggleButtons`):
+  tree on the left, on the right the lines of the task selected in the tree (`PMProjectFinancesView`; `PMGanttSurface` `rightPane='finances'`).
+  A stage has no lines (select a task); no budget / roll-up in this version.
+* **`task_line_table`** - the Time / Material / Expense / Revenue lines of ONE task (`rowOwnerGUID` = the task, `rowParentGUID` = the management genus),
+  edited in place by `PMProjectTaskFinancesCRUD` (a `ReusableTable` per genus tab). It is also a section of the task page (`PMProjectTaskInfo`);
+  the task window (`PMTaskEditModal`) has no lines.
+* **`project_task_table.rowJSON.lastEditPlace`** - where the user edited the task last (`model/lastEditPlace.ts`): `{ v: 1, surface: 'editModal' | 'taskPage' | 'financesView',
+  section, genus?, lineGUID?, at, by? }`. Written by `crud.recordEditPlace(taskGUID, { surface, section, genus?, lineGUID? })` only when the PLACE changes
+  (500 edits in one cell = one write), by the RPC `pm_set_task_last_edit_place` (it sends nothing else, so it cannot overwrite the schedule write-back);
+  quiet when it fails; not an undo step. **Activated when the task is opened**: the task window opens on the tab it was edited on
+  (`modalTabOf`), the task page scrolls to the section and keeps it in view while the content above it loads (`view/task/useTaskPlaceActivation.ts`),
+  Finances (task page and Finances view) opens the genus tab and marks the line.
+
 ## Project versions (`kit8/pm/version`)
 
 Full description: `documentation/PM_VERSION_STRUCTURE.html`. SQL: `create_tables.sql` section 5b (run it once; idempotent).
@@ -424,7 +446,8 @@ ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / s
 **`view/project/`** project level: `scheduling.ts` CPM / tree / calendar (pure) · `PMProjectDashboard.tsx` (route `/pm/project/dashboard`) · `SelectProjectFromList.tsx` ·
 `buttons/` `PMAddProjectButton` · `recent/` recently selected projects: `recentProjects.ts` (per-user ribbon
 store) + `PMRecentProjectsToolbar` (project bar: search + recent ribbon + project CRUD) ·
-**`view/task/`** task level: `PMTaskEditModal.tsx` · `PMProjectTaskInfo.tsx` · `taskShare.ts` (copy / share) ·
+**`view/task/`** task level: `PMTaskEditModal.tsx` · `PMProjectTaskInfo.tsx` · `useTaskPlaceActivation.ts` (lastEditPlace on the task page) · `taskShare.ts` (copy / share) ·
+`finances/` the lines of a task + the Finances view (see *Finances*) ·
 `dependency/` everything about dependencies (links): `PMDependencyMenu` (arrow right-click / tap menu), `PMEditDependencyScreen` (editor),
 `DependencyArrowLineFormSelector` (arrow shape) · `progress/line/` everything about the progress lines: constants (`PMProgressLinePosition`, default color,
 thickness, swatches), placement math (`progressLineGeometry.ts`), Skia `PMTaskProgressLine` / `PMProjectProgressLine`
@@ -452,6 +475,9 @@ Skia `PMTreeColumnsHeader` - import it by path) · `customColumns/` `PMTreeHeade
   `crud/api/pmApi.test.ts` (API layer, old-schema fallback, RPC), `pmCrud.test.tsx` (create / update / reorder /
   indent / drag-drop / delete with approval / dependencies / view settings / optimistic rollback / undo of
   every action type), `pmProjectCrud.test.tsx` (projects, search, demo seed, schedule write-back, undo storage), `pmCustomColumnsCrud.test.tsx` (add / rename / delete custom columns, values, header colors, column widths).
+* Finances + lastEditPlace: `model/lastEditPlace.test.ts` · `view/task/finances/taskLine{Money,Catalogs}.test.ts` (money rules, catalog suggestions, computeRowJSON) ·
+  `view/task/finances/taskFinancesUi.test.tsx` (tabs, columns, add / edit / delete, the place) · `ui/financesView.test.tsx` · `ui/taskEditLastEditPlace.test.tsx` ·
+  `ui/taskPlaceActivation.test.tsx` · `crud/pmLastEditPlaceCrud.test.tsx` · the per-project main view in `crud/pmCrud.test.tsx` and `store/viewSettings.test.ts`.
 * Files ending in `TestKit.ts(x)` are helpers, excluded from the run in `jest.config.js`.
 
 ## 2026-10-05: selection, kanbanNoState, app bar / FAB, sharing

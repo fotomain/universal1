@@ -214,7 +214,7 @@ export default function KanbanEditCard() {
       <View style={styles.actions}>
         {rowGUID && !deletedElsewhere && !notFound ? (
           <ButtonTextApp testID="kanban-stage-edit-delete" onPress={remove} color={c.error}>
-            {confirmDelete ? 'Press again to delete' : 'Delete'}
+            {confirmDelete ? 'Press again to sql_for_delete' : 'Delete'}
           </ButtonTextApp>
         ) : (
           <View />

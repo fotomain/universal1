@@ -1,8 +1,12 @@
 // Currency exchange rates - table + row shape + validation (pure, unit-tested in __tests__/catalog/currency/exchange).
 //   SQL: public."currencyExchangeRateTable" (kit8/sql/init/create_currency_exchange_rate_table.sql), defTable.md pattern
 //   rowGUID · rowOwnerGUID = currencyTable.rowGUID (the currency) ·
-//   rowParentGUID = the day 'YYYY-MM-DD' entered by the user -> ONE rate per currency per day (unique index) ·
-//   orderInList = -dayNumber (ascending order = newest first) · rowJSON = { startingDate, currencyRatio }
+//   rowParentGUID = the KEY of the rate: the day 'YYYY-MM-DD' of a Default rate, 'YYYY-MM-DD|Budget' of a rate of another RATE TYPE
+//   -> ONE rate per currency, day and rate type (unique index (rowOwnerGUID, rowParentGUID)) ·
+//   orderInList = -dayNumber (ascending order = newest first) · rowJSON = { startingDate, currencyRatio, rateType? }
+//   currencyRatio = units of the currency for 1 unit of the BASE currency (EUR); the base itself has no rows (ratio 1). A rate applies from
+//   its startingDate until the next rate of the same currency and rate type (the latest startingDate <= the day). Conversion: ./currencyConvert.ts
+//   Rate types (as D365 FO): Default = the daily rate (accounting), Budget = the planned rate of a budget. SQL: kit8/sql/init/update_currency_exchange_rate_types.sql
 
 /** Supabase table name (SQL: currencyExchangeRateTable). */
 export const currencyExchangeRateTable = 'currencyExchangeRateTable';
@@ -18,12 +22,33 @@ export const exchangeReadParams = (currencyGUID: string) => ({
   match: { rowOwnerGUID: currencyGUID },
 });
 
+/** the kinds of rate a currency has (D365 FO: exchange rate types); a rate without rateType is a Default one */
+export const RATE_TYPES: { value: string; label: string; hint: string }[] = [
+  { value: 'Default', label: 'Default', hint: 'the daily rate: accounting' },
+  { value: 'Budget', label: 'Budget', hint: 'the planned rate of a budget' },
+];
+export const DEFAULT_RATE_TYPE = 'Default';
+export const BUDGET_RATE_TYPE = 'Budget';
+
 export interface CurrencyExchangeRowJSON {
-  /** the day the rate starts to apply, 'YYYY-MM-DD' (= rowParentGUID) */
+  /** the day the rate starts to apply, 'YYYY-MM-DD' (the first 10 characters of rowParentGUID) */
   startingDate: string;
-  /** exchange ratio, > 0, e.g. 1.0842 */
+  /** exchange ratio, > 0, e.g. 1.0842 = units of this currency for 1 unit of the base currency */
   currencyRatio: number;
+  /** 'Default' (or missing) | 'Budget' | ... */
+  rateType?: string;
 }
+
+/** the rate type of a rate row ('Default' when it has none) */
+export const rateTypeOf = (row: any): string => {
+  const t = row?.rowJSON?.rateType;
+  return typeof t === 'string' && t.trim() !== '' ? t.trim() : DEFAULT_RATE_TYPE;
+};
+/** rowParentGUID of a rate: the day, plus '|<type>' for a type other than Default (so one currency + day + type = one row) */
+export const rateKeyOf = (day: string, rateType?: string | null): string => {
+  const t = (rateType ?? '').trim();
+  return !t || t === DEFAULT_RATE_TYPE ? day : `${day}|${t}`;
+};
 
 export interface CurrencyExchangeRow {
   rowGUID: string;
@@ -67,7 +92,7 @@ export function addDays(iso: string, n: number): string {
 /** orderInList of a rate: newer day = smaller number, so the reusable ascending order lists the newest first. */
 export const orderInListForDate = (iso: string): number => -dayNumber(iso);
 
-export const emptyRate = (): CurrencyExchangeRowJSON => ({ startingDate: todayISO(), currencyRatio: NaN });
+export const emptyRate = (): CurrencyExchangeRowJSON => ({ startingDate: todayISO(), currencyRatio: NaN, rateType: DEFAULT_RATE_TYPE });
 
 /** '1,0842' / ' 1.0842 ' -> 1.0842 (comma accepted as the decimal separator) */
 export const parseRatio = (v: any): number => {
@@ -77,8 +102,9 @@ export const parseRatio = (v: any): number => {
 };
 
 /** Form values -> stored shape. */
-export function normalizeRate(v: { startingDate?: any; currencyRatio?: any }): CurrencyExchangeRowJSON {
-  return { startingDate: String(v.startingDate ?? '').trim(), currencyRatio: parseRatio(v.currencyRatio) };
+export function normalizeRate(v: { startingDate?: any; currencyRatio?: any; rateType?: any }): CurrencyExchangeRowJSON {
+  const type = String(v.rateType ?? '').trim();
+  return { startingDate: String(v.startingDate ?? '').trim(), currencyRatio: parseRatio(v.currencyRatio), rateType: type || DEFAULT_RATE_TYPE };
 }
 
 export type CurrencyExchangeErrors = Partial<Record<keyof CurrencyExchangeRowJSON, string>> & { duplicateRowGUID?: string };
@@ -96,9 +122,11 @@ export function validateRate(
   const e: CurrencyExchangeErrors = {};
   if (!isValidISODate(v.startingDate)) e.startingDate = 'Date: YYYY-MM-DD, e.g. 2026-09-29.';
   else {
-    const dup = rows.find((r) => r.rowGUID !== rowGUID && (!currencyGUID || r.rowOwnerGUID === currencyGUID) && r.rowParentGUID === v.startingDate);
+    // one rate per currency, day AND rate type
+    const key = rateKeyOf(v.startingDate, v.rateType);
+    const dup = rows.find((r) => r.rowGUID !== rowGUID && (!currencyGUID || r.rowOwnerGUID === currencyGUID) && r.rowParentGUID === key);
     if (dup) {
-      e.startingDate = `A rate for ${v.startingDate} already exists (one per day).`;
+      e.startingDate = `A ${v.rateType && v.rateType !== DEFAULT_RATE_TYPE ? `${v.rateType} ` : ''}rate for ${v.startingDate} already exists (one per day and rate type).`;
       e.duplicateRowGUID = dup.rowGUID;
     }
   }
@@ -130,7 +158,7 @@ export function formatDay(iso: string): string {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-const dayOf = (row: any): string => row?.rowJSON?.startingDate || row?.rowParentGUID || '';
+const dayOf = (row: any): string => row?.rowJSON?.startingDate || String(row?.rowParentGUID || '').slice(0, 10);
 
 /** Newest first (the list order); rows without a valid day go last. */
 export const sortRatesNewestFirst = <T>(rows: T[]): T[] => [...rows].sort((a: any, b: any) => (dayOf(b) > dayOf(a) ? 1 : dayOf(b) < dayOf(a) ? -1 : 0));
@@ -154,9 +182,10 @@ export function rateToCard(row: any, idx = 0, rows: any[] = []): RateCardItem {
   const day = dayOf(row);
   let previousRatio: number | undefined;
   let prevDay = '';
+  const type = rateTypeOf(row);
   for (const r of rows) {
     const d = dayOf(r);
-    if (d && d < day && d > prevDay && Number.isFinite(Number(r?.rowJSON?.currencyRatio))) {
+    if (rateTypeOf(r) === type && d && d < day && d > prevDay && Number.isFinite(Number(r?.rowJSON?.currencyRatio))) {
       prevDay = d;
       previousRatio = Number(r.rowJSON.currencyRatio);
     }
@@ -164,7 +193,7 @@ export function rateToCard(row: any, idx = 0, rows: any[] = []): RateCardItem {
   return {
     id: row?.rowGUID || `rate-${idx + 1}`,
     title: `${day} — ${formatRatio(j.currencyRatio)}`,
-    description: formatDay(day),
+    description: type === DEFAULT_RATE_TYPE ? formatDay(day) : `${formatDay(day)} · ${type}`,
     orderInList: row?.orderInList,
     rawItem: row,
     previousRatio,

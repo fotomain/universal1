@@ -3,8 +3,8 @@
 // Zustand store (store/store_pm.ts) whenever the cached project data changes.
 //
 // The CRUD hooks live per entity (split so each stays small):
-//   crud/project/projectQueries.ts       projects list / search / create / update / delete / demo
-//   crud/task/taskQueries.ts             tasks: project data, create / update / move / delete
+//   crud/project/projectQueries.ts       projects list / search / create / update / sql_for_delete / demo
+//   crud/task/taskQueries.ts             tasks: project data, create / update / move / sql_for_delete
 //   crud/dependency/dependencyQueries.ts dependencies + closure
 // This file keeps the cross-cutting hooks (owner uid, realtime, write-back) and
 // re-exports everything so existing imports from './queries' keep working.

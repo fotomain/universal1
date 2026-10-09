@@ -18,7 +18,7 @@ const G = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 afterEach(cleanupUI);
 
 describe('PMTreeRowHoverPanel (tree/panels)', () => {
-  it('task row: add below (1st) · add above · edit · duplicate · link · details · delete', () => {
+  it('task row: add below (1st) · add above · edit · duplicate · link · details · sql_for_delete', () => {
     const crud = fakeCrud();
     renderUI(<PMTreeRowHoverPanel guid={G} isSummary={false} crud={crud} palette={palette} width={200} right={0} animatedStyle={{}} />);
     expect(q('pm-tree-row-panel')).not.toBeNull();
@@ -62,7 +62,7 @@ describe('PMTreeRowHoverPanel width (tree/panels/treeRowPanelGeometry)', () => {
 });
 
 describe('PMGanttBarHoverPanel (gantt/panels)', () => {
-  it('add · edit · duplicate · link · details · delete', () => {
+  it('add · edit · duplicate · link · details · sql_for_delete', () => {
     const crud = fakeCrud();
     renderUI(<PMGanttBarHoverPanel guid={G} crud={crud} palette={palette} animatedStyle={{}} />);
     expect(q('pm-gantt-bar-panel')).not.toBeNull();
@@ -120,10 +120,10 @@ describe('PMDependencyMenu (right click on a dependency arrow)', () => {
     act(() => usePMStore.getState().setDepMenu({ ...ref, x: 100, y: 100 }));
     const names = usePMStore.getState().tasksById;
     expect(textOf('pm-dep-menu-caption')).toBe(`${names[dep.rowDependsOnGUID].rowJSON.name} → ${names[dep.rowGUID].rowJSON.name}`);
-    expectInOrder(['pm-dep-menu-edit', 'pm-dep-menu-delete']);
+    expectInOrder(['pm-dep-menu-edit', 'pm-dep-menu-sql_for_delete']);
     press('pm-dep-menu-edit');
     expect(crud.openDependencyEditor).toHaveBeenCalledWith(ref);
-    press('pm-dep-menu-delete');
+    press('pm-dep-menu-sql_for_delete');
     expect(crud.deleteDependency).toHaveBeenCalledWith(ref);
     press('pm-dep-menu-backdrop');
     expect(crud.closeDependencyMenu).toHaveBeenCalled();

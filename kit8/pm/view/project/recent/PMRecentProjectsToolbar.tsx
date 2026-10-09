@@ -5,7 +5,7 @@
 //                            recentProjects.ts), sorted by name, horizontally scrollable with
 //                            chevron arrows; hover a chip -> "Close" (x) in its right corner
 //                            removes the project from the ribbon (not from the database)
-//  * project CRUD          - create / settings / delete (demo data: only in the empty state)
+//  * project CRUD          - create / settings / sql_for_delete (demo data: only in the empty state)
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -312,6 +312,8 @@ export default function PMRecentProjectsToolbar({
             currencyForBudget: json.currencyForBudget ?? d.currencyForBudget,
             currencyForAccounting: json.currencyForAccounting ?? d.currencyForAccounting,
             currencyForContract: json.currencyForContract ?? d.currencyForContract,
+            exchangeRateTypeForAccounting: json.exchangeRateTypeForAccounting ?? d.exchangeRateTypeForAccounting,
+            exchangeRateTypeForBudget: json.exchangeRateTypeForBudget ?? d.exchangeRateTypeForBudget,
             projectRevenueBudgetNeeded: json.projectRevenueBudgetNeeded ?? d.projectRevenueBudgetNeeded,
             projectExpenseBudgetNeeded: json.projectExpenseBudgetNeeded ?? d.projectExpenseBudgetNeeded,
           }

@@ -1,16 +1,16 @@
 // ReusableTable - ListWebCardsComponent as a TABLE (web + iOS + Android).
 //   data      one reusable redux entity (SystemMetaData key) scoped by listOwnerGUID + listParentGUID:
-//             read on mount, Supabase Realtime, optimistic create / update / delete (+ Undo snackbar), archive
+//             read on mount, Supabase Realtime, optimistic create / update / sql_for_delete (+ Undo snackbar), archive
 //   columns   visualColumns: row number · catalog GUID (SelectElementFromCatalog, may depend on another
 //             column) · integer / number · text · custom - every cell is edited in place and saved to rowJSON
-//   panel     icon buttons: add first / add / duplicate / move up / move down / delete (selected rows)
+//   panel     icon buttons: add first / add / duplicate / move up / move down / sql_for_delete (selected rows)
 //   headers   ▾ = sort + filter of the column (light Tasks Tree "Filter & sort"); optional column drag & resize
 //   rows      like the Tasks Tree: context menu (right-click / long-press / ⋮), drag & drop by the ⠿ handle
-//             (web), move up / down / first / last, add above / below, duplicate, selection + delete selected
+//             (web), move up / down / first / last, add above / below, duplicate, selection + sql_for_delete selected
 //   folders   uxuiTable.showFoldersTree + the foldersTree prop: a FolderTreeReusable beside the table - pick a folder = filter
 //             the rows (with subfolders), drag rows (⠿) onto a folder = save their folder column, "Add" inside a folder
 //             creates the row in it; uxuiTable.foldersTree* calibrate position, width, heights, row alignment, stacking
-// Example: ./example/TaskExpenseInputTable.tsx, route /demo/reusabletable.
+// Examples: the catalog dashboards (kit8/catalog/product/dashboard, kit8/catalog/resourcerole/dashboard); test fixture __tests__/ui/table/fixtures.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
@@ -40,7 +40,7 @@ import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
-import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf } from './tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -174,7 +174,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     else router.push({ pathname: target.pathname, params: { ...(target.params || {}), returnTo } } as any);
   };
   /** the row the user returned to (route parameter focusRowGUID): marked, and scrolled into view on web */
-  const focusRowGUID = typeof routeParams.focusRowGUID === 'string' ? routeParams.focusRowGUID : null;
+  const focusRowGUID = props.focusRowGUID ?? (typeof routeParams.focusRowGUID === 'string' ? routeParams.focusRowGUID : null);
   const focusRowShown = !!focusRowGUID && crud.rows.some((r) => r.rowGUID === focusRowGUID);
   useEffect(() => {
     if (!focusRowShown || Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -190,7 +190,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   const searchHistory = useSearchHistory(entityName);
   /** popup next to the search field: 'history' | 'more' (⋮) */
   const lastPress = useRef({ x: 0, y: 0 });
-  const [barMenu, setBarMenu] = useState<{ kind: 'history' | 'more'; x: number; y: number } | null>(null);
+  const [barMenu, setBarMenu] = useState<{ kind: 'history' | 'more' | 'settings'; x: number; y: number } | null>(null);
   // ---- column sort + filters (▾ of a header) ----
   const [columnSort, setColumnSort] = useState<ColumnSort | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
@@ -236,6 +236,13 @@ export default function ReusableTable(props: ReusableTableProps) {
     onColumnsOrderChange?.([]);
     onColumnsWidthsChange?.({});
   };
+  /** "Fit to width": every column gets a width so that ALL of them are visible at once (no horizontal scrolling); the widths are kept like a dragged separator */
+  const fitToWidth = () => {
+    if (!(bodyWidth > fixedColsWidth)) return;
+    const widths = fitColumnWidths(visualColumns, bodyWidth - fixedColsWidth);
+    setColumnsWidths(widths);
+    onColumnsWidthsChange?.(widths);
+  };
   /** the rows and columns as they are shown now (search / filters / sort / column order applied) */
   const runExport = async (format: TableExportFormat, share: boolean) => {
     try {
@@ -257,7 +264,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   const toggle = (id: string) => setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const toggleAll = () => setSelected(allSelected ? [] : visible.map((r) => r.rowGUID));
 
-  // ---- delete (asks first when uxuiState.askBeforeDeletePost) ----
+  // ---- sql_for_delete (asks first when uxuiState.askBeforeDeletePost) ----
   const doDelete = (ids: string[]) => { crud.remove(ids); setSelected((p) => p.filter((x) => !ids.includes(x))); };
   const askDelete = (ids: string[]) => { if (ids.length === 0) return; if (askBeforeDelete) setPendingDelete(ids); else doDelete(ids); };
 
@@ -431,10 +438,15 @@ export default function ReusableTable(props: ReusableTableProps) {
       )}
     </>
   );
+  // ⚙ of the bar: the table settings (Fit to width, Default settings); right before the ⋮
+  const settingsEl = (
+    <PMIconButton tipScope="app" testID={`${testID}-settings`} icon="settings" title="Table settings: fit to width, default settings" color={c.text}
+      onPress={() => setBarMenu({ kind: 'settings', x: lastPress.current.x, y: lastPress.current.y })} />
+  );
   // ⋮ of the bar: always the LAST element, in a box as wide as the ⋮ column of the rows -> all ⋮ are on one vertical line
   const moreEl = (
     <View style={styles.barMore} testID={`${testID}-bar-more`}>
-      <PMIconButton tipScope="app" testID={`${testID}-more`} icon="more_vert" title="Default settings, export, share" color={c.text}
+      <PMIconButton tipScope="app" testID={`${testID}-more`} icon="more_vert" title="Export, share" color={c.text}
         onPress={() => setBarMenu({ kind: 'more', x: lastPress.current.x, y: lastPress.current.y })} />
     </View>
   );
@@ -468,11 +480,12 @@ export default function ReusableTable(props: ReusableTableProps) {
           onStartShouldSetResponderCapture={(e: any) => { lastPress.current = pressPoint(e); return false; }}>
           {searchEl}
           {barLayout === 'leftTitle_rightSearchCrudPanel' ? <>{panelEl}{treeToggleEl}{toolbarExtra}</> : barLayout === 'leftCrudPanel_rightSearchTitle' ? titleEl : null}
+          {settingsEl}
           {moreEl}
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator style={tableFixedH !== null ? { flex: 1 } : undefined} contentContainerStyle={tableFixedH !== null ? { minWidth: '100%', height: '100%' } : { minWidth: '100%' }} keyboardShouldPersistTaps="handled"
+      <ScrollView horizontal showsHorizontalScrollIndicator testID={`${testID}-scroll-x`} style={tableFixedH !== null ? { flex: 1 } : undefined} contentContainerStyle={tableFixedH !== null ? { minWidth: '100%', height: '100%' } : { minWidth: '100%' }} keyboardShouldPersistTaps="handled"
         onLayout={(e) => { const w = Math.floor(e.nativeEvent.layout.width); if (w !== bodyWidth) setBodyWidth(w); }}>
         <View style={{ minWidth: totalWidth, flex: 1 }}>
           {/* ---- header ---- */}
@@ -574,10 +587,16 @@ export default function ReusableTable(props: ReusableTableProps) {
               : [{ testID: `${testID}-search-history-clear`, label: 'Clear history', icon: 'delete', danger: true, onPress: () => { setBarMenu(null); searchHistory.clear(); } }]),
           ]} />
       )}
+      {barMenu?.kind === 'settings' && (
+        <PMContextMenu testID={`${testID}-settings-menu`} x={barMenu.x} y={barMenu.y} caption="Table settings" onClose={() => setBarMenu(null)}
+          items={[
+            { testID: `${testID}-settings-fit-width`, label: 'Fit to width', icon: 'fit_screen', onPress: () => { setBarMenu(null); fitToWidth(); } },
+            { testID: `${testID}-settings-default`, label: 'Default settings', icon: 'restart_alt', onPress: () => { setBarMenu(null); resetToDefaultSettings(); } },
+          ]} />
+      )}
       {barMenu?.kind === 'more' && (
         <PMContextMenu testID={`${testID}-more-menu`} x={barMenu.x} y={barMenu.y} onClose={() => setBarMenu(null)}
           items={[
-            { testID: `${testID}-more-default-settings`, label: 'Default settings', icon: 'restart_alt', onPress: () => { setBarMenu(null); resetToDefaultSettings(); } },
             { testID: `${testID}-more-export`, label: 'Export', icon: 'download', onPress: () => {},
               submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-export-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, false); } })) },
             { testID: `${testID}-more-share`, label: 'Share', icon: 'share', onPress: () => {},

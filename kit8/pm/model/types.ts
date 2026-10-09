@@ -24,6 +24,8 @@ export {
   parsePlanDuration,
 } from './planDateFormats';
 import type { PMPlanDateInputFormat } from './planDateFormats';
+import type { PMLastEditPlace } from './lastEditPlace';
+export type { PMLastEditPlace } from './lastEditPlace';
 
 /** project = row of project_table; stage = summary row; task = leaf; milestone = 0-day leaf. */
 export type PMRowKind = 'project' | 'stage' | 'task' | 'milestone';
@@ -59,6 +61,11 @@ export interface PMRowJSON {
   /** Computed by the scheduler and written back (ISO timestamptz). Finish lives in rowDuration. */
   startAt?: string | null;
   notes?: string;
+  /**
+   * project_task_table only: where in the task the user edited last; activated when the task is opened again
+   * (model/lastEditPlace.ts). Written by the RPC pm_set_task_last_edit_place, never part of an undo step.
+   */
+  lastEditPlace?: PMLastEditPlace | null;
   /** The row was added from content shared into the app (kit8/providers/WithIntent.tsx): the link to it. */
   intent?: PMIntentLink | null;
   // ---- task planning units fields ----
@@ -112,6 +119,9 @@ export interface PMRowJSON {
   currencyForAccounting?: string | null;
   /** ISO 4217 code (currency catalog): default currency for contracts */
   currencyForContract?: string | null;
+  /** D365-style exchange rate types (currencyExchangeRateTable.rowJSON.rateType) used to convert the sums of the task lines: accounting (default 'Default') and budget (default 'Budget') */
+  exchangeRateTypeForAccounting?: string | null;
+  exchangeRateTypeForBudget?: string | null;
   /** Budgets: the project needs a revenue budget */
   projectRevenueBudgetNeeded?: boolean;
   /** Budgets: the project needs an expense budget */
@@ -253,7 +263,7 @@ export interface PMUxUiSettings {
   taskProgressLineColor?: string;
   /** Color of the project progress line (default PM_DEFAULT_PROGRESS_LINE_COLOR). */
   projectProgressLineColor?: string;
-  /** Main view switch: Gantt chart, Kanban board or network view (default 'showGanttChart'). */
+  /** Main view switch: Gantt chart, Kanban board, network view, versions or finances. Saved per user AND project (default 'showGanttChart'). */
   ganttVsNetworkView?: PMGanttVsNetworkView;
   /** PMNetworkView radio: network diagram (AON) or network schedule (AOA) (default 'networkDiagram'). */
   networkViewMode?: PMNetworkViewMode;
@@ -284,7 +294,7 @@ export interface PMUxUiSettings {
 }
 
 /**
- * Where the row / bar commands (add, edit, duplicate, copy, share, link, details, delete) live:
+ * Where the row / bar commands (add, edit, duplicate, copy, share, link, details, sql_for_delete) live:
  *  onHoverPanelMode     = floating panel on the hovered row (web) / selected row (touch)
  *  onRightClickMenuMode = context menu: right-click (web) / long-press and release (touch); no panel
  */
@@ -298,10 +308,10 @@ export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';
 export const PM_SELECT_ROW_CHECK_BOX_FORMS: PMSelectRowCheckBoxForm[] = ['formRound', 'formSquare'];
 export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => (v === 'formSquare' ? 'formSquare' : 'formRound');
 
-/** Main view switch Gantt | Kanban | Network | Versions (GanttToNetworkViewToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView';
+/** Main view switch Gantt | Kanban | Network | Versions | Finances (GanttToNetworkViewToggleButtons). */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
-  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' ? v : 'showGanttChart';
+  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' ? v : 'showGanttChart';
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
 /**

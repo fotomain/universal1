@@ -1,6 +1,6 @@
 import React from 'react';
-import ResourceRoleDashboard from '../../../../kit8/catalog/resourcerole/dashboard/ResourceRoleDashboard';
+import ResourceRoleDashboardCRUD from '../../../../kit8/catalog/resourcerole/dashboard/ResourceRoleDashboardCRUD';
 
 export default function ResourceRoleDashboardScreen() {
-  return <ResourceRoleDashboard />;
+  return <ResourceRoleDashboardCRUD />;
 }

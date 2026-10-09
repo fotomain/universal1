@@ -86,16 +86,16 @@ it('new currency: validation, then createOne with the catalog owner', () => {
   expect(mockReplace).toHaveBeenCalledWith('/currency/list');
 });
 
-it('existing currency: updateOne with rowJSON; delete asks twice', () => {
+it('existing currency: updateOne with rowJSON; sql_for_delete asks twice', () => {
   mount({ rowGUID: 'eur' });
   expect(value('currency-edit-currencyName')).toBe('Euro');
   typeInto('currency-edit-currencyName', 'Euro (EU)');
   press('currency-edit-save');
   expect(dispatched.find((a) => a.type === 'currencyReusable/updateOne').payload).toMatchObject({ rowGUID: 'eur', rowJSON: { currencyName: 'Euro (EU)' } });
   mount({ rowGUID: 'eur' });
-  press('currency-edit-delete');
+  press('currency-edit-sql_for_delete');
   expect(dispatched.some((a) => a.type === 'currencyReusable/deleteOne')).toBe(false);
-  press('currency-edit-delete');
+  press('currency-edit-sql_for_delete');
   expect(dispatched.find((a) => a.type === 'currencyReusable/deleteOne').payload).toMatchObject({ rowGUID: 'eur' });
 });
 
@@ -121,7 +121,7 @@ it('deleted in another browser: notice, no save', () => {
   expect(q('currency-edit-gone')!.textContent).toMatch(/deleted in another window/);
   press('currency-edit-save');
   expect(dispatched.some((a) => a.type === 'currencyReusable/updateOne')).toBe(false);
-  expect(q('currency-edit-delete')).toBeNull();
+  expect(q('currency-edit-sql_for_delete')).toBeNull();
 });
 
 it('hyperlink "Rates": only for a saved currency, opens its exchange rates', () => {

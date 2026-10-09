@@ -117,7 +117,7 @@ export function useVersionCommands(ownerGUID: string, projectGUID: string | null
         await refreshVersions();
         return true;
       } catch (err) {
-        fail('Could not delete the version', err);
+        fail('Could not sql_for_delete the version', err);
         return false;
       }
     };

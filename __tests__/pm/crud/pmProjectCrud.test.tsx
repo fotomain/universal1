@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// Project CRUD hooks (create / update / delete / search / demo seed), the scheduler
+// Project CRUD hooks (create / update / sql_for_delete / search / demo seed), the scheduler
 // write-back and the web undo storage.
 import { mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import { act } from 'react';
@@ -46,7 +46,7 @@ describe('project_table through React Query', () => {
     expect(h.store().lastError).toBe('permission denied');
   });
 
-  it('delete: removes the project from the database and the store', async () => {
+  it('sql_for_delete: removes the project from the database and the store', async () => {
     await run(() => h.projects.deleteProject.mutate(h.P2));
     expect(dbProjects().map((p) => p.rowJSON.name)).toEqual(['Project 1']);
     expect(h.store().projectsById[h.P2]).toBeUndefined();

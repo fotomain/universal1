@@ -1,5 +1,5 @@
 // Supabase access for the project versions (version_* tables + RPCs, create_tables.sql section 5b).
-// Versions are written ONLY by the RPCs (one transaction each); clients read them and may delete one.
+// Versions are written ONLY by the RPCs (one transaction each); clients read them and may sql_for_delete one.
 // Until the SQL has run the tables / functions are missing: reads answer { missing: true } and
 // writes throw PMMissingTableError.
 

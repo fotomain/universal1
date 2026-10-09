@@ -369,7 +369,7 @@ export const deleteFolderContents = async (
     crudSpecifics?: GoogleDriveCrudSpecifics
 ): Promise<{ deletedCount: number }> => {
     const folderId = fileInfo.id || crudSpecifics?.parentId;
-    if (!folderId) throw new Error('Folder ID is required to delete folder contents');
+    if (!folderId) throw new Error('Folder ID is required to sql_for_delete folder contents');
 
     if (crudSpecifics?.onProgress) {
         crudSpecifics.onProgress(10, 0, 0);

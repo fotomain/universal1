@@ -29,7 +29,7 @@ export interface DashboardTableConfig {
   group: string;
   columns: VisualColumn[];
   filters: ScopeFilterDef[];
-  /** false: a fixed list (no add / delete) */
+  /** false: a fixed list (no add / sql_for_delete) */
   crud?: boolean;
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
 }

@@ -1,6 +1,6 @@
 import React from 'react';
-import ProductDashboard from '../../../../kit8/catalog/product/dashboard/ProductDashboard';
+import ProductDashboardCRUD from '../../../../kit8/catalog/product/dashboard/ProductDashboardCRUD';
 
 export default function ProductDashboardScreen() {
-  return <ProductDashboard />;
+  return <ProductDashboardCRUD />;
 }

@@ -26,7 +26,7 @@ export default function PMDependencyMenu({ crud }: { crud: PMCrud }) {
       onClose={crud.closeDependencyMenu}
       items={[
         { testID: 'pm-dep-menu-edit', label: 'Edit', icon: 'edit', onPress: () => crud.openDependencyEditor(ref) },
-        { testID: 'pm-dep-menu-delete', label: 'Delete', icon: 'delete', danger: true, onPress: () => crud.deleteDependency(ref) },
+        { testID: 'pm-dep-menu-sql_for_delete', label: 'Delete', icon: 'delete', danger: true, onPress: () => crud.deleteDependency(ref) },
       ]}
     />
   );

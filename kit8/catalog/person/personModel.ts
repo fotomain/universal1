@@ -31,8 +31,10 @@ export interface PersonRowJSON {
   personEmail?: string;
   personPhone?: string;
   isActive: boolean;
-  /** Independent boolean flag */
+  /** Independent boolean flag (kept in step with personType by the Persons dashboard: Employee = true) */
   personIsEmployee: boolean;
+  /** personTypeTable.rowGUID (Employee | Contractor ...): decides the descriptor sets of the person (kit8/catalog/person/personTypeModel.ts) */
+  personType?: string | null;
   /** Legal/employee data: preserved even if personIsEmployee is toggled off */
   employeeData?: EmployeeData;
 }
@@ -72,6 +74,7 @@ export const emptyPerson = (): PersonRowJSON => ({
   personPhone: '',
   isActive: true,
   personIsEmployee: false,
+  personType: null,
   employeeData: {
     employeeNumber: '',
     position: '',
@@ -108,6 +111,8 @@ export function normalizePerson(v: Partial<PersonRowJSON>): PersonRowJSON {
     personPhone: String(v.personPhone ?? '').trim(),
     isActive: v.isActive !== false,
     personIsEmployee: Boolean(v.personIsEmployee),
+    // not edited by the person form: kept as it is
+    personType: v.personType || null,
     employeeData,
   };
 }

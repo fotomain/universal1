@@ -1,5 +1,5 @@
 // ProductFolderTree - the product catalog folders (productFolderTable) as a stand-alone FolderTreeReusable:
-// create / rename / duplicate / delete / reorder / nest folders, counts of products per folder (with subfolders), and
+// create / rename / duplicate / sql_for_delete / reorder / nest folders, counts of products per folder (with subfolders), and
 // products dropped on a folder (from ReusableTable rows or any 'items' drag) get that folder. For the tree BESIDE the
 // product table use ProductsWithTree (uxuiTable.showFoldersTree) - it uses the same useProductFolderTree binding.
 import React, { useMemo } from 'react';

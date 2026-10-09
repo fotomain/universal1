@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 // ReusableTable with TableExample2 (task_expense_input_table): rows of one scope, add, edit cells
-// (person -> contract dependency, integer hours), row menu, delete with confirmation.
+// (person -> contract dependency, integer hours), row menu, sql_for_delete with confirmation.
 import React, { act } from 'react';
 
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
@@ -49,7 +49,7 @@ jest.mock('../../../kit8/pm/inner/menu/PMContextMenu', () => {
 jest.mock('../../../kit8/ui/components/common/AskBeforeDeletePostComponent', () => {
   const R = require('react');
   const { Pressable, Text } = require('react-native');
-  return { __esModule: true, default: ({ visible, onConfirm }: any) => (visible ? R.createElement(Pressable, { testID: 'confirm-delete', onPress: onConfirm }, R.createElement(Text, null, 'Delete')) : null) };
+  return { __esModule: true, default: ({ visible, onConfirm }: any) => (visible ? R.createElement(Pressable, { testID: 'confirm-sql_for_delete', onPress: onConfirm }, R.createElement(Text, null, 'Delete')) : null) };
 });
 
 let mockCheckForm = 'formRound';
@@ -75,7 +75,7 @@ const mockDownloadBinary = jest.fn((..._a: any[]) => Promise.resolve('downloaded
 jest.mock('../../../kit8/pm/crud/exchange/project/export/downloadTextFile', () => ({ downloadTextFile: (...a: any[]) => mockDownloadText(...a) }));
 jest.mock('../../../kit8/pm/crud/exchange/pdf/downloadBinaryFile', () => ({ downloadBinaryFile: (...a: any[]) => mockDownloadBinary(...a) }));
 jest.mock('../../../kit8/redux/uxuiSlice', () => ({ showSnackbar: (p: any) => ({ type: 'snackbar', p }) }));
-import TaskExpenseInputTable from '../../../kit8/ui/components/table/reusable/example/TaskExpenseInputTable';
+import TaskExpenseInputTable from './fixtures/TaskExpenseInputTable';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
@@ -102,7 +102,7 @@ const seed = () => [
 
 it('bar variant leftCrudPanel_rightSearchTitle shows the title on the right', () => {
   const ReusableTable = require('../../../kit8/ui/components/table/reusable/ReusableTable').default;
-  const { taskExpenseInputColumns } = require('../../../kit8/ui/components/table/reusable/example/taskExpenseInputModel');
+  const { taskExpenseInputColumns } = require('./fixtures/taskExpenseInputModel');
   mockState = { uxuiState: {}, task_expense_input_table: { entityDataFromServer: seed(), readSuccessful: 1 } };
   const el = document.createElement('div');
   document.body.appendChild(el);
@@ -158,7 +158,7 @@ it('+ Add appends an empty row of this scope', () => {
   expect(q(`${T}-row-${p.rowGUID}`)).not.toBeNull();
 });
 
-it('row menu: add below, move up, delete (asks first)', () => {
+it('row menu: add below, move up, sql_for_delete (asks first)', () => {
   mount(seed());
   press(`${T}-menu-button-r1`);
   press(`${T}-menu-add-below`);
@@ -174,16 +174,16 @@ it('row menu: add below, move up, delete (asks first)', () => {
   press(`${T}-menu-button-r1`);
   press(`${T}-menu-delete`);
   expect(mockActions.deleteOne).not.toHaveBeenCalled();
-  press('confirm-delete');
+  press('confirm-sql_for_delete');
   expect(mockActions.deleteOne).toHaveBeenCalledWith({ rowGUID: 'r1', rowOwnerGUID: 'proj1' });
   expect(q(`${T}-row-r1`)).toBeNull();
 });
 
-it('selection: select all + delete selected', () => {
+it('selection: select all + sql_for_delete selected', () => {
   mount(seed());
   press(`${T}-select-all`);
   press(`${T}-delete-selected`);
-  press('confirm-delete');
+  press('confirm-sql_for_delete');
   expect(mockActions.deleteOne).toHaveBeenCalledTimes(2);
   expect(q(`${T}-empty`)).not.toBeNull();
 });
@@ -258,7 +258,7 @@ it('number cells have − / + buttons: one step, never below min, empty counts a
 
 it('uxuiTable: delimiter lines + square cells + 100% width by default; fixedWidth px adds a horizontal scroll', () => {
   const ReusableTable = require('../../../kit8/ui/components/table/reusable/ReusableTable').default;
-  const { taskExpenseInputColumns } = require('../../../kit8/ui/components/table/reusable/example/taskExpenseInputModel');
+  const { taskExpenseInputColumns } = require('./fixtures/taskExpenseInputModel');
   const render = (uxuiTable?: any) => {
     mockState = { uxuiState: {}, task_expense_input_table: { entityDataFromServer: seed(), readSuccessful: 1 } };
     const el = document.createElement('div');
@@ -352,10 +352,10 @@ it('⋮ menu: export downloads the shown rows (JSON with GUIDs, CSV, both PDFs);
   expect(pdf(1)).not.toContain('(rowGUID)');
   expect(pdf(1)).toContain('(Hours)');
 
-  press(`${T}-more`);
-  press(`${T}-more-default-settings`);
+  press(`${T}-settings`);
+  press(`${T}-settings-default`);
   expect(q(`${T}-row-r1`)).not.toBeNull();
-  expect(q(`${T}-more-share-json`)).toBeNull(); // menu closed
+  expect(q(`${T}-settings-default`)).toBeNull(); // menu closed
   press(`${T}-more`);
   expect(q(`${T}-more-share-pdfVisible`)).not.toBeNull();
 });
@@ -435,4 +435,65 @@ it('returning with focusRowGUID marks that row; other route parameters are kept 
   press(`${T}-cell-r2-person-details`);
   expect(mockPush.mock.calls[0][0].params.returnTo).toBe('/demo/reusabletable?tab=x&focusRowGUID=r2');
   mockRouteParams = {};
+});
+
+describe('settings button (before the ⋮): Fit to width, Default settings', () => {
+  const widths = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const key of ['person', 'contract', 'hours']) out[key] = parseFloat(getComputedStyle(q(`${T}-header-${key}`)!).width);
+    return out;
+  };
+  /** jsdom has no layout: the measured width of the table body is reported the way react-native-web reports it */
+  const layoutBody = (width: number) => act(() => { (q(`${T}-scroll-x`) as any).__reactLayoutHandler({ nativeEvent: { layout: { width } } }); });
+
+  it('the ⚙ is in the bar right before the ⋮ and opens a menu with exactly two commands', () => {
+    mount(seed());
+    const bar = q(`${T}-bar-right`)!;
+    const kids = Array.from(bar.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    expect(kids.indexOf(`${T}-settings`)).toBeGreaterThan(-1);
+    expect(kids.indexOf(`${T}-settings`)).toBeLessThan(kids.indexOf(`${T}-more`));
+    expect(q(`${T}-settings-menu`)).toBeNull();
+    press(`${T}-settings`);
+    expect(q(`${T}-settings-fit-width`)!.textContent).toBe('Fit to width');
+    expect(q(`${T}-settings-default`)!.textContent).toBe('Default settings');
+    expect(q(`${T}-more-default-settings`)).toBeNull(); // moved out of the ⋮ menu
+    press(`${T}-more`);
+    expect(q(`${T}-more-export-json`)).not.toBeNull();
+    expect(q(`${T}-settings-fit-width`)).toBeNull(); // one menu at a time
+  });
+
+  it('Fit to width: every column is visible - the widths add up to the table body; the new widths are reported (like a dragged separator)', () => {
+    const ReusableTable = require('../../../kit8/ui/components/table/reusable/ReusableTable').default;
+    const { taskExpenseInputColumns } = require('./fixtures/taskExpenseInputModel');
+    const onWidths = jest.fn();
+    mockState = { uxuiState: {}, task_expense_input_table: { entityDataFromServer: seed(), readSuccessful: 1 } };
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    root = createRoot(el);
+    act(() => root.render(<ReusableTable testID={T} crudListTitle="Expenses" entityName="task_expense_input_table" listOwnerGUID="proj1" listParentGUID="task1" visualColumns={taskExpenseInputColumns} onColumnsWidthsChange={onWidths} />));
+    layoutBody(500);
+    press(`${T}-settings`);
+    press(`${T}-settings-fit-width`);
+    expect(q(`${T}-settings-fit-width`)).toBeNull(); // menu closed
+    const reported = onWidths.mock.calls[onWidths.mock.calls.length - 1][0] as Record<string, number>;
+    // the table body 500 px = 28 (drag) + 40 (select) + 36 (⋮) of the service columns + the columns
+    const data = ['person', 'contract', 'hours'].reduce((w, k) => w + reported[k], 0) + reported.tableRowNumber;
+    expect(data).toBe(500 - 28 - 40 - 36);
+    expect(reported.person).toBeGreaterThan(reported.hours); // the proportions stay
+    expect(widths().person).toBe(reported.person);
+  });
+
+  it('Fit to width before the table is measured does nothing; Default settings gives the widths back', () => {
+    mount(seed());
+    press(`${T}-settings`);
+    press(`${T}-settings-fit-width`);
+    expect(widths()).toEqual({ person: 230, contract: 260, hours: 130 });
+    layoutBody(500);
+    press(`${T}-settings`);
+    press(`${T}-settings-fit-width`);
+    expect(widths().person).not.toBe(230);
+    press(`${T}-settings`);
+    press(`${T}-settings-default`);
+    expect(widths()).toEqual({ person: 230, contract: 260, hours: 130 });
+  });
 });

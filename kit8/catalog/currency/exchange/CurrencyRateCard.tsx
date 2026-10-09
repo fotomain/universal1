@@ -1,6 +1,6 @@
 // CurrencyRateCard - one exchange rate (one day) in ListWebCardsComponent (web) and in the native list.
 // Shows the day, the ratio and the change against the previous day that has a rate (▲ / ▼ %).
-// Tap / Edit -> /currency/exchange/edit?currencyGUID=…&rowGUID=… · Delete -> the list's delete (asks when "ask before delete" is on).
+// Tap / Edit -> /currency/exchange/edit?currencyGUID=…&rowGUID=… · Delete -> the list's sql_for_delete (asks when "ask before sql_for_delete" is on).
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -28,7 +28,7 @@ export default function CurrencyRateCard({ card, isSelected, isDragging, onEdit,
   const { themeColors: c } = useDesignSystem();
   const row = card.rawItem || {};
   const j: Partial<CurrencyExchangeRowJSON> = row.rowJSON || {};
-  const day = j.startingDate || row.rowParentGUID || '';
+  const day = j.startingDate || String(row.rowParentGUID || '').slice(0, 10);
   const id = card.id;
   const change = ratioChangePercent(j.currencyRatio, card.previousRatio);
   const isToday = day === todayISO();

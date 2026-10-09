@@ -156,13 +156,13 @@ describe('PMTreeToolbar', () => {
     act(() => usePMStore.getState().setSelected(null));
     const crud = fakeCrud();
     renderUI(<PMTreeToolbar crud={crud} palette={palette} />);
-    press('pm-tree-delete');
+    press('pm-tree-sql_for_delete');
     press('pm-tree-duplicate');
     expect(crud.deleteTask).not.toHaveBeenCalled();
     expect(crud.duplicateTask).not.toHaveBeenCalled();
     const g = byName('Task 112').rowGUID;
     act(() => usePMStore.getState().setSelected(g));
-    for (const id of ['pm-tree-move-up', 'pm-tree-move-down', 'pm-tree-outdent', 'pm-tree-indent', 'pm-tree-edit', 'pm-tree-duplicate', 'pm-tree-delete']) press(id);
+    for (const id of ['pm-tree-move-up', 'pm-tree-move-down', 'pm-tree-outdent', 'pm-tree-indent', 'pm-tree-edit', 'pm-tree-duplicate', 'pm-tree-sql_for_delete']) press(id);
     expect(crud.duplicateTask).toHaveBeenCalledWith(g);
     expect(crud.moveBy).toHaveBeenCalledWith(g, -1);
     expect(crud.moveBy).toHaveBeenCalledWith(g, 1);
@@ -197,7 +197,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     const [p1, p2] = demo.projects;
     act(() => usePMStore.getState().setRecentProjects([p2.rowGUID, p1.rowGUID]));
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
-    expectInOrder(['pm-project-search', 'pm-project-ribbon-left', `pm-project-chip-${p1.rowGUID}`, `pm-project-chip-${p2.rowGUID}`, 'pm-project-ribbon-right', 'pm-project-delete', 'pm-project-edit', 'pm-project-add']);
+    expectInOrder(['pm-project-search', 'pm-project-ribbon-left', `pm-project-chip-${p1.rowGUID}`, `pm-project-chip-${p2.rowGUID}`, 'pm-project-ribbon-right', 'pm-project-sql_for_delete', 'pm-project-edit', 'pm-project-add']);
     expect(mustGet('pm-project-edit').style.width).toBe(`${PM_SETTINGS_BUTTON_WIDTH}px`);
     expect(q('pm-project-demo')).toBeNull(); // Demo button removed from the bar
   });
@@ -338,7 +338,7 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(mockUpdate.mock.calls[0][0].patch.rowJSON.name).toBe('Renamed');
   });
 
-  it('delete project asks with PMApproveYesNoCancelModalWindow (No keeps it, Yes deletes)', async () => {
+  it('sql_for_delete project asks with PMApproveYesNoCancelModalWindow (No keeps it, Yes deletes)', async () => {
     const { demo } = seedStore();
     renderUI(
       <>
@@ -346,12 +346,12 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
         <PMApproveYesNoCancelModalWindow />
       </>
     );
-    press('pm-project-delete');
+    press('pm-project-sql_for_delete');
     expect(q('pm-approve-window')).not.toBeNull();
     press('pm-approve-no');
     await act(async () => undefined);
     expect(mockDelete).not.toHaveBeenCalled();
-    press('pm-project-delete');
+    press('pm-project-sql_for_delete');
     press('pm-approve-yes');
     await act(async () => undefined);
     expect(mockDelete).toHaveBeenCalledWith(demo.projects[0].rowGUID);

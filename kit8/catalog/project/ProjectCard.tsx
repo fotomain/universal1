@@ -68,7 +68,7 @@ export default function ProjectCard({
         styles.card,
         {
           minHeight: crudCardHeight,
-          // opaque: the swipe underlay (its delete icon) of the web list must not show through the card
+          // opaque: the swipe underlay (its sql_for_delete icon) of the web list must not show through the card
           backgroundColor: c.surface,
           borderColor: isCurrentGantt || isSelected ? c.primary : c.border,
         },

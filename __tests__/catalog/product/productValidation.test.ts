@@ -11,7 +11,7 @@ describe('validateProductCatalog', () => {
     expect(issues.filter((i) => i.rule !== 'GTIN')).toEqual([]);
   });
 
-  it('R1: missing owner / type / orphan rows (with a delete fix)', () => {
+  it('R1: missing owner / type / orphan rows (with a sql_for_delete fix)', () => {
     const d = seedCatalog();
     d.product.find((p) => p.rowGUID === 'prod1')!.rowOwnerGUID = 'nope';
     d.propertyValue.push({ rowGUID: 'orphan', rowOwnerGUID: 'gone', rowParentGUID: 'dp3', orderInList: 1, rowJSON: {} });

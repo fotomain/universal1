@@ -87,7 +87,7 @@ describe('Gantt bar buttons', () => {
   it('Save version / Restore from version sit on the project bar (not on the Gantt bar), before the project settings button', () => {
     seedVersions();
     const { rerender } = renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
-    expectInOrder(['pm-project-delete', 'pm-create-from-template-btn', 'pm-version-save', 'pm-version-restore', 'pm-project-edit']);
+    expectInOrder(['pm-project-sql_for_delete', 'pm-create-from-template-btn', 'pm-version-save', 'pm-version-restore', 'pm-project-edit']);
     rerender(<PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={{ zoomBy: jest.fn(), setZoom: jest.fn(), fit: jest.fn(), goToday: jest.fn() }} />);
     expect(q('pm-version-save')).toBeNull();
     expectInOrder(['pm-gantt-undo', 'pm-gantt-today', 'pm-gantt-vs-network-showVersionsView']);
@@ -241,7 +241,7 @@ describe('PMProjectVersionsList + ProjectVersionCard', () => {
     expect(textOf(`pm-version-diff-${V2}`)).toContain('1 added'); // the live project has one row more than this version
   });
 
-  it('check box = compare on the Gantt; the card buttons restore / rename / delete', () => {
+  it('check box = compare on the Gantt; the card buttons restore / rename / sql_for_delete', () => {
     const { project } = seedVersions();
     renderUI(list(project.rowGUID));
     expect(mustGet(`pm-version-check-${V1}`).getAttribute('aria-checked')).toBe('false');

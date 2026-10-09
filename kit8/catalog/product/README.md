@@ -3,7 +3,7 @@
 Built from the Google Sheet **"W1 V3 ER DESCRIPTORS PLAN"** (product type → product → **Properties** +
 **Variants**, both built on **Descriptors**). This is the product side; the resource-role side of the sheet
 (resourceRoleTypeTable, resourceRoleTable, rolePriceTable) is `kit8/catalog/resourcerole` and shares the descriptor tables
-(see **Shared with the resource roles** below). task_line_table is not built yet.
+(see **Shared with the resource roles** below). The finance lines of a task (`task_line_table`) are built: `kit8/pm/view/task/finances`.
 
 ## Run it
 
@@ -21,7 +21,7 @@ Built from the Google Sheet **"W1 V3 ER DESCRIPTORS PLAN"** (product type → pr
 | `crud/productCatalogTools.ts` | rules: variant owner (R6), descriptorKey + title (R9/R10), generate variants, valid price (R13), GTIN / next EAN-13 |
 | `crud/productValidation.ts` | the Checks report: rules R1–R13 + barcode check digits, with fixes |
 | `crud/productLabels.ts` | titles and pick lists (folder paths, "Type · Smartphone", variant labels …) |
-| `dashboard/ProductDashboard.tsx` | the screen: Overview, Product card, 18 CRUD tables (ReusableTable all-rows mode) |
+| `dashboard/ProductDashboardCRUD.tsx` | the screen: Overview, Product card, 18 CRUD tables (ReusableTable all-rows mode) |
 | `dashboard/productDashboardTables.tsx` | columns, filters and row commands of every table |
 | `dashboard/ProductsWithTree.tsx` | tab **Products & folders**: the folders tree (FolderTreeReusable) beside the Products table; pick a folder, drag products onto folders, folder CRUD |
 | `tree/` | `useProductFolderTree` (nodes + CRUD saved to productFolderTable), `ProductFolderTree` (stand-alone tree), `productFolderTreeActions` (folder delete keeps its products: they get no folder) |
@@ -119,7 +119,7 @@ The descriptor tables (`descriptorGenusTable`, `descriptorValueTable`, `descript
 (`crud/catalogSides.ts`: `sideOf`, `sideOwnedRows`).
 
 - `useProductCatalogData` also reads the role types and roles and returns `data` WITHOUT the role-owned rows (so the Checks and the pick lists see
-  products only) and `roleOwned` (the rowGUIDs, which `ProductDashboard` hides in the five tables, as they read the whole entity).
+  products only) and `roleOwned` (the rowGUIDs, which `ProductDashboardCRUD` hides in the five tables, as they read the whole entity).
 - A row whose owner is not (yet) a type / product - just added in a table - stays visible on both sides.
 - The validation (`crud/productValidation.ts`) takes a `CatalogKind`: the same rules run for products (`PRODUCT_KIND`) and, on the role data, for roles
   (`ROLE_KIND`); `dashboard/CatalogChecksPanel.tsx` is the shared Checks panel.

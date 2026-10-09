@@ -1,4 +1,4 @@
-// PersonList - route /person/list. Web: ListWebCardsComponent (drag & drop order, search, delete +
+// PersonList - route /person/list. Web: ListWebCardsComponent (drag & drop order, search, sql_for_delete +
 // Undo) with PersonCard; iOS / Android: a plain list of PersonCard. Both stay in sync with Supabase
 // Realtime through the reusable saga (useRealtimeEntity).
 import React from 'react';

@@ -10,7 +10,7 @@ import {
 
 export type IssueSeverity = 'error' | 'warning';
 /** a table an issue points at: a product-catalog table, or one of the four role tables (resourceRoleType ...) */
-export type IssueTable = ProductTableKey | 'resourceRoleType' | 'resourceRoleFolder' | 'resourceRole' | 'rolePrice';
+export type IssueTable = ProductTableKey | 'resourceRoleType' | 'resourceRoleFolder' | 'resourceRole' | 'rolePrice' | 'personType' | 'person';
 /** one finding; `T` = the tables it can point at (the product catalog's by default) */
 export interface ProductIssue<T extends string = ProductTableKey> {
   /** sheet rule: R1 ... R13 */
@@ -167,8 +167,10 @@ export function validateProductCatalog(data: ProductCatalogData, K: CatalogKind 
     const lines = propertyLinesOfProduct(data, owner);
     if (!lines.some((l) => l.rowGUID === plan.rowGUID)) add('R4', 'error', 'propertyValue', pv.rowGUID, `Property value of ${T(owner)}: ${T(genus.get(plan.rowParentGUID))} is not in its type's property set`);
     checkValue('propertyValue', pv, plan, T(owner));
-    const k = `${pv.rowOwnerGUID}|${pv.rowParentGUID}`;
-    if (valuePerOwnerLine.has(k)) add('R8', 'error', 'propertyValue', pv.rowGUID, `${T(owner)} has two values of ${T(genus.get(plan.rowParentGUID))}`);
+    // a descriptor with "multiple": true (a person's certifications) may have SEVERAL rows - each its own value, never the same value twice
+    const multiple = !!genus.get(plan.rowParentGUID)?.rowJSON?.multiple;
+    const k = multiple ? `${pv.rowOwnerGUID}|${pv.rowParentGUID}|${pv.rowJSON?.descriptorValueGUID ?? pv.rowJSON?.value ?? ''}` : `${pv.rowOwnerGUID}|${pv.rowParentGUID}`;
+    if (valuePerOwnerLine.has(k)) add('R8', multiple ? 'warning' : 'error', 'propertyValue', pv.rowGUID, multiple ? `${T(owner)} has ${T(genus.get(plan.rowParentGUID))} twice with the same value` : `${T(owner)} has two values of ${T(genus.get(plan.rowParentGUID))}`);
     valuePerOwnerLine.set(k, pv.rowGUID);
   }
   for (const pr of data.product) {

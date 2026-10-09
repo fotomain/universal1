@@ -26,23 +26,25 @@ describe('Gantt view settings from project_table.rowJSON', () => {
     expect(usePMStore.getState().showTaskProgressOnGantt).toBe(true);
   });
 
-  it('keeps PMNetworkView (and its mode) when the user switches from Project 1 to Project N', () => {
+  it('each project opens in its own saved main view; only the network sub-mode follows the user from Project 1 to Project N', () => {
     const s = usePMStore.getState();
     s.selectProject(null);
-    s.setProjects([project('p1', { uxuiSettings: { ganttVsNetworkView: 'showNetworkView', networkViewMode: 'networkSchedule' } }), project('pN')]);
-    usePMStore.getState().selectProject('p1'); // first project: its saved setting
+    usePMStore.setState({ keepWorkspaceMode: false, userSettingsByProject: {} });
+    s.setProjects([project('p1', { uxuiSettings: { ganttVsNetworkView: 'showNetworkView', networkViewMode: 'networkSchedule' } }), project('pN'), project('pK', { uxuiSettings: { ganttVsNetworkView: 'showFinancesView' } })]);
+    usePMStore.getState().selectProject('p1'); // its saved setting
     expect(usePMStore.getState().ganttVsNetworkView).toBe('showNetworkView');
-    usePMStore.getState().selectProject('pN'); // saved as Gantt, but the user is working in the network view
+    usePMStore.getState().selectProject('pN'); // saved as Gantt (the default): it opens as the Gantt chart
     let st = usePMStore.getState();
-    expect([st.ganttVsNetworkView, st.networkViewMode]).toEqual(['showNetworkView', 'networkSchedule']);
-    // a projects refetch / optimistic update of Project N does not flip it back to the Gantt chart
-    usePMStore.getState().setProjects([project('p1'), project('pN', { showCriticalPath: false })]);
+    expect([st.ganttVsNetworkView, st.networkViewMode]).toEqual(['showGanttChart', 'networkSchedule']);
+    // a projects refetch / optimistic update of Project N does not switch the view under the user
+    usePMStore.getState().setNetworkViewSettings({ ganttVsNetworkView: 'showKanbanView' });
+    usePMStore.getState().setProjects([project('p1', { uxuiSettings: { ganttVsNetworkView: 'showNetworkView', networkViewMode: 'networkSchedule' } }), project('pN', { showCriticalPath: false }), project('pK', { uxuiSettings: { ganttVsNetworkView: 'showFinancesView' } })]);
     st = usePMStore.getState();
-    expect([st.ganttVsNetworkView, st.showCriticalPath]).toEqual(['showNetworkView', false]);
-    // and back to the Gantt chart: switching projects keeps the Gantt chart
-    usePMStore.getState().setNetworkViewSettings({ ganttVsNetworkView: 'showGanttChart' });
+    expect([st.ganttVsNetworkView, st.showCriticalPath]).toEqual(['showKanbanView', false]);
+    usePMStore.getState().selectProject('pK');
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showFinancesView');
     usePMStore.getState().selectProject('p1');
-    expect(usePMStore.getState().ganttVsNetworkView).toBe('showGanttChart');
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showNetworkView');
   });
 
   it('mirrors the tree column settings (showTreeHierarchyNumbers / treeColumnsOrder) of the selected project', () => {
@@ -104,28 +106,60 @@ describe('per user settings (project_user_settings_table) over the project setti
     expect([u.showCriticalPath, u.ganttArrowsForm, u.showTaskProgressOnGantt, u.taskProgressLineColor]).toEqual([false, 'squareForm', false, '#4455FF']);
   });
 
-  it('rows arriving after selectProject are applied; later saves re-apply; Gantt | Network follows the user after a switch', () => {
+  it('rows arriving after selectProject are applied once; later saves re-apply the look but never switch the main view', () => {
     const s = usePMStore.getState();
     s.selectProject(null);
-    usePMStore.setState({ keepWorkspaceMode: false });
+    usePMStore.setState({ keepWorkspaceMode: false, userSettingsByProject: {} });
     s.setProjects([project('u1'), project('u2')]);
     usePMStore.getState().selectProject('u1');
     expect(usePMStore.getState().linkLineForm).toBe('smoothForm');
     usePMStore.getState().setAllProjectUserSettings({ u1: { ganttArrowsForm: 'squareForm', ganttVsNetworkView: 'showNetworkView' }, u2: { showCriticalPath: false } });
     let st = usePMStore.getState();
-    expect([st.linkLineForm, st.ganttVsNetworkView, st.userSettingsTableMissing]).toEqual(['squareForm', 'showNetworkView', false]); // first project: its own mode
+    expect([st.linkLineForm, st.ganttVsNetworkView, st.userSettingsTableMissing]).toEqual(['squareForm', 'showNetworkView', false]); // its own saved view
 
-    usePMStore.getState().setProjectUserSettings('u1', { ganttArrowsForm: 'smoothForm' });
-    expect(usePMStore.getState().linkLineForm).toBe('smoothForm');
+    usePMStore.getState().setProjectUserSettings('u1', { ganttArrowsForm: 'smoothForm', ganttVsNetworkView: 'showKanbanView' });
+    st = usePMStore.getState();
+    expect([st.linkLineForm, st.ganttVsNetworkView]).toEqual(['smoothForm', 'showNetworkView']); // the look is applied, the view stays as the user left it
 
-    usePMStore.getState().selectProject('u2');
+    usePMStore.getState().setAllProjectUserSettings({ u1: { ganttVsNetworkView: 'showGanttChart' } }, true);
     st = usePMStore.getState();
-    expect([st.showCriticalPath, st.ganttVsNetworkView]).toEqual([false, 'showNetworkView']); // u2 settings, the view mode follows the user
-    usePMStore.getState().setAllProjectUserSettings({ u2: { showCriticalPath: true, ganttVsNetworkView: 'showGanttChart' } }, true);
-    st = usePMStore.getState();
-    expect([st.showCriticalPath, st.ganttVsNetworkView, st.userSettingsTableMissing]).toEqual([true, 'showNetworkView', true]);
+    expect([st.ganttVsNetworkView, st.userSettingsTableMissing]).toEqual(['showNetworkView', true]); // a refresh (realtime, another browser) does not switch it
     usePMStore.getState().setProjectUserSettings('u2', null);
-    expect(usePMStore.getState().userSettingsByProject).toEqual({});
+    expect(usePMStore.getState().userSettingsByProject.u2).toBeUndefined();
+  });
+
+  it('the main view (Gantt | Kanban | Network | Versions | Finances) belongs to the user AND the project; the network sub-mode follows the user', () => {
+    const s = usePMStore.getState();
+    s.selectProject(null);
+    usePMStore.setState({ keepWorkspaceMode: false, userSettingsByProject: {} });
+    s.setProjects([project('m1'), project('m2'), project('m3')]);
+    usePMStore.getState().setAllProjectUserSettings({
+      m1: { ganttVsNetworkView: 'showFinancesView' },
+      m2: { ganttVsNetworkView: 'showKanbanView', networkViewMode: 'networkDiagram' },
+    });
+    usePMStore.getState().selectProject('m1');
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showFinancesView');
+    usePMStore.getState().setNetworkViewSettings({ networkViewMode: 'networkSchedule' });
+    usePMStore.getState().selectProject('m2');
+    expect([usePMStore.getState().ganttVsNetworkView, usePMStore.getState().networkViewMode]).toEqual(['showKanbanView', 'networkSchedule']);
+    usePMStore.getState().selectProject('m3'); // never customized: the default view
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showGanttChart');
+    usePMStore.getState().selectProject('m1'); // back: the view it was left in
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showFinancesView');
+  });
+
+  it('a project whose settings are read after it was selected gets its saved view once', () => {
+    const s = usePMStore.getState();
+    s.selectProject(null);
+    usePMStore.setState({ keepWorkspaceMode: false, userSettingsByProject: {} });
+    s.setProjects([project('f1')]);
+    usePMStore.getState().selectProject('f1');
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showGanttChart');
+    usePMStore.getState().setAllProjectUserSettings({ f1: { ganttVsNetworkView: 'showFinancesView' } });
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showFinancesView');
+    usePMStore.getState().setNetworkViewSettings({ ganttVsNetworkView: 'showGanttChart' });
+    usePMStore.getState().setAllProjectUserSettings({ f1: { ganttVsNetworkView: 'showFinancesView' } });
+    expect(usePMStore.getState().ganttVsNetworkView).toBe('showGanttChart'); // the second read does not move the user
   });
 });
 

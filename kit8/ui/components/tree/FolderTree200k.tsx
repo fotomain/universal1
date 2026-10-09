@@ -1,5 +1,5 @@
 // TREE.PLUGIN - FolderTree200k: the big-data demo of FolderTreeReusable (route /demo/foldertree).
-//   left   200 000 folders (pick 1k ... 500k): expand / collapse, search, create / rename / delete / duplicate, drag a
+//   left   200 000 folders (pick 1k ... 500k): expand / collapse, search, create / rename / sql_for_delete / duplicate, drag a
 //          folder to reorder it or to nest it (hover over a closed folder opens it, near the edge the list scrolls)
 //   right  200 000 products in a virtualized list: drag the ⠿ grip (or several checked products) onto a folder
 //          or onto "No folder"; counts per folder (with subfolders) follow at once; click a folder = filter the products

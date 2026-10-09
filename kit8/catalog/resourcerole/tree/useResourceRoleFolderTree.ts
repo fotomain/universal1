@@ -1,5 +1,5 @@
 // Resource role folder tree - the folders of resourceRoleFolderTable as a ReusableTable `foldersTree` binding (and the nodes + CRUD
-// callbacks for a stand-alone FolderTreeReusable): create / rename / move / delete save through redux, so the tree, the "Folders"
+// callbacks for a stand-alone FolderTreeReusable): create / rename / move / sql_for_delete save through redux, so the tree, the "Folders"
 // table of the dashboard and every other screen see the same rows (realtime).
 import { useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';

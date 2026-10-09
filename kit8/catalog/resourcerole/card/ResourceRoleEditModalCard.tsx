@@ -1,7 +1,7 @@
 // ResourceRoleEditModalCard - edits ONE resource role in a modal window (the EditRowModalCard of the Roles table); the twin of
 // ProductItemEditModalCard and built from its parts (window look per design system, fields, owner tables).
 //   Main        every editable column of the Roles table as a form: title, role type, folder, VAT rate, description, active
-//   Rates       the hourly rates of the role (rolePriceTable): per price list, variant and day - a ReusableTable of its rows
+//   Cost        the hourly rates of the role (rolePriceTable): per price list, variant and day - a ReusableTable of its rows
 //   Variants    the variants of the role (variantTable) - owned by its role type (variantMode perType) or by the role itself
 //   Properties  the property values of the role (propertyValueTable): what the role requires (min. experience, certification)
 // The three tables reuse the column definitions of the dashboard (buildResourceRoleTables), so a cell works exactly as there.
@@ -31,7 +31,7 @@ export interface ResourceRoleEditModalCardProps extends EditRowModalCardProps {
 
 const TABS: { key: ResourceRoleTab; label: string; icon: string }[] = [
   { key: 'main', label: 'Main', icon: 'engineering' },
-  { key: 'rates', label: 'Rates', icon: 'sell' },
+  { key: 'rates', label: 'Cost', icon: 'sell' },
   { key: 'variants', label: 'Variants', icon: 'style' },
   { key: 'properties', label: 'Properties', icon: 'tune' },
 ];
@@ -59,7 +59,7 @@ export default function ResourceRoleEditModalCard({ row, itemLabel, visualColumn
   };
   const fields = useMemo(() => visualColumns.filter((col) => col.type !== 'rowNumber' && col.type !== 'custom'), [visualColumns]);
   const title = rowTitle(row as any);
-  const subtitle = [type?.rowJSON?.title, type?.rowJSON?.baseUnit ? `rates per ${rowTitle(data.measureUnit.find((u) => u.rowGUID === type.rowJSON.baseUnit) as any) || type.rowJSON.baseUnit}` : null].filter(Boolean).join(' · ');
+  const subtitle = [type?.rowJSON?.title, type?.rowJSON?.baseUnit ? `cost per ${rowTitle(data.measureUnit.find((u) => u.rowGUID === type.rowJSON.baseUnit) as any) || type.rowJSON.baseUnit}` : null].filter(Boolean).join(' · ');
   const hair = { borderColor: c.border, borderWidth: 0, borderBottomWidth: look.hairline };
   const shadow = look.shadow === 'elevation' ? { elevation: 8 }
     : look.shadow === 'soft' ? (Platform.OS === 'web' ? ({ boxShadow: '0 12px 40px rgba(0,0,0,0.3)' } as any) : { elevation: 8 })
