@@ -1,0 +1,129 @@
+// PMBudgetItemCRUD - the budget items as FOLDERS (level 1, the tree: FolderTreeReusable) and ITEMS (level 2, the rows of the table: ReusableTable)
+// of budgetItemTable - the same folder structure as managementGenusTable.
+//   costsBudgetFolder     > timeBudgetItem, materialBudgetItem, expenseBudgetItem
+//   revenuesBudgetFolder  > revenueBudgetItem
+//   paymentsBudgetFolder  > inboundPaymentBudgetItem, outboundPaymentBudgetItem
+// Every item has an OBLIGATORY managementGenusItem = the rowGUID of a level 2 row of managementGenusTable (timeGenus, ...): the Genus column cannot be empty.
+// `noCrud` (default FALSE: a budget item catalog is edited): true = read-only - no add / duplicate / delete / reorder, no row menu, no check boxes, cells not
+// editable, tree without CRUD and drag. The lock button in the header turns editing on / off.
+// Route: /budget/item/list · SQL: kit8/sql/init/create_budget_item_table.sql
+import React, { useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import IconApp from '../../../ui/components/common/IconApp';
+import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
+import { usePMStore } from '../../../pm/store/store_pm';
+import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
+import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
+import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
+import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
+import { BUDGET_ITEM_TABLE, budgetItemFolders, budgetItemGenusError, budgetItemGenusOptions, budgetItemPath, budgetItems, budgetItemsWithoutGenus, isBudgetItemFolder } from './budgetItemModel';
+import { useBudgetItemData } from './useBudgetItemData';
+import { useBudgetItemTree } from './useBudgetItemTree';
+
+export interface PMBudgetItemCRUDProps {
+  /** false (default): full CRUD, true: read-only catalog */
+  noCrud?: boolean;
+}
+
+export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudgetItemCRUDProps) {
+  const { themeColors: c } = useDesignSystem();
+  const selectRowCheckBoxForm = usePMStore((s: any) => s.selectRowCheckBoxForm);
+  const [noCrud, setNoCrud] = useState(noCrudProp);
+  const [folder, setFolder] = useState<string>(TREE_ALL_ID);
+  const { rows, genusRows, loaded, error, reload } = useBudgetItemData(true);
+  const { foldersTree } = useBudgetItemTree(rows, !noCrud, reload);
+  const def = BUDGET_ITEM_TABLE;
+
+  const folders = useMemo(() => budgetItemFolders(rows), [rows]);
+  const items = useMemo(() => budgetItems(rows), [rows]);
+  const genusOptions = useMemo(() => budgetItemGenusOptions(genusRows), [genusRows]);
+  const withoutGenus = useMemo(() => budgetItemsWithoutGenus(rows, genusRows), [rows, genusRows]);
+  // the table lists the items only; the folders are the tree
+  const itemsOnly = useMemo(() => (row: ReusableTableRow) => !isBudgetItemFolder(row as any), []);
+  // a new item goes into the picked folder (or the first one) - a row without folder would be a folder - and gets a genus (obligatory): the genus of
+  // the items already in that folder, else the first genus
+  const newRowDefaults = useMemo(() => () => {
+    const parent = folders.some((f) => f.rowGUID === folder) ? folder : folders[0]?.rowGUID;
+    const sibling = items.find((r) => r.rowParentGUID === parent && r.rowJSON?.managementGenusItem);
+    const managementGenusItem = sibling?.rowJSON?.managementGenusItem ?? genusOptions[0]?.value ?? null;
+    return { rowOwnerGUID: def.catalogOwner as string, rowParentGUID: parent, rowJSON: { managementGenusItem } };
+  }, [def.catalogOwner, folders, items, folder, genusOptions]);
+
+  const columns = useMemo<VisualColumn[]>(() => {
+    const folderOptions = folders.map((f) => ({ value: f.rowGUID, label: budgetItemPath(rows, f.rowGUID) }));
+    const cols: VisualColumn[] = [
+      { key: 'n', title: '#', type: 'rowNumber' },
+      { key: 'title', title: 'Budget item', type: 'text', width: 220 },
+      { key: 'code', title: 'Code', type: 'custom', width: 200, editable: false, renderCell: (row) => <Text numberOfLines={1} testID={`budget-item-code-${row.rowGUID}`} style={{ color: c.text, opacity: 0.75, fontSize: 13 }}>{row.rowGUID}</Text>, searchText: (row) => row.rowGUID },
+      { key: 'parent', title: 'Folder', type: 'select', target: 'rowParentGUID', width: 180, allowEmpty: false, placeholder: 'Choose folder…', options: folderOptions },
+      { key: 'managementGenusItem', title: 'Management genus', type: 'select', width: 200, allowEmpty: false, placeholder: 'Choose genus…', options: genusOptions, validate: (value) => budgetItemGenusError(value, genusRows) },
+      { key: 'description', title: 'Description', type: 'text', width: 380 },
+    ];
+    // read-only: every cell shows, none is edited
+    return noCrud ? cols.map((col) => ({ ...col, editable: false })) : cols;
+  }, [rows, folders, genusOptions, genusRows, noCrud, c.text]);
+
+  return (
+    <View testID="budget-item-dashboard" style={[styles.root, { backgroundColor: c.background }]}>
+      <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
+        <IconApp name="request_quote" size={24} color={c.primary} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.h1, { color: c.text }]}>Budget items</Text>
+          <Text numberOfLines={2} style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>
+            {def.purpose} · {folders.length} folders · {items.length} budget items · {noCrud ? 'read-only' : 'editing is on'}
+          </Text>
+        </View>
+        <PMIconButton tipScope="app" testID="budget-item-edit-toggle" icon={noCrud ? 'lock' : 'lock_open'} title={noCrud ? 'Read-only: press to allow editing' : 'Editing is on: press to lock'} color={noCrud ? c.text : c.primary} onPress={() => setNoCrud((v) => !v)} />
+        <PMIconButton tipScope="app" testID="budget-item-reload" icon="refresh" title="Read the budget items again" color={c.text} onPress={reload} />
+      </View>
+      {(error || (loaded && rows.length === 0)) && (
+        <View testID="budget-item-setup" style={[styles.setup, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
+          <IconApp name="database" size={18} color={c.error} />
+          <Text style={{ color: c.text, flex: 1 }}>
+            {error ? `The budget items could not be read (${error}). ` : 'The budget item table is empty. '}
+            Run kit8/sql/init/create_budget_item_table.sql (after create_management_genus_table.sql) in the Supabase SQL editor and sign in.
+          </Text>
+        </View>
+      )}
+      {withoutGenus.length > 0 && (
+        <View testID="budget-item-no-genus" style={[styles.setup, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
+          <IconApp name="warning" size={18} color={c.error} />
+          <Text style={{ color: c.text, flex: 1 }}>
+            {withoutGenus.length} budget item{withoutGenus.length === 1 ? '' : 's'} without a valid management genus: {withoutGenus.slice(0, 5).map((r) => r.rowJSON?.title || r.rowGUID).join(', ')}{withoutGenus.length > 5 ? ' …' : ''}
+          </Text>
+        </View>
+      )}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ReusableTable
+          testID="budget-item-table"
+          entityName={def.entity}
+          crudListTitle="Budget items"
+          itemLabel={def.itemLabel}
+          listOwnerGUID={REUSABLE_TABLE_ALL}
+          listParentGUID={REUSABLE_TABLE_ALL}
+          visualColumns={columns}
+          defaultRowJSON={def.emptyRowJSON}
+          rowFilter={itemsOnly}
+          newRowDefaults={newRowDefaults}
+          crudPanelEnabled={!noCrud}
+          selectionEnabled={!noCrud}
+          contextMenuEnabled={!noCrud}
+          selectRowCheckBoxForm={selectRowCheckBoxForm}
+          resizeColumnWidth
+          realtime
+          foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}
+          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270 }}
+        />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  h1: { fontSize: 20, fontWeight: '800' },
+  setup: { flexDirection: 'row', gap: 10, alignItems: 'center', margin: 10, marginBottom: 0, padding: 12, borderWidth: 1, borderRadius: 10 },
+  content: { padding: 16, paddingBottom: 12, ...Platform.select({ web: { maxWidth: 1600 } as any, default: {} }) },
+});

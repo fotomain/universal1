@@ -84,6 +84,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
     // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
     { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
+    // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
+    { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
     // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
     { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
     // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach

@@ -18,6 +18,7 @@ Supabase → **SQL Editor** → paste the whole file → **Run**. Every file is 
 | 2 | `create_resource_role_tables.sql` | role types, roles, role rates, descriptors seniority / workLanguage / certification | 1 | `select count(*) from public."resourceRoleTable";` → 8 |
 | 3 | `create_management_genus_table.sql` | management genus: costs (time / material / expense), revenue, payments | – (independent) | `select count(*) from public."managementGenusTable";` → 9 |
 | 3a | `create_distribution_generic_table.sql` | distribution types (front-loaded, back-loaded, uniform, normal, logarithmic front / back, epidemic, manual) in 3 groups; `task_line_table.rowJSON.distributionForBudgetTaskLine` points at one | – (independent) | `select count(*) from public."distributionGenericTable";` → 11 |
+| 3b | `create_budget_item_table.sql` | `budgetItemTable`: budget items in 3 folders (same shape as the management genus); every item has an obligatory `rowJSON.managementGenusItem` = a `managementGenusTable` item. Default rows are generated from the genus rows | 3 | `select count(*) from public."budgetItemTable";` → 9 |
 | 4 | `insert_rows_resource_table.sql` | demo human / material / expense / revenue roles; sets `managementGenus` on the role types (the **Time / Material / Expenses / Revenues** role pickers need it) | 1, 2, 3 | `select "rowGUID", "rowJSON"->>'managementGenus' from public."resourceRoleTypeTable";` – no null |
 | 5 | `create_person_type_table.sql` | `personTypeTable` (Employee, Contractor) + **50 % Employee / 50 % Contractor** of all persons (+ 6 demo persons when fewer than 8) | 0, 1 | `select "rowJSON"->>'personType', count(*) from public."personTable" group by 1;` → half / half |
 | 6 | `create_person_descriptors.sql` | person Properties + Variants on the descriptors: sets, plan lines, experience, **separate row per certificate**, variants (Seniority × Language), a **contract for every person** without an active one | 2, 5 | `select count(*) from public."contractTable" where "rowParentGUID" = 'person';` ≥ number of persons |
@@ -32,6 +33,7 @@ Then sign in to the app. Screens:
 | 2, 4 | Resource roles |
 | 3 | Management genus |
 | 3a | **Distribution** – `/catalog/distribution/list` (read-only) |
+| 3b | **Budget Items** – `/budget/item/list` |
 | 5, 6 | **Persons (properties and variants)** – `/catalog/person/dashboard` |
 | 7 | **Resource contract templates** – `/catalog/management/templateresourcecontract/list` |
 | 8 | Project Dashboard → **Finances** button; the task page → **Finances** section |
@@ -55,7 +57,7 @@ Then sign in to the app. Screens:
 
 `run_fresh_data.sql` carries all the delete scripts too, as a **RESET section at the top, commented out** (every line starts with `-- `), in this order:
 `delete_pm_task_line_table` → `delete_template_resource_contract_table` → `delete_person_descriptors` → `delete_person_type_table` → `delete_resource_role_tables`
-→ `delete_product_tables` → `delete_management_genus_table` → `done/delete_tables` (the last one wipes the data of ALL users). Back up, remove the `-- ` signs
+→ `delete_product_tables` → `delete_budget_item_table` → `delete_management_genus_table` → `done/delete_tables` (the last one wipes the data of ALL users). Back up, remove the `-- ` signs
 of the parts you want, run (= delete, then create everything again), and put the signs back (or run `node kit8/sql/tools/build_run_fresh_data.js`, which writes the file commented out again). The separate files:
 
 `delete_pm_task_line_table.sql` → `delete_template_resource_contract_table.sql` → `delete_person_descriptors.sql` → `delete_person_type_table.sql`

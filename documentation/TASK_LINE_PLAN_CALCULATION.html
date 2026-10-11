@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task line plan calculation</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --fuchsia: #f0abfc;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 10px; overflow-x: auto; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 840px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.tight { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--fuchsia); vertical-align: middle; margin-right: 6px; border: 1px solid #d946ef55; }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Task line plan</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#view">Plan view</a></li><li><a href="#post">Post</a></li><li><a href="#calendar">Calendar</a></li>
+    <li><a href="#table">task_line_plan</a></li><li><a href="#calc">calculateTaskLinePlan</a></li><li><a href="#c033">Correct033</a></li><li><a href="#rpc">SQL procedure</a></li>
+    <li><a href="#files">Files</a></li><li><a href="#phases">Order</a></li><li><a href="#open">Open points</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>Task line plan calculation <span class="pill ask">plan - no code yet</span></h1>
+  <p class="lead">Source: Google Doc "W1 Post Task" (Part 1 task posting, Part 2 Correct033 effect). A task line has totals (<code>qtyTaskLine</code>, <code>sumForBudget</code>, <code>sumForContract</code>) and a distribution
+  (<code>distributionForBudgetTaskLine</code>), but no dates. <b>Post</b> turns every line with a budget item into one row per day in the new table <code>task_line_plan</code>; a new <b>Plan</b> view shows these rows (read-only).</p>
+  <div class="grid">
+    <div class="card"><h3>1. Calculate</h3><p><code>calculateTaskLinePlan</code> (pure TypeScript): task days × calendar × distribution → a <b>coefficient</b> per day, normalized to <code>baseOfDistribution</code>.</p></div>
+    <div class="card"><h3>2. Post</h3><p>One Supabase procedure <code>create_task_line_plan(taskLinePlanJSON)</code>, one SQL transaction: replace the rows, multiply, round to 2 digits, run <b>Correct033</b>, verify, set <code>taskIsPosted</code>.</p></div>
+    <div class="card"><h3>3. Look</h3><p><code>PMTaskLinePlanView</code> = a <b>Plan</b> button after Finances on the Gantt toolbar and the route <code>/pm/project/task/plan</code>. All lines of the task in one table, no CRUD.</p></div>
+  </div>
+  <p class="sub">This page replaces the "Post" part of <a href="PROJECT_BUDGET_CALCULATION.html">PROJECT_BUDGET_CALCULATION.html</a> (my first plan, written from the first version of the doc). The role / resource detail tables, <code>calendarForBudgetPlan</code>
+  and the project roll-up are <b>not</b> in the new document, so they are left out here; the first page stays as a later step. Part 2 (Correct033) follows the separate Google Doc "0333 Effect" (see that section).</p>
+</section>
+
+<section id="view">
+  <h2>Part 1 - the Plan view</h2>
+  <p class="sub">Works like the Finances view (<code>PMProjectFinancesView</code> + <code>PMProjectTaskFinancesCRUD</code>) except that there are no genus tabs: <b>all lines of the task are in one table</b>.</p>
+  <div class="scroll"><table>
+    <tr><th>What</th><th>Where / how</th></tr>
+    <tr><td>Plan button</td><td>After Finances on the Gantt bar: new value <code>'showPlanView'</code> in <code>PMGanttVsNetworkView</code> (<code>kit8/pm/model/types.ts</code> and its validator), a new entry in <code>GANTT_VS_NETWORK_VIEW_OPTIONS</code> (<code>GanttToNetworkViewToggleButtons.tsx</code>; icon e.g. <code>event_note</code>, label "Plan",
+      title "Plan: the days of every posted line of the selected task"), and <code>rightPane='plan'</code> in <code>PMProjectDashboard.tsx</code> / <code>PMGanttSurface</code>. Remembered per user and project like the other views. Tests and READMEs that list the five buttons are updated.</td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/PMTaskLinePlanView.tsx</code></td><td>The dashboard pane: toolbar (icon, task name, the view switch) + <code>PMProjectTaskPlanCRUD</code> for the selected task; "Select a task" for none; a stage shows the same note as Finances ("A stage has no lines"). Records no <code>lastEditPlace</code> (nothing is edited).</td></tr>
+    <tr><td><code>PMProjectTaskPlanCRUD.tsx</code></td><td>A <code>ReusableTable</code> over the <code>task_line_plan</code> entity: <code>listOwnerGUID = taskGUID</code>, <code>listParentGUID = REUSABLE_TABLE_ALL</code> (every line of the task, the same all-rows mode Finances uses), <b>no CRUD</b>: <code>crudPanelEnabled={false}</code>, <code>contextMenuEnabled={false}</code>,
+      <code>selectionEnabled={false}</code>, <code>reorderEnabled={false}</code>, cells not editable. Search, column sort / filter, export and footer totals stay (they are not CRUD).</td></tr>
+    <tr><td>Columns</td><td>Budget item · Genus · Line (role / resource title, read from the line + catalogs, never copied) · <b>Period</b> (date-time) · <b>Coefficient</b> (10 digits) · Qty · Sum for budget · Sum for contract. The footer totals per line equal the line's totals (that is the visible proof of Correct033).
+      Rows are sorted genus → line order → period before they are shown.</td></tr>
+    <tr><td>Route</td><td><code>app/pm/project/task/plan/index.tsx</code>: <code>/pm/project/task/plan?taskGUID=…&amp;projectGUID=…</code>, the same shape as <code>app/pm/project/task/index.tsx</code>; opens the table full screen.</td></tr>
+    <tr><td>Stale rows</td><td>A line with <code>taskIsPosted:false</code> still shows its old rows, dimmed, with "changed after posting - press Post". A line without rows shows nothing.</td></tr>
+  </table></div>
+  <p class="sub">The folders <code>kit8/pm/view/task/plan</code> and <code>app/pm/project/task/plan</code> already exist and are empty; the new files go there.</p>
+</section>
+
+<section id="post">
+  <h2>Part 1.1 - postTask</h2>
+  <h3>Budget item column and the posted flag (<code>PMProjectTaskFinancesCRUD</code>)</h3>
+  <ul class="tight">
+    <li><b>First column</b> <code>budgetItemTaskLine</code> = a <code>catalog</code> column on <code>budgetItemTable</code> (first in <code>taskLineColumns.tsx</code>, before the Errors column). The table is built like <code>managementGenusTable</code> (folders + items,
+    <code>rowOwnerGUID='budgetItemCatalog'</code>, <code>rowJSON { title, description, managementGenusItem }</code>); its default rows are made by SQL from the genus rows (one item per genus item), so a new line gets the item of its tab at once and the list per tab is filtered by <code>managementGenusItem</code>.
+    A catalog screen (copy of <code>ManagementGenusDashboardCRUD</code>, editing on) lets the user add items.</li>
+    <li><code>rowJSON.taskIsPosted</code>: <b>false</b> for a new line (<code>newRowDefaults</code> and <code>emptyTaskLine()</code>). <b>Any change of the line's data</b> sets it to false in <code>computeRowJSON</code> (every key except the ones posting writes: <code>taskIsPosted</code>, <code>baseOfDistribution</code>); "Recalculate" (FX) also unposts.</li>
+    <li>The new line keys: <code>budgetItemTaskLine</code>, <code>taskIsPosted</code>, <code>baseOfDistribution</code> (written by the procedure, see below).</li>
+  </ul>
+  <h3>Post button in <code>ReusableTable</code> (generic)</h3>
+  <ul class="tight">
+    <li>Prop <code>postDataNeeded</code>, <b>false</b> by default, <b>true</b> for the task-line table. If true: the <b>first</b> button of the toolbar panel (before the CRUD panel), icon always, <b>text only on a wide window</b> (<code>useWindowDimensions</code>, already used in the file).</li>
+    <li>Helper props: <code>postedField</code> (default <code>'taskIsPosted'</code>), <code>onPost(rows)</code>, <code>postButtonColor</code>. The table stays generic: "all shown rows have the field true" = the button is <b>on</b>; any row with false = <b>off</b> (outlined) and pressing it runs <code>onPost</code>.</li>
+    <li>Colour: <code>project.uxuiSettings.postButtonBackgroundColor</code>, <b>light fuchsia</b> by default (<span class="swatch"></span><code>#F0ABFC</code>): a new key in <code>PMUxUiSettings</code>, a default in <code>uxuiSettingsOf()</code>, a colour picker in the project UX/UI settings (as <code>taskProgressLineColor</code>).</li>
+    <li>Because the Finances table shows one genus per tab, <b>Post posts the whole task</b> (all tabs), not only the visible tab. The button state counts all lines of the task that have a budget item.</li>
+  </ul>
+  <h3>What Post does</h3>
+  <ol class="steps">
+    <li>Take every line of the task with <code>budgetItemTaskLine</code> not empty. Lines without one are skipped (and counted in the snackbar); if such a line already has plan rows, the procedure deletes them.</li>
+    <li>For each line: the distribution of the line (<code>distributionForBudgetTaskLine</code>; <b>manual is not used now</b>: such a line is refused with a message; new lines already default to uniform) is applied to <code>sumForBudget</code>, <code>sumForContract</code>, <code>qtyTaskLine</code> over the days <b>taskStartDate → taskFinishDate</b>
+    (<code>schedule[taskGUID].startMs</code> inclusive → <code>finishMs</code> exclusive) that are active in the project calendar.</li>
+    <li>Call <code>create_task_line_plan(taskLinePlanJSON)</code> once for the task. On success: snackbar "Posted N lines · M days"; the button is on. On any error: nothing is written, the message names the line.</li>
+  </ol>
+</section>
+
+<section id="calendar">
+  <h2>Calendars - <code>managementCalendarTable</code></h2>
+  <p class="sub">Reuses the app's patterns (def-table, <code>ProductTableDef</code> catalogs like genus and distribution, <code>FolderTreeReusable</code> + <code>ReusableTable</code>). Names: the document gives <code>managementCalendarDays</code> and the placeholder <code>managementCalendarNNNNN</code>; proposed
+  <code>managementCalendarTable</code> (the calendars) and <code>managementCalendarDaysTable</code> (the days).</p>
+  <div class="scroll"><table>
+    <tr><th>Part</th><th>Plan</th></tr>
+    <tr><td><code>managementCalendarTable</code></td><td>One row per calendar. <code>rowOwnerGUID</code> = the business (the abstract entity; none exists in the code yet, so the constant <code>managementCalendarCatalog</code> until it does), <code>rowParentGUID</code> = a folder: <b>Project</b>, <b>Resource role</b>, <b>Person</b> (seeded rows, like the genus folders).
+      <code>rowJSON { title, description, weekPattern }</code>.</td></tr>
+    <tr><td><code>managementCalendarDaysTable</code></td><td>One row per calendar day: <code>rowOwnerGUID</code> = the calendar, <code>rowJSON { day:'YYYY-MM-DD', isActive, reason:'fill'|'weekend'|'holiday'|'manual', note }</code>, unique <code>(rowOwnerGUID, day)</code>. <b>The user can exclude any day</b> (any single day, also a working one) by switching <code>isActive</code> off;
+      such a row is <code>reason:'manual'</code> and a later Fill does not overwrite it unless asked.</td></tr>
+    <tr><td><code>ManagementCalendarCRUD.tsx</code></td><td>Folder tree (Project / Resource role / Person) beside the calendars table; the selected calendar opens its days in a second table with an Active check box. Menu <b>Fill</b>, as in the document:
+      <b>Current year</b> → Working days · 5 days a week · 6 days a week · All days; <b>Previous year</b> → the same four. Working days = Mon-Fri <i>without holidays</i>; 5 days = Mon-Fri; 6 days = Mon-Sat; all = 7 days. One upsert writes the year; inactive days are rows with <code>isActive:false</code>.</td></tr>
+    <tr><td><code>project.calendarForTaskPlan</code></td><td>GUID of a Project-folder calendar in <code>project_table.rowJSON</code> (<code>PMProjectJSON</code>), picked in Project settings → Finances. <b>Default: "Working days without holidays"</b> - a calendar created by SQL for the business and filled for the current year; a project with none chosen uses it.</td></tr>
+    <tr><td>How it divides the timeline</td><td>The active days of the calendar between the task's first and last day are <b>the periods</b>. An excluded day splits the task into segments and gets no row and no money. If a year of the task is not filled, Post stops with "calendar not filled for 2027" (nothing is guessed).</td></tr>
+  </table></div>
+</section>
+
+<section id="table">
+  <h2>Part 1.2 - the <code>task_line_plan</code> table</h2>
+  <div class="scroll"><table>
+    <tr><th>Field</th><th>Type</th><th>Value</th></tr>
+    <tr><td><code>rowGUID</code></td><td>uuid</td><td>the row</td></tr>
+    <tr><td><code>rowProjectGUID</code></td><td>uuid FK project_table, cascade</td><td>= <code>task.rowProjectGUID</code></td></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>uuid FK project_task_table, cascade</td><td>= <code>task.rowGUID</code> (as the document says: the owner is the task)</td></tr>
+    <tr><td><code>rowParentGUID</code></td><td>uuid FK task_line_table, cascade</td><td><b>the line</b> - the document does not name it, but without it a row cannot be tied to its line (proposed, see Open points)</td></tr>
+    <tr><td><code>rowPeriodDatetime</code></td><td>timestamptz</td><td>the start of the day, <code>00:00:00</code> in the project's time zone; unique with the line</td></tr>
+    <tr><td><code>rowCoefficient</code></td><td>numeric(14,10)</td><td>the share of the day, normalized: the total of a line = <code>baseOfDistribution</code></td></tr>
+    <tr><td><code>qtyTaskLine</code></td><td>numeric(18,2)</td><td>the result of the distribution (SQL field)</td></tr>
+    <tr><td><code>sumForBudget</code></td><td>numeric(18,2)</td><td>idem, budget currency</td></tr>
+    <tr><td><code>sumForContract</code></td><td>numeric(18,2)</td><td>idem, contract currency</td></tr>
+    <tr><td><code>orderInList</code>, <code>rowJSON</code>, <code>created_at</code>, <code>updated_at</code></td><td></td><td>def-table standard; <code>rowJSON { budgetItemTaskLine, taskManagementGenusLine }</code> copied from the line so the view and reports need no join</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li><b>All sums are rounded to 2 digits</b> after the comma (the three amount fields).</li>
+    <li><b>Normalized</b>: the weights of the distribution are divided by their total so that the coefficients add up to the base, <code>baseOfDistribution = 1</code>; the value is calculated and saved in <code>task_line_table.rowJSON.baseOfDistribution</code> by the procedure after the check.
+    Total of <code>rowCoefficient</code> of a line = <code>baseOfDistribution</code>, exactly (see Correct033).</li>
+    <li>Same def-table rules as the other tables: RLS through <code>pm_owns_project</code>, realtime, <code>updated_at</code> trigger. Rows are written <b>only by the procedure</b> (no insert / update / delete policy for the app): "no CRUD".</li>
+  </ul>
+</section>
+
+<section id="calc">
+  <h2><code>calculateTaskLinePlan</code> (pure, tested)</h2>
+  <p class="sub"><code>kit8/pm/view/task/plan/calculateTaskLinePlan.ts</code> - no React, no network. It only prepares the minimum the procedure needs.</p>
+<pre>calculateTaskLinePlan({
+  task:          { startMs, finishMs },            // from the scheduler (finish exclusive)
+  lines:         TaskLineRow[],                    // the lines of the task
+  calendarDays:  { day: 'YYYY-MM-DD', isActive }[],// calendarForTaskPlan
+  distributions: DefRow[],                         // distributionGenericTable
+}) =&gt; {
+  taskLinePlanJSON: { taskGUID, lines: [{ lineGUID, qtyTaskLine, sumForBudget, sumForContract,
+                                          baseOfDistribution, days: [{ d: '2026-10-12', c: 0.0833333333 }, …] }] },
+  skipped: [{ lineGUID, reason: 'noBudgetItem' }],
+  errors:  [{ lineGUID, message }],                // manual distribution, no days, no calendar year, no totals…
+}</pre>
+  <ol class="steps">
+    <li><b>Periods</b> = the active calendar days from the first to the last day of the task. None → error for every line.</li>
+    <li><b>Weights</b> = <code>distributionShares(code, periods.length, params)</code> (already in <code>distributionModel.ts</code>; the shapes stay in TypeScript, one source of truth). The timeline is the <b>active days only</b>: the excluded days are removed and the shape is stretched over what is left
+    (the other reading - the shape on the calendar span, the excluded days zeroed - is in Open points).</li>
+    <li><b>Normalize</b>: <code>c_i = round(w_i / Σw, 10)</code>; the difference to <code>baseOfDistribution = 1</code> goes to the last day with a non-zero weight (the same rule as Correct033, in coefficients).</li>
+    <li>Pass the totals as they are on the line (null stays null; no 0 is invented). The multiplication, rounding and Correct033 are done by SQL, in the transaction, so the stored rows can never be a different calculation than the one that checked them.</li>
+    <li>A preview of the amounts (same rule, integer cents) is available for the UI/tests; the database is the judge.</li>
+  </ol>
+</section>
+
+<section id="c033">
+  <h2>Part 2 - Correct033 effect</h2>
+  <h3>What the "0333 Effect" document says</h3>
+  <ul class="tight">
+    <li><b>Cause</b>: each calculated row is rounded <i>independently</i>, so the sum of the rounded parts differs from the total.</li>
+    <li><b>Example</b>: an invoice of <b>$100.00</b> on three rows with coefficient 1/3 (33.333…%) each. The exact part is $33.3333…, rounded to 2 decimals $33.33 (the 3rd digit, 3, is below 5, so every row rounds down).
+    Distributed total = 33.33 + 33.33 + 33.33 = <b>$99.99</b>; the lost fractions add up to a visible <b>$0.01</b> "penny variance" (the document writes the difference as −$0.01, i.e. distributed minus original; below <code>d</code> is original minus distributed, so it is +0.01).</li>
+    <li><b>Remedy named in the document</b>: accounting systems either add a separate <i>"Rounding Adjustment" line</i> or <b>force the final row to absorb the remainder</b> ($33.34). Part 1 of the task document asks for the second one - the last row inserted into <code>task_line_plan</code> - so that is what is implemented.</li>
+    <li>The document ends by offering a SQL query that balances the discrepancy on the last row; that is the procedure step below.</li>
+  </ul>
+  <p>Splitting 100.00 into three equal days gives 33.33 + 33.33 + 33.33 = <b>99.99</b>. The SQL algorithm adds the missing 0.01 to the last inserted row so the total is <b>100.00</b>. The general rule (the 0.01 is the usual case, not a constant):</p>
+  <ol class="steps">
+    <li>For a line and a measure <i>m</i> (<code>qtyTaskLine</code>, <code>sumForBudget</code>, <code>sumForContract</code>) with total <i>T</i> (rounded to 2): <code>a_i = round(T × c_i, 2)</code> for every row; the money is handled as <b>numeric</b> / integer cents, never float.</li>
+    <li><code>d = T − Σ a_i</code> (the discrepancy; <code>0.01</code> for 100.00 over 3 days, <code>-0.03</code> for 100.00 over 7, <code>0</code> when nothing was lost).</li>
+    <li><code>d ≠ 0</code> → <code>a_last = a_last + d</code>, where "last" = the <b>last row of the distribution with a non-zero coefficient</b> (a curve with a zero tail never receives money on a day it was told to skip). Rows are ordered by <code>rowPeriodDatetime</code>.</li>
+    <li><b>Safety check</b>: <code>|d|</code> must not exceed <code>n × 0.005</code> (the largest possible total rounding error); more is a bug → <code>RAISE EXCEPTION</code>, the whole transaction rolls back.</li>
+    <li>The same for <code>rowCoefficient</code> against <code>baseOfDistribution</code>, to 10 digits (3 days: 0.3333333333 ×3 = 0.9999999999 → the last is 0.3333333334).</li>
+    <li>Null total → null in every row, no correction. Total 0 → zeros.</li>
+  </ol>
+  <div class="scroll"><table>
+    <tr><th>Total</th><th>Days / shape</th><th>Rounded rows</th><th>Σ</th><th>d</th><th>After Correct033</th></tr>
+    <tr><td>100.00</td><td>3 uniform</td><td>33.33 · 33.33 · 33.33</td><td>99.99</td><td>+0.01</td><td>33.33 · 33.33 · <b>33.34</b> = 100.00</td></tr>
+    <tr><td>100.00</td><td>7 uniform</td><td>14.29 ×7</td><td>100.03</td><td>−0.03</td><td>14.29 ×6 · <b>14.26</b> = 100.00</td></tr>
+    <tr><td>0.01</td><td>3 uniform</td><td>0.00 · 0.00 · 0.00</td><td>0.00</td><td>+0.01</td><td>0.00 · 0.00 · <b>0.01</b></td></tr>
+    <tr><td>100.00</td><td>0.5 / 0.25 / 0.25</td><td>50.00 · 25.00 · 25.00</td><td>100.00</td><td>0</td><td>unchanged</td></tr>
+  </table></div>
+  <div class="note"><b>Why not a "Rounding Adjustment" line.</b> An extra row would have no day (<code>rowPeriodDatetime</code>) and would break "one row per active day", the view and the per-day reports. The last day absorbs the remainder instead, as in the document's $33.34.</div>
+  <div class="note"><b>Know the side effect.</b> "Everything on the last row" is exact but the last day absorbs the whole error; over a long task it can drift by several cents (random-walk of the roundings) - the 7-day example already moves 3 cents.
+  The alternative (largest remainder: give the missing cents one by one to the rows with the biggest rounding loss) keeps every row within ±0.01. I follow the document (last row) and keep it as one switch in the procedure (<code>p_mode := 'lastRow' | 'largestRemainder'</code>) if you want it later.</div>
+</section>
+
+<section id="rpc">
+  <h2>The SQL procedure <code>create_task_line_plan(taskLinePlanJSON)</code></h2>
+  <p class="sub">Supabase RPC (plpgsql, <code>SECURITY INVOKER</code>, so RLS and <code>pm_owns_project</code> apply). <b>One call = one transaction</b>: any error rolls back everything, the table never holds half a post.</p>
+  <ol class="steps">
+    <li><b>Lock</b> the task row (<code>FOR UPDATE</code>) so two Post presses cannot interleave; check <code>pm_owns_project</code>.</li>
+    <li><b>Validate</b> the JSON: every <code>lineGUID</code> is a line of this task; days strictly ascending; coefficients ≥ 0 and Σ within 1e-6 of 1; at least one day.</li>
+    <li><b>Delete</b> the old rows of the task's lines that are in the JSON <i>and</i> of lines of the task that are not (their budget item was cleared).</li>
+    <li><b>Insert</b> one row per line and day (<code>generate_series</code> / <code>jsonb_array_elements … WITH ORDINALITY</code>, one set-based INSERT): <code>rowProjectGUID</code> and <code>rowOwnerGUID</code> from the task, <code>rowParentGUID</code> = the line, the three amounts = <code>round(T × c, 2)</code>.</li>
+    <li><b>Correct033</b> per line and measure (previous section), also on <code>rowCoefficient</code>.</li>
+    <li><b>Verify</b>: <code>Σ rows = T</code> for each measure and <code>Σ rowCoefficient = baseOfDistribution</code> → else exception.</li>
+    <li><b>Mark</b>: <code>task_line_table.rowJSON = rowJSON || { taskIsPosted: true, baseOfDistribution }</code> for the posted lines (a merge, so no other key is lost).</li>
+    <li>Return <code>{ lines, rows }</code>.</li>
+  </ol>
+  <p class="sub">Staleness: a trigger on <code>project_task_table</code> sets <code>taskIsPosted:false</code> on the lines of a task when its start / finish day changes (the scheduler rewrites them), so Post turns off after a re-plan. A calendar edit does not unpost anything in this version.</p>
+</section>
+
+<section id="files">
+  <h2>Files, SQL, tests</h2>
+  <p class="sub">SQL rule of the project: one <code>.sql</code> per feature in <code>kit8/sql/init</code> (+ <code>delete_*.sql</code>), each added to <code>FILES</code> of <code>kit8/sql/tools/build_run_fresh_data.js</code> in run order, then
+  <code>node kit8/sql/tools/build_run_fresh_data.js</code> regenerates <code>run_fresh_data.sql</code> (never edited by hand); <code>RUN_ORDER.md</code> gets the rows and checks. Idempotent.</p>
+  <div class="scroll"><table>
+    <tr><th>New / changed</th><th>What</th></tr>
+    <tr><td><code>create_budget_item_table.sql</code></td><td><code>budgetItemTable</code> + default rows from the genus table</td></tr>
+    <tr><td><code>create_management_calendar_tables.sql</code></td><td>the two calendar tables, the 3 folders, the default "Working days without holidays" calendar</td></tr>
+    <tr><td><code>create_task_line_plan_table.sql</code></td><td>the table, RLS (read only for the app), realtime, <code>create_task_line_plan</code>, the unpost trigger. Needs <code>create_pm_task_line_table.sql</code>, the distribution and calendar files</td></tr>
+    <tr><td><code>kit8/catalog/management/budgetitem/*</code>, <code>…/calendar/*</code></td><td>model, metadata, data hook, screen, README (patterns of genus / distribution)</td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/*</code></td><td><code>PMTaskLinePlanView.tsx</code>, <code>PMProjectTaskPlanCRUD.tsx</code>, <code>taskLinePlanModel.ts</code>, <code>taskLinePlanMetaData.ts</code> (spread into <code>SystemMetaData.ts</code>), <code>planColumns.tsx</code>, <code>calculateTaskLinePlan.ts</code>, <code>taskLinePlanApi.ts</code> (the RPC call), README</td></tr>
+    <tr><td><code>app/pm/project/task/plan/index.tsx</code></td><td>the route</td></tr>
+    <tr><td>Changed</td><td><code>ReusableTable.tsx</code> + types + README (Post button) · <code>taskLineModel.ts</code>, <code>taskLineColumns.tsx</code>, <code>PMProjectTaskFinancesCRUD.tsx</code> · <code>types.ts</code> (<code>showPlanView</code>, <code>postButtonBackgroundColor</code>, <code>calendarForTaskPlan</code>) ·
+      <code>GanttToNetworkViewToggleButtons.tsx</code>, <code>PMProjectDashboard.tsx</code>, project settings · <code>kit8/pm/README.md</code>, <code>finances/README.md</code></td></tr>
+  </table></div>
+  <h3>Tests (Jest, next to the existing ones)</h3>
+  <ul class="tight">
+    <li><code>calculateTaskLinePlan.test.ts</code>: every distribution except manual sums to 1; excluded days get no row; one-day task; no active day; unfilled year; manual refused; null totals.</li>
+    <li><code>correct033</code> twin in TypeScript (integer cents) and the SQL test fixture on the table above (100/3, 100/7, 0.01/3, exact split), long-task bound check, coefficient 10-digit case, rollback on a bad JSON.</li>
+    <li>Calendar: the four fill modes for the current and previous year, leap year, manual days kept.</li>
+    <li>UI: first column present, new line unposted, any edit unposts, Post button first / text only wide / project colour / hidden when <code>postDataNeeded</code> is false, Plan button after Finances, the plan table has no CRUD controls.</li>
+  </ul>
+</section>
+
+<section id="phases">
+  <h2>Order of work</h2>
+  <ol class="steps">
+    <li>Budget item table + first column + <code>taskIsPosted</code> rules.</li>
+    <li>Calendars (tables, CRUD, Fill, <code>calendarForTaskPlan</code>).</li>
+    <li><code>task_line_plan</code> + <code>create_task_line_plan</code> + Correct033 (SQL first, tested on its own).</li>
+    <li><code>calculateTaskLinePlan</code> + Post button in <code>ReusableTable</code> + the <code>postButtonBackgroundColor</code> setting.</li>
+    <li>Plan view: Plan button, <code>PMTaskLinePlanView</code>, <code>PMProjectTaskPlanCRUD</code>, route.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>Open points - my default is used unless you say otherwise</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Default in this plan</th></tr>
+    <tr><td>1</td><td>The document gives no link from a plan row to its line (owner = task).</td><td><code>rowParentGUID</code> = the line (FK, cascade).</td></tr>
+    <tr><td>2</td><td>"Normalized to 1 baseOfDistribution": the saved value is 1, or the total of the raw weights before normalizing?</td><td>1 (so Σ <code>rowCoefficient</code> = <code>baseOfDistribution</code> as the document says).</td></tr>
+    <tr><td>3</td><td>Excluded days: stretch the shape over the active days, or keep the shape on the calendar span and zero the excluded days?</td><td>Active days only.</td></tr>
+    <tr><td>4</td><td>The distribution maths: shapes in TypeScript (coefficients sent in the JSON), or also in SQL?</td><td>TypeScript sends days + coefficients (the JSON is "the minimum"); SQL does amounts, rounding and Correct033.</td></tr>
+    <tr><td>5</td><td>Rounding of quantity to 2 digits, and for currencies with 0 or 3 decimals (JPY, KWD).</td><td>All three measures to 2 digits, as the document says.</td></tr>
+    <tr><td>6</td><td>Correction on the last row (document) vs largest remainder.</td><td>Last row; the switch exists in the procedure.</td></tr>
+    <tr><td>7</td><td>"Post button must become false": greyed out or "off, needs posting"?</td><td>Off = needs posting, still pressable.</td></tr>
+    <tr><td>8</td><td>"The user must have the permission to exclude a day": a role / permission check or just editing allowed?</td><td>Anyone who can edit the calendar can exclude days; business-level roles later.</td></tr>
+    <tr><td>9</td><td>Holidays for "working days without holidays".</td><td>A country list loaded by a small script (like the ECB rates); until then marked by hand.</td></tr>
+    <tr><td>10</td><td>Names with <code>NNNNN</code> and the folder / file names.</td><td>As written on this page; the HTML file is <code>.html</code>.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>
