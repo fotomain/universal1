@@ -112,6 +112,32 @@ describe('the book', () => {
     expect(ratioOnDay(b, 'EUR', 'Default', '2026-02-01')).toEqual({ ratio: 0.93, day: '2026-01-01' });
     expect(ratioOnDay(b, 'USD', 'Default', '2026-02-01')).toEqual({ ratio: 1, day: '2026-02-01' });
   });
+  it('rows quoted against ANOTHER base are re-based: base USD, ECB rows against EUR (USD 1.08, GBP 0.85) give GBP 0.85/1.08 and EUR 1/1.08', () => {
+    const b = buildRateBook(currencies, [
+      rate('c-usd', '2026-03-02', 1.08, undefined, 'EUR'), rate('c-gbp', '2026-03-02', 0.85, undefined, 'EUR'),
+      rate('c-usd', '2026-06-01', 1.1, undefined, 'EUR'), rate('c-gbp', '2026-06-01', 0.88, undefined, 'EUR'),
+    ], 'USD');
+    const gbp = ratioOnDay(b, 'GBP', 'Default', '2026-03-10') as any;
+    expect(gbp.day).toBe('2026-03-02');
+    expect(gbp.ratio).toBeCloseTo(0.85 / 1.08, 10);
+    expect((ratioOnDay(b, 'EUR', 'Default', '2026-03-10') as any).ratio).toBeCloseTo(1 / 1.08, 10);
+    expect((ratioOnDay(b, 'EUR', 'Default', '2026-07-01') as any).ratio).toBeCloseTo(1 / 1.1, 10);
+    expect((ratioOnDay(b, 'USD', 'Default', '2026-07-01') as any).ratio).toBe(1);
+    // the pair does not depend on the base: GBP -> EUR is 1/0.85 either way
+    const p = pairRate(b, 'GBP', 'EUR', 'Default', '2026-03-10') as any;
+    expect(p.rate).toBeCloseTo(1 / 0.85, 10);
+    expect(pairRate(buildRateBook(currencies, [rate('c-usd', '2026-03-02', 1.08), rate('c-gbp', '2026-03-02', 0.85)]), 'GBP', 'EUR', 'Default', '2026-03-10')).toMatchObject({ rate: expect.closeTo(1 / 0.85, 10) });
+  });
+  it('a row of the book\'s own base wins over a re-based one of the same day; the rate types stay apart; no rate of the base in the other base = nothing re-based', () => {
+    const b = buildRateBook(currencies, [
+      rate('c-usd', '2026-03-02', 1.08, undefined, 'EUR'), rate('c-gbp', '2026-03-02', 0.85, undefined, 'EUR'),
+      rate('c-gbp', '2026-03-02', 0.7, undefined, 'USD'),
+      rate('c-usd', '2026-01-01', 1.2, 'Budget', 'EUR'), rate('c-gbp', '2026-01-01', 0.9, 'Budget', 'EUR'),
+    ], 'USD');
+    expect((ratioOnDay(b, 'GBP', 'Default', '2026-03-02') as any).ratio).toBe(0.7);
+    expect((ratioOnDay(b, 'GBP', 'Budget', '2026-03-02') as any).ratio).toBeCloseTo(0.9 / 1.2, 10);
+    expect(isMiss(ratioOnDay(buildRateBook(currencies, [rate('c-gbp', '2026-03-02', 0.85, undefined, 'EUR')], 'USD'), 'GBP', 'Default', '2026-03-02'))).toBe(true);
+  });
   it('the decimals of a currency default to 2', () => {
     expect(buildRateBook([cur('c-x', 'XAU', 99 as any)], []).currency('XAU')!.decimals).toBe(2);
   });

@@ -8,6 +8,7 @@ import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../../catalog/person/
 import { PARTNER_CATALOG_OWNER, PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
+import { distributionOptions } from '../../../../catalog/distribution/distributionModel';
 import { PRODUCT_TABLES } from '../../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../../catalog/resourcerole/resourceRoleModel';
 import { rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
@@ -106,17 +107,19 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 110, options: unitOptions, allowEmpty: false },
     { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 130, min: 0, max: 1000000000, total: false },
     { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: 110, min: 0, max: 100, total: false },
+    // how the budget of the line is spread over its days (catalog Distribution, read-only there); stored as the rowGUID
+    { key: 'distribution', title: pmT('Budget distribution'), type: 'select', field: 'distributionForBudgetTaskLine', width: 190, options: distributionOptions(data.distribution), placeholder: pmT('Not chosen') },
     { key: 'sum', title: pmT('Sum'), type: 'number', field: 'sumForContract', width: 120, editable: false },
     { key: 'sumVAT', title: pmT('VAT'), type: 'number', field: 'sumVATForContract', width: 110, editable: false },
     // the same sums in the accounting / budget currency of the project: a snapshot of the exchange rate (never edited by hand)
     ...(fxProject && fxEnabled(fxProject) ? [
       ...(fxProject.accountingCurrency ? [
-        { key: 'sumAcc', title: `${pmT('Sum')} ${fxProject.accountingCurrency}`, type: 'number', field: 'sumForAccounting', width: 130, editable: false } as VisualColumn,
-        { key: 'sumVATAcc', title: `${pmT('VAT')} ${fxProject.accountingCurrency}`, type: 'number', field: 'sumVATForAccounting', width: 120, editable: false } as VisualColumn,
+        { key: 'sumAcc', title: `${pmT('Accounting')} ${fxProject.accountingCurrency}`, type: 'number', field: 'sumForAccounting', width: 130, editable: false } as VisualColumn,
+        { key: 'sumVATAcc', title: `${pmT('Accounting')} ${pmT('VAT')}`, type: 'number', field: 'sumVATForAccounting', width: 120, editable: false } as VisualColumn,
       ] : []),
       ...(fxProject.budgetCurrency ? [
-        { key: 'sumBud', title: `${pmT('Sum')} ${fxProject.budgetCurrency} (${pmT('budget')})`, type: 'number', field: 'sumForBudget', width: 150, editable: false } as VisualColumn,
-        { key: 'sumVATBud', title: `${pmT('VAT')} ${fxProject.budgetCurrency} (${pmT('budget')})`, type: 'number', field: 'sumVATForBudget', width: 140, editable: false } as VisualColumn,
+        { key: 'sumBud', title: `${pmT('Budget')} ${fxProject.budgetCurrency}`, type: 'number', field: 'sumForBudget', width: 150, editable: false } as VisualColumn,
+        { key: 'sumVATBud', title: `${pmT('Budget')} ${pmT('VAT')}`, type: 'number', field: 'sumVATForBudget', width: 140, editable: false } as VisualColumn,
       ] : []),
       {
         key: 'fxRate', title: pmT('Exchange rate'), type: 'custom', width: 300, editable: false,

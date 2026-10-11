@@ -9,7 +9,9 @@
 //   Pair (D365: from currency -> to currency):   rate(from -> to) = ratio(to) / ratio(from)        (triangulation through the base currency)
 //   Amount:                                        amount in `to` = amount in `from` x rate(from -> to), rounded to the decimals of `to`
 //   Example, base EUR, USD 1.08, GBP 0.85:  1000 USD -> EUR = 1000 x (1 / 1.08) = 925.93 | 500 EUR -> USD = 500 x 1.08 = 540.00 | 1000 USD -> GBP = 787.04
-//   A rate row of another base (rowJSON.rateBase differs from the book's base) is not used.
+//   A rate row quoted against ANOTHER base (rowJSON.rateBase differs from the book's base, e.g. rows loaded from the ECB against EUR while the base
+//   is USD) is RE-BASED on the day: ratio_base(X) = ratio_other(X) / ratio_other(base), and the other base itself gets 1 / ratio_other(base). A row quoted
+//   against the book's own base always wins over a re-based one of the same day. So the rates never go to waste when the base is changed.
 import { DEFAULT_RATE_TYPE, rateTypeOf } from './currencyExchangeModel';
 
 export const BASE_CURRENCY_DEFAULT = 'EUR';
@@ -39,18 +41,57 @@ export function buildRateBook(currencies: any[], rates: any[], base: string = BA
     byGUID.set(c.rowGUID, code);
   }
   const rated = new Map<string, BookRate[]>();
+  /** rows quoted against another base: base -> (code|type -> rows) */
+  const others = new Map<string, Map<string, BookRate[]>>();
+  const push = (m: Map<string, BookRate[]>, key: string, r: BookRate) => (m.get(key) ?? m.set(key, []).get(key)!).push(r);
   for (const r of rates || []) {
     const code = byGUID.get(r?.rowOwnerGUID);
     const ratio = Number(r?.rowJSON?.currencyRatio);
     const day = String(r?.rowJSON?.startingDate || String(r?.rowParentGUID || '').slice(0, 10));
     if (!code || !(ratio > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
-    // a rate quoted against another base cannot be used with this one
     const rowBase = String(r?.rowJSON?.rateBase || '').toUpperCase();
-    if (rowBase && rowBase !== baseCode) continue;
     const key = `${code}|${rateTypeOf(r)}`;
-    (rated.get(key) ?? rated.set(key, []).get(key)!).push({ day, ratio });
+    if (rowBase && rowBase !== baseCode) {
+      if (!others.has(rowBase)) others.set(rowBase, new Map());
+      push(others.get(rowBase)!, key, { day, ratio });
+    } else {
+      push(rated, key, { day, ratio });
+    }
   }
-  for (const list of rated.values()) list.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  const byDayAsc = (a: BookRate, b: BookRate) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+  for (const list of rated.values()) list.sort(byDayAsc);
+  for (const list of [...others.values()].flatMap((m) => [...m.values()])) list.sort(byDayAsc);
+  /** the latest rate of a sorted list on or before the day */
+  const onDay = (list: BookRate[] | undefined, day: string): BookRate | undefined => { let b: BookRate | undefined; for (const r of list || []) { if (r.day <= day) b = r; else break; } return b; };
+  // re-base: for every type, every other base R that has a rate of OUR base: ratio_B(X) = ratio_R(X) / ratio_R(B); R itself = 1 / ratio_R(B)
+  const derived = new Map<string, Map<string, number>>(); // code|type -> day -> ratio (first base that gives the day wins)
+  const addDerived = (key: string, day: string, ratio: number) => {
+    const m = derived.get(key) ?? derived.set(key, new Map()).get(key)!;
+    if (!m.has(day) && ratio > 0 && Number.isFinite(ratio)) m.set(day, ratio);
+  };
+  for (const [otherBase, series] of others) {
+    const types = new Set([...series.keys()].map((k) => k.split('|')[1]));
+    for (const type of types) {
+      const ofBase = series.get(`${baseCode}|${type}`); // the rate of OUR base in the other base
+      if (!ofBase || !ofBase.length) continue;
+      if (byCode.has(otherBase) && otherBase !== baseCode) for (const b of ofBase) addDerived(`${otherBase}|${type}`, b.day, 1 / b.ratio);
+      for (const [key, list] of series) {
+        const [x, t] = key.split('|');
+        if (t !== type || x === baseCode) continue;
+        const days = [...new Set([...list.map((r) => r.day), ...ofBase.map((r) => r.day)])].sort();
+        for (const day of days) {
+          const rx = onDay(list, day);
+          const rb = onDay(ofBase, day);
+          if (rx && rb) addDerived(key, day, rx.ratio / rb.ratio);
+        }
+      }
+    }
+  }
+  for (const [key, m] of derived) {
+    const have = new Set((rated.get(key) ?? []).map((r) => r.day));
+    for (const [day, ratio] of m) if (!have.has(day)) push(rated, key, { day, ratio });
+    rated.get(key)?.sort(byDayAsc);
+  }
   return {
     base: baseCode,
     currency: (code) => byCode.get(String(code || '').toUpperCase()),

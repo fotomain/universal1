@@ -68,6 +68,8 @@ export interface TaskLineRowJSON {
   /** percent, 0..100 */
   vatRatioTaskLine: number | null;
   priceSourceTaskLine: TaskLinePriceSource | null;
+  /** distributionGenericTable.rowGUID: how the BUDGET of the line is spread over its days (kit8/catalog/distribution; null = not chosen) */
+  distributionForBudgetTaskLine: string | null;
   /** the last price the app suggested; while priceTaskLine equals it, the price follows the role / product */
   priceAutoTaskLine: number | null;
   /** qty * price (in the currency of the contract) */
@@ -105,7 +107,7 @@ export const emptyTaskLine = (): TaskLineRowJSON => ({
   resourceRoleItem: null, resourceRoleAttributeSetKey: null, taskResourceItem: null, taskResourceAttributesKey: null,
   taskResourceContract: null, resourceContractTemplateTaskLine: null, taskLinePartnerItem: null, taskLinePartnerContract: null,
   qtyTaskLine: null, priceTaskLine: null, measureUnitTaskLine: null, vatRatioTaskLine: null,
-  priceSourceTaskLine: null, priceAutoTaskLine: null, sumForContract: null, sumVATForContract: null,
+  priceSourceTaskLine: null, distributionForBudgetTaskLine: null, priceAutoTaskLine: null, sumForContract: null, sumVATForContract: null,
   sumForAccounting: null, sumVATForAccounting: null, sumForBudget: null, sumVATForBudget: null, fxSnapshotTaskLine: null,
 });
 

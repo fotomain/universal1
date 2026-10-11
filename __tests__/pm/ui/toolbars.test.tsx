@@ -7,6 +7,7 @@ import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, O
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockDelete = jest.fn();
+const mockSaveUxui = jest.fn();
 jest.mock('../../../kit8/pm/crud/queries', () => ({
   useBuildProjectRow: () => (name: string, startMs?: number) => ({
     rowGUID: '99999999-9999-4999-8999-999999999999',
@@ -20,6 +21,7 @@ jest.mock('../../../kit8/pm/crud/queries', () => ({
   useCreateProjectMutation: () => ({ mutate: mockCreate }),
   useUpdateProjectMutation: () => ({ mutate: mockUpdate }),
   useDeleteProjectMutation: () => ({ mutate: mockDelete }),
+  useSaveProjectUserSettings: () => ({ saveUxuiSettings: mockSaveUxui, isSaving: false }),
   useProjectSearchQuery: (_owner: string, text: string, enabled: boolean) => {
     const { usePMStore } = require('../../../kit8/pm/store/store_pm');
     const all = Object.values(usePMStore.getState().projectsById) as any[];
@@ -323,6 +325,19 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     toggleSwitch('pm-project-weekends');
     press('pm-project-save');
     expect(mockUpdate.mock.calls[mockUpdate.mock.calls.length - 1][0].patch.rowJSON.skipWeekends).toBe(true);
+  });
+
+  it('commands mode: shows the user\'s own setting over the project\'s, and saves it as the user\'s setting too', () => {
+    const { demo } = seedStore();
+    const guid = demo.projects[0].rowGUID;
+    usePMStore.getState().setProjectUserSettings(guid, { projectTreeContextCommandsMode: 'onHoverPanelMode' });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    mockSaveUxui.mockClear();
+    press('pm-project-edit');
+    press('pm-project-tab-TabUXUI');
+    press('pm-project-tree-commands-onRightClickMenuMode');
+    press('pm-project-save');
+    expect(mockSaveUxui).toHaveBeenCalledWith(guid, { projectTreeContextCommandsMode: 'onRightClickMenuMode', projectGanttChartContextCommandsMode: 'onRightClickMenuMode' });
   });
 
   it('settings dialog edits name, Cancel discards', () => {

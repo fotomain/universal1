@@ -1,5 +1,5 @@
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
-import { PMProjectRow, uxuiSettingsOf } from '../../../kit8/pm/model/types';
+import { PMProjectRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, uxuiSettingsOf } from '../../../kit8/pm/model/types';
 
 const project = (guid: string, json: Partial<PMProjectRow['rowJSON']> = {}): PMProjectRow => ({
   rowGUID: guid,
@@ -65,11 +65,13 @@ describe('Gantt view settings from project_table.rowJSON', () => {
 });
 
 describe('context commands mode (uxuiSettings.projectTreeContextCommandsMode / projectGanttChartContextCommandsMode)', () => {
-  it('defaults to onHoverPanelMode; unknown values fall back to it', () => {
+  it('defaults to onRightClickMenuMode (a new project, the demo projects: nothing stored); unknown values fall back to it; a stored hover panel stays', () => {
+    expect(PM_DEFAULT_CONTEXT_COMMANDS_MODE).toBe('onRightClickMenuMode');
     const d = uxuiSettingsOf(undefined);
-    expect([d.projectTreeContextCommandsMode, d.projectGanttChartContextCommandsMode]).toEqual(['onHoverPanelMode', 'onHoverPanelMode']);
-    const u = uxuiSettingsOf({ rowKind: 'project', name: 'x', uxuiSettings: { projectTreeContextCommandsMode: 'bogus' as any, projectGanttChartContextCommandsMode: 'onRightClickMenuMode' } } as any);
-    expect([u.projectTreeContextCommandsMode, u.projectGanttChartContextCommandsMode]).toEqual(['onHoverPanelMode', 'onRightClickMenuMode']);
+    expect([d.projectTreeContextCommandsMode, d.projectGanttChartContextCommandsMode]).toEqual(['onRightClickMenuMode', 'onRightClickMenuMode']);
+    expect([usePMStore.getInitialState().projectTreeContextCommandsMode, usePMStore.getInitialState().projectGanttChartContextCommandsMode]).toEqual(['onRightClickMenuMode', 'onRightClickMenuMode']);
+    const u = uxuiSettingsOf({ rowKind: 'project', name: 'x', uxuiSettings: { projectTreeContextCommandsMode: 'bogus' as any, projectGanttChartContextCommandsMode: 'onHoverPanelMode' } } as any);
+    expect([u.projectTreeContextCommandsMode, u.projectGanttChartContextCommandsMode]).toEqual(['onRightClickMenuMode', 'onHoverPanelMode']);
   });
 
   it('the store mirrors the selected project and follows project switches / updates', () => {
@@ -77,7 +79,7 @@ describe('context commands mode (uxuiSettings.projectTreeContextCommandsMode / p
     s.selectProject(null);
     s.setProjects([
       project('m', { uxuiSettings: { projectTreeContextCommandsMode: 'onRightClickMenuMode', projectGanttChartContextCommandsMode: 'onRightClickMenuMode' } }),
-      project('h'),
+      project('h', { uxuiSettings: { projectTreeContextCommandsMode: 'onHoverPanelMode', projectGanttChartContextCommandsMode: 'onHoverPanelMode' } }),
     ]);
     usePMStore.getState().selectProject('m');
     let st = usePMStore.getState();
@@ -85,7 +87,7 @@ describe('context commands mode (uxuiSettings.projectTreeContextCommandsMode / p
     usePMStore.getState().selectProject('h');
     st = usePMStore.getState();
     expect([st.projectTreeContextCommandsMode, st.projectGanttChartContextCommandsMode]).toEqual(['onHoverPanelMode', 'onHoverPanelMode']);
-    usePMStore.getState().setProjects([project('m'), project('h', { uxuiSettings: { projectGanttChartContextCommandsMode: 'onRightClickMenuMode' } })]);
+    usePMStore.getState().setProjects([project('m'), project('h', { uxuiSettings: { projectTreeContextCommandsMode: 'onHoverPanelMode', projectGanttChartContextCommandsMode: 'onRightClickMenuMode' } })]);
     expect(usePMStore.getState().projectGanttChartContextCommandsMode).toBe('onRightClickMenuMode');
   });
 

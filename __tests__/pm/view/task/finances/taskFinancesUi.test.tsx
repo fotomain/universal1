@@ -270,7 +270,7 @@ describe('editing a line', () => {
     press(`${TT}-add`);
     const created = mockActions.createOne.mock.calls[0][0];
     expect(created).toMatchObject({ rowOwnerGUID: 't1', rowParentGUID: 'materialGenus' });
-    expect(created.rowJSON).toMatchObject({ resourceRoleItem: null, taskResourceItem: null, qtyTaskLine: null, sumForContract: null });
+    expect(created.rowJSON).toMatchObject({ resourceRoleItem: null, taskResourceItem: null, qtyTaskLine: null, sumForContract: null, distributionForBudgetTaskLine: 'uniformDistribution' }); // a new line spreads its budget uniformly
     expect(onEditPlace).toHaveBeenLastCalledWith({ genus: 'materialGenus', lineGUID: created.rowGUID });
   });
 
@@ -473,10 +473,10 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
   it('the columns: the sums, the VAT and the exchange rate used; the titles name the currencies', () => {
     mockBook = book();
     mount({ lines: [fxLine()], project, startMs: START });
-    expect(q(`${TT}-header-sumAcc`)!.textContent).toContain('Sum EUR');
-    expect(q(`${TT}-header-sumVATAcc`)!.textContent).toContain('VAT EUR');
-    expect(q(`${TT}-header-sumBud`)!.textContent).toContain('Sum GBP');
-    expect(q(`${TT}-header-sumVATBud`)!.textContent).toContain('VAT GBP');
+    expect(q(`${TT}-header-sumAcc`)!.textContent).toContain('Accounting EUR');
+    expect(q(`${TT}-header-sumVATAcc`)!.textContent).toContain('Accounting VAT');
+    expect(q(`${TT}-header-sumBud`)!.textContent).toContain('Budget GBP');
+    expect(q(`${TT}-header-sumVATBud`)!.textContent).toContain('Budget VAT');
     expect(q(`${TT}-header-fxRate`)).not.toBeNull();
   });
 
@@ -543,14 +543,15 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     expect(mockActions.updateOne).toHaveBeenCalledTimes(2);
   });
 
-  it('no rate of the asked type: the sums stay empty and the line is marked with the reason (strict, no other type is used)', () => {
+  it('no rate of the asked type: only THAT currency stays empty (the other is converted all the same) and the line is marked with the reason (strict, no other type is used)', () => {
     mockBook = buildRateBook([cur('c-eur', 'EUR'), cur('c-usd', 'USD'), cur('c-gbp', 'GBP')], [rate('c-usd', '2026-03-02', 1.08), rate('c-gbp', '2026-01-02', 0.85)]); // no Budget rates
     mount({ lines: [fxLine()], project, startMs: START });
     // the first currency of the pair without a Budget rate (the line is in USD); the last day tried is today
     expect(q('task-line-problem-fx1')!.textContent).toMatch(/^No Budget exchange rate of USD on or before \d{4}-\d{2}-\d{2}$/);
     setNumber(`${TT}-cell-fx1-qty`, '20');
     const p = lastPatch();
-    expect(p.sumForAccounting === undefined || p.sumForAccounting === null).toBe(true);
+    expect(typeof p.sumForAccounting).toBe('number'); // the Default rate exists: the accounting sums are there
+    expect(p.sumForBudget === undefined || p.sumForBudget === null).toBe(true); // no Budget rate: strict, nothing else is used
   });
 
   it('the rates are still being read: nothing is converted and the saved sums are left alone', () => {

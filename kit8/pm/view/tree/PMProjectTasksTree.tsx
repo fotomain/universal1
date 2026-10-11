@@ -411,12 +411,12 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
-    const chevronPath = Skia.Path.Make();
-    const linesPath = Skia.Path.Make();
-    const diamonds = Skia.Path.Make();
-    const boxes = Skia.Path.Make();
-    const checked = Skia.Path.Make();
-    const marks = Skia.Path.Make();
+    const chevronPath = Skia.PathBuilder.Make();
+    const linesPath = Skia.PathBuilder.Make();
+    const diamonds = Skia.PathBuilder.Make();
+    const boxes = Skia.PathBuilder.Make();
+    const checked = Skia.PathBuilder.Make();
+    const marks = Skia.PathBuilder.Make();
     for (const r of rows) {
       const cy = r.y + PM_ROW_HEIGHT / 2;
       const x = nameCol.x + 8 + r.depth * PM_TREE_INDENT;
@@ -455,7 +455,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       linesPath.moveTo(0, r.y + PM_ROW_HEIGHT - 0.5);
       linesPath.lineTo(gridW, r.y + PM_ROW_HEIGHT - 0.5);
     }
-    return { chevrons: chevronPath, rowLines: linesPath, milestones: diamonds, boolBoxes: boxes, boolChecked: checked, boolMarks: marks };
+    return { chevrons: chevronPath.build(), rowLines: linesPath.build(), milestones: diamonds.build(), boolBoxes: boxes.build(), boolChecked: checked.build(), boolMarks: marks.build() };
   }, [rows, gridW, nameCol.x]);
 
   // ---- UI-thread driven layers ---------------------------------------------------------

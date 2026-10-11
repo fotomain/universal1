@@ -46,6 +46,30 @@ describe('the project: currencies and rate types', () => {
   });
 });
 
+describe('a line without a contract / template: its currency is the project\'s, so the sums are not left empty', () => {
+  it('the project without a contract currency falls back to the accounting, then the budget currency', () => {
+    expect(fxProjectOf({ currencyForAccounting: 'gbp', currencyForBudget: 'usd' }).contractCurrency).toBe('GBP');
+    expect(fxProjectOf({ currencyForBudget: 'usd' }).contractCurrency).toBe('USD');
+    expect(fxProjectOf({ currencyForContract: 'jpy', currencyForAccounting: 'gbp' }).contractCurrency).toBe('JPY');
+  });
+  it('a price typed on such a line gives the sums in both currencies (no contract, no template, no contract currency in the project)', () => {
+    const p = fxProjectOf({ currencyForAccounting: 'GBP', currencyForBudget: 'USD' });
+    const c = ctx({ project: p, taskStartDay: '2026-03-02' });
+    const json = { qtyTaskLine: 2, priceTaskLine: 10, vatRatioTaskLine: 21, taskManagementGenusLine: 'timeGenus' } as Partial<TaskLineRowJSON>;
+    const patch = computeTaskLineRowJSON(data(), TIME, json, undefined, c);
+    expect(patch.sumForContract).toBe(20);
+    expect(patch.sumForAccounting).toBe(20); // GBP -> GBP: the line is in the project's currency
+    expect(patch.sumVATForAccounting).toBe(4.2);
+    expect(typeof patch.sumForBudget).toBe('number'); // GBP -> USD (Budget rates)
+    expect(patch.fxSnapshotTaskLine).toBeTruthy();
+    // the price changes: the sums follow, the snapshot stays
+    const next = computeTaskLineRowJSON(data(), TIME, { ...json, ...patch, priceTaskLine: 60 }, undefined, c);
+    expect(next.sumForContract).toBe(120);
+    expect(next.sumForAccounting).toBe(120);
+    expect(next.sumVATForAccounting).toBe(25.2);
+  });
+});
+
 describe('the day of the rate: contract date, then the start of the task, then today', () => {
   it('the date of the contract of the line (signed, else start); only a contract that is SELECTED counts', () => {
     const d = data();

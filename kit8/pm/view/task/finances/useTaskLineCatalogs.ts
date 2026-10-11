@@ -6,6 +6,7 @@ import { PRODUCT_READ_PARAMS } from '../../../../catalog/product/dashboard/usePr
 import { PRODUCT_TABLES } from '../../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../../catalog/resourcerole/resourceRoleModel';
 import { MANAGEMENT_GENUS_TABLE } from '../../../../catalog/management/genus/managementGenusModel';
+import { DISTRIBUTION_TABLE } from '../../../../catalog/distribution/distributionModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../catalog/person/personModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
@@ -14,6 +15,7 @@ import { emptyTaskLineCatalogs, TaskLineCatalogData } from './taskLineCatalogs';
 /** catalog list -> its redux entity */
 const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   managementGenus: MANAGEMENT_GENUS_TABLE.entity,
+  distribution: DISTRIBUTION_TABLE.entity,
   resourceRoleType: RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity,
   resourceRole: RESOURCE_ROLE_OWN_TABLES.resourceRole.entity,
   rolePrice: RESOURCE_ROLE_OWN_TABLES.rolePrice.entity,

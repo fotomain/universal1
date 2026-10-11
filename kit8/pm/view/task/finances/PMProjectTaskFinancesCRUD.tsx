@@ -9,7 +9,7 @@
 // Shown by the task page (PMProjectTaskInfo) and the Finances view of the dashboard (PMProjectFinancesView). It does not know PMCrud:
 // `onEditPlace` tells the parent where the user edited (the parent saves rowJSON.lastEditPlace of the task, with its own surface) and
 // `initialPlace` is the place to open at (the genus tab + the line, marked). Stages have no lines: only tasks and milestones.
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
@@ -25,13 +25,14 @@ import type { ReusableTableRow, ReusableTableRowEditKind } from '../../../../ui/
 import { usePMStore } from '../../../store/store_pm';
 import { financesPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
+import { DISTRIBUTION } from '../../../../catalog/distribution/distributionModel';
 import { emptyTaskLine, TASK_LINE_ENTITY, TASK_LINE_GENUS, taskLineGenusDef, taskLineGenusOf } from './taskLineModel';
 import type { TaskLineRow } from './taskLineModel';
 import { formatMoney, taskLineTotals } from './taskLineMoney';
 import { computeTaskLineRowJSON } from './taskLineCompute';
 import { buildTaskLineColumns } from './taskLineColumns';
 import { useTaskLineCatalogs } from './useTaskLineCatalogs';
-import { fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
+import { computeFx, fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
 import { lineContractCurrency } from './taskLineCatalogs';
 import { useLineRateBook } from './useLineRateBook';
 
@@ -88,7 +89,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it
-  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus } as Record<string, any> }), [taskGUID, def.genus]);
+  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform } as Record<string, any> }), [taskGUID, def.genus]);
   const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx), [data, def, fx]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */
@@ -100,6 +101,20 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
     dispatch(actions.updateOne({ rowGUID: row.rowGUID, rowOwnerGUID: taskGUID, rowJSON: patch }));
     return true;
   }, [fx, data, def, dispatch, taskGUID]);
+  // The rates arrive after the lines (or a line was saved while they were being read): a line with a sum but without its snapshot gets it now,
+  // so a price changed at that moment never stays without the sums in the accounting / budget currency. A line that cannot be converted stays as it is (the ⚠ says why).
+  useEffect(() => {
+    if (!fx) return;
+    for (const l of taskLines) {
+      const j = l.rowJSON || {};
+      if (j.sumForContract != null && !j.fxSnapshotTaskLine && taskLineGenusDef(l.rowParentGUID)) {
+        const g = taskLineGenusDef(l.rowParentGUID)!;
+        const patch = computeFx(fx, data, g, j);
+        const actions = SystemMetaData[TASK_LINE_ENTITY]?.actions;
+        if (Object.keys(patch).length && actions?.updateOne) dispatch(actions.updateOne({ rowGUID: l.rowGUID, rowOwnerGUID: taskGUID, rowJSON: patch }));
+      }
+    }
+  }, [fx, taskLines, data, dispatch, taskGUID]);
   const recalcAll = useCallback(() => {
     if (!fx) { dispatch(showSnackbar({ message: pmT('The exchange rates are not read yet') })); return; }
     const n = taskLines.filter((l) => l.rowParentGUID === def.genus).filter((l) => recalcRow(l)).length;

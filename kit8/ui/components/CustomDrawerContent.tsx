@@ -72,6 +72,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
         { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
         { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
+        // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
+        { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
       ],
     },
 

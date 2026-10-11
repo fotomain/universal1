@@ -14,7 +14,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { Canvas, Circle, Group, Path, Rect, RoundedRect, Skia, SkPath, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Path, Rect, RoundedRect, Skia, SkPath, SkPathBuilder, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
 import { registerScreenshotCanvas, skiaCanvasSnapshotBase64 } from '../../../lib/shareScreenshot';
 import PMGanttPeriodModalWindow from './PMGanttPeriodModalWindow';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -285,7 +285,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     const n = versionOverlays.length;
     if (!n) return [];
     return versionOverlays.map((o, k) => {
-      const p = Skia.Path.Make();
+      const p = Skia.PathBuilder.Make();
       const g = versionStripGeometry(n, k);
       for (let i = win.firstRow; i <= win.lastRow && i < visibleRows.length; i++) {
         const b = o.bars[visibleRows[i]];
@@ -295,7 +295,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         if (b.isMilestone) p.addRect(Skia.XYWHRect(x - 3, y, 6, g.height));
         else p.addRect(Skia.XYWHRect(x, y, Math.max(2, xOf(b.finishMs) - x), g.height));
       }
-      return { key: o.versionGUID, color: o.color, path: p };
+      return { key: o.versionGUID, color: o.color, path: p.build() };
     });
   }, [versionOverlays, win.firstRow, win.lastRow, visibleRows, xOf]);
   // version colors must differ from the colors the live project uses
@@ -316,9 +316,9 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const linkHitsRef = useRef<{ ref: PMDepRef; points: number[] }[]>([]);
   const focusDep = editingDep || depMenu;
   const links = useMemo(() => {
-    const mk = () => Skia.Path.Make();
+    const mk = () => Skia.PathBuilder.Make();
     const p = { normal: mk(), normalArrow: mk(), critical: mk(), criticalArrow: mk(), active: mk(), activeArrow: mk() };
-    const custom: Record<string, { line: SkPath; arrow: SkPath }> = {};
+    const custom: Record<string, { line: SkPathBuilder; arrow: SkPathBuilder }> = {};
     const hits: { ref: PMDepRef; points: number[] }[] = [];
     const lo = win.firstRow - PM_OVERSCAN_ROWS;
     const hi = win.lastRow + PM_OVERSCAN_ROWS;
@@ -349,7 +349,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       const isCritical = showCritical && !!r1?.isCritical && !!r2?.isCritical;
       const customColor = d.rowJSON?.dependencyColor || null;
       if (customColor && !isActive && !custom[customColor]) custom[customColor] = { line: mk(), arrow: mk() };
-      const target: { line: SkPath; arrow: SkPath } = isActive
+      const target: { line: SkPathBuilder; arrow: SkPathBuilder } = isActive
         ? { line: p.active, arrow: p.activeArrow }
         : customColor
           ? custom[customColor]
@@ -370,7 +370,15 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       hits.push({ ref: { rowGUID: d.rowGUID, dependsOnGUID: d.rowDependsOnGUID }, points: route.points });
     }
     linkHitsRef.current = hits;
-    return { ...p, custom: Object.entries(custom) };
+    return {
+      normal: p.normal.build(),
+      normalArrow: p.normalArrow.build(),
+      critical: p.critical.build(),
+      criticalArrow: p.criticalArrow.build(),
+      active: p.active.build(),
+      activeArrow: p.activeArrow.build(),
+      custom: Object.entries(custom).map(([color, v]) => [color, { line: v.line.build(), arrow: v.arrow.build() }] as [string, { line: SkPath; arrow: SkPath }]),
+    };
   }, [deps, rowIndexById, hitTable, schedule, win.firstRow, win.lastRow, hoveredGUID, selectedGUID, showCritical, linkLineForm, focusDep]);
 
   // =====================================================================================
@@ -378,9 +386,9 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   // =====================================================================================
   const levels = scaleLevelsFor(dayWidth);
   const grid = useMemo(() => {
-    const weekend = Skia.Path.Make();
-    const thin = Skia.Path.Make();
-    const strong = Skia.Path.Make();
+    const weekend = Skia.PathBuilder.Make();
+    const thin = Skia.PathBuilder.Make();
+    const strong = Skia.PathBuilder.Make();
     const yTop = win.firstRow * PM_ROW_HEIGHT;
     const yBottom = Math.max((win.lastRow + 1) * PM_ROW_HEIGHT, yTop + bodyPx + 2 * PM_OVERSCAN_ROWS * PM_ROW_HEIGHT);
     const from = Math.max(0, win.firstDay);
@@ -407,11 +415,11 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       strong.moveTo(c.x, yTop);
       strong.lineTo(c.x, yBottom);
     }
-    return { weekend, thin, strong, bottomCells, topCells };
+    return { weekend: weekend.build(), thin: thin.build(), strong: strong.build(), bottomCells, topCells };
   }, [win.firstRow, win.lastRow, win.firstDay, win.lastDay, totalDays, dayWidth, timelineStartMs, bodyPx, levels.bottom, levels.top]);
 
   const scaleLines = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (const c of grid.bottomCells) {
       p.moveTo(c.x, PM_SCALE_HEIGHT / 2);
       p.lineTo(c.x, PM_SCALE_HEIGHT);
@@ -420,7 +428,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       p.moveTo(c.x, 0);
       p.lineTo(c.x, PM_SCALE_HEIGHT / 2);
     }
-    return p;
+    return p.build();
   }, [grid]);
 
   const measureSmall = useMemo(() => makeMeasure(fonts.small), [fonts.small]);
@@ -433,12 +441,12 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   }, [grid.topCells, measureSmallBold, topCellsSV]);
 
   const rowLines = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (let i = win.firstRow; i <= win.lastRow && i < visibleRows.length; i++) {
       p.moveTo(0, (i + 1) * PM_ROW_HEIGHT - 0.5);
       p.lineTo(width, (i + 1) * PM_ROW_HEIGHT - 0.5);
     }
-    return p;
+    return p.build();
   }, [win.firstRow, win.lastRow, visibleRows.length, width]);
 
   const todayX = xOf(todayUTC());
@@ -551,13 +559,13 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const ghostLabelX = useDerivedValue(() => ghostX.value + (dragMode.value === Z_PROGRESS ? progressW.value + 6 : ghostW.value + 8));
 
   const linkPath = useDerivedValue(() => {
-    const p = Skia.Path.Make();
-    if (linkDrag.value === 0) return p;
+    const p = Skia.PathBuilder.Make();
+    if (linkDrag.value === 0) return p.build();
     const dir = linkDrag.value === Z_LINK_FINISH ? 1 : -1;
     const bend = Math.max(20, Math.abs(linkX2.value - linkX1.value) / 2);
     p.moveTo(linkX1.value, linkY1.value);
     p.cubicTo(linkX1.value + dir * bend, linkY1.value, linkX2.value - bend * Math.sign(linkX2.value - linkX1.value || 1), linkY2.value, linkX2.value, linkY2.value);
-    return p;
+    return p.build();
   });
   const linkTargetY = useDerivedValue(() => PM_SCALE_HEIGHT + Math.max(0, linkTarget.value) * PM_ROW_HEIGHT - scrollY.value);
   const linkTargetOpacity = useDerivedValue(() => (linkTarget.value >= 0 && linkDrag.value !== 0 ? 1 : 0));
@@ -1313,17 +1321,17 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
 type Fonts = ReturnType<typeof usePMFonts>;
 
 function milestonePath(x: number, cy: number): SkPath {
-  const p = Skia.Path.Make();
+  const p = Skia.PathBuilder.Make();
   p.moveTo(x, cy - MILESTONE_HALF);
   p.lineTo(x + MILESTONE_HALF, cy);
   p.lineTo(x, cy + MILESTONE_HALF);
   p.lineTo(x - MILESTONE_HALF, cy);
   p.close();
-  return p;
+  return p.build();
 }
 
 function summaryBracketsPath(x: number, w: number, y: number): SkPath {
-  const p = Skia.Path.Make();
+  const p = Skia.PathBuilder.Make();
   const b = y + SUMMARY_H;
   p.moveTo(x, b);
   p.lineTo(x + 6, b);
@@ -1333,7 +1341,7 @@ function summaryBracketsPath(x: number, w: number, y: number): SkPath {
   p.lineTo(x + w - 6, b);
   p.lineTo(x + w, b + 5);
   p.close();
-  return p;
+  return p.build();
 }
 
 const BarShape = React.memo(function BarShape({
@@ -1431,10 +1439,10 @@ const BarHandles = React.memo(function BarHandles({ bar, palette }: { bar: BarDe
 });
 
 function progressKnob(x: number, bottom: number): SkPath {
-  const p = Skia.Path.Make();
+  const p = Skia.PathBuilder.Make();
   p.moveTo(x, bottom - 4);
   p.lineTo(x + 5, bottom + 3);
   p.lineTo(x - 5, bottom + 3);
   p.close();
-  return p;
+  return p.build();
 }

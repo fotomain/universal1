@@ -14,7 +14,7 @@ const makeFetch = () => jest.fn(async (url: string) => ({
 })) as any;
 function makeSupabase(existing: any[] = []) {
   const upsert = jest.fn(async () => ({ error: null }));
-  const q: any = { select: () => q, in: () => q, gte: () => q, lte: () => q, limit: async () => ({ data: existing, error: null }), upsert };
+  const q: any = { select: () => q, in: () => q, gte: () => q, lte: () => q, order: () => q, range: async (a: number, b: number) => ({ data: existing.slice(a, b + 1), error: null }), upsert };
   return { client: { from: jest.fn(() => q) }, upsert };
 }
 beforeEach(() => __clearFrankfurterCache());

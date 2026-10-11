@@ -1,7 +1,7 @@
 // CurrencyCard - one currency in ListWebCardsComponent (web, drag & drop) and in the native list.
 // Tap / Edit -> /currency/edit?rowGUID=… · Rates -> /currency/exchange/list?currencyGUID=… ·
 // Delete -> the list's sql_for_delete (asks when "ask before sql_for_delete" is on).
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
@@ -9,6 +9,7 @@ import IconApp from '../../ui/components/common/IconApp';
 import type { CardItem } from '../../ui/components/list/web/lib/types';
 import type { CurrencyRowJSON } from './currencyModel';
 import { CURRENCY_EXCHANGE_ROUTES } from './exchange/currencyExchangeModel';
+import CurrencyUploadFromDateModal from './CurrencyUploadFromDateModal';
 
 /** hyperlink "Rates": the exchange rates of this (saved) currency */
 export const openCurrencyRates = (currencyGUID: string) =>
@@ -28,10 +29,13 @@ export interface CurrencyCardProps {
   onRefreshRates?: (id: string) => void;
   /** this currency (or all of them) is being refreshed now */
   refreshingRates?: boolean;
+  /** "Upload all data from a date" icon: opens the date dialog; resolves true when the rates were uploaded */
+  onUploadFromDate?: (id: string, fromDate: string) => Promise<boolean> | boolean;
 }
 
-export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onDelete, dragHandleProps, crudCardHeight = 88, onRefreshRates, refreshingRates }: CurrencyCardProps) {
+export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onDelete, dragHandleProps, crudCardHeight = 88, onRefreshRates, refreshingRates, onUploadFromDate }: CurrencyCardProps) {
   const { themeColors: c } = useDesignSystem();
+  const [uploadOpen, setUploadOpen] = useState(false);
   const j: Partial<CurrencyRowJSON> = card.rawItem?.rowJSON || {};
   const inactive = j.isActive === false;
   const id = card.id;
@@ -98,6 +102,29 @@ export default function CurrencyCard({ card, isSelected, isDragging, onEdit, onD
         >
           <IconApp name="sync" size={20} color={c.primary} />
         </Pressable>
+      )}
+      {!!onUploadFromDate && (
+        <>
+          <Pressable
+            testID={`currency-card-upload-${id}`}
+            disabled={refreshingRates}
+            onPress={() => setUploadOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Upload all exchange rate data of ${j.currencyCode || 'currency'} from a date`}
+            {...(Platform.OS === 'web' ? ({ title: 'Upload all data from a date: every missing day up to today, all crosses' } as any) : {})}
+            style={{ padding: 4, marginRight: 8, opacity: refreshingRates ? 0.35 : 1 }}
+          >
+            <IconApp name="cloud_download" size={20} color={c.primary} />
+          </Pressable>
+          <CurrencyUploadFromDateModal
+            testID={`currency-card-upload-modal-${id}`}
+            visible={uploadOpen}
+            currencyCode={j.currencyCode || ''}
+            busy={refreshingRates}
+            onClose={() => setUploadOpen(false)}
+            onUpload={(fromDate) => onUploadFromDate(id, fromDate)}
+          />
+        </>
       )}
       <IconApp testID={`currency-card-edit-${id}`} name="edit" size={20} color={c.text} onPress={() => onEdit?.(id)} />
       <View style={{ width: 8 }} />

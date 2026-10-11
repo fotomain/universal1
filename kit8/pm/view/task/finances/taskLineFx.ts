@@ -41,7 +41,10 @@ export function fxProjectOf(rowJSON: Record<string, any> | null | undefined): Li
   const j = rowJSON || {};
   const type = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v.trim() : fallback);
   return {
-    accountingCurrency: code(j.currencyForAccounting), budgetCurrency: code(j.currencyForBudget), contractCurrency: code(j.currencyForContract),
+    accountingCurrency: code(j.currencyForAccounting), budgetCurrency: code(j.currencyForBudget),
+    // a line with no contract / template has no currency of its own: it is in the currency of the project (the contract currency, else the accounting one, else the budget one),
+    // so its sums are never left empty only because the currency is not known
+    contractCurrency: code(j.currencyForContract) ?? code(j.currencyForAccounting) ?? code(j.currencyForBudget),
     accountingRateType: type(j.exchangeRateTypeForAccounting, DEFAULT_RATE_TYPE), budgetRateType: type(j.exchangeRateTypeForBudget, BUDGET_RATE_TYPE),
   };
 }
@@ -69,7 +72,8 @@ const targetsOf = (p: LineFxProject): Target[] => [
 ];
 
 type Resolved =
-  | { ok: true; snapshot: LineFxSnapshot; reused: boolean }
+  /** `missing` = a target currency that has no rate (the others are converted all the same): the message of the first miss */
+  | { ok: true; snapshot: LineFxSnapshot; reused: boolean; missing?: string }
   | { ok: false; message: string };
 
 /** the snapshot of a line: the saved one when it is still valid, else the rates of the day that the priority picks */
@@ -89,19 +93,24 @@ function resolveFx(ctx: LineFxContext, d: TaskLineCatalogData, genus: TaskLineGe
   const candidates: { day: string; dayFrom: LineFxSnapshot['dayFrom'] }[] = contractDate
     ? [{ day: contractDate, dayFrom: 'contract' }]
     : [...(ctx.taskStartDay ? [{ day: ctx.taskStartDay, dayFrom: 'task' as const }] : []), { day: ctx.today, dayFrom: 'today' as const }];
-  let lastMiss: RateMiss | null = null;
+  // each target (accounting, budget) is converted on its own: a missing budget rate must not take the accounting sums away. The first day that has EVERY rate wins;
+  // else the day (of the same priority order) that has the most of them.
+  let best: { day: string; dayFrom: LineFxSnapshot['dayFrom']; rates: Partial<Record<'accounting' | 'budget', LineFxRate>>; miss: RateMiss | null } | null = null;
   for (const cand of candidates) {
     const rates: Partial<Record<'accounting' | 'budget', LineFxRate>> = {};
     let miss: RateMiss | null = null;
     for (const t of targets) {
       const p = pairRate(ctx.book, from, t.to, t.rateType, cand.day);
-      if (isMiss(p)) { miss = p; break; }
+      if (isMiss(p)) { miss = miss ?? p; continue; }
       rates[t.key] = { to: t.to, rateType: t.rateType, rate: p.rate };
     }
     if (!miss) return { ok: true, reused: false, snapshot: { from, day: cand.day, dayFrom: cand.dayFrom, inputs, ...rates } };
-    lastMiss = miss;
+    if (!best || Object.keys(rates).length > Object.keys(best.rates).length) best = { ...cand, rates, miss };
   }
-  return { ok: false, message: rateMissMessage(lastMiss!) };
+  if (best && Object.keys(best.rates).length > 0) {
+    return { ok: true, reused: false, missing: rateMissMessage(best.miss!), snapshot: { from, day: best.day, dayFrom: best.dayFrom, inputs, ...best.rates } };
+  }
+  return { ok: false, message: rateMissMessage(best!.miss!) };
 }
 
 const EMPTY_FX = { sumForAccounting: null, sumVATForAccounting: null, sumForBudget: null, sumVATForBudget: null, fxSnapshotTaskLine: null } as const;
@@ -148,7 +157,7 @@ export function recalculateLineFx(ctx: LineFxContext, d: TaskLineCatalogData, ge
 export function fxProblem(ctx: LineFxContext | null | undefined, d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>): string | null {
   if (!ctx || !fxEnabled(ctx.project) || lineNumber(json.sumForContract) === null) return null;
   const r = resolveFx(ctx, d, genus, json, false);
-  return r.ok ? null : r.message;
+  return r.ok ? r.missing ?? null : r.message;
 }
 
 /** 'USD → EUR 0.925926 (Default, 2026-03-02)' - what the snapshot says, for a tip */

@@ -17,6 +17,7 @@ import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
 import {productSystemMetaData} from "../catalog/product/productMetaData";
 import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMetaData";
 import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
+import {distributionSystemMetaData} from "../catalog/distribution/distributionMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {templateResourceContractSystemMetaData} from "../catalog/management/templateresourcecontract/templateResourceContractMetaData";
@@ -88,6 +89,9 @@ const SystemMetaData:any = {
     // Management genus (kit8/catalog/management/genus): managementGenusTable, a tree; resourceRoleTypeTable.rowJSON.managementGenus points at it.
     // Screen /catalog/management/genus/list, SQL kit8/sql/init/create_management_genus_table.sql
     ...managementGenusSystemMetaData(),
+    // Distribution (kit8/catalog/distribution): distributionGenericTable, a tree (groups > distributions); task_line_table.rowJSON.distributionForBudgetTaskLine points at it.
+    // Screen /catalog/distribution/list (read-only by default), SQL kit8/sql/init/create_distribution_generic_table.sql
+    ...distributionSystemMetaData(),
     // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,
     // rowParentGUID = management genus. SQL kit8/sql/init/create_pm_task_line_table.sql
     ...taskLineSystemMetaData(),

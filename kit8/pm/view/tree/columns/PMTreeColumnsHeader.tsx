@@ -73,9 +73,9 @@ export default function PMTreeColumnsHeader({
 
   // ---- filter icons: one path for the light ▾ arrows, one for the funnels, one per sort arrow ----
   const icons = useMemo(() => {
-    const arrows = Skia.Path.Make();
-    const funnels = Skia.Path.Make();
-    const sortPath = Skia.Path.Make();
+    const arrows = Skia.PathBuilder.Make();
+    const funnels = Skia.PathBuilder.Make();
+    const sortPath = Skia.PathBuilder.Make();
     const funnelBgs: { key: string; x: number; y: number; s: number }[] = [];
     const lightArrows: { key: string; color: string }[] = [];
     for (const c of columns) {
@@ -121,13 +121,13 @@ export default function PMTreeColumnsHeader({
       const c = columns.find((col) => col.key === a.key)!;
       const b = treeFilterIconBox(c)!;
       const cy = b.y + b.size / 2;
-      const p = Skia.Path.Make();
+      const p = Skia.PathBuilder.Make();
       p.moveTo(b.x + 1.5, cy - 2);
       p.lineTo(b.x + b.size / 2, cy + 2.5);
       p.lineTo(b.x + b.size - 1.5, cy - 2);
-      return { key: a.key, path: p, color: a.color };
+      return { key: a.key, path: p.build(), color: a.color };
     });
-    return { arrows, funnels, sortPath, funnelBgs, colored };
+    return { arrows: arrows.build(), funnels: funnels.build(), sortPath: sortPath.build(), funnelBgs, colored };
   }, [columns, filteredKeys, sort, headerColors]);
   const funnelColor = filterIconColor || '#FF4D6D';
 

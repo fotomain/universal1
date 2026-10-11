@@ -266,8 +266,8 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
-| `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
-| `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onHoverPanelMode') | Gantt bar commands: same choice for the chart |
+| `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onRightClickMenuMode' = the default: a new project, the demo projects, nothing stored) | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
+| `projectGanttChartContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onRightClickMenuMode' = the default) | Gantt bar commands: same choice for the chart |
 | `treeColumnsFilters` | { [columnKey]: { filterVariantForColumn, value?, value2? } } ({}) | tree header ▾ → Filter & sort (see *Filter & sort of tree columns*) |
 | `treeColumnSort` | { key, direction: 'asc' \| 'desc' } \| null (null) | Filter & sort → Sort A to Z / Z to A |
 | `columnFilterIconColor` | '#RRGGBB' ('#FF4D6D') | ⚙ → Tree tab: funnel of a filtered header |

@@ -21,6 +21,18 @@ export interface CurrencyRefreshResult {
   baseSkipped: boolean;
 }
 
+const PAGE = 1000;
+/** days asked from the service in one request */
+const CHUNK_DAYS = 92;
+/** [from, to] pieces of at most `days` days: ('2026-01-01', '2026-04-15', 92) -> [['2026-01-01', '2026-04-02'], ['2026-04-03', '2026-04-15']] */
+export function dateChunks(from: string, to: string, days: number): [string, string][] {
+  const out: [string, string][] = [];
+  const t = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  for (let a = t(from), end = t(to); a <= end; a += days * 86400000) out.push([iso(a), iso(Math.min(a + (days - 1) * 86400000, end))]);
+  return out;
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 /** 'YYYY-MM-DD' minus n months (2026-04-30 - 2 -> 2026-02-28) */
 export function monthsBack(iso: string, n: number): string {
@@ -57,10 +69,10 @@ export function missingRateRows(currencies: any[], rates: RatesByDay, existing: 
  * currencies = rows of currencyTable (all of them, or ONE for a single line).
  * supabase   = the app's Supabase client (the user must be signed in: only signed-in users may write rates).
  */
-export async function refreshCurrencyRatio(args: { currencies: any[]; supabase: any; today?: string; config?: CurrencyRefreshConfig; fetchFn?: typeof fetch }): Promise<CurrencyRefreshResult> {
+export async function refreshCurrencyRatio(args: { currencies: any[]; supabase: any; today?: string; config?: CurrencyRefreshConfig; fetchFn?: typeof fetch; /** the first day to fill (default: `months` back from today) */ from?: string }): Promise<CurrencyRefreshResult> {
   const cfg = args.config ?? currencyRefreshConfig();
   const to = args.today ?? todayISO();
-  const from = monthsBack(to, cfg.months);
+  const from = args.from && isValidISODate(args.from) && args.from <= to ? args.from : monthsBack(to, cfg.months);
   const result: CurrencyRefreshResult = { from, to, base: cfg.base, added: {}, addedTotal: 0, upToDate: [], unsupported: [], baseSkipped: false };
 
   const all = args.currencies.filter((c) => c?.rowGUID);
@@ -72,18 +84,30 @@ export async function refreshCurrencyRatio(args: { currencies: any[]; supabase: 
   wanted = wanted.filter((c) => codeOf(c) in supported);
   if (wanted.length === 0) return result;
 
-  const rates = await fetchRatesRange({ apiUrl: cfg.apiUrl, base: cfg.base, symbols: wanted.map(codeOf), from, to, providers: cfg.providers, fetchFn: args.fetchFn });
+  // a long range is asked in pieces (one answer = one row per day and currency)
+  const rates: RatesByDay = {};
+  for (const [a, b] of dateChunks(from, to, CHUNK_DAYS)) {
+    Object.assign(rates, await fetchRatesRange({ apiUrl: cfg.apiUrl, base: cfg.base, symbols: wanted.map(codeOf), from: a, to: b, providers: cfg.providers, fetchFn: args.fetchFn }));
+  }
 
-  const { data: existing, error: readError } = await args.supabase
-    .from(currencyExchangeRateTable)
-    .select('rowOwnerGUID,rowParentGUID')
-    .in('rowOwnerGUID', wanted.map((c) => c.rowGUID))
-    .gte('rowParentGUID', from)
-    .lte('rowParentGUID', to)
-    .limit(20000);
-  if (readError) throw new Error(readError.message || String(readError));
+  // the stored days of these currencies, in pages (the server returns at most 1000 rows a request)
+  const existing: { rowOwnerGUID: string; rowParentGUID: string }[] = [];
+  for (let at = 0; ; at += PAGE) {
+    const { data, error: readError } = await args.supabase
+      .from(currencyExchangeRateTable)
+      .select('rowOwnerGUID,rowParentGUID')
+      .in('rowOwnerGUID', wanted.map((c) => c.rowGUID))
+      .gte('rowParentGUID', from)
+      .lte('rowParentGUID', `${to}~`) // 'day|Budget' keys sort after the day itself
+      .order('rowOwnerGUID')
+      .order('rowParentGUID')
+      .range(at, at + PAGE - 1);
+    if (readError) throw new Error(readError.message || String(readError));
+    existing.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
 
-  const rows = missingRateRows(wanted, rates, existing || [], cfg.base, cfg.providers);
+  const rows = missingRateRows(wanted, rates, existing, cfg.base, cfg.providers);
   for (let i = 0; i < rows.length; i += 500) {
     // ignoreDuplicates: a day another user added meanwhile stays as it is (unique: currency + day)
     const { error } = await args.supabase.from(currencyExchangeRateTable).upsert(rows.slice(i, i + 500), { onConflict: 'rowOwnerGUID,rowParentGUID', ignoreDuplicates: true });

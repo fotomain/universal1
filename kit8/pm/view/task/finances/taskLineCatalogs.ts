@@ -17,6 +17,8 @@ import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
 /** every list a line needs (as read into redux; a missing list = []) */
 export interface TaskLineCatalogData {
   managementGenus: DefRow<any>[];
+  /** distributionGenericTable: the distributions a line's budget can be spread by (level 2) and their groups */
+  distribution: DefRow<any>[];
   resourceRoleType: DefRow<any>[];
   resourceRole: DefRow<any>[];
   rolePrice: DefRow<any>[];
@@ -43,7 +45,7 @@ export interface TaskLineCatalogData {
 }
 
 export const emptyTaskLineCatalogs = (): TaskLineCatalogData => ({
-  managementGenus: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
+  managementGenus: [], distribution: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
   descriptorDestination: [], propertyValue: [], person: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
   priceType: [], productType: [], product: [], productPrice: [], contract: [],
 });

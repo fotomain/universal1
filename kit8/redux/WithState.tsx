@@ -27,7 +27,7 @@ const WithState = (props: any) => {
     }
 
     const dbAdapters = { workPlaceAdapter, router, supabaseAdapter, sqLiteAdapter };
-    console.log("██████████ dbAdapters0", dbAdapters);
+    // console.log("██████████ dbAdapters0", dbAdapters);
 
     const storeReady: any = storePrepared({ dbAdapters });
     setAppStore(storeReady.storeLocal); // non-React access (kit8/redux/storeRef.ts)

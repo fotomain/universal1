@@ -25,10 +25,12 @@ import {
 import { useDesignSystem } from "../../../../providers/WithDesignSystem";
 import IconApp from "../../../../ui/components/common/IconApp";
 import { usePMStore } from "../../../store/store_pm";
+import { effectiveUxuiSettings } from "../../../store/storeDerive";
 import {
   useBuildProjectRow,
   useCreateProjectMutation,
   useDeleteProjectMutation,
+  useSaveProjectUserSettings,
   useUpdateProjectMutation,
 } from "../../../crud/queries";
 import {
@@ -52,7 +54,7 @@ import SwitchApp from "../../../../ui/components/common/SwitchApp";
 import TextInputApp from "../../../../ui/components/common/TextInputApp";
 import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
 import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat, PMContextCommandsMode, PMUxUiSettings } from "../../../model/types";
-import { PM_PLAN_DATE_INPUT_FORMATS, contextCommandsModeOf } from "../../../model/types";
+import { PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_PLAN_DATE_INPUT_FORMATS, contextCommandsModeOf } from "../../../model/types";
 import { withAlpha } from "../../theme";
 import SelectElementFromCatalog from "../../../../catalog/inner/select_element/SelectElementFromCatalog";
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
@@ -117,6 +119,7 @@ export default function PMRecentProjectsToolbar({
   const buildRow = useBuildProjectRow(ownerGUID);
   const createProject = useCreateProjectMutation(ownerGUID);
   const updateProject = useUpdateProjectMutation(ownerGUID);
+  const { saveUxuiSettings } = useSaveProjectUserSettings(ownerGUID);
   const deleteProject = useDeleteProjectMutation(ownerGUID);
 
   const win = useWindowDimensions();
@@ -223,8 +226,8 @@ export default function PMRecentProjectsToolbar({
       planMinute: false,
       planSecond: false,
       planDateInputFormat: 'YYYY-MM-DD',
-      projectTreeContextCommandsMode: 'onHoverPanelMode',
-      projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+      projectTreeContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
+      projectGanttChartContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
       mainSupplierGUID: null,
       mainSupplierContractGUID: null,
       mainCustomerGUID: null,
@@ -242,14 +245,10 @@ export default function PMRecentProjectsToolbar({
     const finishStr = project.rowJSON.projectFinishDate || (project.rowDuration
       ? formatDateISO(Date.parse(project.rowDuration))
       : "");
-    const treeCmdMode = contextCommandsModeOf(
-      project.rowJSON.projectTreeContextCommandsMode ??
-      (project.rowJSON.uxuiSettings as PMUxUiSettings | undefined)?.projectTreeContextCommandsMode
-    );
-    const ganttCmdMode = contextCommandsModeOf(
-      project.rowJSON.projectGanttChartContextCommandsMode ??
-      (project.rowJSON.uxuiSettings as PMUxUiSettings | undefined)?.projectGanttChartContextCommandsMode
-    );
+    // the modes in force = the user's own settings over the project's (what the tree / Gantt really use)
+    const effective = effectiveUxuiSettings(usePMStore.getState(), project.rowGUID);
+    const treeCmdMode = effective.projectTreeContextCommandsMode;
+    const ganttCmdMode = effective.projectGanttChartContextCommandsMode;
     setDraft({
       rowGUID: project.rowGUID,
       name: project.rowJSON.name || "",
@@ -329,8 +328,8 @@ export default function PMRecentProjectsToolbar({
     if (!name) return setDraftError("Name is required.");
     if (startMs === null) return setDraftError("Start must be YYYY-MM-DD.");
     const finishMs = draft.projectFinishDate ? (parseDateISO(draft.projectFinishDate) ?? parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat)) : null;
-    const treeCmdMode = draft.projectTreeContextCommandsMode || 'onHoverPanelMode';
-    const ganttCmdMode = draft.projectGanttChartContextCommandsMode || 'onHoverPanelMode';
+    const treeCmdMode = draft.projectTreeContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
+    const ganttCmdMode = draft.projectGanttChartContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
     if (draft.rowGUID) {
       const cur = projectsById[draft.rowGUID];
       updateProject.mutate({
@@ -364,6 +363,8 @@ export default function PMRecentProjectsToolbar({
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
       });
+      // the user's own settings row overrides the project's: without this a mode saved earlier there keeps winning
+      saveUxuiSettings(draft.rowGUID, { projectTreeContextCommandsMode: treeCmdMode, projectGanttChartContextCommandsMode: ganttCmdMode });
     } else {
       const row = buildRow(name, startMs);
       row.rowJSON.projectStartDate = startDateVal;
@@ -818,7 +819,7 @@ export default function PMRecentProjectsToolbar({
                     <PMCommandsModeSelector
                       label={pmT('Task tree: row commands')}
                       testID="pm-project-tree-commands"
-                      value={draft?.projectTreeContextCommandsMode ?? 'onHoverPanelMode'}
+                      value={draft?.projectTreeContextCommandsMode ?? PM_DEFAULT_CONTEXT_COMMANDS_MODE}
                       onChange={(v) =>
                         setDraft((d) => (d ? { ...d, projectTreeContextCommandsMode: v } : d))
                       }
@@ -828,7 +829,7 @@ export default function PMRecentProjectsToolbar({
                     <PMCommandsModeSelector
                       label={pmT('Gantt chart: bar commands')}
                       testID="pm-project-gantt-commands"
-                      value={draft?.projectGanttChartContextCommandsMode ?? 'onHoverPanelMode'}
+                      value={draft?.projectGanttChartContextCommandsMode ?? PM_DEFAULT_CONTEXT_COMMANDS_MODE}
                       onChange={(v) =>
                         setDraft((d) => (d ? { ...d, projectGanttChartContextCommandsMode: v } : d))
                       }

@@ -540,6 +540,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/product/dashboard/index" options={{ title: 'Products', drawerLabel: 'Products' }} />
               <Drawer.Screen name="catalog/resourcerole/dashboard/index" options={{ title: 'Resource roles', drawerLabel: 'Resource roles' }} />
               <Drawer.Screen name="catalog/management/genus/list/index" options={{ title: 'Management genus', drawerLabel: 'Management genus' }} />
+              <Drawer.Screen name="catalog/distribution/list/index" options={{ title: 'Distribution', drawerLabel: 'Distribution' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />

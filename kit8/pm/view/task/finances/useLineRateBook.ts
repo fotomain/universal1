@@ -24,8 +24,9 @@ export function useLineRateBook(codes: string[], enabled: boolean): { book: Rate
   }, [enabled, dispatch]);
 
   const base = currencyRefreshConfig().base;
-  const wanted = useMemo(() => [...new Set(codes.map((c) => String(c || '').toUpperCase()).filter(Boolean))].sort(), [codes.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const guids = useMemo(() => (Array.isArray(currencies) ? currencies : []).filter((c) => wanted.includes(String(c?.rowJSON?.currencyCode || '').toUpperCase()) && String(c.rowJSON.currencyCode).toUpperCase() !== base).map((c) => c.rowGUID as string).sort(), [currencies, wanted, base]);
+  // the base currency is always read too: rows quoted against another base are re-based with its rate (currencyConvert.ts)
+  const wanted = useMemo(() => [...new Set([...codes, base].map((c) => String(c || '').toUpperCase()).filter(Boolean))].sort(), [codes.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const guids = useMemo(() => (Array.isArray(currencies) ? currencies : []).filter((c) => wanted.includes(String(c?.rowJSON?.currencyCode || '').toUpperCase()) ).map((c) => c.rowGUID as string).sort(), [currencies, wanted, base]);
 
   const query = useQuery({
     queryKey: ['pm', 'fxRates', guids.join(',')],

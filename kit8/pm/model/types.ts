@@ -300,8 +300,10 @@ export interface PMUxUiSettings {
  */
 export type PMContextCommandsMode = 'onHoverPanelMode' | 'onRightClickMenuMode';
 export const PM_CONTEXT_COMMANDS_MODES: PMContextCommandsMode[] = ['onHoverPanelMode', 'onRightClickMenuMode'];
+/** the default of a new project and of the demo projects (nothing stored): the right-click / long-press menu */
+export const PM_DEFAULT_CONTEXT_COMMANDS_MODE: PMContextCommandsMode = 'onRightClickMenuMode';
 export const contextCommandsModeOf = (v: unknown): PMContextCommandsMode =>
-  v === 'onRightClickMenuMode' ? 'onRightClickMenuMode' : 'onHoverPanelMode';
+  v === 'onHoverPanelMode' ? 'onHoverPanelMode' : PM_DEFAULT_CONTEXT_COMMANDS_MODE;
 
 /** Form of the "select row" check boxes: formRound (default) | formSquare. */
 export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';

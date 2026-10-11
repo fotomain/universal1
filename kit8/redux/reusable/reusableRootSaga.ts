@@ -58,7 +58,7 @@ export const reusableRootSaga = (p: any) => {
                 )
             );
 
-            console.log("readAll data", data)
+            // console.log("readAll data", data)
 
             if (error) throw error;
 

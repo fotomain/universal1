@@ -16,3 +16,11 @@ Currencies list: **Refresh rates** (all active currencies) and the refresh icon 
 
 Files: `refreshCurrencyRatio.ts` (logic) · `frankfurterApi.ts` · `currencyRefreshConfig.ts` · `useRefreshCurrencyRatio.ts` (UI hook).
 Tests: `__tests__/catalog/currency/refresh`.
+
+
+## Upload all data from a date (button on every currency card)
+
+`uploadAllDataFromDate.ts` + `CurrencyUploadFromDateModal.tsx` (a `DateInputApp` and Upload). The cloud icon on a card asks for a date; Upload adds **every missing day from that date up to today**
+(Default rate type) for **all active currencies of the catalog** (all crosses; the card's own currency too even when inactive), against the base currency, asked from the service in pieces of 92 days.
+Days that exist are never changed. The other ratios (any pair) are made when a sum is converted: `ratio(to) / ratio(from)` (`exchange/currencyConvert.ts`). Rows quoted against another base
+(for instance the SQL rates, which are against EUR, while `EXPO_PUBLIC_CURRENCY_RATES_BASE=USD`) are re-based on the day by the rate book, so changing the base never makes rates useless.

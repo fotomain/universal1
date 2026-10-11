@@ -17,6 +17,7 @@ const FILES = [
   ['create_product_tables.sql', 'product catalog + the shared descriptor / variant / price tables'],
   ['create_resource_role_tables.sql', 'role types, roles, role rates, descriptors seniority / workLanguage / certification'],
   ['create_management_genus_table.sql', 'management genus: costs (time / material / expense), revenue, payments'],
+  ['create_distribution_generic_table.sql', 'distribution types (front-loaded, back-loaded, uniform, normal, logarithmic, epidemic, manual) in 3 groups'],
   ['insert_rows_resource_table.sql', 'demo human / material / expense / revenue roles; managementGenus on the role types'],
   ['create_person_type_table.sql', 'personTypeTable (Employee, Contractor) + 50 % Employee / 50 % Contractor of all persons'],
   ['create_person_descriptors.sql', 'person Properties + Variants (separate certificate rows), a contract for every person'],
@@ -38,6 +39,7 @@ const DELETE_FILES = [
   ['delete_resource_role_tables.sql', 'drops the resource role tables + their rows in the shared descriptor tables'],
   ['delete_product_tables.sql', 'drops the product catalog and the shared descriptor / variant / price tables'],
   ['delete_management_genus_table.sql', 'drops managementGenusTable'],
+  ['delete_distribution_generic_table.sql', 'drops distributionGenericTable'],
   ['done/delete_tables.sql', 'drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)'],
 ];
 

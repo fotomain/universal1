@@ -7,6 +7,7 @@ import { selectIsLoggedIn } from '../../../redux/activeUserSlice';
 import { supabase } from '../../../supabase/supabase';
 import { CURRENCY_ENTITY } from '../currencyModel';
 import { currencyRefreshMessage, refreshCurrencyRatio } from './refreshCurrencyRatio';
+import { uploadAllDataFromDate } from './uploadAllDataFromDate';
 
 export const REFRESH_ALL = '*';
 
@@ -35,5 +36,25 @@ export function useRefreshCurrencyRatio() {
     }
   }, [busy, currencies, dispatch, isLoggedIn]);
 
-  return { busy, refreshAll: () => run(), refreshOne: (currencyGUID: string) => run(currencyGUID) };
+  /** "Upload all data from a date" of a card: every missing day from the date to today, for all the currencies (crosses) */
+  const uploadFrom = useCallback(async (currencyGUID: string, fromDate: string): Promise<boolean> => {
+    if (busy) return false;
+    if (!isLoggedIn) {
+      dispatch(showSnackbar({ message: 'Sign in to upload the exchange rates.' }));
+      return false;
+    }
+    setBusy(currencyGUID);
+    try {
+      const result = await uploadAllDataFromDate({ currencyGUID, fromDate, currencies, supabase });
+      dispatch(showSnackbar({ message: currencyRefreshMessage(result), duration: 9000 }));
+      return true;
+    } catch (e: any) {
+      dispatch(showSnackbar({ message: `Rates were not uploaded: ${e?.message || e}` }));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }, [busy, currencies, dispatch, isLoggedIn]);
+
+  return { busy, refreshAll: () => run(), refreshOne: (currencyGUID: string) => run(currencyGUID), uploadFrom };
 }

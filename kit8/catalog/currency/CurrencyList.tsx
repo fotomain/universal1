@@ -30,7 +30,7 @@ export default function CurrencyList() {
   const CardWithRefresh = useMemo(
     () => function CurrencyCardWithRefresh(p: any) {
       const r = refreshRef.current;
-      return <CurrencyCard {...p} onRefreshRates={r.refreshOne} refreshingRates={r.busy === REFRESH_ALL || r.busy === p.card?.id} />;
+      return <CurrencyCard {...p} onRefreshRates={r.refreshOne} onUploadFromDate={r.uploadFrom} refreshingRates={r.busy === REFRESH_ALL || r.busy === p.card?.id} />;
     },
     [],
   );
@@ -76,14 +76,14 @@ export default function CurrencyList() {
           crudGapBetweenCards={8}
         />
       ) : (
-        <NativeCurrencyList onEdit={openEdit} onRefreshRates={refresh.refreshOne} busy={refresh.busy} />
+        <NativeCurrencyList onEdit={openEdit} onRefreshRates={refresh.refreshOne} onUploadFromDate={refresh.uploadFrom} busy={refresh.busy} />
       )}
     </View>
   );
 }
 
 /** iOS / Android: ListWebCardsComponent renders DOM elements, so a FlatList of the same cards is used. */
-function NativeCurrencyList({ onEdit, onRefreshRates, busy }: { onEdit: (rowGUID: string) => void; onRefreshRates: (rowGUID: string) => void; busy: string | null }) {
+function NativeCurrencyList({ onEdit, onRefreshRates, onUploadFromDate, busy }: { onEdit: (rowGUID: string) => void; onRefreshRates: (rowGUID: string) => void; onUploadFromDate: (rowGUID: string, fromDate: string) => Promise<boolean>; busy: string | null }) {
   const dispatch = useDispatch();
   const rows: any[] = useSelector((s: any) => s?.[CURRENCY_ENTITY]?.entityDataFromServer) || [];
   const { themeColors: c } = useDesignSystem();
@@ -95,7 +95,7 @@ function NativeCurrencyList({ onEdit, onRefreshRates, busy }: { onEdit: (rowGUID
       contentContainerStyle={{ padding: 12, gap: 8 }}
       ListEmptyComponent={<Text style={{ color: c.text, opacity: 0.6, textAlign: 'center', marginTop: 24 }}>No currencies yet.</Text>}
       renderItem={({ item, index }) => (
-        <CurrencyCard card={currencyToCard(item, index)} onEdit={onEdit} onRefreshRates={onRefreshRates} refreshingRates={busy === REFRESH_ALL || busy === item.rowGUID} onDelete={(id) => actions?.deleteOne && dispatch(actions.deleteOne({ rowGUID: id }))} />
+        <CurrencyCard card={currencyToCard(item, index)} onEdit={onEdit} onRefreshRates={onRefreshRates} onUploadFromDate={onUploadFromDate} refreshingRates={busy === REFRESH_ALL || busy === item.rowGUID} onDelete={(id) => actions?.deleteOne && dispatch(actions.deleteOne({ rowGUID: id }))} />
       )}
     />
   );

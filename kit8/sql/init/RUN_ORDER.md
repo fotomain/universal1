@@ -17,6 +17,7 @@ Supabase → **SQL Editor** → paste the whole file → **Run**. Every file is 
 | 1 | `create_product_tables.sql` | product catalog + the shared descriptor / variant / price tables | 0 | `select count(*) from public."productTable";` → 106 |
 | 2 | `create_resource_role_tables.sql` | role types, roles, role rates, descriptors seniority / workLanguage / certification | 1 | `select count(*) from public."resourceRoleTable";` → 8 |
 | 3 | `create_management_genus_table.sql` | management genus: costs (time / material / expense), revenue, payments | – (independent) | `select count(*) from public."managementGenusTable";` → 9 |
+| 3a | `create_distribution_generic_table.sql` | distribution types (front-loaded, back-loaded, uniform, normal, logarithmic front / back, epidemic, manual) in 3 groups; `task_line_table.rowJSON.distributionForBudgetTaskLine` points at one | – (independent) | `select count(*) from public."distributionGenericTable";` → 11 |
 | 4 | `insert_rows_resource_table.sql` | demo human / material / expense / revenue roles; sets `managementGenus` on the role types (the **Time / Material / Expenses / Revenues** role pickers need it) | 1, 2, 3 | `select "rowGUID", "rowJSON"->>'managementGenus' from public."resourceRoleTypeTable";` – no null |
 | 5 | `create_person_type_table.sql` | `personTypeTable` (Employee, Contractor) + **50 % Employee / 50 % Contractor** of all persons (+ 6 demo persons when fewer than 8) | 0, 1 | `select "rowJSON"->>'personType', count(*) from public."personTable" group by 1;` → half / half |
 | 6 | `create_person_descriptors.sql` | person Properties + Variants on the descriptors: sets, plan lines, experience, **separate row per certificate**, variants (Seniority × Language), a **contract for every person** without an active one | 2, 5 | `select count(*) from public."contractTable" where "rowParentGUID" = 'person';` ≥ number of persons |
@@ -30,6 +31,7 @@ Then sign in to the app. Screens:
 | 1 | Products |
 | 2, 4 | Resource roles |
 | 3 | Management genus |
+| 3a | **Distribution** – `/catalog/distribution/list` (read-only) |
 | 5, 6 | **Persons (properties and variants)** – `/catalog/person/dashboard` |
 | 7 | **Resource contract templates** – `/catalog/management/templateresourcecontract/list` |
 | 8 | Project Dashboard → **Finances** button; the task page → **Finances** section |

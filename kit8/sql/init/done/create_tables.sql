@@ -1128,7 +1128,10 @@ BEGIN
     INSERT INTO public.project_table ("rowGUID", "treePath", "rowOwnerGUID", "orderInList", "rowJSON")
     VALUES (v_p, public.pm_ltree_label(v_p), p_owner, v_p_order,
             jsonb_build_object('rowKind', 'project', 'name', v_project->>'name', 'durationDays', 0,
-                               'projectStartAt', v_start, 'skipWeekends', false));
+                               'projectStartAt', v_start, 'skipWeekends', false,
+                               -- row commands of the task tree and of the Gantt bars: the right-click / long-press menu (the app default, kit8/pm/model/types.ts)
+                               'uxuiSettings', jsonb_build_object('projectTreeContextCommandsMode', 'onRightClickMenuMode',
+                                                                  'projectGanttChartContextCommandsMode', 'onRightClickMenuMode')));
     v_s_order := 0;
     FOR v_stage IN SELECT * FROM jsonb_array_elements(v_project->'stages') LOOP
       v_s := gen_random_uuid();

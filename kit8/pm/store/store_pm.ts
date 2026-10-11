@@ -14,7 +14,7 @@ import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAU
 import { ROOT_KEY, todayUTC } from '../view/project/scheduling';
 import { PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../view/tree/filter/treeColumnFilter';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
-import { PMProjectRow, PMTaskRow, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
+import { PMProjectRow, PMTaskRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
 import { derive, EMPTY_TREE, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
 import type { PMStoreState } from './storeTypes';
 
@@ -96,8 +96,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       return { userSettingsByProject, ...applied, ...(v ? rowsOf({ ...state, ...applied }) : {}) };
     }),
   showTreeHierarchyNumbers: true,
-  projectTreeContextCommandsMode: 'onHoverPanelMode',
-  projectGanttChartContextCommandsMode: 'onHoverPanelMode',
+  projectTreeContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
+  projectGanttChartContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
   selectRowCheckBoxForm: 'formRound',
   rowMenu: null,
   setRowMenu: (menu) => set({ rowMenu: menu }),
