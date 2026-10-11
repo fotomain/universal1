@@ -40,6 +40,9 @@ Supabase postgres_changes ─► createSupabaseTableChannel (redux-saga eventCha
 
 ## Files
 
-`currencyModel.ts` (table, entity, routes, validation, card mapping) · `CurrencyList.tsx` (web: `ListWebCardsComponent`, phones:
-FlatList) · `CurrencyCard.tsx` · `CurrencyEdit.tsx` · `CurrencyRealtimeBadge.tsx` · routes `app/currency/list`, `app/currency/edit`.
+`currencyModel.ts` (table, entity, routes, validation) · `CurrencyList.tsx` (a `ReusableTable` on every platform: one row per currency as a PAIR
+`BASE/CODE` with all its ratios - Default and Budget, the inverse ratios and their dates, the number of rates; row menu: Edit, Rates, Refresh rates,
+Upload all data from a date) · `currencyTableColumns.tsx` (the columns) · `currencyPairs.ts` (pure: pair labels, inverse, latest ratios) ·
+`useCurrencyPairRatios.ts` (one small request per currency: its newest rate rows + their count) · `CurrencyCard.tsx` (the card of the old list, kept) ·
+`CurrencyEdit.tsx` · `CurrencyRealtimeBadge.tsx` · routes `app/currency/list`, `app/currency/edit`.
 Tests: `__tests__/catalog/currency/*`, `__tests__/redux/reusableRealtime.test.ts`.

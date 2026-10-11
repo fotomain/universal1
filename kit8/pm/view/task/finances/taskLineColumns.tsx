@@ -1,9 +1,10 @@
 // Task lines - the columns of the table of one genus (VisualColumn[] of the ReusableTable).
+//   Errors (the FIRST column, only when a line of the tab has an error) · then:
 //   Time:                      # · Role · Role attributes · Person · Person variant (his own variants, taskLinePersonMatch.ts) · Contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 //   Material / Expense / Revenue: # · Role · Role attributes · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 // Only GUIDs / keys / numbers are stored in rowJSON (taskLineModel.ts); titles are read from the catalogs.
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../../catalog/person/personModel';
 import { PARTNER_CATALOG_OWNER, PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
@@ -26,6 +27,12 @@ export const personFullName = (person: any): string => {
   return [j.personFirstName, j.personLastName].filter(Boolean).join(' ').trim() || j.personTitle || person?.rowGUID || '';
 };
 
+/** every error of a line: the catalogs (role / variant / template), the person match and the exchange rates; [] = none */
+export function taskLineErrors(data: TaskLineCatalogData, genus: TaskLineGenusDef, rowJSON: Record<string, any>, fx?: LineFxContext | null): string[] {
+  const fxMessage = fxProblem(fx, data, genus, rowJSON);
+  return [...lineProblems(data, genus, rowJSON), ...personMatchProblems(data, genus, rowJSON), ...(fxMessage ? [fxMessage] : [])];
+}
+
 export interface TaskLineColumnsContext {
   data: TaskLineCatalogData;
   genus: TaskLineGenusDef;
@@ -37,11 +44,27 @@ export interface TaskLineColumnsContext {
   fxProject?: LineFxProject | null;
   /** the exchange rates (null while they are being read): the reason a sum could not be converted is a mark on the line */
   fx?: LineFxContext | null;
+  /** show the Errors column (default true): the table passes false while no line of the tab has an error */
+  showErrors?: boolean;
 }
 
-export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx }: TaskLineColumnsContext): VisualColumn[] {
+export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true }: TaskLineColumnsContext): VisualColumn[] {
   const unitOptions = data.measureUnit.map((u) => ({ value: u.rowGUID, label: rowTitle(u) || u.rowGUID }));
   const cols: VisualColumn[] = [
+    // the error messages of the line: the first column of the table (after the drag and the select-row columns), before the number; not there when no line has an error
+    ...(showErrors ? [{
+      key: 'errors', title: pmT('Errors'), type: 'custom', width: 280, editable: false, pinFirst: true,
+      renderCell: (row) => {
+        const problems = taskLineErrors(data, genus, row.rowJSON || {}, fx);
+        return problems.length ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <PMTipIcon tip={problems.join('\n')} testID={`task-line-problem-${row.rowGUID}`} name="warning" size={18} color={errorColor} />
+            <Text numberOfLines={1} style={{ color: errorColor, fontSize: 12, flex: 1 }}>{problems.join(' · ')}</Text>
+          </View>
+        ) : null;
+      },
+      searchText: (row) => taskLineErrors(data, genus, row.rowJSON || {}, fx).join(' '),
+    } as VisualColumn] : []),
     { key: 'n', title: '#', type: 'rowNumber' },
     {
       key: 'role', title: pmT('Role'), type: 'catalog', field: 'resourceRoleItem', width: 220,
@@ -131,14 +154,6 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       key: 'currency', title: pmT('Currency'), type: 'custom', width: 90, editable: false,
       renderCell: (row) => <Text numberOfLines={1} style={{ color: textColor, opacity: 0.75, fontSize: 13 }}>{lineContractCurrency(data, row.rowJSON || {}, projectCurrency)}</Text>,
       searchText: (row) => lineContractCurrency(data, row.rowJSON || {}, projectCurrency),
-    },
-    {
-      key: 'check', title: '', type: 'custom', width: 44, editable: false,
-      renderCell: (row) => {
-        const fxMessage = fxProblem(fx, data, genus, row.rowJSON || {});
-        const problems = [...lineProblems(data, genus, row.rowJSON || {}), ...personMatchProblems(data, genus, row.rowJSON || {}), ...(fxMessage ? [fxMessage] : [])];
-        return problems.length ? <PMTipIcon tip={problems.join('\n')} testID={`task-line-problem-${row.rowGUID}`} name="warning" size={18} color={errorColor} /> : null;
-      },
     },
   );
   return cols;

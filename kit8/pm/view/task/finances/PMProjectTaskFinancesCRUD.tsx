@@ -30,7 +30,7 @@ import { emptyTaskLine, TASK_LINE_ENTITY, TASK_LINE_GENUS, taskLineGenusDef, tas
 import type { TaskLineRow } from './taskLineModel';
 import { formatMoney, taskLineTotals } from './taskLineMoney';
 import { computeTaskLineRowJSON } from './taskLineCompute';
-import { buildTaskLineColumns } from './taskLineColumns';
+import { buildTaskLineColumns, taskLineErrors } from './taskLineColumns';
 import { useTaskLineCatalogs } from './useTaskLineCatalogs';
 import { computeFx, fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
 import { lineContractCurrency } from './taskLineCatalogs';
@@ -83,9 +83,14 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   /** null while the rates are being read: a line is never converted with half of them (and its saved sums are left alone) */
   const fx = useMemo<LineFxContext | null>(() => (fxOn && book ? { book, project: fxProject, taskStartDay, today } : null), [fxOn, book, fxProject, taskStartDay, today]);
 
+  // the Errors column (the first one) is there only while a line of this tab has an error
+  const hasErrors = useMemo(
+    () => taskLines.some((l) => l.rowParentGUID === def.genus && taskLineErrors(data, def, l.rowJSON || {}, fx).length > 0),
+    [taskLines, def, data, fx],
+  );
   const columns = useMemo(
-    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx }),
-    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx],
+    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors }),
+    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors],
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it

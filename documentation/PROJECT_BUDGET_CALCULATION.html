@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project budget calculation - plan</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --fuchsia: #f0abfc;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 10px; overflow-x: auto; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 840px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.tight { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--fuchsia); vertical-align: middle; margin-right: 6px; border: 1px solid #d946ef55; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Project budget</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#practice">Best practice</a></li><li><a href="#model">Data model</a></li><li><a href="#ui">UI changes</a></li>
+    <li><a href="#calendar">Calendars</a></li><li><a href="#post">Post</a></li><li><a href="#rollup">calculateProjectBudget</a></li>
+    <li><a href="#stale">Stale data</a></li><li><a href="#files">Files / SQL</a></li><li><a href="#phases">Phases</a></li><li><a href="#open">Open points</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>Project budget calculation <span class="pill ask">plan - no code yet</span></h1>
+  <p class="lead">Today a task has finance lines (<code>task_line_table</code>) with a total per line (<code>sumForContract</code>, <code>sumForBudget</code>, <code>qtyTaskLine</code>) and a chosen
+  distribution (<code>distributionForBudgetTaskLine</code>), but the money has <b>no dates</b> and nothing is rolled up: a stage and the project have no budget
+  (<code>kit8/pm/view/task/finances/README.md</code>, "Not in this version"). This plan adds:</p>
+  <ol class="steps">
+    <li>a <b>budget item</b> on every task line (what the money is budgeted as);</li>
+    <li>a <b>Post</b> step: the line total is spread over the days of the task, on a <b>calendar</b>, by the line's distribution, and saved as period rows;</li>
+    <li>role and resource detail rows for the budget by role / by person or product;</li>
+    <li><code>calculateProjectBudget</code>: the budget of every stage of the project tree and of the whole project, by period, from the posted rows.</li>
+  </ol>
+  <p class="sub">Everything below follows what the code already does (def-table pattern <code>rowGUID · rowOwnerGUID · rowParentGUID · orderInList · rowJSON</code>,
+  <code>ReusableTable</code>, the distribution catalog, FX snapshot per line, one <code>.sql</code> file per feature + <code>run_fresh_data.sql</code>).</p>
+</section>
+
+<section id="practice">
+  <h2>Best practice taken from 1C and Dynamics 365</h2>
+  <div class="grid">
+    <div class="card"><h3>Budget lines are a ledger, not a calculation</h3>
+      <p>D365 (Project management and accounting, Budgeting) and 1C (ERP / "Бюджетирование") keep the plan as stored <b>period entries</b> that reports add up. Reports never
+      re-derive money from the planning screen. So: <i>Post</i> writes period rows; <code>calculateProjectBudget</code> only reads and sums them.</p></div>
+    <div class="card"><h3>Posting is explicit and repeatable</h3>
+      <p>Both systems separate "draft lines" from "posted / confirmed" ones. A change to a draft line does not move the budget until it is posted again. Here:
+      <code>taskIsPosted</code> per line, and re-posting replaces the line's earlier period rows in <b>one transaction</b> (so a line is never half posted).</p></div>
+    <div class="card"><h3>Budget item (article) + dimensions</h3>
+      <p>1C "статья бюджета" and D365 budget/ledger accounts with dimensions: the amount is classified by an <b>item</b> and sliced by dimensions (stage, role, resource,
+      period). That is <code>budgetItemTable</code> + the role / resource detail tables.</p></div>
+    <div class="card"><h3>Working calendar drives period spreading</h3>
+      <p>1C "производственный календарь / график работы" and D365 "calendars / working times": amounts are spread only over <b>active</b> days. Several calendars
+      (project, role, person) are kept as folders; the project chooses which one plans tasks and which one plans the budget.</p></div>
+    <div class="card"><h3>Rounding and currency</h3>
+      <p>Amounts are rounded to the currency decimals per period and the rest goes to the last period so the periods add up exactly (this is what
+      <code>distributeAmount</code> already does). The currency conversion is a <b>snapshot per line</b> (already in <code>fxSnapshotTaskLine</code>); periods are never converted again.</p></div>
+    <div class="card"><h3>Roll-up follows the WBS</h3>
+      <p>Stage budget = sum of its children, project budget = sum of the top stages (WBS roll-up in both systems). A stage has no lines of its own in this version, so a stage is always a pure sum.</p></div>
+  </div>
+  <p class="sub">This is a design summary, not a quote of the vendors' documentation; the mapping to the screens of 1C / D365 is a guide, not a requirement.</p>
+</section>
+
+<section id="model">
+  <h2>Data model</h2>
+  <p class="sub">All new tables follow <code>kit8/sql/defTable.md</code> (UUID <code>rowGUID</code>, RLS, realtime, <code>updated_at</code>). Names in the request are kept; where the request left a placeholder
+  (<code>managementCalendarNNNNN</code>) a name is proposed - see "Open points".</p>
+  <div class="scroll"><table>
+    <tr><th>Table</th><th></th><th>Structure</th></tr>
+    <tr><td><code>budgetItemTable</code></td><td><span class="pill new">new</span></td>
+      <td>Same two-level shape as <code>managementGenusTable</code> (folders + items), <code>rowOwnerGUID = 'budgetItemCatalog'</code>.
+      <code>rowJSON { title, description, managementGenusItem }</code> - <code>managementGenusItem</code> = the leaf genus (<code>timeGenus</code>, <code>materialGenus</code>, …) the item belongs to.
+      <b>Default rows</b> are generated by SQL from the managementGenus rows (<code>INSERT … SELECT</code>): one folder per genus folder, one item per genus item
+      (codes such as <code>timeBudgetItem</code>), so the catalog is usable at once and the user adds more items under the same genus.</td></tr>
+    <tr><td><code>task_line_table</code></td><td><span class="pill chg">changed</span></td>
+      <td>New <code>rowJSON</code> keys: <code>budgetItemTaskLine</code> (budgetItemTable.rowGUID), <code>taskIsPosted</code> (boolean, <b>false</b> on create), <code>postSnapshotTaskLine</code>
+      (<code>{ postedAt, startDay, finishDay, calendarForTaskPlan, calendarForBudgetPlan, calendarStamp }</code>, see "Stale data"). No new column, no migration of rows (missing = not posted).</td></tr>
+    <tr><td><code>managementCalendarTable</code> (name proposed)</td><td><span class="pill new">new</span></td>
+      <td>A calendar. <code>rowOwnerGUID</code> = the business (the abstract entity, see "Calendars"), <code>rowParentGUID</code> = folder <code>projectCalendars</code> | <code>resourceRoleCalendars</code> | <code>personCalendars</code>.
+      <code>rowJSON { title, description, weekPattern: ('mon'..'sun')[] working weekdays, filledYears: number[] }</code>.</td></tr>
+    <tr><td><code>managementCalendarDaysTable</code> (the request: <code>managementCalendarDays</code>)</td><td><span class="pill new">new</span></td>
+      <td>One row per calendar day: <code>rowOwnerGUID</code> = the calendar, <code>rowParentGUID</code> = <code>'empty'</code>, <code>orderInList</code> = day number (ms / 86400000),
+      <code>rowJSON { day: 'YYYY-MM-DD', isActive, reason: 'weekend' | 'holiday' | 'manual' | 'fill', note }</code>. Unique <code>(rowOwnerGUID, day)</code>. <b>A day the user excludes = <code>isActive:false</code></b>.</td></tr>
+    <tr><td><code>task_budget_line_details</code> (name proposed)</td><td><span class="pill new">new</span></td>
+      <td>"Mirror of <code>task_line_table</code> + <code>rowPeriod</code>": the same columns as the line (<code>rowGUID</code>, <code>rowProjectGUID</code>, <code>rowOwnerGUID</code> = the line - FK <code>ON DELETE CASCADE</code>,
+      <code>rowParentGUID</code> = genus, <code>orderInList</code>, <code>rowJSON</code> = the line's keys, but the money fields are the <b>share of that day</b>) plus
+      <code>"rowPeriod" timestamptz NOT NULL</code> = the start of the day, <code>00:00:00</code> (project time zone). Same convention as <code>rowDuration</code> (an instant, exclusive end = next day).
+      Unique <code>(rowOwnerGUID, "rowPeriod")</code>. Extra <code>rowJSON</code> keys: <code>taskGUID</code>, <code>budgetItemTaskLine</code> (copied so reports need no join).</td></tr>
+    <tr><td><code>task_budget_role_line_details</code></td><td><span class="pill new">new</span></td>
+      <td>Per day, only for lines with a role (<code>resourceRoleItem</code>): <code>rowOwnerGUID</code> = the line, <code>rowParentGUID</code> = role GUID, <code>rowPeriod</code>,
+      <code>rowJSON { resourceRoleItem, resourceRoleAttributeSetKey, qty, sumForBudget, sumForContract? }</code>. The contract sum is optional (null when the line has no contract currency sum).</td></tr>
+    <tr><td><code>task_budget_resource_line_details</code></td><td><span class="pill new">new</span></td>
+      <td>Per day, only for lines with a resource (<code>taskResourceItem</code>: person or product): <code>rowParentGUID</code> = person / product GUID, <code>rowPeriod</code>,
+      <code>rowJSON { taskResourceItem, taskResourceAttributesKey, qty, sumForBudget, sumForContract? }</code>.</td></tr>
+  </table></div>
+  <p class="sub">Why three detail tables and not one: the request asks for them, and they have different grains (a line without a role has no role row), but all three are written by the same posting
+  function from the same split, so they always add up to the line. The RPC checks <code>sum(details) = line total</code> before it commits.</p>
+  <p class="sub">The money fields spread are <code>sumForBudget</code> (budget currency), <code>sumForContract</code> (line currency, optional) and <code>qtyTaskLine</code>. VAT is not spread: the budget is net of VAT
+  (<code>sumVATForBudget</code> stays on the line for reports that want it).</p>
+</section>
+
+<section id="ui">
+  <h2>UI changes</h2>
+  <h3>1. <code>PMProjectTaskFinancesCRUD</code> - first column <code>budgetItemTaskLine</code></h3>
+  <ul class="tight">
+    <li>A <code>catalog</code> column (<code>reusableTableTypes.ts</code>) on <code>budgetItemTable</code>, <b>before</b> the Errors / # columns' neighbours, i.e. first data column in <code>taskLineColumns.tsx</code>.
+    <code>filterItem</code> keeps the items whose <code>managementGenusItem</code> = the genus of the tab (Time tab → time items only).</li>
+    <li>New line default: the seeded item of the tab's genus, so a new line is postable at once. The user can clear or change it; a line without an item is simply not posted (and the table says so).</li>
+    <li>A screen for the catalog, copied from <code>ManagementGenusDashboardCRUD</code> (<code>noCrud</code> default on the genus; for budget items editing is on): <code>kit8/catalog/management/budgetitem</code>, route + drawer entry.</li>
+    <li><code>emptyTaskLine()</code> and <code>TaskLineRowJSON</code> get <code>budgetItemTaskLine: null</code>, <code>taskIsPosted: false</code>, <code>postSnapshotTaskLine: null</code>.</li>
+  </ul>
+  <h3>2. <code>taskIsPosted</code> rules (in the table's <code>computeRowJSON</code>)</h3>
+  <ul class="tight">
+    <li>New line → <code>taskIsPosted:false</code> (in <code>newRowDefaults</code>).</li>
+    <li>Any user change of a line's data → <code>taskIsPosted:false</code> (the "line data" = every key except <code>taskIsPosted</code> and <code>postSnapshotTaskLine</code>, which only posting writes).
+    "Recalculate" (FX) also unposts, because the sums change. Deleting a line needs no flag: its detail rows go with it (FK cascade).</li>
+    <li>Posting writes <code>taskIsPosted:true</code> through the RPC, not through <code>computeRowJSON</code>, so it cannot unpost itself.</li>
+  </ul>
+  <h3>3. <code>TableReusable</code> (<code>ReusableTable</code>) - Post button, generic and off by default</h3>
+  <div class="scroll"><table>
+    <tr><th>Prop</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>postDataNeeded</code></td><td><code>false</code></td><td>Shows the Post button. <code>true</code> only for the task line table.</td></tr>
+    <tr><td><code>postedField</code></td><td><code>'taskIsPosted'</code></td><td>The <code>rowJSON</code> key that says a row is posted. The table does not know about budgets: "all shown rows have it true" = posted state.</td></tr>
+    <tr><td><code>onPost(rows)</code></td><td>-</td><td>Called on press with the shown rows; the parent runs the posting and reports success / errors per row.</td></tr>
+    <tr><td><code>postButtonColor</code></td><td><code>project.uxuiSettings.postButtonBackgroundColor</code></td><td>Background of the button. The task page passes the project value.</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li><b>Position</b>: the very first element of the toolbar (before the CRUD panel, in <code>ReusableTable.tsx</code> next to <code>panelEl</code> / <code>toolbarExtra</code>), on all three <code>tableBarLayoutVariant</code>s.</li>
+    <li><b>Look</b>: icon always; the text "Post" only on a wide window (<code>useWindowDimensions</code> is already used in the file; threshold the same as the other toolbar texts).</li>
+    <li><b>State</b>: on = every row posted (filled, check mark); off = at least one row not posted (outlined, "N to post"). Pressing "off" runs <code>onPost</code>. This is how I read "any change turns the Post button off";
+    if you meant "disabled" see Open points.</li>
+    <li><b>Colour</b>: <span class="swatch"></span><code>postButtonBackgroundColor</code> added to <code>PMUxUiSettings</code> (<code>kit8/pm/model/types.ts</code>), default light fuchsia <code>#F0ABFC</code>, a colour picker in the project UX/UI settings
+    (same pattern as <code>taskProgressLineColor</code>), and added to <code>uxuiSettingsOf()</code> defaults. Per user and project like the other UX/UI settings.</li>
+  </ul>
+</section>
+
+<section id="calendar">
+  <h2>Calendars</h2>
+  <ul class="tight">
+    <li><b>Where</b>: <code>kit8/catalog/management/calendar/</code> - <code>managementCalendarModel.ts</code>, <code>managementCalendarMetaData.ts</code>, <code>useManagementCalendarData.ts</code>,
+    <code>ManagementCalendarCRUD.tsx</code>, <code>calendarFill.ts</code> (pure), <code>calendarResolve.ts</code> (pure), README, route + drawer entry. Built from the existing pieces: <code>FolderTreeReusable</code> (the three folders),
+    <code>ReusableTable</code> (the days of the selected calendar), the same <code>ProductTableDef</code> pattern as genus / distribution.</li>
+    <li><b>Folders</b>: <code>Project</code>, <code>Resource role</code>, <code>Person</code> (seeded like the genus folders). A calendar lives in one folder; this decides where it can be picked
+    (<code>project.calendar…</code> picks from Project; the role / person screens pick from their folders - stored now, used by availability planning later).</li>
+    <li><b>Business level setup</b>: there is no "business" entity in the code today. Until it exists, the owner is the constant <code>managementCalendarCatalog</code> (as <code>managementGenusCatalog</code>);
+    when the business entity arrives only <code>rowOwnerGUID</code> changes. The setup screen is the calendar CRUD itself, with a header "Fill" menu.</li>
+    <li><b>Fill options</b> (current year and previous year, chosen by the user): <i>Working days</i> (Mon-Fri, <b>holidays off</b>), <i>5-day week</i> (Mon-Fri, holidays on), <i>6-day week</i> (Mon-Sat), <i>All days</i> (7 days).
+    Fill writes the day rows (<code>reason: 'fill'</code>, <code>'weekend'</code>, <code>'holiday'</code>) with one upsert; days the user switched manually (<code>reason:'manual'</code>) are <b>kept</b> unless "overwrite manual changes" is ticked.</li>
+    <li><b>Exclude a day</b>: toggle <code>isActive</code> in the days table (a check box column; a range select later). Excluded days are never used for spreading.</li>
+    <li><b>Holidays</b>: needs a source. Proposal: "Working days" uses a public-holiday list for the country of the project (fetched once by a small server function, like the ECB rates script) and writes the rows;
+    until then the user switches holidays off by hand. Open point.</li>
+    <li><b>Project</b>: <code>project_table.rowJSON.calendarForTaskPlan</code> and <code>calendarForBudgetPlan</code> (calendar GUIDs), picked in Project settings → Finances. Default for both: a calendar named
+    "Working days", created and filled for the current year when a project is first posted if none is chosen (so Post never fails for lack of a calendar).</li>
+    <li><b>Resolving a day</b> (<code>calendarResolve.ts</code>): an explicit day row wins; a day with no row (a year nobody filled) uses <code>weekPattern</code> of the calendar header and the UI warns "year not filled".</li>
+  </ul>
+  <div class="note"><b>The two calendars have two jobs.</b> <code>calendarForTaskPlan</code>: the days of the task between start and finish are cut by the excluded days into <b>working segments</b>; the task line rows
+  (<code>task_budget_line_details</code>) exist only on these days. <code>calendarForBudgetPlan</code>: the same cut with the budget calendar; the <b>role</b> and <b>resource</b> detail rows exist only on its active days.
+  If both are the default they are identical.</div>
+</section>
+
+<section id="post">
+  <h2>Post - the algorithm</h2>
+  <p class="sub">A pure module <code>kit8/pm/view/task/finances/budgetPosting.ts</code> (tested like <code>taskLineMoney.ts</code>) builds the rows; an RPC writes them.</p>
+  <ol class="steps">
+    <li><b>Collect</b> the lines of the task shown in the table (all genus tabs) that have a <code>budgetItemTaskLine</code>. Lines without one are skipped and reported ("3 lines have no budget item").</li>
+    <li><b>Validate</b> each line (messages go to the existing Errors column): a budget item exists and its genus equals the line's; <code>distributionForBudgetTaskLine</code> is set and is <b>not</b> <code>manualDistribution</code>
+    (manual is not allowed by posting; an empty distribution on a line gets <code>uniformDistribution</code> as the default when the line is created, so this error only appears for old lines);
+    the task has start and finish; <code>sumForBudget</code> exists when the project has a budget currency (strict, as the FX rule: no rate = no post).</li>
+    <li><b>Days</b>: take the task's start and finish (<code>rowJSON.startAt</code> inclusive, <code>rowDuration</code> exclusive) as calendar days. Active days of <code>calendarForTaskPlan</code> in that range = the periods of the task.
+    No active day → error on the lines ("calendar has no active day in the task dates"). The active days are grouped into segments (a gap = an excluded day) - only for display; the split uses the days.</li>
+    <li><b>Spread</b> each of <code>sumForBudget</code>, <code>sumForContract</code>, <code>qtyTaskLine</code> with the existing <code>distributeAmount(code, amount, periods, params, decimals)</code>: money to the decimals of its currency
+    (<code>currency.decimals</code>), quantity to 4 decimals. The rest goes to the last period, so every column adds up to the line.</li>
+    <li><b>Write rows</b>: one <code>task_budget_line_details</code> row per line and day (<code>rowPeriod</code> = the day at 00:00:00).
+    For lines with a role: one <code>task_budget_role_line_details</code> row per day of <code>calendarForBudgetPlan</code> (the amounts spread over <i>that</i> calendar's days). For lines with a resource: the same into <code>task_budget_resource_line_details</code>.
+    A contract sum is written only when the line has one.</li>
+    <li><b>One transaction</b>: RPC <code>pm_post_task_budget(p_task uuid, p_lines jsonb)</code> - deletes the earlier detail rows of the posted lines, inserts the new ones (all three tables), checks that the sums of the rows equal the line totals
+    (tolerance 0 after rounding), sets <code>taskIsPosted = true</code> and <code>postSnapshotTaskLine</code> on those lines, and returns the counts. Any error rolls everything back; the table shows the message and the lines stay unposted.</li>
+    <li><b>Result</b>: the Post button turns on (filled); a snackbar says "Posted 8 lines · 120 day rows" (or the errors).</li>
+  </ol>
+  <p class="sub">Why the maths runs in the app and not in SQL: the distribution shapes (normal, logarithmic, epidemic) already exist as tested TypeScript; duplicating them in plpgsql would give two sources of truth. The RPC only stores and verifies.</p>
+</section>
+
+<section id="rollup">
+  <h2><code>calculateProjectBudget</code></h2>
+  <p>A pure function <code>kit8/pm/view/task/finances/calculateProjectBudget.ts</code> with a SQL twin as a view / RPC for reports. It reads only <b>posted</b> rows.</p>
+<pre>calculateProjectBudget({
+  tasks,          // the project tree (rowGUID, treePath, isStage)
+  lines,          // task_line_table rows  (for the "not posted" counts)
+  details,        // task_budget_line_details rows
+  roleDetails, resourceDetails,
+  groupBy,        // 'month' | 'week' | 'day'  (default 'month')
+  dimensions,     // ['budgetItem','genus','role','resource']  (any of)
+}) =&gt; {
+  byTask:   { [taskGUID]:  { periods: {...}, total, postedLines, unpostedLines } },   // leaf tasks
+  byStage:  { [stageGUID]: { periods: {...}, total, postedLines, unpostedLines } },   // sum of descendants (treePath)
+  project:  { periods, total, costs, revenue, result, postedLines, unpostedLines },
+  warnings: [ 'Task X: 2 lines not posted', 'Task Y: posted before its dates changed' ]
+}</pre>
+  <ul class="tight">
+    <li><b>Stage = sum of its descendants</b>, found by <code>treePath</code> (a prefix match, also in SQL); the project = the sum of the top stages. A task is never counted twice (a stage has no lines).</li>
+    <li><b>Sign / result</b>: costs (Time, Material, Expenses genus) and revenue (Revenues genus) are summed separately; <code>result = revenue - costs</code>. Payments (inbound / outbound) are not budget lines in this version.</li>
+    <li><b>Currency</b>: roll-ups use <code>sumForBudget</code> (one currency, the project's). <code>sumForContract</code> is shown per line currency and never added across currencies.</li>
+    <li><b>Periods</b>: day rows are summed to week / month with the project's week start; an empty period is returned as 0 so the table has no holes.</li>
+    <li><b>Honesty</b>: unposted lines are not in the numbers; each stage shows "N lines not posted" so a low budget is never silently wrong.</li>
+    <li><b>SQL twin</b>: view <code>project_budget_view</code> (task × period × budget item) and an RPC <code>pm_project_budget(project, from, to, group)</code> that does the treePath roll-up, for exports and the dashboards; the TypeScript and SQL results are compared in a test on the same fixture.</li>
+    <li><b>Screen</b> (phase 3): Finances view of the dashboard: a stage / the project selected in the tree shows the budget table (rows: budget items or child stages; columns: periods + total), replacing today's "select a task".</li>
+  </ul>
+</section>
+
+<section id="stale">
+  <h2>When posted data goes stale</h2>
+  <p>A posted line is correct only for the dates and calendars it was posted with. Three things can break that besides editing the line:</p>
+  <div class="scroll"><table>
+    <tr><th>Change</th><th>What happens</th></tr>
+    <tr><td>Task start / finish changes (the scheduler rewrites <code>startAt</code> / <code>rowDuration</code>)</td>
+      <td>SQL trigger on <code>project_task_table</code>: when the dates change, every line of that task gets <code>taskIsPosted:false</code> (the old detail rows stay until the next post, so the budget does not jump to zero, but a warning says "posted for other dates").
+      The trigger compares with <code>postSnapshotTaskLine.startDay / finishDay</code>, so a scheduler run that writes the same dates unposts nothing.</td></tr>
+    <tr><td>The project picks another calendar</td><td>Lines whose <code>postSnapshotTaskLine.calendar…</code> differs are shown as stale (computed, not written); "Post" re-posts them.</td></tr>
+    <tr><td>Days of a used calendar are edited</td><td><code>calendarStamp</code> (the calendar's <code>updated_at</code> at posting) is older than the calendar's → stale warning; v1 does not unpost automatically (a calendar edit would touch thousands of lines).</td></tr>
+    <tr><td>A line is deleted</td><td>Its detail rows are deleted by the FK cascade; nothing else to do.</td></tr>
+  </table></div>
+</section>
+
+<section id="files">
+  <h2>Files and SQL</h2>
+  <p class="sub">SQL follows the project rule: <b>one <code>.sql</code> per feature</b> in <code>kit8/sql/init</code> (+ a <code>delete_*.sql</code>), added to <code>FILES</code> in <code>kit8/sql/tools/build_run_fresh_data.js</code> in run order,
+  <code>node kit8/sql/tools/build_run_fresh_data.js</code> regenerates <code>run_fresh_data.sql</code> (never edited by hand), and <code>RUN_ORDER.md</code> gets the rows. All idempotent.</p>
+  <div class="scroll"><table>
+    <tr><th>File</th><th>Needs</th><th>What</th></tr>
+    <tr><td><code>create_budget_item_table.sql</code></td><td>management genus</td><td><code>budgetItemTable</code>, RLS, realtime, default rows from <code>managementGenusTable</code></td></tr>
+    <tr><td><code>create_management_calendar_tables.sql</code></td><td>-</td><td><code>managementCalendarTable</code>, <code>managementCalendarDaysTable</code>, the 3 folders, a default "Working days" calendar</td></tr>
+    <tr><td><code>create_task_budget_details_tables.sql</code></td><td>task_line_table, calendar, distribution</td><td>the 3 detail tables (FK to the line, cascade), indexes on <code>(rowOwnerGUID,"rowPeriod")</code>, <code>pm_post_task_budget</code>, unpost trigger, <code>project_budget_view</code>, <code>pm_project_budget</code></td></tr>
+  </table></div>
+  <div class="scroll"><table>
+    <tr><th>App code</th><th>Change</th></tr>
+    <tr><td><code>kit8/catalog/management/budgetitem/*</code></td><td>new: model, metadata, data hook, <code>BudgetItemDashboardCRUD</code>, README (copy of the genus folder)</td></tr>
+    <tr><td><code>kit8/catalog/management/calendar/*</code></td><td>new: see "Calendars"</td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/taskLineModel.ts</code>, <code>taskLineColumns.tsx</code>, <code>PMProjectTaskFinancesCRUD.tsx</code>, <code>taskLineCompute.ts</code></td><td>new keys, first column, <code>taskIsPosted</code> rules, <code>postDataNeeded</code> + <code>onPost</code></td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/budgetPosting.ts</code>, <code>budgetPostingApi.ts</code>, <code>calculateProjectBudget.ts</code></td><td>new: pure posting maths, the RPC call, the roll-up</td></tr>
+    <tr><td><code>kit8/ui/components/table/reusable/ReusableTable.tsx</code>, <code>reusableTableTypes.ts</code>, README</td><td>Post button and its 4 props</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code> (+ project settings tab Finances, UX/UI settings)</td><td><code>calendarForTaskPlan</code>, <code>calendarForBudgetPlan</code>, <code>uxuiSettings.postButtonBackgroundColor</code></td></tr>
+    <tr><td><code>kit8/redux/SystemMetaData.ts</code></td><td>the new entities (budget item, calendar, calendar days, 3 detail tables)</td></tr>
+    <tr><td>READMEs: <code>finances/README.md</code> ("Not in this version" shrinks), <code>kit8/pm/README.md</code>, table README, <code>RUN_ORDER.md</code></td><td>updated with the work</td></tr>
+  </table></div>
+  <h3>Tests (Jest, next to the existing ones)</h3>
+  <ul class="tight">
+    <li><code>calendarFill.test.ts</code>: the four fill modes, leap year, manual days kept / overwritten, previous + current year.</li>
+    <li><code>budgetPosting.test.ts</code>: totals equal the line for every distribution except manual; excluded days get no row; one-day task; no active day → error; rounding rest on the last day; role / resource rows only when present; contract sum optional.</li>
+    <li><code>calculateProjectBudget.test.ts</code>: stage = sum of children, nested stages, unposted lines counted and left out, month grouping, result = revenue − costs; the same fixture against the SQL twin.</li>
+    <li><code>taskFinancesUi.test.tsx</code> and <code>reusableTable*.test.ts</code>: new line is unposted, any edit unposts, the Post button is first, hides its text on a narrow window, uses the project colour, <code>postDataNeeded</code> false = no button.</li>
+  </ul>
+</section>
+
+<section id="phases">
+  <h2>Order of work</h2>
+  <ol class="steps">
+    <li><b>Budget item</b>: SQL + catalog screen + first column + <code>taskIsPosted</code> flag (no money yet) - visible and testable on its own.</li>
+    <li><b>Calendars</b>: SQL + CRUD + fill + project settings fields.</li>
+    <li><b>Post button</b> in <code>ReusableTable</code> + <code>postButtonBackgroundColor</code> setting (generic, unit tested).</li>
+    <li><b>Posting</b>: <code>budgetPosting.ts</code>, detail tables, RPC, unpost trigger.</li>
+    <li><b><code>calculateProjectBudget</code></b> + the stage / project budget view in Finances.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>Open points - my default is used unless you say otherwise</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Default taken in this plan</th></tr>
+    <tr><td>1</td><td>The file name in the request ends in <code>.htmp</code>.</td><td>Written as <code>.html</code> (a typo, I assume).</td></tr>
+    <tr><td>2</td><td>"Turns the Post button off": greyed-out (disabled) or "state off, needs posting"?</td><td>State off = needs posting, still pressable. A disabled button would leave no way to re-post.</td></tr>
+    <tr><td>3</td><td>Names with <code>NNNNN</code> and the unnamed mirror table.</td><td><code>managementCalendarTable</code>, <code>managementCalendarDaysTable</code>, <code>task_budget_line_details</code>.</td></tr>
+    <tr><td>4</td><td>There is no business entity yet for the "business-level setup".</td><td>Constant owner <code>managementCalendarCatalog</code>; swap for the business GUID later.</td></tr>
+    <tr><td>5</td><td>Holiday source for "Working days without holidays".</td><td>Country list fetched by a small server script (like the ECB rates); manual until then.</td></tr>
+    <tr><td>6</td><td>Re-posting: replace earlier rows (this plan) or keep an append-only ledger with reversal entries as D365 budget registers do?</td><td>Replace in one transaction. A ledger with history is a later step if audits need it.</td></tr>
+    <tr><td>7</td><td>Role and person calendars: only stored now, or used in the detail tables?</td><td>Stored only; the budget detail tables use <code>calendarForBudgetPlan</code>.</td></tr>
+    <tr><td>8</td><td><code>rowPeriod</code> time zone.</td><td><code>timestamptz</code>, 00:00:00 of the day in the project's time zone.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>

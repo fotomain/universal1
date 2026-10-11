@@ -67,6 +67,10 @@ it('columns: user order + widths, move, drop index', () => {
     ['hours', 40], ['person', 300], ['tableRowNumber', undefined], ['contract', 260],
   ]);
   expect(arrangeColumns(cols).map((c) => c.key)).toEqual(['tableRowNumber', 'person', 'contract', 'hours']);
+  // a pinFirst column stays in front even when the user's order does not have it (it appeared later)
+  const pinned = [...cols, { key: 'errors', title: 'Errors', type: 'custom', renderCell: () => null, pinFirst: true } as any];
+  expect(arrangeColumns(pinned, ['hours', 'person']).map((c) => c.key)).toEqual(['errors', 'hours', 'person', 'tableRowNumber', 'contract']);
+  expect(arrangeColumns(pinned).map((c) => c.key)[0]).toBe('errors');
   expect(clampColumnWidth(5000)).toBe(800);
   expect(moveColumn(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a']);
   const same = ['a', 'b'];

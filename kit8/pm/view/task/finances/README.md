@@ -80,5 +80,5 @@ Titles are never copied: the app reads them from the catalogs.
 ## Files
 
 `PMProjectTaskFinancesCRUD.tsx` the lines (tabs + table) · `PMProjectFinancesView.tsx` the dashboard view · `taskLineModel.ts` table, genus tabs, row shape ·
-`taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLinePersonMatch.ts` (person vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus · `useTaskLineCatalogs.ts` the catalog rows from redux ·
+`taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLinePersonMatch.ts` (person vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus (the **Errors** column - the message text + the ⚠ - is the FIRST one, before `#`, and only there while a line of the tab has an error) · `useTaskLineCatalogs.ts` the catalog rows from redux ·
 `taskLineMetaData.ts` the redux entity (spread into `kit8/redux/SystemMetaData.ts`).

@@ -224,11 +224,14 @@ export const MIN_COLUMN_WIDTH = 40;
 export const MAX_COLUMN_WIDTH = 800;
 export const clampColumnWidth = (w: number): number => Math.round(Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, w)));
 
-/** the columns in the user's order (unknown keys ignored, new columns appended) with the user's widths */
+/** the columns in the user's order (unknown keys ignored, new columns appended, pinFirst columns in front) with the user's widths */
 export function arrangeColumns(columns: VisualColumn[], order?: string[] | null, widths?: Record<string, number> | null): VisualColumn[] {
   const byKey = new Map(columns.map((col) => [col.key, col]));
   const keys = [...(order || []).filter((k, i, a) => byKey.has(k) && a.indexOf(k) === i)];
   for (const col of columns) if (!keys.includes(col.key)) keys.push(col.key);
+  // pinFirst columns stay in front (in the order of the columns prop), the others keep the user's order
+  const pinned = columns.filter((col) => col.pinFirst).map((col) => col.key);
+  if (pinned.length) keys.splice(0, keys.length, ...pinned, ...keys.filter((k) => !pinned.includes(k)));
   return keys.map((k) => {
     const col = byKey.get(k)!;
     const w = widths?.[k];

@@ -1,109 +1,102 @@
-// CurrencyList - route /currency/list. Web: ListWebCardsComponent (drag & drop order, search, sql_for_delete +
-// Undo) with CurrencyCard; iOS / Android: a plain list of CurrencyCard. Both stay in sync with Supabase
-// Realtime (other browsers / devices) through the reusable saga (useRealtimeEntity / realtime prop).
-import React, { useMemo, useRef } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+// CurrencyList - route /currency/list. A ReusableTable (web + iOS + Android) of the currencies as PAIRS: one row per currency with its pair
+// (BASE/CODE), the currency and all its ratios - Default and Budget, with the inverse ratios and their dates (currencyTableColumns.ts).
+// Search, sort / filter of the columns, drag & drop order (web), sql_for_delete + Undo, export come from the table; the row menu (right-click /
+// long-press / ⋮) has Edit, Rates, Refresh rates and Upload all data from a date. Stays in sync with Supabase Realtime (other browsers /
+// devices) through the reusable saga; the ratios are read again when the rates were refreshed or when the table changes.
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
-import IconApp from '../../ui/components/common/IconApp';
-import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
-import CurrencyCard from './CurrencyCard';
+import { PMIconButton } from '../../pm/inner/buttons/PMIconButton';
+import ReusableTable from '../../ui/components/table/reusable/ReusableTable';
+import type { ReusableTableRow } from '../../ui/components/table/reusable/reusableTableTypes';
 import CurrencyRealtimeBadge from './CurrencyRealtimeBadge';
+import CurrencyUploadFromDateModal from './CurrencyUploadFromDateModal';
 import { REFRESH_ALL, useRefreshCurrencyRatio } from './refresh/useRefreshCurrencyRatio';
-import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY, CURRENCY_READ_PARAMS, CURRENCY_ROUTES, currencyToCard } from './currencyModel';
-
-// web only: ListWebCardsComponent renders DOM (drag & drop) - never loaded on iOS / Android
-const ListWebCardsComponent: any = Platform.OS === 'web' ? require('../../ui/components/list/web/ListWebCardsComponent').ListWebCardsComponent : null;
+import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY, CURRENCY_READ_PARAMS, CURRENCY_ROUTES, emptyCurrency } from './currencyModel';
+import { CURRENCY_EXCHANGE_ROUTES } from './exchange/currencyExchangeModel';
+import { buildCurrencyTableColumns } from './currencyTableColumns';
+import { useCurrencyPairRatios } from './useCurrencyPairRatios';
 
 export default function CurrencyList() {
   const router = useRouter();
   const { themeColors: c } = useDesignSystem();
   // one realtime subscription for the catalog while this screen (or the edit screen) is mounted
   const status = useRealtimeEntity(CURRENCY_ENTITY, { readParams: CURRENCY_READ_PARAMS });
+  const currencies: any[] = useSelector((s: any) => s?.[CURRENCY_ENTITY]?.entityDataFromServer) || [];
+  // the latest ratios of every currency; read again when a refresh / upload of the rates ends
+  const pairs = useCurrencyPairRatios(currencies);
   // exchange rates from the ECB (Frankfurter API): all currencies, or one line
   const refresh = useRefreshCurrencyRatio();
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
-  /** CurrencyCard + the refresh icon (a stable component: the list must not remount its cards on every render) */
-  const CardWithRefresh = useMemo(
-    () => function CurrencyCardWithRefresh(p: any) {
-      const r = refreshRef.current;
-      return <CurrencyCard {...p} onRefreshRates={r.refreshOne} onUploadFromDate={r.uploadFrom} refreshingRates={r.busy === REFRESH_ALL || r.busy === p.card?.id} />;
-    },
-    [],
-  );
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !refresh.busy) pairs.reload();
+    wasBusy.current = !!refresh.busy;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refresh.busy]);
+  /** the currency whose "Upload all data from a date" dialog is open */
+  const [uploadFor, setUploadFor] = useState<string | null>(null);
+
   const openNew = () => router.push(CURRENCY_ROUTES.edit as any);
   const openEdit = (rowGUID: string) => router.push({ pathname: CURRENCY_ROUTES.edit, params: { rowGUID } } as any);
+  const openRates = (currencyGUID: string) => router.push({ pathname: CURRENCY_EXCHANGE_ROUTES.list, params: { currencyGUID } } as any);
 
-  return (
-    <View style={[styles.root, { backgroundColor: c.background }]} testID="currency-list">
-      <View style={styles.header}>
-        <CurrencyRealtimeBadge status={status} />
-        <Pressable
-          testID="currency-refresh-rates-all"
-          disabled={!!refresh.busy}
-          onPress={refresh.refreshAll}
-          accessibilityRole="button"
-          accessibilityLabel="Refresh the exchange rates of all currencies"
-          style={[styles.refresh, { borderColor: c.primary, opacity: refresh.busy ? 0.5 : 1 }]}
-        >
-          <IconApp name="sync" size={18} color={c.primary} />
-          <Text style={{ color: c.primary, fontWeight: '600' }}>{refresh.busy === REFRESH_ALL ? 'Refreshing…' : 'Refresh rates'}</Text>
-        </Pressable>
-        {Platform.OS !== 'web' && (
-          <Pressable testID="currency-add" onPress={openNew} style={[styles.add, { backgroundColor: c.primary }]} accessibilityLabel="Add currency">
-            <IconApp name="add" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Add</Text>
-          </Pressable>
-        )}
-      </View>
-      {Platform.OS === 'web' ? (
-        <ListWebCardsComponent
-          entityName={CURRENCY_ENTITY}
-          entityForArchivationName=""
-          crudListTitle="Currencies"
-          itemLabel="Currency"
-          listOwnerGUID={CURRENCY_CATALOG_OWNER}
-          CardComponent={CardWithRefresh}
-          mapItemToCard={currencyToCard}
-          onCreateNewItem={openNew}
-          onEditCard={(id: string) => openEdit(id)}
-          readParams={CURRENCY_READ_PARAMS}
-          crudCardHeight={72}
-          crudListWidth={620}
-          crudGapBetweenCards={8}
-        />
-      ) : (
-        <NativeCurrencyList onEdit={openEdit} onRefreshRates={refresh.refreshOne} onUploadFromDate={refresh.uploadFrom} busy={refresh.busy} />
-      )}
-    </View>
+  const { base, ratiosOf } = pairs;
+  const columns = useMemo(
+    () => buildCurrencyTableColumns({ base, ratiosOf, textColor: c.text, linkColor: c.primary, onOpenRates: openRates }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [base, ratiosOf, c.text, c.primary],
   );
-}
+  const refreshing = (guid: string) => refresh.busy === REFRESH_ALL || refresh.busy === guid;
+  const codeOf = (guid: string) => String(currencies.find((r) => r.rowGUID === guid)?.rowJSON?.currencyCode || '');
 
-/** iOS / Android: ListWebCardsComponent renders DOM elements, so a FlatList of the same cards is used. */
-function NativeCurrencyList({ onEdit, onRefreshRates, onUploadFromDate, busy }: { onEdit: (rowGUID: string) => void; onRefreshRates: (rowGUID: string) => void; onUploadFromDate: (rowGUID: string, fromDate: string) => Promise<boolean>; busy: string | null }) {
-  const dispatch = useDispatch();
-  const rows: any[] = useSelector((s: any) => s?.[CURRENCY_ENTITY]?.entityDataFromServer) || [];
-  const { themeColors: c } = useDesignSystem();
-  const actions = SystemMetaData[CURRENCY_ENTITY]?.actions;
   return (
-    <FlatList
-      data={rows}
-      keyExtractor={(r) => r.rowGUID}
-      contentContainerStyle={{ padding: 12, gap: 8 }}
-      ListEmptyComponent={<Text style={{ color: c.text, opacity: 0.6, textAlign: 'center', marginTop: 24 }}>No currencies yet.</Text>}
-      renderItem={({ item, index }) => (
-        <CurrencyCard card={currencyToCard(item, index)} onEdit={onEdit} onRefreshRates={onRefreshRates} onUploadFromDate={onUploadFromDate} refreshingRates={busy === REFRESH_ALL || busy === item.rowGUID} onDelete={(id) => actions?.deleteOne && dispatch(actions.deleteOne({ rowGUID: id }))} />
-      )}
-    />
+    <ScrollView style={[styles.root, { backgroundColor: c.background }]} contentContainerStyle={styles.content} testID="currency-list">
+      <ReusableTable
+        testID="currency-table"
+        entityName={CURRENCY_ENTITY}
+        crudListTitle="Currencies"
+        itemLabel="Currency"
+        listOwnerGUID={CURRENCY_CATALOG_OWNER}
+        readParams={CURRENCY_READ_PARAMS}
+        visualColumns={columns}
+        defaultRowJSON={emptyCurrency}
+        // a new currency is made in the edit screen (it validates the code); the table's "+ Add" would save an empty one
+        crudPanelEnabled={false}
+        dragAndDropColumns
+        resizeColumnWidth
+        tableMaxWidth={1400}
+        emptyText="No currencies yet. Press Add."
+        toolbarExtra={
+          <>
+            <PMIconButton tipScope="app" testID="currency-add" icon="add" title="Add a currency" color={c.primary} onPress={openNew} />
+            <PMIconButton tipScope="app" testID="currency-refresh-rates-all" icon="sync" title={refresh.busy === REFRESH_ALL ? 'Refreshing…' : 'Refresh the exchange rates of all currencies'} color={c.primary} disabled={!!refresh.busy} onPress={refresh.refreshAll} />
+            <CurrencyRealtimeBadge status={status} />
+          </>
+        }
+        extraMenuItems={(row: ReusableTableRow, close) => [
+          { testID: `currency-row-edit-${row.rowGUID}`, label: 'Edit', icon: 'edit', onPress: () => { close(); openEdit(row.rowGUID); } },
+          { testID: `currency-row-rates-${row.rowGUID}`, label: 'Rates', icon: 'currency_exchange', onPress: () => { close(); openRates(row.rowGUID); } },
+          { testID: `currency-row-refresh-${row.rowGUID}`, label: 'Refresh rates', icon: 'sync', disabled: refreshing(row.rowGUID), onPress: () => { close(); refresh.refreshOne(row.rowGUID); } },
+          { testID: `currency-row-upload-${row.rowGUID}`, label: 'Upload all data from a date', icon: 'cloud_download', disabled: refreshing(row.rowGUID), onPress: () => { close(); setUploadFor(row.rowGUID); } },
+        ]}
+        realtime
+      />
+      <CurrencyUploadFromDateModal
+        testID="currency-table-upload-modal"
+        visible={!!uploadFor}
+        currencyCode={uploadFor ? codeOf(uploadFor) : ''}
+        busy={!!uploadFor && refreshing(uploadFor)}
+        onClose={() => setUploadFor(null)}
+        onUpload={(fromDate) => (uploadFor ? refresh.uploadFrom(uploadFor, fromDate) : false)}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  refresh: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 'auto', marginRight: 8 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 10 },
-  add: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  content: { padding: 12 },
 });

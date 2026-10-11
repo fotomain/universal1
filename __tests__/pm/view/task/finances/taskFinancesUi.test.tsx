@@ -380,6 +380,18 @@ describe('Person variant (the person\'s OWN variants, separate from the role\'s)
     expect(q('task-line-problem-pa1')!.textContent).toBe('The variant "Junior, Latvian" does not cover the role: needs Seniority = Senior, Working language = English');
   });
 
+  it('the Errors column is the FIRST one, before the # column, and shows the message text; it is not there without an error', () => {
+    mount({ lines: [pa({ taskResourceAttributesKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv' })] });
+    const heads = Array.from(document.querySelectorAll(`[data-testid^="${TT}-header-"]`)).map((e) => e.getAttribute('data-testid'));
+    expect(heads.slice(0, 3)).toEqual([`${TT}-header-errors`, `${TT}-header-n`, `${TT}-header-role`]);
+    expect(q('task-line-problem-pa1')!.parentElement!.textContent).toContain('does not cover the role');
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    mount({ lines: [pa()] });
+    expect(q(`${TT}-header-errors`)).toBeNull();
+    expect(q(`${TT}-header-n`)).not.toBeNull();
+  });
+
   it('automatic with a covering variant, or a chosen covering variant: no mark', () => {
     mount({ lines: [pa()] });
     expect(q('task-line-problem-pa1')).toBeNull();
