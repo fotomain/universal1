@@ -1,5 +1,6 @@
 // Task lines - the columns of the table of one genus (VisualColumn[] of the ReusableTable).
-//   Errors (the FIRST column, only when a line of the tab has an error) · then:
+//   Errors (the FIRST column, only when a line of the tab has an error) · Budget item (the first data column: what the line is budgeted as; a line
+//   without one is not posted) · then:
 //   Time:                      # · Role · Role attributes · Person · Person variant (his own variants, taskLinePersonMatch.ts) · Contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 //   Material / Expense / Revenue: # · Role · Role attributes · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 // Only GUIDs / keys / numbers are stored in rowJSON (taskLineModel.ts); titles are read from the catalogs.
@@ -9,6 +10,7 @@ import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../../catalog/person/
 import { PARTNER_CATALOG_OWNER, PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
+import { BUDGET_ITEM_TABLE, isBudgetItemFolder } from '../../../../catalog/budget/item/budgetItemModel';
 import { distributionOptions } from '../../../../catalog/distribution/distributionModel';
 import { PRODUCT_TABLES } from '../../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../../catalog/resourcerole/resourceRoleModel';
@@ -65,6 +67,12 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       },
       searchText: (row) => taskLineErrors(data, genus, row.rowJSON || {}, fx).join(' '),
     } as VisualColumn] : []),
+    {
+      // what the line is budgeted as (budgetItemTable): the items of THIS genus (the item points at its management genus); a line without one is not posted
+      key: 'budgetItem', title: pmT('Budget item'), type: 'catalog', field: 'budgetItemTaskLine', width: 200,
+      catalogEntityName: BUDGET_ITEM_TABLE.entity, placeholder: pmT('Select budget item…'),
+      filterItem: (item) => !isBudgetItemFolder(item as any) && item.rowJSON?.managementGenusItem === genus.genus,
+    },
     { key: 'n', title: '#', type: 'rowNumber' },
     {
       key: 'role', title: pmT('Role'), type: 'catalog', field: 'resourceRoleItem', width: 220,

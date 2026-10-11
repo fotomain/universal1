@@ -5,6 +5,8 @@
 //  3. unit, VAT, price from the catalogs while they are empty / still follow them - for a person the price is the cost of his CONTRACT, else the
 //     rate of the role; the price source; the sums (taskLineMoney.ts)
 //  4. the sums in the accounting / budget currency of the project, as a snapshot of the exchange rate (taskLineFx.ts) - only when `fx` is given
+//  5. taskIsPosted = false: this function runs when a cell of the line was changed by the user, and ANY change of the line's data makes its posted
+//     days (task_line_plan) out of date. Only the SQL procedure create_task_line_plan sets it true again.
 import { computeLineJSON } from './taskLineMoney';
 import { productVariantOptions, roleVariantOptions, suggestForLine, TaskLineCatalogData } from './taskLineCatalogs';
 import { personVariants } from './taskLinePersonMatch';
@@ -18,8 +20,8 @@ export function computeTaskLineRowJSON(
   day?: string,
   fx?: LineFxContext | null,
 ): Partial<TaskLineRowJSON> {
-  const patch: Partial<TaskLineRowJSON> = {};
-  let merged: Partial<TaskLineRowJSON> = { ...json };
+  const patch: Partial<TaskLineRowJSON> = { taskIsPosted: false };
+  let merged: Partial<TaskLineRowJSON> = { ...json, taskIsPosted: false };
   const apply = (p: Partial<TaskLineRowJSON>) => { Object.assign(patch, p); merged = { ...merged, ...p }; };
 
   if (merged.taskManagementGenusLine !== genus.genus) apply({ taskManagementGenusLine: genus.genus });

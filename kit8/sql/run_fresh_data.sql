@@ -31,7 +31,11 @@
 --       templateResourceContractTable (rowOwnerGUID = management genus) + demo templates
 --   13. create_pm_task_line_table.sql
 --       task_line_table + RPC pm_set_task_last_edit_place (rowJSON.lastEditPlace)
---   14. create_user_calendar_tables.sql
+--   14. create_management_calendar_tables.sql
+--       management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar
+--   15. create_task_line_plan_table.sql
+--       task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
+--   16. create_user_calendar_tables.sql
 --       user calendars, events, reminders
 --
 -- The delete scripts are in it too, as the RESET section right below this header - COMMENTED OUT, so nothing is deleted unless you remove the "-- " signs.
@@ -52,7 +56,55 @@
 -- The parts are in the order they must run (reverse of the install order). The last one (done/delete_tables.sql) deletes the data of ALL users.
 -- ===============================================================================================
 --
--- RESET 1. kit8/sql/init/delete_pm_task_line_table.sql  -  drops task_line_table + pm_set_task_last_edit_place
+-- RESET 1. kit8/sql/init/delete_task_line_plan_table.sql  -  drops task_line_plan + create_task_line_plan + the unpost trigger
+-- -- =====================================================================================
+-- -- UNIVERSAL1 - DELETE TASK LINE PLAN: kit8/sql/init/delete_task_line_plan_table.sql
+-- -- Drops task_line_plan (the posted days - data included!), create_task_line_plan and the unpost trigger.
+-- -- The lines keep taskIsPosted = true until their next change: edit one (or press Post after create_task_line_plan_table.sql again).
+-- -- =====================================================================================
+-- DROP TRIGGER IF EXISTS trg_task_line_plan_unpost_on_dates ON public.project_task_table;
+-- DROP FUNCTION IF EXISTS public.task_line_plan_unpost_on_dates();
+-- DROP FUNCTION IF EXISTS public.create_task_line_plan(jsonb);
+--
+-- DO $$
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+--      AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan')
+--      AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+--     ALTER PUBLICATION supabase_realtime DROP TABLE public.task_line_plan;
+--   END IF;
+--   DROP TABLE IF EXISTS public.task_line_plan CASCADE;
+-- END $$;
+--
+-- NOTIFY pgrst, 'reload schema';
+--
+-- RESET 2. kit8/sql/init/delete_management_calendar_tables.sql  -  drops the management calendars and their days
+-- -- =====================================================================================
+-- -- UNIVERSAL1 - DELETE MANAGEMENT CALENDARS: kit8/sql/init/delete_management_calendar_tables.sql
+-- -- Drops managementCalendarDaysTable, managementCalendarTable and fill_management_calendar (the calendars and their days are lost).
+-- -- Run delete_task_line_plan_table.sql first if you also created task_line_plan (it does not point at the calendars, but a project may
+-- -- still name a calendar in rowJSON.calendarForTaskPlan).
+-- -- =====================================================================================
+-- DO $$
+-- DECLARE
+--   t text;
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+--     FOREACH t IN ARRAY ARRAY['managementCalendarDaysTable', 'managementCalendarTable'] LOOP
+--       IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+--         EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', t);
+--       END IF;
+--     END LOOP;
+--   END IF;
+-- END $$;
+--
+-- DROP FUNCTION IF EXISTS public.fill_management_calendar(text, integer, text, boolean);
+-- DROP TABLE IF EXISTS public."managementCalendarDaysTable" CASCADE;
+-- DROP TABLE IF EXISTS public."managementCalendarTable" CASCADE;
+--
+-- NOTIFY pgrst, 'reload schema';
+--
+-- RESET 3. kit8/sql/init/delete_pm_task_line_table.sql  -  drops task_line_table + pm_set_task_last_edit_place
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - PM TASK LINES: kit8/sql/init/delete_pm_task_line_table.sql
 -- -- Drops task_line_table (data included!) and pm_set_task_last_edit_place. project_task_table.rowJSON.lastEditPlace stays as it is
@@ -72,7 +124,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 2. kit8/sql/init/delete_template_resource_contract_table.sql  -  drops templateResourceContractTable
+-- RESET 4. kit8/sql/init/delete_template_resource_contract_table.sql  -  drops templateResourceContractTable
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - TEMPLATE RESOURCE CONTRACT: kit8/sql/init/delete_template_resource_contract_table.sql
 -- -- Drops templateResourceContractTable (data included!). task_line_table.rowJSON.resourceContractTemplateTaskLine keeps the old GUID
@@ -88,7 +140,7 @@
 -- END $$;
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 3. kit8/sql/init/delete_person_descriptors.sql  -  removes the person descriptors, variants, certificates and the demo contracts
+-- RESET 5. kit8/sql/init/delete_person_descriptors.sql  -  removes the person descriptors, variants, certificates and the demo contracts
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - PERSON DESCRIPTORS: kit8/sql/init/delete_person_descriptors.sql
 -- -- Removes what create_person_descriptors.sql added: the person sets / plan lines, the property values and variants of persons, the
@@ -107,7 +159,7 @@
 -- DELETE FROM public."contractTable" WHERE "rowGUID" LIKE 'contract\_%' ESCAPE '\' AND "rowParentGUID" = 'person';
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 4. kit8/sql/init/delete_person_type_table.sql  -  drops personTypeTable
+-- RESET 6. kit8/sql/init/delete_person_type_table.sql  -  drops personTypeTable
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - PERSON TYPES: kit8/sql/init/delete_person_type_table.sql
 -- -- Drops personTypeTable (data included!). personTable.rowJSON.personType stays as it is; the person descriptor data
@@ -123,7 +175,7 @@
 -- END $$;
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 5. kit8/sql/init/delete_resource_role_tables.sql  -  drops the resource role tables + their rows in the shared descriptor tables
+-- RESET 7. kit8/sql/init/delete_resource_role_tables.sql  -  drops the resource role tables + their rows in the shared descriptor tables
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - RESOURCE ROLE CATALOG: kit8/sql/init/delete_resource_role_tables.sql
 -- -- Removes everything create_resource_role_tables.sql adds (data included!):
@@ -164,7 +216,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 6. kit8/sql/init/delete_product_tables.sql  -  drops the product catalog and the shared descriptor / variant / price tables
+-- RESET 8. kit8/sql/init/delete_product_tables.sql  -  drops the product catalog and the shared descriptor / variant / price tables
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - PRODUCT CATALOG: kit8/sql/init/delete_product_tables.sql
 -- -- Drops every table create_product_tables.sql creates (data included!). Shared helpers
@@ -185,7 +237,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 7. kit8/sql/init/delete_budget_item_table.sql  -  drops budgetItemTable
+-- RESET 9. kit8/sql/init/delete_budget_item_table.sql  -  drops budgetItemTable
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - BUDGET ITEMS: kit8/sql/init/delete_budget_item_table.sql
 -- -- Drops budgetItemTable (data included!) and its genus check function. managementGenusTable is not touched.
@@ -203,7 +255,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 8. kit8/sql/init/delete_management_genus_table.sql  -  drops managementGenusTable
+-- RESET 10. kit8/sql/init/delete_management_genus_table.sql  -  drops managementGenusTable
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - MANAGEMENT GENUS: kit8/sql/init/delete_management_genus_table.sql
 -- -- Drops managementGenusTable (data included!). resourceRoleTypeTable.rowJSON.managementGenus is left as it is (the Checks panel of the
@@ -220,7 +272,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 9. kit8/sql/init/delete_distribution_generic_table.sql  -  drops distributionGenericTable
+-- RESET 11. kit8/sql/init/delete_distribution_generic_table.sql  -  drops distributionGenericTable
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - DISTRIBUTION: kit8/sql/init/delete_distribution_generic_table.sql
 -- -- Drops distributionGenericTable (data included!). task_line_table.rowJSON.distributionForBudgetTaskLine is left as it is (the line then shows a
@@ -237,7 +289,7 @@
 --
 -- NOTIFY pgrst, 'reload schema';
 --
--- RESET 10. kit8/sql/init/done/delete_tables.sql  -  drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
+-- RESET 12. kit8/sql/init/done/delete_tables.sql  -  drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
 -- -- =====================================================================================
 -- -- UNIVERSAL1 - DROP EVERYTHING created by kit8/sql/init/done/create_tables.sql
 -- --
@@ -10718,6 +10770,463 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
+-- PART: kit8/sql/init/create_management_calendar_tables.sql
+-- management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - MANAGEMENT CALENDARS: kit8/sql/init/create_management_calendar_tables.sql
+-- (Supabase / PostgreSQL 15+. Remove again with delete_management_calendar_tables.sql.)
+--
+-- managementCalendarTable: the calendars of the business, two levels in one table (the shape of managementGenusTable / budgetItemTable):
+--   FOLDERS   (level 1, rowParentGUID 'empty')   projectCalendarFolder · resourceRoleCalendarFolder · personCalendarFolder
+--   CALENDARS (level 2, rowParentGUID = folder)  projectCalendarFolder > workingDaysCalendar  (the default: Mon-Fri, no holidays)
+--   rowGUID (TEXT = the code) · rowOwnerGUID 'managementCalendarCatalog' (the business - the abstract entity; no business table exists yet)
+--   rowParentGUID (folder | 'empty') · orderInList · rowJSON { title, description }
+--
+-- managementCalendarDaysTable: ONE ROW PER CALENDAR DAY of a calendar:
+--   rowGUID       '<calendar rowGUID>:<YYYY-MM-DD>'  (so a fill is an idempotent upsert)
+--   rowOwnerGUID  managementCalendarTable.rowGUID
+--   rowParentGUID the YEAR as text ('2026'): a table of one calendar and one year is a page of at most 366 rows
+--   orderInList   the day as a number (days since 1970-01-01)
+--   rowJSON       { day: 'YYYY-MM-DD', isActive: boolean, reason: 'fill' | 'weekend' | 'holiday' | 'manual', note }
+-- isActive=false = the day is EXCLUDED (the calendar does not work on it): a task plan gets no row and no money for it.
+-- The user excludes (or includes) any day by switching isActive (reason becomes 'manual', so a later Fill does not overwrite it unless asked).
+--
+-- fill_management_calendar(calendar, year, mode, overwrite_manual) writes a whole year in one statement:
+--   mode 'workingDays' Mon-Fri active, Sat+Sun off; days flagged 'holiday' stay off
+--        'fiveDays'    Mon-Fri active, Sat+Sun off (holiday flags are cleared)
+--        'sixDays'     Mon-Sat active, Sun off
+--        'allDays'     all 7 days active
+--   Days with reason 'manual' are kept unless p_overwrite_manual is true.
+-- The default calendar workingDaysCalendar is filled for the previous, the current and the next year (only when it has no days yet).
+-- project_table.rowJSON.calendarForTaskPlan = the calendar that divides the timeline of a task plan (default workingDaysCalendar).
+-- Screen: Management calendars (kit8/catalog/management/calendar, route /catalog/management/calendar/list).
+-- IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING.
+-- =====================================================================================
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."updated_at" := NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
+CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p_table);
+  EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL', p_table);
+  EXECUTE format('DROP TRIGGER IF EXISTS set_updated_at_trigger ON public.%I', p_table);
+  EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || p_table || '_touch', p_table);
+  EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.kit8_touch_updated_at()',
+                 'trg_' || p_table || '_touch', p_table);
+  EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I USING GIN ("rowJSON" jsonb_path_ops)', 'idx_' || p_table || '_rowJSON', p_table);
+  EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I ("orderInList")', 'idx_' || p_table || '_order', p_table);
+END;
+$$;
+
+CREATE TABLE IF NOT EXISTS public."managementCalendarTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'managementCalendarCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_managementCalendarTable_owner_order" ON public."managementCalendarTable" ("rowOwnerGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS "idx_managementCalendarTable_parent" ON public."managementCalendarTable" ("rowParentGUID");
+SELECT public.kit8_setup_def_table('managementCalendarTable');
+
+CREATE TABLE IF NOT EXISTS public."managementCalendarDaysTable" (
+  "rowGUID"       TEXT        NOT NULL,
+  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."managementCalendarTable"("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT management_calendar_day_chk CHECK (
+    "rowJSON"->>'day' ~ '^\d{4}-\d{2}-\d{2}$' AND jsonb_typeof("rowJSON"->'isActive') = 'boolean')
+);
+CREATE INDEX IF NOT EXISTS "idx_managementCalendarDaysTable_owner_order" ON public."managementCalendarDaysTable" ("rowOwnerGUID", "orderInList");
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_managementCalendarDaysTable_owner_day" ON public."managementCalendarDaysTable" ("rowOwnerGUID", ("rowJSON"->>'day'));
+SELECT public.kit8_setup_def_table('managementCalendarDaysTable');
+
+-- security: full CRUD for signed-in users (as managementGenusTable)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['managementCalendarTable', 'managementCalendarDaysTable'] LOOP
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+  END LOOP;
+END $$;
+
+-- folders and the default calendar
+INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('projectCalendarFolder',      'managementCalendarCatalog', 'empty', 1000, '{"title": "Project", "description": "Folder: calendars a project plans its tasks with (project.calendarForTaskPlan)."}'::jsonb),
+  ('resourceRoleCalendarFolder', 'managementCalendarCatalog', 'empty', 2000, '{"title": "Resource role", "description": "Folder: calendars of resource roles."}'::jsonb),
+  ('personCalendarFolder',       'managementCalendarCatalog', 'empty', 3000, '{"title": "Person", "description": "Folder: calendars of persons."}'::jsonb),
+  ('workingDaysCalendar',        'managementCalendarCatalog', 'projectCalendarFolder', 1100, '{"title": "Working days", "description": "Monday to Friday, without holidays (the default calendar of a project plan)."}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- -------------------------------------------------------------------------------------
+-- fill_management_calendar: one year of days in one statement. Returns the number of day rows written.
+-- -------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.fill_management_calendar(
+  p_calendar text, p_year integer, p_mode text, p_overwrite_manual boolean DEFAULT false
+) RETURNS integer
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_count integer;
+BEGIN
+  IF p_mode NOT IN ('workingDays', 'fiveDays', 'sixDays', 'allDays') THEN
+    RAISE EXCEPTION 'fill_management_calendar: unknown mode "%" (workingDays | fiveDays | sixDays | allDays)', p_mode;
+  END IF;
+  IF p_year < 1970 OR p_year > 2200 THEN
+    RAISE EXCEPTION 'fill_management_calendar: year % is out of range', p_year;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarTable" c WHERE c."rowGUID" = p_calendar AND c."rowParentGUID" <> 'empty') THEN
+    RAISE EXCEPTION 'fill_management_calendar: calendar "%" does not exist (or is a folder)', p_calendar;
+  END IF;
+
+  INSERT INTO public."managementCalendarDaysTable" AS t ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  SELECT p_calendar || ':' || to_char(d, 'YYYY-MM-DD'), p_calendar, p_year::text, (d - DATE '1970-01-01')::numeric,
+         jsonb_build_object(
+           'day', to_char(d, 'YYYY-MM-DD'),
+           'isActive', CASE p_mode WHEN 'allDays' THEN true WHEN 'sixDays' THEN extract(isodow FROM d) <= 6 ELSE extract(isodow FROM d) <= 5 END,
+           'reason', CASE WHEN p_mode = 'allDays' THEN 'fill'
+                          WHEN p_mode = 'sixDays' AND extract(isodow FROM d) = 7 THEN 'weekend'
+                          WHEN p_mode IN ('workingDays', 'fiveDays') AND extract(isodow FROM d) >= 6 THEN 'weekend'
+                          ELSE 'fill' END)
+    FROM (SELECT make_date(p_year, 1, 1) + i AS d
+            FROM generate_series(0, make_date(p_year, 12, 31) - make_date(p_year, 1, 1)) AS s(i)) AS g
+  ON CONFLICT ("rowGUID") DO UPDATE
+     SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList", "rowParentGUID" = EXCLUDED."rowParentGUID"
+   WHERE (p_overwrite_manual OR COALESCE(t."rowJSON"->>'reason', '') <> 'manual')
+     AND NOT (p_mode = 'workingDays' AND COALESCE(t."rowJSON"->>'reason', '') = 'holiday');
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean) TO authenticated;
+
+-- the default calendar: previous, current and next year (only when it has no days yet - a second run changes nothing)
+DO $$
+DECLARE
+  y integer := extract(year FROM current_date)::integer;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = 'workingDaysCalendar') THEN
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y - 1, 'workingDays');
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y,     'workingDays');
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y + 1, 'workingDays');
+  END IF;
+END $$;
+
+-- realtime: both tables in the supabase_realtime publication
+DO $$
+DECLARE
+  v_all boolean;
+  t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+    RETURN;
+  END IF;
+  IF v_all THEN
+    RETURN;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['managementCalendarTable', 'managementCalendarDaysTable'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."managementCalendarTable" ORDER BY "orderInList";
+--   SELECT count(*), count(*) FILTER (WHERE ("rowJSON"->>'isActive')::boolean) FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = 'workingDaysCalendar';
+
+
+-- ===============================================================================================
+-- PART: kit8/sql/init/create_task_line_plan_table.sql
+-- task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - TASK LINE PLAN: kit8/sql/init/create_task_line_plan_table.sql
+-- (run AFTER create_pm_task_line_table.sql; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with delete_task_line_plan_table.sql.)
+--
+-- task_line_plan - the POSTED days of the task lines: one row per line and active calendar day (document "W1 Post Task", Part 1.2).
+--   rowProjectGUID     project_table.rowGUID      = task.rowProjectGUID   (FK, cascade)
+--   rowOwnerGUID       project_task_table.rowGUID = task.rowGUID          (FK, cascade)
+--   rowParentGUID      task_line_table.rowGUID    = the LINE the day belongs to (FK, cascade: a deleted line takes its days with it)
+--   orderInList        (position of the line in the call) * 100000 + the day number: the lines one after the other, each by date
+--   rowPeriodDatetime  the start of the day (00:00:00) - unique with the line
+--   rowCoefficient     the share of the day, NORMALIZED: the coefficients of a line add up to baseOfDistribution (1)
+--   qtyTaskLine · sumForBudget · sumForContract     the result of the distribution, rounded to 2 digits
+--   rowJSON            { budgetItemTaskLine, taskManagementGenusLine } copied from the line, so a report needs no join
+-- The app only READS this table. Rows are written by ONE procedure, in ONE transaction:
+--   create_task_line_plan("taskLinePlanJSON")   (see below)
+--
+-- Correct033 effect (document "0333 Effect"): every row is rounded on its own, so 100.00 split on 3 equal days gives 33.33 + 33.33 + 33.33 = 99.99.
+-- The procedure adds the difference (original - distributed: +0.01 here) to the LAST row of the distribution (the last day with a non-zero
+-- coefficient) -> 33.33 + 33.33 + 33.34 = 100.00. The same for rowCoefficient against baseOfDistribution (10 digits).
+--
+-- Also here: a trigger on project_task_table - when the start or the finish DAY of a task changes, its posted lines get taskIsPosted = false
+-- ("Post needed"); the old rows stay until the next post.
+-- =====================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NULL THEN
+    RAISE EXCEPTION 'Run kit8/sql/init/create_pm_task_line_table.sql first (task_line_plan points at task_line_table)';
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.task_line_plan (
+  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID"     UUID          NOT NULL REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
+  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
+  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL,
+  "rowCoefficient"    NUMERIC(14,10) NOT NULL,
+  "qtyTaskLine"       NUMERIC(18,2),
+  "sumForBudget"      NUMERIC(18,2),
+  "sumForContract"    NUMERIC(18,2),
+  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_line_plan_coefficient_chk CHECK ("rowCoefficient" >= 0),
+  CONSTRAINT task_line_plan_line_period_uq UNIQUE ("rowParentGUID", "rowPeriodDatetime")
+);
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_task    ON public.task_line_plan ("rowOwnerGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_project ON public.task_line_plan ("rowProjectGUID", "rowPeriodDatetime");
+
+DROP TRIGGER IF EXISTS trg_task_line_plan_touch ON public.task_line_plan;
+CREATE TRIGGER trg_task_line_plan_touch BEFORE UPDATE ON public.task_line_plan
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+ALTER TABLE public.task_line_plan REPLICA IDENTITY FULL;
+
+-- access: the owner of the project READS; nobody writes directly (no insert / update / delete policy) - only create_task_line_plan does
+ALTER TABLE public.task_line_plan ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_line_plan FROM anon, authenticated;
+GRANT SELECT ON public.task_line_plan TO authenticated;
+DROP POLICY IF EXISTS task_line_plan_select ON public.task_line_plan;
+CREATE POLICY task_line_plan_select ON public.task_line_plan FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.task_line_plan;
+  END IF;
+END $$;
+
+-- -------------------------------------------------------------------------------------
+-- RPC create_task_line_plan("taskLinePlanJSON") - ONE transaction: replaces the posted days of a task.
+--
+--   { "taskGUID": "<uuid>",
+--     "timeZone": "UTC",                                  -- optional: the zone the day starts in (default UTC)
+--     "lines": [ { "lineGUID": "<uuid>", "baseOfDistribution": 1,
+--                  "qtyTaskLine": 10, "sumForBudget": 100, "sumForContract": 100,       -- the totals of the line (null = none)
+--                  "days": [ { "d": "2026-10-12", "c": 0.3333333333 }, ... ] } ] }       -- the days and their coefficients
+--
+-- Steps: lock the task and check the owner -> validate -> delete the earlier rows of the task -> insert round(total * c, 2) per day ->
+-- Correct033 (last row) for the coefficients and the three amounts -> verify the totals -> taskIsPosted = true + baseOfDistribution on the lines.
+-- Any error rolls EVERYTHING back. SECURITY DEFINER because the app has no write policy on task_line_plan; the owner of the project is checked first.
+-- Returns { "lines": n, "rows": n }.
+-- -------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.create_task_line_plan("taskLinePlanJSON" jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_task     uuid;
+  v_project  uuid;
+  v_tz       text;
+  v_line     jsonb;
+  v_guid     uuid;
+  v_ids      uuid[] := ARRAY[]::uuid[];
+  v_days     jsonb;
+  v_n        integer;
+  v_base     numeric;
+  v_csum     numeric;
+  v_last     uuid;
+  v_genus    text;
+  v_item     jsonb;
+  v_col      text;
+  v_total    numeric;
+  v_sum      numeric;
+  v_diff     numeric;
+  v_rows     integer := 0;
+  v_idx      integer := 0;
+BEGIN
+  IF "taskLinePlanJSON" IS NULL OR jsonb_typeof("taskLinePlanJSON") <> 'object' THEN
+    RAISE EXCEPTION 'create_task_line_plan: taskLinePlanJSON must be an object';
+  END IF;
+  v_task := ("taskLinePlanJSON"->>'taskGUID')::uuid;
+  v_tz   := COALESCE(NULLIF("taskLinePlanJSON"->>'timeZone', ''), 'UTC');
+
+  -- lock the task (two Post presses cannot interleave) and check the owner
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = v_task FOR UPDATE;
+  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'create_task_line_plan: task % does not exist or is not yours', v_task USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof("taskLinePlanJSON"->'lines') <> 'array' THEN
+    RAISE EXCEPTION 'create_task_line_plan: "lines" must be an array';
+  END IF;
+
+  -- the earlier days of the task are replaced
+  DELETE FROM public.task_line_plan WHERE "rowOwnerGUID" = v_task;
+
+  FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
+    v_guid := (v_line->>'lineGUID')::uuid;
+    v_idx  := v_idx + 1;
+    SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID")
+      INTO v_genus, v_item
+      FROM public.task_line_table l WHERE l."rowGUID" = v_guid AND l."rowOwnerGUID" = v_task;
+    IF v_genus IS NULL THEN
+      RAISE EXCEPTION 'create_task_line_plan: line % is not a line of task %', v_guid, v_task;
+    END IF;
+
+    v_days := v_line->'days';
+    IF jsonb_typeof(v_days) <> 'array' OR jsonb_array_length(v_days) = 0 THEN
+      RAISE EXCEPTION 'create_task_line_plan: line % has no days', v_guid;
+    END IF;
+    v_n    := jsonb_array_length(v_days);
+    v_base := COALESCE((v_line->>'baseOfDistribution')::numeric, 1);
+    IF v_base <= 0 THEN RAISE EXCEPTION 'create_task_line_plan: baseOfDistribution of line % must be > 0', v_guid; END IF;
+
+    SELECT COALESCE(SUM(round((e.value->>'c')::numeric, 10)), 0) INTO v_csum FROM jsonb_array_elements(v_days) e;
+    IF abs(v_csum - v_base) > 0.000001 THEN
+      RAISE EXCEPTION 'create_task_line_plan: the coefficients of line % add up to %, not to %', v_guid, v_csum, v_base;
+    END IF;
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_days) e WHERE (e.value->>'c')::numeric < 0) THEN
+      RAISE EXCEPTION 'create_task_line_plan: a coefficient of line % is negative', v_guid;
+    END IF;
+
+    -- one row per day: coefficient rounded to 10 digits, amounts = round(total * coefficient, 2) (null total = null amount)
+    INSERT INTO public.task_line_plan ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
+                                       "qtyTaskLine", "sumForBudget", "sumForContract", "rowJSON")
+    SELECT v_project, v_task, v_guid, v_idx * 100000 + e.ord,
+           ((e.value->>'d')::date)::timestamp AT TIME ZONE v_tz,
+           round((e.value->>'c')::numeric, 10),
+           CASE WHEN jsonb_typeof(v_line->'qtyTaskLine')       = 'number' THEN round((v_line->>'qtyTaskLine')::numeric       * round((e.value->>'c')::numeric, 10), 2) END,
+           CASE WHEN jsonb_typeof(v_line->'sumForBudget')      = 'number' THEN round((v_line->>'sumForBudget')::numeric      * round((e.value->>'c')::numeric, 10), 2) END,
+           CASE WHEN jsonb_typeof(v_line->'sumForContract')    = 'number' THEN round((v_line->>'sumForContract')::numeric    * round((e.value->>'c')::numeric, 10), 2) END,
+           v_item
+      FROM jsonb_array_elements(v_days) WITH ORDINALITY AS e(value, ord);
+    v_rows := v_rows + v_n;
+
+    -- ---- Correct033: the last row of the distribution = the last day with a non-zero coefficient (else the last day) ----
+    SELECT p."rowGUID" INTO v_last FROM public.task_line_plan p
+     WHERE p."rowParentGUID" = v_guid ORDER BY (p."rowCoefficient" > 0) DESC, p."rowPeriodDatetime" DESC LIMIT 1;
+
+    SELECT v_base - COALESCE(SUM("rowCoefficient"), 0) INTO v_diff FROM public.task_line_plan WHERE "rowParentGUID" = v_guid;
+    IF v_diff <> 0 THEN
+      UPDATE public.task_line_plan SET "rowCoefficient" = "rowCoefficient" + v_diff WHERE "rowGUID" = v_last;
+    END IF;
+
+    FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract'] LOOP
+      IF jsonb_typeof(v_line->v_col) <> 'number' THEN CONTINUE; END IF;
+      v_total := round((v_line->>v_col)::numeric, 2);
+      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
+      v_diff := v_total - v_sum;
+      -- the rounding of n rows cannot lose more than n * 0.005: more is a bug, not a rounding
+      IF abs(v_diff) > v_n * 0.005 + 0.000001 THEN
+        RAISE EXCEPTION 'create_task_line_plan: % of line % differs by % after rounding (more than % rows can lose)', v_col, v_guid, v_diff, v_n;
+      END IF;
+      IF v_diff <> 0 THEN
+        EXECUTE format('UPDATE public.task_line_plan SET %I = %I + $1 WHERE "rowGUID" = $2', v_col, v_col) USING v_diff, v_last;
+      END IF;
+      -- verify
+      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
+      IF v_sum <> v_total THEN
+        RAISE EXCEPTION 'create_task_line_plan: % of line % adds up to %, not to %', v_col, v_guid, v_sum, v_total;
+      END IF;
+    END LOOP;
+    SELECT COALESCE(SUM("rowCoefficient"), 0) INTO v_sum FROM public.task_line_plan WHERE "rowParentGUID" = v_guid;
+    IF v_sum <> v_base THEN
+      RAISE EXCEPTION 'create_task_line_plan: the coefficients of line % add up to %, not to %', v_guid, v_sum, v_base;
+    END IF;
+
+    v_ids := v_ids || v_guid;
+  END LOOP;
+
+  -- posted lines: taskIsPosted + the base (a merge, no other key of the line is lost)
+  UPDATE public.task_line_table l
+     SET "rowJSON" = l."rowJSON" || jsonb_build_object('taskIsPosted', true, 'baseOfDistribution',
+           COALESCE((SELECT (x.value->>'baseOfDistribution')::numeric FROM jsonb_array_elements("taskLinePlanJSON"->'lines') x WHERE (x.value->>'lineGUID')::uuid = l."rowGUID"), 1))
+   WHERE l."rowGUID" = ANY (v_ids);
+  -- a line of the task that was not sent has no days any more (its budget item was cleared): it is not posted
+  UPDATE public.task_line_table l
+     SET "rowJSON" = (l."rowJSON" - 'baseOfDistribution') || '{"taskIsPosted": false}'::jsonb
+   WHERE l."rowOwnerGUID" = v_task AND NOT (l."rowGUID" = ANY (v_ids)) AND jsonb_exists(l."rowJSON", 'baseOfDistribution');
+
+  RETURN jsonb_build_object('lines', COALESCE(array_length(v_ids, 1), 0), 'rows', v_rows);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.create_task_line_plan(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_task_line_plan(jsonb) TO authenticated;
+
+-- -------------------------------------------------------------------------------------
+-- The start or the finish DAY of a task changed (the scheduler writes rowJSON.startAt and rowDuration): its posted lines need a new post.
+-- A write of the same days (the scheduler runs often) changes nothing.
+-- -------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.task_line_plan_unpost_on_dates() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF (NEW."rowDuration")::date IS DISTINCT FROM (OLD."rowDuration")::date
+     OR NULLIF(NEW."rowJSON"->>'startAt', '')::timestamptz::date IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'startAt', '')::timestamptz::date THEN
+    UPDATE public.task_line_table l
+       SET "rowJSON" = l."rowJSON" || '{"taskIsPosted": false}'::jsonb
+     WHERE l."rowOwnerGUID" = NEW."rowGUID" AND l."rowJSON" @> '{"taskIsPosted": true}'::jsonb;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_task_line_plan_unpost_on_dates ON public.project_task_table;
+CREATE TRIGGER trg_task_line_plan_unpost_on_dates
+  AFTER UPDATE OF "rowJSON", "rowDuration" ON public.project_task_table
+  FOR EACH ROW EXECUTE FUNCTION public.task_line_plan_unpost_on_dates();
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check (empty is right until the first Post):
+--   SELECT count(*) FROM public.task_line_plan;
+--   SELECT "rowParentGUID", sum("rowCoefficient"), sum("sumForBudget") FROM public.task_line_plan GROUP BY 1;   -- 1.0000000000 and the line sums
+
+
+-- ===============================================================================================
 -- PART: kit8/sql/init/create_user_calendar_tables.sql
 -- user calendars, events, reminders
 -- ===============================================================================================
@@ -10959,5 +11468,5 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- END of run_fresh_data.sql (14 parts)
+-- END of run_fresh_data.sql (16 parts)
 -- ===============================================================================================

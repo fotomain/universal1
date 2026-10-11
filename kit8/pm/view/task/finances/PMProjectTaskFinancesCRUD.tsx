@@ -6,6 +6,9 @@
 // currency, the sums are also converted into them with the exchange rates, D365 style (taskLineFx.ts): a SNAPSHOT saved with the rate and its date;
 // the "Recalculate" commands (row menu, bar) make it again with the rates of today's choice of day.
 //
+// POST (kit8/pm/view/task/plan): the Post button is the first button of the bar. It posts the WHOLE task (all tabs): the days of every line with a budget item
+// go to task_line_plan in one SQL transaction. A line is "posted" until anything in it changes (taskIsPosted, taskLineCompute.ts).
+//
 // Shown by the task page (PMProjectTaskInfo) and the Finances view of the dashboard (PMProjectFinancesView). It does not know PMCrud:
 // `onEditPlace` tells the parent where the user edited (the parent saves rowJSON.lastEditPlace of the task, with its own surface) and
 // `initialPlace` is the place to open at (the genus tab + the line, marked). Stages have no lines: only tasks and milestones.
@@ -35,6 +38,8 @@ import { useTaskLineCatalogs } from './useTaskLineCatalogs';
 import { computeFx, fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
 import { lineContractCurrency } from './taskLineCatalogs';
 import { useLineRateBook } from './useLineRateBook';
+import { useTaskPost } from '../plan/useTaskPost';
+import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -47,6 +52,8 @@ export interface PMProjectTaskFinancesCRUDProps {
 }
 
 const NO_LINES: TaskLineRow[] = [];
+/** a duplicated line was never posted */
+const DUPLICATE_UNPOSTED = { taskIsPosted: false, baseOfDistribution: null };
 
 export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initialPlace, onEditPlace, testID = 'task-finances' }: PMProjectTaskFinancesCRUDProps) {
   const { themeColors: c } = useDesignSystem();
@@ -58,6 +65,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const dispatch = useDispatch();
   const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
+  const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
 
   const startPlace = useRef(financesPlaceOf(initialPlace)).current;
   const [genus, setGenus] = useState<string>(() => taskLineGenusOf(startPlace?.genus));
@@ -69,6 +77,8 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const lines: TaskLineRow[] = useSelector((s: any) => s?.[TASK_LINE_ENTITY]?.entityDataFromServer, shallowEqual) ?? NO_LINES;
   const taskLines = useMemo(() => (Array.isArray(lines) ? lines.filter((l) => l.rowOwnerGUID === taskGUID) : NO_LINES), [lines, taskGUID]);
   const totals = useMemo(() => taskLineTotals(taskLines), [taskLines]);
+  // Post: the whole task; the state of the button (Post · Posted · Post needed) comes from the lines of ALL tabs
+  const { state: postState, post } = useTaskPost({ projectGUID, taskGUID, lines: taskLines, distributions: data.distribution });
 
   // ---- exchange rates: the sums in the accounting / budget currency of the project ----
   const fxProject = useMemo(() => fxProjectOf(projectJSON), [projectJSON]);
@@ -94,15 +104,17 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it
-  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform } as Record<string, any> }), [taskGUID, def.genus]);
+  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem]);
   const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx), [data, def, fx]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */
   const recalcRow = useCallback((row: { rowGUID: string; rowJSON?: Record<string, any> }): boolean => {
     const actions = SystemMetaData[TASK_LINE_ENTITY]?.actions;
     if (!fx || !actions?.updateOne) return false;
-    const patch = recalculateLineFx(fx, data, def, row.rowJSON || {});
-    if (!Object.keys(patch).length) return false;
+    const fxPatch = recalculateLineFx(fx, data, def, row.rowJSON || {});
+    if (!Object.keys(fxPatch).length) return false;
+    // the sums changed: the posted days are out of date
+    const patch = { ...fxPatch, taskIsPosted: false };
     dispatch(actions.updateOne({ rowGUID: row.rowGUID, rowOwnerGUID: taskGUID, rowJSON: patch }));
     return true;
   }, [fx, data, def, dispatch, taskGUID]);
@@ -116,7 +128,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         const g = taskLineGenusDef(l.rowParentGUID)!;
         const patch = computeFx(fx, data, g, j);
         const actions = SystemMetaData[TASK_LINE_ENTITY]?.actions;
-        if (Object.keys(patch).length && actions?.updateOne) dispatch(actions.updateOne({ rowGUID: l.rowGUID, rowOwnerGUID: taskGUID, rowJSON: patch }));
+        if (Object.keys(patch).length && actions?.updateOne) dispatch(actions.updateOne({ rowGUID: l.rowGUID, rowOwnerGUID: taskGUID, rowJSON: { ...patch, taskIsPosted: false } }));
       }
     }
   }, [fx, taskLines, data, dispatch, taskGUID]);
@@ -198,6 +210,11 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         dragAndDropColumns
         resizeColumnWidth
         focusRowGUID={focusLine}
+        postDataNeeded
+        postState={postState}
+        onPost={post}
+        postButtonColor={postButtonColor}
+        duplicateOverrides={DUPLICATE_UNPOSTED}
         onRowEdit={onRowEdit}
         emptyText={pmT('No lines yet. Press "+ Add".')}
         extraMenuItems={fxOn ? (row, close) => [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : undefined}

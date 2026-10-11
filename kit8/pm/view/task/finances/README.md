@@ -7,7 +7,7 @@ Source: the sheet "W1 TASK LINES". SQL: `kit8/sql/init/create_pm_task_line_table
 
 | Where | What |
 |---|---|
-| Dashboard → **Finances** button (the last of Gantt · Kanban · Network · Versions · Finances) | tree + the lines of the task selected in the tree (`PMProjectFinancesView`). A stage: "select a task". No budget now |
+| Dashboard → **Finances** button (Gantt · Kanban · Network · Versions · Finances · Plan) | tree + the lines of the task selected in the tree (`PMProjectFinancesView`). A stage: "select a task". No budget now |
 | Task page (`/pm/project/task`) → section **Finances** | the same lines (`PMProjectTaskFinancesCRUD`) |
 | Task window (`PMTaskEditModal`) | **no lines** (it has Save / Cancel; lines are saved row by row) |
 
@@ -24,7 +24,7 @@ The view is remembered per user AND project (`uxuiSettings.ganttVsNetworkView` i
 | `orderInList` | order inside one genus of the task (drag & drop). "rowNumber" is not stored, it is the position |
 | `rowJSON` | `TaskLineRowJSON` (`taskLineModel.ts`) |
 
-`rowJSON`: `taskManagementGenusLine` · `resourceRoleItem` (resourceRoleTable) · `resourceRoleAttributeSetKey` (descriptorKey of a variant of the role) · `taskResourceItem` (Time: personTable,
+`rowJSON`: `taskManagementGenusLine` · `budgetItemTaskLine` (budgetItemTable) · `taskIsPosted` · `baseOfDistribution` (written by Post) · `resourceRoleItem` (resourceRoleTable) · `resourceRoleAttributeSetKey` (descriptorKey of a variant of the role) · `taskResourceItem` (Time: personTable,
 else productTable) · `taskResourceAttributesKey` (Time: the descriptorKey of the VARIANT OF THE PERSON the line books; else of a variant of the product) · `taskResourceContract` (Time: the person's contract) · `resourceContractTemplateTaskLine` ·
 `taskLinePartnerItem` · `taskLinePartnerContract` · `qtyTaskLine` · `priceTaskLine` · `measureUnitTaskLine` · `vatRatioTaskLine` (%) ·
 `priceSourceTaskLine` ('role' | 'product' | 'manual') · `priceAutoTaskLine` · `sumForContract` · `sumVATForContract`.
@@ -67,9 +67,16 @@ Titles are never copied: the app reads them from the catalogs.
   bar button for the whole tab) is the separate algorithm: it ignores the snapshot and takes the rates again. No rate = no sum and a ⚠ with the reason (strict).
 * **Currency** - visible only (not stored): the partner contract's, else the resource contract's, else the project's `currencyForContract`.
 
+## Budget item, Post and the plan (`kit8/pm/view/task/plan`, see its README)
+
+* **Budget item** (`budgetItemTaskLine`, the first column, `kit8/catalog/budget/item`): what the line is budgeted as - the items of the genus of the tab; a new line gets the item of its genus. A line without one is not posted.
+* **Post** (the first button of the bar; texts **Post** · **Posted** · **Post needed**): spreads `sumForBudget`, `sumForContract` and `qtyTaskLine` of the lines of the WHOLE task over the active days of
+  `project.calendarForTaskPlan` by the distribution of the line and saves them in `task_line_plan` (one SQL transaction, Correct033). `taskIsPosted` is false for a new / duplicated line and after ANY change of a line.
+* The posted days are shown by the **Plan** view (Plan button after Finances).
+
 ## Not in this version (on purpose)
 
-* **Budget**: the sums in the accounting / budget currency (`sumForAccounting`, `sumForBudget`, their VAT) and any roll-up of a stage or the project.
+* Any roll-up of a stage or the project (the Plan is per task).
 * Translations of the new texts (`pmT` shows the English text until `kit8/pm/i18n/locales` has them).
 
 ## lastEditPlace

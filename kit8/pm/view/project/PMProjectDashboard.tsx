@@ -2,7 +2,7 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
-//   Gantt | Kanban | Network | Versions | Finances switch (uxuiSettings.ganttVsNetworkView, remembered per user AND project): Kanban = tree + view/kanban/PMKanbanDashboard,
+//   Gantt | Kanban | Network | Versions | Finances | Plan switch (uxuiSettings.ganttVsNetworkView, remembered per user AND project): Kanban = tree + view/kanban/PMKanbanDashboard,
 //   Network = view/network/PMNetworkView, Versions = tree + version/view/version/PMProjectVersionsList
 //
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
@@ -265,7 +265,7 @@ function PMProjectDashboardInner() {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : 'gantt'}
+              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}

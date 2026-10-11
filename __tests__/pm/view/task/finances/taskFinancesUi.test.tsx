@@ -90,6 +90,11 @@ jest.mock('../../../../../kit8/ui/components/common/TextInputApp', () => {
     R.createElement(TextInput, p),
     p.value && !hideClearIcon ? R.createElement(Pressable, { testID: `${p.testID}-clear`, onPress: () => p.onChangeText('') }, R.createElement(Text, null, 'close')) : null) };
 });
+// Post: the database calls are test doubles
+const mockCreatePlan = jest.fn((_json: any) => Promise.resolve({ lines: 1, rows: 5 }));
+jest.mock('../../../../../kit8/pm/view/task/plan/taskLinePlanApi', () => ({ createTaskLinePlan: (json: any) => mockCreatePlan(json) }));
+const mockFetchDays = jest.fn((_cal: string, _from: string, _to: string) => Promise.resolve([] as any[]));
+jest.mock('../../../../../kit8/catalog/management/calendar/managementCalendarApi', () => ({ fetchCalendarDays: (c: string, f: string, t: string) => mockFetchDays(c, f, t) }));
 jest.mock('../../../../../kit8/redux/uxuiSlice', () => ({ showSnackbar: (p: any) => ({ type: 'snackbar', p }) }));
 jest.mock('../../../../../kit8/pm/crud/exchange/project/export/downloadTextFile', () => ({ downloadTextFile: jest.fn() }));
 jest.mock('../../../../../kit8/pm/crud/exchange/pdf/downloadBinaryFile', () => ({ downloadBinaryFile: jest.fn() }));
@@ -102,6 +107,7 @@ import { MANAGEMENT_GENUS_TABLE } from '../../../../../kit8/catalog/management/g
 import { CONTRACT_ENTITY } from '../../../../../kit8/catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../../kit8/catalog/person/personModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../../kit8/catalog/management/templateresourcecontract/templateResourceContractModel';
+import { BUDGET_ITEM_TABLE } from '../../../../../kit8/catalog/budget/item/budgetItemModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
 import { buildRateBook } from '../../../../../kit8/catalog/currency/exchange/currencyConvert';
 import { rateKeyOf } from '../../../../../kit8/catalog/currency/exchange/currencyExchangeModel';
@@ -119,6 +125,11 @@ const line = (guid: string, genus: string, order: number, json: any, task = 't1'
 
 function catalogState() {
   return {
+    [BUDGET_ITEM_TABLE.entity]: { entityDataFromServer: [
+      def('costsBudgetFolder', 'budgetItemCatalog', 'empty', { title: 'Costs' }),
+      def('timeBudgetItem', 'budgetItemCatalog', 'costsBudgetFolder', { title: 'Time', managementGenusItem: 'timeGenus' }, 1),
+      def('materialBudgetItem', 'budgetItemCatalog', 'costsBudgetFolder', { title: 'Material', managementGenusItem: 'materialGenus' }, 2),
+    ] },
     [MANAGEMENT_GENUS_TABLE.entity]: { entityDataFromServer: [def('timeGenus', 'managementGenusCatalog', 'costsGenus', { title: 'Time' }), def('materialGenus', 'managementGenusCatalog', 'costsGenus', { title: 'Material' })] },
     [RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity]: { entityDataFromServer: [
       def('type_hr', 'resourceRoleTypeCatalog', 'empty', { managementGenus: 'timeGenus', baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', variantMode: 'perType', variantSet: 'ds_hr_var' }),
@@ -158,11 +169,12 @@ const mat1 = line('mat1', 'materialGenus', 300, { sumForContract: 10, sumVATForC
 const otherTask = line('other', 'timeGenus', 50, { sumForContract: 999 }, 't2');
 
 let onEditPlace: jest.Mock;
-function mount(opts: { lines?: any[]; place?: any; stage?: boolean; project?: Record<string, any>; startMs?: number } = {}) {
+function mount(opts: { lines?: any[]; place?: any; stage?: boolean; project?: Record<string, any>; startMs?: number; finishMs?: number; color?: string } = {}) {
   mockPM = {
     selectRowCheckBoxForm: 'formRound',
     tasksById: { t1: { rowGUID: 't1', rowJSON: { rowKind: opts.stage ? 'stage' : 'task', name: 'Task' } } },
-    schedule: { t1: { isSummary: !!opts.stage, startMs: opts.startMs } },
+    schedule: { t1: { isSummary: !!opts.stage, startMs: opts.startMs, finishMs: opts.finishMs } },
+    postButtonBackgroundColor: opts.color,
     tree: { childrenById: { t1: opts.stage ? ['c1'] : [] } },
     projectsById: { p1: { rowJSON: { currencyForContract: 'EUR', ...(opts.project || {}) } } },
   };
@@ -279,7 +291,7 @@ describe('editing a line', () => {
     setNumber(`${TT}-cell-time1-qty`, '3');
     expect(mockActions.updateOne).toHaveBeenCalledWith({
       rowGUID: 'time1', rowOwnerGUID: 't1',
-      rowJSON: { qtyTaskLine: 3, sumForContract: 120 }, // the VAT sum was 0 and stays 0: nothing to write
+      rowJSON: { qtyTaskLine: 3, sumForContract: 120, taskIsPosted: false }, // the VAT sum was 0 and stays 0: nothing to write; any change unposts the line
     });
     expect(onEditPlace).toHaveBeenLastCalledWith({ genus: 'timeGenus', lineGUID: 'time1' });
   });
@@ -290,7 +302,7 @@ describe('editing a line', () => {
     press(`${TT}-cell-r1-role`);
     expect(mockActions.updateOne).toHaveBeenCalledWith({
       rowGUID: 'r1', rowOwnerGUID: 't1',
-      rowJSON: { resourceRoleItem: 'role_da', priceTaskLine: 40, priceAutoTaskLine: 40, measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, priceSourceTaskLine: 'role' },
+      rowJSON: { resourceRoleItem: 'role_da', priceTaskLine: 40, priceAutoTaskLine: 40, measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, priceSourceTaskLine: 'role', taskIsPosted: false },
     });
   });
 
@@ -370,7 +382,7 @@ describe('Person variant (the person\'s OWN variants, separate from the role\'s)
     mount({ lines: [pa()] });
     press(cell);
     press(`${cell}-picker-option-dp_emp_v1=dvJunior|dp_emp_v2=dvLv`);
-    expect(mockActions.updateOne).toHaveBeenLastCalledWith({ rowGUID: 'pa1', rowOwnerGUID: 't1', rowJSON: { taskResourceAttributesKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv' } });
+    expect(mockActions.updateOne).toHaveBeenLastCalledWith({ rowGUID: 'pa1', rowOwnerGUID: 't1', rowJSON: { taskResourceAttributesKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv', taskIsPosted: false } });
     expect(onEditPlace).toHaveBeenLastCalledWith({ genus: 'timeGenus', lineGUID: 'pa1' });
   });
 
@@ -380,10 +392,10 @@ describe('Person variant (the person\'s OWN variants, separate from the role\'s)
     expect(q('task-line-problem-pa1')!.textContent).toBe('The variant "Junior, Latvian" does not cover the role: needs Seniority = Senior, Working language = English');
   });
 
-  it('the Errors column is the FIRST one, before the # column, and shows the message text; it is not there without an error', () => {
+  it('the Errors column is the FIRST one, before the Budget item and # columns, and shows the message text; it is not there without an error', () => {
     mount({ lines: [pa({ taskResourceAttributesKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv' })] });
     const heads = Array.from(document.querySelectorAll(`[data-testid^="${TT}-header-"]`)).map((e) => e.getAttribute('data-testid'));
-    expect(heads.slice(0, 3)).toEqual([`${TT}-header-errors`, `${TT}-header-n`, `${TT}-header-role`]);
+    expect(heads.slice(0, 3)).toEqual([`${TT}-header-errors`, `${TT}-header-budgetItem`, `${TT}-header-n`]);
     expect(q('task-line-problem-pa1')!.parentElement!.textContent).toContain('does not cover the role');
     act(() => root.unmount());
     document.body.innerHTML = '';
@@ -409,7 +421,7 @@ describe('the cost of a Time line: the contract of the person, else the rate of 
     press(`${TT}-cell-c1l-contract`);
     expect(mockActions.updateOne).toHaveBeenLastCalledWith({
       rowGUID: 'c1l', rowOwnerGUID: 't1',
-      rowJSON: { taskResourceContract: 'c1', priceTaskLine: 20, priceAutoTaskLine: 20, measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, priceSourceTaskLine: 'contract' },
+      rowJSON: { taskResourceContract: 'c1', priceTaskLine: 20, priceAutoTaskLine: 20, measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, priceSourceTaskLine: 'contract', taskIsPosted: false },
     });
   });
 
@@ -428,7 +440,7 @@ describe('the contract template of a Material / Expense / Revenue line', () => {
     const id = `${TT}-cell-m1-contractTemplate`;
     mockPick[TEMPLATE_RESOURCE_CONTRACT_ENTITY] = 'tpl_mat';
     press(id);
-    expect(mockActions.updateOne).toHaveBeenLastCalledWith({ rowGUID: 'm1', rowOwnerGUID: 't1', rowJSON: { resourceContractTemplateTaskLine: 'tpl_mat' } });
+    expect(mockActions.updateOne).toHaveBeenLastCalledWith({ rowGUID: 'm1', rowOwnerGUID: 't1', rowJSON: { resourceContractTemplateTaskLine: 'tpl_mat', taskIsPosted: false } });
     const props = mockSelectProps[id];
     const row = { rowGUID: 'm1', rowParentGUID: 'materialGenus', rowJSON: { taskManagementGenusLine: 'materialGenus' } };
     expect(props.filterItem(def('tpl_mat', 'materialGenus', 'empty', {}), row)).toBe(true);
@@ -581,5 +593,121 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     mockBook = book();
     mount({ lines: [fxLine({ sumForAccounting: 370.37, sumVATForAccounting: 77.78 })], project, startMs: START });
     expect(q(`${T}-tab-timeGenus-sum`)!.textContent).toBe('370.37 EUR');
+  });
+});
+
+
+describe('the budget item and the Post button (kit8/pm/view/task/plan)', () => {
+  const MON = Date.UTC(2026, 9, 12); // Monday 2026-10-12
+  const FRI_END = Date.UTC(2026, 9, 17); // exclusive finish: the task lasts Monday-Friday
+  const weekdays = (from: string, to: string) => {
+    const out: any[] = [];
+    for (let t = Date.parse(`${from}T00:00:00Z`); t <= Date.parse(`${to}T00:00:00Z`); t += 86400000) {
+      const dow = new Date(t).getUTCDay();
+      out.push({ rowJSON: { day: new Date(t).toISOString().slice(0, 10), isActive: dow !== 0 && dow !== 6 } });
+    }
+    return out;
+  };
+  const budgeted = (guid: string, genus: string, order: number, json: any = {}) =>
+    line(guid, genus, order, { budgetItemTaskLine: genus === 'timeGenus' ? 'timeBudgetItem' : 'materialBudgetItem', distributionForBudgetTaskLine: 'uniformDistribution', qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, taskIsPosted: false, ...json });
+  const text = () => q(`${TT}-post-text`)?.textContent;
+  const postId = `${TT}-post`;
+  beforeEach(() => { jest.spyOn(require('react-native').Dimensions, 'get').mockReturnValue({ width: 1400, height: 900, scale: 1, fontScale: 1 }); mockFetchDays.mockResolvedValue(weekdays('2026-01-01', '2026-12-31')); });
+  afterEach(() => { jest.restoreAllMocks(); mockCreatePlan.mockClear(); mockFetchDays.mockClear(); });
+
+  it('Budget item is the first data column (after the Errors column when there is one, before #), of the items of THIS genus only', () => {
+    mount();
+    const heads = Array.from(document.querySelectorAll(`[data-testid^="${TT}-header-"]`)).map((e) => e.getAttribute('data-testid'));
+    expect(heads.filter((h) => h !== `${TT}-header-errors`).slice(0, 2)).toEqual([`${TT}-header-budgetItem`, `${TT}-header-n`]);
+    expect(heads.indexOf(`${TT}-header-errors`)).toBeLessThan(heads.indexOf(`${TT}-header-budgetItem`)); // the Errors column stays the very first
+    const props = mockSelectProps[`${TT}-cell-time1-budgetItem`];
+    expect(props.entityName).toBe(BUDGET_ITEM_TABLE.entity);
+    const item = (guid: string, genus: string | null, parent = 'costsBudgetFolder') => def(guid, 'budgetItemCatalog', parent, { title: guid, managementGenusItem: genus });
+    expect(props.filterItem(item('timeBudgetItem', 'timeGenus'))).toBe(true);
+    expect(props.filterItem(item('materialBudgetItem', 'materialGenus'))).toBe(false); // another genus
+    expect(props.filterItem(item('costsBudgetFolder', null, 'empty'))).toBe(false); // a folder
+  });
+
+  it('+ Add: a new line gets the budget item of its genus (so it can be posted at once) and is NOT posted', () => {
+    mount();
+    press(`${TT}-add`);
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ budgetItemTaskLine: 'timeBudgetItem', taskIsPosted: false });
+    press(`${T}-tab-materialGenus`);
+    press(`${TT}-add`);
+    expect(mockActions.createOne.mock.calls[1][0].rowJSON).toMatchObject({ budgetItemTaskLine: 'materialBudgetItem', taskIsPosted: false });
+  });
+
+  it('the Post button is the first button of the bar; the text is "Post" while nothing was ever posted', () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)] });
+    expect(q(`${TT}-crud-panel`)!.firstElementChild!.getAttribute('data-testid')).toBe(postId);
+    expect(text()).toBe('Post');
+  });
+
+  it('"Posted" when every budgeted line of the task is posted - also the lines of the OTHER tabs count', () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1, { taskIsPosted: true, baseOfDistribution: 1 }), budgeted('mat1', 'materialGenus', 2, { taskIsPosted: true, baseOfDistribution: 1 })] });
+    expect(text()).toBe('Posted');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    // the Material line changed: "Post needed" is shown on the Time tab too
+    mount({ lines: [budgeted('time1', 'timeGenus', 1, { taskIsPosted: true, baseOfDistribution: 1 }), budgeted('mat1', 'materialGenus', 2, { taskIsPosted: false, baseOfDistribution: 1 })] });
+    expect(text()).toBe('Post needed');
+  });
+
+  it('a change of a posted line makes the button "Post needed" and saves taskIsPosted false with the change', () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1, { taskIsPosted: true, baseOfDistribution: 1 })] });
+    expect(text()).toBe('Posted');
+    setNumber(`${TT}-cell-time1-qty`, '3');
+    expect(mockActions.updateOne.mock.calls.at(-1)![0].rowJSON).toMatchObject({ qtyTaskLine: 3, taskIsPosted: false });
+  });
+
+  it('Post sends the whole task in ONE call: the days of the Monday-Friday task, the lines of all tabs, the totals as they are', async () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1), budgeted('mat1', 'materialGenus', 1, { sumForBudget: 0.01, sumForContract: null }), line('nobudget', 'timeGenus', 2, { qtyTaskLine: 1 })], startMs: MON, finishMs: FRI_END });
+    await act(async () => { q(postId)!.click(); });
+    expect(mockFetchDays).toHaveBeenCalledWith('workingDaysCalendar', '2026-01-01', '2026-12-31');
+    expect(mockCreatePlan).toHaveBeenCalledTimes(1);
+    const json = mockCreatePlan.mock.calls[0][0];
+    expect(json.taskGUID).toBe('t1');
+    expect(json.lines.map((l: any) => l.lineGUID)).toEqual(['time1', 'mat1']);
+    const days = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'];
+    expect(json.lines[0]).toEqual({ lineGUID: 'time1', baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, days: days.map((d) => ({ d, c: 0.2 })) });
+    expect(json.lines[1]).toMatchObject({ lineGUID: 'mat1', sumForBudget: 0.01, sumForContract: null });
+    expect(mockDispatch.mock.calls.map((c) => c[0]).some((a) => a.type === 'snackbar' && /Posted 1 line/.test(a.p.message))).toBe(true);
+  });
+
+  it('the project\'s calendarForTaskPlan is the calendar read', async () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)], startMs: MON, finishMs: FRI_END, project: { calendarForTaskPlan: 'myCalendar' } });
+    await act(async () => { q(postId)!.click(); });
+    expect(mockFetchDays).toHaveBeenCalledWith('myCalendar', '2026-01-01', '2026-12-31');
+  });
+
+  it('nothing is sent when the task cannot be planned (no dates, an unfilled year): the user is told why', async () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)] });
+    await act(async () => { q(postId)!.click(); });
+    expect(mockCreatePlan).not.toHaveBeenCalled();
+    expect(mockDispatch.mock.calls.map((c) => c[0]).some((a) => a.type === 'snackbar' && /no start and finish/.test(a.p.message))).toBe(true);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockFetchDays.mockResolvedValue([]);
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)], startMs: MON, finishMs: FRI_END });
+    await act(async () => { q(postId)!.click(); });
+    expect(mockCreatePlan).not.toHaveBeenCalled();
+    expect(mockDispatch.mock.calls.map((c) => c[0]).some((a) => a.type === 'snackbar' && /not filled for 2026/.test(a.p.message))).toBe(true);
+  });
+
+  it('a database refusal is shown, not thrown', async () => {
+    mockCreatePlan.mockRejectedValueOnce(new Error('create_task_line_plan: line x has no days'));
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)], startMs: MON, finishMs: FRI_END });
+    await act(async () => { q(postId)!.click(); });
+    expect(mockDispatch.mock.calls.map((c) => c[0]).some((a) => a.type === 'snackbar' && /could not be posted.*no days/.test(a.p.message))).toBe(true);
+  });
+
+  it('the project colour is the background of the button', () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1)], color: '#00FF00' });
+    expect(getComputedStyle(q(postId)!).backgroundColor).toMatch(/0, 255, 0|#00ff00/i);
+  });
+
+  it('a duplicated line is not posted', () => {
+    mount({ lines: [budgeted('time1', 'timeGenus', 1, { taskIsPosted: true, baseOfDistribution: 1 })] });
+    press(`${TT}-select-time1`);
+    press(`${TT}-duplicate-selected`);
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ budgetItemTaskLine: 'timeBudgetItem', taskIsPosted: false, baseOfDistribution: null });
   });
 });

@@ -315,6 +315,7 @@ export default function PMRecentProjectsToolbar({
             exchangeRateTypeForBudget: json.exchangeRateTypeForBudget ?? d.exchangeRateTypeForBudget,
             projectRevenueBudgetNeeded: json.projectRevenueBudgetNeeded ?? d.projectRevenueBudgetNeeded,
             projectExpenseBudgetNeeded: json.projectExpenseBudgetNeeded ?? d.projectExpenseBudgetNeeded,
+            calendarForTaskPlan: json.calendarForTaskPlan ?? d.calendarForTaskPlan,
           }
         : d,
     );

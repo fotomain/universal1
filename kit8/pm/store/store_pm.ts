@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { PM_DAY_WIDTH_DEFAULT, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_TREE_DEFAULT_WIDTH, PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from '../model/constants';
 import { ROOT_KEY, todayUTC } from '../view/project/scheduling';
 import { PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../view/tree/filter/treeColumnFilter';
+import { PM_DEFAULT_POST_BUTTON_COLOR } from '../model/postButtonColors';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
 import { PMProjectRow, PMTaskRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
 import { derive, EMPTY_TREE, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
@@ -111,6 +112,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   treeColumnsFilters: {},
   treeColumnSort: null,
   columnFilterIconColor: PM_DEFAULT_COLUMN_FILTER_ICON_COLOR,
+  postButtonBackgroundColor: PM_DEFAULT_POST_BUTTON_COLOR,
   planDay: true,
   planHour: false,
   planMinute: false,

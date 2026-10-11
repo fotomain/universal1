@@ -11,9 +11,9 @@ import { showSnackbar } from '../../../../redux/uxuiSlice';
 import type { ReusableTableProps, ReusableTableRow } from './reusableTableTypes';
 import { builtInCellError, cellPatch, emptyRowJSON, insertRow, moveRow, moveSelectedRows, newRowColumns, sortRows, tableScope } from './tableRows';
 
-type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'onRowEdit' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON'>;
+type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'onRowEdit' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON' | 'duplicateOverrides'>;
 
-export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, onRowEdit, rowFilter, newRowDefaults, computeRowJSON }: Args) {
+export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, onRowEdit, rowFilter, newRowDefaults, computeRowJSON, duplicateOverrides }: Args) {
   const dispatch = useDispatch();
   const entityState = useSelector((s: any) => s?.[entityName]);
   const actions = SystemMetaData[entityName]?.actions;
@@ -98,8 +98,8 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   const duplicate = useCallback((id: string, before = false) => {
     const i = indexOf(id);
     if (i < 0) return null;
-    return createAt(before ? i : i + 1, { ...(rowsRef.current[i].rowJSON || {}) });
-  }, [createAt]);
+    return createAt(before ? i : i + 1, { ...(rowsRef.current[i].rowJSON || {}), ...(duplicateOverrides || {}) });
+  }, [createAt, duplicateOverrides]);
 
   // ---- update ----
   /**

@@ -121,6 +121,8 @@ export interface PMStoreState {
   treeColumnSort: PMTreeColumnSort | null;
   /** rowJSON.uxuiSettings.columnFilterIconColor - filter icon of a filtered header. */
   columnFilterIconColor: string;
+  /** rowJSON.uxuiSettings.postButtonBackgroundColor - background of the Post button of the task line table. */
+  postButtonBackgroundColor: string;
   /** project.rowJSON.planDay - plan in days */
   planDay: boolean;
   /** project.rowJSON.planHour - plan in hours */

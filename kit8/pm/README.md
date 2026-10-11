@@ -254,7 +254,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 
 | key | values (default) | UI |
 |---|---|---|
-| `ganttVsNetworkView` | 'showGanttChart' \| 'showKanbanView' \| 'showNetworkView' \| 'showVersionsView' \| 'showFinancesView' ('showGanttChart') | the view switch of every bar. **Remembered per project AND user**: a project opens in the view it was left in (`store.selectProject`); only the sub-mode `networkViewMode` follows the user from project to project. A refresh (realtime, another browser) never switches the view under the user's hands |
+| `ganttVsNetworkView` | 'showGanttChart' \| 'showKanbanView' \| 'showNetworkView' \| 'showVersionsView' \| 'showFinancesView' \| 'showPlanView' ('showGanttChart') | the view switch of every bar. **Remembered per project AND user**: a project opens in the view it was left in (`store.selectProject`); only the sub-mode `networkViewMode` follows the user from project to project. A refresh (realtime, another browser) never switches the view under the user's hands |
 | `showCriticalPath` | bool (true) | Critical path button |
 | `criticalPathTaskColor` | #FCFF00 · #FFAA00 · #FF5500 · #00FF66 · #00F0FF · #4455FF · #9D00FF · #FF007F · #FF0033 · #000000 ('#FF0033') | ⚙ → Task tab: color of the critical path bars, arrows and network nodes (`model/criticalPathColors.ts`, other values → default) |
 | `ganttArrowsForm` | 'smoothForm' \| 'squareForm' ('smoothForm') | arrow shape selector |
@@ -271,6 +271,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `treeColumnsFilters` | { [columnKey]: { filterVariantForColumn, value?, value2? } } ({}) | tree header ▾ → Filter & sort (see *Filter & sort of tree columns*) |
 | `treeColumnSort` | { key, direction: 'asc' \| 'desc' } \| null (null) | Filter & sort → Sort A to Z / Z to A |
 | `columnFilterIconColor` | '#RRGGBB' ('#FF4D6D') | ⚙ → Tree tab: funnel of a filtered header |
+| `postButtonBackgroundColor` | '#RRGGBB' ('#F0ABFC', light fuchsia) | ⚙ → Task tab: background of the Post button of the task lines (`view/task/plan`) |
 
 All of them are edited in `PMGanttUXUISettinsModalWindow` (⚙ on the Gantt bar, right after the % button), split into
 top tabs **Task** (task progress on/off, task progress line, critical path task color) · **Tree** (row commands, "#" column, column order / widths) ·

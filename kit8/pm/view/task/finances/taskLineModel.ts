@@ -68,6 +68,15 @@ export interface TaskLineRowJSON {
   /** percent, 0..100 */
   vatRatioTaskLine: number | null;
   priceSourceTaskLine: TaskLinePriceSource | null;
+  /** budgetItemTable.rowGUID (a level 2 item of the line's genus): what the line is budgeted as; a line without one is not posted */
+  budgetItemTaskLine: string | null;
+  /**
+   * POSTED = the days of the line are in task_line_plan (kit8/pm/view/task/plan). false for a new line; ANY change of the line's data sets it false again
+   * (taskLineCompute.ts); only the SQL procedure create_task_line_plan sets it true.
+   */
+  taskIsPosted: boolean;
+  /** the base the coefficients of the posted days add up to (1 = normalized); written by create_task_line_plan together with taskIsPosted; null = never posted */
+  baseOfDistribution: number | null;
   /** distributionGenericTable.rowGUID: how the BUDGET of the line is spread over its days (kit8/catalog/distribution; null = not chosen) */
   distributionForBudgetTaskLine: string | null;
   /** the last price the app suggested; while priceTaskLine equals it, the price follows the role / product */
@@ -103,7 +112,7 @@ export interface LineFxSnapshot {
 }
 
 export const emptyTaskLine = (): TaskLineRowJSON => ({
-  taskManagementGenusLine: null,
+  taskManagementGenusLine: null, budgetItemTaskLine: null, taskIsPosted: false, baseOfDistribution: null,
   resourceRoleItem: null, resourceRoleAttributeSetKey: null, taskResourceItem: null, taskResourceAttributesKey: null,
   taskResourceContract: null, resourceContractTemplateTaskLine: null, taskLinePartnerItem: null, taskLinePartnerContract: null,
   qtyTaskLine: null, priceTaskLine: null, measureUnitTaskLine: null, vatRatioTaskLine: null,

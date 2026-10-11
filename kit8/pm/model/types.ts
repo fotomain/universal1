@@ -126,6 +126,8 @@ export interface PMRowJSON {
   projectRevenueBudgetNeeded?: boolean;
   /** Budgets: the project needs an expense budget */
   projectExpenseBudgetNeeded?: boolean;
+  /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
+  calendarForTaskPlan?: string | null;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */
@@ -226,6 +228,8 @@ export interface PMDepRef {
 
 import { PMProgressLinePosition, progressLineColorOf } from '../view/task/progress/line/progressLineConstants';
 import { criticalPathTaskColorOf } from './criticalPathColors';
+import { postButtonColorOf } from './postButtonColors';
+export { PM_DEFAULT_POST_BUTTON_COLOR, PM_POST_BUTTON_COLORS, postButtonColorOf, textColorOnBackground } from './postButtonColors';
 export { PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, criticalPathTaskColorOf } from './criticalPathColors';
 import { normalizeTreeColumnsOrder, normalizeTreeColumnsWidths, PMTreeColumnKey } from '../view/tree/columns/treeColumns';
 import { projectCustomColumnsOf, PMProjectCustomColumns, PMTaskCustomColumnValues } from '../view/tree/columns/customColumns';
@@ -289,6 +293,8 @@ export interface PMUxUiSettings {
   treeColumnSort?: PMTreeColumnSort | null;
   /** Tree: color of the filter icon on a filtered column header (default light vibrant red #FF4D6D). */
   columnFilterIconColor?: string;
+  /** Background of the Post button of the task line table (default light fuchsia #F0ABFC): kit8/pm/view/task/plan. */
+  postButtonBackgroundColor?: string;
   /** Versions checked for the visual comparison on the Gantt (version_project_table.rowVersionGUID, see kit8/pm/version). */
   checkedProjectVersions?: string[];
 }
@@ -310,10 +316,10 @@ export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';
 export const PM_SELECT_ROW_CHECK_BOX_FORMS: PMSelectRowCheckBoxForm[] = ['formRound', 'formSquare'];
 export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => (v === 'formSquare' ? 'formSquare' : 'formRound');
 
-/** Main view switch Gantt | Kanban | Network | Versions | Finances (GanttToNetworkViewToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView';
+/** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan (GanttToNetworkViewToggleButtons). */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
-  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' ? v : 'showGanttChart';
+  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' ? v : 'showGanttChart';
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
 /**
@@ -362,6 +368,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     treeColumnsFilters: normalizeTreeColumnsFilters(u.treeColumnsFilters),
     treeColumnSort: normalizeTreeColumnSort(u.treeColumnSort),
     columnFilterIconColor: columnFilterIconColorOf(u.columnFilterIconColor),
+    postButtonBackgroundColor: postButtonColorOf(u.postButtonBackgroundColor),
     checkedProjectVersions: Array.isArray(u.checkedProjectVersions) ? u.checkedProjectVersions.filter((g): g is string => typeof g === 'string') : [],
   };
 }

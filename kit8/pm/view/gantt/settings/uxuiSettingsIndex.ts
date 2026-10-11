@@ -18,6 +18,7 @@ export type PMUxUiOptionId =
   | 'taskProgressLine'
   | 'criticalPathTaskColor'
   | 'criticalPathColorHasPriorityOverTheCustomTaskColor'
+  | 'postButtonBackgroundColor'
   | 'treeCommands'
   | 'treeNumbers'
   | 'selectRowCheckBoxForm'
@@ -42,6 +43,7 @@ export const PM_UXUI_OPTIONS: PMUxUiOption[] = [
   { id: 'taskProgressLine', tab: 'TabTask', label: 'Task progress line: position on the task bar, color', keywords: 'taskProgressLinePosition taskProgressLineColor top bottom middle colour' },
   { id: 'criticalPathTaskColor', tab: 'TabTask', label: 'Critical path task color', keywords: 'criticalPathTaskColor critical tasks bars colour' },
   { id: 'criticalPathColorHasPriorityOverTheCustomTaskColor', tab: 'TabTask', label: 'Critical path color has priority over custom task color', keywords: 'criticalPathColorHasPriorityOverTheCustomTaskColor priority custom task color override' },
+  { id: 'postButtonBackgroundColor', tab: 'TabTask', label: 'Post button color (task lines)', keywords: 'postButtonBackgroundColor post posted finances plan fuchsia colour' },
   { id: 'treeCommands', tab: 'TabTree', label: 'Task tree: row commands (hover panel / right-click menu)', keywords: 'projectTreeContextCommandsMode context menu long-press buttons' },
   { id: 'treeNumbers', tab: 'TabTree', label: 'Show hierarchy numbers ("#" column) in the task tree', keywords: 'showTreeHierarchyNumbers wbs outline number' },
   { id: 'selectRowCheckBoxForm', tab: 'TabTree', label: 'Select row check box: round / square', keywords: 'selectRowCheckBoxForm formRound formSquare checkbox selection table' },

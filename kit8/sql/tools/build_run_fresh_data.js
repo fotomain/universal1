@@ -24,6 +24,8 @@ const FILES = [
   ['create_person_descriptors.sql', 'person Properties + Variants (separate certificate rows), a contract for every person'],
   ['create_template_resource_contract_table.sql', 'templateResourceContractTable (rowOwnerGUID = management genus) + demo templates'],
   ['create_pm_task_line_table.sql', 'task_line_table + RPC pm_set_task_last_edit_place (rowJSON.lastEditPlace)'],
+  ['create_management_calendar_tables.sql', 'management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar'],
+  ['create_task_line_plan_table.sql', 'task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger'],
   ['create_user_calendar_tables.sql', 'user calendars, events, reminders'],
 ];
 
@@ -33,6 +35,8 @@ const FILES = [
  * and the file becomes "delete everything, then create it all again".
  */
 const DELETE_FILES = [
+  ['delete_task_line_plan_table.sql', 'drops task_line_plan + create_task_line_plan + the unpost trigger'],
+  ['delete_management_calendar_tables.sql', 'drops the management calendars and their days'],
   ['delete_pm_task_line_table.sql', 'drops task_line_table + pm_set_task_last_edit_place'],
   ['delete_template_resource_contract_table.sql', 'drops templateResourceContractTable'],
   ['delete_person_descriptors.sql', 'removes the person descriptors, variants, certificates and the demo contracts'],

@@ -4,6 +4,7 @@
 //   ganttVsNetworkView = 'showNetworkView' -> PMNetworkView (network diagram / network schedule)
 //   ganttVsNetworkView = 'showVersionsView' -> tree + PMProjectVersionsList (kit8/pm/version)
 //   ganttVsNetworkView = 'showFinancesView' -> tree + PMProjectFinancesView (the lines of the selected task: view/task/finances)
+//   ganttVsNetworkView = 'showPlanView' -> tree + PMTaskLinePlanView (the posted days of the lines of the selected task: view/task/plan)
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);
 // read-only views pass a local setter instead. The same control sits on the Gantt bar, the Kanban bar
 // and the network view's bar, so the user can always switch.
@@ -44,6 +45,12 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     icon: 'payments',
     label: 'Finances',
     title: 'Finances: the time, material, expense and revenue lines of the selected task',
+  },
+  {
+    value: 'showPlanView',
+    icon: 'event_note',
+    label: 'Plan',
+    title: 'Plan: the posted days of every line of the selected task',
   },
 ];
 

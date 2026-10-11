@@ -19,7 +19,9 @@ import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMe
 import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
 import {distributionSystemMetaData} from "../catalog/distribution/distributionMetaData";
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
+import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
+import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {templateResourceContractSystemMetaData} from "../catalog/management/templateresourcecontract/templateResourceContractMetaData";
 
@@ -96,9 +98,13 @@ const SystemMetaData:any = {
     // Budget item (kit8/catalog/budget/item): budgetItemTable, a tree (folders > items); rowJSON.managementGenusItem (obligatory) points at managementGenusTable.
     // Screen /budget/item/list, SQL kit8/sql/init/create_budget_item_table.sql
     ...budgetItemSystemMetaData(),
+    // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).
+    ...managementCalendarSystemMetaData(),
     // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,
     // rowParentGUID = management genus. SQL kit8/sql/init/create_pm_task_line_table.sql
     ...taskLineSystemMetaData(),
+    // Task line plan (kit8/pm/view/task/plan): task_line_plan, the posted days of the task lines (read-only; written by create_task_line_plan).
+    ...taskLinePlanSystemMetaData(),
     // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.
     // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql
     ...personTypeSystemMetaData(),

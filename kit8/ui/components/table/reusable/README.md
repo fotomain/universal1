@@ -19,6 +19,11 @@ columnSortAndFilter (▾ on a header: sort + filter, default on), crudPanelEnabl
 columnsOrder, columnsWidths, onColumnsOrderChange, onColumnsWidthsChange,
 searchEnabled, contextMenuEnabled, extraMenuItems, onRowsChange, rowHeight, tableMaxWidth, emptyText`.
 
+**Post button** (`postDataNeeded`, default **false**; true for the task line table): the FIRST element of the toolbar panel (before the CRUD panel; it stays when `crudPanelEnabled` is false). Icon always, the text only on a wide window
+(>= 900 px): **Post** (never posted) · **Posted** · **Post needed** (changed after it was posted). Props: `postState` (default: Posted when every row has `postedField` true, else Post - the parent knows better), `postedField`
+(default `taskIsPosted`), `onPost` (may return a promise: the button is busy meanwhile), `postButtonColor` (`project.uxuiSettings.postButtonBackgroundColor`, light fuchsia by default), `duplicateOverrides`
+(rowJSON keys a duplicated row gets, e.g. `{ taskIsPosted: false }`). The table posts nothing itself. See `kit8/pm/view/task/plan/README.md`. Test: `__tests__/ui/table/reusableTablePost.test.tsx`.
+
 **Edit in a modal card** (`EditRowModalCard` prop): a component `(EditRowModalCardProps) => ReactNode` that edits ONE row in a window.
 It gets `row` (always the fresh row), `itemLabel`, `visualColumns`, `setCell(columnKey, value)` / `patchRow(rowJSONPatch)` (saved exactly like an
 in-place edit: `validate`, `computeRowJSON`, root columns) and `onClose`. The row menu (right-click / long-press / ⋮) gets **Edit** as its first

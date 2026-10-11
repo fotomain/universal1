@@ -5,6 +5,8 @@
 //     exchangeRateTypeForAccounting / exchangeRateTypeForBudget = the exchange RATE TYPE (Default | Budget, as D365 FO) used to convert the sums of the
 //       task lines into the accounting / the budget currency (task lines, kit8/pm/view/task/finances/taskLineFx.ts)
 //     projectRevenueBudgetNeeded / projectExpenseBudgetNeeded = "Budgets" checkboxes
+//     calendarForTaskPlan = the management calendar (managementCalendarTable) whose excluded days divide the timeline of a task plan (Post of the task
+//       lines, kit8/pm/view/task/plan); default workingDaysCalendar (Mon-Fri, no holidays)
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
@@ -15,6 +17,7 @@ import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY } from '../../../../catalog/cur
 import SegmentButtonsApp from '../../../../ui/components/common/SegmentButtonsApp';
 import { BUDGET_RATE_TYPE, DEFAULT_RATE_TYPE, RATE_TYPES } from '../../../../catalog/currency/exchange/currencyExchangeModel';
 import { pmT } from '../../../i18n/pmT';
+import { DEFAULT_CALENDAR_FOR_TASK_PLAN, MANAGEMENT_CALENDAR_TABLE, isCalendarFolder } from '../../../../catalog/management/calendar/managementCalendarModel';
 
 export interface PMProjectFinanceValues {
   currencyForBudget?: string | null;
@@ -24,6 +27,7 @@ export interface PMProjectFinanceValues {
   exchangeRateTypeForBudget?: string | null;
   projectRevenueBudgetNeeded?: boolean;
   projectExpenseBudgetNeeded?: boolean;
+  calendarForTaskPlan?: string | null;
 }
 
 export const PM_PROJECT_CURRENCY_FIELDS = [
@@ -41,6 +45,7 @@ export const financeValuesOf = (j: PMProjectFinanceValues | undefined | null): R
   exchangeRateTypeForBudget: j?.exchangeRateTypeForBudget || BUDGET_RATE_TYPE,
   projectRevenueBudgetNeeded: !!j?.projectRevenueBudgetNeeded,
   projectExpenseBudgetNeeded: !!j?.projectExpenseBudgetNeeded,
+  calendarForTaskPlan: j?.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN,
 });
 
 export default function PMProjectFinanceTab({
@@ -94,6 +99,22 @@ export default function PMProjectFinanceTab({
           />
         </View>
       ))}
+
+      <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Task plan')}</Text>
+      <SelectElementFromCatalog
+        testID="pm-project-calendarForTaskPlan"
+        label={pmT('Calendar for the task plan (calendarForTaskPlan)')}
+        entityName={MANAGEMENT_CALENDAR_TABLE.entity}
+        rowOwnerGUID={MANAGEMENT_CALENDAR_TABLE.catalogOwner}
+        scopeFetchByOwner={false}
+        value={values.calendarForTaskPlan ?? null}
+        placeholder={pmT('Working days (default)')}
+        // the calendars (level 2) of the Project folder; the one already on the project stays visible
+        filterItem={(r: any) => !isCalendarFolder(r) && (r?.rowParentGUID === 'projectCalendarFolder' || r?.rowGUID === values.calendarForTaskPlan)}
+        titleExtractor={(r: any) => String(r?.rowJSON?.title || r?.rowGUID)}
+        subtitleExtractor={(r: any) => r?.rowJSON?.description || undefined}
+        onChange={(guid) => onChange({ calendarForTaskPlan: guid || DEFAULT_CALENDAR_FOR_TASK_PLAN })}
+      />
 
       <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Budgets')}</Text>
       <SwitchApp

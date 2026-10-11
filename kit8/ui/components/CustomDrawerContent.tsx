@@ -74,6 +74,10 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
         // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
         { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
+        // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
+        { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
+        { id: 'managementcalendars', label: 'Management calendars', icon: 'calendar_month', route: 'catalog/management/calendar/list' },
       ],
     },
 
@@ -84,8 +88,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
     // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
     { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
-    // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
-    { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
     // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
     { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
     // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach

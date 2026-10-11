@@ -84,6 +84,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     treeColumnsFilters: u.treeColumnsFilters,
     treeColumnSort: u.treeColumnSort,
     columnFilterIconColor: u.columnFilterIconColor,
+    postButtonBackgroundColor: u.postButtonBackgroundColor,
     customColumns: projectCustomColumnsOf(project?.rowJSON).columns,
     treeHeadersBackgroundColors: projectCustomColumnsOf(project?.rowJSON).headersBackgroundColors,
     planDay: project?.rowJSON?.planDay ?? true,

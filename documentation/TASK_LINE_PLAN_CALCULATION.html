@@ -59,7 +59,7 @@
 <main>
 
 <section id="goal">
-  <h1>Task line plan calculation <span class="pill ask">plan - no code yet</span></h1>
+  <h1>Task line plan calculation <span class="pill new">built</span></h1>
   <p class="lead">Source: Google Doc "W1 Post Task" (Part 1 task posting, Part 2 Correct033 effect). A task line has totals (<code>qtyTaskLine</code>, <code>sumForBudget</code>, <code>sumForContract</code>) and a distribution
   (<code>distributionForBudgetTaskLine</code>), but no dates. <b>Post</b> turns every line with a budget item into one row per day in the new table <code>task_line_plan</code>; a new <b>Plan</b> view shows these rows (read-only).</p>
   <div class="grid">
@@ -102,7 +102,7 @@
   <h3>Post button in <code>ReusableTable</code> (generic)</h3>
   <ul class="tight">
     <li>Prop <code>postDataNeeded</code>, <b>false</b> by default, <b>true</b> for the task-line table. If true: the <b>first</b> button of the toolbar panel (before the CRUD panel), icon always, <b>text only on a wide window</b> (<code>useWindowDimensions</code>, already used in the file).</li>
-    <li>Helper props: <code>postedField</code> (default <code>'taskIsPosted'</code>), <code>onPost(rows)</code>, <code>postButtonColor</code>. The table stays generic: "all shown rows have the field true" = the button is <b>on</b>; any row with false = <b>off</b> (outlined) and pressing it runs <code>onPost</code>.</li>
+    <li>Helper props: <code>postedField</code> (default <code>'taskIsPosted'</code>), <code>onPost(rows)</code>, <code>postButtonColor</code>. The table stays generic; the parent gives the state. <b>Texts (your answer 7):</b> <b>Post</b> on the first edit (never posted) · <b>Posted</b> after a finished post · <b>Post needed</b> when the data changed afterwards. Pressing the button runs <code>onPost</code> in every state.</li>
     <li>Colour: <code>project.uxuiSettings.postButtonBackgroundColor</code>, <b>light fuchsia</b> by default (<span class="swatch"></span><code>#F0ABFC</code>): a new key in <code>PMUxUiSettings</code>, a default in <code>uxuiSettingsOf()</code>, a colour picker in the project UX/UI settings (as <code>taskProgressLineColor</code>).</li>
     <li>Because the Finances table shows one genus per tab, <b>Post posts the whole task</b> (all tabs), not only the visible tab. The button state counts all lines of the task that have a budget item.</li>
   </ul>
@@ -207,7 +207,7 @@
   </table></div>
   <div class="note"><b>Why not a "Rounding Adjustment" line.</b> An extra row would have no day (<code>rowPeriodDatetime</code>) and would break "one row per active day", the view and the per-day reports. The last day absorbs the remainder instead, as in the document's $33.34.</div>
   <div class="note"><b>Know the side effect.</b> "Everything on the last row" is exact but the last day absorbs the whole error; over a long task it can drift by several cents (random-walk of the roundings) - the 7-day example already moves 3 cents.
-  The alternative (largest remainder: give the missing cents one by one to the rows with the biggest rounding loss) keeps every row within ±0.01. I follow the document (last row) and keep it as one switch in the procedure (<code>p_mode := 'lastRow' | 'largestRemainder'</code>) if you want it later.</div>
+  The alternative (largest remainder: give the missing cents one by one to the rows with the biggest rounding loss) keeps every row within ±0.01. I follow the document (last row); the largest-remainder mode is not built.</div>
 </section>
 
 <section id="rpc">
@@ -262,20 +262,23 @@
 </section>
 
 <section id="open">
-  <h2>Open points - my default is used unless you say otherwise</h2>
+  <h2>Your answers, and what was built</h2>
   <div class="scroll"><table>
-    <tr><th>#</th><th>Question</th><th>Default in this plan</th></tr>
-    <tr><td>1</td><td>The document gives no link from a plan row to its line (owner = task).</td><td><code>rowParentGUID</code> = the line (FK, cascade).</td></tr>
-    <tr><td>2</td><td>"Normalized to 1 baseOfDistribution": the saved value is 1, or the total of the raw weights before normalizing?</td><td>1 (so Σ <code>rowCoefficient</code> = <code>baseOfDistribution</code> as the document says).</td></tr>
-    <tr><td>3</td><td>Excluded days: stretch the shape over the active days, or keep the shape on the calendar span and zero the excluded days?</td><td>Active days only.</td></tr>
-    <tr><td>4</td><td>The distribution maths: shapes in TypeScript (coefficients sent in the JSON), or also in SQL?</td><td>TypeScript sends days + coefficients (the JSON is "the minimum"); SQL does amounts, rounding and Correct033.</td></tr>
-    <tr><td>5</td><td>Rounding of quantity to 2 digits, and for currencies with 0 or 3 decimals (JPY, KWD).</td><td>All three measures to 2 digits, as the document says.</td></tr>
-    <tr><td>6</td><td>Correction on the last row (document) vs largest remainder.</td><td>Last row; the switch exists in the procedure.</td></tr>
-    <tr><td>7</td><td>"Post button must become false": greyed out or "off, needs posting"?</td><td>Off = needs posting, still pressable.</td></tr>
-    <tr><td>8</td><td>"The user must have the permission to exclude a day": a role / permission check or just editing allowed?</td><td>Anyone who can edit the calendar can exclude days; business-level roles later.</td></tr>
-    <tr><td>9</td><td>Holidays for "working days without holidays".</td><td>A country list loaded by a small script (like the ECB rates); until then marked by hand.</td></tr>
-    <tr><td>10</td><td>Names with <code>NNNNN</code> and the folder / file names.</td><td>As written on this page; the HTML file is <code>.html</code>.</td></tr>
+    <tr><th>#</th><th>Point</th><th>Answer / result</th></tr>
+    <tr><td>1</td><td>Link from a plan row to its line</td><td><b>Needed:</b> <code>rowParentGUID = task_line_table.rowGUID</code> (FK, cascade). Built.</td></tr>
+    <tr><td>2</td><td><code>baseOfDistribution</code> = 1</td><td>Yes. Saved in <code>task_line_table.rowJSON.baseOfDistribution</code> by the procedure; the coefficients of a line add up to it exactly.</td></tr>
+    <tr><td>3</td><td>Excluded days</td><td>OK: the shape is stretched over the active days.</td></tr>
+    <tr><td>4</td><td>Where the maths runs</td><td>OK: coefficients in TypeScript, amounts + rounding + Correct033 in SQL.</td></tr>
+    <tr><td>5</td><td>2 digits for all three measures</td><td>OK.</td></tr>
+    <tr><td>6</td><td>Correction on the last row</td><td>OK. Only this mode exists (no largest-remainder switch was built).</td></tr>
+    <tr><td>7</td><td>Post button texts</td><td><b>Post</b> (first edit) · <b>Posted</b> (after the post) · <b>Post needed</b> (data changed). Built (<code>ReusableTablePostButton.tsx</code>).</td></tr>
+    <tr><td>8</td><td>Permission to exclude a day</td><td>Default kept: anyone who can edit the calendar can exclude any day.</td></tr>
+    <tr><td>9</td><td>Holidays</td><td>Default kept: marked by hand (Reason = Holiday + Active off); "Working days" keeps them off. No holiday import.</td></tr>
+    <tr><td>10</td><td>Names</td><td><code>managementCalendarTable</code>, <code>managementCalendarDaysTable</code> (the year is in <code>rowParentGUID</code>), <code>task_line_plan</code>.</td></tr>
   </table></div>
+  <p class="sub">Added beyond the document: <b>Next year</b> in the Fill menu; the summary above the Plan table (days and sums against the line); the SQL trigger that unposts a task's lines when its start / finish day changes.
+  The SQL was run on a real PostgreSQL 15: 100.00 on 3 days = 33.33 + 33.33 + 33.34, 0.01 on 3 days = 0.00 + 0.00 + 0.01, 100.00 on 7 days ends with 14.26; a bad JSON is refused and writes nothing; another user cannot post.
+  Where to read: <code>kit8/pm/view/task/plan/README.md</code>, <code>kit8/catalog/management/calendar/README.md</code>.</p>
 </section>
 
 </main>

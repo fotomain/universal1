@@ -126,7 +126,8 @@ describe('computeTaskLineRowJSON (the table\'s computeRowJSON)', () => {
     const first = computeTaskLineRowJSON(d, TIME, { resourceRoleItem: 'role_da', qtyTaskLine: 10 }, DAY);
     expect(first).toMatchObject({ priceTaskLine: 40, measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, priceSourceTaskLine: 'role', sumForContract: 400, sumVATForContract: 0 });
     const next = computeTaskLineRowJSON(d, TIME, { resourceRoleItem: 'role_da', qtyTaskLine: 12, ...first }, DAY);
-    expect(next).toEqual({ sumForContract: 480 });
+    // any change of the line also unposts it (taskIsPosted false): its posted days are out of date
+    expect(next).toEqual({ sumForContract: 480, taskIsPosted: false });
   });
   it('changing the role attributes re-prices the line that still follows the catalog', () => {
     const base = { resourceRoleItem: 'role_da', qtyTaskLine: 1, ...computeTaskLineRowJSON(d, TIME, { resourceRoleItem: 'role_da', qtyTaskLine: 1 }, DAY) };

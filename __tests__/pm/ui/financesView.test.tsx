@@ -25,15 +25,17 @@ const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface:
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the view switch', () => {
-  it('Finances is the last button, and a saved main view', () => {
+  it('Finances is before the last button (Plan), and a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToNetworkViewToggleButtons palette={palette} onChange={onChange} />);
-    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showFinancesView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showFinancesView');
+    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showPlanView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showPlanView');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-2)).toBe('showFinancesView');
     press('pm-gantt-vs-network-showFinancesView');
     expect(onChange).toHaveBeenCalledWith('showFinancesView');
     expect(pmMainViewOf('showFinancesView')).toBe('showFinancesView');
+    expect(pmMainViewOf('showPlanView')).toBe('showPlanView');
     expect(pmMainViewOf('somethingOld')).toBe('showGanttChart');
     expect(uxuiSettingsOf(null, { ganttVsNetworkView: 'showFinancesView' }).ganttVsNetworkView).toBe('showFinancesView');
   });

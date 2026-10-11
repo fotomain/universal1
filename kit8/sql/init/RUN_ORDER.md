@@ -24,6 +24,8 @@ Supabase → **SQL Editor** → paste the whole file → **Run**. Every file is 
 | 6 | `create_person_descriptors.sql` | person Properties + Variants on the descriptors: sets, plan lines, experience, **separate row per certificate**, variants (Seniority × Language), a **contract for every person** without an active one | 2, 5 | `select count(*) from public."contractTable" where "rowParentGUID" = 'person';` ≥ number of persons |
 | 7 | `create_template_resource_contract_table.sql` | `templateResourceContractTable` (rowOwnerGUID = management genus) + 5 demo templates | 3 | `select "rowOwnerGUID", count(*) from public."templateResourceContractTable" group by 1;` |
 | 8 | `create_pm_task_line_table.sql` | `task_line_table` (the lines of a task) + RPC `pm_set_task_last_edit_place` (rowJSON.lastEditPlace) | 0 | `select count(*) from public.task_line_table;` → 0 (empty is right) |
+| 9 | `create_management_calendar_tables.sql` | `managementCalendarTable` (folders Project / Resource role / Person + calendars), `managementCalendarDaysTable` (one row per day, `isActive` false = excluded), RPC `fill_management_calendar`, the default **Working days** calendar filled for last / this / next year | – (independent) | `select count(*) from public."managementCalendarDaysTable" where "rowOwnerGUID" = 'workingDaysCalendar';` → about 1095 |
+| 10 | `create_task_line_plan_table.sql` | `task_line_plan` (the posted days of the task lines, read-only for the app), RPC `create_task_line_plan` (one transaction: replace, round, **Correct033**, verify, `taskIsPosted`), trigger that unposts a task's lines when its start / finish day changes | 8 | `select count(*) from public.task_line_plan;` → 0 (empty is right until the first Post) |
 
 Then sign in to the app. Screens:
 
@@ -37,11 +39,13 @@ Then sign in to the app. Screens:
 | 5, 6 | **Persons (properties and variants)** – `/catalog/person/dashboard` |
 | 7 | **Resource contract templates** – `/catalog/management/templateresourcecontract/list` |
 | 8 | Project Dashboard → **Finances** button; the task page → **Finances** section |
+| 9 | **Management calendars** – `/catalog/management/calendar/list` (drawer, Catalogs) |
+| 10 | Project Dashboard → **Plan** button (the posted days of the selected task); the Post button of the Finances table |
 
 ## Quick path (nothing installed yet)
 
 `done/create_tables.sql` → `create_product_tables.sql` → `create_resource_role_tables.sql` → `create_management_genus_table.sql` → `insert_rows_resource_table.sql`
-→ `create_person_type_table.sql` → `create_person_descriptors.sql` → `create_template_resource_contract_table.sql` → `create_pm_task_line_table.sql`
+→ `create_person_type_table.sql` → `create_person_descriptors.sql` → `create_template_resource_contract_table.sql` → `create_pm_task_line_table.sql` → `create_management_calendar_tables.sql` → `create_task_line_plan_table.sql`
 
 ## If a file stops with a message
 

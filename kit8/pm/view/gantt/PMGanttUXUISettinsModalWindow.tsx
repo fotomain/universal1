@@ -23,7 +23,7 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
 import { effectiveUxuiSettings } from '../../store/storeDerive';
-import { PM_SELECT_ROW_CHECK_BOX_FORMS, PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, uxuiSettingsOf } from '../../model/types';
+import { PM_SELECT_ROW_CHECK_BOX_FORMS, PMContextCommandsMode, PM_CONTEXT_COMMANDS_MODES, PMUxUiSettings, PM_CRITICAL_PATH_TASK_COLORS, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_POST_BUTTON_COLOR, PM_POST_BUTTON_COLORS, uxuiSettingsOf } from '../../model/types';
 import ColorPickerApp from '../../../ui/components/common/ColorPickerApp';
 import { PMCrud } from '../../crud/usePMCrud';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
@@ -250,6 +250,19 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                       onValueChange={(v) => set('criticalPathColorHasPriorityOverTheCustomTaskColor', v)}
                     />
                   </Row>
+                </Opt>
+                <Opt id="postButtonBackgroundColor">
+                  <Text style={[styles.section, { color: c.text }]}>{pmT('Post button color')}</Text>
+                  <Text style={[styles.label, { color: c.text }]}>{pmT('Background of the Post button of the task lines (Finances)')}</Text>
+                  <ColorPickerApp
+                    testID="pm-uxui-post-button-color"
+                    title={pmT('Post button color')}
+                    value={draft.postButtonBackgroundColor === PM_DEFAULT_POST_BUTTON_COLOR ? null : draft.postButtonBackgroundColor}
+                    onChange={(v) => set('postButtonBackgroundColor', v || PM_DEFAULT_POST_BUTTON_COLOR)}
+                    swatches={PM_POST_BUTTON_COLORS}
+                    defaultColor={PM_DEFAULT_POST_BUTTON_COLOR}
+                    colors={colors}
+                  />
                 </Opt>
               </>
             )}

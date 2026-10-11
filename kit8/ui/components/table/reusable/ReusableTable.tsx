@@ -39,6 +39,7 @@ import type { CatalogColumn, EditRowModalCardProps, ReusableTableProps, Reusable
 import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
+import ReusableTablePostButton, { POST_BUTTON_WIDE_FROM, ReusableTablePostState } from './ReusableTablePostButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
 import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths } from './tableRows';
 
@@ -450,8 +451,23 @@ export default function ReusableTable(props: ReusableTableProps) {
         onPress={() => setBarMenu({ kind: 'more', x: lastPress.current.x, y: lastPress.current.y })} />
     </View>
   );
-  const panelEl = crudPanelEnabled && (
+  // ---- Post button (postDataNeeded): the first element of the panel; icon always, text on a wide window only ----
+  const postedField = props.postedField ?? 'taskIsPosted';
+  const [posting, setPosting] = useState(false);
+  const postState: ReusableTablePostState = props.postState
+    ?? (crud.rows.length > 0 && crud.rows.every((r) => r.rowJSON?.[postedField] === true) ? 'posted' : 'post');
+  const runPost = async () => {
+    if (!props.onPost || posting) return;
+    setPosting(true);
+    try { await props.onPost(); } finally { setPosting(false); }
+  };
+  const postEl = props.postDataNeeded ? (
+    <ReusableTablePostButton testID={`${testID}-post`} state={postState} color={props.postButtonColor} showText={win.width >= POST_BUTTON_WIDE_FROM} busy={posting} onPress={runPost} />
+  ) : null;
+  const panelEl = (crudPanelEnabled || postEl) && (
           <View style={styles.panel} testID={`${testID}-crud-panel`}>
+            {postEl}
+            {crudPanelEnabled && (<>
             <PMIconButton tipScope="app" testID={`${testID}-add`} icon="add" title={`Add ${itemLabel.toLowerCase()} last`} color={c.primary} onPress={() => crud.createLast()} />
             <PMIconButton tipScope="app" testID={`${testID}-add-first`} icon="add_row_above" title={`Add ${itemLabel.toLowerCase()} first`} color={c.text} onPress={() => crud.createFirst()} />
             <PMIconButton tipScope="app" testID={`${testID}-duplicate-selected`} icon="control_point_duplicate" title="Duplicate the selected row" color={c.text} disabled={!one} onPress={() => one && crud.duplicate(one)} />
@@ -463,6 +479,7 @@ export default function ReusableTable(props: ReusableTableProps) {
             )}
             {filtered && <PMIconButton tipScope="app" testID={`${testID}-clear-filters`} icon="filter_alt_off" title="Clear search, filters and sort" color={c.primary} onPress={clearSortAndFilters} />}
             <PMIconButton tipScope="app" testID={`${testID}-delete-selected`} icon="delete" title="Delete the selected rows" color={c.error} disabled={selectedHere.length === 0} badge={selectedHere.length || undefined} onPress={() => askDelete(selectedHere)} />
+            </>)}
           </View>
         );
 

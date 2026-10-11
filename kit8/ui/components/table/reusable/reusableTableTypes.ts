@@ -334,6 +334,21 @@ export interface ReusableTableProps {
   computeRowJSON?: (rowJSON: Record<string, any>, row: ReusableTableRow) => Record<string, any> | null | undefined;
   /** more buttons in the bar, after the CRUD panel */
   toolbarExtra?: ReactNode;
+  /**
+   * A Post button as the FIRST element of the toolbar (default false; true for the task line table, kit8/pm/view/task/finances): the icon always,
+   * the text ("Post" · "Posted" · "Post needed") only on a wide window. The table posts nothing itself: `onPost` does.
+   */
+  postDataNeeded?: boolean;
+  /** the state of the Post button; default: 'posted' when every row has `postedField` true, else 'post'. The parent knows better (it counts the lines of other tabs, and "changed after posting") */
+  postState?: 'post' | 'posted' | 'postNeeded';
+  /** the rowJSON key that says a row is posted (default 'taskIsPosted'); also reset to false on a duplicated row */
+  postedField?: string;
+  /** the Post button was pressed; may return a promise (the button shows a spinner while it runs) */
+  onPost?: () => void | Promise<void>;
+  /** background of the Post button (project.uxuiSettings.postButtonBackgroundColor; default light fuchsia) */
+  postButtonColor?: string;
+  /** rowJSON keys a DUPLICATED row gets instead of the copied values (e.g. { taskIsPosted: false, baseOfDistribution: null }) */
+  duplicateOverrides?: Record<string, any>;
   /** folders tree beside the table (shown when uxuiTable.showFoldersTree is true) */
   foldersTree?: ReusableTableFoldersTree;
   /** the columns: what is shown and how it is entered / stored */
