@@ -38,6 +38,7 @@ jest.mock('../../../kit8/pm/crud/queries', () => ({
   useUpdateProjectMutation: () => ({ mutate: mockUpdate }),
   useDeleteProjectMutation: () => ({ mutate: mockDelete }),
   useProjectSearchQuery: () => ({ data: undefined, isFetching: false }),
+  useSaveProjectUserSettings: () => ({ saveUxuiSettings: jest.fn(), isSaving: false }),
 }));
 
 // the Import / Export section has its own test suite and requires SupabaseProvider
@@ -252,6 +253,65 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.currencyForContract).toBe('EUR');
     expect(patchRowJSON.projectRevenueBudgetNeeded).toBe(true);
     expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(false);
+    // the input switches that were never touched are saved with their defaults (Equipment is off)
+    expect(patchRowJSON.projectTimeCostsNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfPersonNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(false);
+    expect(patchRowJSON.projectMaterialCostsNeeded).toBe(true);
+    expect(patchRowJSON.projectExpenseCostsNeeded).toBe(true);
+  });
+
+  it('Finances tab: the input switches appear only while "Expense budget needed" is on, Person / Equipment only while Time is on', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-tab-TabFinances');
+    expect(q('pm-project-expense-budget-needed')).not.toBeNull();
+    expect(q('pm-project-input-switches')).toBeNull();
+
+    toggleSwitch('pm-project-expense-budget-needed');
+    expect(q('pm-project-input-switches')).not.toBeNull();
+    expect(q('pm-project-time-costs-needed')).not.toBeNull();
+    expect(q('pm-project-time-of-person-needed')).not.toBeNull();
+    expect(q('pm-project-time-of-equipment-needed')).not.toBeNull();
+    expect(q('pm-project-material-costs-needed')).not.toBeNull();
+    expect(q('pm-project-expense-costs-needed')).not.toBeNull();
+
+    // Time off hides its two kinds; their values are kept
+    toggleSwitch('pm-project-time-of-equipment-needed');
+    toggleSwitch('pm-project-time-costs-needed');
+    expect(q('pm-project-time-input-switches')).toBeNull();
+    toggleSwitch('pm-project-time-costs-needed');
+    expect(q('pm-project-time-of-person-needed')).not.toBeNull();
+
+    toggleSwitch('pm-project-material-costs-needed');
+    press('pm-project-save');
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeCostsNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfPersonNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(true);
+    expect(patchRowJSON.projectMaterialCostsNeeded).toBe(false);
+    expect(patchRowJSON.projectExpenseCostsNeeded).toBe(true);
+  });
+
+  it('Finances tab: turning off the last of Person / Equipment turns Time off; turning Time on with no kind chosen turns Person on', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-tab-TabFinances');
+    toggleSwitch('pm-project-expense-budget-needed');
+    // Person is the only kind: turning it off turns Time off
+    toggleSwitch('pm-project-time-of-person-needed');
+    expect(q('pm-project-time-input-switches')).toBeNull();
+    // Time on again with no kind chosen: Person is turned on
+    toggleSwitch('pm-project-time-costs-needed');
+    expect(q('pm-project-time-of-person-needed')).not.toBeNull();
+    press('pm-project-save');
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.projectTimeCostsNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfPersonNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(false);
   });
 
   it('Finances tab: the exchange RATE TYPES of the accounting and the budget currency (D365 style): Default / Budget by default, saved to rowJSON', () => {

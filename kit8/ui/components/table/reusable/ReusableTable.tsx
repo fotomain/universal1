@@ -205,12 +205,17 @@ export default function ReusableTable(props: ReusableTableProps) {
 
   // ---- search: typed values + the TITLES of the selected catalog elements ----
   const catalogCols = useMemo(() => visualColumns.filter((x): x is CatalogColumn => x.type === 'catalog'), [visualColumns]);
-  const catalogRows: any[][] = useSelector((s: any) => catalogCols.map((col) => s?.[col.catalogEntityName]?.entityDataFromServer), shallowEqual);
+  // one read per catalog entity (a column may show several: catalogEntityNames); the lists are looked up by entity, so no new array is made per render
+  const catalogEntities = useMemo(() => Array.from(new Set(catalogCols.flatMap((col) => col.catalogEntityNames ?? [col.catalogEntityName]))), [catalogCols]);
+  const catalogRowsByEntity: any[][] = useSelector((s: any) => catalogEntities.map((e) => s?.[e]?.entityDataFromServer), shallowEqual);
   const catalogTitle = useCallback((col: VisualColumn, guid: string) => {
-    const i = catalogCols.indexOf(col as CatalogColumn);
-    const found = (catalogRows[i] || []).find((r: any) => r?.rowGUID === guid);
-    return found ? ((col as CatalogColumn).titleExtractor || defaultTitleExtractor)(found) : '';
-  }, [catalogCols, catalogRows]);
+    const c = col as CatalogColumn;
+    for (const entity of c.catalogEntityNames ?? [c.catalogEntityName]) {
+      const found = (catalogRowsByEntity[catalogEntities.indexOf(entity)] || []).find((r: any) => r?.rowGUID === guid);
+      if (found) return (c.titleExtractor || defaultTitleExtractor)(found);
+    }
+    return '';
+  }, [catalogEntities, catalogRowsByEntity]);
   const q = search.trim().toLowerCase();
   const hasColumnFilter = visualColumns.some((col) => isActiveFilter(columnFilters[col.key]));
   // folders tree: only the rows of the picked folder (and of its subfolders)
@@ -631,7 +636,11 @@ export default function ReusableTable(props: ReusableTableProps) {
           onFill={(fillValue) => {
             const colKey = fillModalCol.key;
             setFillModalCol(null);
-            const targetRows = viewFiltered ? visible : rows;
+            // a catalog column that shows another catalog in other rows (catalogEntityNameOf): "Fill all lines" picks from catalogEntityName, so only the rows of that
+            // catalog are filled - a person is never written into an equipment row
+            const fillCol = fillModalCol as CatalogColumn;
+            const sameCatalog = (r: ReusableTableRow) => fillCol.type !== 'catalog' || !fillCol.catalogEntityNameOf || fillCol.catalogEntityNameOf(r) === fillCol.catalogEntityName;
+            const targetRows = (viewFiltered ? visible : rows).filter(sameCatalog);
             targetRows.forEach((r) => {
               crud.setCell(r.rowGUID, colKey, fillValue);
             });

@@ -10,7 +10,7 @@ import {
 
 export type IssueSeverity = 'error' | 'warning';
 /** a table an issue points at: a product-catalog table, or one of the four role tables (resourceRoleType ...) */
-export type IssueTable = ProductTableKey | 'resourceRoleType' | 'resourceRoleFolder' | 'resourceRole' | 'rolePrice' | 'personType' | 'person';
+export type IssueTable = ProductTableKey | 'resourceRoleType' | 'resourceRoleFolder' | 'resourceRole' | 'rolePrice' | 'personType' | 'person' | 'equipmentType' | 'equipment';
 /** one finding; `T` = the tables it can point at (the product catalog's by default) */
 export interface ProductIssue<T extends string = ProductTableKey> {
   /** sheet rule: R1 ... R13 */

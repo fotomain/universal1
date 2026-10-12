@@ -1,5 +1,7 @@
-// Task lines - does a PERSON match what the ROLE asks for? (pure). The person has his own Properties and Variants (kit8/catalog/person/
-// personTypeModel.ts), separate from the ones of the role, on the same descriptor tables ("W1 V3 ER DESCRIPTORS PLAN"). The two sides meet on the
+// Task lines - does a PERSON (or an EQUIPMENT) match what the ROLE asks for? (pure). The person has his own Properties and Variants (kit8/catalog/person/
+// personTypeModel.ts), an equipment has its own (kit8/catalog/equipment/equipmentTypeModel.ts), separate from the ones of the role, on the same descriptor
+// tables ("W1 V3 ER DESCRIPTORS PLAN"). The functions look a resource up by its GUID (the owner of its variants / property values), so ONE module serves both
+// kinds (P3 of recommendation/EQUIPMENT_TIME.html); the person* names stay as they are, the resource* names are the same functions. The two sides meet on the
 // DESCRIPTOR (descriptorGenus + descriptorValue are shared), never on the plan line: Seniority = Senior is one pair on both sides although the plan lines
 // (dp18 of the Data analyst set, dp_emp_v1 of the Employee set) belong to different sets.
 //
@@ -13,7 +15,8 @@
 import type { DefRow } from '../../../../catalog/product/productModel';
 import { isSet, rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
 import type { TaskLineCatalogData } from './taskLineCatalogs';
-import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
+import type { TaskLineGenusDef, TaskLineResourceKind, TaskLineRowJSON } from './taskLineModel';
+import { isWorkerKind, lineResourceKind, resourceRowsOf, RESOURCE_TYPE_FIELD, RESOURCE_WORDS } from './taskLineResource';
 
 /** one descriptor = one value: Seniority = Senior (genus and value GUIDs) */
 export interface GenusPair { genus: string; value: string }
@@ -111,9 +114,9 @@ function answeringGenus(d: TaskLineCatalogData, requirementGenus: string): DefRo
 const personProperties = (d: TaskLineCatalogData, personGUID: string) =>
   d.propertyValue.filter((x) => x.rowOwnerGUID === personGUID).map((pv) => ({ pv, genus: planGenus(d, pv.rowParentGUID) })).filter((x) => !!x.genus) as { pv: DefRow<any>; genus: string }[];
 
-/** the person's type has a property plan line for one of these descriptors (a set without it cannot answer the requirement) */
-function personCanAnswer(d: TaskLineCatalogData, personGUID: string, genusGUIDs: string[]): boolean {
-  const type = d.person.find((p) => p.rowGUID === personGUID)?.rowJSON?.personType;
+/** the type of the person / equipment has a property plan line for one of these descriptors (a set without it cannot answer the requirement) */
+function personCanAnswer(d: TaskLineCatalogData, personGUID: string, genusGUIDs: string[], kind: 'person' | 'equipment'): boolean {
+  const type = resourceRowsOf(d, kind).find((p) => p.rowGUID === personGUID)?.rowJSON?.[RESOURCE_TYPE_FIELD[kind]];
   if (!isSet(type)) return false;
   const sets = new Set(d.descriptorDestination.filter((s) => s.rowOwnerGUID === type && s.rowParentGUID === 'property').map((s) => s.rowGUID));
   return d.descriptorPlan.some((p) => sets.has(p.rowOwnerGUID) && genusGUIDs.includes(p.rowParentGUID));
@@ -123,14 +126,14 @@ function personCanAnswer(d: TaskLineCatalogData, personGUID: string, genusGUIDs:
  * The requirements of the role that the person does not meet, e.g. ['Experience, years: needs at least 5 years, has 3', 'Certification: PMP is missing'].
  * A requirement the person's type has no descriptor for is not comparable and not a problem.
  */
-export function unmetRequirements(d: TaskLineCatalogData, roleGUID: string | null | undefined, personGUID: string | null | undefined): string[] {
+export function unmetRequirements(d: TaskLineCatalogData, roleGUID: string | null | undefined, personGUID: string | null | undefined, kind: 'person' | 'equipment' = 'person'): string[] {
   if (!isSet(roleGUID) || !isSet(personGUID)) return [];
   const mine = personProperties(d, personGUID);
   const out: string[] = [];
   for (const req of roleRequirements(d, roleGUID)) {
     const answering = answeringGenus(d, req.genus);
     const ids = answering.map((g) => g.rowGUID);
-    if (!personCanAnswer(d, personGUID, ids)) continue;
+    if (!personCanAnswer(d, personGUID, ids, kind)) continue;
     const rows = mine.filter((m) => ids.includes(m.genus));
     if (req.valueGUID) {
       if (!rows.some((r) => r.pv.rowJSON?.descriptorValueGUID === req.valueGUID)) out.push(`${req.descriptor}: ${req.wanted} is missing`);
@@ -147,23 +150,30 @@ export function unmetRequirements(d: TaskLineCatalogData, roleGUID: string | nul
   return out;
 }
 
-/** Time line: what does not match between the person and the role (shown as a mark; the data is never refused) */
+/** Time line: what does not match between the person / equipment and the role (shown as a mark; the data is never refused) */
 export function personMatchProblems(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>): string[] {
-  if (genus.resource !== 'person' || !isSet(json.resourceRoleItem) || !isSet(json.taskResourceItem)) return [];
+  const kind: TaskLineResourceKind = lineResourceKind(genus, json);
+  if (!isWorkerKind(kind) || !isSet(json.resourceRoleItem) || !isSet(json.taskResourceItem)) return [];
+  const word = RESOURCE_WORDS[kind].lower;
   const out: string[] = [];
   const variants = personVariants(d, json.taskResourceItem);
   const need = requiredPairs(d, json);
-  if (isSet(json.taskResourceAttributesKey) && !variants.some((v) => v.key === json.taskResourceAttributesKey)) out.push('The variant is not a variant of this person');
+  if (isSet(json.taskResourceAttributesKey) && !variants.some((v) => v.key === json.taskResourceAttributesKey)) out.push(`The variant is not a variant of this ${word}`);
   else if (need.length) {
     const chosen = effectivePersonVariant(d, json);
     const label = need.map((n) => `${genusLabel(d, n.genus)} = ${valueLabel(d, n.value)}`).join(', ');
     if (isSet(json.taskResourceAttributesKey)) {
       if (chosen && !variantCovers(chosen.pairs, need)) out.push(`The variant "${chosen.title}" does not cover the role: needs ${missingPairs(chosen.pairs, need).map((n) => `${genusLabel(d, n.genus)} = ${valueLabel(d, n.value)}`).join(', ')}`);
     } else if (!chosen) {
-      out.push(variants.length ? `The person has no variant that covers the role: needs ${label}` : `The person has no variants: the role needs ${label}`);
+      out.push(variants.length ? `The ${word} has no variant that covers the role: needs ${label}` : `The ${word} has no variants: the role needs ${label}`);
     }
   }
-  for (const m of unmetRequirements(d, json.resourceRoleItem, json.taskResourceItem)) out.push(m);
+  for (const m of unmetRequirements(d, json.resourceRoleItem, json.taskResourceItem, kind)) out.push(m);
   return out;
 }
 
+// the same functions under the name of what they now serve: a person OR an equipment
+export const resourceVariants = personVariants;
+export const effectiveResourceVariant = effectivePersonVariant;
+export const resourceVariantOptions = personVariantOptions;
+export const resourceMatchProblems = personMatchProblems;

@@ -62,7 +62,7 @@ import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
 import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
-import PMProjectFinanceTab, { financeValuesOf, type PMProjectFinanceValues } from "../settings/PMProjectFinanceTab";
+import PMProjectTaskEditScreenTab, { taskEditScreenValuesOf, type PMProjectTaskEditScreenValues } from "../settings/PMProjectTaskEditScreenTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -74,7 +74,7 @@ import ShareScreenshotButton from "../../../../ui/components/common/ShareScreens
 
 export type ProjectSettingsTab = 'TabMain' | 'TabFinances' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectFinanceValues {
+interface Draft extends PMProjectTaskEditScreenValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -233,7 +233,7 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: null,
       mainCustomerGUID: null,
       mainCustomerContractGUID: null,
-      ...financeValuesOf(null),
+      ...taskEditScreenValuesOf(null),
     });
   };
   const openEditFor = (project: PMProjectRow | undefined) => {
@@ -268,7 +268,7 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: project.rowJSON.mainSupplierContractGUID ?? null,
       mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
       mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
-      ...financeValuesOf(project.rowJSON),
+      ...taskEditScreenValuesOf(project.rowJSON),
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -316,6 +316,11 @@ export default function PMRecentProjectsToolbar({
             exchangeRateTypeForBudget: json.exchangeRateTypeForBudget ?? d.exchangeRateTypeForBudget,
             projectRevenueBudgetNeeded: json.projectRevenueBudgetNeeded ?? d.projectRevenueBudgetNeeded,
             projectExpenseBudgetNeeded: json.projectExpenseBudgetNeeded ?? d.projectExpenseBudgetNeeded,
+            projectTimeCostsNeeded: json.projectTimeCostsNeeded ?? d.projectTimeCostsNeeded,
+            projectTimeOfPersonNeeded: json.projectTimeOfPersonNeeded ?? d.projectTimeOfPersonNeeded,
+            projectTimeOfEquipmentNeeded: json.projectTimeOfEquipmentNeeded ?? d.projectTimeOfEquipmentNeeded,
+            projectMaterialCostsNeeded: json.projectMaterialCostsNeeded ?? d.projectMaterialCostsNeeded,
+            projectExpenseCostsNeeded: json.projectExpenseCostsNeeded ?? d.projectExpenseCostsNeeded,
             calendarForTaskPlan: json.calendarForTaskPlan ?? d.calendarForTaskPlan,
           }
         : d,
@@ -360,7 +365,7 @@ export default function PMRecentProjectsToolbar({
             mainSupplierContractGUID: draft.mainSupplierContractGUID ?? null,
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
-            ...financeValuesOf(draft),
+            ...taskEditScreenValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
@@ -389,7 +394,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
-      Object.assign(row.rowJSON, financeValuesOf(draft));
+      Object.assign(row.rowJSON, taskEditScreenValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -781,7 +786,7 @@ export default function PMRecentProjectsToolbar({
                 )}
 
                 {activeTab === 'TabFinances' && (
-                  <PMProjectFinanceTab
+                  <PMProjectTaskEditScreenTab
                     values={draft || {}}
                     onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
                   />

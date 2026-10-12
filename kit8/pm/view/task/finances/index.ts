@@ -4,5 +4,6 @@ export { default as PMProjectFinancesView } from './PMProjectFinancesView';
 export * from './taskLineModel';
 export * from './taskLineMoney';
 export * from './taskLineCatalogs';
+export * from './taskLineResource';
 export { computeTaskLineRowJSON } from './taskLineCompute';
 export { taskLineSystemMetaData } from './taskLineMetaData';

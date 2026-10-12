@@ -11,12 +11,13 @@ const PANEL_PAD = 8; // panel paddingHorizontal + border
 const EDGE = 4; // gap to the tree edges
 
 /** Buttons in the panel: add below · add above · (stage: add inside) · 10 row actions (incl. add stage below / above, Google Calendar) (PMRowActionButtons) · drag handle (last). */
-export function treeRowPanelIconCount(isSummary: boolean) {
-  return 2 + (isSummary ? 1 : 0) + 10 + 1;
+export function treeRowPanelIconCount(isSummary: boolean, withDragHandle = true) {
+  return 2 + (isSummary ? 1 : 0) + 10 + (withDragHandle ? 1 : 0);
 }
 
-export function treeRowPanelNaturalWidth(isSummary: boolean) {
-  return treeRowPanelIconCount(isSummary) * PM_TREE_ROW_PANEL_ICON_WIDTH + PANEL_PAD;
+/** `withDragHandle` false = uxuiSettings.dragAndDropTaskInTree is off: no drag handle, one icon less */
+export function treeRowPanelNaturalWidth(isSummary: boolean, withDragHandle = true) {
+  return treeRowPanelIconCount(isSummary, withDragHandle) * PM_TREE_ROW_PANEL_ICON_WIDTH + PANEL_PAD;
 }
 
 export interface PMTreeRowPanelBox {
@@ -25,8 +26,8 @@ export interface PMTreeRowPanelBox {
   width: number;
 }
 
-export function placeTreeRowPanel(layout: PMTreeColumnsLayout, isSummary: boolean): PMTreeRowPanelBox {
-  const width = Math.max(0, Math.min(treeRowPanelNaturalWidth(isSummary), layout.width - 2 * EDGE));
+export function placeTreeRowPanel(layout: PMTreeColumnsLayout, isSummary: boolean, withDragHandle = true): PMTreeRowPanelBox {
+  const width = Math.max(0, Math.min(treeRowPanelNaturalWidth(isSummary, withDragHandle), layout.width - 2 * EDGE));
   const name = layout.byKey.name;
   const anchorRight = name ? name.x + name.w - EDGE : layout.width - EDGE;
   // content coordinates: the columns may be wider than the pane (horizontal scroll)

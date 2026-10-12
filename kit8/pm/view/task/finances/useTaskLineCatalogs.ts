@@ -10,6 +10,7 @@ import { BUDGET_ITEM_TABLE } from '../../../../catalog/budget/item/budgetItemMod
 import { DISTRIBUTION_TABLE } from '../../../../catalog/distribution/distributionModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../catalog/person/personModel';
+import { EQUIPMENT_ENTITY } from '../../../../catalog/equipment/equipmentModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
 import { emptyTaskLineCatalogs, TaskLineCatalogData } from './taskLineCatalogs';
 
@@ -28,6 +29,7 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   descriptorDestination: PRODUCT_TABLES.descriptorDestination.entity,
   propertyValue: PRODUCT_TABLES.propertyValue.entity,
   person: PERSON_ENTITY,
+  equipment: EQUIPMENT_ENTITY,
   resourceContractTemplate: TEMPLATE_RESOURCE_CONTRACT_ENTITY,
   valueAddedTax: PRODUCT_TABLES.valueAddedTax.entity,
   measureUnit: PRODUCT_TABLES.measureUnit.entity,

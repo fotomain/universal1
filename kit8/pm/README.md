@@ -264,6 +264,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `taskProgressLineColor` | one of the set ('#FCFF00') | task bar progress lines |
 | `projectProgressLineColor` | one of the set ('#FCFF00') | project progress line |
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
+| `dragAndDropTaskInTree` | bool (true) | drag & drop of tasks in the tree: the **drag column** (a ⠿ grip per row, `PM_TREE_DRAG_WIDTH`, right after the select column; press it and move = move the task, also on touch), dragging from `#` / Task name and the hover panel handle. `false` = no task dragging at all: no column, no handle (the panel is one icon narrower). Settings window → Tree |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
 | `projectTreeContextCommandsMode` | 'onHoverPanelMode' \| 'onRightClickMenuMode' ('onRightClickMenuMode' = the default: a new project, the demo projects, nothing stored) | tree row commands: hover panel, or `PMTaskRowMenu` on right-click (web) / long-press and release (touch) |
@@ -374,6 +375,32 @@ Full description: `kit8/pm/view/task/finances/README.md`.
   quiet when it fails; not an undo step. **Activated when the task is opened**: the task window opens on the tab it was edited on
   (`modalTabOf`), the task page scrolls to the section and keeps it in view while the content above it loads (`view/task/useTaskPlaceActivation.ts`),
   Finances (task page and Finances view) opens the genus tab and marks the line.
+
+### Input switches and equipment on a Time line (2026-10-12)
+
+Project settings → **Finances** tab (`view/project/settings/PMProjectTaskEditScreenTab.tsx`, was `PMProjectFinanceTab`) → *Budgets*: while **Expense budget needed** (`projectExpenseBudgetNeeded`) is on, the
+input switches appear (pure rules: `model/taskInputScope.ts`, tests `__tests__/pm/model/taskInputScope.test.ts`):
+
+| switch (`project_table.rowJSON`) | label | what it does |
+|---|---|---|
+| `projectTimeCostsNeeded` | Time input needed | the Time tab (default on) |
+| `projectTimeOfPersonNeeded` | Time of person input needed | Time lines of a person (default on) |
+| `projectTimeOfEquipmentNeeded` | Time of equipment input needed | Time lines of an equipment (default **off**); with Person: the menu "Resource: Person \| Equipment" |
+| `projectMaterialCostsNeeded` | Material input needed | the Material tab (default on) |
+| `projectExpenseCostsNeeded` | Expense input needed | the Expenses tab (default on) |
+
+* **Master off = everything as before** (all four tabs, person Time lines). A switch that was never saved reads as its default (`taskInputSwitchesOf`, not `false`).
+* **Hidden is not deleted**: a switch under a parent that is off keeps its value; a tab (or a kind of Time resource) that already has lines is never hidden (`tabVisible`, `timeKindsOffered`).
+* **Time needs a kind**: turning off the last of Person / Equipment turns Time off; turning Time on with no kind chosen turns Person on (`applyTaskInputPatch`).
+* The Finances view / task page read them in `PMProjectTaskFinancesCRUD` (tabs, the kinds of the Time table). Equipment: `kit8/catalog/equipment/README.md`; the Time line: `view/task/finances/README.md`.
+
+### The view switch, Reports and Network (2026-10-12)
+
+* Main switch (`GanttToggleButtons`) - **ONE only, in the app bar** (`ApplicationBarApp`, left of the title); the Gantt, Kanban, Versions, Edit, Budgets, Reports and Network bars no longer carry a copy (2026-10-12): **Gantt · Edit · Kanban · Versions · Reports · Budgets** - **Budgets (`showPlanView`) is always the last** (`viewButtonsOrderOf` pins it, whatever order a user saved; the others can still be dragged).
+* **Network has no button in the main switch.** It is a section of Reports: pressing **Reports** shows one bar: the title, right after it **`GanttRightSideToggle`** (`view/gantt/toolbars/GanttRightSideToggle.tsx`, old name `PMReportsSectionButtons`): **Costs | Revenues | Network**, then (right) the note "Amounts in …". *Network* opens the network view (`ganttVsNetworkView = 'showNetworkView'`, unchanged); its bar shows the same toggle with Network lit.
+* **Costs / Revenues** are pages of the Reports view (`store.reportsSection`, session only): the sums of the task lines of the WHOLE project (`view/reports/reportsModel.ts`, lines from `useProjectTaskLines`): cards
+  (lines, sum, VAT, total; Costs also Time of persons / of equipment), by kind (genus), by budget item, by task. Amounts are the accounting-currency sums when the project has an accounting currency, else the sums
+  of the lines. Tests: `__tests__/pm/view/reports`, `__tests__/pm/ui/reportsView.test.tsx`.
 
 ## Project versions (`kit8/pm/version`)
 

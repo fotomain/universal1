@@ -545,6 +545,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
+              <Drawer.Screen name="catalog/equipment/dashboard/index" options={{ title: 'Equipment (properties and variants)', drawerLabel: 'Equipment (properties and variants)' }} />
               <Drawer.Screen name="currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />
               <Drawer.Screen name="currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
               <Drawer.Screen name="currency/exchange/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rates' }} />

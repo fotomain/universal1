@@ -98,6 +98,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       return { userSettingsByProject, ...applied, ...(v ? rowsOf({ ...state, ...applied }) : {}) };
     }),
   showTreeHierarchyNumbers: true,
+  dragAndDropTaskInTree: true,
   projectTreeContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
   projectGanttChartContextCommandsMode: PM_DEFAULT_CONTEXT_COMMANDS_MODE,
   selectRowCheckBoxForm: 'formRound',
@@ -182,6 +183,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
           ? { startMs: period.startMs, finishMs: period.finishMs, nonce: (s.ganttPeriod?.nonce ?? 0) + 1 }
           : null,
     })),
+  reportsSection: 'costs',
+  setReportsSection: (section) => set({ reportsSection: section === 'revenues' ? 'revenues' : 'costs' }),
   ganttPeriodOpen: false,
   setGanttPeriodOpen: (open) => set({ ganttPeriodOpen: open }),
   refreshTreeRows: () => set((state) => rowsOf(state)),

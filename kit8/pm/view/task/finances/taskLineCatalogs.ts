@@ -13,6 +13,7 @@ import type { LineSuggestion } from './taskLineMoney';
 import { contractUnitPrice, CONTRACT_UNIT_HOUR } from './taskLineContractCost';
 import { lineNumber } from './taskLineMoney';
 import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
+import { lineResourceKind, roleResourceKind } from './taskLineResource';
 
 /** every list a line needs (as read into redux; a missing list = []) */
 export interface TaskLineCatalogData {
@@ -30,10 +31,12 @@ export interface TaskLineCatalogData {
   descriptorValue: DefRow<any>[];
   descriptorPlan: DefRow<any>[];
   descriptorDestination: DefRow<any>[];
-  /** what the roles require (owner = role) and what the persons are (owner = person) */
+  /** what the roles require (owner = role) and what the persons / equipment are (owner = person / equipment) */
   propertyValue: DefRow<any>[];
   /** personTable: rowJSON.personType decides the descriptor sets of a person */
   person: DefRow<any>[];
+  /** equipmentTable: rowJSON.equipmentType decides the descriptor sets of an equipment (a Time line with taskResourceKind = 'equipment') */
+  equipment: DefRow<any>[];
   /** templateResourceContractTable: the contract a Material / Expense / Revenue line asks for (owner = management genus) */
   resourceContractTemplate: DefRow<any>[];
   valueAddedTax: DefRow<any>[];
@@ -48,7 +51,7 @@ export interface TaskLineCatalogData {
 
 export const emptyTaskLineCatalogs = (): TaskLineCatalogData => ({
   managementGenus: [], budgetItem: [], distribution: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
-  descriptorDestination: [], propertyValue: [], person: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
+  descriptorDestination: [], propertyValue: [], person: [], equipment: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
   priceType: [], productType: [], product: [], productPrice: [], contract: [],
 });
 
@@ -77,6 +80,16 @@ export function genusOfRole(d: TaskLineCatalogData, role: DefRow<any> | undefine
 /** the roles a line of this genus can book (Time: the roles of the time genus ...) */
 export const rolesOfGenus = (d: TaskLineCatalogData, genus: string): DefRow<any>[] =>
   d.resourceRole.filter((r) => genusOfRole(d, r) === genus);
+
+/**
+ * the role can be booked by THIS line: a role of the genus of the line and - on a Time line - of the kind of its resource (the role type's
+ * `resourceKind`: a person's roles for a person line, an equipment's roles for an equipment line)
+ */
+export function roleFitsLine(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>, role: DefRow<any> | undefined | null): boolean {
+  if (!role || genusOfRole(d, role) !== genus.genus) return false;
+  const kind = lineResourceKind(genus, json);
+  return kind === 'product' || roleResourceKind(d, role) === kind;
+}
 
 /** the variants of a role as picker options: the descriptorKey is stored, the title shown */
 export function roleVariantOptions(d: TaskLineCatalogData, roleGUID: string | null | undefined): { value: string; label: string }[] {
@@ -120,7 +133,8 @@ export function suggestForLine(d: TaskLineCatalogData, genus: TaskLineGenusDef, 
   let priceSource: LineSuggestion['priceSource'] = null;
   let measureUnit: string | null = null;
   let vatPercent: number | null = null;
-  if (genus.resource === 'person' && isSet(json.taskResourceContract)) {
+  // an equipment has no contract: its hour is costed by the rate of the role
+  if (lineResourceKind(genus, json) === 'person' && isSet(json.taskResourceContract)) {
     const contract = d.contract.find((c) => c.rowGUID === json.taskResourceContract);
     const unit = isSet(json.measureUnitTaskLine) ? json.measureUnitTaskLine : isSet(roleType?.rowJSON?.baseUnit) ? roleType!.rowJSON.baseUnit : CONTRACT_UNIT_HOUR;
     const cp = contractUnitPrice(contract?.rowJSON, unit);
@@ -171,8 +185,15 @@ export function lineContractCurrency(d: TaskLineCatalogData, json: Partial<TaskL
 export function lineProblems(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>): string[] {
   const out: string[] = [];
   const role = d.resourceRole.find((r) => r.rowGUID === json.resourceRoleItem);
+  const kind = lineResourceKind(genus, json);
   if (isSet(json.resourceRoleItem) && !role) out.push('The role does not exist any more');
   else if (role && genusOfRole(d, role) !== genus.genus) out.push(`The role is not a ${genus.title} role`);
+  else if (role && kind !== 'product' && roleResourceKind(d, role) !== kind) out.push(`The role is not ${kind === 'equipment' ? 'an equipment' : 'a person'} role`);
+  if (isSet(json.taskResourceItem) && kind === 'equipment') {
+    const eq = d.equipment.find((e) => e.rowGUID === json.taskResourceItem);
+    if (!eq) out.push('The equipment does not exist any more');
+    else if (eq.rowJSON?.isActive === false) out.push('The equipment is not active');
+  }
   if (isSet(json.taskResourceItem) && genus.resource === 'product' && !d.product.some((p) => p.rowGUID === json.taskResourceItem)) out.push('The product does not exist any more');
   if (lineNumber(json.priceTaskLine) !== null && lineNumber(json.qtyTaskLine) === null) out.push('Quantity is empty');
   // the contract template asked for: it must exist and belong to the genus of the line

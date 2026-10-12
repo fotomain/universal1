@@ -19,3 +19,4 @@ export type { PMGanttToolbarActions } from './toolbars/PMGanttToolbar';
 export { default as PMGanttLinkModeHint } from './toolbars/PMGanttLinkModeHint';
 export { default as DependencyArrowLineFormSelector, DEPENDENCY_LINE_FORMS } from '../task/dependency/DependencyArrowLineFormSelector';
 export { default as GanttToggleButtons } from './toolbars/GanttToggleButtons';
+export { default as GanttRightSideToggle } from './toolbars/GanttRightSideToggle';

@@ -77,6 +77,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     networkDiagramVariant: u.networkDiagramVariant,
     networkScheduleVariant: u.networkScheduleVariant,
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers,
+    dragAndDropTaskInTree: u.dragAndDropTaskInTree,
     projectTreeContextCommandsMode: u.projectTreeContextCommandsMode,
     projectGanttChartContextCommandsMode: u.projectGanttChartContextCommandsMode,
     selectRowCheckBoxForm: u.selectRowCheckBoxForm,

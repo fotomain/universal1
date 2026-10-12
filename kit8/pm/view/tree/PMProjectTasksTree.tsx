@@ -42,6 +42,7 @@ import PMTreeRowHoverPanel from './panels/PMTreeRowHoverPanel';
 import PMTreeToolbar from './toolbars/PMTreeToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { PMTipIcon } from '../../inner/buttons';
+import IconApp from '../../../ui/components/common/IconApp';
 import { pmT } from '../../i18n/pmT';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
@@ -92,6 +93,8 @@ const RESIZE_GRAB = IS_WEB ? PM_TREE_RESIZE_GRAB : 12;
 const BOOL_BOX = 12;
 /** Width of the multi-selection column (round check boxes) - always the FIRST column, left of the grid. */
 export const PM_TREE_SELECT_WIDTH = 30;
+/** Width of the drag column (a grip per row, uxuiSettings.dragAndDropTaskInTree): right after the multi-selection column. */
+export const PM_TREE_DRAG_WIDTH = 24;
 
 function RoundCheck({ checked, partial, color, muted }: { checked: boolean; partial?: boolean; color: string; muted: string }) {
   // uxuiSettings.selectRowCheckBoxForm: formRound (default) | formSquare
@@ -144,10 +147,14 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   /** uxui.hideTreeSelectColumn: the "select lines" column is switched off with the tree tool bar button */
   const showSelectColumn = !useSelector((s: any) => !!s.uxuiState?.hideTreeSelectColumn);
   const selectW = showSelectColumn ? PM_TREE_SELECT_WIDTH : 0;
-  /** the posted column (check sign of a posted task) sits between the select column and the grid: always there */
+  /** uxuiSettings.dragAndDropTaskInTree (default true): the drag column + dragging from # / Task name + the panel's handle; false = no task dragging */
+  const dragEnabled = usePMStore((s) => s.dragAndDropTaskInTree);
+  /** the drag column (a grip per row) follows the select column */
+  const dragW = dragEnabled ? PM_TREE_DRAG_WIDTH : 0;
+  /** the posted column (check sign of a posted task) sits between the drag column and the grid: always there */
   const statusW = PM_TREE_POST_STATUS_WIDTH;
-  /** everything left of the grid (Skia canvas): the multi-selection column + the posted column */
-  const leftW = selectW + statusW;
+  /** everything left of the grid (Skia canvas): the multi-selection column + the drag column + the posted column */
+  const leftW = selectW + dragW + statusW;
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
   const { indicators: postIndicators } = useProjectTaskLines(selectedProjectGUID);
   /** the grid (Skia canvas) starts after the multi-selection and the posted columns */
@@ -488,6 +495,11 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const dragY = useSharedValue(0);
   const dropSlot = useSharedValue(-1);
   const handleStartY = useSharedValue(0);
+  /** UI-thread copy of uxuiSettings.dragAndDropTaskInTree */
+  const dragEnabledSV = useSharedValue(true);
+  useEffect(() => {
+    dragEnabledSV.value = dragEnabled;
+  }, [dragEnabled, dragEnabledSV]);
   const handleStartScroll = useSharedValue(0);
   const ghostOpacity = useDerivedValue(() => (dragFrom.value >= 0 ? 1 : 0));
   const dropLineY = useDerivedValue(() => Math.max(0, dropSlot.value) * PM_ROW_HEIGHT - 1);
@@ -570,7 +582,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       !!guid &&
       panelShownFor.current === guid &&
       (() => {
-        const box = placeTreeRowPanel(colsRef.current, !!s.schedule[guid]?.isSummary);
+        const box = placeTreeRowPanel(colsRef.current, !!s.schedule[guid]?.isSummary, s.dragAndDropTaskInTree);
         return isOverTreeRowPanel({ left: treeRowPanelViewLeft(box.left, box.width, sx, colsRef.current.width), width: box.width }, vx);
       })();
     const inCells = !!field && !onPanel;
@@ -807,7 +819,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const panelIndex = panelGUID ? rowIndexById[panelGUID] ?? -1 : -1;
   const panelIsSummary = panelGUID ? !!schedule[panelGUID]?.isSummary : false;
   // the panel takes the width its icons need (not only the Task name column)
-  const panelBox = useMemo(() => placeTreeRowPanel(layout, panelIsSummary), [layout, panelIsSummary]);
+  const panelBox = useMemo(() => placeTreeRowPanel(layout, panelIsSummary, dragEnabled), [layout, panelIsSummary, dragEnabled]);
   /** UI-thread copy of the panel box (content x): taps / drags on the panel must not reach the canvas */
   const panelRowSV = useSharedValue(-1);
   const panelLeftSV = useSharedValue(0);
@@ -855,7 +867,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   }, [canvasH, canvasHSV]);
 
   const bridge = kanbanBridge;
-  const { gesture, handleGesture } = useMemo(() => {
+  const { gesture, handleGesture, dragColumnGesture } = useMemo(() => {
     /** view x of the panel's left edge (it follows its column but stays inside the pane) */
     const onPanel = (idx: number, vx: number) => {
       'worklet';
@@ -946,7 +958,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         }
         const idx = rowAt(e.y);
         // drag & drop only from the Task name / # columns (the cells are for inline editing)
-        if (idx < 0 || !inRowDragZone(cx(e.x)) || onPanel(idx, e.x)) return;
+        if (idx < 0 || !dragEnabledSV.value || !inRowDragZone(cx(e.x)) || onPanel(idx, e.x)) return;
         dragFrom.value = idx;
         dragging.value = 1;
         runOnJS(hidePMTip)();
@@ -1068,7 +1080,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       .onStart(() => {
         'worklet';
         const idx = panelRowSV.value;
-        if (idx < 0) return;
+        if (idx < 0 || !dragEnabledSV.value) return;
         dragFrom.value = idx;
         dragging.value = 1;
         dragY.value = idx * PM_ROW_HEIGHT;
@@ -1105,6 +1117,43 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         if (bridge) kanbanBridgeFinish(bridge);
       });
 
+    /** the drag column (a grip per row, left of the grid): press a row's grip and move = move the task; no long press, also on touch */
+    const dragColumn = Gesture.Pan()
+      .minDistance(2)
+      .onStart((e) => {
+        'worklet';
+        if (!dragEnabledSV.value) return;
+        const idx = rowAt(e.y);
+        if (idx < 0) return;
+        dragFrom.value = idx;
+        dragging.value = 1;
+        runOnJS(hidePMTip)();
+        dragY.value = idx * PM_ROW_HEIGHT;
+        dropSlot.value = idx;
+      })
+      .onChange((e) => {
+        'worklet';
+        if (dragFrom.value < 0) return;
+        dragY.value += e.changeY;
+        // the column starts `selectW` px from the left of the pane, the grid at `leftW`: the surface x of the finger
+        if (bridge && kanbanBridgeMove(bridge, e.x + selectW, e.y + TB, dragFrom.value)) return;
+        const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
+        dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
+      })
+      .onEnd(() => {
+        'worklet';
+        if (dragFrom.value < 0) return;
+        if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+      })
+      .onFinalize(() => {
+        'worklet';
+        dragFrom.value = -1;
+        dropSlot.value = -1;
+        dragging.value = 0;
+        if (bridge) kanbanBridgeFinish(bridge);
+      });
+
     // web: mouse-drag = reorder (wheel scrolls); touch: long-press-drag = reorder, drag = scroll
     // touch: both run together - a finger that moves scrolls AT ONCE (rows and columns, also when it went
     // down on the task name); a finger that stays 350 ms starts the reorder, and `scroll` then stands still
@@ -1120,9 +1169,10 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     return {
       gesture: Gesture.Simultaneous(hover, rowMenu, Gesture.Race(Gesture.Exclusive(header, pans), Gesture.Exclusive(doubleTap, tap))),
       handleGesture: handle,
+      dragColumnGesture: dragColumn,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, leftW]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, leftW, dragEnabledSV, selectW]);
 
   // ---- multi selection column (round check boxes): rows follow the vertical scroll on the UI thread ----
   const selectRowsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -scrollY.value }] }));
@@ -1201,6 +1251,28 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           >
             <RoundCheck checked={allChecked} partial={checkedCount > 0} color={palette.primary} muted={palette.textMuted} />
           </Pressable>
+        </View>
+      </GestureDetector>
+      )}
+      {/* ---- drag column (uxuiSettings.dragAndDropTaskInTree, default true): a grip per row, right after the multi-selection column; press it and move = move the task ---- */}
+      {dragEnabled && (
+      <GestureDetector gesture={dragColumnGesture}>
+        <View testID="pm-tree-drag-column" style={{ width: PM_TREE_DRAG_WIDTH, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+          <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: PM_TREE_DRAG_WIDTH, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
+            <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PM_TREE_DRAG_WIDTH }, selectRowsStyle]}>
+              {rows.map((r) => (
+                <View
+                  key={r.guid}
+                  testID={`pm-tree-drag-${r.guid}`}
+                  accessibilityLabel={`Drag ${r.name}`}
+                  style={[{ position: 'absolute', left: 0, top: r.y, width: PM_TREE_DRAG_WIDTH, height: PM_ROW_HEIGHT, alignItems: 'center', justifyContent: 'center' }, IS_WEB ? ({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as any) : null]}
+                >
+                  <IconApp name="drag_indicator" size={16} color={palette.textMuted} />
+                </View>
+              ))}
+            </Animated.View>
+          </View>
+          <View testID="pm-tree-drag-header" style={{ height: PM_SCALE_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }} />
         </View>
       </GestureDetector>
       )}
@@ -1362,6 +1434,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
               left={0}
               animatedStyle={panelStyle}
               dragGesture={handleGesture}
+              dragHandle={dragEnabled}
             />
           )}
         </View>

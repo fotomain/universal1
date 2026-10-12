@@ -77,9 +77,22 @@
 <main>
 
 <section id="read">
-  <h1>Equipment as a Time line <span class="pill ask">analysis only - no code written</span></h1>
+  <h1>Equipment as a Time line <span class="pill new">built 2026-10-12</span></h1>
   <p class="lead">Source: Google Doc "W1 Equipment" ("Do not code. Analyze and improve pattern. Make ./recommendation/EQUIPMENT_TIME.html"). I read the task-line, plan, person, role,
-  budget-item and project-settings code and checked every statement below against it. Nothing in the app was changed.</p>
+  budget-item and project-settings code and checked every statement below against it. (When this page was written nothing in the app had been changed; see the status below.)</p>
+
+  <div class="good" id="built">
+    <b>Status: built.</b> D1-D7 and the answers Q1-Q8 were accepted (Q1 = <i>Person or Equipment</i>; Q2 = hide the tabs that are not needed; Q3 = the labels
+    <i>Time input needed · Material input needed · Expense input needed</i>, and so on; Q4-Q8 as recommended). Where it lives:
+    <ul class="tight">
+      <li>Switches: <code>kit8/pm/model/taskInputScope.ts</code> + <code>PMProjectTaskEditScreenTab.tsx</code> (the renamed <code>PMProjectFinanceTab</code>); keys <code>projectTimeCostsNeeded</code>, <code>projectTimeOfPersonNeeded</code>, <code>projectTimeOfEquipmentNeeded</code>, <code>projectMaterialCostsNeeded</code>, <code>projectExpenseCostsNeeded</code>. The master keeps its label "Expense budget needed".</li>
+      <li>Hiding tabs (Q2 / D5 phase 2): master on + an EMPTY tab whose input is off = hidden; a tab that has lines is never hidden; master off = as before.</li>
+      <li>Equipment catalog: <code>kit8/catalog/equipment</code> (README there) + route <code>/catalog/equipment/dashboard</code>; SQL = PART 17 of <code>start_sql_structure.sql</code> (also in <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>), PART 6 of <code>delete_sql_structure.sql</code>; tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code>.</li>
+      <li>Time line: <code>taskResourceKind</code>, the menu <i>Resource</i>, <code>taskLineResource.ts</code> (P1), generalized <code>taskLinePersonMatch.ts</code> (P3), the role type <code>resourceKind</code> (D4), the Plan view fix; P2 = <code>product/crud/descriptorSides.ts</code>; P4 = <code>catalogEntityNameOf</code> in <code>ReusableTable</code>.</li>
+      <li>Not built (on purpose): a lessor contract / hours per day on the equipment (D3 phase 2), the second budget item "Equipment time" (Q8, later), double-booking of a machine, translations of the new texts (<code>pmT</code> shows the English text until the dictionaries have them, as for the other Finances texts).</li>
+    </ul>
+    The text below is the recommendation as it was written, before the work.
+  </div>
 
   <h3>What the document asks for (my reading)</h3>
   <div class="card"><ol class="steps">

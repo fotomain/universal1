@@ -20,6 +20,7 @@
 --   14. create_management_calendar_tables.sql - management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar
 --   15. create_task_line_plan_table.sql - task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
 --   16. create_user_calendar_tables.sql - user calendars, events, reminders
+--   17. create_equipment_tables.sql - equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
 -- ===============================================================================================
 
 
@@ -3894,7 +3895,8 @@ NOTIFY pgrst, 'reload schema';
 --   rowPeriodDatetime  the start of the day (00:00:00) - unique with the line
 --   rowCoefficient     the share of the day, NORMALIZED: the coefficients of a line add up to baseOfDistribution (1)
 --   qtyTaskLine · sumForBudget · sumForContract     the result of the distribution, rounded to 2 digits
---   rowJSON            { budgetItemTaskLine, taskManagementGenusLine } copied from the line, so a report needs no join
+--   rowJSON            { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind } copied from the line, so a report needs no join
+--                      (taskResourceKind: 'person' | 'equipment' of a Time line, null = a person or not a Time line)
 -- The app only READS this table. Rows are written by ONE procedure, in ONE transaction:
 --   create_task_line_plan("taskLinePlanJSON")   (see below)
 --
@@ -4020,7 +4022,8 @@ BEGIN
   FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
     v_guid := (v_line->>'lineGUID')::uuid;
     v_idx  := v_idx + 1;
-    SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID")
+    SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID",
+                                                 'taskResourceKind', COALESCE(l."rowJSON"->'taskResourceKind', 'null'::jsonb))
       INTO v_genus, v_item
       FROM public.task_line_table l WHERE l."rowGUID" = v_guid AND l."rowOwnerGUID" = v_task;
     IF v_genus IS NULL THEN
@@ -4374,6 +4377,123 @@ NOTIFY pgrst, 'reload schema';
 --   DROP FUNCTION IF EXISTS public.user_calendar_project_task_sync(), public.user_calendar_project_sync(),
 --                           public.user_calendar_project_task_json(public.project_task_table);
 --   DROP TABLE IF EXISTS public.user_calendar_invitation_table, public.user_calendar_event_table, public.user_calendar_table;
+
+
+-- ===============================================================================================
+-- PART 17: create_equipment_tables.sql
+-- equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - EQUIPMENT: create_equipment_tables.sql
+-- (run AFTER everything above; IDEMPOTENT + NON-DESTRUCTIVE - safe to run twice. Remove again with the equipment part of delete_sql_structure.sql.)
+--
+-- Equipment = a machine or a tool that is booked BY THE HOUR on a Time line of a task, like a person (recommendation/EQUIPMENT_TIME.html).
+--   equipmentTypeTable   Heavy machinery · Vehicle    the twin of personTypeTable: a type decides the descriptor sets (Property / Variant) of its equipment
+--   equipmentTable       the equipment                rowJSON { equipmentTitle, equipmentCode, equipmentType, equipmentOwnership ('own' | 'rented' | 'leased'),
+--                                                              equipmentManufacturer, equipmentModel, equipmentSerialNumber, isActive }
+--   rowGUID · rowOwnerGUID ('equipmentTypeCatalog' / 'equipmentCatalog') · rowParentGUID 'empty' · orderInList · rowJSON - the defTable pattern.
+--   An equipment has its OWN Properties (what it IS: Engine power 110 kW) and Variants (what it can be BOOKED AS: Heavy, With operator) on the
+--   shared descriptor tables: propertyValueTable / variantTable, owner = the equipment; the sets belong to the equipment TYPE.
+--   Cost: an equipment has no rates and no contract of its own - the hour is costed by the rate of the RESOURCE ROLE of the line (rolePriceTable).
+--
+-- Also here:
+--   * the role type "Equipment Resources" (genus timeGenus, resourceRoleTypeTable.rowJSON.resourceKind = 'equipment'): the roles an equipment line can book,
+--     with their requirements (min. engine power), variants (Heavy, With operator ...) and hourly rates
+--   * task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person): a CHECK keeps the value honest and allows an equipment on a Time line only
+-- =====================================================================================
+
+DO $$
+BEGIN
+  IF to_regprocedure('public.kit8_setup_def_table(text)') IS NULL OR to_regclass('public."descriptorGenusTable"') IS NULL OR to_regclass('public."resourceRoleTypeTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run the parts above first (kit8_setup_def_table, the descriptor tables, resourceRoleTypeTable)';
+  END IF;
+END $$;
+
+-- ---- equipmentTypeTable + equipmentTable ---------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public."equipmentTypeTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentTypeCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_equipmentTypeTable_owner_order" ON public."equipmentTypeTable" ("rowOwnerGUID", "orderInList");
+SELECT public.kit8_setup_def_table('equipmentTypeTable');
+
+CREATE TABLE IF NOT EXISTS public."equipmentTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT equipment_ownership_chk CHECK (COALESCE("rowJSON"->>'equipmentOwnership', 'own') IN ('own', 'rented', 'leased'))
+);
+CREATE INDEX IF NOT EXISTS "idx_equipmentTable_title" ON public."equipmentTable" ((lower("rowJSON"->>'equipmentTitle')));
+CREATE INDEX IF NOT EXISTS "idx_equipmentTable_type" ON public."equipmentTable" (("rowJSON"->>'equipmentType'));
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_equipmentTable_code" ON public."equipmentTable" (lower("rowJSON"->>'equipmentCode')) WHERE NOT coalesce("rowJSON"->>'equipmentCode', '') = '';
+SELECT public.kit8_setup_def_table('equipmentTable');
+
+-- access: signed-in users (as personTable / personTypeTable)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['equipmentTypeTable', 'equipmentTable'] LOOP
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+  END LOOP;
+END $$;
+
+-- ---- task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person) -------------------------------------------
+-- a CHECK keeps the value honest and allows an equipment on a Time line only; every line made before equipment has no kind and passes
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_line_resource_kind_chk' AND conrelid = 'public.task_line_table'::regclass) THEN
+    ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_resource_kind_chk CHECK (
+      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment')
+      AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
+  END IF;
+END $$;
+
+-- ---- realtime ------------------------------------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  t text;
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['equipmentTypeTable', 'equipmentTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT t."rowJSON"->>'title' AS type, count(e.*) AS equipment FROM public."equipmentTypeTable" t LEFT JOIN public."equipmentTable" e ON e."rowJSON"->>'equipmentType' = t."rowGUID" GROUP BY 1;
+--   SELECT e."rowJSON"->>'equipmentTitle', v."rowJSON"->>'title' FROM public."equipmentTable" e JOIN public."variantTable" v ON v."rowOwnerGUID" = e."rowGUID" ORDER BY 1, 2;
+--   SELECT r."rowJSON"->>'title', pv."rowJSON"->>'value' AS min_power_kw FROM public."resourceRoleTable" r JOIN public."propertyValueTable" pv ON pv."rowOwnerGUID" = r."rowGUID" WHERE r."rowOwnerGUID" = 'equipmentResources';
 
 
 -- ===============================================================================================

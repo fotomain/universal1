@@ -8,11 +8,9 @@ import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES, ProductTableKey } from '../productModel';
-import { PERSON_ENTITY } from '../../person/personModel';
-import { PERSON_TYPE_TABLE } from '../../person/personTypeModel';
-import { RESOURCE_ROLE_OWN_TABLES } from '../../resourcerole/resourceRoleModel';
 import type { ProductCatalogData } from '../crud/productCatalogTools';
 import { sideOf, SideOwnedKey } from '../crud/catalogSides';
+import { otherSideEntities, otherSideRows } from '../crud/descriptorSides';
 
 /** readData payload of every product table (one PostgREST page = the whole table) */
 export const PRODUCT_READ_PARAMS = { paginationSize: 1000, originationCurrentPage: 0 };
@@ -28,8 +26,9 @@ function useTableRealtime(key: ProductTableKey, enabled: boolean) {
   return useRealtimeEntity(PRODUCT_TABLES[key].entity, { readParams: PRODUCT_READ_PARAMS, enabled });
 }
 
-/** the OTHER sides of the shared descriptor tables: resource roles and persons (types first, then items) */
-const ROLE_OWNER_ENTITIES = [RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity, RESOURCE_ROLE_OWN_TABLES.resourceRole.entity, PERSON_TYPE_TABLE.entity, PERSON_ENTITY];
+/** the OTHER sides of the shared descriptor tables: roles, persons and equipment (descriptorSides.ts; types first, then items) */
+const OTHER = otherSideEntities('product');
+const ROLE_OWNER_ENTITIES = OTHER.all;
 
 export function useProductCatalogData(enabled = true): {
   data: ProductCatalogData; status: Record<ProductTableKey, ProductTableStatus>; reload: () => void;
@@ -63,13 +62,13 @@ export function useProductCatalogData(enabled = true): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  const [roleTypes, roles, personTypes, persons] = roleOwnerLists;
   const { data, roleOwned } = useMemo(() => {
     const all = {} as ProductCatalogData;
     PRODUCT_TABLE_KEYS.forEach((k, i) => { all[k] = Array.isArray(lists[i]) ? lists[i] : []; });
-    const side = sideOf(all, [...(roleTypes || []), ...(personTypes || [])], [...(roles || []), ...(persons || [])]);
+    const other = otherSideRows('product', roleOwnerLists);
+    const side = sideOf(all, other.types, other.items);
     return { data: side.data, roleOwned: side.otherOwned };
-  }, [lists, roleTypes, roles, personTypes, persons]);
+  }, [lists, roleOwnerLists]);
 
   const status = useMemo(() => {
     const out = {} as Record<ProductTableKey, ProductTableStatus>;

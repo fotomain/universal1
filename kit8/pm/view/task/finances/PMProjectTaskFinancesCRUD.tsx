@@ -9,6 +9,10 @@
 // POST (kit8/pm/view/task/plan): the Post button is the first button of the bar. It posts the WHOLE task (all tabs): the days of every line with a budget item
 // go to task_line_plan in one SQL transaction. A line is "posted" until anything in it changes (taskIsPosted, taskLineCompute.ts).
 //
+// INPUT SWITCHES (project settings -> Finances, kit8/pm/model/taskInputScope.ts): with "Expense budget needed" on, an EMPTY tab whose input is switched off
+// (Time / Material / Expenses) is not offered, and a Time line may be a person or an equipment (the menu "Resource: Person | Equipment" is a column of
+// the Time table). Off = as before. A tab that has lines is never hidden: a switch never hides data.
+//
 // Shown by the task page (PMProjectTaskInfo) and the Finances view of the dashboard (PMProjectFinancesView). It does not know PMCrud:
 // `onEditPlace` tells the parent where the user edited (the parent saves rowJSON.lastEditPlace of the task, with its own surface) and
 // `initialPlace` is the place to open at (the genus tab + the line, marked). Stages have no lines: only tasks and milestones.
@@ -27,6 +31,7 @@ import { REUSABLE_TABLE_ALL } from '../../../../ui/components/table/reusable/reu
 import type { ReusableTableRow, ReusableTableRowEditKind } from '../../../../ui/components/table/reusable/reusableTableTypes';
 import { usePMStore } from '../../../store/store_pm';
 import { financesPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
+import { tabVisible, taskInputScopeOf, timeKindsOffered } from '../../../model/taskInputScope';
 import { pmT } from '../../../i18n/pmT';
 import { DISTRIBUTION } from '../../../../catalog/distribution/distributionModel';
 import { emptyTaskLine, TASK_LINE_ENTITY, TASK_LINE_GENUS, taskLineGenusDef, taskLineGenusOf } from './taskLineModel';
@@ -40,6 +45,7 @@ import { lineContractCurrency } from './taskLineCatalogs';
 import { useLineRateBook } from './useLineRateBook';
 import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
+import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -68,14 +74,29 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
 
   const startPlace = useRef(financesPlaceOf(initialPlace)).current;
-  const [genus, setGenus] = useState<string>(() => taskLineGenusOf(startPlace?.genus));
+  const [pickedGenus, setGenus] = useState<string>(() => taskLineGenusOf(startPlace?.genus));
   /** the line marked in the table: the one the place says, then the one the user edited last */
   const [focusLine, setFocusLine] = useState<string | null>(() => (startPlace?.lineGUID ?? null));
-  const def = taskLineGenusDef(genus) ?? TASK_LINE_GENUS[0];
 
   // every line of the task (all genus): the tab counts and sums. The table of the active tab reads the same rows (all-rows mode).
   const lines: TaskLineRow[] = useSelector((s: any) => s?.[TASK_LINE_ENTITY]?.entityDataFromServer, shallowEqual) ?? NO_LINES;
   const taskLines = useMemo(() => (Array.isArray(lines) ? lines.filter((l) => l.rowOwnerGUID === taskGUID) : NO_LINES), [lines, taskGUID]);
+
+  // ---- the input switches of the project: which tabs and which kinds of Time resource are offered (a tab with lines is never hidden) ----
+  const scope = useMemo(() => taskInputScopeOf(projectJSON), [projectJSON]);
+  const visibleGenus = useMemo(
+    () => TASK_LINE_GENUS.filter((g) => tabVisible(scope, g.genus, taskLines.filter((l) => l.rowParentGUID === g.genus).length)),
+    [scope, taskLines],
+  );
+  // the tab picked by the user (or by the place of the last edit) may have been switched off meanwhile: the first offered tab is shown instead
+  const genus = visibleGenus.some((g) => g.genus === pickedGenus) ? pickedGenus : (visibleGenus[0]?.genus ?? pickedGenus);
+  const def = taskLineGenusDef(genus) ?? TASK_LINE_GENUS[0];
+  const timeKinds = useMemo(
+    () => timeKindsOffered(scope, taskLines.filter((l) => l.rowParentGUID === MANAGEMENT_GENUS.time).map((l) => l.rowJSON?.taskResourceKind)),
+    [scope, taskLines],
+  );
+  /** an equipment is offered at all: the line says its kind itself (a project without it keeps lines without a kind = person) */
+  const equipmentOffered = timeKinds.includes('equipment');
   const totals = useMemo(() => taskLineTotals(taskLines), [taskLines]);
   // Post: the whole task; the state of the button (Post · Posted · Post needed) comes from the lines of ALL tabs
   const { state: postState, post } = useTaskPost({ projectGUID, taskGUID, lines: taskLines, distributions: data.distribution });
@@ -99,12 +120,14 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
     [taskLines, def, data, fx],
   );
   const columns = useMemo(
-    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors }),
-    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors],
+    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds }),
+    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds],
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it
-  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem]);
+  // a new Time line of a project that offers equipment says its kind: a person (the menu's first choice) - or an equipment when that is the only kind offered
+  const newTimeKind = def.resource !== 'product' && equipmentOffered ? (timeKinds.includes('person') ? 'person' : 'equipment') : undefined;
+  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind]);
   const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx), [data, def, fx]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */
@@ -161,7 +184,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   return (
     <View testID={testID} style={styles.root}>
       <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
-        {TASK_LINE_GENUS.map((g) => {
+        {visibleGenus.map((g) => {
           const active = g.genus === genus;
           const t = totals.find((x) => x.genus === g.genus);
           return (

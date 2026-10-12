@@ -14,6 +14,11 @@ jest.mock('../../../../../kit8/ui/components/common/IconApp', () => {
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), usePathname: () => '/pm/project/task', useGlobalSearchParams: () => ({}) }));
 jest.mock('react-native-paper', () => ({ useTheme: () => ({ colors: { surfaceVariant: 'rgb(231, 224, 236)' } }) }));
 jest.mock('expo-crypto', () => { let n = 0; return { randomUUID: () => `new-${++n}` }; });
+// the error window of Post (ErrorModalWindow -> ButtonApp) needs reanimated, which has no native module in jest
+jest.mock('react-native-reanimated', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: { View, createAnimatedComponent: (c: any) => c }, View, useSharedValue: (v: any) => ({ value: v }), useAnimatedStyle: () => ({}), withTiming: (v: any) => v, withSpring: (v: any) => v, runOnJS: (fn: any) => fn };
+});
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(() => Promise.resolve()) }));
 jest.mock('../../../../../kit8/redux/reusable/useRealtimeEntity', () => ({ useRealtimeEntity: jest.fn() }));
 const mockActions = {
@@ -106,6 +111,7 @@ import { RESOURCE_ROLE_OWN_TABLES } from '../../../../../kit8/catalog/resourcero
 import { MANAGEMENT_GENUS_TABLE } from '../../../../../kit8/catalog/management/genus/managementGenusModel';
 import { CONTRACT_ENTITY } from '../../../../../kit8/catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../../kit8/catalog/person/personModel';
+import { EQUIPMENT_ENTITY } from '../../../../../kit8/catalog/equipment/equipmentModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../../kit8/catalog/management/templateresourcecontract/templateResourceContractModel';
 import { BUDGET_ITEM_TABLE } from '../../../../../kit8/catalog/budget/item/budgetItemModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
@@ -134,9 +140,15 @@ function catalogState() {
     [RESOURCE_ROLE_OWN_TABLES.resourceRoleType.entity]: { entityDataFromServer: [
       def('type_hr', 'resourceRoleTypeCatalog', 'empty', { managementGenus: 'timeGenus', baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', variantMode: 'perType', variantSet: 'ds_hr_var' }),
       def('type_mat', 'resourceRoleTypeCatalog', 'empty', { managementGenus: 'materialGenus', baseUnit: 'unit_pcs', variantMode: 'none' }),
+      // the roles of EQUIPMENT (a Time line of the kind equipment picks these)
+      def('type_eq', 'resourceRoleTypeCatalog', 'empty', { managementGenus: 'timeGenus', resourceKind: 'equipment', baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', variantMode: 'none' }),
     ] },
-    [RESOURCE_ROLE_OWN_TABLES.resourceRole.entity]: { entityDataFromServer: [def('role_da', 'type_hr', 'empty', { title: 'Data analyst' }), def('role_wood', 'type_mat', 'empty', { title: 'Wood role' })] },
-    [RESOURCE_ROLE_OWN_TABLES.rolePrice.entity]: { entityDataFromServer: [def('rp1', 'role_da', 'empty', { priceTypeGUID: 'pt_cost', price: 40, measureUnit: 'unit_hour', validFrom: '2020-01-01' })] },
+    [RESOURCE_ROLE_OWN_TABLES.resourceRole.entity]: { entityDataFromServer: [def('role_da', 'type_hr', 'empty', { title: 'Data analyst' }), def('role_wood', 'type_mat', 'empty', { title: 'Wood role' }), def('role_exc', 'type_eq', 'empty', { title: 'Excavator 20 t' })] },
+    [RESOURCE_ROLE_OWN_TABLES.rolePrice.entity]: { entityDataFromServer: [
+      def('rp1', 'role_da', 'empty', { priceTypeGUID: 'pt_cost', price: 40, measureUnit: 'unit_hour', validFrom: '2020-01-01' }),
+      def('rp_exc', 'role_exc', 'empty', { priceTypeGUID: 'pt_cost', price: 95, measureUnit: 'unit_hour', validFrom: '2020-01-01' }),
+    ] },
+    [EQUIPMENT_ENTITY]: { entityDataFromServer: [def('eq1', 'equipmentCatalog', 'empty', { equipmentTitle: 'Excavator CAT 320', equipmentType: 'equipmentTypeHeavy', isActive: true })] },
     [PRODUCT_TABLES.priceType.entity]: { entityDataFromServer: [def('pt_cost', 'priceTypeCatalog', 'empty', { title: 'Cost' })] },
     [PRODUCT_TABLES.valueAddedTax.entity]: { entityDataFromServer: [def('vat_0', 'valueAddedTaxCatalog', 'empty', { vatTablePercent: 0 })] },
     [PRODUCT_TABLES.measureUnit.entity]: { entityDataFromServer: [def('unit_hour', 'measureUnitCatalog', 'empty', { title: 'hour' }), def('unit_pcs', 'measureUnitCatalog', 'empty', { title: 'pcs' })] },
@@ -709,5 +721,123 @@ describe('the budget item and the Post button (kit8/pm/view/task/plan)', () => {
     press(`${TT}-select-time1`);
     press(`${TT}-duplicate-selected`);
     expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ budgetItemTaskLine: 'timeBudgetItem', taskIsPosted: false, baseOfDistribution: null });
+  });
+});
+
+
+// ───────────────────────────────── the input switches and the equipment (recommendation/EQUIPMENT_TIME.html) ─────────────────────────────────
+describe('input switches: the tabs and the kinds of a Time line a project offers', () => {
+  // the Errors column is only there while a line has an error: not part of what is checked here
+  const heads = () => Array.from(document.querySelectorAll(`[data-testid^="${TT}-header-"]`)).map((e) => e.getAttribute('data-testid')!.replace(`${TT}-header-`, '')).filter((k) => k !== 'errors');
+  const ON = { projectExpenseBudgetNeeded: true };
+  const tabs = () => ['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'].filter((g) => q(`${T}-tab-${g}`));
+
+  it('the switches are off (every project made before them): all four tabs, person lines, no menu, no equipment - exactly as before', () => {
+    mount({ lines: [time1] });
+    expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus']);
+    expect(heads()).toContain('person');
+    expect(heads()).toContain('personVariant');
+    expect(heads()).not.toContain('resourceKind');
+    expect(heads()).not.toContain('equipment');
+    press(`${TT}-add`);
+    // no kind is chosen: a line without a kind is a person's
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON.taskResourceKind).toBeNull();
+  });
+
+  it('master on with the defaults (Person on, Equipment off): the same as before', () => {
+    mount({ lines: [time1], project: ON });
+    expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus']);
+    expect(heads()).toContain('person');
+    expect(heads()).not.toContain('resourceKind');
+  });
+
+  it('Person AND Equipment: the menu "Resource" comes before the role and the resource; ONE resource column and ONE variant column', () => {
+    mount({ lines: [time1], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    const h = heads();
+    expect(h.slice(0, 3)).toEqual(['budgetItem', 'n', 'resourceKind']);
+    expect(h.indexOf('resourceKind')).toBeLessThan(h.indexOf('role'));
+    expect(h.indexOf('resourceKind')).toBeLessThan(h.indexOf('resource'));
+    expect(h).toEqual(expect.arrayContaining(['resource', 'resourceVariant', 'contract']));
+    expect(h).not.toContain('person');
+    expect(h).not.toContain('equipment');
+  });
+
+  it('a new Time line of such a project says its kind: a person (the first choice of the menu)', () => {
+    mount({ lines: [], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    press(`${TT}-add`);
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'person', taskManagementGenusLine: 'timeGenus' });
+  });
+
+  it('the menu changes the kind; the resource column then picks from the equipment catalog; the person, the contract and the person role go', () => {
+    mount({ lines: [line('tl1', 'timeGenus', 1, { resourceRoleItem: 'role_da', taskResourceItem: 'p1', taskResourceContract: 'c1', qtyTaskLine: 2 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    // before: a person row - the resource cell reads the person catalog
+    expect(mockSelectProps[`${TT}-cell-tl1-resource`].entityName).toBe('personReusable');
+    press(`${TT}-cell-tl1-resourceKind`);
+    press(`${TT}-cell-tl1-resourceKind-picker-option-equipment`);
+    const patch = mockActions.updateOne.mock.calls.at(-1)![0];
+    expect(patch).toMatchObject({ rowGUID: 'tl1', rowOwnerGUID: 't1' });
+    expect(patch.rowJSON).toMatchObject({ taskResourceKind: 'equipment', taskResourceItem: null, taskResourceContract: null, resourceRoleItem: null, taskIsPosted: false });
+  });
+
+  it('an equipment line: the resource cell reads the equipment catalog; the role picker offers the equipment roles only', () => {
+    mount({ lines: [line('tl2', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq1', qtyTaskLine: 8 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    expect(mockSelectProps[`${TT}-cell-tl2-resource`].entityName).toBe('equipmentReusable');
+    expect(q(`${TT}-cell-tl2-resource`)!.textContent).toBe('eq1|on');
+    const role = mockSelectProps[`${TT}-cell-tl2-role`];
+    expect(role.filterItem(def('role_exc', 'type_eq', 'empty', {}))).toBe(true);
+    expect(role.filterItem(def('role_da', 'type_hr', 'empty', {}))).toBe(false);
+    expect(q('task-line-problem-tl2')).toBeNull();
+  });
+
+  it('an equipment line is priced by the rate of the role (95 per hour), 8 hours = 760', () => {
+    mount({ lines: [line('tl3', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq1', qtyTaskLine: null })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    setNumber(`${TT}-cell-tl3-qty`, '8');
+    expect(mockActions.updateOne.mock.calls.at(-1)![0].rowJSON).toMatchObject({ qtyTaskLine: 8, priceTaskLine: 95, priceSourceTaskLine: 'role', sumForContract: 760 });
+  });
+
+  it('a role of the other kind on a line is marked, never refused', () => {
+    mount({ lines: [line('tl4', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_da' })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    expect(q('task-line-problem-tl4')!.parentElement!.textContent).toContain('The role is not an equipment role');
+  });
+
+  it('Equipment only: Equipment and its variant, no menu, no Contract; a new line is an equipment line', () => {
+    mount({ lines: [], project: { ...ON, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true } });
+    const h = heads();
+    expect(h).toEqual(expect.arrayContaining(['equipment', 'equipmentVariant']));
+    expect(h).not.toContain('resourceKind');
+    expect(h).not.toContain('person');
+    expect(h).not.toContain('contract');
+    press(`${TT}-add`);
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'equipment' });
+  });
+
+  it('Equipment only, and the task already has a person line: both kinds are offered (a switch never hides data)', () => {
+    mount({ lines: [time1], project: { ...ON, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true } });
+    expect(heads()).toContain('resourceKind');
+    expect(heads()).toContain('resource');
+  });
+
+  it('an EMPTY tab whose input is switched off is hidden; a tab that has lines stays', () => {
+    mount({ lines: [], project: { ...ON, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false } });
+    expect(tabs()).toEqual(['timeGenus', 'revenueGenus']);
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    mount({ lines: [mat1], project: { ...ON, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false } });
+    expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'revenueGenus']);
+    expect(q(`${T}-tab-materialGenus-count`)!.textContent).toBe('1');
+  });
+
+  it('Time off and no Time lines: the first tab that is offered is shown; the remembered place on a hidden tab falls back to it', () => {
+    const place = makeLastEditPlace({ surface: 'financesView', section: 'finances', genus: 'timeGenus', lineGUID: 'x' }, 'u1')!;
+    mount({ lines: [mat1], project: { ...ON, projectTimeCostsNeeded: false }, place });
+    expect(tabs()).toEqual(['materialGenus', 'expenseGenus', 'revenueGenus']);
+    expect(selectedTab('materialGenus')).toBe(true);
+    expect(q(`${TT}-row-mat1`)).not.toBeNull();
+  });
+
+  it('with the master off the other switches are ignored: Time / Material / Expenses are all there', () => {
+    mount({ lines: [], project: { projectExpenseBudgetNeeded: false, projectTimeCostsNeeded: false, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false, projectTimeOfEquipmentNeeded: true } });
+    expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus']);
+    expect(heads()).not.toContain('resourceKind');
   });
 });

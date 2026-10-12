@@ -206,6 +206,17 @@ describe('tables', () => {
     expect(q('count-roles-humanResources')!.textContent).toBe('5');
   });
 
+  it('Role types: the Resource kind column (person | equipment) follows the management genus; the type that says equipment shows it, the others are a person\'s', () => {
+    const raw = rawRoleTables({ withResources: true });
+    raw.resourceRoleType.find((t) => t.rowGUID === 'humanResources')!.rowJSON.resourceKind = 'person';
+    raw.resourceRoleType.push({ rowGUID: 'equipmentResources', rowOwnerGUID: 'resourceRoleTypeCatalog', rowParentGUID: 'empty', orderInList: 10000, rowJSON: { title: 'Equipment Resources', managementGenus: 'timeGenus', resourceKind: 'equipment', baseUnit: 'unit_hour', variantMode: 'none', isActive: true } } as any);
+    mountRoles({ tab: 'resourceRoleType' }, raw);
+    const heads = qa('role-table-resourceRoleType-header-').map((e) => String(e.getAttribute('data-testid')).replace('role-table-resourceRoleType-header-', ''));
+    expect(heads.indexOf('resourceKind')).toBe(heads.indexOf('managementGenus') + 1);
+    expect(q('role-table-resourceRoleType-cell-equipmentResources-resourceKind')!.textContent).toContain('Equipment');
+    expect(q('role-table-resourceRoleType-cell-humanResources-resourceKind')!.textContent).toContain('Person');
+  });
+
   it('with the demo resources: 35 roles, 89 cost rows, no check errors, the folder tree has the expense domains', () => {
     mountRoles({}, rawRoleTables({ withResources: true }));
     expect(q('role-tile-roles-value')!.textContent).toBe('35');

@@ -1,12 +1,12 @@
 // Task line plan - the columns of the read-only table (VisualColumn[] of the ReusableTable). One table for ALL the lines of the task:
-//   # · Budget item · Genus · Line (role + person / product) · Period · Coefficient · Qty · Sum for budget · Sum for contract
+//   # · Budget item · Genus · Line (role + person / equipment / product) · Period · Coefficient · Qty · Sum for budget · Sum for contract
 // The amounts are the root columns of task_line_plan (target = the column), so the footer adds them up per table. Nothing is editable.
 import React from 'react';
 import { Text } from 'react-native';
 import { rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
 import type { VisualColumn } from '../../../../ui/components/table/reusable/reusableTableTypes';
 import type { TaskLineCatalogData } from '../finances/taskLineCatalogs';
-import { personFullName } from '../finances/taskLineColumns';
+import { anyResourceTitle } from '../finances/taskLineResource';
 import type { TaskLineRow } from '../finances/taskLineModel';
 import { pmT } from '../../../i18n/pmT';
 
@@ -18,16 +18,13 @@ export interface PlanColumnsContext {
   mutedColor: string;
 }
 
-/** 'Senior developer · Anna Berg' / 'Laptop' - what the line books (titles are read from the catalogs, never copied) */
+/** 'Senior developer · Anna Berg' / 'Excavator 20 t · Excavator CAT 320' / 'Laptop' - what the line books (titles are read from the catalogs, never copied) */
 export function planLineLabel(data: TaskLineCatalogData, line: TaskLineRow | undefined | null): string {
   const j = line?.rowJSON;
   if (!j) return '';
   const role = j.resourceRoleItem ? rowTitle(data.resourceRole.find((r) => r.rowGUID === j.resourceRoleItem)) : '';
-  let resource = '';
-  if (j.taskResourceItem) {
-    const person = data.person.find((p) => p.rowGUID === j.taskResourceItem);
-    resource = person ? personFullName(person) : rowTitle(data.product.find((p) => p.rowGUID === j.taskResourceItem));
-  }
+  // a person, an equipment (Time) or a product: the title is looked up by the GUID, so an equipment never shows as an empty product
+  const resource = anyResourceTitle(data, j.taskResourceItem);
   return [role, resource].filter(Boolean).join(' · ');
 }
 

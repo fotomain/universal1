@@ -21,17 +21,19 @@ afterEach(() => {
 });
 
 describe('PMNetworkView (editable)', () => {
-  it('toolbar: Gantt | Network, radio, critical path; switches go through crud (saved per project)', () => {
+  it('toolbar: Costs | Revenues | Network, Gantt | Reports, radio, critical path; switches go through crud (saved per project)', () => {
     seedStore();
     setView({ ganttVsNetworkView: 'showNetworkView' });
     const crud = fakeCrud();
     renderUI(<PMNetworkView crud={crud} />);
     expect(q('pm-net-view')).not.toBeNull();
     expect(q('pm-net-readonly-badge')).toBeNull();
-    // Gantt | Network sits right before Critical path (same place as on the Gantt bar)
-    expectInOrder(['pm-net-mode-networkDiagram', 'pm-net-mode-networkSchedule', 'pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showNetworkView', 'pm-net-critical']);
-    press('pm-gantt-vs-network-showGanttChart');
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showGanttChart');
+    // Costs | Revenues | Network (Network is lit: it is a part of Reports, and the only Network button there is), then Critical path (the main switch is in the app bar, not on this bar)
+    expectInOrder(['pm-net-mode-networkDiagram', 'pm-net-mode-networkSchedule', 'pm-reports-sections-costs', 'pm-reports-sections-revenues', 'pm-reports-sections-network', 'pm-net-critical']);
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
+    press('pm-reports-sections-costs');
+    expect(crud.setGanttVsNetworkView).toHaveBeenLastCalledWith('showReportsView');
+    expect(usePMStore.getState().reportsSection).toBe('costs');
     press('pm-net-mode-networkSchedule');
     expect(crud.setNetworkViewMode).toHaveBeenCalledWith('networkSchedule');
     press('pm-net-diagram-variant-compactNodes');

@@ -11,6 +11,20 @@ const project = (guid: string, json: Partial<PMProjectRow['rowJSON']> = {}): PMP
   rowJSON: { rowKind: 'project', name: guid, durationDays: 0, ...json },
 });
 
+describe('dragAndDropTaskInTree (project UX/UI setting)', () => {
+  it('is true by default and only an explicit false switches task dragging off; the store mirrors it', () => {
+    expect(uxuiSettingsOf(undefined).dragAndDropTaskInTree).toBe(true);
+    expect(uxuiSettingsOf(project('a').rowJSON).dragAndDropTaskInTree).toBe(true);
+    expect(uxuiSettingsOf(project('a', { uxuiSettings: { dragAndDropTaskInTree: false } }).rowJSON).dragAndDropTaskInTree).toBe(false);
+    expect(uxuiSettingsOf(project('a', { uxuiSettings: { dragAndDropTaskInTree: false } }).rowJSON, { dragAndDropTaskInTree: true }).dragAndDropTaskInTree).toBe(true);
+    usePMStore.getState().setProjects([project('a'), project('b', { uxuiSettings: { dragAndDropTaskInTree: false } })]);
+    usePMStore.getState().selectProject('b');
+    expect(usePMStore.getState().dragAndDropTaskInTree).toBe(false);
+    usePMStore.getState().selectProject('a');
+    expect(usePMStore.getState().dragAndDropTaskInTree).toBe(true);
+  });
+});
+
 describe('Gantt view settings from project_table.rowJSON', () => {
   it('mirrors showCriticalPath / ganttArrowsForm / showTaskProgressOnGantt of the selected project', () => {
     const s = usePMStore.getState();

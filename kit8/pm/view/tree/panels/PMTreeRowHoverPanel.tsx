@@ -25,6 +25,7 @@ export default function PMTreeRowHoverPanel({
   right,
   animatedStyle,
   dragGesture,
+  dragHandle = true,
 }: {
   guid: string;
   isSummary: boolean;
@@ -38,6 +39,8 @@ export default function PMTreeRowHoverPanel({
   animatedStyle: any;
   /** row drag & drop gesture for the drag handle (last button) */
   dragGesture?: GestureType | null;
+  /** false = uxuiSettings.dragAndDropTaskInTree is off: no drag handle (default true) */
+  dragHandle?: boolean;
 }) {
   return (
     <PMFloatingRowPanel testID="pm-tree-row-panel" width={width} background={palette.surface} border={palette.border} animatedStyle={animatedStyle} style={left !== undefined ? { left } : { right: right ?? 0 }}>
@@ -47,7 +50,7 @@ export default function PMTreeRowHoverPanel({
         <PMIconButton compact size={16} testID={`pm-tree-row-add-${guid}`} icon="add" title={pmT('Add task inside this stage')} color={palette.primary} onPress={() => crud.createTask(guid)} />
       )}
       <PMRowActionButtons guid={guid} crud={crud} palette={palette} testIDPrefix="pm-tree-row" />
-      <PMDragHandleButton testID={`pm-tree-row-drag-${guid}`} gesture={dragGesture} color={palette.textMuted} title={pmT('Drag to move the task (reorder / re-parent)')} />
+      {dragHandle && <PMDragHandleButton testID={`pm-tree-row-drag-${guid}`} gesture={dragGesture} color={palette.textMuted} title={pmT('Drag to move the task (reorder / re-parent)')} />}
     </PMFloatingRowPanel>
   );
 }

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W1 businessUnit - CFR structure</title>
+<style>
+  /* Light business theme, same family as recommendation/EQUIPMENT_TIME.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --blue: #2563eb; --blue-soft: #dbeafe;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 10px; overflow-x: auto; }
+  pre code { background: none; padding: 0; color: inherit; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 880px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; white-space: nowrap; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .pill.inv { background: var(--blue-soft); color: var(--blue); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.c, th.c { text-align: center; }
+  ol.steps, ul.tight { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .bad { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .rec { border-left: 4px solid var(--emerald); }
+  .alt { border-left: 4px solid var(--border); }
+  .small { font-size: 13px; color: var(--muted); }
+  .ok { color: var(--emerald); font-weight: 700; } .no { color: var(--rose); font-weight: 700; }
+  /* the example tree */
+  .tree { font-size: 14px; margin: 0; padding: 0; list-style: none; }
+  .tree ul { list-style: none; margin: 0; padding-left: 22px; border-left: 1px dashed #cbd5e1; margin-left: 7px; }
+  .tree li { margin: 3px 0; }
+  .tree .n { display: inline-block; padding: 1px 9px; border-radius: 8px; background: var(--bg-subtle); border: 1px solid var(--border); }
+  .tree .n.cfr { background: #fff; font-weight: 600; }
+  .b { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 0 8px; border-radius: 99px; margin-left: 6px; vertical-align: 1px; }
+  .b.cost { background: var(--rose-soft); color: var(--rose); }
+  .b.rev { background: var(--emerald-soft); color: var(--emerald); }
+  .b.prof { background: var(--purple-soft); color: var(--purple); }
+  .b.inv { background: var(--blue-soft); color: var(--blue); }
+  .b.inh { background: var(--bg-subtle); color: var(--muted); font-weight: 500; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .arrow { color: var(--muted); }
+  .q { border-left: 4px solid var(--amber); }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">W1 businessUnit</div>
+  <nav><ul>
+    <li><a href="#read">What I read</a></li><li><a href="#summary">Decisions</a></li><li><a href="#cfr">1 CFR enumeration</a></li><li><a href="#unit">2 Business units</a></li>
+    <li><a href="#tree">3 Tree screen</a></li><li><a href="#line">4 Task line</a></li><li><a href="#check">5 Post CHECK</a></li><li><a href="#sql">6 SQL</a></li>
+    <li><a href="#files">7 Files</a></li><li><a href="#risks">8 Risks</a></li><li><a href="#tests">9 Tests</a></li><li><a href="#order">10 Order</a></li><li><a href="#open">11 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="read">
+  <h1>Business units and Centers of Financial Responsibility <span class="pill ask">proposal - nothing built</span></h1>
+  <p class="lead">Source: Google Doc "W1 businessUnit" (PART 1: "do not code. improve and make ./documents/BUSINESS_UNIT_CFR_STRUCTURE.html" - this page; PART 2: the
+  <code>businessUnitTable</code> catalog). I read the task-line, plan/post, budget-item, management-genus, project-settings, department and tree code and checked every
+  statement below against it. No application file was changed; <code>kit8/catalog/business_unit</code> exists but is an empty folder.</p>
+
+  <h3>What the document asks for (my reading)</h3>
+  <div class="card"><ol class="steps">
+    <li><b>An enumeration <code>cfrTypeTable</code></b> - "Centers Of Financial Responsibility" - that works like a 1C enumeration: a fixed list the developer defines, the user only <i>picks</i> from it.
+      A flat table, no folders, four values: <code>costCenter</code>, <code>revenueCenter</code>, <code>profitCenter</code>, <code>investmentCenter</code> (<code>rowGUID</code> = the code).</li>
+    <li><b>A catalog <code>businessUnitTable</code></b>: route <code>catalog/business/unit</code>, drawer item <i>Catalogs - Business units</i>, code in <code>kit8/catalog/business_unit</code>.
+      A tree of any depth in <b>one table</b>. Each unit may carry <code>rowJSON.cfrAssigned</code> = a <code>cfrTypeTable.rowGUID</code>.</li>
+    <li><b>A new flag <code>selectFromTree</code></b> in the SystemMetaData entry of the catalog: <code>true</code> = the user may pick a unit of <b>any</b> level, the first level too.</li>
+    <li><b>A new screen component <code>CatalogTreeReusableCRUD.tsx</code></b> that edits such a tree and assigns <code>cfrAssigned</code> to its nodes. The doc lists an example company
+      (29 nodes, 9 of them with a CFR) - I use it as the <b>seed / demo data</b> and as the test case (<a href="#unit">section 2</a>).</li>
+    <li><b>A new task-line column <code>businessUnitTaskLine</code></b>, placed <b>after</b> <code>budgetItemTaskLine</code>.</li>
+    <li><b>A CHECK on Post:</b> a line whose budget item is a <i>cost</i> must not be posted when its unit is a <i>revenue center</i>.</li>
+    <li><b>A default for the column</b>: <code>rowJSON.businessUnitAssigned</code> is kept on <code>projectTable</code> (four obligatory fields <code>projectCostCenter</code>,
+      <code>projectRevenueCenter</code>, <code>projectProfitCenter</code>, <code>projectInvestmentCenter</code>), <code>contractTable</code>, <code>budgetItemTable</code>,
+      <code>resourceRole</code>, <code>resourceTable</code>, and there is a <b>priority</b> between them. <b>The document ends there</b>: the sentence "the priority to set ... :" has a colon
+      and no list. I propose one (section 4) - it is question Q1.</li>
+  </ol></div>
+
+  <h3>What is already true in the code (the facts the proposal stands on)</h3>
+  <div class="grid">
+    <div class="card"><b>Two-level catalogs exist, a deep tree does not.</b><br>
+      <code>managementGenusTable</code> and <code>budgetItemTable</code> are <i>folders (level 1) + items (level 2)</i>, rendered by <code>FolderTreeReusable</code> beside a <code>ReusableTable</code>
+      that shows the <i>items</i>. A business unit is a node at any depth that is <i>both</i> a node and a row with attributes - the table cannot just list "items of the folder".</div>
+    <div class="card"><b>A genuine tree table is already in the schema.</b><br>
+      <code>departamentTable</code> uses <code>rowParentGUID</code> = parent or <code>'empty'</code> ("hierarchy as a tree"). The pattern (adjacency list in one table) is proven; only its screen is a card list, not the tree plugin.</div>
+    <div class="card"><b>There is no <code>resourceTable</code>.</b><br>
+      The resource of a line is a <code>personTable</code> / <code>equipmentTable</code> row (Time, by <code>taskResourceKind</code>) or a <code>productTable</code> row; the role is <code>resourceRoleTable</code>.
+      "resourceTable" in the doc therefore means those three; the unit lives on each of them (<code>rowJSON.businessUnitAssigned</code>).</div>
+    <div class="card"><b>The "cost or revenue" fact is already stored.</b><br>
+      <code>budgetItemTable</code> items sit under <code>costsBudgetFolder</code> or <code>revenuesBudgetFolder</code> and carry <code>managementGenusItem</code> (time/material/expense = cost, revenue = revenue).
+      The Post check needs no new field on the item.</div>
+    <div class="card"><b>Post already collects per-line problems.</b><br>
+      <code>runTaskPost</code> → <code>calculateTaskLinePlan</code> returns <code>errors</code> per line; the line is left out, the others are posted, and one message names the first problem.
+      The new check fits there, with the SQL procedure <code>create_task_line_plan</code> as the authority behind it.</div>
+    <div class="card"><b>Old projects must not change.</b><br>
+      Every saved line has no unit. "No unit" must mean "as before": no check, no warning that blocks Post. Same rule as for equipment (a missing kind = person).</div>
+  </div>
+
+  <h3>Small things in the document I corrected silently</h3>
+  <ul class="tight">
+    <li>"Plane table" = a <i>plain</i> (flat) table. "budgetIemTable" = <code>budgetItemTable</code>. "SystemMetadata structure" = the entity entries of <code>kit8/redux/SystemMetaData.ts</code>.</li>
+    <li>"Departament" in the example is spelled <i>Department</i> in the seed rows (the old catalog keeps its historical name <code>departamentTable</code>; the new one is not named after it).</li>
+    <li>Entries "rowGUID=costCenter:" mean: the <code>rowGUID</code> <b>is</b> the code string - the same convention as <code>managementGenusTable</code> (<code>timeGenus</code>) and <code>budgetItemTable</code>.</li>
+  </ul>
+</section>
+
+<section id="summary">
+  <h2>Decisions</h2>
+  <p class="sub">Each is what I recommend; the open ones are in <a href="#open">section 11</a> with a default so work can start without waiting.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Decision</th><th>Why</th></tr>
+    <tr><td>D1</td><td><code>cfrTypeTable</code> is a <b>read-only enumeration</b>: 4 seeded rows, no insert / update / delete for any app user (RLS has only a SELECT policy), no unlock button, a TS constant names the codes.</td><td>That is what a 1C enumeration is. The genus catalog is "locked by default"; an enumeration is locked <i>always</i>, because code compares to the values.</td></tr>
+    <tr><td>D2</td><td>The <b>rule "which CFR accepts which budget kind"</b> is data on the enumeration row (<code>acceptsCosts</code>, <code>acceptsRevenues</code>), read by SQL and TS alike.</td><td>One source of truth; no TS rule that can drift from the SQL rule.</td></tr>
+    <tr><td>D3</td><td><code>businessUnitTable</code> = <b>one table</b>, adjacency list (<code>rowParentGUID</code>), any depth. This answers the "???" in the document: yes, one table.</td><td>A unit is a node and a row at once; four levels already in the example; the genus "folders + items" split cannot express it.</td></tr>
+    <tr><td>D4</td><td>The <b>effective CFR</b> of a unit = its own <code>cfrAssigned</code>, else the nearest ancestor's, else none.</td><td>Most nodes in the example (Board, CEO, Sales ...) have no CFR; without inheritance they could never be checked.</td></tr>
+    <tr><td>D5</td><td><code>selectFromTree</code> is a boolean on the SystemMetaData entry, default <b>false</b> = only leaves are selectable; <code>true</code> = every node.</td><td>False keeps the behaviour of the other catalogs (only the lowest level is chosen); the business unit sets it true.</td></tr>
+    <tr><td>D6</td><td><code>CatalogTreeReusableCRUD</code> is a <b>generic</b> component (any "tree in one table" catalog), not a business-unit screen. It has a catalog mode and a picker mode.</td><td>The picker is needed in five places (line, project, contract, budget item, role/resource); Departments could move to it later.</td></tr>
+    <tr><td>D7</td><td>The line's unit is <b>resolved</b> by a pure function from the sources in priority order, taking the <b>first unit that is compatible</b> with the line's kind, and is saved on the line (a snapshot with its source), like the price and the FX sums.</td><td>Follows the proven <code>priceAutoTaskLine</code> / <code>fxSnapshotTaskLine</code> pattern; a line is explainable ("unit from the role").</td></tr>
+    <tr><td>D8</td><td>The Post CHECK has three layers: the picker disables incompatible units, <code>calculateTaskLinePlan</code> leaves the line out with a message, the SQL procedure refuses. A line without a unit is never refused.</td><td>Same three layers as <code>managementGenusItem</code> on a budget item; old projects stay unchanged.</td></tr>
+  </table></div>
+</section>
+
+<section id="cfr">
+  <h2>1 &nbsp;<code>cfrTypeTable</code> - the enumeration</h2>
+  <p class="sub">Centers of Financial Responsibility: who answers for what in the money.</p>
+
+  <h3>The four values</h3>
+  <div class="scroll"><table>
+    <tr><th>rowGUID (the code)</th><th>Title</th><th>Accountable for</th><th class="c">accepts costs</th><th class="c">accepts revenues</th></tr>
+    <tr><td><code>costCenter</code></td><td>Cost center</td><td>costs only (support units: accounting, IT, a team's cost budget)</td><td class="c ok">yes</td><td class="c no">no</td></tr>
+    <tr><td><code>revenueCenter</code></td><td>Revenue center</td><td>revenue only (sales)</td><td class="c no">no</td><td class="c ok">yes</td></tr>
+    <tr><td><code>profitCenter</code></td><td>Profit center</td><td>revenue and costs, i.e. the profit</td><td class="c ok">yes</td><td class="c ok">yes</td></tr>
+    <tr><td><code>investmentCenter</code></td><td>Investment center</td><td>the profit <i>and</i> the capital invested (ROI)</td><td class="c ok">yes</td><td class="c ok">yes</td></tr>
+  </table></div>
+  <div class="note"><b>Only the first two rows come from the document</b> ("cost budget item + revenue center = do not post"). The mirror (a revenue line on a cost center) and the two "both" rows are
+    my reading of the standard definitions - confirm in Q2. An investment center would also take <i>investments</i> (capex); there is no capex budget item yet, so it is not modelled.</div>
+
+  <h3>"Works just like 1C's enumeration" - what that means here</h3>
+  <div class="scroll"><table>
+    <tr><th>1C enumeration</th><th>In this app</th></tr>
+    <tr><td>Values are created in the configurator; users cannot add, rename or delete them.</td><td>Rows are INSERTed by the SQL files only. RLS: <code>SELECT</code> for signed-in users, <b>no</b> INSERT / UPDATE / DELETE policy; plus a trigger that refuses writes from the API role (belt and braces, as the app can also call through <code>service_role</code>).</td></tr>
+    <tr><td>Code refers to <code>Enum.CostCenter</code>, never to a number.</td><td><code>export const CFR_TYPE = { cost: 'costCenter', revenue: 'revenueCenter', profit: 'profitCenter', investment: 'investmentCenter' } as const</code> and <code>type CfrType = typeof CFR_TYPE[keyof typeof CFR_TYPE]</code>. A test asserts the constant equals the seed rows.</td></tr>
+    <tr><td>Stored in other objects as a reference.</td><td><code>rowJSON.cfrAssigned</code> holds the <code>rowGUID</code> string. A trigger on <code>businessUnitTable</code> checks that it exists (the pattern of <code>trg_budgetItemTable_genus</code>); since a value cannot be deleted, it can never dangle.</td></tr>
+    <tr><td>Fixed order.</td><td><code>orderInList</code> 10, 20, 30, 40 (cost, revenue, profit, investment).</td></tr>
+    <tr><td>Shown as a drop-down; empty value allowed.</td><td>A select column in the unit table; "empty" is allowed (a unit may carry no CFR).</td></tr>
+    <tr><td>No catalog form for it.</td><td><b>No drawer item and no CRUD screen.</b> It appears as the CFR column / picker and in the README. (If a viewer is wanted later it is the genus screen with <code>noCrud</code> and no unlock.)</td></tr>
+  </table></div>
+
+  <h3>Table shape (the standard def-table pattern)</h3>
+<pre><code>cfrTypeTable          flat - rowParentGUID is always 'empty', no folders
+  rowGUID       'costCenter' | 'revenueCenter' | 'profitCenter' | 'investmentCenter'
+  rowOwnerGUID  'cfrTypeCatalog'
+  rowParentGUID 'empty'
+  orderInList   10 | 20 | 30 | 40
+  rowJSON       { title, description, acceptsCosts: boolean, acceptsRevenues: boolean }</code></pre>
+  <p class="small">The seed uses <code>INSERT ... ON CONFLICT (rowGUID) DO UPDATE</code> so a re-run corrects titles and the flags without touching anything else.</p>
+</section>
+
+<section id="unit">
+  <h2>2 &nbsp;<code>businessUnitTable</code> - the catalog</h2>
+  <p class="sub">Route <code>catalog/business/unit</code> · drawer: <i>Catalogs → Business units</i> · code <code>kit8/catalog/business_unit</code>.</p>
+
+  <h3>Table shape</h3>
+<pre><code>businessUnitTable     one table, any depth
+  rowGUID       uuid text (a unit has no natural code; the code is in rowJSON)
+  rowOwnerGUID  'businessUnitCatalog'
+  rowParentGUID parent unit rowGUID | 'empty' (a root = an enterprise)
+  orderInList   order among siblings (the tree plugin writes it)
+  rowJSON       { title, code?, description?, cfrAssigned: cfrTypeTable.rowGUID | null, isActive: boolean }</code></pre>
+  <ul class="tight">
+    <li><b>Guards (SQL triggers):</b> a parent must exist; a unit cannot be its own ancestor (loop check by recursive CTE); <code>cfrAssigned</code>, when set, must exist in <code>cfrTypeTable</code>.</li>
+    <li><b>Delete:</b> a unit with children is refused ("move or delete the children first") - safer than the genus rule "deleting a folder deletes its items", because a unit is referenced by lines, projects and contracts.
+      A referenced unit is not deleted either, it is deactivated (<code>isActive=false</code>: still shown on old lines, not offered in pickers).</li>
+    <li><b>Index:</b> <code>(rowParentGUID)</code>, <code>(rowOwnerGUID, orderInList)</code>, and an expression index on <code>rowJSON-&gt;&gt;'cfrAssigned'</code>.</li>
+    <li><b>Relation to <code>departamentTable</code>:</b> separate. A department is an org-chart box owned by an organization; a business unit is a unit of financial responsibility. Question Q5.</li>
+  </ul>
+
+  <h3>The example of the document = seed data and test case</h3>
+  <div class="grid">
+    <div class="card">
+<ul class="tree">
+  <li><span class="n cfr">Enterprise #1</span><span class="b inv">investmentCenter</span>
+    <ul>
+      <li><span class="n">Board</span><span class="b inh">inherits investment</span>
+        <ul><li><span class="n">CEO</span></li><li><span class="n">CTO</span></li><li><span class="n">CFO</span></li><li><span class="n">CIO</span></li></ul></li>
+      <li><span class="n">Sales</span>
+        <ul>
+          <li><span class="n cfr">Key Accounts Department</span><span class="b prof">profitCenter</span></li>
+          <li><span class="n cfr">Internet sales Department</span><span class="b prof">profitCenter</span></li>
+        </ul></li>
+      <li><span class="n">Project Management</span>
+        <ul>
+          <li><span class="n cfr">PM Team #1</span><span class="b prof">profitCenter</span>
+            <ul><li><span class="n cfr">Team #1</span><span class="b rev">revenueCenter</span></li><li><span class="n cfr">Team #1 costs</span><span class="b cost">costCenter</span></li></ul></li>
+          <li><span class="n cfr">PM Team #2</span><span class="b prof">profitCenter</span>
+            <ul><li><span class="n cfr">Team #2</span><span class="b rev">revenueCenter</span></li><li><span class="n cfr">Team #2 costs</span><span class="b cost">costCenter</span></li></ul></li>
+        </ul></li>
+    </ul>
+  </li>
+</ul>
+    </div>
+    <div class="card">
+<ul class="tree">
+  <li><span class="n cfr">Enterprise #1</span> <span class="small">(continued)</span>
+    <ul>
+      <li><span class="n">Accounting</span>
+        <ul><li><span class="n">Chief Accountant</span></li><li><span class="n">Advisors</span></li></ul></li>
+      <li><span class="n">Warehouse</span>
+        <ul><li><span class="n">Main Warehouse</span></li><li><span class="n">Remote Warehouse</span></li></ul></li>
+      <li><span class="n">IT infrastructure</span>
+        <ul><li><span class="n">Cloud infrastructure</span></li><li><span class="n">Local infrastructure</span></li><li><span class="n">Internet technologies</span></li></ul></li>
+      <li><span class="n">ERP development</span></li>
+      <li><span class="n">QM</span></li>
+      <li><span class="n">HRM</span></li>
+    </ul>
+  </li>
+</ul>
+<p class="small" style="margin-top:12px"><b>29 nodes · 4 levels · 9 with a CFR</b> (1 investment, 4 profit, 2 revenue, 2 cost). Accounting, Warehouse and IT carry no CFR in the document; see Q3.</p>
+    </div>
+  </div>
+  <div class="good"><b>What the example teaches the design.</b> (1) A <i>profit center</i> sits above its own revenue center and cost center (PM Team #1 → Team #1 / Team #1 costs): so a profit center must accept both kinds directly <i>and</i> have children that accept one.
+    (2) A leaf like "Team #1 costs" is the natural target of a cost line, but "PM Team #1" must be selectable too - this is what <code>selectFromTree = true</code> is for (D5).
+    (3) The first level (Enterprise #1) is selectable and is an investment center, so a project may be booked to the whole enterprise.</div>
+</section>
+
+<section id="tree">
+  <h2>3 &nbsp;<code>CatalogTreeReusableCRUD.tsx</code> and <code>selectFromTree</code></h2>
+
+  <h3>The flag</h3>
+<pre><code>// kit8/redux/SystemMetaData.ts - the entity entry of the catalog (spread from businessUnitMetaData.ts)
+[BUSINESS_UNIT_TABLE.entity]: {
+  tableName, itemLabel, updateValidator, defaultData, prepareCreateApi, prepareReadApi,
+  selectFromTree: true,   // NEW, optional. true = a node of any level can be picked, the first level too. Absent / false = leaves only.
+}</code></pre>
+  <p>Read in one place: the picker mode of the component (<code>isSelectable(node)</code>). It is a UI rule only; SQL never cares which level a reference points to, only that the row exists.</p>
+
+  <h3>The component</h3>
+  <div class="grid">
+    <div class="card rec"><b>Catalog mode (the screen)</b>
+      <ul class="tight">
+        <li>Left: <code>FolderTreeReusable</code> with <b>every row</b> as a node (<code>FolderTreeNode {id, parentId, title, order}</code> maps 1:1 to <code>rowGUID, rowParentGUID, title, orderInList</code>).</li>
+        <li>Right: <code>ReusableTable</code> of the picked node and its subtree (a switch "include sub-units"), columns: Unit, Code, <b>CFR (select from the enumeration)</b>, Effective CFR (grey, computed), Parent path, Description, Active.</li>
+        <li>New unit goes <i>under</i> the picked node; "New root" creates an enterprise. Drag a node = move (loop-protected). Rename in the tree = rename in the table.</li>
+        <li>Editing on by default like the budget items (lock button for read-only).</li>
+      </ul></div>
+    <div class="card rec"><b>Picker mode (a cell / a form field)</b>
+      <ul class="tight">
+        <li>A modal / popover with the same tree and a search box; returns a <code>rowGUID</code>.</li>
+        <li><code>selectFromTree</code> decides which nodes are clickable; the others are shown grey with the reason.</li>
+        <li>Optional <code>isSelectable</code> / <code>disabledReason</code> from the caller: the Cost line picker greys <i>revenue centers</i> ("Revenue center: not for a cost line") - layer 1 of the CHECK.</li>
+        <li>Shows the CFR badge next to each node (cost / revenue / profit / investment, or "inherits ...").</li>
+      </ul></div>
+  </div>
+  <div class="note"><b>Open technical point (a spike before building).</b> <code>ReusableTable</code> + <code>foldersTree</code> was written for rows that are <i>items inside folders</i>. Here a row is also a folder.
+    I did not verify that it can show the picked node's subtree without a folder-filter conflict; the first build step is a half-day spike with the 29-node seed. If it cannot, the component uses the tree plugin + a table fed with a pre-filtered row list (no change to the plugin).</div>
+  <div class="small">Where the tree-in-one-table pieces live: the model helpers (<code>unitNodes</code>, <code>unitPath</code>, <code>unitDescendants</code>, <code>effectiveCfr</code>) mirror <code>managementGenusModel.ts</code>.</div>
+</section>
+
+<section id="line">
+  <h2>4 &nbsp;The task line: <code>businessUnitTaskLine</code></h2>
+
+  <h3>The column</h3>
+  <ul class="tight">
+    <li><code>task_line_table.rowJSON.businessUnitTaskLine</code> = <code>businessUnitTable.rowGUID</code> | null. Column order in <code>taskLineColumns.tsx</code>: ... <code>budgetItemTaskLine</code>, <b><code>businessUnitTaskLine</code></b>, ... (as the document says).</li>
+    <li>Two companions, like the price: <code>businessUnitSourceTaskLine</code> = <code>'line' | 'resource' | 'role' | 'budget' | 'contract' | 'project'</code> (where it came from) and <code>businessUnitAutoTaskLine</code> (the last unit the app suggested). While the line's unit equals the suggestion it <b>follows</b> the sources; typing a unit makes it <code>'line'</code> and it stops following.</li>
+    <li>Any change of the unit sets <code>taskIsPosted = false</code> (the rule of <code>taskLineCompute.ts</code>), so the line must be posted again.</li>
+    <li>An empty unit on a line is valid and means "as before the feature".</li>
+  </ul>
+
+  <h3>Where the default comes from (the part the document left open)</h3>
+  <p>All sources store <code>rowJSON.businessUnitAssigned</code>, except the project, which stores four named fields. <b>Proposed priority, strongest first:</b></p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Source</th><th>Field</th><th>Idea</th></tr>
+    <tr><td>1</td><td>the line itself</td><td><code>businessUnitTaskLine</code></td><td>the user decided</td></tr>
+    <tr><td>2</td><td>the resource: person / equipment / product</td><td><code>rowJSON.businessUnitAssigned</code></td><td>"this person works in that team", "this machine belongs to that workshop"</td></tr>
+    <tr><td>3</td><td>the resource role</td><td><code>resourceRoleTable.rowJSON.businessUnitAssigned</code></td><td>all Backend Developers → Development</td></tr>
+    <tr><td>4</td><td>the budget item</td><td><code>budgetItemTable.rowJSON.businessUnitAssigned</code></td><td>all "Expense: Transport" → Logistics cost center</td></tr>
+    <tr><td>5</td><td>the contract of the line</td><td><code>contractTable.rowJSON.businessUnitAssigned</code></td><td>a contract signed for one unit</td></tr>
+    <tr><td>6</td><td>the project (always present - obligatory)</td><td>cost line → <code>projectCostCenter</code>; revenue line → <code>projectRevenueCenter</code>; then <code>projectProfitCenter</code>, then <code>projectInvestmentCenter</code></td><td>the last resort; the two last accept both kinds</td></tr>
+  </table></div>
+  <p class="small">The document lists them in a different order (project, contract, budget item, role, resource); I read that as the list of <i>tables</i>, not the ranking, and ranked from the most specific to the most general. Q1.</p>
+
+  <h3>The rule: first <i>compatible</i> source wins</h3>
+  <div class="flow">
+    <span class="box">kind of the line<br><span class="small">cost | revenue, from the budget item (else the genus)</span></span><span class="arrow">→</span>
+    <span class="box">walk the sources 2 … 6</span><span class="arrow">→</span>
+    <span class="box on">take the first unit whose <b>effective CFR accepts the kind</b><br><span class="small">no CFR at all counts as "accepts"</span></span><span class="arrow">→</span>
+    <span class="box">save unit + source on the line</span>
+  </div>
+  <p>Example: a revenue line for a Backend Developer. The person's unit is "Team #1 costs" (cost center) - it does not accept revenue, so it is <b>skipped</b>, the role's unit is empty, the budget item's is empty,
+    the project's <code>projectRevenueCenter</code> = "Team #1" (revenue center) → <b>chosen, source = project</b>. The user sees where it came from and why the nearer sources were not used.</p>
+  <p>Implemented as one pure function <code>resolveLineBusinessUnit(...)</code> in <code>kit8/pm/view/task/finances/taskLineBusinessUnit.ts</code>, next to <code>taskLineFx.ts</code>, called from <code>taskLineCompute.ts</code>.</p>
+
+  <h3>The four fields on the project</h3>
+  <ul class="tight">
+    <li>A new block <i>Business units</i> in the project settings <i>Finances</i> tab (<code>PMProjectTaskEditScreenTab.tsx</code>): four pickers; each offers only units whose effective CFR <b>is</b> the named type (or accepts what it stands for).</li>
+    <li><b>Obligatory</b> for every project created after this feature (the project cannot be saved without them). A project that already exists keeps working with the four empty: the block shows a yellow "not set" and Post behaves as today.
+      A plain "obligatory" would otherwise stop every old project from saving its settings.</li>
+    <li><code>projectProfitCenter</code> and <code>projectInvestmentCenter</code> are also the roll-up for reports (the project's profit / investment owner), not only the last-resort fallback.</li>
+  </ul>
+</section>
+
+<section id="check">
+  <h2>5 &nbsp;The Post CHECK</h2>
+  <div class="bad"><b>The rule of the document:</b> do not post if <code>budgetItemTaskLine</code> is a cost but the unit is a <i>revenue center</i>. The full matrix (mirror = my addition):</div>
+  <div class="scroll"><table>
+    <tr><th>Line (by budget item)</th><th class="c">costCenter</th><th class="c">revenueCenter</th><th class="c">profitCenter</th><th class="c">investmentCenter</th><th class="c">no CFR / no unit</th></tr>
+    <tr><td><b>Cost</b> (Time, Material, Expense)</td><td class="c ok">post</td><td class="c no">refuse</td><td class="c ok">post</td><td class="c ok">post</td><td class="c ok">post</td></tr>
+    <tr><td><b>Revenue</b></td><td class="c no">refuse (mirror)</td><td class="c ok">post</td><td class="c ok">post</td><td class="c ok">post</td><td class="c ok">post</td></tr>
+  </table></div>
+
+  <h3>Three layers (the pattern of <code>managementGenusItem</code>)</h3>
+  <div class="grid">
+    <div class="card"><span class="pill chg">1 · screen</span><br>The unit picker of the line greys the incompatible units with the reason; a cell already holding one (budget item changed afterwards) turns red with "Cost line on a revenue center".</div>
+    <div class="card"><span class="pill chg">2 · calculation</span><br><code>calculateTaskLinePlan</code> adds the line to <code>errors</code>: <i>"&lt;line&gt;: a cost line cannot be posted to the revenue center '&lt;unit&gt;'"</i>. The line is left out, the other lines of the task are posted, the message reaches the user (Post button and the project actions).</div>
+    <div class="card"><span class="pill chg">3 · SQL</span><br><code>create_task_line_plan</code> repeats the check with <code>RAISE EXCEPTION</code>, using the same <code>acceptsCosts / acceptsRevenues</code> flags from <code>cfrTypeTable</code>. A client that skips layers 1-2 still cannot write a wrong plan.</div>
+  </div>
+  <p><b>When the kind cannot be determined</b> (no budget item): the line is not posted anyway (a line without a budget item is already refused) - no second message.</p>
+  <p><b>Changing a unit's CFR afterwards</b> (profit → revenue while cost lines are posted on it): phase 1 shows a warning listing how many posted lines would conflict; phase 2 refuses it in SQL. See risks.</p>
+  <p class="small">Which posted rows carry the unit (so a cost report by unit survives a later re-assignment) is the same question as the CHECK's last mile: <code>task_line_plan</code> rows would get the unit when a line is posted. It touches the procedure and <code>calculateTaskLinePlan</code>; I list it as phase 2 (Q8).</p>
+</section>
+
+<section id="sql">
+  <h2>6 &nbsp;SQL</h2>
+  <p>Follows the existing SQL workflow: the <b>structure</b> file is the tested pair with the <b>delete</b> file; the code/data files are the structure file cut in two and are mirrored; everything is tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code> before it is handed over.</p>
+  <div class="scroll"><table>
+    <tr><th>File</th><th>Addition</th></tr>
+    <tr><td><code>start_sql_structure.sql</code></td><td><b>PART 18 <code>create_business_unit_tables.sql</code></b>: <code>cfrTypeTable</code> (+ SELECT-only RLS, write-guard trigger, 4 seed rows), <code>businessUnitTable</code> (def table through <code>kit8_setup_def_table</code>, RLS for signed-in users, realtime, the three triggers, indexes), the 29 seed rows,
+      and the function <code>kit8_cfr_accepts(cfr text, kind text)</code> used by the Post procedure. <b>PART 13/15 changes:</b> <code>create_task_line_plan</code> gets the CHECK. No column is added: the unit is a key inside <code>task_line_table.rowJSON</code>, like every other line field (a CHECK on the JSON key is added only if it needs one).</td></tr>
+    <tr><td><code>delete_sql_structure.sql</code></td><td>A new PART that drops the two tables, the functions and the triggers in reverse order (the Post procedure is restored to its previous body).</td></tr>
+    <tr><td><code>start_sql_code.sql</code> / <code>start_sql_data.sql</code></td><td>The same PART cut into code and data (mirror, not rewritten).</td></tr>
+  </table></div>
+  <p class="small">Seed ids: the 29 units get <b>fixed</b> uuids/short codes so the demo tree and the tests are repeatable; the project demo rows (if any) point at them.</p>
+</section>
+
+<section id="files">
+  <h2>7 &nbsp;Files</h2>
+  <div class="scroll"><table>
+    <tr><th>File</th><th></th><th>What</th></tr>
+    <tr><td><code>kit8/catalog/business_unit/cfrTypeModel.ts</code></td><td><span class="pill new">new</span></td><td><code>CFR_TYPE</code>, <code>CfrType</code>, <code>cfrAccepts(cfr, kind)</code>, table def, seed</td></tr>
+    <tr><td><code>kit8/catalog/business_unit/businessUnitModel.ts</code></td><td><span class="pill new">new</span></td><td>table, route, row JSON, <code>unitNodes / unitPath / unitDescendants / effectiveCfr</code></td></tr>
+    <tr><td><code>.../businessUnitMetaData.ts</code> · <code>useBusinessUnitData.ts</code> · <code>useBusinessUnitTree.ts</code></td><td><span class="pill new">new</span></td><td>SystemMetaData entries (with <code>selectFromTree: true</code>), rows from redux, tree CRUD binding</td></tr>
+    <tr><td><code>.../BusinessUnitCRUD.tsx</code> · <code>README.md</code></td><td><span class="pill new">new</span></td><td>the screen = <code>CatalogTreeReusableCRUD</code> configured for the unit; README in the style of the genus README</td></tr>
+    <tr><td><code>kit8/ui/components/tree/CatalogTreeReusableCRUD.tsx</code> (+ picker)</td><td><span class="pill new">new</span></td><td>the generic tree-in-one-table CRUD + picker, built on the tree plugin and exported from its <code>index.ts</code></td></tr>
+    <tr><td><code>kit8/redux/SystemMetaData.ts</code></td><td><span class="pill chg">chg</span></td><td>spread the two new entries; the optional <code>selectFromTree</code> key</td></tr>
+    <tr><td><code>app/catalog/business/unit/index.tsx</code> · <code>app/_layout.tsx</code> · <code>CustomDrawerContent.tsx</code></td><td><span class="pill chg">new/chg</span></td><td>route <code>catalog/business/unit</code>, <code>Drawer.Screen</code>, drawer item <i>Business units</i> (id <code>businessunits</code>, in the Catalogs section)</td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/taskLineModel.ts</code> · <code>taskLineColumns.tsx</code> · <code>taskLineCompute.ts</code></td><td><span class="pill chg">chg</span></td><td>the three row-JSON keys, the column after <code>budgetItemTaskLine</code>, the call of the resolver (+ unposted rule)</td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/taskLineBusinessUnit.ts</code></td><td><span class="pill new">new</span></td><td>pure <code>resolveLineBusinessUnit</code>, <code>lineKind</code>, <code>unitProblem</code></td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/calculateTaskLinePlan.ts</code> · <code>taskLinePlanModel.ts</code></td><td><span class="pill chg">chg</span></td><td>layer 2 of the CHECK</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code> · <code>PMProjectTaskEditScreenTab.tsx</code></td><td><span class="pill chg">chg</span></td><td>the four <code>project*Center</code> keys and the <i>Business units</i> block</td></tr>
+    <tr><td><code>budgetItemModel / resourceRoleModel / contract / person / equipment / product</code> editors</td><td><span class="pill chg">chg</span></td><td>one picker field <code>businessUnitAssigned</code> in each (five small, identical edits)</td></tr>
+    <tr><td><code>kit8/pm/README.md</code> · <code>finances/README.md</code> · <code>plan/README.md</code></td><td><span class="pill chg">chg</span></td><td>document the column, the priority and the CHECK</td></tr>
+  </table></div>
+  <p class="small">Texts shown to the user go through <code>pmT</code> (English shown until the dictionaries have them, as for the other Finances texts).</p>
+</section>
+
+<section id="risks">
+  <h2>8 &nbsp;Risks</h2>
+  <div class="scroll"><table>
+    <tr><th>Risk</th><th>Answer</th></tr>
+    <tr><td>The table plugin does not like "a row that is also a folder".</td><td>Spike first (section 3). Fallback is a pre-filtered table, no plugin change.</td></tr>
+    <tr><td>Old projects / lines break or start showing blocking messages.</td><td>"No unit" and "no CFR" are always postable; the four project fields are obligatory only for new projects; the column is just empty on old lines. A test posts a line from a project with none of it set.</td></tr>
+    <tr><td>Five tables get a new field → inconsistent pickers.</td><td>One shared <code>BusinessUnitPickerField</code>, not five copies; all store the same key <code>businessUnitAssigned</code>.</td></tr>
+    <tr><td>A unit's CFR is changed to one that conflicts with lines already posted on it.</td><td>Phase 1: a warning with the count; phase 2: a SQL refusal (needs an index on the unit key of the lines and the posted rows).</td></tr>
+    <tr><td>Resolution surprises users ("why this unit?").</td><td>The source is stored and shown in the cell tooltip ("from the role Backend Developer"); skipped incompatible sources are named.</td></tr>
+    <tr><td>Rule drift between TS and SQL.</td><td>Both read the flags of <code>cfrTypeTable</code>; a SQL test and a jest test use the same cases.</td></tr>
+    <tr><td>Name clash with <code>departamentTable</code> in the Catalogs menu.</td><td>The menu shows <i>Departments</i> and <i>Business units</i> side by side; the README states the difference. Q5.</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>9 &nbsp;Tests</h2>
+  <div class="grid">
+    <div class="card"><b>SQL (Postgres 15, <code>test_sql.sh</code>)</b>
+      <ul class="tight">
+        <li>cfrTypeTable: 4 rows; INSERT / UPDATE / DELETE as an app user is refused; the seed is idempotent.</li>
+        <li>businessUnitTable: parent must exist; a loop is refused; <code>cfrAssigned</code> must exist; delete with children refused; the 29 seed rows load.</li>
+        <li>Post procedure: cost line + revenue center → exception; revenue line + cost center → exception; cost line + profit / investment / no CFR / no unit → posts.</li>
+      </ul></div>
+    <div class="card"><b>Jest</b>
+      <ul class="tight">
+        <li><code>effectiveCfr</code>: own, inherited from the parent, from the grandparent, none.</li>
+        <li><code>resolveLineBusinessUnit</code>: priority order; a skipped incompatible source; the project fallback chain; a typed unit stops following; unchanged line = unchanged result.</li>
+        <li><code>calculateTaskLinePlan</code>: the refused line is in <code>errors</code>, the others are posted; a project with nothing set posts exactly as before.</li>
+        <li>Component: <code>selectFromTree</code> false → only leaves clickable, true → the first level too; a disabled node shows its reason.</li>
+        <li>The <code>CFR_TYPE</code> constant equals the seed.</li>
+      </ul></div>
+  </div>
+  <p class="small">The suites that already fail on this branch for other reasons stay out of scope; the new tests are listed separately so a before / after is clear.</p>
+</section>
+
+<section id="order">
+  <h2>10 &nbsp;Order of work</h2>
+  <ol class="steps">
+    <li>Spike: tree + table with the 29 seed rows (answers the risk in section 3).</li>
+    <li>SQL PART 18 (enumeration, units, seed, triggers) + delete PART, tested in Docker.</li>
+    <li>Models, metadata, hooks, <code>CatalogTreeReusableCRUD</code>, the screen, the route and the drawer item.</li>
+    <li>The picker + the <code>businessUnitAssigned</code> fields on the five tables, the four project fields and their block.</li>
+    <li>The line: keys, column, resolver, "follows the sources" behaviour.</li>
+    <li>The CHECK in all three layers (including the Post procedure).</li>
+    <li>READMEs, tests, then phase 2: posted rows carry the unit; refuse a conflicting CFR change.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>11 &nbsp;Questions - each has a default, so work can start</h2>
+  <div class="grid">
+    <div class="card q"><b>Q1 <span class="pill ask">blocks step 5</span> The priority list.</b><br>The document stops at "the priority to set ... :". <b>Default:</b> line › resource › role › budget item › contract › project (section 4). Tell me if the project must win, or if the contract must come before the role.</div>
+    <div class="card q"><b>Q2 The compatibility matrix.</b><br>The document gives one cell (cost line × revenue center). <b>Default:</b> the mirror is refused too; profit and investment centers accept both. Should an investment center accept <i>only</i> investment (capex) lines once such a budget item exists?</div>
+    <div class="card q"><b>Q3 Units without a CFR.</b><br>Accounting, Warehouse, IT have none in the example. <b>Default:</b> inherit from the nearest parent (here: investment center, so anything is accepted); a unit with no CFR up the tree is not checked. Alternative: require a CFR on every unit that can be picked.</div>
+    <div class="card q"><b>Q4 "you must assign cfrAssigned below".</b><br>I read the list under <code>CatalogTreeReusableCRUD.tsx</code> as the seed / demo tree with its CFR assignments, plus a CFR column the user can edit. <b>Default:</b> that. If "below" meant "assign the CFR on the child rows only", say so.</div>
+    <div class="card q"><b>Q5 Business unit vs. Department.</b><br><b>Default:</b> two separate catalogs, no link. A later optional <code>rowJSON.departamentGUID</code> on a unit could connect them. Or should the Departments screen be retired in favour of units?</div>
+    <div class="card q"><b>Q6 Obligatory project centers.</b><br><b>Default:</b> obligatory for new projects only; old ones stay empty with a hint. Alternative: a one-time migration giving every old project the first enterprise.</div>
+    <div class="card q"><b>Q7 <code>selectFromTree=false</code> meaning.</b><br><b>Default:</b> leaves only. Alternative: "level 2 and below" (the genus / budget-item behaviour literally).</div>
+    <div class="card q"><b>Q8 Unit on the posted rows.</b><br><b>Default:</b> phase 2. If cost reports by unit are due soon, it moves into phase 1 (it changes the Post procedure and <code>task_line_plan</code>).</div>
+    <div class="card q"><b>Q9 CFR titles.</b><br><b>Default:</b> English titles in the seed, translated through <code>pmT</code>; a user cannot rename them (enumeration).</div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

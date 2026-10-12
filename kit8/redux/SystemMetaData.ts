@@ -23,6 +23,7 @@ import {managementCalendarSystemMetaData} from "../catalog/management/calendar/m
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
+import {equipmentSystemMetaData} from "../catalog/equipment/equipmentMetaData";
 import {templateResourceContractSystemMetaData} from "../catalog/management/templateresourcecontract/templateResourceContractMetaData";
 
 // MD.
@@ -108,6 +109,9 @@ const SystemMetaData:any = {
     // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.
     // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql
     ...personTypeSystemMetaData(),
+    // Equipment (kit8/catalog/equipment): equipmentTable + equipmentTypeTable - the machines a Time line of a task can book (task_line_table.rowJSON.taskResourceKind = 'equipment').
+    // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start_sql_structure.sql (PART 17)
+    ...equipmentSystemMetaData(),
     // Template of the resource contract of a task line (kit8/catalog/management/templateresourcecontract): rowOwnerGUID = management genus.
     // Screen /catalog/management/templateresourcecontract/list, SQL kit8/sql/init/create_template_resource_contract_table.sql
     ...templateResourceContractSystemMetaData(),

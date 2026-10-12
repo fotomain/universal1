@@ -8,7 +8,6 @@ import { PMCrud } from '../../crud/usePMCrud';
 import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { PMTipIcon } from '../../inner/buttons';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../inner/toolbars/PMToolbarPrimitives';
-import GanttToggleButtons from '../gantt/toolbars/GanttToggleButtons';
 import type { PMProjectKanbanStageRow } from '../../model/kanbanTypes';
 import { kanbanStageColorOf } from '../../model/kanbanTypes';
 import { pmT } from '../../i18n/pmT';
@@ -80,8 +79,6 @@ export default function PMKanbanToolbar({
         />
       )}
       <PMToolbarSpacer />
-      <GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />
-      <PMToolbarDivider color={palette.border} />
       <PMIconButton testID="pm-kanban-stages" icon="view_column" label={pmT('Kanban Stages')} title={pmT('Kanban Stages of this project (columns)')} color={palette.text} onPress={onOpenStages} />
     </PMToolbar>
   );

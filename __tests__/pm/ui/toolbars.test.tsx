@@ -90,8 +90,6 @@ describe('PMGanttToolbar (Gantt bar)', () => {
       'pm-gantt-task-progress',
       'pm-gantt-import-export',
       'pm-gantt-export',
-      'pm-gantt-vs-network-showGanttChart',
-      'pm-gantt-vs-network-showNetworkView',
       'pm-gantt-uxui-settings',
       'pm-gantt-critical',
     ]);
@@ -115,15 +113,10 @@ describe('PMGanttToolbar (Gantt bar)', () => {
     expect(crud.setGanttArrowsForm).toHaveBeenCalledWith('squareForm');
   });
 
-  it('Gantt / Network buttons switch the view (saved per project through crud)', () => {
+  it('the Gantt bar has no view buttons: the one main switch is in the app bar', () => {
     seedStore();
-    const crud = fakeCrud();
-    renderUI(<PMGanttToolbar crud={crud} palette={palette} activeUnit="day" actions={actions()} />);
-    expect(mustGet('pm-gantt-vs-network-showGanttChart').getAttribute('aria-selected') ?? 'n/a').toBeDefined();
-    press('pm-gantt-vs-network-showGanttChart'); // already active: no call
-    press('pm-gantt-vs-network-showNetworkView');
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledTimes(1);
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showNetworkView');
+    renderUI(<PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={actions()} />);
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
   });
 
   it('link mode replaces the bar with a hint + Cancel', () => {

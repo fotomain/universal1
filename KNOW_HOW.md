@@ -36,6 +36,10 @@ All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated i
   - Running this script repeatedly is 100% idempotent and safe.
   - Seed rows are updated to the latest repository values; rows created by users remain untouched; nothing is deleted.
 
+### 2.2b `start_sql_structure.sql` / `delete_sql_structure.sql`
+- `start_sql_structure.sql` is the same SQL in ONE file (`code` + `data`, numbered PARTs; 17 = equipment) and `delete_sql_structure.sql` its opposite; `kit8/docker/test_sql.sh` runs both on Postgres 15.
+  A change goes into all of `start_sql_structure.sql`, `start_sql_code.sql` (DDL) and `start_sql_data.sql` (seed rows as upserts) - `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
+
 ### 2.3 Universal Table Schema Convention
 Almost all entity tables in Universal 1 adhere to the standardized schema:
 ```sql
@@ -94,6 +98,15 @@ Located in `kit8/pm/`:
 - **Task Posting Logic (`useTaskPost` & `runTaskPost`)**:
   - Calculates movement records and updates task status.
   - If a task has no budget item selected across its lines, posting halts and opens `ErrorModalWindow` with an explicit error message instead of an ephemeral snackbar.
+
+- **Task input switches** (`kit8/pm/model/taskInputScope.ts`): project settings → Finances → Budgets. With `projectExpenseBudgetNeeded` on: `projectTimeCostsNeeded` ("Time input needed") >
+  `projectTimeOfPersonNeeded` / `projectTimeOfEquipmentNeeded`, `projectMaterialCostsNeeded`, `projectExpenseCostsNeeded`. Master off = as before. A tab that has lines is never hidden.
+- **Equipment on a Time line**: `kit8/catalog/equipment` (a machine with its own Properties and Variants, the analog of the person); a Time line has `rowJSON.taskResourceKind` (`person` | `equipment`,
+  empty = person) and, when the project offers both, the menu "Resource: Person | Equipment" before the resource. The hour of an equipment is costed by the rate of its resource role
+  (`resourceRoleTypeTable.rowJSON.resourceKind`). The design: `recommendation/EQUIPMENT_TIME.html`.
+- **Descriptor sides**: products, roles, persons and equipment share the descriptor tables; the list of the sides is `kit8/catalog/product/crud/descriptorSides.ts` (every dashboard hides the other three).
+- **Row-aware catalog column** (`ReusableTable`): `catalogEntityNameOf(row)` + `catalogEntityNames` - one column whose catalog depends on the row (a person OR an equipment); "Fill all lines" fills only the rows of
+  the column's own `catalogEntityName`.
 
 ---
 

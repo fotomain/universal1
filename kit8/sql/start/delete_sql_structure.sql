@@ -10,15 +10,16 @@
 --    3. delete_management_calendar_tables.sql - drops the management calendars and their days
 --    4. delete_pm_task_line_table.sql - drops task_line_table + pm_set_task_last_edit_place
 --    5. delete_template_resource_contract_table.sql - drops templateResourceContractTable
---    6. delete_person_descriptors.sql - removes the person descriptors, variants, certificates and the demo contracts
---    7. delete_person_type_table.sql - drops personTypeTable
---    8. delete_resource_role_tables.sql - drops the resource role tables + their rows in the shared descriptor tables
---    9. delete_product_tables.sql - drops the product catalog and the shared descriptor / variant / price tables
---   10. delete_budget_item_table.sql - drops budgetItemTable
---   11. delete_management_genus_table.sql - drops managementGenusTable
---   12. delete_distribution_generic_table.sql - drops distributionGenericTable
---   13. delete_tables.sql - drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
---   14. helper function kit8_touch_updated_at
+--    6. delete_equipment_tables.sql - drops equipmentTable / equipmentTypeTable, the equipment descriptors, variants and properties, the role type "Equipment Resources" and the taskResourceKind check of task_line_table
+--    7. delete_person_descriptors.sql - removes the person descriptors, variants, certificates and the demo contracts
+--    8. delete_person_type_table.sql - drops personTypeTable
+--    9. delete_resource_role_tables.sql - drops the resource role tables + their rows in the shared descriptor tables
+--   10. delete_product_tables.sql - drops the product catalog and the shared descriptor / variant / price tables
+--   11. delete_budget_item_table.sql - drops budgetItemTable
+--   12. delete_management_genus_table.sql - drops managementGenusTable
+--   13. delete_distribution_generic_table.sql - drops distributionGenericTable
+--   14. delete_tables.sql - drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
+--   15. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
 
@@ -156,7 +157,56 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 6: delete_person_descriptors.sql
+-- PART 6: delete_equipment_tables.sql
+-- drops equipmentTable / equipmentTypeTable, the equipment descriptors, variants and properties, the role type "Equipment Resources", the taskResourceKind check
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - EQUIPMENT: delete_equipment_tables.sql
+-- Removes what create_equipment_tables.sql added (data included!): the check of task_line_table, the equipment variants / property values / sets / plan lines,
+-- the role type "Equipment Resources" with its roles, requirements, variants and rates, the equipment descriptors, and the two equipment tables.
+-- The lines of a task are not deleted: a Time line of an equipment loses its resource (it points at a row that is gone) and its kind is read as a person.
+-- =====================================================================================
+DO $guard$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NOT NULL THEN
+    ALTER TABLE public.task_line_table DROP CONSTRAINT IF EXISTS task_line_resource_kind_chk;
+  END IF;
+  IF to_regclass('public."variantValueTable"') IS NOT NULL AND to_regclass('public."resourceRoleTable"') IS NOT NULL THEN
+    EXECUTE $q$
+DELETE FROM public."variantValueTable" WHERE "rowGUID" LIKE 'evv\_%' ESCAPE '\' OR "rowGUID" LIKE 'rvv\_%' ESCAPE '\';
+DELETE FROM public."variantTable"      WHERE "rowGUID" LIKE 'evar\_%' ESCAPE '\' OR "rowGUID" LIKE 'rv\_eqr\_%' ESCAPE '\';
+DELETE FROM public."propertyValueTable" WHERE "rowGUID" LIKE 'pp\_eq\_%' ESCAPE '\' OR "rowGUID" LIKE 'pp\_eqr\_%' ESCAPE '\';
+DELETE FROM public."rolePriceTable"    WHERE "rowGUID" LIKE 'rp\_eqr\_%' ESCAPE '\';
+DELETE FROM public."resourceRoleTable" WHERE "rowOwnerGUID" = 'equipmentResources';
+DELETE FROM public."resourceRoleFolderTable" WHERE "rowGUID" = 'fld_res_eq';
+DELETE FROM public."resourceRoleTypeTable" WHERE "rowGUID" = 'equipmentResources';
+DELETE FROM public."descriptorPlanTable" WHERE "rowGUID" LIKE 'dp\_eqh\_%' ESCAPE '\' OR "rowGUID" LIKE 'dp\_eqv\_%' ESCAPE '\' OR "rowGUID" LIKE 'dp\_eqr\_%' ESCAPE '\';
+DELETE FROM public."descriptorDestinationTable" WHERE "rowGUID" IN ('ds_eqh_prop', 'ds_eqh_var', 'ds_eqv_prop', 'ds_eqv_var', 'ds_eqr_prop', 'ds_eqr_var');
+DELETE FROM public."descriptorValueTable" WHERE "rowOwnerGUID" IN ('equipmentClass', 'hireMode');
+DELETE FROM public."descriptorGenusTable" WHERE "rowGUID" IN ('equipmentClass', 'hireMode', 'enginePowerKw', 'minEnginePowerKw', 'yearOfManufacture');
+UPDATE public."resourceRoleTypeTable" SET "rowJSON" = "rowJSON" - 'resourceKind' WHERE "rowGUID" = 'humanResources';
+    $q$;
+  END IF;
+END $guard$;
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['equipmentTable', 'equipmentTypeTable'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t)
+       AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', t);
+    END IF;
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', t);
+  END LOOP;
+END $$;
+NOTIFY pgrst, 'reload schema';
+
+
+-- ===============================================================================================
+-- PART 7: delete_person_descriptors.sql
 -- removes the person descriptors, variants, certificates and the demo contracts
 -- ===============================================================================================
 
@@ -187,7 +237,7 @@ END $guard$;
 
 
 -- ===============================================================================================
--- PART 7: delete_person_type_table.sql
+-- PART 8: delete_person_type_table.sql
 -- drops personTypeTable
 -- ===============================================================================================
 
@@ -208,7 +258,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 8: delete_resource_role_tables.sql
+-- PART 9: delete_resource_role_tables.sql
 -- drops the resource role tables + their rows in the shared descriptor tables
 -- ===============================================================================================
 
@@ -256,7 +306,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 9: delete_product_tables.sql
+-- PART 10: delete_product_tables.sql
 -- drops the product catalog and the shared descriptor / variant / price tables
 -- ===============================================================================================
 
@@ -282,7 +332,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 10: delete_budget_item_table.sql
+-- PART 11: delete_budget_item_table.sql
 -- drops budgetItemTable
 -- ===============================================================================================
 
@@ -305,7 +355,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 11: delete_management_genus_table.sql
+-- PART 12: delete_management_genus_table.sql
 -- drops managementGenusTable
 -- ===============================================================================================
 
@@ -327,7 +377,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 12: delete_distribution_generic_table.sql
+-- PART 13: delete_distribution_generic_table.sql
 -- drops distributionGenericTable
 -- ===============================================================================================
 
@@ -349,7 +399,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- PART 13: delete_tables.sql
+-- PART 14: delete_tables.sql
 -- drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
 -- ===============================================================================================
 
@@ -516,7 +566,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================================
--- PART 14: helpers that no table uses any more
+-- PART 15: helpers that no table uses any more
 -- =====================================================================================
 
 DROP FUNCTION IF EXISTS public.kit8_touch_updated_at();

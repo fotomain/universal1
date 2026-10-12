@@ -10,7 +10,7 @@ import { currentPrice, propertyLinesOfProduct, variantLinesOfOwner } from '../..
 import { buildDashboardTables, count, rowNo } from '../../product/dashboard/productDashboardTables';
 import type { ScopeFilterDef } from '../../product/dashboard/productDashboardTables';
 import DescriptorValueCell from '../../product/dashboard/DescriptorValueCell';
-import { ResourceRoleTableKey } from '../resourceRoleModel';
+import { RESOURCE_KINDS, ResourceRoleTableKey } from '../resourceRoleModel';
 import {
   byGUID, currentRate, isSet, priceTypeForRoles, ResourceRoleCatalogData, roleAsProductData, roleKeyOfSlot, rowTitle, variantOwnerOfRole, variantsOfRole, vatPercentOfRole,
 } from '../crud/resourceRoleCatalogTools';
@@ -130,6 +130,8 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
         { key: 'title', title: 'Title', type: 'text', width: 170 },
         { key: 'description', title: 'Description', type: 'text', width: 300 },
         { key: 'managementGenus', title: 'Management genus', type: 'select', options: O.managementGenus, width: 170, placeholder: 'Choose genus…' },
+        // who works as a role of this type on a Time line; the role picker of a task line follows it (equipment lines offer the roles of equipment types)
+        { key: 'resourceKind', title: 'Resource kind', type: 'select', options: RESOURCE_KINDS, allowEmpty: false, width: 120 },
         { key: 'baseUnit', title: 'Base unit', type: 'select', options: O.units, width: 110 },
         { key: 'roleVATDefaultRate', title: 'Default VAT rate', type: 'select', options: O.vatRates, width: 130 },
         { key: 'variantMode', title: 'Variants', type: 'select', options: VARIANT_MODES, allowEmpty: false, width: 150 },

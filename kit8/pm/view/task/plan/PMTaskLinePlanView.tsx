@@ -10,7 +10,6 @@ import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
-import GanttToggleButtons from '../../gantt/toolbars/GanttToggleButtons';
 import { pmT } from '../../../i18n/pmT';
 import PMProjectTaskPlanCRUD from './PMProjectTaskPlanCRUD';
 
@@ -33,8 +32,6 @@ export default function PMTaskLinePlanView({ projectGUID, width, height, palette
         <Text style={[styles.title, { color: palette.text }]} testID="pm-plan-title" numberOfLines={1}>
           {task ? task.rowJSON?.name || pmT('Task') : pmT('Budgets')}
         </Text>
-        <PMToolbarSpacer />
-        <GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />
       </PMToolbar>
 
       {!task || !selectedGUID ? (

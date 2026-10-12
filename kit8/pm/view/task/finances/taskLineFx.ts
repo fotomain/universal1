@@ -16,6 +16,7 @@ import { DEFAULT_RATE_TYPE, BUDGET_RATE_TYPE } from '../../../../catalog/currenc
 import { convertWith, isMiss, pairRate, rateMissMessage, RateBook, RateMiss } from '../../../../catalog/currency/exchange/currencyConvert';
 import { lineContractCurrency, TaskLineCatalogData } from './taskLineCatalogs';
 import { lineNumber } from './taskLineMoney';
+import { lineResourceKind } from './taskLineResource';
 import type { LineFxRate, LineFxSnapshot, TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
 
 export interface LineFxProject {
@@ -53,9 +54,10 @@ export const fxEnabled = (p: LineFxProject | null | undefined): boolean => !!(p 
 
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-/** the contract of the line: the contract of the person (Time) or the contract with the partner (the others) */
+/** the contract of the line: the contract of the person (Time; an equipment has none) or the contract with the partner (the others) */
 function lineContract(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>) {
-  const guid = genus.resource === 'person' ? json.taskResourceContract : json.taskLinePartnerContract;
+  const kind = lineResourceKind(genus, json);
+  const guid = kind === 'person' ? json.taskResourceContract : kind === 'equipment' ? null : json.taskLinePartnerContract;
   return guid ? d.contract.find((c) => c.rowGUID === guid) : undefined;
 }
 /** the date of the contract of the line: signed date, else start date (null = no contract, or it has no date) */

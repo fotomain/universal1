@@ -92,6 +92,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
     // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
     { id: 'persondashboard', label: 'Persons (properties and variants)', icon: 'badge', route: 'catalog/person/dashboard' },
+    // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
+    { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
 
 
   ];

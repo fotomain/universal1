@@ -11,8 +11,11 @@ export type CatalogTitleFn = (col: VisualColumn, guid: string) => string;
 
 export const FILTER_OP_LABEL: Record<ColumnFilterOp, string> = { contains: 'Contains', eq: '=', gte: '≥', lte: '≤', empty: 'Empty', notEmpty: 'Not empty' };
 const isNumeric = (col: VisualColumn) => col.type === 'integer' || col.type === 'number';
-/** columns the user can sort / filter */
-export const isSortFilterColumn = (col: VisualColumn) => col.type !== 'rowNumber' && col.type !== 'custom';
+/**
+ * columns the user can sort / filter: every stored column, and a `custom` column that says what it shows as text (`searchText`) - it is
+ * sorted / filtered by that text, like a catalog column by its title. A custom column without `searchText` has nothing to compare.
+ */
+export const isSortFilterColumn = (col: VisualColumn) => col.type !== 'rowNumber' && (col.type !== 'custom' || typeof col.searchText === 'function');
 export const filterOpsOf = (col: VisualColumn): ColumnFilterOp[] => (isNumeric(col) ? ['eq', 'gte', 'lte', 'empty', 'notEmpty'] : ['contains', 'empty', 'notEmpty']);
 export const filterNeedsValue = (op: ColumnFilterOp) => op !== 'empty' && op !== 'notEmpty';
 
@@ -22,6 +25,7 @@ export function columnValue(row: ReusableTableRow, col: VisualColumn, catalogTit
   if (isNumeric(col)) { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
   const shown = displayText(row, col, catalogTitle);
   if (shown !== '') return shown;
+  if (col.type === 'custom') return null;
   // a catalog GUID whose element is not loaded: compare by the GUID
   return v === null || v === undefined || v === '' || col.type === 'boolean' ? null : String(v);
 }

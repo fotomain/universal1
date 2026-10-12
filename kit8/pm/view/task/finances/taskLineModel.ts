@@ -11,25 +11,31 @@ export const taskLineTable = 'task_line_table';
 /** SystemMetaData / redux entity key. */
 export const TASK_LINE_ENTITY = 'taskLineReusable';
 
-/** who the resource of a line is: Time = a person (personTable), everything else = a product (productTable) */
-export type TaskLineResourceKind = 'person' | 'product';
+/**
+ * who the resource of a line is: a person (personTable) or an equipment (equipmentTable) on a Time line, a product (productTable) on the others.
+ * The kind of a Time line is the line's own `taskResourceKind` (empty = person, every line made before equipment); see taskLineResource.ts.
+ */
+export type TaskLineResourceKind = 'person' | 'equipment' | 'product';
 
 export interface TaskLineGenusDef {
   /** managementGenusTable.rowGUID (a leaf genus) = task_line_table.rowParentGUID */
   genus: string;
   title: string;
   icon: string;
+  /** the resource of a line of this genus when the line does not say (the first of `resources`) */
   resource: TaskLineResourceKind;
+  /** every kind of resource a line of this genus can have (Time: a person or an equipment) */
+  resources: TaskLineResourceKind[];
   /** the line is a partner's (a supplier for Material / Expense, a customer for Revenue) */
   hasPartner: boolean;
 }
 
 /** the genus tabs, in this order (payments are no task lines) */
 export const TASK_LINE_GENUS: TaskLineGenusDef[] = [
-  { genus: MANAGEMENT_GENUS.time, title: 'Time', icon: 'schedule', resource: 'person', hasPartner: false },
-  { genus: MANAGEMENT_GENUS.material, title: 'Material', icon: 'inventory_2', resource: 'product', hasPartner: true },
-  { genus: MANAGEMENT_GENUS.expense, title: 'Expenses', icon: 'receipt_long', resource: 'product', hasPartner: true },
-  { genus: MANAGEMENT_GENUS.revenue, title: 'Revenues', icon: 'payments', resource: 'product', hasPartner: true },
+  { genus: MANAGEMENT_GENUS.time, title: 'Time', icon: 'schedule', resource: 'person', resources: ['person', 'equipment'], hasPartner: false },
+  { genus: MANAGEMENT_GENUS.material, title: 'Material', icon: 'inventory_2', resource: 'product', resources: ['product'], hasPartner: true },
+  { genus: MANAGEMENT_GENUS.expense, title: 'Expenses', icon: 'receipt_long', resource: 'product', resources: ['product'], hasPartner: true },
+  { genus: MANAGEMENT_GENUS.revenue, title: 'Revenues', icon: 'payments', resource: 'product', resources: ['product'], hasPartner: true },
 ];
 export const TASK_LINE_DEFAULT_GENUS = TASK_LINE_GENUS[0].genus;
 export const taskLineGenusDef = (genus: string | null | undefined): TaskLineGenusDef | undefined => TASK_LINE_GENUS.find((g) => g.genus === genus);
@@ -46,11 +52,13 @@ export interface TaskLineRowJSON {
   resourceRoleItem: string | null;
   /** descriptorKey of the variant the role needs (variantTable.rowJSON.descriptorKey of the role's variants) */
   resourceRoleAttributeSetKey: string | null;
-  /** personTable.rowGUID (Time) | productTable.rowGUID */
+  /** Time: 'person' | 'equipment' = which catalog taskResourceItem belongs to; empty = person (every Time line made before equipment). Not used by the other genus. */
+  taskResourceKind: 'person' | 'equipment' | null;
+  /** personTable.rowGUID | equipmentTable.rowGUID (Time, by taskResourceKind) | productTable.rowGUID */
   taskResourceItem: string | null;
   /**
-   * Time: the descriptorKey of the VARIANT OF THE PERSON the line books (variantTable, owner = person: "Senior, English"); empty = automatic,
-   * the variant that covers what the role requires | others: descriptorKey of the product variant
+   * Time: the descriptorKey of the VARIANT OF THE PERSON / EQUIPMENT the line books (variantTable, owner = person / equipment: "Senior, English",
+   * "Heavy, With operator"); empty = automatic, the variant that covers what the role requires | others: descriptorKey of the product variant
    */
   taskResourceAttributesKey: string | null;
   /** Time lines: contractTable.rowGUID of THAT person (contract.rowOwnerGUID = personGUID); the cost of the line comes from it */
@@ -113,7 +121,7 @@ export interface LineFxSnapshot {
 
 export const emptyTaskLine = (): TaskLineRowJSON => ({
   taskManagementGenusLine: null, budgetItemTaskLine: null, taskIsPosted: false, baseOfDistribution: null,
-  resourceRoleItem: null, resourceRoleAttributeSetKey: null, taskResourceItem: null, taskResourceAttributesKey: null,
+  resourceRoleItem: null, resourceRoleAttributeSetKey: null, taskResourceKind: null, taskResourceItem: null, taskResourceAttributesKey: null,
   taskResourceContract: null, resourceContractTemplateTaskLine: null, taskLinePartnerItem: null, taskLinePartnerContract: null,
   qtyTaskLine: null, priceTaskLine: null, measureUnitTaskLine: null, vatRatioTaskLine: null,
   priceSourceTaskLine: null, distributionForBudgetTaskLine: null, priceAutoTaskLine: null, sumForContract: null, sumVATForContract: null,

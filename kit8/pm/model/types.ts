@@ -112,7 +112,7 @@ export interface PMRowJSON {
   mainCustomerGUID?: string | null;
   /** Selected main customer contract rowGUID (contractTable) */
   mainCustomerContractGUID?: string | null;
-  // ---- project_table only: Finances (Project settings -> TabFinances) ----
+  // ---- project_table only: Finances (Project settings -> TabFinances: PMProjectTaskEditScreenTab) ----
   /** ISO 4217 code (currency catalog) of the project budgets */
   currencyForBudget?: string | null;
   /** ISO 4217 code (currency catalog) of the project accounting */
@@ -124,8 +124,18 @@ export interface PMRowJSON {
   exchangeRateTypeForBudget?: string | null;
   /** Budgets: the project needs a revenue budget */
   projectRevenueBudgetNeeded?: boolean;
-  /** Budgets: the project needs an expense budget */
+  /** Budgets: the project needs an expense budget = the master switch of the cost inputs below (off = every input as before the switches existed) */
   projectExpenseBudgetNeeded?: boolean;
+  /** Cost inputs (only while projectExpenseBudgetNeeded; kit8/pm/model/taskInputScope.ts): the Time tab of the task lines ("Time input needed"); default true */
+  projectTimeCostsNeeded?: boolean;
+  /** ... Time lines of a person; default true */
+  projectTimeOfPersonNeeded?: boolean;
+  /** ... Time lines of an equipment (with Person: the menu "Resource: Person | Equipment"); default false */
+  projectTimeOfEquipmentNeeded?: boolean;
+  /** ... the Material tab; default true */
+  projectMaterialCostsNeeded?: boolean;
+  /** ... the Expenses tab; default true */
+  projectExpenseCostsNeeded?: boolean;
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
@@ -281,6 +291,8 @@ export interface PMUxUiSettings {
   treeColumnsOrder?: PMTreeColumnKey[];
   /** Tree: widths of resized columns (drag a header separator), e.g. { name: 260 }. No Task name width = it fills the pane. */
   treeColumnsWidths?: Record<string, number>;
+  /** Tree: drag & drop of tasks (reorder / re-parent): a drag column (grip) after the row-select column + the # / Task name columns + the hover panel handle. false = no task dragging at all (default true). */
+  dragAndDropTaskInTree?: boolean;
   /** Tree: row commands in a hover panel (default) or in a right-click / long-press menu. */
   projectTreeContextCommandsMode?: PMContextCommandsMode;
   /** Gantt chart: bar commands in a hover panel (default) or in a right-click / long-press menu. */
@@ -320,16 +332,22 @@ export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => 
 
 /** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan | Reports (GanttToggleButtons). */
 export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView' | 'showReportsView';
-export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showPlanView', 'showReportsView'];
+export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView'];
+/** the button that is ALWAYS the last one of the switch (Budgets), whatever order the user saved */
+export const PM_LAST_VIEW_BUTTON: PMGanttVsNetworkView = 'showPlanView';
+/** the main view that has no button of its own: it is a part of Reports (the Network button sits in the Reports section row: Costs | Revenues | Network) */
+export const PM_REPORTS_PART_VIEW: PMGanttVsNetworkView = 'showNetworkView';
+/** Sections of Reports (PMReportsSectionButtons): Costs and Revenues are pages of the Reports view, Network is the network view */
+export type PMReportsSection = 'costs' | 'revenues' | 'network';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
   v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' || v === 'showReportsView' ? v : 'showGanttChart';
-/** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order). */
+/** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order); Budgets (PM_LAST_VIEW_BUTTON) is always the last. */
 export const viewButtonsOrderOf = (v: unknown): PMGanttVsNetworkView[] => {
   const seen = new Set<PMGanttVsNetworkView>();
   const out: PMGanttVsNetworkView[] = [];
   if (Array.isArray(v)) for (const x of v) if (PM_DEFAULT_VIEW_BUTTONS_ORDER.includes(x) && !seen.has(x)) (seen.add(x), out.push(x));
   for (const x of PM_DEFAULT_VIEW_BUTTONS_ORDER) if (!seen.has(x)) out.push(x);
-  return out;
+  return [...out.filter((x) => x !== PM_LAST_VIEW_BUTTON), PM_LAST_VIEW_BUTTON];
 };
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
@@ -371,6 +389,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers !== false,
+    dragAndDropTaskInTree: u.dragAndDropTaskInTree !== false,
     treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key)),
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
     projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),

@@ -1,4 +1,6 @@
-// Main view switch (same look as the "Dependency arrows" selector): Gantt | Kanban | Network | Versions | Finances | Plan | Reports
+// Main view switch (same look as the "Dependency arrows" selector): Gantt | Edit | Kanban | Versions | Reports | Budgets (Budgets is always the last).
+// Network has NO button here: it is a part of Reports - the row Costs | Revenues | Network (PMReportsSectionButtons) shows in Reports and in the network view,
+// and while the network view is open the Reports button is the active one.
 //   ganttVsNetworkView = 'showGanttChart'  -> the Gantt chart (tree + Skia chart)
 //   ganttVsNetworkView = 'showKanbanView'  -> tree + PMKanbanDashboard (view/kanban)
 //   ganttVsNetworkView = 'showNetworkView' -> PMNetworkView (network diagram / network schedule)
@@ -15,7 +17,7 @@
 import React, { useMemo } from 'react';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
-import { PMGanttVsNetworkView, viewButtonsOrderOf } from '../../../model/types';
+import { PMGanttVsNetworkView, PM_REPORTS_PART_VIEW, viewButtonsOrderOf } from '../../../model/types';
 import PMSegmentedIconButtons, { PMSegmentOption } from '../../network/PMSegmentedIconButtons';
 
 export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView>[] = [
@@ -50,16 +52,16 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     title: 'Project versions: save, restore and check the versions to compare on the Gantt chart',
   },
   {
+    value: 'showReportsView',
+    icon: 'assessment',
+    label: 'Reports',
+    title: 'Reports: summary of the project, its costs and revenues, the network',
+  },
+  {
     value: 'showPlanView',
     icon: 'event_note',
     label: 'Budgets',
     title: 'Budgets: the posted days of every line of the selected task',
-  },
-  {
-    value: 'showReportsView',
-    icon: 'assessment',
-    label: 'Reports',
-    title: 'Reports: summary of the project (tasks, progress, dates)',
   },
 ];
 
@@ -80,7 +82,8 @@ export default function GanttToggleButtons({
   const order = usePMStore((s) => s.viewButtonsOrder);
   const options = useMemo(() => {
     const byValue = new Map(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => [o.value, o]));
-    return viewButtonsOrderOf(order).map((v) => {
+    // Network is not a button of this switch (it is a section of Reports)
+    return viewButtonsOrderOf(order).filter((v) => v !== PM_REPORTS_PART_VIEW).map((v) => {
       const o = byValue.get(v)!;
       return compact ? { ...o, label: undefined } : o;
     });
@@ -89,7 +92,7 @@ export default function GanttToggleButtons({
     <PMSegmentedIconButtons
       testID="pm-gantt-vs-network"
       options={options}
-      value={view}
+      value={view === PM_REPORTS_PART_VIEW ? 'showReportsView' : view}
       onChange={onChange}
       onReorder={onReorder}
       color={palette.text}

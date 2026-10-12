@@ -3,6 +3,7 @@
 // this file adds what only roles have: the base unit of the role type and rule R14 (rates only in rolePriceTable).
 import { priceTypeForRoles, ResourceRoleCatalogData, roleAsProductData, isSet, rowTitle, byGUID } from './resourceRoleCatalogTools';
 import { CatalogKind, ProductIssue, RULES, validateProductCatalog } from '../../product/crud/productValidation';
+import { RESOURCE_KINDS } from '../resourceRoleModel';
 import type { ResourceRoleTableKey } from '../resourceRoleModel';
 
 export { issuesByTable } from '../../product/crud/productValidation';
@@ -42,6 +43,9 @@ export function validateResourceRoleCatalog(data: ResourceRoleCatalogData): Reso
     // managementGenus: a row of managementGenusTable (only checked once that table is loaded)
     const g = t.rowJSON?.managementGenus;
     if (isSet(g) && genus.size > 0 && !genus.has(g)) issues.push({ rule: 'R1', severity: 'error', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: management genus "${g}" is missing` });
+    // resourceKind: a person's or an equipment's role type (a missing value = person; only checked when something is set)
+    const kind = t.rowJSON?.resourceKind;
+    if (isSet(kind) && !RESOURCE_KINDS.some((k) => k.value === kind)) issues.push({ rule: 'R1', severity: 'error', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: resource kind "${kind}" is unknown (person or equipment)` });
     const unit = t.rowJSON?.baseUnit;
     if (!isSet(unit)) issues.push({ rule: 'R1', severity: 'warning', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: choose the base unit of its cost (hour)` });
     else if (!units.has(unit)) issues.push({ rule: 'R1', severity: 'error', table: 'resourceRoleType', rowGUID: t.rowGUID, message: `Role type ${T(t)}: base unit "${unit}" is missing` });

@@ -12,13 +12,22 @@ import type { ProductTableDef, ProductTableKey } from '../product/productModel';
 
 export const RESOURCE_ROLE_ROUTES = { dashboard: '/catalog/resourcerole/dashboard' } as const;
 
+/** the kind of resource that works as a role of a Time line: a person or an equipment (taskResourceKind of the line) */
+export type ResourceKind = 'person' | 'equipment';
+export const RESOURCE_KINDS: { value: ResourceKind; label: string }[] = [
+  { value: 'person', label: 'Person' },
+  { value: 'equipment', label: 'Equipment' },
+];
+/** the resource kind of a role type: 'equipment' only when it says so - a type without the field (every type made before equipment) is a person's */
+export const resourceKindOfRoleType = (t: { rowJSON?: { resourceKind?: unknown } } | undefined | null): ResourceKind => (t?.rowJSON?.resourceKind === 'equipment' ? 'equipment' : 'person');
+
 const def = (d: ProductTableDef) => d;
 
 /** the four tables only the role side owns */
 export const RESOURCE_ROLE_OWN_TABLES = {
   resourceRoleType: def({ table: 'resourceRoleTypeTable', entity: 'resourceRoleTypeReusable', itemLabel: 'Role type', catalogOwner: 'resourceRoleTypeCatalog',
     purpose: 'Groups roles of the same kind (Project manager, Data analyst); decides which descriptor sets they use and who owns their variants - like a product type.',
-    emptyRowJSON: () => ({ title: null, description: null, managementGenus: null, baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', propertySet: null, variantSet: null, variantMode: 'perType', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, description: null, managementGenus: null, resourceKind: 'person', baseUnit: 'unit_hour', roleVATDefaultRate: 'vat_0', propertySet: null, variantSet: null, variantMode: 'perType', variantSharedTypeGUID: null, uniqueVariants: true, variantTitleTemplate: null, isActive: true }) }),
   resourceRoleFolder: def({ table: 'resourceRoleFolderTable', entity: 'resourceRoleFolderReusable', itemLabel: 'Folder', catalogOwner: 'resourceRoleFolderCatalog',
     purpose: 'The role tree (Engineering → Frontend) for navigation and reports.',
     emptyRowJSON: () => ({ title: null }) }),
@@ -69,6 +78,7 @@ export const PRODUCT_SLOT_AS_ROLE: Partial<Record<ProductTableKey, ResourceRoleO
 export interface ResourceRoleTypeJSON {
   title: string; description?: string | null;
   /** managementGenusTable rowGUID: timeGenus (human resources), materialGenus, expenseGenus ... */ managementGenus?: string | null;
+  /** who works as a role of this type on a Time line: 'person' (default, also when missing) | 'equipment' - the role picker of a line is filtered by it */ resourceKind?: ResourceKind | null;
   /** measureUnitTable rowGUID - 'unit_hour' */ baseUnit: string;
   /** valueAddedTaxTable rowGUID: default VAT rate of the roles of this type */ roleVATDefaultRate?: string | null;
   propertySet?: string | null; variantSet?: string | null; variantMode: 'none' | 'perType' | 'perProduct' | 'sharedWithType';

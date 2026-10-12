@@ -2,11 +2,14 @@
 //   Errors (the FIRST column, only when a line of the tab has an error) · Budget item (the first data column: what the line is budgeted as; a line
 //   without one is not posted) · then:
 //   Time:                      # · Role · Role attributes · Person · Person variant (his own variants, taskLinePersonMatch.ts) · Contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
+//     with equipment (the project's input switches, kit8/pm/model/taskInputScope.ts): person only = as above | equipment only = Equipment · Equipment variant (no Contract) |
+//     both = # · Resource (the menu Person | Equipment) · Role · Role attributes · Person / Equipment (ONE column, the catalog follows the Resource of the row) · Variant · Contract
 //   Material / Expense / Revenue: # · Role · Role attributes · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 // Only GUIDs / keys / numbers are stored in rowJSON (taskLineModel.ts); titles are read from the catalogs.
 import React from 'react';
 import { Text, View } from 'react-native';
 import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../../catalog/person/personModel';
+import { EQUIPMENT_CATALOG_OWNER, EQUIPMENT_ENTITY } from '../../../../catalog/equipment/equipmentModel';
 import { PARTNER_CATALOG_OWNER, PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
@@ -17,17 +20,16 @@ import { RESOURCE_ROLE_OWN_TABLES } from '../../../../catalog/resourcerole/resou
 import { rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
 import type { VisualColumn } from '../../../../ui/components/table/reusable/reusableTableTypes';
 import { PMTipIcon } from '../../../inner/buttons';
-import { genusOfRole, lineContractCurrency, lineProblems, productVariantOptions, roleVariantOptions, TaskLineCatalogData } from './taskLineCatalogs';
+import { lineContractCurrency, lineProblems, productVariantOptions, roleFitsLine, roleVariantOptions, TaskLineCatalogData } from './taskLineCatalogs';
+import { personFullName, resourceTitleOfRow, RESOURCE_WORDS } from './taskLineResource';
+import type { TimeResourceKind } from '../../../model/taskInputScope';
 import { personMatchProblems, personVariantOptions } from './taskLinePersonMatch';
 import { fxEnabled, fxProblem, fxSnapshotText, LineFxContext, LineFxProject } from './taskLineFx';
 import type { TaskLineGenusDef } from './taskLineModel';
 import { pmT } from '../../../i18n/pmT';
 
-/** person.rowJSON -> "first name + last name" */
-export const personFullName = (person: any): string => {
-  const j = person?.rowJSON || {};
-  return [j.personFirstName, j.personLastName].filter(Boolean).join(' ').trim() || j.personTitle || person?.rowGUID || '';
-};
+/** person.rowJSON -> "first name + last name" (taskLineResource.ts) */
+export { personFullName };
 
 /** every error of a line: the catalogs (role / variant / template), the person match and the exchange rates; [] = none */
 export function taskLineErrors(data: TaskLineCatalogData, genus: TaskLineGenusDef, rowJSON: Record<string, any>, fx?: LineFxContext | null): string[] {
@@ -48,10 +50,16 @@ export interface TaskLineColumnsContext {
   fx?: LineFxContext | null;
   /** show the Errors column (default true): the table passes false while no line of the tab has an error */
   showErrors?: boolean;
+  /** Time: the resource kinds the table offers (taskInputScope.ts `timeKindsOffered`); two = the menu "Resource: Person | Equipment". Default: a person only (as before equipment) */
+  timeKinds?: TimeResourceKind[];
 }
 
-export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true }: TaskLineColumnsContext): VisualColumn[] {
+export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true, timeKinds = ['person'] }: TaskLineColumnsContext): VisualColumn[] {
   const unitOptions = data.measureUnit.map((u) => ({ value: u.rowGUID, label: rowTitle(u) || u.rowGUID }));
+  const worker = genus.resource !== 'product';
+  const kinds = worker && timeKinds.length ? timeKinds : ['person' as const];
+  /** the menu "Resource: Person | Equipment" is there only while both kinds are offered */
+  const hasMenu = worker && kinds.length > 1;
   const cols: VisualColumn[] = [
     // the error messages of the line: the first column of the table (after the drag and the select-row columns), before the number; not there when no line has an error
     ...(showErrors ? [{
@@ -74,11 +82,16 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       filterItem: (item) => !isBudgetItemFolder(item as any) && item.rowJSON?.managementGenusItem === genus.genus,
     },
     { key: 'n', title: '#', type: 'rowNumber' },
+    // the menu Person | Equipment: BEFORE the role and the resource, because the role and the resource are picked from the catalogs of the kind chosen here
+    ...(hasMenu ? [{
+      key: 'resourceKind', title: pmT('Resource'), type: 'select', field: 'taskResourceKind', width: 130, allowEmpty: false, placeholder: pmT('Person'),
+      options: kinds.map((k) => ({ value: k, label: pmT(RESOURCE_WORDS[k].title) })),
+    } as VisualColumn] : []),
     {
       key: 'role', title: pmT('Role'), type: 'catalog', field: 'resourceRoleItem', width: 220,
       catalogEntityName: RESOURCE_ROLE_OWN_TABLES.resourceRole.entity, placeholder: pmT('Select role…'),
-      // the roles of this genus (a role type points at its management genus)
-      filterItem: (role) => genusOfRole(data, role) === genus.genus,
+      // the roles of this genus (a role type points at its management genus) and - on a Time line - of the kind of the resource (a person's or an equipment's roles)
+      filterItem: (role, row) => roleFitsLine(data, genus, row.rowJSON || {}, role),
     },
     {
       key: 'roleAttributes', title: pmT('Role attributes'), type: 'select', field: 'resourceRoleAttributeSetKey', width: 190,
@@ -86,23 +99,42 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
     },
   ];
 
-  if (genus.resource === 'person') {
+  if (worker) {
+    const personOnly = kinds.length === 1 && kinds[0] === 'person';
+    const equipmentOnly = kinds.length === 1 && kinds[0] === 'equipment';
+    /** an inactive equipment is not offered; the one already on the line stays */
+    const eqActive = (r: any, row: any) => r?.rowJSON?.isActive !== false || r?.rowGUID === row?.rowJSON?.taskResourceItem;
+    const resourceKey = hasMenu ? 'resource' : equipmentOnly ? 'equipment' : 'person';
     cols.push(
-      {
+      (personOnly ? {
         key: 'person', title: pmT('Person'), type: 'catalog', field: 'taskResourceItem', width: 220,
         catalogEntityName: PERSON_ENTITY, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, titleExtractor: personFullName, placeholder: pmT('Select person…'),
-      },
+      } : equipmentOnly ? {
+        key: 'equipment', title: pmT('Equipment'), type: 'catalog', field: 'taskResourceItem', width: 220,
+        catalogEntityName: EQUIPMENT_ENTITY, catalogRowOwnerGUID: EQUIPMENT_CATALOG_OWNER, titleExtractor: resourceTitleOfRow, placeholder: pmT('Select equipment…'),
+        // an inactive equipment is not offered (the one already on the line stays)
+        filterItem: eqActive,
+      } : {
+        // BOTH kinds: ONE column, the catalog follows the Resource of the row (ReusableTable catalogEntityNameOf); a row without a kind is a person's
+        key: 'resource', title: `${pmT('Person')} / ${pmT('Equipment')}`, type: 'catalog', field: 'taskResourceItem', width: 240,
+        catalogEntityName: PERSON_ENTITY, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY],
+        catalogEntityNameOf: (row) => (row.rowJSON?.taskResourceKind === 'equipment' ? EQUIPMENT_ENTITY : PERSON_ENTITY),
+        titleExtractor: resourceTitleOfRow, placeholder: pmT('Select resource…'),
+        filterItem: (r, row) => (r?.rowOwnerGUID === EQUIPMENT_CATALOG_OWNER ? eqActive(r, row) : true),
+      }) as VisualColumn,
       {
-        // the VARIANT of the person the line books (Senior, English): his own variants, separate from the variants of the role; empty = automatic
-        key: 'personVariant', title: pmT('Person variant'), type: 'select', field: 'taskResourceAttributesKey', width: 200,
+        // the VARIANT of the person / equipment the line books (Senior, English / Heavy, With operator): its own variants, separate from the variants of the role; empty = automatic
+        key: hasMenu ? 'resourceVariant' : equipmentOnly ? 'equipmentVariant' : 'personVariant', field: 'taskResourceAttributesKey', width: 200, type: 'select',
+        title: hasMenu ? pmT('Variant') : pmT(equipmentOnly ? RESOURCE_WORDS.equipment.variant : RESOURCE_WORDS.person.variant),
         options: (row) => personVariantOptions(data, row.rowJSON || {}), placeholder: pmT('Automatic'),
-      },
-      {
+      } as VisualColumn,
+      // the contract of a PERSON (an equipment has none: its hour is costed by the rate of the role)
+      ...(equipmentOnly ? [] : [{
         key: 'contract', title: pmT('Contract'), type: 'catalog', field: 'taskResourceContract', width: 240,
         catalogEntityName: CONTRACT_ENTITY, catalogRowParentGUID: 'person',
-        // the contracts of the person selected in the previous columns
-        dependsOn: 'person', dependsOnMessage: pmT('Select a person first'), placeholder: pmT('Select contract…'),
-      },
+        // the contracts of the person selected in the previous column(s)
+        dependsOn: resourceKey, dependsOnMessage: pmT('Select a person first'), placeholder: pmT('Select contract…'),
+      } as VisualColumn]),
     );
   } else {
     cols.push(

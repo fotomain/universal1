@@ -22,7 +22,7 @@ import { PMCrud } from '../../crud/usePMCrud';
 import { PM_WIDE_ACTION_WIDTH } from '../../model/constants';
 import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../inner/toolbars/PMToolbarPrimitives';
-import GanttToggleButtons from '../gantt/toolbars/GanttToggleButtons';
+import PMReportsSectionButtons from '../reports/PMReportsSectionButtons';
 import PMGanttLinkModeHint from '../gantt/toolbars/PMGanttLinkModeHint';
 import PMNetworkRadioGroup, { PMRadioOption } from './PMNetworkRadioGroup';
 import PMNetworkDiagram from './PMNetworkDiagram';
@@ -109,7 +109,8 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
             )}
             {showGanttToggle && (
               <>
-                <GanttToggleButtons palette={palette} onChange={setters.setGanttVsNetworkView} onReorder={setters.setViewButtonsOrder} />
+                {/* Network belongs to Reports: its row Costs | Revenues | Network (Network active), the main switch is in the app bar */}
+                <PMReportsSectionButtons palette={palette} setView={setters.setGanttVsNetworkView} />
                 <PMToolbarDivider color={palette.border} />
               </>
             )}

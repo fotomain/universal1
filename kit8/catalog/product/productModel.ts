@@ -95,7 +95,7 @@ export function todayISO(d = new Date()): string {
 export type DescriptionMode = 'property' | 'variant';
 export type DescriptorValueType = 'ref' | 'string' | 'number' | 'boolean' | 'date';
 export type VariantMode = 'none' | 'perType' | 'perProduct' | 'sharedWithType';
-export type TargetKind = 'productType' | 'resourceRoleType' | 'personType';
+export type TargetKind = 'productType' | 'resourceRoleType' | 'personType' | 'equipmentType';
 export type PriceAppliesTo = 'product' | 'resourceRoleType';
 
 export const DESCRIPTION_MODES: { value: DescriptionMode; label: string }[] = [
@@ -119,6 +119,7 @@ export const TARGET_KINDS: { value: TargetKind; label: string }[] = [
   { value: 'productType', label: 'Product type' },
   { value: 'resourceRoleType', label: 'Resource role type' },
   { value: 'personType', label: 'Person type' },
+  { value: 'equipmentType', label: 'Equipment type' },
 ];
 export const PRICE_APPLIES_TO: { value: PriceAppliesTo; label: string }[] = [
   { value: 'product', label: 'Products' },

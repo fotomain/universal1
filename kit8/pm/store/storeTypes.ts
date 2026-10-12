@@ -109,6 +109,8 @@ export interface PMStoreState {
   networkScheduleVariant: PMNetworkScheduleVariant;
   /** rowJSON.uxuiSettings.showTreeHierarchyNumbers - "#" column of the tree. */
   showTreeHierarchyNumbers: boolean;
+  /** rowJSON.uxuiSettings.dragAndDropTaskInTree - drag & drop of tasks in the tree (drag column + # / Task name + hover panel handle); default true. */
+  dragAndDropTaskInTree: boolean;
   /** rowJSON.uxuiSettings.treeColumnsOrder - tree column order (tree/columns). */
   treeColumnsOrder: PMTreeColumnKey[];
   /** rowJSON.uxuiSettings.treeColumnsWidths - resized tree columns (no "name" = Task name fills the pane). */
@@ -216,6 +218,9 @@ export interface PMStoreState {
    *  the chart zooms / scrolls so that the period fills the pane. Session only (not saved). */
   ganttPeriod: { startMs: number; finishMs: number; nonce: number } | null;
   setGanttPeriod: (period: { startMs: number; finishMs: number } | null) => void;
+  /** The page of the Reports view: Costs | Revenues (the Network section is the network view itself). Session only (not saved). */
+  reportsSection: 'costs' | 'revenues';
+  setReportsSection: (section: 'costs' | 'revenues') => void;
   /** "Custom period" window of the Gantt bar is open */
   ganttPeriodOpen: boolean;
   setGanttPeriodOpen: (open: boolean) => void;

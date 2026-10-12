@@ -1,6 +1,8 @@
 // Task lines - the derived fields of a line after a cell changed (pure; the table's computeRowJSON). Order of the rules:
 //  1. taskManagementGenusLine = the genus of the tab (the contract templates offered depend on it)
-//  2. a role attribute / product attribute the new role / product does not have is cleared; the variant of a person must be one of HIS variants
+//  2. the KIND of a Time line (person | equipment, taskLineResource.ts): a resource of the other kind (a person on an equipment line) and a role of the other kind
+//     are cleared with their variant and contract - changing the kind is like changing the partner, the cells that depended on it go;
+//     a role attribute / product attribute the new role / product does not have is cleared; the variant of a person / equipment must be one of ITS variants
 //     (empty = automatic: the variant that covers the role, see taskLinePersonMatch.ts)
 //  3. unit, VAT, price from the catalogs while they are empty / still follow them - for a person the price is the cost of his CONTRACT, else the
 //     rate of the role; the price source; the sums (taskLineMoney.ts)
@@ -10,6 +12,7 @@
 import { computeLineJSON } from './taskLineMoney';
 import { productVariantOptions, roleVariantOptions, suggestForLine, TaskLineCatalogData } from './taskLineCatalogs';
 import { personVariants } from './taskLinePersonMatch';
+import { lineResourceKind, resourceBelongsToOtherKind, roleResourceKind } from './taskLineResource';
 import { computeFx, LineFxContext } from './taskLineFx';
 import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
 
@@ -26,13 +29,22 @@ export function computeTaskLineRowJSON(
 
   if (merged.taskManagementGenusLine !== genus.genus) apply({ taskManagementGenusLine: genus.genus });
 
+  const kind = lineResourceKind(genus, merged);
+  if (kind !== 'product') {
+    // Time: the kind changed - the resource of the other kind, the contract of a person on an equipment line and a role of the other kind go
+    if (resourceBelongsToOtherKind(data, kind, merged.taskResourceItem)) apply({ taskResourceItem: null, taskResourceAttributesKey: null, taskResourceContract: null });
+    if (kind === 'equipment' && merged.taskResourceContract) apply({ taskResourceContract: null });
+    const role = data.resourceRole.find((r) => r.rowGUID === merged.resourceRoleItem);
+    if (role && roleResourceKind(data, role) !== kind) apply({ resourceRoleItem: null, resourceRoleAttributeSetKey: null });
+  }
+
   const roleKey = merged.resourceRoleAttributeSetKey;
   if (roleKey && !roleVariantOptions(data, merged.resourceRoleItem).some((o) => o.value === roleKey)) apply({ resourceRoleAttributeSetKey: null });
-  if (genus.resource === 'product') {
+  if (kind === 'product') {
     const key = merged.taskResourceAttributesKey;
     if (key && !productVariantOptions(data, merged.taskResourceItem).some((o) => o.value === key)) apply({ taskResourceAttributesKey: null });
   } else {
-    // Time: the variant belongs to the PERSON; another person (or the free text of the first version) clears it
+    // Time: the variant belongs to the PERSON / EQUIPMENT; another one (or the free text of the first version) clears it
     const key = merged.taskResourceAttributesKey;
     if (key && !personVariants(data, merged.taskResourceItem).some((v) => v.key === key)) apply({ taskResourceAttributesKey: null });
   }

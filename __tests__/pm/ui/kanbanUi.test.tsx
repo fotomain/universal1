@@ -73,10 +73,11 @@ afterEach(() => {
 });
 
 describe('Gantt | Kanban | Network switch', () => {
-  it('has three views in this order and reports the choice', () => {
+  it('Gantt | Kanban in this order (Network is a section of Reports, not a button of this switch) and reports the choice', () => {
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView']);
+    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView']);
+    expect(q('pm-gantt-vs-network-showNetworkView')).toBeNull();
     press('pm-gantt-vs-network-showKanbanView');
     expect(onChange).toHaveBeenCalledWith('showKanbanView');
   });

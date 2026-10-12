@@ -1,6 +1,6 @@
 # Task finances - `task_line_table`
 
-The finance lines of ONE task: **Time** (a role + a person), **Material**, **Expenses**, **Revenues** (a role + a product + a partner).
+The finance lines of ONE task: **Time** (a role + a person **or an equipment**), **Material**, **Expenses**, **Revenues** (a role + a product + a partner).
 Source: the sheet "W1 TASK LINES". SQL: `kit8/sql/init/create_pm_task_line_table.sql` (+ `delete_pm_task_line_table.sql`); all SQL files in order: `kit8/sql/init/RUN_ORDER.md`.
 
 ## Where it is shown
@@ -67,6 +67,25 @@ Titles are never copied: the app reads them from the catalogs.
   bar button for the whole tab) is the separate algorithm: it ignores the snapshot and takes the rates again. No rate = no sum and a ⚠ with the reason (strict).
 * **Currency** - visible only (not stored): the partner contract's, else the resource contract's, else the project's `currencyForContract`.
 
+## Equipment on a Time line (`taskResourceKind`, `taskLineResource.ts`; the design: `recommendation/EQUIPMENT_TIME.html`)
+
+A Time line books a **person** or an **equipment** (`kit8/catalog/equipment`: a machine with its own Properties and Variants, the analog of the person). The kind is the line's own
+`rowJSON.taskResourceKind`; **empty = person**, so every Time line made before equipment stays valid. ONE helper (`lineResourceKind(genus, json)`) answers who the line books
+- the places that asked `genus.resource === 'person'` use it. Material / Expense / Revenue lines always book a product.
+
+* **Input switches** (project settings → Finances → Budgets, `kit8/pm/model/taskInputScope.ts`): while "Expense budget needed" is on, **Time input needed** (with **Time of person input needed** /
+  **Time of equipment input needed**), **Material input needed**, **Expense input needed** decide what this view offers. **Master off = exactly as before** (person Time lines, all four tabs).
+  An EMPTY tab whose input is off is hidden; a tab that has lines is never hidden (`tabVisible`). Defaults of a missing key: Time / Person / Material / Expense on, Equipment off.
+* **The menu "Resource: Person | Equipment"** is a column of the Time table, BEFORE the role and the resource (`resourceKind`), only while both kinds are offered (`timeKindsOffered`: the kinds in scope plus
+  a kind the task already has lines of). Then there is ONE resource column (the catalog follows the Resource of the row: `ReusableTable` `catalogEntityNameOf`) and ONE variant column. One kind only = no menu:
+  person only = the columns as before; equipment only = Equipment · Equipment variant, no Contract.
+* **Role**: the role picker offers the roles of the genus AND of the kind of the line (`resourceRoleTypeTable.rowJSON.resourceKind`, missing = person). A role of the other kind is marked ⚠.
+* **Changing the kind** clears what depended on it (`taskLineCompute.ts`): the resource of the other kind, its variant, the person's contract, a role of the other kind - the price then follows the new role.
+* **Cost of an hour of equipment = the rate of the role** (`rolePriceTable`): an equipment has no contract and no rates of its own. (`contractPeriodHours` is for persons: 8 h a day.)
+* **Match**: `taskLinePersonMatch.ts` serves both kinds (it looks a resource up by its GUID); the ⚠ texts say "The equipment has no variant that covers the role", "Engine power, kW: needs at least 100, has 60 kW".
+* **Plan view / Post**: nothing changes in the calculation; `create_task_line_plan` copies `taskResourceKind` into the plan rows; the Plan view shows the equipment title.
+* New lines of a project that offers equipment carry their kind (`person` first, or `equipment` when that is the only kind); a project without equipment leaves it empty.
+
 ## Budget item, Post and the plan (`kit8/pm/view/task/plan`, see its README)
 
 * **Budget item** (`budgetItemTaskLine`, the first column, `kit8/catalog/budget/item`): what the line is budgeted as - the items of the genus of the tab; a new line gets the item of its genus. A line without one is not posted.
@@ -87,5 +106,5 @@ Titles are never copied: the app reads them from the catalogs.
 ## Files
 
 `PMProjectTaskFinancesCRUD.tsx` the lines (tabs + table) · `PMProjectFinancesView.tsx` the dashboard view · `taskLineModel.ts` table, genus tabs, row shape ·
-`taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLinePersonMatch.ts` (person vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus (the **Errors** column - the message text + the ⚠ - is the FIRST one, before `#`, and only there while a line of the tab has an error) · `useTaskLineCatalogs.ts` the catalog rows from redux ·
+`taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLineResource.ts` (who a line books: person | equipment | product) · `taskLinePersonMatch.ts` (person / equipment vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus (the **Errors** column - the message text + the ⚠ - is the FIRST one, before `#`, and only there while a line of the tab has an error) · `useTaskLineCatalogs.ts` the catalog rows from redux ·
 `taskLineMetaData.ts` the redux entity (spread into `kit8/redux/SystemMetaData.ts`).

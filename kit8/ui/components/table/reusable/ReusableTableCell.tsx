@@ -56,7 +56,7 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
         <View style={styles.selectWrap}>
         <SelectElementFromCatalog
           testID={id}
-          entityName={col.catalogEntityName}
+          entityName={col.catalogEntityNameOf ? col.catalogEntityNameOf(row) : col.catalogEntityName}
           value={value ?? null}
           onChange={(guid) => onChange(col.key, guid)}
           // the rows of the element chosen in the column this one depends on (person -> his contracts)

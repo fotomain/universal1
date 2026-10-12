@@ -43,7 +43,7 @@ A person has his OWN Properties and Variants, separate from the ones of a role, 
   (`personTypeModel.ts`) shows persons as products owned by their type, so the descriptor rules, labels and validation are written once.
 * A descriptor with `"multiple": true` (Certification) may have several property rows for one person. `"satisfies"` says which role descriptor it answers
   (Experience, years answers Min. experience); `"matchRule"`: 'atLeast' (numbers) | 'includes' (lists).
-* The three sides share `descriptorDestination / Plan / propertyValue / variant / variantValue`: each dashboard hides the rows of the other two (`catalogSides.ts`).
+* The four sides (products, roles, persons, **equipment**) share `descriptorDestination / Plan / propertyValue / variant / variantValue`: each dashboard hides the rows of the other three (`catalogSides.ts`; the list of the sides is `product/crud/descriptorSides.ts`). An **equipment** is the same idea for machines: `kit8/catalog/equipment`.
 * **Persons dashboard** (`dashboard/PersonDashboard.tsx`): Checks (rules R1-R12, P1) + 9 ReusableTables (Persons, Person types, Descriptors, Values, Sets, Plan lines,
   Properties, Variants, Variant values), filters (the properties of ONE person), Generate variants.
 * The Time line of a task uses it: `kit8/pm/view/task/finances/README.md` (Person variant, cost from the person's contract).

@@ -20,6 +20,7 @@
 --   14. create_management_calendar_tables.sql - management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar
 --   15. create_task_line_plan_table.sql - task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
 --   16. create_user_calendar_tables.sql - user calendars, events, reminders
+--   17. create_equipment_tables.sql - equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
 -- ===============================================================================================
 
 
@@ -10556,7 +10557,8 @@ NOTIFY pgrst, 'reload schema';
 --   rowPeriodDatetime  the start of the day (00:00:00) - unique with the line
 --   rowCoefficient     the share of the day, NORMALIZED: the coefficients of a line add up to baseOfDistribution (1)
 --   qtyTaskLine · sumForBudget · sumForContract     the result of the distribution, rounded to 2 digits
---   rowJSON            { budgetItemTaskLine, taskManagementGenusLine } copied from the line, so a report needs no join
+--   rowJSON            { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind } copied from the line, so a report needs no join
+--                      (taskResourceKind: 'person' | 'equipment' of a Time line, null = a person or not a Time line)
 -- The app only READS this table. Rows are written by ONE procedure, in ONE transaction:
 --   create_task_line_plan("taskLinePlanJSON")   (see below)
 --
@@ -10682,7 +10684,8 @@ BEGIN
   FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
     v_guid := (v_line->>'lineGUID')::uuid;
     v_idx  := v_idx + 1;
-    SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID")
+    SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID",
+                                                 'taskResourceKind', COALESCE(l."rowJSON"->'taskResourceKind', 'null'::jsonb))
       INTO v_genus, v_item
       FROM public.task_line_table l WHERE l."rowGUID" = v_guid AND l."rowOwnerGUID" = v_task;
     IF v_genus IS NULL THEN
@@ -11036,6 +11039,299 @@ NOTIFY pgrst, 'reload schema';
 --   DROP FUNCTION IF EXISTS public.user_calendar_project_task_sync(), public.user_calendar_project_sync(),
 --                           public.user_calendar_project_task_json(public.project_task_table);
 --   DROP TABLE IF EXISTS public.user_calendar_invitation_table, public.user_calendar_event_table, public.user_calendar_table;
+
+
+-- ===============================================================================================
+-- PART 17: create_equipment_tables.sql
+-- equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - EQUIPMENT: create_equipment_tables.sql
+-- (run AFTER everything above; IDEMPOTENT + NON-DESTRUCTIVE - safe to run twice. Remove again with the equipment part of delete_sql_structure.sql.)
+--
+-- Equipment = a machine or a tool that is booked BY THE HOUR on a Time line of a task, like a person (recommendation/EQUIPMENT_TIME.html).
+--   equipmentTypeTable   Heavy machinery · Vehicle    the twin of personTypeTable: a type decides the descriptor sets (Property / Variant) of its equipment
+--   equipmentTable       the equipment                rowJSON { equipmentTitle, equipmentCode, equipmentType, equipmentOwnership ('own' | 'rented' | 'leased'),
+--                                                              equipmentManufacturer, equipmentModel, equipmentSerialNumber, isActive }
+--   rowGUID · rowOwnerGUID ('equipmentTypeCatalog' / 'equipmentCatalog') · rowParentGUID 'empty' · orderInList · rowJSON - the defTable pattern.
+--   An equipment has its OWN Properties (what it IS: Engine power 110 kW) and Variants (what it can be BOOKED AS: Heavy, With operator) on the
+--   shared descriptor tables: propertyValueTable / variantTable, owner = the equipment; the sets belong to the equipment TYPE.
+--   Cost: an equipment has no rates and no contract of its own - the hour is costed by the rate of the RESOURCE ROLE of the line (rolePriceTable).
+--
+-- Also here:
+--   * the role type "Equipment Resources" (genus timeGenus, resourceRoleTypeTable.rowJSON.resourceKind = 'equipment'): the roles an equipment line can book,
+--     with their requirements (min. engine power), variants (Heavy, With operator ...) and hourly rates
+--   * task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person): a CHECK keeps the value honest and allows an equipment on a Time line only
+-- =====================================================================================
+
+DO $$
+BEGIN
+  IF to_regprocedure('public.kit8_setup_def_table(text)') IS NULL OR to_regclass('public."descriptorGenusTable"') IS NULL OR to_regclass('public."resourceRoleTypeTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run the parts above first (kit8_setup_def_table, the descriptor tables, resourceRoleTypeTable)';
+  END IF;
+END $$;
+
+-- ---- equipmentTypeTable + equipmentTable ---------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public."equipmentTypeTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentTypeCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_equipmentTypeTable_owner_order" ON public."equipmentTypeTable" ("rowOwnerGUID", "orderInList");
+SELECT public.kit8_setup_def_table('equipmentTypeTable');
+
+CREATE TABLE IF NOT EXISTS public."equipmentTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT equipment_ownership_chk CHECK (COALESCE("rowJSON"->>'equipmentOwnership', 'own') IN ('own', 'rented', 'leased'))
+);
+CREATE INDEX IF NOT EXISTS "idx_equipmentTable_title" ON public."equipmentTable" ((lower("rowJSON"->>'equipmentTitle')));
+CREATE INDEX IF NOT EXISTS "idx_equipmentTable_type" ON public."equipmentTable" (("rowJSON"->>'equipmentType'));
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_equipmentTable_code" ON public."equipmentTable" (lower("rowJSON"->>'equipmentCode')) WHERE NOT coalesce("rowJSON"->>'equipmentCode', '') = '';
+SELECT public.kit8_setup_def_table('equipmentTable');
+
+-- access: signed-in users (as personTable / personTypeTable)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['equipmentTypeTable', 'equipmentTable'] LOOP
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+  END LOOP;
+END $$;
+
+-- ---- descriptors (rule R11: the genus lists the kind of the owner of the set) ---------------------------------------------------
+-- equipmentClass / hireMode = what an equipment can be BOOKED AS (a variant) and what a role ASKS for; enginePowerKw answers the role requirement minEnginePowerKw
+INSERT INTO public."descriptorGenusTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('equipmentClass',   'descriptorGenusCatalog', 'empty', 29000, '{"title": "Class", "valueType": "ref", "allowedDescriptionModes": ["variant"], "targetKinds": ["equipmentType", "resourceRoleType"], "isActive": true}'::jsonb),
+  ('hireMode',         'descriptorGenusCatalog', 'empty', 29100, '{"title": "Hire mode", "valueType": "ref", "allowedDescriptionModes": ["variant"], "targetKinds": ["equipmentType", "resourceRoleType"], "isActive": true}'::jsonb),
+  ('enginePowerKw',    'descriptorGenusCatalog', 'empty', 29200, '{"title": "Engine power, kW", "valueType": "number", "unit": "kW", "allowedDescriptionModes": ["property"], "targetKinds": ["equipmentType"], "satisfies": "minEnginePowerKw", "matchRule": "atLeast", "isActive": true}'::jsonb),
+  ('minEnginePowerKw', 'descriptorGenusCatalog', 'empty', 29300, '{"title": "Min. engine power, kW", "valueType": "number", "unit": "kW", "allowedDescriptionModes": ["property"], "targetKinds": ["resourceRoleType"], "isActive": true}'::jsonb),
+  ('yearOfManufacture','descriptorGenusCatalog', 'empty', 29400, '{"title": "Year of manufacture", "valueType": "number", "allowedDescriptionModes": ["property"], "targetKinds": ["equipmentType"], "isActive": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."descriptorValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('dv_eqc_light',  'equipmentClass', 'empty', 107000, '{"code": "light",  "title": "Light",  "sort": 10}'::jsonb),
+  ('dv_eqc_medium', 'equipmentClass', 'empty', 108000, '{"code": "medium", "title": "Medium", "sort": 20}'::jsonb),
+  ('dv_eqc_heavy',  'equipmentClass', 'empty', 109000, '{"code": "heavy",  "title": "Heavy",  "sort": 30}'::jsonb),
+  ('dv_hm_dry',     'hireMode',       'empty', 110000, '{"code": "dry",      "title": "Dry hire",      "sort": 10}'::jsonb),
+  ('dv_hm_op',      'hireMode',       'empty', 111000, '{"code": "operator", "title": "With operator", "sort": 20}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- ---- the two equipment types, their descriptor sets and plan lines ---------------------------------------------------------------
+INSERT INTO public."equipmentTypeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('equipmentTypeHeavy',   'equipmentTypeCatalog', 'empty', 1000, '{"title": "Heavy machinery", "description": "Excavators, loaders, cranes: booked by the hour, with or without an operator",
+    "propertySet": "ds_eqh_prop", "variantSet": "ds_eqh_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{equipmentClass}, {hireMode}", "isActive": true}'::jsonb),
+  ('equipmentTypeVehicle', 'equipmentTypeCatalog', 'empty', 2000, '{"title": "Vehicle", "description": "Vans and pickup trucks of the project: booked by the hour",
+    "propertySet": "ds_eqv_prop", "variantSet": "ds_eqv_var", "variantMode": "perProduct", "uniqueVariants": true, "variantTitleTemplate": "{equipmentClass}, {hireMode}", "isActive": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."descriptorDestinationTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('ds_eqh_prop', 'equipmentTypeHeavy',   'property', 51000, '{"title": "Heavy machinery – properties"}'::jsonb),
+  ('ds_eqh_var',  'equipmentTypeHeavy',   'variant',  51100, '{"title": "Heavy machinery – variants"}'::jsonb),
+  ('ds_eqv_prop', 'equipmentTypeVehicle', 'property', 52000, '{"title": "Vehicle – properties"}'::jsonb),
+  ('ds_eqv_var',  'equipmentTypeVehicle', 'variant',  52100, '{"title": "Vehicle – variants"}'::jsonb),
+  ('ds_eqr_prop', 'equipmentResources',   'property', 53000, '{"title": "Equipment Resources – properties"}'::jsonb),
+  ('ds_eqr_var',  'equipmentResources',   'variant',  53100, '{"title": "Equipment Resources – variants"}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."descriptorPlanTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('dp_eqh_p1', 'ds_eqh_prop', 'enginePowerKw',     54000, '{"required": true,  "sort": 10, "showInCard": true}'::jsonb),
+  ('dp_eqh_p2', 'ds_eqh_prop', 'yearOfManufacture', 54100, '{"required": false, "sort": 20, "showInCard": true}'::jsonb),
+  ('dp_eqh_v1', 'ds_eqh_var',  'equipmentClass',    54200, '{"required": true,  "sort": 10, "inVariantTitle": true}'::jsonb),
+  ('dp_eqh_v2', 'ds_eqh_var',  'hireMode',          54300, '{"required": true,  "sort": 20, "inVariantTitle": true}'::jsonb),
+  ('dp_eqv_p1', 'ds_eqv_prop', 'enginePowerKw',     55000, '{"required": true,  "sort": 10, "showInCard": true}'::jsonb),
+  ('dp_eqv_p2', 'ds_eqv_prop', 'yearOfManufacture', 55100, '{"required": false, "sort": 20, "showInCard": true}'::jsonb),
+  ('dp_eqv_v1', 'ds_eqv_var',  'equipmentClass',    55200, '{"required": true,  "sort": 10, "inVariantTitle": true}'::jsonb),
+  ('dp_eqv_v2', 'ds_eqv_var',  'hireMode',          55300, '{"required": true,  "sort": 20, "inVariantTitle": true}'::jsonb),
+  -- the ROLE side (what a role of an equipment asks for): min. engine power / class / hire mode
+  ('dp_eqr_p1', 'ds_eqr_prop', 'minEnginePowerKw',  56000, '{"required": true,  "sort": 10, "showInCard": true}'::jsonb),
+  ('dp_eqr_v1', 'ds_eqr_var',  'equipmentClass',    56100, '{"required": true,  "sort": 10, "inVariantTitle": true}'::jsonb),
+  ('dp_eqr_v2', 'ds_eqr_var',  'hireMode',          56200, '{"required": true,  "sort": 20, "inVariantTitle": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- ---- demo equipment: 6 machines, their properties (engine power, year) and variants (class x hire mode) --------------------------
+INSERT INTO public."equipmentTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT v.guid, 'equipmentCatalog', 'empty', v.ord,
+       jsonb_build_object('equipmentTitle', v.title, 'equipmentCode', v.code, 'equipmentType', v.etype, 'equipmentOwnership', v.owned,
+                          'equipmentManufacturer', v.maker, 'equipmentModel', v.model, 'equipmentSerialNumber', v.serial, 'isActive', true)
+  FROM (VALUES
+    ('eq_cat320',    1000, 'Excavator CAT 320',                 'EQ-001', 'equipmentTypeHeavy',   'own',    'Caterpillar', '320',            'CAT0320A1'),
+    ('eq_jcb3cx',    2000, 'Backhoe loader JCB 3CX',            'EQ-002', 'equipmentTypeHeavy',   'rented', 'JCB',         '3CX',            'JCB3CX77'),
+    ('eq_ltm1050',   3000, 'Mobile crane Liebherr LTM 1050',    'EQ-003', 'equipmentTypeHeavy',   'leased', 'Liebherr',    'LTM 1050-3.1',   'LH1050X'),
+    ('eq_cat926',    4000, 'Wheel loader CAT 926M',             'EQ-004', 'equipmentTypeHeavy',   'own',    'Caterpillar', '926M',           'CAT926M2'),
+    ('eq_crafter',   5000, 'Delivery van VW Crafter',           'EQ-005', 'equipmentTypeVehicle', 'own',    'Volkswagen',  'Crafter 35',     'WV1CRAFT'),
+    ('eq_hilux',     6000, 'Pickup truck Toyota Hilux',         'EQ-006', 'equipmentTypeVehicle', 'rented', 'Toyota',      'Hilux 2.8 D-4D', 'TY2HILUX')
+  ) AS v(guid, ord, title, code, etype, owned, maker, model, serial)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- properties: engine power (required) and the year of manufacture; the plan line of the set of the TYPE of the equipment
+INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'pp_eq_' || v.kind || '_' || v.guid, v.guid, v.pre || CASE v.kind WHEN 'pow' THEN 'p1' ELSE 'p2' END, 300000 + v.ord, jsonb_build_object('value', v.val)
+  FROM (VALUES
+    ('eq_cat320',  'dp_eqh_', 'pow', 1, 122), ('eq_cat320',  'dp_eqh_', 'year', 2, 2019),
+    ('eq_jcb3cx',  'dp_eqh_', 'pow', 3, 55),  ('eq_jcb3cx',  'dp_eqh_', 'year', 4, 2021),
+    ('eq_ltm1050', 'dp_eqh_', 'pow', 5, 270), ('eq_ltm1050', 'dp_eqh_', 'year', 6, 2017),
+    ('eq_cat926',  'dp_eqh_', 'pow', 7, 129), ('eq_cat926',  'dp_eqh_', 'year', 8, 2020),
+    ('eq_crafter', 'dp_eqv_', 'pow', 9, 103), ('eq_crafter', 'dp_eqv_', 'year', 10, 2022),
+    ('eq_hilux',   'dp_eqv_', 'pow', 11, 150), ('eq_hilux',  'dp_eqv_', 'year', 12, 2023)
+  ) AS v(guid, pre, kind, ord, val)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- variants = what an equipment can be BOOKED AS (class x hire mode); the key lists the plan lines of ITS type's variant set, sorted by plan line
+INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'evar_' || v.guid || '_' || v.k, v.guid, 'empty', 310000 + v.ord,
+       jsonb_build_object('title', v.cls_title || ', ' || v.hire_title, 'descriptorKey', v.pre || 'v1=' || v.cls || '|' || v.pre || 'v2=' || v.hire, 'isActive', true)
+  FROM (VALUES
+    ('eq_cat320',  'a', 1, 'dp_eqh_', 'dv_eqc_heavy',  'Heavy',  'dv_hm_op',  'With operator'),
+    ('eq_cat320',  'b', 2, 'dp_eqh_', 'dv_eqc_heavy',  'Heavy',  'dv_hm_dry', 'Dry hire'),
+    ('eq_jcb3cx',  'a', 3, 'dp_eqh_', 'dv_eqc_medium', 'Medium', 'dv_hm_op',  'With operator'),
+    ('eq_jcb3cx',  'b', 4, 'dp_eqh_', 'dv_eqc_medium', 'Medium', 'dv_hm_dry', 'Dry hire'),
+    ('eq_ltm1050', 'a', 5, 'dp_eqh_', 'dv_eqc_heavy',  'Heavy',  'dv_hm_op',  'With operator'),
+    ('eq_cat926',  'a', 6, 'dp_eqh_', 'dv_eqc_heavy',  'Heavy',  'dv_hm_op',  'With operator'),
+    ('eq_cat926',  'b', 7, 'dp_eqh_', 'dv_eqc_heavy',  'Heavy',  'dv_hm_dry', 'Dry hire'),
+    ('eq_crafter', 'a', 8, 'dp_eqv_', 'dv_eqc_light',  'Light',  'dv_hm_op',  'With operator'),
+    ('eq_crafter', 'b', 9, 'dp_eqv_', 'dv_eqc_light',  'Light',  'dv_hm_dry', 'Dry hire'),
+    ('eq_hilux',   'a', 10, 'dp_eqv_', 'dv_eqc_light', 'Light',  'dv_hm_dry', 'Dry hire')
+  ) AS v(guid, k, ord, pre, cls, cls_title, hire, hire_title)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'evv_' || v.guid || '_' || v.k || '_' || parts.part, 'evar_' || v.guid || '_' || v.k, v.pre || CASE parts.part WHEN 'c' THEN 'v1' ELSE 'v2' END,
+       320000 + v.ord * 10 + CASE parts.part WHEN 'c' THEN 1 ELSE 2 END,
+       jsonb_build_object('descriptorValueGUID', CASE parts.part WHEN 'c' THEN v.cls ELSE v.hire END)
+  FROM (VALUES
+    ('eq_cat320',  'a', 1, 'dp_eqh_', 'dv_eqc_heavy',  'dv_hm_op'),  ('eq_cat320',  'b', 2, 'dp_eqh_', 'dv_eqc_heavy',  'dv_hm_dry'),
+    ('eq_jcb3cx',  'a', 3, 'dp_eqh_', 'dv_eqc_medium', 'dv_hm_op'),  ('eq_jcb3cx',  'b', 4, 'dp_eqh_', 'dv_eqc_medium', 'dv_hm_dry'),
+    ('eq_ltm1050', 'a', 5, 'dp_eqh_', 'dv_eqc_heavy',  'dv_hm_op'),
+    ('eq_cat926',  'a', 6, 'dp_eqh_', 'dv_eqc_heavy',  'dv_hm_op'),  ('eq_cat926',  'b', 7, 'dp_eqh_', 'dv_eqc_heavy',  'dv_hm_dry'),
+    ('eq_crafter', 'a', 8, 'dp_eqv_', 'dv_eqc_light',  'dv_hm_op'),  ('eq_crafter', 'b', 9, 'dp_eqv_', 'dv_eqc_light',  'dv_hm_dry'),
+    ('eq_hilux',   'a', 10, 'dp_eqv_', 'dv_eqc_light', 'dv_hm_dry')
+  ) AS v(guid, k, ord, pre, cls, hire)
+  CROSS JOIN (VALUES ('c'), ('h')) AS parts(part)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- ---- the role type "Equipment Resources": the roles an equipment line books (genus timeGenus, resourceKind equipment) ----------------
+-- the role asks for: a minimum engine power (property) and, as a variant, a class and a hire mode; its hour costs the rate of the role (rolePriceTable)
+INSERT INTO public."resourceRoleTypeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('equipmentResources', 'resourceRoleTypeCatalog', 'empty', 10000, '{"title": "Equipment Resources", "description": "Machines and vehicles booked by the hour, with or without an operator. Costed and invoiced per hour; the class and the hire mode are variants with their own rate.", "managementGenus": "timeGenus", "resourceKind": "equipment", "baseUnit": "unit_hour", "roleVATDefaultRate": "vat_21", "propertySet": "ds_eqr_prop", "variantSet": "ds_eqr_var", "variantMode": "perType", "uniqueVariants": true, "variantTitleTemplate": "{equipmentClass}, {hireMode}", "isActive": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+-- the role types made before equipment are the roles of PERSONS (an empty kind is read as a person; the seed says it)
+UPDATE public."resourceRoleTypeTable" SET "rowJSON" = "rowJSON" || '{"resourceKind": "person"}'::jsonb
+ WHERE "rowGUID" = 'humanResources' AND NOT ("rowJSON" ? 'resourceKind');
+
+INSERT INTO public."resourceRoleFolderTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('fld_res_eq', 'resourceRoleFolderCatalog', 'empty', 17000, '{"title": "Equipment"}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."resourceRoleTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('eqr_excavator', 'equipmentResources', 'fld_res_eq', 36000, '{"title": "Excavator 20 t", "description": "Tracked excavator, about 20 t: digging, loading, trenching.", "roleVATRate": null, "isActive": true}'::jsonb),
+  ('eqr_loader',    'equipmentResources', 'fld_res_eq', 37000, '{"title": "Wheel loader", "description": "Wheel loader: loading and moving bulk material on site.", "roleVATRate": null, "isActive": true}'::jsonb),
+  ('eqr_crane',     'equipmentResources', 'fld_res_eq', 38000, '{"title": "Mobile crane 50 t", "description": "Mobile crane, lifting up to 50 t.", "roleVATRate": null, "isActive": true}'::jsonb),
+  ('eqr_van',       'equipmentResources', 'fld_res_eq', 39000, '{"title": "Delivery van", "description": "Van with a driver for the delivery of material and tools on site.", "roleVATRate": null, "isActive": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- what the roles require: a minimum engine power
+INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('pp_eqr_excavator_pow', 'eqr_excavator', 'dp_eqr_p1', 710000, '{"value": 100}'::jsonb),
+  ('pp_eqr_loader_pow',    'eqr_loader',    'dp_eqr_p1', 711000, '{"value": 100}'::jsonb),
+  ('pp_eqr_crane_pow',     'eqr_crane',     'dp_eqr_p1', 712000, '{"value": 250}'::jsonb),
+  ('pp_eqr_van_pow',       'eqr_van',       'dp_eqr_p1', 713000, '{"value": 80}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- the bookable levels of the role type (owner = role type, perType): class x hire mode
+INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('rv_eqr_heavy_op',  'equipmentResources', 'empty', 610000, '{"title": "Heavy, With operator",  "descriptorKey": "dp_eqr_v1=dv_eqc_heavy|dp_eqr_v2=dv_hm_op",   "isActive": true}'::jsonb),
+  ('rv_eqr_heavy_dry', 'equipmentResources', 'empty', 611000, '{"title": "Heavy, Dry hire",      "descriptorKey": "dp_eqr_v1=dv_eqc_heavy|dp_eqr_v2=dv_hm_dry",  "isActive": true}'::jsonb),
+  ('rv_eqr_med_op',    'equipmentResources', 'empty', 612000, '{"title": "Medium, With operator", "descriptorKey": "dp_eqr_v1=dv_eqc_medium|dp_eqr_v2=dv_hm_op",  "isActive": true}'::jsonb),
+  ('rv_eqr_med_dry',   'equipmentResources', 'empty', 613000, '{"title": "Medium, Dry hire",     "descriptorKey": "dp_eqr_v1=dv_eqc_medium|dp_eqr_v2=dv_hm_dry", "isActive": true}'::jsonb),
+  ('rv_eqr_light_op',  'equipmentResources', 'empty', 614000, '{"title": "Light, With operator",  "descriptorKey": "dp_eqr_v1=dv_eqc_light|dp_eqr_v2=dv_hm_op",   "isActive": true}'::jsonb),
+  ('rv_eqr_light_dry', 'equipmentResources', 'empty', 615000, '{"title": "Light, Dry hire",      "descriptorKey": "dp_eqr_v1=dv_eqc_light|dp_eqr_v2=dv_hm_dry",  "isActive": true}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'rvv_' || v.guid || '_' || parts.part, v.guid, CASE parts.part WHEN 'c' THEN 'dp_eqr_v1' ELSE 'dp_eqr_v2' END, 620000 + v.ord * 10 + CASE parts.part WHEN 'c' THEN 1 ELSE 2 END,
+       jsonb_build_object('descriptorValueGUID', CASE parts.part WHEN 'c' THEN v.cls ELSE v.hire END)
+  FROM (VALUES
+    ('rv_eqr_heavy_op', 1, 'dv_eqc_heavy', 'dv_hm_op'),  ('rv_eqr_heavy_dry', 2, 'dv_eqc_heavy', 'dv_hm_dry'),
+    ('rv_eqr_med_op',   3, 'dv_eqc_medium', 'dv_hm_op'), ('rv_eqr_med_dry',   4, 'dv_eqc_medium', 'dv_hm_dry'),
+    ('rv_eqr_light_op', 5, 'dv_eqc_light', 'dv_hm_op'),  ('rv_eqr_light_dry', 6, 'dv_eqc_light', 'dv_hm_dry')
+  ) AS v(guid, ord, cls, hire)
+  CROSS JOIN (VALUES ('c'), ('h')) AS parts(part)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- the rates: Bill + Cost per hour of every role, and a higher Bill rate of the variants With operator (parent = the variant of the role type)
+INSERT INTO public."rolePriceTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('rp_eqr_excavator_bill',    'eqr_excavator', 'empty',           90000, '{"priceTypeGUID": "pt_bill", "price": 85,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_excavator_cost',    'eqr_excavator', 'empty',           91000, '{"priceTypeGUID": "pt_cost", "price": 55,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_excavator_bill_op', 'eqr_excavator', 'rv_eqr_heavy_op', 92000, '{"priceTypeGUID": "pt_bill", "price": 110, "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_loader_bill',       'eqr_loader',    'empty',           93000, '{"priceTypeGUID": "pt_bill", "price": 75,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_loader_cost',       'eqr_loader',    'empty',           94000, '{"priceTypeGUID": "pt_cost", "price": 48,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_loader_bill_op',    'eqr_loader',    'rv_eqr_heavy_op', 95000, '{"priceTypeGUID": "pt_bill", "price": 98,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_crane_bill',        'eqr_crane',     'empty',           96000, '{"priceTypeGUID": "pt_bill", "price": 190, "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_crane_cost',        'eqr_crane',     'empty',           97000, '{"priceTypeGUID": "pt_cost", "price": 135, "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_crane_bill_op',     'eqr_crane',     'rv_eqr_heavy_op', 98000, '{"priceTypeGUID": "pt_bill", "price": 240, "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_van_bill',          'eqr_van',       'empty',           99000, '{"priceTypeGUID": "pt_bill", "price": 32,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_van_cost',          'eqr_van',       'empty',          100000, '{"priceTypeGUID": "pt_cost", "price": 21,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
+  ('rp_eqr_van_bill_op',       'eqr_van',       'rv_eqr_light_op',101000, '{"priceTypeGUID": "pt_bill", "price": 52,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- ---- task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person) -------------------------------------------
+-- a CHECK keeps the value honest and allows an equipment on a Time line only; every line made before equipment has no kind and passes
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_line_resource_kind_chk' AND conrelid = 'public.task_line_table'::regclass) THEN
+    ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_resource_kind_chk CHECK (
+      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment')
+      AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
+  END IF;
+END $$;
+
+-- ---- realtime ------------------------------------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  t text;
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['equipmentTypeTable', 'equipmentTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT t."rowJSON"->>'title' AS type, count(e.*) AS equipment FROM public."equipmentTypeTable" t LEFT JOIN public."equipmentTable" e ON e."rowJSON"->>'equipmentType' = t."rowGUID" GROUP BY 1;
+--   SELECT e."rowJSON"->>'equipmentTitle', v."rowJSON"->>'title' FROM public."equipmentTable" e JOIN public."variantTable" v ON v."rowOwnerGUID" = e."rowGUID" ORDER BY 1, 2;
+--   SELECT r."rowJSON"->>'title', pv."rowJSON"->>'value' AS min_power_kw FROM public."resourceRoleTable" r JOIN public."propertyValueTable" pv ON pv."rowOwnerGUID" = r."rowGUID" WHERE r."rowOwnerGUID" = 'equipmentResources';
 
 
 -- ===============================================================================================

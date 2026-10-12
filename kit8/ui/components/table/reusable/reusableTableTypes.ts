@@ -72,6 +72,16 @@ export interface CatalogColumn extends ColumnBase {
   type: 'catalog';
   /** SystemMetaData key of the catalog, e.g. 'personReusable', 'contractReusable' */
   catalogEntityName: string;
+  /**
+   * A column whose catalog depends on the ROW (a Time line: a person OR an equipment): the catalog of THIS row. Default = `catalogEntityName`, which then
+   * is the catalog of a row that has no choice yet. A cell is ONE value (the rowGUID); only the list it is picked from changes.
+   */
+  catalogEntityNameOf?: (row: ReusableTableRow) => string;
+  /**
+   * With `catalogEntityNameOf`: EVERY catalog the column can show. The title of a stored GUID (search, filter, sort, export, the cell itself) is looked up
+   * in all of them; `titleExtractor` must read the rows of all of them. Default = [catalogEntityName].
+   */
+  catalogEntityNames?: string[];
   /** fixed scope of the catalog rows */
   catalogRowOwnerGUID?: string;
   catalogRowParentGUID?: string;

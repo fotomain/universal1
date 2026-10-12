@@ -283,6 +283,11 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                     <SwitchApp testID="pm-uxui-tree-numbers" value={draft.showTreeHierarchyNumbers} onValueChange={(v) => set('showTreeHierarchyNumbers', v)} />
                   </Row>
                 </Opt>
+                <Opt id="dragAndDropTaskInTree">
+                  <Row label="Drag & drop of tasks in the task tree (drag column)" color={c.text}>
+                    <SwitchApp testID="pm-uxui-tree-drag-drop" value={draft.dragAndDropTaskInTree} onValueChange={(v) => set('dragAndDropTaskInTree', v)} />
+                  </Row>
+                </Opt>
                 <Opt id="selectRowCheckBoxForm">
                   <Text style={[styles.label, { color: c.text }]}>{pmT('Select row check box')}</Text>
                   <View style={styles.segment} testID="pm-uxui-select-row-check-box-form">

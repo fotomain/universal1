@@ -70,11 +70,11 @@ afterEach(() => {
 });
 
 describe('view switch', () => {
-  it('Versions comes after Gantt | Kanban | Network and is a saved main view', () => {
+  it('Versions comes after Gantt | Kanban and is a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView']);
+    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showVersionsView']);
     press('pm-gantt-vs-network-showVersionsView');
     expect(onChange).toHaveBeenCalledWith('showVersionsView');
     expect(pmMainViewOf('showVersionsView')).toBe('showVersionsView');
@@ -90,7 +90,7 @@ describe('Gantt bar buttons', () => {
     expectInOrder(['pm-project-sql_for_delete', 'pm-create-from-template-btn', 'pm-version-save', 'pm-version-restore', 'pm-project-edit']);
     rerender(<PMGanttToolbar crud={fakeCrud()} palette={palette} activeUnit="day" actions={{ zoomBy: jest.fn(), setZoom: jest.fn(), fit: jest.fn(), goToday: jest.fn() }} />);
     expect(q('pm-version-save')).toBeNull();
-    expectInOrder(['pm-gantt-undo', 'pm-gantt-today', 'pm-gantt-vs-network-showVersionsView']);
+    expectInOrder(['pm-gantt-undo', 'pm-gantt-today']);
   });
 
   it('Save opens the title window with "project name + date"; Restore opens the version list', () => {
@@ -272,8 +272,7 @@ describe('PMProjectVersionsList + ProjectVersionCard', () => {
     expect(textOf('pm-versions-count')).toContain('1 checked');
     press('pm-versions-clear-checked');
     expect(cmd('clearChecked')).toHaveBeenCalled();
-    press('pm-gantt-vs-network-showGanttChart');
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showGanttChart');
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull(); // the main switch is in the app bar
     expect(textOf('pm-versions-hint')).toContain(String(PM_VERSION_MAX_CHECKED));
   });
 

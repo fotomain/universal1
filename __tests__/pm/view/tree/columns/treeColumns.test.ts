@@ -115,6 +115,12 @@ describe('tree row hover panel placement', () => {
     expect(isOverTreeRowPanel(null, box.left + 1)).toBe(false);
   });
 
+  it('dragAndDropTaskInTree off: the panel has no drag handle, one icon (26px) narrower', () => {
+    const l = layoutTreeColumns(900, PM_TREE_COLUMNS_DEFAULT_ORDER);
+    expect(treeRowPanelNaturalWidth(false, false)).toBe(treeRowPanelNaturalWidth(false) - 26);
+    expect(placeTreeRowPanel(l, false, false).width).toBe(placeTreeRowPanel(l, false).width - 26);
+  });
+
   it('ends at the Task name column right edge when it fits there', () => {
     const l = layoutTreeColumns(1100, PM_TREE_COLUMNS_DEFAULT_ORDER);
     const name = l.byKey.name!;

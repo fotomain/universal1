@@ -25,12 +25,13 @@ const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface:
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the view switch', () => {
-  it('Finances is before the last button (Plan), and a saved main view', () => {
+  it('Budgets (the Plan view) is the LAST button; Network has no button; Edit (Finances) is the second; a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showPlanView', 'pm-gantt-vs-network-showReportsView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showReportsView');
+    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showReportsView', 'pm-gantt-vs-network-showPlanView']);
+    expect(q('pm-gantt-vs-network-showNetworkView')).toBeNull();
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showPlanView');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)[1]).toBe('showFinancesView');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS[1].label).toBe('Edit');
     press('pm-gantt-vs-network-showFinancesView');
@@ -45,12 +46,12 @@ describe('the view switch', () => {
 describe('PMProjectFinancesView', () => {
   const view = (crud = fakeCrud()) => <PMProjectFinancesView projectGUID="p" width={800} height={600} palette={palette} crud={crud} />;
 
-  it('no task selected: asks to select one; the switch is on the bar', () => {
+  it('no task selected: asks to select one; the bar has no view switch (it is in the app bar)', () => {
     seedStore();
     renderUI(view());
     expect(q('pm-finances-empty')).not.toBeNull();
     expect(mockLines).not.toHaveBeenCalled();
-    expect(q('pm-gantt-vs-network-showFinancesView')).not.toBeNull();
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
   });
 
   it('a selected task: its lines, titled with its name, started from its remembered place', () => {
@@ -87,12 +88,10 @@ describe('PMProjectFinancesView', () => {
     expect(crud.recordEditPlace).toHaveBeenCalledWith(task.rowGUID, { surface: 'financesView', section: 'finances', genus: 'timeGenus', lineGUID: 'l1' });
   });
 
-  it('the view buttons of the bar switch the view through the crud', () => {
+  it('the bar has no view buttons: the one main switch is in the app bar', () => {
     seedStore();
-    const crud = fakeCrud();
-    renderUI(view(crud));
+    renderUI(view());
     act(() => usePMStore.setState({ ganttVsNetworkView: 'showFinancesView' }));
-    press('pm-gantt-vs-network-showKanbanView');
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showKanbanView');
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
   });
 });

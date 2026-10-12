@@ -33,7 +33,7 @@ weights `distributionShares(code, n)` → **coefficients** normalized to `baseOf
 ## `task_line_plan` and `create_task_line_plan(taskLinePlanJSON)` (`kit8/sql/init/create_task_line_plan_table.sql`)
 
 `rowProjectGUID` = the project of the task · `rowOwnerGUID` = the task · `rowParentGUID` = the **line** · `rowPeriodDatetime` (the start of the day) · `rowCoefficient` ·
-`qtyTaskLine` · `sumForBudget` · `sumForContract` (2 digits) · `orderInList` (line position × 100000 + day) · `rowJSON { budgetItemTaskLine, taskManagementGenusLine }`.
+`qtyTaskLine` · `sumForBudget` · `sumForContract` (2 digits) · `orderInList` (line position × 100000 + day) · `rowJSON { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind }` (the kind of a Time line: person | equipment, null = person or not a Time line - a report "person-hours vs machine-hours" needs no join).
 The app only reads the table; ONE call of the procedure = ONE transaction: lock the task, check the owner, validate, delete the earlier rows of the task, insert `round(total × c, 2)` per day,
 **Correct033**, verify, set `taskIsPosted`. Any error rolls everything back.
 
@@ -45,7 +45,7 @@ The app only reads the table; ONE call of the procedure = ONE transaction: lock 
 
 `PMTaskLinePlanView.tsx` = the **Plan** button after Finances on the Gantt bar (`ganttVsNetworkView = 'showPlanView'`) → the bar + `PMProjectTaskPlanCRUD.tsx` for the selected task.
 `PMProjectTaskPlanCRUD.tsx` = ONE table with the days of all the lines of the task (`ReusableTable` on `taskLinePlanReusable`, all-rows mode on the parent), **no CRUD** (no panel, no menu, no check boxes, no reorder, no edit),
-columns `# · Budget item · Genus · Line · Period · Coefficient · Qty · Sum for budget · Sum for contract` (the amounts are the root columns, so the footer adds them up); above it one line per posted line with its
+columns `# · Budget item · Genus · Line (role · person / equipment / product, by the GUID of the resource) · Period · Coefficient · Qty · Sum for budget · Sum for contract` (the amounts are the root columns, so the footer adds them up); above it one line per posted line with its
 days and sums against the line (✓ when equal). Route `/pm/project/task/plan?taskGUID=…` (`app/pm/project/task/plan`).
 
 | File | What |

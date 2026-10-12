@@ -30,18 +30,20 @@ import { pmMainViewOf, uxuiSettingsOf, postButtonColorOf, PM_DEFAULT_POST_BUTTON
 import { reorderByDrop } from '../../../../../kit8/pm/view/network/PMSegmentedIconButtons';
 import { usePMStore } from '../../../../../kit8/pm/store/store_pm';
 import { cellValue } from '../../../../../kit8/ui/components/table/reusable/tableRows';
+import { isSortFilterColumn } from '../../../../../kit8/ui/components/table/reusable/tableFilter';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); (globalThis as any).__pmTestReduxState = undefined; act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the Plan button', () => {
-  it('is followed by the Reports button (the LAST one); both are main views that can be remembered', () => {
+  it('Budgets is the LAST button, after Reports; Network is not a button of the switch; both are main views that can be remembered', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showPlanView', 'showReportsView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('Reports');
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Budgets');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('Budgets');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Reports');
+    expect(document.querySelector('[data-testid="pm-gantt-vs-network-showNetworkView"]')).toBeNull();
     press('pm-gantt-vs-network-showPlanView');
     expect(onChange).toHaveBeenCalledWith('showPlanView');
     press('pm-gantt-vs-network-showReportsView');
@@ -53,8 +55,11 @@ describe('the Plan button', () => {
 
   it('the saved button order is normalized (unknown / duplicate dropped, missing appended) and reordering by drop works', () => {
     expect(viewButtonsOrderOf(undefined)).toEqual(PM_DEFAULT_VIEW_BUTTONS_ORDER);
-    expect(viewButtonsOrderOf(['showPlanView', 'x', 'showPlanView', 'showGanttChart'])).toEqual(['showPlanView', 'showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView']);
+    // Budgets (showPlanView) is always the LAST, wherever it was saved
+    expect(viewButtonsOrderOf(['showPlanView', 'x', 'showPlanView', 'showGanttChart'])).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView']);
+    expect(viewButtonsOrderOf(['showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView', 'showReportsView']).at(-1)).toBe('showPlanView');
     expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder[0]).toBe('showReportsView');
+    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder.at(-1)).toBe('showPlanView');
     const layouts = { a: { x: 0, w: 40 }, b: { x: 40, w: 40 }, c: { x: 80, w: 40 } };
     // 'a' dropped with its center over 'c' -> last
     expect(reorderByDrop(['a', 'b', 'c'], 'a', 110, layouts)).toEqual(['b', 'c', 'a']);
@@ -68,7 +73,10 @@ describe('the Plan button', () => {
     seedStore();
     act(() => usePMStore.setState({ viewButtonsOrder: ['showReportsView', 'showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView'] }));
     renderUI(<GanttToggleButtons palette={palette} onChange={jest.fn()} />);
+    // the saved order wins - except Budgets, which stays last
     expectInOrder(['pm-gantt-vs-network-showReportsView', 'pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showPlanView']);
+    const ids = Array.from(document.querySelectorAll('[data-testid^="pm-gantt-vs-network-show"]')).map((e) => e.getAttribute('data-testid')!).filter((id) => !id.endsWith('-icon'));
+    expect(ids.at(-1)).toBe('pm-gantt-vs-network-showPlanView');
     act(() => usePMStore.setState({ viewButtonsOrder: [...PM_DEFAULT_VIEW_BUTTONS_ORDER] }));
   });
 });
@@ -93,19 +101,17 @@ describe('PMTaskLinePlanView', () => {
   }));
   const view = (crud = fakeCrud()) => <PMTaskLinePlanView projectGUID="p" width={800} height={600} palette={palette} crud={crud} />;
 
-  it('no task selected: asks to select one; the view switch is on the bar', () => {
+  it('no task selected: asks to select one; the bar has no view switch (it is in the app bar)', () => {
     seedStore();
     renderUI(view());
     expect(q('pm-plan-empty')).not.toBeNull();
-    expect(q('pm-gantt-vs-network-showPlanView')).not.toBeNull();
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
   });
 
-  it('the view buttons switch the view through the crud', () => {
+  it('the bar has no view buttons: the one main switch is in the app bar', () => {
     seedStore();
-    const crud = fakeCrud();
-    renderUI(view(crud));
-    press('pm-gantt-vs-network-showFinancesView');
-    expect(crud.setGanttVsNetworkView).toHaveBeenCalledWith('showFinancesView');
+    renderUI(view());
+    expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
   });
 
   it('a selected task: titled with its name', () => {
@@ -232,6 +238,11 @@ describe('plan columns - titles come from the catalogs', () => {
   data.resourceRole = [{ rowGUID: 'role1', rowOwnerGUID: 'type', rowParentGUID: 'empty', orderInList: 1, rowJSON: { title: 'Data analyst' } }] as any;
   data.person = [{ rowGUID: 'p1', rowOwnerGUID: 'c', rowParentGUID: 'empty', orderInList: 1, rowJSON: { personFirstName: 'Anna', personLastName: 'Berg' } }] as any;
   data.product = [{ rowGUID: 'prod1', rowOwnerGUID: 'c', rowParentGUID: 'empty', orderInList: 1, rowJSON: { title: 'Laptop' } }] as any;
+  data.equipment = [{ rowGUID: 'eq1', rowOwnerGUID: 'equipmentCatalog', rowParentGUID: 'empty', orderInList: 1, rowJSON: { equipmentTitle: 'Excavator CAT 320' } }] as any;
+  it('the line label of an EQUIPMENT line shows the equipment (not an empty product)', () => {
+    expect(planLineLabel(data, { rowJSON: { taskResourceKind: 'equipment', resourceRoleItem: 'role1', taskResourceItem: 'eq1' } } as any)).toBe('Data analyst · Excavator CAT 320');
+    expect(planLineLabel(data, { rowJSON: { taskResourceItem: 'eq1' } } as any)).toBe('Excavator CAT 320');
+  });
   it('the line label = role · person | product', () => {
     expect(planLineLabel(data, { rowJSON: { resourceRoleItem: 'role1', taskResourceItem: 'p1' } } as any)).toBe('Data analyst · Anna Berg');
     expect(planLineLabel(data, { rowJSON: { taskResourceItem: 'prod1' } } as any)).toBe('Laptop');
@@ -241,5 +252,10 @@ describe('plan columns - titles come from the catalogs', () => {
     expect(planPeriodText('2026-10-12T00:00:00+00:00')).toBe('2026-10-12 00:00:00');
     expect(planPeriodText('nonsense')).toBe('');
     expect(buildPlanColumns({ data, linesById: new Map(), textColor: '#000', mutedColor: '#999' })).toHaveLength(9);
+  });
+  it('every column of the Plan table can be sorted and filtered (the text columns by what they show), except the row number', () => {
+    const cols = buildPlanColumns({ data, linesById: new Map(), textColor: '#000', mutedColor: '#999' });
+    expect(cols.filter((c) => !isSortFilterColumn(c)).map((c) => c.key)).toEqual(['n']);
+    expect(cols.filter((c) => c.type === 'custom').map((c) => c.key)).toEqual(['budgetItem', 'genus', 'line', 'period']);
   });
 });

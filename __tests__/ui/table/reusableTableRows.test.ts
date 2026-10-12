@@ -1,6 +1,6 @@
 // ReusableTable pure helpers: order, dependent columns, number input, search text.
 import { fitColumnWidths, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, colorToHex, moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
-import { filterRows, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
+import { filterRows, isSortFilterColumn, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
 import { buildTableExport, exportFileName, exportToCSV, exportToJSON } from '../../../kit8/ui/components/table/reusable/tableExport';
 import { buildTextTablePdf, layoutTablePdf, approxMeasure, pdfString } from '../../../kit8/ui/components/table/reusable/tablePdf';
 import { addToSearchHistory } from '../../../kit8/ui/components/table/reusable/useSearchHistory';
@@ -103,6 +103,32 @@ describe('column sort + filter', () => {
     expect(ids(filterRows(data, cols, { person: { op: 'notEmpty' }, hours: { op: 'lte', value: '8' } }, title))).toBe('1');
     expect(filterRows(data, cols, { person: { op: 'contains', value: ' ' } }, title)).toBe(data);
     expect(matchesFilter(5, { op: 'eq', value: '5,0' })).toBe(true);
+  });
+});
+
+describe('a custom column is sorted / filtered by its searchText', () => {
+  const shown: any = { key: 'line', title: 'Line', type: 'custom', renderCell: () => null, searchText: (r: any) => r.rowJSON.label };
+  const bare: any = { key: 'icon', title: 'Icon', type: 'custom', renderCell: () => null };
+  const data = [
+    { rowGUID: '1', rowJSON: { label: 'Charlie' } }, { rowGUID: '2', rowJSON: { label: '' } },
+    { rowGUID: '3', rowJSON: { label: 'alpha' } }, { rowGUID: '4', rowJSON: { label: 'Bravo' } },
+  ];
+  const none = () => '';
+  const ids = (r: any[]) => r.map((x) => x.rowGUID).join('');
+  it('which columns offer the menu: stored columns and a custom column that has searchText; not the row number, not a custom column without text', () => {
+    expect(isSortFilterColumn(shown)).toBe(true);
+    expect(isSortFilterColumn(bare)).toBe(false);
+    expect(isSortFilterColumn({ key: 'n', title: '#', type: 'rowNumber' } as any)).toBe(false);
+    expect(isSortFilterColumn({ key: 't', title: 'T', type: 'text' } as any)).toBe(true);
+  });
+  it('sorts by the text (case-insensitive), the empty one last in both directions', () => {
+    expect(ids(sortRowsByColumn(data, [shown], { key: 'line', direction: 'asc' }, none))).toBe('3412');
+    expect(ids(sortRowsByColumn(data, [shown], { key: 'line', direction: 'desc' }, none))).toBe('1432');
+  });
+  it('filters by the text: contains, empty, not empty', () => {
+    expect(ids(filterRows(data, [shown], { line: { op: 'contains', value: 'AL' } }, none))).toBe('3');
+    expect(ids(filterRows(data, [shown], { line: { op: 'empty' } }, none))).toBe('2');
+    expect(ids(filterRows(data, [shown], { line: { op: 'notEmpty' } }, none))).toBe('134');
   });
 });
 
