@@ -181,12 +181,12 @@ describe('Project settings window TopTabs', () => {
 
     expect(q('pm-project-settings-toptabs')).not.toBeNull();
     expect(q('pm-project-tab-TabMain')).not.toBeNull();
-    expect(q('pm-project-tab-TabFinances')).not.toBeNull();
+    expect(q('pm-project-tab-TabBudgets')).not.toBeNull();
     expect(q('pm-project-tab-TabUXUI')).not.toBeNull();
     expect(q('pm-project-tab-TabPartners')).not.toBeNull();
-    // TabFinances comes right after TabMain
+    // TabBudgets comes right after TabMain
     const tabIds = Array.from(q('pm-project-settings-toptabs')!.querySelectorAll('[data-testid^="pm-project-tab-"]')).map((e: any) => e.getAttribute('data-testid'));
-    expect(tabIds.slice(0, 2)).toEqual(['pm-project-tab-TabMain', 'pm-project-tab-TabFinances']);
+    expect(tabIds.slice(0, 2)).toEqual(['pm-project-tab-TabMain', 'pm-project-tab-TabBudgets']);
     expect(q('pm-project-tab-TabKanban')).not.toBeNull();
 
     // Default tab is TabMain
@@ -228,13 +228,13 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.planDateInputFormat).toBe('DD.MM.YYYY');
   });
 
-  it('switches to TabFinances and saves the 3 currencies and the budget checkboxes to rowJSON', () => {
+  it('switches to TabBudgets and saves the 3 currencies and the budget checkboxes to rowJSON', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
 
-    press('pm-project-tab-TabFinances');
-    expect(q('pm-project-tab-finances-content')).not.toBeNull();
+    press('pm-project-tab-TabBudgets');
+    expect(q('pm-project-tab-budgets-content')).not.toBeNull();
     expect(q('pm-project-tab-main-content')).toBeNull();
 
     press('pm-project-currencyForBudget-trigger');
@@ -261,21 +261,29 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectExpenseCostsNeeded).toBe(true);
   });
 
-  it('Finances tab: the input switches appear only while "Expense budget needed" is on, Person / Equipment only while Time is on', () => {
+  it('Budgets tab: SubTabs TabForTime / TabForMaterial / TabForExpense appear only while "Expense budget needed" is on, Person / Equipment only while Time is on', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
-    press('pm-project-tab-TabFinances');
+    press('pm-project-tab-TabBudgets');
+    // SubTabs: Main + Business units only, TabBudgetsMain is the default
+    const subIds = () => Array.from(q('pm-project-budgets-subtabs')!.querySelectorAll('[data-testid^="pm-project-budgets-subtab-"]')).map((e: any) => e.getAttribute('data-testid').replace('pm-project-budgets-subtab-', ''));
+    expect(subIds()).toEqual(['TabBudgetsMain', 'TabBusinessUnits']);
+    expect(q('pm-project-budgets-main-content')).not.toBeNull();
     expect(q('pm-project-expense-budget-needed')).not.toBeNull();
     expect(q('pm-project-input-switches')).toBeNull();
 
     toggleSwitch('pm-project-expense-budget-needed');
-    expect(q('pm-project-input-switches')).not.toBeNull();
+    expect(subIds()).toEqual(['TabBudgetsMain', 'TabForTime', 'TabForMaterial', 'TabForExpense', 'TabBusinessUnits']);
+
+    // TabForTime: Time + its two kinds
+    press('pm-project-budgets-subtab-TabForTime');
+    expect(q('pm-project-budgets-main-content')).toBeNull();
     expect(q('pm-project-time-costs-needed')).not.toBeNull();
     expect(q('pm-project-time-of-person-needed')).not.toBeNull();
     expect(q('pm-project-time-of-equipment-needed')).not.toBeNull();
-    expect(q('pm-project-material-costs-needed')).not.toBeNull();
-    expect(q('pm-project-expense-costs-needed')).not.toBeNull();
+    expect(q('pm-project-material-costs-needed')).toBeNull();
+    expect(q('pm-project-expense-costs-needed')).toBeNull();
 
     // Time off hides its two kinds; their values are kept
     toggleSwitch('pm-project-time-of-equipment-needed');
@@ -284,7 +292,20 @@ describe('Project settings window TopTabs', () => {
     toggleSwitch('pm-project-time-costs-needed');
     expect(q('pm-project-time-of-person-needed')).not.toBeNull();
 
+    // TabForMaterial / TabForExpense: one switch each
+    press('pm-project-budgets-subtab-TabForMaterial');
+    expect(q('pm-project-material-costs-needed')).not.toBeNull();
+    expect(q('pm-project-time-costs-needed')).toBeNull();
     toggleSwitch('pm-project-material-costs-needed');
+    press('pm-project-budgets-subtab-TabForExpense');
+    expect(q('pm-project-expense-costs-needed')).not.toBeNull();
+
+    // Expense budget off while on TabForExpense: the SubTab falls back to TabBudgetsMain
+    press('pm-project-budgets-subtab-TabBudgetsMain');
+    toggleSwitch('pm-project-expense-budget-needed');
+    expect(subIds()).toEqual(['TabBudgetsMain', 'TabBusinessUnits']);
+    toggleSwitch('pm-project-expense-budget-needed');
+
     press('pm-project-save');
     const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
     expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(true);
@@ -295,12 +316,13 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectExpenseCostsNeeded).toBe(true);
   });
 
-  it('Finances tab: turning off the last of Person / Equipment turns Time off; turning Time on with no kind chosen turns Person on', () => {
+  it('Budgets tab: turning off the last of Person / Equipment turns Time off; turning Time on with no kind chosen turns Person on', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
-    press('pm-project-tab-TabFinances');
+    press('pm-project-tab-TabBudgets');
     toggleSwitch('pm-project-expense-budget-needed');
+    press('pm-project-budgets-subtab-TabForTime');
     // Person is the only kind: turning it off turns Time off
     toggleSwitch('pm-project-time-of-person-needed');
     expect(q('pm-project-time-input-switches')).toBeNull();
@@ -314,11 +336,11 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(false);
   });
 
-  it('Finances tab: the exchange RATE TYPES of the accounting and the budget currency (D365 style): Default / Budget by default, saved to rowJSON', () => {
+  it('Budgets tab: the exchange RATE TYPES of the accounting and the budget currency (D365 style): Default / Budget by default, saved to rowJSON', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
-    press('pm-project-tab-TabFinances');
+    press('pm-project-tab-TabBudgets');
     expect(q('pm-project-exchangeRateTypeForAccounting')).not.toBeNull();
     expect(q('pm-project-exchangeRateTypeForAccounting-Default')!.getAttribute('aria-selected')).toBe('true');
     expect(q('pm-project-exchangeRateTypeForBudget-Budget')!.getAttribute('aria-selected')).toBe('true');

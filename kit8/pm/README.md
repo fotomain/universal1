@@ -264,7 +264,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `taskProgressLineColor` | one of the set ('#FCFF00') | task bar progress lines |
 | `projectProgressLineColor` | one of the set ('#FCFF00') | project progress line |
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
-| `projectCostCenter` / `projectRevenueCenter` / `projectProfitCenter` / `projectInvestmentCenter` | project rowJSON (not uxui) | the four business unit centers (Finances tab → Business units), obligatory on every NEW project: `kit8/catalog/business_unit/README.md` |
+| `projectCostCenter` / `projectRevenueCenter` / `projectProfitCenter` / `projectInvestmentCenter` | project rowJSON (not uxui) | the four business unit centers (Budgets tab → Business units), obligatory on every NEW project: `kit8/catalog/business_unit/README.md` |
 | `dragAndDropTaskInTree` | bool (true) | drag & drop of tasks in the tree: the **drag column** (a ⠿ grip per row, `PM_TREE_DRAG_WIDTH`, right after the select column; press it and move = move the task, also on touch), dragging from `#` / Task name and the hover panel handle. `false` = no task dragging at all: no column, no handle (the panel is one icon narrower). Settings window → Tree |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |
@@ -379,8 +379,8 @@ Full description: `kit8/pm/view/task/finances/README.md`.
 
 ### Input switches and equipment on a Time line (2026-10-12)
 
-Project settings → **Finances** tab (`view/project/settings/PMProjectTaskEditScreenTab.tsx`, was `PMProjectFinanceTab`) → *Budgets*: while **Expense budget needed** (`projectExpenseBudgetNeeded`) is on, the
-input switches appear (pure rules: `model/taskInputScope.ts`, tests `__tests__/pm/model/taskInputScope.test.ts`):
+Project settings → **Budgets** tab (`view/project/settings/PMProjectBudgetsTab.tsx`, was `PMProjectFinanceTab`) has SubTabs: `TabBudgetsMain` (currencies, rate types, task plan calendar, Revenue / Expense budget needed), `TabForTime`, `TabForMaterial`, `TabForExpense`, `TabBusinessUnits` (the four centers). While **Expense budget needed** (`projectExpenseBudgetNeeded`) is on, the
+three `TabFor*` SubTabs appear with the input switches (pure rules: `model/taskInputScope.ts`, tests `__tests__/pm/model/taskInputScope.test.ts`):
 
 | switch (`project_table.rowJSON`) | label | what it does |
 |---|---|---|

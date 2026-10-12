@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget plan calculation</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --fuchsia: #f0abfc;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 10px; overflow-x: auto; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 840px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.tight { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--fuchsia); vertical-align: middle; margin-right: 6px; border: 1px solid #d946ef55; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Budget plan</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#flow">Data flow</a></li><li><a href="#part1">Part 1 - Scenarios</a></li><li><a href="#part2">Part 2 - Turnover</a></li>
+    <li><a href="#feed">Feeding</a></li><li><a href="#example">Example</a></li><li><a href="#calc">calculateBudgetPlan</a></li><li><a href="#best">1C and D365</a></li>
+    <li><a href="#files">Files</a></li><li><a href="#phases">Order</a></li><li><a href="#open">Open points</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>Budget plan calculation</h1>
+  <p class="lead">Design only - <b>no code written</b>. Source: Google Doc "W1 BUDGET WBS" (Part 1 the scenario catalog, Part 2 <code>project_budget_cost_turnover</code>). The doc asks for
+  <code>calculateBudgetPlan</code>: the budget of <b>each stage of the tree and of the project as a whole</b>, designed after the best practice of 1C and Dynamics 365 (section 7).</p>
+
+  <div class="grid">
+    <div class="card"><span class="pill new">Part 1</span><h3>Budget scenarios</h3>
+      <p><code>budgetScenarioTable</code> (a plain list, seeded with <i>Plan scenario-Project #1</i> and <i>Fact scenario-Project #1</i>) and two new keys of <code>project_table.rowJSON</code>:
+      <code>budgetScenarioForPlan</code>, <code>budgetScenarioForFact</code>. Menu: <b>Budgets</b> group of the drawer.</p></div>
+    <div class="card"><span class="pill new">Part 2</span><h3>The turnover register</h3>
+      <p><code>project_budget_cost_turnover</code>: one row per <b>day · scenario · budget item · business unit · resource · variant</b> with two numbers (qty, sum).
+      It is <b>derived data</b>: nobody writes it by hand, database triggers keep it equal to <code>task_line_plan_movements</code>.</p></div>
+    <div class="card"><span class="pill new">Result</span><h3>calculateBudgetPlan</h3>
+      <p>One SQL function (+ a thin typed TypeScript wrapper) that returns the budget of the project, of every stage and of every task, for any period, grouped by item / unit / resource,
+      as a plan, a cumulative S-curve and (when the fact scenario has data) plan vs fact.</p></div>
+  </div>
+
+  <div class="note"><b>Three things in the doc that need your decision before building</b> (details in section 10):
+    (1) the table has <b>no task / stage column</b>, so a stage cannot be summed from it alone - I propose that stages are summed from <code>task_line_plan_movements</code> through the task tree (ltree), and the turnover stays the project-level register exactly as you wrote it;
+    (2) the table needs the technical column <code>rowProjectGUID</code> (project, RLS, cascade delete);
+    (3) "hamburger menu: Budget" - I read it as the drawer, group <b>Budgets</b>. Tell me if you meant a menu inside the project.</div>
+</section>
+
+<section id="flow">
+  <h2>1. Where it fits - the data flow</h2>
+  <p class="sub">Nothing existing is replaced. Post still writes <code>task_line_plan_movements</code>; the budget register hangs below it.</p>
+<pre>task_line_table (lines: budget item, resource, variant, unit, sumForBudget)
+        |  Post  (create_task_line_plan - exists, gets 4 small stamps, section 4)
+        v
+task_line_plan_movements   one row per LINE and DAY            (exists; the "recorder" rows)
+        |  AFTER INSERT / UPDATE / DELETE triggers  (new, statement level, delta)
+        v
+project_budget_cost_turnover   one row per DAY, scenario, item, unit, resource, variant   (new, Part 2)
+        |
+        v
+calculateBudgetPlan  ---&gt;  project  /  stage  /  task  /  period  /  item  /  unit  /  resource
+                           (stages are summed from the movements through project_task_table.treePath, the project also from the turnover = a cross-check)</pre>
+  <p>Fact side: the same trigger function is meant to feed the <b>fact</b> scenario later from actuals (time sheets, invoices). There is no fact movement table in the code yet, so in this step the fact scenario is chosen and stored, and the plan/fact report shows "no fact data".</p>
+</section>
+
+<section id="part1">
+  <h2>2. Part 1 - budgetScenarioTable</h2>
+  <p class="sub">Folder <code>kit8/catalog/budget/scenario</code> already exists and is empty. Same shape as the other catalogs (def-table, <code>kit8_setup_def_table</code>), <b>plain list, no folders</b>.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Value</th></tr>
+    <tr><td><code>rowGUID</code></td><td>TEXT, the code (seed: <code>planScenarioProject1</code>, <code>factScenarioProject1</code>)</td></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td><code>'budgetScenarioCatalog'</code></td></tr>
+    <tr><td><code>rowParentGUID</code></td><td><code>'empty'</code> always (plain list; a CHECK keeps it so)</td></tr>
+    <tr><td><code>rowJSON</code></td><td><code>{ title, description, scenarioKind: 'plan' | 'fact', isActive }</code> - <b>scenarioKind</b> is the only field the calculation reads</td></tr>
+    <tr><td><code>orderInList</code></td><td>list order (drag &amp; drop like the other lists)</td></tr>
+  </table></div>
+  <h3>Seed rows (the two items of the doc)</h3>
+  <div class="scroll"><table>
+    <tr><th>rowGUID</th><th>title</th><th>scenarioKind</th></tr>
+    <tr><td><code>planScenarioProject1</code></td><td>Plan scenario-Project #1</td><td>plan</td></tr>
+    <tr><td><code>factScenarioProject1</code></td><td>Fact scenario-Project #1</td><td>fact</td></tr>
+  </table></div>
+  <h3>Project.rowJSON - two new keys (<code>PMProjectJSON</code> in <code>kit8/pm/model/types.ts</code>)</h3>
+  <ul class="tight">
+    <li><code>budgetScenarioForPlan?: string | null</code> - must point to a scenario of kind <b>plan</b> (the picker only offers those).</li>
+    <li><code>budgetScenarioForFact?: string | null</code> - must point to a scenario of kind <b>fact</b>.</li>
+    <li>Picked in <b>Project settings &rarr; Budgets</b> (<code>PMProjectBudgetsTab.tsx</code>, beside the currencies), through the existing <code>SelectElementFromCatalog</code>.</li>
+    <li><b>Old projects stay as they are</b> (the rule of the equipment and business-unit work): a project with <code>budgetScenarioForPlan</code> empty posts exactly as today and writes <b>nothing</b> to the turnover. A missing key reads as "no budget register", never as an error.</li>
+  </ul>
+  <h3>Menu</h3>
+  <p>Drawer <code>CustomDrawerContent.tsx</code>: entry <b>Budget scenarios</b> (icon e.g. <code>flag</code>, route <code>budget/scenario/list</code>) in <b>Catalogs</b> and in the <b>Budgets</b> shortcut group, next to Budget Items. Screen <code>PMBudgetScenarioCRUD.tsx</code> = a <code>ReusableTable</code> with CRUD on (no tree), columns: Scenario, Kind (Plan | Fact), Code, Description, Active.</p>
+  <h3>Guards (SQL, same style as the business units)</h3>
+  <ul class="tight">
+    <li>a scenario that a project points at, or that has turnover rows, is <b>not deleted</b> (deactivate it: <code>isActive</code> false);</li>
+    <li><code>scenarioKind</code> of a scenario in use is not changed;</li>
+    <li>a project cannot point <code>budgetScenarioForPlan</code> at a fact scenario (and the reverse) - checked by the picker and by a trigger on <code>project_table</code>.</li>
+  </ul>
+</section>
+
+<section id="part2">
+  <h2>3. Part 2 - project_budget_cost_turnover</h2>
+  <p class="sub">Your structure, unchanged, plus technical columns. "Grouped by days": the grain is <b>one calendar day</b>; weeks, months, quarters are summed from it when asked, never stored.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning / source</th></tr>
+    <tr><td><code>rowGUID</code> <span class="pill chg">tech</span></td><td>uuid PK</td><td>technical key</td></tr>
+    <tr><td><code>rowProjectGUID</code> <span class="pill ask">added</span></td><td>uuid FK <code>project_table</code>, cascade</td><td>RLS (<code>pm_owns_project</code>), cascade delete, the project roll-up. Without it the table cannot be secured.</td></tr>
+    <tr><td><code>budgetPeriod</code></td><td>date</td><td>the day = the posted day of the movement (<code>rowJSON.budgetDay</code>, see section 4)</td></tr>
+    <tr><td><code>budgetScenarioGUID</code></td><td>text, FK <code>budgetScenarioTable</code> (restrict)</td><td>the plan scenario of the project at the time of Post</td></tr>
+    <tr><td><code>budgetItemGUID</code></td><td>text, FK <code>budgetItemTable</code> (restrict)</td><td><code>rowJSON.budgetItemTaskLine</code> of the line (already copied to the movement)</td></tr>
+    <tr><td><code>budgetBusinessUnitGUID</code></td><td>text, FK <code>businessUnitTable</code> (restrict), <b>'' = none</b></td><td><code>rowJSON.businessUnitAssigned</code> of the movement (already there, PART 18)</td></tr>
+    <tr><td><code>resourceItemGUID</code></td><td>text, <b>'' = none</b></td><td><code>taskResourceItem</code> of the line: person | equipment | product (a revenue line may have none)</td></tr>
+    <tr><td><code>resourceItemVariantKey</code></td><td>text, <b>'' = none</b></td><td><code>taskResourceAttributesKey</code> of the line (descriptor key of the person's / product's variant)</td></tr>
+    <tr><td><code>qtyForBudget</code></td><td>numeric(18,2) not null</td><td>sum of <code>qtyTaskLine</code> of the movements of that key</td></tr>
+    <tr><td><code>sumForBudget</code></td><td>numeric(18,2) not null</td><td>sum of <code>sumForBudget</code> of the movements = the budget currency of the project, no VAT</td></tr>
+    <tr><td><code>created_at</code>, <code>updated_at</code></td><td>timestamptz</td><td>as every table</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li><b>Key:</b> <code>UNIQUE (rowProjectGUID, budgetPeriod, budgetScenarioGUID, budgetItemGUID, budgetBusinessUnitGUID, resourceItemGUID, resourceItemVariantKey)</code>. The "none" values are <b>'' not NULL</b>, so the unique index treats them as equal and the upsert works (a NULL in a unique key is never equal to another NULL).</li>
+    <li><b>Read only for the app</b>: <code>GRANT SELECT</code> + policy <code>pm_owns_project(rowProjectGUID)</code>, realtime on (as <code>task_line_plan_movements</code>). Writes come from the triggers only (SECURITY DEFINER).</li>
+    <li><b>Indexes:</b> the unique index (project, period, scenario ...) serves the period reports; a second one on <code>(rowProjectGUID, budgetScenarioGUID, budgetItemGUID)</code> serves the per-item reports.</li>
+    <li><b>Signs:</b> costs and revenues are both stored <b>positive</b>; cost or revenue is told by the budget item (<code>costsBudgetFolder</code> / <code>revenuesBudgetFolder</code> / <code>paymentsBudgetFolder</code>, the <code>budgetKind</code> already kept on the movements). Profit = revenue - cost; payment items are never mixed into profit.</li>
+    <li>No row is kept with qty = 0 and sum = 0 (the trigger deletes them), so the table never grows with empty history.</li>
+  </ul>
+</section>
+
+<section id="feed">
+  <h2>4. How the turnover is filled - the 1C "recorder" pattern</h2>
+  <p>In 1C an accumulation register of the Turnover type has <b>movements</b> written by a document (the recorder) and a <b>totals table</b> the platform keeps itself. Here the movements are <code>task_line_plan_movements</code> (recorder = the line / the task) and the totals are <code>project_budget_cost_turnover</code>. The totals are kept by <b>statement-level triggers with transition tables</b>, so every path that changes a movement is covered - Post, Correct033, a deleted line, a deleted task - and the Post procedure itself needs only the small stamps below.</p>
+  <div class="scroll"><table>
+    <tr><th>Event on the movements</th><th>What the trigger does</th></tr>
+    <tr><td><code>AFTER INSERT</code> (new rows of Post)</td><td>group the new rows by the 7 key columns, <code>INSERT ... ON CONFLICT (key) DO UPDATE SET qty = qty + EXCLUDED.qty, sum = sum + EXCLUDED.sum</code>. Rows without a scenario are skipped.</td></tr>
+    <tr><td><code>AFTER DELETE</code> (re-Post, a deleted line / task)</td><td>group the old rows, <code>UPDATE ... SET qty = qty - old.qty, sum = sum - old.sum</code> (update only: when a whole project is deleted the turnover rows are already gone and nothing is inserted).</td></tr>
+    <tr><td><code>AFTER UPDATE</code> (Correct033 moves the rounding difference to the last day)</td><td>subtract the old rows, add the new ones, in one pass.</td></tr>
+    <tr><td>after each of them</td><td><code>DELETE</code> the touched keys whose qty and sum are both 0.</td></tr>
+  </table></div>
+  <h3>Why delta and not "recalculate the project"</h3>
+  <ul class="tight">
+    <li>A delta <code>qty = qty + x</code> is commutative: two tasks of one project posted at the same time cannot overwrite each other (the task lock of Post is per task). A recalculation would need a project-wide lock.</li>
+    <li>The amounts are already rounded to 2 digits and corrected to the line total (Correct033), so the sums of 2-digit numbers are exact - no rounding drift in the register.</li>
+    <li>To avoid deadlocks the grouped rows are written in key order (<code>ORDER BY</code> the key).</li>
+    <li>A repair function <code>rebuild_project_budget_cost_turnover(project)</code> (delete + re-aggregate from the movements) is the safety net and the migration for projects posted before the register existed; the consistency check (section 6, I1) tells when it is needed.</li>
+  </ul>
+  <h3>The four stamps Post adds to each movement's <code>rowJSON</code> (inside <code>create_task_line_plan</code>, PART 15)</h3>
+  <p>The same idea as <code>businessUnitAssigned</code>: what was posted is kept <b>on the posted day</b>, so a later change of the line or of the project does not rewrite history, and the delete-trigger subtracts exactly what was added.</p>
+  <div class="scroll"><table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td><code>budgetDay</code></td><td>'YYYY-MM-DD' = the calendar day of the post (<code>days[].d</code>); the timestamp <code>rowPeriodDatetime</code> depends on the time zone, so the day is kept as text</td></tr>
+    <tr><td><code>budgetScenario</code></td><td>the project's <code>budgetScenarioForPlan</code> at the time of Post (null = none: no turnover)</td></tr>
+    <tr><td><code>resourceItem</code></td><td>the line's <code>taskResourceItem</code> (null = none)</td></tr>
+    <tr><td><code>resourceVariantKey</code></td><td>the line's <code>taskResourceAttributesKey</code> (null = none)</td></tr>
+  </table></div>
+  <p><b>Changing the plan scenario of a project that already has posted lines:</b> the posted days keep their old scenario (correct history). New posts use the new one. The settings picker shows a warning and offers <i>"Re-post all lines"</i> (a button that posts every posted task again) when the user wants everything under the new scenario.</p>
+  <p><b>Lines that cannot be budgeted:</b> <code>sumForBudget</code> is <code>null</code> when the project has no budget currency or a rate is missing (<code>taskLineFx.ts</code>). Such a movement adds <b>0</b> to the sum, but is counted: <code>calculateBudgetPlan</code> returns <code>linesWithoutBudgetSum</code> and the view shows "N lines have no budget sum", so a total is never silently too small. Nothing is guessed (no fallback to the contract currency).</p>
+</section>
+
+<section id="example">
+  <h2>5. Worked example (numbers you can check)</h2>
+  <p>Project P, stage S1 with two tasks. Plan scenario <code>planScenarioProject1</code>, unit CC1, uniform distribution, working days Mon 12 - Wed 14.</p>
+  <div class="scroll"><table>
+    <tr><th>Line</th><th>Task</th><th>Item</th><th>Resource</th><th>Qty</th><th>sumForBudget</th><th>Days</th></tr>
+    <tr><td>L1</td><td>T1</td><td>timeBudgetItem</td><td>person P1 / variant Senior</td><td>30</td><td>100.00</td><td>Mon, Tue, Wed</td></tr>
+    <tr><td>L2</td><td>T2</td><td>materialBudgetItem</td><td>product M1</td><td>4</td><td>50.00</td><td>Tue, Wed</td></tr>
+  </table></div>
+  <h3>Movements after Post (Correct033 puts the cent on the last day)</h3>
+  <div class="scroll"><table>
+    <tr><th>Line</th><th>Day</th><th>qty</th><th>sumForBudget</th></tr>
+    <tr><td>L1</td><td>Mon</td><td>10.00</td><td>33.33</td></tr><tr><td>L1</td><td>Tue</td><td>10.00</td><td>33.33</td></tr><tr><td>L1</td><td>Wed</td><td>10.00</td><td>33.34</td></tr>
+    <tr><td>L2</td><td>Tue</td><td>2.00</td><td>25.00</td></tr><tr><td>L2</td><td>Wed</td><td>2.00</td><td>25.00</td></tr>
+  </table></div>
+  <h3>The turnover (5 rows, one per day and key)</h3>
+  <div class="scroll"><table>
+    <tr><th>budgetPeriod</th><th>item</th><th>unit</th><th>resource</th><th>variant</th><th>qtyForBudget</th><th>sumForBudget</th></tr>
+    <tr><td>Mon</td><td>time</td><td>CC1</td><td>P1</td><td>Senior</td><td>10.00</td><td>33.33</td></tr>
+    <tr><td>Tue</td><td>time</td><td>CC1</td><td>P1</td><td>Senior</td><td>10.00</td><td>33.33</td></tr>
+    <tr><td>Tue</td><td>material</td><td>CC1</td><td>M1</td><td>''</td><td>2.00</td><td>25.00</td></tr>
+    <tr><td>Wed</td><td>time</td><td>CC1</td><td>P1</td><td>Senior</td><td>10.00</td><td>33.34</td></tr>
+    <tr><td>Wed</td><td>material</td><td>CC1</td><td>M1</td><td>''</td><td>2.00</td><td>25.00</td></tr>
+  </table></div>
+  <h3>calculateBudgetPlan answers</h3>
+  <div class="scroll"><table>
+    <tr><th>Node</th><th>How</th><th>Cost</th></tr>
+    <tr><td>Task T1</td><td>its movements</td><td>100.00</td></tr>
+    <tr><td>Task T2</td><td>its movements</td><td>50.00</td></tr>
+    <tr><td>Stage S1</td><td>T1 + T2 (every movement whose task path is under S1)</td><td>150.00</td></tr>
+    <tr><td>Project P</td><td>all movements = the turnover total (cross-check)</td><td>150.00</td></tr>
+  </table></div>
+  <h3>Re-post T1 with sumForBudget 120.00</h3>
+  <p>Post deletes the old L1 movements (the delete trigger subtracts 33.33 / 33.33 / 33.34) and inserts 40.00 / 40.00 / 40.00 (the insert trigger adds them). Net change per day: +6.67, +6.67, +6.66 = +20.00. New totals: T1 120.00, S1 170.00, P 170.00. Quantities are unchanged (10.00 per day), so the qty rows net to the same values.</p>
+</section>
+
+<section id="calc">
+  <h2>6. calculateBudgetPlan - the budget of each stage and of the project</h2>
+  <p class="sub">Same naming family as <code>calculateTaskLinePlan</code>. The heavy part (summing 10<sup>5</sup> rows) is in the database; the TypeScript part is pure and testable.</p>
+  <h3>Request</h3>
+<pre>calculateBudgetPlan({
+  projectGUID,
+  scenarioGUID,               // default: project.budgetScenarioForPlan
+  compareScenarioGUID?,       // default: project.budgetScenarioForFact  -> plan vs fact
+  nodes: 'tree' | 'stages' | 'tasks',   // which nodes of the WBS to return
+  fromDay?, toDay?,           // the period; empty = the whole project
+  granularity: 'total' | 'day' | 'week' | 'month' | 'quarter' | 'year',
+  groupBy: [] | ['budgetItem'] | ['businessUnit'] | ['resource'] | ['genus'],
+  cumulative?: boolean        // running total over the periods = the S-curve
+})</pre>
+  <h3>Result (per node of the tree; the root is the project)</h3>
+<pre>{ nodeGUID, parentGUID, kind: 'project'|'stage'|'task', title,
+  total: { cost, revenue, profit, margin, payments },     // budget currency, 2 digits
+  periods?: [ { from, to, cost, revenue, cumulativeCost, cumulativeRevenue } ],
+  groups?:  [ { key, title, qty, cost, revenue } ],
+  fact?:    { cost, revenue },  variance?: { cost, revenue },   // fact - plan, only when a fact scenario has data
+  checks:   { linesPosted, linesNotPosted, linesWithoutBudgetSum } }</pre>
+
+  <h3>The calculation, step by step</h3>
+  <ol class="steps">
+    <li><b>Source of the numbers.</b> Project total, per period, per item / unit / resource: from <code>project_budget_cost_turnover</code> (already aggregated, fast). Stage and task totals: from <code>task_line_plan_movements</code> of the scenario (they know the task).</li>
+    <li><b>Stage = the sum of the tasks under it.</b> A stage has no lines of its own. Every movement is counted for <b>every ancestor of its task</b> in one pass, using the ltree path of <code>project_task_table</code> (<code>treePath</code> = project.stage.stage.task, GIST index exists):
+<pre>SELECT subpath(t."treePath", 0, g)                       AS node_path,     -- g = 1 is the project, then every stage down to the task
+       sum(p."sumForBudget") FILTER (WHERE p."rowJSON"-&gt;&gt;'budgetKind' = 'cost')    AS cost,
+       sum(p."sumForBudget") FILTER (WHERE p."rowJSON"-&gt;&gt;'budgetKind' = 'revenue') AS revenue
+  FROM task_line_plan_movements p
+  JOIN project_task_table t ON t."rowGUID" = p."rowOwnerGUID"
+ CROSS JOIN LATERAL generate_series(1, nlevel(t."treePath")) AS g
+ WHERE p."rowProjectGUID" = :project AND p."rowJSON"-&gt;&gt;'budgetScenario' = :scenario
+   AND (p."rowJSON"-&gt;&gt;'budgetDay')::date BETWEEN :from AND :to
+ GROUP BY 1;</pre>
+      One scan gives the whole tree. The label of a path element is <code>pm_ltree_label(rowGUID)</code>, so the app maps a path back to its stage. (Sketch - to be tested in the Docker postgres at build time.)</li>
+    <li><b>Periods.</b> <code>date_trunc('week'|'month'|'quarter'|'year', budgetPeriod)</code> over the day rows; <code>cumulative</code> = <code>sum(...) OVER (ORDER BY period)</code>. The last cumulative value of the project is the <b>budget at completion</b>.</li>
+    <li><b>Groups.</b> By budget item (the folder - costs / revenues / payments - gives the next level up), by business unit (rolled up through the <b>unit tree</b> in the same way as the stages are rolled up through the task tree, so a profit center shows its sub-units), by resource / variant.</li>
+    <li><b>Quantities</b> are returned only inside a group of one item or resource (hours of a person, pieces of a product). A stage total of "10 hours + 4 pieces" is meaningless and is not produced.</li>
+    <li><b>Plan vs fact.</b> The same query with <code>compareScenarioGUID</code>; <code>variance = fact - plan</code>, <code>remaining = plan - fact</code>. With no fact movements the fact block is empty.</li>
+    <li><b>Completeness.</b> <code>linesNotPosted</code> = lines with a budget item and <code>taskIsPosted</code> false; <code>linesWithoutBudgetSum</code> as in section 4. The view shows them beside the total.</li>
+  </ol>
+
+  <h3>Invariants (tests and a "Check budget" action)</h3>
+  <div class="scroll"><table>
+    <tr><th></th><th>Rule</th></tr>
+    <tr><td>I1</td><td>for every project and scenario: <code>sum(turnover.sumForBudget)</code> = <code>sum(movements.sumForBudget)</code> of that scenario. A difference = run the rebuild function.</td></tr>
+    <tr><td>I2</td><td>for every posted line: the sum of its days = the line's <code>sumForBudget</code> (Correct033, exists).</td></tr>
+    <tr><td>I3</td><td>a stage = the sum of its children; the project = the sum of its stages and tasks.</td></tr>
+    <tr><td>I4</td><td>no turnover row has qty 0 and sum 0; no sum is negative (line sums are &gt;= 0 by CHECK).</td></tr>
+    <tr><td>I5</td><td>project with no <code>budgetScenarioForPlan</code>: no turnover rows at all.</td></tr>
+  </table></div>
+
+  <h3>Where it is shown</h3>
+  <p>No new screen is required by the doc. Proposed minimal use: a read-only <b>Budget</b> table (stage tree + totals per period) on the existing last main-view button (<code>PM_LAST_VIEW_BUTTON</code>), reading <code>calculateBudgetPlan</code>. Say if you want it in this step or after the register works.</p>
+</section>
+
+<section id="best">
+  <h2>7. 1C and D365 - what is taken and what is not</h2>
+  <div class="note">From my general knowledge of the two products' budgeting models, <b>not checked against the vendor documentation in this session</b> - names of 1C objects are from the 1C:ERP / Holding budgeting family and may differ a little in your configuration.</div>
+  <div class="scroll"><table>
+    <tr><th>Practice</th><th>1C (budgeting)</th><th>Dynamics 365 (Project / Budget)</th><th>Here</th></tr>
+    <tr><td>Scenario as a dimension</td><td>"Budget scenario" catalog; plan and actual are scenarios of one register</td><td>Budget models / forecast models, "original budget" vs "forecast" vs actuals</td><td><span class="pill new">take</span> <code>budgetScenarioTable</code> with <code>scenarioKind</code></td></tr>
+    <tr><td>Movements + totals</td><td>accumulation register: movements with a recorder, a totals table kept by the platform</td><td>budget register entries (never edited) + balances</td><td><span class="pill new">take</span> movements = the recorder rows, turnover = totals kept by triggers</td></tr>
+    <tr><td>Fixed dimensions + analytics</td><td>scenario, period, organization, CFR, budget item + up to 3 analytics</td><td>financial dimensions on the budget line</td><td><span class="pill new">take</span> item, unit (CFR tree), resource, variant</td></tr>
+    <tr><td>Responsibility center tree</td><td>CFR with roll-up</td><td>department / cost center dimension hierarchy</td><td><span class="pill new">take</span> done in the business-unit work; the roll-up is reused</td></tr>
+    <tr><td>WBS roll-up</td><td>project stages as an analytic</td><td>project budget lines per WBS task, summed up the WBS</td><td><span class="pill new">take</span> ltree roll-up (section 6)</td></tr>
+    <tr><td>Period distribution</td><td>budget periodicity (month, quarter) fixed in the scenario</td><td>spread a budget line over periods by an allocation key (even, by calendar)</td><td><span class="pill chg">own</span> day grain, distribution and calendar already exist (Post); month / quarter by grouping</td></tr>
+    <tr><td>Versions / approval</td><td>budget versions, approval status, locking</td><td>budget revisions with workflow, original budget kept</td><td><span class="pill ask">later</span> a baseline = a copy of the plan scenario ("Copy to scenario"), lock by <code>isActive</code>/status; not in this step</td></tr>
+    <tr><td>Budget control</td><td>limits checked when an expense is planned or paid</td><td>budget control: actuals + commitments against the budget</td><td><span class="pill ask">later</span> needs the fact side first</td></tr>
+    <tr><td>Commitments / encumbrance</td><td>planned payments in a separate register</td><td>encumbrances for purchase orders</td><td><span class="pill ask">no</span> not in the doc</td></tr>
+    <tr><td>Multi-currency</td><td>amounts in the scenario's currency + a separate currency amount</td><td>budget in the ledger currency</td><td><span class="pill chg">own</span> one currency per project (<code>currencyForBudget</code>), the line already converts</td></tr>
+    <tr><td>Rebuild of the totals</td><td>"restore totals" job</td><td>rebuild balances</td><td><span class="pill new">take</span> <code>rebuild_project_budget_cost_turnover</code></td></tr>
+  </table></div>
+</section>
+
+<section id="files">
+  <h2>8. Files (nothing is created in this step)</h2>
+  <div class="scroll"><table>
+    <tr><th>Where</th><th>What</th></tr>
+    <tr><td><code>kit8/sql/start/start_sql_structure.sql</code> <b>PART 19</b></td><td>budgetScenarioTable + seed + guards; project_budget_cost_turnover; the three triggers + the shared function; the 4 stamps in <code>create_task_line_plan</code> (PART 15); <code>rebuild_project_budget_cost_turnover</code>; <code>calculate_budget_plan(jsonb)</code>. Tested first with <code>kit8/docker/test_sql.sh</code>.</td></tr>
+    <tr><td><code>start_sql_code.sql</code>, <code>start_sql_data.sql</code>, <code>delete_sql_structure.sql</code></td><td>the same part mirrored (DDL / triggers - code; seed rows as upserts - data; drops - delete, a new numbered PART that runs before the helper is dropped)</td></tr>
+    <tr><td><code>kit8/catalog/budget/scenario/</code></td><td><code>budgetScenarioModel.ts</code>, <code>budgetScenarioMetaData.ts</code>, <code>useBudgetScenarioData.ts</code>, <code>PMBudgetScenarioCRUD.tsx</code>, README.md; entry in <code>kit8/redux/SystemMetaData.ts</code></td></tr>
+    <tr><td><code>app/budget/scenario/list.tsx</code> + <code>CustomDrawerContent.tsx</code></td><td>the route and the two menu entries</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code>, <code>PMProjectBudgetsTab.tsx</code></td><td>the two project keys + the two pickers (+ the warning when the plan scenario changes)</td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/taskLinePlanModel.ts</code>, <code>calculateTaskLinePlan.ts</code></td><td>send the resource / variant with the lines (the movement is stamped by SQL from the line, so the payload stays as it is); types of the new rowJSON keys</td></tr>
+    <tr><td><code>kit8/pm/view/budget/</code> (new)</td><td><code>calculateBudgetPlan.ts</code> (pure: pivot, cumulative, variance, quantity rule), <code>budgetPlanApi.ts</code> (the RPC call), <code>budgetPlanModel.ts</code>; the Budget table when you want it</td></tr>
+  </table></div>
+</section>
+
+<section id="phases">
+  <h2>9. Order of work and tests</h2>
+  <ol class="steps">
+    <li><b>Scenarios</b> (Part 1): SQL + catalog screen + menu + project keys. Test: seed rows, guards, pickers offer the right kind.</li>
+    <li><b>Turnover table + triggers + stamps</b> (Part 2): Docker test with the example of section 5 (insert, re-post delta, delete a line, delete a task, delete a project, Correct033 update, project with no scenario = no rows, two tasks posted in parallel).</li>
+    <li><b>Rebuild function + invariants</b> I1-I5 as SQL checks.</li>
+    <li><b><code>calculate_budget_plan</code> + <code>calculateBudgetPlan.ts</code></b>: jest for the pure part (periods, cumulative, variance, "no quantity across items"); Docker for the stage roll-up with a 3-level tree.</li>
+    <li>The Budget table (optional, after the above).</li>
+  </ol>
+  <p>Old behaviour guarded by tests: a project without a plan scenario posts byte-for-byte as before. The suites that already fail on this branch (list in the equipment notes) are not touched.</p>
+</section>
+
+<section id="open">
+  <h2>10. Open points - my recommendation first</h2>
+  <div class="scroll"><table>
+    <tr><th></th><th>Question</th><th>Recommendation</th></tr>
+    <tr><td>Q1 <span class="pill ask">ask</span></td><td>The turnover has <b>no task / stage column</b>. How do stages get their budget?</td><td><b>A (proposed):</b> stages from the movements via ltree, the turnover is the project register. Turnover stays small (no task dimension) and equals the sum of the movements (I1). <b>B:</b> add <code>budgetTaskGUID</code> to the register: stage totals come from one table, but the register grows by the number of tasks and is no longer a pure project aggregate.</td></tr>
+    <tr><td>Q2 <span class="pill ask">ask</span></td><td>Add <code>rowProjectGUID</code> to the table?</td><td>Yes (RLS, cascade, roll-up).</td></tr>
+    <tr><td>Q3 <span class="pill ask">ask</span></td><td>"hamburger menu: Budget": the drawer group Budgets, or a menu inside the project?</td><td>Drawer, Catalogs + Budgets shortcut group (as Budget Items).</td></tr>
+    <tr><td>Q4 <span class="pill ask">ask</span></td><td>Are the two scenario rows of the doc ("... -Project #1") just examples, or one pair per project?</td><td>Seed exactly these two as a start; a user can add more rows (one pair per project is possible by naming). A new project defaults to them? - I suggest <b>yes for new projects only</b>, old ones stay empty.</td></tr>
+    <tr><td>Q5 <span class="pill ask">ask</span></td><td>Changing a project's plan scenario after lines were posted.</td><td>Allowed; history keeps the old scenario; warning + "Re-post all lines" button (section 4).</td></tr>
+    <tr><td>Q6 <span class="pill ask">ask</span></td><td>Delta triggers or the Post procedure writes the turnover itself?</td><td>Triggers: they cover Correct033, deleted lines / tasks / projects without extra code, and the fact side later reuses the function.</td></tr>
+    <tr><td>Q7 <span class="pill ask">ask</span></td><td>Lines with no <code>sumForBudget</code> (no budget currency or rate missing).</td><td>Add 0 and count them (shown as a warning), never guess a currency.</td></tr>
+    <tr><td>Q8 <span class="pill ask">ask</span></td><td>Payment items (<code>paymentsBudgetFolder</code>) in the register?</td><td>Yes, kept in the register with their item; reports never add them to cost or revenue.</td></tr>
+    <tr><td>Q9 <span class="pill ask">ask</span></td><td>Budget view in this step, or after the register?</td><td>After (steps 1-4 first).</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>

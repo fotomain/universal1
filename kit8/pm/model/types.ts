@@ -112,7 +112,7 @@ export interface PMRowJSON {
   mainCustomerGUID?: string | null;
   /** Selected main customer contract rowGUID (contractTable) */
   mainCustomerContractGUID?: string | null;
-  // ---- project_table only: Finances (Project settings -> TabFinances: PMProjectTaskEditScreenTab) ----
+  // ---- project_table only: Finances (Project settings -> TabBudgets: PMProjectBudgetsTab) ----
   /** ISO 4217 code (currency catalog) of the project budgets */
   currencyForBudget?: string | null;
   /** ISO 4217 code (currency catalog) of the project accounting */
@@ -139,7 +139,7 @@ export interface PMRowJSON {
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
   /**
-   * Business units (kit8/catalog/business_unit; Project settings -> Finances): the four centers of the project = businessUnitTable.rowGUID.
+   * Business units (kit8/catalog/business_unit; Project settings -> Budgets): the four centers of the project = businessUnitTable.rowGUID.
    * A cost line defaults to projectCostCenter, a revenue line to projectRevenueCenter (then the profit / investment center); the last source of the unit of a line.
    * Obligatory on every NEW project (`projectBusinessUnitsRequired` = true, set when the project is made): it cannot be saved without them. A project made before has none.
    */

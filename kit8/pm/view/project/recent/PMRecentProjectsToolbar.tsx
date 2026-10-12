@@ -64,7 +64,7 @@ import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateLis
 import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
 import { useBusinessUnitData } from "../../../../catalog/business_unit/useBusinessUnitData";
 import { defaultProjectCenters, projectCentersError } from "../../../../catalog/business_unit/businessUnitModel";
-import PMProjectTaskEditScreenTab, { taskEditScreenValuesOf, type PMProjectTaskEditScreenValues } from "../settings/PMProjectTaskEditScreenTab";
+import PMProjectBudgetsTab, { budgetsValuesOf, type BudgetsSubTab, type PMProjectBudgetsValues } from "../settings/PMProjectBudgetsTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -74,9 +74,9 @@ import { usePMVersionStore } from "../../../version/store/store_version";
 import { useUxuiCurrentJSON } from "../../../../redux/useUxuiCurrentJSON";
 import ShareScreenshotButton from "../../../../ui/components/common/ShareScreenshotButton";
 
-export type ProjectSettingsTab = 'TabMain' | 'TabFinances' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectTaskEditScreenValues {
+interface Draft extends PMProjectBudgetsValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -134,6 +134,7 @@ export default function PMRecentProjectsToolbar({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('TabMain');
+  const [budgetsSubTab, setBudgetsSubTab] = useState<BudgetsSubTab>('TabBudgetsMain');
   /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
@@ -219,6 +220,7 @@ export default function PMRecentProjectsToolbar({
   const openNew = () => {
     setDraftError(null);
     setActiveTab('TabMain');
+    setBudgetsSubTab('TabBudgetsMain');
     setDraft({
       rowGUID: null,
       name: "",
@@ -237,8 +239,8 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: null,
       mainCustomerGUID: null,
       mainCustomerContractGUID: null,
-      ...taskEditScreenValuesOf(null),
-      // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Finances tab)
+      ...budgetsValuesOf(null),
+      // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
       projectBusinessUnitsRequired: true,
     });
@@ -247,6 +249,7 @@ export default function PMRecentProjectsToolbar({
     if (!project) return;
     setDraftError(null);
     setActiveTab('TabMain');
+    setBudgetsSubTab('TabBudgetsMain');
     const startStr = project.rowJSON.projectStartDate || (project.rowJSON.projectStartAt
       ? formatDateISO(Date.parse(project.rowJSON.projectStartAt))
       : formatDateISO(todayUTC()));
@@ -275,7 +278,7 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: project.rowJSON.mainSupplierContractGUID ?? null,
       mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
       mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
-      ...taskEditScreenValuesOf(project.rowJSON),
+      ...budgetsValuesOf(project.rowJSON),
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -349,7 +352,8 @@ export default function PMRecentProjectsToolbar({
     // the four business units are obligatory on a project made with them (every new project): it is not saved without them
     const centersError = projectCentersError(draft, units.rows, units.cfrRows, units.loaded);
     if (centersError) {
-      setActiveTab('TabFinances');
+      setActiveTab('TabBudgets');
+      setBudgetsSubTab('TabBusinessUnits');
       return setDraftError(centersError);
     }
     const treeCmdMode = draft.projectTreeContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
@@ -382,7 +386,7 @@ export default function PMRecentProjectsToolbar({
             mainSupplierContractGUID: draft.mainSupplierContractGUID ?? null,
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
-            ...taskEditScreenValuesOf(draft),
+            ...budgetsValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
@@ -411,7 +415,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
-      Object.assign(row.rowJSON, taskEditScreenValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -681,11 +685,11 @@ export default function PMRecentProjectsToolbar({
                 <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} />
               </View>
 
-              {/* TopTabs Bar: TabMain, TabFinances, TabUXUI, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabBudgets, TabUXUI, TabPartners, TabKanban */}
               <View testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
-                  { id: 'TabFinances' as const, label: 'Finances', icon: 'payments' },
+                  { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
@@ -802,10 +806,12 @@ export default function PMRecentProjectsToolbar({
                   </View>
                 )}
 
-                {activeTab === 'TabFinances' && (
-                  <PMProjectTaskEditScreenTab
+                {activeTab === 'TabBudgets' && (
+                  <PMProjectBudgetsTab
                     values={draft || {}}
                     onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
+                    subTab={budgetsSubTab}
+                    onSubTabChange={setBudgetsSubTab}
                   />
                 )}
 

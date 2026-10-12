@@ -1,5 +1,5 @@
 // Task input scope - WHICH inputs the task edit screens (Finances view, task page) offer for a project (pure, unit-tested).
-//   Project settings -> "Budgets" (PMProjectTaskEditScreenTab) saves these keys in project_table.rowJSON:
+//   Project settings -> "Budgets" (PMProjectBudgetsTab) saves these keys in project_table.rowJSON:
 //     projectExpenseBudgetNeeded        the master switch: the project says which cost inputs it needs
 //       projectTimeCostsNeeded          the Time tab ("Time input needed")
 //         projectTimeOfPersonNeeded     Time lines of a person

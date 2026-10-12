@@ -346,7 +346,7 @@
 
   <h3>The four fields on the project</h3>
   <ul class="tight">
-    <li>A new block <i>Business units</i> in the project settings <i>Finances</i> tab (<code>PMProjectTaskEditScreenTab.tsx</code>): four pickers; each offers only units whose effective CFR <b>is</b> the named type (or accepts what it stands for).</li>
+    <li>A new block <i>Business units</i> in the project settings <i>Budgets</i> tab (<code>PMProjectBudgetsTab.tsx</code>): four pickers; each offers only units whose effective CFR <b>is</b> the named type (or accepts what it stands for).</li>
     <li><b>Obligatory</b> for every project created after this feature (the project cannot be saved without them). A project that already exists keeps working with the four empty: the block shows a yellow "not set" and Post behaves as today.
       A plain "obligatory" would otherwise stop every old project from saving its settings.</li>
     <li><code>projectProfitCenter</code> and <code>projectInvestmentCenter</code> are also the roll-up for reports (the project's profit / investment owner), not only the last-resort fallback.</li>
@@ -400,7 +400,7 @@
     <tr><td><code>kit8/pm/view/task/finances/taskLineModel.ts</code> · <code>taskLineColumns.tsx</code> · <code>taskLineCompute.ts</code></td><td><span class="pill chg">chg</span></td><td>the three row-JSON keys, the column after <code>budgetItemTaskLine</code>, the call of the resolver (+ unposted rule)</td></tr>
     <tr><td><code>kit8/pm/view/task/finances/taskLineBusinessUnit.ts</code></td><td><span class="pill new">new</span></td><td>pure <code>resolveLineBusinessUnit</code>, <code>lineKind</code>, <code>unitProblem</code></td></tr>
     <tr><td><code>kit8/pm/view/task/plan/calculateTaskLinePlan.ts</code> · <code>taskLinePlanModel.ts</code></td><td><span class="pill chg">chg</span></td><td>layer 2 of the CHECK</td></tr>
-    <tr><td><code>kit8/pm/model/types.ts</code> · <code>PMProjectTaskEditScreenTab.tsx</code></td><td><span class="pill chg">chg</span></td><td>the four <code>project*Center</code> keys and the <i>Business units</i> block</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code> · <code>PMProjectBudgetsTab.tsx</code></td><td><span class="pill chg">chg</span></td><td>the four <code>project*Center</code> keys and the <i>Business units</i> block</td></tr>
     <tr><td><code>budgetItemModel / resourceRoleModel / contract / person / equipment / product</code> editors</td><td><span class="pill chg">chg</span></td><td>one picker field <code>businessUnitAssigned</code> in each (five small, identical edits)</td></tr>
     <tr><td><code>kit8/pm/README.md</code> · <code>finances/README.md</code> · <code>plan/README.md</code></td><td><span class="pill chg">chg</span></td><td>document the column, the priority and the CHECK</td></tr>
   </table></div>
