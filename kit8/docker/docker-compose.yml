@@ -1,0 +1,22 @@
+# Local Postgres 15 for testing kit8/sql/start/*.sql (Supabase is only stubbed, see init/00_supabase_stubs.sql).
+#   docker compose up -d          start (first start runs init/*.sql)
+#   ./test_sql.sh                 recreate a fresh database, run start_sql_structure.sql, delete_sql_structure.sql and verify
+#   docker compose down -v        stop and throw the data away
+services:
+  db:
+    image: postgres:15
+    pull_policy: never   # the image is already local; Docker Desktop hangs when it asks the registry (first time: docker pull postgres:15)
+    container_name: universal1-pgtest
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "54322:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ../sql/start:/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
