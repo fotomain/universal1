@@ -10,7 +10,7 @@ import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
-import GanttToNetworkViewToggleButtons from '../../gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../../gantt/toolbars/GanttToggleButtons';
 import { pmT } from '../../../i18n/pmT';
 import PMProjectTaskPlanCRUD from './PMProjectTaskPlanCRUD';
 
@@ -29,17 +29,17 @@ export default function PMTaskLinePlanView({ projectGUID, width, height, palette
   return (
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-plan-view">
       <PMToolbar background={palette.surface} border={palette.border}>
-        <PMTipIcon tip={pmT('Plan')} testID="pm-plan-icon" name="event_note" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
+        <PMTipIcon tip={pmT('Budgets')} testID="pm-plan-icon" name="event_note" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
         <Text style={[styles.title, { color: palette.text }]} testID="pm-plan-title" numberOfLines={1}>
-          {task ? task.rowJSON?.name || pmT('Task') : pmT('Plan')}
+          {task ? task.rowJSON?.name || pmT('Task') : pmT('Budgets')}
         </Text>
         <PMToolbarSpacer />
-        <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
+        <GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />
       </PMToolbar>
 
       {!task || !selectedGUID ? (
         <View style={styles.center} testID="pm-plan-empty">
-          <PMTipIcon tip={pmT('Plan')} testID="pm-plan-empty-icon" name="event_note" size={36} color={palette.primary} />
+          <PMTipIcon tip={pmT('Budgets')} testID="pm-plan-empty-icon" name="event_note" size={36} color={palette.primary} />
           <Text style={[styles.emptyTitle, { color: palette.text }]}>{pmT('Select a task')}</Text>
           <Text style={[styles.emptyText, { color: palette.textMuted }]}>
             {pmT('Click a task in the tree to see the posted days of its lines: the budget, the contract sum and the quantity spread over the working days.')}

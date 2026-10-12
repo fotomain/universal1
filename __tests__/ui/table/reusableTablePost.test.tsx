@@ -88,7 +88,6 @@ describe('postDataNeeded', () => {
 
   it.each([
     ['post', 'Post', 'cloud_upload'],
-    ['posted', 'Posted', 'cloud_done'],
     ['postNeeded', 'Post needed', 'sync_problem'],
   ])('state %s: text "%s" on a wide window, the icon %s', (state, text, icon) => {
     setWidth(POST_BUTTON_WIDE_FROM + 100);
@@ -96,6 +95,12 @@ describe('postDataNeeded', () => {
     expect(q(`${T}-post-text`)!.textContent).toBe(text);
     expect(q(`${T}-post`)!.textContent).toContain(icon);
     expect(q(`${T}-post`)!.getAttribute('aria-label')).toBe(text);
+  });
+
+  it('state posted: everything is posted, so the Post button is invisible (not rendered)', () => {
+    setWidth(POST_BUTTON_WIDE_FROM + 100);
+    mount({ postDataNeeded: true, postState: 'posted' });
+    expect(q(`${T}-post`)).toBeNull();
   });
 
   it('a narrow window shows the icon only, the label stays for the screen reader', () => {
@@ -106,26 +111,29 @@ describe('postDataNeeded', () => {
     expect(q(`${T}-post`)!.getAttribute('aria-label')).toBe('Post needed');
   });
 
-  it('without postState: Posted when every row has taskIsPosted, else Post; postedField renames the key', () => {
+  it('without postState: no button when every row has taskIsPosted, else Post; postedField renames the key', () => {
     setWidth(1400);
     mount({ postDataNeeded: true }, [row('a', true), row('b', true)]);
-    expect(q(`${T}-post-text`)!.textContent).toBe('Posted');
+    expect(q(`${T}-post`)).toBeNull();
     act(() => root.unmount()); document.body.innerHTML = '';
     mount({ postDataNeeded: true }, [row('a', true), row('b', false)]);
     expect(q(`${T}-post-text`)!.textContent).toBe('Post');
     act(() => root.unmount()); document.body.innerHTML = '';
     mount({ postDataNeeded: true, postedField: 'done' }, [{ ...row('a', false), rowJSON: { done: true } }]);
-    expect(q(`${T}-post-text`)!.textContent).toBe('Posted');
+    expect(q(`${T}-post`)).toBeNull();
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ postDataNeeded: true, postedField: 'done' }, [{ ...row('a', false), rowJSON: { done: false } }]);
+    expect(q(`${T}-post-text`)!.textContent).toBe('Post');
   });
 
-  it('pressing it runs onPost (in every state)', async () => {
+  it('pressing it runs onPost (while there is something to post)', async () => {
     const onPost = jest.fn(() => Promise.resolve());
-    for (const state of ['post', 'posted', 'postNeeded']) {
+    for (const state of ['post', 'postNeeded']) {
       mount({ postDataNeeded: true, postState: state, onPost });
       await act(async () => { q(`${T}-post`)!.click(); });
       act(() => root.unmount()); document.body.innerHTML = '';
     }
-    expect(onPost).toHaveBeenCalledTimes(3);
+    expect(onPost).toHaveBeenCalledTimes(2);
   });
 
   it('the button is busy (disabled) while onPost runs, and free again after', async () => {

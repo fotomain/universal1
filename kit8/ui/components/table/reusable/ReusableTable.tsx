@@ -38,6 +38,7 @@ import { useReusableTableCrud } from './useReusableTableCrud';
 import type { CatalogColumn, EditRowModalCardProps, ReusableTableProps, ReusableTableRow, VisualColumn } from './reusableTableTypes';
 import ReusableTableHeaderCell from './ReusableTableHeaderCell';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
+import ReusableTableFillColumnModal from './ReusableTableFillColumnModal';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
 import ReusableTablePostButton, { POST_BUTTON_WIDE_FROM, ReusableTablePostState } from './ReusableTablePostButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
@@ -196,6 +197,8 @@ export default function ReusableTable(props: ReusableTableProps) {
   const [columnSort, setColumnSort] = useState<ColumnSort | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [columnMenu, setColumnMenu] = useState<{ key: string; x: number; y: number } | null>(null);
+  const [headerContextMenu, setHeaderContextMenu] = useState<{ col: VisualColumn; x: number; y: number } | null>(null);
+  const [fillModalCol, setFillModalCol] = useState<VisualColumn | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [menu, setMenu] = useState<RowMenuState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
@@ -461,7 +464,8 @@ export default function ReusableTable(props: ReusableTableProps) {
     setPosting(true);
     try { await props.onPost(); } finally { setPosting(false); }
   };
-  const postEl = props.postDataNeeded ? (
+  // a posted table has nothing to post: the button is gone (invisible) until something changes ('post' / 'postNeeded'); it stays while a post is running
+  const postEl = props.postDataNeeded && (postState !== 'posted' || posting) ? (
     <ReusableTablePostButton testID={`${testID}-post`} state={postState} color={props.postButtonColor} showText={win.width >= POST_BUTTON_WIDE_FROM} busy={posting} onPress={runPost} />
   ) : null;
   const panelEl = (crudPanelEnabled || postEl) && (
@@ -523,6 +527,7 @@ export default function ReusableTable(props: ReusableTableProps) {
                 draggable={dragAndDropColumns} resizable={resizeColumnWidth} delimiter={headerDelimiters}
                 onDragEnd={onColumnDragEnd} onResize={onColumnResize} onResizeEnd={onColumnResizeEnd}
                 onMenu={columnSortAndFilter && isSortFilterColumn(col) ? (key, x, y) => setColumnMenu({ key, x, y }) : undefined}
+                onContextMenu={(key, x, y) => setHeaderContextMenu({ col, x, y })}
                 sortDirection={columnSort?.key === col.key ? columnSort.direction : null} filtered={isActiveFilter(columnFilters[col.key])} />
             ))}
             {contextMenuEnabled && <View style={{ width: MENU_W }} />}
@@ -594,6 +599,44 @@ export default function ReusableTable(props: ReusableTableProps) {
           sort={columnSort} filter={columnFilters[columnMenu.key]} onSort={setColumnSort}
           onFilter={(f) => setColumnFilters((all) => { const next = { ...all }; if (f) next[columnMenu.key] = f; else delete next[columnMenu.key]; return next; })}
           onClose={() => setColumnMenu(null)} />
+      )}
+      {headerContextMenu && (
+        <PMContextMenu
+          testID={`${testID}-header-context-menu`}
+          x={headerContextMenu.x}
+          y={headerContextMenu.y}
+          caption={headerContextMenu.col.title}
+          onClose={() => setHeaderContextMenu(null)}
+          items={[
+            {
+              testID: `${testID}-header-menu-fill-all`,
+              label: 'Fill all lines',
+              icon: 'format_color_fill',
+              disabled: headerContextMenu.col.type === 'rowNumber' || headerContextMenu.col.editable === false,
+              onPress: () => {
+                const targetCol = headerContextMenu.col;
+                setHeaderContextMenu(null);
+                setFillModalCol(targetCol);
+              },
+            },
+          ]}
+        />
+      )}
+      {fillModalCol && (
+        <ReusableTableFillColumnModal
+          visible={!!fillModalCol}
+          col={fillModalCol}
+          testID={testID}
+          onCancel={() => setFillModalCol(null)}
+          onFill={(fillValue) => {
+            const colKey = fillModalCol.key;
+            setFillModalCol(null);
+            const targetRows = viewFiltered ? visible : rows;
+            targetRows.forEach((r) => {
+              crud.setCell(r.rowGUID, colKey, fillValue);
+            });
+          }}
+        />
       )}
       {barMenu?.kind === 'history' && (
         <PMContextMenu testID={`${testID}-search-history-menu`} x={barMenu.x} y={barMenu.y} caption="Search history" onClose={() => setBarMenu(null)}

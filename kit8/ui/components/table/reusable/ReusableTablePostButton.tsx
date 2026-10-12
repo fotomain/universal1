@@ -4,6 +4,7 @@
 //   state 'postNeeded' text "Post needed"  the data changed after it was posted
 // The icon is always there; the text only on a wide window (`showText`). Background = `color` (project.uxuiSettings.postButtonBackgroundColor,
 // light fuchsia by default); "Posted" is the quiet state (outlined), the two others are filled. Pressing it runs the post (onPost) in every state.
+// ReusableTable does NOT render this button in the 'posted' state (everything is posted: nothing to press) - only while a post is running.
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import IconApp from '../../common/IconApp';

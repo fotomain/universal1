@@ -41,6 +41,8 @@ import { PMCrud } from '../../crud/usePMCrud';
 import PMTreeRowHoverPanel from './panels/PMTreeRowHoverPanel';
 import PMTreeToolbar from './toolbars/PMTreeToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
+import { PMTipIcon } from '../../inner/buttons';
+import { pmT } from '../../i18n/pmT';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
 import { usePMKanbanStore } from '../../store/store_kanban';
@@ -69,6 +71,8 @@ import { useTreeColumnResizeGesture } from './columns/useTreeColumnResizeGesture
 import PMTreeColumnsHeader from './columns/PMTreeColumnsHeader';
 import { isOverTreeRowPanel, placeTreeRowPanel, treeRowPanelViewLeft } from './panels/treeRowPanelGeometry';
 import { treeFilterIconAt } from './filter/treeFilterIconGeometry';
+import PMTreePostStatusIcon, { PM_TREE_POST_STATUS_WIDTH } from './columns/PMTreePostStatusIcon';
+import { useProjectTaskLines } from '../task/plan/useProjectTaskLines';
 import { describeTreeColumnFilter, isTreeColumnFilterActive, sortLabels, treeColumnDataType } from './filter/treeColumnFilter';
 
 const IS_WEB = Platform.OS === 'web';
@@ -140,8 +144,14 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   /** uxui.hideTreeSelectColumn: the "select lines" column is switched off with the tree tool bar button */
   const showSelectColumn = !useSelector((s: any) => !!s.uxuiState?.hideTreeSelectColumn);
   const selectW = showSelectColumn ? PM_TREE_SELECT_WIDTH : 0;
-  /** the grid (Skia canvas) starts after the multi-selection column */
-  const width = Math.max(40, paneWidth - selectW);
+  /** the posted column (check sign of a posted task) sits between the select column and the grid: always there */
+  const statusW = PM_TREE_POST_STATUS_WIDTH;
+  /** everything left of the grid (Skia canvas): the multi-selection column + the posted column */
+  const leftW = selectW + statusW;
+  const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
+  const { indicators: postIndicators } = useProjectTaskLines(selectedProjectGUID);
+  /** the grid (Skia canvas) starts after the multi-selection and the posted columns */
+  const width = Math.max(40, paneWidth - leftW);
   const TB = hideToolbar ? 0 : PM_TOOLBAR_HEIGHT;
   const skiaRef = useCanvasRef();
   const checkedGUIDs = usePMStore((s) => s.checkedGUIDs);
@@ -952,7 +962,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         if (dragFrom.value < 0) return;
         dragY.value += e.changeY;
         // Kanban: to the right of the tree the row is dragged onto the board (surface coords: canvas is below the toolbar)
-        if (bridge && kanbanBridgeMove(bridge, e.x + selectW, e.y + TB, dragFrom.value)) return;
+        if (bridge && kanbanBridgeMove(bridge, e.x + leftW, e.y + TB, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
         dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
       })
@@ -1073,7 +1083,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         dragY.value += e.changeY;
         if (bridge) {
           // the handle is the panel's last button: its surface point + the finger's translation
-          const handleX = selectW + treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
+          const handleX = leftW + treeRowPanelViewLeft(panelLeftSV.value, panelWidthSV.value, treeScrollX.value, paneWidthSV.value) + panelWidthSV.value - 14;
           const handleY = TB + PM_SCALE_HEIGHT + handleStartY.value - handleStartScroll.value;
           if (kanbanBridgeMove(bridge, handleX + e.translationX, handleY + e.translationY, dragFrom.value)) return;
         }
@@ -1112,7 +1122,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       handleGesture: handle,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, selectW]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, leftW]);
 
   // ---- multi selection column (round check boxes): rows follow the vertical scroll on the UI thread ----
   const selectRowsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -scrollY.value }] }));
@@ -1194,6 +1204,27 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         </View>
       </GestureDetector>
       )}
+      {/* ---- posted column: nothing (not posted) · green check (posted) · dark orange check (posted, changed since); every icon has a tip ---- */}
+      <GestureDetector gesture={selectScroll}>
+        <View testID="pm-tree-post-column" style={{ width: PM_TREE_POST_STATUS_WIDTH, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+          <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: PM_TREE_POST_STATUS_WIDTH, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
+            <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: PM_TREE_POST_STATUS_WIDTH }, selectRowsStyle]}>
+              {rows.map((r) => {
+                const indicator = postIndicators[r.guid];
+                if (!indicator) return null;
+                return (
+                  <View key={r.guid} style={{ position: 'absolute', left: 0, top: r.y, width: PM_TREE_POST_STATUS_WIDTH, height: PM_ROW_HEIGHT }}>
+                    <PMTreePostStatusIcon testID={`pm-tree-post-${indicator}-${r.guid}`} indicator={indicator} height={PM_ROW_HEIGHT} />
+                  </View>
+                );
+              })}
+            </Animated.View>
+          </View>
+          <View testID="pm-tree-post-header" style={{ height: PM_SCALE_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+            <PMTipIcon tip={pmT('Posted: a check sign = the plan of the task is posted; dark orange = changed after posting')} testID="pm-tree-post-header-icon" name="cloud_done" size={14} color={palette.textMuted} />
+          </View>
+        </View>
+      </GestureDetector>
       <GestureDetector gesture={gesture}>
         <View
           ref={canvasBoxRef}

@@ -22,7 +22,7 @@ import { PMCrud } from '../../crud/usePMCrud';
 import { PM_WIDE_ACTION_WIDTH } from '../../model/constants';
 import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../inner/toolbars/PMToolbarPrimitives';
-import GanttToNetworkViewToggleButtons from '../gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../gantt/toolbars/GanttToggleButtons';
 import PMGanttLinkModeHint from '../gantt/toolbars/PMGanttLinkModeHint';
 import PMNetworkRadioGroup, { PMRadioOption } from './PMNetworkRadioGroup';
 import PMNetworkDiagram from './PMNetworkDiagram';
@@ -109,7 +109,7 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
             )}
             {showGanttToggle && (
               <>
-                <GanttToNetworkViewToggleButtons palette={palette} onChange={setters.setGanttVsNetworkView} />
+                <GanttToggleButtons palette={palette} onChange={setters.setGanttVsNetworkView} onReorder={setters.setViewButtonsOrder} />
                 <PMToolbarDivider color={palette.border} />
               </>
             )}

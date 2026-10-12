@@ -3,7 +3,7 @@
 //   PMNetworkDiagram   activity-on-node (CPM boxes / compact blocks)
 //   PMNetworkSchedule  activity-on-arrow (event circles / time-scaled)
 //   networkModel       pure graph + layout code (unit-tested)
-// The Gantt bar switch: kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons.
+// The Gantt bar switch: kit8/pm/view/gantt/toolbars/GanttToggleButtons.
 export { default as PMNetworkView } from './PMNetworkView';
 export type { PMNetworkViewProps } from './PMNetworkView';
 export { default as PMNetworkDiagram } from './PMNetworkDiagram';

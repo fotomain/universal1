@@ -47,6 +47,7 @@ import { exportProjectDashboardToPdf } from "../../../crud/exchange/pdf/exportDa
 import { pmT } from "../../../i18n/pmT";
 import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
+import PMProjectActionsButton from "../buttons/PMProjectActionsButton";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
@@ -554,6 +555,14 @@ export default function PMRecentProjectsToolbar({
       {/* project versions: Save project version · Restore project from version (kit8/pm/version) */}
       <PMGanttVersionButtons palette={{ text: themeColors.text }} />
       <PMToolbarDivider color={themeColors.border} />
+      {/* Actions (before the settings): Post unposted tasks · Repost all tasks · Refresh the project */}
+      <PMProjectActionsButton
+        projectGUID={selectedProjectGUID}
+        color={themeColors.text}
+        disabled={!selected}
+        width={PM_SETTINGS_BUTTON_WIDTH}
+        size={PM_SETTINGS_ICON_SIZE}
+      />
       <PMIconButton
         testID="pm-project-edit"
         icon="settings"

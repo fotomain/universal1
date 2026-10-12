@@ -32,7 +32,7 @@ import React from 'react';
 import ModalWindowListToSelect from '../../../../kit8/ui/components/common/ModalWindowListToSelect';
 import PMGanttToolbar from '../../../../kit8/pm/view/gantt/toolbars/PMGanttToolbar';
 import PMRecentProjectsToolbar from '../../../../kit8/pm/view/project/recent/PMRecentProjectsToolbar';
-import GanttToNetworkViewToggleButtons from '../../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import PMGanttVersionButtons from '../../../../kit8/pm/version/view/buttons/PMGanttVersionButtons';
 import PMVersionTitleModalWindow from '../../../../kit8/pm/version/view/windows/PMVersionTitleModalWindow';
 import PMVersionWindows from '../../../../kit8/pm/version/view/windows/PMVersionWindows';
@@ -73,7 +73,7 @@ describe('view switch', () => {
   it('Versions comes after Gantt | Kanban | Network and is a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
-    renderUI(<GanttToNetworkViewToggleButtons palette={palette} onChange={onChange} />);
+    renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
     expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView']);
     press('pm-gantt-vs-network-showVersionsView');
     expect(onChange).toHaveBeenCalledWith('showVersionsView');

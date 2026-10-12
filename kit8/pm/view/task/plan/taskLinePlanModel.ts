@@ -9,7 +9,7 @@ import type { DefRow } from '../../../../catalog/product/productModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
 import type { TaskLineRow } from '../finances/taskLineModel';
 
-export const taskLinePlanTable = 'task_line_plan';
+export const taskLinePlanTable = 'task_line_plan_movements';
 export const TASK_LINE_PLAN_ENTITY = 'taskLinePlanReusable';
 export const TASK_LINE_PLAN_ROUTE = '/pm/project/task/plan';
 

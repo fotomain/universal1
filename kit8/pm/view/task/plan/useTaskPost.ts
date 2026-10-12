@@ -1,19 +1,20 @@
 // useTaskPost - Post of ONE task (the Post button of the task line table): calculate the plan of its lines (calculateTaskLinePlan), send it to the
-// SQL procedure create_task_line_plan (one transaction) and tell the user what happened. The state of the button comes from the lines (taskPostState),
-// which realtime keeps current: the procedure sets taskIsPosted on the lines it posted.
+// SQL procedure create_task_line_plan (one transaction) and tell the user what happened (runTaskPost does the work). The state of the button comes
+// from the lines (taskPostState), which realtime keeps current: the procedure sets taskIsPosted on the lines it posted.
+// A task with NO budget item on any line cannot be posted: that is the user's to fix, so it gets a modal window, not a snack bar.
 import { useCallback, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
+import { showErrorModal } from '../../../../ui/components/common/ErrorModalWindow';
 import { usePMStore } from '../../../store/store_pm';
-import { formatDateISO } from '../../project/scheduling';
-import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN, yearsBetween } from '../../../../catalog/management/calendar/managementCalendarModel';
-import { fetchCalendarDays } from '../../../../catalog/management/calendar/managementCalendarApi';
+import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN } from '../../../../catalog/management/calendar/managementCalendarModel';
 import type { DefRow } from '../../../../catalog/product/productModel';
 import type { TaskLineRow } from '../finances/taskLineModel';
-import { calculateTaskLinePlan } from './calculateTaskLinePlan';
-import { createTaskLinePlan } from './taskLinePlanApi';
+import { runTaskPost, taskDaysOf } from './runTaskPost';
 import { taskPostState, TaskPostState } from './taskLinePlanModel';
 import { pmT } from '../../../i18n/pmT';
+
+export { taskDaysOf };
 
 export interface UseTaskPostArgs {
   projectGUID: string;
@@ -22,13 +23,6 @@ export interface UseTaskPostArgs {
   lines: TaskLineRow[];
   /** distributionGenericTable rows */
   distributions: DefRow<any>[];
-}
-
-/** 'YYYY-MM-DD' of the first and the last day of a task from the scheduler (finish is exclusive; a milestone has one day) */
-export function taskDaysOf(startMs: number | undefined, finishMs: number | undefined): { fromDay: string | null; toDay: string | null } {
-  if (typeof startMs !== 'number' || !Number.isFinite(startMs)) return { fromDay: null, toDay: null };
-  const last = typeof finishMs === 'number' && Number.isFinite(finishMs) && finishMs > startMs ? finishMs - 1 : startMs;
-  return { fromDay: formatDateISO(startMs), toDay: formatDateISO(last) };
 }
 
 export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: UseTaskPostArgs) {
@@ -42,28 +36,16 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
   live.current = { lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs };
 
   const post = useCallback(async (): Promise<void> => {
-    const L = live.current;
     const say = (message: string) => dispatch(showSnackbar({ message }));
-    try {
-      const { fromDay, toDay } = taskDaysOf(L.startMs, L.finishMs);
-      let calendarDays: { rowJSON?: any }[] = [];
-      if (fromDay && toDay) {
-        // only the years the task touches are needed
-        const years = yearsBetween(fromDay, toDay);
-        calendarDays = await fetchCalendarDays(L.calendarForTaskPlan, `${years[0]}-01-01`, `${years[years.length - 1]}-12-31`);
-      }
-      const calendarTitle = String(L.calendars.find((r) => r.rowGUID === L.calendarForTaskPlan)?.rowJSON?.title || '') || undefined;
-      const plan = calculateTaskLinePlan({ taskGUID, fromDay, toDay, lines: L.lines, calendarDays, distributions: L.distributions, calendarTitle });
-      const problems = plan.errors.map((e) => pmT(e.message));
-      if (!plan.taskLinePlanJSON) {
-        say(problems.length ? problems[0] + (problems.length > 1 ? ` (+${problems.length - 1})` : '') : pmT('Nothing to post: choose a budget item on the lines'));
-        return;
-      }
-      const result = await createTaskLinePlan(plan.taskLinePlanJSON);
-      const note = problems.length ? ` · ${pmT('{{count}} line(s) not posted: {{first}}', { count: problems.length, first: problems[0] })}` : '';
+    const result = await runTaskPost({ taskGUID, ...live.current });
+    if (result.status === 'error') {
+      say(`${pmT('The task could not be posted')}: ${result.message}`);
+    } else if (result.status === 'nothing') {
+      if (result.noBudget) showErrorModal(pmT('No line of this task has a budget item. Choose a budget item on at least one line, then press Post.'), pmT('Nothing to post'));
+      else say(result.problems.length ? result.problems[0] + (result.problems.length > 1 ? ` (+${result.problems.length - 1})` : '') : pmT('Nothing to post: choose a budget item on the lines'));
+    } else {
+      const note = result.problems.length ? ` · ${pmT('{{count}} line(s) not posted: {{first}}', { count: result.problems.length, first: result.problems[0] })}` : '';
       say(`${pmT('Posted {{lines}} line(s) · {{rows}} day row(s)', { lines: result.lines, rows: result.rows })}${note}`);
-    } catch (e: any) {
-      say(`${pmT('The task could not be posted')}: ${e?.message || e}`);
     }
   }, [dispatch, taskGUID]);
 

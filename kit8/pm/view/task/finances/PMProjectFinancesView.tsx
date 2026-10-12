@@ -13,7 +13,7 @@ import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
-import GanttToNetworkViewToggleButtons from '../../gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../../gantt/toolbars/GanttToggleButtons';
 import { lastEditPlaceOf } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
 import PMProjectTaskFinancesCRUD from './PMProjectTaskFinancesCRUD';
@@ -46,7 +46,7 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
           {task ? task.rowJSON?.name || pmT('Task') : pmT('Finances')}
         </Text>
         <PMToolbarSpacer />
-        <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
+        <GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />
       </PMToolbar>
 
       {!task || !selectedGUID ? (

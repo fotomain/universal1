@@ -72,6 +72,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     taskProgressLineColor: u.taskProgressLineColor,
     projectProgressLineColor: u.projectProgressLineColor,
     ganttVsNetworkView: u.ganttVsNetworkView,
+    viewButtonsOrder: u.viewButtonsOrder,
     networkViewMode: u.networkViewMode,
     networkDiagramVariant: u.networkDiagramVariant,
     networkScheduleVariant: u.networkScheduleVariant,

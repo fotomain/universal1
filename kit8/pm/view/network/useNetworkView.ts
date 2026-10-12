@@ -36,6 +36,7 @@ export function useNetworkViewSetters(crud: PMCrud | undefined, readOnly: boolea
     const local = usePMStore.getState().setNetworkViewSettings;
     return {
       setGanttVsNetworkView: (v: PMGanttVsNetworkView) => (persist ? crud!.setGanttVsNetworkView(v) : local({ ganttVsNetworkView: v })),
+      setViewButtonsOrder: (order: PMGanttVsNetworkView[]) => (persist ? crud!.setViewButtonsOrder(order) : local({ viewButtonsOrder: order })),
       setNetworkViewMode: (v: PMNetworkViewMode) => (persist ? crud!.setNetworkViewMode(v) : local({ networkViewMode: v })),
       setNetworkDiagramVariant: (v: PMNetworkDiagramVariant) => (persist ? crud!.setNetworkDiagramVariant(v) : local({ networkDiagramVariant: v })),
       setNetworkScheduleVariant: (v: PMNetworkScheduleVariant) => (persist ? crud!.setNetworkScheduleVariant(v) : local({ networkScheduleVariant: v })),

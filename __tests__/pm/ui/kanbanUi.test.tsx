@@ -38,7 +38,7 @@ jest.mock('../../../kit8/pm/crud/kanban/kanbanQueries', () => ({
 
 import PMKanbanDashboard from '../../../kit8/pm/view/kanban/PMKanbanDashboard';
 import PMKanbanStagesModalWindow from '../../../kit8/pm/view/kanban/PMKanbanStagesModalWindow';
-import GanttToNetworkViewToggleButtons from '../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import { usePMKanbanStore } from '../../../kit8/pm/store/store_kanban';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
@@ -75,7 +75,7 @@ afterEach(() => {
 describe('Gantt | Kanban | Network switch', () => {
   it('has three views in this order and reports the choice', () => {
     const onChange = jest.fn();
-    renderUI(<GanttToNetworkViewToggleButtons palette={palette} onChange={onChange} />);
+    renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
     expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView']);
     press('pm-gantt-vs-network-showKanbanView');
     expect(onChange).toHaveBeenCalledWith('showKanbanView');

@@ -16,7 +16,7 @@ import { PMCrud } from '../../../crud/usePMCrud';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { PMDialogButton, PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
-import GanttToNetworkViewToggleButtons from '../../../view/gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from '../../../view/gantt/toolbars/GanttToggleButtons';
 import ActivityIndicatorCircleApp from '../../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { PM_VERSION_MAX_CHECKED } from '../../model/versionTypes';
 import { usePMVersionStore } from '../../store/store_version';
@@ -54,7 +54,7 @@ export default function PMProjectVersionsList({ ownerGUID, projectGUID, width, h
         </Text>
         {checked.length > 0 && <PMIconButton testID="pm-versions-clear-checked" icon="deselect" label={pmT('Clear')} title={pmT('Uncheck all versions (nothing is compared)')} color={palette.text} onPress={commands.clearChecked} />}
         <PMToolbarSpacer />
-        <GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />
+        <GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />
         <PMToolbarDivider color={palette.border} />
         <PMIconButton
           testID="pm-versions-save"

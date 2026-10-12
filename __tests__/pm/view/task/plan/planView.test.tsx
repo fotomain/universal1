@@ -2,7 +2,7 @@
 // The Plan view: the Plan button (after Finances), PMTaskLinePlanView (the bar + the table of the selected task) and PMProjectTaskPlanCRUD
 // (all the lines of the task in ONE read-only table, the sums per line against the line). The table itself is a test double that records its props.
 import React, { act } from 'react';
-import { cleanupUI, fakeCrud, press, q, renderUI, seedStore, textOf } from '../../../ui/pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore, textOf } from '../../../ui/pmUiTestKit';
 
 const mockTable = jest.fn((_props: any) => null);
 jest.mock('../../../../../kit8/ui/components/table/reusable/ReusableTable', () => ({
@@ -17,7 +17,7 @@ jest.mock('../../../../../kit8/providers/WithDesignSystem', () => ({
 }));
 jest.mock('../../../../../kit8/ui/components/common/IconApp', () => ({ __esModule: true, default: ({ name, testID }: any) => require('react').createElement(require('react-native').Text, { testID }, name) }));
 
-import GanttToNetworkViewToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import PMTaskLinePlanView from '../../../../../kit8/pm/view/task/plan/PMTaskLinePlanView';
 import PMProjectTaskPlanCRUD from '../../../../../kit8/pm/view/task/plan/PMProjectTaskPlanCRUD';
 import { buildPlanColumns, planLineLabel, planPeriodText } from '../../../../../kit8/pm/view/task/plan/planColumns';
@@ -26,7 +26,8 @@ import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/task
 import { emptyTaskLineCatalogs } from '../../../../../kit8/pm/view/task/finances/taskLineCatalogs';
 import { REUSABLE_TABLE_ALL } from '../../../../../kit8/ui/components/table/reusable/reusableTableTypes';
 import { makePMPalette } from '../../../../../kit8/pm/view/theme';
-import { pmMainViewOf, uxuiSettingsOf, postButtonColorOf, PM_DEFAULT_POST_BUTTON_COLOR } from '../../../../../kit8/pm/model/types';
+import { pmMainViewOf, uxuiSettingsOf, postButtonColorOf, PM_DEFAULT_POST_BUTTON_COLOR, viewButtonsOrderOf, PM_DEFAULT_VIEW_BUTTONS_ORDER } from '../../../../../kit8/pm/model/types';
+import { reorderByDrop } from '../../../../../kit8/pm/view/network/PMSegmentedIconButtons';
 import { usePMStore } from '../../../../../kit8/pm/store/store_pm';
 import { cellValue } from '../../../../../kit8/ui/components/table/reusable/tableRows';
 
@@ -34,16 +35,41 @@ const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface:
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); (globalThis as any).__pmTestReduxState = undefined; act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the Plan button', () => {
-  it('is the LAST button of the view switch, after Finances; it is a main view that can be remembered', () => {
+  it('is followed by the Reports button (the LAST one); both are main views that can be remembered', () => {
     seedStore();
     const onChange = jest.fn();
-    renderUI(<GanttToNetworkViewToggleButtons palette={palette} onChange={onChange} />);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('Plan');
+    renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showPlanView', 'showReportsView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('Reports');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Budgets');
     press('pm-gantt-vs-network-showPlanView');
     expect(onChange).toHaveBeenCalledWith('showPlanView');
+    press('pm-gantt-vs-network-showReportsView');
+    expect(onChange).toHaveBeenCalledWith('showReportsView');
     expect(pmMainViewOf('showPlanView')).toBe('showPlanView');
+    expect(pmMainViewOf('showReportsView')).toBe('showReportsView');
     expect(uxuiSettingsOf(null, { ganttVsNetworkView: 'showPlanView' }).ganttVsNetworkView).toBe('showPlanView');
+  });
+
+  it('the saved button order is normalized (unknown / duplicate dropped, missing appended) and reordering by drop works', () => {
+    expect(viewButtonsOrderOf(undefined)).toEqual(PM_DEFAULT_VIEW_BUTTONS_ORDER);
+    expect(viewButtonsOrderOf(['showPlanView', 'x', 'showPlanView', 'showGanttChart'])).toEqual(['showPlanView', 'showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView']);
+    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder[0]).toBe('showReportsView');
+    const layouts = { a: { x: 0, w: 40 }, b: { x: 40, w: 40 }, c: { x: 80, w: 40 } };
+    // 'a' dropped with its center over 'c' -> last
+    expect(reorderByDrop(['a', 'b', 'c'], 'a', 110, layouts)).toEqual(['b', 'c', 'a']);
+    // 'c' dropped far to the left -> first
+    expect(reorderByDrop(['a', 'b', 'c'], 'c', 5, layouts)).toEqual(['c', 'a', 'b']);
+    // not moved enough -> same order
+    expect(reorderByDrop(['a', 'b', 'c'], 'b', 60, layouts)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('the store order decides the order of the buttons on screen', () => {
+    seedStore();
+    act(() => usePMStore.setState({ viewButtonsOrder: ['showReportsView', 'showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView'] }));
+    renderUI(<GanttToggleButtons palette={palette} onChange={jest.fn()} />);
+    expectInOrder(['pm-gantt-vs-network-showReportsView', 'pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showPlanView']);
+    act(() => usePMStore.setState({ viewButtonsOrder: [...PM_DEFAULT_VIEW_BUTTONS_ORDER] }));
   });
 });
 
@@ -162,6 +188,42 @@ describe('PMProjectTaskPlanCRUD', () => {
   it('no rows, no summary', () => {
     mount({ lines: [lineRow('l1', 'timeGenus', {})] });
     expect(q('tp-summary')).toBeNull();
+  });
+
+  it('renders the budget tabs (TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll) and switches tabs', () => {
+    mount({
+      lines: [
+        lineRow('l1', 'timeGenus', {}),
+        lineRow('l2', 'materialGenus', {}),
+        lineRow('l3', 'expenseGenus', {}),
+      ],
+      plan: [
+        planRow('a', 'l1', 1, 1, 10, 100, 100),
+        planRow('b', 'l2', 1, 1, 5, 50, 50),
+        planRow('c', 'l3', 1, 1, 2, 20, 20),
+      ],
+    });
+    expect(q('tp-tab-TabPlanTime')).not.toBeNull();
+    expect(q('tp-tab-TabPlanMaterial')).not.toBeNull();
+    expect(q('tp-tab-TabPlanExpencies')).not.toBeNull();
+    expect(q('tp-tab-TabPlanAll')).not.toBeNull();
+
+    // Default tab is TabPlanAll: all summaries shown
+    expect(q('tp-summary-l1')).not.toBeNull();
+    expect(q('tp-summary-l2')).not.toBeNull();
+    expect(q('tp-summary-l3')).not.toBeNull();
+
+    // Switch to TabPlanTime: only time line l1 shown
+    press('tp-tab-TabPlanTime');
+    expect(q('tp-summary-l1')).not.toBeNull();
+    expect(q('tp-summary-l2')).toBeNull();
+    expect(q('tp-summary-l3')).toBeNull();
+
+    // Switch to TabPlanMaterial: only material line l2 shown
+    press('tp-tab-TabPlanMaterial');
+    expect(q('tp-summary-l1')).toBeNull();
+    expect(q('tp-summary-l2')).not.toBeNull();
+    expect(q('tp-summary-l3')).toBeNull();
   });
 });
 

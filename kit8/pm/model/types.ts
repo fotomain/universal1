@@ -297,6 +297,8 @@ export interface PMUxUiSettings {
   postButtonBackgroundColor?: string;
   /** Versions checked for the visual comparison on the Gantt (version_project_table.rowVersionGUID, see kit8/pm/version). */
   checkedProjectVersions?: string[];
+  /** Order of the main view buttons (GanttToggleButtons), changed by dragging the buttons (default: Gantt, Kanban, Network, Versions, Finances, Plan, Reports). */
+  viewButtonsOrder?: PMGanttVsNetworkView[];
 }
 
 /**
@@ -316,10 +318,19 @@ export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';
 export const PM_SELECT_ROW_CHECK_BOX_FORMS: PMSelectRowCheckBoxForm[] = ['formRound', 'formSquare'];
 export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => (v === 'formSquare' ? 'formSquare' : 'formRound');
 
-/** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan (GanttToNetworkViewToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView';
+/** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan | Reports (GanttToggleButtons). */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView' | 'showReportsView';
+export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showPlanView', 'showReportsView'];
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
-  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' ? v : 'showGanttChart';
+  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' || v === 'showReportsView' ? v : 'showGanttChart';
+/** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order). */
+export const viewButtonsOrderOf = (v: unknown): PMGanttVsNetworkView[] => {
+  const seen = new Set<PMGanttVsNetworkView>();
+  const out: PMGanttVsNetworkView[] = [];
+  if (Array.isArray(v)) for (const x of v) if (PM_DEFAULT_VIEW_BUTTONS_ORDER.includes(x) && !seen.has(x)) (seen.add(x), out.push(x));
+  for (const x of PM_DEFAULT_VIEW_BUTTONS_ORDER) if (!seen.has(x)) out.push(x);
+  return out;
+};
 /** PMNetworkView radio buttons. */
 export type PMNetworkViewMode = 'networkDiagram' | 'networkSchedule';
 /**
@@ -370,6 +381,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
     columnFilterIconColor: columnFilterIconColorOf(u.columnFilterIconColor),
     postButtonBackgroundColor: postButtonColorOf(u.postButtonBackgroundColor),
     checkedProjectVersions: Array.isArray(u.checkedProjectVersions) ? u.checkedProjectVersions.filter((g): g is string => typeof g === 'string') : [],
+    viewButtonsOrder: viewButtonsOrderOf(u.viewButtonsOrder),
   };
 }
 

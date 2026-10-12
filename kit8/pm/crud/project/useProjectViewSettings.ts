@@ -28,11 +28,16 @@ export function useProjectViewSettings(ownerGUID: string, projectGUID: string | 
       setGanttArrowsForm: (form: NonNullable<PMUxUiSettings['ganttArrowsForm']>) => save({ ganttArrowsForm: form }),
       setTaskProgressLinePosition: (p: PMProgressLinePosition) => save({ taskProgressLinePosition: p }),
       setProjectProgressLinePosition: (p: PMProgressLinePosition) => save({ projectProgressLinePosition: p }),
-      // ---- network view (GanttToNetworkViewToggleButtons / PMNetworkView): the store switches at
+      // ---- network view (GanttToggleButtons / PMNetworkView): the store switches at
       // once (no flicker while the optimistic project update travels), then it is saved per project
       setGanttVsNetworkView: (v: PMGanttVsNetworkView) => {
         usePMStore.getState().setNetworkViewSettings({ ganttVsNetworkView: v });
         save({ ganttVsNetworkView: v });
+      },
+      /** Drag and drop of the main view buttons (GanttToggleButtons): store first, then saved per project and user. */
+      setViewButtonsOrder: (order: PMGanttVsNetworkView[]) => {
+        usePMStore.getState().setNetworkViewSettings({ viewButtonsOrder: order });
+        save({ viewButtonsOrder: order });
       },
       setNetworkViewMode: (v: PMNetworkViewMode) => {
         usePMStore.getState().setNetworkViewSettings({ networkViewMode: v });

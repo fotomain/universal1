@@ -42,6 +42,7 @@ import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
+import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 
 export default function PMProjectDashboard() {
   // the texts follow the app language (kit8/pm/i18n): a language change re-creates the screen
@@ -70,6 +71,8 @@ function PMProjectDashboardInner() {
   useReadProjectUserSettingsQuery(ownerGUID); // this user's Gantt / tree settings per project
   const dataQuery = useReadProjectDataQuery(selectedProjectGUID);
   useProjectRealtime(ownerGUID, selectedProjectGUID);
+  // the lines of every task (posted column of the tree, project Actions): kept current by realtime
+  useProjectTaskLinesRealtime(ownerGUID ? selectedProjectGUID : null);
   // Kanban: stages + task states of the selected project (store_kanban) + their realtime auto refresh
   useReadProjectKanbanQuery(ownerGUID ? selectedProjectGUID : null);
   useKanbanRealtime(ownerGUID, selectedProjectGUID);
@@ -265,7 +268,7 @@ function PMProjectDashboardInner() {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : 'gantt'}
+              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}

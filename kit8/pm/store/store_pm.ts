@@ -15,7 +15,7 @@ import { ROOT_KEY, todayUTC } from '../view/project/scheduling';
 import { PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../view/tree/filter/treeColumnFilter';
 import { PM_DEFAULT_POST_BUTTON_COLOR } from '../model/postButtonColors';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
-import { PMProjectRow, PMTaskRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR } from '../model/types';
+import { PMProjectRow, PMTaskRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR, PM_DEFAULT_VIEW_BUTTONS_ORDER } from '../model/types';
 import { derive, EMPTY_TREE, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
 import type { PMStoreState } from './storeTypes';
 
@@ -65,6 +65,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   taskProgressLineColor: PM_DEFAULT_PROGRESS_LINE_COLOR,
   projectProgressLineColor: PM_DEFAULT_PROGRESS_LINE_COLOR,
   ganttVsNetworkView: 'showGanttChart',
+  viewButtonsOrder: [...PM_DEFAULT_VIEW_BUTTONS_ORDER],
   networkViewMode: 'networkDiagram',
   networkDiagramVariant: 'cpmNodes',
   networkScheduleVariant: 'eventCircles',

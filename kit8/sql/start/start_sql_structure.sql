@@ -10575,7 +10575,7 @@ BEGIN
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS public.task_line_plan (
+CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
   "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
   "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
   "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
@@ -10590,24 +10590,24 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan (
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_line_plan_coefficient_chk CHECK ("rowCoefficient" >= 0),
-  CONSTRAINT task_line_plan_line_period_uq UNIQUE ("rowParentGUID", "rowPeriodDatetime")
+  CONSTRAINT task_line_plan_movements_coefficient_chk CHECK ("rowCoefficient" >= 0),
+  CONSTRAINT task_line_plan_movements_line_period_uq UNIQUE ("rowParentGUID", "rowPeriodDatetime")
 );
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_task    ON public.task_line_plan ("rowOwnerGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_project ON public.task_line_plan ("rowProjectGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_task    ON public.task_line_plan_movements ("rowOwnerGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_project ON public.task_line_plan_movements ("rowProjectGUID", "rowPeriodDatetime");
 
-DROP TRIGGER IF EXISTS trg_task_line_plan_touch ON public.task_line_plan;
-CREATE TRIGGER trg_task_line_plan_touch BEFORE UPDATE ON public.task_line_plan
+DROP TRIGGER IF EXISTS trg_task_line_plan_movements_touch ON public.task_line_plan_movements;
+CREATE TRIGGER trg_task_line_plan_movements_touch BEFORE UPDATE ON public.task_line_plan_movements
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
-ALTER TABLE public.task_line_plan REPLICA IDENTITY FULL;
+ALTER TABLE public.task_line_plan_movements REPLICA IDENTITY FULL;
 
 -- access: the owner of the project READS; nobody writes directly (no insert / update / delete policy) - only create_task_line_plan does
-ALTER TABLE public.task_line_plan ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.task_line_plan FROM anon, authenticated;
-GRANT SELECT ON public.task_line_plan TO authenticated;
-DROP POLICY IF EXISTS task_line_plan_select ON public.task_line_plan;
-CREATE POLICY task_line_plan_select ON public.task_line_plan FOR SELECT TO authenticated
+ALTER TABLE public.task_line_plan_movements ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_line_plan_movements FROM anon, authenticated;
+GRANT SELECT ON public.task_line_plan_movements TO authenticated;
+DROP POLICY IF EXISTS task_line_plan_movements_select ON public.task_line_plan_movements;
+CREATE POLICY task_line_plan_movements_select ON public.task_line_plan_movements FOR SELECT TO authenticated
   USING (public.pm_owns_project("rowProjectGUID"));
 
 -- realtime
@@ -10619,8 +10619,8 @@ BEGIN
   IF NOT FOUND THEN
     RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
   ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
-                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.task_line_plan;
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan_movements') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.task_line_plan_movements;
   END IF;
 END $$;
 
@@ -10677,7 +10677,7 @@ BEGIN
   END IF;
 
   -- the earlier days of the task are replaced
-  DELETE FROM public.task_line_plan WHERE "rowOwnerGUID" = v_task;
+  DELETE FROM public.task_line_plan_movements WHERE "rowOwnerGUID" = v_task;
 
   FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
     v_guid := (v_line->>'lineGUID')::uuid;
@@ -10706,7 +10706,7 @@ BEGIN
     END IF;
 
     -- one row per day: coefficient rounded to 10 digits, amounts = round(total * coefficient, 2) (null total = null amount)
-    INSERT INTO public.task_line_plan ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
+    INSERT INTO public.task_line_plan_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
                                        "qtyTaskLine", "sumForBudget", "sumForContract", "rowJSON")
     SELECT v_project, v_task, v_guid, v_idx * 100000 + e.ord,
            ((e.value->>'d')::date)::timestamp AT TIME ZONE v_tz,
@@ -10719,33 +10719,33 @@ BEGIN
     v_rows := v_rows + v_n;
 
     -- ---- Correct033: the last row of the distribution = the last day with a non-zero coefficient (else the last day) ----
-    SELECT p."rowGUID" INTO v_last FROM public.task_line_plan p
+    SELECT p."rowGUID" INTO v_last FROM public.task_line_plan_movements p
      WHERE p."rowParentGUID" = v_guid ORDER BY (p."rowCoefficient" > 0) DESC, p."rowPeriodDatetime" DESC LIMIT 1;
 
-    SELECT v_base - COALESCE(SUM("rowCoefficient"), 0) INTO v_diff FROM public.task_line_plan WHERE "rowParentGUID" = v_guid;
+    SELECT v_base - COALESCE(SUM("rowCoefficient"), 0) INTO v_diff FROM public.task_line_plan_movements WHERE "rowParentGUID" = v_guid;
     IF v_diff <> 0 THEN
-      UPDATE public.task_line_plan SET "rowCoefficient" = "rowCoefficient" + v_diff WHERE "rowGUID" = v_last;
+      UPDATE public.task_line_plan_movements SET "rowCoefficient" = "rowCoefficient" + v_diff WHERE "rowGUID" = v_last;
     END IF;
 
     FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract'] LOOP
       IF jsonb_typeof(v_line->v_col) <> 'number' THEN CONTINUE; END IF;
       v_total := round((v_line->>v_col)::numeric, 2);
-      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
+      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan_movements WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
       v_diff := v_total - v_sum;
       -- the rounding of n rows cannot lose more than n * 0.005: more is a bug, not a rounding
       IF abs(v_diff) > v_n * 0.005 + 0.000001 THEN
         RAISE EXCEPTION 'create_task_line_plan: % of line % differs by % after rounding (more than % rows can lose)', v_col, v_guid, v_diff, v_n;
       END IF;
       IF v_diff <> 0 THEN
-        EXECUTE format('UPDATE public.task_line_plan SET %I = %I + $1 WHERE "rowGUID" = $2', v_col, v_col) USING v_diff, v_last;
+        EXECUTE format('UPDATE public.task_line_plan_movements SET %I = %I + $1 WHERE "rowGUID" = $2', v_col, v_col) USING v_diff, v_last;
       END IF;
       -- verify
-      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
+      EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan_movements WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
       IF v_sum <> v_total THEN
         RAISE EXCEPTION 'create_task_line_plan: % of line % adds up to %, not to %', v_col, v_guid, v_sum, v_total;
       END IF;
     END LOOP;
-    SELECT COALESCE(SUM("rowCoefficient"), 0) INTO v_sum FROM public.task_line_plan WHERE "rowParentGUID" = v_guid;
+    SELECT COALESCE(SUM("rowCoefficient"), 0) INTO v_sum FROM public.task_line_plan_movements WHERE "rowParentGUID" = v_guid;
     IF v_sum <> v_base THEN
       RAISE EXCEPTION 'create_task_line_plan: the coefficients of line % add up to %, not to %', v_guid, v_sum, v_base;
     END IF;
@@ -10793,8 +10793,8 @@ CREATE TRIGGER trg_task_line_plan_unpost_on_dates
 NOTIFY pgrst, 'reload schema';
 
 -- Check (empty is right until the first Post):
---   SELECT count(*) FROM public.task_line_plan;
---   SELECT "rowParentGUID", sum("rowCoefficient"), sum("sumForBudget") FROM public.task_line_plan GROUP BY 1;   -- 1.0000000000 and the line sums
+--   SELECT count(*) FROM public.task_line_plan_movements;
+--   SELECT "rowParentGUID", sum("rowCoefficient"), sum("sumForBudget") FROM public.task_line_plan_movements GROUP BY 1;   -- 1.0000000000 and the line sums
 
 
 -- ===============================================================================================

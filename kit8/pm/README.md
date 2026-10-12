@@ -298,7 +298,7 @@ the project chip update instantly. Existing DB: run `update_pm_tables_projectPro
 
 ## Network view (`kit8/pm/view/network`)
 
-Gantt bar → **Gantt | Network** (`view/gantt/toolbars/GanttToNetworkViewToggleButtons.tsx`, same look as the arrow-shape
+Gantt bar → **Gantt | Network** (`view/gantt/toolbars/GanttToggleButtons.tsx`, same look as the arrow-shape
 selector) sets `uxuiSettings.ganttVsNetworkView` = `'showGanttChart'` | `'showNetworkView'`; the dashboard then renders
 the Gantt surface or `PMNetworkView`. The same buttons sit on the network bar, so you can always switch back; on both bars
 they are right before the **Critical path** button.
@@ -327,7 +327,7 @@ only selection + the info card; view switches are local (nothing saved).
 
 ## Kanban view (`kit8/pm/view/kanban`)
 
-Main view switch **Gantt | Kanban | Network** (`GanttToNetworkViewToggleButtons`, on the Gantt, Kanban and network bars) =
+Main view switch **Gantt | Kanban | Network** (`GanttToggleButtons`, on the Gantt, Kanban and network bars) =
 `uxuiSettings.ganttVsNetworkView` `'showGanttChart'` | `'showKanbanView'` | `'showNetworkView'`. Kanban =
 `PMGanttSurface rightPane="kanban"`: the Skia task tree stays on the left, `PMKanbanDashboard` replaces the chart.
 
@@ -362,7 +362,7 @@ Main view switch **Gantt | Kanban | Network** (`GanttToNetworkViewToggleButtons`
 
 Full description: `kit8/pm/view/task/finances/README.md`.
 
-* **Finances button** - the last button of the view switch (Gantt | Kanban | Network | Versions | **Finances**, `GanttToNetworkViewToggleButtons`):
+* **Finances button** - the last button of the view switch (Gantt | Kanban | Network | Versions | **Finances**, `GanttToggleButtons`):
   tree on the left, on the right the lines of the task selected in the tree (`PMProjectFinancesView`; `PMGanttSurface` `rightPane='finances'`).
   A stage has no lines (select a task); no budget / roll-up in this version.
 * **`task_line_table`** - the Time / Material / Expense / Revenue lines of ONE task (`rowOwnerGUID` = the task, `rowParentGUID` = the management genus),
@@ -442,7 +442,7 @@ ref): `PMIconButton` (toolbar / panel icon + tip), `PMDialogButton` (primary / s
 **`view/gantt/`** Gantt pane: `PMGanttSurface*.tsx` layout (Tree | Gantt) + web loader · `PMProjectGanttChart.tsx` ·
 `ganttGeometry.ts` time scale · `useGanttViewport.ts` shared scroll · `PMGanttUXUISettinsModalWindow.tsx` (+ `settings/uxuiSettingsIndex.ts` tabs / search index) ·
 `buttons/` `PMGanttUndoButton`, `PMGanttZoomButtons`, `PMGanttScaleButtons`, `PMGanttViewToggles` · `panels/` `PMGanttBarHoverPanel` ·
-`toolbars/` `PMGanttToolbar` + `PMGanttLinkModeHint` + `GanttToNetworkViewToggleButtons` (+ the arrow shape selector from `view/task/dependency/`) ·
+`toolbars/` `PMGanttToolbar` + `PMGanttLinkModeHint` + `GanttToggleButtons` (+ the arrow shape selector from `view/task/dependency/`) ·
 **`view/network/`** network diagram / schedule (see *Network view*) ·
 **`view/project/`** project level: `scheduling.ts` CPM / tree / calendar (pure) · `PMProjectDashboard.tsx` (route `/pm/project/dashboard`) · `SelectProjectFromList.tsx` ·
 `buttons/` `PMAddProjectButton` · `recent/` recently selected projects: `recentProjects.ts` (per-user ribbon

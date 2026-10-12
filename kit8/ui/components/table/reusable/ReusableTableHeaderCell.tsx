@@ -21,6 +21,8 @@ export interface ReusableTableHeaderCellProps {
   delimiter?: boolean;
   /** "Filter & sort" button ▾ (undefined = the column has none) */
   onMenu?: (columnKey: string, x: number, y: number) => void;
+  /** context menu on right-click (web) or long-press (touch) */
+  onContextMenu?: (columnKey: string, x: number, y: number) => void;
   /** the table is sorted by this column */
   sortDirection?: 'asc' | 'desc' | null;
   /** this column has a filter */
@@ -30,7 +32,7 @@ export interface ReusableTableHeaderCellProps {
 
 const GRIP_W = 10;
 
-export default function ReusableTableHeaderCell({ columnKey, title, width, justify, colors, draggable, resizable, onDragEnd, onResize, onResizeEnd, onMenu, sortDirection, filtered, delimiter, testID }: ReusableTableHeaderCellProps) {
+export default function ReusableTableHeaderCell({ columnKey, title, width, justify, colors, draggable, resizable, onDragEnd, onResize, onResizeEnd, onMenu, onContextMenu, sortDirection, filtered, delimiter, testID }: ReusableTableHeaderCellProps) {
   const dragX = useRef(new Animated.Value(0)).current;
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
@@ -61,14 +63,23 @@ export default function ReusableTableHeaderCell({ columnKey, title, width, justi
   return (
     <Animated.View
       testID={`${testID}-header-${columnKey}`}
+      {...(Platform.OS === 'web' ? {
+        onContextMenu: (e: any) => {
+          e.preventDefault();
+          e.stopPropagation?.();
+          onContextMenu?.(columnKey, e.clientX ?? e.nativeEvent?.pageX ?? 0, e.clientY ?? e.nativeEvent?.pageY ?? 0);
+        },
+      } : {})}
       style={[styles.cell, delimiter && !resizable ? { borderRightWidth: 1, borderRightColor: colors.border } : null, { width, zIndex: dragging ? 10 : 0, transform: [{ translateX: dragX }], backgroundColor: dragging ? colors.primary + '22' : 'transparent' }]}
     >
-      <View
+      <Pressable
         {...(draggable ? drag.panHandlers : {})}
+        delayLongPress={400}
+        onLongPress={onContextMenu ? (e: any) => onContextMenu(columnKey, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}
         style={[styles.label, { justifyContent: justify }, Platform.OS === 'web' && draggable ? ({ cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none' } as any) : null]}
       >
         <Text numberOfLines={1} selectable={false} style={[styles.text, { color: colors.text }]}>{title}</Text>
-      </View>
+      </Pressable>
       {!!onMenu && (
         <Pressable
           testID={`${testID}-column-menu-button-${columnKey}`}

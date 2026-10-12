@@ -68,11 +68,11 @@ DROP FUNCTION IF EXISTS public.create_task_line_plan(jsonb);
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
-     AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan')
+     AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan_movements')
      AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    ALTER PUBLICATION supabase_realtime DROP TABLE public.task_line_plan;
+    ALTER PUBLICATION supabase_realtime DROP TABLE public.task_line_plan_movements;
   END IF;
-  DROP TABLE IF EXISTS public.task_line_plan CASCADE;
+  DROP TABLE IF EXISTS public.task_line_plan_movements CASCADE;
 END $$;
 
 NOTIFY pgrst, 'reload schema';

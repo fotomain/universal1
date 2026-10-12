@@ -17,7 +17,7 @@ import PMGanttZoomButtons from '../buttons/PMGanttZoomButtons';
 import PMGanttScaleButtons from '../buttons/PMGanttScaleButtons';
 import PMGanttViewToggles from '../buttons/PMGanttViewToggles';
 import PMGanttLinkModeHint from './PMGanttLinkModeHint';
-import GanttToNetworkViewToggleButtons from './GanttToNetworkViewToggleButtons';
+import GanttToggleButtons from './GanttToggleButtons';
 import PMGanttPeriodButton from '../buttons/PMGanttPeriodButton';
 import { pmT } from '../../../i18n/pmT';
 
@@ -61,7 +61,7 @@ export default function PMGanttToolbar({
           <PMGanttViewToggles
             crud={crud}
             palette={palette}
-            viewSwitch={<GanttToNetworkViewToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} />}
+            viewSwitch={<GanttToggleButtons palette={palette} onChange={crud.setGanttVsNetworkView} onReorder={crud.setViewButtonsOrder} />}
           />
         </>
       )}

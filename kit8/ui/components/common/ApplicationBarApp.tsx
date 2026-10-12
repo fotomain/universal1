@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { Appbar } from 'react-native-paper';
 import { useNavigation, useRouter, usePathname, useGlobalSearchParams } from 'expo-router';
 import { safeReturnToRoute } from '../../../lib/returnToRoute';
@@ -11,7 +11,6 @@ import ArrowToLeftApp from './ArrowToLeftApp';
 import { useAppSignOut } from '../../../hooks/useAppSignOut';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  refreshProjectData,
   setHideGanttChartNode,
   setHideGanttToolBar,
   setHideProjectToolBar,
@@ -20,6 +19,11 @@ import {
 } from '../../../redux/uxuiSlice';
 import { usePMTip } from '../../../pm/inner/tooltip/PMTooltip';
 import { shareScreenshot, shareScreenshotResultText } from '../../../lib/shareScreenshot';
+import GanttToggleButtons from '../../../pm/view/gantt/toolbars/GanttToggleButtons';
+import { makePMPalette } from '../../../pm/view/theme';
+import { usePMStore } from '../../../pm/store/store_pm';
+import { usePMOwnerGUID } from '../../../pm/crud/queries';
+import { useProjectViewSettings } from '../../../pm/crud/project/useProjectViewSettings';
 
 /** User calendar route (kit8/catalog/user/calendar). */
 const USER_CALENDAR_PATH = '/user/calendar';
@@ -61,7 +65,7 @@ const PROJECT_DASHBOARD_PATH = '/pm/project/dashboard';
 /**
  * App bar buttons of the Project dashboard, right-justified before the three dots menu. They only switch
  * Redux flags (uxuiState): hideProjectToolBar · hideGanttToolBar · hideGanttChartNode · hideTreeNode ·
- * refreshProjectData (a counter - the dashboard re-reads the project when it changes).
+ * refreshProjectData (a counter - the dashboard re-reads the project when it changes; the button is in the Actions menu of the project bar).
  */
 function AppBarProjectButtons({ color, activeColor }: { color: string; activeColor: string }) {
   const dispatch = useDispatch();
@@ -78,7 +82,30 @@ function AppBarProjectButtons({ color, activeColor }: { color: string; activeCol
       {btn('appbar-pm-gantt-toolbar', 'construction', hideGanttToolBar, 'the tree / Gantt tool bars', () => dispatch(setHideGanttToolBar(!hideGanttToolBar)))}
       {btn('appbar-pm-tree-node', 'account_tree', hideTreeNode, 'the task tree', () => dispatch(setHideTreeNode(!hideTreeNode)))}
       {btn('appbar-pm-chart-node', 'view_timeline', hideGanttChartNode, 'the chart (Gantt / Kanban / Versions)', () => dispatch(setHideGanttChartNode(!hideGanttChartNode)))}
-      <AppBarTipButton testID="appbar-pm-refresh" icon="refresh" tip="Refresh the project data" onPress={() => dispatch(refreshProjectData())} color={color} />
+      {/* "Refresh the project data" lives in the Actions menu of the project bar (PMProjectActionsButton) - the last item */}
+    </View>
+  );
+}
+
+/**
+ * Project dashboard: the main view switch (Gantt | Kanban | Network | Versions | Finances | Plan | Reports) right after
+ * the title - the same GanttToggleButtons as on the bars; drag a button to change the order (saved per project and user).
+ * Icons only on narrow windows; scrolls sideways instead of pushing the right buttons off the screen.
+ */
+function AppBarProjectViewSwitch() {
+  const { themeColors, isDark } = useDesignSystem();
+  const { width: windowWidth } = useWindowDimensions();
+  const ownerGUID = usePMOwnerGUID();
+  const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
+  const criticalColor = usePMStore((s) => s.criticalPathTaskColor);
+  const view = useProjectViewSettings(ownerGUID, selectedProjectGUID);
+  const palette = React.useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
+  if (!selectedProjectGUID) return null;
+  return (
+    <View testID="appbar-project-view-switch" style={styles.viewSwitch}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
+        <GanttToggleButtons palette={palette} compact={windowWidth < 1100} onChange={view.setGanttVsNetworkView} onReorder={view.setViewButtonsOrder} />
+      </ScrollView>
     </View>
   );
 }
@@ -264,7 +291,9 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
               onPress={handleBack}
             />
           )}
-          {hideTitle ? <View style={{ flex: 1 }} /> : <Appbar.Content title={title} />}
+          {hideTitle ? <View style={{ flex: 1 }} /> : <Appbar.Content title={title} style={isProjectDashboard ? { flex: 0, minWidth: 90 } : undefined} />}
+          {isProjectDashboard && <AppBarProjectViewSwitch />}
+          {isProjectDashboard && !hideTitle && <View style={{ flex: 1 }} />}
           {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
           {calendarButton}
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
@@ -327,6 +356,7 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
             >
               {title}
             </Text>}
+            {isProjectDashboard && <AppBarProjectViewSwitch />}
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -367,6 +397,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   pmBtns: { flexDirection: 'row', alignItems: 'center', marginRight: 2 },
+  viewSwitch: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
   pmBtn: { padding: 5, borderRadius: 16, marginHorizontal: 1 },
   dropdownMenu: {
     width: 230,

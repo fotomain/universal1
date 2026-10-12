@@ -13,7 +13,7 @@ jest.mock('../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', () =>
 }));
 
 import React from 'react';
-import GanttToNetworkViewToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../kit8/pm/view/gantt/toolbars/GanttToNetworkViewToggleButtons';
+import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import PMProjectFinancesView from '../../../kit8/pm/view/task/finances/PMProjectFinancesView';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { pmMainViewOf, uxuiSettingsOf } from '../../../kit8/pm/model/types';
@@ -28,10 +28,11 @@ describe('the view switch', () => {
   it('Finances is before the last button (Plan), and a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
-    renderUI(<GanttToNetworkViewToggleButtons palette={palette} onChange={onChange} />);
-    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showPlanView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showPlanView');
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-2)).toBe('showFinancesView');
+    renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
+    expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showNetworkView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showPlanView', 'pm-gantt-vs-network-showReportsView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showReportsView');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)[1]).toBe('showFinancesView');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS[1].label).toBe('Edit');
     press('pm-gantt-vs-network-showFinancesView');
     expect(onChange).toHaveBeenCalledWith('showFinancesView');
     expect(pmMainViewOf('showFinancesView')).toBe('showFinancesView');

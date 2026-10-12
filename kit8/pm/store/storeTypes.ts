@@ -101,6 +101,8 @@ export interface PMStoreState {
   projectProgressLineColor: string;
   /** rowJSON.uxuiSettings.ganttVsNetworkView - Gantt chart or PMNetworkView. */
   ganttVsNetworkView: PMGanttVsNetworkView;
+  /** rowJSON.uxuiSettings.viewButtonsOrder - order of the main view buttons (drag and drop, GanttToggleButtons). */
+  viewButtonsOrder: PMGanttVsNetworkView[];
   /** rowJSON.uxuiSettings.networkViewMode / networkDiagramVariant / networkScheduleVariant */
   networkViewMode: PMNetworkViewMode;
   networkDiagramVariant: PMNetworkDiagramVariant;
@@ -184,7 +186,7 @@ export interface PMStoreState {
   treeColumnReveal: { key: PMTreeColumnKey; nonce: number } | null;
   requestTreeColumnReveal: (key: PMTreeColumnKey | null) => void;
   /** Local (not saved) switch of the network view settings - used by read-only views. */
-  setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
+  setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'viewButtonsOrder' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
   /** PMGanttUXUISettinsModalWindow visible */
   uxuiSettingsOpen: boolean;
   setUxuiSettingsOpen: (open: boolean) => void;

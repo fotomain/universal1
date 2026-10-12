@@ -21,6 +21,16 @@ jest.mock('react-redux', () => {
   };
 });
 
+jest.mock('../../../kit8/providers/WithSupabase', () => ({
+  useSupabase: () => ({
+    supabase: {
+      from: () => ({ select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: null }) }) }) }) }),
+      channel: () => ({ on: () => ({ on: () => ({ subscribe: () => ({}) }) }), subscribe: () => ({}) }),
+      removeChannel: () => {},
+    },
+  }),
+}));
+
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({
     activeSystem: 'native',
@@ -128,13 +138,19 @@ const { createRoot } = require('react-dom/client') as { createRoot: (container: 
 let root: Root | null = null;
 let host: HTMLElement | null = null;
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const defaultTestQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+});
+
 export function renderUI(el: React.ReactElement) {
   cleanupUI();
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(el));
-  return { rerender: (next: React.ReactElement) => act(() => root!.render(next)) };
+  act(() => root!.render(<QueryClientProvider client={defaultTestQueryClient}>{el}</QueryClientProvider>));
+  return { rerender: (next: React.ReactElement) => act(() => root!.render(<QueryClientProvider client={defaultTestQueryClient}>{next}</QueryClientProvider>)) };
 }
 
 export function cleanupUI() {

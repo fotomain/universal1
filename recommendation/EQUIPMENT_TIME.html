@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W1 Equipment - recommendation</title>
+<style>
+  /* Light business theme, same family as documentation/TASK_LINE_PLAN_CALCULATION.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 10px; overflow-x: auto; }
+  pre code { background: none; padding: 0; color: inherit; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.tight { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .bad { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .rec { border-left: 4px solid var(--emerald); }
+  .alt { border-left: 4px solid var(--border); }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .sw { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .sw i { display: inline-block; width: 30px; height: 16px; border-radius: 99px; background: var(--emerald); position: relative; }
+  .sw i::after { content: ""; position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .sw i.off { background: #cbd5e1; } .sw i.off::after { right: auto; left: 2px; }
+  .sw.l1 { margin-left: 22px; } .sw.l2 { margin-left: 44px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .arrow { color: var(--muted); }
+  .kpi { font-size: 26px; font-weight: 700; }
+  .small { font-size: 13px; color: var(--muted); }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">W1 Equipment</div>
+  <nav><ul>
+    <li><a href="#read">What I read</a></li><li><a href="#summary">Decisions</a></li><li><a href="#settings">1 Switches</a></li><li><a href="#catalog">2 Equipment catalog</a></li>
+    <li><a href="#line">3 Time line</a></li><li><a href="#pattern">4 Pattern fixes</a></li><li><a href="#sql">5 SQL</a></li><li><a href="#files">6 Files</a></li>
+    <li><a href="#risks">7 Risks</a></li><li><a href="#tests">8 Tests</a></li><li><a href="#order">9 Order</a></li><li><a href="#open">10 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="read">
+  <h1>Equipment as a Time line <span class="pill ask">analysis only - no code written</span></h1>
+  <p class="lead">Source: Google Doc "W1 Equipment" ("Do not code. Analyze and improve pattern. Make ./recommendation/EQUIPMENT_TIME.html"). I read the task-line, plan, person, role,
+  budget-item and project-settings code and checked every statement below against it. Nothing in the app was changed.</p>
+
+  <h3>What the document asks for (my reading)</h3>
+  <div class="card"><ol class="steps">
+    <li><b>Project settings.</b> When <code>projectExpenseBudgetNeeded</code> is on, show more switches: <code>timeCostsNeeded</code> (with <code>timeOfPersonNeeded</code> and <code>timeOfEquipmentNeeded</code> inside it), <code>materialCostsNeeded</code>, <code>expensesCostsNeeded</code>.</li>
+    <li><b>Equipment is a Time line.</b> It is entered in <code>task_line_table</code> on the Time tab, not on a new tab.</li>
+    <li><b><code>equipmentTable</code> works as an analog of the person:</b> it has Properties, it has Variants, and it can be selected on a Time line.</li>
+    <li><b>The extra menu.</b> If <code>timeOfEquipmentNeeded = true</code>, the Time line first asks <i>Person or Equipment</i> ("Person on Equipment" in the doc - I read "on" as "or"), and only then lets the user pick the resource.</li>
+  </ol></div>
+
+  <h3>What is already true in the code (the facts the recommendation stands on)</h3>
+  <div class="grid">
+    <div class="card"><b>The flags are dead today.</b><br>
+      <code>projectRevenueBudgetNeeded</code> / <code>projectExpenseBudgetNeeded</code> are saved by <code>PMProjectFinanceTab</code> and copied by import/template code, and <b>read by nothing else</b> (grep over <code>kit8/</code>).
+      Adding five more flags without a consumer would make seven dead flags.</div>
+    <div class="card"><b>The resource kind is decided by the genus.</b><br>
+      <code>TaskLineGenusDef.resource</code> is <code>'person'</code> for Time and <code>'product'</code> for the rest. Eight places branch on it
+      (<a href="#files">list in section 6</a>). A Time line that may be a person <i>or</i> a machine breaks that assumption.</div>
+    <div class="card"><b>The person pattern is already generic underneath.</b><br>
+      <code>personAsProductData()</code> shows persons to the descriptor rules as products; <code>taskLinePersonMatch.ts</code> looks variants up by owner GUID, so it would work for an equipment GUID unchanged. Reuse is cheap - if the seams are made explicit.</div>
+    <div class="card"><b>Existing Time lines must not change.</b><br>
+      Every saved Time line has <code>taskResourceItem</code> = a person and no kind field. The design must treat "no kind" as <code>person</code> so there is no data migration.</div>
+  </div>
+</section>
+
+<section id="summary">
+  <h2>Decisions in one table</h2>
+  <p class="sub">Green = what I recommend. The reasons are in the sections below.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Recommendation</th><th>Instead of</th></tr>
+    <tr><td>D1</td><td>Where does the "kind" of a Time line live?</td><td><b>New <code>rowJSON.taskResourceKind</code></b> = <code>'person'</code> | <code>'equipment'</code>; empty = person. One <code>taskResourceItem</code> keeps holding the GUID.</td><td>A second column <code>taskEquipmentItem</code> (two mutually exclusive fields); guessing the kind from the GUID.</td></tr>
+    <tr><td>D2</td><td>What is equipment in the data model?</td><td><b>Own tables <code>equipmentTable</code> + <code>equipmentTypeTable</code></b>, descriptors reused through an <code>equipmentAsProductData()</code> adapter (twin of <code>personAsProductData()</code>).</td><td>Equipment as a "person type" (pollutes GDPR table); equipment as a product (not a time resource); one merged resource table.</td></tr>
+    <tr><td>D3</td><td>How is the cost of an hour of equipment found?</td><td><b>Phase 1: the rate of the resource role</b> (<code>rolePriceTable</code>), exactly what a person without a contract gets today. Phase 2: optional rental/lease contract.</td><td>Forcing a contract on every machine.</td></tr>
+    <tr><td>D4</td><td>Which roles can an equipment line pick?</td><td><b>New <code>resourceRoleTypeTable.rowJSON.resourceKind</code></b> ('person' | 'equipment'). The role picker is filtered by genus <i>and</i> kind.</td><td>Nothing - then an excavator line can pick "Project Manager" (a gap in the document).</td></tr>
+    <tr><td>D5</td><td>What do the switches control?</td><td><b>Phase 1:</b> the equipment menu and equipment columns only (legacy-safe). <b>Phase 2:</b> hide empty tabs for Time / Material / Expense.</td><td>Hiding tabs at once - every existing project has the master flag off and would lose its Finances tabs.</td></tr>
+    <tr><td>D6</td><td>Menu and columns on the Time tab</td><td><b>One "Resource" kind column + ONE resource column + ONE variant column</b> whose catalog depends on the row's kind (small, additive change in <code>ReusableTable</code>).</td><td>Four columns Person / Person variant / Equipment / Equipment variant, half of them always empty.</td></tr>
+    <tr><td>D7</td><td>Naming</td><td>Keys with the existing <code>project…</code> prefix: <code>projectTimeCostsNeeded</code>, <code>projectTimeOfPersonNeeded</code>, <code>projectTimeOfEquipmentNeeded</code>, <code>projectMaterialCostsNeeded</code>, <code>projectExpenseCostsNeeded</code>.</td><td><code>projectSettings.timeCostsNeeded</code> as written in the doc (inconsistent with <code>projectRevenueBudgetNeeded</code>).</td></tr>
+  </table></div>
+</section>
+
+<section id="settings">
+  <h2>1 - The project switches <span class="pill chg">changed</span></h2>
+  <p class="sub">Where: <code>PMProjectFinanceTab.tsx</code> (section "Budgets"), stored in <code>project_table.rowJSON</code>.</p>
+
+  <div class="grid">
+    <div class="card">
+      <b>Proposed screen</b>
+      <div class="mock" style="margin-top:8px">
+        <b>Budgets</b>
+        <div class="sw"><i></i> Revenue budget needed</div>
+        <div class="sw"><i></i> Expense budget needed <span class="small">(projectExpenseBudgetNeeded)</span></div>
+        <div class="sw l1"><i></i> Time costs needed</div>
+        <div class="sw l2"><i></i> Time of person needed</div>
+        <div class="sw l2"><i></i> Time of equipment needed</div>
+        <div class="sw l1"><i></i> Material costs needed</div>
+        <div class="sw l1"><i class="off"></i> Expenses costs needed</div>
+      </div>
+      <p class="small">The five switches appear only while "Expense budget needed" is on, indented under it; Person / Equipment appear only while "Time costs needed" is on.</p>
+    </div>
+    <div class="card">
+      <b>Rules (pure function, unit-tested)</b>
+      <ul class="tight">
+        <li><b>Hidden is not deleted.</b> Turning a parent off hides its children and keeps their values (the same rule the person form uses for <code>employeeData</code>).</li>
+        <li><b>Time needs a kind.</b> If "Time costs needed" is on, at least one of Person / Equipment is on. Turning off the last one switches "Time costs needed" off; switching "Time costs needed" on with none chosen sets Person on.</li>
+        <li><b>Defaults for a missing key:</b> Time = on, Person = on, Equipment = <b>off</b>, Material = on, Expense = on. That is exactly today's behaviour, so old projects need no migration.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bad"><b>A trap in the existing helper.</b> <code>financeValuesOf()</code> turns a missing flag into <code>false</code> (<code>!!j?.projectExpenseBudgetNeeded</code>). Copying that line for the new keys would make every old project look like "everything off". The new keys need <code>?? default</code>, not <code>!!</code>.</div>
+
+  <h3>Give the flags a consumer: <code>financeScopeOf()</code></h3>
+  <p>One pure function next to <code>financeValuesOf</code> turns project JSON into what the Finances screen may offer:</p>
+<pre><code>financeScopeOf(projectJSON) -> {
+  time:     { person: boolean, equipment: boolean },   // false/false = the Time tab is not offered
+  material: boolean, expense: boolean, revenue: boolean
+}</code></pre>
+  <div class="scroll"><table>
+    <tr><th>Master "Expense budget needed"</th><th>Time costs</th><th>Person</th><th>Equipment</th><th>Result on the Time tab</th></tr>
+    <tr><td><b>off</b> (every existing project)</td><td colspan="3">not looked at</td><td><b>Exactly as today:</b> person lines only, no menu, no equipment.</td></tr>
+    <tr><td>on</td><td>on</td><td>on</td><td>off</td><td>Person lines only, no menu (same as today).</td></tr>
+    <tr><td>on</td><td>on</td><td>off</td><td>on</td><td>Equipment lines only, no menu; the resource column is "Equipment".</td></tr>
+    <tr><td>on</td><td>on</td><td>on</td><td>on</td><td><b>The menu "Resource: Person | Equipment"</b> appears before the resource.</td></tr>
+    <tr><td>on</td><td>off</td><td colspan="2">hidden</td><td>No Time tab - <i>unless</i> the task already has Time lines (see rule below).</td></tr>
+  </table></div>
+  <div class="good"><b>Rule that protects data:</b> a tab or kind that already has lines is never hidden by a switch. It stays visible with a one-line banner ("Equipment is switched off in the project settings; the existing lines are kept"). The user can still read and edit them. Hiding is for empty tabs only. This is why Phase 1 can ship without a migration.</div>
+
+  <h3>Naming (D7) and one wording problem</h3>
+  <ul class="tight">
+    <li>The master flag is called "<b>Expense</b> budget needed" but it covers Time + Material + <b>Expense</b> lines. Under it sits "Expenses costs needed" - the same word at two levels. The catalogs already say <i>Costs</i> for the folder (<code>costsGenus</code>, <code>costsBudgetFolder</code>). I recommend keeping the stored key (<code>projectExpenseBudgetNeeded</code>, no migration) and changing only the <b>label</b> to "Costs budget needed". This is optional - see question Q3.</li>
+    <li>Singular like the genus: <code>projectExpenseCostsNeeded</code> (genus is <code>expenseGenus</code>), not <code>expensesCostsNeeded</code>.</li>
+    <li>Cost: each new label is a <code>pmT</code> key; <code>keys.ts</code> + 14 language files + <code>build.py</code>, and <code>pmT.test.ts</code> fails when one language is missing. About 6 texts × 14 languages.</li>
+  </ul>
+
+  <h3>Places that must learn the five keys</h3>
+  <p><code>kit8/pm/model/types.ts</code> (next to line 128) · <code>PMProjectFinanceTab.tsx</code> (interface, <code>financeValuesOf</code>, UI) · <code>PMRecentProjectsToolbar.tsx</code> (the import block near line 317 lists every finance key by hand - a new key not added there is silently lost on import) · <code>__tests__/pm/ui/projectSettingsTopTabs.test.tsx</code> · <code>keys.ts</code> + language files.
+  The draft/save paths at lines 363 and 392 use <code>financeValuesOf(draft)</code> and pick the keys up automatically.</p>
+</section>
+
+<section id="catalog">
+  <h2>2 - The equipment catalog <span class="pill new">new</span></h2>
+  <p class="sub">"equipmentTable must work as an analog of person: properties, variants, selectable on the Time line."</p>
+
+  <h3>How the person pattern is built (what has to be mirrored)</h3>
+  <div class="scroll"><table>
+    <tr><th>Piece</th><th>Person today</th><th>Equipment analog</th></tr>
+    <tr><td>Catalog table</td><td><code>personTable</code>, owner <code>personCatalog</code>, <code>PERSON_ENTITY</code></td><td><code>equipmentTable</code>, owner <code>equipmentCatalog</code>, <code>EQUIPMENT_ENTITY = 'equipmentReusable'</code></td></tr>
+    <tr><td>Type decides the descriptor sets</td><td><code>personTypeTable</code> (Employee, Contractor), <code>rowJSON.personType</code></td><td><code>equipmentTypeTable</code> (see "What is an equipment type" below), <code>rowJSON.equipmentType</code></td></tr>
+    <tr><td>Properties - what it <i>is</i></td><td><code>propertyValueTable</code>, owner = person</td><td>same table, owner = equipment (Capacity 20 t, Power 110 kW, Year 2019, Certificate CE)</td></tr>
+    <tr><td>Variants - what it can be <i>booked as</i></td><td><code>variantTable</code>, owner = person, mode <code>perProduct</code></td><td>same table, owner = equipment (e.g. "Bucket 1.2 m³", "Day shift", "With operator")</td></tr>
+    <tr><td>Adapter so the descriptor rules are written once</td><td><code>personAsProductData()</code></td><td><code>equipmentAsProductData()</code> - the same 12 lines</td></tr>
+    <tr><td>Match with the role's request</td><td><code>taskLinePersonMatch.ts</code></td><td>generalized (section 4, P3)</td></tr>
+    <tr><td>Cost</td><td>contract (<code>contractTable</code>, parent <code>'person'</code>) else role rate</td><td>role rate in Phase 1 (D3)</td></tr>
+    <tr><td>Dashboard</td><td><code>PersonDashboard</code> (305 lines) + tables (239) + data hook (78)</td><td>do not copy; see P2</td></tr>
+    <tr><td>Realtime, RLS, setup</td><td><code>kit8_setup_def_table</code>, signed-in users</td><td>identical</td></tr>
+  </table></div>
+
+  <h3>Three ways to model equipment - and why only one</h3>
+  <div class="grid">
+    <div class="card rec"><span class="pill new">recommended</span><br><b>A. Own tables + adapter</b><br>
+      <code>equipmentTable</code>, <code>equipmentTypeTable</code>. Descriptor tables are shared (the owner is already polymorphic: product / role / person). A machine has no first name, e-mail, IBAN, personal code, so none of the GDPR-restricted person data is touched.
+      Cost: a fourth "side" on the shared descriptor tables (P2 makes that one line instead of three edits).</div>
+    <div class="card alt"><span class="pill bad">reject</span><br><b>B. Equipment = a person type</b><br>
+      Cheapest on paper (zero new tables), but a machine becomes a row of <code>personTable</code> with <code>personFirstName</code> required (<code>validatePerson</code>), a contract parent <code>'person'</code>, and it appears in every person picker, the Persons list, <code>PersonEdit</code> and the person SQL seeds' 50/50 split. It also puts equipment under the "authenticated only for GDPR" rationale for no reason.</div>
+    <div class="card alt"><span class="pill bad">reject</span><br><b>C. Equipment = a product</b><br>
+      Products already have properties, variants, prices. But a product is something you <i>buy</i> (Material / Expense lines have a supplier and a contract template). Machine time is booked as hours of a role on a Time line. The doc itself says "analog of person".</div>
+  </div>
+
+  <h3>What is an "equipment type"?</h3>
+  <p>For persons the type is the <i>legal relation</i> (Employee / Contractor) and it decides the contract and the descriptor set. For equipment the descriptors depend on the <i>kind of machine</i> (a crane has Lifting capacity, a laptop has RAM), so I recommend <code>equipmentType</code> = kind of machine (Heavy machinery, Vehicle, Tool, Workstation) and keeping <b>ownership</b> as a plain field on the equipment: <code>equipmentOwnership</code> = <code>'own' | 'rented' | 'leased'</code>. Ownership is what later (Phase 2) decides whether the cost comes from a lessor contract, the way Employee/Contractor decides it for persons. Q4 asks you to confirm.</p>
+
+  <h3>Proposed row shape</h3>
+<pre><code>equipmentTable   rowGUID · rowOwnerGUID 'equipmentCatalog' · rowParentGUID 'empty' · orderInList · rowJSON:
+  equipmentTitle           "Excavator CAT 320"   (the only required field; auto-filled from code + model if blank, like personTitle)
+  equipmentCode            inventory number, unique when set
+  equipmentType            equipmentTypeTable.rowGUID  (decides the descriptor sets)
+  equipmentOwnership       'own' | 'rented' | 'leased'
+  equipmentManufacturer · equipmentModel · equipmentSerialNumber       (free text, optional)
+  equipmentPartner         partnerTable.rowGUID of the lessor (Phase 2, optional)
+  isActive                 false = not offered on new lines, old lines keep it   (same rule as person)
+equipmentTypeTable   same shape as personTypeTable: title, description, propertySet, variantSet, variantMode, isActive</code></pre>
+  <p class="small">Deletion protection copies the person rule: equipment used on a task line cannot be hard-deleted; the UI asks to set <code>isActive = false</code>.</p>
+</section>
+
+<section id="line">
+  <h2>3 - The Time line <span class="pill chg">changed</span></h2>
+
+  <h3>3.1 The data: <code>taskResourceKind</code> (D1)</h3>
+  <p>Today <code>taskResourceItem</code> is already polymorphic (person for Time, product for the rest) and the genus tells which. After the change the genus no longer tells for Time, so the line says it itself:</p>
+<pre><code>task_line_table.rowJSON.taskResourceKind   'person' | 'equipment' | null      null = person (all existing Time lines)
+task_line_table.rowJSON.taskResourceItem   personTable.rowGUID | equipmentTable.rowGUID | productTable.rowGUID
+taskResourceAttributesKey                  descriptorKey of a variant of THAT person / equipment
+taskResourceContract                       person's contract only (equipment: null in Phase 1)</code></pre>
+  <ul class="tight">
+    <li>No SQL column change - it is <code>rowJSON</code>. The existing index on <code>taskResourceItem</code> keeps working. A CHECK keeps the value honest (section 5).</li>
+    <li>The name follows the existing family <code>taskResource*</code>. The TypeScript type <code>TaskLineResourceKind = 'person' | 'product'</code> in <code>taskLineModel.ts</code> already uses that word for the <i>genus</i> level; rename it (<code>TaskLineResourceFamily</code>) so the two ideas do not collide.</li>
+    <li><b>Why not a second field</b> (<code>taskEquipmentItem</code>): two nullable GUID fields that must never both be set, every reader (columns, plan view, reports, SQL) must read both, and a future third kind (subcontractor team? vehicle fleet?) adds a third field. One kind + one GUID scales.</li>
+  </ul>
+
+  <h3>3.2 The menu and the columns (D6)</h3>
+  <p>The rule from the doc - "before the Time resource is selected" - becomes a column placed <b>before the resource</b>. Today's Time order is <code>Budget item · # · Role · Role attributes · Person · Person variant · Contract · Qty …</code>.</p>
+  <div class="scroll"><table>
+    <tr><th>Project allows</th><th>Time table columns</th></tr>
+    <tr><td>Person only <span class="pill ask">= today</span></td><td>Budget item · # · Role · Role attributes · Person · Person variant · Contract · Qty · Unit · Price · …</td></tr>
+    <tr><td>Equipment only</td><td>Budget item · # · Role · Role attributes · <b>Equipment</b> · <b>Equipment variant</b> · Qty · Unit · Price · …&nbsp;(no Contract column in Phase 1)</td></tr>
+    <tr><td><b>Both</b></td><td>Budget item · # · <b>Resource</b> <span class="small">(Person | Equipment - the new menu)</span> · Role · Role attributes · <b>Person / Equipment</b> <span class="small">(one column, catalog by kind)</span> · <b>Variant</b> · Contract <span class="small">(enabled for Person only)</span> · Qty · …</td></tr>
+  </table></div>
+
+  <div class="flow">
+    <span class="box on">1. Resource: Equipment</span><span class="arrow">→</span>
+    <span class="box">2. Role: only roles whose role type has <code>resourceKind = equipment</code></span><span class="arrow">→</span>
+    <span class="box">3. Equipment: active equipment (optionally of the role's type)</span><span class="arrow">→</span>
+    <span class="box">4. Variant: the equipment's own variants (automatic = first that covers the role)</span><span class="arrow">→</span>
+    <span class="box">5. Price: role rate × unit hour</span>
+  </div>
+
+  <h3>3.3 What happens when the kind changes</h3>
+  <p>In <code>computeTaskLineRowJSON</code> (rule 2 of its header comment) add: if <code>taskResourceKind</code> changed, clear <code>taskResourceItem</code>, <code>taskResourceAttributesKey</code>, <code>taskResourceContract</code>, and clear the role when its role type's kind no longer matches. The price then follows the role by the existing <code>priceAutoTaskLine</code> mechanism (a price the user typed stays). This is the same idea as "changing the partner clears the partner contract". It is silent by design - the table already behaves this way for the other dependent cells.</p>
+
+  <h3>3.4 Problems shown as ⚠ (data is never refused)</h3>
+  <ul class="tight">
+    <li>"The role is not an equipment role" / "The role is not a person role" (extends <code>lineProblems</code>, next to "The role is not a Time role").</li>
+    <li>"The equipment does not exist any more" / "is not active".</li>
+    <li>Equipment variant does not cover the role; equipment property below the role's requirement ("Lifting capacity: needs at least 20 t, has 12") - the same messages the person match produces, from the generalized module (P3).</li>
+    <li>Equipment line with a person contract (only possible after a kind change by a script) - cleared by compute, listed here for completeness.</li>
+  </ul>
+
+  <h3>3.5 Plan view and Post</h3>
+  <ul class="tight">
+    <li><b>Post / <code>calculateTaskLinePlan</code>: no change.</b> It spreads totals over days and does not care who the resource is. <code>create_task_line_plan</code> copies <code>budgetItemTaskLine</code> and the genus into the plan rows; I recommend also copying <code>taskResourceKind</code> into the plan row's <code>rowJSON</code>, so a future report "person-hours vs machine-hours" is one SQL query without a join to the lines.</li>
+    <li><b>Plan view needs a fix:</b> <code>planColumns.tsx:27-29</code> resolves the resource as "person, else product". An equipment GUID would be looked up in products and show an empty title. It must resolve by kind (otherwise the Plan view shows blank resources for equipment).</li>
+    <li><b>Budget item:</b> equipment time is budgeted as <code>timeBudgetItem</code> by default, because the item picker filters only by genus. Optional Phase 2: a second level-2 item "Equipment time" (genus <code>timeGenus</code>) and a default chosen by kind in <code>defaultBudgetItemOfGenus</code>, so budget reports can separate machine hours from work hours. Not required for the doc.</li>
+  </ul>
+
+  <h3>3.6 Cost - and an assumption to avoid</h3>
+  <p>Phase 1 uses the role rate: add a role type "Equipment Resources" (genus <code>timeGenus</code>, <code>resourceKind = equipment</code>), roles such as "Excavator 20 t", and hourly rates in <code>rolePriceTable</code> - the machinery already built for roles. <code>suggestForLine</code> needs only one change: skip the contract branch when the kind is equipment.</p>
+  <div class="note"><b>Do not reuse <code>contractPeriodHours</code> for machines.</b> It converts a contract's sum to an hourly price with 8 h/day, 21 days/month. A rented machine that runs 10 or 24 hours a day, or is rented per day but billed per hour of use, would get a wrong hourly price silently. If Phase 2 adds rental contracts, the working hours per period belong on the equipment (<code>equipmentHoursPerDay</code>), not in a constant.</div>
+</section>
+
+<section id="pattern">
+  <h2>4 - Improving the pattern <span class="pill mid">the "analyze and improve" part</span></h2>
+  <p class="sub">Four seams that are implicit today. Making them explicit is what turns "add equipment" from a copy-paste of person into a small change - and makes a third resource kind cheap later.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">P1 - Replace <code>genus.resource</code> branching by a per-line resolved kind</h3>
+    <p><code>TaskLineGenusDef</code> gets <code>resources: TaskLineResourceKind[]</code> (Time: <code>['person','equipment']</code>; Material / Expense / Revenue: <code>['product']</code>). One pure helper, in a new <code>taskLineResource.ts</code>, answers every question the eight call sites ask today:</p>
+<pre><code>lineResourceKind(genus, json, scope) -> 'person' | 'equipment' | 'product'
+   Time:  json.taskResourceKind ?? (scope allows person ? 'person' : 'equipment')
+   other: 'product'
+resourceRowsOf(data, kind) -> data.person | data.equipment | data.product
+resourceTitle(data, kind, guid)  -> "First Last" | equipmentTitle | product title</code></pre>
+    <p>Every existing <code>genus.resource === 'person'</code> becomes <code>kind === 'person'</code> (a mechanical edit) and equipment falls out of the same code paths. This also removes the risk of forgetting a place: a test can enumerate the kinds.</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">P2 - Descriptor "sides" as a list, not as hand-written argument lists</h3>
+    <p>Properties/variants of products, roles and persons live in the same five tables; each dashboard hides the other sides' rows. The hiding is hand-wired in <b>three</b> places that each name the other two sides:
+    <code>usePersonCatalogData.ts:64</code>, <code>useProductCatalogData.ts:70</code>, <code>useResourceRoleCatalogData.ts:73</code> (e.g. <code>sideOf(all, [...roleTypes, ...personTypes], [...roles, ...persons])</code>).
+    A fourth side means editing all three, and <b>forgetting one shows equipment descriptors inside the Products dashboard</b> - an error that no test would catch today.</p>
+    <p>Recommendation: a registry <code>DESCRIPTOR_SIDES = [product, role, person, equipment]</code> (each with its type entity and item entity) and <code>sideOf(all, thisSide)</code> that hides every side except <code>thisSide</code>. The three call sites shrink to one line, and a unit test asserts "every side hides the other three". Do this <i>before</i> adding equipment so the person/product/role behaviour can be proven unchanged by the existing tests.</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">P3 - Generalize <code>taskLinePersonMatch.ts</code> instead of copying it</h3>
+    <p>The file (169 lines) works on GUIDs: <code>personVariants</code> filters <code>variant.rowOwnerGUID === personGUID</code>; the requirement check reads the person's type to find the property set. Only two lines are person-specific: <code>d.person.find(...).rowJSON.personType</code> and the guard <code>genus.resource !== 'person'</code>. Replace them with a small <code>ResourceSide = { rows, typeOf(row) }</code> argument (person: <code>personType</code>, equipment: <code>equipmentType</code>) and rename the functions to <code>resourceVariants</code>, <code>unmetRequirements</code> …, keeping the <code>person*</code> names as re-exports so the existing <code>taskLinePersonMatch.test.ts</code> stays green untouched. The ⚠ texts say "The person has no variant…" - they get the resource word as a parameter.</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">P4 - A row-aware catalog column in <code>ReusableTable</code></h3>
+    <p><code>SelectColumn.options</code> may already be a function of the row; <code>CatalogColumn.catalogEntityName</code> is a fixed string. That is the only reason the doc's menu would otherwise need four columns. Add an optional <code>catalogEntityNameOf?: (row) =&gt; string</code> (plus <code>catalogEntityNames?: string[]</code> for the title/search lookup), default unchanged. Three places read the name:</p>
+    <ul class="tight">
+      <li><code>ReusableTable.tsx:208</code> - subscribes to the catalog rows per column for search/filter/sort titles (must subscribe to every entity the column can show).</li>
+      <li><code>ReusableTableCell.tsx:59</code> - renders <code>SelectElementFromCatalog</code> (use the row's entity).</li>
+      <li><code>ReusableTableFillColumnModal.tsx:47</code> - "Fill all lines" would write one GUID into rows of both kinds. Restrict it to rows whose kind equals the kind picked in the modal, or disable Fill for this column.</li>
+    </ul>
+    <p>Two small gaps found while checking: <code>editable</code> on a column is a plain <code>boolean</code>, so the "Contract" cell cannot be disabled for equipment rows (use the existing <code>validate</code> to refuse, or let <code>editable</code> accept <code>(row) =&gt; boolean</code>), and the same applies to hiding the cell.
+    If you prefer not to touch <code>ReusableTable</code> in this step, the fallback is the four-column layout - it works with zero table changes and can be replaced later without changing stored data.</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">P5 - Contract catalog: leave it alone in Phase 1</h3>
+    <p><code>contractTable</code> has a CHECK <code>rowParentGUID IN ('person','partner')</code> (<code>start_sql_structure.sql:469</code>) and a <code>contractPartyType</code> that must equal it. A machine is not a contracting party: a rental contract is with the <b>lessor (a partner)</b>. So Phase 2 should link equipment to a partner contract (<code>equipmentPartner</code> + <code>taskResourceContract</code> pointing to that partner's contract) and the CHECK stays as it is. Widening it to <code>'equipment'</code> would be the wrong model.</p>
+  </div>
+</section>
+
+<section id="sql">
+  <h2>5 - SQL <span class="pill chg">kit8/sql/start only</span></h2>
+  <p class="sub">All SQL goes into <code>start_sql_structure.sql</code> / <code>delete_sql_structure.sql</code> (project rule: nothing else in <code>kit8/sql</code>), and must be run on Docker <code>postgres:15</code> with the existing <code>kit8/docker</code> stubs before it is handed over.</p>
+  <ol class="steps">
+    <li><b>New tables</b> <code>equipmentTable</code>, <code>equipmentTypeTable</code> by <code>kit8_setup_def_table()</code> (same helper as <code>personTypeTable</code>), signed-in-user RLS, realtime publication, index on <code>(rowJSON-&gt;&gt;'equipmentType')</code>. Idempotent (<code>IF NOT EXISTS</code>, <code>DROP POLICY IF EXISTS</code>).</li>
+    <li><b>Task line CHECK</b> (idempotent add): <code>COALESCE("rowJSON"-&gt;&gt;'taskResourceKind','person') IN ('person','equipment')</code>, and equipment only on the Time genus:
+      <code>COALESCE("rowJSON"-&gt;&gt;'taskResourceKind','person') = 'person' OR "rowParentGUID" = 'timeGenus'</code>. Existing rows pass (no kind = person).</li>
+    <li><b>Role type kind</b>: no column - <code>resourceKind</code> is in <code>resourceRoleTypeTable.rowJSON</code>. The seed sets <code>resourceKind='person'</code> on "Human Resources" (and the app treats missing as person).</li>
+    <li><b>Seed</b> (upsert like the other seeds, so it is re-runnable): 2-3 equipment types with descriptor sets (Capacity, Power, Year, Certificate), ~6 pieces of equipment, role type "Equipment Resources" (genus <code>timeGenus</code>, kind <code>equipment</code>), 3-4 roles, hourly Bill/Cost rates, a few variants and property values.</li>
+    <li><b>Plan table (optional)</b>: copy <code>taskResourceKind</code> into the plan row's <code>rowJSON</code> in <code>create_task_line_plan</code>.</li>
+    <li><b>delete_sql_structure.sql</b>: drop the two tables and the CHECK, in reverse order, following the file's existing pattern.</li>
+    <li><b>Project flags</b>: none - they are <code>project_table.rowJSON</code>.</li>
+  </ol>
+  <div class="note">Generating the seed through <code>start_sql_data.sql</code> versus the structure file is your existing convention (KNOW_HOW says DDL in <code>start_sql_code.sql</code>, seed in <code>start_sql_data.sql</code>; your SQL-workflow note says only the two structure files). I follow your note; tell me if the other layout is now the rule (Q7).</div>
+</section>
+
+<section id="files">
+  <h2>6 - Files touched</h2>
+  <p class="sub">Sizes: S = a few lines, M = a file-sized change, L = new module with tests.</p>
+  <div class="scroll"><table>
+    <tr><th>Area</th><th>File</th><th>Change</th><th>Size</th></tr>
+    <tr><td rowspan="4">Switches</td><td><code>kit8/pm/model/types.ts</code></td><td>5 optional booleans after line 128</td><td>S</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/PMProjectFinanceTab.tsx</code></td><td>interface, defaults (<code>??</code>), nested switches, <code>normalize</code> rule</td><td>M</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/financeScope.ts</code> <span class="pill new">new</span></td><td><code>financeScopeOf()</code>, <code>normalizeFinanceSwitches()</code> (pure)</td><td>M</td></tr>
+    <tr><td><code>kit8/pm/view/project/recent/PMRecentProjectsToolbar.tsx</code></td><td>import block (≈317) lists the new keys</td><td>S</td></tr>
+    <tr><td rowspan="5">Equipment catalog</td><td><code>kit8/catalog/equipment/equipmentModel.ts</code> <span class="pill new">new</span></td><td>table def, entity, row shape, normalize, validate</td><td>M</td></tr>
+    <tr><td><code>kit8/catalog/equipment/equipmentTypeModel.ts</code> <span class="pill new">new</span></td><td>type table, <code>equipmentAsProductData()</code></td><td>M</td></tr>
+    <tr><td><code>kit8/catalog/equipment/*MetaData.ts</code> + <code>kit8/redux/SystemMetaData.ts</code></td><td>register 2 entities (like <code>personTypeSystemMetaData()</code>)</td><td>S</td></tr>
+    <tr><td><code>kit8/catalog/equipment/EquipmentList / Edit / dashboard</code> <span class="pill new">new</span></td><td>list + edit + descriptors dashboard (built on P2, not copied)</td><td>L</td></tr>
+    <tr><td><code>kit8/catalog/product/crud/catalogSides.ts</code> + the 3 <code>use…CatalogData.ts</code></td><td>P2: side registry</td><td>M</td></tr>
+    <tr><td rowspan="9">Time line (every place that tests <code>genus.resource</code>)</td>
+      <td><code>kit8/pm/view/task/finances/taskLineModel.ts</code></td><td><code>taskResourceKind</code>, rename the family type, <code>resources</code> on the genus def</td><td>S</td></tr>
+    <tr><td><code>…/taskLineResource.ts</code> <span class="pill new">new</span></td><td>P1 helper</td><td>M</td></tr>
+    <tr><td><code>…/taskLineColumns.tsx:89</code></td><td>kind column + row-aware resource/variant columns (P4) or the 4-column fallback</td><td>M</td></tr>
+    <tr><td><code>…/taskLineCompute.ts:31</code></td><td>kind change clears dependants; variant check by kind</td><td>S</td></tr>
+    <tr><td><code>…/taskLineCatalogs.ts:115,123,176</code></td><td>roles by kind; skip contract for equipment; "equipment does not exist"</td><td>S</td></tr>
+    <tr><td><code>…/taskLinePersonMatch.ts:152</code></td><td>P3 generalization, old names re-exported</td><td>M</td></tr>
+    <tr><td><code>…/taskLineFx.ts:58</code></td><td>contract for the currency: person → <code>taskResourceContract</code>; equipment → none (falls to project currency)</td><td>S</td></tr>
+    <tr><td><code>…/useTaskLineCatalogs.ts</code> + <code>taskLineCatalogs.ts</code> data type</td><td>read <code>equipment</code>, <code>equipmentType</code></td><td>S</td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/planColumns.tsx:27</code></td><td>resolve the resource by kind (fixes blank titles)</td><td>S</td></tr>
+    <tr><td>Role catalog</td><td><code>kit8/catalog/resourcerole/*</code></td><td><code>resourceKind</code> on the role type: column in the Role types table, pick list, a Check rule "kind is person or equipment"</td><td>M</td></tr>
+    <tr><td>Table</td><td><code>ReusableTable.tsx:208</code>, <code>ReusableTableCell.tsx:59</code>, <code>ReusableTableFillColumnModal.tsx:47</code>, <code>reusableTableTypes.ts</code></td><td>P4 (additive; defaults keep every other table unchanged)</td><td>M</td></tr>
+    <tr><td>SQL</td><td><code>kit8/sql/start/start_sql_structure.sql</code>, <code>delete_sql_structure.sql</code></td><td>section 5</td><td>M</td></tr>
+    <tr><td>Docs</td><td><code>kit8/pm/view/task/finances/README.md</code>, <code>kit8/pm/README.md</code>, <code>KNOW_HOW.md</code>, new <code>kit8/catalog/equipment/README.md</code></td><td>describe kind, switches, equipment</td><td>S</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>7 - Risks and edge cases</h2>
+  <div class="scroll"><table>
+    <tr><th>Case</th><th>What goes wrong</th><th>Handling</th></tr>
+    <tr><td>Old project, master flag off</td><td>Gating by the switches would hide Time/Material/Expense tabs everywhere.</td><td>Master off = today's behaviour. Gate only when master is on, and never hide a tab with lines (D5).</td></tr>
+    <tr><td>Equipment switched off while equipment lines exist</td><td>Lines become invisible or uneditable.</td><td>The kind column and equipment stay visible for the tab while any equipment line exists; banner explains.</td></tr>
+    <tr><td>Line with <code>taskResourceKind = null</code></td><td>Read as nothing.</td><td>null = person everywhere (model, SQL CHECK, plan view, reports).</td></tr>
+    <tr><td>Equipment-only project and a legacy person line</td><td>Menu absent, but the line is a person.</td><td>Same rule: a kind that has lines stays offered; the menu appears because two kinds are now present.</td></tr>
+    <tr><td>Equipment deactivated or deleted</td><td>Old lines point to nothing.</td><td>Deactivate = still shown, ⚠ "not active"; delete protected when used (like person).</td></tr>
+    <tr><td>Project exported / imported / saved as template</td><td>New keys dropped.</td><td>Export copies <code>project.rowJSON</code>; the import block in <code>PMRecentProjectsToolbar</code> lists keys by hand - add the five, test it.</td></tr>
+    <tr><td>"Fill all lines" on the Resource column</td><td>Writes one GUID into person and equipment rows.</td><td>P4: restrict to matching kind or disable.</td></tr>
+    <tr><td>Version restore / copy of a task</td><td>Task lines are not part of project versions today.</td><td>No change; stated so nobody expects equipment to be versioned.</td></tr>
+    <tr><td>Double booking of a machine</td><td>Two tasks use the same excavator on the same day.</td><td>Out of scope for this document (it needs a resource calendar). Worth a separate decision; the structure above does not block it - <code>task_line_plan</code> already stores per-day rows per line.</td></tr>
+    <tr><td>Translations</td><td>~6 new texts × 14 languages, and the column titles drawn by DOM only.</td><td>Follow the <code>pmT</code> procedure; <code>pmT.test.ts</code> will fail until complete.</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>8 - Tests to write</h2>
+  <p class="sub">Same mirror layout as the code (<code>__tests__</code> mirrors <code>kit8</code>).</p>
+  <div class="scroll"><table>
+    <tr><th>Test</th><th>Proves</th></tr>
+    <tr><td><code>__tests__/pm/view/project/financeScope.test.ts</code></td><td>defaults for missing keys; master off = legacy; Time needs a kind; hidden values kept; the 5 rows of the scope table.</td></tr>
+    <tr><td><code>__tests__/pm/ui/projectSettingsTopTabs.test.tsx</code> (extend)</td><td>switches appear/disappear with their parent; saved patch contains the keys; import carries them.</td></tr>
+    <tr><td><code>__tests__/catalog/equipment/*</code></td><td>model/normalize/validate, <code>equipmentAsProductData</code> equals the person adapter's shape, descriptor rules on equipment, dashboard with seed data, SQL file against the model (as the other catalogs do).</td></tr>
+    <tr><td><code>__tests__/catalog/product/catalogSides.test.ts</code></td><td>P2: every side hides the other three (this is the test that does not exist today).</td></tr>
+    <tr><td><code>taskLineResource.test.ts</code>, <code>taskLinePersonMatch.test.ts</code> (unchanged) + equipment cases</td><td>P1/P3: old person assertions still pass unchanged; equipment variant covers/does not cover; property "at least 20 t".</td></tr>
+    <tr><td><code>taskLineCatalogs.test.ts</code> / <code>taskFinancesUi.test.tsx</code> (extend)</td><td>role filtered by kind; price from role rate for equipment; kind menu only when both kinds allowed; kind change clears resource, variant, contract; "role is not an equipment role" mark.</td></tr>
+    <tr><td><code>planView.test.tsx</code> (extend)</td><td>an equipment line shows its title in the Plan view (the blank-title bug).</td></tr>
+    <tr><td><code>reusableTable*.test.tsx</code> (extend)</td><td>P4: a catalog column with <code>catalogEntityNameOf</code> shows/searches/sorts by the row's catalog; Fill all lines respects the kind; columns without the new prop behave exactly as before.</td></tr>
+    <tr><td>SQL on Docker <code>postgres:15</code> (<code>kit8/docker/test_sql.sh</code>)</td><td>structure runs twice without error; CHECK accepts old rows and rejects <code>taskResourceKind='x'</code> and equipment on a Material line; delete script leaves a clean database.</td></tr>
+  </table></div>
+</section>
+
+<section id="order">
+  <h2>9 - Order of work</h2>
+  <p class="sub">Each step ships on its own and leaves the app working. Steps 1-3 change nothing a user can see.</p>
+  <ol class="steps">
+    <li><b>P2 side registry</b> - refactor only; existing person/product/role tests prove nothing changed. <span class="pill chg">M</span></li>
+    <li><b>P1 + P3</b> - <code>taskLineResource.ts</code>, generalized match with the old names re-exported; every <code>genus.resource</code> call site converted. All existing tests pass unchanged. <span class="pill chg">M</span></li>
+    <li><b>Switches + <code>financeScopeOf</code></b> - UI, defaults, import, translations. Nothing consumes the equipment switch yet except the helper. <span class="pill chg">M</span></li>
+    <li><b>Equipment catalog</b> - SQL (Docker-tested), model, metadata, list/edit/dashboard, seed. <span class="pill new">L</span></li>
+    <li><b>Role type <code>resourceKind</code></b> - column, check, seed "Equipment Resources". <span class="pill chg">M</span></li>
+    <li><b>Time line</b> - <code>taskResourceKind</code>, kind menu, columns (P4 or fallback), compute, ⚠ marks, Plan view fix, CHECK. <span class="pill new">L</span></li>
+    <li><b>Phase 2 (only if wanted)</b> - hide empty tabs by the switches; "Equipment time" budget item; rental contract via the lessor partner; hours per day on the equipment.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>10 - Questions for you</h2>
+  <p class="sub">None of them blocks starting steps 1-3. Each has my recommended answer; if you agree, say "defaults" and I use them.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>My answer</th></tr>
+    <tr><td>Q1</td><td>"Person on Equipment" - is it <b>Person <u>or</u> Equipment</b> (a choice), or is it "the Person who operates the Equipment" (the machine needs an operator on the same line)?</td><td><b>Or.</b> If an operator is needed, enter a second Time line with a person; the two lines share the task. An "operator" field on the equipment line can be added later without changing this design.</td></tr>
+    <tr><td>Q2</td><td>When the master "Expense budget needed" is off, should the Time / Material / Expenses tabs still work as today?</td><td><b>Yes</b> (D5). Otherwise every existing project loses its cost tabs until someone opens the settings.</td></tr>
+    <tr><td>Q3</td><td>May I relabel "Expense budget needed" to "Costs budget needed" (key unchanged)?</td><td><b>Yes</b> - it avoids "Expense budget → Expenses costs".</td></tr>
+    <tr><td>Q4</td><td>Equipment type = <i>kind of machine</i> (Heavy machinery, Vehicle…) with ownership as a field, not Own/Rented as the type?</td><td><b>Yes</b> - descriptors depend on the kind of machine.</td></tr>
+    <tr><td>Q5</td><td>Cost of equipment: role rate only in Phase 1?</td><td><b>Yes.</b> A lessor contract (Phase 2) is a separate decision.</td></tr>
+    <tr><td>Q6</td><td>P4 (row-aware catalog column in <code>ReusableTable</code>) now, or the four-column fallback first?</td><td><b>P4</b> - it is additive and keeps the Time table readable; fallback only if you do not want <code>ReusableTable</code> touched in this step.</td></tr>
+    <tr><td>Q7</td><td>SQL layout: only <code>start_sql_structure.sql</code> + <code>delete_sql_structure.sql</code> (your SQL note), or also <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code> as KNOW_HOW describes?</td><td>Follow the note; correct KNOW_HOW if it is outdated.</td></tr>
+    <tr><td>Q8</td><td>Should the Plan/reports separate "person-hours" and "machine-hours" (second budget item "Equipment time")?</td><td><b>Later</b> (Phase 2). The kind is already copied into the plan rows, so adding it is cheap.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>
