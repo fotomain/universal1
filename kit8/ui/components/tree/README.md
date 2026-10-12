@@ -88,3 +88,5 @@ For a catalog whose rows are ALL nodes of one tree (a business unit is a node AN
 (counts, lock, reload), the setup hint, `useCatalogTree` (the `foldersTree` binding: create / rename / move without a loop / delete only a node without sub-nodes).
 `CatalogTreePicker.tsx`: the same nodes in a modal to CHOOSE one; `isSelectable` / `reasonWhy` decide which node can be clicked. The SystemMetaData flag **`selectFromTree`** of the entity:
 true = a node of any level (the first too), absent / false = the leaves only. First user: `kit8/catalog/business_unit`.
+
+Selectors that use these trees live in `kit8/catalog/select` (see its README): `from_tree/SelectCatalogItemFromTreeReusable` (a field that chooses a node of a tree catalog; the window is `CatalogTreePicker` with a Tree | List switch).

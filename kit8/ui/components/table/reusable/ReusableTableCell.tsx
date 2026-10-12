@@ -53,6 +53,14 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
     const scopeByParent = !!col.dependsOn && col.dependsOnScopesCatalog !== false;
     return (
       <View style={styles.catalogCell}>
+        {col.renderPicker ? (
+          <View style={styles.pickerWrap}>
+            {col.renderPicker({
+              testID: id, value: value ?? null, onChange: (guid) => onChange(col.key, guid), disabled: !editable || waitsForParent, compact: !!dense, placeholder: col.placeholder, row,
+              triggerStyle: { ...(col.detailsRoute ? { paddingRight: 2 } : {}), borderRadius: radius, borderWidth: border, ...(bordered ? {} : { backgroundColor: 'transparent' }) },
+            })}
+          </View>
+        ) : (
         <View style={styles.selectWrap}>
         <SelectElementFromCatalog
           testID={id}
@@ -74,6 +82,7 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
           {...(col.subtitleExtractor ? { subtitleExtractor: col.subtitleExtractor } : {})}
         />
         </View>
+        )}
         {!!col.detailsRoute && !readOnly && (
           // "…" = go to the details of the selected element (dim until something is selected)
           <Pressable testID={`${id}-details`} accessibilityLabel={`Open ${col.title} details`} disabled={!value} hitSlop={4}
@@ -280,6 +289,8 @@ const styles = StyleSheet.create({
   catalogCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   detailsBtn: { width: 18, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
   // SelectElementFromCatalog has its own vertical margin: removed inside a table row
+  // a selector given by `renderPicker` has no margin of its own
+  pickerWrap: { flex: 1, minWidth: 0 },
   selectWrap: { flex: 1, marginVertical: -6, minWidth: 0 },
   stepper: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, height: 40, overflow: 'hidden' },
   stepBtn: { width: 28, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },

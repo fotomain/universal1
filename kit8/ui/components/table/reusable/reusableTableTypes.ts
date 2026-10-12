@@ -64,6 +64,22 @@ export interface SelectOption {
 /** 1, 2, 3 ... - the position in the list (not stored) */
 export interface RowNumberColumn extends ColumnBase { type: 'rowNumber' }
 
+/** what the cell hands to `CatalogColumn.renderPicker` */
+export interface CatalogPickerRenderProps {
+  testID: string;
+  /** the rowGUID stored in the cell */
+  value: string | null;
+  /** a choice (null = cleared): the table saves it like any cell edit (dependent cells cleared, computeRowJSON) */
+  onChange: (guid: string | null) => void;
+  disabled: boolean;
+  /** low input (uxuiTable.minimumTableRowHeight) */
+  compact: boolean;
+  /** the look of the input box inside the table (rounded / bordered cells) */
+  triggerStyle: any;
+  placeholder?: string;
+  row: ReusableTableRow;
+}
+
 /**
  * A GUID of another catalog: the cell SHOWS the catalog element's title and STORES its rowGUID in rowJSON[field].
  * Input = SelectElementFromCatalog (kit8/catalog/inner/select_element).
@@ -109,6 +125,11 @@ export interface CatalogColumn extends ColumnBase {
   subtitleExtractor?: (catalogRow: any) => string | undefined;
   /** which catalog rows can be picked; tableRow = the row of THIS table (e.g. values of the row's descriptor) */
   filterItem?: (catalogRow: any, tableRow: ReusableTableRow) => boolean;
+  /**
+   * Another selector instead of SelectElementFromCatalog (e.g. SelectCatalogItemWithFolders: a window with a Tree | List switch). The cell stays a catalog cell:
+   * the title of the stored GUID, search, sort, export and "fill the column" work as before (the fill window keeps the plain list).
+   */
+  renderPicker?: (props: CatalogPickerRenderProps) => ReactNode;
 }
 
 export interface NumberColumn extends ColumnBase {

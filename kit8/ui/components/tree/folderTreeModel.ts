@@ -137,6 +137,16 @@ export function pathOf(ix: TreeIndex, i: number): string[] {
   return [...ancestorsOf(ix, i).reverse(), i].map((k) => ix.nodes[k].title);
 }
 
+/** 'Enterprise #1 › Sales › Key Accounts Department': the titles from the top level down to the node with this id ('' = no such node) */
+export function treePathText(nodes: FolderTreeNode[], id: string | null | undefined, separator = ' › '): string {
+  if (!id) return '';
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (let n = byId.get(id); n && !seen.has(n.id); n = n.parentId ? byId.get(n.parentId) : undefined) { seen.add(n.id); out.unshift(n.title); }
+  return out.join(separator);
+}
+
 /** `ancestor` is `i` itself or one of its ancestors */
 export function isSelfOrAncestor(ix: TreeIndex, ancestor: number, i: number): boolean {
   for (let p = i; p !== ix.n && p >= 0; p = ix.parent[p]) if (p === ancestor) return true;

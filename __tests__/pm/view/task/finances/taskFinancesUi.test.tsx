@@ -61,6 +61,20 @@ jest.mock('../../../../../kit8/catalog/inner/select_element/SelectElementFromCat
     },
   };
 });
+// the Budget item and Product cells: the window with folders (Tree | List). A stand-in with the props of the cell; a press chooses mockPick[the budget item catalog]
+jest.mock('../../../../../kit8/catalog/select/with_folders/SelectCatalogItemWithFolders', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: any) => {
+      const { testID, value, onChange, disabled } = props;
+      const entityName = String(testID).endsWith('-product') ? 'productReusable' : 'budgetItemReusable';
+      mockSelectProps[testID] = { ...props, entityName };
+      return R.createElement(Pressable, { testID, disabled, onPress: () => onChange(mockPick[entityName] ?? `${entityName}-picked`) }, R.createElement(Text, null, `${value ?? '-'}|${disabled ? 'off' : 'on'}`));
+    },
+  };
+});
 jest.mock('../../../../../kit8/pm/inner/menu/PMContextMenu', () => {
   const R = require('react');
   const { Pressable, Text, View } = require('react-native');

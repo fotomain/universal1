@@ -27,7 +27,10 @@ import { personMatchProblems, personVariantOptions } from './taskLinePersonMatch
 import { fxEnabled, fxProblem, fxSnapshotText, LineFxContext, LineFxProject } from './taskLineFx';
 import type { TaskLineGenusDef } from './taskLineModel';
 import { pmT } from '../../../i18n/pmT';
-import { businessUnitOptions, businessUnitPath } from '../../../../catalog/business_unit/businessUnitModel';
+import { businessUnitNodes, businessUnitPath, businessUnitProblem, isBusinessUnitActive, selectableBusinessUnits } from '../../../../catalog/business_unit/businessUnitModel';
+import { isProductFolder, PRODUCT_SELECT_COLUMNS, productRowsWithFolders } from '../../../../catalog/product/productSelectModel';
+import SelectCatalogItemWithFolders from '../../../../catalog/select/with_folders/SelectCatalogItemWithFolders';
+import SelectCatalogItemFromTreeReusable from '../../../../catalog/select/from_tree/SelectCatalogItemFromTreeReusable';
 import { BUSINESS_UNIT_SOURCE_TEXT, lineBudgetKind } from './taskLineBusinessUnit';
 
 /** person.rowJSON -> "first name + last name" (taskLineResource.ts) */
@@ -62,6 +65,12 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
   const kinds = worker && timeKinds.length ? timeKinds : ['person' as const];
   /** the menu "Resource: Person | Equipment" is there only while both kinds are offered */
   const hasMenu = worker && kinds.length > 1;
+  /** the tree of the business units (the window that chooses the unit of a line) */
+  const unitNodes = businessUnitNodes(data.businessUnit);
+  /** the items of THIS genus (a Time line offers the Time items); a folder is no choice */
+  const budgetItemOfGenus = (item: any) => !isBudgetItemFolder(item) && item.rowJSON?.managementGenusItem === genus.genus;
+  /** the product folders + the products in one list (the window that chooses a product) */
+  const productRows = productRowsWithFolders(data.productFolder, data.product);
   const cols: VisualColumn[] = [
     // the error messages of the line: the first column of the table (after the drag and the select-row columns), before the number; not there when no line has an error
     ...(showErrors ? [{
@@ -81,14 +90,61 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       // what the line is budgeted as (budgetItemTable): the items of THIS genus (the item points at its management genus); a line without one is not posted
       key: 'budgetItem', title: pmT('Budget item'), type: 'catalog', field: 'budgetItemTaskLine', width: 200,
       catalogEntityName: BUDGET_ITEM_TABLE.entity, placeholder: pmT('Select budget item…'),
-      filterItem: (item) => !isBudgetItemFolder(item as any) && item.rowJSON?.managementGenusItem === genus.genus,
+      filterItem: (item) => budgetItemOfGenus(item),
+      // the window of the choice: Tree (folders + items; a tree-table) | List (as before: the items, title + description), a RadioSetApp switches them
+      renderPicker: ({ testID, value, onChange, disabled, compact, triggerStyle, placeholder }) => (
+        <SelectCatalogItemWithFolders
+          testID={testID}
+          rows={data.budgetItem}
+          isFolder={isBudgetItemFolder}
+          filterItem={budgetItemOfGenus}
+          subtitleOf={(r) => r.rowJSON?.description || undefined}
+          value={value}
+          onChange={(guid) => onChange(guid)}
+          title={pmT('Budget item')}
+          placeholder={placeholder}
+          icon="request_quote"
+          compact={compact}
+          triggerStyle={triggerStyle}
+          disabled={disabled}
+        />
+      ),
     },
     // the business unit the line is posted to (right after the budget item): the units that take the kind of the line (a cost is not posted to a revenue center);
     // empty = the app takes it from the first source that has one: resource, role, budget item, contract, project (taskLineBusinessUnit.ts). Only while there are units.
     ...(data.businessUnit.length > 0 ? [
       {
-        key: 'businessUnit', title: pmT('Business unit'), type: 'select', field: 'businessUnitTaskLine', width: 240, placeholder: pmT('Not set'),
-        options: (row) => businessUnitOptions(data.businessUnit, { kind: lineBudgetKind(data, genus.genus, row.rowJSON || {}), cfrRows: data.cfrType, keep: row.rowJSON?.businessUnitTaskLine }),
+        // chosen from the TREE of the units (a window with a search box); the units that do not take the kind of the line are greyed, with the reason
+        key: 'businessUnit', title: pmT('Business unit'), type: 'custom', width: 240,
+        renderCell: (row, _i, patch) => {
+          const json = row.rowJSON || {};
+          const kind = lineBudgetKind(data, genus.genus, json);
+          const keep = json.businessUnitTaskLine as string | null | undefined;
+          const ok = new Set(selectableBusinessUnits(data.businessUnit, { kind, cfrRows: data.cfrType, keep }).map((r) => r.rowGUID));
+          return (
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <SelectCatalogItemFromTreeReusable
+                testID={`task-line-unit-${row.rowGUID}`}
+                nodes={unitNodes}
+                value={keep ?? null}
+                pathOf={(id) => businessUnitPath(data.businessUnit, id)}
+                isSelectable={(id) => ok.has(id)}
+                reasonWhy={(id) => {
+                  const unit = data.businessUnit.find((r) => r.rowGUID === id);
+                  return (unit && !isBusinessUnitActive(unit) ? pmT('This unit is not active') : businessUnitProblem(data.businessUnit, data.cfrType, id, kind)) || pmT('This unit cannot be chosen here');
+                }}
+                title={pmT('Business unit')}
+                placeholder={pmT('Not set')}
+                searchPlaceholder={pmT('Search business units…')}
+                compact
+                triggerStyle={{ borderRadius: 0, borderWidth: 0, backgroundColor: 'transparent' }}
+                // the user's own choice: source 'line' (an empty field follows the sources again)
+                onChange={(id) => patch({ businessUnitTaskLine: id, businessUnitSourceTaskLine: id ? 'line' : null })}
+              />
+            </View>
+          );
+        },
+        searchText: (row) => businessUnitPath(data.businessUnit, row.rowJSON?.businessUnitTaskLine),
       } as VisualColumn,
       {
         key: 'businessUnitSource', title: pmT('Unit from'), type: 'custom', width: 150, editable: false,
@@ -159,6 +215,26 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       {
         key: 'product', title: pmT('Product'), type: 'catalog', field: 'taskResourceItem', width: 220,
         catalogEntityName: PRODUCT_TABLES.product.entity, placeholder: pmT('Select product…'),
+        // the window of the choice: Tree (the product folders + the products; a tree-table) | List (as before: the products, title + description), a RadioSetApp switches them
+        renderPicker: ({ testID, value, onChange, disabled, compact, triggerStyle, placeholder }) => (
+          <SelectCatalogItemWithFolders
+            testID={testID}
+            rows={productRows}
+            isFolder={isProductFolder}
+            columns={PRODUCT_SELECT_COLUMNS}
+            // Tree | Tree + items (the folders on the left, the products of the branch on the right) | List
+            views={['tree', 'split', 'list']}
+            subtitleOf={(r) => r.rowJSON?.description || undefined}
+            value={value}
+            onChange={(guid) => onChange(guid)}
+            title={pmT('Product')}
+            placeholder={placeholder}
+            icon="inventory_2"
+            compact={compact}
+            triggerStyle={triggerStyle}
+            disabled={disabled}
+          />
+        ),
       },
       {
         key: 'productAttributes', title: pmT('Attributes'), type: 'select', field: 'taskResourceAttributesKey', width: 190,

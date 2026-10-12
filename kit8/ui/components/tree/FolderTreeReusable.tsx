@@ -80,6 +80,8 @@ export interface FolderTreeReusableProps {
   showHeader?: boolean;
   showToolbar?: boolean;
   showSearch?: boolean;
+  /** hint of the search box (default 'Search folders…'); the search is a case-insensitive substring of the titles, with the ancestors of every match kept */
+  searchPlaceholder?: string;
   /** px: the title + buttons bar / the search row (to line the tree up with a table: ReusableTable sets them) */
   toolbarHeight?: number;
   searchHeight?: number;
@@ -180,7 +182,7 @@ interface Hover { id: string; pos: DropPosition; valid: boolean }
 
 const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>(function FolderTreeReusable(props, handleRef) {
   const {
-    nodes, testID = 'folder-tree', title = 'Folders', showHeader = true, showToolbar = true, showSearch = true, toolbarHeight, searchHeight,
+    nodes, testID = 'folder-tree', title = 'Folders', showHeader = true, showToolbar = true, showSearch = true, searchPlaceholder = 'Search folders…', toolbarHeight, searchHeight,
     rowHeight = 28, indent = 16, height, style, readOnly = false,
     showAllNode = false, allLabel = 'All items', showNoneNode = false, noneLabel = 'No folder',
     defaultExpandedIds, initialExpandDepth = 1, itemCounts, countMode = 'total', totalCount, noneCount,
@@ -708,7 +710,7 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
           {showSearch && (
             <View style={[styles.searchRow, searchH ? { height: searchH } : { height: 38 }]} testID={`${testID}-search-row`}>
               <IconApp name="search" size={15} color={c.text} />
-              <TextInput testID={`${testID}-search`} value={query} onChangeText={setQuery} placeholder="Search folders…" placeholderTextColor={c.text + '88'}
+              <TextInput testID={`${testID}-search`} value={query} onChangeText={setQuery} placeholder={searchPlaceholder} placeholderTextColor={c.text + '88'}
                 style={[styles.search, { color: c.text }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]} autoCorrect={false} autoCapitalize="none" />
               {search && <Text testID={`${testID}-matches`} style={[styles.small, { color: c.text }]}>{search.matches.toLocaleString()}</Text>}
               {query.length > 0 && (

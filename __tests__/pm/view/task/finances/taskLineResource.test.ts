@@ -2,6 +2,9 @@
 // the match of an equipment with what the role asks for, and what happens when the kind changes. Lines made before equipment (no kind) are person lines.
 // the columns module draws a tip icon (a button of the design system): a test double keeps this a pure test
 jest.mock('../../../../../kit8/pm/inner/buttons', () => ({ PMTipIcon: () => null }));
+// ... and the tree selector of the business unit column (a window with a tree): a test double too
+jest.mock('../../../../../kit8/catalog/select/from_tree/SelectCatalogItemFromTreeReusable', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../../../kit8/catalog/select/with_folders/SelectCatalogItemWithFolders', () => ({ __esModule: true, default: () => null }));
 
 import {
   anyResourceTitle, isWorkerKind, lineResourceKind, lineResourceTitle, resourceBelongsToOtherKind, resourceRowTitle, resourceTitleOfRow, roleResourceKind,

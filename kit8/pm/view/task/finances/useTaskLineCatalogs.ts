@@ -37,6 +37,7 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   measureUnit: PRODUCT_TABLES.measureUnit.entity,
   priceType: PRODUCT_TABLES.priceType.entity,
   productType: PRODUCT_TABLES.productType.entity,
+  productFolder: PRODUCT_TABLES.productFolder.entity,
   product: PRODUCT_TABLES.product.entity,
   productPrice: PRODUCT_TABLES.productPrice.entity,
   contract: CONTRACT_ENTITY,

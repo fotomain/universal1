@@ -44,6 +44,8 @@ export interface TaskLineCatalogData {
   measureUnit: DefRow<any>[];
   priceType: DefRow<any>[];
   productType: DefRow<any>[];
+  /** productFolderTable: the folders of the products (a product's rowParentGUID = its folder, 'empty' = none): the window that chooses a product */
+  productFolder: DefRow<any>[];
   product: DefRow<any>[];
   productPrice: DefRow<any>[];
   /** contractTable (rowJSON.contractCurrency, rowJSON.businessUnitAssigned) */
@@ -56,7 +58,7 @@ export interface TaskLineCatalogData {
 export const emptyTaskLineCatalogs = (): TaskLineCatalogData => ({
   managementGenus: [], budgetItem: [], distribution: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
   descriptorDestination: [], propertyValue: [], person: [], equipment: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
-  priceType: [], productType: [], product: [], productPrice: [], contract: [], businessUnit: [], cfrType: [],
+  priceType: [], productType: [], productFolder: [], product: [], productPrice: [], contract: [], businessUnit: [], cfrType: [],
 });
 
 /** the role catalog as the rules of catalog/resourcerole/crud expect it */
