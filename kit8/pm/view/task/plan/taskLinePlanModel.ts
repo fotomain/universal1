@@ -2,7 +2,7 @@
 //   SQL: kit8/sql/init/create_task_line_plan_table.sql · table task_line_plan · redux entity TASK_LINE_PLAN_ENTITY
 //   rowProjectGUID = task.rowProjectGUID · rowOwnerGUID = task.rowGUID · rowParentGUID = task_line_table.rowGUID (the LINE) · orderInList
 //   rowPeriodDatetime (the start of the day) · rowCoefficient (the share of the day; the coefficients of a line add up to baseOfDistribution = 1)
-//   qtyTaskLine · sumForBudget · sumForContract (2 digits; the rows add up to the line, Correct033) · rowJSON { budgetItemTaskLine, taskManagementGenusLine }
+//   qtyTaskLine · sumForBudget · sumForContract (2 digits; the rows add up to the line, Correct033) · rowJSON { budgetItemTaskLine, taskManagementGenusLine, businessUnitAssigned, budgetKind }
 //   Read-only for the app: the rows are written by the RPC create_task_line_plan (taskLinePlanApi.ts).
 import { BUDGET_ITEM, budgetItemsOfGenus } from '../../../../catalog/budget/item/budgetItemModel';
 import type { DefRow } from '../../../../catalog/product/productModel';
@@ -26,7 +26,8 @@ export interface TaskLinePlanRow {
   qtyTaskLine: number | string | null;
   sumForBudget: number | string | null;
   sumForContract: number | string | null;
-  rowJSON?: { budgetItemTaskLine?: string | null; taskManagementGenusLine?: string | null };
+  /** businessUnitAssigned = the business unit the day was posted to (copied from the line when it was posted); budgetKind = 'cost' | 'revenue' */
+  rowJSON?: { budgetItemTaskLine?: string | null; taskManagementGenusLine?: string | null; businessUnitAssigned?: string | null; budgetKind?: 'cost' | 'revenue' | null };
 }
 
 /** the minimum the RPC create_task_line_plan needs about one line */

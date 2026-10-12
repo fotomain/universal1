@@ -16,6 +16,7 @@ import { approvePM } from '../../../inner/PMApproveYesNoCancelModalWindow';
 import { usePMStore } from '../../../store/store_pm';
 import { pmT } from '../../../i18n/pmT';
 import { runTaskPost } from './runTaskPost';
+import { useBusinessUnitPostCheck } from './useBusinessUnitPostCheck';
 import { projectTaskLinesKey, tasksToPost, useProjectTaskLines } from './useProjectTaskLines';
 
 export type ProjectPostWhich = 'unposted' | 'all';
@@ -27,8 +28,9 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
   const distributions: DefRow<any>[] = useSelector((s: any) => s?.[DISTRIBUTION_TABLE.entity]?.entityDataFromServer) ?? [];
   const calendars: DefRow<any>[] = useSelector((s: any) => s?.[MANAGEMENT_CALENDAR_TABLE.entity]?.entityDataFromServer) ?? [];
   const [busy, setBusy] = useState(false);
-  const live = useRef({ byTask, distributions, calendars, busy });
-  live.current = { byTask, distributions, calendars, busy };
+  const lineCheck = useBusinessUnitPostCheck();
+  const live = useRef({ byTask, distributions, calendars, busy, lineCheck });
+  live.current = { byTask, distributions, calendars, busy, lineCheck };
 
   // the shapes of the distributions are what the plan is calculated with: read them once the project is open
   useEffect(() => {
@@ -71,7 +73,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
         const name = task?.rowJSON?.name || taskGUID;
         const result = await runTaskPost({
           taskGUID, lines: L.byTask[taskGUID] || [], distributions: L.distributions, calendars: L.calendars, calendarForTaskPlan,
-          startMs: sched?.startMs, finishMs: sched?.finishMs,
+          startMs: sched?.startMs, finishMs: sched?.finishMs, lineCheck: L.lineCheck,
         });
         if (result.status === 'posted') {
           posted += 1; rows += result.rows;

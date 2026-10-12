@@ -27,6 +27,8 @@ import { personMatchProblems, personVariantOptions } from './taskLinePersonMatch
 import { fxEnabled, fxProblem, fxSnapshotText, LineFxContext, LineFxProject } from './taskLineFx';
 import type { TaskLineGenusDef } from './taskLineModel';
 import { pmT } from '../../../i18n/pmT';
+import { businessUnitOptions, businessUnitPath } from '../../../../catalog/business_unit/businessUnitModel';
+import { BUSINESS_UNIT_SOURCE_TEXT, lineBudgetKind } from './taskLineBusinessUnit';
 
 /** person.rowJSON -> "first name + last name" (taskLineResource.ts) */
 export { personFullName };
@@ -81,6 +83,22 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       catalogEntityName: BUDGET_ITEM_TABLE.entity, placeholder: pmT('Select budget item…'),
       filterItem: (item) => !isBudgetItemFolder(item as any) && item.rowJSON?.managementGenusItem === genus.genus,
     },
+    // the business unit the line is posted to (right after the budget item): the units that take the kind of the line (a cost is not posted to a revenue center);
+    // empty = the app takes it from the first source that has one: resource, role, budget item, contract, project (taskLineBusinessUnit.ts). Only while there are units.
+    ...(data.businessUnit.length > 0 ? [
+      {
+        key: 'businessUnit', title: pmT('Business unit'), type: 'select', field: 'businessUnitTaskLine', width: 240, placeholder: pmT('Not set'),
+        options: (row) => businessUnitOptions(data.businessUnit, { kind: lineBudgetKind(data, genus.genus, row.rowJSON || {}), cfrRows: data.cfrType, keep: row.rowJSON?.businessUnitTaskLine }),
+      } as VisualColumn,
+      {
+        key: 'businessUnitSource', title: pmT('Unit from'), type: 'custom', width: 150, editable: false,
+        renderCell: (row) => {
+          const src = row.rowJSON?.businessUnitSourceTaskLine as keyof typeof BUSINESS_UNIT_SOURCE_TEXT | undefined;
+          return <Text numberOfLines={1} testID={`task-line-unit-source-${row.rowGUID}`} style={{ color: textColor, opacity: 0.65, fontSize: 12 }}>{src && row.rowJSON?.businessUnitTaskLine ? pmT(BUSINESS_UNIT_SOURCE_TEXT[src] ?? src) : ''}</Text>;
+        },
+        searchText: (row) => businessUnitPath(data.businessUnit, row.rowJSON?.businessUnitTaskLine),
+      } as VisualColumn,
+    ] : []),
     { key: 'n', title: '#', type: 'rowNumber' },
     // the menu Person | Equipment: BEFORE the role and the resource, because the role and the resource are picked from the catalogs of the kind chosen here
     ...(hasMenu ? [{

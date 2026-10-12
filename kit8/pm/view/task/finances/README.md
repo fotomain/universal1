@@ -93,6 +93,13 @@ A Time line books a **person** or an **equipment** (`kit8/catalog/equipment`: a 
   `project.calendarForTaskPlan` by the distribution of the line and saves them in `task_line_plan` (one SQL transaction, Correct033). `taskIsPosted` is false for a new / duplicated line and after ANY change of a line.
 * The posted days are shown by the **Plan** view (Plan button after Finances).
 
+## Business unit (`taskLineBusinessUnit.ts`; the design: `documents/BUSINESS_UNIT_CFR_STRUCTURE.html`, `kit8/catalog/business_unit/README.md`)
+
+`businessUnitTaskLine` (businessUnitTable) is the column RIGHT AFTER the budget item (with "Unit from" = where it came from); shown only while there are business units. It follows the sources until the user chooses:
+the first of resource › role › budget item › contract › project whose unit TAKES the kind of the line (cost / revenue, from the budget item's genus) - a cost line skips a revenue center, a revenue line a cost center
+(`resolveLineBusinessUnit`, `businessUnitPatch` from `computeTaskLineRowJSON`; keys `businessUnitSourceTaskLine`, `businessUnitAutoTaskLine`). The unit select offers only the units that take the kind;
+`lineProblems` marks a wrong one. Post refuses it (`kit8/pm/view/task/plan`). A line without a unit / a project without units behaves exactly as before.
+
 ## Not in this version (on purpose)
 
 * Any roll-up of a stage or the project (the Plan is per task).

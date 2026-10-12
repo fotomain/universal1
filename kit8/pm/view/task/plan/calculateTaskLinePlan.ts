@@ -35,6 +35,11 @@ export interface CalculateTaskLinePlanArgs {
   /** the name of the calendar, for the messages */
   calendarTitle?: string;
   timeZone?: string;
+  /**
+   * a check of a line before it is calculated (business units: a cost line is not posted to a revenue center); a message = the line is left out and reported.
+   * Layer 2 of the check; the SQL procedure create_task_line_plan is the authority behind it.
+   */
+  lineCheck?: (line: TaskLineRow) => string | null;
 }
 
 export interface TaskLinePlanProblem { lineGUID: string | null; message: string }
@@ -96,7 +101,7 @@ export function distributeCorrect033(total: number | null, coefficients: number[
 }
 
 export function calculateTaskLinePlan(args: CalculateTaskLinePlanArgs): TaskLinePlanCalculation {
-  const { taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle, timeZone } = args;
+  const { taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle, timeZone, lineCheck } = args;
   // the lines one after the other as the tabs show them: by genus, then by the order inside the genus (the rows of the plan follow this order)
   const rank = (g: string) => { const i = TASK_LINE_GENUS.findIndex((x) => x.genus === g); return i < 0 ? TASK_LINE_GENUS.length : i; };
   const budgeted = postableLines(lines).slice().sort((a, b) => rank(a.rowParentGUID) - rank(b.rowParentGUID) || (Number(a.orderInList) || 0) - (Number(b.orderInList) || 0));
@@ -121,6 +126,8 @@ export function calculateTaskLinePlan(args: CalculateTaskLinePlanArgs): TaskLine
   const byCode = new Map(distributions.map((d) => [d.rowGUID, d]));
   for (const line of budgeted) {
     const j = line.rowJSON || {};
+    const bad = lineCheck?.(line);
+    if (bad) { errors.push({ lineGUID: line.rowGUID, message: bad }); continue; }
     const code = j.distributionForBudgetTaskLine;
     if (!code) { errors.push({ lineGUID: line.rowGUID, message: 'Choose the budget distribution of the line' }); continue; }
     if (code === DISTRIBUTION.manual) { errors.push({ lineGUID: line.rowGUID, message: 'The manual distribution is not used for posting yet: choose another one' }); continue; }

@@ -58,3 +58,9 @@ days and sums against the line (✓ when equal). Route `/pm/project/task/plan?ta
 | `planColumns.tsx` · `PMProjectTaskPlanCRUD.tsx` · `PMTaskLinePlanView.tsx` | the Plan view |
 
 Tests: `__tests__/pm/view/task/plan` (calculation, Correct033, Post state, Plan view, SQL text), `__tests__/ui/table/reusableTablePost.test.tsx` (the button), `taskFinancesUi.test.tsx` (the column, Post).
+
+## Business unit on the posted days
+`task_line_plan_movements.rowJSON` also carries `businessUnitAssigned` (the unit of the line when it was posted - a later change of the line does not rewrite it) and `budgetKind` (`cost` | `revenue`); the Budgets view shows a "Business unit" column.
+**CHECK:** a cost line is not posted to a revenue center and a revenue line not to a cost center (a unit with no CFR up the tree takes both; a line without a unit is posted as before). Three layers:
+the unit select of the line · `calculateTaskLinePlan(... lineCheck)` (`useBusinessUnitPostCheck`: the line is left out, the message names the line and the center, the others are posted) · the SQL procedure `create_task_line_plan` (an exception, one transaction).
+A unit's CFR cannot be changed to one that no longer takes the kind of days already posted on it (SQL).

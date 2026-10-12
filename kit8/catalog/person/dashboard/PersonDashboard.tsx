@@ -33,6 +33,7 @@ import { personAsProductData } from '../personTypeModel';
 import { issuesByTable, PERSON_RULES, PersonTableKey, validatePersonCatalog } from '../personValidation';
 import { PERSON_DASHBOARD_GROUPS, PERSON_DASHBOARD_TABLE_ORDER, PERSON_TABLE_KEYS, PERSON_TABLES } from './personDashboardModel';
 import { usePersonCatalogData } from './usePersonCatalogData';
+import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { buildPersonTables, computePersonRowJSON, matchesScopeFilters, newRowFromPersonFilters, ScopeFilterDef } from './personDashboardTables';
 
 type Tab = 'checks' | PersonTableKey;
@@ -75,11 +76,13 @@ export default function PersonDashboard() {
     go(key, focusRowGUID ? { focusRowGUID } : {});
   }, [go]);
 
+  const businessUnitColumn = useBusinessUnitColumn();
   const tables = useMemo(() => buildPersonTables(data, labels, {
     today: todayISO(),
+    businessUnitColumn,
     openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
     openPerson: (guid) => (router as any).push({ pathname: PERSON_ROUTES.edit, params: { rowGUID: guid } }),
-  }), [data, labels, openTable, router]);
+  }), [data, labels, openTable, router, businessUnitColumn]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;

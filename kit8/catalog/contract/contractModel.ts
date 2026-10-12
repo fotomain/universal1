@@ -65,6 +65,8 @@ export interface ContractRowJSON {
   supplierRole?: boolean;
   /** Role: customer contract */
   customerRole?: boolean;
+  /** businessUnitTable.rowGUID: the default business unit of a task line that uses this contract (kit8/catalog/business_unit); empty = not set */
+  businessUnitAssigned?: string | null;
 }
 
 export interface ContractRow {
@@ -159,6 +161,7 @@ export function normalizeContract(v: Partial<ContractRowJSON>, decimalDigits = 2
     notes: String(v.notes ?? '').trim(),
     supplierRole: Boolean(v.supplierRole),
     customerRole: Boolean(v.customerRole),
+    businessUnitAssigned: v.businessUnitAssigned ? String(v.businessUnitAssigned) : null,
   };
 }
 

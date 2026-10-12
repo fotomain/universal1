@@ -79,6 +79,16 @@ export interface TaskLineRowJSON {
   /** budgetItemTable.rowGUID (a level 2 item of the line's genus): what the line is budgeted as; a line without one is not posted */
   budgetItemTaskLine: string | null;
   /**
+   * businessUnitTable.rowGUID (kit8/catalog/business_unit): the unit the line is posted to (null = none: as before business units existed). The default comes from the first
+   * source that has a unit taking the kind of the line (resource, role, budget item, contract, project: taskLineBusinessUnit.ts); a cost line is not posted to a revenue
+   * center and a revenue line not to a cost center. Copied to the posted days (task_line_plan_movements.rowJSON.businessUnitAssigned).
+   */
+  businessUnitTaskLine: string | null;
+  /** where the unit came from: 'line' (typed) | 'resource' | 'role' | 'budget' | 'contract' | 'project' (taskLineBusinessUnit.ts) */
+  businessUnitSourceTaskLine: 'line' | 'resource' | 'role' | 'budget' | 'contract' | 'project' | null;
+  /** the last unit the app suggested; while businessUnitTaskLine equals it (or is empty) the line follows the sources */
+  businessUnitAutoTaskLine: string | null;
+  /**
    * POSTED = the days of the line are in task_line_plan (kit8/pm/view/task/plan). false for a new line; ANY change of the line's data sets it false again
    * (taskLineCompute.ts); only the SQL procedure create_task_line_plan sets it true.
    */
@@ -120,7 +130,7 @@ export interface LineFxSnapshot {
 }
 
 export const emptyTaskLine = (): TaskLineRowJSON => ({
-  taskManagementGenusLine: null, budgetItemTaskLine: null, taskIsPosted: false, baseOfDistribution: null,
+  taskManagementGenusLine: null, budgetItemTaskLine: null, businessUnitTaskLine: null, businessUnitSourceTaskLine: null, businessUnitAutoTaskLine: null, taskIsPosted: false, baseOfDistribution: null,
   resourceRoleItem: null, resourceRoleAttributeSetKey: null, taskResourceKind: null, taskResourceItem: null, taskResourceAttributesKey: null,
   taskResourceContract: null, resourceContractTemplateTaskLine: null, taskLinePartnerItem: null, taskLinePartnerContract: null,
   qtyTaskLine: null, priceTaskLine: null, measureUnitTaskLine: null, vatRatioTaskLine: null,

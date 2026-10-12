@@ -29,6 +29,8 @@ export interface PersonTableContext {
   /** open the person's own page (contracts, employee data) */
   openPerson: (personGUID: string) => void;
   today?: string;
+  /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that books this person */
+  businessUnitColumn?: VisualColumn;
 }
 
 /** a descriptor meant for person types (rule R11) */
@@ -83,6 +85,7 @@ export function buildPersonTables(data: PersonCatalogData, L: ProductLabels, ctx
         { key: 'type', title: 'Person type', type: 'select', field: 'personType', options: O.types, allowEmpty: false, width: 140, placeholder: 'Select type…' },
         { key: 'email', title: 'Email', type: 'text', field: 'personEmail', width: 220 },
         { key: 'phone', title: 'Phone', type: 'text', field: 'personPhone', width: 140 },
+        ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('properties', 'Properties', (r) => propsPerPerson(r.rowGUID)),
         count('variants', 'Variants', (r) => variantsPerPerson(r.rowGUID)),

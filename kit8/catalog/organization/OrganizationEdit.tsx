@@ -10,7 +10,6 @@ import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
 import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
-import DepartamentList from '../departament/DepartamentList';
 import {
   ORGANIZATION_CATALOG_OWNER,
   ORGANIZATION_ENTITY,
@@ -91,7 +90,6 @@ export default function OrganizationEdit() {
   const rowGUID = params.rowGUID || params.guid;
   const isNew = !rowGUID;
 
-  const [activeTab, setActiveTab] = useState<'TabMain' | 'TabDepartaments'>('TabMain');
 
   const status = useRealtimeEntity(ORGANIZATION_ENTITY, { readParams: ORGANIZATION_READ_PARAMS });
   const rows: OrganizationRow[] =
@@ -208,51 +206,8 @@ export default function OrganizationEdit() {
         </View>
       )}
 
-      {/* TopTabs Bar: TabMain, TabDepartaments */}
-      <View testID="organization-toptabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
-        {[
-          { id: 'TabMain' as const, label: 'Main Details', icon: 'info' },
-          { id: 'TabDepartaments' as const, label: 'Departments', icon: 'schema' },
-        ].map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              testID={`organization-tab-${tab.id}`}
-              accessibilityRole="tab"
-              aria-selected={active}
-              onPress={() => setActiveTab(tab.id)}
-              style={[
-                styles.topTabButton,
-                {
-                  borderBottomColor: active ? c.primary : 'transparent',
-                  backgroundColor: active ? `${c.primary}18` : 'transparent',
-                },
-              ]}
-            >
-              <IconApp
-                name={tab.icon}
-                size={16}
-                color={active ? c.primary : c.text}
-              />
-              <Text
-                style={[
-                  styles.topTabText,
-                  {
-                    color: active ? c.primary : c.text,
-                    fontWeight: active ? '700' : '500',
-                  },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* TAB 1: TabMain */}
-      {activeTab === 'TabMain' && (
+      {/* the Main Details (the Departments tab was removed: see the business units) */}
+      {(
         <>
           {/* Main Info */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -418,24 +373,6 @@ export default function OrganizationEdit() {
         </>
       )}
 
-      {/* TAB 2: TabDepartaments */}
-      {activeTab === 'TabDepartaments' && (
-        <View style={styles.tabContent} testID="organization-tab-departaments-content">
-          {isNew ? (
-            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border, alignItems: 'center', padding: 32 }]}>
-              <IconApp name="schema" size={48} color={c.text + '99'} />
-              <Text style={[styles.sectionTitle, { color: c.text, textAlign: 'center', marginTop: 12 }]}>
-                Organization Not Saved Yet
-              </Text>
-              <Text style={{ color: c.text + '99', textAlign: 'center', marginTop: 6, maxWidth: 400 }}>
-                Please save this organization first on the "Main Details" tab. Once saved, you can add departments and manage your organizational tree structure here.
-              </Text>
-            </View>
-          ) : (
-            <DepartamentList organizationGUID={existing!.rowGUID} />
-          )}
-        </View>
-      )}
     </ScrollView>
   );
 }

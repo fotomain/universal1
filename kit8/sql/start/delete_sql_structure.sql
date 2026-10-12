@@ -19,7 +19,8 @@
 --   12. delete_management_genus_table.sql - drops managementGenusTable
 --   13. delete_distribution_generic_table.sql - drops distributionGenericTable
 --   14. delete_tables.sql - drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
---   15. helper function kit8_touch_updated_at
+--   15. delete_business_unit_tables.sql - drops businessUnitTable / cfrTypeTable, their functions and the businessUnitAssigned triggers on the other tables (the unit kept on the posted days stays as inert JSON)
+--   16. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
 
@@ -477,7 +478,7 @@ DROP TABLE IF EXISTS public."roleTable" CASCADE;
 DROP TABLE IF EXISTS public."contractTable" CASCADE;
 DROP TABLE IF EXISTS public."partnerTable" CASCADE;
 DROP TABLE IF EXISTS public."personTable" CASCADE;
-DROP TABLE IF EXISTS public."departamentTable" CASCADE;
+DROP TABLE IF EXISTS public."departamentTable" CASCADE;   -- the removed Departments catalog: only a database made before the business units still has it
 DROP TABLE IF EXISTS public."organizationTable" CASCADE;
 DROP TABLE IF EXISTS public."currencyExchangeRateTable" CASCADE;
 DROP TABLE IF EXISTS public."currencyTable" CASCADE;
@@ -566,7 +567,42 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================================
--- PART 15: helpers that no table uses any more
+-- PART 15: delete_business_unit_tables.sql
+-- Removes what PART 18 of start_sql_structure.sql added: the triggers on the catalogs / the line / the project (when those tables are still there), businessUnitTable and cfrTypeTable (data included!),
+-- their functions. The keys businessUnitAssigned / businessUnitTaskLine / project*Center stay inside the rowJSON of the other rows as inert JSON.
+-- Runs after the tables that hold the keys (and create_task_line_plan, PART 2) are gone and BEFORE the helper kit8_touch_updated_at is dropped (businessUnitTable uses it).
+-- =====================================================================================
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'resourceRoleTable', 'contractTable', 'personTable', 'equipmentTable', 'productTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_business_unit', t);
+    END IF;
+  END LOOP;
+  IF to_regclass('public.task_line_table') IS NOT NULL THEN DROP TRIGGER IF EXISTS trg_task_line_table_business_unit ON public.task_line_table; END IF;
+  IF to_regclass('public.project_table') IS NOT NULL THEN DROP TRIGGER IF EXISTS trg_project_table_business_unit ON public.project_table; END IF;
+  FOREACH t IN ARRAY ARRAY['businessUnitTable', 'cfrTypeTable'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t)
+       AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $$;
+DROP TABLE IF EXISTS public."businessUnitTable" CASCADE;
+DROP TABLE IF EXISTS public."cfrTypeTable" CASCADE;
+DROP FUNCTION IF EXISTS public.kit8_check_business_unit_ref();
+DROP FUNCTION IF EXISTS public.kit8_business_unit_guard();
+DROP FUNCTION IF EXISTS public.kit8_business_unit_used(text);
+DROP FUNCTION IF EXISTS public.kit8_business_unit_cfr(text);
+DROP FUNCTION IF EXISTS public.kit8_cfr_accepts(text, text);
+DROP FUNCTION IF EXISTS public.kit8_cfr_type_readonly();
+NOTIFY pgrst, 'reload schema';
+
+
+-- =====================================================================================
+-- PART 16: helpers that no table uses any more
 -- =====================================================================================
 
 DROP FUNCTION IF EXISTS public.kit8_touch_updated_at();

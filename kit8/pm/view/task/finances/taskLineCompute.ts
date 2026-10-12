@@ -7,6 +7,7 @@
 //  3. unit, VAT, price from the catalogs while they are empty / still follow them - for a person the price is the cost of his CONTRACT, else the
 //     rate of the role; the price source; the sums (taskLineMoney.ts)
 //  4. the sums in the accounting / budget currency of the project, as a snapshot of the exchange rate (taskLineFx.ts) - only when `fx` is given
+//  4b. the business unit of the line (taskLineBusinessUnit.ts): from the first source that has a unit taking the kind of the line, while the line follows the sources
 //  5. taskIsPosted = false: this function runs when a cell of the line was changed by the user, and ANY change of the line's data makes its posted
 //     days (task_line_plan) out of date. Only the SQL procedure create_task_line_plan sets it true again.
 import { computeLineJSON } from './taskLineMoney';
@@ -15,6 +16,7 @@ import { personVariants } from './taskLinePersonMatch';
 import { lineResourceKind, resourceBelongsToOtherKind, roleResourceKind } from './taskLineResource';
 import { computeFx, LineFxContext } from './taskLineFx';
 import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
+import { businessUnitPatch, ProjectCenters } from './taskLineBusinessUnit';
 
 export function computeTaskLineRowJSON(
   data: TaskLineCatalogData,
@@ -22,6 +24,8 @@ export function computeTaskLineRowJSON(
   json: Partial<TaskLineRowJSON>,
   day?: string,
   fx?: LineFxContext | null,
+  /** the four business unit centers of the project (the last source of the unit of the line) */
+  project?: ProjectCenters | null,
 ): Partial<TaskLineRowJSON> {
   const patch: Partial<TaskLineRowJSON> = { taskIsPosted: false };
   let merged: Partial<TaskLineRowJSON> = { ...json, taskIsPosted: false };
@@ -51,5 +55,6 @@ export function computeTaskLineRowJSON(
 
   apply(computeLineJSON(merged, suggestForLine(data, genus, merged, day)));
   if (fx) apply(computeFx(fx, data, genus, merged));
+  apply(businessUnitPatch(data, genus, merged, project));
   return patch;
 }

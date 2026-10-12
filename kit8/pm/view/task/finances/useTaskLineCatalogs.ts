@@ -12,6 +12,8 @@ import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../catalog/person/personModel';
 import { EQUIPMENT_ENTITY } from '../../../../catalog/equipment/equipmentModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
+import { BUSINESS_UNIT_TABLE } from '../../../../catalog/business_unit/businessUnitModel';
+import { CFR_TYPE_TABLE } from '../../../../catalog/business_unit/cfrTypeModel';
 import { emptyTaskLineCatalogs, TaskLineCatalogData } from './taskLineCatalogs';
 
 /** catalog list -> its redux entity */
@@ -38,6 +40,8 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   product: PRODUCT_TABLES.product.entity,
   productPrice: PRODUCT_TABLES.productPrice.entity,
   contract: CONTRACT_ENTITY,
+  businessUnit: BUSINESS_UNIT_TABLE.entity,
+  cfrType: CFR_TYPE_TABLE.entity,
 };
 const KEYS = Object.keys(ENTITIES) as (keyof TaskLineCatalogData)[];
 

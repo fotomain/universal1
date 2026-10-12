@@ -33,6 +33,7 @@ import { equipmentAsProductData } from '../equipmentTypeModel';
 import { EQUIPMENT_RULES, EquipmentTableKey, issuesByTable, validateEquipmentCatalog } from '../equipmentValidation';
 import { EQUIPMENT_DASHBOARD_GROUPS, EQUIPMENT_DASHBOARD_TABLE_ORDER, EQUIPMENT_TABLE_KEYS, EQUIPMENT_TABLES } from './equipmentDashboardModel';
 import { useEquipmentCatalogData } from './useEquipmentCatalogData';
+import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { buildEquipmentTables, matchesScopeFilters, newRowFromEquipmentFilters, ScopeFilterDef } from './equipmentDashboardTables';
 
 type Tab = 'checks' | EquipmentTableKey;
@@ -75,10 +76,12 @@ export default function EquipmentDashboard() {
     go(key, focusRowGUID ? { focusRowGUID } : {});
   }, [go]);
 
+  const businessUnitColumn = useBusinessUnitColumn();
   const tables = useMemo(() => buildEquipmentTables(data, labels, {
     today: todayISO(),
+    businessUnitColumn,
     openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
-  }), [data, labels, openTable]);
+  }), [data, labels, openTable, businessUnitColumn]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;

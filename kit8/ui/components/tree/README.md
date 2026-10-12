@@ -79,3 +79,12 @@ column. Product catalog: `kit8/catalog/product/tree` (`useProductFolderTree`, `P
 `FolderTreeReusable.tsx` (component) · `FolderTreeRow.tsx` (memo row) · `FolderTreeDragGhost.tsx` · `folderTreeModel.ts` ·
 `folderTreeDnd.ts` · `useFolderDragSource.ts` · `useLocalFolderTree.ts` · `folderTreeDemoData.ts` · `FolderTree200k.tsx` ·
 tests: `__tests__/ui/tree`, `__tests__/ui/table/reusableTableFolders.test.tsx`, `__tests__/catalog/product/productsWithTree.test.tsx`.
+
+## A tree in ONE table (any depth): `CatalogTreeReusableCRUD` + `CatalogTreePicker`
+
+For a catalog whose rows are ALL nodes of one tree (a business unit is a node AND a row with attributes; `rowParentGUID` = the parent, `'empty'` = a root) - unlike
+`managementGenus` / `budgetItem` (folders in the tree, items in the table).
+`CatalogTreeReusableCRUD.tsx`: the tree with EVERY row as a node beside a `ReusableTable` of the picked node's sub-nodes ("All" = every row); a new row goes UNDER the picked node; header
+(counts, lock, reload), the setup hint, `useCatalogTree` (the `foldersTree` binding: create / rename / move without a loop / delete only a node without sub-nodes).
+`CatalogTreePicker.tsx`: the same nodes in a modal to CHOOSE one; `isSelectable` / `reasonWhy` decide which node can be clicked. The SystemMetaData flag **`selectFromTree`** of the entity:
+true = a node of any level (the first too), absent / false = the leaves only. First user: `kit8/catalog/business_unit`.

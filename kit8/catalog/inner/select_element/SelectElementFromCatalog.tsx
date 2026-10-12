@@ -63,11 +63,6 @@ export function defaultTitleExtractor(row: any): string {
     const code = j.countryCode ? ` (${j.countryCode})` : '';
     return `${flag}${j.countryName}${code}`;
   }
-  // Departament
-  if (j.departmentName) {
-    const code = j.departmentCode ? `[${j.departmentCode}] ` : '';
-    return `${code}${j.departmentName}`;
-  }
   if (j.partnerTitle) return j.partnerTitle;
   if (j.contractNumber && j.contractTitle) return `${j.contractNumber} — ${j.contractTitle}`;
   if (j.contractTitle) return j.contractTitle;

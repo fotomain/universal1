@@ -22,6 +22,9 @@ import { BUDGET_RATE_TYPE, DEFAULT_RATE_TYPE, RATE_TYPES } from '../../../../cat
 import { pmT } from '../../../i18n/pmT';
 import { DEFAULT_CALENDAR_FOR_TASK_PLAN, MANAGEMENT_CALENDAR_TABLE, isCalendarFolder } from '../../../../catalog/management/calendar/managementCalendarModel';
 import { applyTaskInputPatch, taskInputSwitchesOf, TaskInputSwitches } from '../../../model/taskInputScope';
+import BusinessUnitPickerField from '../../../../catalog/business_unit/BusinessUnitPickerField';
+import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusinessUnitData';
+import { PROJECT_CENTER_FIELDS, projectCentersError, unitFitsProjectCenter } from '../../../../catalog/business_unit/businessUnitModel';
 
 export interface PMProjectTaskEditScreenValues extends Partial<TaskInputSwitches> {
   currencyForBudget?: string | null;
@@ -31,6 +34,11 @@ export interface PMProjectTaskEditScreenValues extends Partial<TaskInputSwitches
   exchangeRateTypeForBudget?: string | null;
   projectRevenueBudgetNeeded?: boolean;
   calendarForTaskPlan?: string | null;
+  projectCostCenter?: string | null;
+  projectRevenueCenter?: string | null;
+  projectProfitCenter?: string | null;
+  projectInvestmentCenter?: string | null;
+  projectBusinessUnitsRequired?: boolean;
 }
 
 export const PM_PROJECT_CURRENCY_FIELDS = [
@@ -49,6 +57,11 @@ export const taskEditScreenValuesOf = (j: PMProjectTaskEditScreenValues | undefi
   projectRevenueBudgetNeeded: !!j?.projectRevenueBudgetNeeded,
   ...taskInputSwitchesOf(j),
   calendarForTaskPlan: j?.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN,
+  projectCostCenter: j?.projectCostCenter || null,
+  projectRevenueCenter: j?.projectRevenueCenter || null,
+  projectProfitCenter: j?.projectProfitCenter || null,
+  projectInvestmentCenter: j?.projectInvestmentCenter || null,
+  projectBusinessUnitsRequired: !!j?.projectBusinessUnitsRequired,
 });
 
 export default function PMProjectTaskEditScreenTab({
@@ -62,6 +75,9 @@ export default function PMProjectTaskEditScreenTab({
   const currencies: any[] = useSelector((s: any) => s?.[CURRENCY_ENTITY]?.entityDataFromServer) || [];
   const codeOf = (r: any) => String(r?.rowJSON?.currencyCode || '').toUpperCase();
   const inputs = taskInputSwitchesOf(values);
+  const units = useBusinessUnitData(true);
+  const required = !!values.projectBusinessUnitsRequired;
+  const centersError = projectCentersError(values, units.rows, units.cfrRows, units.loaded);
   /** one switch of the input tree: the rules of applyTaskInputPatch (Time needs a kind) decide the whole patch */
   const setInput = (patch: Partial<TaskInputSwitches>) => onChange(applyTaskInputPatch(inputs, patch));
 
@@ -121,6 +137,25 @@ export default function PMProjectTaskEditScreenTab({
         subtitleExtractor={(r: any) => r?.rowJSON?.description || undefined}
         onChange={(guid) => onChange({ calendarForTaskPlan: guid || DEFAULT_CALENDAR_FOR_TASK_PLAN })}
       />
+
+      {/* the four centers of the project (kit8/catalog/business_unit): the last source of the business unit of a task line */}
+      <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Business units')}</Text>
+      {!required && <Text testID="pm-project-centers-optional" style={{ color: themeColors.text, opacity: 0.6, fontSize: 12, marginBottom: 6 }}>{pmT('This project was made before the business units: its centers are optional.')}</Text>}
+      {PROJECT_CENTER_FIELDS.map((f) => (
+        <BusinessUnitPickerField
+          key={f.key}
+          testID={`pm-project-${f.key}`}
+          label={`${pmT(f.title)} (${f.key})${required ? ' *' : ''}`}
+          rows={units.rows}
+          value={values[f.key] ?? null}
+          allowClear={!required}
+          isSelectable={(g) => unitFitsProjectCenter(units.rows, units.cfrRows, f.key, g)}
+          reasonWhy={() => pmT(`The ${f.title.toLowerCase()} must be: ${f.must}`)}
+          error={required && !values[f.key] ? pmT('Obligatory') : undefined}
+          onChange={(guid) => onChange({ [f.key]: guid })}
+        />
+      ))}
+      {!!centersError && <Text testID="pm-project-centers-error" style={{ color: themeColors.error, fontSize: 12, marginBottom: 6 }}>{centersError}</Text>}
 
       <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Budgets')}</Text>
       <SwitchApp

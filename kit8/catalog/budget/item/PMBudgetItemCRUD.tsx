@@ -19,6 +19,7 @@ import type { ReusableTableRow, VisualColumn } from '../../../ui/components/tabl
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
 import { BUDGET_ITEM_TABLE, budgetItemFolders, budgetItemGenusError, budgetItemGenusOptions, budgetItemPath, budgetItems, budgetItemsWithoutGenus, isBudgetItemFolder } from './budgetItemModel';
 import { useBudgetItemData } from './useBudgetItemData';
+import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { useBudgetItemTree } from './useBudgetItemTree';
 
 export interface PMBudgetItemCRUDProps {
@@ -34,6 +35,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
   const { rows, genusRows, loaded, error, reload } = useBudgetItemData(true);
   const { foldersTree } = useBudgetItemTree(rows, !noCrud, reload);
   const def = BUDGET_ITEM_TABLE;
+  const businessUnitColumn = useBusinessUnitColumn();
 
   const folders = useMemo(() => budgetItemFolders(rows), [rows]);
   const items = useMemo(() => budgetItems(rows), [rows]);
@@ -58,11 +60,13 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
       { key: 'code', title: 'Code', type: 'custom', width: 200, editable: false, renderCell: (row) => <Text numberOfLines={1} testID={`budget-item-code-${row.rowGUID}`} style={{ color: c.text, opacity: 0.75, fontSize: 13 }}>{row.rowGUID}</Text>, searchText: (row) => row.rowGUID },
       { key: 'parent', title: 'Folder', type: 'select', target: 'rowParentGUID', width: 180, allowEmpty: false, placeholder: 'Choose folder…', options: folderOptions },
       { key: 'managementGenusItem', title: 'Management genus', type: 'select', width: 200, allowEmpty: false, placeholder: 'Choose genus…', options: genusOptions, validate: (value) => budgetItemGenusError(value, genusRows) },
+      // the default business unit of a line budgeted as this item (rowJSON.businessUnitAssigned)
+      businessUnitColumn,
       { key: 'description', title: 'Description', type: 'text', width: 380 },
     ];
     // read-only: every cell shows, none is edited
     return noCrud ? cols.map((col) => ({ ...col, editable: false })) : cols;
-  }, [rows, folders, genusOptions, genusRows, noCrud, c.text]);
+  }, [rows, folders, genusOptions, genusRows, noCrud, c.text, businessUnitColumn]);
 
   return (
     <View testID="budget-item-dashboard" style={[styles.root, { backgroundColor: c.background }]}>

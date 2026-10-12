@@ -300,18 +300,9 @@ describe('SelectElementFromCatalog', () => {
     expect(defaultTitleExtractor(countryRow)).toBe('🇱🇻 Latvia (LV)');
     expect(defaultSubtitleExtractor(countryRow)).toBe('LVA · 📞 +371 · 💱 EUR');
 
-    // Departament extraction
-    const deptRow = {
-      rowGUID: 'dept-eng',
-      rowJSON: {
-        departmentName: 'Engineering',
-        departmentCode: 'ENG',
-        headPersonName: 'Alice Smith',
-        description: 'Core product team',
-      },
-    };
-    expect(defaultTitleExtractor(deptRow)).toBe('[ENG] Engineering');
-    expect(defaultSubtitleExtractor(deptRow)).toBe('Lead: Alice Smith · Core product team');
+    // a row with a lead and a description (the Departments catalog is gone; the subtitle rule stays)
+    const leadRow = { rowGUID: 'x', rowJSON: { headPersonName: 'Alice Smith', description: 'Core product team' } };
+    expect(defaultSubtitleExtractor(leadRow)).toBe('Lead: Alice Smith · Core product team');
   });
 
   it('resolves country by ISO code in value (e.g. value="LV")', () => {

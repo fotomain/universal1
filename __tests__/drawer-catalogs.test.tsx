@@ -40,7 +40,7 @@ function mount(path: string) {
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); });
 
-it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partners, Countries, Departments navigate', () => {
+it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partners, Countries, Business units navigate', () => {
   mount('/home');
   expect(q('drawer-item-catalogs')).not.toBeNull();
   expect(q('drawer-item-currencies')).toBeNull(); // not a top-level row any more
@@ -48,7 +48,7 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   expect(q('drawer-subitem-persons')).toBeNull();
   expect(q('drawer-subitem-partners')).toBeNull();
   expect(q('drawer-subitem-countries')).toBeNull();
-  expect(q('drawer-subitem-departaments')).toBeNull();
+  expect(q('drawer-subitem-businessunits')).toBeNull();
   press('drawer-item-catalogs');
   expect(mockNavigate).not.toHaveBeenCalled(); // a group only toggles
 
@@ -77,20 +77,36 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   press('drawer-subitem-countries');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/country');
 
-  // Departments
-  const subDept = q('drawer-subitem-departaments')!;
-  expect(subDept.textContent).toContain('Departments');
-  press('drawer-subitem-departaments');
-  expect(mockNavigate).toHaveBeenCalledWith('/catalog/departament');
+  // Business units (replace the removed Departments)
+  expect(q('drawer-subitem-departaments')).toBeNull();
+  const subUnit = q('drawer-subitem-businessunits')!;
+  expect(subUnit.textContent).toContain('Business units');
+  press('drawer-subitem-businessunits');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
 
   press('drawer-item-catalogs');
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
 });
 
-it('Catalogs comes right before Projects', () => {
+it('Catalogs, then Budgets, come right before Projects', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-pm-projects') - 1);
+  expect(ids.indexOf('drawer-item-budgets')).toBe(ids.indexOf('drawer-item-pm-projects') - 1);
+  expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-budgets') - 1);
+});
+
+it('Budgets is a closed accordion with Budget Items, Business units, Resource contract templates, Resource roles (also kept in Catalogs)', () => {
+  mount('/home');
+  expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed
+  press('drawer-item-budgets');
+  const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
+  const labels = ['Budget Items', 'Business units', 'Resource contract templates', 'Resource roles'];
+  expect(subs).toHaveLength(labels.length);
+  labels.forEach((label, i) => expect(subs[i]).toContain(label)); // in this order (the mocked icon adds its name to the text)
+  press('drawer-subitem-budgets-businessunits');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
+  press('drawer-item-catalogs');
+  for (const id of ['budgetitems', 'businessunits', 'templateresourcecontracts', 'resourceroles']) expect(q(`drawer-subitem-${id}`)).not.toBeNull();
 });
 
 it('Products (product catalog dashboard) is a menu item after Projects and opens the dashboard', () => {
@@ -117,7 +133,7 @@ it('opens by itself on a catalog page (list or edit)', () => {
   mount('/catalog/country');
   expect(q('drawer-subitem-countries')).not.toBeNull();
   act(() => root.unmount());
-  mount('/catalog/departament');
-  expect(q('drawer-subitem-departaments')).not.toBeNull();
+  mount('/catalog/business/unit');
+  expect(q('drawer-subitem-businessunits')).not.toBeNull();
 });
 

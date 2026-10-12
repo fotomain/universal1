@@ -14,6 +14,7 @@ import { contractUnitPrice, CONTRACT_UNIT_HOUR } from './taskLineContractCost';
 import { lineNumber } from './taskLineMoney';
 import type { TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
 import { lineResourceKind, roleResourceKind } from './taskLineResource';
+import { lineBusinessUnitProblem } from './taskLineBusinessUnit';
 
 /** every list a line needs (as read into redux; a missing list = []) */
 export interface TaskLineCatalogData {
@@ -45,14 +46,17 @@ export interface TaskLineCatalogData {
   productType: DefRow<any>[];
   product: DefRow<any>[];
   productPrice: DefRow<any>[];
-  /** contractTable (rowJSON.contractCurrency) */
+  /** contractTable (rowJSON.contractCurrency, rowJSON.businessUnitAssigned) */
   contract: DefRow<any>[];
+  /** businessUnitTable (a tree of any depth) and cfrTypeTable (the enumeration of the Centers of Financial Responsibility): the business unit of a line */
+  businessUnit: DefRow<any>[];
+  cfrType: DefRow<any>[];
 }
 
 export const emptyTaskLineCatalogs = (): TaskLineCatalogData => ({
   managementGenus: [], budgetItem: [], distribution: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
   descriptorDestination: [], propertyValue: [], person: [], equipment: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
-  priceType: [], productType: [], product: [], productPrice: [], contract: [],
+  priceType: [], productType: [], product: [], productPrice: [], contract: [], businessUnit: [], cfrType: [],
 });
 
 /** the role catalog as the rules of catalog/resourcerole/crud expect it */
@@ -196,6 +200,9 @@ export function lineProblems(d: TaskLineCatalogData, genus: TaskLineGenusDef, js
   }
   if (isSet(json.taskResourceItem) && genus.resource === 'product' && !d.product.some((p) => p.rowGUID === json.taskResourceItem)) out.push('The product does not exist any more');
   if (lineNumber(json.priceTaskLine) !== null && lineNumber(json.qtyTaskLine) === null) out.push('Quantity is empty');
+  // the business unit must take the kind of the line (a cost is not posted to a revenue center, a revenue not to a cost center)
+  const unitProblem = lineBusinessUnitProblem(d, genus, json);
+  if (unitProblem) out.push(unitProblem);
   // the contract template asked for: it must exist and belong to the genus of the line
   if (isSet(json.resourceContractTemplateTaskLine)) {
     const tpl = d.resourceContractTemplate.find((t) => t.rowGUID === json.resourceContractTemplateTaskLine);

@@ -128,7 +128,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   // a new Time line of a project that offers equipment says its kind: a person (the menu's first choice) - or an equipment when that is the only kind offered
   const newTimeKind = def.resource !== 'product' && equipmentOffered ? (timeKinds.includes('person') ? 'person' : 'equipment') : undefined;
   const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind]);
-  const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx), [data, def, fx]);
+  const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx, projectJSON), [data, def, fx, projectJSON]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */
   const recalcRow = useCallback((row: { rowGUID: string; rowJSON?: Record<string, any> }): boolean => {

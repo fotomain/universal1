@@ -62,12 +62,6 @@ jest.mock('react-redux', () => ({
   useDispatch: () => mockDispatch,
 }));
 
-jest.mock('../../../kit8/catalog/departament/DepartamentList', () => {
-  const R = require('react');
-  return ({ organizationGUID }: any) =>
-    R.createElement('div', { 'data-testid': 'mock-departament-list', 'data-org': organizationGUID });
-});
-
 import OrganizationEdit from '../../../kit8/catalog/organization/OrganizationEdit';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -137,7 +131,6 @@ describe('OrganizationEdit TopTabs & Country', () => {
       activeUserState: { activeUserEmail: 'admin@universal.io' },
       organizationReusable: { entityDataFromServer: [sampleOrg] },
       countryReusable: { entityDataFromServer: sampleCountries },
-      departamentReusable: { entityDataFromServer: [] },
     };
     mockDispatch.mockClear();
   });
@@ -157,31 +150,13 @@ describe('OrganizationEdit TopTabs & Country', () => {
     });
   }
 
-  it('renders TopTabs: TabMain and TabDepartaments', () => {
+  it('shows the Main Details (the Departments tab was removed: the business units replace it)', () => {
     render(<OrganizationEdit />);
 
-    expect(q('organization-toptabs')).not.toBeNull();
-    expect(q('organization-tab-TabMain')).not.toBeNull();
-    expect(q('organization-tab-TabDepartaments')).not.toBeNull();
-
-    // Default active tab is TabMain
+    expect(q('organization-toptabs')).toBeNull();
+    expect(q('organization-tab-TabDepartaments')).toBeNull();
     expect(q('organization-input-title')).not.toBeNull();
     expect(q('organization-select-country')).not.toBeNull();
-  });
-
-  it('switches to TabDepartaments and renders DepartamentList scoped to organization', () => {
-    render(<OrganizationEdit />);
-
-    press('organization-tab-TabDepartaments');
-
-    expect(q('organization-tab-departaments-content')).not.toBeNull();
-    const deptList = q('mock-departament-list');
-    expect(deptList).not.toBeNull();
-    expect(deptList?.getAttribute('data-org')).toBe('org-test-123');
-
-    // Switch back to TabMain
-    press('organization-tab-TabMain');
-    expect(q('organization-input-title')).not.toBeNull();
   });
 
   it('displays country of residence in SelectElementFromCatalog on TabMain', () => {
@@ -191,15 +166,5 @@ describe('OrganizationEdit TopTabs & Country', () => {
     expect(countryTrigger).not.toBeNull();
     expect(countryTrigger?.textContent).toContain('Latvia');
     expect(countryTrigger?.textContent).toContain('LV');
-  });
-
-  it('shows informational card on TabDepartaments when creating a new organization before saving', () => {
-    mockSearchParams = {}; // New organization (no guid)
-    render(<OrganizationEdit />);
-
-    press('organization-tab-TabDepartaments');
-
-    expect(q('mock-departament-list')).toBeNull();
-    expect(q('organization-tab-departaments-content')?.textContent).toContain('Organization Not Saved Yet');
   });
 });

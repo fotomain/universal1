@@ -46,6 +46,8 @@ export interface DashboardTableContext {
   openTable: (key: ProductTableKey, filters: Record<string, string>, fromRowGUID?: string) => void;
   /** today 'YYYY-MM-DD' (prices valid now) */
   today?: string;
+  /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that uses this product */
+  businessUnitColumn?: VisualColumn;
 }
 
 function Dim({ children, testID }: { children: React.ReactNode; testID?: string }) {
@@ -112,6 +114,7 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
           validate: (v, row) => (lower(v) && data.product.some((p) => p.rowGUID !== row.rowGUID && lower(p.rowJSON?.sku) === lower(v)) ? `SKU "${v}" is already used` : null) },
         typeColumn(),
         { key: 'folder', title: 'Folder', type: 'select', target: 'rowParentGUID', options: O.folders, width: 200 },
+        ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
         // a product has ONE unit for inventory and ONE default unit, both from the units catalog (measureUnitTable)
         { key: 'measureUnitForInventory', title: 'Unit for inventory', type: 'select', options: O.units, allowEmpty: false, width: 130 },
         { key: 'measureUnitDefault', title: 'Default unit', type: 'select', options: O.units, allowEmpty: false, width: 120 },

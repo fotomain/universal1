@@ -48,7 +48,7 @@
 --        mediaPostTableArchive, userTable, userAuthTable, aiSessionTable, dtc*Table (7)
 --   2. catalogs (defTable.md pattern, TEXT ids) + seeds
 --        countryTable, currencyTable, currencyExchangeRateTable, organizationTable,
---        departamentTable, personTable, partnerTable, contractTable
+--        personTable, partnerTable, contractTable
 --   3. PM Gantt (UUID ids, ltree tree, DAG + closure, owner RLS)
 --        project_table, project_task_table, project_task_dependencies_table,
 --        project_task_dependency_closure_table, project_user_settings_table
@@ -366,21 +366,7 @@ CREATE POLICY "organizationTable_update" ON public."organizationTable" FOR UPDAT
 CREATE POLICY "organizationTable_delete" ON public."organizationTable" FOR DELETE TO authenticated
   USING (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL);
 
--- ---- departamentTable: rowOwnerGUID = organization, rowParentGUID = parent dept or 'empty' ---
-CREATE TABLE IF NOT EXISTS public."departamentTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_departamentTable_rowOwner" ON public."departamentTable" ("rowOwnerGUID");
-CREATE INDEX IF NOT EXISTS "idx_departamentTable_rowParent" ON public."departamentTable" ("rowParentGUID");
-CREATE INDEX IF NOT EXISTS "idx_departamentTable_name" ON public."departamentTable" ((lower("rowJSON"->>'departmentName')));
-SELECT public.kit8_setup_def_table('departamentTable');
+-- (the Departments catalog - departamentTable - was removed; the business units, PART 18, replace it)
 
 -- ---- personTable / partnerTable: shared catalogs, signed-in users only (GDPR) ---------------
 CREATE TABLE IF NOT EXISTS public."personTable" (
@@ -459,12 +445,12 @@ CREATE INDEX IF NOT EXISTS "idx_userRoleTable_owner" ON public."userRoleTable" (
 CREATE INDEX IF NOT EXISTS "idx_userRoleTable_role" ON public."userRoleTable" ((lower("rowJSON"->>'roleName')));
 SELECT public.kit8_setup_def_table('userRoleTable');
 
--- departament / person / partner / contract / role / userRole: full CRUD for signed-in users only
+-- person / partner / contract / role / userRole: full CRUD for signed-in users only
 DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['departamentTable', 'personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable'] LOOP
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
@@ -2083,7 +2069,7 @@ DECLARE
     'dtcTaskWaitingTable', 'dtcTaskProgressTable', 'dtcFreeExecutiveTable',
     -- catalogs
     'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
-    'departamentTable', 'personTable', 'partnerTable', 'contractTable',
+    'personTable', 'partnerTable', 'contractTable',
     'roleTable', 'userRoleTable',
     -- PM (React Query invalidation: kit8/pm/crud/realtime, kit8/pm/crud/kanban)
     'project_table', 'project_task_table', 'project_task_dependencies_table', 'project_user_settings_table',
@@ -3895,8 +3881,10 @@ NOTIFY pgrst, 'reload schema';
 --   rowPeriodDatetime  the start of the day (00:00:00) - unique with the line
 --   rowCoefficient     the share of the day, NORMALIZED: the coefficients of a line add up to baseOfDistribution (1)
 --   qtyTaskLine · sumForBudget · sumForContract     the result of the distribution, rounded to 2 digits
---   rowJSON            { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind } copied from the line, so a report needs no join
---                      (taskResourceKind: 'person' | 'equipment' of a Time line, null = a person or not a Time line)
+--   rowJSON            { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind, businessUnitAssigned, budgetKind } copied from the line, so a report needs no join
+--                      (taskResourceKind: 'person' | 'equipment' of a Time line, null = a person or not a Time line;
+--                       businessUnitAssigned = the business unit of the line (businessUnitTable.rowGUID, null = none), budgetKind = 'cost' | 'revenue' of its budget item -
+--                       the unit is kept ON THE POSTED DAYS, so a later change of the line does not rewrite what was posted; PART 18)
 -- The app only READS this table. Rows are written by ONE procedure, in ONE transaction:
 --   create_task_line_plan("taskLinePlanJSON")   (see below)
 --
@@ -3994,6 +3982,9 @@ DECLARE
   v_last     uuid;
   v_genus    text;
   v_item     jsonb;
+  v_ljson    jsonb;
+  v_unit     text;
+  v_kind     text;
   v_col      text;
   v_total    numeric;
   v_sum      numeric;
@@ -4023,12 +4014,35 @@ BEGIN
     v_guid := (v_line->>'lineGUID')::uuid;
     v_idx  := v_idx + 1;
     SELECT l."rowParentGUID", jsonb_build_object('budgetItemTaskLine', l."rowJSON"->'budgetItemTaskLine', 'taskManagementGenusLine', l."rowParentGUID",
-                                                 'taskResourceKind', COALESCE(l."rowJSON"->'taskResourceKind', 'null'::jsonb))
-      INTO v_genus, v_item
+                                                 'taskResourceKind', COALESCE(l."rowJSON"->'taskResourceKind', 'null'::jsonb)), l."rowJSON"
+      INTO v_genus, v_item, v_ljson
       FROM public.task_line_table l WHERE l."rowGUID" = v_guid AND l."rowOwnerGUID" = v_task;
     IF v_genus IS NULL THEN
       RAISE EXCEPTION 'create_task_line_plan: line % is not a line of task %', v_guid, v_task;
     END IF;
+
+    -- the business unit of the line (PART 18): its kind = the folder of the genus of the budget item (costsGenus -> 'cost', revenuesGenus -> 'revenue'),
+    -- else of the genus of the line. A line without a unit is posted as before. A cost on a revenue center (or a revenue on a cost center) is REFUSED.
+    v_unit := NULLIF(v_ljson->>'businessUnitTaskLine', '');
+    SELECT CASE gf."rowGUID" WHEN 'costsGenus' THEN 'cost' WHEN 'revenuesGenus' THEN 'revenue' END INTO v_kind
+      FROM public."budgetItemTable" bi
+      JOIN public."managementGenusTable" g  ON g."rowGUID"  = bi."rowJSON"->>'managementGenusItem'
+      JOIN public."managementGenusTable" gf ON gf."rowGUID" = g."rowParentGUID"
+     WHERE bi."rowGUID" = v_ljson->>'budgetItemTaskLine';
+    IF v_kind IS NULL THEN
+      SELECT CASE gf."rowGUID" WHEN 'costsGenus' THEN 'cost' WHEN 'revenuesGenus' THEN 'revenue' END INTO v_kind
+        FROM public."managementGenusTable" g JOIN public."managementGenusTable" gf ON gf."rowGUID" = g."rowParentGUID" WHERE g."rowGUID" = v_genus;
+    END IF;
+    IF v_unit IS NOT NULL THEN
+      IF NOT EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = v_unit) THEN
+        RAISE EXCEPTION 'create_task_line_plan: line % has the business unit "%" that does not exist', v_guid, v_unit;
+      END IF;
+      IF NOT public.kit8_cfr_accepts(public.kit8_business_unit_cfr(v_unit), v_kind) THEN
+        RAISE EXCEPTION 'create_task_line_plan: line % (a % line) cannot be posted to the business unit "%" - a %', v_guid, v_kind, v_unit,
+                        COALESCE((SELECT c."rowJSON"->>'title' FROM public."cfrTypeTable" c WHERE c."rowGUID" = public.kit8_business_unit_cfr(v_unit)), 'unit without a CFR');
+      END IF;
+    END IF;
+    v_item := v_item || jsonb_build_object('businessUnitAssigned', to_jsonb(v_unit), 'budgetKind', to_jsonb(v_kind));
 
     v_days := v_line->'days';
     IF jsonb_typeof(v_days) <> 'array' OR jsonb_array_length(v_days) = 0 THEN
@@ -4494,6 +4508,285 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT t."rowJSON"->>'title' AS type, count(e.*) AS equipment FROM public."equipmentTypeTable" t LEFT JOIN public."equipmentTable" e ON e."rowJSON"->>'equipmentType' = t."rowGUID" GROUP BY 1;
 --   SELECT e."rowJSON"->>'equipmentTitle', v."rowJSON"->>'title' FROM public."equipmentTable" e JOIN public."variantTable" v ON v."rowOwnerGUID" = e."rowGUID" ORDER BY 1, 2;
 --   SELECT r."rowJSON"->>'title', pv."rowJSON"->>'value' AS min_power_kw FROM public."resourceRoleTable" r JOIN public."propertyValueTable" pv ON pv."rowOwnerGUID" = r."rowGUID" WHERE r."rowOwnerGUID" = 'equipmentResources';
+
+
+-- ===============================================================================================
+-- PART 18: create_business_unit_tables.sql
+-- cfrTypeTable (the enumeration of the Centers of Financial Responsibility) + businessUnitTable (a tree of any depth) + the checks of businessUnitAssigned + the unit on the posted days
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - BUSINESS UNITS: create_business_unit_tables.sql
+-- (run AFTER parts 1-17; IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT. Remove again with PART 0 of delete_sql_structure.sql.)
+-- Design: documents/BUSINESS_UNIT_CFR_STRUCTURE.html (document "W1 businessUnit").
+--
+-- cfrTypeTable - the ENUMERATION "Centers Of Financial Responsibility" (works like a 1C enumeration): a flat table of 4 fixed values, written by this file ONLY.
+--   rowGUID = the code: costCenter · revenueCenter · profitCenter · investmentCenter   rowOwnerGUID 'cfrTypeCatalog'   rowParentGUID 'empty'
+--   rowJSON { title, description, acceptsCosts, acceptsRevenues }  - the rule "which center takes which budget kind" lives HERE, SQL and the app read the same flags.
+--   Signed-in users can only READ it (no INSERT / UPDATE / DELETE privilege, no policy) and a trigger refuses a write from any role but postgres / supabase_admin.
+--
+-- businessUnitTable - the business units, ONE table, a tree of any depth (an enterprise is a root: rowParentGUID 'empty'):
+--   rowGUID (text) · rowOwnerGUID 'businessUnitCatalog' · rowParentGUID = the parent unit | 'empty' · orderInList · rowJSON { title, code, description, cfrAssigned, isActive }
+--   rowJSON.cfrAssigned = cfrTypeTable.rowGUID (optional). EFFECTIVE CFR of a unit = its own cfrAssigned, else the nearest ancestor's, else none (kit8_business_unit_cfr).
+--   Guards: the parent exists, no loop, cfrAssigned exists, a unit with children or in use is not deleted (deactivate it: isActive false), and a CFR change that
+--   would contradict days already posted on the unit is refused.
+--
+-- rowJSON.businessUnitAssigned (the default unit) on budgetItemTable, resourceRoleTable, contractTable, personTable, equipmentTable, productTable; the four project
+-- fields projectCostCenter / projectRevenueCenter / projectProfitCenter / projectInvestmentCenter on project_table; businessUnitTaskLine on task_line_table:
+-- every one must be an existing unit (kit8_check_business_unit_ref); the project fields must be of the right kind (cost accepts costs, revenue accepts revenues,
+-- profit = profitCenter, investment = investmentCenter).
+-- The POSTED days (task_line_plan_movements.rowJSON) carry businessUnitAssigned + budgetKind ('cost' | 'revenue'); create_task_line_plan refuses a line whose unit
+-- does not accept its kind (a cost on a revenue center, a revenue on a cost center) - see PART 15.
+-- =====================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_plan_movements') IS NULL OR to_regclass('public."budgetItemTable"') IS NULL OR to_regclass('public."equipmentTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run parts 1-17 first (business units point at the task lines, the budget items and the equipment)';
+  END IF;
+END $$;
+
+-- ---- cfrTypeTable: the enumeration ----------------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public."cfrTypeTable" (
+  "rowGUID"       TEXT        NOT NULL,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'cfrTypeCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+SELECT public.kit8_setup_def_table('cfrTypeTable');
+
+-- the enumeration is written by this file only (an app user has no privilege anyway; service_role is refused here)
+CREATE OR REPLACE FUNCTION public.kit8_cfr_type_readonly() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF current_user NOT IN ('postgres', 'supabase_admin') THEN
+    RAISE EXCEPTION 'cfrTypeTable is an enumeration: its values are fixed (nobody adds, changes or deletes them at run time)';
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS "trg_cfrTypeTable_readonly" ON public."cfrTypeTable";
+CREATE TRIGGER "trg_cfrTypeTable_readonly" BEFORE INSERT OR UPDATE OR DELETE ON public."cfrTypeTable"
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_cfr_type_readonly();
+
+DO $$
+DECLARE
+  t text := 'cfrTypeTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+END $$;
+
+-- (the 4 values of the enumeration: start_sql_data.sql)
+
+-- does a center of this CFR take a line of this kind? null CFR (a unit with none up the tree) / null kind = yes (nothing to check)
+CREATE OR REPLACE FUNCTION public.kit8_cfr_accepts(p_cfr text, p_kind text) RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  SELECT CASE
+    WHEN p_cfr IS NULL OR p_kind IS NULL THEN true
+    ELSE COALESCE((SELECT CASE p_kind WHEN 'cost' THEN (c."rowJSON"->>'acceptsCosts')::boolean
+                                      WHEN 'revenue' THEN (c."rowJSON"->>'acceptsRevenues')::boolean END
+                      FROM public."cfrTypeTable" c WHERE c."rowGUID" = p_cfr), false)
+  END;
+$$;
+
+-- ---- businessUnitTable ------------------------------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public."businessUnitTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'businessUnitCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_owner_order" ON public."businessUnitTable" ("rowOwnerGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_parent" ON public."businessUnitTable" ("rowParentGUID");
+CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_cfr" ON public."businessUnitTable" ((("rowJSON"->>'cfrAssigned')));
+SELECT public.kit8_setup_def_table('businessUnitTable');
+
+-- the effective CFR of a unit: its own, else the nearest ancestor's, else null
+CREATE OR REPLACE FUNCTION public.kit8_business_unit_cfr(p_unit text) RETURNS text
+LANGUAGE sql STABLE AS $$
+  WITH RECURSIVE up AS (
+    SELECT b."rowGUID", b."rowParentGUID", NULLIF(b."rowJSON"->>'cfrAssigned', '') AS cfr, 0 AS depth
+      FROM public."businessUnitTable" b WHERE b."rowGUID" = p_unit
+    UNION ALL
+    SELECT b."rowGUID", b."rowParentGUID", NULLIF(b."rowJSON"->>'cfrAssigned', ''), up.depth + 1
+      FROM public."businessUnitTable" b JOIN up ON b."rowGUID" = up."rowParentGUID" WHERE up.depth < 200
+  )
+  SELECT cfr FROM up WHERE cfr IS NOT NULL ORDER BY depth LIMIT 1;
+$$;
+
+-- where is a unit used? (text of the first place found, null = nowhere): the guard of the delete
+CREATE OR REPLACE FUNCTION public.kit8_business_unit_used(p_unit text) RETURNS text
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+  t text;
+  v_hit boolean;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public."businessUnitTable" c WHERE c."rowParentGUID" = p_unit) THEN RETURN 'it has sub-units'; END IF;
+  IF EXISTS (SELECT 1 FROM public.task_line_table l WHERE l."rowJSON"->>'businessUnitTaskLine' = p_unit) THEN RETURN 'a task line uses it'; END IF;
+  IF EXISTS (SELECT 1 FROM public.task_line_plan_movements m WHERE m."rowJSON"->>'businessUnitAssigned' = p_unit) THEN RETURN 'posted days carry it'; END IF;
+  IF EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowJSON"->>'projectCostCenter' = p_unit OR p."rowJSON"->>'projectRevenueCenter' = p_unit
+                                                     OR p."rowJSON"->>'projectProfitCenter' = p_unit OR p."rowJSON"->>'projectInvestmentCenter' = p_unit) THEN RETURN 'a project uses it'; END IF;
+  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'resourceRoleTable', 'contractTable', 'personTable', 'equipmentTable', 'productTable'] LOOP
+    EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I WHERE "rowJSON"->>''businessUnitAssigned'' = $1)', t) INTO v_hit USING p_unit;
+    IF v_hit THEN RETURN t || ' uses it'; END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+-- guards of a unit: the parent exists, no loop, cfrAssigned exists, and a new CFR must not contradict days already posted on the unit
+CREATE OR REPLACE FUNCTION public.kit8_business_unit_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_cfr text;
+  v_bad integer;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF public.kit8_business_unit_used(OLD."rowGUID") IS NOT NULL THEN
+      RAISE EXCEPTION 'businessUnitTable %: not deleted, %. Deactivate it instead (isActive = false).', OLD."rowGUID", public.kit8_business_unit_used(OLD."rowGUID");
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF NEW."rowParentGUID" <> 'empty' THEN
+    IF NEW."rowParentGUID" = NEW."rowGUID" THEN
+      RAISE EXCEPTION 'businessUnitTable %: a unit cannot be its own parent', NEW."rowGUID";
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public."businessUnitTable" p WHERE p."rowGUID" = NEW."rowParentGUID") THEN
+      RAISE EXCEPTION 'businessUnitTable %: the parent "%" does not exist', NEW."rowGUID", NEW."rowParentGUID";
+    END IF;
+    IF EXISTS (
+      WITH RECURSIVE up AS (
+        SELECT b."rowGUID", b."rowParentGUID", 1 AS depth FROM public."businessUnitTable" b WHERE b."rowGUID" = NEW."rowParentGUID"
+        UNION ALL
+        SELECT b."rowGUID", b."rowParentGUID", up.depth + 1 FROM public."businessUnitTable" b JOIN up ON b."rowGUID" = up."rowParentGUID" WHERE up.depth < 200
+      ) SELECT 1 FROM up WHERE up."rowGUID" = NEW."rowGUID"
+    ) THEN
+      RAISE EXCEPTION 'businessUnitTable %: the parent "%" is below this unit (a loop)', NEW."rowGUID", NEW."rowParentGUID";
+    END IF;
+  END IF;
+
+  v_cfr := NULLIF(NEW."rowJSON"->>'cfrAssigned', '');
+  IF v_cfr IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."cfrTypeTable" c WHERE c."rowGUID" = v_cfr) THEN
+    RAISE EXCEPTION 'businessUnitTable %: cfrAssigned "%" is not a value of cfrTypeTable', NEW."rowGUID", v_cfr;
+  END IF;
+
+  -- a CFR that no longer takes the kind of days already posted on this unit
+  IF TG_OP = 'UPDATE' AND (NEW."rowJSON"->>'cfrAssigned') IS DISTINCT FROM (OLD."rowJSON"->>'cfrAssigned') AND v_cfr IS NOT NULL THEN
+    SELECT count(*) INTO v_bad FROM public.task_line_plan_movements m
+     WHERE m."rowJSON"->>'businessUnitAssigned' = NEW."rowGUID" AND NOT public.kit8_cfr_accepts(v_cfr, m."rowJSON"->>'budgetKind');
+    IF v_bad > 0 THEN
+      RAISE EXCEPTION 'businessUnitTable %: % posted day(s) of this unit are of a kind the % does not take', NEW."rowGUID", v_bad, v_cfr;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS "trg_businessUnitTable_guard" ON public."businessUnitTable";
+CREATE TRIGGER "trg_businessUnitTable_guard" BEFORE INSERT OR UPDATE OR DELETE ON public."businessUnitTable"
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_business_unit_guard();
+
+DO $$
+DECLARE
+  t text := 'businessUnitTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+END $$;
+
+-- ---- the example company of the document "W1 businessUnit": 29 units, 4 levels, 9 with a CFR (the others inherit; Enterprise #1 = investment center) --------------
+-- fixed codes (bu_...) so the demo tree and the tests are repeatable; parents before children
+-- (the 29 example units: start_sql_data.sql)
+
+-- ---- businessUnitAssigned on the six catalogs, the line and the project: an existing unit, of the right kind -------------------------------------------------
+-- trigger arguments: 'key' = the unit must exist · 'key:cost' / 'key:revenue' = ... and its effective CFR must take that kind · 'key=profitCenter' = ... and be exactly that CFR
+CREATE OR REPLACE FUNCTION public.kit8_check_business_unit_ref() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  a text;
+  v_key text;
+  v_unit text;
+  v_cfr text;
+BEGIN
+  FOREACH a IN ARRAY TG_ARGV LOOP
+    v_key := split_part(split_part(a, ':', 1), '=', 1);
+    v_unit := NULLIF(NEW."rowJSON"->>v_key, '');
+    CONTINUE WHEN v_unit IS NULL OR v_unit = 'empty';
+    IF NOT EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = v_unit) THEN
+      RAISE EXCEPTION '%.rowJSON.%: "%" is not a business unit', TG_TABLE_NAME, v_key, v_unit;
+    END IF;
+    v_cfr := public.kit8_business_unit_cfr(v_unit);
+    IF position(':' IN a) > 0 AND NOT public.kit8_cfr_accepts(v_cfr, split_part(a, ':', 2)) THEN
+      RAISE EXCEPTION '%.rowJSON.%: the unit "%" (%) does not take %s', TG_TABLE_NAME, v_key, v_unit, v_cfr, split_part(a, ':', 2);
+    END IF;
+    IF position('=' IN a) > 0 AND v_cfr IS DISTINCT FROM split_part(a, '=', 2) THEN
+      RAISE EXCEPTION '%.rowJSON.%: the unit "%" must be a % (it is %)', TG_TABLE_NAME, v_key, v_unit, split_part(a, '=', 2), COALESCE(v_cfr, 'without a CFR');
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'resourceRoleTable', 'contractTable', 'personTable', 'equipmentTable', 'productTable'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_business_unit', t);
+    EXECUTE format('CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF "rowJSON" ON public.%I FOR EACH ROW EXECUTE FUNCTION public.kit8_check_business_unit_ref(%L)',
+                   'trg_' || t || '_business_unit', t, 'businessUnitAssigned');
+  END LOOP;
+END $$;
+DROP TRIGGER IF EXISTS trg_task_line_table_business_unit ON public.task_line_table;
+CREATE TRIGGER trg_task_line_table_business_unit BEFORE INSERT OR UPDATE OF "rowJSON" ON public.task_line_table
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_check_business_unit_ref('businessUnitTaskLine');
+DROP TRIGGER IF EXISTS trg_project_table_business_unit ON public.project_table;
+CREATE TRIGGER trg_project_table_business_unit BEFORE INSERT OR UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_check_business_unit_ref('projectCostCenter:cost', 'projectRevenueCenter:revenue', 'projectProfitCenter=profitCenter', 'projectInvestmentCenter=investmentCenter');
+
+-- realtime
+DO $$
+DECLARE
+  t text;
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['cfrTypeTable', 'businessUnitTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT "rowGUID", "rowJSON"->>'acceptsCosts' AS costs, "rowJSON"->>'acceptsRevenues' AS revenues FROM public."cfrTypeTable" ORDER BY "orderInList";
+--   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title', "rowJSON"->>'cfrAssigned', public.kit8_business_unit_cfr("rowGUID") AS effective FROM public."businessUnitTable" ORDER BY "orderInList";   -- 29 rows
 
 
 -- ===============================================================================================

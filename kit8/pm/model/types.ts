@@ -138,6 +138,16 @@ export interface PMRowJSON {
   projectExpenseCostsNeeded?: boolean;
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
+  /**
+   * Business units (kit8/catalog/business_unit; Project settings -> Finances): the four centers of the project = businessUnitTable.rowGUID.
+   * A cost line defaults to projectCostCenter, a revenue line to projectRevenueCenter (then the profit / investment center); the last source of the unit of a line.
+   * Obligatory on every NEW project (`projectBusinessUnitsRequired` = true, set when the project is made): it cannot be saved without them. A project made before has none.
+   */
+  projectCostCenter?: string | null;
+  projectRevenueCenter?: string | null;
+  projectProfitCenter?: string | null;
+  projectInvestmentCenter?: string | null;
+  projectBusinessUnitsRequired?: boolean;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */

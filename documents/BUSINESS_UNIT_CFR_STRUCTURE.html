@@ -86,10 +86,31 @@
 <main>
 
 <section id="read">
-  <h1>Business units and Centers of Financial Responsibility <span class="pill ask">proposal - nothing built</span></h1>
+  <h1>Business units and Centers of Financial Responsibility <span class="pill new">built 2026-10-12</span></h1>
   <p class="lead">Source: Google Doc "W1 businessUnit" (PART 1: "do not code. improve and make ./documents/BUSINESS_UNIT_CFR_STRUCTURE.html" - this page; PART 2: the
   <code>businessUnitTable</code> catalog). I read the task-line, plan/post, budget-item, management-genus, project-settings, department and tree code and checked every
-  statement below against it. No application file was changed; <code>kit8/catalog/business_unit</code> exists but is an empty folder.</p>
+  statement below against it. (When this page was first written no application file had been changed; see the status below.)</p>
+
+  <div class="good" id="built">
+    <b>Status: built.</b> The answers Q1-Q9 were given and applied as follows. The text below this block is the proposal as it was written, before the work.
+    <ul class="tight">
+      <li><b>Q1</b> (priority): no ranking was given - the default is built: line › resource › role › budget item › contract › project. One line in <code>taskLineBusinessUnit.ts</code> changes it.</li>
+      <li><b>Q2</b>: yes - a revenue line is refused on a cost center too; profit and investment centers take both. The investment center will take only investment (capex) lines <i>later</i>: the flags on <code>cfrTypeTable</code> are the place.</li>
+      <li><b>Q3</b>: ok - a unit with no CFR inherits the nearest parent's; none up the tree = not checked.</li>
+      <li><b>Q4</b>: "assign - for SQL data consistency": the CFR of the 29 example units is assigned in the SQL seed (9 units) and the tests parse exactly that seed.</li>
+      <li><b>Q5</b>: the Departments catalog is <b>removed</b> (screens, routes, drawer item, the Organization tab, the SystemMetaData entry, the table in the structure / code files). An old database keeps an unused <code>departamentTable</code>; the delete file still drops it.</li>
+      <li><b>Q6</b>: obligatory for new projects - a new project gets the first unit that fits each of the four fields and <b>cannot be saved without them</b> (<code>projectBusinessUnitsRequired</code>); a project made before is not forced.</li>
+      <li><b>Q7</b>: the business unit has <code>selectFromTree: true</code> - any branch from any level. The generic default of the flag (absent / false) stays "leaves only".</li>
+      <li><b>Q8</b>: <code>businessUnitAssigned</code> (+ <code>budgetKind</code>) is kept on the posted days (<code>task_line_plan_movements.rowJSON</code>) in this version, not phase 2; the line keeps its own column too, as the document says.</li>
+      <li><b>Q9</b>: ok - English titles in the seed, fixed (an enumeration).</li>
+    </ul>
+    Where it lives: <code>kit8/catalog/business_unit</code> (README), <code>kit8/ui/components/tree/CatalogTreeReusableCRUD.tsx</code> + <code>CatalogTreePicker.tsx</code>, route <code>/catalog/business/unit</code> (drawer: Catalogs → Business units),
+    SQL PART 18 of <code>start_sql_structure.sql</code> (also in <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>) and PART 15 of <code>delete_sql_structure.sql</code> - tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code> and by hand
+    (the enumeration is read-only, the guards, the three project-center rules, the Post check on a cost / revenue line and a CFR change that contradicts posted days).
+    The spike of section 3 worked: <code>ReusableTable</code> + <code>foldersTree</code> shows the picked unit's sub-units when every row is also a node, with no change to the plugin.
+    <b>Not built (on purpose):</b> a one-time migration of old projects, units on the Kanban / Gantt views, the capex rule of the investment center, a re-resolve of the unit of existing lines when a source changes later
+    (a line is a snapshot, like the price; it follows the sources while a cell of it is edited).
+  </div>
 
   <h3>What the document asks for (my reading)</h3>
   <div class="card"><ol class="steps">

@@ -1,6 +1,7 @@
 // Task line plan - the columns of the read-only table (VisualColumn[] of the ReusableTable). One table for ALL the lines of the task:
 //   # · Budget item · Genus · Line (role + person / equipment / product) · Period · Coefficient · Qty · Sum for budget · Sum for contract
 // The amounts are the root columns of task_line_plan (target = the column), so the footer adds them up per table. Nothing is editable.
+import { businessUnitPath } from '../../../../catalog/business_unit/businessUnitModel';
 import React from 'react';
 import { Text } from 'react-native';
 import { rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
@@ -42,9 +43,12 @@ export function buildPlanColumns({ data, linesById, textColor, mutedColor }: Pla
   const txt = (s: string, opacity = 1) => <Text numberOfLines={1} style={{ color: opacity === 1 ? textColor : mutedColor, fontSize: 13 }}>{s}</Text>;
   const budgetItemTitle = (row: any) => rowTitle(data.budgetItem.find((b) => b.rowGUID === row.rowJSON?.budgetItemTaskLine)) || String(row.rowJSON?.budgetItemTaskLine ?? '');
   const genusTitle = (row: any) => rowTitle(data.managementGenus.find((g) => g.rowGUID === (row.rowJSON?.taskManagementGenusLine ?? lineOf(row)?.rowParentGUID))) || '';
+  // the business unit the day was posted to: kept ON THE POSTED DAY (a later change of the line does not rewrite it)
+  const unitTitle = (row: any) => (row.rowJSON?.businessUnitAssigned ? businessUnitPath(data.businessUnit, row.rowJSON.businessUnitAssigned) : '');
   return [
     { key: 'n', title: '#', type: 'rowNumber' },
     { key: 'budgetItem', title: pmT('Budget item'), type: 'custom', width: 180, editable: false, renderCell: (row) => txt(budgetItemTitle(row)), searchText: (row) => budgetItemTitle(row) },
+    ...(data.businessUnit.length > 0 ? [{ key: 'businessUnit', title: pmT('Business unit'), type: 'custom', width: 240, editable: false, renderCell: (row) => txt(unitTitle(row)), searchText: (row) => unitTitle(row) } as VisualColumn] : []),
     { key: 'genus', title: pmT('Genus'), type: 'custom', width: 120, editable: false, renderCell: (row) => txt(genusTitle(row)), searchText: (row) => genusTitle(row) },
     { key: 'line', title: pmT('Line'), type: 'custom', width: 260, editable: false, renderCell: (row) => txt(planLineLabel(data, lineOf(row))), searchText: (row) => planLineLabel(data, lineOf(row)) },
     { key: 'period', title: pmT('Period'), type: 'custom', width: 180, editable: false, renderCell: (row) => txt(planPeriodText((row as any).rowPeriodDatetime)), searchText: (row) => planPeriodText((row as any).rowPeriodDatetime) },

@@ -11,6 +11,7 @@ import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN } from '../..
 import type { DefRow } from '../../../../catalog/product/productModel';
 import type { TaskLineRow } from '../finances/taskLineModel';
 import { runTaskPost, taskDaysOf } from './runTaskPost';
+import { useBusinessUnitPostCheck } from './useBusinessUnitPostCheck';
 import { taskPostState, TaskPostState } from './taskLinePlanModel';
 import { pmT } from '../../../i18n/pmT';
 
@@ -32,8 +33,9 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
   const finishMs = usePMStore((s) => s.schedule[taskGUID]?.finishMs);
   const calendars: DefRow<any>[] = useSelector((s: any) => s?.[MANAGEMENT_CALENDAR_TABLE.entity]?.entityDataFromServer) ?? [];
   const state: TaskPostState = useMemo(() => taskPostState(lines), [lines]);
-  const live = useRef({ lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs });
-  live.current = { lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs };
+  const lineCheck = useBusinessUnitPostCheck();
+  const live = useRef({ lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs, lineCheck });
+  live.current = { lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs, lineCheck };
 
   const post = useCallback(async (): Promise<void> => {
     const say = (message: string) => dispatch(showSnackbar({ message }));

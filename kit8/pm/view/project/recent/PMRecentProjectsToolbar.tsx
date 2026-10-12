@@ -62,6 +62,8 @@ import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
 import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
+import { useBusinessUnitData } from "../../../../catalog/business_unit/useBusinessUnitData";
+import { defaultProjectCenters, projectCentersError } from "../../../../catalog/business_unit/businessUnitModel";
 import PMProjectTaskEditScreenTab, { taskEditScreenValuesOf, type PMProjectTaskEditScreenValues } from "../settings/PMProjectTaskEditScreenTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
@@ -117,6 +119,8 @@ export default function PMRecentProjectsToolbar({
   const projectStartMs = usePMStore((s) => s.projectStartMs);
   const projectFinishMs = usePMStore((s) => s.projectFinishMs);
 
+  // the business units (kit8/catalog/business_unit): a new project gets its four centers, and cannot be saved without them
+  const units = useBusinessUnitData(true);
   const buildRow = useBuildProjectRow(ownerGUID);
   const createProject = useCreateProjectMutation(ownerGUID);
   const updateProject = useUpdateProjectMutation(ownerGUID);
@@ -234,6 +238,9 @@ export default function PMRecentProjectsToolbar({
       mainCustomerGUID: null,
       mainCustomerContractGUID: null,
       ...taskEditScreenValuesOf(null),
+      // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Finances tab)
+      ...defaultProjectCenters(units.rows, units.cfrRows),
+      projectBusinessUnitsRequired: true,
     });
   };
   const openEditFor = (project: PMProjectRow | undefined) => {
@@ -322,6 +329,10 @@ export default function PMRecentProjectsToolbar({
             projectMaterialCostsNeeded: json.projectMaterialCostsNeeded ?? d.projectMaterialCostsNeeded,
             projectExpenseCostsNeeded: json.projectExpenseCostsNeeded ?? d.projectExpenseCostsNeeded,
             calendarForTaskPlan: json.calendarForTaskPlan ?? d.calendarForTaskPlan,
+            projectCostCenter: json.projectCostCenter ?? d.projectCostCenter,
+            projectRevenueCenter: json.projectRevenueCenter ?? d.projectRevenueCenter,
+            projectProfitCenter: json.projectProfitCenter ?? d.projectProfitCenter,
+            projectInvestmentCenter: json.projectInvestmentCenter ?? d.projectInvestmentCenter,
           }
         : d,
     );
@@ -335,6 +346,12 @@ export default function PMRecentProjectsToolbar({
     if (!name) return setDraftError("Name is required.");
     if (startMs === null) return setDraftError("Start must be YYYY-MM-DD.");
     const finishMs = draft.projectFinishDate ? (parseDateISO(draft.projectFinishDate) ?? parsePlanDate(draft.projectFinishDate, draft.planDateInputFormat)) : null;
+    // the four business units are obligatory on a project made with them (every new project): it is not saved without them
+    const centersError = projectCentersError(draft, units.rows, units.cfrRows, units.loaded);
+    if (centersError) {
+      setActiveTab('TabFinances');
+      return setDraftError(centersError);
+    }
     const treeCmdMode = draft.projectTreeContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
     const ganttCmdMode = draft.projectGanttChartContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
     if (draft.rowGUID) {

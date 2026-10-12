@@ -34,6 +34,7 @@ import { isSet, roleAsProductData } from '../crud/resourceRoleCatalogTools';
 import { buildResourceRoleLabels } from '../crud/resourceRoleLabels';
 import { issuesByTable, validateResourceRoleCatalog } from '../crud/resourceRoleValidation';
 import { useResourceRoleCatalogData } from './useResourceRoleCatalogData';
+import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import {
   buildResourceRoleTables, matchesScopeFilters, newRowFromRoleFilters, ROLE_DASHBOARD_GROUPS, ROLE_DASHBOARD_TABLE_ORDER, ScopeFilterDef,
 } from './resourceRoleDashboardTables';
@@ -82,10 +83,12 @@ export default function ResourceRoleDashboardCRUD() {
     go(key, focusRowGUID ? { focusRowGUID } : {});
   }, [go]);
 
+  const businessUnitColumn = useBusinessUnitColumn();
   const tables = useMemo(() => buildResourceRoleTables(data, labels, {
     today: todayISO(),
+    businessUnitColumn,
     openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
-  }), [data, labels, openTable]);
+  }), [data, labels, openTable, businessUnitColumn]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;

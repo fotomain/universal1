@@ -264,6 +264,7 @@ Custom column definitions + header colors stay project data (`project_table.rowJ
 | `taskProgressLineColor` | one of the set ('#FCFF00') | task bar progress lines |
 | `projectProgressLineColor` | one of the set ('#FCFF00') | project progress line |
 | `showTreeHierarchyNumbers` | bool (true) | "#" column of the task tree (tree toolbar # button) |
+| `projectCostCenter` / `projectRevenueCenter` / `projectProfitCenter` / `projectInvestmentCenter` | project rowJSON (not uxui) | the four business unit centers (Finances tab → Business units), obligatory on every NEW project: `kit8/catalog/business_unit/README.md` |
 | `dragAndDropTaskInTree` | bool (true) | drag & drop of tasks in the tree: the **drag column** (a ⠿ grip per row, `PM_TREE_DRAG_WIDTH`, right after the select column; press it and move = move the task, also on touch), dragging from `#` / Task name and the hover panel handle. `false` = no task dragging at all: no column, no handle (the panel is one icon narrower). Settings window → Tree |
 | `treeColumnsOrder` | array of 'wbs' \| 'name' \| 'start' \| 'days' \| 'progress' \| custom keys 'cc_…' (['wbs','name','start','days','progress', …custom]) | drag the tree column headers; ⚙ = default order |
 | `treeColumnsWidths` | { [columnKey]: px } ({} = Task name fills the pane, others default) | drag the header separators; double-click / header menu / ⚙ = default width |

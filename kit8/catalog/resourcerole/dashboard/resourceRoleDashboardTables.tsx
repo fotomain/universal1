@@ -38,6 +38,8 @@ export interface ResourceRoleTableContext {
   openTable: (key: ResourceRoleTableKey, filters: Record<string, string>, fromRowGUID?: string) => void;
   /** today 'YYYY-MM-DD' (rates valid now) */
   today?: string;
+  /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that uses this role */
+  businessUnitColumn?: VisualColumn;
 }
 
 /** the order of the tables in the menu */
@@ -103,6 +105,7 @@ export function buildResourceRoleTables(data: ResourceRoleCatalogData, L: Resour
         { key: 'title', title: 'Title', type: 'text', width: 240, placeholder: 'Role title' },
         typeColumn(),
         { key: 'folder', title: 'Folder', type: 'select', target: 'rowParentGUID', options: O.folders, width: 200 },
+        ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
         { key: 'roleVATRate', title: 'VAT rate', type: 'select', options: O.vatRates, width: 110, placeholder: 'Type default' },
         // what applies: its own rate, else the role type's default, else 0 % when both are empty
         count('vatNow', 'VAT now', (r) => `${vatPercentOfRole(data, roleById.get(r.rowGUID) ?? (r as any))} %`, 90),

@@ -1,4 +1,6 @@
 // ContractEdit - modal dialog / form for creating or modifying a contract.
+import { useBusinessUnitData } from '../business_unit/useBusinessUnitData';
+import BusinessUnitPickerField from '../business_unit/BusinessUnitPickerField';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -50,6 +52,7 @@ type Form = {
   notes: string;
   supplierRole: boolean;
   customerRole: boolean;
+  businessUnitAssigned: string;
 };
 
 const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'partner', defaultCurrency = 'EUR'): Form => {
@@ -71,6 +74,7 @@ const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'par
     notes: j.notes ?? '',
     supplierRole: !!j.supplierRole,
     customerRole: !!j.customerRole,
+    businessUnitAssigned: j.businessUnitAssigned ?? '',
   };
 };
 
@@ -89,6 +93,7 @@ export default function ContractEdit({
 
   const [form, setForm] = useState<Form>(() => toForm(contractRow, partyType, defaultCurrency));
   const [errors, setErrors] = useState<ContractErrors>({});
+  const units = useBusinessUnitData(visible);
 
   useEffect(() => {
     if (visible) {
@@ -131,6 +136,7 @@ export default function ContractEdit({
       notes: form.notes,
       supplierRole: form.supplierRole,
       customerRole: form.customerRole,
+      businessUnitAssigned: form.businessUnitAssigned || null,
     };
 
     const normalized = normalizeContract(raw);
@@ -312,6 +318,15 @@ export default function ContractEdit({
                 onValueChange={(v) => set('customerRole', v)}
               />
             </View>
+
+            {/* the default business unit of a task line that uses this contract (after the resource, the role and the budget item) */}
+            <BusinessUnitPickerField
+              testID="contract-edit-businessUnitAssigned"
+              label="Business unit"
+              rows={units.rows}
+              value={form.businessUnitAssigned || null}
+              onChange={(guid) => set('businessUnitAssigned', guid ?? '')}
+            />
 
             {input('notes', 'Notes / Terms', { multiline: true, numberOfLines: 2 })}
           </ScrollView>

@@ -61,40 +61,54 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       label: 'Catalogs',
       icon: 'menu_book',
       route: '',
+      // sorted by name
       children: [
-        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
-        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'catalog/kanbanstage/list' },
-        { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
-        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
-        { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
-        { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
-        { id: 'departaments', label: 'Departments', icon: 'schema', route: 'catalog/departament' },
-        { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
-        { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
-        { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
-        // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
-        { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
         { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        // the business units (a tree of any depth; cost / revenue / profit / investment centers) - replaces the old Departments catalog
+        { id: 'businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
+        { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
+        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
+        // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
+        { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
+        // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
+        { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
+        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'catalog/kanbanstage/list' },
         // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
         { id: 'managementcalendars', label: 'Management calendars', icon: 'calendar_month', route: 'catalog/management/calendar/list' },
+        // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
+        { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
+        { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
+        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
+        { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
+        // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
+        { id: 'persondashboard', label: 'Persons (properties and variants)', icon: 'badge', route: 'catalog/person/dashboard' },
+        { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
+        // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
+        { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
+        // resource role catalog: role types, roles (folder tree + table), properties, variants, hourly rates, checks
+        { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
+        { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
+        { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
+      ],
+    },
+    // budgets: shortcuts to the catalogs a budget is built from (the same pages as in Catalogs), sorted by name
+    {
+      id: 'budgets',
+      label: 'Budgets',
+      icon: 'account_balance_wallet',
+      route: '',
+      children: [
+        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
+        { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
+        { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
       ],
     },
 
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
     // product catalog: all product tables (CRUD), checks, product card
     { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
-    // resource role catalog: role types, roles (folder tree + table), properties, variants, hourly rates, checks
-    { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
-    // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
-    { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
-    // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
-    { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
-    // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
-    { id: 'persondashboard', label: 'Persons (properties and variants)', icon: 'badge', route: 'catalog/person/dashboard' },
-    // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
-    { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
-
 
   ];
 

@@ -28,6 +28,8 @@ export interface EquipmentTableContext {
   /** open another table filtered by this row; `fromRowGUID` = the row the user comes from */
   openTable: (key: EquipmentTableKey, filters: Record<string, string>, fromRowGUID?: string) => void;
   today?: string;
+  /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that books this equipment */
+  businessUnitColumn?: VisualColumn;
 }
 
 /** a descriptor meant for equipment types (rule R11) */
@@ -82,6 +84,7 @@ export function buildEquipmentTables(data: EquipmentCatalogData, L: ProductLabel
         { key: 'manufacturer', title: 'Manufacturer', type: 'text', field: 'equipmentManufacturer', width: 150 },
         { key: 'model', title: 'Model', type: 'text', field: 'equipmentModel', width: 130 },
         { key: 'serial', title: 'Serial no.', type: 'text', field: 'equipmentSerialNumber', width: 140 },
+        ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('properties', 'Properties', (r) => propsPerEquipment(r.rowGUID)),
         count('variants', 'Variants', (r) => variantsPerEquipment(r.rowGUID)),

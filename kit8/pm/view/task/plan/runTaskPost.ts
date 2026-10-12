@@ -29,6 +29,8 @@ export interface RunTaskPostArgs {
   calendarForTaskPlan?: string | null;
   startMs: number | undefined;
   finishMs: number | undefined;
+  /** the check of a line before it is posted (business units: useBusinessUnitPostCheck); a message = the line is left out */
+  lineCheck?: (line: TaskLineRow) => string | null;
 }
 
 export type RunTaskPostResult =
@@ -40,7 +42,7 @@ export type RunTaskPostResult =
   | { status: 'error'; message: string };
 
 export async function runTaskPost(args: RunTaskPostArgs): Promise<RunTaskPostResult> {
-  const { taskGUID, lines, distributions, calendars, startMs, finishMs } = args;
+  const { taskGUID, lines, distributions, calendars, startMs, finishMs, lineCheck } = args;
   const calendarForTaskPlan = args.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN;
   try {
     if (postableLines(lines).length === 0) return { status: 'nothing', noBudget: true, problems: [] };
@@ -52,7 +54,7 @@ export async function runTaskPost(args: RunTaskPostArgs): Promise<RunTaskPostRes
       calendarDays = await fetchCalendarDays(calendarForTaskPlan, `${years[0]}-01-01`, `${years[years.length - 1]}-12-31`);
     }
     const calendarTitle = String(calendars.find((r) => r.rowGUID === calendarForTaskPlan)?.rowJSON?.title || '') || undefined;
-    const plan = calculateTaskLinePlan({ taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle });
+    const plan = calculateTaskLinePlan({ taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle, lineCheck });
     const problems = plan.errors.map((e) => pmT(e.message));
     if (!plan.taskLinePlanJSON) return { status: 'nothing', noBudget: false, problems };
     const result = await createTaskLinePlan(plan.taskLinePlanJSON);

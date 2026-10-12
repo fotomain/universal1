@@ -32,6 +32,7 @@ import { buildProductLabels } from '../crud/productLabels';
 import { issuesByTable, validateProductCatalog } from '../crud/productValidation';
 import ProductCardView from '../card/ProductCardView';
 import { useProductCatalogData } from './useProductCatalogData';
+import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { buildDashboardTables, DASHBOARD_GROUPS, DASHBOARD_TABLE_ORDER, matchesScopeFilters, newRowFromScopeFilters, ScopeFilterDef } from './productDashboardTables';
 import ProductDashboardOverview from './ProductDashboardOverview';
 import GenerateVariantsWindow from './GenerateVariantsWindow';
@@ -79,14 +80,16 @@ export default function ProductDashboardCRUD() {
     go(key, focusRowGUID ? { focusRowGUID } : {});
   }, [go]);
 
+  const businessUnitColumn = useBusinessUnitColumn();
   const tables = useMemo(() => buildDashboardTables(data, labels, {
     today: todayISO(),
+    businessUnitColumn,
     openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
     assignBarcode: (row) => {
       const code = assignNextBarcode(dispatch, data, row);
       if (code) dispatch(showSnackbar({ message: `Barcode ${code} assigned` }));
     },
-  }), [data, labels, dispatch, openTable]);
+  }), [data, labels, dispatch, openTable, businessUnitColumn]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;

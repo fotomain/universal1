@@ -37,7 +37,7 @@ All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated i
   - Seed rows are updated to the latest repository values; rows created by users remain untouched; nothing is deleted.
 
 ### 2.2b `start_sql_structure.sql` / `delete_sql_structure.sql`
-- `start_sql_structure.sql` is the same SQL in ONE file (`code` + `data`, numbered PARTs; 17 = equipment) and `delete_sql_structure.sql` its opposite; `kit8/docker/test_sql.sh` runs both on Postgres 15.
+- `start_sql_structure.sql` is the same SQL in ONE file (`code` + `data`, numbered PARTs; 17 = equipment, 18 = business units) and `delete_sql_structure.sql` its opposite; `kit8/docker/test_sql.sh` runs both on Postgres 15.
   A change goes into all of `start_sql_structure.sql`, `start_sql_code.sql` (DDL) and `start_sql_data.sql` (seed rows as upserts) - `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
 
 ### 2.3 Universal Table Schema Convention

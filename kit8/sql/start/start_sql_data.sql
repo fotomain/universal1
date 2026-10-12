@@ -6855,3 +6855,47 @@ INSERT INTO public."rolePriceTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID",
   ('rp_eqr_van_cost',          'eqr_van',       'empty',          100000, '{"priceTypeGUID": "pt_cost", "price": 21,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb),
   ('rp_eqr_van_bill_op',       'eqr_van',       'rv_eqr_light_op',101000, '{"priceTypeGUID": "pt_bill", "price": 52,  "measureUnit": "unit_hour", "validFrom": "2026-10-01"}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+
+
+-- =============================================================================
+-- Business units (PART 18 of start_sql_structure.sql): the 4 Centers of Financial Responsibility + the 29 example units (upsert)
+-- =============================================================================
+
+INSERT INTO public."cfrTypeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('costCenter',       'cfrTypeCatalog', 'empty', 10, '{"title": "Cost center",       "description": "Accountable for costs only (support units: accounting, IT, the costs of a team).", "acceptsCosts": true,  "acceptsRevenues": false}'),
+  ('revenueCenter',    'cfrTypeCatalog', 'empty', 20, '{"title": "Revenue center",    "description": "Accountable for revenue only (sales).",                                          "acceptsCosts": false, "acceptsRevenues": true}'),
+  ('profitCenter',     'cfrTypeCatalog', 'empty', 30, '{"title": "Profit center",     "description": "Accountable for revenue and costs, i.e. for the profit.",                       "acceptsCosts": true,  "acceptsRevenues": true}'),
+  ('investmentCenter', 'cfrTypeCatalog', 'empty', 40, '{"title": "Investment center", "description": "Accountable for the profit and for the capital invested (ROI). Takes investment (capex) lines later; for now costs and revenues.", "acceptsCosts": true, "acceptsRevenues": true}')
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+
+INSERT INTO public."businessUnitTable" ("rowGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('bu_enterprise1',    'empty',            10, '{"title": "Enterprise #1",            "code": "ENT1",   "cfrAssigned": "investmentCenter", "isActive": true}'),
+  ('bu_board',          'bu_enterprise1',   10, '{"title": "Board",                    "code": "BOARD",  "isActive": true}'),
+  ('bu_ceo',            'bu_board',         10, '{"title": "CEO",                      "code": "CEO",    "isActive": true}'),
+  ('bu_cto',            'bu_board',         20, '{"title": "CTO",                      "code": "CTO",    "isActive": true}'),
+  ('bu_cfo',            'bu_board',         30, '{"title": "CFO",                      "code": "CFO",    "isActive": true}'),
+  ('bu_cio',            'bu_board',         40, '{"title": "CIO",                      "code": "CIO",    "isActive": true}'),
+  ('bu_sales',          'bu_enterprise1',   20, '{"title": "Sales",                    "code": "SALES",  "isActive": true}'),
+  ('bu_keyaccounts',    'bu_sales',         10, '{"title": "Key Accounts Department",  "code": "KAD",    "cfrAssigned": "profitCenter", "isActive": true}'),
+  ('bu_internetsales',  'bu_sales',         20, '{"title": "Internet sales Department","code": "ISD",    "cfrAssigned": "profitCenter", "isActive": true}'),
+  ('bu_pm',             'bu_enterprise1',   30, '{"title": "Project Management",       "code": "PM",     "isActive": true}'),
+  ('bu_pmteam1',        'bu_pm',            10, '{"title": "PM Team #1",               "code": "PMT1",   "cfrAssigned": "profitCenter", "isActive": true}'),
+  ('bu_team1',          'bu_pmteam1',       10, '{"title": "Team #1",                  "code": "T1",     "cfrAssigned": "revenueCenter", "isActive": true}'),
+  ('bu_team1costs',     'bu_pmteam1',       20, '{"title": "Team #1 costs",            "code": "T1C",    "cfrAssigned": "costCenter", "isActive": true}'),
+  ('bu_pmteam2',        'bu_pm',            20, '{"title": "PM Team #2",               "code": "PMT2",   "cfrAssigned": "profitCenter", "isActive": true}'),
+  ('bu_team2',          'bu_pmteam2',       10, '{"title": "Team #2",                  "code": "T2",     "cfrAssigned": "revenueCenter", "isActive": true}'),
+  ('bu_team2costs',     'bu_pmteam2',       20, '{"title": "Team #2 costs",            "code": "T2C",    "cfrAssigned": "costCenter", "isActive": true}'),
+  ('bu_accounting',     'bu_enterprise1',   40, '{"title": "Accounting",               "code": "ACC",    "isActive": true}'),
+  ('bu_chiefaccountant','bu_accounting',    10, '{"title": "Chief Accountant",         "code": "CHACC",  "isActive": true}'),
+  ('bu_advisors',       'bu_accounting',    20, '{"title": "Advisors",                 "code": "ADV",    "isActive": true}'),
+  ('bu_warehouse',      'bu_enterprise1',   50, '{"title": "Warehouse",                "code": "WH",     "isActive": true}'),
+  ('bu_mainwarehouse',  'bu_warehouse',     10, '{"title": "Main Warehouse",           "code": "WHM",    "isActive": true}'),
+  ('bu_remotewarehouse','bu_warehouse',     20, '{"title": "Remote Warehouse",         "code": "WHR",    "isActive": true}'),
+  ('bu_itinfra',        'bu_enterprise1',   60, '{"title": "IT infrastructure",        "code": "ITI",    "isActive": true}'),
+  ('bu_cloud',          'bu_itinfra',       10, '{"title": "Cloud infrastructure",     "code": "CLOUD",  "isActive": true}'),
+  ('bu_local',          'bu_itinfra',       20, '{"title": "Local infrastructure",     "code": "LOCAL",  "isActive": true}'),
+  ('bu_internettech',   'bu_itinfra',       30, '{"title": "Internet technologies",    "code": "INET",   "isActive": true}'),
+  ('bu_erp',            'bu_enterprise1',   70, '{"title": "ERP development",          "code": "ERP",    "isActive": true}'),
+  ('bu_qm',             'bu_enterprise1',   80, '{"title": "QM",                       "code": "QM",     "isActive": true}'),
+  ('bu_hrm',            'bu_enterprise1',   90, '{"title": "HRM",                      "code": "HRM",    "isActive": true}')
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
