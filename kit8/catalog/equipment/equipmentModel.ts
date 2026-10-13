@@ -36,6 +36,8 @@ export interface EquipmentRowJSON {
   equipmentSerialNumber?: string;
   /** false = not offered on new lines; the lines that have it keep it */
   isActive: boolean;
+  /** managementCalendarTable.rowGUID of a RESOURCE calendar: its hours are the capacity of the equipment (empty = the Standard work week) */
+  resourceCalendar?: string | null;
 }
 
 export interface EquipmentRow {
@@ -94,6 +96,7 @@ export function normalizeEquipment(v: Partial<EquipmentRowJSON>): EquipmentRowJS
     equipmentModel: str(v.equipmentModel),
     equipmentSerialNumber: str(v.equipmentSerialNumber),
     isActive: v.isActive !== false,
+    ...(isSet(v.resourceCalendar) ? { resourceCalendar: v.resourceCalendar } : {}),
   };
 }
 

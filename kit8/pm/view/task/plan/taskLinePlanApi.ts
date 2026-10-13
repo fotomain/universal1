@@ -2,10 +2,18 @@
 // the Supabase client is loaded when Post is pressed, so importing this file (a screen, a test) never creates the client
 const client = async () => (await import('../../../../supabase/supabase')).supabase;
 import type { TaskLinePlanJSON } from './taskLinePlanModel';
+import { CapacityMode, ResourceBusyConflict, isCapacityMode, parseBusy } from './busyControl';
 
 export const rpcCreateTaskLinePlan = 'create_task_line_plan';
 
-export interface CreateTaskLinePlanResult { lines: number; rows: number }
+export interface CreateTaskLinePlanResult {
+  lines: number;
+  rows: number;
+  /** resourceCapacityStrongMode of the organization of the project (capacityModeOff = nothing was checked) */
+  mode: CapacityMode;
+  /** the resources found busy (capacityModeWarn: posted anyway; capacityModeBlock: those lines were NOT posted) */
+  busy: ResourceBusyConflict[];
+}
 
 /** Post: send the minimum (taskLinePlanJSON); throws with the message of the database when it refuses (nothing is written then) */
 export async function createTaskLinePlan(taskLinePlanJSON: TaskLinePlanJSON): Promise<CreateTaskLinePlanResult> {
@@ -13,5 +21,5 @@ export async function createTaskLinePlan(taskLinePlanJSON: TaskLinePlanJSON): Pr
   const { data, error } = await supabase.rpc(rpcCreateTaskLinePlan, { taskLinePlanJSON });
   if (error) throw new Error(error.message || String(error));
   const d: any = data || {};
-  return { lines: Number(d.lines) || 0, rows: Number(d.rows) || 0 };
+  return { lines: Number(d.lines) || 0, rows: Number(d.rows) || 0, mode: isCapacityMode(d.mode) ? d.mode : 'capacityModeOff', busy: parseBusy(d.busy) };
 }

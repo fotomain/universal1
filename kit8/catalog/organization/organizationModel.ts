@@ -4,6 +4,7 @@
 //   orderInList · rowJSON = OrganizationRowJSON · created_at / updated_at
 
 import type { CardItem } from '../../ui/components/list/web/lib';
+import { CapacityMode, isCapacityMode } from '../../pm/view/task/plan/busyControl';
 
 /** Supabase table name (SQL: organizationTable). */
 export const organizationTable = 'organizationTable';
@@ -46,6 +47,12 @@ export interface OrganizationRowJSON {
   contactPhone?: string;
   website?: string;
   notes?: string;
+  /**
+   * What Post does when a resource (person, equipment) is booked more than its calendar allows - for ALL projects of the organization (they share the resources):
+   * capacityModeOff (default, nothing is checked) | capacityModeWarn (posted, the conflicts are told) | capacityModeBlock (the busy lines are not posted).
+   * documentation/TIME_GENUS_CONTROL_WBS.html
+   */
+  resourceCapacityStrongMode?: CapacityMode;
 }
 
 export interface OrganizationRow {
@@ -123,6 +130,8 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(raw.contactPhone?.trim() ? { contactPhone: raw.contactPhone.trim() } : {}),
     ...(raw.website?.trim() ? { website: raw.website.trim() } : {}),
     ...(raw.notes?.trim() ? { notes: raw.notes.trim() } : {}),
+    // only a valid mode is kept; "off" is the default, so it is not written (a missing key reads as off)
+    ...(isCapacityMode(raw.resourceCapacityStrongMode) && raw.resourceCapacityStrongMode !== 'capacityModeOff' ? { resourceCapacityStrongMode: raw.resourceCapacityStrongMode } : {}),
   };
 }
 

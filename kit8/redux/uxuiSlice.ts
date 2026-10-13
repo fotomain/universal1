@@ -11,6 +11,8 @@ export interface SnackbarState {
   actionLabel?: string;
   undoDeleteData?: any;
   entityName?: string;
+  /** an error message (a failed post ...): the snack bar is red */
+  isError?: boolean;
 }
 
 export interface UxuiState {
@@ -172,6 +174,7 @@ const uxuiSlice = createSlice({
             actionLabel?: string;
             undoDeleteData?: any;
             entityName?: string;
+            isError?: boolean;
           }
         | string
       >
@@ -185,12 +188,14 @@ const uxuiSlice = createSlice({
         state.snackbar.actionLabel = 'OK';
         state.snackbar.undoDeleteData = null;
         state.snackbar.entityName = 'mediaPostReusable';
+        state.snackbar.isError = false;
       } else {
         state.snackbar.message = action.payload.message;
         if (action.payload.duration) state.snackbar.duration = action.payload.duration;
         state.snackbar.actionLabel = action.payload.actionLabel || (action.payload.undoDeleteData ? 'Undo' : 'OK');
         state.snackbar.undoDeleteData = action.payload.undoDeleteData !== undefined ? action.payload.undoDeleteData : null;
         state.snackbar.entityName = action.payload.entityName || 'mediaPostReusable';
+        state.snackbar.isError = Boolean(action.payload.isError);
       }
     },
     hideSnackbar: (state) => {

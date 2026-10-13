@@ -19,12 +19,12 @@ import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
 import { useAuthRedirectHandler } from '../kit8/hooks/useAuthRedirectHandler';
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
-import {formatTo32CharGUID, setActiveUser} from '../kit8/redux/activeUserSlice';
+import BusyConflictsWindow from '../kit8/pm/view/task/plan/BusyConflictsWindow';
+import {formatTo32CharGUID, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
 import { loginUserTable } from '../kit8/auth/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
-import { ensureUserOrganization } from '../kit8/catalog/organization/ensureUserOrganization';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/ui/theme/palettes';
 import {FABProvider} from '../kit8/providers/FABProvider';
@@ -194,9 +194,13 @@ function SupabaseAuthSync() {
         const userLastName = meta.last_name || fullName.split(' ').slice(1).join(' ') || '';
 
         // RULE: login -> userTable row of this email -> userTable.rowGUID is the user's GUID everywhere.
+        // The same SQL step makes the organization of the user (userState.userOrganization): a user without one cannot exist.
         let userGUID = supabaseUID;
+        let userOrganization: UserOrganization | undefined;
         try {
-          userGUID = await loginUserTable(supabase, { email: userEmail, authUID: supabaseUID, firstName: userFirstName, lastName: userLastName });
+          const login = await loginUserTable(supabase, { email: userEmail, authUID: supabaseUID, firstName: userFirstName, lastName: userLastName });
+          userGUID = login.userGUID;
+          userOrganization = login.organization;
         } catch (e: any) {
           console.error('userTable login step failed, using the Supabase user id:', e?.message || e);
         }
@@ -208,6 +212,7 @@ function SupabaseAuthSync() {
         dispatch(setActiveUser({
           activeUserGUID, /* userGUID32 */
           userGUID,
+          userOrganization,
           activeUserEmail: userEmail,
           activeUserFirstName: userFirstName,
           activeUserLastName: userLastName,
@@ -253,9 +258,6 @@ function SupabaseAuthSync() {
             console.error('Error checking/creating raciMember:', e);
           }
         };
-
-        // RULE: 1 user === 1 organization: rowOwnerGUID = createdByUser = userEmail.toLowerCase()
-        const checkAndCreateOrganization = () => ensureUserOrganization(supabase, userEmail, { userFirstName });
 
         // RULE: Automatically created if the first user login (default countries)
         const checkAndSeedDefaultCountries = async () => {
@@ -375,7 +377,6 @@ function SupabaseAuthSync() {
         };
 
         checkAndCreateRaciMember();
-        checkAndCreateOrganization();
         checkAndSeedDefaultCountries();
         checkAndSeedDefaultRoles();
         checkAndCreateUserRoles();
@@ -535,6 +536,7 @@ function RootLayoutContent() {
             <IntentAddModalWindow />
             <SnackbarApp />
             <ErrorModalWindow />
+            <BusyConflictsWindow />
           </FABProvider>
           </WithAppleMacUI>
         </PaperProvider>

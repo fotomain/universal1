@@ -30,6 +30,8 @@ export interface EquipmentTableContext {
   today?: string;
   /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that books this equipment */
   businessUnitColumn?: VisualColumn;
+  /** the "Calendar" column (rowJSON.resourceCalendar, kit8/catalog/management/calendar): the capacity of the equipment (empty = the Standard work week) */
+  calendarColumn?: VisualColumn;
 }
 
 /** a descriptor meant for equipment types (rule R11) */
@@ -84,6 +86,7 @@ export function buildEquipmentTables(data: EquipmentCatalogData, L: ProductLabel
         { key: 'manufacturer', title: 'Manufacturer', type: 'text', field: 'equipmentManufacturer', width: 150 },
         { key: 'model', title: 'Model', type: 'text', field: 'equipmentModel', width: 130 },
         { key: 'serial', title: 'Serial no.', type: 'text', field: 'equipmentSerialNumber', width: 140 },
+        ...(ctx.calendarColumn ? [ctx.calendarColumn] : []),
         ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('properties', 'Properties', (r) => propsPerEquipment(r.rowGUID)),

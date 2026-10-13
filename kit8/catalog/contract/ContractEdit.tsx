@@ -1,5 +1,6 @@
 // ContractEdit - modal dialog / form for creating or modifying a contract.
 import { useBusinessUnitData } from '../business_unit/useBusinessUnitData';
+import ResourceCalendarField from '../management/calendar/ResourceCalendarField';
 import BusinessUnitPickerField from '../business_unit/BusinessUnitPickerField';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -53,6 +54,8 @@ type Form = {
   supplierRole: boolean;
   customerRole: boolean;
   businessUnitAssigned: string;
+  /** managementCalendarTable.rowGUID ('' = none; a contract of a person only) */
+  resourceCalendar: string;
 };
 
 const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'partner', defaultCurrency = 'EUR'): Form => {
@@ -75,6 +78,7 @@ const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'par
     supplierRole: !!j.supplierRole,
     customerRole: !!j.customerRole,
     businessUnitAssigned: j.businessUnitAssigned ?? '',
+    resourceCalendar: j.resourceCalendar ?? '',
   };
 };
 
@@ -137,6 +141,7 @@ export default function ContractEdit({
       supplierRole: form.supplierRole,
       customerRole: form.customerRole,
       businessUnitAssigned: form.businessUnitAssigned || null,
+      resourceCalendar: form.resourceCalendar || null,
     };
 
     const normalized = normalizeContract(raw);
@@ -327,6 +332,18 @@ export default function ContractEdit({
               value={form.businessUnitAssigned || null}
               onChange={(guid) => set('businessUnitAssigned', guid ?? '')}
             />
+
+            {/* the capacity of the person while this contract is in force: its calendar wins over the calendar of the person */}
+            {partyType === 'person' && (
+              <ResourceCalendarField
+                testID="contract-edit-resourceCalendar"
+                kind="contract"
+                label="Calendar (capacity while the contract is in force)"
+                resourceTitle={form.contractNumber ? `Contract ${form.contractNumber}` : undefined}
+                value={form.resourceCalendar || null}
+                onChange={(guid) => set('resourceCalendar', guid ?? '')}
+              />
+            )}
 
             {input('notes', 'Notes / Terms', { multiline: true, numberOfLines: 2 })}
           </ScrollView>

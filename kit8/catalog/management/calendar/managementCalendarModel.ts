@@ -1,5 +1,7 @@
 // Management calendar - the working calendars of the business (the abstract entity). Two tables:
-//   managementCalendarTable       folders (level 1) projectCalendarFolder · resourceRoleCalendarFolder · personCalendarFolder   rowParentGUID 'empty'
+//   (documentation/TIME_GENUS_CONTROL_WBS.html: a RESOURCE calendar - rowJSON.kind 'resource', in the folders Person / Equipment / Contract - is the CAPACITY of a person, an equipment
+//    or a contract: its day rows carry rowJSON.hours (0..24); SQL: PART 21 of kit8/sql/start/start_sql_structure.sql)
+//   managementCalendarTable       folders (level 1) projectCalendarFolder · resourceRoleCalendarFolder · personCalendarFolder · equipmentCalendarFolder · contractCalendarFolder   rowParentGUID 'empty'
 //                                 calendars (level 2) workingDaysCalendar ...                                               rowParentGUID = folder
 //                                 rowOwnerGUID 'managementCalendarCatalog' (the business; no business table exists yet) · rowJSON { title, description }
 //   managementCalendarDaysTable   one row per DAY of a calendar: rowGUID '<calendar>:<YYYY-MM-DD>' · rowOwnerGUID = the calendar · rowParentGUID = the year ('2026')
@@ -34,6 +36,10 @@ export const MANAGEMENT_CALENDAR = {
   projectFolder: 'projectCalendarFolder',
   resourceRoleFolder: 'resourceRoleCalendarFolder',
   personFolder: 'personCalendarFolder',
+  equipmentFolder: 'equipmentCalendarFolder',
+  contractFolder: 'contractCalendarFolder',
+  /** the calendar of every resource that has none: Monday to Friday, 8 hours a day */
+  standardWorkWeek: 'standardWorkWeekCalendar',
   /** the default calendar of a project plan: Monday to Friday, no holidays */
   workingDays: 'workingDaysCalendar',
 } as const;
@@ -42,7 +48,7 @@ export const MANAGEMENT_CALENDAR = {
 export const DEFAULT_CALENDAR_FOR_TASK_PLAN = MANAGEMENT_CALENDAR.workingDays;
 
 /** fill_management_calendar modes */
-export type CalendarFillMode = 'workingDays' | 'fiveDays' | 'sixDays' | 'allDays';
+export type CalendarFillMode = 'workingDays' | 'fiveDays' | 'sixDays' | 'allDays' | 'pattern';
 export const CALENDAR_FILL_MODES: { mode: CalendarFillMode; label: string; hint: string }[] = [
   { mode: 'workingDays', label: 'Working days', hint: 'Monday to Friday; the days marked as holidays stay off' },
   { mode: 'fiveDays', label: '5 days a week', hint: 'Monday to Friday' },
@@ -50,8 +56,49 @@ export const CALENDAR_FILL_MODES: { mode: CalendarFillMode; label: string; hint:
   { mode: 'allDays', label: 'All days', hint: 'every day of the year' },
 ];
 
-export type CalendarDayReason = 'fill' | 'weekend' | 'holiday' | 'manual';
-export interface CalendarDayJSON { day: string; isActive: boolean; reason: CalendarDayReason; note?: string | null }
+/** the week mode a calendar with a custom week (rowJSON.weekPattern) is filled with: the hours of each weekday come from the pattern */
+export const CALENDAR_PATTERN_FILL_MODE = { mode: 'pattern' as CalendarFillMode, label: 'Custom week', hint: 'the hours of each weekday of the calendar (weekPattern)' };
+
+/** reasons of a day row; the exceptions of a resource calendar (vacation, sick leave, training, other) are kept by a Fill unless "Overwrite my manual changes" is on */
+export type CalendarDayReason = 'fill' | 'weekend' | 'holiday' | 'manual' | 'vacation' | 'sickLeave' | 'training' | 'other';
+export const CALENDAR_DAY_REASONS: { value: CalendarDayReason; label: string; resourceOnly?: boolean }[] = [
+  { value: 'fill', label: 'Fill' },
+  { value: 'weekend', label: 'Weekend' },
+  { value: 'holiday', label: 'Holiday' },
+  { value: 'manual', label: 'Manual' },
+  { value: 'vacation', label: 'Vacation', resourceOnly: true },
+  { value: 'sickLeave', label: 'Sick leave', resourceOnly: true },
+  { value: 'training', label: 'Training', resourceOnly: true },
+  { value: 'other', label: 'Other', resourceOnly: true },
+];
+export interface CalendarDayJSON { day: string; isActive: boolean; reason: CalendarDayReason; note?: string | null; /** resource calendars: the capacity of the day in hours (0 = not active) */ hours?: number }
+
+/** a RESOURCE calendar = the capacity of persons / equipment / contracts (rowJSON.kind); a project calendar has no hours */
+export const isResourceCalendar = (r: DefRow<any> | null | undefined): boolean => r?.rowJSON?.kind === 'resource';
+/** the hours of an active day of a resource calendar (the default of a Fill) */
+export const calendarHoursPerDay = (r: DefRow<any> | null | undefined): number => {
+  const h = Number(r?.rowJSON?.hoursPerDay);
+  return Number.isFinite(h) && h > 0 && h <= 24 ? h : 8;
+};
+export const hasWeekPattern = (r: DefRow<any> | null | undefined): boolean => !!r?.rowJSON?.weekPattern && typeof r.rowJSON.weekPattern === 'object';
+
+/** the hours of a day row: its own hours, else (an old row) hoursPerDay for an active day and 0 for an excluded one */
+export const dayRowHours = (rowJSON: Partial<CalendarDayJSON> | null | undefined, hoursPerDay = 8): number => {
+  if (typeof rowJSON?.hours === 'number') return rowJSON.hours;
+  return rowJSON?.isActive === false ? 0 : hoursPerDay;
+};
+
+/** a day of the calendar that has posted hours (organization_calendar_lock_info): the capacity of the day cannot go under minHours */
+export interface CalendarLockDay { day: string; minHours: number; resources: number; example: string }
+
+/**
+ * The change of a day row of a resource calendar and the lock: the message that refuses it (null = allowed). The rule of SQL organization_assert_capacity:
+ * a LOWERING of the capacity under the posted hours is refused; raising or keeping it is always allowed.
+ */
+export function calendarLockMessage(lock: CalendarLockDay | undefined, oldHours: number, newHours: number): string | null {
+  if (!lock || newHours >= oldHours || newHours >= lock.minHours) return null;
+  return `${lock.example || 'A resource'} has ${lock.minHours} h booked on ${lock.day}; the capacity cannot be less than ${lock.minHours} h.`;
+}
 
 const isSet = (g: unknown): g is string => typeof g === 'string' && g !== '' && g !== 'empty';
 

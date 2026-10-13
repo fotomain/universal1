@@ -37,6 +37,8 @@ export interface PersonRowJSON {
   personType?: string | null;
   /** Legal/employee data: preserved even if personIsEmployee is toggled off */
   employeeData?: EmployeeData;
+  /** managementCalendarTable.rowGUID of a RESOURCE calendar: its hours are the capacity of the person (empty = the Standard work week; the calendar of a contract in force wins) */
+  resourceCalendar?: string | null;
 }
 
 export interface PersonRow {
@@ -114,6 +116,7 @@ export function normalizePerson(v: Partial<PersonRowJSON>): PersonRowJSON {
     // not edited by the person form: kept as it is
     personType: v.personType || null,
     employeeData,
+    ...(v.resourceCalendar ? { resourceCalendar: String(v.resourceCalendar) } : {}),
   };
 }
 

@@ -24,6 +24,8 @@ import {
   validateOrganization,
 } from './organizationModel';
 import { organizationOwnerOf } from './ensureUserOrganization';
+import { CAPACITY_MODES, CapacityMode, DEFAULT_CAPACITY_MODE, capacityModeOf } from '../../pm/view/task/plan/busyControl';
+import { pmT } from '../../pm/i18n/pmT';
 
 type Form = {
   organizationTitle: string;
@@ -40,6 +42,7 @@ type Form = {
   legalAddress: string;
   country: string;
   bankIban: string;
+  resourceCapacityStrongMode: CapacityMode;
 };
 
 const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form => {
@@ -60,6 +63,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     legalAddress: leg.legalAddress || '',
     country: leg.country || 'LV',
     bankIban: leg.bankIban || '',
+    resourceCapacityStrongMode: capacityModeOf(v) ?? DEFAULT_CAPACITY_MODE,
   };
 };
 
@@ -74,6 +78,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     contactPhone: f.contactPhone,
     website: f.website,
     notes: f.notes,
+    resourceCapacityStrongMode: f.resourceCapacityStrongMode,
     legalData: {
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
@@ -263,6 +268,35 @@ export default function OrganizationEdit() {
               onValueChange={(v) => update('isActive', v)}
               disabled={!canEdit}
             />
+          </View>
+
+          {/* Resource capacity: what Post does when a resource is booked more than its calendar allows (all projects of the organization share the resources) */}
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-capacity-card">
+            <Text style={[styles.sectionTitle, { color: c.text }]}>{pmT('Resource capacity')}</Text>
+            <Text style={{ color: c.textSecondary || c.text, fontSize: 12, marginBottom: 8 }}>
+              {pmT('The projects of this organization share their persons and equipment. What should Post do when a resource is booked more than its calendar allows?')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {CAPACITY_MODES.map((m) => {
+                const on = form.resourceCapacityStrongMode === m.mode;
+                return (
+                  <Pressable
+                    key={m.mode}
+                    testID={`organization-capacity-${m.mode}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on, disabled: !canEdit }}
+                    disabled={!canEdit}
+                    onPress={() => update('resourceCapacityStrongMode', m.mode)}
+                    style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: on ? (c.primary || '#4f46e5') : c.border, backgroundColor: on ? (c.primary || '#4f46e5') : 'transparent', opacity: canEdit ? 1 : 0.6 }}
+                  >
+                    <Text style={{ color: on ? '#fff' : c.text, fontWeight: '600' }}>{pmT(m.label)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={{ color: c.textSecondary || c.text, fontSize: 12, marginTop: 8 }} testID="organization-capacity-hint">
+              {pmT(CAPACITY_MODES.find((m) => m.mode === form.resourceCapacityStrongMode)?.hint || '')}
+            </Text>
           </View>
 
           {/* Contact Info */}

@@ -23,6 +23,10 @@
 --   17. create_equipment_tables.sql - equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
 --   18. create_business_unit_tables.sql - cfrTypeTable (the enumeration of the Centers of Financial Responsibility) + businessUnitTable (a tree of any depth) + the checks of businessUnitAssigned
 --   19. create_budget_scenario_table.sql - budgetScenarioTable (a plain list of budget scenarios, plan | fact) + the two seed scenarios
+--   20. create_organization_scope.sql - userTable.rowJSON.userOrganization (obligatory) + organization_ensure_user + project_table.rowParentGUID (the organization, never changed) + organization invitations
+--   21. create_resource_calendar.sql - the resource calendar = the capacity: hours per day on the management calendars, resourceCalendar on person / equipment / contract / template, the week modes, organization_resource_capacity
+--   22. create_resource_busy_check.sql - resource_occupancy_x_movement (the abstract occupancy of the posted days) + organization_resource_busy_check + the check inside create_task_line_plan (resourceCapacityStrongMode) + planMovementStatus
+--   23. create_calendar_lock.sql - the calendar lock: a change of a calendar that would put the capacity of a resource under its posted hours is refused (day rows, Fill, resourceCalendar pointers, contracts)
 -- ===============================================================================================
 
 
@@ -10370,7 +10374,7 @@ NOTIFY pgrst, 'reload schema';
 -- isActive=false = the day is EXCLUDED (the calendar does not work on it): a task plan gets no row and no money for it.
 -- The user excludes (or includes) any day by switching isActive (reason becomes 'manual', so a later Fill does not overwrite it unless asked).
 --
--- fill_management_calendar(calendar, year, mode, overwrite_manual) writes a whole year in one statement:
+-- fill_management_calendar(calendar, year, mode, overwrite_manual, hours, follow_project_holidays) writes a whole year in one statement:
 --   mode 'workingDays' Mon-Fri active, Sat+Sun off; days flagged 'holiday' stay off
 --        'fiveDays'    Mon-Fri active, Sat+Sun off (holiday flags are cleared)
 --        'sixDays'     Mon-Sat active, Sun off
@@ -10465,45 +10469,79 @@ INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowPar
 ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- -------------------------------------------------------------------------------------
+-- the version before PART 21 had four arguments: with the new defaults a call with four would be ambiguous, so it goes
+DROP FUNCTION IF EXISTS public.fill_management_calendar(text, integer, text, boolean);
 -- fill_management_calendar: one year of days in one statement. Returns the number of day rows written.
--- -------------------------------------------------------------------------------------
+--   p_mode   workingDays | fiveDays | sixDays | allDays   (the week modes)  ·  pattern = the hours of each weekday from the calendar's rowJSON.weekPattern {mon..sun} (a custom week)
+--   p_hours  hours of an active day. NULL = the calendar's hoursPerDay for a RESOURCE calendar (rowJSON.kind = 'resource'), and NO hours at all for a project calendar (it is unchanged)
+--   p_follow_project_holidays  (resource calendars) the days that the project calendars of the user's organization flag as holidays become holidays (reason holiday, 0 h)
+--   A day row of a resource calendar carries rowJSON.hours (0 = not active); the exception days (reason vacation, holiday, manual ...) are kept unless p_overwrite_manual.
+--   The calendar lock (PART 23) runs on every row written, so a Fill that would lower the capacity under posted hours is refused as a whole.
 CREATE OR REPLACE FUNCTION public.fill_management_calendar(
-  p_calendar text, p_year integer, p_mode text, p_overwrite_manual boolean DEFAULT false
+  p_calendar text, p_year integer, p_mode text, p_overwrite_manual boolean DEFAULT false,
+  p_hours numeric DEFAULT NULL, p_follow_project_holidays boolean DEFAULT false
 ) RETURNS integer
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
 DECLARE
-  v_count integer;
+  v_count    integer;
+  v_cal      jsonb;
+  v_resource boolean;
+  v_hours    numeric;
+  v_days     text[] := ARRAY['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  v_holidays date[] := ARRAY[]::date[];
 BEGIN
-  IF p_mode NOT IN ('workingDays', 'fiveDays', 'sixDays', 'allDays') THEN
-    RAISE EXCEPTION 'fill_management_calendar: unknown mode "%" (workingDays | fiveDays | sixDays | allDays)', p_mode;
+  IF p_mode NOT IN ('workingDays', 'fiveDays', 'sixDays', 'allDays', 'pattern') THEN
+    RAISE EXCEPTION 'fill_management_calendar: unknown mode "%" (workingDays | fiveDays | sixDays | allDays | pattern)', p_mode;
   END IF;
   IF p_year < 1970 OR p_year > 2200 THEN
     RAISE EXCEPTION 'fill_management_calendar: year % is out of range', p_year;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarTable" c WHERE c."rowGUID" = p_calendar AND c."rowParentGUID" <> 'empty') THEN
+  SELECT c."rowJSON" INTO v_cal FROM public."managementCalendarTable" c WHERE c."rowGUID" = p_calendar AND c."rowParentGUID" <> 'empty';
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'fill_management_calendar: calendar "%" does not exist (or is a folder)', p_calendar;
+  END IF;
+  v_resource := COALESCE(v_cal->>'kind', '') = 'resource';
+  IF p_hours IS NOT NULL AND (p_hours < 0 OR p_hours > 24) THEN
+    RAISE EXCEPTION 'fill_management_calendar: hours % are out of range (0 - 24)', p_hours;
+  END IF;
+  IF p_mode = 'pattern' AND jsonb_typeof(v_cal->'weekPattern') IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'fill_management_calendar: calendar "%" has no weekPattern (rowJSON.weekPattern {"mon": 8, ...})', p_calendar;
+  END IF;
+  IF p_follow_project_holidays AND NOT v_resource THEN
+    RAISE EXCEPTION 'fill_management_calendar: "follow project holidays" is for resource calendars only';
+  END IF;
+  v_hours := COALESCE(p_hours, CASE WHEN v_resource THEN COALESCE((v_cal->>'hoursPerDay')::numeric, 8) END);
+  IF p_follow_project_holidays THEN
+    SELECT COALESCE(array_agg(h), ARRAY[]::date[]) INTO v_holidays FROM public.organization_holiday_days(public.organization_of_current_user(), p_year) AS h;
   END IF;
 
   INSERT INTO public."managementCalendarDaysTable" AS t ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-  SELECT p_calendar || ':' || to_char(d, 'YYYY-MM-DD'), p_calendar, p_year::text, (d - DATE '1970-01-01')::numeric,
-         jsonb_build_object(
-           'day', to_char(d, 'YYYY-MM-DD'),
-           'isActive', CASE p_mode WHEN 'allDays' THEN true WHEN 'sixDays' THEN extract(isodow FROM d) <= 6 ELSE extract(isodow FROM d) <= 5 END,
-           'reason', CASE WHEN p_mode = 'allDays' THEN 'fill'
-                          WHEN p_mode = 'sixDays' AND extract(isodow FROM d) = 7 THEN 'weekend'
-                          WHEN p_mode IN ('workingDays', 'fiveDays') AND extract(isodow FROM d) >= 6 THEN 'weekend'
-                          ELSE 'fill' END)
-    FROM (SELECT make_date(p_year, 1, 1) + i AS d
-            FROM generate_series(0, make_date(p_year, 12, 31) - make_date(p_year, 1, 1)) AS s(i)) AS g
+  SELECT p_calendar || ':' || to_char(f.d, 'YYYY-MM-DD'), p_calendar, p_year::text, (f.d - DATE '1970-01-01')::numeric,
+         jsonb_strip_nulls(jsonb_build_object(
+           'day', to_char(f.d, 'YYYY-MM-DD'),
+           'isActive', f.active,
+           'reason', CASE WHEN f.holiday THEN 'holiday'
+                          WHEN NOT f.active AND (p_mode = 'pattern' OR (p_mode = 'sixDays' AND f.dow = 7) OR (p_mode IN ('workingDays', 'fiveDays') AND f.dow >= 6)) THEN 'weekend'
+                          ELSE 'fill' END,
+           'hours', CASE WHEN NOT f.active THEN CASE WHEN v_hours IS NULL AND p_mode <> 'pattern' THEN NULL ELSE 0 END ELSE f.hrs END))
+    FROM (SELECT g.d, g.dow, g.holiday,
+                 g.active_mode AND NOT g.holiday AND (p_mode <> 'pattern' OR COALESCE(g.pat, 0) > 0) AS active,
+                 CASE WHEN p_mode = 'pattern' THEN g.pat ELSE v_hours END AS hrs
+            FROM (SELECT s.d, extract(isodow FROM s.d)::integer AS dow,
+                         s.d = ANY (v_holidays) AS holiday,
+                         CASE p_mode WHEN 'allDays' THEN true WHEN 'sixDays' THEN extract(isodow FROM s.d) <= 6 WHEN 'pattern' THEN true ELSE extract(isodow FROM s.d) <= 5 END AS active_mode,
+                         (v_cal->'weekPattern'->>(v_days[extract(isodow FROM s.d)::integer]))::numeric AS pat
+                    FROM (SELECT make_date(p_year, 1, 1) + i AS d
+                            FROM generate_series(0, make_date(p_year, 12, 31) - make_date(p_year, 1, 1)) AS q(i)) AS s) AS g) AS f
   ON CONFLICT ("rowGUID") DO UPDATE
      SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList", "rowParentGUID" = EXCLUDED."rowParentGUID"
-   WHERE (p_overwrite_manual OR COALESCE(t."rowJSON"->>'reason', '') <> 'manual')
-     AND NOT (p_mode = 'workingDays' AND COALESCE(t."rowJSON"->>'reason', '') = 'holiday');
+   WHERE (p_overwrite_manual OR COALESCE(t."rowJSON"->>'reason', '') NOT IN ('manual', 'vacation', 'sickLeave', 'training', 'other'))
+     AND NOT (p_mode = 'workingDays' AND COALESCE(t."rowJSON"->>'reason', '') = 'holiday' AND NOT p_follow_project_holidays);
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
 END;
 $$;
-GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean, numeric, boolean) TO authenticated;
 
 -- the default calendar: previous, current and next year (only when it has no days yet - a second run changes nothing)
 DO $$
@@ -10598,10 +10636,17 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
   "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "planMovementStatus" BOOLEAN      NOT NULL DEFAULT true,
+  "periodDay"         DATE,
   PRIMARY KEY ("rowGUID"),
   CONSTRAINT task_line_plan_movements_coefficient_chk CHECK ("rowCoefficient" >= 0),
   CONSTRAINT task_line_plan_movements_line_period_uq UNIQUE ("rowParentGUID", "rowPeriodDatetime")
 );
+-- PART 22 (time genus control): planMovementStatus = false while the capacity check of Post is pending (the row is out of the reports, the timeline and the occupancy), true after it passed;
+-- EVERY other movement is created with true (the default: no migration, every old row is true). periodDay = the day of the row in the zone of the post (rows of older posts are filled once).
+ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "planMovementStatus" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "periodDay" DATE;
+UPDATE public.task_line_plan_movements SET "periodDay" = (("rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date WHERE "periodDay" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_task    ON public.task_line_plan_movements ("rowOwnerGUID", "rowPeriodDatetime");
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_project ON public.task_line_plan_movements ("rowProjectGUID", "rowPeriodDatetime");
 
@@ -10732,6 +10777,12 @@ DECLARE
   v_diff     numeric;
   v_rows     integer := 0;
   v_idx      integer := 0;
+  v_org      text;
+  v_mode     text;
+  v_check    boolean;
+  v_busy     jsonb := '[]'::jsonb;
+  v_busy_lines uuid[] := ARRAY[]::uuid[];
+  r          record;
 BEGIN
   IF "taskLinePlanJSON" IS NULL OR jsonb_typeof("taskLinePlanJSON") <> 'object' THEN
     RAISE EXCEPTION 'create_task_line_plan: taskLinePlanJSON must be an object';
@@ -10746,6 +10797,30 @@ BEGIN
   END IF;
   IF jsonb_typeof("taskLinePlanJSON"->'lines') <> 'array' THEN
     RAISE EXCEPTION 'create_task_line_plan: "lines" must be an array';
+  END IF;
+
+  -- the capacity check (PART 22): the mode of the ORGANIZATION of the project. capacityModeOff (the default, also a project without an organization) = exactly as before.
+  SELECT p."rowParentGUID", COALESCE(NULLIF(o."rowJSON"->>'resourceCapacityStrongMode', ''), 'capacityModeOff')
+    INTO v_org, v_mode
+    FROM public.project_table p LEFT JOIN public."organizationTable" o ON o."rowGUID" = p."rowParentGUID" WHERE p."rowGUID" = v_project;
+  v_mode  := COALESCE(v_mode, 'capacityModeOff');
+  v_check := v_mode <> 'capacityModeOff' AND v_org IS NOT NULL;
+  IF v_check THEN
+    -- the calendars of the resources, SHARED (a change of one of these calendars waits for this Post), then one lock per resource, both in sorted order (no deadlock)
+    FOR r IN SELECT DISTINCT cal FROM (SELECT DISTINCT COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person') AS k, l."rowJSON"->>'taskResourceItem' AS g
+                                         FROM public.task_line_table l
+                                        WHERE l."rowOwnerGUID" = v_task AND l."rowParentGUID" = 'timeGenus' AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> '') x,
+                                      LATERAL public.organization_resource_calendars(x.k, x.g) AS cal
+              ORDER BY 1 LOOP
+      PERFORM public.organization_lock_calendar(r.cal, true);
+    END LOOP;
+    -- one lock per resource of the Time lines, in sorted order (no deadlock): a second Post or a change of a calendar of the same resource waits until this one is committed
+    FOR r IN SELECT DISTINCT COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person') AS k, l."rowJSON"->>'taskResourceItem' AS g
+               FROM public.task_line_table l
+              WHERE l."rowOwnerGUID" = v_task AND l."rowParentGUID" = 'timeGenus' AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> ''
+              ORDER BY 1, 2 LOOP
+      PERFORM public.organization_lock_resource(r.k, r.g);
+    END LOOP;
   END IF;
 
   -- the earlier days of the task are replaced
@@ -10804,14 +10879,17 @@ BEGIN
 
     -- one row per day: coefficient rounded to 10 digits, amounts = round(total * coefficient, 2) (null total = null amount)
     INSERT INTO public.task_line_plan_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
-                                       "qtyTaskLine", "sumForBudget", "sumForContract", "rowJSON")
+                                       "qtyTaskLine", "sumForBudget", "sumForContract", "rowJSON", "planMovementStatus", "periodDay")
     SELECT v_project, v_task, v_guid, v_idx * 100000 + e.ord,
            ((e.value->>'d')::date)::timestamp AT TIME ZONE v_tz,
            round((e.value->>'c')::numeric, 10),
            CASE WHEN jsonb_typeof(v_line->'qtyTaskLine')       = 'number' THEN round((v_line->>'qtyTaskLine')::numeric       * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForBudget')      = 'number' THEN round((v_line->>'sumForBudget')::numeric      * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForContract')    = 'number' THEN round((v_line->>'sumForContract')::numeric    * round((e.value->>'c')::numeric, 10), 2) END,
-           v_item
+           v_item,
+           -- false = waits for the capacity check (only a Time line with a resource); every other row is active at once
+           NOT (v_check AND v_genus = 'timeGenus' AND COALESCE(v_ljson->>'taskResourceItem', '') <> ''),
+           (e.value->>'d')::date
       FROM jsonb_array_elements(v_days) WITH ORDINALITY AS e(value, ord);
     v_rows := v_rows + v_n;
 
@@ -10850,6 +10928,20 @@ BEGIN
     v_ids := v_ids || v_guid;
   END LOOP;
 
+  -- the capacity check (after Correct033, so it sees the final hours): every busy line is REPORTED. capacityModeBlock also deletes its rows and leaves it unposted ("Post needed");
+  -- capacityModeWarn keeps them. A conflict is an answer, not an exception: an exception would roll the deletion back too.
+  IF v_check THEN
+    FOR r IN SELECT * FROM public.organization_resource_busy_check(v_task, v_org) LOOP
+      v_busy := v_busy || jsonb_build_array(r.conflict);
+      v_busy_lines := v_busy_lines || r.line_guids;
+    END LOOP;
+    IF v_mode = 'capacityModeBlock' AND COALESCE(array_length(v_busy_lines, 1), 0) > 0 THEN
+      DELETE FROM public.task_line_plan_movements WHERE "rowParentGUID" = ANY (v_busy_lines);
+      v_ids := ARRAY(SELECT x FROM unnest(v_ids) AS x WHERE NOT (x = ANY (v_busy_lines)));
+    END IF;
+    UPDATE public.task_line_plan_movements SET "planMovementStatus" = true WHERE "rowOwnerGUID" = v_task AND NOT "planMovementStatus";
+  END IF;
+
   -- the timeline: the movements of the task grouped by line and DAY (the start of the day in the zone of the post)
   INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget")
   SELECT m."rowProjectGUID", m."rowOwnerGUID", date_trunc('day', m."rowPeriodDatetime" AT TIME ZONE v_tz) AT TIME ZONE v_tz, m."rowParentGUID",
@@ -10868,7 +10960,8 @@ BEGIN
      SET "rowJSON" = (l."rowJSON" - 'baseOfDistribution') || '{"taskIsPosted": false}'::jsonb
    WHERE l."rowOwnerGUID" = v_task AND NOT (l."rowGUID" = ANY (v_ids)) AND jsonb_exists(l."rowJSON", 'baseOfDistribution');
 
-  RETURN jsonb_build_object('lines', COALESCE(array_length(v_ids, 1), 0), 'rows', v_rows);
+  SELECT count(*) INTO v_rows FROM public.task_line_plan_movements WHERE "rowOwnerGUID" = v_task;
+  RETURN jsonb_build_object('lines', COALESCE(array_length(v_ids, 1), 0), 'rows', v_rows, 'mode', v_mode, 'busy', v_busy);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.create_task_line_plan(jsonb) FROM PUBLIC, anon;
@@ -11443,7 +11536,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- =====================================================================================
 -- UNIVERSAL1 - BUSINESS UNITS: create_business_unit_tables.sql
--- (run AFTER parts 1-17; IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT. Remove again with PART 0 of delete_sql_structure.sql.)
+-- (run AFTER parts 1-17; IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT. Remove again with PART 1b of delete_sql_structure.sql.)
 -- Design: documents/BUSINESS_UNIT_CFR_STRUCTURE.html (document "W1 businessUnit").
 --
 -- cfrTypeTable - the ENUMERATION "Centers Of Financial Responsibility" (works like a 1C enumeration): a flat table of 4 fixed values, written by this file ONLY.
@@ -11822,6 +11915,1019 @@ NOTIFY pgrst, 'reload schema';
 
 -- Check:
 --   SELECT "rowGUID", "rowJSON"->>'title', "rowJSON"->>'scenarioKind' FROM public."budgetScenarioTable" ORDER BY "orderInList";   -- 2 rows
+
+-- ===============================================================================================
+-- PART 20: create_organization_scope.sql
+-- the organization of a user (userTable.rowJSON.userOrganization, obligatory) + project_table.rowParentGUID (= the organization of the owner, never changed) + invitations
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - ORGANIZATION SCOPE: create_organization_scope.sql
+-- (run AFTER parts 1-19; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1b of delete_sql_structure.sql.)
+-- Design: documentation/TIME_GENUS_CONTROL_WBS.html, section 1 (work packages A1-A6). Resources are shared by all projects of ONE organization, so a project must know it.
+--
+--   userTable.rowJSON.userOrganization   organizationTable.rowGUID of the user. OBLIGATORY: a CHECK refuses an empty one, a trigger refuses an organization that does not exist
+--                                        and refuses any change by the user himself (an administrator changes it: organization_accept_invitation, the SQL editor).
+--   organization_ensure_user(...)        THE way a user is created: the organization (the one he owns, else a pending invitation, else a new one) and the userTable row in ONE
+--                                        transaction. The client may no longer insert into userTable (INSERT is revoked).
+--   project_table.rowParentGUID          the organization of the project = the organization of its owner. Filled by a trigger on insert (a value sent by a client is ignored),
+--                                        NEVER changed afterwards (a trigger refuses it), organizationTable.rowGUID is a RESTRICT foreign key.
+--   organizationInvitationTable          an invitation of the organization admin (the creator of the organization) to an e-mail. A new user with a pending invitation joins that
+--                                        organization instead of getting an own one; an existing user accepts it with organization_accept_invitation.
+-- Old data: every user without an organization gets the one he already owns (rule "1 user owns 1 organization"), else a new one; every project gets the organization of its owner.
+-- =====================================================================================
+
+-- ---- the organization of a user -----------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_of_user(p_user text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT NULLIF("rowJSON"->>'userOrganization', '') FROM public."userTable" WHERE "rowGUID" = p_user
+$$;
+REVOKE ALL ON FUNCTION public.organization_of_user(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_of_user(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_of_current_user() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.organization_of_user(public.app_user_guid()::text)
+$$;
+REVOKE ALL ON FUNCTION public.organization_of_current_user() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_of_current_user() TO authenticated;
+
+-- the organization OWNED by an e-mail (the creator is its admin): the existing one, else an older one of the catalog owner, else a new one. Internal: no grant.
+CREATE OR REPLACE FUNCTION public.organization_for_email(p_email text, p_first_name text DEFAULT NULL) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(btrim(coalesce(p_email, '')));
+  v_guid  text;
+  v_name  text;
+BEGIN
+  IF v_email = '' THEN RAISE EXCEPTION 'organization_for_email: the e-mail is required'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('organization_for_email:' || v_email));
+  SELECT "rowGUID" INTO v_guid FROM public."organizationTable" WHERE "rowOwnerGUID" = v_email;
+  IF v_guid IS NOT NULL THEN RETURN v_guid; END IF;
+  SELECT x."rowGUID" INTO v_guid FROM public."organizationTable" x
+   WHERE x."rowOwnerGUID" = 'organizationCatalog' AND lower(x."rowJSON"->>'createdByUser') = v_email
+   ORDER BY x."orderInList", x."created_at", x."rowGUID" LIMIT 1;
+  IF v_guid IS NOT NULL THEN
+    UPDATE public."organizationTable" SET "rowOwnerGUID" = v_email, "rowJSON" = jsonb_set("rowJSON", '{createdByUser}', to_jsonb(v_email)) WHERE "rowGUID" = v_guid;
+    RETURN v_guid;
+  END IF;
+  v_name := COALESCE(NULLIF(btrim(COALESCE(p_first_name, '')), ''), NULLIF(split_part(v_email, '@', 1), ''), 'User');
+  v_guid := gen_random_uuid()::text;
+  INSERT INTO public."organizationTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES (v_guid, v_email, 'empty', (extract(epoch FROM clock_timestamp()) * 1000)::bigint,
+          jsonb_build_object('organizationTitle', v_name || '''s Organization', 'organizationLegalName', v_name || ' Organization SIA',
+                             'createdByUser', v_email, 'isActive', true, 'contactEmail', v_email, 'legalData', jsonb_build_object('country', 'LV')));
+  RETURN v_guid;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_for_email(text, text) FROM PUBLIC, anon, authenticated;
+
+-- ---- invitations ---------------------------------------------------------------------------------------------------------
+--   rowOwnerGUID = organizationTable.rowGUID · rowJSON { inviteEmail (lower case), invitedBy (e-mail), status 'pending' | 'accepted' | 'revoked', decidedAt }
+CREATE TABLE IF NOT EXISTS public."organizationInvitationTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."organizationTable"("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "organizationInvitation_email_chk" CHECK (COALESCE("rowJSON"->>'inviteEmail', '') <> '' AND "rowJSON"->>'inviteEmail' = lower("rowJSON"->>'inviteEmail')),
+  CONSTRAINT "organizationInvitation_status_chk" CHECK ("rowJSON"->>'status' IN ('pending', 'accepted', 'revoked'))
+);
+-- one pending invitation per organization and e-mail
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationInvitation_pending" ON public."organizationInvitationTable" ("rowOwnerGUID", ("rowJSON"->>'inviteEmail'))
+  WHERE "rowJSON"->>'status' = 'pending';
+CREATE INDEX IF NOT EXISTS "idx_organizationInvitation_email" ON public."organizationInvitationTable" (("rowJSON"->>'inviteEmail'));
+SELECT public.kit8_setup_def_table('organizationInvitationTable');
+-- read: the invited person and the members of the organization; nobody writes directly (only the functions below)
+REVOKE ALL ON public."organizationInvitationTable" FROM anon, authenticated;
+GRANT SELECT ON public."organizationInvitationTable" TO authenticated;
+DROP POLICY IF EXISTS "organizationInvitationTable_select" ON public."organizationInvitationTable";
+CREATE POLICY "organizationInvitationTable_select" ON public."organizationInvitationTable" FOR SELECT TO authenticated
+  USING ("rowJSON"->>'inviteEmail' = lower(COALESCE(auth.jwt()->>'email', '')) OR "rowOwnerGUID" = public.organization_of_current_user());
+
+-- the admin of an organization = its creator (organizationTable.rowJSON.createdByUser)
+CREATE OR REPLACE FUNCTION public.organization_is_admin(p_organization text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public."organizationTable" o
+                  WHERE o."rowGUID" = p_organization AND lower(o."rowJSON"->>'createdByUser') = lower(COALESCE(auth.jwt()->>'email', '')))
+$$;
+REVOKE ALL ON FUNCTION public.organization_is_admin(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_is_admin(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_invite_user(p_email text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org   text := public.organization_of_current_user();
+  v_email text := lower(btrim(COALESCE(p_email, '')));
+  v_guid  text;
+BEGIN
+  IF v_org IS NULL OR NOT public.organization_is_admin(v_org) THEN
+    RAISE EXCEPTION 'organization_invite_user: only the administrator of the organization can invite' USING ERRCODE = '42501';
+  END IF;
+  IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+$' THEN RAISE EXCEPTION 'organization_invite_user: "%" is not an e-mail', p_email; END IF;
+  IF EXISTS (SELECT 1 FROM public."userTable" WHERE "rowOwnerGUID" = v_email AND NULLIF("rowJSON"->>'userOrganization', '') = v_org) THEN
+    RAISE EXCEPTION 'organization_invite_user: % is already in this organization', v_email;
+  END IF;
+  SELECT "rowGUID" INTO v_guid FROM public."organizationInvitationTable" WHERE "rowOwnerGUID" = v_org AND "rowJSON"->>'inviteEmail' = v_email AND "rowJSON"->>'status' = 'pending';
+  IF v_guid IS NOT NULL THEN RETURN v_guid; END IF;
+  v_guid := gen_random_uuid()::text;
+  INSERT INTO public."organizationInvitationTable" ("rowGUID", "rowOwnerGUID", "orderInList", "rowJSON")
+  VALUES (v_guid, v_org, (extract(epoch FROM clock_timestamp()) * 1000)::bigint,
+          jsonb_build_object('inviteEmail', v_email, 'invitedBy', lower(auth.jwt()->>'email'), 'status', 'pending'));
+  RETURN v_guid;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_invite_user(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_invite_user(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_revoke_invitation(p_invitation text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text;
+BEGIN
+  SELECT "rowOwnerGUID" INTO v_org FROM public."organizationInvitationTable" WHERE "rowGUID" = p_invitation AND "rowJSON"->>'status' = 'pending';
+  IF v_org IS NULL OR NOT public.organization_is_admin(v_org) THEN
+    RAISE EXCEPTION 'organization_revoke_invitation: no such pending invitation of your organization' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'revoked', 'decidedAt', now()) WHERE "rowGUID" = p_invitation;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_revoke_invitation(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_revoke_invitation(text) TO authenticated;
+
+-- ---- the user: THE way to create one ----------------------------------------------------------------------------------------
+-- organization_ensure_user(e-mail, auth uid, first name, last name) -> { userGUID, organizationGUID, organizationTitle }
+--   a signed-in user can only ensure HIS OWN e-mail; the SQL editor / the service key can ensure any (imports).
+--   existing user with an organization -> unchanged · existing user without one -> the organization he owns (a pending invitation is NOT used: he accepts it explicitly)
+--   new user -> a pending invitation of his e-mail (he joins that organization), else a new organization of his own.
+CREATE OR REPLACE FUNCTION public.organization_ensure_user(p_email text, p_auth_uid text DEFAULT NULL, p_first_name text DEFAULT NULL, p_last_name text DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(btrim(COALESCE(p_email, '')));
+  v_user  public."userTable"%ROWTYPE;
+  v_guid  text;
+  v_org   text;
+  v_inv   text;
+BEGIN
+  IF v_email = '' THEN RAISE EXCEPTION 'organization_ensure_user: the e-mail is required'; END IF;
+  IF auth.uid() IS NOT NULL AND v_email <> lower(COALESCE(auth.jwt()->>'email', '')) THEN
+    RAISE EXCEPTION 'organization_ensure_user: you can only ensure your own user' USING ERRCODE = '42501';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('organization_ensure_user:' || v_email));
+
+  SELECT * INTO v_user FROM public."userTable" WHERE "rowOwnerGUID" = v_email;
+  IF FOUND THEN
+    v_guid := v_user."rowGUID";
+    v_org  := NULLIF(v_user."rowJSON"->>'userOrganization', '');
+    IF v_org IS NULL THEN
+      v_org := public.organization_for_email(v_email, COALESCE(p_first_name, v_user."rowJSON"->>'firstName'));
+      PERFORM set_config('kit8.user_organization_change', 'on', true);
+      UPDATE public."userTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('userOrganization', v_org) WHERE "rowGUID" = v_guid;
+      PERFORM set_config('kit8.user_organization_change', 'off', true);
+    END IF;
+  ELSE
+    SELECT i."rowGUID", i."rowOwnerGUID" INTO v_inv, v_org FROM public."organizationInvitationTable" i
+     WHERE i."rowJSON"->>'inviteEmail' = v_email AND i."rowJSON"->>'status' = 'pending' ORDER BY i."created_at", i."rowGUID" LIMIT 1;
+    IF v_org IS NULL THEN v_org := public.organization_for_email(v_email, p_first_name); END IF;
+    -- the GUID of a new user = his auth uid when it is free, else a new one (as loginUserTable always did)
+    IF p_auth_uid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM public."userTable" WHERE "rowGUID" = lower(p_auth_uid)) THEN
+      v_guid := lower(p_auth_uid);
+    ELSE
+      v_guid := gen_random_uuid()::text;
+    END IF;
+    INSERT INTO public."userTable" ("rowGUID", "rowOwnerGUID", "rowJSON")
+    VALUES (v_guid, v_email, jsonb_build_object('userEmail', v_email, 'userGUID', v_guid, 'firstName', COALESCE(p_first_name, ''), 'secondName', COALESCE(p_last_name, ''),
+                                                'userOrganization', v_org));
+    IF v_inv IS NOT NULL THEN
+      UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'accepted', 'decidedAt', now()) WHERE "rowGUID" = v_inv;
+    END IF;
+  END IF;
+  RETURN jsonb_build_object('userGUID', v_guid, 'organizationGUID', v_org,
+                            'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_ensure_user(text, text, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_ensure_user(text, text, text, text) TO authenticated;
+
+-- an EXISTING user accepts the invitation of his e-mail: his organization becomes the invited one (his old projects keep their organization - rowParentGUID never changes)
+CREATE OR REPLACE FUNCTION public.organization_accept_invitation(p_invitation text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(COALESCE(auth.jwt()->>'email', ''));
+  v_org   text;
+BEGIN
+  SELECT "rowOwnerGUID" INTO v_org FROM public."organizationInvitationTable"
+   WHERE "rowGUID" = p_invitation AND "rowJSON"->>'inviteEmail' = v_email AND "rowJSON"->>'status' = 'pending';
+  IF v_org IS NULL THEN RAISE EXCEPTION 'organization_accept_invitation: no pending invitation for you' USING ERRCODE = '42501'; END IF;
+  PERFORM set_config('kit8.user_organization_change', 'on', true);
+  UPDATE public."userTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('userOrganization', v_org) WHERE "rowOwnerGUID" = v_email;
+  PERFORM set_config('kit8.user_organization_change', 'off', true);
+  UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'accepted', 'decidedAt', now()) WHERE "rowGUID" = p_invitation;
+  RETURN jsonb_build_object('organizationGUID', v_org, 'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_accept_invitation(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_accept_invitation(text) TO authenticated;
+
+-- ---- userTable: the organization is obligatory ---------------------------------------------------------------------------
+-- backfill first (the users that exist), then the check
+DO $$
+DECLARE
+  r record;
+BEGIN
+  PERFORM set_config('kit8.user_organization_change', 'on', true);
+  FOR r IN SELECT "rowGUID", "rowOwnerGUID", "rowJSON" FROM public."userTable"
+            WHERE COALESCE("rowJSON"->>'userOrganization', '') = '' AND COALESCE("rowOwnerGUID", '') <> '' LOOP
+    UPDATE public."userTable"
+       SET "rowJSON" = "rowJSON" || jsonb_build_object('userOrganization', public.organization_for_email(r."rowOwnerGUID", r."rowJSON"->>'firstName'))
+     WHERE "rowGUID" = r."rowGUID";
+  END LOOP;
+  PERFORM set_config('kit8.user_organization_change', 'off', true);
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'userTable_userOrganization_chk') THEN
+    ALTER TABLE public."userTable" ADD CONSTRAINT "userTable_userOrganization_chk" CHECK (COALESCE("rowJSON"->>'userOrganization', '') <> '') NOT VALID;
+  END IF;
+  BEGIN
+    ALTER TABLE public."userTable" VALIDATE CONSTRAINT "userTable_userOrganization_chk";
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'userTable: some users still have no organization (an empty e-mail?) - the check stays NOT VALID for them';
+  END;
+END $$;
+
+-- SECURITY INVOKER on purpose: current_user is the role of the caller ('authenticated' = a user, 'postgres' / 'service_role' = an administrator or a SECURITY DEFINER function)
+CREATE OR REPLACE FUNCTION public.organization_user_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := NULLIF(NEW."rowJSON"->>'userOrganization', '');
+BEGIN
+  IF v_org IS NULL THEN
+    RAISE EXCEPTION 'userTable: the organization of the user (rowJSON.userOrganization) is obligatory';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."organizationTable" WHERE "rowGUID" = v_org) THEN
+    RAISE EXCEPTION 'userTable: the organization "%" does not exist', v_org;
+  END IF;
+  IF TG_OP = 'UPDATE' AND NULLIF(OLD."rowJSON"->>'userOrganization', '') IS NOT NULL AND v_org <> OLD."rowJSON"->>'userOrganization'
+     AND COALESCE(current_setting('kit8.user_organization_change', true), '') <> 'on'
+     AND current_user NOT IN ('postgres', 'service_role', 'supabase_admin') THEN
+    RAISE EXCEPTION 'userTable: the organization of a user is changed by an administrator, not by the user (organization_accept_invitation)';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_user_table_organization ON public."userTable";
+CREATE TRIGGER trg_user_table_organization BEFORE INSERT OR UPDATE OF "rowJSON" ON public."userTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_user_guard();
+
+-- a user is created ONLY by organization_ensure_user (it makes the organization first)
+REVOKE INSERT ON public."userTable" FROM authenticated;
+DROP POLICY IF EXISTS "userTable_insert_own" ON public."userTable";
+
+-- ---- project_table.rowParentGUID = the organization of the project ----------------------------------------------------------
+ALTER TABLE public.project_table ADD COLUMN IF NOT EXISTS "rowParentGUID" TEXT;
+
+UPDATE public.project_table p
+   SET "rowParentGUID" = NULLIF(u."rowJSON"->>'userOrganization', '')
+  FROM public."userTable" u
+ WHERE p."rowParentGUID" IS NULL AND u."rowGUID" = p."rowOwnerGUID"::text AND NULLIF(u."rowJSON"->>'userOrganization', '') IS NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'project_table_organization_fk') THEN
+    ALTER TABLE public.project_table ADD CONSTRAINT project_table_organization_fk
+      FOREIGN KEY ("rowParentGUID") REFERENCES public."organizationTable"("rowGUID") ON DELETE RESTRICT;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.project_table WHERE "rowParentGUID" IS NULL) THEN
+    RAISE NOTICE 'project_table: some projects have an owner without a userTable row - their rowParentGUID stays empty (NOT NULL is not set)';
+  ELSE
+    ALTER TABLE public.project_table ALTER COLUMN "rowParentGUID" SET NOT NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_project_table_organization ON public.project_table ("rowParentGUID", "rowOwnerGUID");
+
+-- filled on insert from the owner (the client never sends it; a value sent is overwritten)
+CREATE OR REPLACE FUNCTION public.organization_project_set_parent() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_user(NEW."rowOwnerGUID"::text);
+BEGIN
+  IF v_org IS NULL THEN
+    RAISE EXCEPTION 'pm_gantt: the owner of the project has no organization (userTable.rowJSON.userOrganization)';
+  END IF;
+  NEW."rowParentGUID" := v_org;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_project_table_organization ON public.project_table;
+CREATE TRIGGER trg_project_table_organization BEFORE INSERT ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.organization_project_set_parent();
+
+-- never changed afterwards (an empty one - an old project of an owner without a user row - may be filled once)
+CREATE OR REPLACE FUNCTION public.organization_project_keep_parent() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'pm_gantt: the organization of a project (rowParentGUID) cannot be changed';
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_project_table_organization_keep ON public.project_table;
+CREATE TRIGGER trg_project_table_organization_keep BEFORE UPDATE OF "rowParentGUID" ON public.project_table
+  FOR EACH ROW WHEN (OLD."rowParentGUID" IS NOT NULL AND NEW."rowParentGUID" IS DISTINCT FROM OLD."rowParentGUID")
+  EXECUTE FUNCTION public.organization_project_keep_parent();
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'organizationInvitationTable') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public."organizationInvitationTable";
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT "rowOwnerGUID", "rowJSON"->>'userOrganization' FROM public."userTable";                    -- every user has an organization
+--   SELECT count(*) FROM public.project_table WHERE "rowParentGUID" IS NULL;                          -- 0
+--   SELECT public.organization_ensure_user('me@example.com');                                          -- as the SQL editor: any e-mail
+
+-- ===============================================================================================
+-- PART 21: create_resource_calendar.sql
+-- the resource calendar = the capacity: hours per day on the management calendars, the key resourceCalendar on person / equipment / contract / template, week modes, the lookup organization_resource_capacity
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - RESOURCE CALENDAR: create_resource_calendar.sql
+-- (run AFTER parts 1-20; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1b of delete_sql_structure.sql.)
+-- Design: documentation/TIME_GENUS_CONTROL_WBS.html, section 2 (work packages B1-B10).
+--
+-- The capacity of a resource on a day = the HOURS of its calendar that day. No new table: managementCalendarTable / managementCalendarDaysTable (PART 14) get
+--   calendar row rowJSON    kind 'resource' (absent = a project calendar: nothing changes for it) · hoursPerDay · weekDays 5|6|7 · weekPattern {mon..sun: hours} (a custom week)
+--                           · workFrom / workTo 'HH:MM' (the work window, used by hour / minute control later) · mode 'quantity'|'exclusive'
+--   day row rowJSON         hours 0..24 (0 = not active; the trigger keeps isActive and hours in step) · reason fill | weekend | holiday | manual | vacation | sickLeave | training | other
+--                           (a Fill keeps every reason but fill / weekend unless "overwrite manual")
+-- Calendar folders: + equipmentCalendarFolder, contractCalendarFolder. Seeded resource calendars (the week modes): standardWorkWeekCalendar (Mon-Fri 8 h, THE default),
+-- sixDayWeekCalendar (Mon-Sat), sevenDayWeekCalendar (all days), partTime4hCalendar (Mon-Fri 4 h).
+--
+-- rowJSON.resourceCalendar = managementCalendarTable.rowGUID on personTable, equipmentTable, contractTable, templateResourceContractTable (a trigger checks it points to a RESOURCE calendar).
+-- Which calendar applies to a resource on a day (organization_resource_capacity_info): 1. the calendar of the contract of the person IN FORCE that day (latest start wins) 2. the calendar of the
+-- resource 3. the standard work week. A day without a row = NOT FILLED (NULL hours): never guessed.
+-- =====================================================================================
+
+-- ---- folders + the seeded week modes ------------------------------------------------------------------------------------------
+INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('equipmentCalendarFolder', 'managementCalendarCatalog', 'empty', 4000, '{"title": "Equipment", "description": "Folder: calendars of equipment (machines, vehicles)."}'::jsonb),
+  ('contractCalendarFolder',  'managementCalendarCatalog', 'empty', 5000, '{"title": "Contract", "description": "Folder: calendars of contracts. The calendar of the contract in force has PRIORITY over the calendar of the resource."}'::jsonb),
+  ('standardWorkWeekCalendar', 'managementCalendarCatalog', 'personCalendarFolder', 3100,
+   '{"title": "Standard work week", "description": "Monday to Friday, 8 hours a day: the calendar of every resource that has none.", "kind": "resource", "hoursPerDay": 8, "weekDays": 5, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('sixDayWeekCalendar',      'managementCalendarCatalog', 'personCalendarFolder', 3200,
+   '{"title": "6-day week", "description": "Monday to Saturday, 8 hours a day.", "kind": "resource", "hoursPerDay": 8, "weekDays": 6, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('sevenDayWeekCalendar',    'managementCalendarCatalog', 'personCalendarFolder', 3300,
+   '{"title": "7-day week", "description": "Every day, 8 hours a day (continuous operation).", "kind": "resource", "hoursPerDay": 8, "weekDays": 7, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('partTime4hCalendar',      'managementCalendarCatalog', 'personCalendarFolder', 3400,
+   '{"title": "Part-time 4 h", "description": "Monday to Friday, 4 hours a day.", "kind": "resource", "hoursPerDay": 4, "weekDays": 5, "workFrom": "08:00", "workTo": "12:00", "mode": "quantity"}'::jsonb)
+ON CONFLICT ("rowGUID") DO NOTHING;
+
+-- the seeded calendars have days for the previous, this and next year (only when they have none yet - a second run changes nothing)
+DO $$
+DECLARE
+  y integer := extract(year FROM current_date)::integer;
+  c record;
+BEGIN
+  FOR c IN SELECT * FROM (VALUES ('standardWorkWeekCalendar', 'fiveDays'), ('sixDayWeekCalendar', 'sixDays'), ('sevenDayWeekCalendar', 'allDays'), ('partTime4hCalendar', 'fiveDays')) AS v(cal, mode) LOOP
+    IF EXISTS (SELECT 1 FROM public."managementCalendarTable" WHERE "rowGUID" = c.cal)
+       AND NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = c.cal) THEN
+      PERFORM public.fill_management_calendar(c.cal, y - 1, c.mode);
+      PERFORM public.fill_management_calendar(c.cal, y,     c.mode);
+      PERFORM public.fill_management_calendar(c.cal, y + 1, c.mode);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---- hours of a day row: 0..24, in step with isActive -----------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'management_calendar_day_hours_chk') THEN
+    ALTER TABLE public."managementCalendarDaysTable" ADD CONSTRAINT management_calendar_day_hours_chk CHECK (
+      NOT ("rowJSON" ? 'hours')
+      OR (jsonb_typeof("rowJSON"->'hours') = 'number' AND ("rowJSON"->>'hours')::numeric BETWEEN 0 AND 24
+          AND (("rowJSON"->>'hours')::numeric > 0) = (("rowJSON"->>'isActive')::boolean)));
+  END IF;
+END $$;
+
+-- a day of a RESOURCE calendar: hours and isActive are kept in step (the screen of the project calendar still switches isActive only)
+CREATE OR REPLACE FUNCTION public.organization_calendar_day_normalize() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_cal   jsonb;
+  v_per   numeric;
+  v_new_h numeric := CASE WHEN jsonb_typeof(NEW."rowJSON"->'hours') = 'number' THEN (NEW."rowJSON"->>'hours')::numeric END;
+  v_old_h numeric;
+  v_new_a boolean := (NEW."rowJSON"->>'isActive')::boolean;
+  v_old_a boolean;
+BEGIN
+  SELECT c."rowJSON" INTO v_cal FROM public."managementCalendarTable" c WHERE c."rowGUID" = NEW."rowOwnerGUID";
+  IF COALESCE(v_cal->>'kind', '') <> 'resource' THEN RETURN NEW; END IF;
+  v_per := COALESCE((v_cal->>'hoursPerDay')::numeric, 8);
+  IF TG_OP = 'UPDATE' THEN
+    v_old_h := CASE WHEN jsonb_typeof(OLD."rowJSON"->'hours') = 'number' THEN (OLD."rowJSON"->>'hours')::numeric END;
+    v_old_a := (OLD."rowJSON"->>'isActive')::boolean;
+  END IF;
+  IF v_new_h IS NULL THEN                       -- no hours given: from isActive
+    v_new_h := CASE WHEN v_new_a THEN v_per ELSE 0 END;
+  ELSIF TG_OP = 'UPDATE' AND v_new_h IS NOT DISTINCT FROM v_old_h AND v_new_a IS DISTINCT FROM v_old_a THEN  -- only isActive was switched
+    v_new_h := CASE WHEN v_new_a THEN v_per ELSE 0 END;
+  END IF;
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('hours', v_new_h, 'isActive', v_new_h > 0);
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_management_calendar_day_normalize ON public."managementCalendarDaysTable";
+CREATE TRIGGER trg_management_calendar_day_normalize BEFORE INSERT OR UPDATE OF "rowJSON" ON public."managementCalendarDaysTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_day_normalize();
+
+-- ---- the key resourceCalendar points to a resource calendar --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_resource_calendar_check() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_cal text := NULLIF(NEW."rowJSON"->>'resourceCalendar', '');
+BEGIN
+  IF v_cal IS NULL THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarTable" c
+                  WHERE c."rowGUID" = v_cal AND c."rowParentGUID" <> 'empty' AND COALESCE(c."rowJSON"->>'kind', '') = 'resource') THEN
+    RAISE EXCEPTION '%: resourceCalendar "%" is not a resource calendar (a calendar with rowJSON.kind = resource)', TG_TABLE_NAME, v_cal;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'contractTable', 'templateResourceContractTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_calendar', t);
+      EXECUTE format('CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF "rowJSON" ON public.%I FOR EACH ROW EXECUTE FUNCTION public.organization_resource_calendar_check()',
+                     'trg_' || t || '_resource_calendar', t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- a calendar in use (or the standard one) cannot be deleted
+CREATE OR REPLACE FUNCTION public.organization_calendar_in_use_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  t text;
+  v_used boolean;
+BEGIN
+  IF OLD."rowGUID" = 'standardWorkWeekCalendar' THEN
+    RAISE EXCEPTION 'managementCalendarTable: the standard work week is the calendar of every resource that has none - it cannot be deleted';
+  END IF;
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'contractTable', 'templateResourceContractTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I WHERE "rowJSON" @> %L::jsonb)', t, jsonb_build_object('resourceCalendar', OLD."rowGUID")::text) INTO v_used;
+      IF v_used THEN
+        RAISE EXCEPTION 'managementCalendarTable: calendar "%" is the resourceCalendar of a row of % - choose another calendar there first', OLD."rowGUID", t;
+      END IF;
+    END IF;
+  END LOOP;
+  RETURN OLD;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_management_calendar_in_use ON public."managementCalendarTable";
+CREATE TRIGGER trg_management_calendar_in_use BEFORE DELETE ON public."managementCalendarTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_in_use_guard();
+
+-- ---- the capacity ---------------------------------------------------------------------------------------------------------------
+-- a date from rowJSON text ('YYYY-MM-DD'); anything else = NULL
+CREATE OR REPLACE FUNCTION public.organization_json_date(p_text text) RETURNS date
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN p_text ~ '^\d{4}-\d{2}-\d{2}$' THEN p_text::date END
+$$;
+
+-- organization_resource_capacity_info(kind, resource, day) -> the calendar that applies, where it comes from ('contract' | 'resource' | 'standard') and its hours that day (NULL = not filled)
+CREATE OR REPLACE FUNCTION public.organization_resource_capacity_info(p_kind text, p_resource text, p_day date)
+RETURNS TABLE (calendar text, source text, hours numeric, calendar_without_contract text, hours_without_contract numeric)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_contract text;
+  v_resource text;
+  v_cal      text;
+  v_alt      text;
+  v_src      text;
+BEGIN
+  IF p_kind NOT IN ('person', 'equipment') THEN
+    RAISE EXCEPTION 'organization_resource_capacity_info: unknown resource kind "%" (person | equipment)', p_kind;
+  END IF;
+  IF p_kind = 'person' THEN
+    v_contract := public.organization_contract_calendar(p_resource, p_day);      -- PART 23: the contract in force, latest start wins
+    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."personTable" x WHERE x."rowGUID" = p_resource;
+  ELSE
+    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."equipmentTable" x WHERE x."rowGUID" = p_resource;
+  END IF;
+  v_alt := COALESCE(v_resource, 'standardWorkWeekCalendar');
+  IF v_contract IS NOT NULL THEN v_cal := v_contract; v_src := 'contract';
+  ELSIF v_resource IS NOT NULL THEN v_cal := v_resource; v_src := 'resource';
+  ELSE v_cal := 'standardWorkWeekCalendar'; v_src := 'standard';
+  END IF;
+  RETURN QUERY SELECT v_cal, v_src, public.organization_calendar_day_hours(v_cal, p_day), v_alt, public.organization_calendar_day_hours(v_alt, p_day);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_capacity_info(text, text, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_capacity_info(text, text, date) TO authenticated;
+
+-- the hours of one day of one calendar (NULL = no day row = not filled); an old day row without hours: isActive ? hoursPerDay : 0
+CREATE OR REPLACE FUNCTION public.organization_calendar_day_hours(p_calendar text, p_day date) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN jsonb_typeof(d."rowJSON"->'hours') = 'number' THEN (d."rowJSON"->>'hours')::numeric
+              WHEN (d."rowJSON"->>'isActive')::boolean THEN COALESCE((c."rowJSON"->>'hoursPerDay')::numeric, 8)
+              ELSE 0 END
+    FROM public."managementCalendarDaysTable" d
+    JOIN public."managementCalendarTable" c ON c."rowGUID" = d."rowOwnerGUID"
+   WHERE d."rowGUID" = p_calendar || ':' || to_char(p_day, 'YYYY-MM-DD')
+$$;
+REVOKE ALL ON FUNCTION public.organization_calendar_day_hours(text, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_calendar_day_hours(text, date) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_resource_capacity(p_kind text, p_resource text, p_day date) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT hours FROM public.organization_resource_capacity_info(p_kind, p_resource, p_day)
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_capacity(text, text, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_capacity(text, text, date) TO authenticated;
+
+-- ---- the project calendars of an organization (consistency of a resource calendar with them, Fill "follow project holidays") ----------------------------
+-- the calendars the projects of the organization plan with (project.rowJSON.calendarForTaskPlan, default workingDaysCalendar)
+CREATE OR REPLACE FUNCTION public.organization_project_calendars(p_organization text) RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT DISTINCT COALESCE(NULLIF(p."rowJSON"->>'calendarForTaskPlan', ''), 'workingDaysCalendar')
+    FROM public.project_table p WHERE p."rowParentGUID" = p_organization
+$$;
+REVOKE ALL ON FUNCTION public.organization_project_calendars(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_project_calendars(text) TO authenticated;
+
+-- the days of a year flagged holiday (and not active) in ANY project calendar of the organization
+CREATE OR REPLACE FUNCTION public.organization_holiday_days(p_organization text, p_year integer) RETURNS SETOF date
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT DISTINCT public.organization_json_date(d."rowJSON"->>'day')
+    FROM public."managementCalendarDaysTable" d
+   WHERE d."rowOwnerGUID" IN (SELECT public.organization_project_calendars(p_organization))
+     AND d."rowParentGUID" = p_year::text
+     AND d."rowJSON"->>'reason' = 'holiday' AND NOT (d."rowJSON"->>'isActive')::boolean
+$$;
+REVOKE ALL ON FUNCTION public.organization_holiday_days(text, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_holiday_days(text, integer) TO authenticated;
+
+-- the report of the Fill of a RESOURCE calendar: the days where the project calendars of the organization and the resource calendar disagree
+--   projectWorksResourceOff    some project calendar works that day, the resource calendar has 0 h (a booking there would be BUSY)
+--   projectClosedResourceWorks every project calendar of the organization is off that day, the resource calendar still has hours (is_holiday: flagged holiday - "follow project holidays" fixes it)
+CREATE OR REPLACE FUNCTION public.organization_calendar_consistency(p_calendar text, p_year integer)
+RETURNS TABLE (day date, difference text, project_reason text, resource_hours numeric, is_holiday boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH proj AS (
+    SELECT public.organization_json_date(d."rowJSON"->>'day') AS day,
+           bool_or((d."rowJSON"->>'isActive')::boolean) AS works,
+           bool_or(d."rowJSON"->>'reason' = 'holiday' AND NOT (d."rowJSON"->>'isActive')::boolean) AS holiday,
+           min(d."rowJSON"->>'reason') AS reason
+      FROM public."managementCalendarDaysTable" d
+     WHERE d."rowOwnerGUID" IN (SELECT public.organization_project_calendars(public.organization_of_current_user())) AND d."rowParentGUID" = p_year::text
+     GROUP BY 1),
+  res AS (
+    SELECT public.organization_json_date(d."rowJSON"->>'day') AS day, public.organization_calendar_day_hours(p_calendar, public.organization_json_date(d."rowJSON"->>'day')) AS hours
+      FROM public."managementCalendarDaysTable" d WHERE d."rowOwnerGUID" = p_calendar AND d."rowParentGUID" = p_year::text)
+  SELECT p.day,
+         CASE WHEN p.works AND r.hours = 0 THEN 'projectWorksResourceOff' ELSE 'projectClosedResourceWorks' END,
+         p.reason, r.hours, p.holiday
+    FROM proj p JOIN res r ON r.day = p.day
+   WHERE (p.works AND r.hours = 0) OR (NOT p.works AND r.hours > 0)
+   ORDER BY p.day
+$$;
+REVOKE ALL ON FUNCTION public.organization_calendar_consistency(text, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_calendar_consistency(text, integer) TO authenticated;
+
+-- the "Own calendar" button (copy on write): a private copy of a resource calendar - the row (kind resource, same hours / week mode / work window) and ALL its day rows - in a folder
+-- (personCalendarFolder | equipmentCalendarFolder | contractCalendarFolder). The pointer of the person / equipment / contract is set by the caller. Returns the rowGUID of the copy.
+CREATE OR REPLACE FUNCTION public.organization_copy_calendar(p_source text DEFAULT 'standardWorkWeekCalendar', p_title text DEFAULT NULL, p_folder text DEFAULT 'personCalendarFolder') RETURNS text
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_src  jsonb;
+  v_new  text := 'cal-' || gen_random_uuid()::text;
+BEGIN
+  SELECT c."rowJSON" INTO v_src FROM public."managementCalendarTable" c WHERE c."rowGUID" = p_source AND c."rowParentGUID" <> 'empty' AND COALESCE(c."rowJSON"->>'kind', '') = 'resource';
+  IF v_src IS NULL THEN RAISE EXCEPTION 'organization_copy_calendar: "%" is not a resource calendar', p_source; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarTable" f WHERE f."rowGUID" = p_folder AND f."rowParentGUID" = 'empty') THEN
+    RAISE EXCEPTION 'organization_copy_calendar: "%" is not a calendar folder', p_folder;
+  END IF;
+  INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES (v_new, 'managementCalendarCatalog', p_folder, (extract(epoch FROM clock_timestamp()) * 1000)::bigint,
+          v_src || jsonb_build_object('title', COALESCE(NULLIF(btrim(p_title), ''), (v_src->>'title') || ' (own)'), 'description', 'Own copy of ' || COALESCE(v_src->>'title', p_source), 'copyOf', p_source));
+  INSERT INTO public."managementCalendarDaysTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  SELECT v_new || ':' || (d."rowJSON"->>'day'), v_new, d."rowParentGUID", d."orderInList", d."rowJSON"
+    FROM public."managementCalendarDaysTable" d WHERE d."rowOwnerGUID" = p_source;
+  RETURN v_new;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.organization_copy_calendar(text, text, text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."managementCalendarTable" WHERE "rowJSON"->>'kind' = 'resource';          -- 4 week modes
+--   SELECT * FROM public.organization_resource_capacity_info('person', '<person rowGUID>', current_date);                                      -- calendar, source, hours
+
+-- ===============================================================================================
+-- PART 22: create_resource_busy_check.sql
+-- the occupancy view of the posted days + organization_resource_busy_check (is a resource busy?) + the per-resource lock; the setting is organizationTable.rowJSON.resourceCapacityStrongMode
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - RESOURCE BUSY CHECK: create_resource_busy_check.sql
+-- (run AFTER parts 1-21; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1b of delete_sql_structure.sql.)
+-- Design: documentation/TIME_GENUS_CONTROL_WBS.html, sections 4-7 (work packages 1, 3, 4).
+--
+-- resource_occupancy_x_movement - the posted days of the Time lines in the ABSTRACT column contract of the occupancy (one view per source; a new source = one more view):
+--   sourceName · sourceRowGUID · taskLineMovementGUID (the task whose movements are replaced together) · scopeGUID (the ORGANIZATION that shares the resource)
+--   · resourceKind · resourceGUID · periodStart · periodEnd · periodDay (the day, in the zone of the post) · quantityResourceBusy · unit · statusOfLine · lineGUID · projectGUID · ownerGUID
+--   statusOfLine  posted = planMovementStatus true and the line is posted · free = planMovementStatus false: the rows of the Post that is being checked now · stale = the line has
+--                 taskIsPosted = false (the task dates moved; the old rows wait for the next Post): it does NOT count.
+--   Only Time lines with a resource and an HOUR quantity are in the view (a quantity in days or pieces cannot be compared with hours of a calendar).
+--
+-- organization_resource_busy_check(task, organization, grain) - all conflicts of ONE task against the rest of the organization, per resource and day:
+--   booked here (free + posted rows of the task; the lines of one task add up) + booked by the OTHER tasks (posted) > the capacity of the calendar (PART 21) = busy.
+--   Equal is not busy. A day without a calendar row (NULL capacity) is a conflict too: never guessed. Read-only. Day grain only: the data has no time of day yet.
+-- organization_lock_resource(kind, guid) - ONE advisory lock per resource, shared by Post and the calendar lock, so they cannot both succeed at once.
+-- =====================================================================================
+
+CREATE OR REPLACE VIEW public.resource_occupancy_x_movement AS
+SELECT 'taskLinePlanMovements'::text                                          AS "sourceName",
+       m."rowGUID"::text                                                      AS "sourceRowGUID",
+       m."rowOwnerGUID"::text                                                 AS "taskLineMovementGUID",
+       p."rowParentGUID"                                                      AS "scopeGUID",
+       COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person')       AS "resourceKind",
+       l."rowJSON"->>'taskResourceItem'                                       AS "resourceGUID",
+       m."rowPeriodDatetime"                                                  AS "periodStart",
+       m."rowPeriodDatetime" + INTERVAL '1 day'                               AS "periodEnd",
+       COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date) AS "periodDay",
+       COALESCE(m."qtyTaskLine", 0)                                           AS "quantityResourceBusy",
+       'hour'::text                                                           AS "unit",
+       CASE WHEN NOT m."planMovementStatus" THEN 'free'
+            WHEN COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) THEN 'posted'
+            ELSE 'stale' END                                                  AS "statusOfLine",
+       m."rowParentGUID"::text                                                AS "lineGUID",
+       m."rowProjectGUID"::text                                               AS "projectGUID",
+       p."rowOwnerGUID"::text                                                 AS "ownerGUID"
+  FROM public.task_line_plan_movements m
+  JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+  JOIN public.project_table   p ON p."rowGUID" = m."rowProjectGUID"
+ WHERE l."rowParentGUID" = 'timeGenus'
+   AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> ''
+   AND COALESCE(NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''), 'unit_hour') = 'unit_hour';
+-- the view reads tables that only the owner of a project may see: nobody queries it directly, the functions below (SECURITY DEFINER) answer
+REVOKE ALL ON public.resource_occupancy_x_movement FROM PUBLIC, anon, authenticated;
+
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_day ON public.task_line_plan_movements ("periodDay");
+
+CREATE OR REPLACE FUNCTION public.organization_lock_resource(p_kind text, p_guid text) RETURNS void
+LANGUAGE sql AS $$
+  SELECT pg_advisory_xact_lock(hashtextextended('organization_resource:' || p_kind || ':' || p_guid, 0))
+$$;
+REVOKE ALL ON FUNCTION public.organization_lock_resource(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_lock_resource(text, text) TO authenticated;
+
+-- A calendar change cannot see a Post that is not committed yet, so it could not know which resources to wait for. The calendar has a lock of its own:
+-- every Post holds it SHARED (any number of Posts at once) for the calendars of its resources, a change of a calendar takes it EXCLUSIVE and so waits for the Posts in flight.
+-- Order of locking everywhere: calendars first (sorted), then resources (sorted): no cycle, no deadlock.
+CREATE OR REPLACE FUNCTION public.organization_lock_calendar(p_calendar text, p_shared boolean DEFAULT false) RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF p_shared THEN PERFORM pg_advisory_xact_lock_shared(hashtextextended('organization_calendar:' || p_calendar, 0));
+  ELSE PERFORM pg_advisory_xact_lock(hashtextextended('organization_calendar:' || p_calendar, 0));
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_lock_calendar(text, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_lock_calendar(text, boolean) TO authenticated;
+
+-- every calendar that can give a resource its capacity: the standard one, its own, and (a person) the calendars of all its contracts
+CREATE OR REPLACE FUNCTION public.organization_resource_calendars(p_kind text, p_guid text) RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT 'standardWorkWeekCalendar'
+  UNION
+  SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') FROM public."personTable" x WHERE p_kind = 'person' AND x."rowGUID" = p_guid
+  UNION
+  SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') FROM public."equipmentTable" x WHERE p_kind = 'equipment' AND x."rowGUID" = p_guid
+  UNION
+  SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') FROM public."contractTable" c WHERE p_kind = 'person' AND c."rowOwnerGUID" = p_guid AND c."rowParentGUID" = 'person'
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_calendars(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_calendars(text, text) TO authenticated;
+
+-- the name of a resource for a message
+CREATE OR REPLACE FUNCTION public.organization_resource_title(p_kind text, p_guid text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(
+    CASE WHEN p_kind = 'equipment'
+         THEN (SELECT NULLIF(e."rowJSON"->>'equipmentTitle', '') FROM public."equipmentTable" e WHERE e."rowGUID" = p_guid)
+         ELSE (SELECT NULLIF(btrim(COALESCE(x."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(x."rowJSON"->>'personLastName', '')), '') FROM public."personTable" x WHERE x."rowGUID" = p_guid)
+    END, p_guid)
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_title(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_title(text, text) TO authenticated;
+
+-- the e-mail of the project manager of a project (project_table.rowJSON.projectManagerPerson = a personTable GUID; personTable.rowJSON.personEmail): where the Share button sends its text
+CREATE OR REPLACE FUNCTION public.organization_project_manager_email(p_project uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT NULLIF(btrim(x."rowJSON"->>'personEmail'), '')
+    FROM public.project_table p JOIN public."personTable" x ON x."rowGUID" = p."rowJSON"->>'projectManagerPerson'
+   WHERE p."rowGUID" = p_project
+$$;
+REVOKE ALL ON FUNCTION public.organization_project_manager_email(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_project_manager_email(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_resource_busy_check(p_task uuid, p_scope text, p_grain text DEFAULT 'day')
+RETURNS TABLE (resource_kind text, resource_guid text, day date, capacity_hours numeric, booked_here numeric, booked_others numeric, over_hours numeric,
+               not_filled boolean, line_guids uuid[], others jsonb, conflict jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_posting_email text := public.organization_project_manager_email((SELECT t."projectGUID" FROM public.project_task_table t WHERE t."rowGUID" = p_task));
+BEGIN
+  IF p_grain IS DISTINCT FROM 'day' THEN
+    RAISE EXCEPTION 'organization_resource_busy_check: grain "%" is not possible yet - the posted days have no time of day (only: day)', p_grain;
+  END IF;
+  IF auth.uid() IS NOT NULL AND p_scope IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'organization_resource_busy_check: the organization is not yours' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  WITH mine AS (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q, array_agg(DISTINCT o."lineGUID"::uuid) AS lines
+      FROM public.resource_occupancy_x_movement o
+     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" = p_task::text AND o."statusOfLine" IN ('free', 'posted')
+     GROUP BY 1, 2, 3),
+  others AS (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q,
+           jsonb_agg(jsonb_build_object('projectGUID', o."projectGUID", 'taskGUID', o."taskLineMovementGUID", 'hours', o."quantityResourceBusy",
+                                        'managerEmail', public.organization_project_manager_email(o."projectGUID"::uuid)) ORDER BY o."projectGUID", o."taskLineMovementGUID") AS who
+      FROM public.resource_occupancy_x_movement o
+      JOIN mine m ON m.k = o."resourceKind" AND m.g = o."resourceGUID" AND m.d = o."periodDay"
+     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" <> p_task::text AND o."statusOfLine" = 'posted'
+     GROUP BY 1, 2, 3),
+  calc AS (
+    SELECT m.k, m.g, m.d, public.organization_resource_capacity(m.k, m.g, m.d) AS cap, m.q AS here, COALESCE(x.q, 0) AS oth, COALESCE(x.who, '[]'::jsonb) AS who, m.lines
+      FROM mine m LEFT JOIN others x ON x.k = m.k AND x.g = m.g AND x.d = m.d)
+  SELECT c.k, c.g, c.d, c.cap, c.here, c.oth,
+         CASE WHEN c.cap IS NULL THEN c.here + c.oth ELSE GREATEST(0, c.here + c.oth - c.cap) END,
+         c.cap IS NULL, c.lines, c.who,
+         jsonb_build_object('resourceKind', c.k, 'resourceGUID', c.g, 'resourceTitle', public.organization_resource_title(c.k, c.g), 'day', c.d,
+                            'capacityHours', c.cap, 'bookedHere', c.here, 'bookedOthers', c.oth,
+                            'overHours', CASE WHEN c.cap IS NULL THEN c.here + c.oth ELSE GREATEST(0, c.here + c.oth - c.cap) END,
+                            'notFilled', c.cap IS NULL, 'lines', to_jsonb(c.lines), 'others', c.who, 'postingManagerEmail', v_posting_email)
+    FROM calc c
+   WHERE c.here > 0 AND (c.cap IS NULL OR c.here + c.oth > c.cap)
+   ORDER BY c.k, c.g, c.d;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_busy_check(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_busy_check(uuid, text, text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT * FROM public.organization_resource_busy_check('<task rowGUID>', '<organization rowGUID>');       -- one row per busy resource and day
+--   UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"resourceCapacityStrongMode": "capacityModeWarn"}' WHERE "rowGUID" = '<organization rowGUID>';   -- capacityModeOff | capacityModeWarn | capacityModeBlock
+
+-- ===============================================================================================
+-- PART 23: create_calendar_lock.sql
+-- the calendar lock: a change of a calendar that would put the capacity of a resource under its POSTED hours is refused (day rows, Fill, the resourceCalendar pointers, the contracts)
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - CALENDAR LOCK: create_calendar_lock.sql
+-- (run AFTER parts 1-22; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1b of delete_sql_structure.sql.)
+-- Design: documentation/TIME_GENUS_CONTROL_WBS.html, section 3 (work packages C1-C6).
+--
+-- The rule: for every resource and day that has posted bookings, capacity >= booked. Post keeps it from one side (capacityModeBlock), this part from the other:
+--   a change is REFUSED when it LOWERS the capacity of a day (new < old) AND the new capacity is under the hours posted on that day. Raising or keeping the capacity is always allowed,
+--   so a day that is already over (a legacy booking, capacityModeWarn) can still be repaired. The rule is ALWAYS on: the bookings exist whatever the mode of the organization says.
+--   Only POSTED rows count (a stale row, a row waiting for the check, a draft do not). The bookings of the whole database are looked at: a calendar is shared by all organizations.
+-- Guarded: a day row of a resource calendar (update, delete) - and so a Fill, which is ONE statement: it is refused as a whole - the resourceCalendar of a person / equipment,
+--   the contracts of a person (the calendar, the dates, a new or a deleted contract). The same advisory lock per resource as Post (organization_lock_resource).
+-- organization_calendar_lock_info: the locked days of a calendar (the screen disables them). organization_calendar_change_conflicts: what a planned change would break (the Fill preview).
+-- =====================================================================================
+
+-- the contract calendar in force for a person on a day (latest start wins). p_exclude / p_extra describe ANOTHER version of the contracts (the state before a change):
+--   the contract p_exclude is left out and the row p_extra (a contract as json) is added.
+CREATE OR REPLACE FUNCTION public.organization_contract_calendar(p_person text, p_day date, p_exclude text DEFAULT NULL, p_extra jsonb DEFAULT NULL) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT x.cal FROM (
+    SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') AS cal, public.organization_json_date(c."rowJSON"->>'contractStartDate') AS s,
+           public.organization_json_date(c."rowJSON"->>'contractFinishDate') AS f, c."orderInList" AS o, c."rowGUID" AS g
+      FROM public."contractTable" c
+     WHERE c."rowOwnerGUID" = p_person AND c."rowParentGUID" = 'person' AND (p_exclude IS NULL OR c."rowGUID" <> p_exclude)
+    UNION ALL
+    SELECT NULLIF(p_extra->>'resourceCalendar', ''), public.organization_json_date(p_extra->>'contractStartDate'), public.organization_json_date(p_extra->>'contractFinishDate'), 0::numeric, ''
+     WHERE p_extra IS NOT NULL AND p_extra->>'rowParentGUID' IS NOT DISTINCT FROM 'person'
+  ) x
+  WHERE x.cal IS NOT NULL AND x.s <= p_day AND COALESCE(x.f, DATE '9999-12-31') >= p_day
+  ORDER BY x.s DESC, x.o, x.g LIMIT 1
+$$;
+REVOKE ALL ON FUNCTION public.organization_contract_calendar(text, date, text, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_contract_calendar(text, date, text, jsonb) TO authenticated;
+
+-- the hours posted for a resource on a day (the largest total of one organization)
+CREATE OR REPLACE FUNCTION public.organization_resource_booked(p_kind text, p_guid text, p_day date) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(max(t.q), 0) FROM (
+    SELECT sum(o."quantityResourceBusy") AS q FROM public.resource_occupancy_x_movement o
+     WHERE o."resourceKind" = p_kind AND o."resourceGUID" = p_guid AND o."periodDay" = p_day AND o."statusOfLine" = 'posted' GROUP BY o."scopeGUID") t
+$$;
+REVOKE ALL ON FUNCTION public.organization_resource_booked(text, text, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_resource_booked(text, text, date) TO authenticated;
+
+-- refuse when the capacity falls under the posted hours (and it is a lowering). Locks the resource first (the same lock as Post).
+CREATE OR REPLACE FUNCTION public.organization_assert_capacity(p_kind text, p_guid text, p_day date, p_old numeric, p_new numeric) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_booked numeric;
+  v_who    text;
+BEGIN
+  IF p_old IS NOT NULL AND COALESCE(p_new, 0) >= p_old THEN RETURN; END IF;       -- raised or kept: always allowed
+  PERFORM public.organization_lock_resource(p_kind, p_guid);
+  v_booked := public.organization_resource_booked(p_kind, p_guid, p_day);
+  IF v_booked > COALESCE(p_new, 0) THEN
+    SELECT string_agg(DISTINCT o."projectGUID" || ' / ' || o."taskLineMovementGUID", '; ') INTO v_who
+      FROM public.resource_occupancy_x_movement o
+     WHERE o."resourceKind" = p_kind AND o."resourceGUID" = p_guid AND o."periodDay" = p_day AND o."statusOfLine" = 'posted';
+    RAISE EXCEPTION 'calendar: % has % h booked on % (project / task: %); the capacity cannot be less than % h.',
+      public.organization_resource_title(p_kind, p_guid), v_booked, p_day, v_who, v_booked
+      USING ERRCODE = 'check_violation', HINT = 'Move the task or reduce its hours first, then change the calendar.';
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.organization_assert_capacity(text, text, date, numeric, numeric) FROM PUBLIC, anon;
+
+-- ---- a day row of a resource calendar ------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_calendar_day_lock() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_cal    text := COALESCE(NEW."rowOwnerGUID", OLD."rowOwnerGUID");
+  v_json   jsonb;
+  v_day    date;
+  v_old    numeric;
+  v_new    numeric;
+  v_per    numeric;
+  r        record;
+BEGIN
+  IF TG_OP = 'INSERT' THEN RETURN NEW; END IF;                                      -- a new day never lowers anything
+  SELECT c."rowJSON" INTO v_json FROM public."managementCalendarTable" c WHERE c."rowGUID" = v_cal;
+  IF v_json IS NULL OR COALESCE(v_json->>'kind', '') <> 'resource' THEN RETURN COALESCE(NEW, OLD); END IF;   -- a project calendar has no capacity
+  v_per := COALESCE((v_json->>'hoursPerDay')::numeric, 8);
+  v_day := public.organization_json_date(OLD."rowJSON"->>'day');
+  v_old := CASE WHEN jsonb_typeof(OLD."rowJSON"->'hours') = 'number' THEN (OLD."rowJSON"->>'hours')::numeric WHEN (OLD."rowJSON"->>'isActive')::boolean THEN v_per ELSE 0 END;
+  IF TG_OP = 'DELETE' THEN v_new := NULL;
+  ELSE v_new := CASE WHEN jsonb_typeof(NEW."rowJSON"->'hours') = 'number' THEN (NEW."rowJSON"->>'hours')::numeric WHEN (NEW."rowJSON"->>'isActive')::boolean THEN v_per ELSE 0 END;
+  END IF;
+  IF v_day IS NULL OR COALESCE(v_new, 0) >= v_old THEN RETURN COALESCE(NEW, OLD); END IF;
+  PERFORM public.organization_lock_calendar(v_cal);       -- waits for the Posts in flight that use this calendar, then the bookings below are the committed ones
+  -- the resources booked that day whose calendar of the day is THIS calendar
+  FOR r IN SELECT DISTINCT o."resourceKind" AS k, o."resourceGUID" AS g FROM public.resource_occupancy_x_movement o WHERE o."periodDay" = v_day AND o."statusOfLine" = 'posted' LOOP
+    IF (SELECT i.calendar FROM public.organization_resource_capacity_info(r.k, r.g, v_day) i) = v_cal THEN
+      PERFORM public.organization_assert_capacity(r.k, r.g, v_day, v_old, v_new);
+    END IF;
+  END LOOP;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_management_calendar_day_lock ON public."managementCalendarDaysTable";
+CREATE TRIGGER trg_management_calendar_day_lock AFTER UPDATE OR DELETE ON public."managementCalendarDaysTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_day_lock();
+
+-- ---- the resourceCalendar of a person / equipment --------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_resource_pointer_lock() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := CASE TG_TABLE_NAME WHEN 'equipmentTable' THEN 'equipment' ELSE 'person' END;
+  v_old_cal text := NULLIF(OLD."rowJSON"->>'resourceCalendar', '');
+  v_new_cal text := NULLIF(NEW."rowJSON"->>'resourceCalendar', '');
+  v_day  date;
+  v_oldh numeric;
+  v_newh numeric;
+  v_contract text;
+BEGIN
+  IF v_old_cal IS NOT DISTINCT FROM v_new_cal THEN RETURN NEW; END IF;
+  PERFORM public.organization_lock_calendar(c) FROM (SELECT DISTINCT COALESCE(x, 'standardWorkWeekCalendar') AS c FROM unnest(ARRAY[v_old_cal, v_new_cal]) AS x ORDER BY 1) t;
+  FOR v_day IN SELECT DISTINCT o."periodDay" FROM public.resource_occupancy_x_movement o
+                WHERE o."resourceKind" = v_kind AND o."resourceGUID" = NEW."rowGUID" AND o."statusOfLine" = 'posted' ORDER BY 1 LOOP
+    v_contract := CASE WHEN v_kind = 'person' THEN public.organization_contract_calendar(NEW."rowGUID", v_day) END;     -- a contract calendar wins either way
+    v_oldh := public.organization_calendar_day_hours(COALESCE(v_contract, v_old_cal, 'standardWorkWeekCalendar'), v_day);
+    v_newh := public.organization_calendar_day_hours(COALESCE(v_contract, v_new_cal, 'standardWorkWeekCalendar'), v_day);
+    PERFORM public.organization_assert_capacity(v_kind, NEW."rowGUID", v_day, v_oldh, v_newh);
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_pointer_lock', t);
+      EXECUTE format('CREATE TRIGGER %I AFTER UPDATE OF "rowJSON" ON public.%I FOR EACH ROW EXECUTE FUNCTION public.organization_resource_pointer_lock()',
+                     'trg_' || t || '_resource_pointer_lock', t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---- the contracts of a person (new, changed, deleted) ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_contract_lock() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_person text := COALESCE(NEW."rowOwnerGUID", OLD."rowOwnerGUID");
+  v_guid   text := COALESCE(NEW."rowGUID", OLD."rowGUID");
+  v_res    text;
+  v_extra  jsonb;
+  v_day    date;
+  v_oldc   text;
+  v_newc   text;
+BEGIN
+  IF COALESCE(NEW."rowParentGUID", OLD."rowParentGUID") <> 'person' THEN RETURN COALESCE(NEW, OLD); END IF;
+  IF TG_OP = 'UPDATE' AND (OLD."rowJSON"->'resourceCalendar') IS NOT DISTINCT FROM (NEW."rowJSON"->'resourceCalendar')
+     AND (OLD."rowJSON"->'contractStartDate') IS NOT DISTINCT FROM (NEW."rowJSON"->'contractStartDate')
+     AND (OLD."rowJSON"->'contractFinishDate') IS NOT DISTINCT FROM (NEW."rowJSON"->'contractFinishDate')
+     AND OLD."rowOwnerGUID" = NEW."rowOwnerGUID" THEN
+    RETURN NEW;
+  END IF;
+  PERFORM public.organization_lock_calendar(c) FROM (SELECT DISTINCT x AS c FROM unnest(ARRAY[NULLIF(OLD."rowJSON"->>'resourceCalendar', ''), NULLIF(NEW."rowJSON"->>'resourceCalendar', '')]) AS x WHERE x IS NOT NULL ORDER BY 1) t;
+  -- the contracts BEFORE the change = the others + the old row (nothing for an insert)
+  v_extra := CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD."rowJSON" || jsonb_build_object('rowParentGUID', OLD."rowParentGUID") END;
+  SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_res FROM public."personTable" x WHERE x."rowGUID" = v_person;
+  FOR v_day IN SELECT DISTINCT o."periodDay" FROM public.resource_occupancy_x_movement o
+                WHERE o."resourceKind" = 'person' AND o."resourceGUID" = v_person AND o."statusOfLine" = 'posted' ORDER BY 1 LOOP
+    v_oldc := public.organization_contract_calendar(v_person, v_day, v_guid, v_extra);
+    v_newc := public.organization_contract_calendar(v_person, v_day);
+    PERFORM public.organization_assert_capacity('person', v_person, v_day,
+              public.organization_calendar_day_hours(COALESCE(v_oldc, v_res, 'standardWorkWeekCalendar'), v_day),
+              public.organization_calendar_day_hours(COALESCE(v_newc, v_res, 'standardWorkWeekCalendar'), v_day));
+  END LOOP;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+DO $$
+BEGIN
+  IF to_regclass('public."contractTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_contract_table_calendar_lock ON public."contractTable";
+    CREATE TRIGGER trg_contract_table_calendar_lock AFTER INSERT OR UPDATE OR DELETE ON public."contractTable"
+      FOR EACH ROW EXECUTE FUNCTION public.organization_contract_lock();
+  END IF;
+END $$;
+
+-- ---- for the screen ---------------------------------------------------------------------------------------------------------------------------
+-- the days of a calendar that are locked (a resource whose calendar of that day it is has posted hours): the capacity of the day cannot go under min_hours
+CREATE OR REPLACE FUNCTION public.organization_calendar_lock_info(p_calendar text, p_from date, p_to date)
+RETURNS TABLE (day date, min_hours numeric, resources integer, example text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT b.d, max(b.q), count(*)::integer, min(public.organization_resource_title(b.k, b.g))
+    FROM (SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q
+            FROM public.resource_occupancy_x_movement o
+           WHERE o."periodDay" BETWEEN p_from AND p_to AND o."statusOfLine" = 'posted' GROUP BY 1, 2, 3, o."scopeGUID") b
+   WHERE (SELECT i.calendar FROM public.organization_resource_capacity_info(b.k, b.g, b.d) i) = p_calendar
+   GROUP BY b.d ORDER BY b.d
+$$;
+REVOKE ALL ON FUNCTION public.organization_calendar_lock_info(text, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_calendar_lock_info(text, date, date) TO authenticated;
+
+-- what a planned change of the hours of a calendar would break: p_new = {"2026-10-14": 6, ...} (the new hours of the days); one row per resource and day that would fall under its posted hours
+CREATE OR REPLACE FUNCTION public.organization_calendar_change_conflicts(p_calendar text, p_from date, p_to date, p_new jsonb)
+RETURNS TABLE (day date, resource_kind text, resource_guid text, resource_title text, booked_hours numeric, old_hours numeric, new_hours numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT b.d, b.k, b.g, public.organization_resource_title(b.k, b.g), b.q, public.organization_calendar_day_hours(p_calendar, b.d), (p_new->>to_char(b.d, 'YYYY-MM-DD'))::numeric
+    FROM (SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q
+            FROM public.resource_occupancy_x_movement o
+           WHERE o."periodDay" BETWEEN p_from AND p_to AND o."statusOfLine" = 'posted' GROUP BY 1, 2, 3, o."scopeGUID") b
+   WHERE p_new ? to_char(b.d, 'YYYY-MM-DD')
+     AND (SELECT i.calendar FROM public.organization_resource_capacity_info(b.k, b.g, b.d) i) = p_calendar
+     AND (p_new->>to_char(b.d, 'YYYY-MM-DD'))::numeric < b.q
+     AND (p_new->>to_char(b.d, 'YYYY-MM-DD'))::numeric < COALESCE(public.organization_calendar_day_hours(p_calendar, b.d), 0)
+   ORDER BY b.d, 3
+$$;
+REVOKE ALL ON FUNCTION public.organization_calendar_change_conflicts(text, date, date, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.organization_calendar_change_conflicts(text, date, date, jsonb) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT * FROM public.organization_calendar_lock_info('standardWorkWeekCalendar', current_date, current_date + 60);           -- the days the screen locks
+--   UPDATE public."managementCalendarDaysTable" SET "rowJSON" = "rowJSON" || '{"hours": 1}' WHERE "rowGUID" = 'standardWorkWeekCalendar:' || to_char(current_date, 'YYYY-MM-DD');   -- refused when hours are posted
 
 -- ===============================================================================================
 -- END of start_sql_structure.sql

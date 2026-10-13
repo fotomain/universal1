@@ -134,3 +134,16 @@ describe('contractModel', () => {
     expect(card.description).toContain('[active]');
   });
 });
+
+// documentation/TIME_GENUS_CONTROL_WBS.html: the calendar of a contract of a PERSON (its hours are the capacity while the contract is in force)
+describe('resourceCalendar of a contract', () => {
+  const base = { contractNumber: '1', contractTitle: 'T', contractStartDate: '2026-01-01' };
+  it('a contract of a person keeps it, a partner contract never has one', () => {
+    expect(normalizeContract({ ...base, contractPartyType: 'person', resourceCalendar: 'sevenDayWeekCalendar' } as any).resourceCalendar).toBe('sevenDayWeekCalendar');
+    expect('resourceCalendar' in normalizeContract({ ...base, contractPartyType: 'partner', resourceCalendar: 'sevenDayWeekCalendar' } as any)).toBe(false);
+  });
+  it('empty clears it', () => {
+    expect('resourceCalendar' in normalizeContract({ ...base, contractPartyType: 'person', resourceCalendar: '' } as any)).toBe(false);
+    expect('resourceCalendar' in normalizeContract({ ...base, contractPartyType: 'person', resourceCalendar: null } as any)).toBe(false);
+  });
+});

@@ -65,7 +65,7 @@
 <header class="top"><div class="top-inner">
   <div class="brand">Time genus control</div>
   <nav><ul>
-    <li><a href="#read">What I read</a></li><li><a href="#summary">Decisions</a></li><li><a href="#org">1 Organization</a></li><li><a href="#calendar">2 Resource calendar</a></li><li><a href="#lock">3 Calendar lock</a></li>
+    <li><a href="#built">Status</a></li><li><a href="#read">What I read</a></li><li><a href="#answers">Your answers</a></li><li><a href="#summary">Decisions</a></li><li><a href="#org">1 Organization</a></li><li><a href="#calendar">2 Resource calendar</a></li><li><a href="#lock">3 Calendar lock</a></li>
     <li><a href="#busy">4 What is busy</a></li><li><a href="#variants">5 Variants</a></li><li><a href="#model">6 Abstract model</a></li><li><a href="#flow">7 Flow in Post</a></li><li><a href="#grain">8 Day · hour · minute</a></li>
     <li><a href="#wbs">9 WBS</a></li><li><a href="#files">10 Files</a></li><li><a href="#risks">11 Risks</a></li><li><a href="#tests">12 Tests</a></li><li><a href="#order">13 Order</a></li><li><a href="#open">14 Questions</a></li>
   </ul></nav>
@@ -73,9 +73,25 @@
 <main>
 
 <section id="read">
-  <h1>Time genus control <span class="pill ask">plan - no code yet</span></h1>
+  <h1>Time genus control <span class="pill new">Phase 1 built 2026-10-13</span></h1>
   <p class="lead">Source: Google Doc "W1 BEFORE POST" plus your notes on the organization, the resource calendar and the calendar lock. The business need is to <b>check whether a resource is just busy on the timeline</b>
-  before the plan of a task is posted, for every <code>timeGenus</code> line (persons and equipment). It says <b>do not code</b>: this page is the work breakdown structure (WBS) and the questions. Nothing is built before you answer section 14.</p>
+  before the plan of a task is posted, for every <code>timeGenus</code> line (persons and equipment). It says <b>do not code</b>: this page is the work breakdown structure (WBS) and the questions. Your answers to Q1-Q14 and the renames from the second document are applied (section "Your answers"); what is still open is in section 14.</p>
+
+  <div class="good" id="built"><b>Status: Phase 1 is built and tested</b> (SQL on Postgres 15 in Docker: the install / delete cycle <code>kit8/docker/test_sql.sh</code>, the behaviour tests <code>test_time_genus.sh</code>
+  - 162 checks in 5 files - and the two-session race test <code>test_time_genus_race.sh</code>; Jest for the app side).
+  <ul class="tight">
+    <li><b>Organization</b> (A1-A5, A6 in SQL, A7, A8): <code>organization_ensure_user</code>, <code>userTable.rowJSON.userOrganization</code> obligatory, <code>project_table.rowParentGUID</code> (filled by trigger, never changed, RESTRICT), invitations
+      (<code>organization_invite_user</code> / <code>accept</code> / <code>revoke</code>), <code>userState.userOrganization</code>, the project setting <code>projectManagerPerson</code>. PART 20.</li>
+    <li><b>Resource calendar</b> (B1-B9): hours per day, week modes + seeds, <code>weekPattern</code>, <code>workFrom/workTo</code>, <code>resourceCalendar</code> on person / equipment / contract / template (forms and columns),
+      the priority <code>organization_resource_capacity</code>, "Own calendar" (<code>organization_copy_calendar</code>), the Fill with hours / pattern / follow project holidays, the consistency report. PART 21.</li>
+    <li><b>The check</b> (1, 3, 4): <code>resource_occupancy_x_movement</code>, <code>organization_resource_busy_check</code>, the check inside <code>create_task_line_plan</code> with the three modes, <code>planMovementStatus</code>, <code>periodDay</code>,
+      the locks. PART 22.</li>
+    <li><b>The calendar lock</b> (C1-C6): day rows, Fill (as a whole), the pointers, the contracts; the screen shows the lock and refuses with the reason; the "!" help. PART 23.</li>
+    <li><b>The app</b> (5.1-5.3, 5.6): <code>busyControl.ts</code>, the answer of Post, the snack bar, <code>BusyConflictsWindow</code> with <b>Share</b> (opens the mail program or copies - never sends) and the Organization setting.</li>
+  </ul>
+  <b>Found by the race test</b> and fixed: a calendar change cannot see a Post that is not committed yet, so it never waited for it. The calendar has a lock of its own now (Posts hold it shared, a change takes it exclusive; calendars first, then resources).<br>
+  <b>Not built yet:</b> the Plan view column "Booked / Capacity" (5.4) and the Gantt hint (5.5) · the screen of the invitations (the SQL is there) · the editing screen of the custom <code>weekPattern</code> (Q21: later) ·
+  Phase 3 (the early warning on the line, Tier A) · Phase 2 (hour / minute: needs the time of day) · a screen for the exclusive mode.</div>
 
   <h3>Your notes, and what the code says about each</h3>
   <div class="scroll"><table>
@@ -128,6 +144,53 @@
   </table></div>
 </section>
 
+<section id="answers">
+  <h2>Your answers (document "IMPROVE IT") and what they changed</h2>
+  <p class="sub">Q1-Q21 are all decided. The page below is written with them; nothing is open (section 14).</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Your answer</th><th>What it changes in this plan</th></tr>
+    <tr><td>Q1</td><td>yes</td><td>An organization has <b>several users</b>; a second user joins by an invitation of the Organization Admin. Work package <b>A6 (membership) is part of Phase 1</b>, not optional.</td></tr>
+    <tr><td>Q2</td><td>yes; a multi-organization user may come later</td><td>The user's organization is changed only by an administrator. <code>userOrganization</code> stays ONE value now; the scope of every check is always <code>project_table.rowParentGUID</code>, so a later table (user, organization, role) replaces the single key without touching projects or the check (WP A8 is the guard test).</td></tr>
+    <tr><td>Q3</td><td>yes: <code>personTable</code> + <code>equipmentTable</code></td><td>The key <code>rowJSON.resourceCalendar</code> on the existing tables; no <code>resourceTable</code>, no <code>resourceCalendarTable</code>.</td></tr>
+    <tr><td>Q4</td><td>yes</td><td>Capacity comes from the contract in force on the day (latest start wins).</td></tr>
+    <tr><td>Q5</td><td>the list shows <b>project GUID, task GUID</b>; a <b>Share</b> button goes to the project setting <b>projectManagerPerson</b> (the person's e-mail)</td><td>The busy message lists the other bookings by GUID (no titles). A Share button prepares a message for the project manager; the new project setting <code>projectManagerPerson</code> is needed (section 4.1).</td></tr>
+    <tr><td>Q6</td><td>the busy line</td><td>Fixed: Post deletes the rows of the busy line only.</td></tr>
+    <tr><td>Q7</td><td>yes + a help button "!" that explains the logic</td><td>A Fill that would lower capacity under booked hours is refused as a whole. A "!" help button describes the lock logic to the user (section 3.3b).</td></tr>
+    <tr><td>Q8</td><td>yes; mode names</td><td>Setting <code>resourceCapacityStrongMode</code> with the values <code>capacityModeOff</code>, <code>capacityModeWarn</code>, <code>capacityModeBlock</code> (on the organization).</td></tr>
+    <tr><td>Q9</td><td>yes</td><td><code>templates_project_table</code> and <code>version_project_table</code> get no <code>rowParentGUID</code>.</td></tr>
+    <tr><td>Q10</td><td>see the renames below</td><td>All names in this page follow them.</td></tr>
+    <tr><td>Q11</td><td>yes</td><td>Hour / minute (Phase 2) take the time of day from a work window <code>from</code>/<code>to</code> on the calendar; the keys are added to the calendar data now (WP B10).</td></tr>
+    <tr><td>Q12</td><td>yes</td><td>Only posted bookings count for the calendar lock; the movement flag <code>planMovementStatus</code> (section 6.4) keeps a row that is still being checked out of every count and report.</td></tr>
+    <tr><td>Q13</td><td>yes; offer Standard, but make data and functionality for the other week modes too</td><td>Seeded calendars for 5, 6 and 7 days and part-time, a custom <code>weekPattern</code>, and Fill modes for all of them (section 2.5).</td></tr>
+    <tr><td>Q14</td><td>yes</td><td>Phase 1 is Day grain.</td></tr>
+    <tr><td>Q15</td><td>yes</td><td>The Fill of a resource calendar copies <b>only days flagged <code>holiday</code></b> from the project calendars of the organization (weekends are never copied; the week mode decides them).</td></tr>
+    <tr><td>Q16</td><td>yes</td><td>The Share button only <b>opens the mail program with the prepared text, or copies it</b>. The application never sends the e-mail itself.</td></tr>
+    <tr><td>Q17</td><td>yes</td><td>Share goes to the <code>projectManagerPerson</code> of <b>each project that holds the booking</b>, with a <b>copy to the manager of the project being posted</b>; each row of the conflict list has its own Share.</td></tr>
+    <tr><td>Q18</td><td>one flag: <code>planMovementStatus</code></td><td>No second <code>rowIsActive</code>. One column, default true.</td></tr>
+    <tr><td>Q19</td><td>yes</td><td><code>taskLineMovementGUID</code> keeps the meaning of the old <code>groupGUID</code>: the task whose movements are replaced together.</td></tr>
+    <tr><td>Q20</td><td>yes</td><td>Every function that works on the organization starts with <code>organization_</code>, including <code>organization_ensure_user</code>; helpers that are not about the organization keep <code>kit8_</code>.</td></tr>
+    <tr><td>Q21</td><td>yes</td><td>The custom <code>weekPattern</code> (hours per weekday) is <b>data and Fill now</b>; its editing screen comes later (not in Phase 1).</td></tr>
+    <tr><td>new</td><td><code>planMovementStatus</code></td><td>A flag on <code>task_line_plan_movements</code>: false while the capacity check is pending (the row is excluded from reports), true when it passed. Every other movement is created with true (section 6.4).</td></tr>
+    <tr><td>new</td><td>resource calendar and project calendar must be consistent when a resource calendar is filled</td><td>A consistency report and "follow project holidays" in the Fill (section 2.6).</td></tr>
+    <tr><td>new</td><td><code>projectManagerPerson</code> in project settings</td><td>WP A7.</td></tr>
+  </table></div>
+  <h3>The renames (refactor)</h3>
+  <div class="scroll"><table>
+    <tr><th>Before</th><th>After</th></tr>
+    <tr><td><code>kit8_resource_capacity</code></td><td><code>organization_resource_capacity</code></td></tr>
+    <tr><td><code>kit8_resource_busy_check</code></td><td><code>organization_resource_busy_check</code></td></tr>
+    <tr><td><code>kit8_calendar_change_conflicts</code></td><td><code>organization_calendar_change_conflicts</code></td></tr>
+    <tr><td><code>kit8_ensure_user</code> (decided, Q20)</td><td><code>organization_ensure_user</code></td></tr>
+    <tr><td><code>kit8_calendar_lock_info</code> (same pattern, decided with Q20)</td><td><code>organization_calendar_lock_info</code></td></tr>
+    <tr><td><code>resource_occupancy_taskLinePlanMovements</code></td><td><code>resource_occupancy_x_movement</code></td></tr>
+    <tr><td>status of the line <code>proposed</code></td><td><code>free</code></td></tr>
+    <tr><td>contract column <code>groupGUID</code></td><td><code>taskLineMovementGUID</code> (same meaning: the task whose movements are replaced together - decided, Q19)</td></tr>
+    <tr><td>contract column <code>quantity</code></td><td><code>quantityResourceBusy</code></td></tr>
+    <tr><td>setting <code>busyControlMode</code> = <code>off | warn | block</code></td><td><code>resourceCapacityStrongMode</code> = <code>capacityModeOff | capacityModeWarn | capacityModeBlock</code></td></tr>
+  </table></div>
+  <p class="small">The example sheet "W1 OCCUPANCY EXAMPLE" uses the same names.</p>
+</section>
+
 <section id="summary">
   <h2>Decisions in one table</h2>
   <div class="scroll"><table>
@@ -136,11 +199,15 @@
     <tr><td>D2</td><td>Whose bookings count?</td><td>All projects of the <b>same organization</b> (<code>project_table.rowParentGUID</code>), as you wrote. Replaces my earlier "same owner".</td></tr>
     <tr><td>D3</td><td>Which source decides?</td><td><b><code>task_line_plan_movements</code></b> = the hard gate. <code>task_line_table</code> = a soft hint only (Phase 3).</td></tr>
     <tr><td>D4</td><td>Variant</td><td><b>Optimistic</b> as the document says, with a per-resource lock; the same lock guards the calendar (section 3).</td></tr>
-    <tr><td>D5</td><td>What is deleted when busy</td><td>Your call (Q6): the rows of the <b>busy line</b> (recommended) or of the <b>whole task</b>.</td></tr>
+    <tr><td>D5</td><td>What is deleted when busy</td><td><b>Decided (Q6):</b> the rows of the <b>busy line</b>. The other lines of the task are posted.</td></tr>
     <tr><td>D6</td><td>Abstract mechanism</td><td>A fixed <b>occupancy column contract</b>; Phase 1 one <b>view</b> per source; a physical register table only when real intervals exist (Phase 2).</td></tr>
     <tr><td>D7</td><td>Resource calendar</td><td>Reuse <code>managementCalendarTable</code> + <code>managementCalendarDaysTable</code>; add <b>hours</b> per day, two folders; resources <b>share</b> a standard calendar until they get an exception (copy on write).</td></tr>
     <tr><td>D8</td><td>Calendar lock</td><td>A change that would put capacity under the booked hours is <b>refused</b> in the SQL (trigger) and <b>disabled</b> in the screen with the reason. It is always on, whatever the Post mode.</td></tr>
-    <tr><td>D9</td><td>Where the mode lives</td><td>Because resources are now shared across projects, <code>busyControlMode</code> (<code>off | warn | block</code>) moves from the <b>project</b> to the <b>organization</b>; default <code>off</code> (Q8).</td></tr>
+    <tr><td>D9</td><td>Where the mode lives</td><td>Because resources are now shared across projects, <code>resourceCapacityStrongMode</code> (<code>capacityModeOff | capacityModeWarn | capacityModeBlock</code>) moves from the <b>project</b> to the <b>organization</b>; default <code>capacityModeOff</code> (decided, Q8).</td></tr>
+    <tr><td>D10</td><td>Rows waiting for the check</td><td>Flag <code>task_line_plan_movements.planMovementStatus</code> (false while the check is pending, true after; default true), section 6.4.</td></tr>
+    <tr><td>D11</td><td>Who is told</td><td>The conflict list names the other bookings by project GUID and task GUID; a <b>Share</b> button prepares a message for the <code>projectManagerPerson</code> of each project (section 4.1).</td></tr>
+    <tr><td>D12</td><td>Week modes</td><td>Seeds and Fill modes for 5, 6 and 7 days and part-time, plus a custom week pattern (section 2.5).</td></tr>
+    <tr><td>D13</td><td>Resource calendar vs project calendar</td><td>The Fill of a resource calendar reports the differences and can follow the project holidays (section 2.6).</td></tr>
   </table></div>
 </section>
 
@@ -148,7 +215,7 @@
   <h2>1 - The organization of the user and of the project</h2>
   <div class="flow">
     <span class="box">sign-in</span><span class="arrow">→</span>
-    <span class="box on">SQL step <code>kit8_ensure_user</code>: organization (if none) + userTable row, one transaction</span><span class="arrow">→</span>
+    <span class="box on">SQL step <code>organization_ensure_user</code>: organization (if none) + userTable row, one transaction</span><span class="arrow">→</span>
     <span class="box">userTable.rowJSON.userOrganization = organization GUID</span><span class="arrow">→</span>
     <span class="box">redux <code>userState.userOrganization.rowGUID</code></span><span class="arrow">→</span>
     <span class="box on">new project: trigger copies it into <code>project_table.rowParentGUID</code></span>
@@ -171,7 +238,7 @@
   </table></div>
   <div class="note"><b>A conflict with an existing rule.</b> The code says "RULE: 1 user === 1 organization, strongly" and creates the organization with <code>rowOwnerGUID = createdByUser = the user's e-mail</code> (unique in SQL). With that rule every organization has one user, so "resources shareable inside an organization" shares nothing yet. To make sharing real, one organization needs <b>several users</b>: the rule becomes "1 user belongs to exactly 1 organization, 1 organization has many users", and there must be a way to join (an invitation by the organization admin - the role <code>roleOrganizationAdmin</code> already exists - or a join by e-mail domain). That is a package of its own (WP A6) and Q1.</div>
   <h3>1.3 Does a user ever change organization?</h3>
-  <p>Your note makes the project's organization fixed. If a <b>user</b> may change his organization, his old projects must stay in the old one (and still count there). I recommend the user's organization is changeable only by an administrator and never silently (Q2).</p>
+  <p>Your note makes the project's organization fixed. If a <b>user</b> may change his organization, his old projects must stay in the old one (and still count there). <b>Decided (Q2):</b> the user's organization is changeable only by an administrator, never silently; a <b>user in several organizations may come later</b>. To keep that door open, nothing in the check reads the user's organization: the scope is always <code>project_table.rowParentGUID</code>. A later table (user, organization, role) replaces the single key <code>userTable.rowJSON.userOrganization</code>; the booking rules do not change (WP A8 tests this).</p>
 </section>
 
 <section id="calendar">
@@ -215,14 +282,38 @@
     <li><b>Several contracts in force on one day</b> (an employee contract and a service contract): the one with the <b>latest start</b> wins; a tie goes to the lower <code>orderInList</code>. Or the contract named on the line (<code>taskResourceContract</code>)? That makes the capacity of a day depend on which line asks, and two lines of one person would disagree. I recommend the date rule (Q4).</li>
     <li><b>Equipment</b> has no contract today (<code>equipment/README</code>: "no rates and no contract"; a lessor contract is a later phase), so for a machine steps 2-3 apply; the rule works for machines as soon as they get a contract.</li>
     <li><b>Template</b>: <code>templateResourceContractTable.rowJSON.resourceCalendar</code> is the calendar a contract <b>made from the template</b> starts with (copied as a pointer; "make a contract from the template" is not built yet). It never applies to a resource directly. On a line that asks for a template the Phase 3 estimate may use it.</li>
-    <li>One SQL function does this lookup (<code>kit8_resource_capacity(kind, guid, day)</code>); the app uses a TypeScript twin for previews and tests.</li>
+    <li>One SQL function does this lookup (<code>organization_resource_capacity(kind, guid, day)</code>); the app uses a TypeScript twin for previews and tests.</li>
   </ul>
+  <h3>2.5 Week modes (Q13)</h3>
+  <p>The <b>Standard work week</b> (Mon-Fri, 8 h) is the offered default for persons and equipment. The other week modes are <b>data and functionality</b> too, not only a text:</p>
+  <div class="scroll"><table>
+    <tr><th>Mode</th><th>Seeded calendar</th><th>Fill</th></tr>
+    <tr><td>5 days</td><td>Standard work week - Mon-Fri 8 h</td><td>Fill ▸ 5 days a week</td></tr>
+    <tr><td>6 days</td><td>6-day week - Mon-Sat 8 h</td><td>Fill ▸ 6 days a week</td></tr>
+    <tr><td>7 days</td><td>7-day week - all days 8 h (continuous operation)</td><td>Fill ▸ All days</td></tr>
+    <tr><td>Part-time</td><td>Part-time 4 h - Mon-Fri 4 h</td><td>any mode with the hours of the Fill</td></tr>
+    <tr><td>Custom</td><td>(none seeded)</td><td>a <code>weekPattern</code> on the calendar: hours for Mon..Sun, e.g. a shift week Tue-Sat; the Fill writes the hours of each weekday from it</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li>The calendar row carries <code>weekDays</code> (5 | 6 | 7) or a <code>weekPattern</code>, <code>hoursPerDay</code>, and the work window <code>workFrom</code> / <code>workTo</code> (e.g. 08:00-16:00; used in Phase 2, Q11). The capacity lookup reads only the <b>hours of the day row</b>, so it is the same for every mode.</li>
+    <li>A custom <code>weekPattern</code> is data and Fill now; its editing screen comes later, not in Phase 1 (decided, Q21).</li>
+  </ul>
+
+  <h3>2.6 Consistency with the project calendar when a resource calendar is filled</h3>
+  <p>Post writes a movement only on a day that the <b>project calendar</b> of the task (<code>calendarForTaskPlan</code>) keeps active; the capacity of that day comes from the <b>resource calendar</b>. If the two disagree, either a booking is impossible (the project works on Saturday, the resource calendar says 0 h: BUSY) or the capacity looks bigger than reality (the project is closed on a holiday, the resource calendar still says 8 h). So the Fill of a resource calendar compares them:</p>
+  <div class="scroll"><table>
+    <tr><th>Difference</th><th>What the Fill shows</th><th>What it does</th></tr>
+    <tr><td>Project calendar <b>active</b>, resource calendar <b>0 h</b> (e.g. Saturday)</td><td>"The project calendar works on these days, this resource cannot be booked on them."</td><td>Information; the user may choose a week mode that has these days.</td></tr>
+    <tr><td>Project calendar <b>excluded as a holiday</b>, resource calendar <b>has hours</b></td><td>"Holiday in the project calendar."</td><td>With <b>Follow project holidays</b> (default on) the day is written as <code>reason = holiday</code>, 0 h. Weekends are not copied, only days flagged <code>holiday</code> (decided, Q15).</td></tr>
+    <tr><td>The holiday day already has posted bookings</td><td>the calendar lock list (section 3)</td><td>The day is <b>not</b> changed and the Fill is refused as a whole (Q7).</td></tr>
+  </table></div>
+  <p class="small">Which project calendars? The distinct calendars used by the projects of the organization. The example sheet has a tab FillConsistency with a 6-day project calendar against the 5-day resource calendars.</p>
 </section>
 
 <section id="lock">
   <h2>3 - The calendar lock</h2>
   <p>Your rule: <b>the application must disable a change in the calendar when the resource is busy in that period - the capacity must not be less than the active business.</b> I read "active business" as <b>hours already booked</b> by posted movements.</p>
-  <div class="mock"><b>The invariant.</b> For every resource R and every day D that has bookings: <code>capacity(R, D) ≥ booked(R, D)</code>. Post keeps it from one side (it refuses to book above capacity, in <code>block</code> mode); the calendar lock keeps it from the other (it refuses to lower capacity below what is booked).</div>
+  <div class="mock"><b>The invariant.</b> For every resource R and every day D that has bookings: <code>capacity(R, D) ≥ booked(R, D)</code>. Post keeps it from one side (it refuses to book above capacity, in <code>capacityModeBlock</code> mode); the calendar lock keeps it from the other (it refuses to lower capacity below what is booked).</div>
 
   <h3>3.1 Which changes are guarded</h3>
   <div class="scroll"><table>
@@ -237,22 +328,25 @@
   <h3>3.2 The rule</h3>
   <ul class="tight">
     <li>For the affected range, compute <b>new capacity</b> of every resource that uses the calendar (through the priority of section 2.4) and compare with <b>booked</b> (posted movements of the whole organization, section 4).</li>
-    <li>Refuse when <code>newCapacity &lt; booked</code> on any day <b>and</b> the change lowers the capacity of that day. A change that <i>raises</i> or keeps capacity is always allowed - so a day that is already over (a legacy booking, or <code>warn</code> mode) can still be repaired.</li>
+    <li>Refuse when <code>newCapacity &lt; booked</code> on any day <b>and</b> the change lowers the capacity of that day. A change that <i>raises</i> or keeps capacity is always allowed - so a day that is already over (a legacy booking, or <code>capacityModeWarn</code> mode) can still be repaired.</li>
     <li>The message names the first conflict and counts the others: <i>"Anna K. has 6 h booked on 2026-10-14 (task "Interface design"); the capacity cannot be less than 6 h."</i></li>
     <li>Applies to the <b>past</b> too: hours booked on a past day are still booked.</li>
-    <li>It is <b>always on</b>, whatever <code>busyControlMode</code> says: bookings exist in every mode, and a calendar change is rarer than a Post.</li>
+    <li>It is <b>always on</b>, whatever <code>resourceCapacityStrongMode</code> says: bookings exist in every mode, and a calendar change is rarer than a Post.</li>
   </ul>
 
   <h3>3.3 Three layers</h3>
   <div class="grid">
     <div class="card rec"><span class="pill new">1 - the screen</span><h3>Disable</h3>
-      <p>The calendar screen asks a read-only function (<code>kit8_calendar_lock_info</code>) for the locked days of the shown month. A locked day shows the lock icon, a tooltip with the reason, the hours cell is read-only and the off switch is disabled. The Fill menu runs the same function first and says what it would refuse.</p></div>
+      <p>The calendar screen asks a read-only function (<code>organization_calendar_lock_info</code>) for the locked days of the shown month. A locked day shows the lock icon, a tooltip with the reason, the hours cell is read-only and the off switch is disabled. The Fill menu runs the same function first and says what it would refuse.</p></div>
     <div class="card rec"><span class="pill new">2 - SQL triggers</span><h3>Refuse</h3>
-      <p><code>BEFORE INSERT/UPDATE/DELETE</code> on <code>managementCalendarDaysTable</code> and a trigger on the four pointer tables call <code>kit8_calendar_change_conflicts(...)</code> and <code>RAISE EXCEPTION</code> with the message above. Here a raise is right: nothing is to be kept. This is the guarantee; a client that skips the screen is still stopped.</p></div>
+      <p><code>BEFORE INSERT/UPDATE/DELETE</code> on <code>managementCalendarDaysTable</code> and a trigger on the four pointer tables call <code>organization_calendar_change_conflicts(...)</code> and <code>RAISE EXCEPTION</code> with the message above. Here a raise is right: nothing is to be kept. This is the guarantee; a client that skips the screen is still stopped.</p></div>
     <div class="card rec"><span class="pill new">3 - Fill</span><h3>All or nothing</h3>
-      <p><code>fill_management_calendar</code> checks the whole year before it writes and refuses with the list of conflicts, rather than writing most of the year and skipping some days (Q7).</p></div>
+      <p><code>fill_management_calendar</code> checks the whole year before it writes and refuses with the list of conflicts, rather than writing most of the year and skipping some days (decided, Q7).</p></div>
   </div>
 
+  <h3>3.3b The help button "!"</h3>
+  <p>Q7 asks for a description of the logic for the user. A <b>"!" button</b> sits next to Fill on the calendar screen (and as a tooltip on a locked hours cell). Its text is written in plain words, in the pmT dictionaries like the other Finances texts:</p>
+  <div class="mock"><b>Why can I not lower these hours?</b><br>A resource cannot work less than the hours already planned for it. Every posted task line of your organization that books Anna K. on a day is counted. If the hours of that day in this calendar become less than the planned hours, the change is refused - first move the task or reduce its hours, then change the calendar. You can always <i>raise</i> the hours. A Fill is refused as a whole if one day would break this; the list shows which days and which projects and tasks hold the hours. Days of the project calendar that are holidays can be copied into this calendar with "Follow project holidays".</div>
   <h3>3.4 Concurrency</h3>
   <p>A Post and a calendar change at the same moment must not both succeed. Both take the same <b>advisory lock per resource key</b> (section 7), in sorted order: the Post locks the resources of its lines, the calendar change locks every resource that uses the calendar. A change of the <i>standard</i> calendar (everybody uses it) would lock all resources of the organization for a moment; that is acceptable because it is a rare administrator action, and the lock is held only for the duration of the check.</p>
 
@@ -279,6 +373,16 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <li>Rows with null or zero quantity occupy nothing (⚠ "no hours", never refused for that). Only <b>hour lines</b> are comparable (E5).</li>
     <li>Rows of lines with <code>taskIsPosted = false</code> are ignored (E3).</li>
   </ul>
+  <h3>4.1 What the user sees of the other bookings, and the Share button (Q5)</h3>
+  <ul class="tight">
+    <li>The conflict list shows, for each other booking that fills the day: <b>project GUID</b>, <b>task GUID</b>, the day and the hours. No titles: a GUID identifies the booking without exposing the plan of a colleague.</li>
+    <li>The button <b>Share</b> prepares a message for the <b>project manager</b> of each project in the list: the new project setting <code>projectManagerPerson</code> (a <code>personTable</code> GUID; its e-mail is the address). If a project has no manager set, the button of that row is disabled with the tooltip "Set the project manager in the project settings".</li>
+    <li>The message names the resource, the day, the needed and the available hours and the two bookings (project GUID, task GUID). The app opens the user's mail program with this text, or copies it; <b>it does not send mail by itself</b> (decided, Q16). Who gets it: the manager of the project that holds the booking, with the manager of the project being posted as a copy (decided, Q17).</li>
+    <li><code>projectManagerPerson</code> is a normal project setting, saved in the project row like the other settings (<code>project_table.rowJSON</code>), chosen from the persons catalog in Project settings; it is not changeable by a project member without the right to edit settings.</li>
+  </ul>
+  <div class="mock">To: marko@acme.example (project manager of PRJ-WARE) · Cc: jana@acme.example<br>
+  "Boris M. is needed 4 h on 2026-10-14 in project PRJ-… task T4, but is already booked 8 h of 8 h in project PRJ-TOWER, task T3. Can the task be moved or the hours reduced?"</div>
+
   <h3>Where it is controlled: <code>task_line_table</code> or <code>task_line_plan_movements</code></h3>
   <div class="scroll"><table>
     <tr><th>Tier</th><th>Where / when</th><th>Precision</th><th>Strength · weakness</th></tr>
@@ -320,19 +424,20 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <tr><th>Column</th><th>Meaning</th><th>Filled for movements from</th></tr>
     <tr><td><code>sourceName</code></td><td>which source (e.g. <code>taskLinePlanMovements</code>)</td><td>constant of the view</td></tr>
     <tr><td><code>sourceRowGUID</code></td><td>the booking row (to name it and delete it)</td><td><code>movements."rowGUID"</code></td></tr>
-    <tr><td><code>groupGUID</code></td><td>what is replaced together on a re-post (the task)</td><td><code>movements."rowOwnerGUID"</code></td></tr>
+    <tr><td><code>taskLineMovementGUID</code></td><td>what is replaced together on a re-post (the task)</td><td><code>movements."rowOwnerGUID"</code></td></tr>
     <tr><td><code>scopeGUID</code></td><td>who shares the resource = <b>the organization</b></td><td><code>project_table."rowParentGUID"</code> via <code>rowProjectGUID</code></td></tr>
     <tr><td><code>resourceKind</code></td><td><code>person</code> | <code>equipment</code> | any future kind</td><td><code>COALESCE(line.taskResourceKind, 'person')</code></td></tr>
     <tr><td><code>resourceGUID</code></td><td>the booked resource</td><td><code>line.taskResourceItem</code></td></tr>
     <tr><td><code>periodStart</code> · <code>periodEnd</code></td><td>half-open interval <code>[start, end)</code></td><td>the day row: its start and the start of the next day (zone of the post)</td></tr>
-    <tr><td><code>quantity</code> · <code>unit</code></td><td>how much it takes</td><td><code>qtyTaskLine</code> · hour</td></tr>
+    <tr><td><code>quantityResourceBusy</code> · <code>unit</code></td><td>how much of the capacity it takes</td><td><code>qtyTaskLine</code> · hour</td></tr>
+    <tr><td><code>statusOfLine</code></td><td><code>posted</code> (counts), <code>free</code> (the rows written by the Post that is being checked now - the proposal), <code>stale</code> (<code>taskIsPosted = false</code>; ignored)</td><td><code>line.taskIsPosted</code> + <code>movements.planMovementStatus</code></td></tr>
     <tr><td><code>titleHint</code> · <code>ownerGUID</code></td><td>text for the message · the user who owns the project (to decide what a colleague may see, Q5)</td><td>task / project title · <code>project_table.rowOwnerGUID</code></td></tr>
   </table></div>
 
   <h3>6.2 Two ways to deliver the contract</h3>
   <div class="grid">
     <div class="card rec"><span class="pill new">Phase 1</span><h3>A view per source</h3>
-      <p><code>resource_occupancy_taskLinePlanMovements</code> + <code>resource_occupancy</code> (the <code>UNION ALL</code>). No second copy of the data; nothing to clean when a task is deleted (the FK cascades already do it).</p></div>
+      <p><code>resource_occupancy_x_movement</code> + <code>resource_occupancy</code> (the <code>UNION ALL</code>). No second copy of the data; nothing to clean when a task is deleted (the FK cascades already do it).</p></div>
     <div class="card alt"><span class="pill mid">Phase 2</span><h3>A physical register table</h3>
       <p>When real intervals exist (hour, minute), a GiST index or an exclusion constraint is wanted. Price: a second copy to keep in step, and a polymorphic owner has no foreign key. Only the union view changes then.</p></div>
   </div>
@@ -340,17 +445,28 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
   <h3>6.3 Proposed objects (names are abstract; the final spelling is Q10)</h3>
   <div class="scroll"><table>
     <tr><th>Object</th><th>Kind</th><th>What</th></tr>
-    <tr><td><code>resource_occupancy_taskLinePlanMovements</code> · <code>resource_occupancy</code></td><td>views <span class="pill new">new</span></td><td>the contract above.</td></tr>
-    <tr><td><code>kit8_resource_capacity(kind, guid, day)</code></td><td>function <span class="pill new">new</span></td><td>section 2.4: contract in force → resource → Standard; returns hours or "not filled".</td></tr>
-    <tr><td><code>kit8_resource_busy_check(group, scope, grain)</code></td><td>function <span class="pill new">new</span></td><td>all conflicts of ONE group against the rest of the scope; read-only.</td></tr>
-    <tr><td><code>kit8_calendar_change_conflicts(calendar, from, to, newHours…)</code> · <code>kit8_calendar_lock_info(calendar, month)</code></td><td>functions <span class="pill new">new</span></td><td>section 3; the same arithmetic as the check, for triggers and for the screen.</td></tr>
+    <tr><td><code>resource_occupancy_x_movement</code> · <code>resource_occupancy</code></td><td>views <span class="pill new">new</span></td><td>the contract above.</td></tr>
+    <tr><td><code>organization_resource_capacity(kind, guid, day)</code></td><td>function <span class="pill new">new</span></td><td>section 2.4: contract in force → resource → Standard; returns hours or "not filled".</td></tr>
+    <tr><td><code>organization_resource_busy_check(group, scope, grain)</code></td><td>function <span class="pill new">new</span></td><td>all conflicts of ONE group against the rest of the scope; read-only.</td></tr>
+    <tr><td><code>organization_calendar_change_conflicts(calendar, from, to, newHours…)</code> · <code>organization_calendar_lock_info(calendar, month)</code></td><td>functions <span class="pill new">new</span></td><td>section 3; the same arithmetic as the check, for triggers and for the screen.</td></tr>
     <tr><td><code>managementCalendarDaysTable.rowJSON.hours</code>, <code>managementCalendarTable.rowJSON.hoursPerDay / kind / mode</code></td><td>keys <span class="pill chg">new keys</span></td><td>no migration: a missing key means "as before".</td></tr>
     <tr><td><code>fill_management_calendar(..., p_hours)</code></td><td>procedure <span class="pill chg">changed</span></td><td>hours; lock check.</td></tr>
     <tr><td><code>create_task_line_plan</code></td><td>procedure <span class="pill chg">changed</span></td><td>locks, check after Correct033, deletes rows of busy lines, adds <code>busy</code> to its answer.</td></tr>
-    <tr><td><code>organizationTable.rowJSON.busyControlMode</code></td><td>setting <span class="pill new">new</span></td><td><code>off</code> (default) | <code>warn</code> | <code>block</code>.</td></tr>
+    <tr><td><code>organizationTable.rowJSON.resourceCapacityStrongMode</code></td><td>setting <span class="pill new">new</span></td><td><code>capacityModeOff</code> (default) | <code>capacityModeWarn</code> | <code>capacityModeBlock</code>.</td></tr>
   </table></div>
   <div class="good"><b>Why views and not a registry table with dynamic SQL:</b> a registry that stores table and column names would run SQL built from data and cannot be tested by reading the SQL. A view per source is plain SQL, indexed normally, tested in Docker, and still reusable: a new source is one view that honours the contract.</div>
   <div class="badbox"><b>Rejected:</b> a separate <code>resource_capacity_table</code> (my earlier proposal). Capacity belongs to the calendar you asked for - two places to say "8 h" would disagree.</div>
+  <h3>6.4 planMovementStatus - rows that wait for the check</h3>
+  <p>Your note: use the name <code>planMovementStatus</code> for the functionality I called the status of the line, or use it if it is not used yet on <code>task_line_plan_movements</code>; it is false <b>before</b> the capacity check, to keep the row out of reports and the like, and other movements are active (true) on creation. It is not used yet, so it is added:</p>
+  <div class="scroll"><table>
+    <tr><th>Aspect</th><th>Proposal</th></tr>
+    <tr><td>Column</td><td><code>task_line_plan_movements."planMovementStatus" BOOLEAN NOT NULL DEFAULT true</code>. Adding a column with a constant default is a metadata change in PostgreSQL 15: no rewrite, no migration, every existing row is true.</td></tr>
+    <tr><td>Written by</td><td>Only <code>create_task_line_plan</code>. For the Time lines that need the check (mode not <code>capacityModeOff</code>) it inserts the rows with <b>false</b>, runs the check, then sets <b>true</b> on the lines that pass and deletes the rows of the busy lines. Everything else is created with true: material / expense / revenue lines, Time lines when the mode is <code>capacityModeOff</code>, and any other flow that writes a movement.</td></tr>
+    <tr><td>Who must ignore false</td><td>the timeline rebuild, the Plan view, the reports (<code>reportsModel</code>), the sums in the Budgets view, and the occupancy view (a false row is the <code>free</code> status: it counts only as the proposal inside the check). A partial index <code>WHERE "planMovementStatus"</code> serves the readers.</td></tr>
+    <tr><td>Status of the line</td><td><code>posted</code> = rows with true and <code>taskIsPosted</code>; <code>free</code> = rows with false (this Post); <code>stale</code> = <code>taskIsPosted = false</code>.</td></tr>
+    <tr><td>Invariant</td><td>No <i>committed</i> row has false: a test checks it at the end of every Post and a SQL check lists offenders. Honest note: inside the Post transaction other sessions never see the false rows anyway, so the flag protects what runs <i>inside</i> it (triggers, the timeline rebuild, procedures that read the table) and a future check moved outside the transaction.</td></tr>
+  </table></div>
+  <p class="small">You also wrote "rowIsActive must be true for other movements". <b>Decided (Q18):</b> one flag, <code>planMovementStatus</code> (one column, default true); there is no second, general <code>rowIsActive</code>.</p>
 </section>
 
 <section id="flow">
@@ -361,17 +477,18 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <span class="box on">create_task_line_plan</span><span class="arrow">→</span>
     <span class="box">lock task</span><span class="arrow">→</span>
     <span class="box on">lock the resources of the Time lines (sorted)</span><span class="arrow">→</span>
-    <span class="box">replace rows + Correct033 (as today)</span><span class="arrow">→</span>
+    <span class="box">replace rows with planMovementStatus = false (Time lines) + Correct033</span><span class="arrow">→</span>
     <span class="box on">busy check: capacity from the calendars</span><span class="arrow">→</span>
     <span class="box warn">busy: delete its rows, taskIsPosted = false</span><span class="arrow">→</span>
+    <span class="box on">the others: planMovementStatus = true</span><span class="arrow">→</span>
     <span class="box">timeline · answer with <code>busy</code></span>
   </div>
   <p><b>The lock.</b> Two users post two tasks of one person at once; each transaction sees only committed rows, so both would pass. One <code>pg_advisory_xact_lock</code> per resource key, taken <b>in sorted order</b> (no deadlock), held until commit. The calendar lock (section 3.4) takes the same keys.</p>
   <div class="scroll"><table>
     <tr><th>Mode (of the organization)</th><th>Post result</th><th>Rows of a busy line</th></tr>
-    <tr><td><code>off</code> <span class="pill ask">default</span></td><td>exactly as today</td><td>kept</td></tr>
-    <tr><td><code>warn</code></td><td>posted; the answer lists the conflicts; ⚠ in the Plan view</td><td>kept</td></tr>
-    <tr><td><code>block</code></td><td>the busy rows are not posted</td><td>deleted (the document's rule)</td></tr>
+    <tr><td><code>capacityModeOff</code> <span class="pill ask">default</span></td><td>exactly as today</td><td>kept</td></tr>
+    <tr><td><code>capacityModeWarn</code></td><td>posted; the answer lists the conflicts; ⚠ in the Plan view</td><td>kept</td></tr>
+    <tr><td><code>capacityModeBlock</code></td><td>the busy rows are not posted</td><td>deleted (the document's rule)</td></tr>
   </table></div>
   <div class="note"><b>Delete, or raise?</b> A <code>RAISE EXCEPTION</code> rolls the <b>whole</b> transaction back, so a <code>DELETE</code> before it is lost too. The document wants the rows <b>deleted</b>, so Post <b>returns</b> the conflicts (a normal answer with <code>busy</code>) instead of raising. Raising stays for real errors. (The calendar lock is the opposite case: it must refuse, so it raises.)</div>
   <div class="mock">Posted 3 line(s) · 12 day row(s) · <b>1 line not posted</b>: Anna K. is busy on 2026-10-14 - 12 h of 8 h (another project of your organization already holds 6 h). Move the task, change the resource or reduce the hours, then press Post.</div>
@@ -395,54 +512,63 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
 
     <tr class="wp"><td>0</td><td colspan="4">Decisions</td></tr>
-    <tr><td>0.1</td><td>Answer Q1-Q14 (section 14)</td><td>answers recorded at the end of this page</td><td>S</td><td>-</td></tr>
+    <tr><td>0.1</td><td>Q1-Q21 are answered (section "Your answers"); all questions are answered</td><td>answers recorded at the end of this page</td><td>S</td><td>-</td></tr>
+    <tr><td>0.2</td><td>Apply the renames of the "Your answers" section in the SQL parts, the TypeScript types, the tests and the example sheet</td><td>one naming pass</td><td>S</td><td>0.1</td></tr>
 
     <tr class="wp"><td>A</td><td colspan="4">Organization <span class="pill new">Phase 1 - foundation</span></td></tr>
-    <tr><td>A1</td><td><code>kit8_ensure_user(email, auth uid, names)</code>: organization + <code>userTable</code> row in one transaction, returns both GUIDs; <code>userTable.rowJSON.userOrganization</code> + <code>CHECK</code> (<code>NOT VALID</code>, validated after A2)</td><td>function + constraint</td><td>M</td><td>0.1</td></tr>
+    <tr><td>A1</td><td><code>organization_ensure_user(email, auth uid, names)</code>: organization + <code>userTable</code> row in one transaction, returns both GUIDs; <code>userTable.rowJSON.userOrganization</code> + <code>CHECK</code> (<code>NOT VALID</code>, validated after A2)</td><td>function + constraint</td><td>M</td><td>0.1</td></tr>
     <tr><td>A2</td><td>Backfill of existing users: their own organization (rule "1 user === 1 organization") or a new one</td><td>idempotent block</td><td>S</td><td>A1</td></tr>
     <tr><td>A3</td><td><code>project_table.rowParentGUID</code>: column, FK <code>RESTRICT</code>, index, <code>BEFORE INSERT</code> fill trigger, <code>BEFORE UPDATE</code> immutability trigger, column-level grant, backfill, <code>SET NOT NULL</code>; check <code>pm_seed_demo</code> and the import</td><td>SQL part</td><td>M</td><td>A2</td></tr>
     <tr><td>A4</td><td>App: <code>loginUserTable</code> calls A1; <code>activeUserSlice</code> gets <code>userOrganization { rowGUID, title }</code>; <code>ensureUserOrganization</code> is retired or becomes a thin reader; <code>PMProjectRow</code> gets <code>rowParentGUID</code> (read-only); clients stop sending it</td><td>TS changes</td><td>M</td><td>A1, A3</td></tr>
     <tr><td>A5</td><td>Tests: new user gets an organization; a user row without one is refused; a project gets its organization; an update of it is refused; imported projects</td><td>SQL + Jest</td><td>M</td><td>A3, A4</td></tr>
-    <tr><td>A6</td><td>Membership: how a second user joins an organization (invitation by the Organization Admin, or by e-mail domain); the user's <code>userOrganization</code> can then point to an existing organization at creation. <b>Without this, an organization has one user.</b></td><td>design + SQL + screen</td><td>L</td><td>Q1</td></tr>
+    <tr><td>A6</td><td>Membership: how a second user joins an organization (invitation by the Organization Admin, or by e-mail domain); the user's <code>userOrganization</code> can then point to an existing organization at creation. <b>Q1 = yes: part of Phase 1. Without it an organization has one user.</b></td><td>design + SQL + screen</td><td>L</td><td>A4</td></tr>
+    <tr><td>A7</td><td>New project setting <code>projectManagerPerson</code> (a <code>personTable</code> GUID; the e-mail is its address) in Project settings; needed by the Share button</td><td>setting + select</td><td>S</td><td>A4</td></tr>
+    <tr><td>A8</td><td>Guard for a later multi-organization user: a test that the scope of the occupancy view and of the check is always <code>project_table.rowParentGUID</code> and never the user's organization</td><td>test</td><td>S</td><td>1.2</td></tr>
 
     <tr class="wp"><td>B</td><td colspan="4">Resource calendar <span class="pill new">Phase 1</span></td></tr>
     <tr><td>B1</td><td>Calendar model: <code>hours</code> on day rows, <code>hoursPerDay / kind / mode</code> on calendars, new folders <code>equipmentCalendarFolder</code>, <code>contractCalendarFolder</code>, new reasons; check constraint on <code>hours</code> (0-24, and 0 when inactive)</td><td>SQL + <code>managementCalendarModel.ts</code></td><td>M</td><td>0.1</td></tr>
     <tr><td>B2</td><td><code>fill_management_calendar(..., p_hours)</code> (null = as today); the Fill menu asks the hours for resource calendars</td><td>procedure + <code>CalendarFillMenu</code></td><td>M</td><td>B1</td></tr>
     <tr><td>B3</td><td>The key <code>rowJSON.resourceCalendar</code> on <code>personTable</code>, <code>equipmentTable</code>, <code>contractTable</code>, <code>templateResourceContractTable</code>: model, validation (the calendar exists and is of kind <code>resource</code>), helper <code>resourceCalendarOf</code></td><td>4 models + helper</td><td>M</td><td>B1</td></tr>
     <tr><td>B4</td><td>Seed: <b>Standard work week</b> (Mon-Fri 8 h) for last, this and next year; also "Part-time 4 h" as an example</td><td>seed rows</td><td>S</td><td>B2</td></tr>
-    <tr><td>B5</td><td><code>kit8_resource_capacity(kind, guid, day)</code>: contract in force (latest start wins) → resource → Standard; "not filled" case</td><td>function</td><td>M</td><td>B3, B4</td></tr>
+    <tr><td>B5</td><td><code>organization_resource_capacity(kind, guid, day)</code>: contract in force (latest start wins) → resource → Standard; "not filled" case</td><td>function</td><td>M</td><td>B3, B4</td></tr>
     <tr><td>B6</td><td>Screens: field "Calendar" + button "Own calendar" (copy on write) on person, equipment, contract and template; the Hours column and reasons on the calendar screen</td><td>UI</td><td>L</td><td>B3</td></tr>
     <tr><td>B7</td><td>TypeScript twin of the capacity lookup (previews, tests)</td><td>pure module</td><td>S</td><td>B5</td></tr>
+    <tr><td>B8</td><td>Week modes: seeds (5, 6, 7 days, part-time 4 h), <code>weekDays</code> / <code>weekPattern</code> on the calendar, the Fill writes the hours of each weekday from them</td><td>seeds + procedure</td><td>M</td><td>B2</td></tr>
+    <tr><td>B9</td><td>Consistency report in the Fill of a resource calendar against the project calendars of the organization; the switch "Follow project holidays" (default on)</td><td>report + option</td><td>M</td><td>B8, C1</td></tr>
+    <tr><td>B10</td><td>Work window keys <code>workFrom</code> / <code>workTo</code> on the calendar and the day rows (data only; used in Phase 2)</td><td>keys + model</td><td>S</td><td>B1</td></tr>
 
     <tr class="wp"><td>C</td><td colspan="4">Calendar lock <span class="pill new">Phase 1</span></td></tr>
-    <tr><td>C1</td><td><code>kit8_calendar_change_conflicts</code> and <code>kit8_calendar_lock_info</code> (set-based, read-only)</td><td>2 functions</td><td>M</td><td>B5, 1.3</td></tr>
+    <tr><td>C1</td><td><code>organization_calendar_change_conflicts</code> and <code>organization_calendar_lock_info</code> (set-based, read-only)</td><td>2 functions</td><td>M</td><td>B5, 1.3</td></tr>
     <tr><td>C2</td><td>Triggers: day rows (insert / update / delete), the four pointer tables, contract dates; refuse deleting a calendar in use; the advisory lock per resource</td><td>triggers</td><td>M</td><td>C1</td></tr>
     <tr><td>C3</td><td><code>fill_management_calendar</code> checks the whole year first and refuses with the list</td><td>changed procedure</td><td>S</td><td>C1, B2</td></tr>
     <tr><td>C4</td><td>Screen: locked days (icon, tooltip, read-only hours, disabled switch); the Fill menu previews what it would refuse; the pointer fields show the reason when refused</td><td>UI</td><td>M</td><td>C1, B6</td></tr>
+    <tr><td>C6</td><td>The help button "!" (text of section 3.3b, in the pmT dictionaries) on the calendar screen, on locked hours cells and in the Fill menu</td><td>button + texts</td><td>S</td><td>C4</td></tr>
     <tr><td>C5</td><td>Tests: lowering under the booked hours is refused, raising is allowed, an already-over day can be repaired, Fill refused, pointer change refused, contract date change refused, Post vs calendar race</td><td>SQL + Jest</td><td>M</td><td>C2-C4</td></tr>
 
     <tr class="wp"><td>1</td><td colspan="4">Occupancy contract and sources <span class="pill new">Phase 1</span></td></tr>
     <tr><td>1.1</td><td>Write the column contract (section 6.1) as a header comment of the SQL part and in a README</td><td>contract</td><td>S</td><td>0.1</td></tr>
-    <tr><td>1.2</td><td>View for movements: movements ⨝ line ⨝ project (scope = organization), Time lines only, posted lines only, period end = start of the next day</td><td><code>resource_occupancy_taskLinePlanMovements</code></td><td>M</td><td>A3</td></tr>
+    <tr><td>1.2</td><td>View for movements: movements ⨝ line ⨝ project (scope = organization), Time lines only, posted lines only, period end = start of the next day</td><td><code>resource_occupancy_x_movement</code></td><td>M</td><td>A3</td></tr>
     <tr><td>1.3</td><td>The union view and its index check (<code>EXPLAIN</code> with 100 000 movement rows; index on <code>project_table(rowParentGUID)</code> is in A3)</td><td><code>resource_occupancy</code></td><td>S</td><td>1.2</td></tr>
 
     <tr class="wp"><td>3</td><td colspan="4">The check <span class="pill new">Phase 1</span></td></tr>
-    <tr><td>3.1</td><td><code>kit8_resource_busy_check(group, scope, grain)</code>: per resource and day, Σ booked (the group + the others of the organization) against <code>kit8_resource_capacity</code>; returns <b>all</b> conflicts with the names the user may see (Q5)</td><td>function, read-only</td><td>M</td><td>1.3, B5</td></tr>
+    <tr><td>3.1</td><td><code>organization_resource_busy_check(group, scope, grain)</code>: per resource and day, Σ booked (the group + the others of the organization) against <code>organization_resource_capacity</code>; returns <b>all</b> conflicts with the names the user may see (Q5)</td><td>function, read-only</td><td>M</td><td>1.3, B5</td></tr>
     <tr><td>3.2</td><td>Grain <code>day</code> (and <code>week</code>, <code>month</code> by <code>date_trunc</code>); <code>hour</code>/<code>minute</code> raise "no time of day in the data" until Phase 2</td><td>grain switch</td><td>S</td><td>3.1</td></tr>
     <tr><td>3.3</td><td>Exclusive mode (<code>A.start &lt; B.end AND A.end &gt; B.start</code>), usable once hours exist</td><td>mode</td><td>S</td><td>3.1</td></tr>
 
     <tr class="wp"><td>4</td><td colspan="4">Inside Post <span class="pill chg">Phase 1</span></td></tr>
-    <tr><td>4.1</td><td>Setting <code>busyControlMode</code> on the organization (<code>off</code> default · <code>warn</code> · <code>block</code>); missing key = <code>off</code></td><td>setting</td><td>S</td><td>A3</td></tr>
+    <tr><td>4.1</td><td>Setting <code>resourceCapacityStrongMode</code> on the organization (<code>capacityModeOff</code> default · <code>capacityModeWarn</code> · <code>capacityModeBlock</code>); missing key = <code>capacityModeOff</code></td><td>setting</td><td>S</td><td>A3</td></tr>
     <tr><td>4.2</td><td>Advisory lock per resource key in sorted order (shared with C2)</td><td>lock step</td><td>S</td><td>3.1</td></tr>
-    <tr><td>4.3</td><td>After Correct033: call the check, delete the rows of the busy line(s) (<code>block</code>; the set follows Q6), unpost them, rebuild the timeline, <b>return</b> <code>busy</code> (no <code>RAISE</code>)</td><td>changed <code>create_task_line_plan</code></td><td>M</td><td>3.1, 4.1, 4.2</td></tr>
+    <tr><td>4.3</td><td>After Correct033: call the check, delete the rows of the busy line(s) (<code>capacityModeBlock</code>; the set follows Q6), unpost them, rebuild the timeline, <b>return</b> <code>busy</code> (no <code>RAISE</code>)</td><td>changed <code>create_task_line_plan</code></td><td>M</td><td>3.1, 4.1, 4.2</td></tr>
     <tr><td>4.4</td><td>Mirror to <code>start_sql_code.sql</code> and <code>start_sql_data.sql</code>; drops in <code>delete_sql_structure.sql</code> (new PART before "helpers that no table uses any more")</td><td>four SQL files in step</td><td>S</td><td>4.3, C2</td></tr>
+    <tr><td>4.5</td><td><code>task_line_plan_movements.planMovementStatus</code> (default true); Post writes false for the Time lines to be checked and true after the check; the timeline, Plan view, reports and sums read only true; a test that no committed row is false</td><td>column + readers</td><td>M</td><td>4.3</td></tr>
 
     <tr class="wp"><td>5</td><td colspan="4">The app <span class="pill chg">Phase 1</span></td></tr>
     <tr><td>5.1</td><td>Types (<code>BusyControlMode</code>, <code>ResourceBusyConflict</code>, <code>TimelineGrain</code>) and the pure <code>busyControl.ts</code>: the sentence, the arithmetic (twin)</td><td>pure module</td><td>S</td><td>3.1</td></tr>
     <tr><td>5.2</td><td><code>taskLinePlanApi.ts</code> / <code>runTaskPost.ts</code>: read <code>busy</code>, add it to <code>problems</code>; several conflicts → a window that lists them</td><td>snack bar + list window</td><td>S</td><td>4.3, 5.1</td></tr>
-    <tr><td>5.3</td><td>Organization settings: the <code>busyControlMode</code> select (Off / Warn / Block)</td><td>one setting</td><td>S</td><td>4.1</td></tr>
+    <tr><td>5.3</td><td>Organization settings: the <code>resourceCapacityStrongMode</code> select (Off / Warn / Block)</td><td>one setting</td><td>S</td><td>4.1</td></tr>
     <tr><td>5.4</td><td>Plan view: ⚠ and a column "Booked / Capacity" for the day</td><td>column</td><td>M</td><td>5.2</td></tr>
     <tr><td>5.5</td><td>Optional: a hint on the Gantt bar of a task that could not be posted</td><td>bar hint</td><td>M</td><td>5.2</td></tr>
+    <tr><td>5.6</td><td>The conflict list shows project GUID and task GUID of the other bookings; the button <b>Share</b> (mail text for <code>projectManagerPerson</code>, opens the mail program or copies; disabled with a tooltip when no manager is set)</td><td>list + button</td><td>M</td><td>5.2, A7</td></tr>
 
     <tr class="wp"><td>6</td><td colspan="4">Early warning on the line (Tier A) <span class="pill ask">Phase 3 - optional</span></td></tr>
     <tr><td>6.1</td><td>Second source view on <code>task_line_table</code> ⨝ <code>project_task_table</code>: the line's quantity spread over the task days (an <b>estimate</b>) for lines not posted yet</td><td><code>resource_occupancy_taskLine</code></td><td>M</td><td>3.1</td></tr>
@@ -467,7 +593,7 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
   <h2>10 - Files that will be touched</h2>
   <div class="scroll"><table>
     <tr><th>Area</th><th>File</th><th>What</th></tr>
-    <tr><td rowspan="4">SQL</td><td><code>kit8/sql/start/start_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>new PARTs 20-22 (the next after the budget scenario): organization + <code>kit8_ensure_user</code> + <code>project_table.rowParentGUID</code>; calendar hours + capacity function + lock; occupancy views + check; the redefined <code>create_task_line_plan</code> and <code>fill_management_calendar</code></td></tr>
+    <tr><td rowspan="4">SQL</td><td><code>kit8/sql/start/start_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>new PARTs 20-22 (the next after the budget scenario): organization + <code>organization_ensure_user</code> + <code>project_table.rowParentGUID</code>; calendar hours + capacity function + lock; occupancy views + check; the redefined <code>create_task_line_plan</code> and <code>fill_management_calendar</code></td></tr>
     <tr><td><code>kit8/sql/start/start_sql_code.sql</code> <span class="pill chg">changed</span></td><td>the DDL / function half</td></tr>
     <tr><td><code>kit8/sql/start/start_sql_data.sql</code> <span class="pill chg">changed</span></td><td>the Standard work week, the folders</td></tr>
     <tr><td><code>kit8/sql/start/delete_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>drops, in the right order (the column <code>rowParentGUID</code> and its triggers before the organization)</td></tr>
@@ -494,14 +620,17 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <tr><td>E7</td><td>A person works for <b>two organizations</b> (a contractor)</td><td>Out of scope: busy is counted inside one organization only (your rule). The person's other organization's bookings are invisible - shown on the page so nobody expects otherwise (Q3).</td></tr>
     <tr><td>E8</td><td>Time zone: a day starts at 00:00 in the zone of the post</td><td>The day's end is the next start, not <code>+ 24 h</code> (daylight saving).</td></tr>
     <tr><td>E9</td><td>Performance on a large history</td><td>Only the resources and days of the group / calendar change are looked up; measured in 1.3 and 12.3.</td></tr>
-    <tr><td>E10</td><td>Rows posted before the control exists</td><td>The mode is <code>off</code> until the organization switches it on; the calendar lock still counts them (E13).</td></tr>
+    <tr><td>E10</td><td>Rows posted before the control exists</td><td>The mode is <code>capacityModeOff</code> until the organization switches it on; the calendar lock still counts them (E13).</td></tr>
     <tr><td>E11</td><td>The message names a colleague's task</td><td>Only what Q5 allows; never the title of a project the user does not own unless Q5 says so.</td></tr>
     <tr><td>E12</td><td>A calendar year nobody filled (2027)</td><td>Capacity is "not filled": Post stops for that line with the message Post already uses; the calendar screen offers Fill. Never guessed.</td></tr>
-    <tr><td>E13</td><td>A day already over capacity (a legacy booking, or <code>warn</code> mode)</td><td>Changes that raise or keep capacity are allowed; only lowering is refused (section 3.2).</td></tr>
+    <tr><td>E13</td><td>A day already over capacity (a legacy booking, or <code>capacityModeWarn</code> mode)</td><td>Changes that raise or keep capacity are allowed; only lowering is refused (section 3.2).</td></tr>
     <tr><td>E14</td><td>Two contracts in force; contract dates edited</td><td>Latest start wins; a date edit that moves a day to another calendar is a guarded change (section 3.1).</td></tr>
     <tr><td>E15</td><td>An organization with projects is deleted</td><td>Refused by the <code>RESTRICT</code> foreign key.</td></tr>
     <tr><td>E16</td><td>The standard calendar is edited</td><td>Everybody uses it, so the check covers every resource of the organization; may lock them for a moment (3.4). Tested at volume (12.3).</td></tr>
     <tr><td>E17</td><td>Resources in the shared catalogs (<code>personTable</code>, <code>equipmentTable</code>) are visible to all signed-in users, but the calendar pointer is organization-specific</td><td>If two organizations edit the same person's pointer they overwrite each other. Q3 asks whether a resource row belongs to one organization.</td></tr>
+    <tr><td>E18</td><td>A row stays <code>planMovementStatus = false</code> (a bug, a manual SQL)</td><td>It is invisible to every report, which would hide a plan; the end-of-Post test and a SQL check list such rows.</td></tr>
+    <tr><td>E19</td><td>The Share message goes to a person outside the organization (a wrong <code>projectManagerPerson</code>)</td><td>The app only prepares the text; the user sees the address before sending. The select offers only persons of the organization (Q3, E17).</td></tr>
+    <tr><td>E20</td><td>The project calendar is 6-day, the resource calendar 5-day</td><td>Section 2.6: reported at Fill; a Saturday booking is BUSY (capacity 0) until the calendar has hours.</td></tr>
   </table></div>
 </section>
 
@@ -510,12 +639,15 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
   <h3>SQL (Docker, postgres:15)</h3>
   <ul class="tight">
     <li><b>Organization:</b> a new user gets an organization in the same transaction; a <code>userTable</code> row without one is refused; the backfill is idempotent; a project gets its owner's organization whatever the client sends; an update of <code>rowParentGUID</code> is refused; deleting an organization with projects is refused.</li>
-    <li><b>Busy:</b> two tasks of two <b>users of one organization</b>, 6 h + 4 h on one day, capacity 8 → the second line is busy by 2 h; 6 + 2 = 8 is not busy; a user of <b>another organization</b> never counts; <code>block</code> deletes the rows (Q6); <code>warn</code> keeps them; <code>off</code> is byte-for-byte as today.</li>
+    <li><b>Busy:</b> two tasks of two <b>users of one organization</b>, 6 h + 4 h on one day, capacity 8 → the second line is busy by 2 h; 6 + 2 = 8 is not busy; a user of <b>another organization</b> never counts; <code>capacityModeBlock</code> deletes the rows (Q6); <code>capacityModeWarn</code> keeps them; <code>capacityModeOff</code> is byte-for-byte as today.</li>
     <li><b>Capacity:</b> the contract in force wins over the resource, the resource over the Standard; two contracts → latest start; a contract finished yesterday does not apply today; an unfilled year → "not filled".</li>
     <li><b>Calendar lock:</b> lowering hours below the booked hours, switching off a booked day, adding a vacation on it, deleting its row, a Fill, a pointer change, a contract-date change are all refused; raising is allowed; an over-capacity day can be repaired; nothing is refused where nothing is booked.</li>
     <li>Re-post of the same task does not conflict with its own old rows; no orphan rows after a conflict; the timeline equals the movements.</li>
     <li>Correct033: 100 h on 3 days, capacity 33.34 → no false conflict. Same GUID as person and as equipment → no conflict.</li>
     <li>Two sessions: a Post and a calendar change at once → exactly one succeeds; two Posts at once → exactly one wins.</li>
+    <li><b>planMovementStatus:</b> a column added to a table with rows: all old rows are true; a Post with a busy line leaves no false row; reports and the timeline never read false.</li>
+    <li><b>Week modes and consistency:</b> the Fill writes 5, 6, 7 days and a custom pattern; a holiday of the project calendar is copied with "Follow project holidays"; a holiday on a booked day refuses the whole Fill.</li>
+    <li><b>Share:</b> the text names the resource, the day and both GUIDs; no manager set = disabled.</li>
     <li>Idempotent: the parts run twice; the delete script removes every new object.</li>
   </ul>
   <h3>Jest</h3>
@@ -535,32 +667,16 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <li><b>Calendar hours and the capacity function</b> (B1-B5) - SQL first; project calendars unchanged. <span class="pill new">L</span></li>
     <li><b>Occupancy views and the check</b> (1, 3) - read-only, tested alone. <span class="pill new">M</span></li>
     <li><b>Calendar lock</b> (C1-C3) - triggers last, after the data they read exists; first on a demo calendar. <span class="pill new">M</span></li>
-    <li><b>Mode + Post integration</b> (4) - <code>off</code> keeps everything as it is; switch one demo organization to <code>warn</code>. <span class="pill chg">M</span></li>
+    <li><b>Mode + Post integration</b> (4) - <code>capacityModeOff</code> keeps everything as it is; switch one demo organization to <code>capacityModeWarn</code>. <span class="pill chg">M</span></li>
     <li><b>Screens</b> (B6, C4, 5). <span class="pill chg">L</span></li>
-    <li>Use <code>warn</code> for a while, then <code>block</code>. Then A6 (membership), Phase 3, Phase 2 - only if Phase 1 proves useful.</li>
+    <li>Use <code>capacityModeWarn</code> for a while, then <code>capacityModeBlock</code>. Then A6 (membership), Phase 3, Phase 2 - only if Phase 1 proves useful.</li>
   </ol>
 </section>
 
 <section id="open">
   <h2>14 - Questions for you</h2>
-  <div class="scroll"><table>
-    <tr><th>#</th><th>Question</th><th>My recommendation</th></tr>
-    <tr><td>Q1</td><td>Today <b>1 user = 1 organization with exactly one user</b>. For "resources shareable inside an organization" an organization needs several users. How does a second user join? </td><td>Keep "a user belongs to exactly one organization" but allow many users per organization; the Organization Admin invites by e-mail (WP A6). Until A6 exists, sharing works but every organization has one user.</td></tr>
-    <tr><td>Q2</td><td>May a user's organization change later (a user moves to another company)?</td><td>Only by an administrator, never by the user; old projects keep their organization (<code>project_table.rowParentGUID</code> is fixed).</td></tr>
-    <tr><td>Q3</td><td>"<code>resourceTable</code>" does not exist. Is it <code>personTable</code> + <code>equipmentTable</code> with the same key <code>rowJSON.resourceCalendar</code> (no new table, no <code>resourceCalendarTable</code>)? Does a resource row belong to one organization (needed if two organizations share the catalogs, E7, E17)?</td><td>Yes to the same key on the existing tables and no new tables. A person working for two organizations is not supported in Phase 1; if wanted, the calendar pointer moves to a small <code>(organization, resource) → calendar</code> table.</td></tr>
-    <tr><td>Q4</td><td>Calendar priority: the contract <b>in force on the day</b> (latest start wins), or the contract named on the line (<code>taskResourceContract</code>)?</td><td>In force on the day - one capacity per resource and day, whatever line asks. The contract on the line keeps deciding the <b>cost</b> only.</td></tr>
-    <tr><td>Q5</td><td>What may a user see of a <b>colleague's</b> booking in the busy message?</td><td>Hours, day and "another project of your organization"; the task and project titles only when the user owns that project or is an Organization Admin.</td></tr>
-    <tr><td>Q6</td><td>"If busy - delete all lines from task_line_plan_movements": the rows of <b>the busy line</b>, or of <b>the whole task</b>?</td><td><b>The busy line.</b> Whole task is right if a task must be posted completely or not at all; a one-line difference in WP 4.3. Either way Post <i>returns</i> the conflicts.</td></tr>
-    <tr><td>Q7</td><td>A Fill that would lower capacity under booked hours: refuse the whole year, or write the free days and report the locked ones?</td><td>Refuse the whole fill with the list (all or nothing); simple to explain and to test.</td></tr>
-    <tr><td>Q8</td><td>Because resources are shared, should the mode <code>off | warn | block</code> live on the <b>organization</b> instead of the project?</td><td>Yes - two projects of one organization with different modes would book the same person under different rules. Default <code>off</code>.</td></tr>
-    <tr><td>Q9</td><td>Should <code>templates_project_table</code> and <code>version_project_table</code> also get <code>rowParentGUID</code>?</td><td>Not in this step; a restored version takes the organization of the project it belongs to.</td></tr>
-    <tr><td>Q10</td><td>Names: <code>resource_occupancy</code>, <code>kit8_resource_busy_check</code>, <code>kit8_resource_capacity</code>, <code>kit8_calendar_change_conflicts</code> - OK, or camelCase like the catalogs?</td><td>As proposed (snake_case next to the task tables, <code>kit8_</code> for functions as <code>kit8_cfr_accepts</code>).</td></tr>
-    <tr><td>Q11</td><td>Hour / minute (Phase 2): the work window <code>from</code>/<code>to</code> on the calendar day row as the source of the time of day?</td><td>Yes - the calendar you asked for is the one place that knows the working time. Decide before WP 7 only.</td></tr>
-    <tr><td>Q12</td><td>Does the calendar lock count only <b>posted</b> bookings?</td><td>Yes - drafts (unposted lines) are not commitments; Phase 3 can warn about them.</td></tr>
-    <tr><td>Q13</td><td>Seed: Standard work week = Mon-Fri 8 h for persons <b>and</b> equipment?</td><td>Yes; a machine is later given a 24 h or an exclusive calendar by choosing another calendar.</td></tr>
-    <tr><td>Q14</td><td>Is Phase 1 (<b>Day</b>) useful alone, knowing it controls load per day and not overlap inside a day?</td><td>Yes - it catches a person booked 20 h in a day with the data we have.</td></tr>
-  </table></div>
-  <div class="note">Nothing is coded. Tell me the answers (or "accept all") and I start with WP A1-A5 (the organization), then the calendar hours, tested in Docker, before Post is touched.</div>
+  <p class="sub">Nothing is open: Q1-Q21 are answered (section "Your answers"). New questions will be added here if the build raises them.</p>
+  <div class="note">Phase 1 is built (see the status at the top). What is left is listed there; new questions will be added here if the build raises them.</div>
 </section>
 
 </main>

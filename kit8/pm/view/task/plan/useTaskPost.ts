@@ -14,6 +14,8 @@ import { runTaskPost, taskDaysOf } from './runTaskPost';
 import { useBusinessUnitPostCheck } from './useBusinessUnitPostCheck';
 import { taskPostState, TaskPostState } from './taskLinePlanModel';
 import { pmT } from '../../../i18n/pmT';
+import { busyLineGUIDs, busySentence } from './busyControl';
+import { showBusyConflicts } from './BusyConflictsWindow';
 
 export { taskDaysOf };
 
@@ -38,16 +40,24 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
   live.current = { lines, distributions, calendars, calendarForTaskPlan, startMs, finishMs, lineCheck };
 
   const post = useCallback(async (): Promise<void> => {
-    const say = (message: string) => dispatch(showSnackbar({ message }));
+    const say = (message: string, isError = false) => dispatch(showSnackbar({ message, isError }));
     const result = await runTaskPost({ taskGUID, ...live.current });
     if (result.status === 'error') {
-      say(`${pmT('The task could not be posted')}: ${result.message}`);
+      say(`${pmT('The task could not be posted')}: ${result.message}`, true);
     } else if (result.status === 'nothing') {
       if (result.noBudget) showErrorModal(pmT('No line of this task has a budget item. Choose a budget item on at least one line, then press Post.'), pmT('Nothing to post'));
-      else say(result.problems.length ? result.problems[0] + (result.problems.length > 1 ? ` (+${result.problems.length - 1})` : '') : pmT('Nothing to post: choose a budget item on the lines'));
+      else say(result.problems.length ? result.problems[0] + (result.problems.length > 1 ? ` (+${result.problems.length - 1})` : '') : pmT('Nothing to post: choose a budget item on the lines'), true);
     } else {
       const note = result.problems.length ? ` · ${pmT('{{count}} line(s) not posted: {{first}}', { count: result.problems.length, first: result.problems[0] })}` : '';
-      say(`${pmT('Posted {{lines}} line(s) · {{rows}} day row(s)', { lines: result.lines, rows: result.rows })}${note}`);
+      const failed = result.problems.length > 0 || (result.busy.length > 0 && result.mode === 'capacityModeBlock');
+      // the capacity check (capacityModeWarn / capacityModeBlock): the first conflict in the message, the list - with the Share buttons - in a window
+      const busyNote = result.busy.length
+        ? ` · ${result.mode === 'capacityModeBlock'
+            ? pmT('{{count}} line(s) not posted, the resource is busy: {{first}}', { count: busyLineGUIDs(result.busy).length, first: busySentence(result.busy[0]) })
+            : pmT('Warning: {{first}}', { first: busySentence(result.busy[0]) })}`
+        : '';
+      say(`${pmT('Posted {{lines}} line(s) · {{rows}} day row(s)', { lines: result.lines, rows: result.rows })}${note}${busyNote}`, failed);
+      if (result.busy.length) showBusyConflicts(result.busy, result.mode);
     }
   }, [dispatch, taskGUID]);
 

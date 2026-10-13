@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start_sql_structure.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--   1b. delete_time_genus_control.sql - PARTs 20-23: drops organizationInvitationTable, the view, the organization_* functions and the triggers / constraints on userTable, project_table, the calendar and the resource tables (runs first: it is the newest part)
 --    1. user calendars - user_calendar_table / _event_table / _invitation_table + the sync triggers on the project tables
 --    2. delete_task_line_plan_table.sql - drops task_line_plan + create_task_line_plan + the unpost trigger
 --    3. delete_management_calendar_tables.sql - drops the management calendars and their days
@@ -24,6 +25,98 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1b: delete_time_genus_control.sql  (the numbering of the other parts stays: 1b runs FIRST, it is the newest)
+-- Removes what PARTs 20-23 of start_sql_structure.sql added (organization scope, resource calendar, busy check, calendar lock): organizationInvitationTable (data included!), the functions, the triggers and the constraint on userTable / project_table.
+-- Runs FIRST (it is the newest part). The key userOrganization stays inside the rowJSON of the users and the column project_table.rowParentGUID goes with the table (PART 14).
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public."userTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_user_table_organization ON public."userTable";
+    ALTER TABLE public."userTable" DROP CONSTRAINT IF EXISTS "userTable_userOrganization_chk";
+  END IF;
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_project_table_organization ON public.project_table;
+    DROP TRIGGER IF EXISTS trg_project_table_organization_keep ON public.project_table;
+    ALTER TABLE public.project_table DROP CONSTRAINT IF EXISTS project_table_organization_fk;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'organizationInvitationTable')
+     AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public."organizationInvitationTable";
+  END IF;
+END $$;
+-- PART 23 (create_calendar_lock.sql): the triggers first (on tables that still exist), then the functions
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_pointer_lock', t);
+    END IF;
+  END LOOP;
+  IF to_regclass('public."contractTable"') IS NOT NULL THEN DROP TRIGGER IF EXISTS trg_contract_table_calendar_lock ON public."contractTable"; END IF;
+  IF to_regclass('public."managementCalendarDaysTable"') IS NOT NULL THEN DROP TRIGGER IF EXISTS trg_management_calendar_day_lock ON public."managementCalendarDaysTable"; END IF;
+END $$;
+DROP FUNCTION IF EXISTS public.organization_calendar_change_conflicts(text, date, date, jsonb);
+DROP FUNCTION IF EXISTS public.organization_calendar_lock_info(text, date, date);
+DROP FUNCTION IF EXISTS public.organization_contract_lock();
+DROP FUNCTION IF EXISTS public.organization_resource_pointer_lock();
+DROP FUNCTION IF EXISTS public.organization_calendar_day_lock();
+DROP FUNCTION IF EXISTS public.organization_assert_capacity(text, text, date, numeric, numeric);
+DROP FUNCTION IF EXISTS public.organization_resource_booked(text, text, date);
+DROP FUNCTION IF EXISTS public.organization_contract_calendar(text, date, text, jsonb);
+-- PART 22 (create_resource_busy_check.sql): the view, the functions (create_task_line_plan itself is dropped by PART 2). The columns planMovementStatus / periodDay go with their table.
+DROP FUNCTION IF EXISTS public.organization_resource_busy_check(uuid, text, text);
+DROP FUNCTION IF EXISTS public.organization_project_manager_email(uuid);
+DROP FUNCTION IF EXISTS public.organization_resource_title(text, text);
+DROP FUNCTION IF EXISTS public.organization_lock_resource(text, text);
+DROP FUNCTION IF EXISTS public.organization_resource_calendars(text, text);
+DROP FUNCTION IF EXISTS public.organization_lock_calendar(text, boolean);
+DROP VIEW IF EXISTS public.resource_occupancy_x_movement;
+-- PART 21 (create_resource_calendar.sql): the triggers on the resource tables and the calendar tables, then the functions
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'contractTable', 'templateResourceContractTable'] LOOP
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_calendar', t);
+    END IF;
+  END LOOP;
+  IF to_regclass('public."managementCalendarTable"') IS NOT NULL THEN DROP TRIGGER IF EXISTS trg_management_calendar_in_use ON public."managementCalendarTable"; END IF;
+  IF to_regclass('public."managementCalendarDaysTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_management_calendar_day_normalize ON public."managementCalendarDaysTable";
+    ALTER TABLE public."managementCalendarDaysTable" DROP CONSTRAINT IF EXISTS management_calendar_day_hours_chk;
+  END IF;
+END $$;
+DROP FUNCTION IF EXISTS public.organization_copy_calendar(text, text, text);
+DROP FUNCTION IF EXISTS public.organization_calendar_consistency(text, integer);
+DROP FUNCTION IF EXISTS public.organization_holiday_days(text, integer);
+DROP FUNCTION IF EXISTS public.organization_project_calendars(text);
+DROP FUNCTION IF EXISTS public.organization_resource_capacity(text, text, date);
+DROP FUNCTION IF EXISTS public.organization_resource_capacity_info(text, text, date);
+DROP FUNCTION IF EXISTS public.organization_calendar_day_hours(text, date);
+DROP FUNCTION IF EXISTS public.organization_json_date(text);
+DROP FUNCTION IF EXISTS public.organization_calendar_in_use_guard();
+DROP FUNCTION IF EXISTS public.organization_resource_calendar_check();
+DROP FUNCTION IF EXISTS public.organization_calendar_day_normalize();
+DROP TABLE IF EXISTS public."organizationInvitationTable" CASCADE;
+DROP FUNCTION IF EXISTS public.organization_accept_invitation(text);
+DROP FUNCTION IF EXISTS public.organization_revoke_invitation(text);
+DROP FUNCTION IF EXISTS public.organization_invite_user(text);
+DROP FUNCTION IF EXISTS public.organization_ensure_user(text, text, text, text);
+DROP FUNCTION IF EXISTS public.organization_is_admin(text);
+DROP FUNCTION IF EXISTS public.organization_for_email(text, text);
+DROP FUNCTION IF EXISTS public.organization_of_current_user();
+DROP FUNCTION IF EXISTS public.organization_of_user(text);
+DROP FUNCTION IF EXISTS public.organization_user_guard();
+DROP FUNCTION IF EXISTS public.organization_project_set_parent();
+DROP FUNCTION IF EXISTS public.organization_project_keep_parent();
+NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================================
@@ -111,7 +204,7 @@ BEGIN
   END IF;
 END $$;
 
-DROP FUNCTION IF EXISTS public.fill_management_calendar(text, integer, text, boolean);
+DROP FUNCTION IF EXISTS public.fill_management_calendar(text, integer, text, boolean, numeric, boolean);
 DROP TABLE IF EXISTS public."managementCalendarDaysTable" CASCADE;
 DROP TABLE IF EXISTS public."managementCalendarTable" CASCADE;
 

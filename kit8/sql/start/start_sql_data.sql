@@ -6675,6 +6675,21 @@ INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowPar
   ('workingDaysCalendar',        'managementCalendarCatalog', 'projectCalendarFolder', 1100, '{"title": "Working days", "description": "Monday to Friday, without holidays (the default calendar of a project plan)."}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
 
+-- -- the resource calendar (PART 21 of start_sql_structure.sql): two more folders and the seeded week modes (the capacity of a resource = the hours of its calendar)
+INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('equipmentCalendarFolder', 'managementCalendarCatalog', 'empty', 4000, '{"title": "Equipment", "description": "Folder: calendars of equipment (machines, vehicles)."}'::jsonb),
+  ('contractCalendarFolder',  'managementCalendarCatalog', 'empty', 5000, '{"title": "Contract", "description": "Folder: calendars of contracts. The calendar of the contract in force has PRIORITY over the calendar of the resource."}'::jsonb),
+  ('standardWorkWeekCalendar', 'managementCalendarCatalog', 'personCalendarFolder', 3100,
+   '{"title": "Standard work week", "description": "Monday to Friday, 8 hours a day: the calendar of every resource that has none.", "kind": "resource", "hoursPerDay": 8, "weekDays": 5, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('sixDayWeekCalendar',      'managementCalendarCatalog', 'personCalendarFolder', 3200,
+   '{"title": "6-day week", "description": "Monday to Saturday, 8 hours a day.", "kind": "resource", "hoursPerDay": 8, "weekDays": 6, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('sevenDayWeekCalendar',    'managementCalendarCatalog', 'personCalendarFolder', 3300,
+   '{"title": "7-day week", "description": "Every day, 8 hours a day (continuous operation).", "kind": "resource", "hoursPerDay": 8, "weekDays": 7, "workFrom": "08:00", "workTo": "16:00", "mode": "quantity"}'::jsonb),
+  ('partTime4hCalendar',      'managementCalendarCatalog', 'personCalendarFolder', 3400,
+   '{"title": "Part-time 4 h", "description": "Monday to Friday, 4 hours a day.", "kind": "resource", "hoursPerDay": 4, "weekDays": 5, "workFrom": "08:00", "workTo": "12:00", "mode": "quantity"}'::jsonb)
+
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+
 
 -- =============================================================================
 -- Equipment (PART 17 of start_sql_structure.sql): types, descriptors, demo equipment, the role type "Equipment Resources" (upsert)

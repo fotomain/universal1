@@ -16,6 +16,7 @@ import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
 import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { managementGenusItems } from '../genus/managementGenusModel';
+import { useResourceCalendarColumn } from '../calendar/useResourceCalendarColumn';
 import { useManagementGenusData } from '../genus/useManagementGenusData';
 import {
   CONTRACT_TYPE_OPTIONS, emptyTemplateResourceContract, PAYMENT_PERIOD_OPTIONS, TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_TABLE,
@@ -49,10 +50,13 @@ export default function TemplateResourceContractCRUD({ genus: fixedGenus = null,
   // a new template belongs to a genus (rowOwnerGUID cannot be empty): the chip's, else the first one
   const newRowDefaults = useMemo(() => () => ({ rowOwnerGUID: genus !== ALL ? genus : genusOptions[0]?.value ?? 'timeGenus', rowParentGUID: 'empty', rowJSON: {} }), [genus, genusOptions]);
 
+  const calendarColumn = useResourceCalendarColumn();
   const columns = useMemo<VisualColumn[]>(() => [
     { key: 'n', title: '#', type: 'rowNumber' },
     { key: 'genus', title: 'Management genus', type: 'select', target: 'rowOwnerGUID', options: genusOptions, allowEmpty: false, width: 160, placeholder: 'Choose genus…' },
     { key: 'title', title: 'Title', type: 'text', width: 230, placeholder: 'Template title' },
+    // the calendar a contract made from this template starts with (capacity while the contract is in force); empty = none
+    calendarColumn,
     { key: 'contractType', title: 'Contract type', type: 'select', options: CONTRACT_TYPE_OPTIONS, width: 130 },
     { key: 'paymentsPeriod', title: 'Payments', type: 'select', options: PAYMENT_PERIOD_OPTIONS, width: 120 },
     { key: 'paymentTermDays', title: 'Payment term, days', type: 'integer', width: 150, min: 0, max: 3650, total: false },
@@ -63,7 +67,7 @@ export default function TemplateResourceContractCRUD({ genus: fixedGenus = null,
     { key: 'requirements', title: 'Requirements', type: 'text', width: 380 },
     { key: 'description', title: 'Description', type: 'text', width: 280 },
     { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
-  ], [genusOptions]);
+  ], [genusOptions, calendarColumn]);
 
   const chip = (value: string, label: string, n: number) => {
     const active = genus === value;

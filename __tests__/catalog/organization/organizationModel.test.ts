@@ -91,3 +91,17 @@ describe('organizationModel', () => {
     expect(card.description).toContain('admin@timber.com');
   });
 });
+
+// documentation/TIME_GENUS_CONTROL_WBS.html: the mode of the capacity check lives on the organization
+describe('resourceCapacityStrongMode', () => {
+  const base = { organizationTitle: 'Acme', createdByUser: 'a@b.com', isActive: true };
+  it('capacityModeWarn and capacityModeBlock are kept by a save', () => {
+    expect(normalizeOrganization({ ...base, resourceCapacityStrongMode: 'capacityModeWarn' }).resourceCapacityStrongMode).toBe('capacityModeWarn');
+    expect(normalizeOrganization({ ...base, resourceCapacityStrongMode: 'capacityModeBlock' }).resourceCapacityStrongMode).toBe('capacityModeBlock');
+  });
+  it('off is the default and is not written; an unknown value is dropped', () => {
+    expect('resourceCapacityStrongMode' in normalizeOrganization({ ...base, resourceCapacityStrongMode: 'capacityModeOff' })).toBe(false);
+    expect('resourceCapacityStrongMode' in normalizeOrganization({ ...base })).toBe(false);
+    expect('resourceCapacityStrongMode' in normalizeOrganization({ ...base, resourceCapacityStrongMode: 'block' as any })).toBe(false);
+  });
+});

@@ -10,6 +10,7 @@ import type { TaskLineRow } from '../finances/taskLineModel';
 import { calculateTaskLinePlan } from './calculateTaskLinePlan';
 import { createTaskLinePlan } from './taskLinePlanApi';
 import { postableLines } from './taskLinePlanModel';
+import type { CapacityMode, ResourceBusyConflict } from './busyControl';
 
 /** 'YYYY-MM-DD' of the first and the last day of a task from the scheduler (finish is exclusive; a milestone has one day) */
 export function taskDaysOf(startMs: number | undefined, finishMs: number | undefined): { fromDay: string | null; toDay: string | null } {
@@ -35,7 +36,7 @@ export interface RunTaskPostArgs {
 
 export type RunTaskPostResult =
   /** the plan was written: `problems` = the lines left out (the others were posted) */
-  | { status: 'posted'; lines: number; rows: number; problems: string[] }
+  | { status: 'posted'; lines: number; rows: number; problems: string[]; mode: CapacityMode; busy: ResourceBusyConflict[] }
   /** nothing was written: `noBudget` = no line of the task has a budget item at all (the user must choose one first) */
   | { status: 'nothing'; noBudget: boolean; problems: string[] }
   /** the database refused or a read failed */
@@ -58,7 +59,7 @@ export async function runTaskPost(args: RunTaskPostArgs): Promise<RunTaskPostRes
     const problems = plan.errors.map((e) => pmT(e.message));
     if (!plan.taskLinePlanJSON) return { status: 'nothing', noBudget: false, problems };
     const result = await createTaskLinePlan(plan.taskLinePlanJSON);
-    return { status: 'posted', lines: result.lines, rows: result.rows, problems };
+    return { status: 'posted', lines: result.lines, rows: result.rows, problems, mode: result.mode ?? 'capacityModeOff', busy: result.busy ?? [] };
   } catch (e: any) {
     return { status: 'error', message: String(e?.message || e) };
   }

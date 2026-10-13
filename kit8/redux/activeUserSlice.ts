@@ -13,13 +13,25 @@ export interface ActiveUserData {
    * activeUserGUID is this value cut to 32 characters (older tables are keyed by that).
    */
   userGUID?: string;
+  /**
+   * The organization of the user = userTable.rowJSON.userOrganization (kit8/auth/userTableLogin.ts), obligatory for a real user. Only the login step passes it.
+   * Resources are shared by all projects of one organization (project.rowParentGUID).
+   */
+  userOrganization?: UserOrganization;
   activeUserEmail: string;
   activeUserFirstName: string;
   activeUserLastName: string;
 }
 
+/** The organization of the signed-in user (userState.userOrganization.rowGUID must be non-empty for a signed-in user). */
+export interface UserOrganization {
+  rowGUID: string;
+  title: string;
+}
+
 export interface ActiveUserState extends ActiveUserData {
   userGUID: string;
+  userOrganization: UserOrganization;
   /** activeUserEmail !== GUEST_USER_EMAIL - kept in sync by every reducer */
   isLoggedIn: boolean;
 }
@@ -52,9 +64,12 @@ const guestUser: ActiveUserData = {
   activeUserLastName: "Doe",
 };
 
+export const NO_ORGANIZATION: UserOrganization = { rowGUID: "", title: "" };
+
 const initialState: ActiveUserState = {
   ...guestUser,
   userGUID: "",
+  userOrganization: NO_ORGANIZATION,
   isLoggedIn: computeIsLoggedIn(guestUser.activeUserEmail), // false
 };
 
@@ -68,6 +83,9 @@ export const activeUserSlice = createSlice({
       // uid) must not replace it for the same user; a different email starts without one.
       if (action.payload.userGUID !== undefined) state.userGUID = action.payload.userGUID;
       else if (state.activeUserEmail !== action.payload.activeUserEmail) state.userGUID = "";
+      // the organization comes only from the login step too; another user starts without one (state persisted by an older app version has none: treated as none)
+      if (action.payload.userOrganization !== undefined) state.userOrganization = action.payload.userOrganization;
+      else if (state.activeUserEmail !== action.payload.activeUserEmail) state.userOrganization = NO_ORGANIZATION;
       state.activeUserGUID = formatTo32CharGUID(state.userGUID || action.payload.activeUserGUID); /* userGUID32 */
       state.activeUserEmail = action.payload.activeUserEmail;
       state.activeUserFirstName = action.payload.activeUserFirstName;
@@ -80,4 +98,7 @@ export const activeUserSlice = createSlice({
 });
 
 export const { setActiveUser, clearActiveUser } = activeUserSlice.actions;
+
+/** userState.userOrganization.rowGUID of the signed-in user ('' = none yet: the login step has not finished). Works on state persisted before the organization existed. */
+export const selectUserOrganizationGUID = (state: any): string => state?.activeUserState?.userOrganization?.rowGUID || "";
 export default activeUserSlice.reducer;

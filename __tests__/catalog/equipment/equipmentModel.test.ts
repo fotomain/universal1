@@ -130,3 +130,12 @@ describe('Checks (the product rules on the equipment side + E1)', () => {
     expect(validateEquipmentCatalog(d).some((i) => i.rule === 'R11')).toBe(true);
   });
 });
+
+// documentation/TIME_GENUS_CONTROL_WBS.html: the capacity calendar of an equipment
+describe('resourceCalendar of an equipment', () => {
+  it('is kept by normalizeEquipment and not written when empty', () => {
+    expect(normalizeEquipment({ equipmentTitle: 'Crane', resourceCalendar: 'sixDayWeekCalendar' }).resourceCalendar).toBe('sixDayWeekCalendar');
+    expect('resourceCalendar' in normalizeEquipment({ equipmentTitle: 'Crane', resourceCalendar: '' })).toBe(false);
+    expect('resourceCalendar' in normalizeEquipment({ equipmentTitle: 'Crane' })).toBe(false);
+  });
+});

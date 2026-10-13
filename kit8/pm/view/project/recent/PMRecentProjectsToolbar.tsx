@@ -59,6 +59,7 @@ import { PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_PLAN_DATE_INPUT_FORMATS, contextCo
 import { withAlpha } from "../../theme";
 import SelectElementFromCatalog from "../../../../catalog/inner/select_element/SelectElementFromCatalog";
 import { PARTNER_ENTITY } from "../../../../catalog/partner/partnerModel";
+import { PERSON_ENTITY } from "../../../../catalog/person/personModel";
 import { CONTRACT_ENTITY } from "../../../../catalog/contract/contractModel";
 import PMProjectKanbanStateList from "../settings/kanban/PMProjectKanbanStateList";
 import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
@@ -94,6 +95,8 @@ interface Draft extends PMProjectBudgetsValues {
   mainSupplierContractGUID?: string | null;
   mainCustomerGUID?: string | null;
   mainCustomerContractGUID?: string | null;
+  /** project manager = a person of the persons catalog (personTable.rowGUID); the Share button of a busy resource writes to his e-mail */
+  projectManagerPerson?: string | null;
 }
 
 export default function PMRecentProjectsToolbar({
@@ -239,6 +242,7 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: null,
       mainCustomerGUID: null,
       mainCustomerContractGUID: null,
+      projectManagerPerson: null,
       ...budgetsValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
@@ -278,6 +282,7 @@ export default function PMRecentProjectsToolbar({
       mainSupplierContractGUID: project.rowJSON.mainSupplierContractGUID ?? null,
       mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
       mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
+      projectManagerPerson: project.rowJSON.projectManagerPerson ?? null,
       ...budgetsValuesOf(project.rowJSON),
     });
   };
@@ -388,6 +393,7 @@ export default function PMRecentProjectsToolbar({
             mainSupplierContractGUID: draft.mainSupplierContractGUID ?? null,
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
+            projectManagerPerson: draft.projectManagerPerson ?? null,
             ...budgetsValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
@@ -417,6 +423,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainSupplierContractGUID = draft.mainSupplierContractGUID ?? null;
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
+      row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
       Object.assign(row.rowJSON, budgetsValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
@@ -763,6 +770,14 @@ export default function PMRecentProjectsToolbar({
                       value={draft?.projectFinishDate || ""}
                       onChangeText={(v) => setDraft((d) => (d ? { ...d, projectFinishDate: v } : d))}
                       style={{ marginBottom: 12 }}
+                    />
+                    <SelectElementFromCatalog
+                      testID="pm-project-manager-person"
+                      label={pmT('Project manager (projectManagerPerson)')}
+                      placeholder={pmT('Select the project manager...')}
+                      entityName={PERSON_ENTITY}
+                      value={draft?.projectManagerPerson}
+                      onChange={(guid) => setDraft((d) => (d ? { ...d, projectManagerPerson: guid } : d))}
                     />
                     <SwitchApp
                       testID="pm-project-weekends"

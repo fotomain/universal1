@@ -2,6 +2,8 @@
 //   top     the calendars: FOLDERS (level 1, the tree: FolderTreeReusable) Project · Resource role · Person and CALENDARS (level 2, the rows of the table)
 //   bottom  the DAYS of the selected calendar and year (managementCalendarDaysTable): "Active" off = the day is EXCLUDED (the task plans skip it)
 //   header  Fill ▸ current / previous / next year ▸ working days · 5 days · 6 days · all days (CalendarFillMenu)
+//   A RESOURCE calendar (capacity of persons / equipment / contracts) also shows the HOURS of each day and a lock on the days that have posted hours (the capacity of such a day
+//   cannot be lowered under them: the cell refuses it with the reason, the SQL refuses it too - documentation/TIME_GENUS_CONTROL_WBS.html section 3).
 // The business-level setup of the abstract entity: the owner of every calendar is 'managementCalendarCatalog' until a business table exists.
 // `noCrud` (default FALSE): true = read-only. The days table has no add / delete: its rows are made by Fill; the user switches a day on / off.
 // Route: /catalog/management/calendar/list · SQL: kit8/sql/init/create_management_calendar_tables.sql
@@ -18,7 +20,11 @@ import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusab
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
 import CalendarFillMenu from './CalendarFillMenu';
-import { calendarFolders, calendarPath, calendarsOf, isCalendarFolder, MANAGEMENT_CALENDAR_DAYS_TABLE, MANAGEMENT_CALENDAR_TABLE } from './managementCalendarModel';
+import { fetchCalendarLockInfo } from './managementCalendarApi';
+import {
+  CALENDAR_DAY_REASONS, CalendarLockDay, calendarFolders, calendarHoursPerDay, calendarLockMessage, calendarPath, calendarsOf, dayRowHours, isCalendarFolder, isResourceCalendar,
+  MANAGEMENT_CALENDAR_DAYS_TABLE, MANAGEMENT_CALENDAR_TABLE,
+} from './managementCalendarModel';
 import { useManagementCalendarData } from './useManagementCalendarData';
 import { useManagementCalendarTree } from './useManagementCalendarTree';
 
@@ -30,12 +36,8 @@ export interface ManagementCalendarCRUDProps {
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const REASON_OPTIONS = [
-  { value: 'fill', label: 'Fill' },
-  { value: 'weekend', label: 'Weekend' },
-  { value: 'holiday', label: 'Holiday' },
-  { value: 'manual', label: 'Manual' },
-];
+const PROJECT_REASON_OPTIONS = CALENDAR_DAY_REASONS.filter((r) => !r.resourceOnly).map(({ value, label }) => ({ value, label }));
+const RESOURCE_REASON_OPTIONS = CALENDAR_DAY_REASONS.map(({ value, label }) => ({ value, label }));
 
 export default function ManagementCalendarCRUD({ noCrud: noCrudProp = false, currentYear = new Date().getFullYear() }: ManagementCalendarCRUDProps) {
   const { themeColors: c } = useDesignSystem();
@@ -73,6 +75,19 @@ export default function ManagementCalendarCRUD({ noCrud: noCrudProp = false, cur
   }, [rows, folders, noCrud, c.text]);
 
   // ---- the days of the selected calendar and year ----
+  const resource = isResourceCalendar(current);
+  const perDay = calendarHoursPerDay(current);
+  // the days with posted hours (resource calendars): day -> { minHours, example }
+  const [lockDays, setLockDays] = useState<Record<string, CalendarLockDay>>({});
+  const [lockKey, setLockKey] = useState(0);
+  useEffect(() => {
+    if (!current || !resource) { setLockDays({}); return; }
+    let off = false;
+    fetchCalendarLockInfo(current.rowGUID, `${year}-01-01`, `${year}-12-31`)
+      .then((list) => { if (!off) setLockDays(Object.fromEntries(list.map((l) => [l.day, l]))); })
+      .catch(() => { if (!off) setLockDays({}); });
+    return () => { off = true; };
+  }, [current?.rowGUID, resource, year, lockKey]);
   const dayColumns = useMemo<VisualColumn[]>(() => [
     { key: 'n', title: '#', type: 'rowNumber' },
     { key: 'day', title: 'Day', type: 'custom', width: 130, editable: false, renderCell: (row) => <Text style={{ color: c.text, fontSize: 13 }}>{String(row.rowJSON?.day ?? '')}</Text>, searchText: (row) => String(row.rowJSON?.day ?? '') },
@@ -84,10 +99,33 @@ export default function ManagementCalendarCRUD({ noCrud: noCrudProp = false, cur
       },
       searchText: (row) => { const d = new Date(`${row.rowJSON?.day}T00:00:00Z`); return Number.isNaN(d.getTime()) ? '' : WEEKDAYS[d.getUTCDay()]; },
     },
-    { key: 'isActive', title: 'Active', type: 'boolean', width: 90 },
-    { key: 'reason', title: 'Reason', type: 'select', width: 130, options: REASON_OPTIONS, allowEmpty: false },
+    {
+      key: 'isActive', title: 'Active', type: 'boolean', width: 90,
+      // switching a booked day off lowers its capacity to 0 (the lock; a project calendar has none)
+      validate: (value: any, row: any) => (resource && value === false ? calendarLockMessage(lockDays[String(row.rowJSON?.day)], dayRowHours(row.rowJSON, perDay), 0) : null),
+    },
+    ...(resource ? [
+      {
+        key: 'hours', title: 'Hours', type: 'number', width: 100, min: 0, max: 24, step: 0.5, total: false,
+        validate: (value: any, row: any) => calendarLockMessage(lockDays[String(row.rowJSON?.day)], dayRowHours(row.rowJSON, perDay), Number(value) || 0),
+      },
+      {
+        key: 'lock', title: 'Lock', type: 'custom', width: 150, editable: false,
+        renderCell: (row: any) => {
+          const lock = lockDays[String(row.rowJSON?.day)];
+          return lock ? (
+            <View testID={`management-calendar-lock-${row.rowJSON?.day}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} accessibilityLabel={`${lock.example} has ${lock.minHours} h booked`}>
+              <IconApp name="lock" size={14} color={c.primary} />
+              <Text style={{ color: c.text, fontSize: 12 }}>≥ {lock.minHours} h · {lock.example}</Text>
+            </View>
+          ) : null;
+        },
+        searchText: (row: any) => (lockDays[String(row.rowJSON?.day)] ? 'locked' : ''),
+      },
+    ] : []),
+    { key: 'reason', title: 'Reason', type: 'select', width: 130, options: resource ? RESOURCE_REASON_OPTIONS : PROJECT_REASON_OPTIONS, allowEmpty: false },
     { key: 'note', title: 'Note', type: 'text', width: 320 },
-  ].map((col) => (noCrud ? { ...col, editable: false } : col)) as VisualColumn[], [noCrud, c.text]);
+  ].map((col) => (noCrud ? { ...col, editable: false } : col)) as VisualColumn[], [noCrud, c.text, c.primary, resource, perDay, lockDays]);
   // a day changed by hand is "manual" (a later Fill keeps it); a reason the user picked himself (holiday, manual) stays
   const computeDay = useCallback((json: Record<string, any>) => (json.reason === 'fill' || json.reason === 'weekend' ? { reason: 'manual' } : null), []);
   const readDays = useCallback(() => {
@@ -108,9 +146,9 @@ export default function ManagementCalendarCRUD({ noCrud: noCrudProp = false, cur
             {def.purpose} · {folders.length} folders · {calendars.length} calendars · {noCrud ? 'read-only' : 'editing is on'}
           </Text>
         </View>
-        {!noCrud && <CalendarFillMenu calendarGUID={current?.rowGUID ?? null} currentYear={currentYear} onFilled={(y) => { setYear(y); readDays(); }} />}
+        {!noCrud && <CalendarFillMenu calendarGUID={current?.rowGUID ?? null} calendar={current} currentYear={currentYear} onFilled={(y) => { setYear(y); readDays(); setLockKey((k) => k + 1); }} />}
         <PMIconButton tipScope="app" testID="management-calendar-edit-toggle" icon={noCrud ? 'lock' : 'lock_open'} title={noCrud ? 'Read-only: press to allow editing' : 'Editing is on: press to lock'} color={noCrud ? c.text : c.primary} onPress={() => setNoCrud((v) => !v)} />
-        <PMIconButton tipScope="app" testID="management-calendar-reload" icon="refresh" title="Read the calendars again" color={c.text} onPress={() => { reload(); readDays(); }} />
+        <PMIconButton tipScope="app" testID="management-calendar-reload" icon="refresh" title="Read the calendars again" color={c.text} onPress={() => { reload(); readDays(); setLockKey((k) => k + 1); }} />
       </View>
       {(error || (loaded && rows.length === 0)) && (
         <View testID="management-calendar-setup" style={[styles.setup, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
@@ -168,7 +206,7 @@ export default function ManagementCalendarCRUD({ noCrud: noCrudProp = false, cur
         </View>
         {current ? (
           <ReusableTable
-            key={`${current.rowGUID}-${year}`}
+            key={`${current.rowGUID}-${year}-${resource ? 'r' : 'p'}`}
             testID="management-calendar-days-table"
             entityName={MANAGEMENT_CALENDAR_DAYS_TABLE.entity}
             crudListTitle={`${String(current.rowJSON?.title || current.rowGUID)} · ${year}`}

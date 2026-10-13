@@ -37,7 +37,8 @@ describe('start_sql_code.sql + start_sql_data.sql hold the same part, cut in two
     expect(code).toContain('task_line_resource_kind_chk');
     expect(code).toContain("ARRAY['equipmentTypeTable', 'equipmentTable']");
     expect(code).toMatch(/'taskResourceKind', COALESCE\(l\."rowJSON"->'taskResourceKind', 'null'::jsonb\)/);
-    const codePart = code.slice(code.indexOf('-- PART 17: create_equipment_tables.sql'));
+    const from = code.indexOf('-- PART 17: create_equipment_tables.sql');
+    const codePart = code.slice(from, code.indexOf('-- PART 18:', from));   // up to the next part (the later parts have functions that INSERT)
     expect(codePart).not.toContain('INSERT INTO');
   });
   it('the data file: the seed rows as UPSERTs (a seed row is refreshed, a row of a user is not touched)', () => {

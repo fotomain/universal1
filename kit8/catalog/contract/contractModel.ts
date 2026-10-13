@@ -31,6 +31,11 @@ export const CONTRACT_STATUSES = {
 export type ContractStatusType = keyof typeof CONTRACT_STATUSES;
 
 export interface ContractRowJSON {
+  /**
+   * managementCalendarTable.rowGUID of a RESOURCE calendar (a contract of a PERSON): while the contract is in force (start - finish) its hours are the capacity of the person,
+   * the calendar of the contract WINS over the calendar of the person (documentation/TIME_GENUS_CONTROL_WBS.html). Empty = the contract has none.
+   */
+  resourceCalendar?: string | null;
   /** 'person' | 'partner' */
   contractPartyType: 'person' | 'partner';
   /** Contract reference / agreement code */
@@ -162,6 +167,8 @@ export function normalizeContract(v: Partial<ContractRowJSON>, decimalDigits = 2
     supplierRole: Boolean(v.supplierRole),
     customerRole: Boolean(v.customerRole),
     businessUnitAssigned: v.businessUnitAssigned ? String(v.businessUnitAssigned) : null,
+    // only the contract of a person has a calendar (the capacity of a person); a key that is empty is not written, so a save clears it
+    ...(partyType === 'person' && v.resourceCalendar ? { resourceCalendar: String(v.resourceCalendar) } : {}),
   };
 }
 

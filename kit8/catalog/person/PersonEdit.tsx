@@ -1,6 +1,7 @@
 // PersonEdit - route /person/edit (new) or /person/edit?rowGUID=… (existing).
 // Includes Employee section and embedded Contracts section.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ResourceCalendarField from '../management/calendar/ResourceCalendarField';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeReturnToRoute } from '../../lib/returnToRoute';
@@ -36,6 +37,8 @@ type Form = {
   personIsEmployee: boolean;
   /** personTypeTable.rowGUID: not edited here (Persons dashboard), but kept when the form saves */
   personType: string | null;
+  /** managementCalendarTable.rowGUID of the capacity calendar ('' = the Standard work week) */
+  resourceCalendar: string;
   employeeNumber: string;
   position: string;
   department: string;
@@ -55,6 +58,7 @@ const toForm = (j?: Partial<PersonRowJSON>): Form => {
     isActive: v.isActive !== false,
     personIsEmployee: Boolean(v.personIsEmployee),
     personType: v.personType || null,
+    resourceCalendar: v.resourceCalendar || '',
     employeeNumber: emp.employeeNumber || '',
     position: emp.position || '',
     department: emp.department || '',
@@ -73,6 +77,7 @@ const fromForm = (f: Form): PersonRowJSON =>
     isActive: f.isActive,
     personIsEmployee: f.personIsEmployee,
     personType: f.personType,
+    resourceCalendar: f.resourceCalendar || null,
     employeeData: {
       employeeNumber: f.employeeNumber,
       position: f.position,
@@ -265,6 +270,14 @@ export default function PersonEdit() {
         <View style={{ flex: 1 }}>{input('personEmail', 'Email', { keyboardType: 'email-address', autoCapitalize: 'none' })}</View>
         <View style={{ flex: 1 }}>{input('personPhone', 'Phone', { keyboardType: 'phone-pad' })}</View>
       </View>
+
+      <ResourceCalendarField
+        testID="person-edit-resourceCalendar"
+        kind="person"
+        resourceTitle={[form.personFirstName, form.personLastName].filter(Boolean).join(' ')}
+        value={form.resourceCalendar || null}
+        onChange={(guid) => set('resourceCalendar', guid ?? '')}
+      />
 
       <View style={styles.switchRow}>
         <SwitchApp testID="person-edit-isActive" label="Active" value={form.isActive} onValueChange={(v) => set('isActive', v)} />

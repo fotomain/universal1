@@ -64,3 +64,23 @@ Tests: `__tests__/pm/view/task/plan` (calculation, Correct033, Post state, Plan 
 **CHECK:** a cost line is not posted to a revenue center and a revenue line not to a cost center (a unit with no CFR up the tree takes both; a line without a unit is posted as before). Three layers:
 the unit select of the line · `calculateTaskLinePlan(... lineCheck)` (`useBusinessUnitPostCheck`: the line is left out, the message names the line and the center, the others are posted) · the SQL procedure `create_task_line_plan` (an exception, one transaction).
 A unit's CFR cannot be changed to one that no longer takes the kind of days already posted on it (SQL).
+
+## Capacity check - the time genus control (`documentation/TIME_GENUS_CONTROL_WBS.html`)
+A Time line books a resource (a person or an equipment) for hours. Post can check that the resource is not booked more than its **calendar** allows, counting the posted days of **all the projects of the
+organization** (they share their resources: `project_table.rowParentGUID`). **Day grain**: the posted days have no time of day yet.
+
+* **Mode** = `organizationTable.rowJSON.resourceCapacityStrongMode` (Organization edit → Resource capacity): `capacityModeOff` (default - nothing is checked, Post is exactly as before) ·
+  `capacityModeWarn` (posted, the conflicts are told) · `capacityModeBlock` (a line whose resource is busy is **not posted**: its rows are deleted, the line is "Post needed", the other lines are posted).
+* **busy** = the hours of the resource on a day (the lines of the posted task + the posted tasks of the others) **>** the capacity of its calendar that day. Equal is not busy; a day the calendar does not
+  have is a conflict (never guessed). The capacity comes from `organization_resource_capacity`: the calendar of the **contract in force** (latest start) › the calendar of the resource › the Standard work week.
+* **Where**: inside `create_task_line_plan` (SQL, one transaction, after Correct033). The rows of a checked Time line are first written with `planMovementStatus = false` (out of the reports, the timeline
+  and the occupancy), then `true` when the line passed. The answer is `{ lines, rows, mode, busy: [...] }` - a conflict is an **answer, not an exception** (an exception would roll the deletion back).
+* **App**: `busyControl.ts` (pure: parse, rule twin, the sentence, the Share text) · `taskLinePlanApi.ts` / `runTaskPost.ts` (the answer) · `useTaskPost.ts` (the snack bar) ·
+  `BusyConflictsWindow.tsx` (the list with the other bookings by **project GUID and task GUID**, **Share** and **Copy text**).
+* **Share** opens the mail program with the prepared text (To = `projectManagerPerson` of every project that holds the booking, Cc = the manager of the project being posted; project setting Main) or copies
+  it. The application **never sends** the mail itself.
+* **The calendar lock** (the other side, `kit8/catalog/management/calendar/README.md`): a calendar change that lowers a capacity under the posted hours is refused. Post and the lock take the same locks
+  (per calendar: shared by Posts, exclusive for a change; per resource), always calendars first, so they cannot both succeed at the same moment.
+
+Tests: `__tests__/pm/view/task/plan/{busyControl,runTaskPostBusy,busyConflictsWindow,timeGenusSql}.test.*` · SQL on a real Postgres 15: `kit8/docker/test_time_genus.sh` (behaviour, tests/*.sql) and
+`test_time_genus_race.sh` (two sessions at once).

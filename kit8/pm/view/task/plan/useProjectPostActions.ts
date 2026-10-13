@@ -40,7 +40,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
   }, [projectGUID, dispatch]);
 
   const run = useCallback(async (which: ProjectPostWhich): Promise<void> => {
-    const say = (message: string) => dispatch(showSnackbar({ message }));
+    const say = (message: string, isError = false) => dispatch(showSnackbar({ message, isError }));
     const L = live.current;
     if (!projectGUID || L.busy) return;
     const ids = tasksToPost(L.byTask, which);
@@ -83,7 +83,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
       }
       qc.invalidateQueries({ queryKey: projectTaskLinesKey(projectGUID) });
       const note = failed.length ? ` · ${pmT('{{count}} not posted: {{first}}', { count: failed.length, first: failed[0] })}` : '';
-      say(`${pmT('Posted {{tasks}} task(s) · {{rows}} day row(s)', { tasks: posted, rows })}${note}`);
+      say(`${pmT('Posted {{tasks}} task(s) · {{rows}} day row(s)', { tasks: posted, rows })}${note}`, failed.length > 0);
     } finally {
       setBusy(false);
     }

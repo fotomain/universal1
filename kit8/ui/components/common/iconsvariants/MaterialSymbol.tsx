@@ -72,6 +72,7 @@ const ALIAS_MAP: Record<string, string> = {
     play: 'play_arrow',
     microphone: 'mic',
     video: 'videocam',
+    assessment: 'analytics',
 
     'cloud-upload-outline': 'cloud_upload',
     'cloud-upload': 'cloud_upload',

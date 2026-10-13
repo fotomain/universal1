@@ -105,3 +105,12 @@ describe('personModel', () => {
     expect(card.description).toContain('inactive');
   });
 });
+
+// documentation/TIME_GENUS_CONTROL_WBS.html: the key resourceCalendar must survive a save of the person form
+describe('resourceCalendar of a person', () => {
+  it('is kept by normalizePerson and cleared when empty', () => {
+    expect(normalizePerson({ personFirstName: 'Anna', resourceCalendar: 'partTime4hCalendar' } as any).resourceCalendar).toBe('partTime4hCalendar');
+    expect('resourceCalendar' in normalizePerson({ personFirstName: 'Anna', resourceCalendar: '' } as any)).toBe(false);
+    expect('resourceCalendar' in normalizePerson({ personFirstName: 'Anna' } as any)).toBe(false);
+  });
+});

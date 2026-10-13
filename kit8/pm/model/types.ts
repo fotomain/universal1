@@ -112,6 +112,11 @@ export interface PMRowJSON {
   mainCustomerGUID?: string | null;
   /** Selected main customer contract rowGUID (contractTable) */
   mainCustomerContractGUID?: string | null;
+  /**
+   * The project manager = a person of the persons catalog (personTable.rowGUID; his personEmail is the address). Project settings -> Main.
+   * When Post finds a resource busy, the Share button prepares a message for the manager of every project that holds the booking (Cc: the manager of the project being posted).
+   */
+  projectManagerPerson?: string | null;
   // ---- project_table only: Finances (Project settings -> TabBudgets: PMProjectBudgetsTab) ----
   /** ISO 4217 code (currency catalog) of the project budgets */
   currencyForBudget?: string | null;
@@ -192,6 +197,11 @@ export interface PMProjectRow {
   rowGUID: string;
   treePath: string;
   rowOwnerGUID: string;
+  /**
+   * The organization of the project = the organization of its owner (organizationTable.rowGUID). Set by the database on insert (the client never sends it)
+   * and never changed afterwards; all projects of one organization share their resources.
+   */
+  readonly rowParentGUID?: string;
   rowDuration: string | null;
   rowProgress: number;
   orderInList: number;

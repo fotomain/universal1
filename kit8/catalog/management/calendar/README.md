@@ -18,3 +18,23 @@ The working calendars of the business (the abstract entity; until a business tab
 Screen: drawer **Catalogs → Management calendars**, route `/catalog/management/calendar/list` → `ManagementCalendarCRUD.tsx` (folders tree + calendars table, then the days of the picked calendar and year).
 Pure rules: `managementCalendarModel.ts` (`resolveCalendarDays`, `activeSegments`, `daysBetween`…); `managementCalendarApi.ts` (Fill, `fetchCalendarDays`).
 Tests: `__tests__/catalog/management/managementCalendar.test.ts`, `calendarFillMenu.test.tsx`.
+
+## Resource calendars - the capacity (`documentation/TIME_GENUS_CONTROL_WBS.html`)
+A calendar with `rowJSON.kind = 'resource'` is the **capacity** of a person, an equipment or a contract: its day rows carry `rowJSON.hours` (0..24; `isActive` is kept in step - 0 h = not active). A project
+calendar has no hours and is unchanged. No new table.
+
+| What | Where |
+|---|---|
+| calendar row | `kind 'resource'` · `hoursPerDay` · `weekDays` 5/6/7 or a custom `weekPattern {mon..sun}` · `workFrom`/`workTo` (for hour/minute control later) |
+| day row | `hours` · `reason` fill / weekend / holiday / manual / **vacation / sickLeave / training / other** (the exceptions; a Fill keeps them unless "Overwrite my manual changes") |
+| folders | Project · Resource role · Person · **Equipment · Contract** |
+| seeded week modes | `standardWorkWeekCalendar` (Mon-Fri 8 h, the calendar of every resource that has none) · `sixDayWeekCalendar` · `sevenDayWeekCalendar` · `partTime4hCalendar` |
+| the pointer | `rowJSON.resourceCalendar` on `personTable`, `equipmentTable`, `contractTable` (a person's), `templateResourceContractTable` (the calendar a contract made from it starts with). Screens: `ResourceCalendarField` (person, contract), the "Calendar" column (equipment, templates) |
+| **priority** | the calendar of the **contract in force** (latest start wins) › the calendar of the resource › the Standard work week. No day row = not filled, never guessed (`organization_resource_capacity_info`) |
+| Own calendar | copy on write: `organization_copy_calendar` copies a shared calendar (row + all days) so a vacation of ONE resource does not touch the others |
+
+* **Fill** (`fill_management_calendar(calendar, year, mode, overwrite, hours, follow_project_holidays)`): the week modes × the hours of an active day; mode `pattern` = the custom week; **Follow project holidays**
+  = the days the project calendars of the organization flag as holidays become holidays (0 h). `organization_calendar_consistency` reports where a resource calendar and the project calendars disagree.
+* **The calendar lock**: a change that **lowers** the capacity of a day under the hours **posted** for a resource is refused - a day row (so a Fill, which is one statement, as a whole), the
+  `resourceCalendar` pointer, a contract (calendar, dates, new, deleted). Raising is always allowed, so an over-booked day can be repaired. The screen shows a lock with the hours (`organization_calendar_lock_info`),
+  the cell refuses the change with the reason, and the **"!" button** of the Fill menu explains the logic. The rule is always on, whatever the mode of the organization.

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { Snackbar as PaperSnackbar } from 'react-native-paper';
+import { Snackbar as PaperSnackbar, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideSnackbar } from '../../../redux/uxuiSlice';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
@@ -13,6 +13,8 @@ export interface SnackbarAppProps {
   actionLabel?: string;
   undoDeleteData?: any;
   entityName?: string;
+  /** red background (an error message); default: from the store (showSnackbar({ isError })) */
+  isError?: boolean;
   onAction?: () => void;
   style?: any;
   testID?: string;
@@ -26,11 +28,13 @@ export const SnackbarApp: React.FC<SnackbarAppProps> = ({
   actionLabel: propActionLabel,
   undoDeleteData: propUndoDeleteData,
   entityName: propEntityName,
+  isError: propIsError,
   onAction: propOnAction,
   style,
   testID = 'snackbarApp',
 }) => {
   const dispatch = useDispatch();
+  const paperTheme = useTheme();
   const reduxSnackbar = useSelector((state: any) => state?.uxuiState?.snackbar || state?.snackbar);
 
   const isVisible = propVisible !== undefined ? propVisible : Boolean(reduxSnackbar?.visible);
@@ -38,6 +42,9 @@ export const SnackbarApp: React.FC<SnackbarAppProps> = ({
   const duration = propDuration || reduxSnackbar?.duration || 4000;
   const undoData = propUndoDeleteData !== undefined ? propUndoDeleteData : reduxSnackbar?.undoDeleteData;
   const targetEntityName = propEntityName || reduxSnackbar?.entityName || 'mediaPostReusable';
+
+  const isError = propIsError !== undefined ? propIsError : Boolean(reduxSnackbar?.isError);
+  const errorRed = (paperTheme as any)?.colors?.error || '#d32f2f';
 
   // 2. “undo” pressable text instead Ok must be visible on the SnackbarApp
   const actionLabel = propActionLabel || reduxSnackbar?.actionLabel || (undoData ? 'Undo' : 'OK');
@@ -83,7 +90,8 @@ export const SnackbarApp: React.FC<SnackbarAppProps> = ({
         label: actionLabel,
         onPress: handleAction,
       }}
-      style={[styles.snackbar, style]}
+      style={[styles.snackbar, isError && { backgroundColor: errorRed }, style]}
+      theme={isError ? { colors: { inverseOnSurface: '#ffffff', inversePrimary: '#ffffff' } } as any : undefined}
     >
       {message}
     </PaperSnackbar>
