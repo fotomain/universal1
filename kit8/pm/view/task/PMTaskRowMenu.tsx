@@ -7,12 +7,14 @@ import React from 'react';
 import { usePMStore } from '../../store/store_pm';
 import { PMCrud } from '../../crud/usePMCrud';
 import PMContextMenu from '../../inner/menu/PMContextMenu';
+import { useOpenFactInput } from '../../fact/useOpenFactInput';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
   const task = usePMStore((s) => (s.rowMenu ? s.tasksById[s.rowMenu.guid] : undefined));
   const isSummary = usePMStore((s) => (s.rowMenu ? !!s.schedule[s.rowMenu.guid]?.isSummary : false));
+  const openFactInput = useOpenFactInput();
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -36,6 +38,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     { testID: id('google-calendar'), label: 'Add to Google Calendar', icon: 'event', onPress: run(() => crud.addToGoogleCalendar(guid)) },
     { testID: id('link'), label: 'Link to…', icon: 'link', onPress: run(() => crud.startLink(guid)) },
     { testID: id('open'), label: 'Open task info', icon: 'open_in_new', onPress: run(() => crud.openInfo(guid)) },
+    // a stage has no lines, so no facts: only a task or a milestone (kit8/pm/fact, documentation/FACT_INPUT.html)
+    ...(isSummary ? [] : [{ testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID: guid })) }]),
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 

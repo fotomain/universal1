@@ -27,6 +27,8 @@
 --   21. create_resource_calendar.sql - the resource calendar = the capacity: hours per day on the management calendars, resourceCalendar on person / equipment / contract / template, the week modes, organization_resource_capacity
 --   22. create_resource_busy_check.sql - resource_occupancy_x_movement (the abstract occupancy of the posted days) + organization_resource_busy_check + the check inside create_task_line_plan (resourceCapacityStrongMode) + planMovementStatus
 --   23. create_calendar_lock.sql - the calendar lock: a change of a calendar that would put the capacity of a resource under its posted hours is refused (day rows, Fill, resourceCalendar pointers, contracts)
+--   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
+--   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 -- ===============================================================================================
 
 
@@ -2034,11 +2036,28 @@ ON CONFLICT ("rowOwnerGUID", "rowParentGUID") DO NOTHING;
 -- ---- users: one GUID per user (userTable) -------------------------------------------------
 -- a) every existing Supabase auth user gets his userTable row. No row for the email yet ->
 --    rowGUID = his auth uid, so the projects he already owns stay his.
-INSERT INTO public."userTable" ("rowGUID", "rowOwnerGUID", "rowJSON")
-SELECT u.id::text, lower(u.email), jsonb_build_object('userEmail', lower(u.email), 'userGUID', u.id::text)
-  FROM auth.users u
- WHERE COALESCE(u.email, '') <> ''
-ON CONFLICT DO NOTHING;
+--    A database that already has PART 20 (this file run again, an older install) has the trigger that makes the organization of a user OBLIGATORY, and a plain insert of a user
+--    without one is refused ("userTable: the organization of the user ... is obligatory"): there the function that makes the organization too makes the user.
+DO $$
+DECLARE
+  a record;
+BEGIN
+  IF to_regprocedure('public.organization_ensure_user(text, text, text, text)') IS NOT NULL THEN
+    FOR a IN SELECT u.id::text AS id, lower(u.email) AS email
+               FROM auth.users u
+              WHERE COALESCE(u.email, '') <> ''
+                AND NOT EXISTS (SELECT 1 FROM public."userTable" t WHERE t."rowOwnerGUID" = lower(u.email))
+              ORDER BY u.id LOOP
+      PERFORM public.organization_ensure_user(a.email, a.id);
+    END LOOP;
+  ELSE
+    INSERT INTO public."userTable" ("rowGUID", "rowOwnerGUID", "rowJSON")
+    SELECT u.id::text, lower(u.email), jsonb_build_object('userEmail', lower(u.email), 'userGUID', u.id::text)
+      FROM auth.users u
+     WHERE COALESCE(u.email, '') <> ''
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
 
 -- b) the email already had a userTable row with ANOTHER GUID (older app versions created them,
 --    imported users): that GUID is the user's GUID, so the rows he owns under his auth uid
@@ -6040,6 +6059,884 @@ NOTIFY pgrst, 'reload schema';
 -- Check:
 --   SELECT * FROM public.organization_calendar_lock_info('standardWorkWeekCalendar', current_date, current_date + 60);           -- the days the screen locks
 --   UPDATE public."managementCalendarDaysTable" SET "rowJSON" = "rowJSON" || '{"hours": 1}' WHERE "rowGUID" = 'standardWorkWeekCalendar:' || to_char(current_date, 'YYYY-MM-DD');   -- refused when hours are posted
+
+-- ===============================================================================================
+-- PART 24: create_task_fact_input.sql
+-- the FACT INPUT document of a task: task_fact_header (the document) + task_fact_timeline (its lines) + post_task_fact_document / unpost_task_fact_document
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - FACT INPUT: create_task_fact_input.sql
+-- (run AFTER parts 1-23; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
+-- Design: documentation/FACT_INPUT.html (source: the Google Doc "W1 FACT INPUT"). The screen: kit8/pm/fact/PMFactInputDocument.tsx.
+--
+-- task_fact_header   the DOCUMENT of one task.   rowJSON.documentHeader = { projectTaskGUID (read only, = rowOwnerGUID) · activeUser (the user who created it) ·
+--                    created_at (moment of creation) · documentNumber · documentStatus 'draft' | 'posted' · strongInput (the project setting when the document was created) ·
+--                    postedAt · postedBy · unpostedAt }
+-- task_fact_timeline the LINES of the document: the fields of task_line_plan_timeline (rowGUID · rowProjectGUID · rowOwnerGUID · rowPeriodDatetime · taskLineGUID · qtyForBudget ·
+--                    sumForContract · sumForBudget · created_at · updated_at) + rowHeaderGUID (= task_fact_header.rowGUID) + genusGUID (the tab) + qtyForContract (the quantity the user
+--                    states) + periodDay + rowJSON (what the line is: role, resource, unit, price ... copied from the task line).
+--                    Not unique per (line, day): a day can have several facts. rowPeriodDatetime is editable in EVERY line.
+-- The rule: ALL the lines of task_line_table of the task automatically go to task_fact_timeline when the document is created (task_fact_document_create).
+--   projectSettings.factStrongInputByTaskLine = true  (project_table.rowJSON; false by default): the lines keep their taskLineGUID, users CANNOT add lines, only delete and update
+--   projectSettings.factStrongInputByTaskLine = false: the fact data is DISCONNECTED from the task line GUIDs (taskLineGUID stays NULL), users add lines freely
+--   The mode is copied into the header when the document is created: a later change of the setting never changes an existing document.
+-- Users change ONLY rowPeriodDatetime and qtyForContract (and, in the free mode, the description keys of rowJSON): qtyForBudget and the sums are computed / frozen by the database.
+-- A POSTED document is read only (RLS); only Unpost makes it a draft again. Only POSTED documents are summed for the report (PART 25: task_line_fact_for_monitor01).
+-- =====================================================================================
+
+CREATE SEQUENCE IF NOT EXISTS public.task_fact_document_seq;
+
+CREATE TABLE IF NOT EXISTS public.task_fact_header (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"   UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_fact_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
+);
+CREATE INDEX IF NOT EXISTS idx_task_fact_header_task ON public.task_fact_header ("rowOwnerGUID", "created_at");
+
+DROP TRIGGER IF EXISTS trg_task_fact_header_touch ON public.task_fact_header;
+CREATE TRIGGER trg_task_fact_header_touch BEFORE UPDATE ON public.task_fact_header
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+-- the project and the read-only keys of the header are set by the database, never taken from a client
+CREATE OR REPLACE FUNCTION public.task_fact_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+  v_head jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = NEW."rowOwnerGUID";
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', NEW."rowOwnerGUID" USING ERRCODE = '23503';
+  END IF;
+  NEW."rowProjectGUID" := v_project;
+  v_head := COALESCE(NEW."rowJSON"->'documentHeader', '{}'::jsonb);
+  v_head := v_head || jsonb_build_object('projectTaskGUID', NEW."rowOwnerGUID");
+  IF TG_OP = 'INSERT' THEN
+    v_head := v_head || jsonb_build_object('created_at', to_jsonb(NOW()));
+  ELSE
+    v_head := v_head || jsonb_build_object('created_at', OLD."rowJSON"->'documentHeader'->'created_at');
+  END IF;
+  NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{documentHeader}', v_head);
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_task_fact_header_before_write ON public.task_fact_header;
+CREATE TRIGGER trg_task_fact_header_before_write BEFORE INSERT OR UPDATE ON public.task_fact_header
+  FOR EACH ROW EXECUTE FUNCTION public.task_fact_header_before_write();
+
+CREATE TABLE IF NOT EXISTS public.task_fact_timeline (
+  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowHeaderGUID"     UUID          NOT NULL REFERENCES public.task_fact_header("rowGUID") ON DELETE CASCADE,
+  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL DEFAULT date_trunc('day', NOW()),
+  "taskLineGUID"      UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL,
+  "genusGUID"         TEXT          NOT NULL,
+  "qtyForBudget"      NUMERIC(18,2),
+  "qtyForContract"    NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForContract"    NUMERIC(18,2),
+  "sumForBudget"      NUMERIC(18,2),
+  "periodDay"         DATE,
+  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
+  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_fact_timeline_qty_chk CHECK ("qtyForContract" >= 0),
+  CONSTRAINT task_fact_timeline_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'))
+);
+CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_header  ON public.task_fact_timeline ("rowHeaderGUID", "genusGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_task    ON public.task_fact_timeline ("rowOwnerGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_project ON public.task_fact_timeline ("rowProjectGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_line    ON public.task_fact_timeline ("taskLineGUID");
+
+DROP TRIGGER IF EXISTS trg_task_fact_timeline_touch ON public.task_fact_timeline;
+CREATE TRIGGER trg_task_fact_timeline_touch BEFORE UPDATE ON public.task_fact_timeline
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+-- the state of a document for the policies: 'draft-free' | 'draft-strong' | 'posted' (NULL = no such document). SECURITY DEFINER: the policies of the lines read the header without a second policy round.
+CREATE OR REPLACE FUNCTION public.task_fact_header_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted'
+              WHEN COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true' THEN 'draft-strong'
+              ELSE 'draft-free' END
+    FROM public.task_fact_header h
+   WHERE h."rowGUID" = p_header AND public.pm_owns_project(h."rowProjectGUID");
+$$;
+REVOKE ALL ON FUNCTION public.task_fact_header_state(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_fact_header_state(uuid) TO authenticated;
+
+-- one line: project / task from the header, day grain, the quantity of the budget frozen, the sums computed from the price of the line
+CREATE OR REPLACE FUNCTION public.task_fact_timeline_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+  v_strong boolean;
+  v_price numeric;
+  v_unit_budget numeric;
+BEGIN
+  SELECT x."rowProjectGUID", x."rowOwnerGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'fact document % does not exist', NEW."rowHeaderGUID" USING ERRCODE = '23503';
+  END IF;
+  v_strong := COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true';
+  NEW."rowProjectGUID" := h."rowProjectGUID";
+  NEW."rowOwnerGUID"   := h."rowOwnerGUID";
+
+  IF TG_OP = 'INSERT' THEN
+    IF v_strong THEN
+      IF NEW."taskLineGUID" IS NULL THEN
+        RAISE EXCEPTION 'strong fact input: a line needs its task line (taskLineGUID)' USING ERRCODE = '23514';
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM public.task_line_table l WHERE l."rowGUID" = NEW."taskLineGUID" AND l."rowOwnerGUID" = h."rowOwnerGUID") THEN
+        RAISE EXCEPTION 'strong fact input: the task line % is not a line of the task of the document', NEW."taskLineGUID" USING ERRCODE = '23514';
+      END IF;
+    ELSE
+      NEW."taskLineGUID" := NULL;                       -- the free mode: disconnected from the task line GUIDs
+    END IF;
+  ELSE
+    -- UPDATE: the quantity of the budget never changes by hand; in the strong mode the identity of the line is frozen (SET NULL of a deleted task line is allowed)
+    NEW."qtyForBudget" := OLD."qtyForBudget";
+    IF v_strong THEN
+      IF NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID" OR NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON"
+         OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL) THEN
+        RAISE EXCEPTION 'strong fact input: only the date and the quantity of a line can be changed' USING ERRCODE = '23514';
+      END IF;
+    ELSE
+      NEW."taskLineGUID" := NULL;
+    END IF;
+  END IF;
+
+  NEW."periodDay" := ((NEW."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date;
+
+  -- the sums follow the quantity the user states: price (and the budget sum per unit) are the ones copied from the task line
+  v_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
+  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
+  NEW."sumForContract" := CASE WHEN v_price IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_price, 2) END;
+  NEW."sumForBudget"   := CASE WHEN v_unit_budget IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_unit_budget, 2) END;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_task_fact_timeline_before_write ON public.task_fact_timeline;
+CREATE TRIGGER trg_task_fact_timeline_before_write BEFORE INSERT OR UPDATE ON public.task_fact_timeline
+  FOR EACH ROW EXECUTE FUNCTION public.task_fact_timeline_before_write();
+
+-- ---- access: the owner of the project reads; writes the lines of a DRAFT (no new lines in the strong mode); the header is written only by the functions below ----
+ALTER TABLE public.task_fact_header REPLICA IDENTITY FULL;
+ALTER TABLE public.task_fact_timeline REPLICA IDENTITY FULL;
+ALTER TABLE public.task_fact_header ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_fact_timeline ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_fact_header FROM anon, authenticated;
+REVOKE ALL ON public.task_fact_timeline FROM anon, authenticated;
+GRANT SELECT, DELETE ON public.task_fact_header TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_fact_timeline TO authenticated;
+
+DROP POLICY IF EXISTS task_fact_header_select ON public.task_fact_header;
+CREATE POLICY task_fact_header_select ON public.task_fact_header FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+DROP POLICY IF EXISTS task_fact_header_delete ON public.task_fact_header;
+CREATE POLICY task_fact_header_delete ON public.task_fact_header FOR DELETE TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID") AND public.task_fact_header_state("rowGUID") IN ('draft-free', 'draft-strong'));
+
+DROP POLICY IF EXISTS task_fact_timeline_select ON public.task_fact_timeline;
+CREATE POLICY task_fact_timeline_select ON public.task_fact_timeline FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+DROP POLICY IF EXISTS task_fact_timeline_insert ON public.task_fact_timeline;
+CREATE POLICY task_fact_timeline_insert ON public.task_fact_timeline FOR INSERT TO authenticated
+  WITH CHECK (public.task_fact_header_state("rowHeaderGUID") = 'draft-free');
+DROP POLICY IF EXISTS task_fact_timeline_update ON public.task_fact_timeline;
+CREATE POLICY task_fact_timeline_update ON public.task_fact_timeline FOR UPDATE TO authenticated
+  USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'))
+  WITH CHECK (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
+DROP POLICY IF EXISTS task_fact_timeline_delete ON public.task_fact_timeline;
+CREATE POLICY task_fact_timeline_delete ON public.task_fact_timeline FOR DELETE TO authenticated
+  USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+  t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['task_fact_header', 'task_fact_timeline'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+-- ---- task_fact_document_create(task): a new document; ALL the lines of the task go into task_fact_timeline (the strong mode keeps their GUIDs, the free mode does not) ----
+-- returns the GUID of the document. The day of the new lines is today, the quantity of the user starts as the quantity of the task line (the user corrects it).
+CREATE OR REPLACE FUNCTION public.task_fact_document_create(p_task uuid) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+  v_strong  boolean;
+  v_header  uuid := gen_random_uuid();
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  SELECT COALESCE(p."rowJSON"->'factStrongInputByTaskLine' = 'true'::jsonb, false) INTO v_strong FROM public.project_table p WHERE p."rowGUID" = v_project;
+
+  INSERT INTO public.task_fact_header ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowJSON")
+  VALUES (v_header, v_project, p_task, jsonb_build_object('documentHeader', jsonb_build_object(
+            'activeUser', public.app_user_guid(),
+            'documentNumber', 'FI-' || lpad(nextval('public.task_fact_document_seq')::text, 5, '0'),
+            'documentStatus', 'draft',
+            'strongInput', v_strong)));
+
+  INSERT INTO public.task_fact_timeline ("rowHeaderGUID", "rowPeriodDatetime", "taskLineGUID", "genusGUID", "qtyForBudget", "qtyForContract", "orderInList", "rowJSON")
+  SELECT v_header, date_trunc('day', NOW()), CASE WHEN v_strong THEN l."rowGUID" END, l."rowParentGUID",
+         CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric END,
+         CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END,
+         (row_number() OVER (ORDER BY g.ord, l."orderInList", l."created_at"))::numeric,
+         jsonb_strip_nulls(jsonb_build_object(
+           'resourceRoleItem',       NULLIF(l."rowJSON"->>'resourceRoleItem', ''),
+           'taskResourceItem',       NULLIF(l."rowJSON"->>'taskResourceItem', ''),
+           'taskResourceKind',       NULLIF(l."rowJSON"->>'taskResourceKind', ''),
+           'measureUnitTaskLine',    NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''),
+           'budgetItemTaskLine',     NULLIF(l."rowJSON"->>'budgetItemTaskLine', ''),
+           'taskLinePartnerItem',    NULLIF(l."rowJSON"->>'taskLinePartnerItem', ''),
+           'taskResourceContract',   NULLIF(l."rowJSON"->>'taskResourceContract', ''),
+           'taskLinePartnerContract', NULLIF(l."rowJSON"->>'taskLinePartnerContract', ''),
+           'priceTaskLine',          CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+           'unitSumForBudget',       CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
+    FROM public.task_line_table l
+    JOIN (VALUES ('timeGenus', 1), ('materialGenus', 2), ('expenseGenus', 3), ('revenueGenus', 4)) AS g(genus, ord) ON g.genus = l."rowParentGUID"
+   WHERE l."rowOwnerGUID" = p_task;
+  RETURN v_header;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.task_fact_document_create(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_fact_document_create(uuid) TO authenticated;
+
+-- ---- post_task_fact_document(document): checks the whole document, marks it posted. A refusal is an ANSWER (status 'refused' + the problems per line), nothing is written ----
+CREATE OR REPLACE FUNCTION public.post_task_fact_document(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+  v_problems jsonb := '[]'::jsonb;
+  v_strong boolean;
+  v_lines integer;
+BEGIN
+  SELECT x."rowGUID", x."rowProjectGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'fact document % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(h."rowProjectGUID") THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  v_strong := COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true';
+
+  SELECT count(*) INTO v_lines FROM public.task_fact_timeline f WHERE f."rowHeaderGUID" = p_header;
+  IF v_lines = 0 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
+  END IF;
+  -- a date after tomorrow (UTC tolerance of one day for the zone of the user) is not a fact
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', f."rowGUID", 'problem', 'dateInTheFuture')), '[]'::jsonb) INTO v_problems
+    FROM public.task_fact_timeline f
+   WHERE f."rowHeaderGUID" = p_header AND f."periodDay" > ((NOW() AT TIME ZONE 'UTC')::date + 1);
+  IF v_strong THEN
+    SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', f."rowGUID", 'problem', 'taskLineMissing')), '[]'::jsonb) INTO v_problems
+      FROM public.task_fact_timeline f WHERE f."rowHeaderGUID" = p_header AND f."taskLineGUID" IS NULL;
+  END IF;
+
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+  UPDATE public.task_fact_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.post_task_fact_document(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.post_task_fact_document(uuid) TO authenticated;
+
+-- ---- unpost_task_fact_document(document): the owner takes a posted document back to a draft (to correct it); the report loses its numbers within a refresh interval ----
+CREATE OR REPLACE FUNCTION public.unpost_task_fact_document(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowProjectGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'fact document % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(h."rowProjectGUID") THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  UPDATE public.task_fact_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.unpost_task_fact_document(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.unpost_task_fact_document(uuid) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT public.task_fact_document_create('<task rowGUID>');                                    -- a document with all the lines of the task
+--   SELECT * FROM public.task_fact_timeline WHERE "rowHeaderGUID" = '<document rowGUID>' ORDER BY "orderInList";
+--   SELECT public.post_task_fact_document('<document rowGUID>');                                  -- {"status": "posted" | "refused", "problems": [...]}
+--   UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"factStrongInputByTaskLine": true}' WHERE "rowGUID" = '<project rowGUID>';   -- the strong mode for NEW documents
+
+
+-- ===============================================================================================
+-- PART 25: create_monitor01.sql
+-- Monitor01: monitor01_view (the table the dashboard listens to) + the dirty queue + the pg_cron worker + task_line_fact_for_monitor01 + the drill-down sources
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - MONITOR01: create_monitor01.sql
+-- (run AFTER parts 1-24; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
+-- Design: documentation/MONITOR01_WBS.html (source: the Google Doc "W1 MONITOR1" and the sheet "W1 1-MONITOR01"). The screen: kit8/pm/reports/monitor01/Monitor01Dashboard.tsx.
+--
+-- monitor01_view  ONE row per  task x genus (Time | Material | Expense) x resource role x unit x month  with the numbers of the sheet:
+--     qtyPlanned        sum of task_line_plan_movements.qtyTaskLine (planMovementStatus = true)         <- the base of the view
+--     qtyContracted     0 when the line has NO resource contract selected in task_line_table, the quantity of the line (qtyForContract) when it HAS one
+--                       (Time: rowJSON.taskResourceContract · Material / Expense: rowJSON.taskLinePartnerContract)
+--     qtyRestToContract planned - contracted                (generated)
+--     qtyDelivered · qtyUsed     columns without data now (0); qtyOnHand = delivered - used (generated)   ("draw delivered + undefined fields without data now")
+--   It is a real table (no join, no arithmetic on the client) kept in step INCREMENTALLY:
+--     triggers (statement level, transition tables) only write the TASK key into monitor01_dirty  ->  pg_cron every monitor01_refresh_interval_seconds() = 2 s calls
+--     monitor01_process_dirty: BATCHES of 500 tasks, FOR UPDATE SKIP LOCKED, one set-based statement per batch, ONLY THE ROWS WHOSE NUMBERS CHANGED are written (no realtime noise).
+-- task_line_fact_for_monitor01  the posted task_fact_timeline rows (PART 24) summed per task x genus x role x unit x month, made by the same worker (step 1).
+-- monitor01_sum_sources         the SOURCE TRANSACTIONS of any sum (SumExplorerListReusable.tsx): the movements of the plan, the lines of the posted fact documents.
+-- Read policy of monitor01_view: rowOwnerUserGUID = the user (the owner of the project, copied into the row) - one column, no join per event: the fastest realtime.
+-- =====================================================================================
+
+-- the refresh interval of the worker, in seconds (the constant MONITOR01_REFRESH_INTERVAL of kit8/pm/reports/monitor01/monitor01Constants.ts has the same value)
+CREATE OR REPLACE FUNCTION public.monitor01_refresh_interval_seconds() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 2 $$;
+-- tasks per batch of the worker and the time budget of one run (ms)
+CREATE OR REPLACE FUNCTION public.monitor01_batch_size() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 500 $$;
+CREATE OR REPLACE FUNCTION public.monitor01_run_budget_ms() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 1500 $$;
+
+CREATE TABLE IF NOT EXISTS public.monitor01_view (
+  "rowOwnerGUID"        UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "genusGUID"           TEXT          NOT NULL,
+  "resourceRoleGUID"    TEXT          NOT NULL DEFAULT '',
+  "measureUnit"         TEXT          NOT NULL DEFAULT '',
+  "periodMonth"         DATE          NOT NULL,
+  "rowProjectGUID"      UUID          NOT NULL,
+  "rowOrganizationGUID" TEXT,
+  "rowOwnerUserGUID"    UUID          NOT NULL,
+  "projectName"         TEXT          NOT NULL DEFAULT '',
+  "taskName"            TEXT          NOT NULL DEFAULT '',
+  "resourceRoleName"    TEXT          NOT NULL DEFAULT '',
+  "qtyPlanned"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyContracted"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
+  "qtyDelivered"        NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyDelivered" - "qtyUsed") STORED,
+  "lineCount"           INTEGER       NOT NULL DEFAULT 0,
+  "hasStalePlan"        BOOLEAN       NOT NULL DEFAULT false,
+  "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth"),
+  CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
+);
+CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
+CREATE INDEX IF NOT EXISTS idx_monitor01_view_user    ON public.monitor01_view ("rowOwnerUserGUID", "periodMonth");
+
+ALTER TABLE public.monitor01_view REPLICA IDENTITY FULL;
+ALTER TABLE public.monitor01_view ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.monitor01_view FROM anon, authenticated;
+GRANT SELECT ON public.monitor01_view TO authenticated;
+DROP POLICY IF EXISTS monitor01_view_select ON public.monitor01_view;
+CREATE POLICY monitor01_view_select ON public.monitor01_view FOR SELECT TO authenticated USING ("rowOwnerUserGUID" = public.app_user_guid());
+
+-- the same summed key, for the facts: the numbers of the POSTED fact documents
+CREATE TABLE IF NOT EXISTS public.task_line_fact_for_monitor01 (
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "genusGUID"         TEXT          NOT NULL,
+  "resourceRoleGUID"  TEXT          NOT NULL DEFAULT '',
+  "measureUnit"       TEXT          NOT NULL DEFAULT '',
+  "periodMonth"       DATE          NOT NULL,
+  "rowProjectGUID"    UUID          NOT NULL,
+  "qtyFact"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForContract"    NUMERIC(18,2),
+  "sumForBudget"      NUMERIC(18,2),
+  "lineCount"         INTEGER       NOT NULL DEFAULT 0,
+  "documentCount"     INTEGER       NOT NULL DEFAULT 0,
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth")
+);
+CREATE INDEX IF NOT EXISTS idx_task_line_fact_for_monitor01_project ON public.task_line_fact_for_monitor01 ("rowProjectGUID", "periodMonth");
+ALTER TABLE public.task_line_fact_for_monitor01 REPLICA IDENTITY FULL;
+ALTER TABLE public.task_line_fact_for_monitor01 ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_line_fact_for_monitor01 FROM anon, authenticated;
+GRANT SELECT ON public.task_line_fact_for_monitor01 TO authenticated;
+DROP POLICY IF EXISTS task_line_fact_for_monitor01_select ON public.task_line_fact_for_monitor01;
+CREATE POLICY task_line_fact_for_monitor01_select ON public.task_line_fact_for_monitor01 FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
+-- the queue: one row per TASK to recompute (a burst of writes to one task is one row). No access for users. attempts >= 5 = parked (lastError says why).
+CREATE UNLOGGED TABLE IF NOT EXISTS public.monitor01_dirty (
+  "rowOwnerGUID" UUID        NOT NULL,
+  "queuedAt"     TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "reason"       TEXT,
+  "attempts"     INTEGER     NOT NULL DEFAULT 0,
+  "lastError"    TEXT,
+  PRIMARY KEY ("rowOwnerGUID")
+);
+CREATE INDEX IF NOT EXISTS idx_monitor01_dirty_queued ON public.monitor01_dirty ("queuedAt") WHERE "attempts" < 5;
+ALTER TABLE public.monitor01_dirty ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.monitor01_dirty FROM PUBLIC, anon, authenticated;
+
+-- one row per run that did work (the "data age" and the alarm "lag over 10 s")
+CREATE TABLE IF NOT EXISTS public.monitor01_refresh_log (
+  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "ranAt"        TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "tasksTaken"   INTEGER     NOT NULL DEFAULT 0,
+  "rowsUpserted" INTEGER     NOT NULL DEFAULT 0,
+  "rowsDeleted"  INTEGER     NOT NULL DEFAULT 0,
+  "durationMs"   INTEGER     NOT NULL DEFAULT 0,
+  "maxLagMs"     INTEGER     NOT NULL DEFAULT 0,
+  "parkedTasks"  INTEGER     NOT NULL DEFAULT 0,
+  PRIMARY KEY ("rowGUID")
+);
+CREATE INDEX IF NOT EXISTS idx_monitor01_refresh_log_ran ON public.monitor01_refresh_log ("ranAt");
+ALTER TABLE public.monitor01_refresh_log ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.monitor01_refresh_log FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.monitor01_refresh_log TO authenticated;
+DROP POLICY IF EXISTS monitor01_refresh_log_select ON public.monitor01_refresh_log;
+CREATE POLICY monitor01_refresh_log_select ON public.monitor01_refresh_log FOR SELECT TO authenticated USING (true);
+
+-- realtime: the dashboard listens to monitor01_view
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'monitor01_view') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.monitor01_view;
+  END IF;
+END $$;
+
+-- ---- the fresh numbers of some tasks (the ONE definition of every number: the worker, monitor01_verify and the tests use it) ----------------------------------
+CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
+               "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
+               "qtyPlanned" numeric, "qtyContracted" numeric, "lineCount" integer, "hasStalePlan" boolean)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT a.task, a.genus, a.role, a.unit, a.month,
+         p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(t."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
+         a.planned, a.contracted, a.lines, a.stale
+    FROM (SELECT m."rowOwnerGUID" AS task, l."rowParentGUID" AS genus,
+                 COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS role,
+                 COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS unit,
+                 date_trunc('month', COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date))::date AS month,
+                 SUM(COALESCE(m."qtyTaskLine", 0)) AS planned,
+                 SUM(CASE WHEN COALESCE(NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''), '') <> ''
+                          THEN COALESCE(m."qtyTaskLine", 0) ELSE 0 END) AS contracted,
+                 (count(DISTINCT l."rowGUID"))::integer AS lines,
+                 bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
+            FROM public.task_line_plan_movements m
+            JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+           WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus"
+             AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+           GROUP BY 1, 2, 3, 4, 5) a
+    JOIN public.project_task_table t ON t."rowGUID" = a.task
+    JOIN public.project_table p ON p."rowGUID" = t."projectGUID"
+    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(a.role, '')
+$$;
+
+CREATE OR REPLACE FUNCTION public.monitor01_fresh_fact_rows(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date, "rowProjectGUID" uuid,
+               "qtyFact" numeric, "sumForContract" numeric, "sumForBudget" numeric, "lineCount" integer, "documentCount" integer)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT f."rowOwnerGUID", f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''),
+         date_trunc('month', f."periodDay")::date, f."rowProjectGUID",
+         SUM(f."qtyForContract"), SUM(f."sumForContract"), SUM(f."sumForBudget"), (count(*))::integer, (count(DISTINCT f."rowHeaderGUID"))::integer
+    FROM public.task_fact_timeline f
+    JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
+   WHERE f."rowOwnerGUID" = ANY (p_tasks) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+   GROUP BY 1, 2, 3, 4, 5, 6
+$$;
+
+-- ---- the worker -----------------------------------------------------------------------------------------------------------------------------------------------
+-- apply ONE group of tasks: step 1 the fact sums, step 2 the view; ONLY the rows whose numbers (or names) changed are written. Returns rows upserted and deleted.
+CREATE OR REPLACE FUNCTION public.monitor01_apply(p_tasks uuid[], OUT p_upserted integer, OUT p_deleted integer)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_u integer; v_d integer; v_fu integer; v_fd integer;
+BEGIN
+  -- step 1: task_line_fact_for_monitor01
+  WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_fact_rows(p_tasks)),
+       up AS (
+         INSERT INTO public.task_line_fact_for_monitor01 AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID",
+                                                              "qtyFact", "sumForContract", "sumForBudget", "lineCount", "documentCount")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID",
+                f."qtyFact", f."sumForContract", f."sumForBudget", f."lineCount", f."documentCount" FROM fresh f
+         ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "qtyFact" = EXCLUDED."qtyFact", "sumForContract" = EXCLUDED."sumForContract", "sumForBudget" = EXCLUDED."sumForBudget",
+               "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."qtyFact", t."sumForContract", t."sumForBudget", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."qtyFact", EXCLUDED."sumForContract", EXCLUDED."sumForBudget", EXCLUDED."lineCount", EXCLUDED."documentCount")
+         RETURNING 1),
+       del AS (
+         DELETE FROM public.task_line_fact_for_monitor01 t
+          WHERE t."rowOwnerGUID" = ANY (p_tasks)
+            AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f."rowOwnerGUID" = t."rowOwnerGUID" AND f."genusGUID" = t."genusGUID" AND f."resourceRoleGUID" = t."resourceRoleGUID"
+                                                    AND f."measureUnit" = t."measureUnit" AND f."periodMonth" = t."periodMonth")
+         RETURNING 1)
+  SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_fu, v_fd;
+
+  -- step 2: monitor01_view (qtyDelivered / qtyUsed have no data yet: they keep their default 0; the fact sums above are the single place to connect them later)
+  WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
+       up AS (
+         INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "lineCount", "hasStalePlan")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM fresh f
+         ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
+               "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+         RETURNING 1),
+       del AS (
+         DELETE FROM public.monitor01_view v
+          WHERE v."rowOwnerGUID" = ANY (p_tasks)
+            AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f."rowOwnerGUID" = v."rowOwnerGUID" AND f."genusGUID" = v."genusGUID" AND f."resourceRoleGUID" = v."resourceRoleGUID"
+                                                    AND f."measureUnit" = v."measureUnit" AND f."periodMonth" = v."periodMonth")
+         RETURNING 1)
+  SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_u, v_d;
+
+  p_upserted := v_u + v_fu;
+  p_deleted  := v_d + v_fd;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_apply(uuid[]) FROM PUBLIC, anon, authenticated;
+
+-- ONE batch: claim up to p_batch tasks (oldest first, SKIP LOCKED, so two workers never take the same task), apply them, log. A failing batch is retried task by task, so ONE bad task
+-- is parked (attempts 5) and never blocks the others. Returns the number of tasks taken (0 = the queue is empty). No COMMIT inside: tests call it in a transaction; the procedure below commits.
+CREATE OR REPLACE FUNCTION public.monitor01_process_batch(p_batch integer DEFAULT 500) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_tasks uuid[]; v_lag interval; v_att jsonb; v_t0 timestamptz := clock_timestamp();
+  v_up integer := 0; v_del integer := 0; v_u integer; v_d integer; v_one uuid; v_parked integer;
+BEGIN
+  WITH c AS (SELECT d."rowOwnerGUID", d."queuedAt" FROM public.monitor01_dirty d WHERE d."attempts" < 5 ORDER BY d."queuedAt" LIMIT p_batch FOR UPDATE SKIP LOCKED),
+       x AS (DELETE FROM public.monitor01_dirty d USING c WHERE d."rowOwnerGUID" = c."rowOwnerGUID" RETURNING d."rowOwnerGUID", c."queuedAt", d."attempts")
+  SELECT array_agg(x."rowOwnerGUID"), clock_timestamp() - min(x."queuedAt"), jsonb_object_agg(x."rowOwnerGUID"::text, x."attempts") INTO v_tasks, v_lag, v_att FROM x;
+  IF v_tasks IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  BEGIN
+    SELECT a.p_upserted, a.p_deleted INTO v_up, v_del FROM public.monitor01_apply(v_tasks) a;
+  EXCEPTION WHEN OTHERS THEN
+    v_up := 0; v_del := 0;
+    FOREACH v_one IN ARRAY v_tasks LOOP
+      BEGIN
+        SELECT a.p_upserted, a.p_deleted INTO v_u, v_d FROM public.monitor01_apply(ARRAY[v_one]) a;
+        v_up := v_up + v_u; v_del := v_del + v_d;
+      EXCEPTION WHEN OTHERS THEN
+        INSERT INTO public.monitor01_dirty AS q ("rowOwnerGUID", "reason", "attempts", "lastError") VALUES (v_one, 'retry', COALESCE((v_att->>v_one::text)::integer, 0) + 1, left(SQLERRM, 500))
+        ON CONFLICT ("rowOwnerGUID") DO UPDATE SET "attempts" = GREATEST(q."attempts", EXCLUDED."attempts"), "lastError" = left(SQLERRM, 500);
+      END;
+    END LOOP;
+  END;
+
+  SELECT count(*) INTO v_parked FROM public.monitor01_dirty WHERE "attempts" >= 5;
+  INSERT INTO public.monitor01_refresh_log ("tasksTaken", "rowsUpserted", "rowsDeleted", "durationMs", "maxLagMs", "parkedTasks")
+  VALUES (cardinality(v_tasks), v_up, v_del, (extract(epoch FROM clock_timestamp() - v_t0) * 1000)::integer, (extract(epoch FROM v_lag) * 1000)::integer, v_parked);
+  RETURN cardinality(v_tasks);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_process_batch(integer) FROM PUBLIC, anon, authenticated;
+
+-- what pg_cron calls every 2 seconds: batches while the queue is not empty and the time budget lasts, COMMIT after each batch (a procedure without SET / SECURITY DEFINER may commit)
+CREATE OR REPLACE PROCEDURE public.monitor01_process_dirty(p_batch integer DEFAULT 500, p_budget_ms integer DEFAULT 1500)
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_t0 timestamptz := clock_timestamp();
+  v_n integer;
+BEGIN
+  LOOP
+    v_n := public.monitor01_process_batch(p_batch);
+    COMMIT;
+    EXIT WHEN v_n = 0 OR extract(epoch FROM clock_timestamp() - v_t0) * 1000 > p_budget_ms;
+  END LOOP;
+END;
+$$;
+REVOKE ALL ON PROCEDURE public.monitor01_process_dirty(integer, integer) FROM PUBLIC, anon, authenticated;
+
+-- ---- queue helpers + triggers: they ONLY write the task keys ------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.monitor01_queue_tasks(p_tasks uuid[], p_reason text DEFAULT NULL) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH q AS (
+    INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+    SELECT DISTINCT t, p_reason FROM unnest(p_tasks) AS t WHERE t IS NOT NULL
+    ON CONFLICT ("rowOwnerGUID") DO NOTHING RETURNING 1)
+  SELECT count(*)::integer FROM q
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_queue_tasks(uuid[], text) FROM PUBLIC, anon, authenticated;
+
+-- statement level, with a transition table: ONE insert per statement, whatever the number of rows. The same function for the movements and for the task lines (the column is rowOwnerGUID).
+CREATE OR REPLACE FUNCTION public.monitor01_trg_queue_new() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") SELECT DISTINCT n."rowOwnerGUID", TG_ARGV[0] FROM new_rows n ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.monitor01_trg_queue_old() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") SELECT DISTINCT o."rowOwnerGUID", TG_ARGV[0] FROM old_rows o ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_monitor01_movements_ins ON public.task_line_plan_movements;
+CREATE TRIGGER trg_monitor01_movements_ins AFTER INSERT ON public.task_line_plan_movements REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('plan');
+DROP TRIGGER IF EXISTS trg_monitor01_movements_upd ON public.task_line_plan_movements;
+CREATE TRIGGER trg_monitor01_movements_upd AFTER UPDATE ON public.task_line_plan_movements REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('plan');
+DROP TRIGGER IF EXISTS trg_monitor01_movements_del ON public.task_line_plan_movements;
+CREATE TRIGGER trg_monitor01_movements_del AFTER DELETE ON public.task_line_plan_movements REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_old('plan');
+
+DROP TRIGGER IF EXISTS trg_monitor01_lines_ins ON public.task_line_table;
+CREATE TRIGGER trg_monitor01_lines_ins AFTER INSERT ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('line');
+DROP TRIGGER IF EXISTS trg_monitor01_lines_upd ON public.task_line_table;
+CREATE TRIGGER trg_monitor01_lines_upd AFTER UPDATE ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('line');
+DROP TRIGGER IF EXISTS trg_monitor01_lines_del ON public.task_line_table;
+CREATE TRIGGER trg_monitor01_lines_del AFTER DELETE ON public.task_line_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_old('line');
+
+-- a fact document is counted ONLY while it is posted: Post / Unpost / delete of a posted document queue its task
+CREATE OR REPLACE FUNCTION public.monitor01_trg_fact_header() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+      INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") VALUES (OLD."rowOwnerGUID", 'fact') ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') IS DISTINCT FROM COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft') THEN
+    INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") VALUES (NEW."rowOwnerGUID", 'fact') ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_monitor01_fact_header ON public.task_fact_header;
+CREATE TRIGGER trg_monitor01_fact_header AFTER UPDATE OR DELETE ON public.task_fact_header FOR EACH ROW EXECUTE FUNCTION public.monitor01_trg_fact_header();
+
+-- renames: the names are copied into the rows (filters and the screen need no catalog)
+CREATE OR REPLACE FUNCTION public.monitor01_trg_task_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") VALUES (NEW."rowGUID", 'rename') ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_monitor01_task_rename ON public.project_task_table;
+CREATE TRIGGER trg_monitor01_task_rename AFTER UPDATE OF "rowJSON" ON public.project_task_table
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'name' IS DISTINCT FROM NEW."rowJSON"->>'name') EXECUTE FUNCTION public.monitor01_trg_task_rename();
+
+CREATE OR REPLACE FUNCTION public.monitor01_trg_project_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+  SELECT DISTINCT v."rowOwnerGUID", 'rename' FROM public.monitor01_view v WHERE v."rowProjectGUID" = NEW."rowGUID"
+  ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_monitor01_project_rename ON public.project_table;
+CREATE TRIGGER trg_monitor01_project_rename AFTER UPDATE OF "rowJSON", "rowOwnerGUID" ON public.project_table
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'name' IS DISTINCT FROM NEW."rowJSON"->>'name' OR OLD."rowJSON"->>'title' IS DISTINCT FROM NEW."rowJSON"->>'title' OR OLD."rowOwnerGUID" IS DISTINCT FROM NEW."rowOwnerGUID")
+  EXECUTE FUNCTION public.monitor01_trg_project_rename();
+
+CREATE OR REPLACE FUNCTION public.monitor01_trg_role_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+  SELECT DISTINCT v."rowOwnerGUID", 'rename' FROM public.monitor01_view v WHERE v."resourceRoleGUID" = NEW."rowGUID"
+  ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_monitor01_role_rename ON public."resourceRoleTable";
+CREATE TRIGGER trg_monitor01_role_rename AFTER UPDATE OF "rowJSON" ON public."resourceRoleTable"
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'title' IS DISTINCT FROM NEW."rowJSON"->>'title') EXECUTE FUNCTION public.monitor01_trg_role_rename();
+
+-- ---- rebuild / verify (the safety net: anything that bypassed the triggers - TRUNCATE, an import with triggers off) -----------------------------------------
+-- queue every task of one project (or of everything) that has plan movements or posted facts or rows in the view
+CREATE OR REPLACE FUNCTION public.monitor01_rebuild(p_project uuid DEFAULT NULL) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.monitor01_queue_tasks(ARRAY(
+    SELECT m."rowOwnerGUID" FROM public.task_line_plan_movements m WHERE p_project IS NULL OR m."rowProjectGUID" = p_project
+    UNION SELECT f."rowOwnerGUID" FROM public.task_fact_timeline f WHERE p_project IS NULL OR f."rowProjectGUID" = p_project
+    UNION SELECT v."rowOwnerGUID" FROM public.monitor01_view v WHERE p_project IS NULL OR v."rowProjectGUID" = p_project), 'rebuild')
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_rebuild(uuid) FROM PUBLIC, anon, authenticated;
+
+-- compare a random sample of tasks with the fresh numbers and queue the ones that differ; returns how many were queued
+CREATE OR REPLACE FUNCTION public.monitor01_verify(p_sample integer DEFAULT 200) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_sample uuid[];
+  v_bad uuid[];
+BEGIN
+  SELECT array_agg(s.t) INTO v_sample FROM (
+    SELECT t FROM (SELECT DISTINCT m."rowOwnerGUID" AS t FROM public.task_line_plan_movements m
+                   UNION SELECT v."rowOwnerGUID" FROM public.monitor01_view v) u ORDER BY random() LIMIT p_sample) s;
+  IF v_sample IS NULL THEN RETURN 0; END IF;
+  SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
+    (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
+             f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+      EXCEPT
+      SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
+             v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+    UNION ALL
+    (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
+             v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+      EXCEPT
+      SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
+             f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+  RETURN public.monitor01_queue_tasks(v_bad, 'verify');
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_verify(integer) FROM PUBLIC, anon, authenticated;
+
+-- housekeeping (daily): the log of the worker keeps 3 days, and a sample is verified
+CREATE OR REPLACE FUNCTION public.monitor01_housekeeping() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  DELETE FROM public.monitor01_refresh_log WHERE "ranAt" < NOW() - INTERVAL '3 days';
+  RETURN public.monitor01_verify(500);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_housekeeping() FROM PUBLIC, anon, authenticated;
+
+-- ---- the source transactions of any sum (SumExplorerListReusable.tsx) --------------------------------------------------------------------------------------
+-- SECURITY INVOKER: the policies of the source tables apply (the owner of the project only). p_filter keys (all optional): projectGUID · taskGUID · genusGUID · roleGUID ('' = no role) · unit ·
+-- taskGUIDs · roleGUIDs (arrays, for a subtotal under filters) · month ('YYYY-MM-01') · fromMonth · toMonth. Measures: planned · contracted (the movements) · fact (the lines of the POSTED fact documents) · delivered · used (no data yet: empty).
+CREATE OR REPLACE FUNCTION public.monitor01_sum_sources(p_measure text, p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 100, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  v_rows jsonb; v_count bigint; v_sum numeric;
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+BEGIN
+  IF p_measure IN ('planned', 'contracted') THEN
+    WITH src AS (
+      SELECT m."rowGUID"::text AS "rowGUID", 'taskLinePlanMovements'::text AS "sourceName",
+             COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date) AS "day",
+             m."rowOwnerGUID"::text AS "taskGUID", m."rowProjectGUID"::text AS "projectGUID", m."rowParentGUID"::text AS "lineGUID",
+             l."rowParentGUID" AS "genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS "roleGUID", COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS "unit",
+             COALESCE(m."qtyTaskLine", 0) AS "qty",
+             NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, '') AS "contractGUID",
+             NOT COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) AS "stale"
+        FROM public.task_line_plan_movements m JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+       WHERE m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+         AND (NOT f ? 'projectGUID' OR m."rowProjectGUID" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR m."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUIDs'   OR m."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR l."rowParentGUID"  = f->>'genusGUID')
+         AND (NOT f ? 'roleGUID'    OR COALESCE(l."rowJSON"->>'resourceRoleItem', '') = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR COALESCE(l."rowJSON"->>'resourceRoleItem', '') IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') = f->>'unit')
+    ), flt AS (
+      SELECT s.* FROM src s
+       WHERE (NOT f ? 'month'     OR date_trunc('month', s."day")::date = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth' OR date_trunc('month', s."day")::date >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'   OR date_trunc('month', s."day")::date <= (f->>'toMonth')::date)
+         AND (p_measure = 'planned' OR s."contractGUID" IS NOT NULL)
+    ), pg AS (SELECT * FROM flt ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
+       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+                 FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
+                         LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
+    SELECT (SELECT count(*) FROM flt), (SELECT COALESCE(sum("qty"), 0) FROM flt), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
+      INTO v_count, v_sum, v_rows;
+  ELSIF p_measure = 'fact' THEN
+    WITH src AS (
+      SELECT x."rowGUID"::text AS "rowGUID", 'taskFactTimeline'::text AS "sourceName", x."periodDay" AS "day", x."rowOwnerGUID"::text AS "taskGUID", x."rowProjectGUID"::text AS "projectGUID",
+             x."taskLineGUID"::text AS "lineGUID", x."rowHeaderGUID"::text AS "documentGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+             x."genusGUID", COALESCE(x."rowJSON"->>'resourceRoleItem', '') AS "roleGUID", COALESCE(x."rowJSON"->>'measureUnitTaskLine', '') AS "unit", x."qtyForContract" AS "qty"
+        FROM public.task_fact_timeline x JOIN public.task_fact_header h ON h."rowGUID" = x."rowHeaderGUID"
+       WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+         AND (NOT f ? 'projectGUID' OR x."rowProjectGUID" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR x."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUIDs'   OR x."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR x."genusGUID"      = f->>'genusGUID')
+         AND (NOT f ? 'roleGUID'    OR COALESCE(x."rowJSON"->>'resourceRoleItem', '') = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR COALESCE(x."rowJSON"->>'resourceRoleItem', '') IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR COALESCE(x."rowJSON"->>'measureUnitTaskLine', '') = f->>'unit')
+         AND (NOT f ? 'month'       OR date_trunc('month', x."periodDay")::date = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth'   OR date_trunc('month', x."periodDay")::date >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'     OR date_trunc('month', x."periodDay")::date <= (f->>'toMonth')::date)
+    ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
+       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+                 FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
+                         LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
+    SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
+      INTO v_count, v_sum, v_rows;
+  ELSIF p_measure IN ('delivered', 'used') THEN
+    v_count := 0; v_sum := 0; v_rows := '[]'::jsonb;
+  ELSE
+    RAISE EXCEPTION 'unknown measure %', p_measure USING ERRCODE = '22023';
+  END IF;
+  RETURN jsonb_build_object('measure', p_measure, 'totalCount', v_count, 'sum', v_sum, 'rows', v_rows);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) TO authenticated;
+
+-- ---- first fill: the install only QUEUES the tasks (no heavy statement inside the install); the worker fills the view in the next ticks. Only when the view is empty ----
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT m."rowOwnerGUID", 'install' FROM public.task_line_plan_movements m
+ WHERE NOT EXISTS (SELECT 1 FROM public.monitor01_view LIMIT 1)
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+-- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NULL THEN
+    RAISE NOTICE 'schema cron does not exist (enable the pg_cron extension in the Supabase dashboard) - the Monitor01 worker is NOT scheduled; call CALL public.monitor01_process_dirty() by hand';
+    RETURN;
+  END IF;
+  BEGIN
+    PERFORM cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds', 'CALL public.monitor01_process_dirty()');
+    PERFORM cron.schedule('monitor01_housekeeping', '17 3 * * *', 'SELECT public.monitor01_housekeeping()');
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron refused the schedule (%): the "N seconds" form needs pg_cron 1.5 or newer. Run by hand or schedule it in the dashboard: CALL public.monitor01_process_dirty()', SQLERRM;
+  END;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT count(*) FROM public.monitor01_dirty;                                       -- the queue (empty when the worker keeps up)
+--   CALL public.monitor01_process_dirty();                                             -- what pg_cron runs every 2 s
+--   SELECT * FROM public.monitor01_view ORDER BY "projectName", "taskName", "resourceRoleName", "periodMonth";
+--   SELECT * FROM public.monitor01_refresh_log ORDER BY "ranAt" DESC LIMIT 10;
+--   SELECT public.monitor01_sum_sources('planned', '{"taskGUID": "<task rowGUID>"}');  -- the source transactions of a sum
+--   SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'monitor01%';
+
 
 -- ===============================================================================================
 -- END of start_sql_structure.sql

@@ -115,7 +115,8 @@ describe('the SQL part (PART 19 of start_sql_structure.sql, PART 16 of delete_sq
   const dir = path.join(__dirname, '../../../kit8/sql/start');
   const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
   const start = read('start_sql_structure.sql'), code = read('start_sql_code.sql'), data = read('start_sql_data.sql'), del = read('delete_sql_structure.sql');
-  const part = start.slice(start.indexOf('-- PART 19: create_budget_scenario_table.sql'));
+  // the DDL of the part (start_sql_structure.sql) and its seed rows (start_sql_insert.sql)
+  const part = start.slice(start.indexOf('-- PART 19: create_budget_scenario_table.sql')) + '\n' + read('start_sql_insert.sql').slice(read('start_sql_insert.sql').indexOf('-- PART 19: create_budget_scenario_table.sql'));
   it('the table, a plain list, the kind check, the two seeds', () => {
     expect(start).toContain('19. create_budget_scenario_table.sql');
     for (const g of ['CREATE TABLE IF NOT EXISTS public."budgetScenarioTable"', "DEFAULT 'budgetScenarioCatalog'", `CHECK ("rowParentGUID" = 'empty')`, `IN ('plan', 'fact')`]) expect(part).toContain(g);

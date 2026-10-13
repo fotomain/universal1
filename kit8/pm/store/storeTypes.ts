@@ -218,9 +218,9 @@ export interface PMStoreState {
    *  the chart zooms / scrolls so that the period fills the pane. Session only (not saved). */
   ganttPeriod: { startMs: number; finishMs: number; nonce: number } | null;
   setGanttPeriod: (period: { startMs: number; finishMs: number } | null) => void;
-  /** The page of the Reports view: Costs | Revenues (the Network section is the network view itself). Session only (not saved). */
-  reportsSection: 'costs' | 'revenues';
-  setReportsSection: (section: 'costs' | 'revenues') => void;
+  /** The page of the Reports view: Costs | Revenues | Monitor01 (the Network section is the network view itself). Session only (not saved). */
+  reportsSection: 'costs' | 'revenues' | 'monitor01';
+  setReportsSection: (section: 'costs' | 'revenues' | 'monitor01') => void;
   /** "Custom period" window of the Gantt bar is open */
   ganttPeriodOpen: boolean;
   setGanttPeriodOpen: (open: boolean) => void;

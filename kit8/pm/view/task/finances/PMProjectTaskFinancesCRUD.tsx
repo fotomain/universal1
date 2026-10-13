@@ -46,6 +46,7 @@ import { useLineRateBook } from './useLineRateBook';
 import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
+import { useOpenFactInput } from '../../../fact/useOpenFactInput';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -69,6 +70,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const selectRowCheckBoxForm = usePMStore((s) => s.selectRowCheckBoxForm);
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
+  const openFactInput = useOpenFactInput();
   const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
@@ -240,7 +242,11 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         duplicateOverrides={DUPLICATE_UNPOSTED}
         onRowEdit={onRowEdit}
         emptyText={pmT('No lines yet. Press "+ Add".')}
-        extraMenuItems={fxOn ? (row, close) => [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : undefined}
+        // right button on a line: "Facts input" (kit8/pm/fact, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
+        extraMenuItems={(row, close) => [
+          { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
+          ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
+        ]}
         toolbarExtra={fxOn ? (
           <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} />
         ) : undefined}

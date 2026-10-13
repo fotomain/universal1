@@ -1,5 +1,5 @@
-// GanttRightSideToggle - the right side toggle of the Reports bar (right after the word "Reports"): Costs | Revenues | Network.
-//   Costs, Revenues = pages of the Reports view (ganttVsNetworkView = 'showReportsView', store.reportsSection)
+// GanttRightSideToggle - the right side toggle of the Reports bar (right after the word "Reports"): Costs | Revenues | Monitor01 | Network.
+//   Costs, Revenues, Monitor01 (kit8/pm/reports/monitor01) = pages of the Reports view (ganttVsNetworkView = 'showReportsView', store.reportsSection)
 //   Network         = the network view (ganttVsNetworkView = 'showNetworkView'); this is the ONLY place that has a Network button
 // Shown on the Reports bar and on the bar of the network view (where Network is the active one).
 // view/reports/PMReportsSectionButtons.tsx re-exports it under its old name.
@@ -12,6 +12,7 @@ import PMSegmentedIconButtons, { PMSegmentOption } from '../../network/PMSegment
 export const REPORTS_SECTION_OPTIONS: PMSegmentOption<PMReportsSection>[] = [
   { value: 'costs', icon: 'trending_down', label: 'Costs', title: 'Costs: the Time, Material and Expense lines of the whole project' },
   { value: 'revenues', icon: 'trending_up', label: 'Revenues', title: 'Revenues: the Revenue lines of the whole project' },
+  { value: 'monitor01', icon: 'monitoring', label: 'Monitor01', title: 'Monitor01: planned, contracted, delivered and used quantities per resource role, month and task - live' },
   { value: 'network', icon: 'account_tree', label: 'Network', title: 'Network view: network diagram / network schedule' },
 ];
 

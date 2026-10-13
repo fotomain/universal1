@@ -254,7 +254,7 @@ export default function EquipmentDashboard() {
           <IconApp name="database" size={18} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>
             {readError ? `The equipment tables could not be read (${readError}). ` : 'The equipment types are empty. '}
-            Run kit8/sql/start/start_sql_structure.sql (PART 17) in the Supabase SQL editor and sign in.
+            Run kit8/sql/start/start_sql_structure.sql and then start_sql_insert.sql (PART 17) in the Supabase SQL editor and sign in.
           </Text>
         </View>
       )}

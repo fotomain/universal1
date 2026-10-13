@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start_sql_structure.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--   1a. delete_fact_input_and_monitor01.sql - PARTs 24-25: drops the fact documents, Monitor01 (view, queue, log, fact sums), the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
 --   1b. delete_time_genus_control.sql - PARTs 20-23: drops organizationInvitationTable, the view, the organization_* functions and the triggers / constraints on userTable, project_table, the calendar and the resource tables (runs first: it is the newest part)
 --    1. user calendars - user_calendar_table / _event_table / _invitation_table + the sync triggers on the project tables
 --    2. delete_task_line_plan_table.sql - drops task_line_plan + create_task_line_plan + the unpost trigger
@@ -26,6 +27,70 @@
 -- ===============================================================================================
 
 
+
+-- =====================================================================================
+-- PART 1a: delete_fact_input_and_monitor01.sql  (the numbering of the other parts stays: 1a runs FIRST, it is the newest)
+-- Removes what PARTs 24-25 of start_sql_structure.sql added: the fact input documents (task_fact_header / task_fact_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
+-- task_line_fact_for_monitor01), the pg_cron jobs, the triggers on the other tables, the functions and the sequence.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NOT NULL THEN
+    BEGIN PERFORM cron.unschedule('monitor01_tick'); EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN PERFORM cron.unschedule('monitor01_housekeeping'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  END IF;
+  IF to_regclass('public.task_line_plan_movements') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_monitor01_movements_ins ON public.task_line_plan_movements;
+    DROP TRIGGER IF EXISTS trg_monitor01_movements_upd ON public.task_line_plan_movements;
+    DROP TRIGGER IF EXISTS trg_monitor01_movements_del ON public.task_line_plan_movements;
+  END IF;
+  IF to_regclass('public.task_line_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_monitor01_lines_ins ON public.task_line_table;
+    DROP TRIGGER IF EXISTS trg_monitor01_lines_upd ON public.task_line_table;
+    DROP TRIGGER IF EXISTS trg_monitor01_lines_del ON public.task_line_table;
+  END IF;
+  IF to_regclass('public.project_task_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_monitor01_task_rename ON public.project_task_table;
+  END IF;
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_monitor01_project_rename ON public.project_table;
+  END IF;
+  IF to_regclass('public."resourceRoleTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_monitor01_role_rename ON public."resourceRoleTable";
+  END IF;
+END $$;
+DROP TABLE IF EXISTS public.monitor01_view CASCADE;
+DROP TABLE IF EXISTS public.task_line_fact_for_monitor01 CASCADE;
+DROP TABLE IF EXISTS public.monitor01_dirty CASCADE;
+DROP TABLE IF EXISTS public.monitor01_refresh_log CASCADE;
+DROP TABLE IF EXISTS public.task_fact_timeline CASCADE;
+DROP TABLE IF EXISTS public.task_fact_header CASCADE;
+DROP SEQUENCE IF EXISTS public.task_fact_document_seq;
+DROP PROCEDURE IF EXISTS public.monitor01_process_dirty(integer, integer);
+DROP FUNCTION IF EXISTS public.monitor01_process_batch(integer);
+DROP FUNCTION IF EXISTS public.monitor01_apply(uuid[]);
+DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
+DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
+DROP FUNCTION IF EXISTS public.monitor01_queue_tasks(uuid[], text);
+DROP FUNCTION IF EXISTS public.monitor01_trg_queue_new();
+DROP FUNCTION IF EXISTS public.monitor01_trg_queue_old();
+DROP FUNCTION IF EXISTS public.monitor01_trg_fact_header();
+DROP FUNCTION IF EXISTS public.monitor01_trg_task_rename();
+DROP FUNCTION IF EXISTS public.monitor01_trg_project_rename();
+DROP FUNCTION IF EXISTS public.monitor01_trg_role_rename();
+DROP FUNCTION IF EXISTS public.monitor01_rebuild(uuid);
+DROP FUNCTION IF EXISTS public.monitor01_verify(integer);
+DROP FUNCTION IF EXISTS public.monitor01_housekeeping();
+DROP FUNCTION IF EXISTS public.monitor01_sum_sources(text, jsonb, integer, integer);
+DROP FUNCTION IF EXISTS public.monitor01_refresh_interval_seconds();
+DROP FUNCTION IF EXISTS public.monitor01_batch_size();
+DROP FUNCTION IF EXISTS public.monitor01_run_budget_ms();
+DROP FUNCTION IF EXISTS public.task_fact_document_create(uuid);
+DROP FUNCTION IF EXISTS public.post_task_fact_document(uuid);
+DROP FUNCTION IF EXISTS public.unpost_task_fact_document(uuid);
+DROP FUNCTION IF EXISTS public.task_fact_header_state(uuid);
+DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
+DROP FUNCTION IF EXISTS public.task_fact_header_before_write();
 
 -- =====================================================================================
 -- PART 1b: delete_time_genus_control.sql  (the numbering of the other parts stays: 1b runs FIRST, it is the newest)

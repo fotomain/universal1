@@ -76,12 +76,26 @@
 <main>
 
 <section id="status">
-  <h1>Monitor01 <span class="pill ask">plan only - nothing built</span></h1>
+  <h1>Monitor01 <span class="pill new">built 2026-10-13</span></h1>
   <p class="lead">Source: Google Doc "W1 MONITOR1" and the sheet "W1 1-MONITOR01". As the doc says: <b>no code yet</b>. This page is the plan, the description of the
   <b>additional tables</b> and the questions. The business need: one table per resource role, month and task that shows <b>planned · contracted · rest to contract · delivered · actually used · on-hand</b>,
   updated within about 2 seconds of a change, where <b>every sum can be opened down to the source transactions</b>.</p>
   <div class="note"><b>Things I could not take from the sheet</b> (see Q1, Q2): the sheet has <b>no coloured cells</b> (every cell is white in the data the connector returns and there is no conditional formatting),
   and column A holds only three labels. I proposed rules for both; please confirm or send the colours.</div>
+  <div class="good"><b>Built ("start").</b> SQL <b>PART 25</b> (<code>kit8/sql/start</code>: structure, code, delete PART 1a) · app in <b><code>kit8/pm/reports/monitor01</code></b> (<code>Monitor01Dashboard.tsx</code>, <code>Monitor01Table.tsx</code>, <code>Monitor01Filters.tsx</code>,
+  <code>useMonitor01Rows.ts</code>, <code>monitor01Model.ts</code>, <code>monitor01Colors.ts</code>, <code>monitor01Constants.ts</code>) · <code>kit8/ui/components/common/SumExplorerListReusable.tsx</code> · route <code>app/pm/reports/monitor01</code> · toggle <b>Reports → Monitor01</b> · hamburger menu → Reports → Monitor01.
+  Tests: <code>kit8/docker/test_fact_monitor01.sh</code> (72 checks, the numbers of the sheet) · Jest <code>__tests__/pm/reports/monitor01</code>, <code>__tests__/ui/sumExplorerListReusable</code> (85 tests).
+  Speed (<code>kit8/docker/bench_monitor01.sh</code>, 120 000 movements): <b>empty tick 0.17 ms</b> · <b>one changed task 4 ms</b> · <b>500 tasks 120-140 ms</b> · re-computation of unchanged tasks writes <b>0 rows</b>.</div>
+  <div class="note"><b>Your answers in the doc and what they changed:</b>
+    <ul class="tight">
+      <li><b>Contracted quantity</b> - "= 0 if resource contract not selected in the task_line_table, = qtyForContract if selected": so <b>no <code>task_line_contract_movements</code> table</b>. <code>qtyContracted</code> = the quantity of the plan movements of the lines that have a contract selected
+        (Time: <code>taskResourceContract</code>; Material / Expense: <code>taskLinePartnerContract</code>), else 0. I read "qtyForContract" as the quantity of the movement of that line - tell me if it is another number.</li>
+      <li><b>Constants</b> - <code>monitor01Constants.ts</code>: <code>MONITOR01_REFRESH_INTERVAL = 2</code> (seconds) + batch size, run budget, page size, event batching, filter debounce ...; the values the database knows are tested against the SQL.</li>
+      <li><b>Delivered / used / on-hand</b> (fact input Q1: "draw without data now") - the columns are drawn and blank; <code>task_line_fact_for_monitor01</code> is made by the same worker from the POSTED fact documents but is not yet connected to those columns (one place in <code>monitor01_apply</code>).
+        So <code>task_line_fact_movements</code> of 4.4 is replaced by the tables of <a href="FACT_INPUT.html">FACT_INPUT.html</a>.</li>
+      <li>This page now lives in <code>documentation/</code> as the doc says; the code is in <code>kit8/pm/reports/monitor01</code>.</li>
+      <li>Q1 (colours) and Q2 (column A) were not answered: the rules of section 2 and the row descriptions are built as proposed. Q14: pg_cron - the install schedules the job and says so when the extension or the seconds form is missing.</li>
+    </ul></div>
   <div class="grid">
     <div class="card"><h3>New tables <span class="pill new">4 + 1</span></h3><ul class="tight">
       <li><code>monitor01_view</code> - the read table (pre-aggregated)</li>

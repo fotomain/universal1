@@ -184,7 +184,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
           : null,
     })),
   reportsSection: 'costs',
-  setReportsSection: (section) => set({ reportsSection: section === 'revenues' ? 'revenues' : 'costs' }),
+  setReportsSection: (section) => set({ reportsSection: section === 'revenues' || section === 'monitor01' ? section : 'costs' }),
   ganttPeriodOpen: false,
   setGanttPeriodOpen: (open) => set({ ganttPeriodOpen: open }),
   refreshTreeRows: () => set((state) => rowsOf(state)),

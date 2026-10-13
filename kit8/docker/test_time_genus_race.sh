@@ -8,9 +8,10 @@ DB=sqlrace
 psqlc() { docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
 now() { python3 -c 'import time; print(time.time())'; }
 
-echo "== fresh database $DB + start_sql_structure.sql + a committed world"
+echo "== fresh database $DB + start_sql_structure.sql + start_sql_insert.sql + a committed world"
 psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB template supabase_stub" >/dev/null
 psqlc -d "$DB" -f /sql/start_sql_structure.sql >/dev/null
+psqlc -d "$DB" -f /sql/start_sql_insert.sql >/dev/null
 cat tests/00_helpers.sql - <<'SQL' | psqlc -d "$DB" >/dev/null
 BEGIN;
 SELECT public.organization_ensure_user('anna@race.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

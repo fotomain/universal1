@@ -141,6 +141,11 @@ export interface PMRowJSON {
   projectMaterialCostsNeeded?: boolean;
   /** ... the Expenses tab; default true */
   projectExpenseCostsNeeded?: boolean;
+  /**
+   * Fact input (kit8/pm/fact, documentation/FACT_INPUT.html; Project settings -> Budgets -> Main): true = a new fact document keeps the GUIDs of the task lines, users cannot add lines (delete and update only);
+   * false (default) = the fact data is disconnected from the task line GUIDs and users add lines freely. Copied into every document when it is created.
+   */
+  factStrongInputByTaskLine?: boolean;
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
   /**
@@ -363,8 +368,8 @@ export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGantt
 export const PM_LAST_VIEW_BUTTON: PMGanttVsNetworkView = 'showPlanView';
 /** the main view that has no button of its own: it is a part of Reports (the Network button sits in the Reports section row: Costs | Revenues | Network) */
 export const PM_REPORTS_PART_VIEW: PMGanttVsNetworkView = 'showNetworkView';
-/** Sections of Reports (PMReportsSectionButtons): Costs and Revenues are pages of the Reports view, Network is the network view */
-export type PMReportsSection = 'costs' | 'revenues' | 'network';
+/** Sections of Reports (PMReportsSectionButtons): Costs, Revenues and Monitor01 (kit8/pm/reports/monitor01) are pages of the Reports view, Network is the network view */
+export type PMReportsSection = 'costs' | 'revenues' | 'monitor01' | 'network';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
   v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' || v === 'showReportsView' ? v : 'showGanttChart';
 /** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order); Budgets (PM_LAST_VIEW_BUTTON) is always the last. */

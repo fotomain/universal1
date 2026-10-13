@@ -1,0 +1,213 @@
+/** @jest-environment jsdom */
+// Monitor01Dashboard: the table of the sheet, the tabs, the fast filters, the two modes, and the Sum explorer behind every number. The rows hook and the drill-down call are replaced.
+import { act } from 'react';
+import { cleanupUI, inputValue, press, q, qa, renderUI, textOf, typeInto } from '../../ui/pmUiTestKit';
+
+const mockHook: { rows: any[]; isLoading: boolean; error: string | null; live: boolean; changedAt: number | null; reload: () => void } = { rows: [], isLoading: false, error: null, live: true, changedAt: Date.now(), reload: jest.fn() };
+jest.mock('../../../../kit8/pm/reports/monitor01/useMonitor01Rows', () => ({ useMonitor01Rows: jest.fn(() => mockHook) }));
+const mockFetch = jest.fn();
+jest.mock('../../../../kit8/pm/reports/monitor01/monitor01Api', () => ({ fetchMonitor01Sources: (...a: any[]) => mockFetch(...a) }));
+jest.mock('../../../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: new Proxy({}, { get: () => ({ actions: { readData: (p: any) => ({ type: 'read', p }) } }) }) }));
+const mockPush = jest.fn();
+jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
+
+const Monitor01Dashboard = require('../../../../kit8/pm/reports/monitor01/Monitor01Dashboard').default;
+import { useMonitor01Rows } from '../../../../kit8/pm/reports/monitor01/useMonitor01Rows';
+import { parseMonitor01Row } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
+
+const raw = (over: Record<string, any> = {}) => ({
+  rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
+  resourceRoleName: 'Data Analyst', qtyPlanned: 24, qtyContracted: 24, qtyRestToContract: 0, qtyDelivered: 0, qtyUsed: 0, qtyOnHand: 0, lineCount: 1, hasStalePlan: false, updated_at: '1', ...over,
+});
+// the example of the sheet
+const sheet = () => [
+  raw(),
+  raw({ rowOwnerGUID: 't3', taskName: 'task03', qtyContracted: 0, qtyRestToContract: 24 }),
+  raw({ rowOwnerGUID: 't3', taskName: 'task03', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 100, qtyContracted: 65, qtyRestToContract: 35, projectName: 'Beta', rowProjectGUID: 'p2' }),
+  raw({ rowOwnerGUID: 't4', taskName: 'task04', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 200, qtyContracted: 80, qtyRestToContract: 120, projectName: 'Beta', rowProjectGUID: 'p2' }),
+].map(parseMonitor01Row);
+const KEY_T1 = 't1|timeGenus|r1|unit_hour|2026-10-01';
+const rowIds = () => qa('monitor01-table-item-').filter((id) => /\|\d{4}-\d{2}-\d{2}$/.test(id));
+const cell = (key: string, m: string) => `monitor01-table-cell-${key}-${m}`;
+
+beforeEach(() => {
+  mockHook.rows = sheet(); mockHook.live = true; mockHook.error = null; mockHook.isLoading = false; mockHook.changedAt = Date.now();
+  (globalThis as any).__pmTestReduxState = { [require('../../../../kit8/catalog/product/productModel').PRODUCT_TABLES.measureUnit.entity]: { entityDataFromServer: [{ rowGUID: 'unit_hour', rowJSON: { title: 'hour' } }, { rowGUID: 'unit_pcs', rowJSON: { title: 'pcs' } }] } };
+  mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: measure === 'contracted' ? 24 : 24, rows: [{ rowGUID: 'm1', sourceName: 'x', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', roleName: 'Data Analyst', unit: 'unit_hour', qty: 24 }] }));
+});
+afterEach(() => { cleanupUI(); jest.clearAllMocks(); (globalThis as any).__pmTestReduxState = undefined; });
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+
+describe('the table of the sheet', () => {
+  it('the two header rows: Plan | Fact and the columns; the resource role column; the six measures', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
+    expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
+    expect(['planned', 'contracted', 'rest to contract', 'delivered', 'actually used', 'on-hand']).toEqual(['planned', 'contracted', 'rest to contract', 'delivered', 'actually used', 'on-hand'].map((t, i) => textOf(`monitor01-table-head-${['planned', 'contracted', 'restToContract', 'delivered', 'used', 'onHand'][i]}`)).map((t) => t.toLowerCase()));
+  });
+
+  it('the numbers of the sheet: 24 / 24 / 0 and 24 / blank / 24; the totals per unit (48 hours)', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'planned'))).toBe('24');
+    expect(textOf(cell(KEY_T1, 'contracted'))).toBe('24');
+    expect(textOf(cell(KEY_T1, 'restToContract'))).toBe('0');
+    expect(textOf(cell(KEY_T1, 'delivered'))).toBe('');               // facts without data stay blank
+    expect(textOf(cell(KEY_T1, 'onHand'))).toBe('0');
+    expect(textOf(cell('t3|timeGenus|r1|unit_hour|2026-10-01', 'restToContract'))).toBe('24');
+    expect(textOf(cell('total|unit_hour', 'planned'))).toBe('48');      // the 48 of the sheet
+    expect(textOf(cell('total|unit_pcs', 'planned'))).toBe('300');
+    expect(textOf(cell('sub|materialGenus|unit_pcs', 'restToContract'))).toBe('155');
+  });
+
+  it('column A names every kind of row; roles, months and tasks are in the rows; units use the catalog', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-table-item-total|unit_hour')).toContain('Total');
+    expect(textOf('monitor01-table-item-group|timeGenus')).toContain('Time');
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Data Analyst');
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Oct 2026');
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('task01');
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('hour');
+    expect(textOf('monitor01-table-item-sub|timeGenus|unit_hour')).toContain('Subtotal Time');
+  });
+
+  it('no rows: the hint', () => {
+    mockHook.rows = [];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-table-empty')).toContain('Post the plan');
+  });
+});
+
+describe('the tabs', () => {
+  it('Time · Material · Expense · All, with the number of rows', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-tab-all-count')).toBe('4');
+    expect(textOf('monitor01-tab-time-count')).toBe('2');
+    expect(textOf('monitor01-tab-material-count')).toBe('2');
+    expect(q('monitor01-tab-expense-count')).toBeNull();
+  });
+  it('a tab shows only its genus', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press('monitor01-tab-time');
+    expect(q('monitor01-table-item-group|materialGenus')).toBeNull();
+    expect(q('monitor01-table-item-group|timeGenus')).not.toBeNull();
+    expect(q('monitor01-table-item-total|unit_pcs')).toBeNull();
+    press('monitor01-tab-material');
+    expect(q('monitor01-table-item-group|timeGenus')).toBeNull();
+    expect(textOf(cell('total|unit_pcs', 'planned'))).toBe('300');
+  });
+});
+
+describe('the two modes and the fast filters', () => {
+  it('project mode: no Project filter, no project column', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(q('monitor01-filters-project')).toBeNull();
+    expect(q('monitor01-filters-startDate')).not.toBeNull();
+    expect(q('monitor01-filters-finishDate')).not.toBeNull();
+    expect(q('monitor01-filters-task')).not.toBeNull();
+    expect(q('monitor01-filters-resource')).not.toBeNull();
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).not.toContain('Alpha');
+    expect((useMonitor01Rows as jest.Mock).mock.calls[0][0]).toBe('p1');
+  });
+  it('standalone: the FULL data set (the hook gets no project) with the Project filter and the project of each row', () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    expect((useMonitor01Rows as jest.Mock).mock.calls[0][0]).toBeNull();
+    expect(q('monitor01-filters-project')).not.toBeNull();
+    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Alpha');
+  });
+  it('typing in Task filters the rows after the debounce; the totals follow', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-task', 'task03');
+    expect(q(`monitor01-table-item-${KEY_T1}`)).not.toBeNull();       // not yet: the filter waits for the last key
+    await wait(250);
+    expect(q(`monitor01-table-item-${KEY_T1}`)).toBeNull();
+    expect(q('monitor01-table-item-t3|timeGenus|r1|unit_hour|2026-10-01')).not.toBeNull();
+    expect(textOf(cell('total|unit_hour', 'planned'))).toBe('24');
+  });
+  it('Project and Resource filters; startDate / finishDate cut months', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-project', 'beta');
+    await wait(250);
+    expect(rowIds()).toHaveLength(2);
+    typeInto('monitor01-filters-project', '');
+    typeInto('monitor01-filters-resource', 'pipe');
+    await wait(250);
+    expect(q(`monitor01-table-item-${KEY_T1}`)).toBeNull();
+    typeInto('monitor01-filters-resource', '');
+    typeInto('monitor01-filters-startDate', '2026-11-01');
+    await wait(250);
+    expect(rowIds()).toHaveLength(0);
+    expect(inputValue('monitor01-filters-startDate')).toBe('2026-11-01');
+  });
+});
+
+describe('the data age', () => {
+  it('live while the channel is open', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-age')).toContain('Live');
+    expect(textOf('monitor01-age')).toContain('refresh 2 s');
+  });
+  it('offline says so and keeps the last data', () => {
+    mockHook.live = false;
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-age')).toContain('Offline');
+    expect(q(`monitor01-table-item-${KEY_T1}`)).not.toBeNull();
+  });
+  it('an error of the load is shown', () => {
+    mockHook.error = 'permission denied';
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-error')).toBe('permission denied');
+  });
+});
+
+describe('every number opens its source transactions', () => {
+  it('a cell: the filter has exactly the keys of the row; the list adds up to the cell', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell(KEY_T1, 'planned'));
+    await flush();
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'planned', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-title')).toContain('Data Analyst · Oct 2026 · task01 · planned');
+    expect(textOf('monitor01-sum-value')).toBe('24.00 hour');
+    expect(textOf('monitor01-sum-check')).toContain('✓');
+  });
+  it('rest to contract is made of two lists: planned − contracted', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell('t3|timeGenus|r1|unit_hour|2026-10-01', 'restToContract'));
+    await flush();
+    expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['contracted', 'planned']);
+    expect(q('monitor01-sum-source-planned')).not.toBeNull();
+    expect(textOf('monitor01-sum-source-contracted')).toContain('−');
+  });
+  it('on-hand is made of delivered and used - without data yet', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell(KEY_T1, 'onHand'));
+    await flush();
+    expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['delivered', 'used']);
+  });
+  it('a subtotal and a total are opened with the keys they share (and the project in the project mode)', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell('sub|materialGenus|unit_pcs', 'planned'));
+    await flush();
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { genusGUID: 'materialGenus', unit: 'unit_pcs', projectGUID: 'p1' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-title')).toContain('Subtotal Material');
+    press('monitor01-sum-close');
+    press(cell('total|unit_hour', 'contracted'));
+    await flush();
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'contracted', { unit: 'unit_hour', projectGUID: 'p1' }, 0, expect.any(Number));
+  });
+  it('under a text filter the total lists exactly the tasks that are shown', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-task', 'task03');
+    await wait(250);
+    press(cell('total|unit_hour', 'planned'));
+    await flush();
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { unit: 'unit_hour', taskGUIDs: ['t3'] }, 0, expect.any(Number));
+  });
+  it('Open on a transaction goes to the Plan view of its task', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell(KEY_T1, 'planned'));
+    await flush();
+    press('monitor01-sum-open-m1');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/plan', params: { taskGUID: 't1', projectGUID: 'p1' } });
+  });
+});

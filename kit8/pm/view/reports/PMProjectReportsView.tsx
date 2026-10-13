@@ -26,6 +26,7 @@ import { useProjectTaskLines } from '../task/plan/useProjectTaskLines';
 import { fxProjectOf } from '../task/finances/taskLineFx';
 import { formatMoney } from '../task/finances/taskLineMoney';
 import { buildProjectReport, ReportAmounts, ReportRow } from './reportsModel';
+import Monitor01Dashboard from '../../reports/monitor01/Monitor01Dashboard';
 
 export interface PMProjectReportsViewProps {
   projectGUID: string;
@@ -60,7 +61,7 @@ export default function PMProjectReportsView({ projectGUID, width, height, palet
   const { lines, isLoading } = useProjectTaskLines(projectGUID);
   const fx = useMemo(() => fxProjectOf(projectJSON), [projectJSON]);
   const accounting = !!fx.accountingCurrency;
-  const report = useMemo(() => buildProjectReport(lines, page, accounting), [lines, page, accounting]);
+  const report = useMemo(() => buildProjectReport(lines, page === 'revenues' ? 'revenues' : 'costs', accounting), [lines, page, accounting]);
   /** wide enough for a table (50%) with its pie chart beside it; narrower: the pie goes below the table */
   const wide = width >= PM_REPORT_SPLIT_MIN_WIDTH;
   const titleOf = (rows: any, guid: string) => (guid === 'none' ? pmT('No budget item') : rowTitle((Array.isArray(rows) ? rows : []).find((r: any) => r.rowGUID === guid)) || guid);
@@ -89,6 +90,20 @@ export default function PMProjectReportsView({ projectGUID, width, height, palet
     { id: 'finish', label: pmT('Finish'), value: dateOf(projectFinishMs) },
     { id: 'cycles', label: pmT('Dependency cycles'), value: String(cycleCount) },
   ];
+
+  // Monitor01 is a page of its own (kit8/pm/reports/monitor01): the same toolbar, the live table below it
+  if (page === 'monitor01') {
+    return (
+      <View style={{ width, height, backgroundColor: palette.background }} testID="pm-reports-view">
+        <PMToolbar background={palette.surface} border={palette.border}>
+          <PMTipIcon tip={pmT('Reports')} testID="pm-reports-icon" name="assessment" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
+          <Text style={[styles.title, { color: palette.text }]} testID="pm-reports-title" numberOfLines={1}>{pmT('Reports')}</Text>
+          <GanttRightSideToggle palette={palette} setView={crud.setGanttVsNetworkView} />
+        </PMToolbar>
+        <Monitor01Dashboard mode="project" projectGUID={projectGUID} testID="pm-monitor01" />
+      </View>
+    );
+  }
 
   return (
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-reports-view">

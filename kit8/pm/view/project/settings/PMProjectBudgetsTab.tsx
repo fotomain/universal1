@@ -39,6 +39,8 @@ export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   exchangeRateTypeForAccounting?: string | null;
   exchangeRateTypeForBudget?: string | null;
   projectRevenueBudgetNeeded?: boolean;
+  /** Fact input: true = a new fact document keeps the task line GUIDs, delete and update only (kit8/pm/fact) */
+  factStrongInputByTaskLine?: boolean;
   calendarForTaskPlan?: string | null;
   projectCostCenter?: string | null;
   projectRevenueCenter?: string | null;
@@ -74,6 +76,7 @@ export const budgetsValuesOf = (j: PMProjectBudgetsValues | undefined | null): R
   exchangeRateTypeForAccounting: j?.exchangeRateTypeForAccounting || DEFAULT_RATE_TYPE,
   exchangeRateTypeForBudget: j?.exchangeRateTypeForBudget || BUDGET_RATE_TYPE,
   projectRevenueBudgetNeeded: !!j?.projectRevenueBudgetNeeded,
+  factStrongInputByTaskLine: !!j?.factStrongInputByTaskLine,
   ...taskInputSwitchesOf(j),
   calendarForTaskPlan: j?.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN,
   projectCostCenter: j?.projectCostCenter || null,
@@ -234,6 +237,16 @@ export default function PMProjectBudgetsTab({
             style={styles.switchRow}
           />
           {inputs.projectExpenseBudgetNeeded && <Text style={styles.hint}>{pmT('The inputs of the expense lines are set in the tabs Time, Material and Expense.')}</Text>}
+
+          <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Fact input')}</Text>
+          <SwitchApp
+            testID="pm-project-fact-strong-input"
+            label={pmT('Strong fact input by task line (factStrongInputByTaskLine)')}
+            value={!!values.factStrongInputByTaskLine}
+            onValueChange={(v) => onChange({ factStrongInputByTaskLine: v })}
+            style={styles.switchRow}
+          />
+          <Text style={styles.hint}>{pmT('On: a fact document keeps the task lines and users can only update and delete its lines. Off: the facts are free lines, not tied to the task lines. A document keeps the mode it was made in.')}</Text>
         </View>
       )}
 

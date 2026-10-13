@@ -518,6 +518,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />
               <Drawer.Screen name="pm/project/task/plan/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task plan' }} />
+              <Drawer.Screen name="pm/project/task/fact/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Facts input' }} />
+              <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />

@@ -112,6 +112,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
     // product catalog: all product tables (CRUD), checks, product card
     { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
+    // reports: Monitor01 (planned · contracted · delivered · used per resource role, month and task; the FULL data set, live), sorted by name
+    {
+      id: 'reports',
+      label: 'Reports',
+      icon: 'assessment',
+      route: '',
+      children: [
+        { id: 'reports-monitor01', label: 'Monitor01', icon: 'monitoring', route: 'pm/reports/monitor01' },
+      ],
+    },
 
   ];
 

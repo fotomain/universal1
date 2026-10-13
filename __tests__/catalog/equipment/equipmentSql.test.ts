@@ -9,7 +9,9 @@ import { EQUIPMENT_TYPE, EQUIPMENT_TYPE_TABLE } from '../../../kit8/catalog/equi
 const dir = path.join(__dirname, '../../../kit8/sql/start');
 const start = fs.readFileSync(path.join(dir, 'start_sql_structure.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
-const part = start.slice(start.indexOf('-- PART 17: create_equipment_tables.sql'));
+const insert = fs.readFileSync(path.join(dir, 'start_sql_insert.sql'), 'utf8');
+// the DDL of the part (start_sql_structure.sql) and its seed rows (start_sql_insert.sql)
+const part = start.slice(start.indexOf('-- PART 17: create_equipment_tables.sql')) + '\n' + insert.slice(insert.indexOf('-- PART 17: create_equipment_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 6: delete_equipment_tables.sql'), del.indexOf('-- PART 7:'));
 
 const code = fs.readFileSync(path.join(dir, 'start_sql_code.sql'), 'utf8');

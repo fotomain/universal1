@@ -10,8 +10,10 @@ const dir = path.join(__dirname, '../../../kit8/sql/start');
 const start = fs.readFileSync(path.join(dir, 'start_sql_structure.sql'), 'utf8');
 const code = fs.readFileSync(path.join(dir, 'start_sql_code.sql'), 'utf8');
 const data = fs.readFileSync(path.join(dir, 'start_sql_data.sql'), 'utf8');
+const insert = fs.readFileSync(path.join(dir, 'start_sql_insert.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
 const part = start.slice(start.indexOf('-- PART 18: create_business_unit_tables.sql'));
+const insertPart = insert.slice(insert.indexOf('-- PART 18: create_business_unit_tables.sql'));       // the seed rows (start_sql_insert.sql)
 const codePart = code.slice(code.indexOf('-- PART 18: create_business_unit_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 15: delete_business_unit_tables.sql'), del.indexOf('-- PART 16:'));
 
@@ -23,7 +25,7 @@ describe('the structure file', () => {
   });
   it('the enumeration: the 4 values with the flags of the model; read only (SELECT only, a trigger refuses a write)', () => {
     for (const s of CFR_TYPE_SEED) {
-      const line = part.split('\n').find((l) => l.includes(`('${s.value}',`))!;
+      const line = insertPart.split('\n').find((l) => l.includes(`('${s.value}',`))!;
       expect(line).toContain(`"acceptsCosts": ${s.acceptsCosts}`);
       expect(line).toContain(`"acceptsRevenues": ${s.acceptsRevenues}`);
     }

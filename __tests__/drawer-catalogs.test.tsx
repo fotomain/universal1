@@ -95,6 +95,17 @@ it('Catalogs, then Budgets, come right before Projects', () => {
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-budgets') - 1);
 });
 
+it('Reports (after Products) is a closed accordion with Monitor01, which opens the separate screen', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-reports')).toBe(ids.indexOf('drawer-item-products') + 1);
+  expect(q('drawer-subitem-reports-monitor01')).toBeNull(); // closed
+  press('drawer-item-reports');
+  expect(q('drawer-subitem-reports-monitor01')!.textContent).toContain('Monitor01');
+  press('drawer-subitem-reports-monitor01');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/reports/monitor01');
+});
+
 it('Budgets is a closed accordion with Budget Items, Budget scenarios, Business units, Resource contract templates, Resource roles (also kept in Catalogs)', () => {
   mount('/home');
   expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed

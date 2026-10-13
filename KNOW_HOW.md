@@ -36,9 +36,13 @@ All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated i
   - Running this script repeatedly is 100% idempotent and safe.
   - Seed rows are updated to the latest repository values; rows created by users remain untouched; nothing is deleted.
 
-### 2.2b `start_sql_structure.sql` / `delete_sql_structure.sql`
-- `start_sql_structure.sql` is the same SQL in ONE file (`code` + `data`, numbered PARTs; 17 = equipment, 18 = business units) and `delete_sql_structure.sql` its opposite; `kit8/docker/test_sql.sh` runs both on Postgres 15.
-  A change goes into all of `start_sql_structure.sql`, `start_sql_code.sql` (DDL) and `start_sql_data.sql` (seed rows as upserts) - `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
+### 2.2b `start_sql_structure.sql` + `start_sql_insert.sql` / `delete_sql_structure.sql`
+- `start_sql_structure.sql` is the STRUCTURE in ONE file (numbered PARTs; 17 = equipment, 18 = business units, 24 = fact input, 25 = Monitor01) and has **no seed rows**.
+  **`start_sql_insert.sql`** (extracted from it, same order, same PART names) holds the seed rows: countries, currencies, ECB rates, catalogs, roles, calendars (and their days), units ... - plain `INSERT ... ON CONFLICT DO NOTHING`.
+  Install = run `start_sql_structure.sql`, then `start_sql_insert.sql` (both idempotent). The backfills of data that already exists in a database (userTable from auth.users, project_user_settings_table,
+  the timeline of posted days, the first fill of the Monitor01 queue, the project / task / organization migrations) stay in the structure file next to the table they repair.
+- `delete_sql_structure.sql` is the opposite (it drops the tables with their seed rows); `kit8/docker/test_sql.sh` runs all three on Postgres 15: install twice (same objects, same row counts), the structure alone has 0 seed rows, delete leaves nothing, install again.
+- A change of the structure goes into `start_sql_structure.sql` and `start_sql_code.sql` (DDL); a change of a seed goes into `start_sql_insert.sql` and `start_sql_data.sql` (upserts). `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
 
 ### 2.3 Universal Table Schema Convention
 Almost all entity tables in Universal 1 adhere to the standardized schema:
