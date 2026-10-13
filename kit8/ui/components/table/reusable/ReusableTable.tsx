@@ -12,7 +12,7 @@
 //             creates the row in it; uxuiTable.foldersTree* calibrate position, width, heights, row alignment, stacking
 // Examples: the catalog dashboards (kit8/catalog/product/dashboard, kit8/catalog/resourcerole/dashboard); test fixture __tests__/ui/table/fixtures.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useTheme as usePaperTheme } from 'react-native-paper';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
@@ -25,6 +25,7 @@ import { useSearchHistory } from './useSearchHistory';
 import { buildTableFile, exportTableFile, shareTableFile, TABLE_EXPORT_FORMATS, TableExportFormat, tableFileResultMessage } from './tableExportActions';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../common/IconApp';
+import ActivityIndicatorCircleApp from '../../activityindicator/ActivityIndicatorCircleApp';
 import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostComponent';
 import { defaultTitleExtractor } from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
 import FolderTreeReusable from '../../tree/FolderTreeReusable';
@@ -543,7 +544,7 @@ export default function ReusableTable(props: ReusableTableProps) {
             const bodyEl = (
               <>
                 {crud.loading ? (
-            <View style={styles.state}><ActivityIndicator color={c.primary} /></View>
+            <View style={styles.state}><ActivityIndicatorCircleApp testID={`${testID}-loading`} /></View>
           ) : visible.length === 0 ? (
             <View style={styles.state}>
               <Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.6 }}>

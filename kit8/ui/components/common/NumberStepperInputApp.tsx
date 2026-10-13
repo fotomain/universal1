@@ -151,9 +151,10 @@ export const NumberStepperInputApp: React.FC<NumberStepperInputAppProps> = ({
       disabled={disabled}
       keyboardType="numeric"
       hideClearIcon
-      // paper accepts only its own adornments: an Icon that clears, and an Icon slot that carries the arrows
+      // paper: the clear is its own Icon; the arrows are plain adornment content
       left={paper ? <PaperTextInput.Icon testID={`${testID}-clear`} icon="close" disabled={!canClear} onPress={() => onChangeText?.('')} forceTextInputFocus={false} accessibilityLabel={clearLabel} /> : clear}
-      right={paper ? <PaperTextInput.Icon icon={() => arrows} forceTextInputFocus={false} /> : arrows}
+      // paper: the arrows are NOT wrapped in a TextInput.Icon - it is itself a button and the arrows are buttons (web: <button> inside <button>)
+      right={arrows}
     />
   );
 };
