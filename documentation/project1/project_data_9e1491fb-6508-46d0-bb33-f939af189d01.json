@@ -1,0 +1,271 @@
+{
+  "format": "kit8.pm.project",
+  "version": 1,
+  "exportedAt": "2026-10-13T08:54:31.305Z",
+  "project": {
+    "rowGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+    "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01",
+    "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+    "rowDuration": "2026-10-20T00:00:00+00:00",
+    "rowProgress": 0,
+    "orderInList": 1024,
+    "rowJSON": {
+      "name": "Project 1",
+      "planDay": true,
+      "rowKind": "project",
+      "planHour": false,
+      "planMinute": false,
+      "planSecond": false,
+      "durationDays": 0,
+      "skipWeekends": false,
+      "uxuiSettings": {
+        "projectTreeContextCommandsMode": "onRightClickMenuMode",
+        "projectGanttChartContextCommandsMode": "onRightClickMenuMode"
+      },
+      "projectStartAt": "2026-10-13T00:00:00.000Z",
+      "mainCustomerGUID": "44444444-4444-4444-a444-444444444444",
+      "mainSupplierGUID": "33333333-3333-4333-a333-333333333333",
+      "projectStartDate": "2026-10-13",
+      "currencyForBudget": "USD",
+      "projectCostCenter": "bu_team1costs",
+      "projectFinishDate": "2026-10-20",
+      "calendarForTaskPlan": "workingDaysCalendar",
+      "currencyForContract": "GBP",
+      "planDateInputFormat": "YYYY-MM-DD",
+      "projectProfitCenter": "bu_pmteam1",
+      "projectRevenueCenter": "bu_team2",
+      "budgetScenarioForFact": "factScenarioProject1",
+      "budgetScenarioForPlan": "planScenarioProject1",
+      "currencyForAccounting": "EUR",
+      "projectTimeCostsNeeded": true,
+      "projectInvestmentCenter": "bu_enterprise1",
+      "mainCustomerContractGUID": null,
+      "mainSupplierContractGUID": "66666666-6666-4666-a666-666666666666",
+      "exchangeRateTypeForBudget": "Budget",
+      "projectExpenseCostsNeeded": true,
+      "projectTimeOfPersonNeeded": true,
+      "projectExpenseBudgetNeeded": true,
+      "projectMaterialCostsNeeded": true,
+      "projectRevenueBudgetNeeded": true,
+      "projectBusinessUnitsRequired": false,
+      "projectTimeOfEquipmentNeeded": true,
+      "exchangeRateTypeForAccounting": "Budget",
+      "projectTreeContextCommandsMode": "onRightClickMenuMode",
+      "projectGanttChartContextCommandsMode": "onRightClickMenuMode"
+    }
+  },
+  "tasks": [
+    {
+      "rowGUID": "d407c9d6-74a7-41b8-b746-a1269fdeea96",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.1d9aefdf_2b13_4f52_bda4_019c1a02a7f4.d407c9d6_74a7_41b8_b746_a1269fdeea96",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-16T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 1024,
+      "rowJSON": {
+        "name": "Task 111",
+        "rowKind": "task",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 3,
+        "lastEditPlace": {
+          "v": 1,
+          "at": "2026-10-13T08:47:00.714Z",
+          "by": "43cdefd5-4a25-4667-973b-337635fe52aa",
+          "genus": "timeGenus",
+          "section": "finances",
+          "surface": "financesView",
+          "lineGUID": "57a04b43-e4fb-4903-ac1e-4fed9524e765"
+        }
+      }
+    },
+    {
+      "rowGUID": "1d9aefdf-2b13-4f52-bda4-019c1a02a7f4",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.1d9aefdf_2b13_4f52_bda4_019c1a02a7f4",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-20T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 1024,
+      "rowJSON": {
+        "name": "Stage 1",
+        "rowKind": "stage",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 0
+      }
+    },
+    {
+      "rowGUID": "4b2090ee-9203-45f5-9203-0ec37f11a294",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.9a2bb3b1_22ed_4a15_94de_4382d0edadbc.4b2090ee_9203_45f5_9203_0ec37f11a294",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-16T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 1024,
+      "rowJSON": {
+        "name": "Task 121",
+        "rowKind": "task",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 3
+      }
+    },
+    {
+      "rowGUID": "9a2bb3b1-22ed-4a15-94de-4382d0edadbc",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.9a2bb3b1_22ed_4a15_94de_4382d0edadbc",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-20T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 2048,
+      "rowJSON": {
+        "name": "Stage 2",
+        "rowKind": "stage",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 0
+      }
+    },
+    {
+      "rowGUID": "b0d165aa-3b64-412f-b668-15653f7a9770",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.1d9aefdf_2b13_4f52_bda4_019c1a02a7f4.b0d165aa_3b64_412f_b668_15653f7a9770",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-18T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 2048,
+      "rowJSON": {
+        "name": "Task 112",
+        "rowKind": "task",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 5
+      }
+    },
+    {
+      "rowGUID": "f4dd5a02-fa91-44c0-9bc2-97b000313997",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.9a2bb3b1_22ed_4a15_94de_4382d0edadbc.f4dd5a02_fa91_44c0_9bc2_97b000313997",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-18T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 2048,
+      "rowJSON": {
+        "name": "Task 122",
+        "rowKind": "task",
+        "startAt": "2026-10-13T00:00:00+00:00",
+        "durationDays": 5
+      }
+    },
+    {
+      "rowGUID": "0485145a-755e-4a84-a88d-4eefab770976",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.1d9aefdf_2b13_4f52_bda4_019c1a02a7f4.0485145a_755e_4a84_a88d_4eefab770976",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-20T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 3072,
+      "rowJSON": {
+        "name": "Task 113",
+        "rowKind": "task",
+        "startAt": "2026-10-18T00:00:00+00:00",
+        "durationDays": 2
+      }
+    },
+    {
+      "rowGUID": "953e5efb-6f3f-485c-b532-bab2743fed97",
+      "treePath": "9e1491fb_6508_46d0_bb33_f939af189d01.9a2bb3b1_22ed_4a15_94de_4382d0edadbc.953e5efb_6f3f_485c_b532_bab2743fed97",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "rowDuration": "2026-10-20T00:00:00+00:00",
+      "rowProgress": 0,
+      "orderInList": 3072,
+      "rowJSON": {
+        "name": "Task 123",
+        "rowKind": "task",
+        "startAt": "2026-10-18T00:00:00+00:00",
+        "durationDays": 2
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "rowGUID": "0485145a-755e-4a84-a88d-4eefab770976",
+      "rowDependsOnGUID": "d407c9d6-74a7-41b8-b746-a1269fdeea96",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "linkType": "FS",
+      "lagDays": 0,
+      "rowJSON": {}
+    },
+    {
+      "rowGUID": "0485145a-755e-4a84-a88d-4eefab770976",
+      "rowDependsOnGUID": "b0d165aa-3b64-412f-b668-15653f7a9770",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "linkType": "FS",
+      "lagDays": 0,
+      "rowJSON": {}
+    },
+    {
+      "rowGUID": "953e5efb-6f3f-485c-b532-bab2743fed97",
+      "rowDependsOnGUID": "4b2090ee-9203-45f5-9203-0ec37f11a294",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "linkType": "FS",
+      "lagDays": 0,
+      "rowJSON": {}
+    },
+    {
+      "rowGUID": "953e5efb-6f3f-485c-b532-bab2743fed97",
+      "rowDependsOnGUID": "f4dd5a02-fa91-44c0-9bc2-97b000313997",
+      "projectGUID": "9e1491fb-6508-46d0-bb33-f939af189d01",
+      "rowOwnerGUID": "43cdefd5-4a25-4667-973b-337635fe52aa",
+      "linkType": "FS",
+      "lagDays": 0,
+      "rowJSON": {}
+    }
+  ],
+  "uxuiSettings": {
+    "showCriticalPath": true,
+    "ganttArrowsForm": "smoothForm",
+    "showTaskProgressOnGantt": false,
+    "taskProgressLinePosition": "onTop",
+    "projectProgressLinePosition": "onBottom",
+    "taskProgressLineColor": "#FCFF00",
+    "projectProgressLineColor": "#FCFF00",
+    "criticalPathTaskColor": "#FF0033",
+    "criticalPathColorHasPriorityOverTheCustomTaskColor": false,
+    "ganttVsNetworkView": "showFinancesView",
+    "networkViewMode": "networkDiagram",
+    "networkDiagramVariant": "cpmNodes",
+    "networkScheduleVariant": "eventCircles",
+    "showTreeHierarchyNumbers": true,
+    "dragAndDropTaskInTree": true,
+    "treeColumnsOrder": [
+      "wbs",
+      "name",
+      "taskStartDate",
+      "taskFinishDate",
+      "taskDuration",
+      "progress",
+      "kanban",
+      "kanbanStageProgressPercent"
+    ],
+    "treeColumnsWidths": {},
+    "projectTreeContextCommandsMode": "onRightClickMenuMode",
+    "projectGanttChartContextCommandsMode": "onRightClickMenuMode",
+    "selectRowCheckBoxForm": "formRound",
+    "treeColumnsFilters": {},
+    "treeColumnSort": null,
+    "columnFilterIconColor": "#FF4D6D",
+    "postButtonBackgroundColor": "#F0ABFC",
+    "checkedProjectVersions": [],
+    "viewButtonsOrder": [
+      "showGanttChart",
+      "showFinancesView",
+      "showKanbanView",
+      "showNetworkView",
+      "showVersionsView",
+      "showReportsView",
+      "showPlanView"
+    ]
+  }
+}

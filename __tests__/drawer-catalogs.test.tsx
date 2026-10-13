@@ -95,18 +95,20 @@ it('Catalogs, then Budgets, come right before Projects', () => {
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-budgets') - 1);
 });
 
-it('Budgets is a closed accordion with Budget Items, Business units, Resource contract templates, Resource roles (also kept in Catalogs)', () => {
+it('Budgets is a closed accordion with Budget Items, Budget scenarios, Business units, Resource contract templates, Resource roles (also kept in Catalogs)', () => {
   mount('/home');
   expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed
   press('drawer-item-budgets');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  const labels = ['Budget Items', 'Business units', 'Resource contract templates', 'Resource roles'];
+  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles'];
   expect(subs).toHaveLength(labels.length);
   labels.forEach((label, i) => expect(subs[i]).toContain(label)); // in this order (the mocked icon adds its name to the text)
+  press('drawer-subitem-budgets-budgetscenarios');
+  expect(mockNavigate).toHaveBeenCalledWith('/budget/scenario/list');
   press('drawer-subitem-budgets-businessunits');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
   press('drawer-item-catalogs');
-  for (const id of ['budgetitems', 'businessunits', 'templateresourcecontracts', 'resourceroles']) expect(q(`drawer-subitem-${id}`)).not.toBeNull();
+  for (const id of ['budgetitems', 'budgetscenarios', 'businessunits', 'templateresourcecontracts', 'resourceroles']) expect(q(`drawer-subitem-${id}`)).not.toBeNull();
 });
 
 it('Products (product catalog dashboard) is a menu item after Projects and opens the dashboard', () => {

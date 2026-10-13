@@ -78,7 +78,10 @@ describe('start_sql_code.sql + start_sql_data.sql hold the same part, cut in two
     expect(code).toContain("'businessUnitAssigned', to_jsonb(v_unit)");
   });
   it('the data file: the 4 values and the 29 units as upserts', () => {
-    const tail = data.slice(data.indexOf('Business units (PART 18'));
+    // up to the next part (PART 19 = budget scenarios)
+    const from = data.indexOf('Business units (PART 18');
+    const to = data.indexOf('Budget scenarios (PART 19');
+    const tail = data.slice(from, to > from ? to : undefined);
     expect(tail).toContain('INSERT INTO public."cfrTypeTable"');
     expect(tail).toContain('INSERT INTO public."businessUnitTable"');
     expect((tail.match(/DO UPDATE SET/g) || []).length).toBe(2);

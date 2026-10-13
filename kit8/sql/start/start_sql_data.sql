@@ -6899,3 +6899,13 @@ INSERT INTO public."businessUnitTable" ("rowGUID", "rowParentGUID", "orderInList
   ('bu_qm',             'bu_enterprise1',   80, '{"title": "QM",                       "code": "QM",     "isActive": true}'),
   ('bu_hrm',            'bu_enterprise1',   90, '{"title": "HRM",                      "code": "HRM",    "isActive": true}')
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+
+
+-- =============================================================================
+-- Budget scenarios (PART 19 of start_sql_structure.sql): the plan and the fact scenario (upsert)
+-- =============================================================================
+
+INSERT INTO public."budgetScenarioTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('planScenarioProject1', 'budgetScenarioCatalog', 'empty', 10, '{"title": "Plan scenario-Project #1", "scenarioKind": "plan", "isActive": true}'),
+  ('factScenarioProject1', 'budgetScenarioCatalog', 'empty', 20, '{"title": "Fact scenario-Project #1", "scenarioKind": "fact", "isActive": true}')
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();

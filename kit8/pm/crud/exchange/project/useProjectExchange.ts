@@ -4,7 +4,7 @@
 //                                          (tree + Gantt repaint) and applies the file's Gantt settings
 //                                          to THIS user (project_user_settings_table)
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePMStore } from '../../../store/store_pm';
 import { effectiveUxuiSettings } from '../../../store/storeDerive';
@@ -13,9 +13,12 @@ import type { DroppedFileItem } from '../../../../ui/components/common/ReceiveDr
 import { errorMessage } from '../../api/apiUtils';
 import { pmKeys, usePMApi } from '../../shared/queryShared';
 import { useSaveProjectUserSettings } from '../../project/projectUserSettingsQueries';
+import { useBudgetScenarioData } from '../../../../catalog/budget/scenario/useBudgetScenarioData';
+import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusinessUnitData';
 import { exportProjectToFile } from './export/exportProjectToFile';
 import { importProjectFromFile, PMConfirmReplace } from './import/importProjectFromFile';
 import type { PMProjectImportPlan } from './import/planProjectImport';
+import type { BudgetCatalogsForImport } from './import/budgetSettingsOfImport';
 
 export type PMExchangeStatus = { kind: 'idle' } | { kind: 'busy'; text: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
 
@@ -39,6 +42,11 @@ export function useProjectExchange(ownerGUID: string) {
   const qc = useQueryClient();
   const { saveUxuiSettings } = useSaveProjectUserSettings(ownerGUID);
   const [status, setStatus] = useState<PMExchangeStatus>({ kind: 'idle' });
+  // the catalogs the budget settings of a file point into (scenarios, business units): checked on import
+  const scenarios = useBudgetScenarioData(true);
+  const units = useBusinessUnitData(true);
+  const catalogs = useRef<BudgetCatalogsForImport>({});
+  catalogs.current = { scenarios: scenarios.loaded ? scenarios.rows : null, units: units.loaded ? units.rows : null, cfrRows: units.loaded ? units.cfrRows : null };
 
   const exportProject = useCallback(
     async (projectGUID: string) => {
@@ -62,7 +70,7 @@ export function useProjectExchange(ownerGUID: string) {
       if (!target) return null;
       setStatus({ kind: 'busy', text: 'Importing…' });
       try {
-        const out = await importProjectFromFile(api, target, ownerGUID, files, confirmReplace);
+        const out = await importProjectFromFile(api, target, ownerGUID, files, confirmReplace, catalogs.current);
         if (out.status === 'cancelled') {
           setStatus({ kind: 'done', text: 'Import cancelled - nothing was changed.' });
           return null;
@@ -77,7 +85,9 @@ export function useProjectExchange(ownerGUID: string) {
         if (plan.uxuiSettings) saveUxuiSettings(projectGUID, plan.uxuiSettings);
         setStatus({
           kind: 'done',
-          text: `Imported ${plural(plan.tasks.length, 'task')} and ${deps(plan.dependencies.length)} from "${plan.sourceProjectName}".`,
+          text:
+            `Imported ${plural(plan.tasks.length, 'task')} and ${deps(plan.dependencies.length)} from "${plan.sourceProjectName}".` +
+            (plan.budgetNotTaken.length > 0 ? ` Budget settings not taken: ${plan.budgetNotTaken.join('; ')}.` : ''),
         });
         return plan;
       } catch (e) {

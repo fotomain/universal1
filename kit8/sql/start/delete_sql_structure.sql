@@ -20,7 +20,8 @@
 --   13. delete_distribution_generic_table.sql - drops distributionGenericTable
 --   14. delete_tables.sql - drops EVERYTHING of done/create_tables.sql: all projects, tasks, catalogs, persons, contracts, rates (all users!)
 --   15. delete_business_unit_tables.sql - drops businessUnitTable / cfrTypeTable, their functions and the businessUnitAssigned triggers on the other tables (the unit kept on the posted days stays as inert JSON)
---   16. helper function kit8_touch_updated_at
+--   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
+--   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
 
@@ -55,7 +56,7 @@ DROP FUNCTION IF EXISTS public.user_calendar_project_task_json(public.project_ta
 
 -- ===============================================================================================
 -- PART 2: delete_task_line_plan_table.sql
--- drops task_line_plan + create_task_line_plan + the unpost trigger
+-- drops task_line_plan + task_line_plan_timeline + create_task_line_plan + the unpost trigger
 -- ===============================================================================================
 
 -- =====================================================================================
@@ -74,6 +75,12 @@ BEGIN
      AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     ALTER PUBLICATION supabase_realtime DROP TABLE public.task_line_plan_movements;
   END IF;
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan_timeline')
+     AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public.task_line_plan_timeline;
+  END IF;
+  DROP TABLE IF EXISTS public.task_line_plan_timeline CASCADE;
   DROP TABLE IF EXISTS public.task_line_plan_movements CASCADE;
 END $$;
 
@@ -602,7 +609,23 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================================
--- PART 16: helpers that no table uses any more
+-- PART 16: delete_budget_scenario_table.sql
+-- Removes what PART 19 of start_sql_structure.sql added: budgetScenarioTable (data included!). Runs BEFORE the helper kit8_touch_updated_at is dropped (the table uses it).
+-- =====================================================================================
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'budgetScenarioTable')
+     AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public."budgetScenarioTable";
+  END IF;
+END $$;
+DROP TABLE IF EXISTS public."budgetScenarioTable" CASCADE;
+NOTIFY pgrst, 'reload schema';
+
+
+-- =====================================================================================
+-- PART 17: helpers that no table uses any more
 -- =====================================================================================
 
 DROP FUNCTION IF EXISTS public.kit8_touch_updated_at();

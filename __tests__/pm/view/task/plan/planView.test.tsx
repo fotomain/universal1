@@ -19,9 +19,9 @@ jest.mock('../../../../../kit8/ui/components/common/IconApp', () => ({ __esModul
 
 import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import PMTaskLinePlanView from '../../../../../kit8/pm/view/task/plan/PMTaskLinePlanView';
-import PMProjectTaskPlanCRUD from '../../../../../kit8/pm/view/task/plan/PMProjectTaskPlanCRUD';
+import PMProjectTaskPlanCRUD, { PLAN_BUDGET_TABS } from '../../../../../kit8/pm/view/task/plan/PMProjectTaskPlanCRUD';
 import { buildPlanColumns, planLineLabel, planPeriodText } from '../../../../../kit8/pm/view/task/plan/planColumns';
-import { TASK_LINE_PLAN_ENTITY } from '../../../../../kit8/pm/view/task/plan/taskLinePlanModel';
+import { TASK_LINE_PLAN_ENTITY, buildTaskLinePlanTimeline } from '../../../../../kit8/pm/view/task/plan/taskLinePlanModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
 import { emptyTaskLineCatalogs } from '../../../../../kit8/pm/view/task/finances/taskLineCatalogs';
 import { REUSABLE_TABLE_ALL } from '../../../../../kit8/ui/components/table/reusable/reusableTableTypes';
@@ -230,6 +230,29 @@ describe('PMProjectTaskPlanCRUD', () => {
     expect(q('tp-summary-l1')).toBeNull();
     expect(q('tp-summary-l2')).not.toBeNull();
     expect(q('tp-summary-l3')).toBeNull();
+  });
+
+  it('sums the posted days per calendar day with a running total', () => {
+    const rows = [
+      { ...planRow('a', 'l1', 1, 0.5, 10, 100, 100), rowPeriodDatetime: '2026-10-12T00:00:00+00:00' },
+      { ...planRow('b', 'l2', 1, 0.5, 5, 50, 60), rowPeriodDatetime: '2026-10-12T00:00:00+00:00' },
+      { ...planRow('c', 'l1', 2, 0.5, 10, 25, 25), rowPeriodDatetime: '2026-10-13T00:00:00+00:00' },
+    ] as any;
+    const t = buildTaskLinePlanTimeline(rows);
+    expect(t.map((d) => d.day)).toEqual(['2026-10-12', '2026-10-13']);
+    expect(t[0]).toMatchObject({ lines: 2, sumForBudget: 150, sumForContract: 160, cumulativeBudget: 150 });
+    expect(t[1]).toMatchObject({ lines: 1, sumForBudget: 25, cumulativeBudget: 175 });
+  });
+  it('is the last tab and shows the days instead of the line summaries', () => {
+    mount({ lines: [lineRow('l1', 'timeGenus', {})], plan: [planRow('a', 'l1', 1, 1, 10, 100, 100)] });
+    expect(PLAN_BUDGET_TABS[PLAN_BUDGET_TABS.length - 1].id).toBe('TabPlanTimeline');
+    expect(q('tp-timeline')).toBeNull();
+    press('tp-tab-TabPlanTimeline');
+    expect(q('tp-timeline')).not.toBeNull();
+    expect(q('tp-summary-l1')).toBeNull();
+    press('tp-tab-TabPlanAll');
+    expect(q('tp-timeline')).toBeNull();
+    expect(q('tp-summary-l1')).not.toBeNull();
   });
 });
 

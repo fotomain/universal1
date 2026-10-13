@@ -18,13 +18,15 @@ import { TASK_LINE_ENTITY, TASK_LINE_GENUS } from '../finances/taskLineModel';
 import type { TaskLineRow } from '../finances/taskLineModel';
 import { useTaskLineCatalogs } from '../finances/useTaskLineCatalogs';
 import { buildPlanColumns, planLineLabel } from './planColumns';
-import { summarizeTaskLinePlan, TASK_LINE_PLAN_ENTITY, TaskLinePlanRow } from './taskLinePlanModel';
+import PMTaskLinePlanTimeline from './PMTaskLinePlanTimeline';
+import { buildTaskLinePlanTimeline, summarizeTaskLinePlan, TASK_LINE_PLAN_ENTITY, TaskLinePlanRow } from './taskLinePlanModel';
 
 export const PLAN_BUDGET_TABS = [
   { id: 'TabPlanTime', genus: MANAGEMENT_GENUS.time, label: 'Time' },
   { id: 'TabPlanMaterial', genus: MANAGEMENT_GENUS.material, label: 'Material' },
   { id: 'TabPlanExpencies', genus: MANAGEMENT_GENUS.expense, label: 'Expenses' },
   { id: 'TabPlanAll', genus: 'all', label: 'All' },
+  { id: 'TabPlanTimeline', genus: 'timeline', label: 'Timeline' },
 ] as const;
 
 export type PlanBudgetTabId = (typeof PLAN_BUDGET_TABS)[number]['id'];
@@ -60,8 +62,11 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
     return summarizeTaskLinePlan(taskPlanRows, ordered);
   }, [taskPlanRows, taskLines]);
 
+  const isTimeline = activeTab === 'TabPlanTimeline';
+  const timelineDays = useMemo(() => (isTimeline ? buildTaskLinePlanTimeline(taskPlanRows) : []), [isTimeline, taskPlanRows]);
+
   const filteredSummaries = useMemo(() => {
-    if (!activeTabDef || activeTabDef.genus === 'all') return summaries;
+    if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return summaries;
     return summaries.filter((s) => {
       const line = linesById.get(s.lineGUID);
       return line?.rowParentGUID === activeTabDef.genus;
@@ -71,7 +76,7 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
   const columns = useMemo(() => buildPlanColumns({ data, linesById, textColor: c.text, mutedColor: c.text + '99' }), [data, linesById, c.text]);
   const rowFilter = useCallback(
     (row: ReusableTableRow) => {
-      if (!activeTabDef || activeTabDef.genus === 'all') return true;
+      if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return true;
       const line = linesById.get(row.rowParentGUID);
       return line?.rowParentGUID === activeTabDef.genus;
     },
@@ -90,11 +95,13 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
 
   return (
     <View testID={testID} style={styles.root}>
-      {/* Budgets sub-tabs: TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll */}
+      {/* Budgets sub-tabs: TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll, TabPlanTimeline */}
       <View style={[styles.tabs, { borderBottomColor: c.border }]} testID={`${testID}-tabs`}>
         {PLAN_BUDGET_TABS.map((tab) => {
           const isSelected = activeTab === tab.id;
-          const count = tab.genus === 'all'
+          const count = tab.genus === 'timeline'
+            ? 0
+            : tab.genus === 'all'
             ? taskLines.length
             : taskLines.filter((l) => l.rowParentGUID === tab.genus).length;
           return (
@@ -128,7 +135,7 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
         })}
       </View>
 
-      {filteredSummaries.length > 0 && (
+      {!isTimeline && filteredSummaries.length > 0 && (
         <View testID={`${testID}-summary`} style={[styles.summary, { borderColor: c.border, backgroundColor: c.surface }]}>
           {filteredSummaries.map((s) => {
             const line = linesById.get(s.lineGUID);
@@ -144,8 +151,11 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
           })}
         </View>
       )}
+      {isTimeline && <PMTaskLinePlanTimeline testID={`${testID}-timeline`} days={timelineDays} />}
+      {/* the table stays mounted (hidden on Timeline): it is the one that reads the plan rows into redux */}
+      <View style={isTimeline ? styles.hidden : undefined}>
       <ReusableTable
-        key={activeTab}
+        key={isTimeline ? 'TabPlanAll' : activeTab}
         testID={`${testID}-table`}
         entityName={TASK_LINE_PLAN_ENTITY}
         crudListTitle={pmT('Budgets')}
@@ -165,6 +175,7 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
         realtime
         emptyText={pmT('Nothing posted yet. Choose a budget item on the lines and press Post (Edit).')}
       />
+      </View>
     </View>
   );
 }
@@ -175,6 +186,7 @@ const styles = StyleSheet.create({
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, paddingBottom: 8, paddingLeft: 12, paddingRight: 18, borderBottomWidth: 2 },
   badge: { position: 'absolute', top: 2, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#ffffff', fontSize: 11, fontWeight: '800', lineHeight: 14 },
+  hidden: { display: 'none' },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 12 },
   summary: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 10, gap: 6 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },

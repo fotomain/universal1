@@ -337,8 +337,8 @@ CREATE POLICY "currencyExchangeRateTable_insert" ON public."currencyExchangeRate
 CREATE POLICY "currencyExchangeRateTable_update" ON public."currencyExchangeRateTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "currencyExchangeRateTable_delete" ON public."currencyExchangeRateTable" FOR DELETE TO authenticated USING (true);
 
--- ---- organizationTable: rowOwnerGUID 'organizationCatalog'. Created on first login ----------
---      (app/_layout.tsx). Read: signed-in; update / sql_for_delete: only rowJSON.createdByUser
+-- ---- organizationTable: rowOwnerGUID = the user's email (1 user === 1 organization). Created on first login ----
+--      (app/_layout.tsx -> ensureUserOrganization). Read: signed-in; update / sql_for_delete: only rowJSON.createdByUser
 CREATE TABLE IF NOT EXISTS public."organizationTable" (
   "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
   "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'organizationCatalog',
@@ -351,6 +351,23 @@ CREATE TABLE IF NOT EXISTS public."organizationTable" (
 );
 CREATE INDEX IF NOT EXISTS "idx_organizationTable_title" ON public."organizationTable" ((lower("rowJSON"->>'organizationTitle')));
 CREATE INDEX IF NOT EXISTS "idx_organizationTable_createdByUser" ON public."organizationTable" (("rowJSON"->>'createdByUser'));
+-- RULE 1 user === 1 organization: rowOwnerGUID = lower(createdByUser) = the user's email.
+-- Older rows (rowOwnerGUID 'organizationCatalog'): the OLDEST organization of each user becomes the user's own;
+-- extra ones stay 'organizationCatalog' (not deleted - the user removes them in the Organizations list).
+UPDATE public."organizationTable" o
+   SET "rowOwnerGUID" = lower(o."rowJSON"->>'createdByUser'),
+       "rowJSON" = jsonb_set(o."rowJSON", '{createdByUser}', to_jsonb(lower(o."rowJSON"->>'createdByUser')))
+ WHERE o."rowOwnerGUID" = 'organizationCatalog'
+   AND coalesce(o."rowJSON"->>'createdByUser', '') <> ''
+   AND o."rowGUID" = (SELECT x."rowGUID" FROM public."organizationTable" x
+                       WHERE x."rowOwnerGUID" = 'organizationCatalog'
+                         AND lower(x."rowJSON"->>'createdByUser') = lower(o."rowJSON"->>'createdByUser')
+                       ORDER BY x."orderInList", x."created_at", x."rowGUID" LIMIT 1)
+   AND NOT EXISTS (SELECT 1 FROM public."organizationTable" y
+                    WHERE y."rowOwnerGUID" = lower(o."rowJSON"->>'createdByUser'));
+-- the database refuses a second organization of the same owner (the catalog owner is not a user)
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationTable_one_per_user" ON public."organizationTable" ("rowOwnerGUID")
+  WHERE "rowOwnerGUID" <> 'organizationCatalog';
 SELECT public.kit8_setup_def_table('organizationTable');
 REVOKE ALL ON public."organizationTable" FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."organizationTable" TO authenticated;
@@ -3866,7 +3883,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- PART 15: create_task_line_plan_table.sql
--- task_line_plan (the posted days of the task lines) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
+-- task_line_plan (the posted days of the task lines) + task_line_plan_timeline (the same grouped by day) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
 -- ===============================================================================================
 
 -- =====================================================================================
@@ -3953,6 +3970,66 @@ BEGIN
 END $$;
 
 -- -------------------------------------------------------------------------------------
+-- task_line_plan_timeline - the posted days of task_line_plan_movements GROUPED BY DAY (the tab "Timeline" of the Budgets view of a task).
+--   rowProjectGUID / rowOwnerGUID   as in task_line_plan_movements (the project and the task; FK, cascade)
+--   rowPeriodDatetime               the DAY, always: the start of the day (00:00:00 in the zone of the post) - unique with the line
+--   taskLineGUID                    task_line_table.rowGUID (FK, cascade: a deleted line takes its days with it)
+--   qtyForBudget                    the sum of task_line_plan_movements.qtyTaskLine of the line on that day
+--   sumForContract · sumForBudget   the sums of the same columns of the movements
+-- The app only READS it. The rows are created by create_task_line_plan (the Post of a task): the earlier rows of the task are replaced in the same
+-- transaction, so the timeline always equals the movements.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.task_line_plan_timeline (
+  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL,
+  "taskLineGUID"      UUID          NOT NULL REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
+  "qtyForBudget"      NUMERIC(18,2),
+  "sumForContract"    NUMERIC(18,2),
+  "sumForBudget"      NUMERIC(18,2),
+  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_line_plan_timeline_line_day_uq UNIQUE ("taskLineGUID", "rowPeriodDatetime")
+);
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_task    ON public.task_line_plan_timeline ("rowOwnerGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_project ON public.task_line_plan_timeline ("rowProjectGUID", "rowPeriodDatetime");
+
+DROP TRIGGER IF EXISTS trg_task_line_plan_timeline_touch ON public.task_line_plan_timeline;
+CREATE TRIGGER trg_task_line_plan_timeline_touch BEFORE UPDATE ON public.task_line_plan_timeline
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+ALTER TABLE public.task_line_plan_timeline REPLICA IDENTITY FULL;
+
+ALTER TABLE public.task_line_plan_timeline ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_line_plan_timeline FROM anon, authenticated;
+GRANT SELECT ON public.task_line_plan_timeline TO authenticated;
+DROP POLICY IF EXISTS task_line_plan_timeline_select ON public.task_line_plan_timeline;
+CREATE POLICY task_line_plan_timeline_select ON public.task_line_plan_timeline FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_line_plan_timeline') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.task_line_plan_timeline;
+  END IF;
+END $$;
+
+-- days posted before this table existed: one row per line and day (the movements are already one per line and day, each at the start of its day)
+INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget")
+SELECT m."rowProjectGUID", m."rowOwnerGUID", m."rowPeriodDatetime", m."rowParentGUID", SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget")
+  FROM public.task_line_plan_movements m
+ GROUP BY m."rowProjectGUID", m."rowOwnerGUID", m."rowParentGUID", m."rowPeriodDatetime"
+ON CONFLICT ("taskLineGUID", "rowPeriodDatetime") DO NOTHING;
+
+-- -------------------------------------------------------------------------------------
 -- RPC create_task_line_plan("taskLinePlanJSON") - ONE transaction: replaces the posted days of a task.
 --
 --   { "taskGUID": "<uuid>",
@@ -4009,6 +4086,7 @@ BEGIN
 
   -- the earlier days of the task are replaced
   DELETE FROM public.task_line_plan_movements WHERE "rowOwnerGUID" = v_task;
+  DELETE FROM public.task_line_plan_timeline WHERE "rowOwnerGUID" = v_task;
 
   FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
     v_guid := (v_line->>'lineGUID')::uuid;
@@ -4107,6 +4185,14 @@ BEGIN
 
     v_ids := v_ids || v_guid;
   END LOOP;
+
+  -- the timeline: the movements of the task grouped by line and DAY (the start of the day in the zone of the post)
+  INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget")
+  SELECT m."rowProjectGUID", m."rowOwnerGUID", date_trunc('day', m."rowPeriodDatetime" AT TIME ZONE v_tz) AT TIME ZONE v_tz, m."rowParentGUID",
+         SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget")
+    FROM public.task_line_plan_movements m
+   WHERE m."rowOwnerGUID" = v_task
+   GROUP BY m."rowProjectGUID", m."rowOwnerGUID", m."rowParentGUID", date_trunc('day', m."rowPeriodDatetime" AT TIME ZONE v_tz) AT TIME ZONE v_tz;
 
   -- posted lines: taskIsPosted + the base (a merge, no other key of the line is lost)
   UPDATE public.task_line_table l
@@ -4788,6 +4874,76 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT "rowGUID", "rowJSON"->>'acceptsCosts' AS costs, "rowJSON"->>'acceptsRevenues' AS revenues FROM public."cfrTypeTable" ORDER BY "orderInList";
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title', "rowJSON"->>'cfrAssigned', public.kit8_business_unit_cfr("rowGUID") AS effective FROM public."businessUnitTable" ORDER BY "orderInList";   -- 29 rows
 
+
+-- ===============================================================================================
+-- PART 19: create_budget_scenario_table.sql
+-- budgetScenarioTable (a plain list of budget scenarios: plan | fact) + the two seed scenarios
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - BUDGET SCENARIOS: create_budget_scenario_table.sql
+-- (run AFTER parts 1-18; IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT. Remove again with PART 16 of delete_sql_structure.sql.)
+-- Design: documentation/BUDGET_PLAN_CALCULATION.html, Part 1 (document "W1 BUDGET WBS"). The app: kit8/catalog/budget/scenario (screen /budget/scenario/list), the project keys
+-- project_table.rowJSON.budgetScenarioForPlan / budgetScenarioForFact (Project settings -> Budgets). Not here yet: the guards (a scenario in use is not deleted) and the turnover register.
+--
+-- budgetScenarioTable - a PLAIN LIST (no folders, no tree), the same shape as the other catalogs:
+--   rowGUID (text, the code; seeds: planScenarioProject1, factScenarioProject1) · rowOwnerGUID 'budgetScenarioCatalog' · rowParentGUID 'empty' ALWAYS (a CHECK keeps it so)
+--   orderInList · rowJSON { title, description, scenarioKind: 'plan' | 'fact', isActive } - scenarioKind is the only field the calculation will read
+--   (a CHECK refuses any other value of scenarioKind; a row without it is allowed, so a new row can be added first and filled after)
+-- =====================================================================================
+
+CREATE TABLE IF NOT EXISTS public."budgetScenarioTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'budgetScenarioCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "budgetScenarioTable_plain_list_chk" CHECK ("rowParentGUID" = 'empty'),
+  CONSTRAINT "budgetScenarioTable_kind_chk" CHECK ("rowJSON"->>'scenarioKind' IN ('plan', 'fact'))
+);
+CREATE INDEX IF NOT EXISTS "idx_budgetScenarioTable_owner_order" ON public."budgetScenarioTable" ("rowOwnerGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS "idx_budgetScenarioTable_kind" ON public."budgetScenarioTable" ((("rowJSON"->>'scenarioKind')));
+SELECT public.kit8_setup_def_table('budgetScenarioTable');
+
+DO $$
+DECLARE
+  t text := 'budgetScenarioTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+END $$;
+
+-- the two scenarios of the document
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'budgetScenarioTable') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public."budgetScenarioTable";
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Check:
+--   SELECT "rowGUID", "rowJSON"->>'title', "rowJSON"->>'scenarioKind' FROM public."budgetScenarioTable" ORDER BY "orderInList";   -- 2 rows
 
 -- ===============================================================================================
 -- END of start_sql_structure.sql

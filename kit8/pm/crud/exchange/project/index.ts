@@ -8,3 +8,5 @@ export { downloadTextFile } from './export/downloadTextFile';
 export { importProjectFromFile, pickProjectDataFile } from './import/importProjectFromFile';
 export { planProjectImport } from './import/planProjectImport';
 export { readDroppedFileText } from './import/readDroppedFileText';
+export { applyBudgetSettingsOfImport } from './import/budgetSettingsOfImport';
+export type { BudgetCatalogsForImport } from './import/budgetSettingsOfImport';

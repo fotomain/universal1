@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Genus Timeline Control &amp; Resource Collision Detection (WBS)</title>
+<style>
+  /* Light business theme matching UNIVERSAL1 PM documentation standard (offline-capable) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7;
+    --rose: #e11d48; --rose-soft: #ffe4e6; --fuchsia: #c026d3; --fuchsia-soft: #fae8ff;
+    --blue: #2563eb; --blue-soft: #dbeafe;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    --mono: ui-monospace, 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 2px 6px; border-radius: 6px; overflow-wrap: anywhere; border: 1px solid var(--border); }
+  pre { font: 12.5px/1.55 var(--mono); background: #0f172a; color: #e2e8f0; padding: 16px 18px; border-radius: 12px; overflow-x: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,.4); }
+  header.top { position: sticky; top: 0; z-index: 20; background: rgba(255,255,255,.95); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 12px 20px; }
+  .brand { font-weight: 700; font-size: 16px; white-space: nowrap; color: var(--purple); display: flex; align-items: center; gap: 8px; }
+  .brand-badge { font-size: 11px; background: var(--purple-soft); color: var(--purple); padding: 2px 8px; border-radius: 999px; text-transform: uppercase; font-weight: 700; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13px; transition: all .15s ease; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 20px 100px; }
+  section { margin-top: 40px; }
+  h1 { font-size: 34px; line-height: 1.18; margin: 0 0 12px; letter-spacing: -0.025em; color: var(--text); }
+  h2 { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.015em; color: var(--text); border-bottom: 2px solid var(--bg-subtle); padding-bottom: 8px; }
+  h3 { font-size: 17px; margin: 20px 0 10px; color: var(--text-2); }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; margin-bottom: 18px; line-height: 1.65; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid-3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.alert { background: var(--rose-soft); color: var(--rose); }
+  .pill.spec { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--bg-subtle); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  ol.steps, ul.tight { margin: 0; padding-left: 22px; }
+  ol.steps li, ul.tight li { margin: 6px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 12px; padding: 14px 18px; margin: 16px 0; font-size: 14.5px; }
+  .info { background: var(--blue-soft); border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; margin: 16px 0; font-size: 14.5px; }
+  .danger { background: var(--rose-soft); border: 1px solid #fecdd3; border-radius: 12px; padding: 14px 18px; margin: 16px 0; font-size: 14.5px; }
+  .success { background: var(--emerald-soft); border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 18px; margin: 16px 0; font-size: 14.5px; }
+  .diagram { background: #0f172a; color: #f1f5f9; padding: 20px; border-radius: 12px; font-family: var(--mono); font-size: 13px; line-height: 1.5; overflow-x: auto; margin: 16px 0; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+  .tag { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 1px 5px; border-radius: 4px; background: var(--bg-subtle); border: 1px solid var(--border); }
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .status-design { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span>UNIVERSAL1</span>
+      <span class="brand-badge">W1 BEFORE POST</span>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#goal">Executive Summary</a></li>
+        <li><a href="#need">Business Need</a></li>
+        <li><a href="#tiers">Control Tiers</a></li>
+        <li><a href="#variants">Variants Analysis</a></li>
+        <li><a href="#periods">Control Periods</a></li>
+        <li><a href="#model">Abstract Model</a></li>
+        <li><a href="#sql">SQL Mechanics</a></li>
+        <li><a href="#wbs">WBS Breakdown</a></li>
+        <li><a href="#decisions">Open Decisions</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- SECTION 0: GOAL & EXECUTIVE SUMMARY -->
+<section id="goal">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>Time Genus Timeline Control &amp; Collision Detection <span class="pill spec">WBS Specification</span></h1>
+      <p class="lead">
+        <b>W1 BEFORE POST</b> architectural specification and Work Breakdown Structure (WBS).<br>
+        Source: Google Doc <i>"W1 BEFORE POST"</i>. 
+        <span class="status-badge status-design">Architectural Blueprint &bull; No Application Code Modified (Do Not Coding)</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="danger">
+    <b>Directive Compliance:</b> "Do not coding." This document establishes the complete architectural plan, abstract entity designs, state transition models, and Work Breakdown Structure (WBS) for checking resource busy status on the timeline prior to committing plan movements.
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <span class="pill alert">1. The Need</span>
+      <h3>Prevent Double-Booking</h3>
+      <p>Human resources and equipment (classified under <code>timeGenus</code>) have physical, non-elastic availability. The system must verify whether a resource is already booked on overlapping timeline intervals before committing plan movements.</p>
+    </div>
+    <div class="card">
+      <span class="pill chg">2. The Method</span>
+      <h3>Optimistic Calculation &amp; Purge</h3>
+      <p>Execute task line plan calculations optimistically into <code>task_line_plan_movements</code>. Check every line against timeline availability. If any resource is occupied, atomically purge all generated movements and report collision diagnostics.</p>
+    </div>
+    <div class="card">
+      <span class="pill spec">3. The Architecture</span>
+      <h3>Abstract &amp; Multi-Scale</h3>
+      <p>Decouple timeline conflict control from single tables. Utilize an abstract timeline occupancy model supporting flexible granularities (<b>Day</b>, <b>Hour</b>, <b>Minute</b>) reusable across projects, work orders, and rentals.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 1: BUSINESS NEED -->
+<section id="need">
+  <h2>1. Business Need &amp; Timeline Concurrency Problem</h2>
+  <p class="sub">Why <code>timeGenus</code> is fundamentally different from Material, Expense, and Revenue lines.</p>
+
+  <p>In UNIVERSAL1 Project Management, resources belong to distinct management genuses:</p>
+  <ul>
+    <li><b>Material Genus (<code>materialGenus</code>)</b>: Storable inventory items. Multi-allocation is permitted up to available inventory; they do not occupy time slots.</li>
+    <li><b>Expense Genus (<code>expenseGenus</code>) &amp; Revenue Genus (<code>revenueGenus</code>)</b>: Financial entries and invoices. Pure accounting figures with no operational exclusivity.</li>
+    <li><b>Time Genus (<code>timeGenus</code>)</b>: People (<i>Human Resources</i> booked by hour/day) and Machines/Tools (<i>Equipment Resources</i>). <b>Time cannot be inventoried.</b> A human developer or a 20-ton crane cannot physically execute two disjoint activities simultaneously during the exact same hour or minute.</li>
+  </ul>
+
+  <div class="diagram">
+TIMELINE COLLISION SCENARIO:
+============================
+Calendar Day: 2026-10-15 [09:00 - 18:00]
+Resource:     "John Doe (Senior Backend Dev)" [Max Capacity: 1.0 FTE / 8.0 hrs/day]
+
+Task #101 (Already Posted):
+[======== 6.0 Hours Allocated (09:00 - 15:00) ========] 
+
+Task #102 (Attempting to Post):
+                [======== 4.0 Hours Allocated (13:00 - 17:00) ========]
+                                  ^^^ OVERLAP COLLISION! ^^^
+Total Load on 2026-10-15: 10.0 Hours &gt; 8.0 Max Capacity (Overload = 2.0 hrs)
+ACTION REQUIRED: Detect collision BEFORE post finalize &rarr; Block Task #102 &rarr; Rollback/Delete!
+  </div>
+
+  <div class="info">
+    <b>Core Business Requirement:</b> Before a task's financial plan is accepted as posted (<code>taskIsPosted: true</code>), every line carrying a <code>timeGenus</code> resource must be validated against all concurrent timeline allocations. If the resource is already occupied, the post action must fail with explicit conflict reporting.
+  </div>
+</section>
+
+<!-- SECTION 2: CONTROL TIERS -->
+<section id="tiers">
+  <h2>2. Control Tiers: <code>task_line_table</code> vs <code>task_line_plan_movements</code></h2>
+  <p class="sub">The document specifies: <i>"Application must control each timeGenus line: or task_line_table or task_line_plan_movements for timeGenus related resources."</i></p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Control Tier</th>
+          <th>Where It Operates</th>
+          <th>When Evaluated</th>
+          <th>Granularity</th>
+          <th>Strengths &amp; Weaknesses</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Tier A: Line Level<br><code>task_line_table</code></b></td>
+          <td>Directly on task finance lines in <code>PMProjectTaskFinancesCRUD</code></td>
+          <td>Pre-post validation: upon line save, rate change, or task date shift</td>
+          <td>Macro (Task span: <code>taskStartDate &rarr; taskFinishDate</code>)</td>
+          <td>
+            <span class="pill new">Fast UI Feedback</span> Warns user while drafting.
+            <br><span class="pill alert">Coarse-Grained</span> Cannot account for distribution curves (e.g., resource only needed on day 5 of a 10-day task; Tier A would falsely flag days 1-4).
+          </td>
+        </tr>
+        <tr>
+          <td><b>Tier B: Movement Level<br><code>task_line_plan_movements</code></b></td>
+          <td>On calculated, distributed plan rows generated during <code>postTask</code></td>
+          <td>During the posting transaction, after distribution &amp; calendar filtering</td>
+          <td>Micro (Concrete active periods: Day, Hour, Minute)</td>
+          <td>
+            <span class="pill new">100% Mathematically Exact</span> Considers actual distributed shares, calendar days off, and coefficients.
+            <br><span class="pill spec">Recommended</span> Catches real operational overlap down to specific slots.
+          </td>
+        </tr>
+        <tr>
+          <td><b>Tier C: Unified Two-Tier Hybrid (Recommended Architecture)</b></td>
+          <td>Tier A for soft visual hints + Tier B as hard transactional gate</td>
+          <td>Real-time warnings in UI + strict enforcement inside SQL RPC</td>
+          <td>Continuous from draft to post</td>
+          <td>Combines immediate UX responsiveness with zero-defect database integrity.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SECTION 3: VARIANTS ANALYSIS -->
+<section id="variants">
+  <h2>3. Strategy Analysis &amp; The Optimistic Variant</h2>
+  <p class="sub">Evaluation of execution paths: Optimistic Purge vs Pessimistic Pre-Check.</p>
+
+  <div class="grid">
+    <div class="card" style="border-left: 4px solid var(--purple);">
+      <span class="pill spec">User-Specified Variant</span>
+      <h3>Variant 1: Optimistic Posting with Automatic Purge</h3>
+      <p><b>Workflow:</b></p>
+      <ol class="steps">
+        <li>Calculate full distribution for the task lines.</li>
+        <li>Insert the resulting daily/hourly rows directly into <code>task_line_plan_movements</code>.</li>
+        <li>Run collision check across all inserted lines of <code>timeGenus</code> resources.</li>
+        <li><b>Decision Gate:</b>
+          <ul>
+            <li><b>If Clear:</b> Keep rows, update timeline register, mark <code>taskIsPosted = true</code>, commit.</li>
+            <li><b>If Resource Busy:</b> Immediately execute:
+              <br><code>DELETE FROM task_line_plan_movements WHERE "rowOwnerGUID" = taskGUID;</code>
+              <br>Mark <code>taskIsPosted = false</code>, raise collision exception with conflicting task ID and period.</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="note">
+        <b>Why this is advantageous:</b> Reuses existing distribution math, normalization, and Correct033 logic without writing a duplicate "shadow dry-run" engine. The database SQL engine performs set-based collision checks directly against indexed rows.
+      </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--muted);">
+      <span class="pill chg">Alternative Variant</span>
+      <h3>Variant 2: Pessimistic Dry-Run Pre-Check</h3>
+      <p><b>Workflow:</b></p>
+      <ol class="steps">
+        <li>Calculate distribution in memory (TypeScript or temporary PostgreSQL CTE/unlogged table).</li>
+        <li>Query timeline occupancy register for busy collisions before writing any rows to <code>task_line_plan_movements</code>.</li>
+        <li>If collision detected: abort immediately with error without writing any database records.</li>
+        <li>If clear: proceed with persistent insert into <code>task_line_plan_movements</code>.</li>
+      </ol>
+      <div class="info">
+        <b>Tradeoff:</b> Avoids write-then-delete IO churn on database tables, but requires maintaining two execution paths (dry-run validator vs actual inserter) or uncommitted transaction rollbacks.
+      </div>
+    </div>
+  </div>
+
+  <h3>Detailed Comparison Matrix</h3>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Evaluation Criteria</th>
+          <th>Variant 1: Optimistic Purge (Specified)</th>
+          <th>Variant 2: Pessimistic Pre-Check</th>
+          <th>Variant 3: Transactional Savepoint Rollback</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Implementation Simplicity</b></td>
+          <td><b>High</b> &ndash; Fits directly into <code>create_task_line_plan</code> RPC</td>
+          <td>Medium &ndash; Needs separate pre-flight query contract</td>
+          <td><b>High</b> &ndash; Native PostgreSQL <code>ROLLBACK TO SAVEPOINT</code></td>
+        </tr>
+        <tr>
+          <td><b>Data Integrity</b></td>
+          <td>Guaranteed &ndash; Collision deletes all lines of task</td>
+          <td>Guaranteed &ndash; No invalid rows written</td>
+          <td>Guaranteed &ndash; Zero database disk churn on collision</td>
+        </tr>
+        <tr>
+          <td><b>Diagnostic Richness</b></td>
+          <td><b>Highest</b> &ndash; Can pinpoint exact colliding rows in SQL</td>
+          <td>Medium &ndash; Requires passing JSON structure to query</td>
+          <td><b>Highest</b> &ndash; Structured JSON error payload before abort</td>
+        </tr>
+        <tr>
+          <td><b>Concurrency / Locking</b></td>
+          <td>Protected by <code>FOR UPDATE</code> lock on task</td>
+          <td>Susceptible to phantom collisions between check &amp; post</td>
+          <td>Protected within single atomic transaction</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SECTION 4: CONTROL PERIODS -->
+<section id="periods">
+  <h2>4. Control Periods: Day, Hour, Minute</h2>
+  <p class="sub">The document specifies: <i>"Minimum control periods maybe: Day, hour, minute."</i></p>
+
+  <p>Different tasks and resources operate on different operational timeframes. A construction worker or crane might be scheduled in full days, a machine operator or senior consultant in hours, and high-contention surgical equipment, testing benches, or drones in minute slots.</p>
+
+  <div class="grid-3">
+    <div class="card">
+      <span class="pill new">Period 1</span>
+      <h3>Day Granularity</h3>
+      <p class="sub"><code>rowGranularity = 'day'</code></p>
+      <ul class="tight">
+        <li><b>Period Format:</b> <code>YYYY-MM-DD 00:00:00+TZ</code></li>
+        <li><b>Duration:</b> 1 full calendar day (or project work day, e.g., 8 hours).</li>
+        <li><b>Collision Rule:</b> 
+          <br>Binary: Resource assigned to another task on same date.
+          <br>Or Cumulative: Total hours across tasks on day &gt; daily working capacity (e.g., &gt; 8h).</li>
+        <li><b>Use Case:</b> High-level Gantt tasks, milestone allocations.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="pill chg">Period 2</span>
+      <h3>Hour Granularity</h3>
+      <p class="sub"><code>rowGranularity = 'hour'</code></p>
+      <ul class="tight">
+        <li><b>Period Format:</b> <code>YYYY-MM-DD HH:00:00+TZ</code></li>
+        <li><b>Duration:</b> 1 hour block (60 minutes).</li>
+        <li><b>Collision Rule:</b>
+          <br>Direct slot overlap:
+          <br><code>(start_a &lt; end_b AND end_a &gt; start_b)</code>
+          <br>No two tasks can book the same resource during the same clock hour.</li>
+        <li><b>Use Case:</b> Shift work, equipment rental, technician visits.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="pill spec">Period 3</span>
+      <h3>Minute Granularity</h3>
+      <p class="sub"><code>rowGranularity = 'minute'</code></p>
+      <ul class="tight">
+        <li><b>Period Format:</b> <code>YYYY-MM-DD HH:MM:00+TZ</code></li>
+        <li><b>Duration:</b> Discrete minute interval (e.g., 1 min, 15 min, 30 min).</li>
+        <li><b>Collision Rule:</b>
+          <br>Precise range intersection using PostgreSQL <code>tstzrange</code> GiST exclusion constraint:
+          <br><code>period_range &amp;&amp; existing_range</code></li>
+        <li><b>Use Case:</b> Lab testing benches, drone flights, meeting rooms, tight micro-tasks.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Interval Math &amp; Range Overlap Formulation</h3>
+  <div class="diagram">
+MATHEMATICAL COLLISION FORMULA:
+===============================
+Given two allocations A and B for the same physical resource R:
+A = [A.startDatetime, A.endDatetime)
+B = [B.startDatetime, B.endDatetime)
+
+Collision Condition:
+(A.startDatetime &lt; B.endDatetime) AND (A.endDatetime &gt; B.startDatetime)
+
+Capacity Check (for Non-Exclusive or Shared Resources):
+For any time point t in [A.start, A.end]:
+&Sigma; allocatedCapacity(R, t) &le; maxCapacity(R)
+If &Sigma; allocatedCapacity &gt; maxCapacity &rarr; COLLISION!
+  </div>
+</section>
+
+<!-- SECTION 5: ABSTRACT MODEL & REUSABILITY -->
+<section id="model">
+  <h2>5. Abstract Timeline Occupancy Architecture</h2>
+  <p class="sub">The document specifies: <i>"The table names and mechanisms must be abstract to make them reusable."</i></p>
+
+  <p>To ensure reusability beyond <code>project_task_table</code> (e.g., for equipment maintenance orders, facility bookings, production dispatch, external contracts), the timeline control mechanism is factored into an abstract register pattern.</p>
+
+  <div class="diagram">
++---------------------------------------------------------------------------------------------------+
+|                                      APPLICATION CONSUMERS                                        |
+|  [PM Project Tasks]          [Equipment Maintenance]          [Facility Bookings]       [Fleet]   |
++---------------------------------------------------------------------------------------------------+
+                                                  |
+                                                  v
++---------------------------------------------------------------------------------------------------+
+|                        ABSTRACT TIMELINE CONTROL SERVICE / PROCEDURES                             |
+|  * check_resource_timeline_busy(p_resource, p_range, p_granularity, p_exclude_owner)              |
+|  * register_resource_timeline_occupancy(...)                                                      |
+|  * optimistic_timeline_post_and_validate(...)                                                     |
++---------------------------------------------------------------------------------------------------+
+                                                  |
+                                                  v
++---------------------------------------------------------------------------------------------------+
+|                                 ABSTRACT STORAGE REGISTERS                                        |
+|                                                                                                   |
+|  Table: abstract_resource_occupancy_movements                                                     |
+|  -----------------------------------------------------------------------------------------------  |
+|  rowGUID              UUID PK                                                                     |
+|  rowProjectGUID       UUID FK project_table (or tenant entity)                                    |
+|  rowOwnerGUID         UUID polymorphic owner (task, work order, booking GUID)                     |
+|  rowOwnerTable        TEXT ('project_task_table', 'maintenance_table', etc.)                      |
+|  rowLineGUID          UUID source line (task_line_table.rowGUID)                                  |
+|  resourceGUID         TEXT / UUID identifier of person or equipment                               |
+|  resourceRoleGUID     TEXT / UUID role identifier (e.g., 'hr_pm', 'equipment_crane')              |
+|  resourceKind         TEXT ('person', 'equipment', 'vehicle', 'room')                             |
+|  periodStartDatetime  TIMESTAMPTZ starting timestamp                                              |
+|  periodEndDatetime    TIMESTAMPTZ ending timestamp (exclusive)                                    |
+|  periodGranularity    TEXT ('day', 'hour', 'minute')                                              |
+|  allocatedCapacity    NUMERIC(10,4) (e.g., 1.0 = 100%, 0.5 = half-time, 8.0 = 8 hours)            |
+|  maxCapacity          NUMERIC(10,4) default 1.0                                                   |
+|  isExclusive          BOOLEAN default TRUE (binary busy)                                          |
+|  rowJSON              JSONB metadata (task title, project title, notes)                           |
++---------------------------------------------------------------------------------------------------+
+  </div>
+
+  <h3>Entity Schema Definition: <code>abstract_resource_occupancy_movements</code></h3>
+  <pre>-- Abstract reusable resource timeline occupancy register
+CREATE TABLE IF NOT EXISTS public.abstract_resource_occupancy_movements (
+  "rowGUID"              UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"       UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"         UUID          NOT NULL, -- Polymorphic: task, work order, rental
+  "rowOwnerTable"        TEXT          NOT NULL DEFAULT 'project_task_table',
+  "rowLineGUID"          UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
+  "resourceGUID"         TEXT          NOT NULL, -- Person GUID, Equipment GUID, etc.
+  "resourceRoleGUID"     TEXT,
+  "resourceKind"         TEXT          NOT NULL DEFAULT 'person', -- 'person' | 'equipment' | 'room'
+  "periodStartDatetime"  TIMESTAMPTZ   NOT NULL,
+  "periodEndDatetime"    TIMESTAMPTZ   NOT NULL,
+  "periodGranularity"    TEXT          NOT NULL DEFAULT 'day', -- 'day' | 'hour' | 'minute'
+  "allocatedCapacity"    NUMERIC(10,4) NOT NULL DEFAULT 1.0000,
+  "maxCapacity"          NUMERIC(10,4) NOT NULL DEFAULT 1.0000,
+  "isExclusive"          BOOLEAN       NOT NULL DEFAULT TRUE,
+  "rowJSON"              JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT abstract_occupancy_period_chk CHECK ("periodEndDatetime" > "periodStartDatetime"),
+  CONSTRAINT abstract_occupancy_granularity_chk CHECK ("periodGranularity" IN ('day', 'hour', 'minute'))
+);
+
+-- Fast lookup indexes for conflict detection
+CREATE INDEX IF NOT EXISTS idx_abstract_occ_resource_period 
+  ON public.abstract_resource_occupancy_movements ("resourceGUID", "periodStartDatetime", "periodEndDatetime");
+
+CREATE INDEX IF NOT EXISTS idx_abstract_occ_owner 
+  ON public.abstract_resource_occupancy_movements ("rowOwnerGUID", "rowOwnerTable");
+</pre>
+</section>
+
+<!-- SECTION 6: SQL MECHANICS -->
+<section id="sql">
+  <h2>6. SQL Mechanics: Optimistic Post &amp; Automatic Collision Purge</h2>
+  <p class="sub">Step-by-step implementation of the optimistic check and delete mechanism.</p>
+
+  <p>Inside the enhanced posting procedure (<code>create_task_line_plan</code> / <code>create_abstract_task_plan</code>), the workflow executes as follows:</p>
+
+  <ol class="steps">
+    <li><b>Delete Old Rows:</b> Purge existing movements of the task being re-posted (so a re-post doesn't collide with itself).</li>
+    <li><b>Insert Proposed Rows:</b> Insert new rows into <code>task_line_plan_movements</code> with normalized coefficients and Correct033 applied.</li>
+    <li><b>Synchronize Abstract Movements:</b> For every line where <code>rowParentGUID = 'timeGenus'</code> and a concrete resource is assigned (<code>taskResourceItem</code> not empty), insert corresponding records into <code>abstract_resource_occupancy_movements</code>.</li>
+    <li><b>Run Set-Based Collision Check:</b> Query whether any of the newly inserted <code>timeGenus</code> periods overlap with existing occupied periods for the same resource owned by other tasks/owners.</li>
+    <li><b>Evaluate Collision Decision:</b>
+      <ul>
+        <li><b>NO COLLISION:</b> Proceed to update timeline register, mark <code>task_line_table.rowJSON.taskIsPosted = true</code>, and return success.</li>
+        <li><b>COLLISION DETECTED:</b> 
+          <br><b>PURGE ALL LINES:</b> Execute:
+          <pre>DELETE FROM public.task_line_plan_movements WHERE "rowOwnerGUID" = v_task;
+DELETE FROM public.abstract_resource_occupancy_movements WHERE "rowOwnerGUID" = v_task;
+UPDATE public.task_line_table 
+   SET "rowJSON" = "rowJSON" || '{"taskIsPosted": false}'::jsonb 
+ WHERE "rowOwnerGUID" = v_task;</pre>
+          <br><b>RAISE EXCEPTION:</b> Abort the transaction with structured JSON error details identifying the colliding resource, conflicting task title, and overlapping period.
+        </li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>SQL Stored Procedure Implementation Blueprint</h3>
+  <pre>-- Blueprint: Set-based resource collision validator
+CREATE OR REPLACE FUNCTION public.check_resource_timeline_collision(
+  p_task_guid        UUID,
+  p_project_guid     UUID
+) RETURNS TABLE (
+  has_collision      BOOLEAN,
+  colliding_resource TEXT,
+  conflicting_owner  UUID,
+  conflict_start     TIMESTAMPTZ,
+  conflict_end       TIMESTAMPTZ,
+  error_message      TEXT
+) LANGUAGE plpgsql SECURITY INVOKER AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    TRUE AS has_collision,
+    new_occ."resourceGUID" AS colliding_resource,
+    exist_occ."rowOwnerGUID" AS conflicting_owner,
+    GREATEST(new_occ."periodStartDatetime", exist_occ."periodStartDatetime") AS conflict_start,
+    LEAST(new_occ."periodEndDatetime", exist_occ."periodEndDatetime") AS conflict_end,
+    format('Resource %s is already busy on task %s from %s to %s',
+           new_occ."resourceGUID", exist_occ."rowOwnerGUID", 
+           GREATEST(new_occ."periodStartDatetime", exist_occ."periodStartDatetime"),
+           LEAST(new_occ."periodEndDatetime", exist_occ."periodEndDatetime")) AS error_message
+    FROM public.abstract_resource_occupancy_movements new_occ
+    JOIN public.abstract_resource_occupancy_movements exist_occ
+      ON new_occ."resourceGUID" = exist_occ."resourceGUID"
+     AND new_occ."rowOwnerGUID" &lt;&gt; exist_occ."rowOwnerGUID" -- Don't collide with self
+     -- Overlap interval intersection:
+     AND new_occ."periodStartDatetime" &lt; exist_occ."periodEndDatetime"
+     AND new_occ."periodEndDatetime"   &gt; exist_occ."periodStartDatetime"
+   WHERE new_occ."rowOwnerGUID" = p_task_guid
+   LIMIT 1;
+END;
+$$;</pre>
+</section>
+
+<!-- SECTION 7: WORK BREAKDOWN STRUCTURE (WBS) -->
+<section id="wbs">
+  <h2>7. Work Breakdown Structure (WBS)</h2>
+  <p class="sub">Structured phase-by-phase implementation plan with deliverables, dependencies, and acceptance criteria.</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>WBS Code</th>
+          <th>Work Package / Task Title</th>
+          <th>Scope Description</th>
+          <th>Deliverables</th>
+          <th>Dependencies</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>WBS 1.0</b></td>
+          <td><b>Abstract Data Modeling &amp; Migration</b></td>
+          <td>Create abstract occupancy tables, indexes, constraints, and RLS policies.</td>
+          <td><code>create_abstract_resource_occupancy.sql</code></td>
+          <td>Existing PM structure</td>
+        </tr>
+        <tr>
+          <td>WBS 1.1</td>
+          <td>Table Schema Definition</td>
+          <td>Define <code>abstract_resource_occupancy_movements</code> with multi-granularity (Day/Hour/Minute) columns.</td>
+          <td>SQL DDL + migration script</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>WBS 1.2</td>
+          <td>Indexing &amp; GiST Range Optimization</td>
+          <td>Create compound B-tree &amp; GiST range indexes for lightning-fast interval conflict searches.</td>
+          <td>PostgreSQL index scripts</td>
+          <td>WBS 1.1</td>
+        </tr>
+        <tr>
+          <td>WBS 1.3</td>
+          <td>Row Level Security &amp; Permissions</td>
+          <td>Implement RLS policies tied to project ownership (<code>pm_owns_project</code>).</td>
+          <td>RLS policies</td>
+          <td>WBS 1.1</td>
+        </tr>
+
+        <tr>
+          <td><b>WBS 2.0</b></td>
+          <td><b>SQL Collision Engine &amp; Optimistic Post Procedure</b></td>
+          <td>Enhance <code>create_task_line_plan</code> with optimistic post, collision detection, and auto-purge.</td>
+          <td>RPC procedures &amp; triggers</td>
+          <td>WBS 1.0</td>
+        </tr>
+        <tr>
+          <td>WBS 2.1</td>
+          <td>Collision Detection Query Function</td>
+          <td>Implement <code>check_resource_timeline_collision</code> for interval overlaps across Day/Hour/Minute.</td>
+          <td>PL/pgSQL function</td>
+          <td>WBS 1.2</td>
+        </tr>
+        <tr>
+          <td>WBS 2.2</td>
+          <td>Optimistic Post Transaction Pipeline</td>
+          <td>Insert proposed movements, sync abstract records, check collision, purge on conflict.</td>
+          <td>Updated <code>create_task_line_plan</code></td>
+          <td>WBS 2.1</td>
+        </tr>
+        <tr>
+          <td>WBS 2.3</td>
+          <td>Purge &amp; Unpost Rollback Mechanism</td>
+          <td>Delete all movements on collision, reset <code>taskIsPosted: false</code>, return diagnostic error.</td>
+          <td>SQL rollback handlers</td>
+          <td>WBS 2.2</td>
+        </tr>
+
+        <tr>
+          <td><b>WBS 3.0</b></td>
+          <td><b>TypeScript Data Layer &amp; Pure Calculations</b></td>
+          <td>Extend TypeScript types, API layer, and pure calculation validation helpers.</td>
+          <td>TypeScript modules</td>
+          <td>WBS 2.0</td>
+        </tr>
+        <tr>
+          <td>WBS 3.1</td>
+          <td>Type Definitions</td>
+          <td>Add <code>AbstractResourceOccupancy</code>, <code>TimelineGranularity</code>, <code>ResourceCollisionError</code>.</td>
+          <td><code>kit8/pm/model/types.ts</code></td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>WBS 3.2</td>
+          <td>Pure Pre-Check Dry-Run Helper</td>
+          <td>Function in pure TypeScript to detect obvious self-collisions within task lines before network call.</td>
+          <td><code>calculateTaskLinePlan.ts</code></td>
+          <td>WBS 3.1</td>
+        </tr>
+        <tr>
+          <td>WBS 3.3</td>
+          <td>RPC Invocation &amp; Error Handling</td>
+          <td>Handle RPC call in <code>taskLinePlanApi.ts</code>, unpack collision JSON, dispatch toast/modal alerts.</td>
+          <td><code>taskLinePlanApi.ts</code></td>
+          <td>WBS 3.1</td>
+        </tr>
+
+        <tr>
+          <td><b>WBS 4.0</b></td>
+          <td><b>UI / UX &amp; Visual Collision Feedback</b></td>
+          <td>Provide crystal-clear feedback in <code>ReusableTable</code> and Plan view.</td>
+          <td>React components</td>
+          <td>WBS 3.0</td>
+        </tr>
+        <tr>
+          <td>WBS 4.1</td>
+          <td>Conflict Modal / Diagnostic Dialog</td>
+          <td>Display "Resource Busy" alert showing colliding task title, person name, and conflicting period.</td>
+          <td><code>ResourceCollisionDialog.tsx</code></td>
+          <td>WBS 3.3</td>
+        </tr>
+        <tr>
+          <td>WBS 4.2</td>
+          <td>Line Status Indicators</td>
+          <td>Visual badge on <code>timeGenus</code> lines indicating "Conflict Detected &ndash; Resource Busy".</td>
+          <td><code>taskLineColumns.tsx</code></td>
+          <td>WBS 4.1</td>
+        </tr>
+        <tr>
+          <td>WBS 4.3</td>
+          <td>Gantt / Timeline Heatmap Hint</td>
+          <td>Optional visual highlight on Gantt bar when a task cannot post due to timeline collision.</td>
+          <td><code>PMGanttSurface.tsx</code></td>
+          <td>WBS 4.2</td>
+        </tr>
+
+        <tr>
+          <td><b>WBS 5.0</b></td>
+          <td><b>Quality Assurance &amp; Verification Suite</b></td>
+          <td>Unit tests, SQL tests, collision edge case verification.</td>
+          <td>Jest &amp; SQL test scripts</td>
+          <td>WBS 4.0</td>
+        </tr>
+        <tr>
+          <td>WBS 5.1</td>
+          <td>Pure Calculation Tests</td>
+          <td>Verify multi-granularity conversion and dry-run collision detection.</td>
+          <td><code>calculateTaskLinePlan.test.ts</code></td>
+          <td>WBS 3.2</td>
+        </tr>
+        <tr>
+          <td>WBS 5.2</td>
+          <td>SQL Integration &amp; Purge Tests</td>
+          <td>Verify that a colliding task deletes all its plan rows and leaves zero orphaned rows.</td>
+          <td><code>test_resource_collision.sql</code></td>
+          <td>WBS 2.3</td>
+        </tr>
+        <tr>
+          <td>WBS 5.3</td>
+          <td>Concurrency &amp; Multi-Scale Benchmarks</td>
+          <td>Verify performance under 100+ concurrent tasks with Day, Hour, and Minute intervals.</td>
+          <td>Benchmark suite</td>
+          <td>WBS 5.2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SECTION 8: OPEN ARCHITECTURAL DECISIONS -->
+<section id="decisions">
+  <h2>8. Open Architectural Decisions &amp; Recommendations</h2>
+  <p class="sub">Key technical choices to align with the product owner before implementation begins.</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Decision Topic</th>
+          <th>Options</th>
+          <th>Recommended Direction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>D1</b></td>
+          <td><b>Strictness of Conflict Blocking</b></td>
+          <td>
+            <b>Option A (Strict):</b> Hard block &ndash; post fails completely, all lines purged.
+            <br><b>Option B (Warning / Force):</b> Soft block &ndash; warns user, but permits manager override with "Force Post" button.
+          </td>
+          <td><b>Option A (Strict) by default</b> as specified in the document: <i>"If resource is busy-delete all lines from task_line_plan_movements"</i>. Option B can be a future permission flag.</td>
+        </tr>
+        <tr>
+          <td><b>D2</b></td>
+          <td><b>Granularity Determination</b></td>
+          <td>
+            <b>Option A:</b> Global project-level setting (e.g. project runs in Days or Hours).
+            <br><b>Option B:</b> Resource-type level (People in Hours, Cranes in Days).
+            <br><b>Option C:</b> Task-level (Task specifies its control resolution).
+          </td>
+          <td><b>Option B:</b> The resource definition dictates its control period (human resources default to hours, equipment to days or hours).</td>
+        </tr>
+        <tr>
+          <td><b>D3</b></td>
+          <td><b>Capacity vs Binary Occupancy</b></td>
+          <td>
+            <b>Option A:</b> Strict binary &ndash; 1 resource = 1 task at a time (busy if assigned).
+            <br><b>Option B:</b> Fractional capacity &ndash; a person can do 50% on Task 1 and 50% on Task 2 on the same day.
+          </td>
+          <td><b>Option A for Hour/Minute slots</b> (exclusive physical presence); <b>Option B for Day slots</b> (&Sigma; hours &le; 8.0h/day).</td>
+        </tr>
+        <tr>
+          <td><b>D4</b></td>
+          <td><b>Scope of Rollback (All vs Partial)</b></td>
+          <td>
+            <b>Option A:</b> Delete all lines of the entire task if even one line collides.
+            <br><b>Option B:</b> Keep non-colliding lines (e.g. material lines) and only purge time lines.
+          </td>
+          <td><b>Option A:</b> All-or-nothing task posting. A task is either posted as a complete coherent financial commitment or not posted at all.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer style="max-width:1200px; margin:40px auto; padding:20px; border-top:1px solid var(--border); color:var(--muted); font-size:13px; text-align:center;">
+  UNIVERSAL1 PM &bull; W1 BEFORE POST &bull; Time Genus Control &amp; Collision Detection WBS &bull; Generated Documentation
+</footer>
+
+</body>
+</html>

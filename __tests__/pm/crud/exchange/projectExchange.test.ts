@@ -12,6 +12,7 @@ import {
 import { planProjectImport } from '../../../../kit8/pm/crud/exchange/project/import/planProjectImport';
 import { exportProjectToFile } from '../../../../kit8/pm/crud/exchange/project/export/exportProjectToFile';
 import { importProjectFromFile, pickProjectDataFile } from '../../../../kit8/pm/crud/exchange/project/import/importProjectFromFile';
+import { applyBudgetSettingsOfImport } from '../../../../kit8/pm/crud/exchange/project/import/budgetSettingsOfImport';
 import { createFakeSupabase } from '../fakeSupabaseTestKit';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
@@ -172,5 +173,57 @@ describe('exportProjectToFile -> importProjectFromFile (API on the in-memory Sup
     expect(pickProjectDataFile([f('a.png'), f('b.json'), f('project_data_x.json')])!.name).toBe('project_data_x.json');
     expect(pickProjectDataFile([f('a.png'), f('b.json')])!.name).toBe('b.json');
     expect(pickProjectDataFile([])).toBeNull();
+  });
+});
+
+describe('budget settings of the file (scenarios, business units)', () => {
+  const scenario = (rowGUID: string, scenarioKind: string) => ({ rowGUID, rowOwnerGUID: 'budgetScenarioCatalog', rowParentGUID: 'empty', orderInList: 1, rowJSON: { title: rowGUID, scenarioKind, isActive: true } });
+  const unit = (rowGUID: string, cfrAssigned: string) => ({ rowGUID, rowOwnerGUID: 'businessUnitCatalog', rowParentGUID: 'empty', orderInList: 1, rowJSON: { title: rowGUID, cfrAssigned, isActive: true } });
+  const target: any = { name: 'T', rowKind: 'project', budgetScenarioForPlan: 'planMine', projectBusinessUnitsRequired: false };
+
+  it('the export carries the budget settings of the project (they are in project.rowJSON)', () => {
+    const { demo, P1 } = setup();
+    const p = { ...P1, rowJSON: { ...P1.rowJSON, budgetScenarioForPlan: 'planScenarioProject1', budgetScenarioForFact: 'factScenarioProject1', projectCostCenter: 'u1' } };
+    const back = parseProjectExchangeFile(JSON.stringify(buildProjectExchangeFile(p, demo.tasks, demo.deps)));
+    expect(back.project.rowJSON).toMatchObject({ budgetScenarioForPlan: 'planScenarioProject1', budgetScenarioForFact: 'factScenarioProject1', projectCostCenter: 'u1' });
+  });
+
+  it('a scenario of the file that exists with the right kind is taken', () => {
+    const merged = { ...target, budgetScenarioForPlan: 'planScenarioProject1', budgetScenarioForFact: 'factScenarioProject1' };
+    const r = applyBudgetSettingsOfImport(merged, target, { scenarios: [scenario('planScenarioProject1', 'plan'), scenario('factScenarioProject1', 'fact')] });
+    expect(r.rowJSON.budgetScenarioForPlan).toBe('planScenarioProject1');
+    expect(r.rowJSON.budgetScenarioForFact).toBe('factScenarioProject1');
+    expect(r.notTaken).toEqual([]);
+  });
+
+  it('a scenario missing here / of the wrong kind is not taken: the target keeps its own', () => {
+    const merged = { ...target, budgetScenarioForPlan: 'gone', budgetScenarioForFact: 'planScenarioProject1' };
+    const r = applyBudgetSettingsOfImport(merged, target, { scenarios: [scenario('planScenarioProject1', 'plan')] });
+    expect(r.rowJSON.budgetScenarioForPlan).toBe('planMine');
+    expect(r.rowJSON.budgetScenarioForFact).toBeNull();
+    expect(r.notTaken).toHaveLength(2);
+  });
+
+  it('catalogs not loaded: nothing is checked, the file passes', () => {
+    const merged = { ...target, budgetScenarioForPlan: 'x', projectCostCenter: 'y' };
+    expect(applyBudgetSettingsOfImport(merged, target, {})).toEqual({ rowJSON: merged, notTaken: [] });
+  });
+
+  it('project centers: an unknown unit keeps the whole set of the target (flag too)', () => {
+    const t: any = { ...target, projectCostCenter: 'mineCost', projectRevenueCenter: 'mineRev', projectBusinessUnitsRequired: false };
+    const merged = { ...t, projectCostCenter: 'costU', projectRevenueCenter: 'unknownU', projectBusinessUnitsRequired: true };
+    const r = applyBudgetSettingsOfImport(merged, t, { units: [unit('costU', 'costCenter'), unit('mineCost', 'costCenter'), unit('mineRev', 'revenueCenter')], cfrRows: [] });
+    expect(r.rowJSON).toMatchObject({ projectCostCenter: 'mineCost', projectRevenueCenter: 'mineRev', projectBusinessUnitsRequired: false });
+    expect(r.notTaken[0]).toMatch(/unknownU.*does not exist/);
+  });
+
+  it('planProjectImport applies the check and reports what was not taken', () => {
+    const { demo, P1, P2 } = setup();
+    const p = { ...P1, rowJSON: { ...P1.rowJSON, budgetScenarioForPlan: 'planScenarioProject1', budgetScenarioForFact: 'factGone' } };
+    const file = buildProjectExchangeFile(p, demo.tasks, demo.deps);
+    const plan = planProjectImport(file, P2, OWNER, newId, { scenarios: [scenario('planScenarioProject1', 'plan')] });
+    expect(plan.projectRowJSON.budgetScenarioForPlan).toBe('planScenarioProject1');
+    expect(plan.projectRowJSON.budgetScenarioForFact ?? null).toBeNull();
+    expect(plan.budgetNotTaken).toEqual(['Fact scenario "factGone" does not exist here']);
   });
 });

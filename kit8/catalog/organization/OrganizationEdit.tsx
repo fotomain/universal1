@@ -23,6 +23,7 @@ import {
   normalizeOrganization,
   validateOrganization,
 } from './organizationModel';
+import { organizationOwnerOf } from './ensureUserOrganization';
 
 type Form = {
   organizationTitle: string;
@@ -143,17 +144,30 @@ export default function OrganizationEdit() {
 
     try {
       if (isNew) {
+        // 1 user === 1 organization: rowOwnerGUID = createdByUser = the user's email (lower case)
+        const owner = organizationOwnerOf(activeUserEmail);
+        if (!owner) {
+          setSaveError('Sign in to create an organization');
+          return;
+        }
+        if (rows.some((r) => r.rowOwnerGUID === owner || organizationOwnerOf(r.rowJSON?.createdByUser || '') === owner)) {
+          setSaveError('You already have an organization - one user can have only one organization.');
+          return;
+        }
+        json.createdByUser = owner;
         const newRowGUID = Crypto.randomUUID();
         dispatch(
           actions.createOne({
             rowGUID: newRowGUID,
-            rowOwnerGUID: ORGANIZATION_CATALOG_OWNER,
+            rowOwnerGUID: owner,
             rowParentGUID: 'empty',
             orderInList: Date.now(),
             rowJSON: json,
           })
         );
       } else {
+        // the owner never changes: createdByUser stays the one of the row (owner === createdByUser)
+        json.createdByUser = (existing!.rowJSON?.createdByUser || json.createdByUser || '').trim().toLowerCase();
         dispatch(
           actions.updateOne({
             rowGUID: existing!.rowGUID,

@@ -11,6 +11,7 @@ import { PMProjectRow } from '../../../../model/types';
 import type { DroppedFileItem } from '../../../../../ui/components/common/ReceiveDraggableFilesComponent.types';
 import { parseProjectExchangeFile, PMProjectExchangeError } from '../projectExchangeFormat';
 import { planProjectImport, PMProjectImportPlan } from './planProjectImport';
+import type { BudgetCatalogsForImport } from './budgetSettingsOfImport';
 import { readDroppedFileText } from './readDroppedFileText';
 
 export type PMImportOutcome =
@@ -37,12 +38,13 @@ export async function importProjectFromFile(
   target: PMProjectRow,
   ownerGUID: string,
   files: DroppedFileItem[],
-  confirmReplace: PMConfirmReplace
+  confirmReplace: PMConfirmReplace,
+  budgetCatalogs: BudgetCatalogsForImport = {}
 ): Promise<PMImportOutcome> {
   const picked = pickProjectDataFile(files);
   if (!picked) throw new PMProjectExchangeError('No file.');
   const file = parseProjectExchangeFile(await readDroppedFileText(picked));
-  const plan = planProjectImport(file, target, ownerGUID, newGUID);
+  const plan = planProjectImport(file, target, ownerGUID, newGUID, budgetCatalogs);
 
   const current = await api.readProjectData(target.rowGUID);
   if (current.tasks.length > 0 || current.deps.length > 0) {

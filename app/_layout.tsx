@@ -24,6 +24,7 @@ import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
 import { loginUserTable } from '../kit8/auth/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
+import { ensureUserOrganization } from '../kit8/catalog/organization/ensureUserOrganization';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/ui/theme/palettes';
 import {FABProvider} from '../kit8/providers/FABProvider';
@@ -253,49 +254,8 @@ function SupabaseAuthSync() {
           }
         };
 
-        // RULE: Automatically created upon first user login with createdByUser: userState.activeUserEmail
-        const checkAndCreateOrganization = async () => {
-          try {
-            const { data, error } = await supabase
-              .from('organizationTable')
-              .select('rowGUID')
-              .eq('rowJSON->>createdByUser', userEmail.toLowerCase());
-
-            if (error) {
-              console.error('Supabase organization select error:', error);
-              return;
-            }
-
-            if (!data || data.length === 0) {
-              const formattedName = userFirstName || userEmail.split('@')[0] || 'User';
-              const newOrgGUID = Crypto.randomUUID ? Crypto.randomUUID() : formatTo32CharGUID(Date.now().toString());
-              const { error: insertError } = await supabase.from('organizationTable').insert({
-                rowGUID: newOrgGUID,
-                rowOwnerGUID: 'organizationCatalog',
-                rowParentGUID: 'empty',
-                orderInList: Date.now(),
-                rowJSON: {
-                  organizationTitle: `${formattedName}'s Organization`,
-                  organizationLegalName: `${formattedName} Organization SIA`,
-                  createdByUser: userEmail.toLowerCase(),
-                  isActive: true,
-                  contactEmail: userEmail,
-                  legalData: {
-                    country: 'LV',
-                  },
-                },
-              });
-
-              if (insertError) {
-                console.error('Supabase organization insert error:', insertError);
-              } else {
-                console.log('Successfully created initial user organization in organizationTable');
-              }
-            }
-          } catch (e) {
-            console.error('Error checking/creating organization:', e);
-          }
-        };
+        // RULE: 1 user === 1 organization: rowOwnerGUID = createdByUser = userEmail.toLowerCase()
+        const checkAndCreateOrganization = () => ensureUserOrganization(supabase, userEmail, { userFirstName });
 
         // RULE: Automatically created if the first user login (default countries)
         const checkAndSeedDefaultCountries = async () => {
@@ -543,6 +503,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/distribution/list/index" options={{ title: 'Distribution', drawerLabel: 'Distribution' }} />
               <Drawer.Screen name="catalog/management/calendar/list/index" options={{ title: 'Management calendars', drawerLabel: 'Management calendars' }} />
               <Drawer.Screen name="budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
+              <Drawer.Screen name="budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="catalog/equipment/dashboard/index" options={{ title: 'Equipment (properties and variants)', drawerLabel: 'Equipment (properties and variants)' }} />

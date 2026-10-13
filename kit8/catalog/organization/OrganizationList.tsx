@@ -1,8 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from '../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
@@ -15,7 +14,6 @@ import {
   ORGANIZATION_READ_PARAMS,
   ORGANIZATION_ROUTES,
   OrganizationRow,
-  emptyOrganization,
   organizationToCard,
 } from './organizationModel';
 
@@ -34,50 +32,7 @@ export default function OrganizationList() {
     useSelector((s: any) => s?.[ORGANIZATION_ENTITY]?.entityDataFromServer) || [];
   const activeUserEmail = useSelector((s: any) => s?.activeUserState?.activeUserEmail);
   const isLoggedIn = useSelector((s: any) => Boolean(s?.activeUserState?.isLoggedIn));
-  const autoCreatedRef = useRef(false);
-
-  // Auto-creation requirement:
-  // "Automatically created upon first user login with createdByUser: userState.activeUserEmail"
-  useEffect(() => {
-    if (
-      !isLoggedIn ||
-      !activeUserEmail ||
-      activeUserEmail === 'user@example.com' ||
-      autoCreatedRef.current
-    ) {
-      return;
-    }
-
-    // Check if user already has an organization
-    const hasOrg = rows.some(
-      (r) =>
-        r?.rowJSON?.createdByUser &&
-        r.rowJSON.createdByUser.toLowerCase() === activeUserEmail.toLowerCase()
-    );
-
-    if (!hasOrg && rows.length >= 0 && (status === 'subscribed' || status === 'idle')) {
-      const actions = SystemMetaData[ORGANIZATION_ENTITY]?.actions;
-      if (actions?.createOne) {
-        autoCreatedRef.current = true;
-        const newRowGUID = Crypto.randomUUID();
-        const initialOrg = emptyOrganization(activeUserEmail);
-        const namePart = activeUserEmail.split('@')[0] || 'User';
-        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        initialOrg.organizationTitle = `${formattedName}'s Organization`;
-        initialOrg.organizationLegalName = `${formattedName} Organization SIA`;
-
-        dispatch(
-          actions.createOne({
-            rowGUID: newRowGUID,
-            rowOwnerGUID: ORGANIZATION_CATALOG_OWNER,
-            rowParentGUID: 'empty',
-            orderInList: Date.now(),
-            rowJSON: initialOrg,
-          })
-        );
-      }
-    }
-  }, [isLoggedIn, activeUserEmail, rows, status, dispatch]);
+  // 1 user === 1 organization: it is created once at login (ensureUserOrganization, app/_layout.tsx), never here.
 
   const openNew = () => router.push(ORGANIZATION_ROUTES.edit as any);
   const openEdit = (rowGUID: string) =>

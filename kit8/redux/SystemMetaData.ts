@@ -18,6 +18,7 @@ import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMe
 import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
 import {distributionSystemMetaData} from "../catalog/distribution/distributionMetaData";
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
+import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
@@ -99,6 +100,9 @@ const SystemMetaData:any = {
     // Budget item (kit8/catalog/budget/item): budgetItemTable, a tree (folders > items); rowJSON.managementGenusItem (obligatory) points at managementGenusTable.
     // Screen /budget/item/list, SQL kit8/sql/init/create_budget_item_table.sql
     ...budgetItemSystemMetaData(),
+    // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.
+    // Screen /budget/scenario/list, SQL kit8/sql/start/start_sql_structure.sql (PART 19)
+    ...budgetScenarioSystemMetaData(),
     // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).
     ...managementCalendarSystemMetaData(),
     // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,

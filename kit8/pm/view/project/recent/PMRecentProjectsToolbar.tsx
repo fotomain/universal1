@@ -336,6 +336,8 @@ export default function PMRecentProjectsToolbar({
             projectRevenueCenter: json.projectRevenueCenter ?? d.projectRevenueCenter,
             projectProfitCenter: json.projectProfitCenter ?? d.projectProfitCenter,
             projectInvestmentCenter: json.projectInvestmentCenter ?? d.projectInvestmentCenter,
+            budgetScenarioForPlan: json.budgetScenarioForPlan ?? d.budgetScenarioForPlan,
+            budgetScenarioForFact: json.budgetScenarioForFact ?? d.budgetScenarioForFact,
           }
         : d,
     );

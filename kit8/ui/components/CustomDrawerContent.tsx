@@ -65,6 +65,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
         { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        // the scenarios a project budgets in (Plan | Fact): a plain table
+        { id: 'budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'budget/scenario/list' },
         // the business units (a tree of any depth; cost / revenue / profit / investment centers) - replaces the old Departments catalog
         { id: 'businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
@@ -100,6 +102,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       children: [
         { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'budget/scenario/list' },
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },

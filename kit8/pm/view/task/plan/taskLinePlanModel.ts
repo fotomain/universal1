@@ -134,3 +134,38 @@ export function summarizeTaskLinePlan(planRows: TaskLinePlanRow[], lines: TaskLi
     };
   });
 }
+
+// ---- the Timeline of the plan: the posted days of all the lines, summed per calendar day -------------------------------------------
+
+export interface TaskLinePlanTimelineDay {
+  /** 'YYYY-MM-DD' (UTC, as it was posted) */
+  day: string;
+  lines: number;
+  coefficient: number;
+  sumForBudget: number;
+  sumForContract: number;
+  /** the budget of this day and all the days before it */
+  cumulativeBudget: number;
+}
+
+/** the plan rows summed per day (oldest first); the amounts are added in cents, so the days add up to the lines exactly (Correct033) */
+export function buildTaskLinePlanTimeline(planRows: TaskLinePlanRow[]): TaskLinePlanTimelineDay[] {
+  const byDay = new Map<string, { lines: Set<string>; coef: number; budget: number; contract: number }>();
+  for (const r of planRows || []) {
+    const t = new Date(String(r.rowPeriodDatetime ?? ''));
+    if (Number.isNaN(t.getTime())) continue;
+    const day = t.toISOString().slice(0, 10);
+    let d = byDay.get(day);
+    if (!d) { d = { lines: new Set(), coef: 0, budget: 0, contract: 0 }; byDay.set(day, d); }
+    d.lines.add(r.rowParentGUID);
+    d.coef += Math.round((planNumber(r.rowCoefficient) ?? 0) * 1e10);
+    d.budget += Math.round((planNumber(r.sumForBudget) ?? 0) * 100);
+    d.contract += Math.round((planNumber(r.sumForContract) ?? 0) * 100);
+  }
+  let running = 0;
+  return Array.from(byDay.keys()).sort().map((day) => {
+    const d = byDay.get(day)!;
+    running += d.budget;
+    return { day, lines: d.lines.size, coefficient: d.coef / 1e10, sumForBudget: d.budget / 100, sumForContract: d.contract / 100, cumulativeBudget: running / 100 };
+  });
+}

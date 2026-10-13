@@ -28,6 +28,8 @@ import { DEFAULT_CALENDAR_FOR_TASK_PLAN, MANAGEMENT_CALENDAR_TABLE, isCalendarFo
 import { applyTaskInputPatch, taskInputSwitchesOf, TaskInputSwitches } from '../../../model/taskInputScope';
 import BusinessUnitPickerField from '../../../../catalog/business_unit/BusinessUnitPickerField';
 import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusinessUnitData';
+import { BUDGET_SCENARIO_TABLE, budgetScenarioTitle, budgetScenariosOfKind, projectBudgetScenariosError } from '../../../../catalog/budget/scenario/budgetScenarioModel';
+import { useBudgetScenarioData } from '../../../../catalog/budget/scenario/useBudgetScenarioData';
 import { PROJECT_CENTER_FIELDS, projectCentersError, unitFitsProjectCenter } from '../../../../catalog/business_unit/businessUnitModel';
 
 export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
@@ -43,6 +45,8 @@ export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   projectProfitCenter?: string | null;
   projectInvestmentCenter?: string | null;
   projectBusinessUnitsRequired?: boolean;
+  budgetScenarioForPlan?: string | null;
+  budgetScenarioForFact?: string | null;
 }
 
 export type BudgetsSubTab = 'TabBudgetsMain' | 'TabForTime' | 'TabForMaterial' | 'TabForExpense' | 'TabBusinessUnits';
@@ -77,6 +81,8 @@ export const budgetsValuesOf = (j: PMProjectBudgetsValues | undefined | null): R
   projectProfitCenter: j?.projectProfitCenter || null,
   projectInvestmentCenter: j?.projectInvestmentCenter || null,
   projectBusinessUnitsRequired: !!j?.projectBusinessUnitsRequired,
+  budgetScenarioForPlan: j?.budgetScenarioForPlan || null,
+  budgetScenarioForFact: j?.budgetScenarioForFact || null,
 });
 
 export default function PMProjectBudgetsTab({
@@ -97,6 +103,8 @@ export default function PMProjectBudgetsTab({
   const codeOf = (r: any) => String(r?.rowJSON?.currencyCode || '').toUpperCase();
   const inputs = taskInputSwitchesOf(values);
   const units = useBusinessUnitData(true);
+  const scenarios = useBudgetScenarioData(true);
+  const scenariosError = projectBudgetScenariosError(values, scenarios.rows, scenarios.loaded);
   const required = !!values.projectBusinessUnitsRequired;
   const centersError = projectCentersError(values, units.rows, units.cfrRows, units.loaded);
   /** one switch of the input tree: the rules of applyTaskInputPatch (Time needs a kind) decide the whole patch */
@@ -186,6 +194,29 @@ export default function PMProjectBudgetsTab({
             onChange={(guid) => onChange({ calendarForTaskPlan: guid || DEFAULT_CALENDAR_FOR_TASK_PLAN })}
           />
 
+
+          <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Budget scenarios')}</Text>
+          {([
+            { key: 'budgetScenarioForPlan', kind: 'plan', label: 'Plan scenario (budgetScenarioForPlan)' },
+            { key: 'budgetScenarioForFact', kind: 'fact', label: 'Fact scenario (budgetScenarioForFact)' },
+          ] as const).map(({ key, kind, label }) => (
+            <SelectElementFromCatalog
+              key={key}
+              testID={`pm-project-${key}`}
+              label={pmT(label)}
+              entityName={BUDGET_SCENARIO_TABLE.entity}
+              rowOwnerGUID={BUDGET_SCENARIO_TABLE.catalogOwner as string}
+              scopeFetchByOwner={false}
+              value={values[key] ?? null}
+              placeholder={pmT('No scenario')}
+              // only the scenarios of this kind, active (the one already on the project stays visible)
+              filterItem={(r: any) => budgetScenariosOfKind([r], kind, values[key]).length > 0}
+              titleExtractor={(r: any) => budgetScenarioTitle(r)}
+              subtitleExtractor={(r: any) => r?.rowJSON?.description || undefined}
+              onChange={(guid) => onChange({ [key]: guid || null })}
+            />
+          ))}
+          {!!scenariosError && <Text testID="pm-project-budget-scenarios-error" style={[styles.hint, { color: themeColors.error }]}>{scenariosError}</Text>}
 
           <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Budgets')}</Text>
           <SwitchApp

@@ -148,6 +148,12 @@ export interface PMRowJSON {
   projectProfitCenter?: string | null;
   projectInvestmentCenter?: string | null;
   projectBusinessUnitsRequired?: boolean;
+  /**
+   * Budget scenarios (kit8/catalog/budget/scenario; Project settings -> Budgets -> Main): budgetScenarioTable.rowGUID of the scenario the project plans in
+   * (kind 'plan') and of the one it compares the facts with (kind 'fact'). Empty = no scenario (an old project stays as it is).
+   */
+  budgetScenarioForPlan?: string | null;
+  budgetScenarioForFact?: string | null;
   // ---- project_table only: Gantt UX/UI settings (saved per project) ----
   uxuiSettings?: PMUxUiSettings;
   /** @deprecated moved to uxuiSettings (still read as a fallback) */
