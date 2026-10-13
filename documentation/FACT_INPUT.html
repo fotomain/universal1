@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fact input - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.wp td { background: var(--bg-subtle); font-weight: 700; }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .tab { display: inline-block; padding: 2px 12px; border: 1px solid var(--border); border-radius: 999px; margin-right: 4px; font-size: 13px; }
+  .tab.act { background: var(--purple-soft); border-color: #c4b5fd; font-weight: 600; }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Fact input</div>
+  <nav><ul>
+    <li><a href="#status">Status</a></li><li><a href="#read">1 What I read</a></li><li><a href="#scenario">2 Scenario</a></li><li><a href="#tables">3 Tables</a></li>
+    <li><a href="#modes">4 Strong / free</a></li><li><a href="#post">5 Post</a></li><li><a href="#monitor">6 To Monitor01</a></li><li><a href="#wbs">7 WBS</a></li>
+    <li><a href="#files">8 Files</a></li><li><a href="#risks">9 Risks</a></li><li><a href="#tests">10 Tests</a></li><li><a href="#order">11 Order</a></li><li><a href="#open">12 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="status">
+  <h1>Fact input <span class="pill ask">plan only - nothing built</span></h1>
+  <p class="lead">Source: Google Doc "W1 FACT INPUT". As the doc says: <b>do not code</b>. The business need: the user records what really happened on a task - hours worked, material delivered or used, expenses, revenues -
+  in a <b>document</b> opened from the lines of the task. The posted documents feed the <b>Monitor01</b> report (delivered · actually used · on-hand). This page is the scenario, the tables, the rules, the work breakdown and the questions.</p>
+  <div class="grid">
+    <div class="card"><h3>New tables <span class="pill new">3</span></h3><ul class="tight">
+      <li><code>task_fact_header</code> - the document</li>
+      <li><code>task_fact_timeline</code> - the lines (same fields as <code>task_line_plan_timeline</code>)</li>
+      <li><code>task_line_fact_for_monitor01</code> - the sums for Monitor01, made by pg_cron</li></ul></div>
+    <div class="card"><h3>New screen · new setting</h3><ul class="tight">
+      <li><code>PMFactInputDocument.tsx</code> with tabs Time · Material · Expenses · Revenues</li>
+      <li>Menu item <b>Facts input</b> on the right-click menu of a task line</li>
+      <li>Project setting <code>factStrongInputByTaskLine</code> (false by default)</li></ul></div>
+    <div class="card"><h3>Reused as is</h3><ul class="tight">
+      <li>The row menu hook of <code>ReusableTable</code> (<code>onRowMenu</code>: right click on the web, long press on touch)</li>
+      <li>The Post button and its states (<code>ReusableTablePostButton</code>)</li>
+      <li>The tab bar style of the task window (<code>PMTaskEditModal</code>)</li>
+      <li>The columns and the money rules of the Finances table (<code>taskLineColumns</code>, <code>taskLineMoney</code>)</li></ul></div>
+  </div>
+  <div class="note"><b>Effect on the Monitor01 plan</b> (<code>kit8/pm/reports/monitor01/MONITOR01_WBS.html</code>): this page <b>answers its Q7</b> (where delivered / used come from) and <b>replaces</b>
+  its table <code>task_line_fact_movements</code> (4.4, WP A2) with the three tables below. See section 6. I did not change that page.</div>
+</section>
+
+<section id="read">
+  <h2>1 - What I read</h2>
+  <ol class="steps">
+    <li>The user presses the <b>right button on any line</b> visible in the task (the lines of the task, Time · Material · Expenses · Revenues) → a menu item <b>"Facts input"</b>.</li>
+    <li><code>PMFactInputDocument.tsx</code> opens. Business need: <b>create fact rows</b>.</li>
+    <li>Table <code>task_fact_header</code>; its <code>rowJSON.documentHeader</code> holds: <code>projectTaskGUID</code> (read only) · <code>activeUser</code> · <code>created_at</code> (moment of creation).</li>
+    <li>Table <code>task_fact_timeline</code>: <b>as in <code>task_line_plan_timeline</code>, the same fields</b>; <code>rowHeaderGUID = task_fact_header.rowGUID</code>; <code>rowPeriodDatetime</code> <b>editable in every line</b>.</li>
+    <li><b>DocumentTabs</b> like the tabs of the task "Edit" mode: Time · Material · Expences · Revenues.</li>
+    <li>Rules: <code>projectSettings.factStrongInputByTaskLine = true</code> (false by default) → users <b>cannot add lines, only delete and update</b>;
+      <code>= false</code> → the fact data is <b>disconnected from the task line GUIDs</b>.</li>
+    <li><b>Post</b> functionality. On posting, <code>task_line_fact_for_monitor01</code> is <b>summarized by pg_cron from all <code>task_fact_timeline</code> rows</b> to achieve the report of the Monitor01 sheet.</li>
+  </ol>
+  <h3>What already exists (checked in the repository)</h3>
+  <ul class="tight">
+    <li><code>task_line_plan_timeline</code> (PART 15): <code>rowGUID · rowProjectGUID · rowOwnerGUID (task) · rowPeriodDatetime · taskLineGUID · qtyForBudget · sumForContract · sumForBudget · created_at · updated_at</code>, <b>unique per line and day</b>, read policy <code>pm_owns_project</code>, realtime. The fact timeline copies these fields.</li>
+    <li>The lines are shown in the <b>Finances</b> view and in the <b>Task page → Finances</b> section (<code>PMProjectTaskFinancesCRUD</code>, already <code>postDataNeeded</code> with the Post button). <b>The task window (<code>PMTaskEditModal</code>) has no lines</b> (its tabs are Main · UX/UI) - see Q6.</li>
+    <li>Genus is the <code>rowParentGUID</code> of a task line: <code>timeGenus · materialGenus · expenseGenus · revenueGenus</code>.</li>
+    <li>Project settings are keys of <code>project_table.rowJSON</code> (e.g. <code>projectManagerPerson</code>, <code>currencyForBudget</code>) in <code>kit8/pm/model/types.ts</code>.</li>
+    <li>Post of the plan: <code>useTaskPost → runTaskPost → create_task_line_plan</code> (one SQL transaction, the answer is data, not an exception).</li>
+  </ul>
+  <div class="note">Two small things in the doc I read as typos: the setting <code>factStrongInputByTaskLinei</code> (trailing "i") and the field <code>cr1eated_at</code>. I use <code>factStrongInputByTaskLine</code> and <code>created_at</code> (Q2).</div>
+</section>
+
+<section id="scenario">
+  <h2>2 - Scenario</h2>
+  <div class="flow">
+    <span class="box">Finances table of a task</span><span class="arrow">→ right click / long press on a line →</span>
+    <span class="box on">menu: <b>Facts input</b></span><span class="arrow">→</span>
+    <span class="box ok">PMFactInputDocument (tab of that line's genus)</span><span class="arrow">→ Save lines → Post →</span>
+    <span class="box">task_line_fact_for_monitor01 → Monitor01</span>
+  </div>
+  <div class="mock">
+    <b>Fact input</b> · task "task03" · document <b>FI-0007</b> · kind <b>Used</b> ▾ · created 2026-10-14 by Jurij · status <b>Draft</b> &nbsp; [Previous documents ▾] [New document] [<b>Post</b>] [Close]<br>
+    <span class="tab act">Time</span><span class="tab">Material</span><span class="tab">Expenses</span><span class="tab">Revenues</span> <span class="small">(the tab of the line you clicked is open)</span><br>
+    <table style="margin-top:8px"><tr><th>Date (editable)</th><th>Line / role · resource</th><th>Unit</th><th>Qty</th><th>Sum</th><th></th></tr>
+      <tr><td>2026-10-12</td><td>Data Analyst · Anna</td><td>hour</td><td>8</td><td>…</td><td>✎ 🗑</td></tr>
+      <tr><td>2026-10-13</td><td>Data Analyst · Anna</td><td>hour</td><td>8</td><td>…</td><td>✎ 🗑</td></tr>
+      <tr><td colspan="6" class="small">strong mode: no "Add line"; free mode: [+ Add line]. Footer: totals per unit.</td></tr></table>
+  </div>
+  <h3>Step by step</h3>
+  <ol class="steps">
+    <li><b>Open.</b> The menu item sits in the row menu of the Finances table (the same place as Duplicate / Delete of a line). Opening it shows <b>the latest draft document of the task</b>; if there is none, an empty
+      new document (the header row is written at the first Save, so an unused window leaves nothing behind - Q5). "Previous documents" lists the earlier ones (number · kind · date · user · status).</li>
+    <li><b>Tab.</b> The document opens on the tab of the genus of the clicked line (last tab remembered like <code>lastEditPlace</code> of the task window). In strong mode the clicked line's rows are scrolled into view.</li>
+    <li><b>Edit.</b> Every line has an editable date (<code>rowPeriodDatetime</code>), quantity and unit; the other columns depend on the mode (section 4). The sums follow the money rules of the Finances table.</li>
+    <li><b>Save</b> writes the lines one by one (as the Finances table does). The document stays a <b>draft</b>: nothing reaches Monitor01.</li>
+    <li><b>Post</b> (section 5) checks the whole document, marks it <b>posted</b>, and queues the task for the summary. Posted = read only.</li>
+  </ol>
+</section>
+
+<section id="tables">
+  <h2>3 - Additional tables</h2>
+  <p class="sub">Style of the existing PARTs: <code>public.</code>, quoted camelCase columns, <code>rowProjectGUID / rowOwnerGUID</code>, cascade FKs, <code>REPLICA IDENTITY FULL</code>, RLS = owner of the project (<code>pm_owns_project</code>). One new SQL PART (before the Monitor01 PART), mirrored to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>, dropped in <code>delete_sql_structure.sql</code>.</p>
+
+  <h3>3.1 &nbsp;<code>task_fact_header</code> <span class="pill new">new · the document</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowGUID</code></td><td>uuid PK</td><td>the document</td></tr>
+    <tr><td><code>rowProjectGUID</code></td><td>uuid FK <code>project_table</code> cascade</td><td>filled by a trigger from the task (the app never sends it), as in <code>task_line_table</code></td></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>uuid FK <code>project_task_table</code> cascade</td><td>the task. A deleted task takes its documents with it</td></tr>
+    <tr><td><code>rowJSON.documentHeader</code></td><td>jsonb</td><td>the three keys of the doc: <code>projectTaskGUID</code> (<b>read only</b>, a copy of <code>rowOwnerGUID</code> shown on the screen) · <code>activeUser</code> (the user who created the document) · <code>created_at</code> (the moment of creation, set by the database)</td></tr>
+    <tr><td><code>rowJSON.documentHeader</code> - <b>my additions</b></td><td></td><td><code>documentNumber</code> (FI-0007, per organization or project, set by a trigger) · <code>documentKind</code>: <code>delivered</code> | <code>used</code> (Q1) · <code>documentStatus</code>: <code>draft</code> | <code>posted</code> · <code>strongInput</code> (the value of the project setting when the document was created) · <code>postedAt · postedBy · unpostedAt</code></td></tr>
+    <tr><td><code>created_at · updated_at</code></td><td>timestamptz</td><td>as everywhere (<code>pm_touch_updated_at</code>)</td></tr>
+  </table></div>
+  <p class="small">Index <code>(rowOwnerGUID, created_at)</code>. A CHECK keeps <code>documentStatus</code> and <code>documentKind</code> in their lists. Read: owner of the project; insert / update / delete: owner of the project while the status is <code>draft</code>; the status changes only through the Post procedure (section 5).</p>
+
+  <h3>3.2 &nbsp;<code>task_fact_timeline</code> <span class="pill new">new · the lines</span></h3>
+  <p>"As in <code>task_line_plan_timeline</code>, the same fields needed": the nine fields are copied unchanged in name and type. Four columns are added because a fact line, unlike a plan day, has a document and may have no task line.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowGUID</code></td><td>uuid PK</td><td></td></tr>
+    <tr><td><code>rowProjectGUID · rowOwnerGUID</code></td><td>uuid FKs, cascade</td><td>project · task (as the plan timeline)</td></tr>
+    <tr><td><code>rowHeaderGUID</code></td><td>uuid FK <code>task_fact_header</code> cascade <span class="pill new">new</span></td><td>= <code>task_fact_header.rowGUID</code>. A deleted document takes its lines with it</td></tr>
+    <tr><td><code>rowPeriodDatetime</code></td><td>timestamptz NOT NULL</td><td>the date of the fact - <b>editable in every line</b>. The start of the day in the zone of the project (day grain, like the plan; Q8)</td></tr>
+    <tr><td><code>taskLineGUID</code></td><td>uuid FK <code>task_line_table</code>, <b>NULL allowed</b>, <code>ON DELETE SET NULL</code></td><td>strong mode: the task line this fact belongs to (obligatory). Free mode: NULL - <b>disconnected from the task lines</b></td></tr>
+    <tr><td><code>qtyForBudget</code></td><td>numeric(18,2), ≥ 0</td><td>the quantity of the fact (the name is kept from the plan timeline so both tables read alike)</td></tr>
+    <tr><td><code>sumForContract · sumForBudget</code></td><td>numeric(18,2)</td><td>qty × price in the contract currency / in the budget currency, by the same rules as the task lines (Q10)</td></tr>
+    <tr><td><code>created_at · updated_at</code></td><td>timestamptz</td><td></td></tr>
+    <tr><td><code>genusGUID</code> <span class="pill new">new</span></td><td>text NOT NULL</td><td><code>timeGenus · materialGenus · expenseGenus · revenueGenus</code> = the tab. In strong mode copied from the task line; in free mode chosen by the tab the line is typed on</td></tr>
+    <tr><td><code>rowJSON</code> <span class="pill new">new</span></td><td>jsonb</td><td>what a line needs to be understood <b>without</b> the task line: <code>resourceRoleItem · taskResourceItem · taskResourceKind (person | equipment) · measureUnitTaskLine · priceTaskLine · budgetItemTaskLine · taskLinePartnerItem · note · documentRef</code>.
+      Strong mode copies them from the task line when the line is created, so the later change of the task line does not rewrite a fact (the same idea as the movements, which keep the business unit of the day they were posted)</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li><b>The unique constraint of the plan timeline (<code>taskLineGUID, rowPeriodDatetime</code>) is not copied</b>: a day can have several facts of one line (two deliveries), and in free mode there is no line GUID.</li>
+    <li><b>Indexes:</b> <code>(rowHeaderGUID, genusGUID)</code> for the document · <code>(rowOwnerGUID, rowPeriodDatetime)</code> and <code>(rowProjectGUID, rowPeriodDatetime)</code> as the plan timeline · <code>(taskLineGUID)</code> for the strong mode.</li>
+    <li><b>Rules in the database (trigger):</b> a line of a <b>posted</b> document cannot be inserted, updated or deleted; <code>rowOwnerGUID</code> and <code>rowProjectGUID</code> must equal those of the header; in strong mode (<code>strongInput</code> of the header) <code>taskLineGUID</code> is obligatory and its task must be the task of the document; the quantity is ≥ 0.</li>
+    <li><b>Access:</b> read for the owner of the project; insert / update / delete for the owner while the header is a draft (the user types the lines; no procedure is needed to write a draft).</li>
+  </ul>
+
+  <h3>3.3 &nbsp;<code>task_line_fact_for_monitor01</code> <span class="pill new">new · the sums for the report</span></h3>
+  <p>"Summarized by pg_cron from all <code>task_fact_timeline</code> rows". One row per <b>task × genus × role × unit × month × kind</b>; the table Monitor01 reads for <i>delivered</i> and <i>actually used</i>. The app never writes it.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>uuid FK task cascade</td><td>the task (part of the key)</td></tr>
+    <tr><td><code>genusGUID · resourceRoleGUID · measureUnit · periodMonth · factKind</code></td><td>text · text · text · date · text</td><td>the rest of the key. <code>resourceRoleGUID</code> '' = a line without a role; <code>factKind</code> = <code>delivered</code> | <code>used</code> (the <code>documentKind</code> of the header)</td></tr>
+    <tr><td><code>rowProjectGUID</code></td><td>uuid</td><td>for the project filter and the policy</td></tr>
+    <tr><td><code>qtyFact · sumForContract · sumForBudget</code></td><td>numeric(18,2)</td><td>Σ of <code>task_fact_timeline</code> of the <b>posted</b> documents</td></tr>
+    <tr><td><code>lineCount · documentCount</code></td><td>int</td><td>how many lines / documents make the row (the Sum explorer shows the same)</td></tr>
+    <tr><td><code>updated_at</code></td><td>timestamptz</td><td>set only when a number changes</td></tr>
+  </table></div>
+  <p class="small">Primary key = the key columns. Read policy: owner of the project; nobody writes except the cron procedure (SECURITY DEFINER). Same worker and the same queue as the Monitor01 view (section 6).</p>
+
+  <h3>3.4 &nbsp;Setting and not-new objects</h3>
+  <ul class="tight">
+    <li><b>Project setting</b> <code>factStrongInputByTaskLine?: boolean | null</code> in <code>PMProjectSettings</code> (<code>kit8/pm/model/types.ts</code>), default false, in Project settings (Finances tab, Q2). No SQL column: it is a key of <code>project_table.rowJSON</code>.</li>
+    <li><b>Procedures:</b> <code>post_task_fact_document(headerGUID)</code> and <code>unpost_task_fact_document(headerGUID)</code> (section 5); the document number trigger; the project / owner fill trigger.</li>
+    <li><b>Seeds:</b> two documents on the example task of the Monitor01 sheet (one <i>delivered</i>, one <i>used</i>) so Monitor01 shows 20 / 16 and 50 / 30 of the sheet.</li>
+  </ul>
+</section>
+
+<section id="modes">
+  <h2>4 - The two modes of the rule</h2>
+  <p class="sub">The setting is read <b>when a document is created</b> and copied into the header (<code>strongInput</code>), so changing the setting later never changes a document that exists.</p>
+  <div class="scroll"><table>
+    <tr><th></th><th><code>factStrongInputByTaskLine = true</code> (strong)</th><th><code>= false</code> (free, the default)</th></tr>
+    <tr><td>Who creates the lines</td><td>the system, from the task (below)</td><td>the user: [+ Add line]</td></tr>
+    <tr><td>Add a line</td><td><b>not possible</b></td><td>possible</td></tr>
+    <tr><td>Delete / update a line</td><td>possible (date, quantity, price, note)</td><td>possible (every field)</td></tr>
+    <tr><td>Link to the task line</td><td><code>taskLineGUID</code> obligatory, role / resource / unit / price copied and read only</td><td>none: <code>taskLineGUID</code> is NULL. The user chooses role (resource optional), unit, quantity, date on the tab of the genus; the pickers are the ones of the Finances table</td></tr>
+    <tr><td>Fits</td><td>"report against the plan": one fact line answers one plan line</td><td>"report what happened": extra material, an unplanned expense, a person not in the plan</td></tr>
+  </table></div>
+  <h3>Strong mode: how the lines are created <span class="pill ask">Q4</span></h3>
+  <ul class="tight">
+    <li>On the first Save of a new document the system proposes <b>one fact line for every posted plan day</b> (<code>task_line_plan_timeline</code>) of every line of the task that has a budget item - the date and quantity are <b>prefilled with the plan</b>, as a timesheet is. The user changes the real quantity and date, or deletes the lines that did not happen.</li>
+    <li>Lines that are not posted yet (<code>taskIsPosted = false</code>) have no plan days; they are named in a message ("Post the plan first") and get no fact lines.</li>
+    <li>[Refill from plan] adds the plan days that have no fact line in the document (the only way to get a deleted line back; it is not "adding a free line").</li>
+  </ul>
+  <h3>Free mode: what a line must have</h3>
+  <p>Genus (the tab), date, quantity ≥ 0, unit. A role is recommended (Monitor01 groups by role; a line without a role lands in the "no role" row); the resource (person / equipment / product), price and note are optional.</p>
+</section>
+
+<section id="post">
+  <h2>5 - Post</h2>
+  <ul class="tight">
+    <li><b>Button</b>: the same Post button as the Finances table, three states - <b>Post</b> (draft with lines) · <b>Posted</b> · <b>Post needed</b> (a posted document was unposted and changed).</li>
+    <li><b>Procedure <code>post_task_fact_document(headerGUID)</code></b> (one transaction, the answer is data): lock the document; check the owner; the document has lines; quantities ≥ 0; every date is a valid day (and not in the future - Q8); in strong mode every line has a task line of this task and the lines are consistent; set <code>documentStatus = posted</code>, <code>postedAt</code>, <code>postedBy</code>; <b>queue the task</b> for the summary. A refusal is a list of problems per line, shown like the problems of the plan Post; nothing is written.</li>
+    <li><b>Posted = read only</b> (trigger and screen). To correct a posted document the owner uses <b>Unpost</b> (<code>unpost_task_fact_document</code>): status back to <code>draft</code>, the task is queued, so Monitor01 loses these numbers within 2 s; edit; Post again. <code>unpostedAt</code> is kept (Q9). A fact is never given a negative quantity.</li>
+    <li><b>Only posted documents count</b> in <code>task_line_fact_for_monitor01</code>; a draft is invisible to every report.</li>
+  </ul>
+</section>
+
+<section id="monitor">
+  <h2>6 - From the document to Monitor01</h2>
+  <div class="flow">
+    <span class="box">Post / Unpost of a document</span><span class="arrow">→ queue key (the task) →</span>
+    <span class="box on">monitor01_dirty</span><span class="arrow">→ pg_cron, every 2 s, one procedure →</span>
+    <span class="box on">task_line_fact_for_monitor01</span><span class="arrow">→ same run →</span>
+    <span class="box ok">monitor01_view (delivered · actually used · on-hand)</span>
+  </div>
+  <ul class="tight">
+    <li><b>One worker, two steps, one transaction per batch</b>: step 1 re-sums the posted <code>task_fact_timeline</code> rows of the claimed tasks into <code>task_line_fact_for_monitor01</code> (changed rows only); step 2 is the Monitor01 aggregation, which reads this table for the fact columns. A second cron job in a chain would add another 2 s of delay; this way the end-to-end target stays under 3 s (Q11).</li>
+    <li><b>Mapping:</b> Monitor01 <i>delivered</i> = Σ <code>qtyFact</code> of <code>factKind = delivered</code>; <i>actually used</i> = Σ <code>qtyFact</code> of <code>factKind = used</code>; <i>on-hand</i> = delivered − used (already in the Monitor01 plan).</li>
+    <li><b>Sum explorer:</b> a click on delivered / used in Monitor01 lists the <b>lines of <code>task_fact_timeline</code></b> (posted documents) with the document number; <b>Open</b> opens that document read only. The list total equals the cell.</li>
+    <li><b>Revenues:</b> the document has a Revenues tab (as in the doc) and the table keeps revenue facts, but the Monitor01 plan does not show revenue (its Q4). They sit in <code>task_line_fact_for_monitor01</code> for a later report.</li>
+  </ul>
+  <h3>Changes to the Monitor01 plan once you agree</h3>
+  <ol class="steps">
+    <li>Section 4.4 and WP A2 (<code>task_line_fact_movements</code>) are replaced by this page's tables; its Q7 is answered.</li>
+    <li>The dirty-queue triggers listen to <code>task_fact_header</code> (status change) instead of the fact movements; the worker gets step 1.</li>
+    <li>The Sum explorer sources for delivered / used point at <code>task_fact_timeline</code>.</li>
+  </ol>
+</section>
+
+<section id="wbs">
+  <h2>7 - Work breakdown structure</h2>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow (structure first, Docker-tested, then mirrored).</p>
+  <div class="scroll"><table>
+    <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
+    <tr class="wp"><td>0</td><td colspan="4">Decisions</td></tr>
+    <tr><td>0.1</td><td>Answer Q1-Q14 (section 12); "yes to all" is enough</td><td>answers on this page</td><td>S</td><td>-</td></tr>
+
+    <tr class="wp"><td>A</td><td colspan="4">Tables <span class="pill new">SQL</span></td></tr>
+    <tr><td>A1</td><td><code>task_fact_header</code>: table, fill triggers (project from task, number, <code>created_at</code>), CHECKs, index, RLS, realtime</td><td>SQL part</td><td>M</td><td>0.1</td></tr>
+    <tr><td>A2</td><td><code>task_fact_timeline</code>: table (nine plan-timeline fields + <code>rowHeaderGUID · genusGUID · rowJSON</code>), indexes, guard trigger (posted = frozen, header / task match, strong rules), RLS, realtime</td><td>SQL part</td><td>L</td><td>A1</td></tr>
+    <tr><td>A3</td><td><code>post_task_fact_document</code> / <code>unpost_task_fact_document</code>: validation list, status change, queue key, answers as data</td><td>2 procedures</td><td>M</td><td>A2</td></tr>
+    <tr><td>A4</td><td><code>task_line_fact_for_monitor01</code>: table, key, policy; the cron step 1 (re-sum of the claimed tasks, changed rows only) inside the Monitor01 worker</td><td>table + worker step</td><td>M</td><td>A3, Monitor01 B4</td></tr>
+    <tr><td>A5</td><td>Seeds (two documents on the Monitor01 example); mirror to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>; drop in <code>delete_sql_structure.sql</code></td><td>four SQL files in step</td><td>M</td><td>A1-A4</td></tr>
+
+    <tr class="wp"><td>B</td><td colspan="4">App model <span class="pill chg">TypeScript</span></td></tr>
+    <tr><td>B1</td><td>Types and constants: header, line, document status / kind, tab list; project setting <code>factStrongInputByTaskLine</code> in <code>types.ts</code> and the Project settings screen</td><td>types + setting</td><td>S</td><td>0.1</td></tr>
+    <tr><td>B2</td><td><code>factInputModel.ts</code> (pure): lines from the plan days (strong), validation twin of the Post rules, totals per unit, document state (<code>Post / Posted / Post needed</code>)</td><td>pure module</td><td>M</td><td>B1</td></tr>
+    <tr><td>B3</td><td>Data: <code>SystemMetaData</code> entries for the two tables; <code>factInputApi.ts</code> (Post / Unpost RPC); hook <code>useFactInputDocument</code> (latest draft, document list, save lines one by one)</td><td>api + hook</td><td>M</td><td>A3, B2</td></tr>
+
+    <tr class="wp"><td>C</td><td colspan="4">Screen <span class="pill chg">UI</span></td></tr>
+    <tr><td>C1</td><td>Menu item <b>Facts input</b> in the row menu of the Finances table (<code>onRowMenu</code> of the lines table) and the route / window that opens <code>PMFactInputDocument</code> with the clicked line's genus</td><td>menu + navigation</td><td>S</td><td>C2</td></tr>
+    <tr><td>C2</td><td><code>PMFactInputDocument.tsx</code>: header (number, kind, user, created, status), previous documents, <b>DocumentTabs</b> (style of the task window), the lines table, footer totals, Post / Unpost</td><td>screen</td><td>L</td><td>B3</td></tr>
+    <tr><td>C3</td><td>The lines table: columns reused from the Finances table; editable date in every row; strong mode (no Add, Refill from plan) and free mode (Add line, pickers)</td><td>table config</td><td>L</td><td>C2</td></tr>
+    <tr><td>C4</td><td>Texts in the <code>pmT</code> dictionaries; help text of the two modes</td><td>dictionaries</td><td>S</td><td>C2</td></tr>
+
+    <tr class="wp"><td>D</td><td colspan="4">Integration and tests</td></tr>
+    <tr><td>D1</td><td>Monitor01: Sum explorer sources for delivered / used; open a document read only</td><td>wiring (in the Monitor01 plan)</td><td>S</td><td>A4, C2</td></tr>
+    <tr><td>D2</td><td>Docker SQL tests and Jest (section 10)</td><td>suites</td><td>L</td><td>A5, B-C</td></tr>
+    <tr><td>D3</td><td>README in the folder of the screen; status box on this page</td><td>docs</td><td>S</td><td>all</td></tr>
+  </table></div>
+</section>
+
+<section id="files">
+  <h2>8 - Files</h2>
+  <div class="scroll"><table>
+    <tr><th>Path</th><th>What</th></tr>
+    <tr><td><code>documentation/FACT_INPUT.html</code></td><td>this page</td></tr>
+    <tr><td><code>kit8/pm/view/task/fact/PMFactInputDocument.tsx</code></td><td>the document screen (next to <code>finances/</code> and <code>plan/</code>)</td></tr>
+    <tr><td><code>kit8/pm/view/task/fact/{factInputModel,factInputApi,useFactInputDocument,factInputColumns}.ts(x)</code></td><td>pure logic, RPC, hook, columns</td></tr>
+    <tr><td><code>kit8/pm/view/task/fact/README.md</code></td><td>how it works</td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD.tsx</code></td><td>the menu item (small change)</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code> and the Project settings screen</td><td>the setting</td></tr>
+    <tr><td><code>kit8/sql/start/start_sql_structure.sql</code> (new PART), <code>start_sql_code.sql</code>, <code>start_sql_data.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
+    <tr><td><code>kit8/docker/tests/NN_fact_input.sql</code>, <code>kit8/docker/test_fact_input.sh</code></td><td>Docker tests</td></tr>
+    <tr><td><code>__tests__/pm/view/task/fact/*</code></td><td>Jest</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>9 - Risks</h2>
+  <div class="scroll"><table>
+    <tr><th>Risk</th><th>Answer</th></tr>
+    <tr><td>The doc has no field that says delivered or used, but Monitor01 needs both</td><td><code>documentKind</code> on the header (Q1). Without it the report cannot be built</td></tr>
+    <tr><td>Strong mode with a task line deleted after the fact was posted</td><td><code>taskLineGUID</code> is <code>SET NULL</code>; the fact keeps its copied role / unit / genus, so the report is unchanged</td></tr>
+    <tr><td>The user switches the setting while drafts exist</td><td>each document keeps the mode it was created in (<code>strongInput</code> of the header)</td></tr>
+    <tr><td>Fact lines for many plan days (a person for 60 days)</td><td>the table is paged; the strong mode shows lines of the clicked line first; Delete selected</td></tr>
+    <tr><td>A posted document needs a correction</td><td>Unpost → edit → Post; Monitor01 follows within 2 s; <code>unpostedAt</code> keeps the trace</td></tr>
+    <tr><td>Old projects</td><td>no existing table or column changes; the setting is optional (missing = false); the new menu item is the only visible change</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>10 - Tests</h2>
+  <h3>Docker (postgres:15, <code>cd kit8/docker && ./test_sql.sh && ./test_fact_input.sh</code>)</h3>
+  <ul class="tight">
+    <li>Install / delete cycle twice (idempotent).</li>
+    <li>Header: number and <code>created_at</code> are set by the database; project is filled from the task; a draft can be changed, a posted one cannot (header and lines).</li>
+    <li>Lines: a line of another task or project than its header is refused; strong mode refuses a line without a task line of the same task; free mode accepts NULL; negative quantity refused; two facts of one line and day are allowed.</li>
+    <li>Post: an empty document, a bad date and an inconsistent strong line each return a problem list and write nothing; a good document becomes posted and queues its task; Unpost returns it to draft and queues again.</li>
+    <li>Summary: after one worker run <code>task_line_fact_for_monitor01</code> equals the sum of the posted lines by task × genus × role × unit × month × kind; drafts are not counted; an unchanged row keeps its <code>updated_at</code>; a deleted task or document leaves no row.</li>
+    <li>Policies: only the owner reads or writes; nobody writes the summary table.</li>
+  </ul>
+  <h3>Jest</h3>
+  <ul class="tight">
+    <li>Lines from plan days (prefilled, unposted lines named), validation twin, totals per unit, document state text.</li>
+    <li>Screen: strong mode has no Add line and keeps Delete / update; free mode has Add line; the date is editable in every row; the tab of the clicked line opens; Post / Unpost buttons by status.</li>
+    <li>Menu: the Facts input item appears in the row menu of a line and opens the document on the right tab.</li>
+  </ul>
+</section>
+
+<section id="order">
+  <h2>11 - Order</h2>
+  <ol class="steps">
+    <li>Answers (0.1).</li>
+    <li>A1-A3, A5 with the Docker tests (documents, lines, Post work without any screen).</li>
+    <li>B1-B3 with Jest, then C1-C4 (the screen).</li>
+    <li>A4 together with the Monitor01 worker (the plan says: this page first, Monitor01 PART after it), then D1.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>12 - Questions</h2>
+  <p class="sub">Each has my default.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>My default</th></tr>
+    <tr><td>Q1</td><td><b>Delivered or used?</b> The fact line has no field for it (same fields as the plan timeline), but Monitor01 shows both.</td><td>Header field <code>documentKind</code> = <code>delivered</code> | <code>used</code>, chosen when the document is created. A document is one delivery or one usage report.</td></tr>
+    <tr><td>Q2</td><td><b>Setting name and place.</b> The doc says <code>factStrongInputByTaskLinei</code>.</td><td><code>factStrongInputByTaskLine</code> (no trailing "i"), Project settings → Finances tab, default false, copied into every new document.</td></tr>
+    <tr><td>Q3</td><td><b>Header fields as columns or JSON?</b> The doc puts them in <code>rowJSON.documentHeader</code>.</td><td>As in the doc, in JSON; the task stays a real column (<code>rowOwnerGUID</code>, FK) and <code>projectTaskGUID</code> is its read-only copy.</td></tr>
+    <tr><td>Q4</td><td><b>Strong mode: which lines does the system create?</b></td><td>One per posted plan day of each posted line, prefilled with the plan; unposted lines are named, not created; [Refill from plan] restores deleted ones.</td></tr>
+    <tr><td>Q5</td><td><b>What opens from the menu?</b></td><td>The latest draft of the task, else a new one (written at the first Save); a list of the previous documents.</td></tr>
+    <tr><td>Q6</td><td><b>"Task → Edit mode".</b> The task window has no lines; the lines are in Finances and on the Task page.</td><td>The menu item goes into the row menu of the lines table (Finances view and Task page); the task window is not changed.</td></tr>
+    <tr><td>Q7</td><td><b>Revenues tab</b> although Monitor01 has no revenue.</td><td>Keep the tab as in the doc; revenue facts are stored and summed, shown in a later report.</td></tr>
+    <tr><td>Q8</td><td><b>Date.</b> Day only? Future dates?</td><td>Day only (time of day later, like the plan); Post refuses a date after today.</td></tr>
+    <tr><td>Q9</td><td><b>Correcting a posted document.</b></td><td>Unpost → edit → Post by the owner; no negative facts.</td></tr>
+    <tr><td>Q10</td><td><b>Sums on facts.</b></td><td>Filled: strong = price of the task line × quantity; free = price from the role / product by the Finances rules, editable. Budget sum by the same exchange-rate rule as the plan.</td></tr>
+    <tr><td>Q11</td><td><b>pg_cron for the summary.</b></td><td>The same worker and queue as Monitor01 (step 1 then step 2), not a second chained job.</td></tr>
+    <tr><td>Q12</td><td><b>Who may enter facts?</b></td><td>The owner of the project (the rule of every PM table today); roles per user later.</td></tr>
+    <tr><td>Q13</td><td><b>Unique (line, day)</b> of the plan timeline.</td><td>Not copied: several facts per line and day are allowed.</td></tr>
+    <tr><td>Q14</td><td><b>Free mode minimum.</b></td><td>Genus (tab), date, quantity, unit required; role recommended; resource, price, note optional.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>

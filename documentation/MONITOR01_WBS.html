@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor01 - WBS</title>
+<style>
+  /* Light business theme, same family as documentation/TIME_GENUS_CONTROL_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.wp td { background: var(--bg-subtle); font-weight: 700; }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .badbox { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.warn { background: var(--rose-soft); border-color: #fda4af; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.sheet td, table.sheet th { border: 1px solid var(--border); padding: 5px 9px; }
+  table.sheet th { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-2); }
+  td.amber { background: #fde68a; } td.red { background: #fecaca; } td.green { background: #bbf7d0; } td.tot { background: var(--bg-subtle); font-weight: 700; }
+  td.link { text-decoration: underline dotted; cursor: default; }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Monitor01</div>
+  <nav><ul>
+    <li><a href="#status">Status</a></li><li><a href="#read">1 What I read</a></li><li><a href="#screen">2 The screen</a></li><li><a href="#flow">3 Data flow</a></li>
+    <li><a href="#tables">4 Tables</a></li><li><a href="#measures">5 Measures</a></li><li><a href="#worker">6 Worker</a></li><li><a href="#speed">7 Speed</a></li>
+    <li><a href="#sum">8 Sum explorer</a></li><li><a href="#modes">9 Two modes</a></li><li><a href="#wbs">10 WBS</a></li><li><a href="#files">11 Files</a></li>
+    <li><a href="#risks">12 Risks</a></li><li><a href="#tests">13 Tests</a></li><li><a href="#order">14 Order</a></li><li><a href="#open">15 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="status">
+  <h1>Monitor01 <span class="pill ask">plan only - nothing built</span></h1>
+  <p class="lead">Source: Google Doc "W1 MONITOR1" and the sheet "W1 1-MONITOR01". As the doc says: <b>no code yet</b>. This page is the plan, the description of the
+  <b>additional tables</b> and the questions. The business need: one table per resource role, month and task that shows <b>planned · contracted · rest to contract · delivered · actually used · on-hand</b>,
+  updated within about 2 seconds of a change, where <b>every sum can be opened down to the source transactions</b>.</p>
+  <div class="note"><b>Things I could not take from the sheet</b> (see Q1, Q2): the sheet has <b>no coloured cells</b> (every cell is white in the data the connector returns and there is no conditional formatting),
+  and column A holds only three labels. I proposed rules for both; please confirm or send the colours.</div>
+  <div class="grid">
+    <div class="card"><h3>New tables <span class="pill new">4 + 1</span></h3><ul class="tight">
+      <li><code>monitor01_view</code> - the read table (pre-aggregated)</li>
+      <li><code>monitor01_dirty</code> - the queue of tasks to recompute</li>
+      <li><code>task_line_fact_movements</code> - delivered / used (source)</li>
+      <li><code>task_line_contract_movements</code> - contracted (source)</li>
+      <li><code>monitor01_refresh_log</code> - small, for the "data age" badge</li></ul></div>
+    <div class="card"><h3>Existing, read only</h3><ul class="tight">
+      <li><code>task_line_plan_movements</code> - the base of the view (as the doc says)</li>
+      <li><code>task_line_table</code>, <code>project_task_table</code>, <code>project_table</code>, role / unit catalogs - names, keys</li>
+      <li>No existing table changes its columns. Old projects stay unchanged.</li></ul></div>
+    <div class="card"><h3>New screens</h3><ul class="tight">
+      <li><code>Monitor01Dashboard.tsx</code> - two modes</li>
+      <li><code>SumExplorerListReusable.tsx</code> - sum → source transactions</li>
+      <li>Route <code>app/pm/reports/monitor01</code></li>
+      <li>Reports toggle gets <b>Monitor01</b></li></ul></div>
+  </div>
+</section>
+
+<section id="read">
+  <h2>1 - What I read</h2>
+  <h3>The sheet "W1 1-MONITOR01" (Sheet1, rows 1-13)</h3>
+  <div class="scroll"><table class="sheet">
+    <tr><th>A</th><th colspan="10">Roles Requirements - monitor01_view</th></tr>
+    <tr><th>Tabs</th><th>Time</th><th>Material</th><th>Expense</th><th>All</th><th colspan="6"></th></tr>
+    <tr><th>requirements dimensions</th><th colspan="4"></th><th colspan="3" style="text-align:center">Plan</th><th colspan="3" style="text-align:center">Fact</th></tr>
+    <tr><th></th><th>resource role</th><th>month</th><th>task.name</th><th>unit</th><th>planed</th><th>contracted</th><th>rest to contract</th><th>delivered</th><th>actualy used</th><th>on-hand</th></tr>
+    <tr><td></td><td colspan="4" class="small">row 5 - a total</td><td class="num tot">48</td><td colspan="5"></td></tr>
+    <tr><td></td><td colspan="10"><b>Time</b></td></tr>
+    <tr><td></td><td>Data Analyst</td><td class="num">10</td><td>task01</td><td></td><td class="num link">24</td><td class="num link">24</td><td class="num">0</td><td class="num link">20</td><td class="num link">16</td><td class="num">4</td></tr>
+    <tr><td></td><td>Data Analyst</td><td class="num">10</td><td>task03</td><td></td><td class="num link">24</td><td class="num"></td><td class="num">24</td><td class="num"></td><td class="num"></td><td class="num">0</td></tr>
+    <tr><td></td><td colspan="10"><b>Material</b></td></tr>
+    <tr><td></td><td>10m pipe section</td><td class="num">10</td><td>task03</td><td></td><td class="num link">100</td><td class="num link">65</td><td class="num">35</td><td class="num link">50</td><td class="num link">30</td><td class="num">20</td></tr>
+    <tr><td></td><td>10m pipe section</td><td class="num">10</td><td>task04</td><td></td><td class="num link">200</td><td class="num link">80</td><td class="num">120</td><td class="num"></td><td class="num"></td><td class="num">0</td></tr>
+  </table></div>
+  <p class="small">Dotted underline = "navigate from any sum to the source transactions". The sheet confirms the arithmetic: rest to contract = planned − contracted (24−24, 24−0, 100−65, 200−80);
+  on-hand = delivered − actually used (20−16, 50−30, empty = 0).</p>
+  <h3>What the doc asks, in my words</h3>
+  <ol class="steps">
+    <li><b>Stage 1</b>: <code>Monitor01Dashboard.tsx</code> shaped like the sheet; row descriptions in column A; <b>background colour of the critical cells</b> as on the sheet.</li>
+    <li>From <b>any sum</b> (cell, subtotal, total) you must reach the <b>source transactions</b> - a reusable component <code>SumExplorerListReusable.tsx</code>.</li>
+    <li>Table <code>monitor01_view</code>, <b>based on <code>task_line_plan_movements</code></b>, kept up to date <b>incrementally in batches by pg_cron every 2 seconds</b>; built for the maximum speed of real-time listening.</li>
+    <li>Two modes: (a) inside the project board, toggle <b>Reports → Monitor01</b>; (b) separately, route <code>app/pm/reports/monitor01</code>, reached from <b>hamburger menu → Reports → Monitor01</b>, showing the <b>full data set</b>, with fast <code>TextInputApp</code> filters above the table:
+      <code>startDate</code>, <code>finishDate</code>, Project, Task, Resource.</li>
+    <li>This page: the list of all additional tables.</li>
+  </ol>
+  <h3>What already exists that this plan uses</h3>
+  <ul class="tight">
+    <li><code>task_line_plan_movements</code> (PART 15): one row per line and day, <code>qtyTaskLine</code>, <code>planMovementStatus</code> (false only while a Post is being checked), <code>periodDay</code>, indexed by task and project, <code>REPLICA IDENTITY FULL</code>, in the <code>supabase_realtime</code> publication, read policy <code>pm_owns_project</code>.</li>
+    <li><code>task_line_table</code>: genus in <code>rowParentGUID</code> (<code>timeGenus · materialGenus · expenseGenus · revenueGenus</code>), role <code>rowJSON.resourceRoleItem</code>, resource <code>taskResourceItem</code>, unit <code>measureUnitTaskLine</code>, contract keys. <code>idx_task_line_role</code> exists.</li>
+    <li>The same worker pattern is already planned for the shop (<code>documentation/PRODUCT_ENTITY_PLAN2.html</code>: a dirty queue, <code>pg_cron</code>, <code>SKIP LOCKED</code>).</li>
+    <li>Reports view with the toggle <code>Costs | Revenues | Network</code> (<code>GanttRightSideToggle</code>, <code>PMReportsSection</code> in <code>kit8/pm/model/types.ts</code>) and the realtime hook style of <code>useProjectRealtime.ts</code>.</li>
+  </ul>
+  <div class="badbox"><b>Gap found:</b> the repository has <b>no data</b> for <i>contracted quantity</i> (a contract holds only a money sum, <code>contractSumBeforeVAT</code>) and <b>none for delivered / actually used / on-hand</b>.
+  The sheet needs partial quantities (65 of 100 contracted), so two new <b>source</b> tables are unavoidable: sections 4.3 and 4.4.</div>
+</section>
+
+<section id="screen">
+  <h2>2 - The screen</h2>
+  <p class="sub">Layout of <code>Monitor01Dashboard.tsx</code>, taken from the sheet.</p>
+  <div class="mock">
+    <b>Filters (TextInputApp)</b>: startDate · finishDate · Project · Task · Resource &nbsp;|&nbsp; <span class="small">badge: "data age 1.2 s"</span><br>
+    <b>Tabs</b>: Time · Material · Expense · All<br>
+    <b>Header</b>: two rows - group row (Plan | Fact) and column row; <b>Total row</b> directly under the header (the "48" of the sheet)<br>
+    <b>Body</b>: genus group row → rows by <i>resource role · month · task</i>; columns <i>unit · planned · contracted · rest to contract · delivered · actually used · on-hand</i><br>
+    <b>Column A</b>: the row description (what kind of row this is: tab, group, total, role line) - see Q2
+  </div>
+  <h3>Rows and columns</h3>
+  <div class="scroll"><table>
+    <tr><th>Item</th><th>Rule</th></tr>
+    <tr><td>Row grain</td><td>one row per <b>task × genus × role × unit × month</b> (= one row of <code>monitor01_view</code>); the same role in two tasks gives two rows, as on the sheet</td></tr>
+    <tr><td>Group rows</td><td>genus (Time / Material / Expense) with its own subtotal; the <b>All</b> tab shows the three groups one after the other</td></tr>
+    <tr><td>Total row</td><td>sums of the rows <b>shown</b> (after the filters). Units are never mixed: a total is per unit (hours, pieces, ...), so in <b>All</b> the total row is one line per unit (Q12)</td></tr>
+    <tr><td>Sort</td><td>genus, role name, month, task name (the same order as the sheet)</td></tr>
+    <tr><td>Numbers</td><td>2 decimals, blank = 0 for fact columns (as in the sheet); right aligned</td></tr>
+    <tr><td>Clickable sum</td><td>every number cell, group subtotal and total opens the Sum explorer (section 8). Rest to contract and on-hand open both operands</td></tr>
+  </table></div>
+  <h3>Critical cells - background colour <span class="pill ask">Q1</span></h3>
+  <p>The sheet has no fills, so this is my proposal. It lives in one pure module <code>monitor01Colors.ts</code> (twin of nothing in SQL: the view stores numbers, the client colours them) so the rule is changed in one place.</p>
+  <div class="scroll"><table class="sheet">
+    <tr><th>Cell</th><th>Condition</th><th>Colour</th><th>Meaning</th></tr>
+    <tr><td>rest to contract</td><td class="num">&gt; 0</td><td class="amber">amber</td><td>still to contract (24, 35, 120 in the sheet)</td></tr>
+    <tr><td>rest to contract</td><td class="num">&lt; 0</td><td class="red">red</td><td>contracted more than planned</td></tr>
+    <tr><td>rest to contract</td><td class="num">= 0 and planned &gt; 0</td><td class="green">green</td><td>fully contracted</td></tr>
+    <tr><td>on-hand</td><td class="num">&lt; 0</td><td class="red">red</td><td>used more than delivered</td></tr>
+    <tr><td>on-hand</td><td class="num">= 0 and used &gt; 0</td><td class="amber">amber</td><td>everything delivered is used up</td></tr>
+    <tr><td>planned</td><td>row has stale plan rows</td><td class="amber">small mark</td><td>"Post needed": task dates moved after the last Post (Q3)</td></tr>
+  </table></div>
+</section>
+
+<section id="flow">
+  <h2>3 - Data flow</h2>
+  <div class="flow">
+    <span class="box">task_line_plan_movements</span><span class="arrow">+</span>
+    <span class="box">task_line_contract_movements</span><span class="arrow">+</span>
+    <span class="box">task_line_fact_movements</span>
+  </div>
+  <div class="flow"><span class="arrow">↓ statement-level triggers: only write the task key</span></div>
+  <div class="flow"><span class="box on">monitor01_dirty (one row per task)</span></div>
+  <div class="flow"><span class="arrow">↓ pg_cron every 2 s · procedure · batches of 500 tasks · SKIP LOCKED</span></div>
+  <div class="flow"><span class="box on">monitor01_view (rewrites only rows whose numbers changed)</span><span class="arrow">→</span><span class="box">monitor01_refresh_log</span></div>
+  <div class="flow"><span class="arrow">↓ Supabase Realtime (postgres_changes, filter by project)</span></div>
+  <div class="flow"><span class="box ok">hook useMonitor01Rows → patch by key → Monitor01Dashboard</span><span class="arrow">→ click a sum →</span><span class="box ok">SumExplorerListReusable → source tables</span></div>
+  <div class="good"><b>Why a queue and not a trigger that updates the view directly:</b> a Post inserts hundreds of movement rows in one transaction and the Time-genus check writes them twice
+  (<code>planMovementStatus</code> false, then true). A direct trigger would re-aggregate for every statement inside the user's transaction and make Post slower. The trigger only writes a task key
+  (one cheap insert, duplicates ignored); the heavy work is done outside the user's transaction, once per task and tick.</div>
+  <p><b>Latency budget:</b> commit → ≤ 2 s until the next tick → ~50-300 ms batch → ~100 ms realtime → screen. Target: <b>under 3 s end to end</b>, <b>under 2.5 s</b> on a quiet system.</p>
+</section>
+
+<section id="tables">
+  <h2>4 - Additional tables</h2>
+  <p class="sub">Style as in the existing PARTs: <code>public.</code>, camelCase quoted columns, <code>rowProjectGUID / rowOwnerGUID / rowParentGUID</code> keys, <code>REPLICA IDENTITY FULL</code> for realtime, RLS on, read by the owner of the project (<code>pm_owns_project</code>). One new <b>PART 24</b> in <code>start_sql_structure.sql</code>, mirrored to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>, with the drop in <code>delete_sql_structure.sql</code> (your SQL workflow).</p>
+
+  <h3>4.1 &nbsp;<code>monitor01_view</code> <span class="pill new">new · the table the screen listens to</span></h3>
+  <p>A real table (not a SQL view) holding one pre-aggregated row per <b>task × genus × role × unit × month</b>. The client never joins and never computes: every displayed number is a column.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>uuid, FK <code>project_task_table</code> cascade</td><td>the task. Part of the key. A deleted task removes its rows by itself (no orphan clean-up)</td></tr>
+    <tr><td><code>genusGUID</code></td><td>text</td><td><code>timeGenus · materialGenus · expenseGenus</code> (= the tab). Part of the key</td></tr>
+    <tr><td><code>resourceRoleGUID</code></td><td>text NOT NULL default ''</td><td>role of the line (<code>resourceRoleItem</code>), '' = line without a role. Part of the key</td></tr>
+    <tr><td><code>measureUnit</code></td><td>text NOT NULL</td><td>unit of the line (<code>measureUnitTaskLine</code>); units are never added together. Part of the key</td></tr>
+    <tr><td><code>periodMonth</code></td><td>date</td><td>first day of the month of <code>periodDay</code>. Part of the key (primary key = the five columns)</td></tr>
+    <tr><td><code>rowProjectGUID</code></td><td>uuid</td><td>project; the realtime filter and the main index</td></tr>
+    <tr><td><code>rowOrganizationGUID</code></td><td>uuid</td><td><code>project_table.rowParentGUID</code>, copied: the key of a later organization-wide read (Q9)</td></tr>
+    <tr><td><code>rowOwnerUserGUID</code></td><td>uuid</td><td>owner of the project, copied: the read policy is <code>rowOwnerUserGUID = current user</code> - <b>no join per row</b>, which is what makes realtime fast (Q10)</td></tr>
+    <tr><td><code>projectName · taskName · resourceRoleName</code></td><td>text</td><td>titles copied so the filters and the screen need no catalog (Q11). A rename queues the affected tasks (trigger on rename)</td></tr>
+    <tr><td><code>qtyPlanned</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_plan_movements.qtyTaskLine</code> (section 5)</td></tr>
+    <tr><td><code>qtyContracted</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_contract_movements.qtyContracted</code></td></tr>
+    <tr><td><code>qtyDelivered · qtyUsed</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_fact_movements.qtyFact</code> by <code>factKind</code></td></tr>
+    <tr><td><code>qtyRestToContract</code></td><td>numeric, <b>generated stored</b></td><td><code>qtyPlanned − qtyContracted</code> (the database computes it once; the client only reads)</td></tr>
+    <tr><td><code>qtyOnHand</code></td><td>numeric, <b>generated stored</b></td><td><code>qtyDelivered − qtyUsed</code></td></tr>
+    <tr><td><code>lineCount · hasStalePlan</code></td><td>int · boolean</td><td>number of lines in the row; true when a line of the row has <code>taskIsPosted = false</code> (Q3)</td></tr>
+    <tr><td><code>updated_at</code></td><td>timestamptz</td><td>set <b>only when a number changes</b> (the "data age" and the order of realtime events)</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li><b>Indexes:</b> primary key (the five key columns) · <code>(rowProjectGUID, genusGUID, periodMonth)</code> for the project mode and the realtime filter · <code>(rowOwnerUserGUID, periodMonth)</code> for the full data set · nothing else (every extra index slows the worker).</li>
+    <li><b>Realtime:</b> <code>REPLICA IDENTITY FULL</code> + in the <code>supabase_realtime</code> publication, same block as for <code>task_line_plan_movements</code>.</li>
+    <li><b>Access:</b> SELECT for <code>authenticated</code> with the one-column policy above; nobody writes (no insert / update / delete policy) - only the worker procedure (SECURITY DEFINER).</li>
+    <li><b>Size:</b> a narrow row of about 150 bytes. Rows exist only where something is non-zero (a role with plan and nothing else gives one row).</li>
+  </ul>
+
+  <h3>4.2 &nbsp;<code>monitor01_dirty</code> <span class="pill new">new · the queue</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>uuid, primary key</td><td>the task to recompute. One row per task: a hundred changes of one task are one queue row</td></tr>
+    <tr><td><code>queuedAt</code></td><td>timestamptz default now()</td><td>first time queued (oldest wins - duplicates are ignored); the worker takes the oldest first and measures the lag</td></tr>
+    <tr><td><code>reason</code></td><td>text</td><td>which source asked (plan / contract / fact / rename / line) - diagnostics only</td></tr>
+    <tr><td><code>attempts · lastError</code></td><td>int · text</td><td>a task that fails 5 times is parked (kept, skipped) so one bad task never blocks the queue</td></tr>
+  </table></div>
+  <p class="small">Unlogged table is possible (faster) but the queue would be lost on a crash; a crash is covered by <code>monitor01_verify</code> (section 6), so <b>UNLOGGED is recommended</b>. No RLS access for users at all.</p>
+
+  <h3>4.3 &nbsp;<code>task_line_contract_movements</code> <span class="pill new">new · source of "contracted"</span></h3>
+  <p>Why: the contract tables hold only money. The sheet needs "65 of the 100 pipe sections are covered by a contract". Same shape as the plan movements so the aggregation is symmetric and the drill-down can show both side by side.</p>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowGUID</code></td><td>uuid PK</td><td></td></tr>
+    <tr><td><code>rowProjectGUID · rowOwnerGUID · rowParentGUID</code></td><td>uuid FKs, cascade</td><td>project · task · <b>task line</b> (as the plan movements; a deleted line takes its rows)</td></tr>
+    <tr><td><code>contractGUID</code></td><td>text, <code>contractTable.rowGUID</code></td><td>the contract that covers this quantity (a person's for Time, a partner's for Material / Expense)</td></tr>
+    <tr><td><code>periodDay</code></td><td>date</td><td>the day covered (so the month of the sheet is a sum, never a guess)</td></tr>
+    <tr><td><code>qtyContracted</code></td><td>numeric(18,2), ≥ 0</td><td>quantity in the unit of the line</td></tr>
+    <tr><td><code>measureUnit</code></td><td>text</td><td>copy of the line unit; a trigger refuses a row whose unit differs from the line</td></tr>
+    <tr><td><code>sumForContract</code></td><td>numeric(18,2), optional</td><td>money of the quantity (for later reports)</td></tr>
+    <tr><td><code>sourceName · sourceRowGUID</code></td><td>text</td><td>who wrote it: <code>manual · lineContract · import</code> (like the occupancy contract)</td></tr>
+    <tr><td><code>rowJSON · created_at · updated_at</code></td><td></td><td>as everywhere</td></tr>
+  </table></div>
+  <p class="small">Index <code>(rowOwnerGUID, periodDay)</code> and <code>(rowParentGUID)</code>. RLS: owner of the project reads and <b>writes</b> (a user states the contracted quantity; no procedure is needed). Writers: a later "Contract the line" action (Q6) or import.</p>
+
+  <h3>4.4 &nbsp;<code>task_line_fact_movements</code> <span class="pill new">new · source of delivered / used</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>rowGUID · rowProjectGUID · rowOwnerGUID · rowParentGUID</code></td><td>as above</td><td>project · task · task line</td></tr>
+    <tr><td><code>factKind</code></td><td>text, CHECK</td><td><code>delivered</code> (arrived: material on site, hours supplied) or <code>used</code> (actually consumed / worked)</td></tr>
+    <tr><td><code>periodDay</code></td><td>date</td><td>day of the delivery / use</td></tr>
+    <tr><td><code>qtyFact</code></td><td>numeric(18,2), ≥ 0</td><td>quantity in the unit of the line (a correction is a new row with the other kind, never a negative)</td></tr>
+    <tr><td><code>measureUnit</code></td><td>text</td><td>same rule as 4.3</td></tr>
+    <tr><td><code>documentRef</code></td><td>text</td><td>delivery note / timesheet number - shown in the Sum explorer</td></tr>
+    <tr><td><code>sourceName · sourceRowGUID</code></td><td>text</td><td><code>manual · timesheet · goodsReceipt · import</code></td></tr>
+    <tr><td><code>rowJSON · created_at · updated_at</code></td><td></td><td></td></tr>
+  </table></div>
+  <p class="small">One table with <code>factKind</code>, not two: a delivery and a use are the same row shape, and <code>on-hand</code> is the difference of two sums of one table. Index <code>(rowOwnerGUID, factKind, periodDay)</code>.
+  Who enters the facts and how is Q7 - this plan builds the table, the aggregation and the seeds, not the entry screens.</p>
+
+  <h3>4.5 &nbsp;<code>monitor01_refresh_log</code> <span class="pill new">new · small</span></h3>
+  <p>One row per worker run that did work: <code>ranAt · tasksTaken · rowsUpserted · rowsDeleted · durationMs · maxLagMs · parkedTasks</code>. It feeds the "data age" badge (<code>now() − max(updated_at)</code> is not enough on a quiet system) and the alarm "lag over 10 s". Pruned daily (a second small cron job). Empty runs write nothing.</p>
+
+  <h3>4.6 &nbsp;Not new tables, but needed</h3>
+  <ul class="tight">
+    <li><b>Triggers</b> (statement-level, with transition tables): AFTER insert / update / delete on the three source tables; AFTER update of <code>rowJSON</code> on <code>task_line_table</code> (role, resource, unit, genus changes); AFTER update of the title on <code>project_task_table</code> and <code>project_table</code>; AFTER update of the role title (names are copied, Q11).</li>
+    <li><b>Functions:</b> <code>monitor01_process_dirty</code> (procedure), <code>monitor01_rebuild(project | all)</code>, <code>monitor01_verify(sample)</code>, <code>monitor01_sum_sources</code> (drill-down, section 8), <code>monitor01_prune</code>.</li>
+    <li><b>pg_cron:</b> job <code>monitor01_tick</code> every 2 seconds; job <code>monitor01_housekeeping</code> daily. Installation is guarded: if the <code>cron</code> schema is missing (Docker test) the install notes it and goes on.</li>
+    <li><b>Seeds</b> (<code>start_sql_data.sql</code>): the exact example of the sheet (Data Analyst task01 / task03, 10m pipe section task03 / task04, October) so the screen can be compared with the sheet.</li>
+  </ul>
+</section>
+
+<section id="measures">
+  <h2>5 - Measures</h2>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Definition</th><th>Source rows (the Sum explorer shows exactly these)</th></tr>
+    <tr><td>planned</td><td>Σ <code>qtyTaskLine</code> of the movements of the row's lines whose <code>periodDay</code> is in the month and <code>planMovementStatus = true</code></td><td><code>task_line_plan_movements</code></td></tr>
+    <tr><td>contracted</td><td>Σ <code>qtyContracted</code> in the month</td><td><code>task_line_contract_movements</code> (+ link to the contract card)</td></tr>
+    <tr><td>rest to contract</td><td><code>planned − contracted</code></td><td>both lists, each with its subtotal</td></tr>
+    <tr><td>delivered</td><td>Σ <code>qtyFact</code>, <code>factKind = delivered</code></td><td><code>task_line_fact_movements</code></td></tr>
+    <tr><td>actually used</td><td>Σ <code>qtyFact</code>, <code>factKind = used</code></td><td><code>task_line_fact_movements</code></td></tr>
+    <tr><td>on-hand</td><td><code>delivered − used</code></td><td>both lists, each with its subtotal</td></tr>
+  </table></div>
+  <ul class="tight">
+    <li>A group subtotal or the total is the sum of the rows under it (client side, from the same rows); its Sum explorer uses the same filter with fewer keys.</li>
+    <li><b>Revenue lines are not in Monitor01</b> - they are not a requirement of resources (Q4).</li>
+    <li>Unit: the quantity of a line is in the unit of the line. Rows with different units never meet in one sum.</li>
+  </ul>
+</section>
+
+<section id="worker">
+  <h2>6 - The worker (pg_cron, every 2 seconds)</h2>
+  <p class="sub">"Incremental, in batches" of the doc = only the tasks that changed, 500 at a time, only the rows whose numbers changed.</p>
+  <ol class="steps">
+    <li><b>Fast exit:</b> if <code>monitor01_dirty</code> is empty, return (no snapshot of the big tables, a fraction of a millisecond). Most ticks end here.</li>
+    <li><b>Claim:</b> take up to 500 queue rows, oldest first, with <code>FOR UPDATE SKIP LOCKED</code> and delete them in the same statement. Two workers (a slow tick plus the next one) never take the same task.</li>
+    <li><b>Aggregate once:</b> one set-based statement reads the three sources for the claimed tasks only (indexes on task), joins the lines for genus / role / unit and the project for names and owner, groups by the five key columns and the month.</li>
+    <li><b>Apply the difference:</b> upsert the fresh rows <b>only where a number or a name differs</b> (<code>IS DISTINCT FROM</code>), delete the rows of the claimed tasks that no longer have a source. Unchanged rows are not touched, so they produce no WAL and <b>no realtime event</b>.</li>
+    <li><b>Commit per batch:</b> a procedure (not a function) commits after every batch and loops while the queue is not empty and less than ~1.5 s has passed, so one tick never overlaps the next and a big import drains in several ticks.</li>
+    <li><b>Log:</b> one row in <code>monitor01_refresh_log</code> if anything was done.</li>
+  </ol>
+  <h3>Correctness details</h3>
+  <ul class="tight">
+    <li><b>Race:</b> a change committed while the worker runs queues its key again after the worker's commit; the next tick reads it. A key can be processed twice, never lost.</li>
+    <li><b>Failure:</b> a failing batch rolls back (the keys return to the queue), <code>attempts</code> grows, after 5 the task is parked and the log shows it; the rest of the queue continues.</li>
+    <li><b>Safety net:</b> <code>monitor01_verify(sample)</code> (daily, and on demand) recomputes a sample of tasks, compares with the view and queues the differences - it covers anything that bypassed the triggers (<code>TRUNCATE</code>, bulk import with triggers off). <code>monitor01_rebuild</code> queues all tasks of a project or of everything.</li>
+    <li><b>Install on an existing database:</b> the install only queues all tasks that have lines; the worker fills the view in the following ticks (no heavy statement inside the install transaction). Old projects need no change.</li>
+    <li><b>pg_cron needs:</b> the extension enabled (Supabase dashboard) and a version that accepts the seconds form (<code>'2 seconds'</code>, pg_cron 1.5 or newer) - please check it in the dashboard (Q14). If not available, the fallback is one minute cron + the app calling the worker on demand (not recommended).</li>
+  </ul>
+</section>
+
+<section id="speed">
+  <h2>7 - Choices made for maximum listening speed</h2>
+  <div class="scroll"><table>
+    <tr><th>Choice</th><th>Effect</th></tr>
+    <tr><td>Read table instead of a view or a live aggregate</td><td>the screen reads rows that are already summed; its cost does not grow with the number of movements (a Post can add hundreds of rows per line)</td></tr>
+    <tr><td>Generated columns for rest / on-hand</td><td>the client does no arithmetic and no join</td></tr>
+    <tr><td>Names copied into the row</td><td>no catalog read, filters and the screen work on the rows alone</td></tr>
+    <tr><td>One-column read policy (<code>rowOwnerUserGUID</code>)</td><td>Realtime checks the policy for every event and every subscriber; a join there is the usual cause of slow Realtime</td></tr>
+    <tr><td>Only changed rows are written</td><td>fewer events; the client patches by key and never refetches</td></tr>
+    <tr><td>Channel filtered by project</td><td>project mode listens to <code>rowProjectGUID = this project</code>; the full data set listens by owner (<code>rowOwnerUserGUID</code>)</td></tr>
+    <tr><td>Client patches, not refetches</td><td>an event carries the whole row (<code>REPLICA IDENTITY FULL</code>); the store replaces one row by its key; only the changed cell re-renders; events inside ~100 ms are applied together</td></tr>
+    <tr><td>After reconnect: one refetch</td><td>events sent while the socket was down are lost (same rule as <code>useProjectRealtime.ts</code>)</td></tr>
+    <tr><td>Queue deduplicated by task</td><td>a burst of 1000 writes to one task is one recomputation</td></tr>
+    <tr><td>Optional later: Realtime Broadcast from the worker</td><td>one small message per batch instead of per-row Postgres changes; the next step if many people watch the same project (Q10)</td></tr>
+  </table></div>
+  <p><b>Targets to check in the tests:</b> empty tick &lt; 5 ms · 500-task batch &lt; 300 ms · change → screen &lt; 3 s · 100 000 view rows load in pages of 1000 without freezing the screen.</p>
+</section>
+
+<section id="sum">
+  <h2>8 - Navigate from any sum to the source transactions</h2>
+  <p class="sub"><code>SumExplorerListReusable.tsx</code> - one reusable component; Monitor01 is only its first user (the Costs / Revenues reports can use it later).</p>
+  <div class="grid">
+    <div class="card"><h3>What the user sees</h3><ul class="tight">
+      <li>Tap a number → a window titled with the cell ("Data Analyst · 2026-10 · task01 · planned = 24 h")</li>
+      <li>Under it the list of the <b>source transactions</b> that make the sum, paged, newest first: day · line · quantity · unit · who / document</li>
+      <li>At the bottom a <b>check line</b>: "list total 24.00 = cell 24.00 ✓" - or the difference and "the view is about 2 s behind"</li>
+      <li>Each transaction has <b>Open</b>: jumps to its task line in the Plan view (<code>app/pm/project/task/plan</code>) or the contract card</li>
+      <li>On a derived cell (rest to contract, on-hand) two lists, one per operand, each with its subtotal</li></ul></div>
+    <div class="card"><h3>How it is reusable</h3><ul class="tight">
+      <li>Props: <code>title</code>, <code>sum</code> (value + unit), <code>filter</code> (a bag of keys: project, task, genus, role, unit, month, from / to), <code>sources[]</code></li>
+      <li>A <code>source</code> = name · columns · <code>fetchPage(filter, page)</code> · <code>onOpen(row)</code> · sign (+ / −)</li>
+      <li>The component knows nothing about Monitor01: Monitor01 passes its sources, another report passes its own</li>
+      <li>Used for cells, group subtotals and the total row: fewer keys in <code>filter</code> = a bigger list</li></ul></div>
+    <div class="card"><h3>Where the rows come from</h3><ul class="tight">
+      <li>One RPC <code>monitor01_sum_sources(measure, filter, page)</code> (SECURITY INVOKER, so the project policy applies) returns the page, the row count and the exact sum</li>
+      <li>Indexed by task / project / line role; for the total row by project and month</li>
+      <li>Reads the <b>source tables</b>, never <code>monitor01_view</code>: the list is the proof of the sum</li></ul></div>
+  </div>
+</section>
+
+<section id="modes">
+  <h2>9 - Two modes, route and menu</h2>
+  <div class="scroll"><table>
+    <tr><th></th><th>(a) Part of the project board</th><th>(b) Separately</th></tr>
+    <tr><td>How to open</td><td>toggle <b>Reports → Monitor01</b> (new button after Costs | Revenues | Network)</td><td>hamburger menu → Reports → Monitor01; route <code>app/pm/reports/monitor01</code></td></tr>
+    <tr><td>Data</td><td>the selected project (<code>rowProjectGUID</code> filter)</td><td>the <b>full data set</b> of the user (all projects they own; Q9)</td></tr>
+    <tr><td>Filters</td><td>startDate, finishDate, Task, Resource (Project is fixed) <span class="small">- Q15</span></td><td>startDate, finishDate, <b>Project</b>, Task, Resource</td></tr>
+    <tr><td>Size</td><td>the right pane (the Skia tree stays on the left)</td><td>the whole screen, with the app bar and a back button</td></tr>
+    <tr><td>Same code</td><td colspan="2"><code>Monitor01Dashboard</code> with a prop <code>mode: 'project' | 'standalone'</code> and an optional <code>projectGUID</code>; everything else (table, hook, colours, Sum explorer) is shared</td></tr>
+  </table></div>
+  <h3>Fast filters (<code>TextInputApp</code>)</h3>
+  <ul class="tight">
+    <li><code>startDate</code>, <code>finishDate</code>: text → date; they limit the <b>months</b> (a month is shown if it overlaps the interval, Q8).</li>
+    <li>Project / Task / Resource: "contains" on the copied names (<code>projectName · taskName · resourceRoleName</code>), case-insensitive, ~150 ms debounce, applied <b>in memory</b> on the loaded rows (the table is narrow); totals follow the filter. If a user has more rows than a threshold (say 50 000) the same filters move to the query - the hook hides this.</li>
+    <li>The filters are kept per mode (session only, no database).</li>
+  </ul>
+  <h3>Stage 1 toggle</h3>
+  <p>"Add Monitor01 to toggle Reports → Monitor01": <code>PMReportsSection</code> gets <code>'monitor01'</code>; <code>GanttRightSideToggle</code> gets the button; <code>PMProjectReportsView</code> renders the dashboard for that section. Old users see the same Reports as today until they press the new button.</p>
+</section>
+
+<section id="wbs">
+  <h2>10 - Work breakdown structure</h2>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start_sql_structure.sql</code> first (Docker-tested), then mirrored.</p>
+  <div class="scroll"><table>
+    <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
+
+    <tr class="wp"><td>0</td><td colspan="4">Decisions</td></tr>
+    <tr><td>0.1</td><td>Answer Q1-Q15 (section 15). Defaults are given; "yes to all" is enough</td><td>answers recorded on this page</td><td>S</td><td>-</td></tr>
+    <tr><td>0.2</td><td>Check pg_cron version / seconds syntax in the Supabase project (Q14)</td><td>yes / no</td><td>S</td><td>-</td></tr>
+
+    <tr class="wp"><td>A</td><td colspan="4">Source tables <span class="pill new">SQL</span></td></tr>
+    <tr><td>A1</td><td><code>task_line_contract_movements</code>: table, FKs, unit-equals-line trigger, indexes, RLS (owner reads and writes), realtime</td><td>PART 24a</td><td>M</td><td>0.1</td></tr>
+    <tr><td>A2</td><td><code>task_line_fact_movements</code>: table, <code>factKind</code> check, same trigger / indexes / RLS</td><td>PART 24b</td><td>M</td><td>0.1</td></tr>
+
+    <tr class="wp"><td>B</td><td colspan="4">The monitor table and the worker <span class="pill new">SQL</span></td></tr>
+    <tr><td>B1</td><td><code>monitor01_view</code>: columns, key, generated columns, indexes, read policy, grants, <code>REPLICA IDENTITY FULL</code>, publication</td><td>PART 24c</td><td>M</td><td>A1, A2</td></tr>
+    <tr><td>B2</td><td><code>monitor01_dirty</code> (unlogged) and <code>monitor01_refresh_log</code></td><td>2 small tables</td><td>S</td><td>-</td></tr>
+    <tr><td>B3</td><td>Statement-level triggers on the three sources, on <code>task_line_table</code>, on the renames; each only writes the task keys (<code>ON CONFLICT DO NOTHING</code>)</td><td>triggers</td><td>M</td><td>B2</td></tr>
+    <tr><td>B4</td><td><code>monitor01_process_dirty</code> procedure: fast exit, claim with <code>SKIP LOCKED</code>, one aggregate statement, changed-rows-only upsert + delete, commit per batch, parking, log</td><td>procedure</td><td>L</td><td>B1-B3</td></tr>
+    <tr><td>B5</td><td><code>monitor01_rebuild</code>, <code>monitor01_verify</code>, <code>monitor01_prune</code>; the install queues all tasks that have lines</td><td>3 functions + install block</td><td>M</td><td>B4</td></tr>
+    <tr><td>B6</td><td>pg_cron jobs <code>monitor01_tick</code> (2 s) and <code>monitor01_housekeeping</code> (daily), guarded when the <code>cron</code> schema is missing</td><td>cron block</td><td>S</td><td>B4, 0.2</td></tr>
+    <tr><td>B7</td><td><code>monitor01_sum_sources</code> RPC for the drill-down (all six measures, paged, with count and sum)</td><td>function</td><td>M</td><td>A1, A2</td></tr>
+    <tr><td>B8</td><td>Seeds = the example of the sheet; mirror to <code>start_sql_code.sql</code> and <code>start_sql_data.sql</code>; the drop in <code>delete_sql_structure.sql</code> (tables, triggers, functions, cron jobs)</td><td>4 SQL files in step</td><td>M</td><td>B1-B7</td></tr>
+
+    <tr class="wp"><td>C</td><td colspan="4">App model <span class="pill chg">TypeScript</span></td></tr>
+    <tr><td>C1</td><td><code>monitor01Model.ts</code>: row type, key builder, patch (upsert / delete by key), pure tree builder (genus → role → month → task), subtotals and totals per unit, filters</td><td>pure module</td><td>M</td><td>B1</td></tr>
+    <tr><td>C2</td><td><code>monitor01Colors.ts</code>: the critical-cell rules of section 2 in one place, in the palette of the app (light and dark)</td><td>pure module</td><td>S</td><td>0.1</td></tr>
+    <tr><td>C3</td><td>Texts in the <code>pmT</code> dictionaries (labels, tabs, tooltips, "data age")</td><td>dictionaries</td><td>S</td><td>-</td></tr>
+    <tr><td>C4</td><td><code>useMonitor01Rows</code>: paged first load, Realtime subscription with the project / owner filter, patch by key, ~100 ms batching of events, refetch after reconnect, data-age timer</td><td>hook</td><td>L</td><td>C1</td></tr>
+
+    <tr class="wp"><td>D</td><td colspan="4">Dashboard <span class="pill chg">UI</span></td></tr>
+    <tr><td>D1</td><td><code>Monitor01Table</code>: header rows (Plan | Fact), total row, group rows, virtualised body, number cells, colours, column A descriptions</td><td>component</td><td>L</td><td>C1, C2</td></tr>
+    <tr><td>D2</td><td><code>Monitor01Filters</code>: five <code>TextInputApp</code> fields, debounce, date parsing, clear</td><td>component</td><td>M</td><td>C1</td></tr>
+    <tr><td>D3</td><td><code>Monitor01Dashboard.tsx</code>: tabs Time / Material / Expense / All, filters, table, data-age badge, empty / loading / error, <code>mode</code> prop</td><td>screen</td><td>M</td><td>C4, D1, D2</td></tr>
+
+    <tr class="wp"><td>E</td><td colspan="4">Sum explorer <span class="pill chg">UI</span></td></tr>
+    <tr><td>E1</td><td><code>SumExplorerListReusable.tsx</code>: window, props, paged source lists, check line, Open action</td><td>reusable component</td><td>L</td><td>B7</td></tr>
+    <tr><td>E2</td><td>Monitor01 sources: planned / contracted / delivered / used lists, derived cells with two lists, total and subtotal filters, Open → Plan view / contract card</td><td>wiring</td><td>M</td><td>D1, E1</td></tr>
+
+    <tr class="wp"><td>F</td><td colspan="4">Navigation <span class="pill chg">Stage 1</span></td></tr>
+    <tr><td>F1</td><td>Reports toggle: <code>PMReportsSection</code> + <code>'monitor01'</code>, button in <code>GanttRightSideToggle</code>, branch in <code>PMProjectReportsView</code></td><td>toggle</td><td>S</td><td>D3</td></tr>
+    <tr><td>F2</td><td>Route <code>app/pm/reports/monitor01/index.tsx</code> (standalone, project selectable)</td><td>route</td><td>S</td><td>D3</td></tr>
+    <tr><td>F3</td><td>Hamburger menu → Reports → Monitor01 (the menu file is found first - not located yet)</td><td>menu item</td><td>S</td><td>F2</td></tr>
+
+    <tr class="wp"><td>G</td><td colspan="4">Tests and docs</td></tr>
+    <tr><td>G1</td><td>Docker SQL tests (section 13) and the race / burst test</td><td><code>test_monitor01.sh</code></td><td>L</td><td>B8</td></tr>
+    <tr><td>G2</td><td>Jest: model, colours, filters, patching, hook (fake channel), Sum explorer, toggle</td><td>suites</td><td>M</td><td>C-F</td></tr>
+    <tr><td>G3</td><td><code>README.md</code> in the folder; this page gets a status box and the answers</td><td>docs</td><td>S</td><td>all</td></tr>
+  </table></div>
+</section>
+
+<section id="files">
+  <h2>11 - Files</h2>
+  <div class="scroll"><table>
+    <tr><th>Path</th><th>What</th></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/MONITOR01_WBS.html</code></td><td>this page</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/Monitor01Dashboard.tsx</code></td><td>screen, both modes</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/{Monitor01Table,Monitor01Filters}.tsx</code></td><td>table and filters</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/{monitor01Model,monitor01Colors}.ts</code></td><td>pure logic</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/useMonitor01Rows.ts</code></td><td>load + realtime</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/README.md</code></td><td>how it works, how to test</td></tr>
+    <tr><td><code>kit8/ui/components/common/SumExplorerListReusable.tsx</code></td><td>reusable (next to <code>TextInputApp.tsx</code>)</td></tr>
+    <tr><td><code>app/pm/reports/monitor01/index.tsx</code></td><td>route for the separate call</td></tr>
+    <tr><td><code>kit8/pm/model/types.ts</code> · <code>kit8/pm/view/gantt/toolbars/GanttRightSideToggle.tsx</code> · <code>kit8/pm/view/reports/PMProjectReportsView.tsx</code></td><td>the toggle (small changes)</td></tr>
+    <tr><td><code>kit8/sql/start/start_sql_structure.sql</code> (PART 24), <code>start_sql_code.sql</code>, <code>start_sql_data.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
+    <tr><td><code>kit8/docker/tests/40_monitor01.sql</code>, <code>kit8/docker/test_monitor01.sh</code>, a <code>cron</code> stub in <code>init/00_supabase_stubs.sql</code></td><td>Docker tests</td></tr>
+    <tr><td><code>__tests__/pm/reports/monitor01/*</code></td><td>Jest</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>12 - Risks</h2>
+  <div class="scroll"><table>
+    <tr><th>Risk</th><th>Answer</th></tr>
+    <tr><td>pg_cron seconds syntax not available</td><td>check first (WP 0.2); the worker is a plain procedure, so it can be called from anywhere</td></tr>
+    <tr><td>A change that bypasses the triggers</td><td><code>monitor01_verify</code> daily + <code>monitor01_rebuild</code> on demand</td></tr>
+    <tr><td>Too many Realtime events after a big import</td><td>only changed rows are written; the client batches events; the Broadcast variant is ready as the next step</td></tr>
+    <tr><td>The Post of the Time-genus check writes movements with <code>planMovementStatus = false</code> first</td><td>the aggregate counts only <code>true</code>; the dirty key is the same for both writes</td></tr>
+    <tr><td>Copied names get stale</td><td>rename triggers queue the tasks; <code>monitor01_verify</code> compares names too</td></tr>
+    <tr><td>The sums of the drill-down differ from the cell by a few seconds</td><td>the check line says so; it is a snapshot of the last tick, not a bug</td></tr>
+    <tr><td>Facts / contracted quantities are empty at the start</td><td>the dashboard works with planned only (rest = planned, on-hand = 0); the entry screens are a separate stage (Q6, Q7)</td></tr>
+    <tr><td>Old projects</td><td>no existing column changes; new triggers only append keys; the first load fills the view through the queue</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>13 - Tests</h2>
+  <h3>Docker (postgres:15, <code>cd kit8/docker && ./test_sql.sh && ./test_monitor01.sh</code>)</h3>
+  <ul class="tight">
+    <li>Install / delete cycle passes twice (idempotent); the drop removes tables, triggers, functions, cron jobs.</li>
+    <li>The example of the sheet: after one worker run <code>monitor01_view</code> equals the sheet row by row (24/24/0/20/16/4, 24/0/24, 100/65/35/50/30/20, 200/80/120).</li>
+    <li>A new movement, a deleted line, a changed role / unit / genus, a renamed task / project / role: each ends in the right row after one run.</li>
+    <li>Only changed rows are written (<code>updated_at</code> of an unchanged row stays); a deleted task leaves no row.</li>
+    <li>Empty queue: the run changes nothing and writes no log. Burst: 10 000 writes to one task = one queue row.</li>
+    <li>Batching: 1200 queued tasks drain in three batches; two concurrent workers never process the same task; a poisoned task is parked after 5 attempts and the rest continues.</li>
+    <li>Race: a commit during a worker run is picked up on the next one (two-session script, like <code>test_time_genus_race.sh</code>).</li>
+    <li><code>planMovementStatus = false</code> rows are not counted; a stale line is counted and flagged (Q3).</li>
+    <li>Policies: the owner reads only own projects; nobody writes <code>monitor01_view</code>; the source tables follow their policies.</li>
+    <li><code>monitor01_sum_sources</code>: for every cell the list total equals the cell; <code>monitor01_verify</code> finds a manually damaged row.</li>
+    <li>Speed (100 000 movements): batch and empty-tick times from section 7 are printed.</li>
+  </ul>
+  <h3>Jest</h3>
+  <ul class="tight">
+    <li>Tree builder, subtotals, totals per unit, filters (dates, contains), colour rules, key patching (insert / update / delete event), reconnect refetch, data-age text.</li>
+    <li>Sum explorer: paging, check line, derived cell with two lists, Open action. Toggle shows the button and the dashboard; route renders with a project selector.</li>
+  </ul>
+</section>
+
+<section id="order">
+  <h2>14 - Order</h2>
+  <ol class="steps">
+    <li>Answers (0.1) and the pg_cron check (0.2).</li>
+    <li>A1, A2, B1-B8 with the Docker tests (SQL alone is testable and shows the sheet's numbers).</li>
+    <li>C1-C4 (model, colours, hook) with Jest.</li>
+    <li>D1-D3 and F1 - the dashboard inside the project board (the first thing you can look at).</li>
+    <li>E1-E2 - the Sum explorer.</li>
+    <li>F2-F3 - the route and the hamburger menu (standalone mode, the filter for Project).</li>
+    <li>G3 - README, status box.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>15 - Questions</h2>
+  <p class="sub">Each has my default. Answer "yes to all" or only the ones you change.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>My default</th></tr>
+    <tr><td>Q1</td><td><b>Colours.</b> The sheet has no coloured cells. Which cells are "critical" and what colour?</td><td>The rules of section 2 (rest &gt; 0 amber, rest &lt; 0 red, rest = 0 green, on-hand &lt; 0 red). Send the real colours if the sheet you mean is another copy.</td></tr>
+    <tr><td>Q2</td><td><b>Column A "row descriptions".</b> The sheet has only "ROW DESCRIPTION", "Tabs", "requirements dimensions". Do you mean a left column that names the kind of every row (Tabs, Group, Total, Role line)?</td><td>Yes: a narrow left column with that text, hidden on a phone.</td></tr>
+    <tr><td>Q3</td><td><b>Which plan rows count?</b> <code>planMovementStatus = true</code>. Rows of a line whose task dates moved after the last Post (<code>taskIsPosted = false</code>) wait for the next Post.</td><td>Count them (they are the last posted plan) and mark the row "Post needed".</td></tr>
+    <tr><td>Q4</td><td><b>Genus.</b> Time, Material, Expense. Revenue lines are not resource requirements.</td><td>Revenue is not in Monitor01.</td></tr>
+    <tr><td>Q5</td><td><b>"month" = 10 in the sheet.</b> A project can cross years.</td><td>Key and display are year-month (2026-10); the sheet's 10 is shown as "2026-10" (or "Oct 2026").</td></tr>
+    <tr><td>Q6</td><td><b>Where does "contracted" come from?</b> No quantity exists today (a contract has only a sum).</td><td>New table <code>task_line_contract_movements</code> (4.3). The screen to fill it ("Contract the line": split the plan across contracts) is a later stage; seeds and manual rows now.</td></tr>
+    <tr><td>Q7</td><td><b>Where do delivered / used come from?</b> Timesheets, goods receipts, manual typing, import?</td><td>New table <code>task_line_fact_movements</code> (4.4) with <code>sourceName</code> ready for timesheets / receipts; no entry screens in this plan.</td></tr>
+    <tr><td>Q8</td><td><b>startDate / finishDate</b> filter what?</td><td>The months: a month is shown if it overlaps the interval (rows are monthly). Day-exact filtering would need a day-grain table, ~20 times bigger.</td></tr>
+    <tr><td>Q9</td><td><b>"Full data set"</b> in the separate mode.</td><td>All projects the user owns (the rule of the existing tables). Colleagues in the same organization see each other's Monitor01 later; the column <code>rowOrganizationGUID</code> is already there.</td></tr>
+    <tr><td>Q10</td><td><b>Realtime transport.</b></td><td>Start with <code>postgres_changes</code> on <code>monitor01_view</code> (the app already uses it). Move to Broadcast from the worker only if many viewers make it slow.</td></tr>
+    <tr><td>Q11</td><td><b>Copy names into the row</b> (project, task, role)?</td><td>Yes; rename triggers keep them right.</td></tr>
+    <tr><td>Q12</td><td><b>Units in the <i>All</i> tab and the total row.</b> Hours and pieces cannot be added.</td><td>Totals are per unit: the total row of <i>All</i> is one line per unit.</td></tr>
+    <tr><td>Q13</td><td><b>Sum explorer on rest / on-hand.</b></td><td>Two lists (planned and contracted; delivered and used), each with its subtotal.</td></tr>
+    <tr><td>Q14</td><td><b>pg_cron.</b> Is it enabled and which version (seconds syntax needs 1.5+)?</td><td>Please check in the Supabase dashboard (Database → Extensions).</td></tr>
+    <tr><td>Q15</td><td><b>Filters in the project mode.</b> The doc lists filters only for the separate mode.</td><td>Same bar without Project.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>
