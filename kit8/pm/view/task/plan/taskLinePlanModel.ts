@@ -2,7 +2,7 @@
 //   SQL: kit8/sql/init/create_task_line_plan_table.sql · table task_line_plan · redux entity TASK_LINE_PLAN_ENTITY
 //   rowProjectGUID = task.rowProjectGUID · rowOwnerGUID = task.rowGUID · rowParentGUID = task_line_table.rowGUID (the LINE) · orderInList
 //   rowPeriodDatetime (the start of the day) · rowCoefficient (the share of the day; the coefficients of a line add up to baseOfDistribution = 1)
-//   qtyTaskLine · sumForBudget · sumForContract (2 digits; the rows add up to the line, Correct033) · rowJSON { budgetItemTaskLine, taskManagementGenusLine, businessUnitAssigned, budgetKind }
+//   qtyTaskLine · sumForBudget · sumForContract · sumForAccounting (2 digits; the rows add up to the line, Correct033) · rowJSON { budgetItemTaskLine, taskManagementGenusLine, businessUnitAssigned, budgetKind }
 //   Read-only for the app: the rows are written by the RPC create_task_line_plan (taskLinePlanApi.ts).
 import { BUDGET_ITEM, budgetItemsOfGenus } from '../../../../catalog/budget/item/budgetItemModel';
 import type { DefRow } from '../../../../catalog/product/productModel';
@@ -26,6 +26,8 @@ export interface TaskLinePlanRow {
   qtyTaskLine: number | string | null;
   sumForBudget: number | string | null;
   sumForContract: number | string | null;
+  /** the sum in the ACCOUNTING currency of the project (null = the project has none) */
+  sumForAccounting?: number | string | null;
   /** businessUnitAssigned = the business unit the day was posted to (copied from the line when it was posted); budgetKind = 'cost' | 'revenue' */
   rowJSON?: { budgetItemTaskLine?: string | null; taskManagementGenusLine?: string | null; businessUnitAssigned?: string | null; budgetKind?: 'cost' | 'revenue' | null };
 }
@@ -37,6 +39,8 @@ export interface TaskLinePlanLineJSON {
   qtyTaskLine: number | null;
   sumForBudget: number | null;
   sumForContract: number | null;
+  /** the sum in the accounting currency of the project (null stays null) */
+  sumForAccounting?: number | null;
   days: { d: string; c: number }[];
 }
 export interface TaskLinePlanJSON {
@@ -101,6 +105,7 @@ export interface TaskLinePlanLineSummary {
   qtyTaskLine: number | null;
   sumForBudget: number | null;
   sumForContract: number | null;
+  sumForAccounting: number | null;
   /** the sums equal the totals of the line (Correct033) and the coefficients add up to the base */
   ok: boolean;
 }
@@ -114,7 +119,7 @@ export function summarizeTaskLinePlan(planRows: TaskLinePlanRow[], lines: TaskLi
     const list = byLine.get(r.rowParentGUID);
     if (list) list.push(r); else byLine.set(r.rowParentGUID, [r]);
   }
-  const sum = (rows: TaskLinePlanRow[], key: 'qtyTaskLine' | 'sumForBudget' | 'sumForContract'): number | null => {
+  const sum = (rows: TaskLinePlanRow[], key: 'qtyTaskLine' | 'sumForBudget' | 'sumForContract' | 'sumForAccounting'): number | null => {
     let any = false, total = 0;
     for (const r of rows) { const n = planNumber(r[key]); if (n !== null) { any = true; total += Math.round(n * 100); } }
     return any ? total / 100 : null;
@@ -122,15 +127,15 @@ export function summarizeTaskLinePlan(planRows: TaskLinePlanRow[], lines: TaskLi
   return lines.filter((l) => byLine.has(l.rowGUID)).map((l) => {
     const rows = byLine.get(l.rowGUID)!;
     const coefficient = Math.round(rows.reduce((a, r) => a + Math.round((planNumber(r.rowCoefficient) ?? 0) * 1e10), 0)) / 1e10;
-    const qty = sum(rows, 'qtyTaskLine'), budget = sum(rows, 'sumForBudget'), contract = sum(rows, 'sumForContract');
+    const qty = sum(rows, 'qtyTaskLine'), budget = sum(rows, 'sumForBudget'), contract = sum(rows, 'sumForContract'), accounting = sum(rows, 'sumForAccounting');
     const j = l.rowJSON || {};
     const same = (got: number | null, want: unknown) => {
       const w = typeof want === 'number' && Number.isFinite(want) ? want : null;
       return got === null ? w === null : cents(got) === cents(w);
     };
     return {
-      lineGUID: l.rowGUID, days: rows.length, coefficient, qtyTaskLine: qty, sumForBudget: budget, sumForContract: contract,
-      ok: coefficient === (j.baseOfDistribution ?? 1) && same(qty, j.qtyTaskLine) && same(budget, j.sumForBudget) && same(contract, j.sumForContract),
+      lineGUID: l.rowGUID, days: rows.length, coefficient, qtyTaskLine: qty, sumForBudget: budget, sumForContract: contract, sumForAccounting: accounting,
+      ok: coefficient === (j.baseOfDistribution ?? 1) && same(qty, j.qtyTaskLine) && same(budget, j.sumForBudget) && same(contract, j.sumForContract) && same(accounting, j.sumForAccounting),
     };
   });
 }
@@ -144,28 +149,30 @@ export interface TaskLinePlanTimelineDay {
   coefficient: number;
   sumForBudget: number;
   sumForContract: number;
+  sumForAccounting: number;
   /** the budget of this day and all the days before it */
   cumulativeBudget: number;
 }
 
 /** the plan rows summed per day (oldest first); the amounts are added in cents, so the days add up to the lines exactly (Correct033) */
 export function buildTaskLinePlanTimeline(planRows: TaskLinePlanRow[]): TaskLinePlanTimelineDay[] {
-  const byDay = new Map<string, { lines: Set<string>; coef: number; budget: number; contract: number }>();
+  const byDay = new Map<string, { lines: Set<string>; coef: number; budget: number; contract: number; accounting: number }>();
   for (const r of planRows || []) {
     const t = new Date(String(r.rowPeriodDatetime ?? ''));
     if (Number.isNaN(t.getTime())) continue;
     const day = t.toISOString().slice(0, 10);
     let d = byDay.get(day);
-    if (!d) { d = { lines: new Set(), coef: 0, budget: 0, contract: 0 }; byDay.set(day, d); }
+    if (!d) { d = { lines: new Set(), coef: 0, budget: 0, contract: 0, accounting: 0 }; byDay.set(day, d); }
     d.lines.add(r.rowParentGUID);
     d.coef += Math.round((planNumber(r.rowCoefficient) ?? 0) * 1e10);
     d.budget += Math.round((planNumber(r.sumForBudget) ?? 0) * 100);
     d.contract += Math.round((planNumber(r.sumForContract) ?? 0) * 100);
+    d.accounting += Math.round((planNumber(r.sumForAccounting) ?? 0) * 100);
   }
   let running = 0;
   return Array.from(byDay.keys()).sort().map((day) => {
     const d = byDay.get(day)!;
     running += d.budget;
-    return { day, lines: d.lines.size, coefficient: d.coef / 1e10, sumForBudget: d.budget / 100, sumForContract: d.contract / 100, cumulativeBudget: running / 100 };
+    return { day, lines: d.lines.size, coefficient: d.coef / 1e10, sumForBudget: d.budget / 100, sumForContract: d.contract / 100, sumForAccounting: d.accounting / 100, cumulativeBudget: running / 100 };
   });
 }

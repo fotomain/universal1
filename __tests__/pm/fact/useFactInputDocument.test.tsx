@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
-// useFactInputDocument + factInputApi: the latest draft is shown, the first open makes a document, the commands call the RPCs / tables and re-read what they changed.
+// useFactInputDocument + factInputApi: the documents of the task come from the RPC task_fact_document_list (newest first), the latest DRAFT is shown, the first open makes a document,
+// the commands call the RPCs / the header table and re-read the documents. The LINES are the business of the ReusableTable (redux entity), not of this hook.
 import React, { act } from 'react';
 import { cleanupUI, renderUI } from '../ui/pmUiTestKit';
 
@@ -38,18 +39,18 @@ function resetFake(results: Record<string, any>) {
 jest.doMock('../../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: fake.client }) }));
 const { useFactInputDocument } = require('../../../kit8/pm/fact/useFactInputDocument');
 
-const head = (guid: string, over: Record<string, any> = {}) => ({
-  rowGUID: guid, rowProjectGUID: 'p1', rowOwnerGUID: 't1',
-  rowJSON: { documentHeader: { documentNumber: `FI-${guid}`, documentStatus: 'draft', strongInput: false, created_at: '2026-10-14T08:00:00Z', ...over } },
+const row = (guid: string, over: Record<string, any> = {}) => ({
+  documentGUID: guid, documentNumber: `FI-${guid}`, documentStatus: 'draft', strongInput: false, authorGUID: 'u1', authorName: 'Anna K', createdAt: '2026-10-14T08:00:00Z', postedAt: null, unpostedAt: null,
+  projectGUID: 'p1', projectName: 'Alpha', taskGUID: 't1', taskName: 'task03', lineCount: 2, firstDay: null, lastDay: null, sumForBudget: '10.5', sumForContract: '20', sumForAccounting: '30.25', ...over,
 });
-const lineRow = (guid: string, header: string) => ({ rowGUID: guid, rowHeaderGUID: header, genusGUID: 'timeGenus', qtyForContract: 1, rowPeriodDatetime: '2026-10-14T00:00:00Z', rowJSON: {}, orderInList: 1 });
+const list = (...rows: any[]) => ({ data: { totalCount: rows.length, totals: { sumForBudget: 0, sumForContract: 0, sumForAccounting: 0 }, rows }, error: null });
 const task = { data: { projectGUID: 'p1', rowJSON: { name: 'task03' } }, error: null };
 
 let latest: any;
 let n = 0;
 function Probe({ task: taskGUID, doc }: { task: string; doc?: string | null }) {
   latest = useFactInputDocument(taskGUID, doc);
-  return React.createElement('div', null, String(latest.lines.length));
+  return React.createElement('div', null, String(latest.documents.length));
 }
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 0)); }); };
 const uid = () => `task-${++n}`;
@@ -57,30 +58,32 @@ const opsOf = (table: string, op: string): Op[] => fake.ops.filter((o: Op) => o.
 afterEach(() => { cleanupUI(); jest.clearAllMocks(); });
 
 describe('what is shown', () => {
-  it('the task name, the documents newest first, the latest DRAFT and its lines', async () => {
+  it('the task name, the documents newest first (with totals as numbers), the latest DRAFT', async () => {
+    const t = uid();
     resetFake({
       'project_task_table.select': task,
-      'task_fact_header.select': { data: [head('h-posted', { documentStatus: 'posted', created_at: '2026-10-20T00:00:00Z' }), head('h-draft', { created_at: '2026-10-15T00:00:00Z' }), head('h-old', { created_at: '2026-10-01T00:00:00Z' })], error: null },
-      'task_fact_timeline.select': (rec: Op) => ({ data: [lineRow('l1', 'h-draft'), lineRow('l2', 'h-draft')], error: null, rec }),
+      'rpc.task_fact_document_list': list(row('h-posted', { documentStatus: 'posted' }), row('h-draft'), row('h-old')),
     });
-    renderUI(<Probe task={uid()} />);
+    renderUI(<Probe task={t} />);
     await flush();
     expect(latest.taskName).toBe('task03');
     expect(latest.projectGUID).toBe('p1');
     expect(latest.documents).toHaveLength(3);
-    expect(latest.header.guid).toBe('h-draft');
-    expect(latest.lines).toHaveLength(2);
-    const lineRead = opsOf('task_fact_timeline', 'select')[0];
-    expect(lineRead.args).toContainEqual(['eq', 'rowHeaderGUID', 'h-draft']);
+    expect(latest.documents[1].sumForAccounting).toBe(30.25);
+    expect(latest.header).toMatchObject({ guid: 'h-draft', number: 'FI-h-draft', status: 'draft', strong: false, userName: 'Anna K' });
+    expect(opsOf('rpc', 'task_fact_document_list')[0].args[0]).toEqual({ p_filter: { taskGUID: t }, p_limit: 200, p_offset: 0 });
     expect(latest.error).toBeNull();
   });
 
+  it('no lines query: the lines belong to the table', async () => {
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list(row('h1')) });
+    renderUI(<Probe task={uid()} />);
+    await flush();
+    expect(opsOf('task_fact_usage_timeline', 'select')).toHaveLength(0);
+  });
+
   it('a given document is shown instead of the latest draft; picking another one switches', async () => {
-    resetFake({
-      'project_task_table.select': task,
-      'task_fact_header.select': { data: [head('h1'), head('h2', { documentStatus: 'posted' })], error: null },
-      'task_fact_timeline.select': { data: [], error: null },
-    });
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list(row('h1'), row('h2', { documentStatus: 'posted' })) });
     renderUI(<Probe task={uid()} doc="h2" />);
     await flush();
     expect(latest.header.guid).toBe('h2');
@@ -90,8 +93,22 @@ describe('what is shown', () => {
     expect(latest.header.guid).toBe('h1');
   });
 
+  it('a picked document that disappeared falls back to the default one', async () => {
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list(row('h1')) });
+    renderUI(<Probe task={uid()} doc="gone" />);
+    await flush();
+    expect(latest.header.guid).toBe('h1');
+  });
+
+  it('only posted documents: the newest is shown', async () => {
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list(row('h1', { documentStatus: 'posted' }), row('h2', { documentStatus: 'posted' })) });
+    renderUI(<Probe task={uid()} />);
+    await flush();
+    expect(latest.header.guid).toBe('h1');
+  });
+
   it('a read error is shown', async () => {
-    resetFake({ 'project_task_table.select': task, 'task_fact_header.select': { data: null, error: { message: 'permission denied' } } });
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': { data: null, error: { message: 'permission denied' } } });
     renderUI(<Probe task={uid()} />);
     await flush();
     expect(latest.error).toBe('permission denied');
@@ -104,8 +121,7 @@ describe('the first open', () => {
     let created = false;
     resetFake({
       'project_task_table.select': task,
-      'task_fact_header.select': () => ({ data: created ? [head('h-new')] : [], error: null }),
-      'task_fact_timeline.select': { data: [lineRow('l1', 'h-new')], error: null },
+      'rpc.task_fact_document_list': () => (created ? list(row('h-new')) : list()),
       'rpc.task_fact_document_create': () => { created = true; return { data: 'h-new', error: null }; },
     });
     renderUI(<Probe task={t} />);
@@ -113,11 +129,10 @@ describe('the first open', () => {
     expect(opsOf('rpc', 'task_fact_document_create')).toHaveLength(1);
     expect(opsOf('rpc', 'task_fact_document_create')[0].args[0]).toEqual({ p_task: t });
     expect(latest.header.guid).toBe('h-new');
-    expect(latest.lines).toHaveLength(1);
   });
 
   it('a named document is never replaced by a new one', async () => {
-    resetFake({ 'project_task_table.select': task, 'task_fact_header.select': { data: [], error: null } });
+    resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list() });
     renderUI(<Probe task={uid()} doc="h-asked" />);
     await flush();
     expect(opsOf('rpc', 'task_fact_document_create')).toHaveLength(0);
@@ -125,24 +140,19 @@ describe('the first open', () => {
 });
 
 describe('the commands', () => {
-  const world = (extra: Record<string, any> = {}) => resetFake({
-    'project_task_table.select': task,
-    'task_fact_header.select': { data: [head('h1')], error: null },
-    'task_fact_timeline.select': { data: [lineRow('l1', 'h1')], error: null },
-    ...extra,
-  });
+  const world = (extra: Record<string, any> = {}) => resetFake({ 'project_task_table.select': task, 'rpc.task_fact_document_list': list(row('h1')), ...extra });
 
-  it('Post calls the RPC, returns the typed answer and re-reads the document', async () => {
+  it('Post calls the RPC, returns the typed answer and re-reads the documents', async () => {
     world({ 'rpc.post_task_fact_document': { data: { status: 'posted', lines: 1, problems: [] }, error: null } });
     renderUI(<Probe task={uid()} />);
     await flush();
-    const before = opsOf('task_fact_header', 'select').length;
+    const before = opsOf('rpc', 'task_fact_document_list').length;
     let answer: any;
     await act(async () => { answer = await latest.post(); });
     await flush();
     expect(opsOf('rpc', 'post_task_fact_document')[0].args[0]).toEqual({ p_header: 'h1' });
     expect(answer).toEqual({ status: 'posted', lines: 1, problems: [] });
-    expect(opsOf('task_fact_header', 'select').length).toBeGreaterThan(before);
+    expect(opsOf('rpc', 'task_fact_document_list').length).toBeGreaterThan(before);
   });
 
   it('a refused Post is an answer, not an error', async () => {
@@ -156,6 +166,17 @@ describe('the commands', () => {
     expect(latest.error).toBeNull();
   });
 
+  it('a failing Post is a message and null', async () => {
+    world({ 'rpc.post_task_fact_document': { data: null, error: { message: 'boom' } } });
+    renderUI(<Probe task={uid()} />);
+    await flush();
+    let answer: any = 'x';
+    await act(async () => { answer = await latest.post(); });
+    expect(answer).toBeNull();
+    expect(latest.error).toBe('boom');
+    expect(latest.busy).toBe(false);
+  });
+
   it('Unpost', async () => {
     world({ 'rpc.unpost_task_fact_document': { data: { status: 'draft', problems: [] }, error: null } });
     renderUI(<Probe task={uid()} />);
@@ -164,49 +185,31 @@ describe('the commands', () => {
     expect(opsOf('rpc', 'unpost_task_fact_document')[0].args[0]).toEqual({ p_header: 'h1' });
   });
 
-  it('saveLine updates the line by its GUID and re-reads the lines (the database computes the sums)', async () => {
-    world({ 'task_fact_timeline.update': { data: lineRow('l1', 'h1'), error: null } });
+  it('removeDocument deletes the draft header by its GUID and returns true', async () => {
+    world({ 'task_fact_header.delete': { data: null, error: null } });
     renderUI(<Probe task={uid()} />);
     await flush();
-    const reads = opsOf('task_fact_timeline', 'select').length;
     let ok: boolean | undefined;
-    await act(async () => { ok = await latest.saveLine('l1', { qtyForContract: 7 }); });
-    await flush();
+    await act(async () => { ok = await latest.removeDocument(); });
     expect(ok).toBe(true);
-    const upd = opsOf('task_fact_timeline', 'update')[0];
-    expect(upd.args[0]).toEqual([{ qtyForContract: 7 }]);
-    expect(upd.args).toContainEqual(['eq', 'rowGUID', 'l1']);
-    expect(opsOf('task_fact_timeline', 'select').length).toBeGreaterThan(reads);
-  });
-
-  it('a refusal of the database is a message and false', async () => {
-    world({ 'task_fact_timeline.update': { data: null, error: { message: 'strong fact input: only the date and the quantity of a line can be changed' } } });
-    renderUI(<Probe task={uid()} />);
-    await flush();
-    let ok: boolean | undefined;
-    await act(async () => { ok = await latest.saveLine('l1', { rowJSON: {} }); });
-    expect(ok).toBe(false);
-    expect(latest.error).toContain('only the date and the quantity');
-    expect(latest.busy).toBe(false);
-  });
-
-  it('addLine inserts, removeLine deletes by GUID, removeDocument deletes the draft', async () => {
-    world({ 'task_fact_timeline.insert': { data: lineRow('l9', 'h1'), error: null } });
-    renderUI(<Probe task={uid()} />);
-    await flush();
-    await act(async () => { await latest.addLine({ rowHeaderGUID: 'h1', genusGUID: 'timeGenus', qtyForContract: 2 }); });
-    expect(opsOf('task_fact_timeline', 'insert')[0].args[0]).toEqual([{ rowHeaderGUID: 'h1', genusGUID: 'timeGenus', qtyForContract: 2 }]);
-    await act(async () => { await latest.removeLine('l1'); });
-    expect(opsOf('task_fact_timeline', 'delete')[0].args).toContainEqual(['eq', 'rowGUID', 'l1']);
-    await act(async () => { await latest.removeDocument(); });
     expect(opsOf('task_fact_header', 'delete')[0].args).toContainEqual(['eq', 'rowGUID', 'h1']);
   });
 
+  it('a refused delete is a message and false', async () => {
+    world({ 'task_fact_header.delete': { data: null, error: { message: 'a posted document cannot be deleted' } } });
+    renderUI(<Probe task={uid()} />);
+    await flush();
+    let ok: boolean | undefined;
+    await act(async () => { ok = await latest.removeDocument(); });
+    expect(ok).toBe(false);
+    expect(latest.error).toContain('cannot be deleted');
+  });
+
   it('New document creates one and shows it', async () => {
-    let docs = [head('h1')];
+    let docs = [row('h1')];
     world({
-      'task_fact_header.select': () => ({ data: docs, error: null }),
-      'rpc.task_fact_document_create': () => { docs = [head('h2', { created_at: '2026-10-30T00:00:00Z' }), ...docs]; return { data: 'h2', error: null }; },
+      'rpc.task_fact_document_list': () => list(...docs),
+      'rpc.task_fact_document_create': () => { docs = [row('h2', { createdAt: '2026-10-30T00:00:00Z' }), ...docs]; return { data: 'h2', error: null }; },
     });
     renderUI(<Probe task={uid()} />);
     await flush();
@@ -215,5 +218,12 @@ describe('the commands', () => {
     await flush();
     expect(guid).toBe('h2');
     expect(latest.header.guid).toBe('h2');
+  });
+
+  it('refreshLines does not throw without a redux entity action (it only dispatches)', async () => {
+    world();
+    renderUI(<Probe task={uid()} />);
+    await flush();
+    expect(() => latest.refreshLines()).not.toThrow();
   });
 });

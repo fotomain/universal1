@@ -1,7 +1,7 @@
 -- =====================================================================================
 -- UNIVERSAL1 - EQUIPMENT IN THE TASKS: equipment_sql_roles_and_more.sql
 -- Paste into the Supabase SQL editor and Run. IDEMPOTENT: every row has a fixed id, a second run changes nothing it already made.
--- Run AFTER start_sql_structure.sql (PART 17: equipment tables, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind).
+-- Run AFTER start1_sql_structure.sql (PART 17: equipment tables, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind).
 --
 -- What it does, in this order:
 --   1. MORE ROLES AND EQUIPMENT: 3 more roles of "Equipment Resources" (Road roller, Concrete mixer truck, Generator 50 kVA) with their minimum engine power and hourly
@@ -26,7 +26,7 @@ DECLARE
 BEGIN
   IF to_regclass('public."equipmentTable"') IS NULL OR to_regclass('public.task_line_table') IS NULL
      OR NOT EXISTS (SELECT 1 FROM public."resourceRoleTypeTable" WHERE "rowGUID" = 'equipmentResources') THEN
-    RAISE EXCEPTION 'Run start_sql_structure.sql first (PART 17: the equipment tables and the role type "Equipment Resources")';
+    RAISE EXCEPTION 'Run start1_sql_structure.sql first (PART 17: the equipment tables and the role type "Equipment Resources")';
   END IF;
   IF v_lines < 0 OR v_lines > 7 THEN RAISE EXCEPTION 'v_lines must be 0 .. 7'; END IF;
   -- the values are read by the statements below through a setting of this session

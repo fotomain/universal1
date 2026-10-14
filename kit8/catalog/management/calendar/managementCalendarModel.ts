@@ -1,6 +1,6 @@
 // Management calendar - the working calendars of the business (the abstract entity). Two tables:
 //   (documentation/TIME_GENUS_CONTROL_WBS.html: a RESOURCE calendar - rowJSON.kind 'resource', in the folders Person / Equipment / Contract - is the CAPACITY of a person, an equipment
-//    or a contract: its day rows carry rowJSON.hours (0..24); SQL: PART 21 of kit8/sql/start/start_sql_structure.sql)
+//    or a contract: its day rows carry rowJSON.hours (0..24); SQL: PART 21 of kit8/sql/start/start1_sql_structure.sql)
 //   managementCalendarTable       folders (level 1) projectCalendarFolder · resourceRoleCalendarFolder · personCalendarFolder · equipmentCalendarFolder · contractCalendarFolder   rowParentGUID 'empty'
 //                                 calendars (level 2) workingDaysCalendar ...                                               rowParentGUID = folder
 //                                 rowOwnerGUID 'managementCalendarCatalog' (the business; no business table exists yet) · rowJSON { title, description }

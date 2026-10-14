@@ -1,7 +1,7 @@
 // BusinessUnitCRUD - the business units: the tree of ALL units (any depth) beside a table of the picked unit's sub-units ("All" = every unit).
 // CatalogTreeReusableCRUD does the work; this file gives it the unit table: Unit · Code · CFR (select from the cfrTypeTable enumeration, optional) ·
 // Effective CFR (grey: own, else the nearest ancestor's) · Path · Active · Description. A unit with a CFR that contradicts the lines posted on it is refused by SQL.
-// Route: /catalog/business/unit (drawer: Catalogs > Business units) · SQL: kit8/sql/start/start_sql_structure.sql PART 18
+// Route: /catalog/business/unit (drawer: Catalogs > Business units) · SQL: kit8/sql/start/start1_sql_structure.sql PART 18
 import React, { useCallback, useMemo } from 'react';
 import { Text } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
@@ -59,7 +59,7 @@ export default function BusinessUnitCRUD({ noCrud = false }: BusinessUnitCRUDPro
       allLabel="All business units"
       noCrud={noCrud}
       deleteHint="A unit with sub-units, or one used by a project, a line or a contract, is not deleted: deactivate it instead."
-      setupHint="Run kit8/sql/start/start_sql_structure.sql and then start_sql_insert.sql (PART 18) in the Supabase SQL editor and sign in."
+      setupHint="Run kit8/sql/start/start1_sql_structure.sql and then start3_sql_insert_missing.sql (PART 18) in the Supabase SQL editor and sign in."
     />
   );
 }

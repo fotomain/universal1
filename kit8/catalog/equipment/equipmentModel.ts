@@ -1,6 +1,6 @@
 // Equipment catalog - table + row shape + normalize + validation (pure, unit-tested). The analog of the person catalog for MACHINES and tools that are
 // booked by the hour on a Time line of a task (task_line_table.rowJSON.taskResourceKind = 'equipment').
-//   SQL: public."equipmentTable" (kit8/sql/start/start_sql_structure.sql, PART 17)
+//   SQL: public."equipmentTable" (kit8/sql/start/start1_sql_structure.sql, PART 17)
 //   rowGUID · rowOwnerGUID = EQUIPMENT_CATALOG_OWNER · rowParentGUID = 'empty' · orderInList · rowJSON = EquipmentRowJSON · created_at / updated_at
 // Like a person, an equipment has its OWN Properties (what it IS: Engine power 110 kW) and Variants (what it can be BOOKED AS: Heavy, With operator) on the
 // shared descriptor tables - the type (equipmentTypeTable) decides the descriptor sets (equipmentTypeModel.ts). The cost of an hour comes from the

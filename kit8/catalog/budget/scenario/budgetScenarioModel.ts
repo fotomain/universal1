@@ -3,7 +3,7 @@
 //                        · orderInList · rowJSON { title, description, scenarioKind: 'plan' | 'fact', isActive }
 //   project_table.rowJSON.budgetScenarioForPlan  = a scenario of kind 'plan'      (Project settings -> Budgets -> Main)
 //   project_table.rowJSON.budgetScenarioForFact  = a scenario of kind 'fact'
-//   SQL: kit8/sql/start/start_sql_structure.sql PART 19 · Screen: BudgetScenarioCRUD · route BUDGET_SCENARIO_ROUTES.list
+//   SQL: kit8/sql/start/start1_sql_structure.sql PART 19 · Screen: BudgetScenarioCRUD · route BUDGET_SCENARIO_ROUTES.list
 //   Design: documentation/BUDGET_PLAN_CALCULATION.html (Part 1)
 import type { DefRow, ProductTableDef } from '../../product/productModel';
 

@@ -6675,7 +6675,7 @@ INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowPar
   ('workingDaysCalendar',        'managementCalendarCatalog', 'projectCalendarFolder', 1100, '{"title": "Working days", "description": "Monday to Friday, without holidays (the default calendar of a project plan)."}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
 
--- -- the resource calendar (PART 21 of start_sql_structure.sql): two more folders and the seeded week modes (the capacity of a resource = the hours of its calendar)
+-- -- the resource calendar (PART 21 of start1_sql_structure.sql): two more folders and the seeded week modes (the capacity of a resource = the hours of its calendar)
 INSERT INTO public."managementCalendarTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
   ('equipmentCalendarFolder', 'managementCalendarCatalog', 'empty', 4000, '{"title": "Equipment", "description": "Folder: calendars of equipment (machines, vehicles)."}'::jsonb),
   ('contractCalendarFolder',  'managementCalendarCatalog', 'empty', 5000, '{"title": "Contract", "description": "Folder: calendars of contracts. The calendar of the contract in force has PRIORITY over the calendar of the resource."}'::jsonb),
@@ -6692,7 +6692,7 @@ ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", 
 
 
 -- =============================================================================
--- Equipment (PART 17 of start_sql_structure.sql): types, descriptors, demo equipment, the role type "Equipment Resources" (upsert)
+-- Equipment (PART 17 of start1_sql_structure.sql): types, descriptors, demo equipment, the role type "Equipment Resources" (upsert)
 -- =============================================================================
 
 -- ---- descriptors (rule R11: the genus lists the kind of the owner of the set) ---------------------------------------------------
@@ -6873,7 +6873,7 @@ ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", 
 
 
 -- =============================================================================
--- Business units (PART 18 of start_sql_structure.sql): the 4 Centers of Financial Responsibility + the 29 example units (upsert)
+-- Business units (PART 18 of start1_sql_structure.sql): the 4 Centers of Financial Responsibility + the 29 example units (upsert)
 -- =============================================================================
 
 INSERT INTO public."cfrTypeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
@@ -6917,7 +6917,7 @@ ON CONFLICT ("rowGUID") DO UPDATE SET "rowParentGUID" = EXCLUDED."rowParentGUID"
 
 
 -- =============================================================================
--- Budget scenarios (PART 19 of start_sql_structure.sql): the plan and the fact scenario (upsert)
+-- Budget scenarios (PART 19 of start1_sql_structure.sql): the plan and the fact scenario (upsert)
 -- =============================================================================
 
 INSERT INTO public."budgetScenarioTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES

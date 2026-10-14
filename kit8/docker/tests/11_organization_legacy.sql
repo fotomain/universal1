@@ -1,4 +1,4 @@
--- WP A2/A3: an OLD database (users without an organization, projects without rowParentGUID) is repaired by running start_sql_structure.sql again
+-- WP A2/A3: an OLD database (users without an organization, projects without rowParentGUID) is repaired by running start1_sql_structure.sql again
 BEGIN;
 SELECT tt.as_admin();
 -- make the database look like before PART 20
@@ -17,7 +17,7 @@ INSERT INTO public.project_table ("rowGUID","treePath","rowOwnerGUID","rowJSON")
   ('bbbbbbbb-0000-0000-0000-0000000000b1', public.pm_ltree_label('bbbbbbbb-0000-0000-0000-0000000000b1'::uuid), 'bbbbbbbb-2222-2222-2222-222222222222', '{"name":"old 2"}'),
   ('dddddddd-0000-0000-0000-0000000000d1', public.pm_ltree_label('dddddddd-0000-0000-0000-0000000000d1'::uuid), 'dddddddd-3333-3333-3333-333333333333', '{"name":"nobody"}');
 
-\i /sql/start_sql_structure.sql
+\i /sql/start1_sql_structure.sql
 
 SELECT tt.eq((SELECT "rowJSON"->>'userOrganization' FROM public."userTable" WHERE "rowOwnerGUID" = 'legacy@old.test'), 'org-legacy', 'the user gets the older organization he created');
 SELECT tt.eq((SELECT "rowOwnerGUID" FROM public."organizationTable" WHERE "rowGUID" = 'org-legacy'), 'legacy@old.test', 'which becomes his own (owner = e-mail)');
@@ -29,6 +29,6 @@ SELECT tt.eq((SELECT "rowParentGUID" FROM public.project_table WHERE "rowGUID" =
 SELECT tt.eq((SELECT is_nullable FROM information_schema.columns WHERE table_name = 'project_table' AND column_name = 'rowParentGUID'), 'YES', 'so NOT NULL is not set while one is empty');
 -- once the orphan is gone the next run sets NOT NULL
 DELETE FROM public.project_table WHERE "rowGUID" = 'dddddddd-0000-0000-0000-0000000000d1';
-\i /sql/start_sql_structure.sql
+\i /sql/start1_sql_structure.sql
 SELECT tt.eq((SELECT is_nullable FROM information_schema.columns WHERE table_name = 'project_table' AND column_name = 'rowParentGUID'), 'NO', 'NOT NULL is set when every project has an organization');
 ROLLBACK;

@@ -9,6 +9,6 @@ the capacity check reads the organization of a *user* - the scope is always the 
 * **Admin** = the creator (`organizationTable.rowJSON.createdByUser`). Only the admin changes the organization and invites: `organization_invite_user(email)`, `organization_revoke_invitation`.
   An existing user accepts with `organization_accept_invitation` (his old projects keep their organization). A user cannot change his own `userOrganization`.
 * **Setting** `resourceCapacityStrongMode` (Organization edit → Resource capacity): `capacityModeOff | capacityModeWarn | capacityModeBlock`, see `kit8/pm/view/task/plan/README.md`.
-* SQL: PART 20 of `kit8/sql/start/start_sql_structure.sql` (mirrored in `start_sql_code.sql`; the delete is PART 1b of `delete_sql_structure.sql`). Old data: every user without an organization gets the one he owns
+* SQL: PART 20 of `kit8/sql/start/start1_sql_structure.sql` (mirrored in `start2_sql_code.sql`; the delete is PART 1b of `delete_sql_structure.sql`). Old data: every user without an organization gets the one he owns
   (rule "1 user owns 1 organization") or a new one; every project gets the organization of its owner; a project of an owner with no userTable row stays empty and is reported.
 * Not built yet: a screen for the invitations (the SQL and its tests are there).

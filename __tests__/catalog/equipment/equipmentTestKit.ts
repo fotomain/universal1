@@ -1,4 +1,4 @@
-// The equipment side of the database as the equipment part of start_sql_structure.sql (PART 17) leaves it (shortened: 3 equipment, 2 types),
+// The equipment side of the database as the equipment part of start1_sql_structure.sql (PART 17) leaves it (shortened: 3 equipment, 2 types),
 // on top of the descriptors. Helpers to put it together with the rows of the other sides (the descriptor tables are shared).
 import { emptyEquipmentCatalogData, EquipmentCatalogData } from '../../../kit8/catalog/equipment/equipmentTypeModel';
 

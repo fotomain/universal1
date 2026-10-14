@@ -219,6 +219,6 @@ describe('Checks and setup', () => {
 
   it('no equipment tables yet: the setup hint names the SQL file', () => {
     mount({}, stateOf({ empty: true }));
-    expect(q('equipment-setup')!.textContent).toContain('start_sql_structure.sql');
+    expect(q('equipment-setup')!.textContent).toContain('start1_sql_structure.sql');
   });
 });

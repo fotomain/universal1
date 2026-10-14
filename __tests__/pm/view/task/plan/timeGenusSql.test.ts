@@ -1,13 +1,13 @@
-// The time genus control SQL (PARTs 20-23 of kit8/sql/start/start_sql_structure.sql, documentation/TIME_GENUS_CONTROL_WBS.html) is in the three files that must stay in step, with the
+// The time genus control SQL (PARTs 20-23 of kit8/sql/start/start1_sql_structure.sql, documentation/TIME_GENUS_CONTROL_WBS.html) is in the three files that must stay in step, with the
 // names the plan fixed. (The SQL itself is run on a real Postgres 15: kit8/docker/test_sql.sh = install + delete cycle, kit8/docker/test_time_genus.sh = the behaviour tests.)
 import fs from 'fs';
 import path from 'path';
 
 const dir = path.join(__dirname, '../../../../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
-const start = read('start_sql_structure.sql');
-const code = read('start_sql_code.sql');
-const data = read('start_sql_data.sql');
+const start = read('start1_sql_structure.sql');
+const code = read('start2_sql_code.sql');
+const data = read('start5_sql_upsert_all.sql');
 const del = read('delete_sql_structure.sql');
 const from = (s: string, n: number) => s.slice(s.indexOf(`-- PART ${n}:`));
 

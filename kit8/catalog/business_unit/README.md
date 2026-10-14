@@ -1,6 +1,6 @@
 # Business units
 
-Design: `documents/BUSINESS_UNIT_CFR_STRUCTURE.html` (document "W1 businessUnit"). SQL: `kit8/sql/start/start_sql_structure.sql` **PART 18** (mirrored in `start_sql_code.sql` / `start_sql_data.sql`; `delete_sql_structure.sql` PART 15).
+Design: `documents/BUSINESS_UNIT_CFR_STRUCTURE.html` (document "W1 businessUnit"). SQL: `kit8/sql/start/start1_sql_structure.sql` **PART 18** (mirrored in `start2_sql_code.sql` / `start5_sql_upsert_all.sql`; `delete_sql_structure.sql` PART 15).
 
 ## `cfrTypeTable` - the enumeration "Centers Of Financial Responsibility"
 

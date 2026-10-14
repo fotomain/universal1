@@ -1,10 +1,8 @@
 -- ===============================================================================================
--- UNIVERSAL1 - start_sql_structure.sql: the STRUCTURE the app needs in SQL, in one file, for a fresh database.
--- tables, indexes, triggers, policies, stored procedures (functions / RPC), realtime publication - and NO seed rows: they are in start_sql_insert.sql (next to this file).
--- Supabase -> SQL Editor -> 1. paste this whole file -> Run. 2. paste start_sql_insert.sql -> Run (countries, currencies, rates, catalogs, roles, calendars ...).
--- Both are idempotent (CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING): safe to run twice. What stays here besides the DDL: the backfills / migrations of data that
--- already exists in a database (userTable from auth.users, project_user_settings_table, the timeline of posted days, the first fill of the Monitor01 queue ...).
--- The opposite is delete_sql_structure.sql (next to this file; it removes the seed rows with their tables). Parts, in this order:
+-- UNIVERSAL1 - start1_sql_structure.sql: EVERYTHING the app needs in SQL, in one file, for a fresh database.
+-- tables, default data (inserts), indexes, triggers, policies, stored procedures (functions / RPC), realtime publication.
+-- Supabase -> SQL Editor -> paste the whole file -> Run. Idempotent (CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING): safe to run twice.
+-- The opposite is delete_sql_structure.sql (next to this file). Parts, in this order:
 --
 --    1. create_tables.sql - base tables, personTable, contractTable, the PM project / task tables, kit8_setup_def_table, pm_touch_updated_at, pm_owns_project
 --    2. update_currency_exchange_rate_types.sql - exchange rate TYPES (Default | Budget, as D365 FO): the key of a rate = day or day|Type
@@ -29,7 +27,7 @@
 --   21. create_resource_calendar.sql - the resource calendar = the capacity: hours per day on the management calendars, resourceCalendar on person / equipment / contract / template, the week modes, organization_resource_capacity
 --   22. create_resource_busy_check.sql - resource_occupancy_x_movement (the abstract occupancy of the posted days) + organization_resource_busy_check + the check inside create_task_line_plan (resourceCapacityStrongMode) + planMovementStatus
 --   23. create_calendar_lock.sql - the calendar lock: a change of a calendar that would put the capacity of a resource under its posted hours is refused (day rows, Fill, resourceCalendar pointers, contracts)
---   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
+--   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_usage_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 -- ===============================================================================================
 
@@ -287,8 +285,6 @@ CREATE POLICY "countryTable_select" ON public."countryTable" FOR SELECT TO anon,
 CREATE POLICY "countryTable_insert" ON public."countryTable" FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "countryTable_update" ON public."countryTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "countryTable_delete" ON public."countryTable" FOR DELETE TO authenticated USING (true);
--- (the seed rows of this part are in start_sql_insert.sql, PART 1)
-
 
 -- ---- currencyTable: rowOwnerGUID 'currencyCatalog'. Read: everybody; write: signed-in -------
 CREATE TABLE IF NOT EXISTS public."currencyTable" (
@@ -315,8 +311,6 @@ CREATE POLICY "currencyTable_select" ON public."currencyTable" FOR SELECT TO ano
 CREATE POLICY "currencyTable_insert" ON public."currencyTable" FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "currencyTable_update" ON public."currencyTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "currencyTable_delete" ON public."currencyTable" FOR DELETE TO authenticated USING (true);
--- (the seed rows of this part are in start_sql_insert.sql, PART 1)
-
 
 -- ---- currencyExchangeRateTable: rowOwnerGUID = currency, rowParentGUID = 'YYYY-MM-DD' -------
 --      one rate per currency per day; orderInList = -(days since 1970-01-01); no FK on purpose
@@ -460,8 +454,6 @@ CREATE TABLE IF NOT EXISTS public."roleTable" (
 );
 CREATE INDEX IF NOT EXISTS "idx_roleTable_name" ON public."roleTable" ((lower("rowJSON"->>'roleName')));
 SELECT public.kit8_setup_def_table('roleTable');
--- (the seed rows of this part are in start_sql_insert.sql, PART 1)
-
 
 -- ---- userRoleTable: rowOwnerGUID = user email / uid, rowParentGUID = roleGUID or 'empty' ------
 CREATE TABLE IF NOT EXISTS public."userRoleTable" (
@@ -496,10 +488,6 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
   END LOOP;
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 1)
-
-
-
 
 -- =====================================================================================
 -- 3. PM Gantt (kit8/pm/crud/api: projectApi, taskApi, dependencyApi, projectUserSettingsApi)
@@ -1194,8 +1182,6 @@ CREATE POLICY kanban_stage_select ON public.kanban_stage_table FOR SELECT TO aut
 CREATE POLICY kanban_stage_insert ON public.kanban_stage_table FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY kanban_stage_update ON public.kanban_stage_table FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY kanban_stage_delete ON public.kanban_stage_table FOR DELETE TO authenticated USING (true);
--- (the seed rows of this part are in start_sql_insert.sql, PART 1)
-
 
 CREATE TABLE IF NOT EXISTS public.project_kanban_stage_table (
   "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
@@ -2215,10 +2201,13 @@ NOTIFY pgrst, 'reload schema';
 --                  follow the daily rate). rowParentGUID = 'YYYY-MM-DD|Budget', rowJSON.rateType = 'Budget'.
 --   The currency is found by its ISO code, so the script works with any rowGUID of currencyTable. A code that is not in currencyTable is skipped.
 -- =====================================================================================
--- (the seed rows of this part are in start_sql_insert.sql, PART 3)
 
-
-
+DO $$
+BEGIN
+  IF to_regclass('public."currencyExchangeRateTable"') IS NULL OR to_regclass('public."currencyTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run create_tables.sql first (currencyTable, currencyExchangeRateTable)';
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 
@@ -2619,29 +2608,6 @@ BEGIN
 END $$;
 
 -- =====================================================================================
--- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
--- =====================================================================================
--- (the seed rows of this part are in start_sql_insert.sql, PART 4)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- =====================================================================================
 -- 5. Realtime: every product table in the supabase_realtime publication (auto refresh in every browser)
 -- =====================================================================================
 DO $$
@@ -2845,25 +2811,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- =====================================================================================
--- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
---    First the rows the role side adds to the SHARED tables, then the four role tables.
--- =====================================================================================
--- (the seed rows of this part are in start_sql_insert.sql, PART 5)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- =====================================================================================
 -- 5. Realtime: the role tables in the supabase_realtime publication (auto refresh in every browser)
@@ -2974,9 +2921,9 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 6)
 
-
+-- an earlier version of this script had revenueGenus on the top level: it is an item of the folder revenuesGenus
+UPDATE public."managementGenusTable" SET "rowParentGUID" = 'revenuesGenus' WHERE "rowGUID" = 'revenueGenus' AND "rowParentGUID" = 'empty';
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -3081,8 +3028,6 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 7)
-
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -3225,9 +3170,6 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 8)
-
-
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -3277,21 +3219,33 @@ NOTIFY pgrst, 'reload schema';
 -- IDEMPOTENT + NON-DESTRUCTIVE: seeds ON CONFLICT DO NOTHING (a row you changed or deleted is left alone).
 -- Rows: measureUnitTable 5, resourceRoleFolderTable 11, resourceRoleTypeTable 4, descriptorDestinationTable 2, descriptorPlanTable 4, variantTable 3, variantValueTable 6, resourceRoleTable 27, propertyValueTable 8, rolePriceTable 57
 -- =====================================================================================
--- (the seed rows of this part are in start_sql_insert.sql, PART 9)
 
+DO $$
+BEGIN
+  IF to_regclass('public."resourceRoleTypeTable"') IS NULL OR to_regclass('public."rolePriceTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run create_product_tables.sql and create_resource_role_tables.sql first';
+  END IF;
+  IF to_regclass('public."managementGenusTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run create_management_genus_table.sql first';
+  END IF;
+  IF (SELECT count(*) FROM public."managementGenusTable" WHERE "rowGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')) < 3 THEN
+    RAISE EXCEPTION 'managementGenusTable has no timeGenus / materialGenus / expenseGenus: run create_management_genus_table.sql';
+  END IF;
+END $$;
 
+-- the five role types of the sheet are time resources
+UPDATE public."resourceRoleTypeTable"
+   SET "rowJSON" = jsonb_set("rowJSON", '{managementGenus}', '"timeGenus"'::jsonb)
+ WHERE "rowGUID" IN ('projectManager', 'businessAnalyst', 'dataAnalyst', 'frontendDeveloper', 'backendDeveloper')
+   AND coalesce("rowJSON"->>'managementGenus', '') = '';
+UPDATE public."resourceRoleTypeTable"
+   SET "rowJSON" = jsonb_set("rowJSON", '{roleVATDefaultRate}', '"vat_0"'::jsonb)
+ WHERE coalesce("rowJSON"->>'roleVATDefaultRate', '') = '';
 
-
-
-
-
-
-
-
-
-
-
-
+-- the material roles carry VAT 21 % themselves (also when they were inserted by an earlier version of this script)
+UPDATE public."resourceRoleTable"
+   SET "rowJSON" = jsonb_set("rowJSON", '{roleVATRate}', '"vat_21"'::jsonb)
+ WHERE "rowOwnerGUID" = 'materialResources' AND coalesce("rowJSON"->>'roleVATRate', '') = '';
 
 NOTIFY pgrst, 'reload schema';
 
@@ -3355,10 +3309,18 @@ CREATE POLICY "personTypeTable_select" ON public."personTypeTable" FOR SELECT TO
 CREATE POLICY "personTypeTable_insert" ON public."personTypeTable" FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "personTypeTable_update" ON public."personTypeTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "personTypeTable_delete" ON public."personTypeTable" FOR DELETE TO authenticated USING (true);
--- (the seed rows of this part are in start_sql_insert.sql, PART 10)
 
-
-
+-- 50 % Employee / 50 % Contractor of ALL persons without a type: by order, odd = Employee, even = Contractor
+WITH numbered AS (
+  SELECT "rowGUID", row_number() OVER (ORDER BY "orderInList", "rowGUID") AS n, "rowJSON"->>'personType' AS current_type
+    FROM public."personTable"
+)
+UPDATE public."personTable" p
+   SET "rowJSON" = p."rowJSON" || jsonb_build_object(
+         'personType', CASE WHEN n.n % 2 = 1 THEN 'personTypeEmployee' ELSE 'personTypeContractor' END,
+         'personIsEmployee', n.n % 2 = 1)
+  FROM numbered n
+ WHERE p."rowGUID" = n."rowGUID" AND COALESCE(n.current_type, '') = '';
 
 DO $$
 DECLARE
@@ -3419,17 +3381,100 @@ END $$;
 -- (create_product_tables.sql now creates it with the list value in the key; a database made before keeps the old two-column index: replace it here)
 DROP INDEX IF EXISTS public."idx_propertyValueTable_owner_plan";
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_plan" ON public."propertyValueTable" ("rowOwnerGUID", "rowParentGUID", (coalesce("rowJSON"->>'descriptorValueGUID', ''))) WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
--- (the seed rows of this part are in start_sql_insert.sql, PART 11)
 
+-- ---- descriptors (rule R11: the genus lists the kind of the owner of the set) ---------------------------------------------
+UPDATE public."descriptorGenusTable" g
+   SET "rowJSON" = jsonb_set(g."rowJSON", '{targetKinds}', COALESCE(g."rowJSON"->'targetKinds', '[]'::jsonb) || '"personType"'::jsonb)
+ WHERE g."rowGUID" IN ('seniority', 'workLanguage', 'certification')
+   AND NOT (COALESCE(g."rowJSON"->'targetKinds', '[]'::jsonb) ? 'personType');
 
+-- several certifications = several rows (rule R8 is relaxed for a descriptor with "multiple": true)
+UPDATE public."descriptorGenusTable" g SET "rowJSON" = g."rowJSON" || '{"multiple": true}'::jsonb WHERE g."rowGUID" = 'certification';
 
+-- ---- values of every person --------------------------------------------------------------------------------------------------
+-- Property: experience years (one row) + 1..3 certifications, each its OWN row on the same plan line (certification is "multiple")
+WITH cfg AS (
+  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
+         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
+    FROM public."personTable" p
+)
+INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'pp_exp_' || pg, pg, pre || 'p1', 200000 + n, jsonb_build_object('value', 2 + (n * 3) % 9) FROM cfg
+ON CONFLICT ("rowGUID") DO NOTHING;
 
+WITH cfg AS (
+  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
+         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
+    FROM public."personTable" p
+)
+INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'pp_cert_' || pg || '_' || k, pg, pre || 'p2', 210000 + n * 10 + k,
+       jsonb_build_object('descriptorValueGUID', (ARRAY['dv18', 'dv19', 'dv20', 'dv21'])[1 + ((n + k) % 4)])
+  FROM cfg CROSS JOIN generate_series(1, 3) AS k
+ WHERE k <= 1 + (n % 3)
+ON CONFLICT ("rowGUID") DO NOTHING;
 
+-- Variants: Seniority (Junior .. Lead by order) x English; every second person can also be booked in Latvian
+WITH cfg AS (
+  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
+         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
+    FROM public."personTable" p
+), combo AS (
+  SELECT pg, n, pre, k,
+         (ARRAY['dv11', 'dv12', 'dv13', 'dv14'])[1 + (n % 4)] AS sen,
+         (ARRAY['Junior', 'Middle', 'Senior', 'Lead'])[1 + (n % 4)] AS sen_title,
+         CASE k WHEN 1 THEN 'dv15' ELSE 'dv16' END AS lang,
+         CASE k WHEN 1 THEN 'English' ELSE 'Latvian' END AS lang_title
+    FROM cfg CROSS JOIN generate_series(1, 2) AS k
+   WHERE k = 1 OR n % 2 = 0
+)
+INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'pvar_' || pg || '_' || k, pg, 'empty', 220000 + n * 10 + k,
+       jsonb_build_object('title', sen_title || ', ' || lang_title, 'descriptorKey', pre || 'v1=' || sen || '|' || pre || 'v2=' || lang, 'isActive', true)
+  FROM combo
+ON CONFLICT ("rowGUID") DO NOTHING;
 
+WITH cfg AS (
+  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
+         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
+    FROM public."personTable" p
+), combo AS (
+  SELECT pg, n, pre, k,
+         (ARRAY['dv11', 'dv12', 'dv13', 'dv14'])[1 + (n % 4)] AS sen,
+         CASE k WHEN 1 THEN 'dv15' ELSE 'dv16' END AS lang
+    FROM cfg CROSS JOIN generate_series(1, 2) AS k
+   WHERE k = 1 OR n % 2 = 0
+)
+INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'pvv_' || pg || '_' || k || '_' || part, 'pvar_' || pg || '_' || k, pre || CASE part WHEN 's' THEN 'v1' ELSE 'v2' END, 230000 + n * 10 + k,
+       jsonb_build_object('descriptorValueGUID', CASE part WHEN 's' THEN sen ELSE lang END)
+  FROM combo CROSS JOIN (VALUES ('s'), ('l')) AS parts(part)
+ON CONFLICT ("rowGUID") DO NOTHING;
 
-
-
-
+-- ---- a contract for every person without an ACTIVE one (the Time line of a task takes the cost from it) ------------------------
+WITH cfg AS (
+  SELECT p."rowGUID" AS pg, p."rowJSON"->>'personTitle' AS title, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
+         (p."rowJSON"->>'personType') = 'personTypeContractor' AS contractor
+    FROM public."personTable" p
+   WHERE NOT EXISTS (SELECT 1 FROM public."contractTable" c
+                      WHERE c."rowOwnerGUID" = p."rowGUID" AND c."rowParentGUID" = 'person' AND c."rowJSON"->>'contractStatus' = 'active')
+), sums AS (
+  SELECT *, CASE WHEN contractor THEN 160 + (n * 23) % 240 ELSE 2400 + (n * 350) % 3200 END AS amount FROM cfg
+)
+INSERT INTO public."contractTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'contract_' || pg, pg, 'person', -20454,
+       jsonb_build_object(
+         'contractPartyType', 'person',
+         'contractNumber', CASE WHEN contractor THEN 'SRV-2026-' ELSE 'EMP-2026-' END || lpad(n::text, 3, '0'),
+         'contractTitle', CASE WHEN contractor THEN 'Service agreement - ' ELSE 'Employment agreement - ' END || title,
+         'contractType', CASE WHEN contractor THEN 'Service' ELSE 'Employment' END,
+         'contractStatus', 'active', 'contractSignedDate', '2025-12-15', 'contractStartDate', '2026-01-01',
+         'contractFinishDate', CASE WHEN contractor THEN to_jsonb('2026-12-31'::text) ELSE 'null'::jsonb END,
+         'contractPaymentsPeriod', CASE WHEN contractor THEN 'Day' ELSE 'Month' END,
+         'contractCurrency', 'EUR', 'contractSumBeforeVAT', amount, 'contractVATRate', 0, 'contractVAT', 0, 'contractTotal', amount,
+         'notes', CASE WHEN contractor THEN 'Paid per working day' ELSE 'Paid per month' END)
+  FROM sums
+ON CONFLICT ("rowGUID") DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';
 
@@ -3501,8 +3546,6 @@ CREATE POLICY "templateResourceContractTable_select" ON public."templateResource
 CREATE POLICY "templateResourceContractTable_insert" ON public."templateResourceContractTable" FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "templateResourceContractTable_update" ON public."templateResourceContractTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "templateResourceContractTable_delete" ON public."templateResourceContractTable" FOR DELETE TO authenticated USING (true);
--- (the seed rows of this part are in start_sql_insert.sql, PART 12)
-
 
 DO $$
 DECLARE
@@ -3781,8 +3824,6 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
   END LOOP;
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 14)
-
 
 -- -------------------------------------------------------------------------------------
 -- the version before PART 21 had four arguments: with the new defaults a call with four would be ambiguous, so it goes
@@ -3858,8 +3899,18 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean, numeric, boolean) TO authenticated;
--- (the seed rows of this part are in start_sql_insert.sql, PART 14)
 
+-- the default calendar: previous, current and next year (only when it has no days yet - a second run changes nothing)
+DO $$
+DECLARE
+  y integer := extract(year FROM current_date)::integer;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = 'workingDaysCalendar') THEN
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y - 1, 'workingDays');
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y,     'workingDays');
+    PERFORM public.fill_management_calendar('workingDaysCalendar', y + 1, 'workingDays');
+  END IF;
+END $$;
 
 -- realtime: both tables in the supabase_realtime publication
 DO $$
@@ -3905,7 +3956,7 @@ NOTIFY pgrst, 'reload schema';
 --   orderInList        (position of the line in the call) * 100000 + the day number: the lines one after the other, each by date
 --   rowPeriodDatetime  the start of the day (00:00:00) - unique with the line
 --   rowCoefficient     the share of the day, NORMALIZED: the coefficients of a line add up to baseOfDistribution (1)
---   qtyTaskLine · sumForBudget · sumForContract     the result of the distribution, rounded to 2 digits
+--   qtyTaskLine · sumForBudget · sumForContract · sumForAccounting     the result of the distribution, rounded to 2 digits
 --   rowJSON            { budgetItemTaskLine, taskManagementGenusLine, taskResourceKind, businessUnitAssigned, budgetKind } copied from the line, so a report needs no join
 --                      (taskResourceKind: 'person' | 'equipment' of a Time line, null = a person or not a Time line;
 --                       businessUnitAssigned = the business unit of the line (businessUnitTable.rowGUID, null = none), budgetKind = 'cost' | 'revenue' of its budget item -
@@ -3939,6 +3990,7 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
   "qtyTaskLine"       NUMERIC(18,2),
   "sumForBudget"      NUMERIC(18,2),
   "sumForContract"    NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
   "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -3950,6 +4002,8 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
 );
 -- PART 22 (time genus control): planMovementStatus = false while the capacity check of Post is pending (the row is out of the reports, the timeline and the occupancy), true after it passed;
 -- EVERY other movement is created with true (the default: no migration, every old row is true). periodDay = the day of the row in the zone of the post (rows of older posts are filled once).
+-- sumForAccounting: the sum of the line in the ACCOUNTING currency of the project (task_line_table.rowJSON.sumForAccounting, taskLineFx.ts), distributed like sumForBudget; a database made before has the column added here
+ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);
 ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "planMovementStatus" BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "periodDay" DATE;
 UPDATE public.task_line_plan_movements SET "periodDay" = (("rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date WHERE "periodDay" IS NULL;
@@ -3990,7 +4044,7 @@ END $$;
 --   rowPeriodDatetime               the DAY, always: the start of the day (00:00:00 in the zone of the post) - unique with the line
 --   taskLineGUID                    task_line_table.rowGUID (FK, cascade: a deleted line takes its days with it)
 --   qtyForBudget                    the sum of task_line_plan_movements.qtyTaskLine of the line on that day
---   sumForContract · sumForBudget   the sums of the same columns of the movements
+--   sumForContract · sumForBudget · sumForAccounting   the sums of the same columns of the movements
 -- The app only READS it. The rows are created by create_task_line_plan (the Post of a task): the earlier rows of the task are replaced in the same
 -- transaction, so the timeline always equals the movements.
 -- -------------------------------------------------------------------------------------
@@ -4003,11 +4057,13 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan_timeline (
   "qtyForBudget"      NUMERIC(18,2),
   "sumForContract"    NUMERIC(18,2),
   "sumForBudget"      NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
   CONSTRAINT task_line_plan_timeline_line_day_uq UNIQUE ("taskLineGUID", "rowPeriodDatetime")
 );
+ALTER TABLE public.task_line_plan_timeline ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_task    ON public.task_line_plan_timeline ("rowOwnerGUID", "rowPeriodDatetime");
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_project ON public.task_line_plan_timeline ("rowProjectGUID", "rowPeriodDatetime");
 
@@ -4038,8 +4094,8 @@ BEGIN
 END $$;
 
 -- days posted before this table existed: one row per line and day (the movements are already one per line and day, each at the start of its day)
-INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget")
-SELECT m."rowProjectGUID", m."rowOwnerGUID", m."rowPeriodDatetime", m."rowParentGUID", SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget")
+INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting")
+SELECT m."rowProjectGUID", m."rowOwnerGUID", m."rowPeriodDatetime", m."rowParentGUID", SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget"), SUM(m."sumForAccounting")
   FROM public.task_line_plan_movements m
  GROUP BY m."rowProjectGUID", m."rowOwnerGUID", m."rowParentGUID", m."rowPeriodDatetime"
 ON CONFLICT ("taskLineGUID", "rowPeriodDatetime") DO NOTHING;
@@ -4050,7 +4106,7 @@ ON CONFLICT ("taskLineGUID", "rowPeriodDatetime") DO NOTHING;
 --   { "taskGUID": "<uuid>",
 --     "timeZone": "UTC",                                  -- optional: the zone the day starts in (default UTC)
 --     "lines": [ { "lineGUID": "<uuid>", "baseOfDistribution": 1,
---                  "qtyTaskLine": 10, "sumForBudget": 100, "sumForContract": 100,       -- the totals of the line (null = none)
+--                  "qtyTaskLine": 10, "sumForBudget": 100, "sumForContract": 100, "sumForAccounting": 100,       -- the totals of the line (null = none)
 --                  "days": [ { "d": "2026-10-12", "c": 0.3333333333 }, ... ] } ] }       -- the days and their coefficients
 --
 -- Steps: lock the task and check the owner -> validate -> delete the earlier rows of the task -> insert round(total * c, 2) per day ->
@@ -4185,13 +4241,14 @@ BEGIN
 
     -- one row per day: coefficient rounded to 10 digits, amounts = round(total * coefficient, 2) (null total = null amount)
     INSERT INTO public.task_line_plan_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
-                                       "qtyTaskLine", "sumForBudget", "sumForContract", "rowJSON", "planMovementStatus", "periodDay")
+                                       "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "rowJSON", "planMovementStatus", "periodDay")
     SELECT v_project, v_task, v_guid, v_idx * 100000 + e.ord,
            ((e.value->>'d')::date)::timestamp AT TIME ZONE v_tz,
            round((e.value->>'c')::numeric, 10),
            CASE WHEN jsonb_typeof(v_line->'qtyTaskLine')       = 'number' THEN round((v_line->>'qtyTaskLine')::numeric       * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForBudget')      = 'number' THEN round((v_line->>'sumForBudget')::numeric      * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForContract')    = 'number' THEN round((v_line->>'sumForContract')::numeric    * round((e.value->>'c')::numeric, 10), 2) END,
+           CASE WHEN jsonb_typeof(v_line->'sumForAccounting')  = 'number' THEN round((v_line->>'sumForAccounting')::numeric  * round((e.value->>'c')::numeric, 10), 2) END,
            v_item,
            -- false = waits for the capacity check (only a Time line with a resource); every other row is active at once
            NOT (v_check AND v_genus = 'timeGenus' AND COALESCE(v_ljson->>'taskResourceItem', '') <> ''),
@@ -4208,7 +4265,7 @@ BEGIN
       UPDATE public.task_line_plan_movements SET "rowCoefficient" = "rowCoefficient" + v_diff WHERE "rowGUID" = v_last;
     END IF;
 
-    FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract'] LOOP
+    FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract', 'sumForAccounting'] LOOP
       IF jsonb_typeof(v_line->v_col) <> 'number' THEN CONTINUE; END IF;
       v_total := round((v_line->>v_col)::numeric, 2);
       EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan_movements WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
@@ -4249,9 +4306,9 @@ BEGIN
   END IF;
 
   -- the timeline: the movements of the task grouped by line and DAY (the start of the day in the zone of the post)
-  INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget")
+  INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting")
   SELECT m."rowProjectGUID", m."rowOwnerGUID", date_trunc('day', m."rowPeriodDatetime" AT TIME ZONE v_tz) AT TIME ZONE v_tz, m."rowParentGUID",
-         SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget")
+         SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget"), SUM(m."sumForAccounting")
     FROM public.task_line_plan_movements m
    WHERE m."rowOwnerGUID" = v_task
    GROUP BY m."rowProjectGUID", m."rowOwnerGUID", m."rowParentGUID", date_trunc('day', m."rowPeriodDatetime" AT TIME ZONE v_tz) AT TIME ZONE v_tz;
@@ -4506,8 +4563,16 @@ DROP TRIGGER IF EXISTS trg_project_table_zzz_user_calendar ON public.project_tab
 CREATE TRIGGER trg_project_table_zzz_user_calendar
   AFTER UPDATE OF "rowJSON" ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.user_calendar_project_sync();
--- (the seed rows of this part are in start_sql_insert.sql, PART 16)
 
+-- ---- backfill: the project tasks that exist already ---------------------------------------
+INSERT INTO public.user_calendar_event_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT t."rowOwnerGUID", 'empty',
+       EXTRACT(EPOCH FROM (j.v->>'startAt')::timestamptz) * 1000, j.v
+  FROM public.project_task_table t
+  CROSS JOIN LATERAL (SELECT public.user_calendar_project_task_json(t) AS v) j
+ WHERE COALESCE(t."rowJSON"->>'rowKind', 'task') IN ('task', 'milestone')
+   AND NOT EXISTS (SELECT 1 FROM public.user_calendar_event_table e WHERE e."rowJSON"->>'projectTaskGUID' = t."rowGUID"::text)
+ON CONFLICT DO NOTHING;
 
 -- ---- realtime (the calendar refreshes itself in every browser / phone of the user) --------
 DO $$
@@ -4613,23 +4678,6 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
   END LOOP;
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 17)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- ---- task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person) -------------------------------------------
 -- a CHECK keeps the value honest and allows an equipment on a Time line only; every line made before equipment has no kind and passes
@@ -4741,8 +4789,8 @@ BEGIN
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 18)
 
+-- (the 4 values of the enumeration: start5_sql_upsert_all.sql)
 
 -- does a center of this CFR take a line of this kind? null CFR (a unit with none up the tree) / null kind = yes (nothing to check)
 CREATE OR REPLACE FUNCTION public.kit8_cfr_accepts(p_cfr text, p_kind text) RETURNS boolean
@@ -4871,8 +4919,10 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 18)
 
+-- ---- the example company of the document "W1 businessUnit": 29 units, 4 levels, 9 with a CFR (the others inherit; Enterprise #1 = investment center) --------------
+-- fixed codes (bu_...) so the demo tree and the tests are repeatable; parents before children
+-- (the 29 example units: start5_sql_upsert_all.sql)
 
 -- ---- businessUnitAssigned on the six catalogs, the line and the project: an existing unit, of the right kind -------------------------------------------------
 -- trigger arguments: 'key' = the unit must exist · 'key:cost' / 'key:revenue' = ... and its effective CFR must take that kind · 'key=profitCenter' = ... and be exactly that CFR
@@ -4944,6 +4994,7 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT "rowGUID", "rowJSON"->>'acceptsCosts' AS costs, "rowJSON"->>'acceptsRevenues' AS revenues FROM public."cfrTypeTable" ORDER BY "orderInList";
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title', "rowJSON"->>'cfrAssigned', public.kit8_business_unit_cfr("rowGUID") AS effective FROM public."businessUnitTable" ORDER BY "orderInList";   -- 29 rows
 
+
 -- ===============================================================================================
 -- PART 19: create_budget_scenario_table.sql
 -- budgetScenarioTable (a plain list of budget scenarios: plan | fact) + the two seed scenarios
@@ -4992,8 +5043,8 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
--- (the seed rows of this part are in start_sql_insert.sql, PART 19)
 
+-- the two scenarios of the document
 
 -- realtime
 DO $$
@@ -5381,9 +5432,24 @@ NOTIFY pgrst, 'reload schema';
 -- Which calendar applies to a resource on a day (organization_resource_capacity_info): 1. the calendar of the contract of the person IN FORCE that day (latest start wins) 2. the calendar of the
 -- resource 3. the standard work week. A day without a row = NOT FILLED (NULL hours): never guessed.
 -- =====================================================================================
--- (the seed rows of this part are in start_sql_insert.sql, PART 21)
 
+-- ---- folders + the seeded week modes: the rows are SEED DATA (start5_sql_upsert_all.sql, "the resource calendar (PART 21"); this file only fills their days when they exist ----
 
+-- the seeded calendars have days for the previous, this and next year (only when they have none yet - a second run changes nothing)
+DO $$
+DECLARE
+  y integer := extract(year FROM current_date)::integer;
+  c record;
+BEGIN
+  FOR c IN SELECT * FROM (VALUES ('standardWorkWeekCalendar', 'fiveDays'), ('sixDayWeekCalendar', 'sixDays'), ('sevenDayWeekCalendar', 'allDays'), ('partTime4hCalendar', 'fiveDays')) AS v(cal, mode) LOOP
+    IF EXISTS (SELECT 1 FROM public."managementCalendarTable" WHERE "rowGUID" = c.cal)
+       AND NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = c.cal) THEN
+      PERFORM public.fill_management_calendar(c.cal, y - 1, c.mode);
+      PERFORM public.fill_management_calendar(c.cal, y,     c.mode);
+      PERFORM public.fill_management_calendar(c.cal, y + 1, c.mode);
+    END IF;
+  END LOOP;
+END $$;
 
 -- ---- hours of a day row: 0..24, in step with isActive -----------------------------------------------------------------------------
 DO $$
@@ -6002,7 +6068,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- PART 24: create_task_fact_input.sql
--- the FACT INPUT document of a task: task_fact_header (the document) + task_fact_timeline (its lines) + post_task_fact_document / unpost_task_fact_document
+-- the FACT INPUT document of a task: task_fact_header (the document) + task_fact_usage_timeline (its lines) + post_task_fact_document / unpost_task_fact_document
 -- ===============================================================================================
 
 -- =====================================================================================
@@ -6013,11 +6079,11 @@ NOTIFY pgrst, 'reload schema';
 -- task_fact_header   the DOCUMENT of one task.   rowJSON.documentHeader = { projectTaskGUID (read only, = rowOwnerGUID) · activeUser (the user who created it) ·
 --                    created_at (moment of creation) · documentNumber · documentStatus 'draft' | 'posted' · strongInput (the project setting when the document was created) ·
 --                    postedAt · postedBy · unpostedAt }
--- task_fact_timeline the LINES of the document: the fields of task_line_plan_timeline (rowGUID · rowProjectGUID · rowOwnerGUID · rowPeriodDatetime · taskLineGUID · qtyForBudget ·
+-- task_fact_usage_timeline the LINES of the document: the fields of task_line_plan_timeline (rowGUID · rowProjectGUID · rowOwnerGUID · rowPeriodDatetime · taskLineGUID · qtyForBudget ·
 --                    sumForContract · sumForBudget · created_at · updated_at) + rowHeaderGUID (= task_fact_header.rowGUID) + genusGUID (the tab) + qtyForContract (the quantity the user
 --                    states) + periodDay + rowJSON (what the line is: role, resource, unit, price ... copied from the task line).
 --                    Not unique per (line, day): a day can have several facts. rowPeriodDatetime is editable in EVERY line.
--- The rule: ALL the lines of task_line_table of the task automatically go to task_fact_timeline when the document is created (task_fact_document_create).
+-- The rule: ALL the lines of task_line_table of the task automatically go to task_fact_usage_timeline when the document is created (task_fact_document_create).
 --   projectSettings.factStrongInputByTaskLine = true  (project_table.rowJSON; false by default): the lines keep their taskLineGUID, users CANNOT add lines, only delete and update
 --   projectSettings.factStrongInputByTaskLine = false: the fact data is DISCONNECTED from the task line GUIDs (taskLineGUID stays NULL), users add lines freely
 --   The mode is copied into the header when the document is created: a later change of the setting never changes an existing document.
@@ -6032,7 +6098,7 @@ CREATE TABLE IF NOT EXISTS public.task_fact_header (
   "rowProjectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
   "rowOwnerGUID"   UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
   "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
   CONSTRAINT task_fact_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
@@ -6058,7 +6124,7 @@ BEGIN
   v_head := COALESCE(NEW."rowJSON"->'documentHeader', '{}'::jsonb);
   v_head := v_head || jsonb_build_object('projectTaskGUID', NEW."rowOwnerGUID");
   IF TG_OP = 'INSERT' THEN
-    v_head := v_head || jsonb_build_object('created_at', to_jsonb(NOW()));
+    v_head := v_head || jsonb_build_object('created_at', to_jsonb(clock_timestamp()));      -- the real moment: two documents of one transaction keep their order
   ELSE
     v_head := v_head || jsonb_build_object('created_at', OLD."rowJSON"->'documentHeader'->'created_at');
   END IF;
@@ -6070,7 +6136,28 @@ DROP TRIGGER IF EXISTS trg_task_fact_header_before_write ON public.task_fact_hea
 CREATE TRIGGER trg_task_fact_header_before_write BEFORE INSERT OR UPDATE ON public.task_fact_header
   FOR EACH ROW EXECUTE FUNCTION public.task_fact_header_before_write();
 
-CREATE TABLE IF NOT EXISTS public.task_fact_timeline (
+-- a database made before the rename (task_fact_timeline -> task_fact_usage_timeline): the table, its indexes and constraints are renamed IN PLACE (the lines stay); the old triggers, policies and
+-- trigger function are dropped, the statements below create them again under the new names
+DO $$
+BEGIN
+  IF to_regclass('public.task_fact_timeline') IS NOT NULL AND to_regclass('public.task_fact_usage_timeline') IS NULL THEN
+    ALTER TABLE public.task_fact_timeline RENAME TO task_fact_usage_timeline;
+    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_header  RENAME TO idx_task_fact_usage_timeline_header;
+    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_task    RENAME TO idx_task_fact_usage_timeline_task;
+    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_project RENAME TO idx_task_fact_usage_timeline_project;
+    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_line    RENAME TO idx_task_fact_usage_timeline_line;
+    ALTER TABLE public.task_fact_usage_timeline RENAME CONSTRAINT task_fact_timeline_qty_chk TO task_fact_usage_timeline_qty_chk;
+    ALTER TABLE public.task_fact_usage_timeline RENAME CONSTRAINT task_fact_timeline_genus_chk TO task_fact_usage_timeline_genus_chk;
+    DROP TRIGGER IF EXISTS trg_task_fact_timeline_touch ON public.task_fact_usage_timeline;
+    DROP TRIGGER IF EXISTS trg_task_fact_timeline_before_write ON public.task_fact_usage_timeline;
+    DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
+    DROP POLICY IF EXISTS task_fact_timeline_select ON public.task_fact_usage_timeline;
+    DROP POLICY IF EXISTS task_fact_timeline_insert ON public.task_fact_usage_timeline;
+    DROP POLICY IF EXISTS task_fact_timeline_update ON public.task_fact_usage_timeline;
+    DROP POLICY IF EXISTS task_fact_timeline_delete ON public.task_fact_usage_timeline;
+  END IF;
+END $$;
+CREATE TABLE IF NOT EXISTS public.task_fact_usage_timeline (
   "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
   "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
   "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
@@ -6082,22 +6169,24 @@ CREATE TABLE IF NOT EXISTS public.task_fact_timeline (
   "qtyForContract"    NUMERIC(18,2) NOT NULL DEFAULT 0,
   "sumForContract"    NUMERIC(18,2),
   "sumForBudget"      NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
   "periodDay"         DATE,
   "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
   "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_fact_timeline_qty_chk CHECK ("qtyForContract" >= 0),
-  CONSTRAINT task_fact_timeline_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'))
+  CONSTRAINT task_fact_usage_timeline_qty_chk CHECK ("qtyForContract" >= 0),
+  CONSTRAINT task_fact_usage_timeline_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'))
 );
-CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_header  ON public.task_fact_timeline ("rowHeaderGUID", "genusGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_task    ON public.task_fact_timeline ("rowOwnerGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_project ON public.task_fact_timeline ("rowProjectGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_fact_timeline_line    ON public.task_fact_timeline ("taskLineGUID");
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
+CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_header  ON public.task_fact_usage_timeline ("rowHeaderGUID", "genusGUID", "orderInList");
+CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_task    ON public.task_fact_usage_timeline ("rowOwnerGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_project ON public.task_fact_usage_timeline ("rowProjectGUID", "rowPeriodDatetime");
+CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_line    ON public.task_fact_usage_timeline ("taskLineGUID");
 
-DROP TRIGGER IF EXISTS trg_task_fact_timeline_touch ON public.task_fact_timeline;
-CREATE TRIGGER trg_task_fact_timeline_touch BEFORE UPDATE ON public.task_fact_timeline
+DROP TRIGGER IF EXISTS trg_task_fact_usage_timeline_touch ON public.task_fact_usage_timeline;
+CREATE TRIGGER trg_task_fact_usage_timeline_touch BEFORE UPDATE ON public.task_fact_usage_timeline
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
 -- the state of a document for the policies: 'draft-free' | 'draft-strong' | 'posted' (NULL = no such document). SECURITY DEFINER: the policies of the lines read the header without a second policy round.
@@ -6113,13 +6202,14 @@ REVOKE ALL ON FUNCTION public.task_fact_header_state(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.task_fact_header_state(uuid) TO authenticated;
 
 -- one line: project / task from the header, day grain, the quantity of the budget frozen, the sums computed from the price of the line
-CREATE OR REPLACE FUNCTION public.task_fact_timeline_before_write() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.task_fact_usage_timeline_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
   h record;
   v_strong boolean;
   v_price numeric;
   v_unit_budget numeric;
+  v_unit_accounting numeric;
 BEGIN
   SELECT x."rowProjectGUID", x."rowOwnerGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
   IF NOT FOUND THEN
@@ -6159,23 +6249,25 @@ BEGIN
   v_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
   v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
   NEW."sumForContract" := CASE WHEN v_price IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_price, 2) END;
+  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
   NEW."sumForBudget"   := CASE WHEN v_unit_budget IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_unit_budget, 2) END;
+  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_unit_accounting, 2) END;
   RETURN NEW;
 END;
 $$;
-DROP TRIGGER IF EXISTS trg_task_fact_timeline_before_write ON public.task_fact_timeline;
-CREATE TRIGGER trg_task_fact_timeline_before_write BEFORE INSERT OR UPDATE ON public.task_fact_timeline
-  FOR EACH ROW EXECUTE FUNCTION public.task_fact_timeline_before_write();
+DROP TRIGGER IF EXISTS trg_task_fact_usage_timeline_before_write ON public.task_fact_usage_timeline;
+CREATE TRIGGER trg_task_fact_usage_timeline_before_write BEFORE INSERT OR UPDATE ON public.task_fact_usage_timeline
+  FOR EACH ROW EXECUTE FUNCTION public.task_fact_usage_timeline_before_write();
 
 -- ---- access: the owner of the project reads; writes the lines of a DRAFT (no new lines in the strong mode); the header is written only by the functions below ----
 ALTER TABLE public.task_fact_header REPLICA IDENTITY FULL;
-ALTER TABLE public.task_fact_timeline REPLICA IDENTITY FULL;
+ALTER TABLE public.task_fact_usage_timeline REPLICA IDENTITY FULL;
 ALTER TABLE public.task_fact_header ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.task_fact_timeline ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_fact_usage_timeline ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.task_fact_header FROM anon, authenticated;
-REVOKE ALL ON public.task_fact_timeline FROM anon, authenticated;
+REVOKE ALL ON public.task_fact_usage_timeline FROM anon, authenticated;
 GRANT SELECT, DELETE ON public.task_fact_header TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_fact_timeline TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_fact_usage_timeline TO authenticated;
 
 DROP POLICY IF EXISTS task_fact_header_select ON public.task_fact_header;
 CREATE POLICY task_fact_header_select ON public.task_fact_header FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
@@ -6183,17 +6275,17 @@ DROP POLICY IF EXISTS task_fact_header_delete ON public.task_fact_header;
 CREATE POLICY task_fact_header_delete ON public.task_fact_header FOR DELETE TO authenticated
   USING (public.pm_owns_project("rowProjectGUID") AND public.task_fact_header_state("rowGUID") IN ('draft-free', 'draft-strong'));
 
-DROP POLICY IF EXISTS task_fact_timeline_select ON public.task_fact_timeline;
-CREATE POLICY task_fact_timeline_select ON public.task_fact_timeline FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
-DROP POLICY IF EXISTS task_fact_timeline_insert ON public.task_fact_timeline;
-CREATE POLICY task_fact_timeline_insert ON public.task_fact_timeline FOR INSERT TO authenticated
+DROP POLICY IF EXISTS task_fact_usage_timeline_select ON public.task_fact_usage_timeline;
+CREATE POLICY task_fact_usage_timeline_select ON public.task_fact_usage_timeline FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+DROP POLICY IF EXISTS task_fact_usage_timeline_insert ON public.task_fact_usage_timeline;
+CREATE POLICY task_fact_usage_timeline_insert ON public.task_fact_usage_timeline FOR INSERT TO authenticated
   WITH CHECK (public.task_fact_header_state("rowHeaderGUID") = 'draft-free');
-DROP POLICY IF EXISTS task_fact_timeline_update ON public.task_fact_timeline;
-CREATE POLICY task_fact_timeline_update ON public.task_fact_timeline FOR UPDATE TO authenticated
+DROP POLICY IF EXISTS task_fact_usage_timeline_update ON public.task_fact_usage_timeline;
+CREATE POLICY task_fact_usage_timeline_update ON public.task_fact_usage_timeline FOR UPDATE TO authenticated
   USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'))
   WITH CHECK (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
-DROP POLICY IF EXISTS task_fact_timeline_delete ON public.task_fact_timeline;
-CREATE POLICY task_fact_timeline_delete ON public.task_fact_timeline FOR DELETE TO authenticated
+DROP POLICY IF EXISTS task_fact_usage_timeline_delete ON public.task_fact_usage_timeline;
+CREATE POLICY task_fact_usage_timeline_delete ON public.task_fact_usage_timeline FOR DELETE TO authenticated
   USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
 
 -- realtime
@@ -6206,7 +6298,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
   ELSIF NOT v_all THEN
-    FOREACH t IN ARRAY ARRAY['task_fact_header', 'task_fact_timeline'] LOOP
+    FOREACH t IN ARRAY ARRAY['task_fact_header', 'task_fact_usage_timeline'] LOOP
       IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
         EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
       END IF;
@@ -6214,7 +6306,7 @@ BEGIN
   END IF;
 END $$;
 
--- ---- task_fact_document_create(task): a new document; ALL the lines of the task go into task_fact_timeline (the strong mode keeps their GUIDs, the free mode does not) ----
+-- ---- task_fact_document_create(task): a new document; ALL the lines of the task go into task_fact_usage_timeline (the strong mode keeps their GUIDs, the free mode does not) ----
 -- returns the GUID of the document. The day of the new lines is today, the quantity of the user starts as the quantity of the task line (the user corrects it).
 CREATE OR REPLACE FUNCTION public.task_fact_document_create(p_task uuid) RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6239,7 +6331,7 @@ BEGIN
             'documentStatus', 'draft',
             'strongInput', v_strong)));
 
-  INSERT INTO public.task_fact_timeline ("rowHeaderGUID", "rowPeriodDatetime", "taskLineGUID", "genusGUID", "qtyForBudget", "qtyForContract", "orderInList", "rowJSON")
+  INSERT INTO public.task_fact_usage_timeline ("rowHeaderGUID", "rowPeriodDatetime", "taskLineGUID", "genusGUID", "qtyForBudget", "qtyForContract", "orderInList", "rowJSON")
   SELECT v_header, date_trunc('day', NOW()), CASE WHEN v_strong THEN l."rowGUID" END, l."rowParentGUID",
          CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric END,
          CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END,
@@ -6254,6 +6346,9 @@ BEGIN
            'taskResourceContract',   NULLIF(l."rowJSON"->>'taskResourceContract', ''),
            'taskLinePartnerContract', NULLIF(l."rowJSON"->>'taskLinePartnerContract', ''),
            'priceTaskLine',          CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+           'businessUnitTaskLine',   NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+           'unitSumForAccounting',   CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
            'unitSumForBudget',       CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
                                           THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
     FROM public.task_line_table l
@@ -6286,17 +6381,17 @@ BEGIN
   END IF;
   v_strong := COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true';
 
-  SELECT count(*) INTO v_lines FROM public.task_fact_timeline f WHERE f."rowHeaderGUID" = p_header;
+  SELECT count(*) INTO v_lines FROM public.task_fact_usage_timeline f WHERE f."rowHeaderGUID" = p_header;
   IF v_lines = 0 THEN
     v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
   END IF;
   -- a date after tomorrow (UTC tolerance of one day for the zone of the user) is not a fact
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', f."rowGUID", 'problem', 'dateInTheFuture')), '[]'::jsonb) INTO v_problems
-    FROM public.task_fact_timeline f
+    FROM public.task_fact_usage_timeline f
    WHERE f."rowHeaderGUID" = p_header AND f."periodDay" > ((NOW() AT TIME ZONE 'UTC')::date + 1);
   IF v_strong THEN
     SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', f."rowGUID", 'problem', 'taskLineMissing')), '[]'::jsonb) INTO v_problems
-      FROM public.task_fact_timeline f WHERE f."rowHeaderGUID" = p_header AND f."taskLineGUID" IS NULL;
+      FROM public.task_fact_usage_timeline f WHERE f."rowHeaderGUID" = p_header AND f."taskLineGUID" IS NULL;
   END IF;
 
   IF jsonb_array_length(v_problems) > 0 THEN
@@ -6336,11 +6431,72 @@ $$;
 REVOKE ALL ON FUNCTION public.unpost_task_fact_document(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.unpost_task_fact_document(uuid) TO authenticated;
 
+-- ---- task_fact_document_list(filter, limit, offset): the DOCUMENTS the screen PMFactInputDocumentList lists, each with the totals of ALL its lines -----------------------------------
+-- SECURITY INVOKER: the policies decide what the user sees (the documents of his projects). p_filter keys (all optional; a document is listed when ONE of its lines satisfies ALL the line keys):
+--   fromDay · toDay ('YYYY-MM-DD', the day of a line = factTimelinePeriod) · businessUnitGUID (rowJSON.businessUnitTaskLine of the line) · roleGUID · resourceGUID
+--   and on the document: projectGUID · taskGUID · status ('draft' | 'posted') · author (a part of the name / e-mail / GUID of the user who made it)
+-- returns { totalCount, totals: { sumForBudget, sumForContract, sumForAccounting }, rows: [ { documentGUID, documentNumber, documentStatus, strongInput, authorGUID, authorName, createdAt, postedAt, unpostedAt,
+--           projectGUID, projectName, taskGUID, taskName, lineCount, firstDay, lastDay, sumForBudget, sumForContract, sumForAccounting } ] }, newest first
+CREATE OR REPLACE FUNCTION public.task_fact_document_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+  v_result jsonb;
+BEGIN
+  WITH docs AS (
+    SELECT h."rowGUID" AS "documentGUID",
+           h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+           COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true' AS "strongInput",
+           h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
+           COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
+           h."rowJSON"->'documentHeader'->>'created_at' AS "createdAt",
+           h."rowJSON"->'documentHeader'->>'postedAt' AS "postedAt",
+           h."rowJSON"->'documentHeader'->>'unpostedAt' AS "unpostedAt",
+           h."created_at" AS "sortAt",
+           h."rowProjectGUID" AS "projectGUID", COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', '') AS "projectName",
+           h."rowOwnerGUID" AS "taskGUID", COALESCE(t."rowJSON"->>'name', '') AS "taskName",
+           (SELECT count(*) FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
+           (SELECT min(l."periodDay") FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "firstDay",
+           (SELECT max(l."periodDay") FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "lastDay",
+           (SELECT COALESCE(sum(l."sumForBudget"), 0) FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumForBudget",
+           (SELECT COALESCE(sum(l."sumForContract"), 0) FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumForContract",
+           (SELECT COALESCE(sum(l."sumForAccounting"), 0) FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumForAccounting"
+      FROM public.task_fact_header h
+      JOIN public.project_table p ON p."rowGUID" = h."rowProjectGUID"
+      JOIN public.project_task_table t ON t."rowGUID" = h."rowOwnerGUID"
+      LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+     WHERE (NOT f ? 'projectGUID' OR h."rowProjectGUID" = (f->>'projectGUID')::uuid)
+       AND (NOT f ? 'taskGUID'    OR h."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+       AND (NOT f ? 'status'      OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'author'      OR NULLIF(btrim(f->>'author'), '') IS NULL
+            OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
+       AND ((NOT (f ? 'fromDay' OR f ? 'toDay' OR f ? 'businessUnitGUID' OR f ? 'roleGUID' OR f ? 'resourceGUID'))
+            OR EXISTS (SELECT 1 FROM public.task_fact_usage_timeline x
+                        WHERE x."rowHeaderGUID" = h."rowGUID"
+                          AND (NOT f ? 'fromDay' OR x."periodDay" >= (f->>'fromDay')::date)
+                          AND (NOT f ? 'toDay'   OR x."periodDay" <= (f->>'toDay')::date)
+                          AND (NOT f ? 'businessUnitGUID' OR x."rowJSON"->>'businessUnitTaskLine' = f->>'businessUnitGUID')
+                          AND (NOT f ? 'roleGUID'         OR x."rowJSON"->>'resourceRoleItem' = f->>'roleGUID')
+                          AND (NOT f ? 'resourceGUID'     OR x."rowJSON"->>'taskResourceItem' = f->>'resourceGUID')))
+  ), page AS (SELECT * FROM docs ORDER BY "sortAt" DESC, "documentGUID" LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0))
+  SELECT jsonb_build_object(
+           'totalCount', (SELECT count(*) FROM docs),
+           'totals', jsonb_build_object('sumForBudget', (SELECT COALESCE(sum("sumForBudget"), 0) FROM docs), 'sumForContract', (SELECT COALESCE(sum("sumForContract"), 0) FROM docs),
+                                        'sumForAccounting', (SELECT COALESCE(sum("sumForAccounting"), 0) FROM docs)),
+           'rows', COALESCE((SELECT jsonb_agg(to_jsonb(page) - 'sortAt' ORDER BY page."sortAt" DESC, page."documentGUID") FROM page), '[]'::jsonb))
+    INTO v_result;
+  RETURN v_result;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.task_fact_document_list(jsonb, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_fact_document_list(jsonb, integer, integer) TO authenticated;
+
 NOTIFY pgrst, 'reload schema';
 
 -- Check:
 --   SELECT public.task_fact_document_create('<task rowGUID>');                                    -- a document with all the lines of the task
---   SELECT * FROM public.task_fact_timeline WHERE "rowHeaderGUID" = '<document rowGUID>' ORDER BY "orderInList";
+--   SELECT * FROM public.task_fact_usage_timeline WHERE "rowHeaderGUID" = '<document rowGUID>' ORDER BY "orderInList";
 --   SELECT public.post_task_fact_document('<document rowGUID>');                                  -- {"status": "posted" | "refused", "problems": [...]}
 --   UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"factStrongInputByTaskLine": true}' WHERE "rowGUID" = '<project rowGUID>';   -- the strong mode for NEW documents
 
@@ -6359,12 +6515,13 @@ NOTIFY pgrst, 'reload schema';
 --     qtyPlanned        sum of task_line_plan_movements.qtyTaskLine (planMovementStatus = true)         <- the base of the view
 --     qtyContracted     0 when the line has NO resource contract selected in task_line_table, the quantity of the line (qtyForContract) when it HAS one
 --                       (Time: rowJSON.taskResourceContract · Material / Expense: rowJSON.taskLinePartnerContract)
+--     sumForBudget      sum of task_line_plan_movements.sumForBudget (planMovementStatus = true)  - the money of the plan (the TotalsRow of the screen)
 --     qtyRestToContract planned - contracted                (generated)
 --     qtyDelivered · qtyUsed     columns without data now (0); qtyOnHand = delivered - used (generated)   ("draw delivered + undefined fields without data now")
 --   It is a real table (no join, no arithmetic on the client) kept in step INCREMENTALLY:
 --     triggers (statement level, transition tables) only write the TASK key into monitor01_dirty  ->  pg_cron every monitor01_refresh_interval_seconds() = 2 s calls
 --     monitor01_process_dirty: BATCHES of 500 tasks, FOR UPDATE SKIP LOCKED, one set-based statement per batch, ONLY THE ROWS WHOSE NUMBERS CHANGED are written (no realtime noise).
--- task_line_fact_for_monitor01  the posted task_fact_timeline rows (PART 24) summed per task x genus x role x unit x month, made by the same worker (step 1).
+-- task_line_fact_for_monitor01  the posted task_fact_usage_timeline rows (PART 24) summed per task x genus x role x unit x month, made by the same worker (step 1).
 -- monitor01_sum_sources         the SOURCE TRANSACTIONS of any sum (SumExplorerListReusable.tsx): the movements of the plan, the lines of the posted fact documents.
 -- Read policy of monitor01_view: rowOwnerUserGUID = the user (the owner of the project, copied into the row) - one column, no join per event: the fastest realtime.
 -- =====================================================================================
@@ -6389,6 +6546,7 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   "resourceRoleName"    TEXT          NOT NULL DEFAULT '',
   "qtyPlanned"          NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyContracted"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForBudget"        NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
   "qtyDelivered"        NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
@@ -6402,6 +6560,8 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
 CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
 CREATE INDEX IF NOT EXISTS idx_monitor01_view_user    ON public.monitor01_view ("rowOwnerUserGUID", "periodMonth");
 
+-- (an installed monitor01_view gains the budget sum)
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumForBudget" NUMERIC(18,2) NOT NULL DEFAULT 0;
 ALTER TABLE public.monitor01_view REPLICA IDENTITY FULL;
 ALTER TABLE public.monitor01_view ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.monitor01_view FROM anon, authenticated;
@@ -6420,11 +6580,13 @@ CREATE TABLE IF NOT EXISTS public.task_line_fact_for_monitor01 (
   "qtyFact"           NUMERIC(18,2) NOT NULL DEFAULT 0,
   "sumForContract"    NUMERIC(18,2),
   "sumForBudget"      NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
   "lineCount"         INTEGER       NOT NULL DEFAULT 0,
   "documentCount"     INTEGER       NOT NULL DEFAULT 0,
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth")
 );
+ALTER TABLE public.task_line_fact_for_monitor01 ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
 CREATE INDEX IF NOT EXISTS idx_task_line_fact_for_monitor01_project ON public.task_line_fact_for_monitor01 ("rowProjectGUID", "periodMonth");
 ALTER TABLE public.task_line_fact_for_monitor01 REPLICA IDENTITY FULL;
 ALTER TABLE public.task_line_fact_for_monitor01 ENABLE ROW LEVEL SECURITY;
@@ -6479,20 +6641,23 @@ BEGIN
 END $$;
 
 -- ---- the fresh numbers of some tasks (the ONE definition of every number: the worker, monitor01_verify and the tests use it) ----------------------------------
+-- (the result gained sumForBudget: a function cannot change its result type in place)
+DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT a.task, a.genus, a.role, a.unit, a.month,
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(t."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         a.planned, a.contracted, a.lines, a.stale
+         a.planned, a.contracted, a.budget, a.lines, a.stale
     FROM (SELECT m."rowOwnerGUID" AS task, l."rowParentGUID" AS genus,
                  COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS role,
                  COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS unit,
                  date_trunc('month', COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date))::date AS month,
                  SUM(COALESCE(m."qtyTaskLine", 0)) AS planned,
+                 SUM(COALESCE(m."sumForBudget", 0)) AS budget,
                  SUM(CASE WHEN COALESCE(NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''), '') <> ''
                           THEN COALESCE(m."qtyTaskLine", 0) ELSE 0 END) AS contracted,
                  (count(DISTINCT l."rowGUID"))::integer AS lines,
@@ -6507,14 +6672,16 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(a.role, '')
 $$;
 
+-- (the result gained sumForAccounting: a function cannot change its result type in place)
+DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_fact_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date, "rowProjectGUID" uuid,
-               "qtyFact" numeric, "sumForContract" numeric, "sumForBudget" numeric, "lineCount" integer, "documentCount" integer)
+               "qtyFact" numeric, "sumForContract" numeric, "sumForBudget" numeric, "sumForAccounting" numeric, "lineCount" integer, "documentCount" integer)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT f."rowOwnerGUID", f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''),
          date_trunc('month', f."periodDay")::date, f."rowProjectGUID",
-         SUM(f."qtyForContract"), SUM(f."sumForContract"), SUM(f."sumForBudget"), (count(*))::integer, (count(DISTINCT f."rowHeaderGUID"))::integer
-    FROM public.task_fact_timeline f
+         SUM(f."qtyForContract"), SUM(f."sumForContract"), SUM(f."sumForBudget"), SUM(f."sumForAccounting"), (count(*))::integer, (count(DISTINCT f."rowHeaderGUID"))::integer
+    FROM public.task_fact_usage_timeline f
     JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
    WHERE f."rowOwnerGUID" = ANY (p_tasks) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
    GROUP BY 1, 2, 3, 4, 5, 6
@@ -6531,14 +6698,14 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_fact_rows(p_tasks)),
        up AS (
          INSERT INTO public.task_line_fact_for_monitor01 AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID",
-                                                              "qtyFact", "sumForContract", "sumForBudget", "lineCount", "documentCount")
+                                                              "qtyFact", "sumForContract", "sumForBudget", "sumForAccounting", "lineCount", "documentCount")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID",
-                f."qtyFact", f."sumForContract", f."sumForBudget", f."lineCount", f."documentCount" FROM fresh f
+                f."qtyFact", f."sumForContract", f."sumForBudget", f."sumForAccounting", f."lineCount", f."documentCount" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "qtyFact" = EXCLUDED."qtyFact", "sumForContract" = EXCLUDED."sumForContract", "sumForBudget" = EXCLUDED."sumForBudget",
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "qtyFact" = EXCLUDED."qtyFact", "sumForContract" = EXCLUDED."sumForContract", "sumForBudget" = EXCLUDED."sumForBudget", "sumForAccounting" = EXCLUDED."sumForAccounting",
                "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."qtyFact", t."sumForContract", t."sumForBudget", t."lineCount", t."documentCount")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."qtyFact", EXCLUDED."sumForContract", EXCLUDED."sumForBudget", EXCLUDED."lineCount", EXCLUDED."documentCount")
+         WHERE (t."rowProjectGUID", t."qtyFact", t."sumForContract", t."sumForBudget", t."sumForAccounting", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."qtyFact", EXCLUDED."sumForContract", EXCLUDED."sumForBudget", EXCLUDED."sumForAccounting", EXCLUDED."lineCount", EXCLUDED."documentCount")
          RETURNING 1),
        del AS (
          DELETE FROM public.task_line_fact_for_monitor01 t
@@ -6552,16 +6719,16 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6730,7 +6897,7 @@ CREATE OR REPLACE FUNCTION public.monitor01_rebuild(p_project uuid DEFAULT NULL)
 LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT public.monitor01_queue_tasks(ARRAY(
     SELECT m."rowOwnerGUID" FROM public.task_line_plan_movements m WHERE p_project IS NULL OR m."rowProjectGUID" = p_project
-    UNION SELECT f."rowOwnerGUID" FROM public.task_fact_timeline f WHERE p_project IS NULL OR f."rowProjectGUID" = p_project
+    UNION SELECT f."rowOwnerGUID" FROM public.task_fact_usage_timeline f WHERE p_project IS NULL OR f."rowProjectGUID" = p_project
     UNION SELECT v."rowOwnerGUID" FROM public.monitor01_view v WHERE p_project IS NULL OR v."rowProjectGUID" = p_project), 'rebuild')
 $$;
 REVOKE ALL ON FUNCTION public.monitor01_rebuild(uuid) FROM PUBLIC, anon, authenticated;
@@ -6748,16 +6915,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6814,10 +6981,10 @@ BEGIN
       INTO v_count, v_sum, v_rows;
   ELSIF p_measure = 'fact' THEN
     WITH src AS (
-      SELECT x."rowGUID"::text AS "rowGUID", 'taskFactTimeline'::text AS "sourceName", x."periodDay" AS "day", x."rowOwnerGUID"::text AS "taskGUID", x."rowProjectGUID"::text AS "projectGUID",
+      SELECT x."rowGUID"::text AS "rowGUID", 'taskFactUsageTimeline'::text AS "sourceName", x."periodDay" AS "day", x."rowOwnerGUID"::text AS "taskGUID", x."rowProjectGUID"::text AS "projectGUID",
              x."taskLineGUID"::text AS "lineGUID", x."rowHeaderGUID"::text AS "documentGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
              x."genusGUID", COALESCE(x."rowJSON"->>'resourceRoleItem', '') AS "roleGUID", COALESCE(x."rowJSON"->>'measureUnitTaskLine', '') AS "unit", x."qtyForContract" AS "qty"
-        FROM public.task_fact_timeline x JOIN public.task_fact_header h ON h."rowGUID" = x."rowHeaderGUID"
+        FROM public.task_fact_usage_timeline x JOIN public.task_fact_header h ON h."rowGUID" = x."rowHeaderGUID"
        WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
          AND (NOT f ? 'projectGUID' OR x."rowProjectGUID" = (f->>'projectGUID')::uuid)
          AND (NOT f ? 'taskGUID'    OR x."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
@@ -6879,5 +7046,5 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- ===============================================================================================
--- END of start_sql_structure.sql
+-- END of start1_sql_structure.sql
 -- ===============================================================================================

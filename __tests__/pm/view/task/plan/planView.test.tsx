@@ -157,10 +157,10 @@ describe('PMProjectTaskPlanCRUD', () => {
     expect(mockTable).not.toHaveBeenCalled();
   });
 
-  it('the columns: # · Budget item · Genus · Line · Period · Coefficient · Qty · Sum for budget · Sum for contract; none is editable', () => {
+  it('the columns: # · Budget item · Genus · Line · Period · Coefficient · Qty · Sum for budget · Sum for contract · Sum for accounting; none is editable', () => {
     mount();
     const cols = mockTable.mock.calls.at(-1)![0].visualColumns;
-    expect(cols.map((c: any) => c.key)).toEqual(['n', 'budgetItem', 'genus', 'line', 'period', 'rowCoefficient', 'qtyTaskLine', 'sumForBudget', 'sumForContract']);
+    expect(cols.map((c: any) => c.key)).toEqual(['n', 'budgetItem', 'genus', 'line', 'period', 'rowCoefficient', 'qtyTaskLine', 'sumForBudget', 'sumForContract', 'sumForAccounting']);
     expect(cols.filter((c: any) => c.type !== 'rowNumber').every((c: any) => c.editable === false)).toBe(true);
   });
 
@@ -243,6 +243,15 @@ describe('PMProjectTaskPlanCRUD', () => {
     expect(t[0]).toMatchObject({ lines: 2, sumForBudget: 150, sumForContract: 160, cumulativeBudget: 150 });
     expect(t[1]).toMatchObject({ lines: 1, sumForBudget: 25, cumulativeBudget: 175 });
   });
+  it('the accounting sums are added per day too (null = 0 for the day)', () => {
+    const rows = [
+      { ...planRow('a', 'l1', 1, 0.5, 10, 100, 100), rowPeriodDatetime: '2026-10-12T00:00:00+00:00', sumForAccounting: '40.10' },
+      { ...planRow('b', 'l2', 1, 0.5, 5, 50, 60), rowPeriodDatetime: '2026-10-12T00:00:00+00:00', sumForAccounting: null },
+      { ...planRow('c', 'l1', 2, 0.5, 10, 25, 25), rowPeriodDatetime: '2026-10-13T00:00:00+00:00', sumForAccounting: '59.90' },
+    ] as any;
+    const t = buildTaskLinePlanTimeline(rows);
+    expect(t.map((d) => d.sumForAccounting)).toEqual([40.1, 59.9]);
+  });
   it('is the last tab and shows the days instead of the line summaries', () => {
     mount({ lines: [lineRow('l1', 'timeGenus', {})], plan: [planRow('a', 'l1', 1, 1, 10, 100, 100)] });
     expect(PLAN_BUDGET_TABS[PLAN_BUDGET_TABS.length - 1].id).toBe('TabPlanTimeline');
@@ -274,7 +283,7 @@ describe('plan columns - titles come from the catalogs', () => {
   it('the period is the start of the day', () => {
     expect(planPeriodText('2026-10-12T00:00:00+00:00')).toBe('2026-10-12 00:00:00');
     expect(planPeriodText('nonsense')).toBe('');
-    expect(buildPlanColumns({ data, linesById: new Map(), textColor: '#000', mutedColor: '#999' })).toHaveLength(9);
+    expect(buildPlanColumns({ data, linesById: new Map(), textColor: '#000', mutedColor: '#999' })).toHaveLength(10);
   });
   it('every column of the Plan table can be sorted and filtered (the text columns by what they show), except the row number', () => {
     const cols = buildPlanColumns({ data, linesById: new Map(), textColor: '#000', mutedColor: '#999' });

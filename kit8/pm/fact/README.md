@@ -1,13 +1,13 @@
 # Fact input - `kit8/pm/fact`
 
-Source: the Google Doc "W1 FACT INPUT"; plan and decisions: `documentation/FACT_INPUT.html`. SQL: **PART 24** of `kit8/sql/start/start_sql_structure.sql` (mirrored in `start_sql_code.sql`, dropped by PART 1a of `delete_sql_structure.sql`).
+Source: the Google Doc "W1 FACT INPUT"; plan and decisions: `documentation/FACT_INPUT.html`. SQL: **PART 24** of `kit8/sql/start/start1_sql_structure.sql` (mirrored in `start2_sql_code.sql`, dropped by PART 1a of `delete_sql_structure.sql`).
 
-The user records what really happened on a task in a **document**. Right button on a line of the Finances table (or on a task of the tree) → **Facts input** → `PMFactInputDocument` opens on the tab of that line.
+The user records what really happened on a task in a **document**. Right button on a line of the Finances table (or on a task of the tree) → **Facts input** → `PMFactInputDocumentForm` opens on the tab of that line. All the documents are in the **list** `PMFactInputDocumentList` (hamburger menu → Budgets → … → divider → **Actuals**, route `app/pm/fact/list`).
 
 | Table | What |
 |---|---|
 | `task_fact_header` | the document: `rowJSON.documentHeader` { `projectTaskGUID` (read only) · `activeUser` · `created_at` · `documentNumber` · `documentStatus` draft/posted · `strongInput` · `postedAt` · `postedBy` · `unpostedAt` }. Written only by the RPCs |
-| `task_fact_timeline` | its lines: the fields of `task_line_plan_timeline` + `rowHeaderGUID` · `genusGUID` · **`qtyForContract`** · `periodDay` · `rowJSON` (role, resource, unit, price ... copied from the task line). `rowPeriodDatetime` is editable in every line |
+| `task_fact_usage_timeline` | its lines: the fields of `task_line_plan_timeline` (**`sumForBudget` · `sumForContract` · `sumForAccounting`**, each computed from the quantity) + `rowHeaderGUID` · `genusGUID` · **`qtyForContract`** · `periodDay` · `rowJSON` (role, resource, unit, price ... copied from the task line). `rowPeriodDatetime` is editable in every line |
 | `task_line_fact_for_monitor01` | the sums of the POSTED documents per task × genus × role × unit × month, made by the Monitor01 worker (pg_cron) - read only |
 
 ## Rules (SQL: triggers + RLS; the TypeScript twins are in `factInputModel.ts`)
@@ -15,7 +15,7 @@ The user records what really happened on a task in a **document**. Right button 
 * Project setting **`factStrongInputByTaskLine`** (Project settings → Budgets → Main; false by default), copied into the header when the document is made:
   * **true** (strong): the lines keep their `taskLineGUID`; users **cannot add lines, only delete and update** (the date and `qtyForContract`; the genus / description / task line are frozen).
   * **false** (free): the lines are **disconnected from the task line GUIDs** (`taskLineGUID` NULL); users add lines freely ("+ Add line": role, unit, date, qty, price).
-* Users change **only** `rowPeriodDatetime` and `qtyForContract`; `qtyForBudget` is frozen and `sumForContract` / `sumForBudget` are computed (qty × price).
+* Users change **only** `rowPeriodDatetime` and `qtyForContract`; `qtyForBudget` is frozen and `sumForContract` / `sumForBudget` / `sumForAccounting` are computed (qty × price, qty × unit budget sum, qty × unit accounting sum - `unitSumForBudget` / `unitSumForAccounting` are copied from the task line).
 * **Post** (`post_task_fact_document`): the whole document is checked (it has lines; no date after tomorrow; strong: every line still has its task line); the answer is data `{ status, lines, problems[] }`, never an exception. Posted = read only (RLS).
   **Unpost** takes it back to a draft. Only posted documents count in `task_line_fact_for_monitor01`.
 * Not a unique (line, day): several facts of a day are allowed.
@@ -23,15 +23,18 @@ The user records what really happened on a task in a **document**. Right button 
 ## Files
 | File | What |
 |---|---|
-| `factInputModel.ts` | pure: types, the setting, states (`Post` / `Posted` / `Post needed`), what the user may do, the sums (twin of the trigger), totals per unit, day / quantity parsing, the answers of Post |
-| `factInputApi.ts` | the calls (Supabase client passed in) |
-| `useFactInputDocument.ts` | React Query: documents of a task, the selected one (latest draft), its lines, the commands; a task without a document gets one on the first open |
+| `factInputModel.ts` | pure: types, the setting, states (`Post` / `Posted` / `Post needed`), what the user may do, the sums (twin of the trigger), totals per unit, day / quantity parsing, the answers of Post, the filter of the list (`factListFilterToRpc`), the keys of a new row |
+| `factInputApi.ts` | the calls (Supabase client passed in): `task_fact_document_list`, create, post, unpost, delete the draft, the task info |
+| `factMetaData.ts` | the redux entity `taskFactUsageTimeline` of the lines (realtime, optimistic, the root columns `qtyForContract` / `rowPeriodDatetime` are saved by `updateOne`) - the lines are read and written by `ReusableTable`, not by the hook |
+| `factColumns.tsx` | the columns of the table of the lines (`ReusableTable` def-table) per mode: free draft · strong draft · posted (read only); role / resource by genus |
+| `useFactInputDocument.ts` | React Query: the documents of a task (the list RPC with `taskGUID`, newest first), the selected one (latest draft), the commands (new, post, unpost, delete); a task without a document gets one on the first open |
+| `useFactDocumentList.ts` | the rows + totals of the list for the fast filters; `useFactProjects` |
 | `useOpenFactInput.ts` | **open the document from anywhere a task GUID or task line GUID is known** |
-| `PMFactInputDocument.tsx` | the screen: header, DocumentTabs (Time · Material · Expenses · Revenues), Post / Unpost, the problems of a refused Post |
-| `FactLinesTable.tsx` | the lines of one tab |
+| `PMFactInputDocumentForm.tsx` | the form: the bar (New · Delete · Close · Unpost/Posted · **Post is the LAST button**), the inputs (`TextInputApp`, `DateInputApp`), DocumentTabs (Time · Material · Expenses · Revenues) and the `ReusableTable` of the lines (`addEnabled` false for a strong or posted document, the panel / menu / selection off for a posted one) |
+| `PMFactInputDocumentList.tsx` | the list: Document (input data) · Period · Lines · **sumForBudget · sumForContract · sumForAccounting** (the totals of the document) · Author · Created; footer = the listed documents added up; fast filters **factTimelinePeriod · factProjectFilter · factBusinessUnitFilter · factRoleFilter · factResourceFilter · authorFilter**; a click opens the form |
 
-Route: `app/pm/project/task/fact?taskGUID=…&taskLineGUID=…&genus=…&documentGUID=…`.
+Routes: the form `app/pm/project/task/fact?taskGUID=…&taskLineGUID=…&genus=…&documentGUID=…`, the list `app/pm/fact/list`.
 
 ## Tests
-* SQL on a real Postgres 15: `cd kit8/docker && docker compose up -d && ./test_sql.sh && ./test_fact_monitor01.sh 50` (54 checks: free / strong, posted = frozen, Post problems, Unpost, policies).
-* Jest: `__tests__/pm/fact` (model, table, screen, data hook, entry points, the setting) and `monitor01Sql.test.ts` (the SQL files carry the same parts).
+* SQL on a real Postgres 15: `cd kit8/docker && docker compose up -d && ./test_sql.sh && ./test_fact_monitor01.sh 50` (free / strong, posted = frozen, Post problems, Unpost, policies, sumForAccounting), `51` (the list RPC and its filters), `52` (sumForAccounting in the plan algorithms).
+* Jest: `__tests__/pm/fact` (model, columns, form, list, both data hooks, entry points, the setting) and `monitor01Sql.test.ts` (the SQL files carry the same parts).

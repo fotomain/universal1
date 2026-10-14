@@ -1,5 +1,6 @@
 // Task line plan - the columns of the read-only table (VisualColumn[] of the ReusableTable). One table for ALL the lines of the task:
 //   # · Budget item · Genus · Line (role + person / equipment / product) · Period · Coefficient · Qty · Sum for budget · Sum for contract
+// (#, Budget item ... Sum for budget · Sum for contract · Sum for accounting)
 // The amounts are the root columns of task_line_plan (target = the column), so the footer adds them up per table. Nothing is editable.
 import { businessUnitPath } from '../../../../catalog/business_unit/businessUnitModel';
 import React from 'react';
@@ -56,5 +57,6 @@ export function buildPlanColumns({ data, linesById, textColor, mutedColor }: Pla
     money('qtyTaskLine', 'Qty', 110),
     money('sumForBudget', 'Sum for budget', 140),
     money('sumForContract', 'Sum for contract', 140),
+    money('sumForAccounting', 'Sum for accounting', 150),
   ];
 }

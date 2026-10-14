@@ -43,6 +43,8 @@ import ReusableTableFillColumnModal from './ReusableTableFillColumnModal';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
 import ReusableTablePostButton, { POST_BUTTON_WIDE_FROM, ReusableTablePostState } from './ReusableTablePostButton';
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
+import * as Clipboard from 'expo-clipboard';
+import { isDevEnvironment } from '../../../environment';
 import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
@@ -78,7 +80,7 @@ const MENU_W = 36;
 export default function ReusableTable(props: ReusableTableProps) {
   const {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
-    selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, uxuiTable,
+    selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, uxuiTable,
     selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
     emptyText, testID = 'reusable-table', toolbarExtra, EditRowModalCard,
   } = props;
@@ -478,9 +480,11 @@ export default function ReusableTable(props: ReusableTableProps) {
           <View style={styles.panel} testID={`${testID}-crud-panel`}>
             {postEl}
             {crudPanelEnabled && (<>
+            {addEnabled && (<>
             <PMIconButton tipScope="app" testID={`${testID}-add`} icon="add" title={`Add ${itemLabel.toLowerCase()} last`} color={c.primary} onPress={() => crud.createLast()} />
             <PMIconButton tipScope="app" testID={`${testID}-add-first`} icon="add_row_above" title={`Add ${itemLabel.toLowerCase()} first`} color={c.text} onPress={() => crud.createFirst()} />
             <PMIconButton tipScope="app" testID={`${testID}-duplicate-selected`} icon="control_point_duplicate" title="Duplicate the selected row" color={c.text} disabled={!one} onPress={() => one && crud.duplicate(one)} />
+            </>)}
             {reorderEnabled && (
               <>
                 <PMIconButton tipScope="app" testID={`${testID}-move-up-selected`} icon="arrow_upward" title="Move the selected rows up" color={c.text} disabled={!canMoveSelected(-1)} onPress={() => crud.moveSelected(selectedHere, -1)} />
@@ -587,7 +591,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </ScrollView>
 
-      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} filtered={viewFiltered}
+      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled} filtered={viewFiltered}
         onDelete={(guid) => askDelete([guid])} onEdit={openEdit} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
       {EditRowModalCard && editGUID && (() => {
         const editRow = rows.find((x) => x.rowGUID === editGUID);
@@ -671,6 +675,8 @@ export default function ReusableTable(props: ReusableTableProps) {
               submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-export-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, false); } })) },
             { testID: `${testID}-more-share`, label: 'Share', icon: 'share', onPress: () => {},
               submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-share-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, true); } })) },
+            // .env ENVIRONMENT_NAME=DEV_ENVIRONMENT: the name of the table (the redux entity) is the LAST item; a press copies it
+            ...(isDevEnvironment() ? [{ testID: `${testID}-more-table-name`, label: entityName, icon: 'table_chart', onPress: () => { setBarMenu(null); Clipboard.setStringAsync(entityName).catch(() => {}); } }] : []),
           ]} />
       )}
       <AskBeforeDeletePostComponent visible={!!pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) doDelete(pendingDelete); setPendingDelete(null); }} />

@@ -15,6 +15,8 @@ export interface ReusableTableRowMenuProps {
   crud: ReusableTableCrud;
   itemLabel: string;
   reorderEnabled: boolean;
+  /** false: no add above / below / duplicate (ReusableTable addEnabled) */
+  addEnabled?: boolean;
   /** rows are filtered by the search box: positions are not the real ones -> no move commands */
   filtered: boolean;
   onDelete: (guid: string) => void;
@@ -25,7 +27,7 @@ export interface ReusableTableRowMenuProps {
   testID: string;
 }
 
-export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, filtered, onDelete, onEdit, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
+export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, addEnabled = true, filtered, onDelete, onEdit, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
   if (!menu) return null;
   const index = rows.findIndex((r) => r.rowGUID === menu.guid);
   const row = rows[index];
@@ -37,9 +39,11 @@ export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reor
   const lower = itemLabel.toLowerCase();
   const items: PMMenuItemProps[] = [
     ...(onEdit ? [{ testID: id('edit'), label: `Edit ${lower}`, icon: 'edit', onPress: run(() => onEdit(guid)) }] : []),
-    { testID: id('add-below'), label: `Add ${lower} below`, icon: 'add_row_below', onPress: run(() => crud.createAfter(guid)) },
-    { testID: id('add-above'), label: `Add ${lower} above`, icon: 'add_row_above', onPress: run(() => crud.createBefore(guid)) },
-    { testID: id('duplicate'), label: 'Duplicate', icon: 'control_point_duplicate', onPress: run(() => crud.duplicate(guid)) },
+    ...(addEnabled ? [
+      { testID: id('add-below'), label: `Add ${lower} below`, icon: 'add_row_below', onPress: run(() => crud.createAfter(guid)) },
+      { testID: id('add-above'), label: `Add ${lower} above`, icon: 'add_row_above', onPress: run(() => crud.createBefore(guid)) },
+      { testID: id('duplicate'), label: 'Duplicate', icon: 'control_point_duplicate', onPress: run(() => crud.duplicate(guid)) },
+    ] : []),
     ...(canMove ? [
       { testID: id('move-up'), label: 'Move up', icon: 'arrow_upward', disabled: index === 0, onPress: run(() => crud.moveUp(guid)) },
       { testID: id('move-down'), label: 'Move down', icon: 'arrow_downward', disabled: index === rows.length - 1, onPress: run(() => crud.moveDown(guid)) },

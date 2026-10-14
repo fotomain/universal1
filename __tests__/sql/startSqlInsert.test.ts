@@ -1,4 +1,4 @@
-// start_sql_insert.sql is the seed data EXTRACTED from start_sql_structure.sql: the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
+// start3_sql_insert_missing.sql is the seed data EXTRACTED from start1_sql_structure.sql: the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
 // a PART of the structure file, and a seed is idempotent. (The SQL itself is run on a real Postgres 15 by kit8/docker/test_sql.sh: install twice = same objects and same row counts,
 // the structure alone = 0 seed rows, delete leaves nothing.)
 import * as fs from 'fs';
@@ -6,8 +6,8 @@ import * as path from 'path';
 
 const dir = path.join(__dirname, '../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
-const structure = read('start_sql_structure.sql');
-const insert = read('start_sql_insert.sql');
+const structure = read('start1_sql_structure.sql');
+const insert = read('start3_sql_insert_missing.sql');
 
 /** the top-level statements of a file: split at ";" followed by a line end, outside strings, dollar quotes and comments */
 function statements(src: string): string[] {
@@ -37,7 +37,7 @@ describe('the structure file has no seed rows', () => {
     expect(targets.sort()).toEqual(['monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('says where the seeds are', () => {
-    expect(structure).toContain('start_sql_insert.sql');
+    expect(structure).toContain('start3_sql_insert_missing.sql');
     expect(structure).toMatch(/NO seed rows/);
   });
 });
@@ -52,7 +52,7 @@ describe('the insert file has only data', () => {
     for (const s of insertStatements.filter((x) => kindOf(x) === 'INSERT')) expect(s).toMatch(/ON CONFLICT|WHERE NOT EXISTS|NOT EXISTS \(/i);
   });
   it('refuses to run before the structure', () => {
-    expect(insert).toContain("Run start_sql_structure.sql first");
+    expect(insert).toContain("Run start1_sql_structure.sql first");
   });
   it('the same order as the structure: its PARTs are PARTs of the structure file, ascending', () => {
     const parts = Array.from(insert.matchAll(/^-- PART (\d+): (\S+)\s+\(seed data\)/gm)).map((m) => [Number(m[1]), m[2]] as const);

@@ -1,7 +1,7 @@
 // monitor01Model - the rows of monitor01_view (documentation/MONITOR01_WBS.html; SQL: PART 25) and everything the dashboard computes from them, all pure:
 //   * the key of a row and the PATCH of a realtime event (the screen never refetches: it replaces one row by its key)
 //   * the filters of the bar (startDate · finishDate · project · task · resource) and the tabs (Time · Material · Expense · All)
-//   * the table: totals (per unit - hours and pieces are never added), the genus groups with their subtotals, the rows in the order of the sheet
+//   * the table: totals (per unit - hours and pieces are never added), the genus groups with their subtotals, the rows in the order of the sheet, the TotalsRow at the bottom
 //   * the filter of the Sum explorer for a cell, a subtotal and a total
 // The numbers come ready from the database (rest to contract and on-hand are generated columns): nothing is calculated here except sums of rows.
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
@@ -22,6 +22,8 @@ export interface Monitor01Row {
   resourceRoleName: string;
   qtyPlanned: number;
   qtyContracted: number;
+  /** the money of the plan (Σ sumForBudget of the plan movements) */
+  sumForBudget: number;
   qtyRestToContract: number;
   qtyDelivered: number;
   qtyUsed: number;
@@ -47,10 +49,12 @@ export type Monitor01Measure = (typeof MONITOR01_MEASURES)[number];
 export const MONITOR01_MEASURE_FIELD: Record<Monitor01Measure, keyof Monitor01Row> = {
   planned: 'qtyPlanned', contracted: 'qtyContracted', restToContract: 'qtyRestToContract', delivered: 'qtyDelivered', used: 'qtyUsed', onHand: 'qtyOnHand',
 };
-/** the header texts of the columns (the sheet's own spelling corrected) */
+/** the header texts of the columns (the sheet's own spelling corrected; every header starts with a capital letter) */
 export const MONITOR01_MEASURE_TITLE: Record<Monitor01Measure, string> = {
-  planned: 'planned', contracted: 'contracted', restToContract: 'rest to contract', delivered: 'delivered', used: 'actually used', onHand: 'on-hand',
+  planned: 'Planned', contracted: 'Contracted', restToContract: 'Rest to contract', delivered: 'Delivered', used: 'Actually used', onHand: 'On-hand',
 };
+/** the header texts of the dimension columns and of the money column */
+export const MONITOR01_HEAD = { project: 'Project', role: 'Resource role', month: 'Month', task: 'Task name', unit: 'Unit', sumForBudget: 'Sum for budget' } as const;
 /** the group header over the columns */
 export const MONITOR01_MEASURE_GROUP: Record<Monitor01Measure, 'Plan' | 'Fact'> = { planned: 'Plan', contracted: 'Plan', restToContract: 'Plan', delivered: 'Fact', used: 'Fact', onHand: 'Fact' };
 
@@ -75,6 +79,7 @@ export function parseMonitor01Row(raw: any): Monitor01Row {
     resourceRoleName: String(raw.resourceRoleName ?? ''),
     qtyPlanned: num(raw.qtyPlanned),
     qtyContracted: num(raw.qtyContracted),
+    sumForBudget: num(raw.sumForBudget),
     qtyRestToContract: raw.qtyRestToContract == null ? num(raw.qtyPlanned) - num(raw.qtyContracted) : num(raw.qtyRestToContract),
     qtyDelivered: num(raw.qtyDelivered),
     qtyUsed: num(raw.qtyUsed),
@@ -153,51 +158,51 @@ export function sortMonitor01Rows(rows: Monitor01Row[]): Monitor01Row[] {
 
 // ---- totals ----------------------------------------------------------------------------------------------------------------------------------------------
 export type Monitor01Sums = Record<Monitor01Measure, number>;
-export interface Monitor01UnitTotal { unit: string; sums: Monitor01Sums; rows: number }
+export interface Monitor01UnitTotal { unit: string; sums: Monitor01Sums; sumForBudget: number; rows: number }
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const emptySums = (): Monitor01Sums => ({ planned: 0, contracted: 0, restToContract: 0, delivered: 0, used: 0, onHand: 0 });
 /** sums of rows PER UNIT (never one number for hours + pieces) */
 export function totalsByUnit(rows: Monitor01Row[]): Monitor01UnitTotal[] {
   const map = new Map<string, Monitor01UnitTotal>();
   for (const r of rows) {
-    const t = map.get(r.measureUnit) ?? { unit: r.measureUnit, sums: emptySums(), rows: 0 };
+    const t = map.get(r.measureUnit) ?? { unit: r.measureUnit, sums: emptySums(), sumForBudget: 0, rows: 0 };
     for (const m of MONITOR01_MEASURES) t.sums[m] += r[MONITOR01_MEASURE_FIELD[m]] as number;
+    t.sumForBudget += r.sumForBudget;
     t.rows += 1;
     map.set(r.measureUnit, t);
   }
-  return [...map.values()].map((t) => ({ ...t, sums: Object.fromEntries(MONITOR01_MEASURES.map((m) => [m, round2(t.sums[m])])) as Monitor01Sums })).sort((a, b) => a.unit.localeCompare(b.unit));
+  return [...map.values()].map((t) => ({ ...t, sumForBudget: round2(t.sumForBudget), sums: Object.fromEntries(MONITOR01_MEASURES.map((m) => [m, round2(t.sums[m])])) as Monitor01Sums })).sort((a, b) => a.unit.localeCompare(b.unit));
+}
+
+/**
+ * The TotalsRow at the bottom of the table: `sumForBudget` (money - one number for all the rows shown) and `qty` (the six quantity columns, PER UNIT - hours and pieces are never added:
+ * one line per unit). The quantity columns are blank on the line of the money alone when the rows have more than one unit.
+ */
+export interface Monitor01Totals { sumForBudget: number; qty: Monitor01UnitTotal[]; rows: Monitor01Row[] }
+export function monitor01Totals(rows: Monitor01Row[]): Monitor01Totals {
+  return { sumForBudget: round2(rows.reduce((a, r) => a + r.sumForBudget, 0)), qty: totalsByUnit(rows), rows };
 }
 
 // ---- the table: what the screen draws ----------------------------------------------------------------------------------------------------------------------
 export type Monitor01Item =
-  | { kind: 'total'; key: string; unit: string; sums: Monitor01Sums; rows: Monitor01Row[] }
+  | { kind: 'total'; key: string; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[] }
   | { kind: 'group'; key: string; genus: string }
-  | { kind: 'subtotal'; key: string; genus: string; unit: string; sums: Monitor01Sums; rows: Monitor01Row[] }
+  | { kind: 'subtotal'; key: string; genus: string; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[] }
   | { kind: 'row'; key: string; row: Monitor01Row };
 
 /** total rows (per unit) on top, then every genus: its caption, its subtotals (per unit), its rows */
 export function buildMonitor01Items(rows: Monitor01Row[]): Monitor01Item[] {
   const sorted = sortMonitor01Rows(rows);
   const items: Monitor01Item[] = [];
-  for (const t of totalsByUnit(sorted)) items.push({ kind: 'total', key: `total|${t.unit}`, unit: t.unit, sums: t.sums, rows: sorted.filter((r) => r.measureUnit === t.unit) });
+  for (const t of totalsByUnit(sorted)) items.push({ kind: 'total', key: `total|${t.unit}`, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, rows: sorted.filter((r) => r.measureUnit === t.unit) });
   for (const genus of MONITOR01_GENUS_ORDER) {
     const own = sorted.filter((r) => r.genusGUID === genus);
     if (!own.length) continue;
     items.push({ kind: 'group', key: `group|${genus}`, genus });
-    for (const t of totalsByUnit(own)) items.push({ kind: 'subtotal', key: `sub|${genus}|${t.unit}`, genus, unit: t.unit, sums: t.sums, rows: own.filter((r) => r.measureUnit === t.unit) });
+    for (const t of totalsByUnit(own)) items.push({ kind: 'subtotal', key: `sub|${genus}|${t.unit}`, genus, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, rows: own.filter((r) => r.measureUnit === t.unit) });
     for (const r of own) items.push({ kind: 'row', key: monitor01Key(r), row: r });
   }
   return items;
-}
-
-/** the description of a row for column A of the sheet ("row descriptions") */
-export function monitor01RowDescription(item: Monitor01Item): string {
-  switch (item.kind) {
-    case 'total': return 'Total';
-    case 'group': return monitor01GenusTitle(item.genus);
-    case 'subtotal': return `Subtotal ${monitor01GenusTitle(item.genus)}`;
-    default: return `${monitor01GenusTitle(item.row.genusGUID)} line`;
-  }
 }
 
 // ---- the Sum explorer: the filter of the source transactions of a number --------------------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 // The pure rules of the fact input document (kit8/pm/fact/factInputModel.ts; the SQL twin is tested by kit8/docker/test_fact_monitor01.sh).
 import {
-  FACT_TABS, FactHeaderRow, FactLineRow, canAddLines, canDeleteDocument, canDeleteLines, canEditLines, canPost, canUnpost, dayOfPeriod, dayToPeriodDatetime, factGenusOf, factHeaderOf,
+  EMPTY_FACT_LIST_FILTER, FACT_NEW_ROW_KEYS, FACT_TABS, FactHeaderRow, FactLineRow, factHeaderFromListRow, factLineInsert, factListDateErrors, factListFilterActive, factListFilterToRpc, factRowsOf, factTotalsOf,
+  latestDraftOf, parseFactListAnswer, canAddLines, canDeleteDocument, canDeleteLines, canEditLines, canPost, canUnpost, dayOfPeriod, dayToPeriodDatetime, factGenusOf, factHeaderOf,
   factInputRouteParams, factLineSums, factPostState, factProblemText, factStrongInputOf, factTotalsByUnit, formatQty, genusOfTaskLine, latestDraft, linesOfGenus, newFreeLine, parseDayInput,
   parseFactAnswer, parseQtyInput,
 } from '../../../kit8/pm/fact/factInputModel';
@@ -10,7 +11,7 @@ const header = (over: Record<string, any> = {}, guid = 'h1'): FactHeaderRow => (
 });
 const line = (over: Partial<FactLineRow> = {}): FactLineRow => ({
   rowGUID: 'l1', rowProjectGUID: 'p1', rowOwnerGUID: 't1', rowHeaderGUID: 'h1', rowPeriodDatetime: '2026-10-14T00:00:00Z', taskLineGUID: null, genusGUID: 'timeGenus', qtyForBudget: 8, qtyForContract: 8,
-  sumForContract: 80, sumForBudget: null, orderInList: 1, rowJSON: { measureUnitTaskLine: 'unit_hour', priceTaskLine: 10 }, ...over,
+  sumForContract: 80, sumForBudget: null, sumForAccounting: null, orderInList: 1, rowJSON: { measureUnitTaskLine: 'unit_hour', priceTaskLine: 10 }, ...over,
 });
 
 describe('the project setting', () => {
@@ -81,13 +82,13 @@ describe('tabs and lines', () => {
 });
 
 describe('the sums (the twin of the trigger)', () => {
-  it('sumForContract = qty x price, sumForBudget = qty x the budget sum of one unit', () => {
-    expect(factLineSums(6, { priceTaskLine: 10, unitSumForBudget: 12 })).toEqual({ sumForContract: 60, sumForBudget: 72 });
-    expect(factLineSums(2.5, { priceTaskLine: 3.33 })).toEqual({ sumForContract: 8.33, sumForBudget: null });
+  it('sumForContract = qty x price, sumForBudget / sumForAccounting = qty x the sum of one unit', () => {
+    expect(factLineSums(6, { priceTaskLine: 10, unitSumForBudget: 12, unitSumForAccounting: 15 })).toEqual({ sumForContract: 60, sumForBudget: 72, sumForAccounting: 90 });
+    expect(factLineSums(2.5, { priceTaskLine: 3.33 })).toEqual({ sumForContract: 8.33, sumForBudget: null, sumForAccounting: null });
   });
   it('no price: no sum (never guessed)', () => {
-    expect(factLineSums(5, {})).toEqual({ sumForContract: null, sumForBudget: null });
-    expect(factLineSums(5, null)).toEqual({ sumForContract: null, sumForBudget: null });
+    expect(factLineSums(5, {})).toEqual({ sumForContract: null, sumForBudget: null, sumForAccounting: null });
+    expect(factLineSums(5, null)).toEqual({ sumForContract: null, sumForBudget: null, sumForAccounting: null });
   });
   it('totals per unit - hours and pieces are never added', () => {
     const t = factTotalsByUnit([
@@ -156,5 +157,78 @@ describe('new lines and the route', () => {
   it('route params keep only what is given', () => {
     expect(factInputRouteParams({ taskGUID: 't1' })).toEqual({ taskGUID: 't1' });
     expect(factInputRouteParams({ taskGUID: 't1', projectGUID: 'p1', taskLineGUID: 'l1', genus: 'timeGenus', documentGUID: 'd1' })).toEqual({ taskGUID: 't1', projectGUID: 'p1', taskLineGUID: 'l1', genus: 'timeGenus', documentGUID: 'd1' });
+  });
+});
+
+describe('the list of documents (task_fact_document_list)', () => {
+  const raw = (over: Record<string, any> = {}) => ({
+    documentGUID: 'd1', documentNumber: 'FI-00001', documentStatus: 'posted', strongInput: true, authorGUID: 'u1', authorName: 'Anna K', createdAt: '2026-10-14T08:00:00Z', postedAt: '2026-10-15T08:00:00Z', unpostedAt: null,
+    projectGUID: 'p1', projectName: 'Alpha', taskGUID: 't1', taskName: 'task01', lineCount: 3, firstDay: '2026-10-12', lastDay: '2026-10-14', sumForBudget: '96.00', sumForContract: 280, sumForAccounting: '120', ...over,
+  });
+  it('numeric strings become numbers; a missing field never throws', () => {
+    const a = parseFactListAnswer({ totalCount: '2', totals: { sumForBudget: '1.5', sumForContract: 2, sumForAccounting: null }, rows: [raw(), raw({ documentGUID: 'd2', documentStatus: undefined, strongInput: undefined, unpostedAt: undefined, firstDay: undefined })] });
+    expect(a.totalCount).toBe(2);
+    expect(a.totals).toEqual({ sumForBudget: 1.5, sumForContract: 2, sumForAccounting: 0 });
+    expect(a.rows[0]).toMatchObject({ documentGUID: 'd1', documentStatus: 'posted', strongInput: true, sumForBudget: 96, sumForContract: 280, sumForAccounting: 120, lineCount: 3 });
+    expect(a.rows[1]).toMatchObject({ documentStatus: 'draft', strongInput: false, firstDay: null, unpostedAt: null });
+    expect(parseFactListAnswer(null)).toEqual({ totalCount: 0, totals: { sumForBudget: 0, sumForContract: 0, sumForAccounting: 0 }, rows: [] });
+  });
+  it('the form header comes from a row of the list (with the name of the author)', () => {
+    const a = parseFactListAnswer({ totalCount: 1, totals: {}, rows: [raw()] });
+    expect(factHeaderFromListRow(a.rows[0])).toEqual({ guid: 'd1', number: 'FI-00001', status: 'posted', strong: true, user: 'u1', userName: 'Anna K', createdAt: '2026-10-14T08:00:00Z', postedAt: '2026-10-15T08:00:00Z', unpostedAt: null });
+  });
+  it('the latest draft of a list that is newest first', () => {
+    const a = parseFactListAnswer({ totalCount: 3, totals: {}, rows: [raw({ documentGUID: 'a' }), raw({ documentGUID: 'b', documentStatus: 'draft' }), raw({ documentGUID: 'c', documentStatus: 'draft' })] });
+    expect(latestDraftOf(a.rows)?.documentGUID).toBe('b');
+    expect(latestDraftOf([])).toBeUndefined();
+  });
+  it('the filter to the RPC: only what is set and readable; dates in any form', () => {
+    expect(factListFilterToRpc(EMPTY_FACT_LIST_FILTER)).toEqual({});
+    expect(factListFilterToRpc({ ...EMPTY_FACT_LIST_FILTER, fromDay: '12.10.2026', toDay: '2026-10-31', projectGUID: 'p1', businessUnitGUID: 'bu1', roleGUID: 'r1', resourceGUID: 'x1', author: ' ann ' }))
+      .toEqual({ fromDay: '2026-10-12', toDay: '2026-10-31', projectGUID: 'p1', businessUnitGUID: 'bu1', roleGUID: 'r1', resourceGUID: 'x1', author: 'ann' });
+    expect(factListFilterToRpc({ ...EMPTY_FACT_LIST_FILTER, fromDay: 'soon' })).toEqual({});                  // an unreadable date is not a filter
+    expect(factListFilterToRpc(EMPTY_FACT_LIST_FILTER, { taskGUID: 't1' })).toEqual({ taskGUID: 't1' });
+  });
+  it('active filter, date errors', () => {
+    expect(factListFilterActive(EMPTY_FACT_LIST_FILTER)).toBe(false);
+    expect(factListFilterActive({ ...EMPTY_FACT_LIST_FILTER, author: ' ' })).toBe(false);
+    expect(factListFilterActive({ ...EMPTY_FACT_LIST_FILTER, roleGUID: 'r' })).toBe(true);
+    expect(factListDateErrors({ ...EMPTY_FACT_LIST_FILTER, fromDay: 'soon', toDay: '2026-10-31' })).toEqual({ fromDay: true, toDay: false });
+  });
+});
+
+describe('a line made by the table (createOne)', () => {
+  it('the control keys become columns; the quantity starts at 0; rowParentGUID is dropped; nulls are not kept', () => {
+    const insert = factLineInsert({
+      rowGUID: 'n1', rowOwnerGUID: 't1', rowParentGUID: 'empty', orderInList: 5,
+      rowJSON: { [FACT_NEW_ROW_KEYS.header]: 'h1', [FACT_NEW_ROW_KEYS.genus]: 'materialGenus', [FACT_NEW_ROW_KEYS.day]: '2026-10-20', resourceRoleItem: null, measureUnitTaskLine: 'unit_pcs', priceTaskLine: 2, note: '' },
+    });
+    expect(insert).toEqual({
+      rowGUID: 'n1', rowOwnerGUID: 't1', rowHeaderGUID: 'h1', genusGUID: 'materialGenus', rowPeriodDatetime: '2026-10-20T00:00:00.000Z', qtyForContract: 0, orderInList: 5,
+      rowJSON: { measureUnitTaskLine: 'unit_pcs', priceTaskLine: 2 },
+    });
+    expect(insert).not.toHaveProperty('rowParentGUID');
+  });
+  it('an unknown genus falls back to Time; no day = today', () => {
+    const insert = factLineInsert({ rowGUID: 'n2', rowOwnerGUID: 't1', rowJSON: { [FACT_NEW_ROW_KEYS.header]: 'h1', [FACT_NEW_ROW_KEYS.genus]: 'nonsense' } });
+    expect(insert.genusGUID).toBe('timeGenus');
+    expect(insert.rowPeriodDatetime).toBe(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+  });
+});
+
+describe('the live totals of a document (the rows the table holds)', () => {
+  const r = (over: Record<string, any>) => ({ rowGUID: 'x', rowHeaderGUID: 'h1', genusGUID: 'timeGenus', sumForBudget: 0, sumForContract: 0, sumForAccounting: 0, ...over });
+  const rows = [r({ rowGUID: 'a', sumForBudget: '10.10', sumForContract: 20, sumForAccounting: null }), r({ rowGUID: 'b', genusGUID: 'materialGenus', sumForBudget: 0.2, sumForContract: '5.55', sumForAccounting: 7 }),
+    r({ rowGUID: 'c', rowHeaderGUID: 'h2', sumForBudget: 999 }), { rowGUID: 'n', rowJSON: { [FACT_NEW_ROW_KEYS.header]: 'h1', [FACT_NEW_ROW_KEYS.genus]: 'timeGenus' } }];
+  it('the rows of ONE document (a row that is not saved yet is already there), optionally one tab', () => {
+    expect(factRowsOf(rows, 'h1').map((x) => x.rowGUID)).toEqual(['a', 'b', 'n']);
+    expect(factRowsOf(rows, 'h1', 'materialGenus').map((x) => x.rowGUID)).toEqual(['b']);
+    expect(factRowsOf(rows, 'h1', 'timeGenus').map((x) => x.rowGUID)).toEqual(['a', 'n']);
+    expect(factRowsOf(rows, null)).toEqual([]);
+    expect(factRowsOf(undefined, 'h1')).toEqual([]);
+  });
+  it('added in cents: a missing sum counts 0', () => {
+    expect(factTotalsOf(factRowsOf(rows, 'h1'))).toEqual({ lineCount: 3, sumForBudget: 10.3, sumForContract: 25.55, sumForAccounting: 7 });
+    expect(factTotalsOf([])).toEqual({ lineCount: 0, sumForBudget: 0, sumForContract: 0, sumForAccounting: 0 });
   });
 });

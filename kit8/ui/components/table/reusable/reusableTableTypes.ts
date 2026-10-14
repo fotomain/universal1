@@ -39,6 +39,8 @@ interface ColumnBase {
   target?: CellTarget;
   /** false = shown, not editable */
   editable?: boolean;
+  /** how the STORED value of the cell is shown / edited (e.g. a timestamptz 'YYYY-MM-DDT00:00:00+00:00' of a root column as the day 'YYYY-MM-DD' of a date column). Default: as stored */
+  fromStored?: (stored: any, row: ReusableTableRow) => any;
   /** true = the column is always FIRST (right after the drag / select-row columns), even when the user has moved the others and the column appears later */
   pinFirst?: boolean;
   /**
@@ -48,8 +50,12 @@ interface ColumnBase {
   validate?: (value: any, row: ReusableTableRow) => string | null | undefined;
 }
 
-/** where a column value is stored */
-export type CellTarget = 'rowJSON' | 'rowOwnerGUID' | 'rowParentGUID';
+/**
+ * where a column value is stored: rowJSON[field] (default), the root column rowOwnerGUID / rowParentGUID ('nothing' = 'empty'), or ANY OTHER root column of the table
+ * (a real SQL column such as rowPeriodDatetime or qtyForContract of task_fact_usage_timeline). Another root column is saved only when the entity lists it in its
+ * SystemMetaData entry `rootColumns` (redux/reusable/reusableRootSaga.ts); 'nothing' is stored as null.
+ */
+export type CellTarget = 'rowJSON' | 'rowOwnerGUID' | 'rowParentGUID' | (string & {});
 
 /** one choice of a select / multiSelect column */
 export interface SelectOption {
@@ -171,7 +177,12 @@ export interface MultiSelectColumn extends ColumnBase {
 }
 
 /** 'YYYY-MM-DD' (typed; refused when it is not a real day) */
-export interface DateColumn extends ColumnBase { type: 'date'; placeholder?: string }
+export interface DateColumn extends ColumnBase {
+  type: 'date';
+  placeholder?: string;
+  /** the cell is a DateInputApp: the date is typed OR picked in the calendar (a calendar icon in the cell); the value is still 'YYYY-MM-DD'. Default false = a plain text cell */
+  picker?: boolean;
+}
 
 /** '#RRGGBB' with a color swatch */
 export interface ColorColumn extends ColumnBase { type: 'color'; placeholder?: string }
@@ -406,6 +417,11 @@ export interface ReusableTableProps {
   columnSortAndFilter?: boolean;
   /** icon panel above the table: add first / add / duplicate / move up / move down / sql_for_delete (default true) */
   crudPanelEnabled?: boolean;
+  /**
+   * false: NO new row can be made - the add / add first / duplicate buttons and the row menu commands add above / below / duplicate are gone; update, move and delete stay
+   * (default true). The strong fact input: the lines come from the task lines, the user can only change and delete them (kit8/pm/fact)
+   */
+  addEnabled?: boolean;
   /** search box (default true) */
   searchEnabled?: boolean;
   /** right-click / long-press / ⋮ row menu (default true) */

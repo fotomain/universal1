@@ -105,7 +105,7 @@
       <li><b>Q9</b>: ok - English titles in the seed, fixed (an enumeration).</li>
     </ul>
     Where it lives: <code>kit8/catalog/business_unit</code> (README), <code>kit8/ui/components/tree/CatalogTreeReusableCRUD.tsx</code> + <code>CatalogTreePicker.tsx</code>, route <code>/catalog/business/unit</code> (drawer: Catalogs → Business units),
-    SQL PART 18 of <code>start_sql_structure.sql</code> (also in <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>) and PART 15 of <code>delete_sql_structure.sql</code> - tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code> and by hand
+    SQL PART 18 of <code>start1_sql_structure.sql</code> (also in <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>) and PART 15 of <code>delete_sql_structure.sql</code> - tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code> and by hand
     (the enumeration is read-only, the guards, the three project-center rules, the Post check on a cost / revenue line and a CFR change that contradicts posted days).
     The spike of section 3 worked: <code>ReusableTable</code> + <code>foldersTree</code> shows the picked unit's sub-units when every row is also a node, with no change to the plugin.
     <b>Not built (on purpose):</b> a one-time migration of old projects, units on the Kanban / Gantt views, the capex rule of the investment center, a re-resolve of the unit of existing lines when a source changes later
@@ -378,10 +378,10 @@
   <p>Follows the existing SQL workflow: the <b>structure</b> file is the tested pair with the <b>delete</b> file; the code/data files are the structure file cut in two and are mirrored; everything is tested on Postgres 15 with <code>kit8/docker/test_sql.sh</code> before it is handed over.</p>
   <div class="scroll"><table>
     <tr><th>File</th><th>Addition</th></tr>
-    <tr><td><code>start_sql_structure.sql</code></td><td><b>PART 18 <code>create_business_unit_tables.sql</code></b>: <code>cfrTypeTable</code> (+ SELECT-only RLS, write-guard trigger, 4 seed rows), <code>businessUnitTable</code> (def table through <code>kit8_setup_def_table</code>, RLS for signed-in users, realtime, the three triggers, indexes), the 29 seed rows,
+    <tr><td><code>start1_sql_structure.sql</code></td><td><b>PART 18 <code>create_business_unit_tables.sql</code></b>: <code>cfrTypeTable</code> (+ SELECT-only RLS, write-guard trigger, 4 seed rows), <code>businessUnitTable</code> (def table through <code>kit8_setup_def_table</code>, RLS for signed-in users, realtime, the three triggers, indexes), the 29 seed rows,
       and the function <code>kit8_cfr_accepts(cfr text, kind text)</code> used by the Post procedure. <b>PART 13/15 changes:</b> <code>create_task_line_plan</code> gets the CHECK. No column is added: the unit is a key inside <code>task_line_table.rowJSON</code>, like every other line field (a CHECK on the JSON key is added only if it needs one).</td></tr>
     <tr><td><code>delete_sql_structure.sql</code></td><td>A new PART that drops the two tables, the functions and the triggers in reverse order (the Post procedure is restored to its previous body).</td></tr>
-    <tr><td><code>start_sql_code.sql</code> / <code>start_sql_data.sql</code></td><td>The same PART cut into code and data (mirror, not rewritten).</td></tr>
+    <tr><td><code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code></td><td>The same PART cut into code and data (mirror, not rewritten).</td></tr>
   </table></div>
   <p class="small">Seed ids: the 29 units get <b>fixed</b> uuids/short codes so the demo tree and the tests are repeatable; the project demo rows (if any) point at them.</p>
 </section>

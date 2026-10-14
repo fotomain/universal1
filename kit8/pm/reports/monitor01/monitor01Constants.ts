@@ -1,5 +1,5 @@
 // Monitor01 constants (documentation/MONITOR01_WBS.html, the Google Doc "W1 MONITOR1": "make constants").
-// The values that the database also knows are checked against kit8/sql/start/start_sql_structure.sql by __tests__/pm/reports/monitor01 (monitor01_refresh_interval_seconds() etc.).
+// The values that the database also knows are checked against kit8/sql/start/start1_sql_structure.sql by __tests__/pm/reports/monitor01 (monitor01_refresh_interval_seconds() etc.).
 
 /** the refresh interval of the pg_cron worker, in seconds (monitor01_refresh_interval_seconds()) */
 export const MONITOR01_REFRESH_INTERVAL = 2; // #seconds

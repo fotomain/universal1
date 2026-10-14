@@ -287,7 +287,10 @@ export const reusableRootSaga = (p: any) => {
 
             // rowOwnerGUID: a table cell with target 'rowOwnerGUID' (ReusableTable all-rows mode, e.g. product -> type)
             if (columns && typeof columns === "object") {
-                for (const col of ["rowOwnerGUID", "rowParentGUID", "orderInList"]) {
+                // an entity can list more root columns it lets a table edit (SystemMetaData entry `rootColumns`, e.g. task_fact_usage_timeline: rowPeriodDatetime, qtyForContract)
+                const entityOfUpdate = SystemMetaData[action.type.replace("/updateOne", "")];
+                const rootColumns: string[] = Array.isArray(entityOfUpdate?.rootColumns) ? entityOfUpdate.rootColumns : [];
+                for (const col of ["rowOwnerGUID", "rowParentGUID", "orderInList", ...rootColumns]) {
                     if (columns[col] !== undefined) updatePayload[col] = columns[col];
                 }
             }

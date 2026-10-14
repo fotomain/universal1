@@ -207,7 +207,7 @@
 
 <section id="tables">
   <h2>4 - Additional tables</h2>
-  <p class="sub">Style as in the existing PARTs: <code>public.</code>, camelCase quoted columns, <code>rowProjectGUID / rowOwnerGUID / rowParentGUID</code> keys, <code>REPLICA IDENTITY FULL</code> for realtime, RLS on, read by the owner of the project (<code>pm_owns_project</code>). One new <b>PART 24</b> in <code>start_sql_structure.sql</code>, mirrored to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>, with the drop in <code>delete_sql_structure.sql</code> (your SQL workflow).</p>
+  <p class="sub">Style as in the existing PARTs: <code>public.</code>, camelCase quoted columns, <code>rowProjectGUID / rowOwnerGUID / rowParentGUID</code> keys, <code>REPLICA IDENTITY FULL</code> for realtime, RLS on, read by the owner of the project (<code>pm_owns_project</code>). One new <b>PART 24</b> in <code>start1_sql_structure.sql</code>, mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>, with the drop in <code>delete_sql_structure.sql</code> (your SQL workflow).</p>
 
   <h3>4.1 &nbsp;<code>monitor01_view</code> <span class="pill new">new · the table the screen listens to</span></h3>
   <p>A real table (not a SQL view) holding one pre-aggregated row per <b>task × genus × role × unit × month</b>. The client never joins and never computes: every displayed number is a column.</p>
@@ -286,7 +286,7 @@
     <li><b>Triggers</b> (statement-level, with transition tables): AFTER insert / update / delete on the three source tables; AFTER update of <code>rowJSON</code> on <code>task_line_table</code> (role, resource, unit, genus changes); AFTER update of the title on <code>project_task_table</code> and <code>project_table</code>; AFTER update of the role title (names are copied, Q11).</li>
     <li><b>Functions:</b> <code>monitor01_process_dirty</code> (procedure), <code>monitor01_rebuild(project | all)</code>, <code>monitor01_verify(sample)</code>, <code>monitor01_sum_sources</code> (drill-down, section 8), <code>monitor01_prune</code>.</li>
     <li><b>pg_cron:</b> job <code>monitor01_tick</code> every 2 seconds; job <code>monitor01_housekeeping</code> daily. Installation is guarded: if the <code>cron</code> schema is missing (Docker test) the install notes it and goes on.</li>
-    <li><b>Seeds</b> (<code>start_sql_data.sql</code>): the exact example of the sheet (Data Analyst task01 / task03, 10m pipe section task03 / task04, October) so the screen can be compared with the sheet.</li>
+    <li><b>Seeds</b> (<code>start5_sql_upsert_all.sql</code>): the exact example of the sheet (Data Analyst task01 / task03, 10m pipe section task03 / task04, October) so the screen can be compared with the sheet.</li>
   </ul>
 </section>
 
@@ -391,7 +391,7 @@
 
 <section id="wbs">
   <h2>10 - Work breakdown structure</h2>
-  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start_sql_structure.sql</code> first (Docker-tested), then mirrored.</p>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_structure.sql</code> first (Docker-tested), then mirrored.</p>
   <div class="scroll"><table>
     <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
 
@@ -411,7 +411,7 @@
     <tr><td>B5</td><td><code>monitor01_rebuild</code>, <code>monitor01_verify</code>, <code>monitor01_prune</code>; the install queues all tasks that have lines</td><td>3 functions + install block</td><td>M</td><td>B4</td></tr>
     <tr><td>B6</td><td>pg_cron jobs <code>monitor01_tick</code> (2 s) and <code>monitor01_housekeeping</code> (daily), guarded when the <code>cron</code> schema is missing</td><td>cron block</td><td>S</td><td>B4, 0.2</td></tr>
     <tr><td>B7</td><td><code>monitor01_sum_sources</code> RPC for the drill-down (all six measures, paged, with count and sum)</td><td>function</td><td>M</td><td>A1, A2</td></tr>
-    <tr><td>B8</td><td>Seeds = the example of the sheet; mirror to <code>start_sql_code.sql</code> and <code>start_sql_data.sql</code>; the drop in <code>delete_sql_structure.sql</code> (tables, triggers, functions, cron jobs)</td><td>4 SQL files in step</td><td>M</td><td>B1-B7</td></tr>
+    <tr><td>B8</td><td>Seeds = the example of the sheet; mirror to <code>start2_sql_code.sql</code> and <code>start5_sql_upsert_all.sql</code>; the drop in <code>delete_sql_structure.sql</code> (tables, triggers, functions, cron jobs)</td><td>4 SQL files in step</td><td>M</td><td>B1-B7</td></tr>
 
     <tr class="wp"><td>C</td><td colspan="4">App model <span class="pill chg">TypeScript</span></td></tr>
     <tr><td>C1</td><td><code>monitor01Model.ts</code>: row type, key builder, patch (upsert / delete by key), pure tree builder (genus → role → month → task), subtotals and totals per unit, filters</td><td>pure module</td><td>M</td><td>B1</td></tr>
@@ -453,7 +453,7 @@
     <tr><td><code>kit8/ui/components/common/SumExplorerListReusable.tsx</code></td><td>reusable (next to <code>TextInputApp.tsx</code>)</td></tr>
     <tr><td><code>app/pm/reports/monitor01/index.tsx</code></td><td>route for the separate call</td></tr>
     <tr><td><code>kit8/pm/model/types.ts</code> · <code>kit8/pm/view/gantt/toolbars/GanttRightSideToggle.tsx</code> · <code>kit8/pm/view/reports/PMProjectReportsView.tsx</code></td><td>the toggle (small changes)</td></tr>
-    <tr><td><code>kit8/sql/start/start_sql_structure.sql</code> (PART 24), <code>start_sql_code.sql</code>, <code>start_sql_data.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
+    <tr><td><code>kit8/sql/start/start1_sql_structure.sql</code> (PART 24), <code>start2_sql_code.sql</code>, <code>start5_sql_upsert_all.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
     <tr><td><code>kit8/docker/tests/40_monitor01.sql</code>, <code>kit8/docker/test_monitor01.sh</code>, a <code>cron</code> stub in <code>init/00_supabase_stubs.sql</code></td><td>Docker tests</td></tr>
     <tr><td><code>__tests__/pm/reports/monitor01/*</code></td><td>Jest</td></tr>
   </table></div>
@@ -511,6 +511,13 @@
 </section>
 
 <section id="open">
+  <h2>16 - Report improvements (2026-10-14)</h2>
+  <ul>
+    <li>Removed the "requirements dimensions" text and the ROW DESCRIPTION column.</li>
+    <li>Headers: centered, start with a capital letter, <code>task.name</code> → <b>Task name</b>, the background of the header of ReusableTable (<code>surfaceVariant</code> of the paper theme).</li>
+    <li><b>TotalsRow</b> at the bottom: <code>sumForBudget</code> and the quantities (per unit; with several units one more line with the money of all). <code>monitor01_view</code> gained the column <code>sumForBudget</code> (Σ of the plan movements; upgrade by <code>ADD COLUMN IF NOT EXISTS</code>; the new column "Sum for budget" is in the Plan group).</li>
+    <li>Filters: <code>DateInputApp</code> for startDate / finishDate, <code>TextInputApp</code> + a <b>Clear</b> button for Project / Task / Resource.</li>
+  </ul>
   <h2>15 - Questions</h2>
   <p class="sub">Each has my default. Answer "yes to all" or only the ones you change.</p>
   <div class="scroll"><table>

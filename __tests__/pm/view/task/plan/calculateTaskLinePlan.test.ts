@@ -88,7 +88,7 @@ describe('calculateTaskLinePlan', () => {
     expect(r.days).toEqual(['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16']);
     expect(r.taskLinePlanJSON).toEqual({
       taskGUID: 't1',
-      lines: [{ lineGUID: 'l1', baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, days: r.days.map((d) => ({ d, c: 0.2 })) }],
+      lines: [{ lineGUID: 'l1', baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, sumForAccounting: null, days: r.days.map((d) => ({ d, c: 0.2 })) }],
     });
   });
 
@@ -125,6 +125,15 @@ describe('calculateTaskLinePlan', () => {
     expect(r.errors.find((e) => e.lineGUID === 'm')!.message).toMatch(/manual/i);
   });
 
+  it('sumForAccounting is posted with the line (the sum in the accounting currency); no accounting currency = null stays null', () => {
+    const r = calculateTaskLinePlan({ ...base, lines: [line('a', { sumForAccounting: 120.5 }), line('b')] });
+    expect(r.taskLinePlanJSON!.lines.map((l) => l.sumForAccounting)).toEqual([120.5, null]);
+  });
+  it('a line whose ONLY total is the accounting sum is still posted', () => {
+    const r = calculateTaskLinePlan({ ...base, lines: [line('z', { qtyTaskLine: null, sumForBudget: null, sumForContract: null, sumForAccounting: 50 })] });
+    expect(r.errors).toEqual([]);
+    expect(r.taskLinePlanJSON!.lines[0]).toMatchObject({ lineGUID: 'z', sumForAccounting: 50 });
+  });
   it('a line with no quantity and no sum has nothing to post; null totals stay null', () => {
     const r = calculateTaskLinePlan({ ...base, lines: [line('z', { qtyTaskLine: null, sumForBudget: null, sumForContract: null }), line('p', { sumForBudget: null })] });
     expect(r.errors.map((e) => e.lineGUID)).toEqual(['z']);
@@ -179,7 +188,14 @@ describe('summarizeTaskLinePlan - the days add up to the line', () => {
   it('ok when coefficients, qty and sums equal the line (numbers may arrive as strings)', () => {
     const rows = [planRow('l1', 1, 0.3333333333, 3.33, 33.33, 33.33), planRow('l1', 2, 0.3333333333, 3.33, 33.33, 33.33), planRow('l1', 3, 0.3333333334, 3.34, 33.34, 33.34)];
     const s = summarizeTaskLinePlan(rows, [line('l1', { baseOfDistribution: 1 })]);
-    expect(s).toEqual([{ lineGUID: 'l1', days: 3, coefficient: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, ok: true }]);
+    expect(s).toEqual([{ lineGUID: 'l1', days: 3, coefficient: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, sumForAccounting: null, ok: true }]);
+  });
+  it('the accounting sum is added up too and is part of "ok"', () => {
+    const acc = (id: string, i: number, c: number, a: number) => ({ rowGUID: `${id}${i}`, rowOwnerGUID: 't1', rowParentGUID: id, orderInList: i, rowPeriodDatetime: '2026-10-12T00:00:00+00:00', rowCoefficient: String(c), qtyTaskLine: '5', sumForBudget: '50', sumForContract: '50', sumForAccounting: String(a) }) as any;
+    const good = summarizeTaskLinePlan([acc('l1', 1, 0.5, 33.33), acc('l1', 2, 0.5, 66.67)], [line('l1', { baseOfDistribution: 1, sumForAccounting: 100 })]);
+    expect(good[0]).toMatchObject({ sumForAccounting: 100, ok: true });
+    const lost = summarizeTaskLinePlan([acc('l1', 1, 0.5, 33.33), acc('l1', 2, 0.5, 66.66)], [line('l1', { baseOfDistribution: 1, sumForAccounting: 100 })]);
+    expect(lost[0]).toMatchObject({ sumForAccounting: 99.99, ok: false });
   });
   it('not ok when a cent is missing; lines without rows are not listed', () => {
     const rows = [planRow('l1', 1, 0.5, 5, 50, 50), planRow('l1', 2, 0.5, 5, 49.99, 50)];

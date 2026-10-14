@@ -6,7 +6,7 @@
 //   2. the weights = distributionShares(distribution of the line, number of periods) - the shapes stay in TypeScript (one source of truth)
 //   3. the COEFFICIENTS = the weights normalized to baseOfDistribution = 1, 10 digits; the rounding rest goes to the LAST day with a non-zero
 //      coefficient (Correct033 for the coefficients)
-//   4. the totals (qtyTaskLine, sumForBudget, sumForContract) are passed as they are (null stays null)
+//   4. the totals (qtyTaskLine, sumForBudget, sumForContract, sumForAccounting) are passed as they are (null stays null)
 // A line that cannot be posted is reported in `errors` and left out; the others are posted. A problem of the task itself (no dates, no active day,
 // a year the calendar does not have) stops everything.
 import { DISTRIBUTION, distributionShares } from '../../../../catalog/distribution/distributionModel';
@@ -132,15 +132,15 @@ export function calculateTaskLinePlan(args: CalculateTaskLinePlanArgs): TaskLine
     if (!code) { errors.push({ lineGUID: line.rowGUID, message: 'Choose the budget distribution of the line' }); continue; }
     if (code === DISTRIBUTION.manual) { errors.push({ lineGUID: line.rowGUID, message: 'The manual distribution is not used for posting yet: choose another one' }); continue; }
     if (distributions.length > 0 && !byCode.has(code)) { errors.push({ lineGUID: line.rowGUID, message: `Unknown budget distribution "${code}"` }); continue; }
-    const qty = num(j.qtyTaskLine), budget = num(j.sumForBudget), contract = num(j.sumForContract);
-    if (qty === null && budget === null && contract === null) { errors.push({ lineGUID: line.rowGUID, message: 'The line has no quantity and no sum to post' }); continue; }
+    const qty = num(j.qtyTaskLine), budget = num(j.sumForBudget), contract = num(j.sumForContract), accounting = num(j.sumForAccounting);
+    if (qty === null && budget === null && contract === null && accounting === null) { errors.push({ lineGUID: line.rowGUID, message: 'The line has no quantity and no sum to post' }); continue; }
     let weights: number[];
     try { weights = distributionShares(code, cal.active.length); } catch (e: any) { errors.push({ lineGUID: line.rowGUID, message: String(e?.message || e) }); continue; }
     const c = normalizedCoefficients(weights);
     out.push({
       lineGUID: line.rowGUID,
       baseOfDistribution: BASE_OF_DISTRIBUTION,
-      qtyTaskLine: qty, sumForBudget: budget, sumForContract: contract,
+      qtyTaskLine: qty, sumForBudget: budget, sumForContract: contract, sumForAccounting: accounting,
       days: cal.active.map((d, i) => ({ d, c: c[i] })),
     });
   }

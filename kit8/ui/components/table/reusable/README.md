@@ -44,6 +44,13 @@ change, `toolbarExtra` puts more buttons after the CRUD panel.
 (the root column, saved with `updateOne({ columns })`; "nothing" = 'empty'). `validate(value, row)` refuses a value
 with a snackbar. Number columns: `total: false` = no footer sum (prices, ratios).
 
+**Any root column** (the fact input lines, `kit8/pm/fact`): a column's `target` may name ANY real column of the table (`rowPeriodDatetime`, `qtyForContract` ...), not only
+`rowJSON` / `rowOwnerGUID` / `rowParentGUID`. It is saved only when the entity lists it in its `SystemMetaData` entry `rootColumns` (`reusableRootSaga.ts`, the whitelist of
+`updateOne({ columns })`). `fromStored(stored, row)` converts the stored value for the cell (a timestamptz → the day `YYYY-MM-DD`; note: not named `valueOf`, which every object has).
+`date` columns have `picker: true` = a `DateInputApp` cell (type or pick in the calendar). **`addEnabled={false}`** = no new rows (the add / add first / duplicate buttons and the
+row-menu commands add above / below / duplicate are gone; update, move and delete stay) - the strong fact input. Tests: `__tests__/ui/table/reusableTableRootColumns.test.tsx`,
+`__tests__/redux/reusableRootColumns.test.ts`.
+
 Column types (`reusableTableTypes.ts`): `boolean` (check box) · `select` (one value of `options`, fixed or `(row) => options`;
 picker with search from 8 options, color dot, hint) · `multiSelect` (string[]) · `date` ('YYYY-MM-DD', checked) ·
 `color` ('#RRGGBB' + swatch) · `json` (any JSON, edited in a window) · `rowNumber` · `catalog` (stores a catalog rowGUID, shows its title through

@@ -19,18 +19,21 @@ export const isStoredColumn = (col: VisualColumn) => col.type !== 'rowNumber' &&
 export function cellValue(row: ReusableTableRow | null | undefined, col: VisualColumn): any {
   if (!row) return undefined;
   const target = targetOf(col);
+  let stored: any;
   if (target !== 'rowJSON') {
     const v = row[target];
     // 'empty' is the "no parent / no owner" marker of the def-table pattern (kit8/sql/defTable.md)
-    return v === 'empty' ? null : v;
+    stored = v === 'empty' ? null : v;
+  } else {
+    stored = row.rowJSON?.[fieldOf(col)];
   }
-  return row.rowJSON?.[fieldOf(col)];
+  return col.fromStored ? col.fromStored(stored, row) : stored;
 }
 
 /** a cell change, split by where it is stored */
 export interface CellPatch {
   rowJSON: Record<string, any>;
-  /** root columns (rowOwnerGUID / rowParentGUID) */
+  /** root columns (rowOwnerGUID / rowParentGUID, or another root column of the entity: see CellTarget) */
   columns: Record<string, any>;
 }
 
@@ -43,7 +46,9 @@ export function cellPatch(columns: VisualColumn[], key: string, value: any): Cel
     const target = targetOf(c);
     // a root column is NOT NULL in SQL: "nothing selected" is stored as 'empty'
     if (target === 'rowJSON') out.rowJSON[fieldOf(c)] = v ?? null;
-    else out.columns[target] = v === null || v === undefined || v === '' ? 'empty' : v;
+    // rowOwnerGUID / rowParentGUID are NOT NULL in SQL: "nothing selected" is 'empty'; another root column (a number, a date) takes null
+    else if (target === 'rowOwnerGUID' || target === 'rowParentGUID') out.columns[target] = v === null || v === undefined || v === '' ? 'empty' : v;
+    else out.columns[target] = v === undefined || v === '' ? null : v;
   };
   put(col, value);
   for (const dep of dependentColumns(columns, key)) put(dep, null);

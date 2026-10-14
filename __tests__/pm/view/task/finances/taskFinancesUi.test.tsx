@@ -694,8 +694,8 @@ describe('the budget item and the Post button (kit8/pm/view/task/plan)', () => {
     expect(json.taskGUID).toBe('t1');
     expect(json.lines.map((l: any) => l.lineGUID)).toEqual(['time1', 'mat1']);
     const days = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'];
-    expect(json.lines[0]).toEqual({ lineGUID: 'time1', baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, days: days.map((d) => ({ d, c: 0.2 })) });
-    expect(json.lines[1]).toMatchObject({ lineGUID: 'mat1', sumForBudget: 0.01, sumForContract: null });
+    expect(json.lines[0]).toEqual({ lineGUID: 'time1', baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, sumForAccounting: null, days: days.map((d) => ({ d, c: 0.2 })) });
+    expect(json.lines[1]).toMatchObject({ lineGUID: 'mat1', sumForBudget: 0.01, sumForContract: null, sumForAccounting: null });   // an empty sum stays empty (also the accounting one)
     expect(mockDispatch.mock.calls.map((c) => c[0]).some((a) => a.type === 'snackbar' && /Posted 1 line/.test(a.p.message))).toBe(true);
   });
 

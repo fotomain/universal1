@@ -1,8 +1,8 @@
 -- ===============================================================================================
--- UNIVERSAL1 - delete_sql_structure.sql: DELETES EVERYTHING that start_sql_structure.sql created - tables WITH ALL THEIR DATA (of ALL users),
+-- UNIVERSAL1 - delete_sql_structure.sql: DELETES EVERYTHING that start1_sql_structure.sql created - tables WITH ALL THEIR DATA (of ALL users),
 -- default data, indexes, triggers, policies, functions (stored procedures), realtime publication entries.
 -- IRREVERSIBLE: make a backup first (Supabase -> Database -> Backups, or pg_dump). Safe to run twice (IF EXISTS everywhere).
--- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start_sql_structure.sql.
+-- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_structure.sql.
 -- Parts, in this order (reverse of the install order):
 --
 --   1a. delete_fact_input_and_monitor01.sql - PARTs 24-25: drops the fact documents, Monitor01 (view, queue, log, fact sums), the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
@@ -30,7 +30,7 @@
 
 -- =====================================================================================
 -- PART 1a: delete_fact_input_and_monitor01.sql  (the numbering of the other parts stays: 1a runs FIRST, it is the newest)
--- Removes what PARTs 24-25 of start_sql_structure.sql added: the fact input documents (task_fact_header / task_fact_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
+-- Removes what PARTs 24-25 of start1_sql_structure.sql added: the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
 -- task_line_fact_for_monitor01), the pg_cron jobs, the triggers on the other tables, the functions and the sequence.
 -- =====================================================================================
 DO $$
@@ -63,7 +63,9 @@ DROP TABLE IF EXISTS public.monitor01_view CASCADE;
 DROP TABLE IF EXISTS public.task_line_fact_for_monitor01 CASCADE;
 DROP TABLE IF EXISTS public.monitor01_dirty CASCADE;
 DROP TABLE IF EXISTS public.monitor01_refresh_log CASCADE;
-DROP TABLE IF EXISTS public.task_fact_timeline CASCADE;
+DROP TABLE IF EXISTS public.task_fact_usage_timeline CASCADE;
+DROP TABLE IF EXISTS public.task_fact_timeline CASCADE;                    -- the name before the rename (a database that was not upgraded)
+DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
 DROP TABLE IF EXISTS public.task_fact_header CASCADE;
 DROP SEQUENCE IF EXISTS public.task_fact_document_seq;
 DROP PROCEDURE IF EXISTS public.monitor01_process_dirty(integer, integer);
@@ -88,13 +90,14 @@ DROP FUNCTION IF EXISTS public.monitor01_run_budget_ms();
 DROP FUNCTION IF EXISTS public.task_fact_document_create(uuid);
 DROP FUNCTION IF EXISTS public.post_task_fact_document(uuid);
 DROP FUNCTION IF EXISTS public.unpost_task_fact_document(uuid);
+DROP FUNCTION IF EXISTS public.task_fact_document_list(jsonb, integer, integer);
 DROP FUNCTION IF EXISTS public.task_fact_header_state(uuid);
-DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
+DROP FUNCTION IF EXISTS public.task_fact_usage_timeline_before_write();
 DROP FUNCTION IF EXISTS public.task_fact_header_before_write();
 
 -- =====================================================================================
 -- PART 1b: delete_time_genus_control.sql  (the numbering of the other parts stays: 1b runs FIRST, it is the newest)
--- Removes what PARTs 20-23 of start_sql_structure.sql added (organization scope, resource calendar, busy check, calendar lock): organizationInvitationTable (data included!), the functions, the triggers and the constraint on userTable / project_table.
+-- Removes what PARTs 20-23 of start1_sql_structure.sql added (organization scope, resource calendar, busy check, calendar lock): organizationInvitationTable (data included!), the functions, the triggers and the constraint on userTable / project_table.
 -- Runs FIRST (it is the newest part). The key userOrganization stays inside the rowJSON of the users and the column project_table.rowParentGUID goes with the table (PART 14).
 -- =====================================================================================
 DO $$
@@ -733,7 +736,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- =====================================================================================
 -- PART 15: delete_business_unit_tables.sql
--- Removes what PART 18 of start_sql_structure.sql added: the triggers on the catalogs / the line / the project (when those tables are still there), businessUnitTable and cfrTypeTable (data included!),
+-- Removes what PART 18 of start1_sql_structure.sql added: the triggers on the catalogs / the line / the project (when those tables are still there), businessUnitTable and cfrTypeTable (data included!),
 -- their functions. The keys businessUnitAssigned / businessUnitTaskLine / project*Center stay inside the rowJSON of the other rows as inert JSON.
 -- Runs after the tables that hold the keys (and create_task_line_plan, PART 2) are gone and BEFORE the helper kit8_touch_updated_at is dropped (businessUnitTable uses it).
 -- =====================================================================================
@@ -768,7 +771,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- =====================================================================================
 -- PART 16: delete_budget_scenario_table.sql
--- Removes what PART 19 of start_sql_structure.sql added: budgetScenarioTable (data included!). Runs BEFORE the helper kit8_touch_updated_at is dropped (the table uses it).
+-- Removes what PART 19 of start1_sql_structure.sql added: budgetScenarioTable (data included!). Runs BEFORE the helper kit8_touch_updated_at is dropped (the table uses it).
 -- =====================================================================================
 DO $$
 BEGIN

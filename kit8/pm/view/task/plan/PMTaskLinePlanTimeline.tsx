@@ -31,6 +31,7 @@ export default function PMTaskLinePlanTimeline({ days, testID = 'task-plan-timel
         <View style={styles.barCell} />
         <Text style={[styles.num, styles.head, { color: c.text }]}>{pmT('Sum for budget')}</Text>
         <Text style={[styles.num, styles.head, { color: c.text }]}>{pmT('Sum for contract')}</Text>
+        <Text style={[styles.num, styles.head, { color: c.text }]}>{pmT('Sum for accounting')}</Text>
         <Text style={[styles.num, styles.head, { color: c.text }]}>{pmT('Total')}</Text>
       </View>
       {days.map((d) => (
@@ -41,6 +42,7 @@ export default function PMTaskLinePlanTimeline({ days, testID = 'task-plan-timel
           </View>
           <Text style={[styles.num, { color: c.text }]}>{fmt(d.sumForBudget)}</Text>
           <Text style={[styles.num, { color: c.text }]}>{fmt(d.sumForContract)}</Text>
+          <Text style={[styles.num, { color: c.text }]}>{fmt(d.sumForAccounting)}</Text>
           <Text style={[styles.num, { color: c.text }]}>{fmt(d.cumulativeBudget)}</Text>
         </View>
       ))}

@@ -1,15 +1,15 @@
-// The constants of kit8/pm/reports/monitor01 must be the values the database has (PART 25 of start_sql_structure.sql), and the SQL files must carry the same parts.
+// The constants of kit8/pm/reports/monitor01 must be the values the database has (PART 25 of start1_sql_structure.sql), and the SQL files must carry the same parts.
 import * as fs from 'fs';
 import * as path from 'path';
 import {
   MONITOR01_BATCH_SIZE, MONITOR01_MAX_ATTEMPTS, MONITOR01_REFRESH_INTERVAL, MONITOR01_RUN_BUDGET_MS, MONITOR01_VIEW_TABLE, RPC_MONITOR01_SUM_SOURCES,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Constants';
-import { FACT_HEADER_TABLE, FACT_STRONG_INPUT_SETTING, FACT_SUMMARY_TABLE, FACT_TIMELINE_TABLE, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST } from '../../../../kit8/pm/fact/factInputModel';
+import { FACT_HEADER_TABLE, FACT_STRONG_INPUT_SETTING, FACT_SUMMARY_TABLE, FACT_USAGE_TIMELINE_TABLE, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST } from '../../../../kit8/pm/fact/factInputModel';
 
 const sqlDir = path.join(__dirname, '../../../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(sqlDir, f), 'utf8');
-const structure = read('start_sql_structure.sql');
-const code = read('start_sql_code.sql');
+const structure = read('start1_sql_structure.sql');
+const code = read('start2_sql_code.sql');
 const del = read('delete_sql_structure.sql');
 
 const fnValue = (src: string, name: string): number => {
@@ -34,7 +34,7 @@ describe('the constants are the values of the database', () => {
 });
 
 describe('the names the app calls exist in the SQL', () => {
-  const names = [MONITOR01_VIEW_TABLE, FACT_HEADER_TABLE, FACT_TIMELINE_TABLE, FACT_SUMMARY_TABLE, RPC_MONITOR01_SUM_SOURCES, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST];
+  const names = [MONITOR01_VIEW_TABLE, FACT_HEADER_TABLE, FACT_USAGE_TIMELINE_TABLE, FACT_SUMMARY_TABLE, RPC_MONITOR01_SUM_SOURCES, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST];
   it.each(names)('%s', (name) => {
     expect(structure).toMatch(new RegExp(`(TABLE IF NOT EXISTS public\\.${name}\\b|FUNCTION public\\.${name}\\()`));
   });
@@ -44,15 +44,15 @@ describe('the names the app calls exist in the SQL', () => {
 });
 
 describe('the structure file, the code file and the delete file carry the same parts', () => {
-  const body = (src: string, from: string) => { const i = src.indexOf(from); const j = src.indexOf('-- END of start_sql_structure.sql'); return src.slice(i, j); };
+  const body = (src: string, from: string) => { const i = src.indexOf(from); const j = src.indexOf('-- END of start1_sql_structure.sql'); return src.slice(i, j); };
   const marker = '-- PART 24: create_task_fact_input.sql';
-  it('PART 24 and 25 are mirrored 1:1 into start_sql_code.sql', () => {
+  it('PART 24 and 25 are mirrored 1:1 into start2_sql_code.sql', () => {
     expect(structure).toContain(marker);
     expect(code).toContain(marker);
     expect(body(code, marker)).toBe(body(structure, marker));
   });
   it('the delete file removes every table the parts create', () => {
-    for (const t of [MONITOR01_VIEW_TABLE, FACT_SUMMARY_TABLE, FACT_HEADER_TABLE, FACT_TIMELINE_TABLE, 'monitor01_dirty', 'monitor01_refresh_log']) expect(del).toContain(`DROP TABLE IF EXISTS public.${t}`);
+    for (const t of [MONITOR01_VIEW_TABLE, FACT_SUMMARY_TABLE, FACT_HEADER_TABLE, FACT_USAGE_TIMELINE_TABLE, 'monitor01_dirty', 'monitor01_refresh_log']) expect(del).toContain(`DROP TABLE IF EXISTS public.${t}`);
     expect(del).toContain("cron.unschedule('monitor01_tick')");
   });
   it('every function of the parts is dropped by the delete file', () => {
@@ -60,6 +60,17 @@ describe('the structure file, the code file and the delete file carry the same p
     const created = [...part.matchAll(/CREATE OR REPLACE (?:FUNCTION|PROCEDURE) public\.(\w+)\(/g)].map((m) => m[1]);
     expect(created.length).toBeGreaterThan(20);
     for (const fn of created) expect(del).toMatch(new RegExp(`DROP (?:FUNCTION|PROCEDURE) IF EXISTS public\\.${fn}\\(`));
+  });
+  it('monitor01_view carries sumForBudget (table, upgrade, fresh rows, apply, verify) in the structure and the code file', () => {
+    for (const src of [structure, code]) {
+      expect(src).toMatch(/"sumForBudget"\s+NUMERIC\(18,2\) NOT NULL DEFAULT 0,\n  "qtyRestToContract"/);
+      expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumForBudget"');
+      expect(src).toContain('DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);');
+      expect(src).toContain('SUM(COALESCE(m."sumForBudget", 0)) AS budget');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "lineCount", "hasStalePlan")');                       // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "lineCount" = EXCLUDED."lineCount"');
+    }
   });
   it('the worker is scheduled with the interval function', () => {
     expect(structure).toContain("cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds'");

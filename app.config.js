@@ -91,6 +91,8 @@ module.exports = {
     owner: 'foto888999',
     extra: {
       appName,
+      // .env ENVIRONMENT_NAME (e.g. DEV_ENVIRONMENT): the developer helpers of the UI (kit8/ui/environment.ts)
+      environmentName: process.env.ENVIRONMENT_NAME || '',
       eas: {
         projectId: 'bcc76802-860a-4f85-9d51-723119055d94',
       },

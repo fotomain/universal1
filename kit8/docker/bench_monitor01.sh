@@ -9,10 +9,10 @@ DB=sqlbench
 N=${1:-2000}
 psqlc() { docker exec -i -e PGOPTIONS="-c client_min_messages=notice" "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
 
-echo "== fresh database $DB + start_sql_structure.sql + start_sql_insert.sql"
+echo "== fresh database $DB + start1_sql_structure.sql + start3_sql_insert_missing.sql"
 psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB template supabase_stub" >/dev/null
-docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start_sql_structure.sql >/dev/null
-docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start_sql_insert.sql >/dev/null
+docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start1_sql_structure.sql >/dev/null
+docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start3_sql_insert_missing.sql >/dev/null
 
 echo "== $N tasks, 3 lines each, 20 days a line (the data is made with the triggers off: the tree triggers of the task table are quadratic and are not what is measured; the queue is filled by monitor01_rebuild)"
 psqlc -d "$DB" >/dev/null <<SQL

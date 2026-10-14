@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Behaviour tests of the fact input (documentation/FACT_INPUT.html, PART 24) and of Monitor01 (documentation/MONITOR01_WBS.html, PART 25) on a throwaway database of the local Postgres
-# (docker compose up -d first):  fresh database -> start_sql_structure.sql -> start_sql_insert.sql -> tests/5N_*.sql and tests/6N_*.sql (each in its own transaction that is rolled back; tests/00_helpers.sql first)
+# (docker compose up -d first):  fresh database -> start1_sql_structure.sql -> start3_sql_insert_missing.sql -> tests/5N_*.sql and tests/6N_*.sql (each in its own transaction that is rolled back; tests/00_helpers.sql first)
 # -> the procedure monitor01_process_dirty (COMMIT inside, so it cannot run inside a test transaction).
 # Usage: ./test_fact_monitor01.sh            all
 #        ./test_fact_monitor01.sh 50         only tests/50_*.sql
@@ -10,10 +10,10 @@ C=universal1-pgtest
 DB=sqlfactmon
 psqlc() { docker exec -i -e PGOPTIONS="-c client_min_messages=notice" "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
 
-echo "== fresh database $DB + start_sql_structure.sql + start_sql_insert.sql"
+echo "== fresh database $DB + start1_sql_structure.sql + start3_sql_insert_missing.sql"
 psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB template supabase_stub" >/dev/null
-docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start_sql_structure.sql >/dev/null
-docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start_sql_insert.sql >/dev/null
+docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start1_sql_structure.sql >/dev/null
+docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start3_sql_insert_missing.sql >/dev/null
 
 fail=0
 for f in tests/5[0-9]_*.sql tests/6[0-9]_*.sql; do

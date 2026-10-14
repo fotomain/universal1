@@ -78,7 +78,7 @@
   Tests: <code>kit8/docker/test_fact_monitor01.sh</code> (54 checks on a real Postgres 15) · Jest <code>__tests__/pm/fact</code> (72 tests).</div>
   <div class="note"><b>Your answers in the doc and what they changed:</b>
     <ul class="tight">
-      <li><b>Rule "all data from the task_line_table of the task automatically goes to task_fact_timeline"</b> - replaces my Q4: the document is created with <b>one fact line for every task line</b> (genus, role, resource, unit, price copied; <code>qtyForContract</code> starts as the quantity of the task line), not one per plan day.
+      <li><b>Rule "all data from the task_line_table of the task automatically goes to task_fact_usage_timeline"</b> - replaces my Q4: the document is created with <b>one fact line for every task line</b> (genus, role, resource, unit, price copied; <code>qtyForContract</code> starts as the quantity of the task line), not one per plan day.
         Strong: the line keeps <code>taskLineGUID</code>; free: <code>taskLineGUID</code> stays NULL (disconnected). The mode is copied into the header.</li>
       <li><b>Q1</b> "draw delivered + undefined fields without data now" - there is <b>no <code>documentKind</code></b> (delivered / used) in the document: Monitor01 draws delivered · actually used · on-hand without data and the fact sums are kept without a kind.</li>
       <li><b>Q10</b> "users can change the qtyForContract only" - the new field <code>qtyForContract</code> is the ONLY quantity a user states (plus the date of the line); <code>qtyForBudget</code> is frozen, the sums are computed by the database (qty × price).</li>
@@ -88,7 +88,7 @@
   <div class="grid">
     <div class="card"><h3>New tables <span class="pill new">3</span></h3><ul class="tight">
       <li><code>task_fact_header</code> - the document</li>
-      <li><code>task_fact_timeline</code> - the lines (same fields as <code>task_line_plan_timeline</code>)</li>
+      <li><code>task_fact_usage_timeline</code> - the lines (same fields as <code>task_line_plan_timeline</code>)</li>
       <li><code>task_line_fact_for_monitor01</code> - the sums for Monitor01, made by pg_cron</li></ul></div>
     <div class="card"><h3>New screen · new setting</h3><ul class="tight">
       <li><code>PMFactInputDocument.tsx</code> with tabs Time · Material · Expenses · Revenues</li>
@@ -110,11 +110,11 @@
     <li>The user presses the <b>right button on any line</b> visible in the task (the lines of the task, Time · Material · Expenses · Revenues) → a menu item <b>"Facts input"</b>.</li>
     <li><code>PMFactInputDocument.tsx</code> opens. Business need: <b>create fact rows</b>.</li>
     <li>Table <code>task_fact_header</code>; its <code>rowJSON.documentHeader</code> holds: <code>projectTaskGUID</code> (read only) · <code>activeUser</code> · <code>created_at</code> (moment of creation).</li>
-    <li>Table <code>task_fact_timeline</code>: <b>as in <code>task_line_plan_timeline</code>, the same fields</b>; <code>rowHeaderGUID = task_fact_header.rowGUID</code>; <code>rowPeriodDatetime</code> <b>editable in every line</b>.</li>
+    <li>Table <code>task_fact_usage_timeline</code>: <b>as in <code>task_line_plan_timeline</code>, the same fields</b>; <code>rowHeaderGUID = task_fact_header.rowGUID</code>; <code>rowPeriodDatetime</code> <b>editable in every line</b>.</li>
     <li><b>DocumentTabs</b> like the tabs of the task "Edit" mode: Time · Material · Expences · Revenues.</li>
     <li>Rules: <code>projectSettings.factStrongInputByTaskLine = true</code> (false by default) → users <b>cannot add lines, only delete and update</b>;
       <code>= false</code> → the fact data is <b>disconnected from the task line GUIDs</b>.</li>
-    <li><b>Post</b> functionality. On posting, <code>task_line_fact_for_monitor01</code> is <b>summarized by pg_cron from all <code>task_fact_timeline</code> rows</b> to achieve the report of the Monitor01 sheet.</li>
+    <li><b>Post</b> functionality. On posting, <code>task_line_fact_for_monitor01</code> is <b>summarized by pg_cron from all <code>task_fact_usage_timeline</code> rows</b> to achieve the report of the Monitor01 sheet.</li>
   </ol>
   <h3>What already exists (checked in the repository)</h3>
   <ul class="tight">
@@ -156,7 +156,7 @@
 
 <section id="tables">
   <h2>3 - Additional tables</h2>
-  <p class="sub">Style of the existing PARTs: <code>public.</code>, quoted camelCase columns, <code>rowProjectGUID / rowOwnerGUID</code>, cascade FKs, <code>REPLICA IDENTITY FULL</code>, RLS = owner of the project (<code>pm_owns_project</code>). One new SQL PART (before the Monitor01 PART), mirrored to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>, dropped in <code>delete_sql_structure.sql</code>.</p>
+  <p class="sub">Style of the existing PARTs: <code>public.</code>, quoted camelCase columns, <code>rowProjectGUID / rowOwnerGUID</code>, cascade FKs, <code>REPLICA IDENTITY FULL</code>, RLS = owner of the project (<code>pm_owns_project</code>). One new SQL PART (before the Monitor01 PART), mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>, dropped in <code>delete_sql_structure.sql</code>.</p>
 
   <h3>3.1 &nbsp;<code>task_fact_header</code> <span class="pill new">new · the document</span></h3>
   <div class="scroll"><table>
@@ -170,7 +170,7 @@
   </table></div>
   <p class="small">Index <code>(rowOwnerGUID, created_at)</code>. A CHECK keeps <code>documentStatus</code> and <code>documentKind</code> in their lists. Read: owner of the project; insert / update / delete: owner of the project while the status is <code>draft</code>; the status changes only through the Post procedure (section 5).</p>
 
-  <h3>3.2 &nbsp;<code>task_fact_timeline</code> <span class="pill new">new · the lines</span></h3>
+  <h3>3.2 &nbsp;<code>task_fact_usage_timeline</code> <span class="pill new">new · the lines</span></h3>
   <p>"As in <code>task_line_plan_timeline</code>, the same fields needed": the nine fields are copied unchanged in name and type. Four columns are added because a fact line, unlike a plan day, has a document and may have no task line.</p>
   <div class="scroll"><table>
     <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
@@ -194,13 +194,13 @@
   </ul>
 
   <h3>3.3 &nbsp;<code>task_line_fact_for_monitor01</code> <span class="pill new">new · the sums for the report</span></h3>
-  <p>"Summarized by pg_cron from all <code>task_fact_timeline</code> rows". One row per <b>task × genus × role × unit × month × kind</b>; the table Monitor01 reads for <i>delivered</i> and <i>actually used</i>. The app never writes it.</p>
+  <p>"Summarized by pg_cron from all <code>task_fact_usage_timeline</code> rows". One row per <b>task × genus × role × unit × month × kind</b>; the table Monitor01 reads for <i>delivered</i> and <i>actually used</i>. The app never writes it.</p>
   <div class="scroll"><table>
     <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
     <tr><td><code>rowOwnerGUID</code></td><td>uuid FK task cascade</td><td>the task (part of the key)</td></tr>
     <tr><td><code>genusGUID · resourceRoleGUID · measureUnit · periodMonth · factKind</code></td><td>text · text · text · date · text</td><td>the rest of the key. <code>resourceRoleGUID</code> '' = a line without a role; <code>factKind</code> = <code>delivered</code> | <code>used</code> (the <code>documentKind</code> of the header)</td></tr>
     <tr><td><code>rowProjectGUID</code></td><td>uuid</td><td>for the project filter and the policy</td></tr>
-    <tr><td><code>qtyFact · sumForContract · sumForBudget</code></td><td>numeric(18,2)</td><td>Σ of <code>task_fact_timeline</code> of the <b>posted</b> documents</td></tr>
+    <tr><td><code>qtyFact · sumForContract · sumForBudget</code></td><td>numeric(18,2)</td><td>Σ of <code>task_fact_usage_timeline</code> of the <b>posted</b> documents</td></tr>
     <tr><td><code>lineCount · documentCount</code></td><td>int</td><td>how many lines / documents make the row (the Sum explorer shows the same)</td></tr>
     <tr><td><code>updated_at</code></td><td>timestamptz</td><td>set only when a number changes</td></tr>
   </table></div>
@@ -254,16 +254,16 @@
     <span class="box ok">monitor01_view (delivered · actually used · on-hand)</span>
   </div>
   <ul class="tight">
-    <li><b>One worker, two steps, one transaction per batch</b>: step 1 re-sums the posted <code>task_fact_timeline</code> rows of the claimed tasks into <code>task_line_fact_for_monitor01</code> (changed rows only); step 2 is the Monitor01 aggregation, which reads this table for the fact columns. A second cron job in a chain would add another 2 s of delay; this way the end-to-end target stays under 3 s (Q11).</li>
+    <li><b>One worker, two steps, one transaction per batch</b>: step 1 re-sums the posted <code>task_fact_usage_timeline</code> rows of the claimed tasks into <code>task_line_fact_for_monitor01</code> (changed rows only); step 2 is the Monitor01 aggregation, which reads this table for the fact columns. A second cron job in a chain would add another 2 s of delay; this way the end-to-end target stays under 3 s (Q11).</li>
     <li><b>Mapping:</b> Monitor01 <i>delivered</i> = Σ <code>qtyFact</code> of <code>factKind = delivered</code>; <i>actually used</i> = Σ <code>qtyFact</code> of <code>factKind = used</code>; <i>on-hand</i> = delivered − used (already in the Monitor01 plan).</li>
-    <li><b>Sum explorer:</b> a click on delivered / used in Monitor01 lists the <b>lines of <code>task_fact_timeline</code></b> (posted documents) with the document number; <b>Open</b> opens that document read only. The list total equals the cell.</li>
+    <li><b>Sum explorer:</b> a click on delivered / used in Monitor01 lists the <b>lines of <code>task_fact_usage_timeline</code></b> (posted documents) with the document number; <b>Open</b> opens that document read only. The list total equals the cell.</li>
     <li><b>Revenues:</b> the document has a Revenues tab (as in the doc) and the table keeps revenue facts, but the Monitor01 plan does not show revenue (its Q4). They sit in <code>task_line_fact_for_monitor01</code> for a later report.</li>
   </ul>
   <h3>Changes to the Monitor01 plan once you agree</h3>
   <ol class="steps">
     <li>Section 4.4 and WP A2 (<code>task_line_fact_movements</code>) are replaced by this page's tables; its Q7 is answered.</li>
     <li>The dirty-queue triggers listen to <code>task_fact_header</code> (status change) instead of the fact movements; the worker gets step 1.</li>
-    <li>The Sum explorer sources for delivered / used point at <code>task_fact_timeline</code>.</li>
+    <li>The Sum explorer sources for delivered / used point at <code>task_fact_usage_timeline</code>.</li>
   </ol>
 </section>
 
@@ -277,10 +277,10 @@
 
     <tr class="wp"><td>A</td><td colspan="4">Tables <span class="pill new">SQL</span></td></tr>
     <tr><td>A1</td><td><code>task_fact_header</code>: table, fill triggers (project from task, number, <code>created_at</code>), CHECKs, index, RLS, realtime</td><td>SQL part</td><td>M</td><td>0.1</td></tr>
-    <tr><td>A2</td><td><code>task_fact_timeline</code>: table (nine plan-timeline fields + <code>rowHeaderGUID · genusGUID · rowJSON</code>), indexes, guard trigger (posted = frozen, header / task match, strong rules), RLS, realtime</td><td>SQL part</td><td>L</td><td>A1</td></tr>
+    <tr><td>A2</td><td><code>task_fact_usage_timeline</code>: table (nine plan-timeline fields + <code>rowHeaderGUID · genusGUID · rowJSON</code>), indexes, guard trigger (posted = frozen, header / task match, strong rules), RLS, realtime</td><td>SQL part</td><td>L</td><td>A1</td></tr>
     <tr><td>A3</td><td><code>post_task_fact_document</code> / <code>unpost_task_fact_document</code>: validation list, status change, queue key, answers as data</td><td>2 procedures</td><td>M</td><td>A2</td></tr>
     <tr><td>A4</td><td><code>task_line_fact_for_monitor01</code>: table, key, policy; the cron step 1 (re-sum of the claimed tasks, changed rows only) inside the Monitor01 worker</td><td>table + worker step</td><td>M</td><td>A3, Monitor01 B4</td></tr>
-    <tr><td>A5</td><td>Seeds (two documents on the Monitor01 example); mirror to <code>start_sql_code.sql</code> / <code>start_sql_data.sql</code>; drop in <code>delete_sql_structure.sql</code></td><td>four SQL files in step</td><td>M</td><td>A1-A4</td></tr>
+    <tr><td>A5</td><td>Seeds (two documents on the Monitor01 example); mirror to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>; drop in <code>delete_sql_structure.sql</code></td><td>four SQL files in step</td><td>M</td><td>A1-A4</td></tr>
 
     <tr class="wp"><td>B</td><td colspan="4">App model <span class="pill chg">TypeScript</span></td></tr>
     <tr><td>B1</td><td>Types and constants: header, line, document status / kind, tab list; project setting <code>factStrongInputByTaskLine</code> in <code>types.ts</code> and the Project settings screen</td><td>types + setting</td><td>S</td><td>0.1</td></tr>
@@ -310,7 +310,7 @@
     <tr><td><code>kit8/pm/view/task/fact/README.md</code></td><td>how it works</td></tr>
     <tr><td><code>kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD.tsx</code></td><td>the menu item (small change)</td></tr>
     <tr><td><code>kit8/pm/model/types.ts</code> and the Project settings screen</td><td>the setting</td></tr>
-    <tr><td><code>kit8/sql/start/start_sql_structure.sql</code> (new PART), <code>start_sql_code.sql</code>, <code>start_sql_data.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
+    <tr><td><code>kit8/sql/start/start1_sql_structure.sql</code> (new PART), <code>start2_sql_code.sql</code>, <code>start5_sql_upsert_all.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
     <tr><td><code>kit8/docker/tests/NN_fact_input.sql</code>, <code>kit8/docker/test_fact_input.sh</code></td><td>Docker tests</td></tr>
     <tr><td><code>__tests__/pm/view/task/fact/*</code></td><td>Jest</td></tr>
   </table></div>
@@ -359,6 +359,14 @@
 </section>
 
 <section id="open">
+  <h2>13 - IMPROVE IT round (2026-10-14)</h2>
+  <p class="sub">The Google Doc "IMPROVE IT:" - what was built.</p>
+  <ul>
+    <li><b>sumForAccounting in the plan algorithms</b>: columns on <code>task_line_plan_movements</code> and <code>task_line_plan_timeline</code>; <code>create_task_line_plan</code> computes it like <code>sumForBudget</code> / <code>sumForContract</code> (day split, Correct033 rounding, both timeline INSERTs); the fact trigger computes <code>qty × unitSumForAccounting</code>; Monitor01 (<code>task_line_fact_for_monitor01</code>) carries it. Tests <code>52_plan_sum_accounting.sql</code>, <code>50_fact_input.sql</code>.</li>
+    <li><b>PMFactInputDocument → PMFactInputDocumentForm</b>: inputs are <code>TextInputApp</code> / <code>DateInputApp</code>, the lines are a <code>ReusableTable</code> (new table parameters: any root column as a cell target, <code>rootColumns</code> whitelist, <code>fromStored</code>, <code>DateColumn.picker</code>, <code>addEnabled</code>); <b>Post is the last button</b> of the bar.</li>
+    <li><b>PMFactInputDocumentList</b>: columns document input data · sumForBudget · sumForContract · sumForAccounting (totals of the document) · author; fast filters <code>factTimelinePeriod</code>, <code>factProjectFilter</code>, <code>factBusinessUnitFilter</code>, <code>factRoleFilter</code>, <code>factResourceFilter</code>, <code>authorFilter</code> (applied by the RPC <code>task_fact_document_list</code>: a document is listed when ONE of its lines satisfies all the line filters).</li>
+    <li><b>Menu</b>: hamburger → Budgets → (catalogs) + divider + <b>Actuals</b> → <code>/pm/fact/list</code>.</li>
+  </ul>
   <h2>12 - Questions</h2>
   <p class="sub">Each has my default.</p>
   <div class="scroll"><table>

@@ -2,7 +2,7 @@
 //   businessUnitTable  rowGUID · rowOwnerGUID 'businessUnitCatalog' · rowParentGUID = the parent unit | 'empty' (a root = an enterprise) · orderInList
 //                      rowJSON { title, code, description, cfrAssigned, isActive }
 //   rowJSON.cfrAssigned = cfrTypeTable.rowGUID (optional). The EFFECTIVE CFR of a unit = its own, else the nearest ancestor's, else none (`effectiveCfr`).
-//   SQL: kit8/sql/start/start_sql_structure.sql PART 18 · Screen: BusinessUnitCRUD (CatalogTreeReusableCRUD) · route BUSINESS_UNIT_ROUTES.list
+//   SQL: kit8/sql/start/start1_sql_structure.sql PART 18 · Screen: BusinessUnitCRUD (CatalogTreeReusableCRUD) · route BUSINESS_UNIT_ROUTES.list
 //   selectFromTree: true (SystemMetaData entry): a unit of ANY level can be picked, the first level too.
 //   Design: documents/BUSINESS_UNIT_CFR_STRUCTURE.html
 import type { DefRow, ProductTableDef } from '../product/productModel';

@@ -1,21 +1,21 @@
-// The equipment part of kit8/sql/start/start_sql_structure.sql (PART 17) and delete_sql_structure.sql (PART 6) against the model:
+// The equipment part of kit8/sql/start/start1_sql_structure.sql (PART 17) and delete_sql_structure.sql (PART 6) against the model:
 // the same tables, the same descriptors, the same seed ids. (The SQL itself is run on a real Postgres 15 by kit8/docker/test_sql.sh.)
-// start_sql_code.sql (the DDL) and start_sql_data.sql (the seed rows, as upserts) are the same part cut in two: they must hold it too.
+// start2_sql_code.sql (the DDL) and start5_sql_upsert_all.sql (the seed rows, as upserts) are the same part cut in two: they must hold it too.
 import fs from 'fs';
 import path from 'path';
 import { equipmentTable, EQUIPMENT_OWNERSHIPS } from '../../../kit8/catalog/equipment/equipmentModel';
 import { EQUIPMENT_TYPE, EQUIPMENT_TYPE_TABLE } from '../../../kit8/catalog/equipment/equipmentTypeModel';
 
 const dir = path.join(__dirname, '../../../kit8/sql/start');
-const start = fs.readFileSync(path.join(dir, 'start_sql_structure.sql'), 'utf8');
+const start = fs.readFileSync(path.join(dir, 'start1_sql_structure.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
-const insert = fs.readFileSync(path.join(dir, 'start_sql_insert.sql'), 'utf8');
-// the DDL of the part (start_sql_structure.sql) and its seed rows (start_sql_insert.sql)
+const insert = fs.readFileSync(path.join(dir, 'start3_sql_insert_missing.sql'), 'utf8');
+// the DDL of the part (start1_sql_structure.sql) and its seed rows (start3_sql_insert_missing.sql)
 const part = start.slice(start.indexOf('-- PART 17: create_equipment_tables.sql')) + '\n' + insert.slice(insert.indexOf('-- PART 17: create_equipment_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 6: delete_equipment_tables.sql'), del.indexOf('-- PART 7:'));
 
-const code = fs.readFileSync(path.join(dir, 'start_sql_code.sql'), 'utf8');
-const data = fs.readFileSync(path.join(dir, 'start_sql_data.sql'), 'utf8');
+const code = fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
+const data = fs.readFileSync(path.join(dir, 'start5_sql_upsert_all.sql'), 'utf8');
 
 describe('the equipment SQL lives in kit8/sql/start only', () => {
   it('the structure file has the part, the delete file has its counterpart', () => {
@@ -31,7 +31,7 @@ describe('the equipment SQL lives in kit8/sql/start only', () => {
   });
 });
 
-describe('start_sql_code.sql + start_sql_data.sql hold the same part, cut in two', () => {
+describe('start2_sql_code.sql + start5_sql_upsert_all.sql hold the same part, cut in two', () => {
   it('the code file: the tables, the policies, the check, the realtime - and the kind in the posted days; no seed rows', () => {
     expect(code).toContain('17. create_equipment_tables.sql');
     expect(code).toContain('CREATE TABLE IF NOT EXISTS public."equipmentTable"');

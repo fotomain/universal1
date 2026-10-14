@@ -1,22 +1,22 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
   EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows, drillOperands, filterMonitor01Rows, formatMonitor01Number,
-  monitor01DateErrors, monitor01FiltersActive, monitor01Key, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
+  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
 
 const raw = (over: Record<string, any> = {}) => ({
   rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
-  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', qtyRestToContract: '0.00', qtyDelivered: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
+  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', sumForBudget: '480.00', qtyRestToContract: '0.00', qtyDelivered: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
 });
 const row = (over: Record<string, any> = {}): Monitor01Row => parseMonitor01Row(raw(over));
 
 // the example of the sheet "W1 1-MONITOR01"
 const sheet = (): Monitor01Row[] => [
   row(),
-  row({ rowOwnerGUID: 't3', taskName: 'task03', qtyContracted: 0, qtyRestToContract: 24 }),
-  row({ rowOwnerGUID: 't3', taskName: 'task03', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 100, qtyContracted: 65, qtyRestToContract: 35 }),
-  row({ rowOwnerGUID: 't4', taskName: 'task04', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 200, qtyContracted: 80, qtyRestToContract: 120 }),
+  row({ rowOwnerGUID: 't3', taskName: 'task03', qtyContracted: 0, qtyRestToContract: 24, sumForBudget: '600.50' }),
+  row({ rowOwnerGUID: 't3', taskName: 'task03', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 100, qtyContracted: 65, sumForBudget: 1000, qtyRestToContract: 35 }),
+  row({ rowOwnerGUID: 't4', taskName: 'task04', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 200, qtyContracted: 80, sumForBudget: 2000, qtyRestToContract: 120 }),
 ];
 
 describe('rows', () => {
@@ -135,6 +135,28 @@ describe('totals - per unit, the sheet', () => {
     expect(t.map((x) => x.unit)).toEqual(['unit_hour', 'unit_pcs']);
     expect(t[0].sums).toMatchObject({ planned: 48, contracted: 24, restToContract: 24 });          // the 48 of the sheet
     expect(t[1].sums).toMatchObject({ planned: 300, contracted: 145, restToContract: 155 });
+  });
+  it('sumForBudget is a number of the row (a missing one is 0) and is added per unit', () => {
+    expect(row().sumForBudget).toBe(480);
+    expect(parseMonitor01Row({ ...raw(), sumForBudget: undefined }).sumForBudget).toBe(0);
+    const t = totalsByUnit(sheet());
+    expect(t.map((x) => x.sumForBudget)).toEqual([1080.5, 3000]);
+  });
+  it('the TotalsRow: the money of all the rows and the quantities per unit', () => {
+    const t = monitor01Totals(sheet());
+    expect(t.sumForBudget).toBe(4080.5);
+    expect(t.qty.map((x) => [x.unit, x.sums.planned, x.sumForBudget])).toEqual([['unit_hour', 48, 1080.5], ['unit_pcs', 300, 3000]]);
+    expect(monitor01Totals([])).toMatchObject({ sumForBudget: 0, qty: [] });
+  });
+  it('items carry the money: total, subtotal', () => {
+    const items = buildMonitor01Items(sheet());
+    expect((items[0] as any).sumForBudget).toBe(1080.5);
+    expect(items.filter((i) => i.kind === 'subtotal').map((i: any) => i.sumForBudget)).toEqual([1080.5, 3000]);
+  });
+  it('every header text starts with a capital letter; "Task name", not task.name', () => {
+    const titles = [...Object.values(MONITOR01_MEASURE_TITLE), ...Object.values(MONITOR01_HEAD)];
+    titles.forEach((t) => expect(t[0]).toBe(t[0].toUpperCase()));
+    expect(MONITOR01_HEAD.task).toBe('Task name');
   });
   it('the table: totals, then every genus with caption, subtotals and rows', () => {
     const items = buildMonitor01Items(sheet());

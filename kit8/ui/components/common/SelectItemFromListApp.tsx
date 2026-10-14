@@ -60,6 +60,10 @@ export interface SelectItemFromListAppProps<T extends string = string> {
   testID?: string;
   /** called when the list opens / closes */
   onOpenChange?: (open: boolean) => void;
+  /** 'field' trigger: a clear (x) icon INSIDE the field while an item other than `clearValue` is selected; it calls onSelect(clearValue) (fast filters, like the clear icon of TextInputApp) */
+  clearable?: boolean;
+  /** the value that means "nothing selected" (default '') */
+  clearValue?: T;
 }
 
 const ITEM_H = 38;
@@ -93,6 +97,8 @@ export function SelectItemFromListApp<T extends string = string>({
   style,
   testID = 'SelectItemFromListApp',
   onOpenChange,
+  clearable = false,
+  clearValue = '' as T,
 }: SelectItemFromListAppProps<T>) {
   const { themeColors: c, isDark } = useDesignSystem();
   const win = useWindowDimensions();
@@ -244,6 +250,11 @@ export function SelectItemFromListApp<T extends string = string>({
         >
           {lower ? triggerText.toLowerCase() : triggerText}
         </Text>
+        {clearable && trigger === 'field' && !disabled && !!selected && selected.value !== clearValue && (
+          <Pressable testID={`${testID}-clear`} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={8} onPress={() => onSelect(clearValue)} style={{ marginRight: 4 }}>
+            <IconApp name="close" size={18} color={c.text} />
+          </Pressable>
+        )}
         <IconApp testID={`${testID}-chevron`} name={open ? 'expand_less' : 'expand_more'} size={trigger === 'link' ? 18 : 20} color={trigger === 'link' ? tint : c.text} />
       </Pressable>
 

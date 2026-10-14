@@ -7,6 +7,8 @@ import SelectElementFromCatalog from '../../../../catalog/inner/select_element/S
 import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
 import { asStringArray, cellValue, isHexColor, optionLabel, optionsOf, parseNumberInput, sanitizeNumberText, stepNumber } from './tableRows';
 import ReusableTableOptionPicker from './ReusableTableOptionPicker';
+import DateInputApp from '../../common/date_input/DateInputApp';
+import { defaultFormatDateInput, defaultParseDateInput } from '../../common/date_input/dateInputFormat';
 
 export interface ReusableTableCellProps {
   col: VisualColumn;
@@ -136,6 +138,9 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
     return <JsonCell testID={id} title={col.title} value={value} editable={editable} h={h} onCommit={(v) => onChange(col.key, v)} />;
   }
 
+  if (col.type === 'date' && col.picker && editable) {
+    return <DatePickerCell testID={id} value={value} placeholder={col.placeholder} onCommit={(t) => onChange(col.key, t)} />;
+  }
   if (col.type === 'date') {
     return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder ?? 'YYYY-MM-DD'} align={align} onCommit={(t) => onChange(col.key, t.trim() === '' ? null : t.trim())} />;
   }
@@ -260,6 +265,27 @@ function NumberCell({ radius, border, h, value, editable, integer, min, max, ste
   );
 }
 
+/** a date cell with the calendar (DateInputApp): typed or picked; the value is 'YYYY-MM-DD' (another written form is read and written back as that) */
+function DatePickerCell({ testID, value, placeholder, onCommit }: { testID: string; value: any; placeholder?: string; onCommit: (t: string | null) => void }) {
+  const shown = value === null || value === undefined ? '' : String(value);
+  const [draft, setDraft] = useState(shown);
+  useEffect(() => setDraft(shown), [shown]);
+  const commitText = (t: string) => {
+    const trimmed = t.trim();
+    if (trimmed === shown) return;
+    if (trimmed === '') { onCommit(null); return; }
+    const d = defaultParseDateInput(trimmed);
+    onCommit(d ? defaultFormatDateInput(d) : trimmed);       // not a day: the table's check refuses it with its message
+  };
+  return (
+    // DateInputApp has a margin under it (the form spacing): removed here, and the input is centered vertically in the row
+    <View style={styles.dateWrap}>
+      <DateInputApp testID={testID} value={draft} onChangeText={setDraft} onSelectDate={(d) => { if (d) { const f = defaultFormatDateInput(d); setDraft(f); if (f !== shown) onCommit(f); } }}
+        onSubmitEditing={() => commitText(draft)} placeholder={placeholder ?? 'YYYY-MM-DD'} compact hideClearIcon style={{ marginBottom: 0 }} />
+    </View>
+  );
+}
+
 function TextCell({ radius, border, h, value, editable, placeholder, align, onCommit, testID }: { radius: number; border: number; h: number; value: any; editable: boolean; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (t: string) => void; testID: string }) {
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
@@ -291,6 +317,7 @@ const styles = StyleSheet.create({
   // SelectElementFromCatalog has its own vertical margin: removed inside a table row
   // a selector given by `renderPicker` has no margin of its own
   pickerWrap: { flex: 1, minWidth: 0 },
+  dateWrap: { flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center' },
   selectWrap: { flex: 1, marginVertical: -6, minWidth: 0 },
   stepper: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, height: 40, overflow: 'hidden' },
   stepBtn: { width: 28, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },

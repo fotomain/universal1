@@ -3,10 +3,11 @@
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
-//   tabs Time · Material · Expense · All          filters (TextInputApp) startDate · finishDate · Project · Task · Resource
+//   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (TextInputApp + Clear)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme as usePaperTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -17,6 +18,7 @@ import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { PRODUCT_READ_PARAMS } from '../../../catalog/product/dashboard/useProductCatalogData';
 import { PRODUCT_TABLES } from '../../../catalog/product/productModel';
 import { rowTitle } from '../../../catalog/product/crud/productCatalogTools';
+import { colorToHex } from '../../../ui/components/table/reusable/tableRows';
 import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
 import Monitor01FiltersBar from './Monitor01Filters';
@@ -24,7 +26,7 @@ import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import { MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows,
-  filterMonitor01Rows, monitor01GenusTitle, monthLabel, rowsOfTab,
+  filterMonitor01Rows, monitor01GenusTitle, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
 import { useMonitor01Rows } from './useMonitor01Rows';
@@ -47,7 +49,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const { supabase } = useSupabase();
   const router = useRouter();
   const dispatch = useDispatch();
-  const { width } = useWindowDimensions();
+  const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
   const data = useMonitor01Rows(scopeProject);
 
@@ -66,6 +68,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const filtered = useMemo(() => filterMonitor01Rows(data.rows, filters), [data.rows, filters]);
   const shown = useMemo(() => rowsOfTab(filtered, tab), [filtered, tab]);
   const items = useMemo(() => buildMonitor01Items(shown), [shown]);
+  const totals = useMemo(() => monitor01Totals(shown), [shown]);
   const counts = useMemo(() => Object.fromEntries(MONITOR01_TABS.map((t) => [t.id, rowsOfTab(filtered, t.id).length])) as Record<Monitor01Tab, number>, [filtered]);
 
   // the data age: re-drawn every second
@@ -101,8 +104,9 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
   const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan }) : []), [drill, supabase, openPlan]);
 
-  const colors = useMemo(() => ({ text: c.text, border: c.border, surface: c.surface, primary: c.primary, headerBackground: isDark ? '#1f2937' : '#f1f5f9', isDark }), [c, isDark]);
-  const narrow = width < 720;
+  // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
+  const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
+  const colors = useMemo(() => ({ text: c.text, border: c.border, surface: c.surface, primary: c.primary, headerBackground, isDark }), [c, isDark, headerBackground]);
 
   return (
     <View testID={testID} style={[styles.root, { backgroundColor: c.background }]}>
@@ -142,7 +146,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} showProject={mode === 'standalone'} showDescription={!narrow} unitTitle={unitTitle} colors={colors} onCell={onCell} testID={`${testID}-table`} />
+        <Monitor01Table items={items} totals={totals} showProject={mode === 'standalone'} unitTitle={unitTitle} colors={colors} onCell={onCell} testID={`${testID}-table`} />
       </View>
 
       <SumExplorerListReusable

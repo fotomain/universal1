@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import PMFactInputDocument from '../../../../../kit8/pm/fact/PMFactInputDocument';
+import PMFactInputDocumentForm from '../../../../../kit8/pm/fact/PMFactInputDocumentForm';
 
 // route: /pm/project/task/fact?taskGUID=<uuid>&taskLineGUID=<uuid, optional>&genus=<optional>&documentGUID=<optional>&projectGUID=<optional>
 // - the fact input document of a task (kit8/pm/fact): opens on the tab of the clicked line, on the latest draft unless a document is named
@@ -10,7 +10,7 @@ export default function PMFactInputRoute() {
   const router = useRouter();
   return (
     <View style={{ flex: 1 }}>
-      <PMFactInputDocument
+      <PMFactInputDocumentForm
         key={`${taskGUID}:${documentGUID || ''}`}
         taskGUID={String(taskGUID || '')}
         taskLineGUID={taskLineGUID ? String(taskLineGUID) : null}

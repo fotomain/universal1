@@ -2,7 +2,7 @@
 // (project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact, Project settings -> Budgets).
 //   ReusableTable   add / duplicate / reorder / sql_for_delete + Undo, in-place editing, search, column sort + filter, export, realtime
 //   Columns: Scenario (title) · Kind (Plan | Fact) · Code (the rowGUID, read only) · Description · Active
-// Route: /budget/scenario/list (drawer: Budgets > Budget scenarios). SQL: kit8/sql/start/start_sql_structure.sql PART 19
+// Route: /budget/scenario/list (drawer: Budgets > Budget scenarios). SQL: kit8/sql/start/start1_sql_structure.sql PART 19
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';

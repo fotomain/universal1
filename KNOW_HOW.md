@@ -18,7 +18,7 @@ Universal 1 is a cross-platform ERP and Project Management application built on:
 
 All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated into DDL code and DML seed data:
 
-### 2.1 `start_sql_code.sql`
+### 2.1 `start2_sql_code.sql`
 - Contains all **DDL and database schema definitions**:
   - PostgreSQL extensions (`uuid-ossp`, `pgcrypto`).
   - Table schemas (`CREATE TABLE IF NOT EXISTS`).
@@ -27,7 +27,7 @@ All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated i
   - Supabase Realtime publication setup (`ALTER PUBLICATION supabase_realtime ADD TABLE ...`).
   - Schema reload notification (`NOTIFY pgrst, 'reload schema'`).
 
-### 2.2 `start_sql_data.sql`
+### 2.2 `start5_sql_upsert_all.sql`
 - Contains all **authoritative seed and catalog data**:
   - Reference data: Countries, currencies, European Central Bank (ECB) exchange rates, roles, VAT rates, units of measurement.
   - Demo catalogs: Products, resource roles, price types, descriptors, budget items, and management calendars.
@@ -36,13 +36,13 @@ All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated i
   - Running this script repeatedly is 100% idempotent and safe.
   - Seed rows are updated to the latest repository values; rows created by users remain untouched; nothing is deleted.
 
-### 2.2b `start_sql_structure.sql` + `start_sql_insert.sql` / `delete_sql_structure.sql`
-- `start_sql_structure.sql` is the STRUCTURE in ONE file (numbered PARTs; 17 = equipment, 18 = business units, 24 = fact input, 25 = Monitor01) and has **no seed rows**.
-  **`start_sql_insert.sql`** (extracted from it, same order, same PART names) holds the seed rows: countries, currencies, ECB rates, catalogs, roles, calendars (and their days), units ... - plain `INSERT ... ON CONFLICT DO NOTHING`.
-  Install = run `start_sql_structure.sql`, then `start_sql_insert.sql` (both idempotent). The backfills of data that already exists in a database (userTable from auth.users, project_user_settings_table,
+### 2.2b `start1_sql_structure.sql` + `start3_sql_insert_missing.sql` / `delete_sql_structure.sql`
+- `start1_sql_structure.sql` is the STRUCTURE in ONE file (numbered PARTs; 17 = equipment, 18 = business units, 24 = fact input, 25 = Monitor01) and has **no seed rows**.
+  **`start3_sql_insert_missing.sql`** (extracted from it, same order, same PART names) holds the seed rows: countries, currencies, ECB rates, catalogs, roles, calendars (and their days), units ... - plain `INSERT ... ON CONFLICT DO NOTHING`.
+  Install = run `start1_sql_structure.sql`, then `start3_sql_insert_missing.sql` (both idempotent). The backfills of data that already exists in a database (userTable from auth.users, project_user_settings_table,
   the timeline of posted days, the first fill of the Monitor01 queue, the project / task / organization migrations) stay in the structure file next to the table they repair.
 - `delete_sql_structure.sql` is the opposite (it drops the tables with their seed rows); `kit8/docker/test_sql.sh` runs all three on Postgres 15: install twice (same objects, same row counts), the structure alone has 0 seed rows, delete leaves nothing, install again.
-- A change of the structure goes into `start_sql_structure.sql` and `start_sql_code.sql` (DDL); a change of a seed goes into `start_sql_insert.sql` and `start_sql_data.sql` (upserts). `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
+- A change of the structure goes into `start1_sql_structure.sql` and `start2_sql_code.sql` (DDL); a change of a seed goes into `start3_sql_insert_missing.sql` and `start5_sql_upsert_all.sql` (upserts). `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
 
 ### 2.3 Universal Table Schema Convention
 Almost all entity tables in Universal 1 adhere to the standardized schema:

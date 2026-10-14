@@ -18,6 +18,8 @@ interface MenuItem {
   route: string;
   /** accordion group (e.g. Catalogs): the row toggles, its children are compact sub-rows */
   children?: MenuItem[];
+  /** a sub-row that is only a DIVIDER line between two parts of an accordion (no route, no label) */
+  divider?: boolean;
 }
 
 /** height of an accordion sub-row (Catalogs -> Currencies ...) */
@@ -106,6 +108,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
+        // below the divider: what really happened (kit8/pm/fact) - the list of the fact input documents, with fast filters
+        { id: 'budgets-divider', label: '', icon: '', route: '', divider: true },
+        { id: 'budgets-actuals', label: 'Actuals', icon: 'fact_check', route: 'pm/fact/list' },
       ],
     },
 
@@ -127,7 +132,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const groupHasActive = (item: MenuItem) => !!item.children?.some((c) => isCurrentRoute(c.route) || isCurrentRoute(c.route.replace(/\/list$/, '/edit')));
+  const groupHasActive = (item: MenuItem) => !!item.children?.some((c) => !c.divider && (isCurrentRoute(c.route) || isCurrentRoute(c.route.replace(/\/list$/, '/edit'))));
   const isGroupOpen = (item: MenuItem) => openGroups[item.id] ?? groupHasActive(item);
   const pressItem = (item: MenuItem) => {
     if (item.children) setOpenGroups((g) => ({ ...g, [item.id]: !isGroupOpen(item) }));
@@ -145,6 +150,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   /** compact sub-row of an accordion group */
   const renderSubItem = (item: MenuItem) => {
+    if (item.divider) return <View key={item.id} testID={`drawer-divider-${item.id}`} accessibilityRole="none" style={{ height: StyleSheet.hairlineWidth, marginVertical: 4, marginHorizontal: 12, backgroundColor: themeColors.text + '33' }} />;
     const active = isCurrentRoute(item.route);
     return (
       <TouchableOpacity

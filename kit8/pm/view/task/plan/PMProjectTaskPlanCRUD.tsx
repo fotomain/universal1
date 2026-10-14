@@ -144,7 +144,7 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
               <View key={s.lineGUID} testID={`${testID}-summary-${s.lineGUID}`} style={[styles.summaryRow, stale ? { opacity: 0.55 } : null]}>
                 <IconApp name={s.ok ? 'check_circle' : 'error'} size={16} color={s.ok ? c.primary : c.error} />
                 <Text numberOfLines={1} style={{ color: c.text, fontSize: 13, fontWeight: '700', flexShrink: 1, minWidth: 140 }}>{planLineLabel(data, line) || s.lineGUID}</Text>
-                <Text style={{ color: c.text, fontSize: 12 }}>{`${s.days} ${pmT('days')} · Σ ${pmT('coefficient')} ${s.coefficient} · ${pmT('qty')} ${s.qtyTaskLine ?? '–'} · ${pmT('budget')} ${s.sumForBudget ?? '–'} · ${pmT('contract')} ${s.sumForContract ?? '–'}`}</Text>
+                <Text style={{ color: c.text, fontSize: 12 }}>{`${s.days} ${pmT('days')} · Σ ${pmT('coefficient')} ${s.coefficient} · ${pmT('qty')} ${s.qtyTaskLine ?? '–'} · ${pmT('budget')} ${s.sumForBudget ?? '–'} · ${pmT('contract')} ${s.sumForContract ?? '–'} · ${pmT('accounting')} ${s.sumForAccounting ?? '–'}`}</Text>
                 {stale && <Text style={{ color: c.error, fontSize: 12 }}>{pmT('changed after posting - press Post (Edit)')}</Text>}
               </View>
             );

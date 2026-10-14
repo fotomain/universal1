@@ -22,6 +22,7 @@ import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetSce
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
+import {taskFactUsageTimelineSystemMetaData} from "../pm/fact/factMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {equipmentSystemMetaData} from "../catalog/equipment/equipmentMetaData";
 import {businessUnitSystemMetaData} from "../catalog/business_unit/businessUnitMetaData";
@@ -101,7 +102,7 @@ const SystemMetaData:any = {
     // Screen /budget/item/list, SQL kit8/sql/init/create_budget_item_table.sql
     ...budgetItemSystemMetaData(),
     // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.
-    // Screen /budget/scenario/list, SQL kit8/sql/start/start_sql_structure.sql (PART 19)
+    // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_structure.sql (PART 19)
     ...budgetScenarioSystemMetaData(),
     // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).
     ...managementCalendarSystemMetaData(),
@@ -110,14 +111,16 @@ const SystemMetaData:any = {
     ...taskLineSystemMetaData(),
     // Task line plan (kit8/pm/view/task/plan): task_line_plan, the posted days of the task lines (read-only; written by create_task_line_plan).
     ...taskLinePlanSystemMetaData(),
+    // Fact lines (kit8/pm/fact): task_fact_usage_timeline, the lines of a fact input document (documentation/FACT_INPUT.html); the table of the form edits rowPeriodDatetime / qtyForContract (rootColumns).
+    ...taskFactUsageTimelineSystemMetaData(),
     // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.
     // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql
     ...personTypeSystemMetaData(),
     // Equipment (kit8/catalog/equipment): equipmentTable + equipmentTypeTable - the machines a Time line of a task can book (task_line_table.rowJSON.taskResourceKind = 'equipment').
-    // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start_sql_structure.sql (PART 17)
+    // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start1_sql_structure.sql (PART 17)
     ...equipmentSystemMetaData(),
     // Business units (kit8/catalog/business_unit): businessUnitTable (a tree of any depth, selectFromTree) + cfrTypeTable (the enumeration of the Centers of Financial Responsibility, read only).
-    // Screen /catalog/business/unit, SQL kit8/sql/start/start_sql_structure.sql (PART 18)
+    // Screen /catalog/business/unit, SQL kit8/sql/start/start1_sql_structure.sql (PART 18)
     ...businessUnitSystemMetaData(),
     // Template of the resource contract of a task line (kit8/catalog/management/templateresourcecontract): rowOwnerGUID = management genus.
     // Screen /catalog/management/templateresourcecontract/list, SQL kit8/sql/init/create_template_resource_contract_table.sql
