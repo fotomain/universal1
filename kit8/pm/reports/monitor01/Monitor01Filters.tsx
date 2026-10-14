@@ -46,13 +46,13 @@ export default function Monitor01FiltersBar({ value, onChange, showProject, test
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} testID={testID} style={{ flexGrow: 0 }} contentContainerStyle={styles.row}>
       {DATES.map((f) => (
-        <View key={f.key} style={{ width: DATE_WIDTH }}>
-          <DateInputApp testID={`${testID}-${f.key}`} label={pmT(f.label)} value={draft[f.key]} onChangeText={(t) => set(f.key, t)} compact error={errors[f.key]} />
+        <View key={f.key} style={[styles.cell, { width: DATE_WIDTH }]}>
+          <DateInputApp testID={`${testID}-${f.key}`} label={pmT(f.label)} value={draft[f.key]} onChangeText={(t) => set(f.key, t)} compact error={errors[f.key]} style={styles.field} />
         </View>
       ))}
       {TEXTS.filter((f) => showProject || f.key !== 'project').map((f) => (
-        <View key={f.key} style={{ width: 170 }}>
-          <TextInputApp testID={`${testID}-${f.key}`} label={pmT(f.label)} value={draft[f.key]} onChangeText={(t) => set(f.key, t)} compact leftIcon="search" />
+        <View key={f.key} style={[styles.cell, { width: 170 }]}>
+          <TextInputApp testID={`${testID}-${f.key}`} label={pmT(f.label)} value={draft[f.key]} onChangeText={(t) => set(f.key, t)} compact leftIcon="search" style={styles.field} />
         </View>
       ))}
     </ScrollView>
@@ -62,4 +62,7 @@ export default function Monitor01FiltersBar({ value, onChange, showProject, test
 export { EMPTY_MONITOR01_FILTERS };
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'nowrap', gap: 8, alignItems: 'center' },
+  // every input in the bar: one row height, the visible box bottom-aligned (paper leaves 6 px above its outline for the label), no bottom margin of its own
+  cell: { height: 48, justifyContent: 'flex-end' },
+  field: { marginBottom: 0 },
 });

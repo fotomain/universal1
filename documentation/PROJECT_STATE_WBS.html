@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project state - WBS</title>
+<style>
+  /* Light business theme, same family as documentation/TIME_GENUS_CONTROL_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.wp td { background: var(--bg-subtle); font-weight: 700; }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .badbox { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.warn { background: var(--rose-soft); border-color: #fda4af; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.sheet td, table.sheet th { border: 1px solid var(--border); padding: 5px 9px; }
+  table.sheet th { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-2); }
+  td.amber { background: #fde68a; } td.red { background: #fecaca; } td.green { background: #bbf7d0; } td.tot { background: var(--bg-subtle); font-weight: 700; }
+  td.link { text-decoration: underline dotted; cursor: default; }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Project state</div>
+  <nav><ul>
+    <li><a href="#status">Status</a></li><li><a href="#today">1 Today</a></li><li><a href="#verdicts">2 Analysis</a></li><li><a href="#model">3 Model</a></li>
+    <li><a href="#measures">4 Measures</a></li><li><a href="#flow">5 Realtime</a></li><li><a href="#monitor">6 Monitor01</a></li><li><a href="#catalogs">7 Catalogs</a></li>
+    <li><a href="#invoice">8 Vendor invoice</a></li><li><a href="#effect">9 0333Effect</a></li><li><a href="#cron">10 pg_cron</a></li><li><a href="#wbs">11 WBS</a></li>
+    <li><a href="#risks">12 Risks</a></li><li><a href="#tests">13 Tests</a></li><li><a href="#open">14 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="status">
+  <h1>Project state <span class="pill ask">analysis - no code</span></h1>
+  <p class="lead">Source: the Google Doc <b>"W1 Vendor Invoice"</b> (<code>1ZduV5gEKuitXm0Q5f5DnFrTMXPOCtnuBoaOoHUesypw</code>). As the doc says: <b>do not code, analyze and improve</b>. This page is the analysis, the improved model, the
+  work breakdown and the questions (each with my default). Nothing was built for it; no existing table or screen was changed.</p>
+  <div class="note"><b>About the file name.</b> The doc says <code>./documents/PROJECT_STATE_WBS.tsx</code>. The folder <code>documents/</code> does not exist; all the plan pages of this project are HTML pages in <code>documentation/</code>,
+  and a <code>.tsx</code> file would be a React screen, not a plan. So the page is <code>documentation/PROJECT_STATE_WBS.html</code>. Tell me if you really want a <code>.tsx</code> in <code>documents/</code> (Q14.1).</div>
+  <div class="grid">
+    <div class="card"><h3>The doc asks for <span class="pill chg">3 blocks</span></h3><ul class="tight">
+      <li><b>A. The register</b> - <code>project_status_movements</code> (source) + <code>project_status_month_turnover</code> (aggregate), the 1C accumulation-register idea. Monitor01 reads it.</li>
+      <li><b>B. Catalogs</b> - legal entity (folders by country), main vendor / main vendor contract in partner, equipment, material.</li>
+      <li><b>C. Vendor invoice</b> - document, form with tabs, 0333Effect rounding rule, list, and <code>task_fact_invoiced_timeline</code>.</li>
+    </ul></div>
+    <div class="card"><h3>My main findings <span class="pill mid">read section 2</span></h3><ul class="tight">
+      <li>Keep the idea, but store the <b>numbers in typed columns</b>, not in <code>rowJSON</code> (speed, sums, generated columns).</li>
+      <li><b>Do not stream the movements</b> through realtime: stream the <b>month turnover</b> (small, only changed rows).</li>
+      <li>Write the register rows <b>inside the posting transaction</b>; pg_cron only aggregates. A posted document must never wait for a cron tick to exist.</li>
+      <li><code>task_fact_invoiced_timeline</code> is probably not needed as a table: it is a <b>view of the register</b>.</li>
+      <li>Two things I cannot decide for you: what <b>0333Effect</b> corrects exactly (section 9), and what <b>"separate browser tab"</b> means (Q10).</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="today">
+  <h2>1 - What exists today <span class="pill chg">read from the code</span></h2>
+  <p class="sub">Facts from <code>kit8/sql/start/start1_sql_structure.sql</code> and <code>kit8/pm</code>, not from memory.</p>
+  <div class="scroll"><table>
+    <tr><th>Piece</th><th>What it is</th><th>Role in the new design</th></tr>
+    <tr><td><code>task_line_plan_movements</code></td><td>the plan, one row per task line and day (<code>qtyTaskLine · sumForBudget · sumForContract · sumForAccounting · periodDay · planMovementStatus</code>), written by <code>create_task_line_plan</code> when a task is posted</td><td>the <b>plan source</b>; the register gets a copy of the posted rows (section 3.4)</td></tr>
+    <tr><td><code>task_fact_header</code> + <code>task_fact_usage_timeline</code></td><td>fact input documents and lines (posted = read only); sums computed by a trigger</td><td>the <b>"used" registrator</b></td></tr>
+    <tr><td><code>task_line_fact_for_monitor01</code></td><td>posted fact lines summed per task × genus × role × unit × month, made by the worker</td><td>becomes <code>project_status_month_turnover</code> (wider: plan + fact + future kinds)</td></tr>
+    <tr><td><code>monitor01_view</code> + <code>monitor01_dirty</code> + worker</td><td>the table Monitor01 listens to; a queue of dirty <b>tasks</b>; pg_cron every 2 s; <code>monitor01_refresh_now</code></td><td>the view is replaced by the turnover; the queue and the worker are kept, renamed</td></tr>
+    <tr><td><code>monitor01_sum_sources</code></td><td>drill-down to the source transactions (plan movements, fact lines)</td><td>becomes <b>one</b> query over the register (section 6)</td></tr>
+    <tr><td><code>contractTable</code>, <code>partnerTable</code>, <code>equipmentTable</code>, <code>productTable</code></td><td>catalogs; a contract has a party (person / partner), <code>contractSumBeforeVAT</code></td><td>get <code>legalEntityGUID</code> (contract) and <code>mainVendor…</code> (partner / equipment / product)</td></tr>
+    <tr><td>legal entity, vendor, invoice, VAT per document</td><td colspan="2"><b>do not exist</b> (searched the SQL and the app). All of block B and C is new.</td></tr>
+    <tr><td><code>ReusableTable</code> (folders tree, tabs, quick filters, <code>onAdd</code>, <code>onRowOpen</code>), <code>PMFactInputDocumentForm / List</code></td><td>the UI pattern the doc wants to reuse ("use TableReusable", "use visibility from PMFactInputDocumentList")</td><td>reused as it is</td></tr>
+  </table></div>
+</section>
+
+<section id="verdicts">
+  <h2>2 - Analysis: what I agree with and what I change <span class="pill ask">the core of this page</span></h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>The doc says</th><th>Verdict</th><th>Why / my proposal</th></tr>
+    <tr><td>1</td><td>Rename <code>task_line_fact_for_monitor01</code> → <code>project_status_month_turnover</code></td><td><span class="pill new">agree</span></td><td>The old table holds only facts and carries the report's name. The turnover is <b>wider</b> (plan, fact, invoices ...) and is not Monitor01's alone (any project-status report can read it). Rename in place (<code>ALTER TABLE … RENAME</code>, like the <code>task_fact_usage_timeline</code> rename: no data lost).</td></tr>
+    <tr><td>2</td><td>Float data in <code>rowJSON</code> (<code>qtyPlan</code>, <code>sumForBudgetPlan</code> ...)</td><td><span class="pill bad">change</span></td><td>An OLAP table must be summed millions of times. JSON numbers cannot be indexed, summed without a cast per value, typed, checked or turned into generated columns (<code>qtyRest = qtyPlan − qtyContracted</code>). <b>Typed <code>NUMERIC</code> columns.</b> The dimensions the doc lists stay real columns anyway; <code>rowJSON</code> stays only for rare descriptive data (comment, source number).</td></tr>
+    <tr><td>3</td><td>Movements: one row carries the fields of all kinds (24+ float names)</td><td><span class="pill chg">improve</span></td><td><b>Movements are narrow</b>: one row = one kind (<code>plan · ordered · received · invoiced · used · sold</code>) and the <b>same six resources</b> (<code>qty · sumForBudget · sumForContract · vatForContract · sumForAccounting · vatForAccounting</code>). A new kind (PurchaseOrder) is a new value, not a new column - no migration. The <b>turnover is wide</b> (one column per kind × resource, filled by the worker) because the report reads it. This is exactly 1C: movements (what happened) + turnovers (sums by period).</td></tr>
+    <tr><td>4</td><td>"incremental realtime calculate turnover based on movements"</td><td><span class="pill chg">agree, how</span></td><td>Incremental = <b>only the affected keys are touched</b>. I propose re-aggregating each dirty key (<code>project, task line, month, kind</code> dimensions) from the movements: <code>SUM</code> over an indexed range, then write only if the value changed. It is idempotent: a repeated or lost event cannot drift the numbers. A "+= delta" design is faster per event but one missed trigger silently corrupts the report. The existing <code>monitor01_verify</code> idea stays as the safety net (section 5).</td></tr>
+    <tr><td>5</td><td>"project_status_movements must have real time updates and be the source for Monitor01"</td><td><span class="pill bad">change</span></td><td><b>Source: yes. Streamed: no.</b> Posting a 10 000-row plan would send 10 000 realtime events (and <code>REPLICA IDENTITY FULL</code> doubles each). Stream the <b>turnover</b>: one row per project × task line × month, only rows whose numbers changed (the worker already writes changed rows only). The screen is as live as today (2 s) with 1-2 orders of magnitude fewer events. If you still want the movements live, a statement-level "movements changed for task X" notice is enough (Q3).</td></tr>
+    <tr><td>6</td><td>Dimensions: <code>rowTurnoverMoment</code>, <code>rowRegistratorGUID</code>, <code>rowRegistratorType</code>, <code>rowProjectTaskLineGUID</code></td><td><span class="pill new">agree + add</span></td><td>Add the keys the report and the RLS need so no join is done at read time: <code>rowProjectGUID</code>, <code>rowOwnerGUID</code> (task), <code>rowOwnerUserGUID</code> (RLS + realtime filter, as in <code>monitor01_view</code>), genus, role, measure unit, business unit, partner, contract, legal entity. They are a <b>snapshot at posting time</b> (1C style): a later catalog edit does not rewrite history; re-posting does.</td></tr>
+    <tr><td>7</td><td><code>rowRegistratorType</code> = entity name from SystemMetaData</td><td><span class="pill new">agree</span></td><td>It gives one <b>registry</b> <code>registratorType → { route, label }</code> in the app. The drill-down "Open" then works for every document type (fact input, vendor invoice, task plan) with no per-report code. No foreign key is possible (polymorphic): deletion is handled by "rewrite the movements of this registrator" on post / unpost / delete (section 5.3).</td></tr>
+    <tr><td>8</td><td><code>rowTurnoverMoment</code> from plan moment, fact row date or <code>VendorInvoiceDateTime</code></td><td><span class="pill new">agree</span></td><td>Store the <b>moment</b> (<code>timestamptz</code>) and the <b>day</b> (generated, with the same "+12 h" rule as the plan movements, so a zone offset never moves the day) and the <b>month</b> (generated). The turnover key is the month.</td></tr>
+    <tr><td>9</td><td>Sold ("qtySaled") and the other names</td><td><span class="pill ask">name</span></td><td>"Saled" is not English ("Sold"). I propose <code>sold</code> as the kind value; the doc's field names can be kept 1:1 in the turnover (<code>qtyUsed</code>, <code>sumForBudgetInvoiced</code> ...). Q5.</td></tr>
+    <tr><td>10</td><td>"+ field for VAT sums needed"</td><td><span class="pill new">agree</span></td><td>Budget has no VAT. For contract and accounting: <code>sumFor…</code> is <b>before VAT</b>, plus <code>vatFor…</code>; the "with VAT" total is a sum of the two, never stored (cannot disagree). The invoice list columns of the doc (before VAT, VAT, with VAT) are exactly this.</td></tr>
+    <tr><td>11</td><td>Vendor invoice header <code>rowOwnerGUID</code> = legal entity, "not unique"</td><td><span class="pill ask">risk</span></td><td>Everything in this project is owned by a <b>project owner</b> (RLS <code>pm_owns_project</code>). A header owned by a legal entity has <b>no project</b>: its RLS must come from the organization of the legal entity, and its lines from the projects. This is the hardest design point of block C (section 8.1, Q9).</td></tr>
+    <tr><td>12</td><td><code>task_fact_invoiced_timeline</code>: "works as task_fact gg_timeline", rows posted by pg_cron</td><td><span class="pill chg">improve</span></td><td>(a) I read "gg_timeline" as <code>task_fact_usage_timeline</code>. (b) With the register the invoiced lines already exist as <code>kind = invoiced</code> movements: a second table is a <b>copy</b>; make it a <b>view</b> unless the form needs its own editable rows (Q11). (c) Posting through pg_cron makes a posted invoice invisible for up to a tick and lets it fail unseen: register <b>in the posting transaction</b>, cron only aggregates (section 10).</td></tr>
+    <tr><td>13</td><td>"Vendor Invoice" menu item after "Fact input" everywhere possible</td><td><span class="pill new">agree</span></td><td>The Fact input item is in <code>PMTaskRowMenu</code> and in the Finances table row menu; the same two places + any future call of <code>useOpenFactInput</code>. One hook <code>useOpenVendorInvoice</code> as for facts.</td></tr>
+    <tr><td>14</td><td>"quick filters for all not float type columns"</td><td><span class="pill new">agree</span></td><td>Same as the Actuals list: one row, each filter with a Clear icon inside the field, applied by the database (RPC) so folders + filters + paging work on any volume.</td></tr>
+  </table></div>
+</section>
+
+<section id="model">
+  <h2>3 - The improved model</h2>
+  <h3>3.1 The picture</h3>
+  <div class="flow">
+    <span class="box on">task posted (plan)</span><span class="arrow">→ register</span>
+    <span class="box on">fact input posted</span><span class="arrow">→ register</span>
+    <span class="box on">vendor invoice posted</span><span class="arrow">→ register</span>
+    <span class="box">future: purchase order · product receipt · customer invoice</span><span class="arrow">→ register</span>
+  </div>
+  <div class="flow">
+    <span class="box ok"><b>project_status_movements</b> (narrow, the source of truth, 1 row = 1 kind)</span><span class="arrow">→ dirty keys →</span>
+    <span class="box ok"><b>project_status_month_turnover</b> (wide, 1 row = project × task line × month)</span><span class="arrow">→ realtime →</span>
+    <span class="box on"><b>Monitor01</b> · other status reports</span>
+  </div>
+  <div class="small">Drill-down: a cell → the movements of the same key → "Open" the registrator document (by <code>rowRegistratorType</code>).</div>
+
+  <h3>3.2 <code>project_status_movements</code> <span class="pill new">new, narrow</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Column</th><th>Type</th><th>What / why</th></tr>
+    <tr><td><code>rowGUID</code></td><td>uuid</td><td>key</td></tr>
+    <tr><td><code>rowMovementKind</code></td><td>text, check</td><td><code>plan · ordered · received · invoiced · used · sold</code></td></tr>
+    <tr><td><code>rowTurnoverMoment</code></td><td>timestamptz</td><td>plan: the plan day · fact: the fact row date · invoice: <code>VendorInvoiceDateTime</code></td></tr>
+    <tr><td><code>rowTurnoverDay</code> / <code>rowTurnoverMonth</code></td><td>date, generated</td><td>"+12 h" rule; index and aggregation key</td></tr>
+    <tr><td><code>rowRegistratorGUID</code> / <code>rowRegistratorType</code></td><td>uuid / text</td><td>the document (or the posted task for the plan); the type is the SystemMetaData entity name</td></tr>
+    <tr><td><code>rowProjectTaskLineGUID</code></td><td>uuid, no FK</td><td>the task line (a line may be deleted later: history must stay)</td></tr>
+    <tr><td><code>rowProjectGUID</code>, <code>rowOwnerGUID</code> (task), <code>rowOwnerUserGUID</code></td><td>uuid</td><td>filter + RLS without joins</td></tr>
+    <tr><td><code>genusGUID · resourceRoleGUID · measureUnit · businessUnitGUID · partnerGUID · contractGUID · legalEntityGUID</code></td><td>text / uuid</td><td>snapshot dimensions; <code>contractGUID IS NOT NULL</code> on a plan row = "contracted" (no 7th kind)</td></tr>
+    <tr><td><code>qty · sumForBudget · sumForContract · vatForContract · sumForAccounting · vatForAccounting</code></td><td>numeric(18,2), default 0</td><td>the resources; negative values allowed (a correction), but <b>Unpost deletes</b> the registrator's rows instead of reversing them</td></tr>
+    <tr><td><code>rowJSON</code></td><td>jsonb</td><td>rare descriptive data only</td></tr>
+  </table></div>
+  <p class="small">Indexes: <code>(rowRegistratorGUID)</code> for rewrite-by-registrator · <code>(rowProjectGUID, rowTurnoverMonth, rowMovementKind)</code> for the aggregation · <code>(rowProjectTaskLineGUID)</code> · BRIN on the moment.
+  Partitioning by year is possible later without changing a query.</p>
+
+  <h3>3.3 <code>project_status_month_turnover</code> <span class="pill chg">renamed + widened</span></h3>
+  <p>Key: <code>(rowProjectTaskLineGUID, rowTurnoverMonth)</code> plus the dimensions the report groups by (genus, role, unit). Columns: for every kind the six resources as in the doc, with the doc's names:
+  <code>qtyPlan · sumForBudgetPlan · … · qtyUsed · sumForAccountingUsed …</code> (36 columns, all <code>numeric</code>, default 0) + the generated <code>qtyRestToContract = qtyPlanContracted − …</code> style columns Monitor01 needs today.
+  <code>lineCount</code>, <code>documentCount</code>, <code>updated_at</code>. Realtime publication: <b>this table</b>.</p>
+
+  <h3>3.4 The plan also gets a register row <span class="pill ask">volume decision, Q2</span></h3>
+  <p>The doc says the register is "the source for Monitor01", so the <b>plan must be in it</b>. <code>task_line_plan_movements</code> already holds the same rows (needed by the Gantt / plan view). Two ways:</p>
+  <div class="scroll"><table>
+    <tr><th></th><th>A. copy (my default)</th><th>B. replace</th></tr>
+    <tr><td>How</td><td><code>create_task_line_plan</code> inserts the posted rows into the register in the same transaction (set-based <code>INSERT … SELECT</code>); re-post = delete by registrator (the task) + insert</td><td>the plan view and the Gantt read the register; <code>task_line_plan_movements</code> becomes a view</td></tr>
+    <tr><td>Cost</td><td>2× plan rows; nothing existing changes (old projects unchanged)</td><td>1× rows; every reader of the plan table is touched: big, risky</td></tr>
+    <tr><td>Verdict</td><td><span class="pill new">now</span></td><td><span class="pill mid">later, if the volume hurts</span></td></tr>
+  </table></div>
+</section>
+
+<section id="measures">
+  <h2>4 - Kinds, registrators and moments</h2>
+  <div class="scroll"><table>
+    <tr><th>Kind</th><th>Doc fields</th><th>Registrator type (SystemMetaData)</th><th>Moment</th><th>Status</th></tr>
+    <tr><td><code>plan</code></td><td><code>qtyPlan · sum…Plan</code></td><td>the posted task (<code>projectTask</code>)</td><td>the plan day</td><td><span class="pill new">now</span></td></tr>
+    <tr><td><code>used</code></td><td><code>qtyUsed · sum…Used</code></td><td><code>taskFactHeader</code> (fact input)</td><td>the fact line date</td><td><span class="pill new">now</span> (replaces the current fact sums)</td></tr>
+    <tr><td><code>invoiced</code></td><td><code>qtyInvoiced · sum…Invoiced</code></td><td><code>vendorInvoiceHeader</code></td><td><code>VendorInvoiceDateTime</code></td><td><span class="pill new">block C</span></td></tr>
+    <tr><td><code>ordered</code></td><td><code>qtyOrdered · …</code></td><td>future <code>PurchaseOrder</code></td><td>order date</td><td><span class="pill mid">reserved: a value, no table, no column</span></td></tr>
+    <tr><td><code>received</code></td><td><code>qtyReceived · …</code></td><td>future <code>ProductReceipt</code></td><td>receipt date</td><td><span class="pill mid">reserved</span></td></tr>
+    <tr><td><code>sold</code></td><td><code>qtySaled · …</code></td><td>future <code>CustomerInvoice</code></td><td>invoice date</td><td><span class="pill mid">reserved</span></td></tr>
+  </table></div>
+  <p class="small">Monitor01 columns map: planned = <code>qtyPlan</code> · contracted = <code>qtyPlan</code> where contract is set · delivered = <code>qtyReceived</code> (empty until receipts exist; today "delivered" has no source) · actually used = <code>qtyUsed</code> · on-hand = received − used.
+  An invoice is <b>not</b> a delivery: the doc has both <code>Received</code> and <code>Invoiced</code> (1C: receipt ≠ invoice).</p>
+</section>
+
+<section id="flow">
+  <h2>5 - Realtime and incremental calculation</h2>
+  <h3>5.1 Options compared</h3>
+  <div class="scroll"><table>
+    <tr><th></th><th>Re-aggregate dirty keys (my default)</th><th>"+= delta" trigger</th><th>Stream the movements</th></tr>
+    <tr><td>Work per event</td><td>one indexed <code>SUM</code> per key</td><td>one row update</td><td>one event per movement</td></tr>
+    <tr><td>Can it drift?</td><td><b>no</b> (recomputed from the source)</td><td>yes (missed or doubled trigger)</td><td>n/a</td></tr>
+    <tr><td>Rewriting a document (post again)</td><td>delete + insert, keys marked dirty, one result</td><td>must reverse the old rows exactly</td><td>delete + insert events</td></tr>
+    <tr><td>Realtime volume</td><td>changed turnover rows only</td><td>same</td><td><b>huge</b> on a big plan</td></tr>
+    <tr><td>Today's code reused</td><td><b>yes</b> (queue, worker, verify, refresh_now)</td><td>no</td><td>no</td></tr>
+  </table></div>
+  <h3>5.2 The worker</h3>
+  <ol class="steps">
+    <li>A posting writes its movements and marks the keys <code>(project, task line, month)</code> dirty (statement-level trigger on the movements, keys only - as <code>monitor01_dirty</code> does with tasks today).</li>
+    <li>pg_cron (every 2 s, the existing job renamed) takes a batch with <code>FOR UPDATE SKIP LOCKED</code>, re-aggregates, writes <b>only changed rows</b>, logs the lag.</li>
+    <li>Supabase realtime delivers the changed turnover rows to the open report; the screen patches them by key (as <code>useMonitor01Rows</code> does).</li>
+    <li><code>…_refresh_now(project)</code> stays: the Refresh button and an empty first look recompute at once when the cron is not running.</li>
+  </ol>
+  <h3>5.3 Posting = rewrite by registrator</h3>
+  <p>Post: <code>DELETE FROM movements WHERE rowRegistratorGUID = X</code> then <code>INSERT … SELECT</code> from the document lines, in the posting transaction. Unpost / delete: the delete only. One rule, the same for every document type, idempotent.</p>
+</section>
+
+<section id="monitor">
+  <h2>6 - Monitor01 on the register</h2>
+  <ul class="tight">
+    <li><b>Reads the turnover</b> (the same screen, columns, tabs and filters). <code>monitor01_view</code> disappears; its names (project, task, role) are <b>not copied</b> into the turnover: the app already has the catalogs and the task tree and resolves names on the client (a rename then costs nothing). Q6.</li>
+    <li><b>Drill-down becomes one query</b>: movements <code>WHERE</code> the cell's keys; every row has a registrator, "Open" goes to the right document through the registry. The "list total = cell ✓" check stays and is now trivially true (same table).</li>
+    <li><b>On-hand colours</b>: while no "received" kind exists, on-hand = −used and shows red wherever something was used (today's behaviour). Proposal: hide on-hand until <code>received</code> has data, or compute it only when the project has receipts. Q7.</li>
+    <li><b>Facts without a plan</b> keep their own row (planned 0), as built on 2026-10-14.</li>
+  </ul>
+</section>
+
+<section id="catalogs">
+  <h2>7 - Catalogs (block B)</h2>
+  <h3>7.1 <code>legalEntityTable</code> <span class="pill new">new catalog</span></h3>
+  <ul class="tight">
+    <li>A def-table like the others (<code>rowGUID · rowOwnerGUID · rowParentGUID · rowJSON · orderInList</code>, organization RLS as the other catalogs): title, registration number, VAT number, country, address.</li>
+    <li><b>Folders by country.</b> The folder tree is <b>derived from <code>countryTable</code></b> (country = folder, <code>rowJSON.countryGUID</code> on the entity): no folder table to keep, and the folders tree of <code>ReusableTable</code> is reused as it is. Sub-folders (region, group) later if needed. Q8.</li>
+    <li><code>contractTable.rowJSON.legalEntityGUID</code> - <b>optional</b>, as the doc says: no check constraint, no migration, old contracts unchanged; a catalog select (<code>SelectElementFromCatalog</code>) in the contract card.</li>
+  </ul>
+  <h3>7.2 Main vendor <span class="pill new">3 catalogs</span></h3>
+  <ul class="tight">
+    <li><code>mainVendorGUID</code> (partner) and <code>mainVendorContractGUID</code> (contract) in <code>rowJSON</code> of <b>partner, equipment, product (material)</b> - item card and list column.</li>
+    <li>The contract select is <b>scoped by the vendor</b> (the existing <code>dependsOn</code> mechanism: it is cleared when the vendor changes). A rule in the database trigger too: the contract's party must be the vendor (so an import cannot break it).</li>
+    <li>For a <b>partner</b> the "main vendor" is another partner (who supplies it); a partner may not be its own main vendor (check).</li>
+  </ul>
+</section>
+
+<section id="invoice">
+  <h2>8 - Vendor invoice (block C)</h2>
+  <h3>8.1 Header and RLS <span class="pill ask">hardest point</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Field</th><th>Where</th><th>Note</th></tr>
+    <tr><td><code>rowGUID</code></td><td>column</td><td></td></tr>
+    <tr><td><code>rowOwnerGUID</code> = legal entity</td><td>column (not unique, as the doc says)</td><td>no FK to a task / project: the invoice can cover several projects</td></tr>
+    <tr><td><code>VendorInvoiceLegalEntity · Partner · Contract · DateTime · Number</code></td><td><code>rowJSON</code></td><td>the doc's keys. Existing JSON keys are <b>lowerCamelCase</b> (<code>documentNumber</code>): I propose <code>vendorInvoiceNumber</code> … (Q12)</td></tr>
+    <tr><td><code>documentStatus draft | posted</code>, <code>postedAt</code>, <code>postedBy</code></td><td><code>rowJSON.documentHeader</code> like the fact header</td><td>posted = read only (RLS), Unpost back to draft</td></tr>
+    <tr><td><code>totalSumForAccountingFor0333Effect</code>, <code>totalVATForAccountingFor0333Effect</code></td><td><code>rowJSON</code></td><td>0 = no correction (section 9)</td></tr>
+    <tr><td>RLS</td><td>by the <b>organization</b> of the legal entity</td><td>The header has no project. The <b>lines</b> carry <code>rowProjectGUID</code> and the register needs <code>rowOwnerUserGUID</code>: posting copies the project owner. A user may post an invoice only if he owns <b>every project</b> of its lines (checked in <code>post_vendor_invoice</code>). Q9</td></tr>
+  </table></div>
+  <h3>8.2 Lines</h3>
+  <ul class="tight">
+    <li><code>VendorInvoiceLines</code> = a <code>ReusableTable</code> with CRUD, tabs <b>All (default) · Time · Material · Expenses</b> exactly as the task Finances table (the DocumentTabs of the fact form already do this).</li>
+    <li>Fields: <code>rowHeaderGUID · rowProjectGUID · taskGUID · taskLineGUID · genusGUID</code> + description, resource, unit, <b>qty, price, sumForContract (before VAT), VAT rate, vatForContract</b>, and sumForBudget / sumForAccounting (computed by the same rule as the fact trigger: qty × the unit sums of the task line). All sums are <b>computed by a trigger</b>; the user changes quantity, price and date only.</li>
+  </ul>
+  <h3>8.3 The flow</h3>
+  <ol class="steps">
+    <li>"Vendor Invoice" in the context menu (after "Fact input") of a task / task line / selected lines.</li>
+    <li>A window lists the <b>vendors</b>: per task line the vendor = the partner of the line's contract (<code>taskLinePartnerContract</code> / <code>taskResourceContract</code>); if the line has no contract, the <code>mainVendorGUID</code> of its resource (equipment / product / partner). The user <b>checks the vendors</b> and presses <b>Create</b>.</li>
+    <li>One draft invoice per checked vendor is created by one RPC (all-or-nothing). Lines = that vendor's task lines, quantity = <b>what is not invoiced yet</b> (plan − already invoiced) - Q4.</li>
+    <li><code>VendorInvoiceDocumentForm</code> opens; with many vendors: <b>a tab per vendor</b> (Q10: a real browser tab on the web, the in-form tab strip on phones).</li>
+    <li>Post → validation → movements (<code>kind = invoiced</code>) written in the same transaction → the worker aggregates → Monitor01.</li>
+  </ol>
+  <h3>8.4 <code>VendorInvoiceDocumentList</code></h3>
+  <ul class="tight">
+    <li><code>ReusableTable</code> + <b>folders tree: legal entity → partner</b> (the doc's two folder levels); the Actuals list is the pattern: one row of quick filters (<b>every non-float column</b>, each with a Clear icon), applied by an RPC that also returns the document totals.</li>
+    <li>Columns as in the doc: number · date · partner · <b>total before VAT</b> · <b>currency of the contract</b> · <b>total VAT</b> · <b>total with VAT</b> · contract info · legal entity. The three money columns are totals of the lines, summed by the RPC; the footer adds the listed documents - but only for <b>one currency</b> (mixed currencies are never added: footer per currency). Q13.</li>
+  </ul>
+</section>
+
+<section id="effect">
+  <h2>9 - 0333Effect <span class="pill ask">my reading - please confirm, Q1</span></h2>
+  <p>The doc does not define "0333Effect". The project already has <b><code>Correct033</code></b>: the plan algorithm that makes the <b>rounded rows add up to the exact total</b> by putting the cent difference into the <b>last row</b>. I read 0333Effect as the same rule applied to a vendor invoice, where the vendor <b>printed</b> totals and the sum of the rounded lines differs by a few cents.</p>
+  <div class="grid">
+    <div class="card"><h3>Rule</h3><ol class="steps">
+      <li>Header special sums: <code>T_sum</code> (before VAT) and <code>T_vat</code>. The button <b>"fill based on document"</b> sets them to Σ lines.</li>
+      <li>Discrepancy: <code>D_sum = T_sum − Σ sumForContract</code>, <code>D_vat = T_vat − Σ vatForContract</code>.</li>
+      <li>If <code>T = 0</code> that sum is <b>not corrected</b> (the doc: "if 0 = any special sum, no correction of this sum").</li>
+      <li>Otherwise <code>D</code> is added to the <b>last line</b> of the document (the last by <code>orderInList</code>, independent of the tab shown).</li>
+      <li>Safety: if <code>|D| &gt; 0.01 × number of lines</code> (default) the document is <b>refused with a message</b>, not corrected silently: a wrong total must not be hidden in one line.</li>
+    </ol></div>
+    <div class="card"><h3>Example</h3>
+      <table class="sheet"><tr><th>line</th><th>qty × price</th><th>sum</th><th>VAT 21%</th></tr>
+      <tr><td>1</td><td>1 × 10.01</td><td class="num">10.01</td><td class="num">2.10</td></tr>
+      <tr><td>2</td><td>1 × 10.01</td><td class="num">10.01</td><td class="num">2.10</td></tr>
+      <tr><td>3</td><td>1 × 10.01</td><td class="num">10.01</td><td class="num">2.10</td></tr>
+      <tr><td class="tot">Σ</td><td></td><td class="num tot">30.03</td><td class="num tot">6.30</td></tr>
+      <tr><td>vendor prints</td><td></td><td class="num">30.04</td><td class="num">6.31</td></tr>
+      <tr><td>D</td><td></td><td class="num">+0.01</td><td class="num">+0.01</td></tr>
+      <tr><td>line 3 becomes</td><td></td><td class="num">10.02</td><td class="num">2.11</td></tr></table></div>
+  </div>
+  <p class="small">The rule is a <b>pure function</b> written twice (TypeScript for the form's live preview, SQL for the posting trigger) and tested to give the same answer - the way <code>Correct033</code> and the fact sums already are.
+  Open: which sum is "for accounting" before or after VAT (I take <b>before VAT</b>, VAT separate) and whether the correction is per tab (I take: whole document).</p>
+</section>
+
+<section id="cron">
+  <h2>10 - pg_cron and <code>task_fact_invoiced_timeline</code></h2>
+  <div class="scroll"><table>
+    <tr><th></th><th>In the posting transaction (my default)</th><th>"via pg_cron" (the doc)</th></tr>
+    <tr><td>After Post</td><td>the movements exist at once; the user sees the invoice in the report in ≤ 2 s (the aggregation tick)</td><td>"posted" but not registered until a tick; a second delay; a failing batch leaves a posted invoice that is nowhere</td></tr>
+    <tr><td>Failure</td><td>Post is refused with the message; nothing is half done</td><td>needs an outbox with attempts, parking, a "registering…" state and an alarm</td></tr>
+    <tr><td>Locks</td><td>the posting transaction is a bit longer (set-based insert; thousands of rows ≈ tens of ms)</td><td>short transaction, but extra moving parts</td></tr>
+    <tr><td>Verdict</td><td><span class="pill new">use</span></td><td><span class="pill mid">only if posting a very large invoice becomes slow (measure first)</span></td></tr>
+  </table></div>
+  <p><code>task_fact_invoiced_timeline</code>: with the register it is <code>SELECT … FROM project_status_movements WHERE rowMovementKind = 'invoiced'</code> shaped like <code>task_fact_usage_timeline</code> (same columns, so the Finances / plan views can show it with the same code). A <b>real table</b> only makes sense if users must edit invoiced rows apart from the invoice - they must not (posted = read only). Q11.</p>
+</section>
+
+<section id="wbs">
+  <h2>11 - Work breakdown structure</h2>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_structure.sql</code> first, Docker-tested, then mirrored into <code>start2_sql_code.sql</code>; the delete file gets the new drops.</p>
+  <div class="scroll"><table>
+    <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
+    <tr class="wp"><td>0</td><td colspan="4">Decisions</td></tr>
+    <tr><td>0.1</td><td>Answer Q1-Q14 (defaults given; "yes to all" is enough)</td><td>answers on this page</td><td>S</td><td>-</td></tr>
+    <tr class="wp"><td>A</td><td colspan="4">The register (the base of everything)</td></tr>
+    <tr><td>A1</td><td>Rename <code>task_line_fact_for_monitor01</code> → <code>project_status_month_turnover</code> in place; widen it (kinds × resources); drop the old name in the delete file</td><td>SQL + Docker test; Monitor01 unchanged</td><td>M</td><td>0.1</td></tr>
+    <tr><td>A2</td><td><code>project_status_movements</code> + indexes + RLS + <code>register_*</code> / <code>unregister_by_registrator</code> functions</td><td>SQL + test</td><td>M</td><td>A1</td></tr>
+    <tr><td>A3</td><td>Plan registrator: <code>create_task_line_plan</code> also registers the posted rows (copy)</td><td>SQL + test: register = plan movements, re-post rewrites</td><td>M</td><td>A2</td></tr>
+    <tr><td>A4</td><td>Used registrator: fact input post / unpost registers / unregisters (replaces <code>monitor01_fresh_fact_rows</code>)</td><td>SQL + test</td><td>M</td><td>A2</td></tr>
+    <tr><td>A5</td><td>Dirty-key queue + worker re-aggregation (rename of the Monitor01 worker, still every 2 s) + <code>verify</code> + <code>refresh_now</code></td><td>SQL + bench (same method as <code>bench_monitor01.sh</code>)</td><td>L</td><td>A3 A4</td></tr>
+    <tr><td>A6</td><td>Monitor01 reads the turnover; client-side names; drill-down through the register + registrator registry; drop <code>monitor01_view</code> after one release</td><td>app + Jest</td><td>L</td><td>A5</td></tr>
+    <tr class="wp"><td>B</td><td colspan="4">Catalogs</td></tr>
+    <tr><td>B1</td><td><code>legalEntityTable</code> catalog (list, item, folders by country) + <code>contractTable.rowJSON.legalEntityGUID</code> (optional)</td><td>SQL + <code>kit8/catalog/legal_entity</code> + drawer item + tests</td><td>L</td><td>0.1</td></tr>
+    <tr><td>B2</td><td><code>mainVendorGUID</code> + <code>mainVendorContractGUID</code> in partner, equipment, product: inputs, list columns, DB rule "contract belongs to the vendor"</td><td>SQL + app + tests</td><td>M</td><td>0.1</td></tr>
+    <tr class="wp"><td>C</td><td colspan="4">Vendor invoice</td></tr>
+    <tr><td>C1</td><td>Tables <code>vendor_invoice_header</code> / <code>vendor_invoice_lines</code>, triggers (sums, VAT), RLS (Q9), realtime</td><td>SQL + Docker test</td><td>L</td><td>B1 B2 A2</td></tr>
+    <tr><td>C2</td><td><code>create_vendor_invoices(task lines, vendors[])</code>, <code>post_vendor_invoice</code> (validation, 0333Effect, registers <code>invoiced</code>), <code>unpost_…</code>, list RPC with totals</td><td>SQL + test</td><td>L</td><td>C1</td></tr>
+    <tr><td>C3</td><td>0333Effect: SQL function + TypeScript twin + tests that both agree</td><td>pure functions + tests</td><td>M</td><td>C1</td></tr>
+    <tr><td>C4</td><td>Menu item "Vendor Invoice" (after "Fact input") + vendor choice window + <code>useOpenVendorInvoice</code></td><td>app + tests</td><td>M</td><td>C2</td></tr>
+    <tr><td>C5</td><td><code>VendorInvoiceDocumentForm</code> + header + lines (tabs All / Time / Material / Expenses) + a tab per vendor + the 0333Effect buttons</td><td>app + tests</td><td>L</td><td>C2 C3 C4</td></tr>
+    <tr><td>C6</td><td><code>VendorInvoiceDocumentList</code> (ReusableTable, folders, quick filters, totals per currency) + drawer item</td><td>app + tests</td><td>L</td><td>C2</td></tr>
+    <tr><td>C7</td><td><code>task_fact_invoiced_timeline</code> as a view of the register (or a table: Q11)</td><td>SQL + test</td><td>S</td><td>C2</td></tr>
+    <tr class="wp"><td>D</td><td colspan="4">Close</td></tr>
+    <tr><td>D1</td><td>README files, this page updated, memory notes, full Jest vs the baseline, all Docker scripts, upgrade test from the previous structure file</td><td>green</td><td>M</td><td>all</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>12 - Risks</h2>
+  <div class="scroll"><table>
+    <tr><th>Risk</th><th>What I do</th></tr>
+    <tr><td>Register volume (plan copy + facts + invoices)</td><td>narrow rows, targeted indexes, BRIN on the moment, partition by year later; bench with 1 M movements before A6 goes live</td></tr>
+    <tr><td>Report numbers differ between old and new</td><td>run both in parallel for a release: <code>monitor01_verify</code> compares the new turnover with the old view; drop the view only when it reports 0 differences</td></tr>
+    <tr><td>Polymorphic registrator (no FK) leaves orphans</td><td>every document type deletes through the same <code>unregister_by_registrator</code>; a nightly verify finds movements whose registrator no longer exists</td></tr>
+    <tr><td>Invoice header without a project breaks the RLS pattern</td><td>decision Q9 before C1; tests with two users and two organizations</td></tr>
+    <tr><td>Rounding: line sums vs vendor totals</td><td>one pure function in two languages + a test that feeds the same inputs to both</td></tr>
+    <tr><td>Currency mix in totals</td><td>never add different currencies: footer and list totals per currency</td></tr>
+    <tr><td>The names "Saled", "gg_timeline", "0333Effect" are unclear</td><td>my readings are stated on this page; the wrong guess is cheap to fix now, expensive after the SQL</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>13 - Tests</h2>
+  <ul class="tight">
+    <li><b>Docker (real Postgres 15):</b> register = source documents after post / unpost / re-post / delete; turnover = SUM(movements) for every key after a random sequence of operations (property-style); only changed rows written; RLS with two users; rename upgrade from the previous structure file; bench (empty tick, one key, 500 keys).</li>
+    <li><b>Jest:</b> registrator registry, 0333Effect twin (the same fixtures as SQL), vendor choice window, form tabs, list filters / folders / totals per currency, menu item order (Vendor Invoice right after Fact input), Monitor01 reading the turnover.</li>
+    <li>The 28 old failing tests are not ours and stay out of the comparison, as before.</li>
+  </ul>
+</section>
+
+<section id="open">
+  <h2>14 - Questions <span class="pill ask">each has my default</span></h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>My default</th></tr>
+    <tr><td>Q1</td><td><b>0333Effect</b>: is it the <code>Correct033</code> last-row rounding rule applied to the invoice, before VAT, whole document?</td><td>Yes (section 9), with the safety limit 0.01 × lines.</td></tr>
+    <tr><td>Q2</td><td><b>Plan in the register</b>: copy (A) or replace the plan table (B)?</td><td>A, copy.</td></tr>
+    <tr><td>Q3</td><td><b>Realtime of the movements</b>: stream the turnover only?</td><td>Yes; the movements are the source, not the stream.</td></tr>
+    <tr><td>Q4</td><td><b>Invoice lines</b> start with: plan − already invoiced? or the received / used quantity?</td><td>plan − already invoiced.</td></tr>
+    <tr><td>Q5</td><td><b>Names</b>: <code>sold</code> instead of "Saled"; the doc's field names kept in the turnover?</td><td>Yes / yes.</td></tr>
+    <tr><td>Q6</td><td>Names (project, task, role) resolved <b>on the client</b>, not stored in the turnover?</td><td>Yes.</td></tr>
+    <tr><td>Q7</td><td><b>On-hand</b> while no "received" exists: hide it, or keep it as −used?</td><td>Hide until a receipt exists.</td></tr>
+    <tr><td>Q8</td><td><b>Folders by country</b>: derived from the country catalog (no folder table)?</td><td>Yes.</td></tr>
+    <tr><td>Q9</td><td><b>RLS of the invoice</b>: by the organization of the legal entity; post allowed only when the user owns every project of the lines?</td><td>Yes.</td></tr>
+    <tr><td>Q10</td><td>"Separate <b>browser tab</b> for each vendor": real browser tabs on the web, the in-form tab strip on phones?</td><td>Yes.</td></tr>
+    <tr><td>Q11</td><td><code>task_fact_invoiced_timeline</code>: a <b>view</b> of the register (not a table)? And the posting inside the transaction, not through pg_cron?</td><td>Yes / yes.</td></tr>
+    <tr><td>Q12</td><td>JSON keys <b>lowerCamelCase</b> (<code>vendorInvoiceNumber</code>) like the rest of the project, not <code>VendorInvoiceNumber</code>?</td><td>lowerCamelCase.</td></tr>
+    <tr><td>Q13</td><td>List totals / footer <b>per currency</b> (never mixed)?</td><td>Yes.</td></tr>
+    <tr><td>Q14</td><td>The file: <code>documentation/PROJECT_STATE_WBS.html</code> (Q14.1) - and "start" when you want the build to begin, phase A first?</td><td>As is; A, then B, then C.</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>

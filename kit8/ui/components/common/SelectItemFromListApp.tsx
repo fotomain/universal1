@@ -64,6 +64,9 @@ export interface SelectItemFromListAppProps<T extends string = string> {
   clearable?: boolean;
   /** the value that means "nothing selected" (default '') */
   clearValue?: T;
+  /** 'field' trigger: box height / corner radius when the select stands next to inputs of another height (default 40 / 8) */
+  fieldHeight?: number;
+  fieldRadius?: number;
 }
 
 const ITEM_H = 38;
@@ -94,6 +97,8 @@ export function SelectItemFromListApp<T extends string = string>({
   maxListHeight = 320,
   align = 'left',
   lowerCaseTrigger,
+  fieldHeight,
+  fieldRadius,
   style,
   testID = 'SelectItemFromListApp',
   onOpenChange,
@@ -231,6 +236,8 @@ export function SelectItemFromListApp<T extends string = string>({
             : [
                 styles.field,
                 {
+                  ...(fieldHeight ? { height: fieldHeight } : null),
+                  ...(fieldRadius !== undefined ? { borderRadius: fieldRadius } : null),
                   borderColor: open ? tint : c.border,
                   borderWidth: open ? 2 : 1,
                   backgroundColor: c.surface,
@@ -245,7 +252,7 @@ export function SelectItemFromListApp<T extends string = string>({
           style={
             trigger === 'link'
               ? [styles.linkText, { color: tint }]
-              : [styles.fieldText, { color: selected ? c.text : `${c.text}88`, marginLeft: selected?.icon ? 8 : 0 }]
+              : [styles.fieldText, { color: selected ? c.text : `${c.text}88`, marginLeft: selected?.icon ? 8 : 0 }, fieldHeight ? { fontSize: 16 } : null]
           }
         >
           {lower ? triggerText.toLowerCase() : triggerText}

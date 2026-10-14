@@ -51,7 +51,7 @@ export interface DateInputAppProps {
   pickerLabel?: string;
   clearLabel?: string;
   validRange?: { startDate?: Date; endDate?: Date };
-  /** lower field (36 px) for dense dialogs */
+  /** lower field (32 px, the same as TextInputApp compact) for dense bars and dialogs */
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -235,7 +235,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           radius: 6, height: 44, paddingH: 12, fontSize: 15, icon: '#888', placeholder: isDark ? '#71717a' : '#a1a1aa', marginBottom: 12,
           labelStyle: { fontSize: 14, fontWeight: '500', color: themeColors.text, marginBottom: 4 },
         };
-  const height = compact ? 36 : look.height;
+  const height = compact ? 32 : look.height;
   const appleRing = activeSystem === 'applemacui' && Platform.OS === 'web';
   const iconColor = disabled ? look.placeholder : themeColors.primary;
 

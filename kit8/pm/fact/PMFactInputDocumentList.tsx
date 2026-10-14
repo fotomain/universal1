@@ -42,8 +42,8 @@ export interface PMFactInputDocumentListProps {
 /** the select of a filter: the label is its placeholder (like the inputs next to it) and a clear (x) icon INSIDE the field empties it (the picker is searchable above 10 items) */
 function FilterSelect({ testID, label, items, value, onSelect, width = 190 }: { testID: string; label: string; items: { value: string; label: string; group?: string }[]; value: string; onSelect: (v: string) => void; width?: number }) {
   return (
-    <View style={{ width }}>
-      <SelectItemFromListApp testID={testID} items={items} value={value} onSelect={onSelect} placeholder={label} clearable searchPlaceholder={label} />
+    <View style={[styles.cell, { width }]}>
+      <SelectItemFromListApp testID={testID} items={items} value={value} onSelect={onSelect} placeholder={label} clearable searchPlaceholder={label} fieldHeight={42} fieldRadius={4} />
     </View>
   );
 }
@@ -127,18 +127,18 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
 
       {/* the fast filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters} testID={`${testID}-filters`}>
-        <View style={{ width: 200 }}>
-          <DateInputApp testID={`${testID}-factTimelinePeriod-from`} label={pmT('Period from')} value={draft.fromDay} onChangeText={(t) => change({ fromDay: t })} compact error={errors.fromDay} />
+        <View style={[styles.cell, { width: 200 }]}>
+          <DateInputApp testID={`${testID}-factTimelinePeriod-from`} label={pmT('Period from')} value={draft.fromDay} onChangeText={(t) => change({ fromDay: t })} compact error={errors.fromDay} style={styles.field} />
         </View>
-        <View style={{ width: 200 }}>
-          <DateInputApp testID={`${testID}-factTimelinePeriod-to`} label={pmT('Period to')} value={draft.toDay} onChangeText={(t) => change({ toDay: t })} compact error={errors.toDay} />
+        <View style={[styles.cell, { width: 200 }]}>
+          <DateInputApp testID={`${testID}-factTimelinePeriod-to`} label={pmT('Period to')} value={draft.toDay} onChangeText={(t) => change({ toDay: t })} compact error={errors.toDay} style={styles.field} />
         </View>
         {!projectGUID && <FilterSelect testID={`${testID}-factProjectFilter`} label={pmT('Project')} items={projectItems} value={draft.projectGUID} onSelect={(v) => change({ projectGUID: v })} />}
         <FilterSelect testID={`${testID}-factBusinessUnitFilter`} label={pmT('Business unit')} items={unitItems} value={draft.businessUnitGUID} onSelect={(v) => change({ businessUnitGUID: v })} width={220} />
         <FilterSelect testID={`${testID}-factRoleFilter`} label={pmT('Role')} items={roleItems} value={draft.roleGUID} onSelect={(v) => change({ roleGUID: v })} />
         <FilterSelect testID={`${testID}-factResourceFilter`} label={pmT('Resource')} items={resourceItems} value={draft.resourceGUID} onSelect={(v) => change({ resourceGUID: v })} />
-        <View style={{ width: 170 }}>
-          <TextInputApp testID={`${testID}-authorFilter`} label={pmT('Author')} value={draft.author} onChangeText={(t) => change({ author: t })} compact leftIcon="search" />
+        <View style={[styles.cell, { width: 170 }]}>
+          <TextInputApp testID={`${testID}-authorFilter`} label={pmT('Author')} value={draft.author} onChangeText={(t) => change({ author: t })} compact leftIcon="search" style={styles.field} />
         </View>
       </ScrollView>
 
@@ -170,5 +170,8 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
   bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  // every filter: one row height, the visible box bottom-aligned (paper leaves 6 px above its outline for the label), no bottom margin of its own
+  cell: { height: 48, justifyContent: 'flex-end' },
+  field: { marginBottom: 0 },
   filters: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
 });
