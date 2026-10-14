@@ -6517,7 +6517,8 @@ NOTIFY pgrst, 'reload schema';
 --                       (Time: rowJSON.taskResourceContract · Material / Expense: rowJSON.taskLinePartnerContract)
 --     sumForBudget      sum of task_line_plan_movements.sumForBudget (planMovementStatus = true)  - the money of the plan (the TotalsRow of the screen)
 --     qtyRestToContract planned - contracted                (generated)
---     qtyDelivered · qtyUsed     columns without data now (0); qtyOnHand = delivered - used (generated)   ("draw delivered + undefined fields without data now")
+--     qtyUsed           the quantity (qtyForContract) of the POSTED fact documents (task_fact_usage_timeline), also where the role / month has no plan
+--     qtyDelivered      no data now (0);  qtyOnHand = delivered - used (generated)   ("draw delivered + undefined fields without data now")
 --   It is a real table (no join, no arithmetic on the client) kept in step INCREMENTALLY:
 --     triggers (statement level, transition tables) only write the TASK key into monitor01_dirty  ->  pg_cron every monitor01_refresh_interval_seconds() = 2 s calls
 --     monitor01_process_dirty: BATCHES of 500 tasks, FOR UPDATE SKIP LOCKED, one set-based statement per batch, ONLY THE ROWS WHOSE NUMBERS CHANGED are written (no realtime noise).
@@ -6641,37 +6642,6 @@ BEGIN
 END $$;
 
 -- ---- the fresh numbers of some tasks (the ONE definition of every number: the worker, monitor01_verify and the tests use it) ----------------------------------
--- (the result gained sumForBudget: a function cannot change its result type in place)
-DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
-CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
-RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
-               "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "lineCount" integer, "hasStalePlan" boolean)
-LANGUAGE sql STABLE SET search_path = public, extensions AS $$
-  SELECT a.task, a.genus, a.role, a.unit, a.month,
-         p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
-         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(t."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         a.planned, a.contracted, a.budget, a.lines, a.stale
-    FROM (SELECT m."rowOwnerGUID" AS task, l."rowParentGUID" AS genus,
-                 COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS role,
-                 COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS unit,
-                 date_trunc('month', COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date))::date AS month,
-                 SUM(COALESCE(m."qtyTaskLine", 0)) AS planned,
-                 SUM(COALESCE(m."sumForBudget", 0)) AS budget,
-                 SUM(CASE WHEN COALESCE(NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''), '') <> ''
-                          THEN COALESCE(m."qtyTaskLine", 0) ELSE 0 END) AS contracted,
-                 (count(DISTINCT l."rowGUID"))::integer AS lines,
-                 bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
-            FROM public.task_line_plan_movements m
-            JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
-           WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus"
-             AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
-           GROUP BY 1, 2, 3, 4, 5) a
-    JOIN public.project_task_table t ON t."rowGUID" = a.task
-    JOIN public.project_table p ON p."rowGUID" = t."projectGUID"
-    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(a.role, '')
-$$;
-
 -- (the result gained sumForAccounting: a function cannot change its result type in place)
 DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_fact_rows(p_tasks uuid[])
@@ -6686,6 +6656,48 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
    WHERE f."rowOwnerGUID" = ANY (p_tasks) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
    GROUP BY 1, 2, 3, 4, 5, 6
 $$;
+
+-- (the result gained sumForBudget and qtyUsed: a function cannot change its result type in place)
+DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
+CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
+               "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "lineCount" integer, "hasStalePlan" boolean)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  -- the PLAN (movements of the posted plan) FULL JOIN the FACT (the posted fact documents: qtyUsed = their quantity): a role / month that has facts but no plan still gets its row
+  WITH plan AS (
+    SELECT m."rowOwnerGUID" AS task, l."rowParentGUID" AS genus,
+           COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS role,
+           COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS unit,
+           date_trunc('month', COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date))::date AS month,
+           SUM(COALESCE(m."qtyTaskLine", 0)) AS planned,
+           SUM(COALESCE(m."sumForBudget", 0)) AS budget,
+           SUM(CASE WHEN COALESCE(NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''), '') <> ''
+                    THEN COALESCE(m."qtyTaskLine", 0) ELSE 0 END) AS contracted,
+           (count(DISTINCT l."rowGUID"))::integer AS lines,
+           bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
+      FROM public.task_line_plan_movements m
+      JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+     WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus"
+       AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+     GROUP BY 1, 2, 3, 4, 5
+  ), fact AS (
+    SELECT f."rowOwnerGUID" AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."periodMonth" AS month, f."qtyFact" AS used, f."lineCount" AS lines
+      FROM public.monitor01_fresh_fact_rows(p_tasks) f
+     WHERE f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+  )
+  SELECT x.task, x.genus, x.role, x.unit, x.month,
+         p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(t."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
+         COALESCE(a.planned, 0), COALESCE(a.contracted, 0), COALESCE(a.budget, 0), COALESCE(b.used, 0), COALESCE(a.lines, b.lines, 0), COALESCE(a.stale, false)
+    FROM (SELECT task, genus, role, unit, month FROM plan UNION SELECT task, genus, role, unit, month FROM fact) x
+    LEFT JOIN plan a ON a.task = x.task AND a.genus = x.genus AND a.role = x.role AND a.unit = x.unit AND a.month = x.month
+    LEFT JOIN fact b ON b.task = x.task AND b.genus = x.genus AND b.role = x.role AND b.unit = x.unit AND b.month = x.month
+    JOIN public.project_task_table t ON t."rowGUID" = x.task
+    JOIN public.project_table p ON p."rowGUID" = t."projectGUID"
+    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(x.role, '')
+$$;
+
 
 -- ---- the worker -----------------------------------------------------------------------------------------------------------------------------------------------
 -- apply ONE group of tasks: step 1 the fact sums, step 2 the view; ONLY the rows whose numbers (or names) changed are written. Returns rows upserted and deleted.
@@ -6715,20 +6727,20 @@ BEGIN
          RETURNING 1)
   SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_fu, v_fd;
 
-  -- step 2: monitor01_view (qtyDelivered / qtyUsed have no data yet: they keep their default 0; the fact sums above are the single place to connect them later)
+  -- step 2: monitor01_view (qtyUsed = the quantity of the POSTED fact documents; qtyDelivered has no data yet and keeps its default 0)
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6915,16 +6927,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6979,7 +6991,7 @@ BEGIN
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM flt), (SELECT COALESCE(sum("qty"), 0) FROM flt), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
       INTO v_count, v_sum, v_rows;
-  ELSIF p_measure = 'fact' THEN
+  ELSIF p_measure IN ('fact', 'used') THEN
     WITH src AS (
       SELECT x."rowGUID"::text AS "rowGUID", 'taskFactUsageTimeline'::text AS "sourceName", x."periodDay" AS "day", x."rowOwnerGUID"::text AS "taskGUID", x."rowProjectGUID"::text AS "projectGUID",
              x."taskLineGUID"::text AS "lineGUID", x."rowHeaderGUID"::text AS "documentGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
@@ -7002,7 +7014,7 @@ BEGIN
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
       INTO v_count, v_sum, v_rows;
-  ELSIF p_measure IN ('delivered', 'used') THEN
+  ELSIF p_measure = 'delivered' THEN
     v_count := 0; v_sum := 0; v_rows := '[]'::jsonb;
   ELSE
     RAISE EXCEPTION 'unknown measure %', p_measure USING ERRCODE = '22023';
@@ -7013,10 +7025,41 @@ $$;
 REVOKE ALL ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) TO authenticated;
 
+-- ---- refresh NOW: the "Refresh" button of the report and its first look. The worker (pg_cron) is the normal way; this is for the moment it is not running (the pg_cron extension is not enabled, the
+-- "N seconds" schedule was refused) or has not come yet: it recomputes the tasks of the USER'S OWN projects (plan movements, posted facts, rows of the view) at once, in the same way as the worker (monitor01_apply),
+-- and removes them from the queue. An error is NOT swallowed: the screen shows its message. Returns { tasks, upserted, deleted }.
+CREATE OR REPLACE FUNCTION public.monitor01_refresh_now(p_project uuid DEFAULT NULL, p_max integer DEFAULT 2000) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_tasks uuid[]; v_up integer := 0; v_del integer := 0;
+BEGIN
+  SELECT array_agg(s.t) INTO v_tasks FROM (
+    SELECT DISTINCT x.t FROM (
+      SELECT m."rowOwnerGUID" AS t, m."rowProjectGUID" AS pr FROM public.task_line_plan_movements m
+      UNION SELECT f."rowOwnerGUID", f."rowProjectGUID" FROM public.task_fact_usage_timeline f
+      UNION SELECT v."rowOwnerGUID", v."rowProjectGUID" FROM public.monitor01_view v) x
+     WHERE public.pm_owns_project(x.pr) AND (p_project IS NULL OR x.pr = p_project)
+     LIMIT GREATEST(p_max, 1)) s;
+  IF v_tasks IS NULL THEN
+    RETURN jsonb_build_object('tasks', 0, 'upserted', 0, 'deleted', 0);
+  END IF;
+  SELECT a.p_upserted, a.p_deleted INTO v_up, v_del FROM public.monitor01_apply(v_tasks) a;
+  DELETE FROM public.monitor01_dirty q WHERE q."rowOwnerGUID" = ANY (v_tasks);
+  RETURN jsonb_build_object('tasks', cardinality(v_tasks), 'upserted', v_up, 'deleted', v_del);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.monitor01_refresh_now(uuid, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.monitor01_refresh_now(uuid, integer) TO authenticated;
+
 -- ---- first fill: the install only QUEUES the tasks (no heavy statement inside the install); the worker fills the view in the next ticks. Only when the view is empty ----
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT m."rowOwnerGUID", 'install' FROM public.task_line_plan_movements m
  WHERE NOT EXISTS (SELECT 1 FROM public.monitor01_view LIMIT 1)
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+-- upgrade: the tasks that have fact documents are queued once (qtyUsed was connected after the first release); a second run only re-checks them - rows that did not change are not written
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline f
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 -- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----

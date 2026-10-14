@@ -367,6 +367,11 @@
     <li><b>PMFactInputDocumentList</b>: columns document input data · sumForBudget · sumForContract · sumForAccounting (totals of the document) · author; fast filters <code>factTimelinePeriod</code>, <code>factProjectFilter</code>, <code>factBusinessUnitFilter</code>, <code>factRoleFilter</code>, <code>factResourceFilter</code>, <code>authorFilter</code> (applied by the RPC <code>task_fact_document_list</code>: a document is listed when ONE of its lines satisfies all the line filters).</li>
     <li><b>Menu</b>: hamburger → Budgets → (catalogs) + divider + <b>Actuals</b> → <code>/pm/fact/list</code>.</li>
   </ul>
+  <h2>13b - Round 3 (2026-10-14)</h2>
+  <ul>
+    <li><b>Actuals list on ReusableTable with CRUD</b> (<code>taskFactHeader</code> entity): Create = the New fact document window → <code>task_fact_document_create</code>; Open = row click / menu (new table parameters <code>onAdd</code>, <code>onRowOpen</code>, <code>openLabel</code>); Delete = a draft. The six fast filters are in one row, each with a Clear icon inside its field.</li>
+    <li><b>Posted facts now reach Monitor01</b>: <code>qtyUsed</code> = Σ <code>qtyForContract</code> of the posted documents (also where the role / month has no plan). A draft is not counted. The table was renamed <code>task_fact_usage_timeline</code>.</li>
+  </ul>
   <h2>12 - Questions</h2>
   <p class="sub">Each has my default.</p>
   <div class="scroll"><table>

@@ -17,6 +17,8 @@ export interface Monitor01FiltersProps {
   testID?: string;
 }
 
+/** wide enough for the whole date (2026-12-31) next to the calendar and clear icons */
+const DATE_WIDTH = 200;
 const DATES: { key: 'startDate' | 'finishDate'; label: string }[] = [
   { key: 'startDate', label: 'startDate' },
   { key: 'finishDate', label: 'finishDate' },
@@ -44,7 +46,7 @@ export default function Monitor01FiltersBar({ value, onChange, showProject, test
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} testID={testID} style={{ flexGrow: 0 }} contentContainerStyle={styles.row}>
       {DATES.map((f) => (
-        <View key={f.key} style={{ width: 150 }}>
+        <View key={f.key} style={{ width: DATE_WIDTH }}>
           <DateInputApp testID={`${testID}-${f.key}`} label={pmT(f.label)} value={draft[f.key]} onChangeText={(t) => set(f.key, t)} compact error={errors[f.key]} />
         </View>
       ))}

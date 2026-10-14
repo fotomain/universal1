@@ -24,5 +24,7 @@ export const MONITOR01_SUM_PAGE_SIZE = 100;
 export const MONITOR01_VIEW_TABLE = 'monitor01_view';
 export const MONITOR01_REFRESH_LOG_TABLE = 'monitor01_refresh_log';
 export const RPC_MONITOR01_SUM_SOURCES = 'monitor01_sum_sources';
+/** recompute the user's tasks NOW (no pg_cron needed): the Refresh button and the first look of an empty report */
+export const RPC_MONITOR01_REFRESH_NOW = 'monitor01_refresh_now';
 /** the route of the separate call (hamburger menu -> Reports -> Monitor01) */
 export const MONITOR01_ROUTE = '/pm/reports/monitor01';

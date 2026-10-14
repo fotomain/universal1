@@ -124,12 +124,34 @@ SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT sum("qtyFact") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'task_line_fact_for_monitor01: the material facts of task03 (65 + 35)');
 SELECT tt.eq((SELECT ("qtyFact", "lineCount", "documentCount") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus')::text, '(24.00,1,1)', 'task_line_fact_for_monitor01: the time fact, 1 line, 1 document');
 SELECT tt.eq((SELECT "periodMonth" FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), date_trunc('month', current_date)::date, '... in the month of the date of the fact (today)');
-SELECT tt.eq((SELECT ("qtyDelivered", "qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus')::text, '(0.00,0.00)', 'the view still has no data in delivered / used');
+SELECT tt.eq((SELECT ("qtyDelivered", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' LIMIT 1)::text, '(0.00,24.00,-24.00)', 'the POSTED fact fills qtyUsed (24); delivered has no data; on-hand = delivered - used');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'the material facts of task03 (65 + 35) are qtyUsed');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), (SELECT sum("qtyFact") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3'), 'the view and task_line_fact_for_monitor01 agree');
+SELECT tt.eq((SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), 24::numeric, 'the plan numbers did not change');
+SELECT public.monitor01_verify(1000) AS v_after_fact \gset
+SELECT tt.eq(:'v_after_fact'::int, 0, 'verify: the view with qtyUsed is exactly the fresh numbers');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT public.unpost_task_fact_document(:'fd');
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT count(*) FROM public.task_line_fact_for_monitor01), 0::bigint, 'Unpost: the sums go');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'Unpost: qtyUsed goes back to 0');
+-- a fact of a role that has NO plan still gets its row (plan 0, used 24)
+SELECT "rowJSON"->>'resourceRoleItem' AS orig_role FROM public.task_fact_usage_timeline WHERE "rowHeaderGUID" = :'fd' AND "genusGUID" = 'timeGenus' \gset
+UPDATE public.task_fact_usage_timeline SET "rowJSON" = jsonb_set("rowJSON", '{resourceRoleItem}', to_jsonb('role-without-plan'::text)) WHERE "rowHeaderGUID" = :'fd' AND "genusGUID" = 'timeGenus';
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.post_task_fact_document(:'fd');
+SELECT tt.as_admin();
+SELECT public.monitor01_process_batch();
+SELECT tt.eq((SELECT ("qtyPlanned", "qtyUsed", "lineCount") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' AND "resourceRoleGUID" = 'role-without-plan')::text, '(0.00,24.00,1)', 'a fact without a plan: its own row (planned 0, used 24)');
+SELECT tt.eq((SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' AND "resourceRoleGUID" <> 'role-without-plan'), 24::numeric, '... the planned row stays');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.unpost_task_fact_document(:'fd');
+SELECT tt.as_admin();
+SELECT public.monitor01_process_batch();
+SELECT tt.eq((SELECT count(*) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "resourceRoleGUID" = 'role-without-plan'), 0::bigint, 'Unpost: the row that only the fact made is gone');
+UPDATE public.task_fact_usage_timeline SET "rowJSON" = jsonb_set("rowJSON", '{resourceRoleItem}', to_jsonb(:'orig_role'::text)) WHERE "rowHeaderGUID" = :'fd' AND "genusGUID" = 'timeGenus' AND "rowJSON"->>'resourceRoleItem' = 'role-without-plan';
+SELECT public.monitor01_process_batch();
 
 -- 5. the drill-down: the list is the proof of the sum --------------------------------------------------------------------------------------------------------
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
@@ -147,12 +169,15 @@ SELECT tt.eq(public.monitor01_sum_sources('planned', jsonb_build_object('taskGUI
 SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('projectGUID', :'pa'))->>'sum')::numeric, (SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowProjectGUID" = :'pa'), 'drill-down of a total (the whole project) equals the sum of the rows');
 SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3'), 1, 1)->'rows')::jsonb @> '[]'::jsonb AND jsonb_array_length(public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3'), 1, 1)->'rows') = 1, true, 'paging: limit 1 offset 1 gives one row');
 SELECT tt.eq((public.monitor01_sum_sources('delivered', '{}'::jsonb)->>'totalCount')::int, 0, 'delivered has no data yet');
+SELECT tt.eq((public.monitor01_sum_sources('used', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 0, 'used: no posted document at this moment = no lines');
 SELECT tt.fails($q$SELECT public.monitor01_sum_sources('nonsense')$q$, 'unknown measure', 'an unknown measure is refused');
 -- the facts of a posted document
 SELECT public.post_task_fact_document(:'fd');
 SELECT public.monitor01_sum_sources('fact', jsonb_build_object('taskGUID', :'t3')) AS s3 \gset
 SELECT tt.eq((:'s3'::jsonb->>'totalCount')::int, 3, 'drill-down: the lines of the posted fact document');
 SELECT tt.eq(:'s3'::jsonb->'rows'->0->>'documentNumber' LIKE 'FI-%', true, '... with the document number');
+SELECT public.monitor01_sum_sources('used', jsonb_build_object('taskGUID', :'t3', 'genusGUID', 'timeGenus')) AS s3u \gset
+SELECT tt.eq((:'s3u'::jsonb->>'sum')::numeric, 24::numeric, 'drill-down used = the lines of the posted fact (the number of the cell)');
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
 SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 0, 'marko cannot list the transactions of anna');
 
@@ -165,6 +190,23 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq((SELECT count(*) > 0 FROM public.monitor01_view), true, 'anna sees her rows');
 SELECT tt.eq((SELECT count(*) FROM public.monitor01_view WHERE "rowOwnerUserGUID" <> '11111111-1111-1111-1111-111111111111'), 0::bigint, '... only hers');
 SELECT tt.as_admin();
+
+-- 6b. refresh NOW (no pg_cron needed): the user's own tasks are recomputed at once ---------------------------------------------------------------------------------
+SELECT tt.as_admin();
+SELECT count(*) AS rows_before FROM public.monitor01_view \gset
+DELETE FROM public.monitor01_view;
+SELECT tt.eq((SELECT count(*) FROM public.monitor01_view), 0::bigint, 'the view is empty (the worker did not run)');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.monitor01_refresh_now() AS rn \gset
+SELECT tt.eq((:'rn'::jsonb->>'tasks')::int > 0, true, 'refresh now: it found the tasks of anna');
+SELECT tt.eq((SELECT count(*) FROM public.monitor01_view), :'rows_before'::bigint, 'refresh now: the PLAN rows are back (all of them), the same as the worker made');
+SELECT tt.eq((SELECT sum("qtyPlanned") > 0 FROM public.monitor01_view), true, 'refresh now: plan data without any fact');
+SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.eq((public.monitor01_refresh_now()->>'tasks')::int, 0, 'refresh now: marko has no task of his own - nothing is touched');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.eq((public.monitor01_refresh_now(gen_random_uuid())->>'tasks')::int, 0, 'refresh now: a project that is not hers = nothing');
+SELECT tt.as_admin();
+SELECT tt.eq((SELECT count(*) FROM public.monitor01_dirty WHERE "attempts" >= 5), 0::bigint, 'no parked task');
 
 -- 7. verify: the safety net ------------------------------------------------------------------------------------------------------------------------------------
 SELECT public.monitor01_process_batch();     -- the Post of the fact document above is still queued

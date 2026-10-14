@@ -71,6 +71,7 @@ DROP SEQUENCE IF EXISTS public.task_fact_document_seq;
 DROP PROCEDURE IF EXISTS public.monitor01_process_dirty(integer, integer);
 DROP FUNCTION IF EXISTS public.monitor01_process_batch(integer);
 DROP FUNCTION IF EXISTS public.monitor01_apply(uuid[]);
+DROP FUNCTION IF EXISTS public.monitor01_refresh_now(uuid, integer);
 DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
 DROP FUNCTION IF EXISTS public.monitor01_queue_tasks(uuid[], text);

@@ -1,12 +1,17 @@
-// PMFactInputDocumentList - the LIST of fact input documents (the hamburger menu → Budgets → … → Actuals; route /pm/fact/list).
-//   columns   Document (number · status · input mode · the task and the project) · Period (first - last day of its lines) · Lines · sumForBudget · sumForContract · sumForAccounting
-//             (the totals of the DOCUMENT) · Author · Created.     The footer adds up the listed documents.
-//   fast filters (ONE row above the table, scrolls sideways when narrow; each has a clear icon inside its field)  factTimelinePeriod (DateInputApp from - to) · factProjectFilter · factBusinessUnitFilter · factRoleFilter · factResourceFilter · authorFilter
-//             - applied by the database (task_fact_document_list): a document is listed when ONE of its lines satisfies all the line filters.
-//   a click on a row opens the form of the document (PMFactInputDocumentForm).
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// PMFactInputDocumentList - the LIST of fact input documents (the hamburger menu → Budgets → … → Actuals; route /pm/fact/list), a ReusableTable with CRUD:
+//   columns   Document · Status · Input · Task · Project · Period · Lines · sumForBudget · sumForContract · sumForAccounting (the totals of the DOCUMENT) · Author · Created - read only; the footer adds up the listed documents
+//   CRUD      Create = the "New fact document" window (project, task → task_fact_document_create, the form opens) · Read = realtime rows (entity taskFactHeader) · Open = a click on a row / the row menu
+//             (PMFactInputDocumentForm) · Delete = the selected drafts (a posted document is refused by the database)
+//   fast filters (ONE row above the table, scrolls sideways when narrow; TextInputApp / DateInputApp / the select, each with a Clear icon inside its field)
+//             factTimelinePeriod (from - to) · factProjectFilter · factBusinessUnitFilter · factRoleFilter · factResourceFilter · authorFilter
+//             - applied by the DATABASE (task_fact_document_list): a document is listed when ONE of its lines satisfies all the line filters; the table shows exactly those documents.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
+import { useSupabase } from '../../providers/WithSupabase';
+import ReusableTable from '../../ui/components/table/reusable/ReusableTable';
+import { REUSABLE_TABLE_ALL } from '../../ui/components/table/reusable/reusableTableTypes';
 import ButtonApp from '../../ui/components/common/ButtonApp';
 import IconApp from '../../ui/components/common/IconApp';
 import SelectItemFromListApp from '../../ui/components/common/SelectItemFromListApp';
@@ -17,17 +22,16 @@ import { businessUnitPath } from '../../catalog/business_unit/businessUnitModel'
 import { useTaskLineCatalogs } from '../view/task/finances/useTaskLineCatalogs';
 import { personFullName, resourceTitleOfRow } from '../view/task/finances/taskLineResource';
 import { pmT } from '../i18n/pmT';
-import {
-  EMPTY_FACT_LIST_FILTER, FactListFilter, FactListRow, dayOfPeriod, factListDateErrors, factListFilterActive,
-} from './factInputModel';
+import { EMPTY_FACT_LIST_FILTER, FACT_HEADER_ENTITY, FactListFilter, FactListRow, factListDateErrors, factListFilterActive } from './factInputModel';
+import { createFactDocument } from './factInputApi';
+import { factListColumns } from './factListColumns';
+import PMFactNewDocumentModal from './PMFactNewDocumentModal';
 import { useFactDocumentList, useFactProjects } from './useFactDocumentList';
 import { useOpenFactInput } from './useOpenFactInput';
 
 export const FACT_LIST_FILTER_DEBOUNCE_MS = 150;
-const PAGE = 200;
-const W = { doc: 260, period: 190, lines: 70, sum: 130, author: 160, created: 110 };
-const ROW_H = 46;
-const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** the documents the table can show: the whole list RPC answer (the table has its own search / sort / column filters) */
+const LIST_LIMIT = 1000;
 
 export interface PMFactInputDocumentListProps {
   testID?: string;
@@ -53,19 +57,51 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
   // the typed filter (draft) is applied after a pause
   const [draft, setDraft] = useState<FactListFilter>({ ...EMPTY_FACT_LIST_FILTER, projectGUID: projectGUID || '' });
   const [applied, setApplied] = useState<FactListFilter>(draft);
-  const [limit, setLimit] = useState(PAGE);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   const change = (patch: Partial<FactListFilter>) => {
     const next = { ...draft, ...patch };
     setDraft(next);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { setApplied(next); setLimit(PAGE); }, FACT_LIST_FILTER_DEBOUNCE_MS);
+    timer.current = setTimeout(() => setApplied(next), FACT_LIST_FILTER_DEBOUNCE_MS);
   };
   const errors = factListDateErrors(draft);
 
-  const list = useFactDocumentList(applied, limit);
-  const { rows, totals, totalCount } = { rows: list.answer.rows, totals: list.answer.totals, totalCount: list.answer.totalCount };
+  const list = useFactDocumentList(applied, LIST_LIMIT);
+
+  // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
+  const byGuid = useMemo(() => new Map<string, FactListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  const columns = useMemo(() => factListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
+  const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
+  // a document made / posted / deleted elsewhere (realtime) changes the entity: the list is read again
+  const entityRows: any[] | undefined = useSelector((s: any) => s?.[FACT_HEADER_ENTITY]?.entityDataFromServer);
+  const signature = (entityRows ?? []).map((r) => `${r.rowGUID}:${r.updated_at ?? ''}:${r.rowJSON?.documentHeader?.documentStatus ?? ''}`).join('|');
+  const seen = useRef<string | null>(null);
+  useEffect(() => {
+    if (seen.current !== null && seen.current !== signature) list.refetch();
+    seen.current = signature;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+
+  // Create: the "New fact document" window → task_fact_document_create → the form of the new document
+  const { supabase } = useSupabase();
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const create = async (taskGUID: string, project: string) => {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const documentGUID = await createFactDocument(supabase, taskGUID);
+      setCreating(false);
+      list.refetch();
+      openFactInput({ taskGUID, projectGUID: project || undefined, documentGUID });
+    } catch (e: any) {
+      setCreateError(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const projectItems = useMemo(() => projects.map((p) => ({ value: p.guid, label: p.name })), [projects]);
   const unitItems = useMemo(() => data.businessUnit.map((u) => ({ value: u.rowGUID, label: businessUnitPath(data.businessUnit, u.rowGUID) || rowTitle(u) })), [data.businessUnit]);
@@ -75,27 +111,6 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
     ...data.equipment.map((r) => ({ value: r.rowGUID, label: resourceTitleOfRow(r), group: pmT('Equipment') })),
     ...data.product.map((r) => ({ value: r.rowGUID, label: rowTitle(r), group: pmT('Products') })),
   ], [data.person, data.equipment, data.product]);
-
-  const width = W.doc + W.period + W.lines + W.sum * 3 + W.author + W.created;
-  const renderItem = ({ item }: { item: FactListRow }) => (
-    <Pressable testID={`${testID}-row-${item.documentGUID}`} accessibilityRole="button" onPress={() => openFactInput({ taskGUID: item.taskGUID, projectGUID: item.projectGUID, documentGUID: item.documentGUID })}
-      style={[styles.row, { height: ROW_H, borderBottomColor: c.border }]}>
-      <View style={{ width: W.doc, paddingHorizontal: 8 }}>
-        <Text numberOfLines={1} style={{ color: c.text, fontSize: 13, fontWeight: '700' }}>
-          {item.documentNumber} · <Text style={{ color: item.documentStatus === 'posted' ? c.primary : c.text, opacity: item.documentStatus === 'posted' ? 1 : 0.7 }}>{pmT(item.documentStatus === 'posted' ? 'Posted' : 'Draft')}</Text>
-          {' · '}{pmT(item.strongInput ? 'Strong' : 'Free')}
-        </Text>
-        <Text numberOfLines={1} style={{ color: c.text, opacity: 0.65, fontSize: 11 }}>{item.taskName}{item.projectName ? ` · ${item.projectName}` : ''}</Text>
-      </View>
-      <Text testID={`${testID}-period-${item.documentGUID}`} numberOfLines={1} style={[styles.cell, { width: W.period, color: c.text }]}>{item.firstDay ? `${dayOfPeriod(item.firstDay)} – ${dayOfPeriod(item.lastDay)}` : ''}</Text>
-      <Text style={[styles.cell, styles.num, { width: W.lines, color: c.text }]}>{item.lineCount}</Text>
-      <Text testID={`${testID}-budget-${item.documentGUID}`} style={[styles.cell, styles.num, { width: W.sum, color: c.text }]}>{money(item.sumForBudget)}</Text>
-      <Text testID={`${testID}-contract-${item.documentGUID}`} style={[styles.cell, styles.num, { width: W.sum, color: c.text }]}>{money(item.sumForContract)}</Text>
-      <Text testID={`${testID}-accounting-${item.documentGUID}`} style={[styles.cell, styles.num, { width: W.sum, color: c.text }]}>{money(item.sumForAccounting)}</Text>
-      <Text numberOfLines={1} style={[styles.cell, { width: W.author, color: c.text }]}>{item.authorName}</Text>
-      <Text numberOfLines={1} style={[styles.cell, { width: W.created, color: c.text, opacity: 0.7 }]}>{dayOfPeriod(item.createdAt)}</Text>
-    </Pressable>
-  );
 
   return (
     <View testID={testID} style={styles.root}>
@@ -112,10 +127,10 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
 
       {/* the fast filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters} testID={`${testID}-filters`}>
-        <View style={{ width: 150 }}>
+        <View style={{ width: 200 }}>
           <DateInputApp testID={`${testID}-factTimelinePeriod-from`} label={pmT('Period from')} value={draft.fromDay} onChangeText={(t) => change({ fromDay: t })} compact error={errors.fromDay} />
         </View>
-        <View style={{ width: 150 }}>
+        <View style={{ width: 200 }}>
           <DateInputApp testID={`${testID}-factTimelinePeriod-to`} label={pmT('Period to')} value={draft.toDay} onChangeText={(t) => change({ toDay: t })} compact error={errors.toDay} />
         </View>
         {!projectGUID && <FilterSelect testID={`${testID}-factProjectFilter`} label={pmT('Project')} items={projectItems} value={draft.projectGUID} onSelect={(v) => change({ projectGUID: v })} />}
@@ -129,39 +144,25 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
 
       {!!list.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{list.error}</Text>}
 
-      <ScrollView horizontal contentContainerStyle={{ minWidth: width }} style={{ flex: 1 }}>
-        <View style={{ width, flex: 1 }}>
-          <View style={[styles.row, { height: 34, backgroundColor: c.surface, borderBottomColor: c.border, borderBottomWidth: 1 }]}>
-            <Text style={[styles.head, { width: W.doc, color: c.text }]}>{pmT('Document')}</Text>
-            <Text style={[styles.head, { width: W.period, color: c.text }]}>{pmT('Period')}</Text>
-            <Text style={[styles.head, styles.num, { width: W.lines, color: c.text }]}>{pmT('Lines')}</Text>
-            <Text style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{pmT('sumForBudget')}</Text>
-            <Text style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{pmT('sumForContract')}</Text>
-            <Text style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{pmT('sumForAccounting')}</Text>
-            <Text style={[styles.head, { width: W.author, color: c.text }]}>{pmT('Author')}</Text>
-            <Text style={[styles.head, { width: W.created, color: c.text }]}>{pmT('Created')}</Text>
-          </View>
-          <FlatList
-            data={rows}
-            keyExtractor={(r) => r.documentGUID}
-            renderItem={renderItem}
-            initialNumToRender={25}
-            windowSize={9}
-            ListEmptyComponent={<Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.6, padding: 16 }}>{list.isLoading ? pmT('Loading…') : factListFilterActive(applied) ? pmT('No document matches the filters.') : pmT('No fact input documents yet. Right-click a line of a task → Facts input.')}</Text>}
-          />
-          {/* the footer: the listed documents added up */}
-          <View testID={`${testID}-footer`} style={[styles.row, { height: 36, backgroundColor: c.surface, borderTopColor: c.border, borderTopWidth: 1 }]}>
-            <Text testID={`${testID}-count`} style={[styles.head, { width: W.doc + W.period, color: c.text }]}>{rows.length === totalCount ? `${totalCount} ${pmT('documents')}` : `${rows.length} ${pmT('of')} ${totalCount} ${pmT('documents')}`}</Text>
-            <View style={{ width: W.lines }} />
-            <Text testID={`${testID}-total-budget`} style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{money(totals.sumForBudget)}</Text>
-            <Text testID={`${testID}-total-contract`} style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{money(totals.sumForContract)}</Text>
-            <Text testID={`${testID}-total-accounting`} style={[styles.head, styles.num, { width: W.sum, color: c.text }]}>{money(totals.sumForAccounting)}</Text>
-          </View>
-        </View>
-      </ScrollView>
-      {rows.length < totalCount && (
-        <ButtonApp testID={`${testID}-more`} title={`${pmT('Load more')} (${rows.length} ${pmT('of')} ${totalCount})`} variant="text" size="small" onPress={() => setLimit((l) => l + PAGE)} />
-      )}
+      <View style={{ flex: 1 }} testID={`${testID}-table`}>
+        <ReusableTable
+          testID={`${testID}-lines`}
+          entityName={FACT_HEADER_ENTITY}
+          crudListTitle={pmT('Actuals')}
+          itemLabel="Document"
+          openLabel={pmT('Open document')}
+          listOwnerGUID={REUSABLE_TABLE_ALL}
+          listParentGUID={REUSABLE_TABLE_ALL}
+          readParams={{ orderBy: 'created_at', ascending: false, ...(projectGUID ? { match: { rowProjectGUID: projectGUID } } : {}) }}
+          visualColumns={columns}
+          rowFilter={rowFilter}
+          reorderEnabled={false}
+          onAdd={() => { setCreateError(null); setCreating(true); }}
+          onRowOpen={(row) => { const r = byGuid.get(row.rowGUID); if (r) openFactInput({ taskGUID: r.taskGUID, projectGUID: r.projectGUID, documentGUID: r.documentGUID }); }}
+          emptyText={list.isLoading ? pmT('Loading…') : factListFilterActive(applied) ? pmT('No document matches the filters.') : pmT('No fact input documents yet. Right-click a line of a task → Facts input.')}
+        />
+      </View>
+      <PMFactNewDocumentModal testID={`${testID}-new`} visible={creating} projectGUID={projectGUID} busy={busy} error={createError} onCancel={() => setCreating(false)} onCreate={create} />
     </View>
   );
 }
@@ -170,8 +171,4 @@ const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
   bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   filters: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
-  cell: { fontSize: 13, paddingHorizontal: 8 },
-  head: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8 },
-  num: { textAlign: 'right' },
 });

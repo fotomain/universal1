@@ -80,7 +80,7 @@ const MENU_W = 36;
 export default function ReusableTable(props: ReusableTableProps) {
   const {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
-    selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, uxuiTable,
+    selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, onAdd, onRowOpen, openLabel, uxuiTable,
     selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
     emptyText, testID = 'reusable-table', toolbarExtra, EditRowModalCard,
   } = props;
@@ -139,8 +139,9 @@ export default function ReusableTable(props: ReusableTableProps) {
   const fixedWidth = uxuiTable?.fixedWidth ?? '100%';
   // ---- edit in a modal card (EditRowModalCard): menu "Edit"; inlineEdit = false: a click on a row opens it ----
   const [editGUID, setEditGUID] = useState<string | null>(null);
-  const inlineEdit = uxuiTable?.inlineEdit !== false || !EditRowModalCard;
-  const openEdit = EditRowModalCard ? (guid: string) => setEditGUID(guid) : undefined;
+  // onRowOpen (no card): the screen shows the row, the cells only show
+  const inlineEdit = !(!EditRowModalCard && onRowOpen) && (uxuiTable?.inlineEdit !== false || !EditRowModalCard);
+  const openEdit = EditRowModalCard ? (guid: string) => setEditGUID(guid) : onRowOpen ? (guid: string) => { const r = crud.rows.find((x) => x.rowGUID === guid); if (r) onRowOpen(r); } : undefined;
   /** px of the table body (measured): the columns are stretched to fill it */
   const [bodyWidth, setBodyWidth] = useState(0);
   /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
@@ -481,9 +482,9 @@ export default function ReusableTable(props: ReusableTableProps) {
             {postEl}
             {crudPanelEnabled && (<>
             {addEnabled && (<>
-            <PMIconButton tipScope="app" testID={`${testID}-add`} icon="add" title={`Add ${itemLabel.toLowerCase()} last`} color={c.primary} onPress={() => crud.createLast()} />
-            <PMIconButton tipScope="app" testID={`${testID}-add-first`} icon="add_row_above" title={`Add ${itemLabel.toLowerCase()} first`} color={c.text} onPress={() => crud.createFirst()} />
-            <PMIconButton tipScope="app" testID={`${testID}-duplicate-selected`} icon="control_point_duplicate" title="Duplicate the selected row" color={c.text} disabled={!one} onPress={() => one && crud.duplicate(one)} />
+            <PMIconButton tipScope="app" testID={`${testID}-add`} icon="add" title={`Add ${itemLabel.toLowerCase()} last`} color={c.primary} onPress={() => (onAdd ? onAdd() : crud.createLast())} />
+            {!onAdd && <PMIconButton tipScope="app" testID={`${testID}-add-first`} icon="add_row_above" title={`Add ${itemLabel.toLowerCase()} first`} color={c.text} onPress={() => crud.createFirst()} />}
+            {!onAdd && <PMIconButton tipScope="app" testID={`${testID}-duplicate-selected`} icon="control_point_duplicate" title="Duplicate the selected row" color={c.text} disabled={!one} onPress={() => one && crud.duplicate(one)} />}
             </>)}
             {reorderEnabled && (
               <>
@@ -591,7 +592,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </ScrollView>
 
-      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled} filtered={viewFiltered}
+      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled && !onAdd} openLabel={openLabel} filtered={viewFiltered}
         onDelete={(guid) => askDelete([guid])} onEdit={openEdit} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
       {EditRowModalCard && editGUID && (() => {
         const editRow = rows.find((x) => x.rowGUID === editGUID);

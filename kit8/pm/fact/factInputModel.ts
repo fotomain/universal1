@@ -9,6 +9,7 @@
 //
 // Everything here is pure (no React, no Supabase), so the rules are tested without a screen: the twin of the database rules (sums, states) and the texts of the problems.
 import { MANAGEMENT_GENUS } from '../../catalog/management/genus/managementGenusModel';
+import { parseCompactDateDigits } from '../../ui/components/common/date_input/dateInputFormat';
 
 export const FACT_HEADER_TABLE = 'task_fact_header';
 export const FACT_USAGE_TIMELINE_TABLE = 'task_fact_usage_timeline';
@@ -21,6 +22,8 @@ export const RPC_FACT_UNPOST = 'unpost_task_fact_document';
 export const RPC_FACT_LIST = 'task_fact_document_list';
 /** the redux entity of the lines (SystemMetaData, factMetaData.ts): the ReusableTable of the form reads / edits task_fact_usage_timeline through it */
 export const FACT_USAGE_TIMELINE_ENTITY = 'taskFactUsageTimelineReusable';
+/** the redux entity (SystemMetaData key) of the fact DOCUMENTS (task_fact_header): the table of the Actuals list reads them, realtime, and deletes a draft through it */
+export const FACT_HEADER_ENTITY = 'taskFactHeader';
 /** the list screen (hamburger menu → Budgets → Actuals) */
 export const FACT_LIST_ROUTE = '/pm/fact/list';
 /** the route of the screen (app/pm/project/task/fact): ?taskGUID=…&taskLineGUID=…&genus=…&projectGUID=…&documentGUID=… */
@@ -199,13 +202,15 @@ export function factTotalsByUnit(lines: FactLineRow[]): FactUnitTotal[] {
 // ---- the date and the quantity as the user types them ----
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DAY_EU = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
-/** 'YYYY-MM-DD' or 'DD.MM.YYYY' → 'YYYY-MM-DD' (a real calendar day), else null */
+/** 'YYYY-MM-DD', 'DD.MM.YYYY', or eight digits (20260101 / 20122026) → 'YYYY-MM-DD' (a real calendar day), else null */
 export function parseDayInput(text: string | null | undefined): string | null {
   const s = String(text ?? '').trim();
   let y: number, m: number, d: number;
   const a = DAY.exec(s);
   const b = DAY_EU.exec(s);
-  if (a) { y = +a[1]; m = +a[2]; d = +a[3]; }
+  const c = parseCompactDateDigits(s);
+  if (c) { y = c.y; m = c.m; d = c.d; }
+  else if (a) { y = +a[1]; m = +a[2]; d = +a[3]; }
   else if (b) { y = +b[3]; m = +b[2]; d = +b[1]; }
   else return null;
   const t = new Date(Date.UTC(y, m - 1, d));

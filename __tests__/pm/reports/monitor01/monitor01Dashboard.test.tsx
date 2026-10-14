@@ -1,12 +1,13 @@
 /** @jest-environment jsdom */
 // Monitor01Dashboard: the table of the sheet, the tabs, the fast filters, the two modes, and the Sum explorer behind every number. The rows hook and the drill-down call are replaced.
 import { act } from 'react';
-import { cleanupUI, expectInOrder, inputValue, mustGet, press, q, qa, renderUI, textOf, typeInto } from '../../ui/pmUiTestKit';
+import { cleanupUI, expectInOrder, inputValue, mustGet, press, q, qa, renderUI, textOf, toggleSwitch, typeInto } from '../../ui/pmUiTestKit';
 
 const mockHook: { rows: any[]; isLoading: boolean; error: string | null; live: boolean; changedAt: number | null; reload: () => void } = { rows: [], isLoading: false, error: null, live: true, changedAt: Date.now(), reload: jest.fn() };
 jest.mock('../../../../kit8/pm/reports/monitor01/useMonitor01Rows', () => ({ useMonitor01Rows: jest.fn(() => mockHook) }));
 const mockFetch = jest.fn();
-jest.mock('../../../../kit8/pm/reports/monitor01/monitor01Api', () => ({ fetchMonitor01Sources: (...a: any[]) => mockFetch(...a) }));
+const mockRefresh = jest.fn(async (..._a: any[]) => ({ tasks: 3, upserted: 4, deleted: 0 }));
+jest.mock('../../../../kit8/pm/reports/monitor01/monitor01Api', () => ({ fetchMonitor01Sources: (...a: any[]) => mockFetch(...a), refreshMonitor01Now: (...a: any[]) => (mockRefresh as any)(...a) }));
 jest.mock('../../../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: new Proxy({}, { get: () => ({ actions: { readData: (p: any) => ({ type: 'read', p }) } }) }) }));
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
@@ -224,6 +225,124 @@ describe('the two modes and the fast filters', () => {
   });
 });
 
+describe('filters at the start, dates, the Monitor01Toolbar and Auto refresh', () => {
+  it('the filters are EMPTY at the start and then ALL the data is visible', () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    ['startDate', 'finishDate', 'project', 'task', 'resource'].forEach((k) => expect(inputValue(`monitor01-filters-${k}`)).toBe(''));
+    expect(rowIds()).toHaveLength(4);                                   // every row of the sheet
+    expect(textOf('monitor01-tab-all-count')).toBe('4');
+  });
+  it('emptying a filter again shows all the data again', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-startDate', '2026-11-01');
+    typeInto('monitor01-filters-task', 'task03');
+    await wait(250);
+    expect(rowIds()).toHaveLength(0);
+    typeInto('monitor01-filters-startDate', '');
+    typeInto('monitor01-filters-task', '');
+    await wait(250);
+    expect(rowIds()).toHaveLength(4);
+  });
+  it('the date inputs are wide enough for the whole date (200 px) and eight digits are turned into the date', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    const widths: string[] = [];
+    for (let el: HTMLElement | null = mustGet('monitor01-filters-startDate'); el && el !== document.body; el = el.parentElement) widths.push(getComputedStyle(el).width);
+    expect(widths).toContain('200px');                                  // the box of the field (the picker and clear icons are inside it)
+    typeInto('monitor01-filters-startDate', '20261101');
+    expect(inputValue('monitor01-filters-startDate')).toBe('2026-11-01');
+    typeInto('monitor01-filters-finishDate', '31122026');
+    expect(inputValue('monitor01-filters-finishDate')).toBe('2026-12-31');
+    await wait(250);
+    expect(rowIds()).toHaveLength(0);                                    // the rows are in October 2026
+  });
+  it('Monitor01Toolbar sits right after "Monitor01  Roles requirements": Refresh button and the Auto refresh switch', () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    expectInOrder(['monitor01-title', 'monitor01-toolbar', 'monitor01-toolbar-refresh', 'monitor01-toolbar-auto', 'monitor01-age']);
+    expect(textOf('monitor01-toolbar')).toContain('Refresh');
+    expect(textOf('monitor01-toolbar')).toContain('Auto refresh');
+  });
+  it('Refresh reads the data again', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press('monitor01-toolbar-refresh');
+    await flush();
+    expect(mockHook.reload).toHaveBeenCalledTimes(1);
+  });
+  it('Auto refresh ON (default): a realtime change shows at once - also while a filter is set, and after the filter was changed', async () => {
+    const view = renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-task', 'task03');
+    await wait(250);
+    expect(rowIds()).toHaveLength(2);
+    mockHook.rows = [...sheet(), parseMonitor01Row(raw({ rowOwnerGUID: 't9', taskName: 'task03 new', qtyPlanned: 5, qtyContracted: 0, qtyRestToContract: 5, resourceRoleGUID: 'r9' }))];
+    view.rerender(<Monitor01Dashboard mode="standalone" />);
+    expect(rowIds()).toHaveLength(3);
+    typeInto('monitor01-filters-task', 'task0');
+    await wait(250);
+    expect(rowIds()).toHaveLength(5);
+    mockHook.rows = mockHook.rows.slice(0, 3);
+    view.rerender(<Monitor01Dashboard mode="standalone" />);
+    expect(rowIds()).toHaveLength(3);
+  });
+  it('Auto refresh OFF: the table stays a snapshot (filters still work on it) until Refresh shows the new data', async () => {
+    const view = renderUI(<Monitor01Dashboard mode="standalone" />);
+    toggleSwitch('monitor01-toolbar-auto');
+    expect(textOf('monitor01-age')).toContain('Auto refresh is off');
+    mockHook.rows = [...sheet(), parseMonitor01Row(raw({ rowOwnerGUID: 't9', taskName: 'task09', resourceRoleGUID: 'r9' }))];
+    view.rerender(<Monitor01Dashboard mode="standalone" />);
+    expect(rowIds()).toHaveLength(4);                                     // the snapshot: the new row is not shown
+    typeInto('monitor01-filters-task', 'task0');
+    await wait(250);
+    expect(rowIds()).toHaveLength(4);                                     // a filter works on the snapshot
+    press('monitor01-toolbar-refresh');
+    await flush();
+    expect(mockHook.reload).toHaveBeenCalledTimes(1);
+    mockHook.changedAt = Date.now() + 5000;                               // the reload arrived
+    view.rerender(<Monitor01Dashboard mode="standalone" />);
+    expect(rowIds()).toHaveLength(5);
+    toggleSwitch('monitor01-toolbar-auto');                               // back ON: live again
+    expect(textOf('monitor01-age')).not.toContain('Auto refresh is off');
+  });
+});
+
+describe('Refresh now (the report must not wait for a worker that does not run)', () => {
+  it('the Refresh button asks the database to recompute the tasks NOW, then reads the rows again', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press('monitor01-toolbar-refresh');
+    await flush();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockRefresh.mock.calls[0][1]).toBeNull();                      // the full data set: no project
+    expect(mockHook.reload).toHaveBeenCalledTimes(1);
+  });
+  it('in the project mode the project is handed over', async () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press('monitor01-toolbar-refresh');
+    await flush();
+    expect(mockRefresh.mock.calls[0][1]).toBe('p1');
+  });
+  it('the FIRST look at an empty report computes the plan data at once - once', async () => {
+    mockHook.rows = [];
+    const view = renderUI(<Monitor01Dashboard mode="standalone" />);
+    await flush();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockHook.reload).toHaveBeenCalledTimes(1);
+    view.rerender(<Monitor01Dashboard mode="standalone" />);
+    await flush();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);                         // not again
+  });
+  it('a report that has rows does not call it by itself', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    await flush();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+  it('an error of the database is shown, and the rows are still read', async () => {
+    mockRefresh.mockRejectedValueOnce(new Error('permission denied for function monitor01_apply'));
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press('monitor01-toolbar-refresh');
+    await flush();
+    expect(textOf('monitor01-refresh-error')).toContain('permission denied for function monitor01_apply');
+    expect(mockHook.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('the data age', () => {
   it('live while the channel is open', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
@@ -266,6 +385,18 @@ describe('every number opens its source transactions', () => {
     press(cell(KEY_T1, 'onHand'));
     await flush();
     expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['delivered', 'used']);
+  });
+  it('"Actually used" is the list of the POSTED fact documents; Open shows the document in the fact input form', async () => {
+    mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 24, rows: [{ rowGUID: 'fl1', sourceName: 'taskFactUsageTimeline', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 24, documentGUID: 'doc1', documentNumber: 'FI-00007' }] }));
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(cell(KEY_T1, 'used'));
+    await flush();
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'used', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-source-used')).toContain('Posted fact documents');
+    expect(textOf('monitor01-sum-source-used')).toContain('FI-00007');
+    mockPush.mockClear();
+    press('monitor01-sum-open-fl1');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/fact', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'doc1' } });
   });
   it('a subtotal and a total are opened with the keys they share (and the project in the project mode)', async () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);

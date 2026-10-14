@@ -7,6 +7,13 @@ import { cleanupUI, expectInOrder, inputValue, press, q, qa, renderUI, textOf, t
 const mockDoc: Record<string, any> = {};
 jest.mock('../../../kit8/pm/fact/useFactInputDocument', () => ({ useFactInputDocument: () => mockDoc }));
 jest.mock('../../../kit8/pm/view/task/finances/useTaskLineCatalogs', () => ({ useTaskLineCatalogs: () => require('../../../kit8/pm/view/task/finances/taskLineCatalogs').emptyTaskLineCatalogs() }));
+const mockButtons: Record<string, any> = {};
+jest.mock('../../../kit8/ui/components/common/ButtonApp', () => {
+  const R = require('react');
+  const Real = jest.requireActual('../../../kit8/ui/components/common/ButtonApp').default;
+  const Spy = (p: any) => { if (p.testID) mockButtons[p.testID] = p; return R.createElement(Real, p); };
+  return { __esModule: true, default: Spy, ButtonApp: Spy };
+});
 const mockTable = jest.fn();
 jest.mock('../../../kit8/ui/components/table/reusable/ReusableTable', () => ({ __esModule: true, default: (p: any) => { mockTable(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
 jest.mock('../../../kit8/ui/components/common/date_input/DateInputApp', () => {
@@ -57,6 +64,18 @@ describe('the bar', () => {
     expect(q('fact-input-unpost')).not.toBeNull();
     expect(q('fact-input-post')).toBeNull();
     expect(q('fact-input-delete')).toBeNull();
+  });
+  it('the Posted button is BIG: a large button like Post (the other buttons of the bar are small), not a small chip', () => {
+    setDoc({}, listRow({ documentStatus: 'posted' }));
+    renderUI(<PMFactInputDocumentForm taskGUID="t1" onClose={jest.fn()} />);
+    expect(q('fact-input-posted')!.getAttribute('role')).toBe('button');
+    expect(textOf('fact-input-posted')).toContain('Posted');
+    expect(mockButtons['fact-input-posted']).toMatchObject({ size: 'large', icon: 'check' });
+    expect(mockButtons['fact-input-unpost'].size).toBe('small');
+    cleanupUI();
+    setDoc();
+    renderUI(<PMFactInputDocumentForm taskGUID="t1" onClose={jest.fn()} />);
+    expect(mockButtons['fact-input-post'].size).toBe('large');             // Post and Posted are the same size
   });
   it('a document without lines cannot be posted', () => {
     setDoc();

@@ -121,6 +121,21 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
     onChangeText?.('');
     onSelectDate?.(null);
   }, [onChangeText, onSelectDate]);
+  // eight digits typed (20260101 = YYYYMMDD, 20122026 = DDMMYYYY) become the normal date text at once, as if the day had been picked
+  const handleChangeText = useCallback(
+    (t: string) => {
+      if (/^\d{8}$/.test(t.trim())) {
+        const d = parse(t.trim());
+        if (d instanceof Date && !isNaN(d.getTime())) {
+          onChangeText?.(format(d));
+          onSelectDate?.(d);
+          return;
+        }
+      }
+      onChangeText?.(t);
+    },
+    [parse, format, onChangeText, onSelectDate]
+  );
   const confirm = useCallback(
     (params: { date?: Date }) => {
       const picked = params?.date || date;
@@ -159,7 +174,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           testID={testID}
           label={label}
           value={text}
-          onChangeText={onChangeText}
+          onChangeText={handleChangeText}
           placeholder={placeholder}
           disabled={disabled}
           error={hasError}
@@ -258,7 +273,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
         <TextInput
           testID={testID}
           value={text}
-          onChangeText={onChangeText}
+          onChangeText={handleChangeText}
           placeholder={placeholder}
           placeholderTextColor={look.placeholder}
           editable={!disabled}

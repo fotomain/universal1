@@ -67,10 +67,33 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumForBudget"');
       expect(src).toContain('DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);');
       expect(src).toContain('SUM(COALESCE(m."sumForBudget", 0)) AS budget');
-      expect(src).toContain('"qtyContracted", "sumForBudget", "lineCount", "hasStalePlan")');                       // the apply column list
-      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
-      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "lineCount" = EXCLUDED."lineCount"');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "lineCount", "hasStalePlan")');                // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "lineCount" = EXCLUDED."lineCount"');
     }
+  });
+  it('the POSTED facts feed qtyUsed: fresh rows = plan FULL JOIN monitor01_fresh_fact_rows (defined before it), the drill-down "used" lists the fact lines, tasks with facts are queued on upgrade', () => {
+    for (const src of [structure, code]) {
+      const factFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_fact_rows');
+      const rowsFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows');
+      expect(factFn).toBeGreaterThan(0);
+      expect(factFn).toBeLessThan(rowsFn);                                                          // a SQL function body is checked when it is created
+      const body = src.slice(rowsFn, src.indexOf('\n$$;\n', rowsFn));
+      expect(body).toContain('public.monitor01_fresh_fact_rows(p_tasks)');
+      expect(body).toContain('"qtyUsed" numeric');
+      expect(body).toContain('UNION SELECT task, genus, role, unit, month FROM fact');             // a fact without a plan still gets its row
+      expect(src).toContain("ELSIF p_measure IN ('fact', 'used') THEN");
+      expect(src).toContain("ELSIF p_measure = 'delivered' THEN");
+      expect(src).toMatch(/SELECT DISTINCT f\."rowOwnerGUID", 'install' FROM public\.task_fact_usage_timeline f/);
+    }
+  });
+  it('monitor01_refresh_now exists in both files, is for the authenticated user (SECURITY DEFINER, own projects only) and is dropped by the delete file', () => {
+    for (const src of [structure, code]) {
+      expect(src).toContain('CREATE OR REPLACE FUNCTION public.monitor01_refresh_now(p_project uuid DEFAULT NULL, p_max integer DEFAULT 2000) RETURNS jsonb');
+      expect(src).toContain('public.pm_owns_project(x.pr)');
+      expect(src).toContain('GRANT EXECUTE ON FUNCTION public.monitor01_refresh_now(uuid, integer) TO authenticated;');
+    }
+    expect(del).toContain('DROP FUNCTION IF EXISTS public.monitor01_refresh_now(uuid, integer);');
   });
   it('the worker is scheduled with the interval function', () => {
     expect(structure).toContain("cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds'");

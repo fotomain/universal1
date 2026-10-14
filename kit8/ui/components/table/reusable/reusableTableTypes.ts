@@ -422,6 +422,18 @@ export interface ReusableTableProps {
    * (default true). The strong fact input: the lines come from the task lines, the user can only change and delete them (kit8/pm/fact)
    */
   addEnabled?: boolean;
+  /**
+   * the table does not make rows itself (the rows are made by a command of the screen, e.g. a fact document by an RPC): the add button calls this, the buttons "add first" / "duplicate"
+   * and the row menu commands add above / below / duplicate are gone. Update, delete and selection stay.
+   */
+  onAdd?: () => void;
+  /**
+   * a click / tap on a cell, and the row menu command "Edit", call this with the row - the screen shows the row elsewhere (a form, a route). The cells are read-only, as with `inlineEdit: false`.
+   * Not used when an `EditRowModalCard` is given.
+   */
+  onRowOpen?: (row: ReusableTableRow) => void;
+  /** text of the row menu command that opens the row (default "Edit <item label>") */
+  openLabel?: string;
   /** search box (default true) */
   searchEnabled?: boolean;
   /** right-click / long-press / ⋮ row menu (default true) */

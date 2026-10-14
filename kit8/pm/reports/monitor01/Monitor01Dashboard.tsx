@@ -5,7 +5,7 @@
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
 //   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (TextInputApp + Clear)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme as usePaperTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
@@ -21,11 +21,14 @@ import { rowTitle } from '../../../catalog/product/crud/productCatalogTools';
 import { colorToHex } from '../../../ui/components/table/reusable/tableRows';
 import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
+import { useOpenFactInput } from '../../fact/useOpenFactInput';
 import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
+import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
+import { refreshMonitor01Now } from './monitor01Api';
 import {
-  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows,
+  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows,
   filterMonitor01Rows, monitor01GenusTitle, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
@@ -48,6 +51,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const { themeColors: c, isDark } = useDesignSystem();
   const { supabase } = useSupabase();
   const router = useRouter();
+  const openFactInput = useOpenFactInput();
   const dispatch = useDispatch();
   const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
@@ -57,6 +61,38 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const [filters, setFilters] = useState<Monitor01Filters>(EMPTY_MONITOR01_FILTERS);
   const [drill, setDrill] = useState<Drill | null>(null);
 
+  // Auto refresh (the Monitor01Toolbar): ON = the rows follow the realtime events; OFF = a snapshot, which Refresh replaces. The filters cut the rows in memory, so they work in both modes.
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [snapshot, setSnapshot] = useState<Monitor01Row[] | null>(null);
+  const [refreshSince, setRefreshSince] = useState<number | null>(null);
+  const changeAuto = useCallback((on: boolean) => { setAutoRefresh(on); setSnapshot(on ? null : data.rows); setRefreshSince(null); }, [data.rows]);
+  // Refresh: the database recomputes the user's tasks NOW (works without pg_cron), then the rows are read again; its error is shown
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const refreshNow = useCallback(async () => {
+    setRefreshError(null);
+    setRefreshSince(data.changedAt ?? 0);
+    try {
+      await refreshMonitor01Now(supabase, scopeProject);
+    } catch (e: any) {
+      setRefreshError(e?.message || String(e));
+    }
+    data.reload();
+  }, [data, supabase, scopeProject]);
+  const refresh = useCallback(() => { void refreshNow(); }, [refreshNow]);
+  // the first look at an EMPTY report: nothing may be waiting for a worker that does not run - the plan data is computed now
+  const firstLook = useRef(false);
+  useEffect(() => {
+    if (firstLook.current || data.isLoading || data.rows.length > 0 || data.error) return;
+    firstLook.current = true;
+    void refreshNow();
+  }, [data.isLoading, data.rows.length, data.error, refreshNow]);
+  useEffect(() => {
+    if (refreshSince === null || (data.changedAt ?? 0) <= refreshSince) return;
+    setRefreshSince(null);
+    if (!autoRefresh) setSnapshot(data.rows);
+  }, [data.changedAt, data.rows, refreshSince, autoRefresh]);
+  const sourceRows = autoRefresh ? data.rows : (snapshot ?? data.rows);
+
   // the unit titles (the measure unit catalog); until it arrives the key without "unit_" is shown
   const units: any[] = useSelector((s: any) => s?.[PRODUCT_TABLES.measureUnit.entity]?.entityDataFromServer) || [];
   useEffect(() => {
@@ -65,7 +101,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   }, [dispatch]);
   const unitTitle = useCallback((u: string) => { const row = units.find((r) => r.rowGUID === u); return row ? rowTitle(row) : fallbackUnit(u); }, [units]);
 
-  const filtered = useMemo(() => filterMonitor01Rows(data.rows, filters), [data.rows, filters]);
+  const filtered = useMemo(() => filterMonitor01Rows(sourceRows, filters), [sourceRows, filters]);
   const shown = useMemo(() => rowsOfTab(filtered, tab), [filtered, tab]);
   const items = useMemo(() => buildMonitor01Items(shown), [shown]);
   const totals = useMemo(() => monitor01Totals(shown), [shown]);
@@ -102,7 +138,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan }) : []), [drill, supabase, openPlan]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openFactInput, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
@@ -114,11 +150,12 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <IconApp name="monitoring" size={20} color={c.primary} />
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
+        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} busy={refreshSince !== null} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
           <Text style={{ color: c.text, fontSize: 12 }}>
-            {stale ? pmT('Offline: the last data') : pmT('Live')}
+            {stale ? pmT('Offline: the last data') : autoRefresh ? pmT('Live') : pmT('Auto refresh is off: a snapshot')}
             {age != null ? ` · ${pmT('changed {{n}} s ago', { n: age })}` : ''}
             {` · ${pmT('refresh {{n}} s', { n: MONITOR01_REFRESH_INTERVAL })}`}
           </Text>
@@ -143,6 +180,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       </View>
 
       {!!data.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{data.error}</Text>}
+      {!!refreshError && <Text testID={`${testID}-refresh-error`} style={{ color: c.error, padding: 10 }}>{pmT('Refresh failed')}: {refreshError}</Text>}
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>

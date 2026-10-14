@@ -518,6 +518,11 @@
     <li><b>TotalsRow</b> at the bottom: <code>sumForBudget</code> and the quantities (per unit; with several units one more line with the money of all). <code>monitor01_view</code> gained the column <code>sumForBudget</code> (Σ of the plan movements; upgrade by <code>ADD COLUMN IF NOT EXISTS</code>; the new column "Sum for budget" is in the Plan group).</li>
     <li>Filters: <code>DateInputApp</code> for startDate / finishDate, <code>TextInputApp</code> + a <b>Clear</b> button for Project / Task / Resource.</li>
   </ul>
+  <h2>15b - Facts in the report (2026-10-14)</h2>
+  <ul>
+    <li><b>Why the facts were not visible:</b> the worker summed the posted fact documents into <code>task_line_fact_for_monitor01</code>, but nothing copied them into <code>monitor01_view</code>: <code>qtyDelivered</code> / <code>qtyUsed</code> were drawn without data by decision ("Q1"). Only <b>posted</b> documents count.</li>
+    <li><b>Now:</b> <code>qtyUsed</code> = the quantity of the posted fact documents (<code>monitor01_fresh_rows</code> = plan FULL JOIN fact), the drill-down "used" lists the fact lines (Open → the document). <code>qtyDelivered</code> stays empty, so <code>qtyOnHand</code> = −used.</li>
+  </ul>
   <h2>15 - Questions</h2>
   <p class="sub">Each has my default. Answer "yes to all" or only the ones you change.</p>
   <div class="scroll"><table>

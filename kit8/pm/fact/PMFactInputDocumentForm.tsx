@@ -124,13 +124,11 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
         )}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
-          <View testID={`${testID}-posted`} style={[styles.chip, { backgroundColor: c.primary }]}>
-            <IconApp name="check" size={14} color="#fff" />
-            <Text style={styles.chipText}>{pmT('Posted')}</Text>
-          </View>
+          // a status, not a command: the same BIG button as Post (nothing to press)
+          <ButtonApp testID={`${testID}-posted`} title={pmT('Posted')} icon="check" size="large" onPress={() => {}} accessibilityLabel={pmT('Posted')} />
         )}
         {header && canPost(header, docRows.length) && (
-          <ButtonApp testID={`${testID}-post`} title={postTitle} icon="send" size="small" disabled={doc.busy} onPress={doPost} />
+          <ButtonApp testID={`${testID}-post`} title={postTitle} icon="send" size="large" disabled={doc.busy} onPress={doPost} />
         )}
       </View>
 
@@ -230,8 +228,6 @@ const styles = StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 8 },
   totals: { flex: 1, minWidth: 220, gap: 1, paddingBottom: 2, alignItems: 'flex-end' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
-  chipText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   problems: { margin: 10, padding: 10, borderWidth: 1, borderRadius: 10 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 4, paddingHorizontal: 8 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, paddingBottom: 8, paddingLeft: 14, paddingRight: 20, borderBottomWidth: 2 },
