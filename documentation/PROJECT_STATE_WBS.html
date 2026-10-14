@@ -66,41 +66,81 @@
 </head>
 <body>
 <header class="top"><div class="top-inner">
-  <div class="brand">Project state</div>
+  <div class="brand">Project state <span class="pill new" style="margin-left:6px">built</span></div>
   <nav><ul>
-    <li><a href="#status">Status</a></li><li><a href="#today">1 Today</a></li><li><a href="#verdicts">2 Analysis</a></li><li><a href="#model">3 Model</a></li>
+    <li><a href="#status">Status</a></li><li><a href="#built">Built</a></li><li><a href="#today">1 Today</a></li><li><a href="#verdicts">2 Analysis</a></li><li><a href="#model">3 Model</a></li>
     <li><a href="#measures">4 Measures</a></li><li><a href="#flow">5 Realtime</a></li><li><a href="#monitor">6 Monitor01</a></li><li><a href="#catalogs">7 Catalogs</a></li>
-    <li><a href="#invoice">8 Vendor invoice</a></li><li><a href="#effect">9 0333Effect</a></li><li><a href="#cron">10 pg_cron</a></li><li><a href="#wbs">11 WBS</a></li>
-    <li><a href="#risks">12 Risks</a></li><li><a href="#tests">13 Tests</a></li><li><a href="#open">14 Questions</a></li>
+    <li><a href="#invoice">8 Vendor invoice</a></li><li><a href="#effect">9 0333Effect</a></li><li><a href="#cron">10 pg_cron</a></li><li><a href="#wbs">11 WBS</a></li><li><a href="#wbsdone">11b Done</a></li>
+    <li><a href="#risks">12 Risks</a></li><li><a href="#tests">13 Tests</a></li><li><a href="#open">14 Questions</a></li><li><a href="#answers">14b Answers</a></li>
   </ul></nav>
 </div></header>
 <main>
 
 <section id="status">
-  <h1>Project state <span class="pill ask">analysis - no code</span></h1>
-  <p class="lead">Source: the Google Doc <b>"W1 Vendor Invoice"</b> (<code>1ZduV5gEKuitXm0Q5f5DnFrTMXPOCtnuBoaOoHUesypw</code>). As the doc says: <b>do not code, analyze and improve</b>. This page is the analysis, the improved model, the
-  work breakdown and the questions (each with my default). Nothing was built for it; no existing table or screen was changed.</p>
-  <div class="note"><b>About the file name.</b> The doc says <code>./documents/PROJECT_STATE_WBS.tsx</code>. The folder <code>documents/</code> does not exist; all the plan pages of this project are HTML pages in <code>documentation/</code>,
-  and a <code>.tsx</code> file would be a React screen, not a plan. So the page is <code>documentation/PROJECT_STATE_WBS.html</code>. Tell me if you really want a <code>.tsx</code> in <code>documents/</code> (Q14.1).</div>
-  <div class="grid">
-    <div class="card"><h3>The doc asks for <span class="pill chg">3 blocks</span></h3><ul class="tight">
-      <li><b>A. The register</b> - <code>project_status_movements</code> (source) + <code>project_status_month_turnover</code> (aggregate), the 1C accumulation-register idea. Monitor01 reads it.</li>
-      <li><b>B. Catalogs</b> - legal entity (folders by country), main vendor / main vendor contract in partner, equipment, material.</li>
-      <li><b>C. Vendor invoice</b> - document, form with tabs, 0333Effect rounding rule, list, and <code>task_fact_invoiced_timeline</code>.</li>
-    </ul></div>
-    <div class="card"><h3>My main findings <span class="pill mid">read section 2</span></h3><ul class="tight">
-      <li>Keep the idea, but store the <b>numbers in typed columns</b>, not in <code>rowJSON</code> (speed, sums, generated columns).</li>
-      <li><b>Do not stream the movements</b> through realtime: stream the <b>month turnover</b> (small, only changed rows).</li>
-      <li>Write the register rows <b>inside the posting transaction</b>; pg_cron only aggregates. A posted document must never wait for a cron tick to exist.</li>
-      <li><code>task_fact_invoiced_timeline</code> is probably not needed as a table: it is a <b>view of the register</b>.</li>
-      <li>Two things I cannot decide for you: what <b>0333Effect</b> corrects exactly (section 9), and what <b>"separate browser tab"</b> means (Q10).</li>
-    </ul></div>
-  </div>
+  <h1>Project state <span class="pill new">built 2026-10-14</span></h1>
+  <p class="lead">Source: the Google Doc <b>"W1 Vendor Invoice"</b> (<code>1ZduV5gEKuitXm0Q5f5DnFrTMXPOCtnuBoaOoHUesypw</code>). The analysis below (sections 1-14) was written first, <b>without code</b>; then the user said <b>"you can start"</b> with four changes
+  (section 14b). This page now says what <b>is</b>: section <a href="#built">"Built"</a> is the fact, sections 1-14 are the analysis it came from (kept as it was, so a decision can be traced).</p>
+  <div class="good"><b>All three blocks are built and tested:</b> A the project status register (SQL + worker) · B the legal entity catalog and the main vendor · C the vendor invoice (SQL, form with a tab per vendor, list, menu item). Docker SQL scripts all pass (fact + Monitor01 + vendor invoice: 113 + 87 checks, install twice / delete / install again, upgrade from the previous structure with data);
+  Jest: the new suites pass, the failing suites of the full run are the ones that failed before this work.</div>
+  <div class="note"><b>About the file name.</b> The doc says <code>./documents/PROJECT_STATE_WBS.tsx</code>. The folder <code>documents/</code> does not exist; all the plan pages of this project are HTML pages in <code>documentation/</code>, and a <code>.tsx</code> file would be a React screen, not a plan. So this page is <code>documentation/PROJECT_STATE_WBS.html</code>.</div>
+</section>
+
+<section id="built">
+  <h2>Built <span class="pill new">the fact, 2026-10-14</span></h2>
+  <h3>A - the project status register</h3>
+  <div class="scroll"><table>
+    <tr><th>What</th><th>As built</th></tr>
+    <tr><td><code>project_status_movements</code></td><td>narrow: <code>rowMovementKind</code> (plan · ordered · received · invoiced · used · sold, a CHECK) · <code>rowTurnoverMoment</code> · <code>rowTurnoverDay</code> · generated <code>rowTurnoverMonth</code> · <code>rowRegistratorGUID</code> / <code>rowRegistratorType</code> · <code>rowProjectTaskLineGUID</code> · project / task / owner user · genus, role, unit, business unit, partner, contract, legal entity (a snapshot) ·
+      <b><code>qtyProjectStatus</code></b> (the user's name for the quantity) · <code>sumForBudget · sumForContract · vatForContract · sumForAccounting · vatForAccounting</code>. RLS: the owner of the project reads; nobody writes (only the SECURITY DEFINER functions). <b>Not in the realtime publication.</b></td></tr>
+    <tr><td><code>project_status_month_turnover</code></td><td><code>task_line_fact_for_monitor01</code> <b>renamed in place</b> (its rows kept) and widened: one row per task × genus × role × unit × month with typed columns <code>qtyPlan · sumForBudgetPlan · sumForContractPlan · sumForAccountingPlan · qtyPlanContracted · qtyUsed · …Used · qtyInvoiced · …Invoiced · vatForContractInvoiced · vatForAccountingInvoiced</code>, <code>lineCount</code>, <code>documentCount</code>. In the realtime publication.
+      The kinds <code>ordered · received · sold</code> are movement kinds only: their columns come with their documents.</td></tr>
+    <tr><td>who writes the register</td><td><b>fact input</b>: <code>post_task_fact_document</code> registers (<code>used</code>), <code>unpost</code> deletes - in the posting transaction. <b>Vendor invoice</b>: <code>post_vendor_invoice</code> (<code>invoiced</code>) the same way. <b>Plan</b>: the worker (<code>project_status_register_plan</code>, step 0 of every batch; a task whose plan did not change is only read, by a fingerprint).</td></tr>
+    <tr><td>the worker</td><td>the queue of dirty tasks and the pg_cron job are the old ones; step 0 registers the plan, step 1 sums the register into the turnover (changed rows only), step 2 fills <code>monitor01_view</code> from the turnover. <code>monitor01_verify</code>, <code>monitor01_refresh_now</code> and the drill-down (<code>monitor01_sum_sources</code>: planned, contracted, used, invoiced) read the same sources. The plan movements never queue (the worker rewrites them: no loop).</td></tr>
+    <tr><td>real time</td><td>Realtime on <code>monitor01_view</code> plus a safety net: with Auto refresh ON the open report asks <code>monitor01_stamp(project)</code> every 3 s (row count, newest <code>updated_at</code>, queue length and age). A difference twice in a row re-reads the rows; a queue older than 6 s makes the screen call <code>monitor01_refresh_now</code> (at most once in 15 s). So a second browser follows even when Realtime is silent or pg_cron is not running.</td></tr>
+    <tr><td>upgrade of a database made before</td><td>the old table is renamed and its columns renamed / widened; posted fact documents are registered once; tasks whose plan is not in the register are queued. Tested: old structure + data → new structure, twice.</td></tr>
+    <tr><td>speed (<code>bench_monitor01.sh 2000</code>, 120 000 plan movements)</td><td>empty tick 0.19 ms · one changed task ~11 ms · 500 tasks the first time (the plan is written into the register) ~1.2-1.3 s · 500 tasks unchanged ~0.5 s, <b>0 rows written</b>. The first fill is slower than before the register (the plan exists twice now); the steady state is dominated by reading.</td></tr>
+  </table></div>
+  <h3>B - catalogs</h3>
+  <ul class="tight">
+    <li><b><code>legalEntityTable</code></b>: a plain catalog, <code>rowParentGUID</code> = a country GUID or <code>'empty'</code> (the folders = the countries, derived: only the countries that have a legal entity, all on a button). Screen <code>/catalog/legal/entity</code> (Catalogs → Legal entities), a <code>ReusableTable</code> with CRUD. Guards: the folder must be a country; a legal entity used by a contract or a vendor invoice is not deleted.</li>
+    <li><b><code>contractTable.rowJSON.legalEntityGUID</code></b>: optional, a select in the contract card, an existing legal entity when given.</li>
+    <li><b>Main vendor</b> (<code>mainVendorGUID</code>, <code>mainVendorContractGUID</code>) in <b>partner</b> (the item form + a line on the card), <b>equipment</b> and <b>product</b> (two columns of their lists; the product item card shows them). Guard in the database and in the app: a contract needs its vendor and must be a contract of that vendor; a partner is not its own vendor.</li>
+  </ul>
+  <h3>C - the vendor invoice</h3>
+  <ul class="tight">
+    <li><b>ONE document = ONE vendor + ONE contract</b> (the user's answer 3). The vendor and the contract of a document never change (trigger).</li>
+    <li>Menu <b>Vendor Invoice</b> right after <b>Facts input</b> in the task tree row menu (not stages) and in the row menu of a Finances line (not Revenue) → the window of the vendors (<code>/pm/project/task/vendor-invoice/new</code>): a check box per (vendor, contract), the legal entity asked only when a checked contract has none, <b>Create</b>.</li>
+    <li><b>The form</b> (<code>/pm/project/task/vendor-invoice</code>): <b>a tab for each created document</b>; on the web every tab has a button for a <b>real browser tab</b> and the window opens one for each extra document (a browser may block a pop-up after the asynchronous create: the tab strip is the fallback; on a phone the strip is the tab bar). Bar: Delete · Unpost · Close · <b>Post / Posted (large, last)</b>. Header: document, legal entity (select), vendor, contract, currency, <b>invoice number</b>, <b>invoice date</b> (DateInputApp; 8 digits are read), totals. Tabs <b>All (default) · Time · Material · Expenses</b>. The lines: a <code>ReusableTable</code> - quantity, price, VAT % editable in a draft, sums computed.</li>
+    <li><b>The list</b> (<code>/pm/vendor-invoice/list</code>, Budgets → Vendor invoices): a <code>ReusableTable</code> with <b>folders legal entity → vendor</b>, the columns of the doc, quick filters of every non-number column in one row (a Clear icon in each), <b>totals per currency</b>.</li>
+    <li>Post writes the <code>invoiced</code> movements in the same transaction; Monitor01 reads them through the turnover (<code>qtyInvoiced</code> is there; the report does not show an invoiced column yet).</li>
+  </ul>
+  <h3>Not built, on purpose</h3>
+  <ul class="tight">
+    <li><b>0333Effect</b> - "do not use 0333Effect now" (answer 2): no header fields, no correction.</li>
+    <li><b><code>task_fact_invoiced_timeline</code></b> - "not needed" (answer 4): neither a table nor a view.</li>
+    <li>Purchase order, product receipt, customer invoice: only their movement kinds exist.</li>
+    <li>No new lines by hand in a vendor invoice (they come from the task lines); no "documents of a task" screen other than the list.</li>
+  </ul>
+  <h3>Where it differs from the plan above</h3>
+  <ul class="tight">
+    <li><b><code>monitor01_view</code> stays</b> (section 6 proposed to drop it): it is the named projection of the turnover (project / task / role names, "plan not posted after a change"), so the screen, its realtime and its tests are unchanged. The report IS fed by the register (movements → turnover → view). Dropping the view is a later, separate step.</li>
+    <li>The <b>plan register is written by the worker</b> (≤ 2 s old), not by <code>create_task_line_plan</code>: a line edit, a re-post or a rename also have to refresh it, and all of them already queue the task.</li>
+    <li><code>qtyProjectStatus</code> instead of <code>qty</code> (answer 1) - only in the movements; the turnover keeps the doc's names (<code>qtyUsed</code> …).</li>
+    <li>A document needs a <b>legal entity</b> (the header is owned by it): from the contract, else chosen in the window.</li>
+    <li>The registrator registry (<code>registratorType → route</code>) is not built: the drill-down "Open" of <code>used</code> goes to the fact form; <code>invoiced</code> has its list but no column in the report to open it from.</li>
+  </ul>
+  <h3>Where the code is</h3>
+  <div class="scroll"><table>
+    <tr><th>Part</th><th>Files</th></tr>
+    <tr><td>SQL</td><td><code>kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql</code> PART 25 (register, worker) + <b>PART 26</b> (legal entity, main vendor, vendor invoice) - mirrored in <code>start2_sql_code.sql</code>; dropped by PART 1a of <code>delete_sql_structure.sql</code></td></tr>
+    <tr><td>App</td><td><code>kit8/pm/vendor_invoice</code> (README) · <code>kit8/catalog/legal_entity</code> · <code>kit8/catalog/vendor</code> · routes <code>app/pm/project/task/vendor-invoice</code>, <code>…/new</code>, <code>app/pm/vendor-invoice/list</code>, <code>app/catalog/legal/entity</code> · <code>ReusableTable</code>: <code>onAdd</code>, <code>onRowOpen</code>, <code>openLabel</code> · <code>SelectItemFromListApp</code>: <code>clearable</code></td></tr>
+    <tr><td>Tests</td><td>Docker: <code>kit8/docker/test_fact_monitor01.sh</code> (tests <code>60_monitor01.sql</code> 113 checks, <code>70_vendor_invoice.sql</code> 87 checks) · Jest: <code>__tests__/pm/vendor_invoice</code>, <code>__tests__/catalog/legal_entity</code>, <code>__tests__/catalog/vendor</code>, <code>__tests__/pm/reports</code>, <code>__tests__/pm/fact</code></td></tr>
+  </table></div>
 </section>
 
 <section id="today">
   <h2>1 - What exists today <span class="pill chg">read from the code</span></h2>
-  <p class="sub">Facts from <code>kit8/sql/start/start1_sql_structure.sql</code> and <code>kit8/pm</code>, not from memory.</p>
+  <p class="sub">Facts from <code>kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql</code> and <code>kit8/pm</code>, not from memory.</p>
   <div class="scroll"><table>
     <tr><th>Piece</th><th>What it is</th><th>Role in the new design</th></tr>
     <tr><td><code>task_line_plan_movements</code></td><td>the plan, one row per task line and day (<code>qtyTaskLine · sumForBudget · sumForContract · sumForAccounting · periodDay · planMovementStatus</code>), written by <code>create_task_line_plan</code> when a task is posted</td><td>the <b>plan source</b>; the register gets a copy of the posted rows (section 3.4)</td></tr>
@@ -317,7 +357,7 @@
 
 <section id="wbs">
   <h2>11 - Work breakdown structure</h2>
-  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_structure.sql</code> first, Docker-tested, then mirrored into <code>start2_sql_code.sql</code>; the delete file gets the new drops.</p>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_tables.sql + start2_sql_code.sql</code> first, Docker-tested, then mirrored into <code>start2_sql_code.sql</code>; the delete file gets the new drops.</p>
   <div class="scroll"><table>
     <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
     <tr class="wp"><td>0</td><td colspan="4">Decisions</td></tr>
@@ -342,6 +382,25 @@
     <tr><td>C7</td><td><code>task_fact_invoiced_timeline</code> as a view of the register (or a table: Q11)</td><td>SQL + test</td><td>S</td><td>C2</td></tr>
     <tr class="wp"><td>D</td><td colspan="4">Close</td></tr>
     <tr><td>D1</td><td>README files, this page updated, memory notes, full Jest vs the baseline, all Docker scripts, upgrade test from the previous structure file</td><td>green</td><td>M</td><td>all</td></tr>
+  </table></div>
+</section>
+
+<section id="wbsdone">
+  <h2>11b - Work packages: status</h2>
+  <div class="scroll"><table>
+    <tr><th>WP</th><th>Status</th><th>Note</th></tr>
+    <tr><td>0.1</td><td><span class="pill new">done</span></td><td>the answers of the user (14b)</td></tr>
+    <tr><td>A1 · A2</td><td><span class="pill new">done</span></td><td>the rename in place, the register table, <code>register_*</code> / <code>unregister</code> functions</td></tr>
+    <tr><td>A3</td><td><span class="pill chg">changed</span></td><td>the plan is registered by the worker, not by <code>create_task_line_plan</code> (see "Where it differs")</td></tr>
+    <tr><td>A4</td><td><span class="pill new">done</span></td><td>post / unpost of the fact document</td></tr>
+    <tr><td>A5</td><td><span class="pill new">done</span></td><td>step 0 / 1 / 2 of the worker, verify, refresh now; speed measured</td></tr>
+    <tr><td>A6</td><td><span class="pill chg">partly</span></td><td>the report reads the register through the turnover and <code>monitor01_view</code> (kept as the projection); the drill-down reads movements for used / invoiced; the view is not dropped; names are still in the view</td></tr>
+    <tr><td>B1 · B2</td><td><span class="pill new">done</span></td><td>legal entity catalog + contract field; main vendor in partner, equipment, product</td></tr>
+    <tr><td>C1 · C2</td><td><span class="pill new">done</span></td><td>tables, triggers, RLS, create / set header / post / unpost / delete / list / candidates</td></tr>
+    <tr><td>C3</td><td><span class="pill mid">not built</span></td><td>0333Effect: the user said not now</td></tr>
+    <tr><td>C4 · C5 · C6</td><td><span class="pill new">done</span></td><td>menu item, choice window, form with a tab per document, list</td></tr>
+    <tr><td>C7</td><td><span class="pill mid">not needed</span></td><td><code>task_fact_invoiced_timeline</code>: the user said it is not needed</td></tr>
+    <tr><td>D1</td><td><span class="pill new">done</span></td><td>READMEs, this page, memory notes; Docker scripts, upgrade test, Jest compared with the earlier failing set</td></tr>
   </table></div>
 </section>
 
@@ -386,6 +445,20 @@
     <tr><td>Q12</td><td>JSON keys <b>lowerCamelCase</b> (<code>vendorInvoiceNumber</code>) like the rest of the project, not <code>VendorInvoiceNumber</code>?</td><td>lowerCamelCase.</td></tr>
     <tr><td>Q13</td><td>List totals / footer <b>per currency</b> (never mixed)?</td><td>Yes.</td></tr>
     <tr><td>Q14</td><td>The file: <code>documentation/PROJECT_STATE_WBS.html</code> (Q14.1) - and "start" when you want the build to begin, phase A first?</td><td>As is; A, then B, then C.</td></tr>
+  </table></div>
+</section>
+
+<section id="answers">
+  <h2>14b - The answers and what was done</h2>
+  <p class="sub">"you can start", with these changes (the other questions: my defaults).</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>The user said</th><th>Done</th></tr>
+    <tr><td>1</td><td>use <code>qtyProjectStatus</code>, not <code>qty</code>, in <code>project_status_movements</code></td><td>the column of the movements is <code>qtyProjectStatus</code></td></tr>
+    <tr><td>2</td><td>do not use 0333Effect now</td><td>nothing of it exists (a test checks that no code mentions it; the section 9 above is the reading kept for later)</td></tr>
+    <tr><td>3</td><td>Q10, specified: a separate browser tab for each created VendorInvoice document (real browser tabs on the web, the in-form tab strip on phones); a unique document for each contract of a vendor: <b>VendorInvoice = 1 Vendor + 1 Contract</b></td><td>one document per (vendor, contract); the pair never changes; a tab strip in the form, a browser-tab button on every tab (web), the window opens the extra documents in browser tabs (best effort)</td></tr>
+    <tr><td>4</td><td><code>task_fact_invoiced_timeline</code> is not needed</td><td>not made, no view either</td></tr>
+    <tr><td>Q2 plan copy · Q3 stream the turnover · Q4 lines = plan − invoiced · Q5 <code>sold</code> · Q6 names on the client · Q8 folders = countries · Q9 RLS by organization · Q11 post in the transaction · Q12 lowerCamelCase · Q13 totals per currency</td><td>defaults</td><td>built as proposed (Q2: the copy is written by the worker; Q6: the names still sit in <code>monitor01_view</code>; Q7 on-hand: unchanged, see below)</td></tr>
+    <tr><td>Q7 on-hand while nothing is received</td><td>not answered</td><td>unchanged: on-hand = −used (red) until a receipt kind has data; the rule is one place (<code>monitor01Colors.ts</code>)</td></tr>
   </table></div>
 </section>
 

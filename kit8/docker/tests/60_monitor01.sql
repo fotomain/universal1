@@ -114,19 +114,20 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT public.task_fact_document_create(:'t3') AS fd \gset
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT count(*) FROM public.task_line_fact_for_monitor01), 0::bigint, 'a draft document is not summed');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_month_turnover WHERE "qtyUsed" <> 0), 0::bigint, 'a draft document is not summed (no used quantity in the turnover)');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'used'), 0::bigint, 'a draft document has no movements in the register');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT public.post_task_fact_document(:'fd')->>'status' AS fstatus \gset
 SELECT tt.eq(:'fstatus'::text, 'posted', 'the fact document is posted');
 SELECT tt.as_admin();
 SELECT tt.eq((SELECT count(*) FROM public.monitor01_dirty), 1::bigint, 'Post queues the task');
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT sum("qtyFact") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'task_line_fact_for_monitor01: the material facts of task03 (65 + 35)');
-SELECT tt.eq((SELECT ("qtyFact", "lineCount", "documentCount") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus')::text, '(24.00,1,1)', 'task_line_fact_for_monitor01: the time fact, 1 line, 1 document');
-SELECT tt.eq((SELECT "periodMonth" FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), date_trunc('month', current_date)::date, '... in the month of the date of the fact (today)');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'project_status_month_turnover: the material facts of task03 (65 + 35)');
+SELECT tt.eq((SELECT ("qtyUsed", "lineCount", "documentCount") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus')::text, '(24.00,1,1)', 'project_status_month_turnover: the time fact, 1 line, 1 document');
+SELECT tt.eq((SELECT "rowTurnoverMonth" FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), date_trunc('month', current_date)::date, '... in the month of the date of the fact (today)');
 SELECT tt.eq((SELECT ("qtyDelivered", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' LIMIT 1)::text, '(0.00,24.00,-24.00)', 'the POSTED fact fills qtyUsed (24); delivered has no data; on-hand = delivered - used');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'the material facts of task03 (65 + 35) are qtyUsed');
-SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), (SELECT sum("qtyFact") FROM public.task_line_fact_for_monitor01 WHERE "rowOwnerGUID" = :'t3'), 'the view and task_line_fact_for_monitor01 agree');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), (SELECT sum("qtyUsed") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 'the view and project_status_month_turnover agree');
 SELECT tt.eq((SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), 24::numeric, 'the plan numbers did not change');
 SELECT public.monitor01_verify(1000) AS v_after_fact \gset
 SELECT tt.eq(:'v_after_fact'::int, 0, 'verify: the view with qtyUsed is exactly the fresh numbers');
@@ -134,7 +135,8 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT public.unpost_task_fact_document(:'fd');
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT count(*) FROM public.task_line_fact_for_monitor01), 0::bigint, 'Unpost: the sums go');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_month_turnover WHERE "qtyUsed" <> 0), 0::bigint, 'Unpost: the sums go');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'used'), 0::bigint, 'Unpost: the movements of the document go (same transaction)');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'Unpost: qtyUsed goes back to 0');
 -- a fact of a role that has NO plan still gets its row (plan 0, used 24)
 SELECT "rowJSON"->>'resourceRoleItem' AS orig_role FROM public.task_fact_usage_timeline WHERE "rowHeaderGUID" = :'fd' AND "genusGUID" = 'timeGenus' \gset
@@ -190,6 +192,56 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq((SELECT count(*) > 0 FROM public.monitor01_view), true, 'anna sees her rows');
 SELECT tt.eq((SELECT count(*) FROM public.monitor01_view WHERE "rowOwnerUserGUID" <> '11111111-1111-1111-1111-111111111111'), 0::bigint, '... only hers');
 SELECT tt.as_admin();
+
+-- 6a. the project status REGISTER (project_status_movements) is the source of the turnover and of the report -------------------------------------------------------------
+SELECT tt.as_admin();
+SELECT public.monitor01_process_batch();
+SELECT tt.eq((SELECT count(*) FROM public.monitor01_dirty), 0::bigint, 'the worker rewrites the plan register without queueing itself again (no loop)');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'plan'), (SELECT count(*) FROM public.task_line_plan_movements m JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID" WHERE m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 'register: one plan movement per posted plan movement (revenue is not in it)');
+SELECT tt.eq((SELECT sum("qtyProjectStatus") FROM public.project_status_movements WHERE "rowMovementKind" = 'plan'), (SELECT sum(m."qtyTaskLine") FROM public.task_line_plan_movements m JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID" WHERE m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 'register: qtyProjectStatus adds up to the plan quantity');
+SELECT tt.eq((SELECT DISTINCT "rowRegistratorType" FROM public.project_status_movements WHERE "rowMovementKind" = 'plan' AND "rowOwnerGUID" = :'t1'), 'projectTask', 'plan registrator type = projectTask');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'plan' AND "rowOwnerGUID" = :'t1' AND "contractGUID" = 'c-1'), 3::bigint, 'the contract of the line is a snapshot dimension of each plan movement');
+SELECT tt.eq((SELECT sum("qtyPlan") FROM public.project_status_month_turnover), (SELECT sum("qtyProjectStatus") FROM public.project_status_movements WHERE "rowMovementKind" = 'plan'), 'turnover.qtyPlan = the sum of the plan movements');
+SELECT tt.eq((SELECT sum("qtyPlanContracted") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 65::numeric, 'qtyPlanContracted = the plan movements that have a contract (65 of task03 pipes)');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'used' AND "rowRegistratorGUID" = :'fd' AND "rowRegistratorType" = 'taskFactHeader'), 3::bigint, 'register: the posted fact document = 3 used movements, registrator = the document');
+SELECT tt.eq((SELECT sum("qtyUsed") FROM public.project_status_month_turnover), (SELECT sum("qtyProjectStatus") FROM public.project_status_movements WHERE "rowMovementKind" = 'used'), 'turnover.qtyUsed = the sum of the used movements');
+SELECT tt.eq((SELECT sum("sumForContractUsed") FROM public.project_status_month_turnover), (SELECT sum("sumForContract") FROM public.project_status_movements WHERE "rowMovementKind" = 'used'), 'turnover.sumForContractUsed = the sum of the used movements');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'fd' AND "rowTurnoverDay" IS NULL), 0::bigint, 'every movement has its day (and the generated month)');
+SELECT tt.eq((SELECT bool_and("rowTurnoverMonth" = date_trunc('month', "rowTurnoverDay")::date) FROM public.project_status_movements), true, 'rowTurnoverMonth = the first day of the month of the day');
+SELECT tt.fails($q$INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectGUID", "rowOwnerGUID", "genusGUID") SELECT 'nonsense', now(), current_date, gen_random_uuid(), 'x', t."projectGUID", t."rowGUID", 'timeGenus' FROM public.project_task_table t LIMIT 1$q$, 'project_status_movements_kind_chk', 'an unknown movement kind is refused');
+-- registering the same document twice leaves the same rows (rewrite by registrator)
+SELECT public.project_status_register_fact(:'fd');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'fd'), 3::bigint, 'register twice = the same 3 movements (rewrite by registrator)');
+-- who may read: the owner of the project only
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.eq((SELECT count(*) > 0 FROM public.project_status_movements), true, 'anna reads her movements');
+SELECT tt.eq((SELECT count(*) > 0 FROM public.project_status_month_turnover), true, 'anna reads her turnover');
+SELECT tt.fails($q$INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectGUID", "rowOwnerGUID", "genusGUID") SELECT 'plan', now(), current_date, gen_random_uuid(), 'x', t."projectGUID", t."rowGUID", 'timeGenus' FROM public.project_task_table t LIMIT 1$q$, 'permission denied', 'a user cannot write the register');
+SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowOwnerGUID" = :'t1'), 0::bigint, 'marko sees no movement of anna');
+SELECT tt.eq((SELECT count(*) FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t1'), 0::bigint, 'marko sees no turnover of anna');
+SELECT tt.as_admin();
+
+-- 6a2. the stamp: the cheap question of the open report (my rows changed? is the worker keeping up?) -------------------------------------------------------------------
+SELECT tt.as_admin();
+SELECT public.monitor01_process_batch();
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.monitor01_stamp() AS st \gset
+SELECT tt.eq((:'st'::jsonb->>'count')::bigint, (SELECT count(*) FROM public.monitor01_view), 'stamp: the number of MY rows in the view');
+SELECT tt.eq((:'st'::jsonb->>'maxUpdatedAt')::timestamptz, (SELECT max("updated_at") FROM public.monitor01_view), 'stamp: the newest updated_at of my rows');
+SELECT tt.eq((:'st'::jsonb->>'queued')::int, 0, 'stamp: nothing queued (the worker has run)');
+SELECT tt.eq((public.monitor01_stamp(gen_random_uuid())->>'count')::int, 0, 'stamp: a project that is not mine has no rows');
+SELECT tt.as_admin();
+UPDATE public.task_line_table SET "rowJSON" = "rowJSON" || '{"qtyTaskLine": 25}' WHERE "rowGUID" = 'bbbbbbbb-0000-0000-0000-000000000001';
+SELECT pg_sleep(1.1);
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.eq((public.monitor01_stamp()->>'queued')::int >= 1, true, 'stamp: a change queues the task of MY project and the stamp says so');
+SELECT tt.eq((public.monitor01_stamp()->>'queuedAgeSeconds')::numeric >= 1, true, 'stamp: ... with how long it waits (the screen computes at once when the worker is late)');
+SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.eq((public.monitor01_stamp()->>'queued')::int, 0, 'stamp: the queue of anna is not marko''s');
+SELECT tt.eq((public.monitor01_stamp()->>'count')::int, (SELECT count(*)::int FROM public.monitor01_view), 'stamp: marko counts only his rows');
+SELECT tt.as_admin();
+SELECT public.monitor01_process_batch();
 
 -- 6b. refresh NOW (no pg_cron needed): the user's own tasks are recomputed at once ---------------------------------------------------------------------------------
 SELECT tt.as_admin();

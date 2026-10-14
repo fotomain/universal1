@@ -78,6 +78,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
         { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
         { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'catalog/kanbanstage/list' },
+        // the companies the vendor invoices are issued to (folders = countries)
+        { id: 'legalentities', label: 'Legal entities', icon: 'domain', route: 'catalog/legal/entity' },
         // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
         { id: 'managementcalendars', label: 'Management calendars', icon: 'calendar_month', route: 'catalog/management/calendar/list' },
         // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
@@ -111,6 +113,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         // below the divider: what really happened (kit8/pm/fact) - the list of the fact input documents, with fast filters
         { id: 'budgets-divider', label: '', icon: '', route: '', divider: true },
         { id: 'budgets-actuals', label: 'Actuals', icon: 'fact_check', route: 'pm/fact/list' },
+        // the vendor invoices (one vendor + one contract each): folders legal entity → vendor, quick filters
+        { id: 'budgets-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
       ],
     },
 

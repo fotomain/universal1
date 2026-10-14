@@ -72,6 +72,8 @@ export interface ContractRowJSON {
   customerRole?: boolean;
   /** businessUnitTable.rowGUID: the default business unit of a task line that uses this contract (kit8/catalog/business_unit); empty = not set */
   businessUnitAssigned?: string | null;
+  /** legalEntityTable.rowGUID: OUR company the contract is made by (kit8/catalog/legal_entity); OPTIONAL - empty = not set, a contract without one works as before */
+  legalEntityGUID?: string | null;
 }
 
 export interface ContractRow {
@@ -167,6 +169,8 @@ export function normalizeContract(v: Partial<ContractRowJSON>, decimalDigits = 2
     supplierRole: Boolean(v.supplierRole),
     customerRole: Boolean(v.customerRole),
     businessUnitAssigned: v.businessUnitAssigned ? String(v.businessUnitAssigned) : null,
+    // optional: a key that is empty is not written, so a save clears it
+    ...(v.legalEntityGUID ? { legalEntityGUID: String(v.legalEntityGUID) } : {}),
     // only the contract of a person has a calendar (the capacity of a person); a key that is empty is not written, so a save clears it
     ...(partyType === 'person' && v.resourceCalendar ? { resourceCalendar: String(v.resourceCalendar) } : {}),
   };

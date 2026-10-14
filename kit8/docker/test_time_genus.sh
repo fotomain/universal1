@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Behaviour tests of the time genus control (documentation/TIME_GENUS_CONTROL_WBS.html) on a throwaway database of the local Postgres (docker compose up -d first):
-#   fresh database -> start1_sql_structure.sql -> start3_sql_insert_missing.sql -> every tests/NN_*.sql (each one in its own transaction that is rolled back; tests/00_helpers.sql is piped before it).
+#   fresh database -> start1_sql_tables.sql + start2_sql_code.sql -> start3_sql_insert_missing.sql -> every tests/NN_*.sql (each one in its own transaction that is rolled back; tests/00_helpers.sql is piped before it).
 # Usage: ./test_time_genus.sh            all tests
 #        ./test_time_genus.sh 10         only tests/10_*.sql
 set -euo pipefail
@@ -9,9 +9,10 @@ C=universal1-pgtest
 DB=sqlfeature
 psqlc() { docker exec -i -e PGOPTIONS="-c client_min_messages=notice" "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
 
-echo "== fresh database $DB + start1_sql_structure.sql + start3_sql_insert_missing.sql"
+echo "== fresh database $DB + start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql"
 psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB template supabase_stub" >/dev/null
-PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start1_sql_structure.sql >/dev/null
+PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start1_sql_tables.sql >/dev/null
+PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start2_sql_code.sql >/dev/null
 PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start3_sql_insert_missing.sql >/dev/null
 
 fail=0

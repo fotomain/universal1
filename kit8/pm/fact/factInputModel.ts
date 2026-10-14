@@ -1,4 +1,4 @@
-// factInputModel - the FACT INPUT document of a task (documentation/FACT_INPUT.html; SQL: PART 24 of kit8/sql/start/start1_sql_structure.sql).
+// factInputModel - the FACT INPUT document of a task (documentation/FACT_INPUT.html; SQL: PART 24 of kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql).
 //
 //   task_fact_header    the document: rowJSON.documentHeader { projectTaskGUID (read only) · activeUser · created_at · documentNumber · documentStatus · strongInput · postedAt · postedBy · unpostedAt }
 //   task_fact_usage_timeline  its lines: the fields of task_line_plan_timeline + rowHeaderGUID · genusGUID · qtyForContract (the ONLY quantity a user states) · periodDay · rowJSON (what the line is)
@@ -14,7 +14,7 @@ import { parseCompactDateDigits } from '../../ui/components/common/date_input/da
 export const FACT_HEADER_TABLE = 'task_fact_header';
 export const FACT_USAGE_TIMELINE_TABLE = 'task_fact_usage_timeline';
 /** the sums made by pg_cron for Monitor01 (read only) */
-export const FACT_SUMMARY_TABLE = 'task_line_fact_for_monitor01';
+export const FACT_SUMMARY_TABLE = 'project_status_month_turnover';
 export const RPC_FACT_CREATE = 'task_fact_document_create';
 export const RPC_FACT_POST = 'post_task_fact_document';
 export const RPC_FACT_UNPOST = 'unpost_task_fact_document';

@@ -505,6 +505,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/management/calendar/list/index" options={{ title: 'Management calendars', drawerLabel: 'Management calendars' }} />
               <Drawer.Screen name="budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
               <Drawer.Screen name="budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
+              <Drawer.Screen name="catalog/legal/entity/index" options={{ title: 'Legal entities', drawerLabel: 'Legal entities' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="catalog/equipment/dashboard/index" options={{ title: 'Equipment (properties and variants)', drawerLabel: 'Equipment (properties and variants)' }} />
@@ -520,6 +521,9 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/task/plan/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task plan' }} />
               <Drawer.Screen name="pm/project/task/fact/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Facts input' }} />
               <Drawer.Screen name="pm/fact/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Actuals' }} />
+              <Drawer.Screen name="pm/project/task/vendor-invoice/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Vendor invoice' }} />
+              <Drawer.Screen name="pm/project/task/vendor-invoice/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Vendor Invoice' }} />
+              <Drawer.Screen name="pm/vendor-invoice/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Vendor invoices' }} />
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />

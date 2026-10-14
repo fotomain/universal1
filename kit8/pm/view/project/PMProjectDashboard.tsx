@@ -370,5 +370,5 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 10, marginBottom: 6 },
   cta: { marginTop: 14, marginLeft: 0 },
   banner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, margin: 6, borderRadius: 8 },
-  emptyOverlay: { ...StyleSheet.absoluteFillObject, top: 120, alignItems: 'center' },
+  emptyOverlay: { ...StyleSheet.absoluteFill, top: 120, alignItems: 'center' },
 });

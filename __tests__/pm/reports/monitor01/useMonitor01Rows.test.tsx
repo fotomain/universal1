@@ -148,3 +148,151 @@ describe('realtime', () => {
     expect(fake.removed).toBe(1);
   });
 });
+
+// ---- the safety net under Realtime: monitor01_stamp every 3 s -------------------------------------------------------------------------------------------------------------------------
+describe('the safety net: monitor01_stamp every few seconds', () => {
+  const POLL = 3000;
+  let stamp: any;
+  let rpcCalls: { name: string; args: any }[];
+  function withRpc() {
+    rpcCalls = [];
+    fake.client.rpc = jest.fn(async (name: string, args: any) => {
+      rpcCalls.push({ name, args });
+      if (name === 'monitor01_stamp') { if (stamp instanceof Error) throw stamp; return { data: stamp, error: null }; }
+      return { data: { tasks: 1, upserted: 1, deleted: 0 }, error: null };
+    });
+  }
+  const tick = async (ms = POLL) => { await act(async () => { await jest.advanceTimersByTimeAsync(ms); }); };
+  const loads = () => fake.builders.length;
+  // the stamp of the rows the screen holds: 2 rows, the newest updated_at
+  const same = () => ({ count: 2, maxUpdatedAt: '2026-10-14T10:00:00Z', queued: 0, queuedAgeSeconds: 0 });
+  const rowsWithTime = () => [raw(1, { updated_at: '2026-10-14T09:00:00Z' }), raw(2, { updated_at: '2026-10-14T10:00:00Z' })];
+  beforeEach(() => { jest.useFakeTimers(); stamp = same(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  it('asks the stamp every 3 s (the project mode for its project); the answer is "checked"', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe project="p1" />);
+    await flush();
+    expect(rpcCalls).toHaveLength(0);
+    await tick();
+    expect(rpcCalls).toEqual([{ name: 'monitor01_stamp', args: { p_project: 'p1' } }]);
+    expect(latest.checkedAt).not.toBeNull();
+    await tick();
+    expect(rpcCalls.filter((c) => c.name === 'monitor01_stamp')).toHaveLength(2);
+  });
+
+  it('the rows are the same as on the server: nothing is read again', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    const before = loads();
+    await tick(POLL * 4);
+    expect(loads()).toBe(before);
+    expect(rpcCalls.some((c) => c.name === 'monitor01_refresh_now')).toBe(false);
+  });
+
+  it('another number of rows twice in a row (a missed event): read again; once is only a tick of grace', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    const before = loads();
+    stamp = { ...same(), count: 3 };
+    await tick();
+    await flush();
+    expect(loads()).toBe(before);                      // the first mismatch: wait one tick (an event may be just arriving)
+    await tick();
+    await flush();
+    expect(loads()).toBeGreaterThan(before);           // the second one: read again
+  });
+
+  it('a newer change on the server (same number of rows) is found too', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    const before = loads();
+    stamp = { ...same(), maxUpdatedAt: '2026-10-14T10:00:05Z' };
+    await tick(POLL * 2);
+    await flush();
+    expect(loads()).toBeGreaterThan(before);
+  });
+
+  it('a mismatch that went away by itself (the event arrived) does not read again', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    const before = loads();
+    stamp = { ...same(), count: 3 };
+    await tick();
+    stamp = same();
+    await tick(POLL * 3);
+    await flush();
+    expect(loads()).toBe(before);
+  });
+
+  it('the worker is late (a task waits in the queue longer than 6 s): compute NOW, then read again; at most once in 15 s', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe project="p1" />);
+    await flush();
+    const before = loads();
+    stamp = { ...same(), queued: 2, queuedAgeSeconds: 12 };
+    await tick();
+    await flush();
+    expect(rpcCalls.filter((c) => c.name === 'monitor01_refresh_now')).toEqual([{ name: 'monitor01_refresh_now', args: { p_project: 'p1' } }]);
+    expect(loads()).toBeGreaterThan(before);
+    await tick(POLL * 3);
+    expect(rpcCalls.filter((c) => c.name === 'monitor01_refresh_now')).toHaveLength(1);     // the cooldown
+    await tick(POLL * 3);
+    expect(rpcCalls.filter((c) => c.name === 'monitor01_refresh_now')).toHaveLength(2);     // 15 s later it asks again while the queue is still stuck
+  });
+
+  it('a queue that is only a few seconds old is the worker\'s business: nothing is computed', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    stamp = { ...same(), queued: 3, queuedAgeSeconds: 2 };
+    await tick(POLL * 3);
+    expect(rpcCalls.some((c) => c.name === 'monitor01_refresh_now')).toBe(false);
+  });
+
+  it('an error of the stamp is not an error of the report (the next tick asks again)', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    stamp = new Error('network down');
+    await tick(POLL * 2);
+    expect(latest.error).toBeNull();
+    expect(latest.rows).toHaveLength(2);
+    stamp = same();
+    await tick();
+    expect(latest.checkedAt).not.toBeNull();
+  });
+
+  it('poll: false (Auto refresh off) asks nothing', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    function NoPoll() { latest = useMonitor01Rows(null, { poll: false }); return null; }
+    renderUI(<NoPoll />);
+    await flush();
+    await tick(POLL * 3);
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it('stops asking when the screen goes away', async () => {
+    resetFake(rowsWithTime());
+    withRpc();
+    renderUI(<Probe />);
+    await flush();
+    cleanupUI();
+    await tick(POLL * 3);
+    expect(rpcCalls).toHaveLength(0);
+  });
+});

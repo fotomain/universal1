@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { cleanupUI, expectInOrder, inputValue, mustGet, press, q, qa, renderUI, textOf, toggleSwitch, typeInto } from '../../ui/pmUiTestKit';
 
-const mockHook: { rows: any[]; isLoading: boolean; error: string | null; live: boolean; changedAt: number | null; reload: () => void } = { rows: [], isLoading: false, error: null, live: true, changedAt: Date.now(), reload: jest.fn() };
+const mockHook: { rows: any[]; isLoading: boolean; error: string | null; live: boolean; changedAt: number | null; checkedAt: number | null; reload: () => void } = { rows: [], isLoading: false, error: null, live: true, changedAt: Date.now(), checkedAt: null, reload: jest.fn() };
 jest.mock('../../../../kit8/pm/reports/monitor01/useMonitor01Rows', () => ({ useMonitor01Rows: jest.fn(() => mockHook) }));
 const mockFetch = jest.fn();
 const mockRefresh = jest.fn(async (..._a: any[]) => ({ tasks: 3, upserted: 4, deleted: 0 }));
@@ -32,7 +32,7 @@ const rowIds = () => qa('monitor01-table-item-').filter((id) => /\|\d{4}-\d{2}-\
 const cell = (key: string, m: string) => `monitor01-table-cell-${key}-${m}`;
 
 beforeEach(() => {
-  mockHook.rows = sheet(); mockHook.live = true; mockHook.error = null; mockHook.isLoading = false; mockHook.changedAt = Date.now();
+  mockHook.rows = sheet(); mockHook.live = true; mockHook.checkedAt = null; mockHook.error = null; mockHook.isLoading = false; mockHook.changedAt = Date.now();
   (globalThis as any).__pmTestReduxState = { [require('../../../../kit8/catalog/product/productModel').PRODUCT_TABLES.measureUnit.entity]: { entityDataFromServer: [{ rowGUID: 'unit_hour', rowJSON: { title: 'hour' } }, { rowGUID: 'unit_pcs', rowJSON: { title: 'pcs' } }] } };
   mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: measure === 'contracted' ? 24 : 24, rows: [{ rowGUID: 'm1', sourceName: 'x', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', roleName: 'Data Analyst', unit: 'unit_hour', qty: 24 }] }));
 });
@@ -348,6 +348,27 @@ describe('the data age', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-age')).toContain('Live');
     expect(textOf('monitor01-age')).toContain('refresh 2 s');
+  });
+  it('Realtime is silent but the stamp is answered: "Live: checked every 3 s", not Offline (the safety net works)', () => {
+    mockHook.live = false;
+    mockHook.checkedAt = Date.now();
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-age')).toContain('Live: checked every 3 s');
+    expect(textOf('monitor01-age')).not.toContain('Offline');
+  });
+  it('Realtime is silent and nothing was checked for a long time: Offline', () => {
+    mockHook.live = false;
+    mockHook.checkedAt = Date.now() - 60_000;
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-age')).toContain('Offline');
+  });
+  it('the polling follows the Auto refresh switch: on by default, off when the switch is off', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    const calls = (useMonitor01Rows as jest.Mock).mock.calls;
+    expect(calls[calls.length - 1][1]).toEqual({ poll: true });
+    toggleSwitch('monitor01-toolbar-auto');
+    const after = (useMonitor01Rows as jest.Mock).mock.calls;
+    expect(after[after.length - 1][1]).toEqual({ poll: false });
   });
   it('offline says so and keeps the last data', () => {
     mockHook.live = false;

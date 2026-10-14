@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   backdropPress: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     width: '100%',

@@ -19,6 +19,8 @@ import {managementGenusSystemMetaData} from "../catalog/management/genus/managem
 import {distributionSystemMetaData} from "../catalog/distribution/distributionMetaData";
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
+import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
+import {vendorInvoiceSystemMetaData} from "../pm/vendor_invoice/vendorInvoiceMetaData";
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
@@ -102,8 +104,10 @@ const SystemMetaData:any = {
     // Screen /budget/item/list, SQL kit8/sql/init/create_budget_item_table.sql
     ...budgetItemSystemMetaData(),
     // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.
-    // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_structure.sql (PART 19)
+    // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 19)
     ...budgetScenarioSystemMetaData(),
+    ...legalEntitySystemMetaData(),
+    ...vendorInvoiceSystemMetaData(),
     // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).
     ...managementCalendarSystemMetaData(),
     // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,
@@ -117,10 +121,10 @@ const SystemMetaData:any = {
     // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql
     ...personTypeSystemMetaData(),
     // Equipment (kit8/catalog/equipment): equipmentTable + equipmentTypeTable - the machines a Time line of a task can book (task_line_table.rowJSON.taskResourceKind = 'equipment').
-    // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start1_sql_structure.sql (PART 17)
+    // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 17)
     ...equipmentSystemMetaData(),
     // Business units (kit8/catalog/business_unit): businessUnitTable (a tree of any depth, selectFromTree) + cfrTypeTable (the enumeration of the Centers of Financial Responsibility, read only).
-    // Screen /catalog/business/unit, SQL kit8/sql/start/start1_sql_structure.sql (PART 18)
+    // Screen /catalog/business/unit, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 18)
     ...businessUnitSystemMetaData(),
     // Template of the resource contract of a task line (kit8/catalog/management/templateresourcecontract): rowOwnerGUID = management genus.
     // Screen /catalog/management/templateresourcecontract/list, SQL kit8/sql/init/create_template_resource_contract_table.sql

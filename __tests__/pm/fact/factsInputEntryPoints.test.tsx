@@ -2,7 +2,7 @@
 // "Facts input" is offered where a task GUID (the row menu of the task tree) is known; it opens the route of the fact document with the GUID. The
 // right-click menu of the lines of the Finances table has the same item (PMProjectTaskFinancesCRUD: extraMenuItems → useOpenFactInput; its screen test is taskFinancesUi).
 import { act } from 'react';
-import { cleanupUI, fakeCrud, press, q, renderUI, seedStore } from '../ui/pmUiTestKit';
+import { cleanupUI, fakeCrud, press, q, qa, renderUI, seedStore } from '../ui/pmUiTestKit';
 
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
@@ -32,6 +32,32 @@ describe('the row menu of the task tree', () => {
     act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
     expect(q('pm-row-menu')).not.toBeNull();
     expect(q('pm-row-menu-facts-input')).toBeNull();
+  });
+});
+
+describe('"Vendor Invoice" - right after "Facts input" in the row menu of the task tree', () => {
+  it('a task has it, AFTER "Facts input"; it closes the menu and opens the window of the vendors of the task', () => {
+    const { byName } = seedStore();
+    const task = byName('Task 111');
+    renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: task.rowGUID, x: 10, y: 10, source: 'tree' }));
+    const ids = qa('pm-row-menu-');
+    const from = ids.indexOf('pm-row-menu-facts-input');
+    const to = ids.indexOf('pm-row-menu-vendor-invoice');
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    // nothing but the parts of the "Facts input" item itself (its icon / label) comes between the two items
+    expect(ids.slice(from + 1, to).every((id) => id.startsWith('pm-row-menu-facts-input-'))).toBe(true);
+    press('pm-row-menu-vendor-invoice');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: task.rowGUID } });
+    expect(usePMStore.getState().rowMenu).toBeNull();
+  });
+  it('a stage has no lines, so no vendor invoice', () => {
+    const { byName } = seedStore();
+    const stage = byName('Stage 1');
+    renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
+    expect(q('pm-row-menu-vendor-invoice')).toBeNull();
   });
 });
 

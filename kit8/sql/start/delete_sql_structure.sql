@@ -1,8 +1,8 @@
 -- ===============================================================================================
--- UNIVERSAL1 - delete_sql_structure.sql: DELETES EVERYTHING that start1_sql_structure.sql created - tables WITH ALL THEIR DATA (of ALL users),
+-- UNIVERSAL1 - delete_sql_structure.sql: DELETES EVERYTHING that start1_sql_tables.sql + start2_sql_code.sql created - tables WITH ALL THEIR DATA (of ALL users),
 -- default data, indexes, triggers, policies, functions (stored procedures), realtime publication entries.
 -- IRREVERSIBLE: make a backup first (Supabase -> Database -> Backups, or pg_dump). Safe to run twice (IF EXISTS everywhere).
--- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_structure.sql.
+-- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
 --   1a. delete_fact_input_and_monitor01.sql - PARTs 24-25: drops the fact documents, Monitor01 (view, queue, log, fact sums), the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
@@ -30,7 +30,7 @@
 
 -- =====================================================================================
 -- PART 1a: delete_fact_input_and_monitor01.sql  (the numbering of the other parts stays: 1a runs FIRST, it is the newest)
--- Removes what PARTs 24-25 of start1_sql_structure.sql added: the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
+-- Removes what PARTs 24-26 of start1_sql_tables.sql + start2_sql_code.sql added: the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
 -- task_line_fact_for_monitor01), the pg_cron jobs, the triggers on the other tables, the functions and the sequence.
 -- =====================================================================================
 DO $$
@@ -59,8 +59,29 @@ BEGIN
     DROP TRIGGER IF EXISTS trg_monitor01_role_rename ON public."resourceRoleTable";
   END IF;
 END $$;
+-- (PART 26 of the structure file: the vendor invoice, the legal entity catalog, the main vendor guards; the data of the invoices and of the legal entities goes with the tables)
+DROP TABLE IF EXISTS public.vendor_invoice_lines CASCADE;
+DROP TABLE IF EXISTS public.vendor_invoice_header CASCADE;
+DROP TABLE IF EXISTS public."legalEntityTable" CASCADE;
+DROP SEQUENCE IF EXISTS public.vendor_invoice_document_seq;
+DROP FUNCTION IF EXISTS public.vendor_invoice_list(jsonb, integer, integer);
+DROP FUNCTION IF EXISTS public.delete_vendor_invoice(uuid);
+DROP FUNCTION IF EXISTS public.unpost_vendor_invoice(uuid);
+DROP FUNCTION IF EXISTS public.post_vendor_invoice(uuid);
+DROP FUNCTION IF EXISTS public.vendor_invoice_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.create_vendor_invoices(uuid, jsonb, text);
+DROP FUNCTION IF EXISTS public.vendor_invoice_candidates(uuid, uuid[]);
+DROP FUNCTION IF EXISTS public.project_status_register_invoice(uuid);
+DROP FUNCTION IF EXISTS public.vendor_invoice_state(uuid);
+DROP FUNCTION IF EXISTS public.vendor_invoice_lines_before_write();
+DROP FUNCTION IF EXISTS public.vendor_invoice_header_before_write();
+DROP FUNCTION IF EXISTS public.legal_entity_guard();
+DROP FUNCTION IF EXISTS public.contract_legal_entity_guard() CASCADE;          -- the trigger on contractTable goes with it
+DROP FUNCTION IF EXISTS public.main_vendor_guard() CASCADE;                    -- the triggers on partnerTable / equipmentTable / productTable go with it
 DROP TABLE IF EXISTS public.monitor01_view CASCADE;
-DROP TABLE IF EXISTS public.task_line_fact_for_monitor01 CASCADE;
+DROP TABLE IF EXISTS public.project_status_movements CASCADE;
+DROP TABLE IF EXISTS public.project_status_month_turnover CASCADE;
+DROP TABLE IF EXISTS public.task_line_fact_for_monitor01 CASCADE;           -- the name before the rename (a database that was not upgraded)
 DROP TABLE IF EXISTS public.monitor01_dirty CASCADE;
 DROP TABLE IF EXISTS public.monitor01_refresh_log CASCADE;
 DROP TABLE IF EXISTS public.task_fact_usage_timeline CASCADE;
@@ -71,9 +92,16 @@ DROP SEQUENCE IF EXISTS public.task_fact_document_seq;
 DROP PROCEDURE IF EXISTS public.monitor01_process_dirty(integer, integer);
 DROP FUNCTION IF EXISTS public.monitor01_process_batch(integer);
 DROP FUNCTION IF EXISTS public.monitor01_apply(uuid[]);
+DROP FUNCTION IF EXISTS public.monitor01_stamp(uuid);
 DROP FUNCTION IF EXISTS public.monitor01_refresh_now(uuid, integer);
 DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
+DROP FUNCTION IF EXISTS public.project_status_fresh_turnover(uuid[]);
+DROP FUNCTION IF EXISTS public.project_status_register_plan(uuid[]);
+DROP FUNCTION IF EXISTS public.project_status_register_fact(uuid);
+DROP FUNCTION IF EXISTS public.project_status_unregister(uuid);
+DROP FUNCTION IF EXISTS public.project_status_trg_queue_new();
+DROP FUNCTION IF EXISTS public.project_status_trg_queue_old();
 DROP FUNCTION IF EXISTS public.monitor01_queue_tasks(uuid[], text);
 DROP FUNCTION IF EXISTS public.monitor01_trg_queue_new();
 DROP FUNCTION IF EXISTS public.monitor01_trg_queue_old();
@@ -98,7 +126,7 @@ DROP FUNCTION IF EXISTS public.task_fact_header_before_write();
 
 -- =====================================================================================
 -- PART 1b: delete_time_genus_control.sql  (the numbering of the other parts stays: 1b runs FIRST, it is the newest)
--- Removes what PARTs 20-23 of start1_sql_structure.sql added (organization scope, resource calendar, busy check, calendar lock): organizationInvitationTable (data included!), the functions, the triggers and the constraint on userTable / project_table.
+-- Removes what PARTs 20-23 of start1_sql_tables.sql + start2_sql_code.sql added (organization scope, resource calendar, busy check, calendar lock): organizationInvitationTable (data included!), the functions, the triggers and the constraint on userTable / project_table.
 -- Runs FIRST (it is the newest part). The key userOrganization stays inside the rowJSON of the users and the column project_table.rowParentGUID goes with the table (PART 14).
 -- =====================================================================================
 DO $$
@@ -737,7 +765,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- =====================================================================================
 -- PART 15: delete_business_unit_tables.sql
--- Removes what PART 18 of start1_sql_structure.sql added: the triggers on the catalogs / the line / the project (when those tables are still there), businessUnitTable and cfrTypeTable (data included!),
+-- Removes what PART 18 of start1_sql_tables.sql + start2_sql_code.sql added: the triggers on the catalogs / the line / the project (when those tables are still there), businessUnitTable and cfrTypeTable (data included!),
 -- their functions. The keys businessUnitAssigned / businessUnitTaskLine / project*Center stay inside the rowJSON of the other rows as inert JSON.
 -- Runs after the tables that hold the keys (and create_task_line_plan, PART 2) are gone and BEFORE the helper kit8_touch_updated_at is dropped (businessUnitTable uses it).
 -- =====================================================================================
@@ -772,7 +800,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- =====================================================================================
 -- PART 16: delete_budget_scenario_table.sql
--- Removes what PART 19 of start1_sql_structure.sql added: budgetScenarioTable (data included!). Runs BEFORE the helper kit8_touch_updated_at is dropped (the table uses it).
+-- Removes what PART 19 of start1_sql_tables.sql + start2_sql_code.sql added: budgetScenarioTable (data included!). Runs BEFORE the helper kit8_touch_updated_at is dropped (the table uses it).
 -- =====================================================================================
 DO $$
 BEGIN

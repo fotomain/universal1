@@ -10,6 +10,7 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../ui/components/common';
 import SwitchApp from '../../ui/components/common/SwitchApp';
 import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
+import { LEGAL_ENTITY_TABLE, legalEntityTitle } from '../legal_entity/legalEntityModel';
 import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY } from '../currency/currencyModel';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import {
@@ -54,6 +55,7 @@ type Form = {
   supplierRole: boolean;
   customerRole: boolean;
   businessUnitAssigned: string;
+  legalEntityGUID: string;
   /** managementCalendarTable.rowGUID ('' = none; a contract of a person only) */
   resourceCalendar: string;
 };
@@ -78,6 +80,7 @@ const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'par
     supplierRole: !!j.supplierRole,
     customerRole: !!j.customerRole,
     businessUnitAssigned: j.businessUnitAssigned ?? '',
+    legalEntityGUID: j.legalEntityGUID ?? '',
     resourceCalendar: j.resourceCalendar ?? '',
   };
 };
@@ -141,6 +144,7 @@ export default function ContractEdit({
       supplierRole: form.supplierRole,
       customerRole: form.customerRole,
       businessUnitAssigned: form.businessUnitAssigned || null,
+      legalEntityGUID: form.legalEntityGUID || null,
       resourceCalendar: form.resourceCalendar || null,
     };
 
@@ -331,6 +335,17 @@ export default function ContractEdit({
               rows={units.rows}
               value={form.businessUnitAssigned || null}
               onChange={(guid) => set('businessUnitAssigned', guid ?? '')}
+            />
+
+            {/* OUR legal entity of the contract (optional): the vendor invoices of this contract are issued to it */}
+            <SelectElementFromCatalog
+              testID="contract-edit-legalEntityGUID"
+              entityName={LEGAL_ENTITY_TABLE.entity}
+              label="Legal entity (optional)"
+              placeholder="Select legal entity…"
+              value={form.legalEntityGUID || null}
+              onChange={(guid) => set('legalEntityGUID', guid ?? '')}
+              titleExtractor={legalEntityTitle}
             />
 
             {/* the capacity of the person while this contract is in force: its calendar wins over the calendar of the person */}

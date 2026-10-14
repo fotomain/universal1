@@ -5,6 +5,7 @@ import IconApp from '../../ui/components/common/IconApp';
 import type { CardItem } from '../../ui/components/list/web/lib/types';
 import type { PartnerRowJSON } from './partnerModel';
 import ContractList from '../contract/ContractList';
+import MainVendorLine from '../vendor/MainVendorLine';
 
 export interface PartnerCardProps {
   card: CardItem;
@@ -102,6 +103,7 @@ export default function PartnerCard({
               .filter(Boolean)
               .join(' · ') || 'No legal details registered'}
           </Text>
+          {!!j.mainVendorGUID && <MainVendorLine vendorGUID={j.mainVendorGUID} contractGUID={j.mainVendorContractGUID} testID={`partner-card-vendor-${id}`} />}
         </View>
       </Pressable>
 

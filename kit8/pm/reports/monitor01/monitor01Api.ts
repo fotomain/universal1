@@ -1,5 +1,6 @@
 // monitor01Api - the drill-down call: monitor01_sum_sources (kit8/sql/start, PART 25) returns the SOURCE transactions of a sum, paged, with the exact count and sum.
-import { MONITOR01_SUM_PAGE_SIZE, RPC_MONITOR01_REFRESH_NOW, RPC_MONITOR01_SUM_SOURCES } from './monitor01Constants';
+import { MONITOR01_SUM_PAGE_SIZE, RPC_MONITOR01_REFRESH_NOW, RPC_MONITOR01_STAMP, RPC_MONITOR01_SUM_SOURCES } from './monitor01Constants';
+import { Monitor01Stamp, parseMonitor01Stamp } from './monitor01Model';
 
 export type Monitor01SourceMeasure = 'planned' | 'contracted' | 'delivered' | 'used' | 'fact';
 /** a row of the list: the movements of the plan (planned, contracted) or the lines of a posted fact document (fact) */
@@ -45,4 +46,11 @@ export async function refreshMonitor01Now(client: any, projectGUID?: string | nu
   if (error) throw new Error(error.message || String(error));
   const d: any = data || {};
   return { tasks: Number(d.tasks) || 0, upserted: Number(d.upserted) || 0, deleted: Number(d.deleted) || 0 };
+}
+
+/** monitor01_stamp: the number of my rows, the newest updated_at and how long the queue waits - asked every MONITOR01_POLL_INTERVAL_MS by the open report */
+export async function fetchMonitor01Stamp(client: any, projectGUID?: string | null): Promise<Monitor01Stamp> {
+  const { data, error } = await client.rpc(RPC_MONITOR01_STAMP, { p_project: projectGUID || null });
+  if (error) throw new Error(error.message || String(error));
+  return parseMonitor01Stamp(data);
 }

@@ -114,6 +114,26 @@ export function applyMonitor01Events(rows: ReadonlyMap<string, Monitor01Row>, ev
   return next ?? rows;
 }
 
+// ---- the stamp: "did my rows change, is the worker keeping up?" ------------------------------------------------------------------------------------------------------
+export interface Monitor01Stamp { count: number; maxUpdatedAt: number | null; queued: number; queuedAgeSeconds: number }
+const time = (v: unknown): number | null => { if (v == null || v === '') return null; const t = typeof v === 'number' ? v : Date.parse(String(v)); return Number.isFinite(t) ? t : null; };
+/** the answer of monitor01_stamp → typed (a missing field is 0 / null, never an exception) */
+export function parseMonitor01Stamp(data: any): Monitor01Stamp {
+  const d = data && typeof data === 'object' ? data : {};
+  return { count: num(d.count), maxUpdatedAt: time(d.maxUpdatedAt), queued: num(d.queued), queuedAgeSeconds: num(d.queuedAgeSeconds) };
+}
+/** the same two numbers of the rows the screen holds */
+export function monitor01LocalStamp(rows: Iterable<Monitor01Row>): { count: number; maxUpdatedAt: number | null } {
+  let count = 0; let max: number | null = null;
+  for (const r of rows) { count += 1; const t = time(r.updated_at); if (t !== null && (max === null || t > max)) max = t; }
+  return { count, maxUpdatedAt: max };
+}
+/** the server has another set of rows than the screen: another number, or a newer change (a row the screen holds with NO updated_at is not compared by time) */
+export function monitor01StampDiffers(server: Pick<Monitor01Stamp, 'count' | 'maxUpdatedAt'>, local: { count: number; maxUpdatedAt: number | null }): boolean {
+  if (server.count !== local.count) return true;
+  return server.maxUpdatedAt !== null && local.maxUpdatedAt !== null && server.maxUpdatedAt !== local.maxUpdatedAt;
+}
+
 // ---- filters ----------------------------------------------------------------------------------------------------------------------------------------------
 export interface Monitor01Filters { startDate: string; finishDate: string; project: string; task: string; resource: string }
 export const EMPTY_MONITOR01_FILTERS: Monitor01Filters = { startDate: '', finishDate: '', project: '', task: '', resource: '' };

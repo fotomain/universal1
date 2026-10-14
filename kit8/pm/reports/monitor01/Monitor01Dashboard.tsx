@@ -25,7 +25,7 @@ import { useOpenFactInput } from '../../fact/useOpenFactInput';
 import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
-import { MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
+import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import { refreshMonitor01Now } from './monitor01Api';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows,
@@ -55,14 +55,15 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const dispatch = useDispatch();
   const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
-  const data = useMonitor01Rows(scopeProject);
+  // Auto refresh (the Monitor01Toolbar): ON = the rows follow Realtime and the safety net under it; OFF = a snapshot (no polling either), which Refresh replaces
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const data = useMonitor01Rows(scopeProject, { poll: autoRefresh });
 
   const [tab, setTab] = useState<Monitor01Tab>('all');
   const [filters, setFilters] = useState<Monitor01Filters>(EMPTY_MONITOR01_FILTERS);
   const [drill, setDrill] = useState<Drill | null>(null);
 
-  // Auto refresh (the Monitor01Toolbar): ON = the rows follow the realtime events; OFF = a snapshot, which Refresh replaces. The filters cut the rows in memory, so they work in both modes.
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  // the filters cut the rows in memory, so they work in both modes of Auto refresh
   const [snapshot, setSnapshot] = useState<Monitor01Row[] | null>(null);
   const [refreshSince, setRefreshSince] = useState<number | null>(null);
   const changeAuto = useCallback((on: boolean) => { setAutoRefresh(on); setSnapshot(on ? null : data.rows); setRefreshSince(null); }, [data.rows]);
@@ -111,7 +112,9 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const age = data.changedAt ? Math.max(0, Math.round((now - data.changedAt) / 1000)) : null;
-  const stale = !data.live;
+  // live = Realtime is open; polling = Realtime is not, but the stamp is answered (changes still arrive within a few seconds)
+  const polling = !data.live && !!data.checkedAt && now - data.checkedAt < MONITOR01_POLL_INTERVAL_MS * 3;
+  const stale = !data.live && !polling;
 
   const openPlan = useCallback((taskGUID: string) => {
     setDrill(null);
@@ -155,7 +158,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
           <Text style={{ color: c.text, fontSize: 12 }}>
-            {stale ? pmT('Offline: the last data') : autoRefresh ? pmT('Live') : pmT('Auto refresh is off: a snapshot')}
+            {stale ? pmT('Offline: the last data') : !autoRefresh ? pmT('Auto refresh is off: a snapshot') : polling ? pmT('Live: checked every {{n}} s', { n: MONITOR01_POLL_INTERVAL_MS / 1000 }) : pmT('Live')}
             {age != null ? ` · ${pmT('changed {{n}} s ago', { n: age })}` : ''}
             {` · ${pmT('refresh {{n}} s', { n: MONITOR01_REFRESH_INTERVAL })}`}
           </Text>

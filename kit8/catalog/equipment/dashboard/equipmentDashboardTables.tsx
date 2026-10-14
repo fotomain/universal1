@@ -1,6 +1,7 @@
 // Equipment dashboard - one ReusableTable configuration per equipment table: columns (what is shown, where it is stored), scope filters above the
 // table (master -> detail: the values of ONE equipment ...) and row commands. The twin of person/dashboard/personDashboardTables.tsx;
 // the descriptor tables (Descriptors, Values) are the product configuration itself, the others are written for machines.
+import { mainVendorColumns } from '../../vendor/mainVendorModel';
 import type { VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { DESCRIPTION_MODES, MODE_PROPERTY, MODE_VARIANT, todayISO } from '../../product/productModel';
 import type { ProductTableKey } from '../../product/productModel';
@@ -88,6 +89,8 @@ export function buildEquipmentTables(data: EquipmentCatalogData, L: ProductLabel
         { key: 'serial', title: 'Serial no.', type: 'text', field: 'equipmentSerialNumber', width: 140 },
         ...(ctx.calendarColumn ? [ctx.calendarColumn] : []),
         ...(ctx.businessUnitColumn ? [ctx.businessUnitColumn] : []),
+        // who the equipment is normally bought / hired from (and ITS contract): the vendor invoice window lists the vendors from it
+        ...mainVendorColumns(),
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('properties', 'Properties', (r) => propsPerEquipment(r.rowGUID)),
         count('variants', 'Variants', (r) => variantsPerEquipment(r.rowGUID)),

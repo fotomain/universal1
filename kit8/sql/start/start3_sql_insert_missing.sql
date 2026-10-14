@@ -1,13 +1,13 @@
 -- ===============================================================================================
--- UNIVERSAL1 - start3_sql_insert_missing.sql: the SEED DATA of start1_sql_structure.sql, extracted from it.
--- Run it AFTER start1_sql_structure.sql (Supabase -> SQL Editor -> paste -> Run), once the structure has been created. Idempotent (every seed is ON CONFLICT ... DO NOTHING /
+-- UNIVERSAL1 - start3_sql_insert_missing.sql: the SEED DATA of start1_sql_tables.sql + start2_sql_code.sql, extracted from it.
+-- Run it AFTER start1_sql_tables.sql + start2_sql_code.sql (Supabase -> SQL Editor -> paste -> Run), once the structure has been created. Idempotent (every seed is ON CONFLICT ... DO NOTHING /
 -- guarded): safe to run twice. Same order as in the structure file, so a row that points at another seed row finds it.
 --
 -- What is here: the rows the app starts with - countries, currencies, the ECB exchange rates, the standing roles, the demo persons / partners / contracts, the kanban stages, the product
 -- catalog (VAT, units, descriptors, product types, products, properties, variants, prices, barcodes), the resource roles / types / folders / rates, the management genus, distributions,
 -- budget items, person types and the person descriptors, resource contract templates, calendars (and their days), equipment, CFR types, business units, budget scenarios.
 -- What is NOT here: the BACKFILLS of data that already exists in a database (userTable from auth.users, project_user_settings_table, task_line_plan_timeline, the first fill of
--- the Monitor01 queue, the migrations of project / task / organization rows) - they stay in start1_sql_structure.sql next to the table they repair.
+-- the Monitor01 queue, the migrations of project / task / organization rows) - they stay in start1_sql_tables.sql + start2_sql_code.sql next to the table they repair.
 -- start5_sql_upsert_all.sql is the same seed data as UPSERTS (refreshes seed rows); this file only inserts what is missing.
 -- ===============================================================================================
 
@@ -15,7 +15,7 @@
 DO $$
 BEGIN
   IF to_regclass('public."countryTable"') IS NULL OR to_regclass('public.task_line_plan_movements') IS NULL OR to_regprocedure('public.fill_management_calendar(text, integer, text, boolean, numeric, boolean)') IS NULL THEN
-    RAISE EXCEPTION 'Run start1_sql_structure.sql first (start3_sql_insert_missing.sql only fills the tables it creates)';
+    RAISE EXCEPTION 'Run start1_sql_tables.sql + start2_sql_code.sql first (start3_sql_insert_missing.sql only fills the tables it creates)';
   END IF;
 END $$;
 

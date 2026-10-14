@@ -6,7 +6,7 @@
 //   Filters     above every table: master -> detail (the properties of ONE equipment ...); new rows get the filter values
 //   Commands    Generate variants (Seniority x Working language ...), Rebuild variant titles / keys
 // Route: /catalog/equipment/dashboard (?tab=<table key>|checks &focusRowGUID=<rowGUID>)
-// SQL: kit8/sql/start/start1_sql_structure.sql (PART 17)
+// SQL: kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 17)
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDispatch } from 'react-redux';
@@ -254,7 +254,7 @@ export default function EquipmentDashboard() {
           <IconApp name="database" size={18} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>
             {readError ? `The equipment tables could not be read (${readError}). ` : 'The equipment types are empty. '}
-            Run kit8/sql/start/start1_sql_structure.sql and then start3_sql_insert_missing.sql (PART 17) in the Supabase SQL editor and sign in.
+            Run kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql and then start3_sql_insert_missing.sql (PART 17) in the Supabase SQL editor and sign in.
           </Text>
         </View>
       )}

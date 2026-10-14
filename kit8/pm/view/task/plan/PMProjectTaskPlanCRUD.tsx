@@ -11,6 +11,7 @@ import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../../../ui/components/common/IconApp';
 import ReusableTable from '../../../../ui/components/table/reusable/ReusableTable';
 import { REUSABLE_TABLE_ALL } from '../../../../ui/components/table/reusable/reusableTableTypes';
+import type { ReusableTableRow } from '../../../../ui/components/table/reusable/reusableTableTypes';
 import { usePMStore } from '../../../store/store_pm';
 import { pmT } from '../../../i18n/pmT';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
@@ -77,7 +78,7 @@ export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskG
   const rowFilter = useCallback(
     (row: ReusableTableRow) => {
       if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return true;
-      const line = linesById.get(row.rowParentGUID);
+      const line = linesById.get(row.rowParentGUID ?? '');
       return line?.rowParentGUID === activeTabDef.genus;
     },
     [activeTabDef, linesById],

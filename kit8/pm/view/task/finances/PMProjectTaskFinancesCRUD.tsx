@@ -47,6 +47,7 @@ import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
 import { useOpenFactInput } from '../../../fact/useOpenFactInput';
+import { useOpenVendorInvoice } from '../../../vendor_invoice/useVendorInvoice';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -71,6 +72,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
   const openFactInput = useOpenFactInput();
+  const openVendorInvoice = useOpenVendorInvoice();
   const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
@@ -245,6 +247,8 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         // right button on a line: "Facts input" (kit8/pm/fact, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
         extraMenuItems={(row, close) => [
           { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
+          // right after "Facts input": the vendor of THIS line (a revenue line has none) → a vendor invoice (kit8/pm/vendor_invoice)
+          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); openVendorInvoice({ taskGUID, projectGUID, lineGUIDs: [row.rowGUID] }); } }] : []),
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}
         toolbarExtra={fxOn ? (

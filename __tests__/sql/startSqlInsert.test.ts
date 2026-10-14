@@ -1,4 +1,4 @@
-// start3_sql_insert_missing.sql is the seed data EXTRACTED from start1_sql_structure.sql: the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
+// start3_sql_insert_missing.sql is the seed data EXTRACTED from the structure (start1_sql_tables.sql + start2_sql_code.sql): the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
 // a PART of the structure file, and a seed is idempotent. (The SQL itself is run on a real Postgres 15 by kit8/docker/test_sql.sh: install twice = same objects and same row counts,
 // the structure alone = 0 seed rows, delete leaves nothing.)
 import * as fs from 'fs';
@@ -6,7 +6,7 @@ import * as path from 'path';
 
 const dir = path.join(__dirname, '../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
-const structure = read('start1_sql_structure.sql');
+const structure = read('start1_sql_tables.sql') + '\n' + read('start2_sql_code.sql');
 const insert = read('start3_sql_insert_missing.sql');
 
 /** the top-level statements of a file: split at ";" followed by a line end, outside strings, dollar quotes and comments */
@@ -34,8 +34,8 @@ describe('the structure file has no seed rows', () => {
   it('its only top-level INSERTs are the backfills of data that already exists', () => {
     const targets = structureStatements.filter((s) => kindOf(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
     // (the backfill of userTable from auth.users is inside a DO block: a database that has the organization rule needs organization_ensure_user for it)
-    // (monitor01_dirty twice: the first fill of the Monitor01 queue and the upgrade that queues the tasks that have fact documents)
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    // (monitor01_dirty three times: the first fill of the Monitor01 queue and the two upgrade steps that queue the tasks that have fact documents / a plan that is not in the register yet)
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('says where the seeds are', () => {
     expect(structure).toContain('start3_sql_insert_missing.sql');
@@ -53,7 +53,7 @@ describe('the insert file has only data', () => {
     for (const s of insertStatements.filter((x) => kindOf(x) === 'INSERT')) expect(s).toMatch(/ON CONFLICT|WHERE NOT EXISTS|NOT EXISTS \(/i);
   });
   it('refuses to run before the structure', () => {
-    expect(insert).toContain("Run start1_sql_structure.sql first");
+    expect(insert).toContain("Run start1_sql_tables.sql + start2_sql_code.sql first");
   });
   it('the same order as the structure: its PARTs are PARTs of the structure file, ascending', () => {
     const parts = Array.from(insert.matchAll(/^-- PART (\d+): (\S+)\s+\(seed data\)/gm)).map((m) => [Number(m[1]), m[2]] as const);

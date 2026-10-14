@@ -1,6 +1,7 @@
 // Product dashboard - one ReusableTable configuration per product table: columns (what is shown, where it is
 // stored), scope filters above the table (master -> detail: the values of ONE product ...) and table commands.
 // Root columns are edited in place too: target 'rowOwnerGUID' / 'rowParentGUID' (product -> type / folder ...).
+import { mainVendorColumns } from '../../vendor/mainVendorModel';
 import React from 'react';
 import { Text } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -120,6 +121,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
         { key: 'measureUnitDefault', title: 'Default unit', type: 'select', options: O.units, allowEmpty: false, width: 120 },
         { key: 'productVATRate', title: 'VAT rate', type: 'select', options: O.vatRates, width: 110, placeholder: 'Type default' },
         { key: 'description', title: 'Description', type: 'text', width: 240 },
+        // who the product (material) is normally bought from (and ITS contract): the vendor invoice window lists the vendors from it
+        ...mainVendorColumns(),
         { key: 'isActive', title: 'Active', type: 'boolean', width: 70 },
         count('variants', 'Variants', (r) => variantsOfProduct(data, productById.get(r.rowGUID)).length),
         count('price', retail ? `${rowTitle(retail)} now` : 'Price now', (r) => {

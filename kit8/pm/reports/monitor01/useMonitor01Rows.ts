@@ -3,11 +3,15 @@
 //   * events within MONITOR01_EVENT_BATCH_MS are applied together (one render)
 //   * after a reconnect everything is read again (events sent while the socket was down are lost - the same rule as useProjectRealtime)
 //   * project mode listens to one project (filter rowProjectGUID); the full data set listens to the table - Realtime sends only the rows the read policy lets the user see
-// The data age: `changedAt` is the time of the last applied event / load; `live` is true while the channel is subscribed.
+//   * a SAFETY NET under Realtime: every MONITOR01_POLL_INTERVAL_MS the screen asks monitor01_stamp (my row count + newest updated_at, the age of the queue): another set of rows twice in a row = read
+//     again (a missed event, a channel that is silently dead); a task that waits in the queue longer than MONITOR01_QUEUE_STALE_SECONDS = the worker (pg_cron) is late or not running -
+//     monitor01_refresh_now computes it at once, then the rows are read again
+// The data age: `changedAt` is the time of the last applied event / load; `live` is true while the channel is subscribed; `checkedAt` is the time of the last answer of the stamp.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabase } from '../../../providers/WithSupabase';
-import { MONITOR01_EVENT_BATCH_MS, MONITOR01_PAGE_SIZE, MONITOR01_VIEW_TABLE } from './monitor01Constants';
-import { Monitor01Event, Monitor01Row, applyMonitor01Events, monitor01Key, parseMonitor01Row } from './monitor01Model';
+import { MONITOR01_COMPUTE_NOW_COOLDOWN_MS, MONITOR01_EVENT_BATCH_MS, MONITOR01_PAGE_SIZE, MONITOR01_POLL_INTERVAL_MS, MONITOR01_QUEUE_STALE_SECONDS, MONITOR01_VIEW_TABLE } from './monitor01Constants';
+import { fetchMonitor01Stamp, refreshMonitor01Now } from './monitor01Api';
+import { Monitor01Event, Monitor01Row, applyMonitor01Events, monitor01Key, monitor01LocalStamp, monitor01StampDiffers, parseMonitor01Row } from './monitor01Model';
 
 export interface UseMonitor01Rows {
   rows: Monitor01Row[];
@@ -17,6 +21,8 @@ export interface UseMonitor01Rows {
   live: boolean;
   /** ms of the last load / applied event */
   changedAt: number | null;
+  /** ms of the last answer of the stamp (the safety net under Realtime works while this is recent) */
+  checkedAt: number | null;
   reload: () => void;
 }
 
@@ -37,7 +43,8 @@ export async function readAllMonitor01Rows(client: any, projectGUID?: string | n
   return out;
 }
 
-export function useMonitor01Rows(projectGUID?: string | null): UseMonitor01Rows {
+export function useMonitor01Rows(projectGUID?: string | null, options: { poll?: boolean } = {}): UseMonitor01Rows {
+  const poll = options.poll !== false;
   const { supabase: typedClient } = useSupabase();
   // the realtime part of the client is used through `any`: its generic overloads do not know a filter string built at run time
   const supabase: any = typedClient;
@@ -46,9 +53,12 @@ export function useMonitor01Rows(projectGUID?: string | null): UseMonitor01Rows 
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [changedAt, setChangedAt] = useState<number | null>(null);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [nonce, setNonce] = useState(0);
   const mapRef = useRef(map);
   mapRef.current = map;
+  const loadingRef = useRef(true);
+  loadingRef.current = isLoading;
   const pending = useRef<Monitor01Event[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,6 +121,41 @@ export function useMonitor01Rows(projectGUID?: string | null): UseMonitor01Rows 
     };
   }, [supabase, projectGUID]);
 
+  // the safety net under Realtime (see the top of the file)
+  useEffect(() => {
+    if (!poll || !supabase?.rpc) return undefined;
+    let cancelled = false;
+    let mismatches = 0;
+    let lastCompute = 0;
+    let busy = false;
+    const tick = async () => {
+      if (busy || cancelled) return;
+      busy = true;
+      try {
+        const st = await fetchMonitor01Stamp(supabase, projectGUID);
+        if (cancelled) return;
+        setCheckedAt(Date.now());
+        if (!loadingRef.current) {
+          // another set of rows than the screen holds, twice in a row (one tick of grace: an event that is just being applied)
+          mismatches = monitor01StampDiffers(st, monitor01LocalStamp(mapRef.current.values())) ? mismatches + 1 : 0;
+          if (mismatches >= 2) { mismatches = 0; setNonce((n) => n + 1); }
+        }
+        // the worker is late or not running: compute at once, then read again
+        if (st.queued > 0 && st.queuedAgeSeconds > MONITOR01_QUEUE_STALE_SECONDS && Date.now() - lastCompute > MONITOR01_COMPUTE_NOW_COOLDOWN_MS) {
+          lastCompute = Date.now();
+          await refreshMonitor01Now(supabase, projectGUID);
+          if (!cancelled) setNonce((n) => n + 1);
+        }
+      } catch {
+        // the next tick asks again (offline, a refused call): the badge shows it when nothing arrives
+      } finally {
+        busy = false;
+      }
+    };
+    const id = setInterval(() => { void tick(); }, MONITOR01_POLL_INTERVAL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [supabase, projectGUID, poll]);
+
   const rows = useMemo(() => [...map.values()], [map]);
-  return { rows, isLoading, error, live, changedAt, reload: () => setNonce((n) => n + 1) };
+  return { rows, isLoading, error, live, changedAt, checkedAt, reload: () => setNonce((n) => n + 1) };
 }

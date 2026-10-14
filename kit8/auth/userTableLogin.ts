@@ -8,7 +8,7 @@
 // userTable.rowGUID      = the user's GUID in the whole app. Users imported from other systems keep
 //                          the GUID they had there; a brand-new user gets his Supabase auth uid
 //                          (so projects created before this step existed stay his).
-// SQL side: kit8/sql/start/start1_sql_structure.sql (PART 20 create_organization_scope.sql). The client can no longer insert into userTable.
+// SQL side: kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 20 create_organization_scope.sql). The client can no longer insert into userTable.
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const USER_TABLE = 'userTable';

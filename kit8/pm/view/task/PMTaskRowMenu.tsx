@@ -8,6 +8,7 @@ import { usePMStore } from '../../store/store_pm';
 import { PMCrud } from '../../crud/usePMCrud';
 import PMContextMenu from '../../inner/menu/PMContextMenu';
 import { useOpenFactInput } from '../../fact/useOpenFactInput';
+import { useOpenVendorInvoice } from '../../vendor_invoice/useVendorInvoice';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
@@ -15,6 +16,7 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const task = usePMStore((s) => (s.rowMenu ? s.tasksById[s.rowMenu.guid] : undefined));
   const isSummary = usePMStore((s) => (s.rowMenu ? !!s.schedule[s.rowMenu.guid]?.isSummary : false));
   const openFactInput = useOpenFactInput();
+  const openVendorInvoice = useOpenVendorInvoice();
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -40,6 +42,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     { testID: id('open'), label: 'Open task info', icon: 'open_in_new', onPress: run(() => crud.openInfo(guid)) },
     // a stage has no lines, so no facts: only a task or a milestone (kit8/pm/fact, documentation/FACT_INPUT.html)
     ...(isSummary ? [] : [{ testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID: guid })) }]),
+    // right after "Facts input": the vendors of the lines of the task → one vendor invoice for each vendor + contract (kit8/pm/vendor_invoice)
+    ...(isSummary ? [] : [{ testID: id('vendor-invoice'), label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => openVendorInvoice({ taskGUID: guid })) }]),
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 

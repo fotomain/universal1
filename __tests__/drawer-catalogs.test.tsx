@@ -106,28 +106,32 @@ it('Reports (after Products) is a closed accordion with Monitor01, which opens t
   expect(mockNavigate).toHaveBeenCalledWith('/pm/reports/monitor01');
 });
 
-it('Budgets is a closed accordion: Budget Items, Budget scenarios, Business units, Resource contract templates, Resource roles (also kept in Catalogs), a divider, then Actuals', () => {
+it('Budgets is a closed accordion: Budget Items, Budget scenarios, Business units, Resource contract templates, Resource roles (also kept in Catalogs), a divider, then Actuals and Vendor invoices', () => {
   mount('/home');
   expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed
   expect(q('drawer-divider-budgets-divider')).toBeNull();
   press('drawer-item-budgets');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles', 'Actuals'];
+  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles', 'Actuals', 'Vendor invoices'];
   expect(subs).toHaveLength(labels.length);
   labels.forEach((label, i) => expect(subs[i]).toContain(label)); // in this order (the mocked icon adds its name to the text)
   // the divider sits between the catalogs and Actuals
   const order = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"], [data-testid^="drawer-divider-"]')).map((e) => e.getAttribute('data-testid'));
   expect(order.indexOf('drawer-divider-budgets-divider')).toBe(order.indexOf('drawer-subitem-budgets-resourceroles') + 1);
   expect(order.indexOf('drawer-subitem-budgets-actuals')).toBe(order.indexOf('drawer-divider-budgets-divider') + 1);
+  expect(order.indexOf('drawer-subitem-budgets-vendorinvoices')).toBe(order.indexOf('drawer-subitem-budgets-actuals') + 1);   // Vendor invoices right after Actuals
   press('drawer-subitem-budgets-budgetscenarios');
   expect(mockNavigate).toHaveBeenCalledWith('/budget/scenario/list');
   press('drawer-subitem-budgets-businessunits');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
   press('drawer-subitem-budgets-actuals');
   expect(mockNavigate).toHaveBeenCalledWith('/pm/fact/list');
+  press('drawer-subitem-budgets-vendorinvoices');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/vendor-invoice/list');
   press('drawer-item-catalogs');
   for (const id of ['budgetitems', 'budgetscenarios', 'businessunits', 'templateresourcecontracts', 'resourceroles']) expect(q(`drawer-subitem-${id}`)).not.toBeNull();
   expect(q('drawer-subitem-actuals')).toBeNull(); // Actuals is not a catalog
+  expect(q('drawer-subitem-legalentities')).not.toBeNull(); // the legal entities are a catalog (Catalogs > Legal entities)
 });
 
 it('the divider is not a button and Budgets opens by itself on the Actuals list', () => {

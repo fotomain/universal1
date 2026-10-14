@@ -56,6 +56,10 @@ export interface PartnerRowJSON {
   supplierData?: SupplierData;
   /** Customer specific commercial terms */
   customerData?: CustomerData;
+  /** partnerTable.rowGUID of the vendor this partner is normally bought through (optional; kit8/catalog/vendor) */
+  mainVendorGUID?: string;
+  /** contractTable.rowGUID: a contract of that vendor (optional, needs mainVendorGUID) */
+  mainVendorContractGUID?: string;
 }
 
 export interface PartnerRow {
@@ -161,6 +165,9 @@ export function normalizePartner(v: Partial<PartnerRowJSON>): PartnerRowJSON {
     legalData,
     supplierData,
     customerData,
+    // optional: an empty key is not written, so a save clears it; a contract without its vendor is dropped
+    ...(String(v.mainVendorGUID ?? '').trim() ? { mainVendorGUID: String(v.mainVendorGUID).trim() } : {}),
+    ...(String(v.mainVendorGUID ?? '').trim() && String(v.mainVendorContractGUID ?? '').trim() ? { mainVendorContractGUID: String(v.mainVendorContractGUID).trim() } : {}),
   };
 
 }

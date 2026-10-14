@@ -1,18 +1,20 @@
-// The business unit SQL (PART 18 of kit8/sql/start/start1_sql_structure.sql, PART 15 of delete_sql_structure.sql) against the model: the same tables, the same
+// The business unit SQL (PART 18 of kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql, PART 15 of delete_sql_structure.sql) against the model: the same tables, the same
 // seed, the same rules, the same files. (The SQL itself is run on a real Postgres 15 by kit8/docker/test_sql.sh; start2_sql_code.sql + start5_sql_upsert_all.sql are the
 // same part cut in two and must hold it too.)
 import fs from 'fs';
 import path from 'path';
 import { CFR_TYPE_SEED } from '../../../kit8/catalog/business_unit/cfrTypeModel';
 import { unitRows } from './businessUnitTestKit';
+import { structurePart, tablesSql } from '../../sql/sqlFilesTestKit';
 
 const dir = path.join(__dirname, '../../../kit8/sql/start');
-const start = fs.readFileSync(path.join(dir, 'start1_sql_structure.sql'), 'utf8');
+const start = fs.readFileSync(path.join(dir, 'start1_sql_tables.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
 const code = fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
 const data = fs.readFileSync(path.join(dir, 'start5_sql_upsert_all.sql'), 'utf8');
 const insert = fs.readFileSync(path.join(dir, 'start3_sql_insert_missing.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
-const part = start.slice(start.indexOf('-- PART 18: create_business_unit_tables.sql'));
+const from18 = (src: string) => src.slice(src.indexOf('-- PART 18: create_business_unit_tables.sql'));
+const part = from18(tablesSql) + '\n' + from18(code);          // the tables and the code of PART 18 on
 const insertPart = insert.slice(insert.indexOf('-- PART 18: create_business_unit_tables.sql'));       // the seed rows (start3_sql_insert_missing.sql)
 const codePart = code.slice(code.indexOf('-- PART 18: create_business_unit_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 15: delete_business_unit_tables.sql'), del.indexOf('-- PART 16:'));
@@ -46,7 +48,7 @@ describe('the structure file', () => {
     expect(part).toContain("'projectCostCenter:cost', 'projectRevenueCenter:revenue', 'projectProfitCenter=profitCenter', 'projectInvestmentCenter=investmentCenter'");
   });
   it('Post: create_task_line_plan refuses a cost on a revenue center and keeps the unit and the kind ON THE POSTED DAYS', () => {
-    const plan = start.slice(start.indexOf('-- PART 15: create_task_line_plan_table.sql'), start.indexOf('-- PART 16:'));
+    const plan = structurePart(15);
     expect(plan).toContain('kit8_cfr_accepts(public.kit8_business_unit_cfr(v_unit), v_kind)');
     expect(plan).toContain("cannot be posted to the business unit");
     expect(plan).toContain("jsonb_build_object('businessUnitAssigned', to_jsonb(v_unit), 'budgetKind', to_jsonb(v_kind))");
@@ -74,7 +76,8 @@ describe('the delete file', () => {
 describe('start2_sql_code.sql + start5_sql_upsert_all.sql hold the same part, cut in two', () => {
   it('the code file: the tables, the functions, the triggers, the Post check; no seed rows', () => {
     expect(codePart.length).toBeGreaterThan(0);
-    for (const g of ['CREATE TABLE IF NOT EXISTS public."cfrTypeTable"', 'CREATE TABLE IF NOT EXISTS public."businessUnitTable"', 'kit8_business_unit_guard', 'kit8_check_business_unit_ref', "ARRAY['cfrTypeTable', 'businessUnitTable']"]) expect(codePart).toContain(g);
+    for (const g of ['CREATE TABLE IF NOT EXISTS public."cfrTypeTable"', 'CREATE TABLE IF NOT EXISTS public."businessUnitTable"']) { expect(from18(tablesSql)).toContain(g); expect(codePart).not.toContain(g); }     // the tables are in start1_sql_tables.sql
+    for (const g of ['kit8_business_unit_guard', 'kit8_check_business_unit_ref', "ARRAY['cfrTypeTable', 'businessUnitTable']"]) expect(codePart).toContain(g);
     expect(codePart).not.toMatch(/\('bu_enterprise1'/);
     expect(code).toContain('kit8_cfr_accepts(public.kit8_business_unit_cfr(v_unit), v_kind)');
     expect(code).toContain("'businessUnitAssigned', to_jsonb(v_unit)");

@@ -582,6 +582,15 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     expect(call.rowJSON.fxSnapshotTaskLine.accounting.rate).toBeCloseTo(1 / 1.5, 10);
   });
 
+  it('the row menu has "Vendor Invoice" right AFTER "Facts input" (a Time / Material / Expense line)', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    expect(ids).toContain(`${T}-vendor-invoice-fx1`);
+    expect(ids.indexOf(`${T}-vendor-invoice-fx1`)).toBe(ids.indexOf(`${T}-facts-fx1`) + 1);
+  });
+
   it('Recalculate all (bar): every line of the tab; nothing to do = nothing written', () => {
     mockBook = book();
     mount({ lines: [fxLine(), line('fx2', 'timeGenus', 2, { sumForContract: 100, sumVATForContract: 21 })], project, startMs: START });

@@ -1,8 +1,9 @@
 -- ===============================================================================================
--- UNIVERSAL1 - start1_sql_structure.sql: EVERYTHING the app needs in SQL, in one file, for a fresh database.
--- tables, default data (inserts), indexes, triggers, policies, stored procedures (functions / RPC), realtime publication.
--- Supabase -> SQL Editor -> paste the whole file -> Run. Idempotent (CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING): safe to run twice.
--- The opposite is delete_sql_structure.sql (next to this file). Parts, in this order:
+-- UNIVERSAL1 - start2_sql_code.sql: everything of the structure that is NOT a table. Run it SECOND, after start1_sql_tables.sql.
+-- functions / RPC, triggers, row level security + policies, grants, views, realtime publication, pg_cron, the setup of the generic tables (kit8_setup_def_table), the data migrations / backfills of a
+-- database that already exists - and NO seed rows (start3_sql_insert_missing.sql) and NO table definitions (start1_sql_tables.sql).
+-- Order: 1. start1_sql_tables.sql   2. start2_sql_code.sql   3. start3_sql_insert_missing.sql.   Supabase -> SQL Editor -> paste a file -> Run. All of them are idempotent: safe to run twice.
+-- The opposite is delete_sql_structure.sql (next to this file). Parts, in this order (the same numbers as in start1_sql_tables.sql):
 --
 --    1. create_tables.sql - base tables, personTable, contractTable, the PM project / task tables, kit8_setup_def_table, pm_touch_updated_at, pm_owns_project
 --    2. update_currency_exchange_rate_types.sql - exchange rate TYPES (Default | Budget, as D365 FO): the key of a rate = day or day|Type
@@ -29,74 +30,22 @@
 --   23. create_calendar_lock.sql - the calendar lock: a change of a calendar that would put the capacity of a resource under its posted hours is refused (day rows, Fill, resourceCalendar pointers, contracts)
 --   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_usage_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
+--   26. create_vendor_invoice.sql - the legal entity catalog, the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract) and its posting into the project status register
 -- ===============================================================================================
 
+DO $$
+BEGIN
+  IF to_regclass('public.project_table') IS NULL OR to_regclass('public."userTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run start1_sql_tables.sql first (the tables), then this file';
+  END IF;
+END $$;
 
 -- ===============================================================================================
 -- PART 1: create_tables.sql
 -- base tables, personTable, contractTable, the PM project / task tables, kit8_setup_def_table, pm_touch_updated_at, pm_owns_project
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - MASTER SCHEMA: create_tables.sql
--- (Supabase / PostgreSQL 15+. Remove everything again with delete_tables.sql)
---
--- Built from the app code (kit8/pm/crud/*, kit8/redux/SystemMetaData.ts, app/_layout.tsx,
--- kit8/catalog/*) and the init scripts of branch pm33 (*.sql), which it
--- replaces: create_tables.sql, update_tables.sql, create_*_table.sql, create_pm_tables.sql,
--- create_pm_kanban_tables.sql and every update_pm_tables_*.sql.
---
--- IDEMPOTENT + NON-DESTRUCTIVE: run it on an empty database (fresh install, e.g. after
--- delete_tables.sql) or on top of an existing one (it only adds what is missing, refreshes
--- functions / triggers / policies / grants and runs the data migrations). Safe to run twice.
---
---   0. extensions + shared helper functions
---   1. generic app tables (defTable.md pattern, TEXT ids, open RLS)
---        googleDriveCommandTable, raciMemberTable, themeStoreTable, mediaPostTable,
---        mediaPostTableArchive, userTable, userAuthTable, aiSessionTable, dtc*Table (7)
---   2. catalogs (defTable.md pattern, TEXT ids) + seeds
---        countryTable, currencyTable, currencyExchangeRateTable, organizationTable,
---        personTable, partnerTable, contractTable
---   3. PM Gantt (UUID ids, ltree tree, DAG + closure, owner RLS)
---        project_table, project_task_table, project_task_dependencies_table,
---        project_task_dependency_closure_table, project_user_settings_table
---        + project_task_schedule_view and the RPCs pm_apply_schedule,
---          pm_dependency_creates_cycle, pm_recalc_project_progress, pm_task_upstream,
---          pm_task_downstream, pm_owns_project, pm_seed_demo
---   4. PM Kanban
---        kanban_stage_table (seeded catalog), project_kanban_stage_table,
---        project_task_kanban_state_table + RPC pm_kanban_ensure_project_stages
---   5. PM project templates (kit8/pm/crud/api/templateApi.ts)
---        templates_project_table, templates_project_task_table,
---        templates_project_task_dependencies_table, templates_project_task_dependency_closure_table,
---        templates_project_kanban_stage_table, templates_project_user_settings_table
---        (same tree / DAG / closure integrity as the real project tables, owner RLS)
---   5b. PM project versions (kit8/pm/version): read-only copies of a whole project plan
---        version_project_table, version_project_task_table,
---        version_project_task_dependencies_table, version_project_kanban_stage_table,
---        version_project_task_kanban_state_table
---        + RPCs pm_version_save, pm_version_restore, pm_version_set_title, pm_owns_version
---   6. data migrations of older databases (all no-ops on a fresh database)
---   7. realtime publication + PostgREST schema reload
---
--- Conventions
---   * "rowGUID" own id, "rowOwnerGUID" owner, "rowParentGUID" parent, "orderInList" numeric
---     order, "rowJSON" jsonb payload, created_at / updated_at (kit8/sql/defTable.md).
---   * PM: ltree labels = rowGUID with '-' -> '_' (client: scheduling.ts toLtreeLabel()).
---     rowJSON.startAt = start, "rowDuration" = finish (exclusive). Errors raised by triggers
---     start with 'pm_gantt: ' (the client strips it: apiUtils.errorMessage()).
---   * USER ID: one GUID per user = "userTable"."rowGUID"; "userTable"."rowOwnerGUID" = the user's
---     email (lower case, unique). Supabase auth is linked BY EMAIL: public.app_user_guid() returns
---     the userTable GUID of the signed-in email. Users can be imported with their own GUIDs.
---   * PM rows belong to public.app_user_guid() ("rowOwnerGUID" uuid) - RLS on every PM table.
--- =====================================================================================
 
--- =====================================================================================
--- 0. Extensions + shared helpers
--- =====================================================================================
-CREATE SCHEMA IF NOT EXISTS extensions;
-CREATE EXTENSION IF NOT EXISTS ltree;      -- kept wherever it is already installed
-CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid() on PostgreSQL < 13
 
 -- updated_at helpers (three names, all still referenced by older triggers)
 CREATE OR REPLACE FUNCTION public.set_updated_at() RETURNS trigger
@@ -109,6 +58,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -116,6 +66,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 CREATE OR REPLACE FUNCTION public.pm_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -125,11 +76,13 @@ BEGIN
 END;
 $$;
 
+
 -- uuid -> ltree label ('-' -> '_')
 CREATE OR REPLACE FUNCTION public.pm_ltree_label(p_guid uuid) RETURNS ltree
 LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path = public, extensions AS $$
   SELECT text2ltree(replace(lower(p_guid::text), '-', '_'));
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -145,13 +98,6 @@ BEGIN
   EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I ("orderInList")', 'idx_' || p_table || '_order', p_table);
 END;
 $$;
-
--- =====================================================================================
--- 1. Generic app tables (kit8/redux/SystemMetaData.ts reusable CRUD + realtime saga)
---    TEXT ids; open RLS for anon + authenticated (as in pm33 create_tables.sql).
---    Defaults on rowGUID / rowParentGUID / orderInList: themeStore createOne sends no
---    rowParentGUID, raciMember / organization rows use 'empty'.
--- =====================================================================================
 DO $$
 DECLARE
   t text;
@@ -164,26 +110,6 @@ DECLARE
   ];
 BEGIN
   FOREACH t IN ARRAY tables LOOP
-    EXECUTE format(
-      'CREATE TABLE IF NOT EXISTS public.%I (
-         "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-         "rowOwnerGUID"  TEXT        NOT NULL,
-         "rowParentGUID" TEXT        NOT NULL DEFAULT ''empty'',
-         "rowJSON"       JSONB       NOT NULL DEFAULT ''{}''::jsonb,
-         "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-         "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-         "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-         PRIMARY KEY ("rowGUID")
-       )', t);
-    -- older databases: columns / defaults added later (update_tables.sql)
-    EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()', t);
-    EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()', t);
-    EXECUTE format('ALTER TABLE public.%I ALTER COLUMN "rowParentGUID" SET DEFAULT ''empty''', t);
-    EXECUTE format('ALTER TABLE public.%I ALTER COLUMN "orderInList" SET DEFAULT 0', t);
-    EXECUTE format('ALTER TABLE public.%I ALTER COLUMN "rowJSON" SET DEFAULT ''{}''::jsonb', t);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I ("rowOwnerGUID")', 'idx_' || t || '_owner', t);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I (created_at)', t || '_created_at_idx', t);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON public.%I (updated_at)', t || '_updated_at_idx', t);
     PERFORM public.kit8_setup_def_table(t);
 
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO anon, authenticated', t);
@@ -198,9 +124,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- one row per owner (pm33 create_tables.sql "additional indexes")
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_dtcTaskProgressTable_rowOwnerGUID" ON public."dtcTaskProgressTable" ("rowOwnerGUID");
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_userTable_rowOwnerGUID" ON public."userTable" ("rowOwnerGUID");
 
 -- ---- userTable: THE user record ---------------------------------------------------------
 --   rowGUID      = the user's GUID in the whole app (userState.userGUID, project "rowOwnerGUID", ...).
@@ -216,22 +139,35 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_userTable_rowOwnerGUID" ON public."userTa
 -- and may change only rowJSON / orderInList. GUIDs and emails are changed (and users are
 -- imported) in the SQL editor or with the service key only.
 REVOKE ALL ON public."userTable" FROM anon, authenticated;
+
 GRANT SELECT, INSERT ON public."userTable" TO authenticated;
+
 GRANT UPDATE ("rowJSON", "orderInList") ON public."userTable" TO authenticated;
+
 DROP POLICY IF EXISTS "Allow anon select" ON public."userTable";
+
 DROP POLICY IF EXISTS "Allow anon insert" ON public."userTable";
+
 DROP POLICY IF EXISTS "Allow anon update" ON public."userTable";
+
 DROP POLICY IF EXISTS "Allow anon delete" ON public."userTable";
+
 DROP POLICY IF EXISTS "userTable_select_own" ON public."userTable";
+
 DROP POLICY IF EXISTS "userTable_insert_own" ON public."userTable";
+
 DROP POLICY IF EXISTS "userTable_update_own" ON public."userTable";
+
 CREATE POLICY "userTable_select_own" ON public."userTable" FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+
 CREATE POLICY "userTable_insert_own" ON public."userTable" FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+
 CREATE POLICY "userTable_update_own" ON public."userTable" FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = lower(auth.jwt()->>'email'))
   WITH CHECK ("rowOwnerGUID" = lower(auth.jwt()->>'email'));
+
 
 -- The GUID of the signed-in user = userTable.rowGUID of the session's email.
 -- No row yet (first seconds of a first sign-in) or a GUID that is not a uuid -> the Supabase
@@ -252,113 +188,83 @@ BEGIN
   RETURN auth.uid();
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.app_user_guid() FROM PUBLIC;
+
 GRANT EXECUTE ON FUNCTION public.app_user_guid() TO anon, authenticated;
 
--- =====================================================================================
--- 2. Catalogs (kit8/catalog/*) - defTable.md pattern, TEXT ids
--- =====================================================================================
-
--- ---- countryTable: rowOwnerGUID 'countryCatalog'. Read: everybody; write: signed-in --------
-CREATE TABLE IF NOT EXISTS public."countryTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'countryCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "countryTable_code_chk" CHECK (("rowJSON"->>'countryCode') ~ '^[A-Z]{2,3}$')
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_countryTable_code" ON public."countryTable" (upper("rowJSON"->>'countryCode'));
-CREATE INDEX IF NOT EXISTS "idx_countryTable_name" ON public."countryTable" ((lower("rowJSON"->>'countryName')));
 SELECT public.kit8_setup_def_table('countryTable');
+
 REVOKE ALL ON public."countryTable" FROM anon, authenticated;
+
 GRANT SELECT ON public."countryTable" TO anon, authenticated;
+
 GRANT INSERT, UPDATE, DELETE ON public."countryTable" TO authenticated;
+
 DROP POLICY IF EXISTS "countryTable_select" ON public."countryTable";
+
 DROP POLICY IF EXISTS "countryTable_insert" ON public."countryTable";
+
 DROP POLICY IF EXISTS "countryTable_update" ON public."countryTable";
+
 DROP POLICY IF EXISTS "countryTable_delete" ON public."countryTable";
+
 CREATE POLICY "countryTable_select" ON public."countryTable" FOR SELECT TO anon, authenticated USING (true);
+
 CREATE POLICY "countryTable_insert" ON public."countryTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "countryTable_update" ON public."countryTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY "countryTable_delete" ON public."countryTable" FOR DELETE TO authenticated USING (true);
 
--- ---- currencyTable: rowOwnerGUID 'currencyCatalog'. Read: everybody; write: signed-in -------
-CREATE TABLE IF NOT EXISTS public."currencyTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'currencyCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "currencyTable_code_chk" CHECK (("rowJSON"->>'currencyCode') ~ '^[A-Z]{3}$')
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_currencyTable_code" ON public."currencyTable" (upper("rowJSON"->>'currencyCode'));
 SELECT public.kit8_setup_def_table('currencyTable');
+
 REVOKE ALL ON public."currencyTable" FROM anon, authenticated;
+
 GRANT SELECT ON public."currencyTable" TO anon, authenticated;
+
 GRANT INSERT, UPDATE, DELETE ON public."currencyTable" TO authenticated;
+
 DROP POLICY IF EXISTS "currencyTable_select" ON public."currencyTable";
+
 DROP POLICY IF EXISTS "currencyTable_insert" ON public."currencyTable";
+
 DROP POLICY IF EXISTS "currencyTable_update" ON public."currencyTable";
+
 DROP POLICY IF EXISTS "currencyTable_delete" ON public."currencyTable";
+
 CREATE POLICY "currencyTable_select" ON public."currencyTable" FOR SELECT TO anon, authenticated USING (true);
+
 CREATE POLICY "currencyTable_insert" ON public."currencyTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "currencyTable_update" ON public."currencyTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY "currencyTable_delete" ON public."currencyTable" FOR DELETE TO authenticated USING (true);
 
--- ---- currencyExchangeRateTable: rowOwnerGUID = currency, rowParentGUID = 'YYYY-MM-DD' -------
---      one rate per currency per day; orderInList = -(days since 1970-01-01); no FK on purpose
---      (an undone currency sql_for_delete re-creates the same rowGUID and gets its rates back)
-CREATE TABLE IF NOT EXISTS public."currencyExchangeRateTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "currencyExchangeRateTable_day_chk"
-    CHECK ("rowParentGUID" ~ '^\d{4}-\d{2}-\d{2}$' AND ("rowParentGUID")::date IS NOT NULL
-           AND "rowJSON"->>'startingDate' = "rowParentGUID"),
-  CONSTRAINT "currencyExchangeRateTable_ratio_chk"
-    CHECK (jsonb_typeof("rowJSON"->'currencyRatio') = 'number' AND ("rowJSON"->>'currencyRatio')::numeric > 0)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_currencyExchangeRateTable_owner_day" ON public."currencyExchangeRateTable" ("rowOwnerGUID", "rowParentGUID");
-CREATE INDEX IF NOT EXISTS "idx_currencyExchangeRateTable_owner_order" ON public."currencyExchangeRateTable" ("rowOwnerGUID", "orderInList");
 SELECT public.kit8_setup_def_table('currencyExchangeRateTable');
+
 REVOKE ALL ON public."currencyExchangeRateTable" FROM anon, authenticated;
+
 GRANT SELECT ON public."currencyExchangeRateTable" TO anon, authenticated;
+
 GRANT INSERT, UPDATE, DELETE ON public."currencyExchangeRateTable" TO authenticated;
+
 DROP POLICY IF EXISTS "currencyExchangeRateTable_select" ON public."currencyExchangeRateTable";
+
 DROP POLICY IF EXISTS "currencyExchangeRateTable_insert" ON public."currencyExchangeRateTable";
+
 DROP POLICY IF EXISTS "currencyExchangeRateTable_update" ON public."currencyExchangeRateTable";
+
 DROP POLICY IF EXISTS "currencyExchangeRateTable_delete" ON public."currencyExchangeRateTable";
+
 CREATE POLICY "currencyExchangeRateTable_select" ON public."currencyExchangeRateTable" FOR SELECT TO anon, authenticated USING (true);
+
 CREATE POLICY "currencyExchangeRateTable_insert" ON public."currencyExchangeRateTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "currencyExchangeRateTable_update" ON public."currencyExchangeRateTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY "currencyExchangeRateTable_delete" ON public."currencyExchangeRateTable" FOR DELETE TO authenticated USING (true);
 
--- ---- organizationTable: rowOwnerGUID = the user's email (1 user === 1 organization). Created on first login ----
---      (app/_layout.tsx -> ensureUserOrganization). Read: signed-in; update / sql_for_delete: only rowJSON.createdByUser
-CREATE TABLE IF NOT EXISTS public."organizationTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'organizationCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_organizationTable_title" ON public."organizationTable" ((lower("rowJSON"->>'organizationTitle')));
-CREATE INDEX IF NOT EXISTS "idx_organizationTable_createdByUser" ON public."organizationTable" (("rowJSON"->>'createdByUser'));
 -- RULE 1 user === 1 organization: rowOwnerGUID = lower(createdByUser) = the user's email.
 -- Older rows (rowOwnerGUID 'organizationCatalog'): the OLDEST organization of each user becomes the user's own;
 -- extra ones stay 'organizationCatalog' (not deleted - the user removes them in the Organizations list).
@@ -373,102 +279,44 @@ UPDATE public."organizationTable" o
                        ORDER BY x."orderInList", x."created_at", x."rowGUID" LIMIT 1)
    AND NOT EXISTS (SELECT 1 FROM public."organizationTable" y
                     WHERE y."rowOwnerGUID" = lower(o."rowJSON"->>'createdByUser'));
+
 -- the database refuses a second organization of the same owner (the catalog owner is not a user)
 CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationTable_one_per_user" ON public."organizationTable" ("rowOwnerGUID")
   WHERE "rowOwnerGUID" <> 'organizationCatalog';
+
 SELECT public.kit8_setup_def_table('organizationTable');
+
 REVOKE ALL ON public."organizationTable" FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."organizationTable" TO authenticated;
+
 DROP POLICY IF EXISTS "organizationTable_select" ON public."organizationTable";
+
 DROP POLICY IF EXISTS "organizationTable_insert" ON public."organizationTable";
+
 DROP POLICY IF EXISTS "organizationTable_update" ON public."organizationTable";
+
 DROP POLICY IF EXISTS "organizationTable_delete" ON public."organizationTable";
+
 CREATE POLICY "organizationTable_select" ON public."organizationTable" FOR SELECT TO authenticated USING (true);
+
 CREATE POLICY "organizationTable_insert" ON public."organizationTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "organizationTable_update" ON public."organizationTable" FOR UPDATE TO authenticated
   USING (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL)
   WITH CHECK (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL);
+
 CREATE POLICY "organizationTable_delete" ON public."organizationTable" FOR DELETE TO authenticated
   USING (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL);
 
--- (the Departments catalog - departamentTable - was removed; the business units, PART 18, replace it)
-
--- ---- personTable / partnerTable: shared catalogs, signed-in users only (GDPR) ---------------
-CREATE TABLE IF NOT EXISTS public."personTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'personCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_personTable_title" ON public."personTable" ((lower("rowJSON"->>'personTitle')));
 SELECT public.kit8_setup_def_table('personTable');
 
-CREATE TABLE IF NOT EXISTS public."partnerTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'partnerCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_partnerTable_title" ON public."partnerTable" ((lower("rowJSON"->>'partnerTitle')));
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_partnerTable_vat" ON public."partnerTable" (upper("rowJSON"->'legalData'->>'vatNo'))
-  WHERE ("rowJSON"->'legalData'->>'vatNo') IS NOT NULL AND ("rowJSON"->'legalData'->>'vatNo') <> '';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_partnerTable_reg" ON public."partnerTable" (("rowJSON"->'legalData'->>'registrationNo'))
-  WHERE ("rowJSON"->'legalData'->>'registrationNo') IS NOT NULL AND ("rowJSON"->'legalData'->>'registrationNo') <> '';
 SELECT public.kit8_setup_def_table('partnerTable');
 
--- ---- contractTable: rowOwnerGUID = person / partner rowGUID, rowParentGUID 'person'|'partner'
-CREATE TABLE IF NOT EXISTS public."contractTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "contractTable_party_chk"
-    CHECK ("rowParentGUID" IN ('person', 'partner') AND "rowJSON"->>'contractPartyType' = "rowParentGUID"),
-  CONSTRAINT "contractTable_sum_chk"
-    CHECK (jsonb_typeof("rowJSON"->'contractSumBeforeVAT') = 'number' AND ("rowJSON"->>'contractSumBeforeVAT')::numeric >= 0)
-);
-CREATE INDEX IF NOT EXISTS "idx_contractTable_owner_order" ON public."contractTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_contractTable_number" ON public."contractTable" ((lower("rowJSON"->>'contractNumber')));
--- ---- roleTable: rowOwnerGUID = 'roleCatalog', rowParentGUID = 'empty' -------------------------
-CREATE TABLE IF NOT EXISTS public."roleTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'roleCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_roleTable_name" ON public."roleTable" ((lower("rowJSON"->>'roleName')));
 SELECT public.kit8_setup_def_table('roleTable');
 
--- ---- userRoleTable: rowOwnerGUID = user email / uid, rowParentGUID = roleGUID or 'empty' ------
-CREATE TABLE IF NOT EXISTS public."userRoleTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_userRoleTable_owner" ON public."userRoleTable" ("rowOwnerGUID");
-CREATE INDEX IF NOT EXISTS "idx_userRoleTable_role" ON public."userRoleTable" ((lower("rowJSON"->>'roleName')));
 SELECT public.kit8_setup_def_table('userRoleTable');
+
 
 -- person / partner / contract / role / userRole: full CRUD for signed-in users only
 DO $$
@@ -489,96 +337,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- =====================================================================================
--- 3. PM Gantt (kit8/pm/crud/api: projectApi, taskApi, dependencyApi, projectUserSettingsApi)
---    TREE = ltree "treePath" (what contains what), DAG = dependencies (FS/SS/FF/SF + lag),
---    CLOSURE = all upstream / downstream pairs, maintained by triggers.
--- =====================================================================================
--- -------------------------------------------------------------------------------------
--- project_table - one row per project (treePath = own label)
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_table (
-  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "treePath"     LTREE       NOT NULL,
-  "rowOwnerGUID" UUID        NOT NULL,
-  "rowDuration"  TIMESTAMPTZ,                       -- finish (end of duration)
-  "rowProgress"  NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"  NUMERIC     NOT NULL DEFAULT 0,    -- fractional ordering
-  "rowJSON"      JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT project_table_progress_chk CHECK ("rowProgress" BETWEEN 0 AND 100),
-  CONSTRAINT project_table_path_chk CHECK ("treePath" = public.pm_ltree_label("rowGUID"))
-);
-CREATE INDEX IF NOT EXISTS idx_project_table_owner_order ON public.project_table ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_project_table_treePath ON public.project_table USING GIST ("treePath");
-CREATE INDEX IF NOT EXISTS idx_project_table_rowJSON ON public.project_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- project_task_table - stages + tasks + milestones (rowJSON.rowKind)
---   treePath = <project>.<stage>...<own row>
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_task_table (
-  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "treePath"     LTREE       NOT NULL,
-  "projectGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID" UUID        NOT NULL,
-  "rowDuration"  TIMESTAMPTZ,                       -- finish (end of duration), written by the scheduler
-  "rowProgress"  NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"  NUMERIC     NOT NULL DEFAULT 0,    -- fractional ordering among siblings
-  "rowJSON"      JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT project_task_progress_chk CHECK ("rowProgress" BETWEEN 0 AND 100),
-  CONSTRAINT project_task_path_depth_chk CHECK (nlevel("treePath") >= 2),
-  CONSTRAINT project_task_path_root_chk CHECK (subpath("treePath", 0, 1) = public.pm_ltree_label("projectGUID")),
-  CONSTRAINT project_task_path_self_chk CHECK (subpath("treePath", nlevel("treePath") - 1, 1) = public.pm_ltree_label("rowGUID")),
-  CONSTRAINT project_task_path_unique UNIQUE ("treePath")
-);
-CREATE INDEX IF NOT EXISTS idx_project_task_project_order ON public.project_task_table ("projectGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_project_task_owner ON public.project_task_table ("rowOwnerGUID");
-CREATE INDEX IF NOT EXISTS idx_project_task_treePath ON public.project_task_table USING GIST ("treePath");
-CREATE INDEX IF NOT EXISTS idx_project_task_rowJSON ON public.project_task_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- project_task_dependencies_table - the DAG: "rowGUID" waits for "rowDependsOnGUID"
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_task_dependencies_table (
-  "rowGUID"          UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowDependsOnGUID" UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "projectGUID"      UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"     UUID        NOT NULL,
-  "linkType"         TEXT        NOT NULL DEFAULT 'FS',
-  "lagDays"          NUMERIC     NOT NULL DEFAULT 0,  -- lag (>0) / lead (<0) in working days
-  "rowJSON"          JSONB       NOT NULL DEFAULT '{}'::jsonb, -- dependencyColor, notes, ...
-  "created_at"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID", "rowDependsOnGUID"),
-  CONSTRAINT project_task_dep_self_chk CHECK ("rowGUID" <> "rowDependsOnGUID"),
-  CONSTRAINT project_task_dep_type_chk CHECK ("linkType" IN ('FS', 'SS', 'FF', 'SF'))
-);
-ALTER TABLE public.project_task_dependencies_table ADD COLUMN IF NOT EXISTS "rowJSON" JSONB NOT NULL DEFAULT '{}'::jsonb;
-CREATE INDEX IF NOT EXISTS idx_task_deps_dependsOn ON public.project_task_dependencies_table ("rowDependsOnGUID");
-CREATE INDEX IF NOT EXISTS idx_task_deps_project ON public.project_task_dependencies_table ("projectGUID");
-CREATE INDEX IF NOT EXISTS idx_task_deps_rowJSON ON public.project_task_dependencies_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- project_task_dependency_closure_table - every (ancestor ~> descendant) pair of the
--- DAG with the SHORTEST path length. Written ONLY by the triggers below (clients: read).
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_task_dependency_closure_table (
-  "ancestorGUID"   UUID  NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "descendantGUID" UUID  NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "projectGUID"    UUID  NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "depthLevel"     INT   NOT NULL,
-  "rowJSON"        JSONB NOT NULL DEFAULT '{}'::jsonb,
-  PRIMARY KEY ("ancestorGUID", "descendantGUID"),
-  CONSTRAINT project_task_dep_closure_self_chk CHECK ("ancestorGUID" <> "descendantGUID")
-);
-ALTER TABLE public.project_task_dependency_closure_table ADD COLUMN IF NOT EXISTS "rowJSON" JSONB NOT NULL DEFAULT '{}'::jsonb;
-CREATE INDEX IF NOT EXISTS idx_task_dep_closure_descendant ON public.project_task_dependency_closure_table ("descendantGUID");
-CREATE INDEX IF NOT EXISTS idx_task_dep_closure_project ON public.project_task_dependency_closure_table ("projectGUID");
 
 -- ownership helper (used by RLS policies and RPCs)
 CREATE OR REPLACE FUNCTION public.pm_owns_project(p_project uuid) RETURNS boolean
@@ -586,12 +344,17 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_project_table_touch ON public.project_table;
+
 CREATE TRIGGER trg_project_table_touch BEFORE UPDATE ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 DROP TRIGGER IF EXISTS trg_project_task_table_touch ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_table_touch BEFORE UPDATE ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- ---- TREE integrity (ltree) -----------------------------------------------------------
 -- parent must exist inside the same project; a row cannot be moved under itself
@@ -626,10 +389,13 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_task_before_write ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_before_write
   BEFORE INSERT OR UPDATE OF "treePath", "projectGUID" ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_before_write();
+
 
 -- moving a stage rewrites the paths of its whole subtree (one statement)
 CREATE OR REPLACE FUNCTION public.pm_task_after_move() RETURNS trigger
@@ -645,10 +411,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_task_after_move ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_after_move
   AFTER UPDATE OF "treePath" ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_after_move();
+
 
 -- deleting a stage deletes its subtree (edges + closure follow through FK cascades)
 CREATE OR REPLACE FUNCTION public.pm_task_after_delete_subtree() RETURNS trigger
@@ -661,10 +430,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_task_after_delete_subtree ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_after_delete_subtree
   AFTER DELETE ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_after_delete_subtree();
+
 
 -- ---- DAG integrity + closure maintenance ----------------------------------------------
 -- Tree-aware reachability: does succ already (transitively) come before pred? A link on a
@@ -694,6 +466,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
          WHERE rt."treePath" @> pred.path OR rt."treePath" <@ pred.path
       );
 $$;
+
 
 CREATE OR REPLACE FUNCTION public.pm_task_dependency_before_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -726,6 +499,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_task_dependency_before_update() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -737,6 +511,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- incremental closure insert: (ancestors of pred + pred) x (succ + descendants of succ)
 CREATE OR REPLACE FUNCTION public.pm_task_dependency_after_insert() RETURNS trigger
@@ -764,6 +539,7 @@ BEGIN
 END;
 $$;
 
+
 -- a DAG can have several paths between two nodes, so a sql_for_delete is not undone locally:
 -- the closure of THAT project is rebuilt (small at PM scale, always correct)
 CREATE OR REPLACE FUNCTION public.pm_rebuild_dependency_closure(p_project uuid) RETURNS void
@@ -785,6 +561,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_task_dependency_after_delete() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
@@ -796,22 +573,31 @@ BEGIN
 END;
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_pm_task_dependency_before_insert ON public.project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_task_dependency_before_update ON public.project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_task_dependency_after_insert ON public.project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_task_dependency_after_delete ON public.project_task_dependencies_table;
+
 CREATE TRIGGER trg_pm_task_dependency_before_insert
   BEFORE INSERT ON public.project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_dependency_before_insert();
+
 CREATE TRIGGER trg_pm_task_dependency_before_update
   BEFORE UPDATE ON public.project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_dependency_before_update();
+
 CREATE TRIGGER trg_pm_task_dependency_after_insert
   AFTER INSERT ON public.project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_dependency_after_insert();
+
 CREATE TRIGGER trg_pm_task_dependency_after_delete
   AFTER DELETE ON public.project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_dependency_after_delete();
+
 
 -- ---- Row Level Security: everything belongs to app_user_guid() ------------------------------
 --   table                                       SELECT  INSERT  UPDATE  DELETE
@@ -820,67 +606,109 @@ CREATE TRIGGER trg_pm_task_dependency_after_delete
 --   project_task_dependencies_table         owner   owner   owner*  owner  (*linkType/lagDays/rowJSON)
 --   project_task_dependency_closure_table   owner   -       -       -      (triggers only)
 ALTER TABLE public.project_table                         ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.project_task_table                    ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.project_task_dependencies_table       ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.project_task_dependency_closure_table ENABLE ROW LEVEL SECURITY;
 
+
 REVOKE ALL ON public.project_table                         FROM anon, authenticated;
+
 REVOKE ALL ON public.project_task_table                    FROM anon, authenticated;
+
 REVOKE ALL ON public.project_task_dependencies_table       FROM anon, authenticated;
+
 REVOKE ALL ON public.project_task_dependency_closure_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_table                   TO authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_task_table              TO authenticated;
+
 GRANT SELECT, INSERT, DELETE         ON public.project_task_dependencies_table TO authenticated;
+
 GRANT UPDATE ("linkType", "lagDays", "rowJSON") ON public.project_task_dependencies_table TO authenticated;
+
 GRANT SELECT                         ON public.project_task_dependency_closure_table TO authenticated;
 
+
 DROP POLICY IF EXISTS project_table_select ON public.project_table;
+
 DROP POLICY IF EXISTS project_table_insert ON public.project_table;
+
 DROP POLICY IF EXISTS project_table_update ON public.project_table;
+
 DROP POLICY IF EXISTS project_table_delete ON public.project_table;
+
 CREATE POLICY project_table_select ON public.project_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_table_insert ON public.project_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_table_update ON public.project_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_table_delete ON public.project_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS project_task_select ON public.project_task_table;
+
 DROP POLICY IF EXISTS project_task_insert ON public.project_task_table;
+
 DROP POLICY IF EXISTS project_task_update ON public.project_task_table;
+
 DROP POLICY IF EXISTS project_task_delete ON public.project_task_table;
+
 CREATE POLICY project_task_select ON public.project_task_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_task_insert ON public.project_task_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
+
 CREATE POLICY project_task_update ON public.project_task_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()))
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
+
 CREATE POLICY project_task_delete ON public.project_task_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS project_task_dep_select ON public.project_task_dependencies_table;
+
 DROP POLICY IF EXISTS project_task_dep_insert ON public.project_task_dependencies_table;
+
 DROP POLICY IF EXISTS project_task_dep_update ON public.project_task_dependencies_table;
+
 DROP POLICY IF EXISTS project_task_dep_delete ON public.project_task_dependencies_table;
+
 CREATE POLICY project_task_dep_select ON public.project_task_dependencies_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_task_dep_insert ON public.project_task_dependencies_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("projectGUID"));
+
 CREATE POLICY project_task_dep_update ON public.project_task_dependencies_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_task_dep_delete ON public.project_task_dependencies_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS project_task_dep_closure_select ON public.project_task_dependency_closure_table;
+
 CREATE POLICY project_task_dep_closure_select ON public.project_task_dependency_closure_table FOR SELECT TO authenticated
   USING (public.pm_owns_project("projectGUID"));
 
+
 REVOKE ALL ON FUNCTION public.pm_rebuild_dependency_closure(uuid) FROM PUBLIC, anon, authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_dependency_creates_cycle(uuid, uuid) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_owns_project(uuid) TO authenticated;
+
 -- -------------------------------------------------------------------------------------
 -- Project / stage progress (stored procedure + trigger)
 --   progress(summary or project) = round1( SUM(w*p) / SUM(w) ) over its LEAF rows
@@ -940,6 +768,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_task_after_progress_change() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -958,12 +787,16 @@ BEGIN
 END;
 $$;
 
+
 -- "zz": runs after the subtree triggers (triggers of one event fire in name order)
 DROP TRIGGER IF EXISTS trg_project_task_zz_progress_ins_del ON public.project_task_table;
+
 DROP TRIGGER IF EXISTS trg_project_task_zz_progress_upd ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_zz_progress_ins_del
   AFTER INSERT OR DELETE ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_task_after_progress_change();
+
 CREATE TRIGGER trg_project_task_zz_progress_upd
   AFTER UPDATE OF "rowProgress", "rowJSON", "treePath" ON public.project_task_table
   FOR EACH ROW
@@ -972,6 +805,7 @@ CREATE TRIGGER trg_project_task_zz_progress_upd
         OR (OLD."rowJSON"->>'rowKind') IS DISTINCT FROM (NEW."rowJSON"->>'rowKind')
         OR OLD."treePath" IS DISTINCT FROM NEW."treePath")
   EXECUTE FUNCTION public.pm_task_after_progress_change();
+
 
 -- -------------------------------------------------------------------------------------
 -- RPC pm_apply_schedule (kit8/pm/crud/api/taskApi.ts applySchedule): client CPM write-back
@@ -1008,6 +842,7 @@ BEGIN
 END;
 $$;
 
+
 -- the schedule, queryable in SQL
 CREATE OR REPLACE VIEW public.project_task_schedule_view
 WITH (security_invoker = true) AS
@@ -1024,6 +859,7 @@ SELECT t."rowGUID",
        t."orderInList"
   FROM public.project_task_table t;
 
+
 -- "all blockers of X" / "everything X blocks", straight from the closure table
 CREATE OR REPLACE FUNCTION public.pm_task_upstream(p_task uuid)
 RETURNS TABLE ("rowGUID" uuid, "depthLevel" int)
@@ -1032,6 +868,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, extensions AS $$
    WHERE c."descendantGUID" = p_task ORDER BY c."depthLevel";
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_task_downstream(p_task uuid)
 RETURNS TABLE ("rowGUID" uuid, "depthLevel" int)
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, extensions AS $$
@@ -1039,11 +876,17 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, extensions AS $$
    WHERE c."ancestorGUID" = p_task ORDER BY c."depthLevel";
 $$;
 
+
 GRANT SELECT  ON public.project_task_schedule_view TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_recalc_project_progress(uuid) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_apply_schedule(uuid, jsonb, timestamptz, numeric) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_task_upstream(uuid) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_task_downstream(uuid) TO authenticated;
+
 
 -- -------------------------------------------------------------------------------------
 -- Demo data. Signed-in: select public.pm_seed_demo();  SQL editor: select public.pm_seed_demo('<user uuid>');
@@ -1108,111 +951,79 @@ BEGIN
   END LOOP;
 END;
 $$;
+
 GRANT EXECUTE ON FUNCTION public.pm_seed_demo(uuid, date) TO authenticated;
 
--- -------------------------------------------------------------------------------------
--- project_user_settings_table - Gantt / tree settings of ONE user for ONE project
---   rowOwnerGUID = project, rowParentGUID = user (auth.uid()), rowJSON = { uxuiSettings }
---   one row per (project, user): the client upserts on ("rowOwnerGUID","rowParentGUID")
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_user_settings_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" UUID        NOT NULL,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT project_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_project_user_settings_user ON public.project_user_settings_table ("rowParentGUID");
 DROP TRIGGER IF EXISTS trg_project_user_settings_touch ON public.project_user_settings_table;
+
 CREATE TRIGGER trg_project_user_settings_touch BEFORE UPDATE ON public.project_user_settings_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.project_user_settings_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.project_user_settings_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_user_settings_table TO authenticated;
+
 DROP POLICY IF EXISTS project_user_settings_select ON public.project_user_settings_table;
+
 DROP POLICY IF EXISTS project_user_settings_insert ON public.project_user_settings_table;
+
 DROP POLICY IF EXISTS project_user_settings_update ON public.project_user_settings_table;
+
 DROP POLICY IF EXISTS project_user_settings_delete ON public.project_user_settings_table;
+
 CREATE POLICY project_user_settings_select ON public.project_user_settings_table FOR SELECT TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY project_user_settings_insert ON public.project_user_settings_table FOR INSERT TO authenticated
   WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
+
 CREATE POLICY project_user_settings_update ON public.project_user_settings_table FOR UPDATE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
+
 CREATE POLICY project_user_settings_delete ON public.project_user_settings_table FOR DELETE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
--- =====================================================================================
--- 4. PM Kanban (kit8/pm/crud/api/kanbanApi.ts)
---   kanban_stage_table               shared catalog, rowOwnerGUID 'kanbanStageCatalog' (TEXT ids)
---   project_kanban_stage_table       columns of ONE project (rowOwnerGUID = project,
---                                    rowParentGUID = catalog rowGUID or 'empty')
---   project_task_kanban_state_table  stage of ONE task (rowOwnerGUID = project, rowParentGUID = task,
---                                    rowJSON = { stageGUID, kanbanStageProgressPercent? }); no row = first stage
--- =====================================================================================
-CREATE TABLE IF NOT EXISTS public.kanban_stage_table (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'kanbanStageCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_kanban_stage_owner ON public.kanban_stage_table ("rowOwnerGUID", "orderInList");
-CREATE UNIQUE INDEX IF NOT EXISTS idx_kanban_stage_code ON public.kanban_stage_table ("rowOwnerGUID", lower("rowJSON"->>'stageCode'));
 DROP TRIGGER IF EXISTS trg_kanban_stage_touch ON public.kanban_stage_table;
+
 CREATE TRIGGER trg_kanban_stage_touch BEFORE UPDATE ON public.kanban_stage_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.kanban_stage_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.kanban_stage_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.kanban_stage_table TO authenticated;
+
 DROP POLICY IF EXISTS kanban_stage_select ON public.kanban_stage_table;
+
 DROP POLICY IF EXISTS kanban_stage_insert ON public.kanban_stage_table;
+
 DROP POLICY IF EXISTS kanban_stage_update ON public.kanban_stage_table;
+
 DROP POLICY IF EXISTS kanban_stage_delete ON public.kanban_stage_table;
+
 CREATE POLICY kanban_stage_select ON public.kanban_stage_table FOR SELECT TO authenticated USING (true);
+
 CREATE POLICY kanban_stage_insert ON public.kanban_stage_table FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY kanban_stage_update ON public.kanban_stage_table FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY kanban_stage_delete ON public.kanban_stage_table FOR DELETE TO authenticated USING (true);
 
-CREATE TABLE IF NOT EXISTS public.project_kanban_stage_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_project_kanban_stage_project ON public.project_kanban_stage_table ("rowOwnerGUID", "orderInList");
 DROP TRIGGER IF EXISTS trg_project_kanban_stage_touch ON public.project_kanban_stage_table;
+
 CREATE TRIGGER trg_project_kanban_stage_touch BEFORE UPDATE ON public.project_kanban_stage_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
-CREATE TABLE IF NOT EXISTS public.project_task_kanban_state_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT project_task_kanban_state_unique UNIQUE ("rowOwnerGUID", "rowParentGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_project_task_kanban_state_task ON public.project_task_kanban_state_table ("rowParentGUID");
 DROP TRIGGER IF EXISTS trg_project_task_kanban_state_touch ON public.project_task_kanban_state_table;
+
 CREATE TRIGGER trg_project_task_kanban_state_touch BEFORE UPDATE ON public.project_task_kanban_state_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- deleting a column sends its tasks back to the first stage (their state rows are removed)
 CREATE OR REPLACE FUNCTION public.pm_kanban_stage_after_delete() RETURNS trigger
@@ -1223,9 +1034,12 @@ BEGIN
   RETURN OLD;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_kanban_stage_after_delete ON public.project_kanban_stage_table;
+
 CREATE TRIGGER trg_project_kanban_stage_after_delete AFTER DELETE ON public.project_kanban_stage_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_kanban_stage_after_delete();
+
 
 -- RPC: the project's stages; the first call copies the active catalog stages into the project.
 -- One advisory lock per project -> two browsers never create the stages twice. RLS applies.
@@ -1249,17 +1063,27 @@ BEGIN
   RETURN QUERY SELECT * FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = p_project ORDER BY "orderInList";
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.pm_kanban_ensure_project_stages(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.pm_kanban_ensure_project_stages(uuid) TO authenticated;
 
+
 ALTER TABLE public.project_kanban_stage_table ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.project_task_kanban_state_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.project_kanban_stage_table, public.project_task_kanban_state_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_kanban_stage_table, public.project_task_kanban_state_table TO authenticated;
+
 DROP POLICY IF EXISTS project_kanban_stage_all ON public.project_kanban_stage_table;
+
 CREATE POLICY project_kanban_stage_all ON public.project_kanban_stage_table FOR ALL TO authenticated
   USING (public.pm_owns_project("rowOwnerGUID")) WITH CHECK (public.pm_owns_project("rowOwnerGUID"));
+
 DROP POLICY IF EXISTS project_task_kanban_state_all ON public.project_task_kanban_state_table;
+
 CREATE POLICY project_task_kanban_state_all ON public.project_task_kanban_state_table FOR ALL TO authenticated
   USING (public.pm_owns_project("rowOwnerGUID"))
   WITH CHECK (
@@ -1269,96 +1093,6 @@ CREATE POLICY project_task_kanban_state_all ON public.project_task_kanban_state_
                    AND t."projectGUID" = project_task_kanban_state_table."rowOwnerGUID")
   );
 
--- =====================================================================================
--- 5. PM project templates (kit8/pm/crud/api/templateApi.ts, model/constants.ts templates*)
---    Same layout, integrity and RLS as the project tables: "projectGUID" = the template.
---    No progress roll-up / Kanban task states in templates.
--- =====================================================================================
--- -------------------------------------------------------------------------------------
--- templates_project_table - one row per template (treePath = own label)
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_table (
-  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "treePath"     LTREE       NOT NULL,
-  "rowOwnerGUID" UUID        NOT NULL,
-  "rowDuration"  TIMESTAMPTZ,                       -- finish (end of duration)
-  "rowProgress"  NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"  NUMERIC     NOT NULL DEFAULT 0,    -- fractional ordering
-  "rowJSON"      JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT templates_project_table_progress_chk CHECK ("rowProgress" BETWEEN 0 AND 100),
-  CONSTRAINT templates_project_table_path_chk CHECK ("treePath" = public.pm_ltree_label("rowGUID"))
-);
-CREATE INDEX IF NOT EXISTS idx_templates_project_table_owner_order ON public.templates_project_table ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_templates_project_table_treePath ON public.templates_project_table USING GIST ("treePath");
-CREATE INDEX IF NOT EXISTS idx_templates_project_table_rowJSON ON public.templates_project_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- templates_project_task_table - stages + tasks + milestones (rowJSON.rowKind)
---   treePath = <project>.<stage>...<own row>
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_task_table (
-  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "treePath"     LTREE       NOT NULL,
-  "projectGUID"  UUID        NOT NULL REFERENCES public.templates_project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID" UUID        NOT NULL,
-  "rowDuration"  TIMESTAMPTZ,                       -- finish (end of duration), written by the scheduler
-  "rowProgress"  NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"  NUMERIC     NOT NULL DEFAULT 0,    -- fractional ordering among siblings
-  "rowJSON"      JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT templates_project_task_progress_chk CHECK ("rowProgress" BETWEEN 0 AND 100),
-  CONSTRAINT templates_project_task_path_depth_chk CHECK (nlevel("treePath") >= 2),
-  CONSTRAINT templates_project_task_path_root_chk CHECK (subpath("treePath", 0, 1) = public.pm_ltree_label("projectGUID")),
-  CONSTRAINT templates_project_task_path_self_chk CHECK (subpath("treePath", nlevel("treePath") - 1, 1) = public.pm_ltree_label("rowGUID")),
-  CONSTRAINT templates_project_task_path_unique UNIQUE ("treePath")
-);
-CREATE INDEX IF NOT EXISTS idx_templates_project_task_project_order ON public.templates_project_task_table ("projectGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_templates_project_task_owner ON public.templates_project_task_table ("rowOwnerGUID");
-CREATE INDEX IF NOT EXISTS idx_templates_project_task_treePath ON public.templates_project_task_table USING GIST ("treePath");
-CREATE INDEX IF NOT EXISTS idx_templates_project_task_rowJSON ON public.templates_project_task_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- templates_project_task_dependencies_table - the DAG: "rowGUID" waits for "rowDependsOnGUID"
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_task_dependencies_table (
-  "rowGUID"          UUID        NOT NULL REFERENCES public.templates_project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowDependsOnGUID" UUID        NOT NULL REFERENCES public.templates_project_task_table("rowGUID") ON DELETE CASCADE,
-  "projectGUID"      UUID        NOT NULL REFERENCES public.templates_project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"     UUID        NOT NULL,
-  "linkType"         TEXT        NOT NULL DEFAULT 'FS',
-  "lagDays"          NUMERIC     NOT NULL DEFAULT 0,  -- lag (>0) / lead (<0) in working days
-  "rowJSON"          JSONB       NOT NULL DEFAULT '{}'::jsonb, -- dependencyColor, notes, ...
-  "created_at"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID", "rowDependsOnGUID"),
-  CONSTRAINT templates_project_task_dep_self_chk CHECK ("rowGUID" <> "rowDependsOnGUID"),
-  CONSTRAINT templates_project_task_dep_type_chk CHECK ("linkType" IN ('FS', 'SS', 'FF', 'SF'))
-);
-ALTER TABLE public.templates_project_task_dependencies_table ADD COLUMN IF NOT EXISTS "rowJSON" JSONB NOT NULL DEFAULT '{}'::jsonb;
-CREATE INDEX IF NOT EXISTS idx_templates_task_deps_dependsOn ON public.templates_project_task_dependencies_table ("rowDependsOnGUID");
-CREATE INDEX IF NOT EXISTS idx_templates_task_deps_project ON public.templates_project_task_dependencies_table ("projectGUID");
-CREATE INDEX IF NOT EXISTS idx_templates_task_deps_rowJSON ON public.templates_project_task_dependencies_table USING GIN ("rowJSON" jsonb_path_ops);
-
--- -------------------------------------------------------------------------------------
--- templates_project_task_dependency_closure_table - every (ancestor ~> descendant) pair of the
--- DAG with the SHORTEST path length. Written ONLY by the triggers below (clients: read).
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_task_dependency_closure_table (
-  "ancestorGUID"   UUID  NOT NULL REFERENCES public.templates_project_task_table("rowGUID") ON DELETE CASCADE,
-  "descendantGUID" UUID  NOT NULL REFERENCES public.templates_project_task_table("rowGUID") ON DELETE CASCADE,
-  "projectGUID"    UUID  NOT NULL REFERENCES public.templates_project_table("rowGUID") ON DELETE CASCADE,
-  "depthLevel"     INT   NOT NULL,
-  "rowJSON"        JSONB NOT NULL DEFAULT '{}'::jsonb,
-  PRIMARY KEY ("ancestorGUID", "descendantGUID"),
-  CONSTRAINT templates_project_task_dep_closure_self_chk CHECK ("ancestorGUID" <> "descendantGUID")
-);
-ALTER TABLE public.templates_project_task_dependency_closure_table ADD COLUMN IF NOT EXISTS "rowJSON" JSONB NOT NULL DEFAULT '{}'::jsonb;
-CREATE INDEX IF NOT EXISTS idx_templates_task_dep_closure_descendant ON public.templates_project_task_dependency_closure_table ("descendantGUID");
-CREATE INDEX IF NOT EXISTS idx_templates_task_dep_closure_project ON public.templates_project_task_dependency_closure_table ("projectGUID");
 
 -- ownership helper (used by RLS policies and RPCs)
 CREATE OR REPLACE FUNCTION public.pm_owns_template(p_project uuid) RETURNS boolean
@@ -1366,12 +1100,17 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.templates_project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_templates_project_table_touch ON public.templates_project_table;
+
 CREATE TRIGGER trg_templates_project_table_touch BEFORE UPDATE ON public.templates_project_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 DROP TRIGGER IF EXISTS trg_templates_project_task_table_touch ON public.templates_project_task_table;
+
 CREATE TRIGGER trg_templates_project_task_table_touch BEFORE UPDATE ON public.templates_project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- ---- TREE integrity (ltree) -----------------------------------------------------------
 -- parent must exist inside the same project; a row cannot be moved under itself
@@ -1406,10 +1145,13 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_templates_project_task_before_write ON public.templates_project_task_table;
+
 CREATE TRIGGER trg_templates_project_task_before_write
   BEFORE INSERT OR UPDATE OF "treePath", "projectGUID" ON public.templates_project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_before_write();
+
 
 -- moving a stage rewrites the paths of its whole subtree (one statement)
 CREATE OR REPLACE FUNCTION public.pm_template_task_after_move() RETURNS trigger
@@ -1425,10 +1167,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_templates_project_task_after_move ON public.templates_project_task_table;
+
 CREATE TRIGGER trg_templates_project_task_after_move
   AFTER UPDATE OF "treePath" ON public.templates_project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_after_move();
+
 
 -- deleting a stage deletes its subtree (edges + closure follow through FK cascades)
 CREATE OR REPLACE FUNCTION public.pm_template_task_after_delete_subtree() RETURNS trigger
@@ -1441,10 +1186,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_templates_project_task_after_delete_subtree ON public.templates_project_task_table;
+
 CREATE TRIGGER trg_templates_project_task_after_delete_subtree
   AFTER DELETE ON public.templates_project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_after_delete_subtree();
+
 
 -- ---- DAG integrity + closure maintenance ----------------------------------------------
 -- Tree-aware reachability: does succ already (transitively) come before pred? A link on a
@@ -1474,6 +1222,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
          WHERE rt."treePath" @> pred.path OR rt."treePath" <@ pred.path
       );
 $$;
+
 
 CREATE OR REPLACE FUNCTION public.pm_template_task_dependency_before_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -1506,6 +1255,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_template_task_dependency_before_update() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -1517,6 +1267,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- incremental closure insert: (ancestors of pred + pred) x (succ + descendants of succ)
 CREATE OR REPLACE FUNCTION public.pm_template_task_dependency_after_insert() RETURNS trigger
@@ -1544,6 +1295,7 @@ BEGIN
 END;
 $$;
 
+
 -- a DAG can have several paths between two nodes, so a sql_for_delete is not undone locally:
 -- the closure of THAT project is rebuilt (small at PM scale, always correct)
 CREATE OR REPLACE FUNCTION public.pm_template_rebuild_dependency_closure(p_project uuid) RETURNS void
@@ -1565,6 +1317,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.pm_template_task_dependency_after_delete() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
@@ -1576,22 +1329,31 @@ BEGIN
 END;
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_pm_template_task_dependency_before_insert ON public.templates_project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_template_task_dependency_before_update ON public.templates_project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_template_task_dependency_after_insert ON public.templates_project_task_dependencies_table;
+
 DROP TRIGGER IF EXISTS trg_pm_template_task_dependency_after_delete ON public.templates_project_task_dependencies_table;
+
 CREATE TRIGGER trg_pm_template_task_dependency_before_insert
   BEFORE INSERT ON public.templates_project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_dependency_before_insert();
+
 CREATE TRIGGER trg_pm_template_task_dependency_before_update
   BEFORE UPDATE ON public.templates_project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_dependency_before_update();
+
 CREATE TRIGGER trg_pm_template_task_dependency_after_insert
   AFTER INSERT ON public.templates_project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_dependency_after_insert();
+
 CREATE TRIGGER trg_pm_template_task_dependency_after_delete
   AFTER DELETE ON public.templates_project_task_dependencies_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_template_task_dependency_after_delete();
+
 
 -- ---- Row Level Security: everything belongs to app_user_guid() ------------------------------
 --   table                                       SELECT  INSERT  UPDATE  DELETE
@@ -1600,222 +1362,163 @@ CREATE TRIGGER trg_pm_template_task_dependency_after_delete
 --   templates_project_task_dependencies_table         owner   owner   owner*  owner  (*linkType/lagDays/rowJSON)
 --   templates_project_task_dependency_closure_table   owner   -       -       -      (triggers only)
 ALTER TABLE public.templates_project_table                         ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.templates_project_task_table                    ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.templates_project_task_dependencies_table       ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.templates_project_task_dependency_closure_table ENABLE ROW LEVEL SECURITY;
 
+
 REVOKE ALL ON public.templates_project_table                         FROM anon, authenticated;
+
 REVOKE ALL ON public.templates_project_task_table                    FROM anon, authenticated;
+
 REVOKE ALL ON public.templates_project_task_dependencies_table       FROM anon, authenticated;
+
 REVOKE ALL ON public.templates_project_task_dependency_closure_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.templates_project_table                   TO authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.templates_project_task_table              TO authenticated;
+
 GRANT SELECT, INSERT, DELETE         ON public.templates_project_task_dependencies_table TO authenticated;
+
 GRANT UPDATE ("linkType", "lagDays", "rowJSON") ON public.templates_project_task_dependencies_table TO authenticated;
+
 GRANT SELECT                         ON public.templates_project_task_dependency_closure_table TO authenticated;
 
+
 DROP POLICY IF EXISTS templates_project_table_select ON public.templates_project_table;
+
 DROP POLICY IF EXISTS templates_project_table_insert ON public.templates_project_table;
+
 DROP POLICY IF EXISTS templates_project_table_update ON public.templates_project_table;
+
 DROP POLICY IF EXISTS templates_project_table_delete ON public.templates_project_table;
+
 CREATE POLICY templates_project_table_select ON public.templates_project_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_table_insert ON public.templates_project_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_table_update ON public.templates_project_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_table_delete ON public.templates_project_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS templates_project_task_select ON public.templates_project_task_table;
+
 DROP POLICY IF EXISTS templates_project_task_insert ON public.templates_project_task_table;
+
 DROP POLICY IF EXISTS templates_project_task_update ON public.templates_project_task_table;
+
 DROP POLICY IF EXISTS templates_project_task_delete ON public.templates_project_task_table;
+
 CREATE POLICY templates_project_task_select ON public.templates_project_task_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_task_insert ON public.templates_project_task_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
+
 CREATE POLICY templates_project_task_update ON public.templates_project_task_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()))
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
+
 CREATE POLICY templates_project_task_delete ON public.templates_project_task_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS templates_project_task_dep_select ON public.templates_project_task_dependencies_table;
+
 DROP POLICY IF EXISTS templates_project_task_dep_insert ON public.templates_project_task_dependencies_table;
+
 DROP POLICY IF EXISTS templates_project_task_dep_update ON public.templates_project_task_dependencies_table;
+
 DROP POLICY IF EXISTS templates_project_task_dep_delete ON public.templates_project_task_dependencies_table;
+
 CREATE POLICY templates_project_task_dep_select ON public.templates_project_task_dependencies_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_task_dep_insert ON public.templates_project_task_dependencies_table FOR INSERT TO authenticated
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("projectGUID"));
+
 CREATE POLICY templates_project_task_dep_update ON public.templates_project_task_dependencies_table FOR UPDATE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_task_dep_delete ON public.templates_project_task_dependencies_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS templates_project_task_dep_closure_select ON public.templates_project_task_dependency_closure_table;
+
 CREATE POLICY templates_project_task_dep_closure_select ON public.templates_project_task_dependency_closure_table FOR SELECT TO authenticated
   USING (public.pm_owns_template("projectGUID"));
 
+
 REVOKE ALL ON FUNCTION public.pm_template_rebuild_dependency_closure(uuid) FROM PUBLIC, anon, authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_template_dependency_creates_cycle(uuid, uuid) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_owns_template(uuid) TO authenticated;
--- -------------------------------------------------------------------------------------
--- templates_project_kanban_stage_table - Kanban columns of a template (copied to / from
--- project_kanban_stage_table). Task Kanban states are NOT part of a template.
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_kanban_stage_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.templates_project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_templates_project_kanban_stage_project ON public.templates_project_kanban_stage_table ("rowOwnerGUID", "orderInList");
+
 DROP TRIGGER IF EXISTS trg_templates_project_kanban_stage_touch ON public.templates_project_kanban_stage_table;
+
 CREATE TRIGGER trg_templates_project_kanban_stage_touch BEFORE UPDATE ON public.templates_project_kanban_stage_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.templates_project_kanban_stage_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.templates_project_kanban_stage_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.templates_project_kanban_stage_table TO authenticated;
+
 DROP POLICY IF EXISTS templates_project_kanban_stage_all ON public.templates_project_kanban_stage_table;
+
 CREATE POLICY templates_project_kanban_stage_all ON public.templates_project_kanban_stage_table FOR ALL TO authenticated
   USING (public.pm_owns_template("rowOwnerGUID")) WITH CHECK (public.pm_owns_template("rowOwnerGUID"));
 
--- -------------------------------------------------------------------------------------
--- templates_project_user_settings_table - per user Gantt settings of a template
---   rowOwnerGUID = template, rowParentGUID = user; upsert on ("rowOwnerGUID","rowParentGUID")
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.templates_project_user_settings_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.templates_project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" UUID        NOT NULL,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT templates_project_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_templates_project_user_settings_user ON public.templates_project_user_settings_table ("rowParentGUID");
 DROP TRIGGER IF EXISTS trg_templates_project_user_settings_touch ON public.templates_project_user_settings_table;
+
 CREATE TRIGGER trg_templates_project_user_settings_touch BEFORE UPDATE ON public.templates_project_user_settings_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.templates_project_user_settings_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.templates_project_user_settings_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.templates_project_user_settings_table TO authenticated;
+
 DROP POLICY IF EXISTS templates_project_user_settings_select ON public.templates_project_user_settings_table;
+
 DROP POLICY IF EXISTS templates_project_user_settings_insert ON public.templates_project_user_settings_table;
+
 DROP POLICY IF EXISTS templates_project_user_settings_update ON public.templates_project_user_settings_table;
+
 DROP POLICY IF EXISTS templates_project_user_settings_delete ON public.templates_project_user_settings_table;
+
 CREATE POLICY templates_project_user_settings_select ON public.templates_project_user_settings_table FOR SELECT TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY templates_project_user_settings_insert ON public.templates_project_user_settings_table FOR INSERT TO authenticated
   WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("rowOwnerGUID"));
+
 CREATE POLICY templates_project_user_settings_update ON public.templates_project_user_settings_table FOR UPDATE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_template("rowOwnerGUID"));
+
 CREATE POLICY templates_project_user_settings_delete ON public.templates_project_user_settings_table FOR DELETE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
--- =====================================================================================
--- 5b. PM project versions (kit8/pm/version, documentation/PM_VERSION_STRUCTURE.html)
---    A version = a full, read-only copy of ONE project plan, taken on the user's command.
---    Table name = 'version_' + original table name. Every version table has
---    "rowVersionGUID" (one value per saved version); rows keep their ORIGINAL "rowGUID",
---    so tasks / dependencies of two versions (and of the live project) match by "rowGUID".
---      version_project_table                    1 row per version ("rowGUID" = the project)
---        rowJSON = project rowJSON + versionTitle, versionCreatedAt, versionNumber, versionTaskCount
---        orderInList = versionNumber (1, 2, 3 ... inside the project)
---      version_project_task_table               stages / tasks / milestones of the version
---      version_project_task_dependencies_table  its dependencies
---      version_project_kanban_stage_table       its Kanban columns
---      version_project_task_kanban_state_table  its Kanban cards
---    Not stored: the dependency closure, project_task_schedule_view (derived),
---    project_user_settings_table (per user view settings), kanban_stage_table (catalog).
---    No tree / DAG / progress triggers here: the rows are written ONLY by the RPCs
---      pm_version_save(project, title)   -> new rowVersionGUID
---      pm_version_restore(version, backupTitle) -> rowVersionGUID of the automatic backup
---      pm_version_set_title(version, title)
---    Clients: SELECT (owner) + DELETE of version_project_table (children follow: FK cascade).
--- =====================================================================================
-CREATE TABLE IF NOT EXISTS public.version_project_table (
-  "rowVersionGUID" UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowGUID"        UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "treePath"       LTREE       NOT NULL,
-  "rowOwnerGUID"   UUID        NOT NULL,
-  "rowDuration"    TIMESTAMPTZ,
-  "rowProgress"    NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,    -- version number inside the project
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowVersionGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_version_project_project_order ON public.version_project_table ("rowGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_version_project_owner ON public.version_project_table ("rowOwnerGUID");
 DROP TRIGGER IF EXISTS trg_version_project_table_touch ON public.version_project_table;
+
 CREATE TRIGGER trg_version_project_table_touch BEFORE UPDATE ON public.version_project_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
-CREATE TABLE IF NOT EXISTS public.version_project_task_table (
-  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
-  "rowGUID"        UUID        NOT NULL,
-  "treePath"       LTREE       NOT NULL,
-  "projectGUID"    UUID        NOT NULL,
-  "rowOwnerGUID"   UUID        NOT NULL,
-  "rowDuration"    TIMESTAMPTZ,                       -- scheduled finish when the version was saved
-  "rowProgress"    NUMERIC     NOT NULL DEFAULT 0,
-  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb, -- rowJSON.startAt = scheduled start
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowVersionGUID", "rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_version_project_task_order ON public.version_project_task_table ("rowVersionGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_version_project_task_project ON public.version_project_task_table ("projectGUID");
-
-CREATE TABLE IF NOT EXISTS public.version_project_task_dependencies_table (
-  "rowVersionGUID"   UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
-  "rowGUID"          UUID        NOT NULL,
-  "rowDependsOnGUID" UUID        NOT NULL,
-  "projectGUID"      UUID        NOT NULL,
-  "rowOwnerGUID"     UUID        NOT NULL,
-  "linkType"         TEXT        NOT NULL DEFAULT 'FS',
-  "lagDays"          NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"          JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowVersionGUID", "rowGUID", "rowDependsOnGUID")
-);
-
-CREATE TABLE IF NOT EXISTS public.version_project_kanban_stage_table (
-  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
-  "rowGUID"        UUID        NOT NULL,
-  "rowOwnerGUID"   UUID        NOT NULL,                -- the project
-  "rowParentGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowVersionGUID", "rowGUID")
-);
-
-CREATE TABLE IF NOT EXISTS public.version_project_task_kanban_state_table (
-  "rowVersionGUID" UUID        NOT NULL REFERENCES public.version_project_table("rowVersionGUID") ON DELETE CASCADE,
-  "rowGUID"        UUID        NOT NULL,
-  "rowOwnerGUID"   UUID        NOT NULL,                -- the project
-  "rowParentGUID"  UUID        NOT NULL,                -- the task
-  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowVersionGUID", "rowGUID")
-);
 
 -- ownership helper (RLS of the child tables + RPCs)
 CREATE OR REPLACE FUNCTION public.pm_owns_version(p_version uuid) RETURNS boolean
@@ -1823,6 +1526,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.version_project_table v
                   WHERE v."rowVersionGUID" = p_version AND v."rowOwnerGUID" = public.app_user_guid());
 $$;
+
 
 -- RPC: save the whole project plan as a new version (one transaction). Returns its rowVersionGUID.
 CREATE OR REPLACE FUNCTION public.pm_version_save(p_project uuid, p_title text DEFAULT NULL)
@@ -1876,6 +1580,7 @@ BEGIN
   RETURN v_version;
 END;
 $$;
+
 
 -- RPC: replace the project's plan (project row data, tasks, dependencies, Kanban) with the
 -- version's rows, keeping the original rowGUIDs. The current plan is saved first as a new
@@ -1946,6 +1651,7 @@ BEGIN
 END;
 $$;
 
+
 -- RPC: the only editable field of a version
 CREATE OR REPLACE FUNCTION public.pm_version_set_title(p_version uuid, p_title text)
 RETURNS void
@@ -1965,47 +1671,75 @@ BEGIN
 END;
 $$;
 
+
 REVOKE ALL ON FUNCTION public.pm_version_save(uuid, text)      FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.pm_version_restore(uuid, text)   FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.pm_version_set_title(uuid, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.pm_version_save(uuid, text)      TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_version_restore(uuid, text)   TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_version_set_title(uuid, text) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.pm_owns_version(uuid)            TO authenticated;
+
 
 -- ---- Row Level Security: read own versions, sql_for_delete own versions; writes only through the RPCs
 ALTER TABLE public.version_project_table                   ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.version_project_task_table              ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.version_project_task_dependencies_table ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.version_project_kanban_stage_table      ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.version_project_task_kanban_state_table ENABLE ROW LEVEL SECURITY;
+
 
 REVOKE ALL ON public.version_project_table, public.version_project_task_table,
               public.version_project_task_dependencies_table, public.version_project_kanban_stage_table,
               public.version_project_task_kanban_state_table FROM anon, authenticated;
+
 GRANT SELECT, DELETE ON public.version_project_table TO authenticated;
+
 GRANT SELECT ON public.version_project_task_table, public.version_project_task_dependencies_table,
                 public.version_project_kanban_stage_table, public.version_project_task_kanban_state_table TO authenticated;
 
+
 DROP POLICY IF EXISTS version_project_table_select ON public.version_project_table;
+
 DROP POLICY IF EXISTS version_project_table_delete ON public.version_project_table;
+
 CREATE POLICY version_project_table_select ON public.version_project_table FOR SELECT TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
+
 CREATE POLICY version_project_table_delete ON public.version_project_table FOR DELETE TO authenticated
   USING ("rowOwnerGUID" = (SELECT public.app_user_guid()));
 
+
 DROP POLICY IF EXISTS version_project_task_select ON public.version_project_task_table;
+
 CREATE POLICY version_project_task_select ON public.version_project_task_table FOR SELECT TO authenticated
   USING (public.pm_owns_version("rowVersionGUID"));
+
 DROP POLICY IF EXISTS version_project_task_dep_select ON public.version_project_task_dependencies_table;
+
 CREATE POLICY version_project_task_dep_select ON public.version_project_task_dependencies_table FOR SELECT TO authenticated
   USING (public.pm_owns_version("rowVersionGUID"));
+
 DROP POLICY IF EXISTS version_project_kanban_stage_select ON public.version_project_kanban_stage_table;
+
 CREATE POLICY version_project_kanban_stage_select ON public.version_project_kanban_stage_table FOR SELECT TO authenticated
   USING (public.pm_owns_version("rowVersionGUID"));
+
 DROP POLICY IF EXISTS version_project_task_kanban_state_select ON public.version_project_task_kanban_state_table;
+
 CREATE POLICY version_project_task_kanban_state_select ON public.version_project_task_kanban_state_table FOR SELECT TO authenticated
   USING (public.pm_owns_version("rowVersionGUID"));
+
 
 -- =====================================================================================
 -- 6. Data migrations of older databases (no-ops on a fresh database)
@@ -2014,6 +1748,7 @@ CREATE POLICY version_project_task_kanban_state_select ON public.version_project
 UPDATE public.project_task_table
    SET "rowJSON" = ("rowJSON" - 'color') || jsonb_build_object('taskColor', "rowJSON"->'color')
  WHERE "rowJSON" ? 'color' AND NOT ("rowJSON" ? 'taskColor');
+
 
 -- old top-level view keys -> rowJSON.uxuiSettings               (update_pm_tables_projectProgress.sql)
 UPDATE public.project_table
@@ -2026,12 +1761,14 @@ UPDATE public.project_table
                  'showTaskProgressOnGantt', "rowJSON"->'showTaskProgressOnGantt')))
  WHERE "rowJSON" ?| ARRAY['showCriticalPath', 'ganttArrowsForm', 'showTaskProgressOnGantt'];
 
+
 -- project_table.rowJSON.uxuiSettings -> settings row of the owner (update_pm_tables_userSettings.sql)
 INSERT INTO public.project_user_settings_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
 SELECT p."rowGUID", p."rowOwnerGUID", jsonb_build_object('uxuiSettings', p."rowJSON"->'uxuiSettings')
   FROM public.project_table p
  WHERE jsonb_typeof(p."rowJSON"->'uxuiSettings') = 'object'
 ON CONFLICT ("rowOwnerGUID", "rowParentGUID") DO NOTHING;
+
 
 -- ---- users: one GUID per user (userTable) -------------------------------------------------
 -- a) every existing Supabase auth user gets his userTable row. No row for the email yet ->
@@ -2058,6 +1795,7 @@ BEGIN
     ON CONFLICT DO NOTHING;
   END IF;
 END $$;
+
 
 -- b) the email already had a userTable row with ANOTHER GUID (older app versions created them,
 --    imported users): that GUID is the user's GUID, so the rows he owns under his auth uid
@@ -2091,10 +1829,14 @@ BEGIN
   END LOOP;
 END $$;
 
+
 -- closures + progress of every existing project / template (cheap; keeps them consistent)
 SELECT public.pm_rebuild_dependency_closure("rowGUID") FROM public.project_table;
+
 SELECT public.pm_template_rebuild_dependency_closure("rowGUID") FROM public.templates_project_table;
+
 SELECT public.pm_recalc_project_progress("rowGUID") FROM public.project_table;
+
 
 -- =====================================================================================
 -- 7. Realtime: REPLICA IDENTITY FULL + supabase_realtime publication (auto refresh in every
@@ -2139,18 +1881,21 @@ BEGIN
   END LOOP;
 END $$;
 
+
 -- PostgREST: pick up the new tables / functions immediately
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 2: update_currency_exchange_rate_types.sql
+-- exchange rate TYPES (Default | Budget, as D365 FO): the key of a rate = day or day|Type
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime' ORDER BY 1;
 --   SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1;
 
 
--- ===============================================================================================
--- PART 2: update_currency_exchange_rate_types.sql
--- exchange rate TYPES (Default | Budget, as D365 FO): the key of a rate = day or day|Type
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - CURRENCY EXCHANGE RATE TYPES: update_currency_exchange_rate_types.sql
@@ -2174,21 +1919,16 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE public."currencyExchangeRateTable" DROP CONSTRAINT IF EXISTS "currencyExchangeRateTable_day_chk";
-ALTER TABLE public."currencyExchangeRateTable" ADD CONSTRAINT "currencyExchangeRateTable_day_chk"
-  CHECK ("rowParentGUID" ~ '^\d{4}-\d{2}-\d{2}(\|[A-Za-z0-9_ -]{1,30})?$'
-         AND (left("rowParentGUID", 10))::date IS NOT NULL
-         AND "rowJSON"->>'startingDate' = left("rowParentGUID", 10)
-         -- the suffix of the key is the rate type: 'day' <-> Default (or no rateType), 'day|Budget' <-> Budget
-         AND coalesce(nullif("rowJSON"->>'rateType', ''), 'Default') = coalesce(nullif(substr("rowParentGUID", 12), ''), 'Default'));
 
 NOTIFY pgrst, 'reload schema';
-
-
 -- ===============================================================================================
 -- PART 3: insert_currency_exchange_rates_2025_2026.sql
 -- ECB exchange rates 2025 -> 2026 (Default: every working day, Budget: the planned rate of the year) for 9 currencies; generated by build_currency_rates_sql.js
 -- ===============================================================================================
+
+
+
+
 
 -- =====================================================================================
 -- UNIVERSAL1 - EXCHANGE RATES 2025 -> 2026: insert_currency_exchange_rates_2025_2026.sql
@@ -2201,49 +1941,18 @@ NOTIFY pgrst, 'reload schema';
 --                  follow the daily rate). rowParentGUID = 'YYYY-MM-DD|Budget', rowJSON.rateType = 'Budget'.
 --   The currency is found by its ISO code, so the script works with any rowGUID of currencyTable. A code that is not in currencyTable is skipped.
 -- =====================================================================================
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 3)
 
-DO $$
-BEGIN
-  IF to_regclass('public."currencyExchangeRateTable"') IS NULL OR to_regclass('public."currencyTable"') IS NULL THEN
-    RAISE EXCEPTION 'Run create_tables.sql first (currencyTable, currencyExchangeRateTable)';
-  END IF;
-END $$;
+
+
 
 NOTIFY pgrst, 'reload schema';
-
-
 -- ===============================================================================================
 -- PART 4: create_product_tables.sql
 -- product catalog + the shared descriptor / variant / price tables
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - PRODUCT CATALOG: create_product_tables.sql
--- (Supabase / PostgreSQL 15+. Remove again with delete_product_tables.sql.)
---
--- Source: Google Sheet "W1 V3 ER DESCRIPTORS PLAN" (product type -> product -> Properties +
--- Variants, both built on Descriptors). Product side only - the resource-role tables (resourceRoleTypeTable,
--- resourceRoleTable, rolePriceTable) are created by create_resource_role_tables.sql (run it AFTER this file; it shares
--- the descriptor tables created here); task_line_table is NOT created.
---
--- Every table follows kit8/sql/defTable.md: "rowGUID" (TEXT, unique) · "rowOwnerGUID" · "rowParentGUID"
--- ('empty' = none) · "orderInList" · "rowJSON" (all values) · created_at / updated_at.
--- Screen: Products dashboard (kit8/catalog/product/dashboard/ProductDashboard.tsx, route /catalog/product/dashboard).
---
--- IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING. Safe to run twice and
--- on top of create_tables.sql (the two shared helpers are re-declared identically).
---
--- Seed: the sheet rows (product side, sheet GUIDs kept: smartphone1, dv1, dp1, pv1, prod1 ...) + 100 more
--- products (prod7..prod106) in 11 product types with variants, property values, prices, barcodes, series.
--- Rows: valueAddedTaxTable 7, measureUnitTable 6, descriptorGenusTable 23, descriptorValueTable 80, descriptorModeTable 2, descriptorDestinationTable 19, descriptorPlanTable 44, productTypeTable 11, productFolderTable 13, productTable 106, propertyValueTable 272, variantTable 185, variantValueTable 360, productPackageTable 6, productSeriesTable 13, productBarcodeTable 332, priceTypeTable 4, productPriceTable 385
---
--- Integrity (rules R1-R14 of the sheet): unique indexes below (R1, R2, R8, R9, barcode, SKU, one price per
--- day) + checks of the fixed lists; the rest (R3-R7, R10, R13) is checked by the dashboard "Checks" panel
--- (kit8/catalog/product/crud/productValidation.ts). No foreign keys: owners are polymorphic (type OR product)
--- and Undo of a sql_for_delete must be able to re-create a row.
--- =====================================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -2252,6 +1961,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -2268,323 +1978,42 @@ BEGIN
 END;
 $$;
 
--- =====================================================================================
--- 1. Tables
--- =====================================================================================
-
--- valueAddedTaxTable: VAT rates. owner = 'valueAddedTaxCatalog'
--- rowJSON: vatTableTitle, vatTablePercent. productTypeTable.productVATDefaultRate / productTable.productVATRate hold its rowGUID
-CREATE TABLE IF NOT EXISTS public."valueAddedTaxTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'valueAddedTaxCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_owner_order" ON public."valueAddedTaxTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_valueAddedTaxTable_parent" ON public."valueAddedTaxTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('valueAddedTaxTable');
 
--- measureUnitTable: units products are counted and stocked in. owner = 'measureUnitCatalog'
-CREATE TABLE IF NOT EXISTS public."measureUnitTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'measureUnitCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_measureUnitTable_owner_order" ON public."measureUnitTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_measureUnitTable_parent" ON public."measureUnitTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('measureUnitTable');
 
--- descriptorGenusTable: every descriptor once (Color, Memory, Brand ...). owner = 'descriptorGenusCatalog'
-CREATE TABLE IF NOT EXISTS public."descriptorGenusTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'descriptorGenusCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_descriptorGenusTable_owner_order" ON public."descriptorGenusTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_descriptorGenusTable_parent" ON public."descriptorGenusTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('descriptorGenusTable');
 
--- descriptorValueTable: possible values of a descriptor. owner = descriptorGenus, parent = value group | 'empty'
-CREATE TABLE IF NOT EXISTS public."descriptorValueTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_descriptorValueTable_owner_order" ON public."descriptorValueTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_descriptorValueTable_parent" ON public."descriptorValueTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('descriptorValueTable');
 
--- descriptorModeTable: fixed list: property | variant. owner = 'descriptorModeCatalog'
-CREATE TABLE IF NOT EXISTS public."descriptorModeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'descriptorModeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_descriptorModeTable_owner_order" ON public."descriptorModeTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_descriptorModeTable_parent" ON public."descriptorModeTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('descriptorModeTable');
 
--- descriptorDestinationTable: descriptor set of a product type per mode. owner = productType, parent = descriptorMode
-CREATE TABLE IF NOT EXISTS public."descriptorDestinationTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_descriptorDestinationTable_owner_order" ON public."descriptorDestinationTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_descriptorDestinationTable_parent" ON public."descriptorDestinationTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('descriptorDestinationTable');
 
--- descriptorPlanTable: descriptors of a set. owner = descriptorDestination, parent = descriptorGenus
-CREATE TABLE IF NOT EXISTS public."descriptorPlanTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_descriptorPlanTable_owner_order" ON public."descriptorPlanTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_descriptorPlanTable_parent" ON public."descriptorPlanTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('descriptorPlanTable');
 
--- productTypeTable: kinds of products. owner = 'productTypeCatalog', parent = type group | 'empty'
-CREATE TABLE IF NOT EXISTS public."productTypeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'productTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productTypeTable_owner_order" ON public."productTypeTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productTypeTable_parent" ON public."productTypeTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productTypeTable');
 
--- productFolderTable: catalog tree. owner = 'productFolderCatalog', parent = parent folder | 'empty'
-CREATE TABLE IF NOT EXISTS public."productFolderTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'productFolderCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productFolderTable_owner_order" ON public."productFolderTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productFolderTable_parent" ON public."productFolderTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productFolderTable');
 
--- productTable: catalog items. owner = productType, parent = productFolder
-CREATE TABLE IF NOT EXISTS public."productTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productTable_owner_order" ON public."productTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productTable_parent" ON public."productTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productTable');
 
--- propertyValueTable: Property values of a product. owner = product, parent = descriptorPlan (property set)
-CREATE TABLE IF NOT EXISTS public."propertyValueTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_order" ON public."propertyValueTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_propertyValueTable_parent" ON public."propertyValueTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('propertyValueTable');
 
--- variantTable: sellable Variants. owner = productType | product (by variantMode)
-CREATE TABLE IF NOT EXISTS public."variantTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_variantTable_owner_order" ON public."variantTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_variantTable_parent" ON public."variantTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('variantTable');
 
--- variantValueTable: descriptor values of a Variant. owner = variant, parent = descriptorPlan (variant set)
-CREATE TABLE IF NOT EXISTS public."variantValueTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_variantValueTable_owner_order" ON public."variantValueTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_variantValueTable_parent" ON public."variantValueTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('variantValueTable');
 
--- productPackageTable: packs. owner = productType | product, parent = measureUnit
-CREATE TABLE IF NOT EXISTS public."productPackageTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productPackageTable_owner_order" ON public."productPackageTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productPackageTable_parent" ON public."productPackageTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productPackageTable');
 
--- productSeriesTable: batches / serial numbers / expiry. owner = productType
-CREATE TABLE IF NOT EXISTS public."productSeriesTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productSeriesTable_owner_order" ON public."productSeriesTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productSeriesTable_parent" ON public."productSeriesTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productSeriesTable');
 
--- productBarcodeTable: barcode -> product + variant + pack. owner = product, parent = variant | 'empty'
-CREATE TABLE IF NOT EXISTS public."productBarcodeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productBarcodeTable_owner_order" ON public."productBarcodeTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productBarcodeTable_parent" ON public."productBarcodeTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productBarcodeTable');
 
--- priceTypeTable: price lists. owner = 'priceTypeCatalog'
-CREATE TABLE IF NOT EXISTS public."priceTypeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'priceTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_priceTypeTable_owner_order" ON public."priceTypeTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_priceTypeTable_parent" ON public."priceTypeTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('priceTypeTable');
 
--- productPriceTable: periodic prices. owner = product, parent = variant | 'empty' (all variants); rowJSON.measureUnit = the unit the price is for (price of ONE unit)
-CREATE TABLE IF NOT EXISTS public."productPriceTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_productPriceTable_owner_order" ON public."productPriceTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_productPriceTable_parent" ON public."productPriceTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('productPriceTable');
 
--- =====================================================================================
--- 2. Integrity: fixed lists + unique keys (rows the app creates start with empty values: allowed)
--- =====================================================================================
-ALTER TABLE public."descriptorModeTable" DROP CONSTRAINT IF EXISTS "descriptorModeTable_mode_chk";
-ALTER TABLE public."descriptorModeTable" ADD CONSTRAINT "descriptorModeTable_mode_chk" CHECK ("rowGUID" IN ('property', 'variant'));
-ALTER TABLE public."descriptorGenusTable" DROP CONSTRAINT IF EXISTS "descriptorGenusTable_value_type_chk";
-ALTER TABLE public."descriptorGenusTable" ADD CONSTRAINT "descriptorGenusTable_value_type_chk" CHECK (coalesce("rowJSON"->>'valueType', '') = '' OR "rowJSON"->>'valueType' IN ('ref', 'string', 'number', 'boolean', 'date'));
-ALTER TABLE public."descriptorDestinationTable" DROP CONSTRAINT IF EXISTS "descriptorDestinationTable_mode_chk";
-ALTER TABLE public."descriptorDestinationTable" ADD CONSTRAINT "descriptorDestinationTable_mode_chk" CHECK ("rowParentGUID" IN ('property', 'variant', 'empty'));
--- a product has exactly ONE unit for inventory and ONE default unit (both rowGUIDs of measureUnitTable; existence is checked by the
--- dashboard "Checks" panel, rule R1). NOT VALID: rows of an older database are not re-checked until they are changed - run
--- update_product_units.sql first to fill them in.
-ALTER TABLE public."productTable" DROP CONSTRAINT IF EXISTS "productTable_units_chk";
-ALTER TABLE public."productTable" ADD CONSTRAINT "productTable_units_chk" CHECK (
-  coalesce("rowJSON"->>'measureUnitForInventory', '') <> '' AND coalesce("rowJSON"->>'measureUnitDefault', '') <> ''
-) NOT VALID;
-ALTER TABLE public."productTypeTable" DROP CONSTRAINT IF EXISTS "productTypeTable_variant_mode_chk";
-ALTER TABLE public."productTypeTable" ADD CONSTRAINT "productTypeTable_variant_mode_chk" CHECK (coalesce("rowJSON"->>'variantMode', '') = '' OR "rowJSON"->>'variantMode' IN ('none', 'perType', 'perProduct', 'sharedWithType'));
--- a price is the price of ONE unit of measure (a rowGUID of measureUnitTable, e.g. unit_pcs; existence is checked by the dashboard Checks panel).
--- NOT VALID: prices of an older database are checked when they change - run update_prices.sql first to fill them in.
-ALTER TABLE public."productPriceTable" DROP CONSTRAINT IF EXISTS "productPriceTable_unit_chk";
-ALTER TABLE public."productPriceTable" ADD CONSTRAINT "productPriceTable_unit_chk" CHECK (coalesce("rowJSON"->>'measureUnit', '') <> '') NOT VALID;
-ALTER TABLE public."productPriceTable" DROP CONSTRAINT IF EXISTS "productPriceTable_price_chk";
-ALTER TABLE public."productPriceTable" ADD CONSTRAINT "productPriceTable_price_chk" CHECK (jsonb_typeof("rowJSON"->'price') IS DISTINCT FROM 'number' OR ("rowJSON"->>'price')::numeric >= 0);
-ALTER TABLE public."productPackageTable" DROP CONSTRAINT IF EXISTS "productPackageTable_ratio_chk";
-ALTER TABLE public."productPackageTable" ADD CONSTRAINT "productPackageTable_ratio_chk" CHECK (jsonb_typeof("rowJSON"->'ratio') IS DISTINCT FROM 'number' OR ("rowJSON"->>'ratio')::numeric > 0);
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorDestinationTable_owner_mode" ON public."descriptorDestinationTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorPlanTable_set_genus" ON public."descriptorPlanTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
--- one value per owner + plan line (R8) - EXCEPT a descriptor with "multiple": true (a person's certifications: one row each). So the key holds the list value too:
--- a scalar descriptor (value '' here) still has ONE row per owner + plan line, a list descriptor never the same value twice; "two different values of a
--- single-value list descriptor" is rule R8 of the dashboard Checks (it cannot see the descriptor). The old two-column index of this name is replaced.
-DROP INDEX IF EXISTS public."idx_propertyValueTable_owner_plan";
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_plan" ON public."propertyValueTable" ("rowOwnerGUID", "rowParentGUID", (coalesce("rowJSON"->>'descriptorValueGUID', ''))) WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_variantValueTable_owner_plan" ON public."variantValueTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_variantTable_owner_key" ON public."variantTable" ("rowOwnerGUID", ("rowJSON"->>'descriptorKey')) WHERE NOT coalesce("rowJSON"->>'descriptorKey', '') = '';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_descriptorValueTable_genus_code" ON public."descriptorValueTable" ("rowOwnerGUID", lower("rowJSON"->>'code')) WHERE NOT coalesce("rowJSON"->>'code', '') = '';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_productTable_sku" ON public."productTable" (lower("rowJSON"->>'sku')) WHERE NOT coalesce("rowJSON"->>'sku', '') = '';
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_productBarcodeTable_barcode" ON public."productBarcodeTable" (("rowJSON"->>'barcode')) WHERE NOT coalesce("rowJSON"->>'barcode', '') = '';
--- one price per product + variant + price list + unit + day (the same product may have a price per pcs AND a price per kg on one day)
-DROP INDEX IF EXISTS public."idx_productPriceTable_price_day";
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_productPriceTable_price_day" ON public."productPriceTable" ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'priceTypeGUID'), (coalesce("rowJSON"->>'measureUnit', '')), ("rowJSON"->>'validFrom')) WHERE NOT coalesce("rowJSON"->>'priceTypeGUID', '') = '' AND NOT coalesce("rowJSON"->>'validFrom', '') = '';
-CREATE INDEX IF NOT EXISTS "idx_productTable_title" ON public."productTable" ((lower("rowJSON"->>'title')));
 
 -- =====================================================================================
 -- 3. Security: full CRUD for signed-in users (as partnerTable / personTable)
@@ -2606,6 +2035,30 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
   END LOOP;
 END $$;
+
+
+-- =====================================================================================
+-- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
+-- =====================================================================================
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- =====================================================================================
 -- 5. Realtime: every product table in the supabase_realtime publication (auto refresh in every browser)
@@ -2631,16 +2084,19 @@ BEGIN
   END LOOP;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 5: create_resource_role_tables.sql
+-- role types, roles, role rates, descriptors seniority / workLanguage / certification
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT 'productTable', count(*) FROM public."productTable" UNION ALL SELECT 'variantTable', count(*) FROM public."variantTable";
 
 
--- ===============================================================================================
--- PART 5: create_resource_role_tables.sql
--- role types, roles, role rates, descriptors seniority / workLanguage / certification
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - RESOURCE ROLE CATALOG: create_resource_role_tables.sql
@@ -2680,7 +2136,6 @@ BEGIN
   END IF;
 END $$;
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -2689,6 +2144,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -2705,90 +2161,14 @@ BEGIN
 END;
 $$;
 
--- =====================================================================================
--- 1. Tables
--- =====================================================================================
-
--- resourceRoleTypeTable: groups roles of the same kind. owner = 'resourceRoleTypeCatalog'
-CREATE TABLE IF NOT EXISTS public."resourceRoleTypeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'resourceRoleTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleTypeTable_owner_order" ON public."resourceRoleTypeTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleTypeTable_parent" ON public."resourceRoleTypeTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('resourceRoleTypeTable');
 
--- rowJSON: title, description, baseUnit (measureUnitTable, unit_hour), roleVATDefaultRate (valueAddedTaxTable), propertySet / variantSet (descriptorDestinationTable),
---          variantMode (none | perType | perProduct | sharedWithType), variantSharedTypeGUID, uniqueVariants, variantTitleTemplate, isActive
-
--- resourceRoleFolderTable: the role tree (Engineering > Frontend). owner = 'resourceRoleFolderCatalog', parent = parent folder | 'empty'
-CREATE TABLE IF NOT EXISTS public."resourceRoleFolderTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'resourceRoleFolderCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleFolderTable_owner_order" ON public."resourceRoleFolderTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleFolderTable_parent" ON public."resourceRoleFolderTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('resourceRoleFolderTable');
 
--- resourceRoleTable: a concrete bookable role. owner = resourceRoleType, parent = resourceRoleFolder | 'empty'
-CREATE TABLE IF NOT EXISTS public."resourceRoleTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleTable_owner_order" ON public."resourceRoleTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleTable_parent" ON public."resourceRoleTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('resourceRoleTable');
 
--- rowJSON: title, description, roleVATRate (null = the role type default), isActive. NO rate fields: rates live only in rolePriceTable (rule R14)
-
--- rolePriceTable: hourly rates. owner = resourceRole, parent = variant of the role's type | 'empty' (= all variants)
-CREATE TABLE IF NOT EXISTS public."rolePriceTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_rolePriceTable_owner_order" ON public."rolePriceTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_rolePriceTable_parent" ON public."rolePriceTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('rolePriceTable');
 
--- rowJSON: priceTypeGUID, price, measureUnit (measureUnitTable, unit_hour: the rate of ONE unit), validFrom - the same as productPriceTable
-
--- =====================================================================================
--- 2. Integrity: fixed lists + unique keys (rows the app creates start with empty values: allowed)
--- =====================================================================================
-ALTER TABLE public."resourceRoleTypeTable" DROP CONSTRAINT IF EXISTS "resourceRoleTypeTable_variant_mode_chk";
-ALTER TABLE public."resourceRoleTypeTable" ADD CONSTRAINT "resourceRoleTypeTable_variant_mode_chk" CHECK (coalesce("rowJSON"->>'variantMode', '') = '' OR "rowJSON"->>'variantMode' IN ('none', 'perType', 'perProduct', 'sharedWithType'));
--- a rate is the price of ONE unit of measure (a rowGUID of measureUnitTable; existence is checked by the dashboard Checks panel)
-ALTER TABLE public."rolePriceTable" DROP CONSTRAINT IF EXISTS "rolePriceTable_unit_chk";
-ALTER TABLE public."rolePriceTable" ADD CONSTRAINT "rolePriceTable_unit_chk" CHECK (coalesce("rowJSON"->>'measureUnit', '') <> '') NOT VALID;
-ALTER TABLE public."rolePriceTable" DROP CONSTRAINT IF EXISTS "rolePriceTable_price_chk";
-ALTER TABLE public."rolePriceTable" ADD CONSTRAINT "rolePriceTable_price_chk" CHECK (jsonb_typeof("rowJSON"->'price') IS DISTINCT FROM 'number' OR ("rowJSON"->>'price')::numeric >= 0);
--- one rate per role + variant + price list + unit + day
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_rolePriceTable_price_day" ON public."rolePriceTable" ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'priceTypeGUID'), (coalesce("rowJSON"->>'measureUnit', '')), ("rowJSON"->>'validFrom')) WHERE NOT coalesce("rowJSON"->>'priceTypeGUID', '') = '' AND NOT coalesce("rowJSON"->>'validFrom', '') = '';
-CREATE INDEX IF NOT EXISTS "idx_resourceRoleTable_title" ON public."resourceRoleTable" ((lower("rowJSON"->>'title')));
 
 -- =====================================================================================
 -- 3. Security: full CRUD for signed-in users (as partnerTable / personTable)
@@ -2810,6 +2190,26 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
   END LOOP;
 END $$;
+
+
+-- =====================================================================================
+-- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
+--    First the rows the role side adds to the SHARED tables, then the four role tables.
+-- =====================================================================================
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 5)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- =====================================================================================
@@ -2836,37 +2236,14 @@ BEGIN
   END LOOP;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT 'resourceRoleTable', count(*) FROM public."resourceRoleTable" UNION ALL SELECT 'rolePriceTable', count(*) FROM public."rolePriceTable";
-
-
 -- ===============================================================================================
 -- PART 6: create_management_genus_table.sql
 -- management genus: costs (time / material / expense), revenue, payments
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - MANAGEMENT GENUS: create_management_genus_table.sql
--- (Supabase / PostgreSQL 15+. Remove again with delete_management_genus_table.sql.)
---
--- managementGenusTable: the management classes of resources and money, two levels in one table:
---   FOLDERS (level 1, rowParentGUID 'empty')   costsGenus · revenuesGenus · paymentsGenus
---   ITEMS   (level 2, rowParentGUID = folder)  costsGenus > timeGenus, materialGenus, expenseGenus
---                                              revenuesGenus > revenueGenus
---                                              paymentsGenus > inboundPaymentGenus, outboundPaymentGenus
--- Only the items are genus a role type can have; the folders group them.
--- resourceRoleTypeTable.rowJSON.managementGenus holds the rowGUID of the genus of a role type (Human Resources -> timeGenus).
---
--- defTable.md pattern: "rowGUID" (TEXT = the code) · "rowOwnerGUID" ('managementGenusCatalog') · "rowParentGUID" (parent genus | 'empty') ·
--- "orderInList" · "rowJSON" { title, description } · created_at / updated_at.
--- Screen: Management genus (kit8/catalog/management/genus/ManagementGenusDashboard.tsx, route /catalog/management/genus/list, read-only by default).
--- IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seed ON CONFLICT DO NOTHING. Independent of the product / role tables.
--- Rows: managementGenusTable 9 (3 folders + 6 items)
--- =====================================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -2875,6 +2252,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -2891,19 +2269,8 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE IF NOT EXISTS public."managementGenusTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'managementGenusCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_managementGenusTable_owner_order" ON public."managementGenusTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_managementGenusTable_parent" ON public."managementGenusTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('managementGenusTable');
+
 
 -- security: full CRUD for signed-in users (as partnerTable / personTable)
 DO $$
@@ -2922,8 +2289,9 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- an earlier version of this script had revenueGenus on the top level: it is an item of the folder revenuesGenus
-UPDATE public."managementGenusTable" SET "rowParentGUID" = 'revenuesGenus' WHERE "rowGUID" = 'revenueGenus' AND "rowParentGUID" = 'empty';
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 6)
+
+
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -2943,37 +2311,14 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."managementGenusTable" ORDER BY "orderInList";
-
-
 -- ===============================================================================================
 -- PART 7: create_distribution_generic_table.sql
 -- distribution types (front-loaded, back-loaded, uniform, normal, logarithmic, epidemic, manual) in 3 groups
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - DISTRIBUTION: create_distribution_generic_table.sql
--- (Supabase / PostgreSQL 15+. Remove again with delete_distribution_generic_table.sql.)
---
--- distributionGenericTable: HOW a budget is spread over the days of a task line (the minimum period is one day), two levels in one table:
---   GROUPS (level 1, rowParentGUID 'empty')   simpleDistributionGroup · curvesDistributionGroup · customDistributionGroup
---   ITEMS  (level 2, rowParentGUID = group)   simple: frontLoaded, backLoaded, uniform
---                                             curves: normal (peak, spread), logarithmicFront / logarithmicBack (steepness), epidemic (peak, spread)
---                                             custom: manual (the value of every period, typed by the user - the only editable one)
--- Only the items are distributions a task line can have; the groups gather them.
--- task_line_table.rowJSON.distributionForBudgetTaskLine holds the rowGUID of the distribution of a line.
---
--- defTable.md pattern: "rowGUID" (TEXT = the code) · "rowOwnerGUID" ('distributionGenericCatalog') · "rowParentGUID" (group | 'empty') ·
--- "orderInList" · "rowJSON" { title, description, shape, params: [{ key, title, default }], editable } · created_at / updated_at.
--- Screen: Distribution (kit8/catalog/distribution/DistributionTypeCRUD.tsx, route /catalog/distribution/list, read-only by default).
--- IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seed ON CONFLICT DO NOTHING. Independent of the other tables.
--- Rows: distributionGenericTable 11 (3 groups + 8 distributions)
--- =====================================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -2982,6 +2327,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -2998,19 +2344,8 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE IF NOT EXISTS public."distributionGenericTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'distributionGenericCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_distributionGenericTable_owner_order" ON public."distributionGenericTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_distributionGenericTable_parent" ON public."distributionGenericTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('distributionGenericTable');
+
 
 -- security: full CRUD for signed-in users (as partnerTable / personTable)
 DO $$
@@ -3028,6 +2363,9 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
+
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 7)
+
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -3047,16 +2385,19 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 8: create_budget_item_table.sql
+-- budgetItemTable: budget items in folders (same shape as the management genus), each with an obligatory managementGenusItem
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."distributionGenericTable" ORDER BY "orderInList";
 
 
--- ===============================================================================================
--- PART 8: create_budget_item_table.sql
--- budgetItemTable: budget items in folders (same shape as the management genus), each with an obligatory managementGenusItem
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - BUDGET ITEMS: create_budget_item_table.sql
@@ -3087,7 +2428,6 @@ BEGIN
   END IF;
 END $$;
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -3096,6 +2436,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -3112,30 +2453,8 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE IF NOT EXISTS public."budgetItemTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'budgetItemCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_budgetItemTable_owner_order" ON public."budgetItemTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_budgetItemTable_parent" ON public."budgetItemTable" ("rowParentGUID");
-CREATE INDEX IF NOT EXISTS "idx_budgetItemTable_genus" ON public."budgetItemTable" ((("rowJSON"->>'managementGenusItem')));
 SELECT public.kit8_setup_def_table('budgetItemTable');
 
--- obligatory managementGenusItem on an item (a folder = rowParentGUID 'empty' has none)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'budgetItemTable_genus_chk' AND conrelid = 'public."budgetItemTable"'::regclass) THEN
-    ALTER TABLE public."budgetItemTable"
-      ADD CONSTRAINT "budgetItemTable_genus_chk"
-      CHECK ("rowParentGUID" = 'empty' OR coalesce("rowJSON"->>'managementGenusItem', '') NOT IN ('', 'empty'));
-  END IF;
-END $$;
 
 -- ... and it must be a LEVEL 2 row of managementGenusTable (a JSON key cannot be a foreign key)
 CREATE OR REPLACE FUNCTION public.kit8_budget_item_check_genus() RETURNS trigger
@@ -3150,9 +2469,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS "trg_budgetItemTable_genus" ON public."budgetItemTable";
+
 CREATE TRIGGER "trg_budgetItemTable_genus" BEFORE INSERT OR UPDATE ON public."budgetItemTable"
   FOR EACH ROW EXECUTE FUNCTION public.kit8_budget_item_check_genus();
+
 
 -- security: full CRUD for signed-in users (as managementGenusTable)
 DO $$
@@ -3170,6 +2492,10 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
+
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 8)
+
+
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
 DO $$
@@ -3189,17 +2515,20 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 9: insert_rows_resource_table.sql
+-- demo human / material / expense / revenue roles; managementGenus on the role types
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title', "rowJSON"->>'managementGenusItem' FROM public."budgetItemTable" ORDER BY "orderInList";
 --   every item has a genus:  SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' AND "rowJSON"->>'managementGenusItem' IS NULL;  -> 0
 
 
--- ===============================================================================================
--- PART 9: insert_rows_resource_table.sql
--- demo human / material / expense / revenue roles; managementGenus on the role types
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - RESOURCE ROWS: insert_rows_resource_table.sql
@@ -3219,45 +2548,35 @@ NOTIFY pgrst, 'reload schema';
 -- IDEMPOTENT + NON-DESTRUCTIVE: seeds ON CONFLICT DO NOTHING (a row you changed or deleted is left alone).
 -- Rows: measureUnitTable 5, resourceRoleFolderTable 11, resourceRoleTypeTable 4, descriptorDestinationTable 2, descriptorPlanTable 4, variantTable 3, variantValueTable 6, resourceRoleTable 27, propertyValueTable 8, rolePriceTable 57
 -- =====================================================================================
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 9)
 
-DO $$
-BEGIN
-  IF to_regclass('public."resourceRoleTypeTable"') IS NULL OR to_regclass('public."rolePriceTable"') IS NULL THEN
-    RAISE EXCEPTION 'Run create_product_tables.sql and create_resource_role_tables.sql first';
-  END IF;
-  IF to_regclass('public."managementGenusTable"') IS NULL THEN
-    RAISE EXCEPTION 'Run create_management_genus_table.sql first';
-  END IF;
-  IF (SELECT count(*) FROM public."managementGenusTable" WHERE "rowGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')) < 3 THEN
-    RAISE EXCEPTION 'managementGenusTable has no timeGenus / materialGenus / expenseGenus: run create_management_genus_table.sql';
-  END IF;
-END $$;
 
--- the five role types of the sheet are time resources
-UPDATE public."resourceRoleTypeTable"
-   SET "rowJSON" = jsonb_set("rowJSON", '{managementGenus}', '"timeGenus"'::jsonb)
- WHERE "rowGUID" IN ('projectManager', 'businessAnalyst', 'dataAnalyst', 'frontendDeveloper', 'backendDeveloper')
-   AND coalesce("rowJSON"->>'managementGenus', '') = '';
-UPDATE public."resourceRoleTypeTable"
-   SET "rowJSON" = jsonb_set("rowJSON", '{roleVATDefaultRate}', '"vat_0"'::jsonb)
- WHERE coalesce("rowJSON"->>'roleVATDefaultRate', '') = '';
 
--- the material roles carry VAT 21 % themselves (also when they were inserted by an earlier version of this script)
-UPDATE public."resourceRoleTable"
-   SET "rowJSON" = jsonb_set("rowJSON", '{roleVATRate}', '"vat_21"'::jsonb)
- WHERE "rowOwnerGUID" = 'materialResources' AND coalesce("rowJSON"->>'roleVATRate', '') = '';
+
+
+
+
+
+
+
+
+
+
+
 
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 10: create_person_type_table.sql
+-- personTypeTable (Employee, Contractor) + 50 % Employee / 50 % Contractor of all persons
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT t."rowJSON"->>'title' AS role_type, t."rowJSON"->>'managementGenus' AS genus, count(r.*) AS roles
 --     FROM public."resourceRoleTypeTable" t LEFT JOIN public."resourceRoleTable" r ON r."rowOwnerGUID" = t."rowGUID" GROUP BY 1, 2 ORDER BY 1;
 
 
--- ===============================================================================================
--- PART 10: create_person_type_table.sql
--- personTypeTable (Employee, Contractor) + 50 % Employee / 50 % Contractor of all persons
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - PERSON TYPES: create_person_type_table.sql
@@ -3284,43 +2603,34 @@ BEGIN
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS public."personTypeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'personTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_personTypeTable_owner_order" ON public."personTypeTable" ("rowOwnerGUID", "orderInList");
 SELECT public.kit8_setup_def_table('personTypeTable');
-CREATE INDEX IF NOT EXISTS "idx_personTable_type" ON public."personTable" (("rowJSON"->>'personType'));
+
 
 -- access: signed-in users (as personTable)
 REVOKE ALL ON public."personTypeTable" FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."personTypeTable" TO authenticated;
+
 DROP POLICY IF EXISTS "personTypeTable_select" ON public."personTypeTable";
+
 DROP POLICY IF EXISTS "personTypeTable_insert" ON public."personTypeTable";
+
 DROP POLICY IF EXISTS "personTypeTable_update" ON public."personTypeTable";
+
 DROP POLICY IF EXISTS "personTypeTable_delete" ON public."personTypeTable";
+
 CREATE POLICY "personTypeTable_select" ON public."personTypeTable" FOR SELECT TO authenticated USING (true);
+
 CREATE POLICY "personTypeTable_insert" ON public."personTypeTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "personTypeTable_update" ON public."personTypeTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY "personTypeTable_delete" ON public."personTypeTable" FOR DELETE TO authenticated USING (true);
 
--- 50 % Employee / 50 % Contractor of ALL persons without a type: by order, odd = Employee, even = Contractor
-WITH numbered AS (
-  SELECT "rowGUID", row_number() OVER (ORDER BY "orderInList", "rowGUID") AS n, "rowJSON"->>'personType' AS current_type
-    FROM public."personTable"
-)
-UPDATE public."personTable" p
-   SET "rowJSON" = p."rowJSON" || jsonb_build_object(
-         'personType', CASE WHEN n.n % 2 = 1 THEN 'personTypeEmployee' ELSE 'personTypeContractor' END,
-         'personIsEmployee', n.n % 2 = 1)
-  FROM numbered n
- WHERE p."rowGUID" = n."rowGUID" AND COALESCE(n.current_type, '') = '';
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 10)
+
+
+
 
 DO $$
 DECLARE
@@ -3334,16 +2644,19 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 11: create_person_descriptors.sql
+-- person Properties + Variants (separate certificate rows), a contract for every person
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowJSON"->>'personType' AS type, count(*) FROM public."personTable" GROUP BY 1;
 
 
--- ===============================================================================================
--- PART 11: create_person_descriptors.sql
--- person Properties + Variants (separate certificate rows), a contract for every person
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - PERSON DESCRIPTORS: create_person_descriptors.sql
@@ -3377,106 +2690,25 @@ BEGIN
   IF to_regclass('public."contractTable"') IS NULL THEN RAISE EXCEPTION 'Run create_tables.sql first (contractTable)'; END IF;
 END $$;
 
--- ---- several certificates = several rows of the SAME plan line: the unique index (owner, plan line) of propertyValueTable must allow it ----------------
--- (create_product_tables.sql now creates it with the list value in the key; a database made before keeps the old two-column index: replace it here)
-DROP INDEX IF EXISTS public."idx_propertyValueTable_owner_plan";
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_propertyValueTable_owner_plan" ON public."propertyValueTable" ("rowOwnerGUID", "rowParentGUID", (coalesce("rowJSON"->>'descriptorValueGUID', ''))) WHERE "rowOwnerGUID" <> 'empty' AND "rowParentGUID" <> 'empty';
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 11)
 
--- ---- descriptors (rule R11: the genus lists the kind of the owner of the set) ---------------------------------------------
-UPDATE public."descriptorGenusTable" g
-   SET "rowJSON" = jsonb_set(g."rowJSON", '{targetKinds}', COALESCE(g."rowJSON"->'targetKinds', '[]'::jsonb) || '"personType"'::jsonb)
- WHERE g."rowGUID" IN ('seniority', 'workLanguage', 'certification')
-   AND NOT (COALESCE(g."rowJSON"->'targetKinds', '[]'::jsonb) ? 'personType');
 
--- several certifications = several rows (rule R8 is relaxed for a descriptor with "multiple": true)
-UPDATE public."descriptorGenusTable" g SET "rowJSON" = g."rowJSON" || '{"multiple": true}'::jsonb WHERE g."rowGUID" = 'certification';
 
--- ---- values of every person --------------------------------------------------------------------------------------------------
--- Property: experience years (one row) + 1..3 certifications, each its OWN row on the same plan line (certification is "multiple")
-WITH cfg AS (
-  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
-         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
-    FROM public."personTable" p
-)
-INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT 'pp_exp_' || pg, pg, pre || 'p1', 200000 + n, jsonb_build_object('value', 2 + (n * 3) % 9) FROM cfg
-ON CONFLICT ("rowGUID") DO NOTHING;
 
-WITH cfg AS (
-  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
-         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
-    FROM public."personTable" p
-)
-INSERT INTO public."propertyValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT 'pp_cert_' || pg || '_' || k, pg, pre || 'p2', 210000 + n * 10 + k,
-       jsonb_build_object('descriptorValueGUID', (ARRAY['dv18', 'dv19', 'dv20', 'dv21'])[1 + ((n + k) % 4)])
-  FROM cfg CROSS JOIN generate_series(1, 3) AS k
- WHERE k <= 1 + (n % 3)
-ON CONFLICT ("rowGUID") DO NOTHING;
 
--- Variants: Seniority (Junior .. Lead by order) x English; every second person can also be booked in Latvian
-WITH cfg AS (
-  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
-         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
-    FROM public."personTable" p
-), combo AS (
-  SELECT pg, n, pre, k,
-         (ARRAY['dv11', 'dv12', 'dv13', 'dv14'])[1 + (n % 4)] AS sen,
-         (ARRAY['Junior', 'Middle', 'Senior', 'Lead'])[1 + (n % 4)] AS sen_title,
-         CASE k WHEN 1 THEN 'dv15' ELSE 'dv16' END AS lang,
-         CASE k WHEN 1 THEN 'English' ELSE 'Latvian' END AS lang_title
-    FROM cfg CROSS JOIN generate_series(1, 2) AS k
-   WHERE k = 1 OR n % 2 = 0
-)
-INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT 'pvar_' || pg || '_' || k, pg, 'empty', 220000 + n * 10 + k,
-       jsonb_build_object('title', sen_title || ', ' || lang_title, 'descriptorKey', pre || 'v1=' || sen || '|' || pre || 'v2=' || lang, 'isActive', true)
-  FROM combo
-ON CONFLICT ("rowGUID") DO NOTHING;
 
-WITH cfg AS (
-  SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
-         CASE WHEN p."rowJSON"->>'personType' = 'personTypeContractor' THEN 'dp_con_' ELSE 'dp_emp_' END AS pre
-    FROM public."personTable" p
-), combo AS (
-  SELECT pg, n, pre, k,
-         (ARRAY['dv11', 'dv12', 'dv13', 'dv14'])[1 + (n % 4)] AS sen,
-         CASE k WHEN 1 THEN 'dv15' ELSE 'dv16' END AS lang
-    FROM cfg CROSS JOIN generate_series(1, 2) AS k
-   WHERE k = 1 OR n % 2 = 0
-)
-INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT 'pvv_' || pg || '_' || k || '_' || part, 'pvar_' || pg || '_' || k, pre || CASE part WHEN 's' THEN 'v1' ELSE 'v2' END, 230000 + n * 10 + k,
-       jsonb_build_object('descriptorValueGUID', CASE part WHEN 's' THEN sen ELSE lang END)
-  FROM combo CROSS JOIN (VALUES ('s'), ('l')) AS parts(part)
-ON CONFLICT ("rowGUID") DO NOTHING;
 
--- ---- a contract for every person without an ACTIVE one (the Time line of a task takes the cost from it) ------------------------
-WITH cfg AS (
-  SELECT p."rowGUID" AS pg, p."rowJSON"->>'personTitle' AS title, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
-         (p."rowJSON"->>'personType') = 'personTypeContractor' AS contractor
-    FROM public."personTable" p
-   WHERE NOT EXISTS (SELECT 1 FROM public."contractTable" c
-                      WHERE c."rowOwnerGUID" = p."rowGUID" AND c."rowParentGUID" = 'person' AND c."rowJSON"->>'contractStatus' = 'active')
-), sums AS (
-  SELECT *, CASE WHEN contractor THEN 160 + (n * 23) % 240 ELSE 2400 + (n * 350) % 3200 END AS amount FROM cfg
-)
-INSERT INTO public."contractTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT 'contract_' || pg, pg, 'person', -20454,
-       jsonb_build_object(
-         'contractPartyType', 'person',
-         'contractNumber', CASE WHEN contractor THEN 'SRV-2026-' ELSE 'EMP-2026-' END || lpad(n::text, 3, '0'),
-         'contractTitle', CASE WHEN contractor THEN 'Service agreement - ' ELSE 'Employment agreement - ' END || title,
-         'contractType', CASE WHEN contractor THEN 'Service' ELSE 'Employment' END,
-         'contractStatus', 'active', 'contractSignedDate', '2025-12-15', 'contractStartDate', '2026-01-01',
-         'contractFinishDate', CASE WHEN contractor THEN to_jsonb('2026-12-31'::text) ELSE 'null'::jsonb END,
-         'contractPaymentsPeriod', CASE WHEN contractor THEN 'Day' ELSE 'Month' END,
-         'contractCurrency', 'EUR', 'contractSumBeforeVAT', amount, 'contractVATRate', 0, 'contractVAT', 0, 'contractTotal', amount,
-         'notes', CASE WHEN contractor THEN 'Paid per working day' ELSE 'Paid per month' END)
-  FROM sums
-ON CONFLICT ("rowGUID") DO NOTHING;
+
+
+
 
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 12: create_template_resource_contract_table.sql
+-- templateResourceContractTable (rowOwnerGUID = management genus) + demo templates
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowJSON"->>'personType', count(*) FROM public."personTable" GROUP BY 1;
@@ -3484,10 +2716,6 @@ NOTIFY pgrst, 'reload schema';
 --     FROM public."personTable" p LEFT JOIN public."propertyValueTable" v ON v."rowOwnerGUID" = p."rowGUID" GROUP BY 1;
 
 
--- ===============================================================================================
--- PART 12: create_template_resource_contract_table.sql
--- templateResourceContractTable (rowOwnerGUID = management genus) + demo templates
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - TEMPLATE RESOURCE CONTRACT: create_template_resource_contract_table.sql
@@ -3515,37 +2743,31 @@ BEGIN
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS public."templateResourceContractTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "templateResourceContract_genus_chk" CHECK ("rowOwnerGUID" <> '' AND "rowOwnerGUID" <> 'empty'),
-  CONSTRAINT "templateResourceContract_term_chk" CHECK (CASE
-    WHEN jsonb_typeof("rowJSON"->'paymentTermDays') = 'number' THEN ("rowJSON"->>'paymentTermDays')::numeric >= 0
-    ELSE "rowJSON"->'paymentTermDays' IS NULL OR jsonb_typeof("rowJSON"->'paymentTermDays') = 'null' END),
-  CONSTRAINT "templateResourceContract_vat_chk" CHECK (CASE
-    WHEN jsonb_typeof("rowJSON"->'vatRate') = 'number' THEN ("rowJSON"->>'vatRate')::numeric BETWEEN 0 AND 100
-    ELSE "rowJSON"->'vatRate' IS NULL OR jsonb_typeof("rowJSON"->'vatRate') = 'null' END)
-);
-CREATE INDEX IF NOT EXISTS "idx_templateResourceContractTable_genus_order" ON public."templateResourceContractTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_templateResourceContractTable_title" ON public."templateResourceContractTable" ((lower("rowJSON"->>'title')));
 SELECT public.kit8_setup_def_table('templateResourceContractTable');
 
+
 REVOKE ALL ON public."templateResourceContractTable" FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."templateResourceContractTable" TO authenticated;
+
 DROP POLICY IF EXISTS "templateResourceContractTable_select" ON public."templateResourceContractTable";
+
 DROP POLICY IF EXISTS "templateResourceContractTable_insert" ON public."templateResourceContractTable";
+
 DROP POLICY IF EXISTS "templateResourceContractTable_update" ON public."templateResourceContractTable";
+
 DROP POLICY IF EXISTS "templateResourceContractTable_delete" ON public."templateResourceContractTable";
+
 CREATE POLICY "templateResourceContractTable_select" ON public."templateResourceContractTable" FOR SELECT TO authenticated USING (true);
+
 CREATE POLICY "templateResourceContractTable_insert" ON public."templateResourceContractTable" FOR INSERT TO authenticated WITH CHECK (true);
+
 CREATE POLICY "templateResourceContractTable_update" ON public."templateResourceContractTable" FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 CREATE POLICY "templateResourceContractTable_delete" ON public."templateResourceContractTable" FOR DELETE TO authenticated USING (true);
+
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 12)
+
 
 DO $$
 DECLARE
@@ -3559,85 +2781,21 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
-
 -- ===============================================================================================
 -- PART 13: create_pm_task_line_table.sql
 -- task_line_table + RPC pm_set_task_last_edit_place (rowJSON.lastEditPlace)
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - PM TASK LINES: create_pm_task_line_table.sql
--- (run AFTER create_tables.sql; IDEMPOTENT + NON-DESTRUCTIVE - safe to run twice.
---  Remove again with delete_pm_task_line_table.sql.)
---
--- task_line_table - the finance lines of ONE task, the same table for every management genus
--- (sheet "W1 TASK LINES"): Time (a role + a person), Material, Expense (a role + a product + a partner), Revenue.
---   rowGUID         the line
---   rowProjectGUID  project_table.rowGUID      (FK, filled by the trigger from the task - the app never sends it)
---   rowOwnerGUID    project_task_table.rowGUID (FK, cascade: a deleted task takes its lines with it)
---   rowParentGUID   managementGenusTable.rowGUID of a LEAF genus: timeGenus | materialGenus | expenseGenus | revenueGenus
---   orderInList     the order of the lines inside ONE genus of the task (drag & drop); "rowNumber" is not stored
---   rowJSON         resourceRoleItem            resourceRoleTable.rowGUID
---                   resourceRoleAttributeSetKey descriptorKey of the variant the role needs (Senior, remote ...)
---                   taskResourceItem            personTable.rowGUID (Time) | productTable.rowGUID (everything else)
---                   taskResourceAttributesKey   Time: descriptorKey of the VARIANT OF THE PERSON the line books (variantTable, owner = person)
---                                               | others: descriptorKey of the product variant
---                   taskManagementGenusLine     the genus of the line (= rowParentGUID, kept in step by the app: the templates offered depend on it)
---                   taskResourceContract        contractTable.rowGUID of the PERSON (Time lines only): the cost of the line comes from it
---                   resourceContractTemplateTaskLine  templateResourceContractTable.rowGUID (Material / Expense / Revenue): the contract asked for,
---                                               before a partner is known (create_template_resource_contract_table.sql)
---                   taskLinePartnerItem         partnerTable.rowGUID (Material / Expense / Revenue)
---                   taskLinePartnerContract     contractTable.rowGUID of that partner
---                   qtyTaskLine · priceTaskLine · measureUnitTaskLine (measureUnitTable.rowGUID)
---                   priceSourceTaskLine ('contract' | 'role' | 'product' | 'manual') · priceAutoTaskLine (the last price the app suggested: while
---                   priceTaskLine equals it the price follows the role / product, once the user types another one it stays)
---                   vatRatioTaskLine            percent (0..100)
---                   sumForContract = qty * price · sumVATForContract = sumForContract * vat / 100   (written by the app on every save)
---                   (sums in the accounting / budget currency come later: there is no budget in this version)
--- Titles are never copied: the app reads them from the catalogs.
---
--- Also here: RPC pm_set_task_last_edit_place - saves project_task_table.rowJSON.lastEditPlace (the place of the task the user edited
--- last) WITHOUT sending the rest of rowJSON, so it cannot overwrite the schedule write-back (rowJSON.startAt) or another edit.
--- =====================================================================================
 
-CREATE TABLE IF NOT EXISTS public.task_line_table (
-  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowProjectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"   UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID"  TEXT        NOT NULL,
-  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_line_genus_chk CHECK ("rowParentGUID" <> '' AND "rowParentGUID" <> 'empty'),
-  -- qty / price: empty (line not filled yet) or a number >= 0; VAT: empty or a number 0..100 (CASE: the cast only runs on a number)
-  CONSTRAINT task_line_qty_chk CHECK (CASE
-    WHEN jsonb_typeof("rowJSON"->'qtyTaskLine') = 'number' THEN ("rowJSON"->>'qtyTaskLine')::numeric >= 0
-    ELSE "rowJSON"->'qtyTaskLine' IS NULL OR jsonb_typeof("rowJSON"->'qtyTaskLine') = 'null' END),
-  CONSTRAINT task_line_price_chk CHECK (CASE
-    WHEN jsonb_typeof("rowJSON"->'priceTaskLine') = 'number' THEN ("rowJSON"->>'priceTaskLine')::numeric >= 0
-    ELSE "rowJSON"->'priceTaskLine' IS NULL OR jsonb_typeof("rowJSON"->'priceTaskLine') = 'null' END),
-  CONSTRAINT task_line_vat_chk CHECK (CASE
-    WHEN jsonb_typeof("rowJSON"->'vatRatioTaskLine') = 'number' THEN ("rowJSON"->>'vatRatioTaskLine')::numeric BETWEEN 0 AND 100
-    ELSE "rowJSON"->'vatRatioTaskLine' IS NULL OR jsonb_typeof("rowJSON"->'vatRatioTaskLine') = 'null' END),
-  -- a contract of the resource / partner needs the resource / partner
-  CONSTRAINT task_line_partner_contract_chk CHECK (
-    COALESCE("rowJSON"->>'taskLinePartnerContract', '') = '' OR COALESCE("rowJSON"->>'taskLinePartnerItem', '') <> '')
-);
-
-CREATE INDEX IF NOT EXISTS idx_task_line_task_genus ON public.task_line_table ("rowOwnerGUID", "rowParentGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_task_line_project    ON public.task_line_table ("rowProjectGUID");
-CREATE INDEX IF NOT EXISTS idx_task_line_role       ON public.task_line_table (("rowJSON"->>'resourceRoleItem'));
-CREATE INDEX IF NOT EXISTS idx_task_line_resource   ON public.task_line_table (("rowJSON"->>'taskResourceItem'));
-CREATE INDEX IF NOT EXISTS idx_task_line_rowJSON    ON public.task_line_table USING GIN ("rowJSON" jsonb_path_ops);
 
 -- updated_at
 DROP TRIGGER IF EXISTS trg_task_line_touch ON public.task_line_table;
+
 CREATE TRIGGER trg_task_line_touch BEFORE UPDATE ON public.task_line_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- the project of a line is the project of its task (the app sends rowOwnerGUID = task only; a task cannot be moved to another project)
 CREATE OR REPLACE FUNCTION public.task_line_set_project() RETURNS trigger
@@ -3653,30 +2811,45 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_task_line_set_project ON public.task_line_table;
+
 CREATE TRIGGER trg_task_line_set_project
   BEFORE INSERT OR UPDATE OF "rowOwnerGUID" ON public.task_line_table
   FOR EACH ROW EXECUTE FUNCTION public.task_line_set_project();
 
+
 -- realtime needs the whole old row on DELETE
 ALTER TABLE public.task_line_table REPLICA IDENTITY FULL;
 
+
 -- access: the owner of the project only
 ALTER TABLE public.task_line_table ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.task_line_table FROM anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_line_table TO authenticated;
+
 DROP POLICY IF EXISTS task_line_select ON public.task_line_table;
+
 DROP POLICY IF EXISTS task_line_insert ON public.task_line_table;
+
 DROP POLICY IF EXISTS task_line_update ON public.task_line_table;
+
 DROP POLICY IF EXISTS task_line_delete ON public.task_line_table;
+
 CREATE POLICY task_line_select ON public.task_line_table FOR SELECT TO authenticated
   USING (public.pm_owns_project("rowProjectGUID"));
+
 CREATE POLICY task_line_insert ON public.task_line_table FOR INSERT TO authenticated
   WITH CHECK (public.pm_owns_project("rowProjectGUID"));
+
 CREATE POLICY task_line_update ON public.task_line_table FOR UPDATE TO authenticated
   USING (public.pm_owns_project("rowProjectGUID")) WITH CHECK (public.pm_owns_project("rowProjectGUID"));
+
 CREATE POLICY task_line_delete ON public.task_line_table FOR DELETE TO authenticated
   USING (public.pm_owns_project("rowProjectGUID"));
+
 
 -- realtime: other browsers / devices see the lines at once
 DO $$
@@ -3691,6 +2864,7 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.task_line_table;
   END IF;
 END $$;
+
 
 -- -------------------------------------------------------------------------------------
 -- RPC: the place of the task the user edited last (rowJSON.lastEditPlace); p_place NULL removes it.
@@ -3710,48 +2884,17 @@ BEGIN
   RETURN v_count;
 END;
 $$;
+
 GRANT EXECUTE ON FUNCTION public.pm_set_task_last_edit_place(uuid, jsonb) TO authenticated;
 
+
 NOTIFY pgrst, 'reload schema';
-
-
 -- ===============================================================================================
 -- PART 14: create_management_calendar_tables.sql
 -- management calendars (Project / Resource role / Person folders), their days, fill_management_calendar, the default Working days calendar
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - MANAGEMENT CALENDARS: create_management_calendar_tables.sql
--- (Supabase / PostgreSQL 15+. Remove again with delete_management_calendar_tables.sql.)
---
--- managementCalendarTable: the calendars of the business, two levels in one table (the shape of managementGenusTable / budgetItemTable):
---   FOLDERS   (level 1, rowParentGUID 'empty')   projectCalendarFolder · resourceRoleCalendarFolder · personCalendarFolder
---   CALENDARS (level 2, rowParentGUID = folder)  projectCalendarFolder > workingDaysCalendar  (the default: Mon-Fri, no holidays)
---   rowGUID (TEXT = the code) · rowOwnerGUID 'managementCalendarCatalog' (the business - the abstract entity; no business table exists yet)
---   rowParentGUID (folder | 'empty') · orderInList · rowJSON { title, description }
---
--- managementCalendarDaysTable: ONE ROW PER CALENDAR DAY of a calendar:
---   rowGUID       '<calendar rowGUID>:<YYYY-MM-DD>'  (so a fill is an idempotent upsert)
---   rowOwnerGUID  managementCalendarTable.rowGUID
---   rowParentGUID the YEAR as text ('2026'): a table of one calendar and one year is a page of at most 366 rows
---   orderInList   the day as a number (days since 1970-01-01)
---   rowJSON       { day: 'YYYY-MM-DD', isActive: boolean, reason: 'fill' | 'weekend' | 'holiday' | 'manual', note }
--- isActive=false = the day is EXCLUDED (the calendar does not work on it): a task plan gets no row and no money for it.
--- The user excludes (or includes) any day by switching isActive (reason becomes 'manual', so a later Fill does not overwrite it unless asked).
---
--- fill_management_calendar(calendar, year, mode, overwrite_manual, hours, follow_project_holidays) writes a whole year in one statement:
---   mode 'workingDays' Mon-Fri active, Sat+Sun off; days flagged 'holiday' stay off
---        'fiveDays'    Mon-Fri active, Sat+Sun off (holiday flags are cleared)
---        'sixDays'     Mon-Sat active, Sun off
---        'allDays'     all 7 days active
---   Days with reason 'manual' are kept unless p_overwrite_manual is true.
--- The default calendar workingDaysCalendar is filled for the previous, the current and the next year (only when it has no days yet).
--- project_table.rowJSON.calendarForTaskPlan = the calendar that divides the timeline of a task plan (default workingDaysCalendar).
--- Screen: Management calendars (kit8/catalog/management/calendar, route /catalog/management/calendar/list).
--- IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT DO NOTHING.
--- =====================================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.kit8_touch_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -3760,6 +2903,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 -- one helper for every catalog / generic table: RLS on + touch trigger + REPLICA IDENTITY FULL
 CREATE OR REPLACE FUNCTION public.kit8_setup_def_table(p_table text) RETURNS void
@@ -3776,35 +2920,10 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE IF NOT EXISTS public."managementCalendarTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'managementCalendarCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_managementCalendarTable_owner_order" ON public."managementCalendarTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_managementCalendarTable_parent" ON public."managementCalendarTable" ("rowParentGUID");
 SELECT public.kit8_setup_def_table('managementCalendarTable');
 
-CREATE TABLE IF NOT EXISTS public."managementCalendarDaysTable" (
-  "rowGUID"       TEXT        NOT NULL,
-  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."managementCalendarTable"("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT management_calendar_day_chk CHECK (
-    "rowJSON"->>'day' ~ '^\d{4}-\d{2}-\d{2}$' AND jsonb_typeof("rowJSON"->'isActive') = 'boolean')
-);
-CREATE INDEX IF NOT EXISTS "idx_managementCalendarDaysTable_owner_order" ON public."managementCalendarDaysTable" ("rowOwnerGUID", "orderInList");
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_managementCalendarDaysTable_owner_day" ON public."managementCalendarDaysTable" ("rowOwnerGUID", ("rowJSON"->>'day'));
 SELECT public.kit8_setup_def_table('managementCalendarDaysTable');
+
 
 -- security: full CRUD for signed-in users (as managementGenusTable)
 DO $$
@@ -3825,9 +2944,13 @@ BEGIN
   END LOOP;
 END $$;
 
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 14)
+
+
 -- -------------------------------------------------------------------------------------
 -- the version before PART 21 had four arguments: with the new defaults a call with four would be ambiguous, so it goes
 DROP FUNCTION IF EXISTS public.fill_management_calendar(text, integer, text, boolean);
+
 -- fill_management_calendar: one year of days in one statement. Returns the number of day rows written.
 --   p_mode   workingDays | fiveDays | sixDays | allDays   (the week modes)  ·  pattern = the hours of each weekday from the calendar's rowJSON.weekPattern {mon..sun} (a custom week)
 --   p_hours  hours of an active day. NULL = the calendar's hoursPerDay for a RESOURCE calendar (rowJSON.kind = 'resource'), and NO hours at all for a project calendar (it is unchanged)
@@ -3898,19 +3021,11 @@ BEGIN
   RETURN v_count;
 END;
 $$;
+
 GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean, numeric, boolean) TO authenticated;
 
--- the default calendar: previous, current and next year (only when it has no days yet - a second run changes nothing)
-DO $$
-DECLARE
-  y integer := extract(year FROM current_date)::integer;
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = 'workingDaysCalendar') THEN
-    PERFORM public.fill_management_calendar('workingDaysCalendar', y - 1, 'workingDays');
-    PERFORM public.fill_management_calendar('workingDaysCalendar', y,     'workingDays');
-    PERFORM public.fill_management_calendar('workingDaysCalendar', y + 1, 'workingDays');
-  END IF;
-END $$;
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 14)
+
 
 -- realtime: both tables in the supabase_realtime publication
 DO $$
@@ -3933,17 +3048,20 @@ BEGIN
   END LOOP;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 15: create_task_line_plan_table.sql
+-- task_line_plan (the posted days of the task lines) + task_line_plan_timeline (the same grouped by day) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."managementCalendarTable" ORDER BY "orderInList";
 --   SELECT count(*), count(*) FILTER (WHERE ("rowJSON"->>'isActive')::boolean) FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = 'workingDaysCalendar';
 
 
--- ===============================================================================================
--- PART 15: create_task_line_plan_table.sql
--- task_line_plan (the posted days of the task lines) + task_line_plan_timeline (the same grouped by day) + RPC create_task_line_plan (one transaction, Correct033) + the unpost trigger
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - TASK LINE PLAN: create_task_line_plan_table.sql
@@ -3979,50 +3097,30 @@ BEGIN
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
-  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
-  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID"     UUID          NOT NULL REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
-  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
-  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL,
-  "rowCoefficient"    NUMERIC(14,10) NOT NULL,
-  "qtyTaskLine"       NUMERIC(18,2),
-  "sumForBudget"      NUMERIC(18,2),
-  "sumForContract"    NUMERIC(18,2),
-  "sumForAccounting"  NUMERIC(18,2),
-  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "planMovementStatus" BOOLEAN      NOT NULL DEFAULT true,
-  "periodDay"         DATE,
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_line_plan_movements_coefficient_chk CHECK ("rowCoefficient" >= 0),
-  CONSTRAINT task_line_plan_movements_line_period_uq UNIQUE ("rowParentGUID", "rowPeriodDatetime")
-);
--- PART 22 (time genus control): planMovementStatus = false while the capacity check of Post is pending (the row is out of the reports, the timeline and the occupancy), true after it passed;
--- EVERY other movement is created with true (the default: no migration, every old row is true). periodDay = the day of the row in the zone of the post (rows of older posts are filled once).
--- sumForAccounting: the sum of the line in the ACCOUNTING currency of the project (task_line_table.rowJSON.sumForAccounting, taskLineFx.ts), distributed like sumForBudget; a database made before has the column added here
-ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);
-ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "planMovementStatus" BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "periodDay" DATE;
 UPDATE public.task_line_plan_movements SET "periodDay" = (("rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date WHERE "periodDay" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_task    ON public.task_line_plan_movements ("rowOwnerGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_project ON public.task_line_plan_movements ("rowProjectGUID", "rowPeriodDatetime");
+
 
 DROP TRIGGER IF EXISTS trg_task_line_plan_movements_touch ON public.task_line_plan_movements;
+
 CREATE TRIGGER trg_task_line_plan_movements_touch BEFORE UPDATE ON public.task_line_plan_movements
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.task_line_plan_movements REPLICA IDENTITY FULL;
+
 
 -- access: the owner of the project READS; nobody writes directly (no insert / update / delete policy) - only create_task_line_plan does
 ALTER TABLE public.task_line_plan_movements ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.task_line_plan_movements FROM anon, authenticated;
+
 GRANT SELECT ON public.task_line_plan_movements TO authenticated;
+
 DROP POLICY IF EXISTS task_line_plan_movements_select ON public.task_line_plan_movements;
+
 CREATE POLICY task_line_plan_movements_select ON public.task_line_plan_movements FOR SELECT TO authenticated
   USING (public.pm_owns_project("rowProjectGUID"));
+
 
 -- realtime
 DO $$
@@ -4038,47 +3136,27 @@ BEGIN
   END IF;
 END $$;
 
--- -------------------------------------------------------------------------------------
--- task_line_plan_timeline - the posted days of task_line_plan_movements GROUPED BY DAY (the tab "Timeline" of the Budgets view of a task).
---   rowProjectGUID / rowOwnerGUID   as in task_line_plan_movements (the project and the task; FK, cascade)
---   rowPeriodDatetime               the DAY, always: the start of the day (00:00:00 in the zone of the post) - unique with the line
---   taskLineGUID                    task_line_table.rowGUID (FK, cascade: a deleted line takes its days with it)
---   qtyForBudget                    the sum of task_line_plan_movements.qtyTaskLine of the line on that day
---   sumForContract · sumForBudget · sumForAccounting   the sums of the same columns of the movements
--- The app only READS it. The rows are created by create_task_line_plan (the Post of a task): the earlier rows of the task are replaced in the same
--- transaction, so the timeline always equals the movements.
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.task_line_plan_timeline (
-  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
-  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL,
-  "taskLineGUID"      UUID          NOT NULL REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
-  "qtyForBudget"      NUMERIC(18,2),
-  "sumForContract"    NUMERIC(18,2),
-  "sumForBudget"      NUMERIC(18,2),
-  "sumForAccounting"  NUMERIC(18,2),
-  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_line_plan_timeline_line_day_uq UNIQUE ("taskLineGUID", "rowPeriodDatetime")
-);
-ALTER TABLE public.task_line_plan_timeline ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_task    ON public.task_line_plan_timeline ("rowOwnerGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_project ON public.task_line_plan_timeline ("rowProjectGUID", "rowPeriodDatetime");
 
 DROP TRIGGER IF EXISTS trg_task_line_plan_timeline_touch ON public.task_line_plan_timeline;
+
 CREATE TRIGGER trg_task_line_plan_timeline_touch BEFORE UPDATE ON public.task_line_plan_timeline
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
+
 ALTER TABLE public.task_line_plan_timeline REPLICA IDENTITY FULL;
 
+
 ALTER TABLE public.task_line_plan_timeline ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.task_line_plan_timeline FROM anon, authenticated;
+
 GRANT SELECT ON public.task_line_plan_timeline TO authenticated;
+
 DROP POLICY IF EXISTS task_line_plan_timeline_select ON public.task_line_plan_timeline;
+
 CREATE POLICY task_line_plan_timeline_select ON public.task_line_plan_timeline FOR SELECT TO authenticated
   USING (public.pm_owns_project("rowProjectGUID"));
+
 
 DO $$
 DECLARE
@@ -4093,12 +3171,14 @@ BEGIN
   END IF;
 END $$;
 
+
 -- days posted before this table existed: one row per line and day (the movements are already one per line and day, each at the start of its day)
 INSERT INTO public.task_line_plan_timeline ("rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting")
 SELECT m."rowProjectGUID", m."rowOwnerGUID", m."rowPeriodDatetime", m."rowParentGUID", SUM(m."qtyTaskLine"), SUM(m."sumForContract"), SUM(m."sumForBudget"), SUM(m."sumForAccounting")
   FROM public.task_line_plan_movements m
  GROUP BY m."rowProjectGUID", m."rowOwnerGUID", m."rowParentGUID", m."rowPeriodDatetime"
 ON CONFLICT ("taskLineGUID", "rowPeriodDatetime") DO NOTHING;
+
 
 -- -------------------------------------------------------------------------------------
 -- RPC create_task_line_plan("taskLinePlanJSON") - ONE transaction: replaces the posted days of a task.
@@ -4327,8 +3407,11 @@ BEGIN
   RETURN jsonb_build_object('lines', COALESCE(array_length(v_ids, 1), 0), 'rows', v_rows, 'mode', v_mode, 'busy', v_busy);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.create_task_line_plan(jsonb) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.create_task_line_plan(jsonb) TO authenticated;
+
 
 -- -------------------------------------------------------------------------------------
 -- The start or the finish DAY of a task changed (the scheduler writes rowJSON.startAt and rowDuration): its posted lines need a new post.
@@ -4346,100 +3429,21 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_task_line_plan_unpost_on_dates ON public.project_task_table;
+
 CREATE TRIGGER trg_task_line_plan_unpost_on_dates
   AFTER UPDATE OF "rowJSON", "rowDuration" ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.task_line_plan_unpost_on_dates();
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check (empty is right until the first Post):
---   SELECT count(*) FROM public.task_line_plan_movements;
---   SELECT "rowParentGUID", sum("rowCoefficient"), sum("sumForBudget") FROM public.task_line_plan_movements GROUP BY 1;   -- 1.0000000000 and the line sums
-
-
 -- ===============================================================================================
 -- PART 16: create_user_calendar_tables.sql
 -- user calendars, events, reminders
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - USER CALENDAR: create_user_calendar_tables.sql
--- (run AFTER create_tables.sql; idempotent - safe to run twice)
---
--- App code: kit8/register/user_calendar (model, CRUD, recurrence, Google sync, reminders,
---           e-mail invitations) + kit8/catalog/user/calendar (screens), route /user/calendar.
---
--- Tables (prefix user_calendar_, kit8/sql/defTable.md pattern, UUID ids, owner RLS):
---   user_calendar_table             the user's calendars ("My calendar", "Tasks", "Birthdays", "Project tasks")
---       rowOwnerGUID  = the user (public.app_user_guid() = userState.userGUID)
---       rowParentGUID = 'empty'
---       rowJSON       = { calendarCode, calendarTitle, calendarColor, isVisible }
---   user_calendar_event_table       events, calendar tasks, birthdays and the copies of project tasks
---       rowOwnerGUID  = the user
---       rowParentGUID = user_calendar_table.rowGUID (text) or 'empty'
---       orderInList   = start, milliseconds since 1970 (ascending = oldest first)
---       rowJSON       = { kind: 'event'|'task'|'birthday'|'projectTask', title, allDay, startAt, endAt,
---                         startDate, endDate, recurrence, exDates, notifications, guests, location,
---                         description, color, done, deadline, googleEventId, intent,
---                         projectGUID, projectTaskGUID, projectTitle, rowProgress }
---   user_calendar_invitation_table  e-mail invitations sent for an event / task / birthday
---       rowOwnerGUID  = the user who invited
---       rowParentGUID = user_calendar_event_table.rowGUID (text)
---       rowJSON       = { email, status: 'sent'|'failed', sentAt, error, resendId }
---
--- PROJECT TASKS: every task / milestone of project_task_table is mirrored automatically into
--- user_calendar_event_table (kind 'projectTask') by triggers: insert, update and sql_for_delete of a
--- project task do the same to its calendar row. The calendar row belongs to the task's owner.
--- =====================================================================================
 
-CREATE TABLE IF NOT EXISTS public.user_calendar_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_user_calendar_table_owner ON public.user_calendar_table ("rowOwnerGUID", "orderInList");
--- one calendar of each code per user ("my", "tasks", "birthdays", "projectTasks")
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_calendar_table_owner_code
-  ON public.user_calendar_table ("rowOwnerGUID", ("rowJSON"->>'calendarCode'))
-  WHERE ("rowJSON"->>'calendarCode') IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.user_calendar_event_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_user_calendar_event_owner ON public.user_calendar_event_table ("rowOwnerGUID", "orderInList");
--- one calendar row per project task (the mirror trigger upserts on it)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_calendar_event_project_task
-  ON public.user_calendar_event_table (("rowJSON"->>'projectTaskGUID'))
-  WHERE ("rowJSON"->>'projectTaskGUID') IS NOT NULL;
--- one calendar row per Google event per user (Google sync upserts on it)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_calendar_event_google
-  ON public.user_calendar_event_table ("rowOwnerGUID", ("rowJSON"->>'googleEventId'))
-  WHERE ("rowJSON"->>'googleEventId') IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.user_calendar_invitation_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_user_calendar_invitation_owner ON public.user_calendar_invitation_table ("rowOwnerGUID", "rowParentGUID");
 
 -- ---- updated_at trigger, RLS (every row belongs to app_user_guid()), grants -----------------
 DO $$
@@ -4460,6 +3464,7 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ("rowOwnerGUID" = (SELECT public.app_user_guid()))', t || '_delete', t);
   END LOOP;
 END $$;
+
 
 -- =====================================================================================
 -- Project tasks -> calendar (automatic create / update / sql_for_delete)
@@ -4506,6 +3511,7 @@ BEGIN
 END;
 $$;
 
+
 CREATE OR REPLACE FUNCTION public.user_calendar_project_task_sync() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -4537,10 +3543,13 @@ BEGIN
 END;
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_project_task_zzz_user_calendar ON public.project_task_table;
+
 CREATE TRIGGER trg_project_task_zzz_user_calendar
   AFTER INSERT OR UPDATE OR DELETE ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.user_calendar_project_task_sync();
+
 
 -- project renamed / planning units changed -> refresh the calendar rows of its tasks
 CREATE OR REPLACE FUNCTION public.user_calendar_project_sync() RETURNS trigger
@@ -4559,20 +3568,15 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_table_zzz_user_calendar ON public.project_table;
+
 CREATE TRIGGER trg_project_table_zzz_user_calendar
   AFTER UPDATE OF "rowJSON" ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.user_calendar_project_sync();
 
--- ---- backfill: the project tasks that exist already ---------------------------------------
-INSERT INTO public.user_calendar_event_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
-SELECT t."rowOwnerGUID", 'empty',
-       EXTRACT(EPOCH FROM (j.v->>'startAt')::timestamptz) * 1000, j.v
-  FROM public.project_task_table t
-  CROSS JOIN LATERAL (SELECT public.user_calendar_project_task_json(t) AS v) j
- WHERE COALESCE(t."rowJSON"->>'rowKind', 'task') IN ('task', 'milestone')
-   AND NOT EXISTS (SELECT 1 FROM public.user_calendar_event_table e WHERE e."rowJSON"->>'projectTaskGUID' = t."rowGUID"::text)
-ON CONFLICT DO NOTHING;
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 16)
+
 
 -- ---- realtime (the calendar refreshes itself in every browser / phone of the user) --------
 DO $$
@@ -4589,7 +3593,14 @@ BEGIN
   END LOOP;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 17: create_equipment_tables.sql
+-- equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
+-- ===============================================================================================
+
+
 
 -- Remove everything again:
 --   DROP TRIGGER IF EXISTS trg_project_task_zzz_user_calendar ON public.project_task_table;
@@ -4599,10 +3610,6 @@ NOTIFY pgrst, 'reload schema';
 --   DROP TABLE IF EXISTS public.user_calendar_invitation_table, public.user_calendar_event_table, public.user_calendar_table;
 
 
--- ===============================================================================================
--- PART 17: create_equipment_tables.sql
--- equipmentTypeTable + equipmentTable (the analog of the person for machines), equipment descriptors / variants, the role type "Equipment Resources", task_line_table.rowJSON.taskResourceKind
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - EQUIPMENT: create_equipment_tables.sql
@@ -4630,35 +3637,10 @@ BEGIN
   END IF;
 END $$;
 
--- ---- equipmentTypeTable + equipmentTable ---------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public."equipmentTypeTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_equipmentTypeTable_owner_order" ON public."equipmentTypeTable" ("rowOwnerGUID", "orderInList");
 SELECT public.kit8_setup_def_table('equipmentTypeTable');
 
-CREATE TABLE IF NOT EXISTS public."equipmentTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'equipmentCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT equipment_ownership_chk CHECK (COALESCE("rowJSON"->>'equipmentOwnership', 'own') IN ('own', 'rented', 'leased'))
-);
-CREATE INDEX IF NOT EXISTS "idx_equipmentTable_title" ON public."equipmentTable" ((lower("rowJSON"->>'equipmentTitle')));
-CREATE INDEX IF NOT EXISTS "idx_equipmentTable_type" ON public."equipmentTable" (("rowJSON"->>'equipmentType'));
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_equipmentTable_code" ON public."equipmentTable" (lower("rowJSON"->>'equipmentCode')) WHERE NOT coalesce("rowJSON"->>'equipmentCode', '') = '';
 SELECT public.kit8_setup_def_table('equipmentTable');
+
 
 -- access: signed-in users (as personTable / personTypeTable)
 DO $$
@@ -4679,16 +3661,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- ---- task_line_table.rowJSON.taskResourceKind = 'person' | 'equipment' (empty = person) -------------------------------------------
--- a CHECK keeps the value honest and allows an equipment on a Time line only; every line made before equipment has no kind and passes
-DO $$
-BEGIN
-  IF to_regclass('public.task_line_table') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_line_resource_kind_chk' AND conrelid = 'public.task_line_table'::regclass) THEN
-    ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_resource_kind_chk CHECK (
-      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment')
-      AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
-  END IF;
-END $$;
 
 -- ---- realtime ------------------------------------------------------------------------------------------------------------------
 DO $$
@@ -4708,7 +3680,14 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 18: create_business_unit_tables.sql
+-- cfrTypeTable (the enumeration of the Centers of Financial Responsibility) + businessUnitTable (a tree of any depth) + the checks of businessUnitAssigned + the unit on the posted days
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT t."rowJSON"->>'title' AS type, count(e.*) AS equipment FROM public."equipmentTypeTable" t LEFT JOIN public."equipmentTable" e ON e."rowJSON"->>'equipmentType' = t."rowGUID" GROUP BY 1;
@@ -4716,10 +3695,6 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT r."rowJSON"->>'title', pv."rowJSON"->>'value' AS min_power_kw FROM public."resourceRoleTable" r JOIN public."propertyValueTable" pv ON pv."rowOwnerGUID" = r."rowGUID" WHERE r."rowOwnerGUID" = 'equipmentResources';
 
 
--- ===============================================================================================
--- PART 18: create_business_unit_tables.sql
--- cfrTypeTable (the enumeration of the Centers of Financial Responsibility) + businessUnitTable (a tree of any depth) + the checks of businessUnitAssigned + the unit on the posted days
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - BUSINESS UNITS: create_business_unit_tables.sql
@@ -4752,18 +3727,8 @@ BEGIN
   END IF;
 END $$;
 
--- ---- cfrTypeTable: the enumeration ----------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public."cfrTypeTable" (
-  "rowGUID"       TEXT        NOT NULL,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'cfrTypeCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
 SELECT public.kit8_setup_def_table('cfrTypeTable');
+
 
 -- the enumeration is written by this file only (an app user has no privilege anyway; service_role is refused here)
 CREATE OR REPLACE FUNCTION public.kit8_cfr_type_readonly() RETURNS trigger
@@ -4776,9 +3741,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS "trg_cfrTypeTable_readonly" ON public."cfrTypeTable";
+
 CREATE TRIGGER "trg_cfrTypeTable_readonly" BEFORE INSERT OR UPDATE OR DELETE ON public."cfrTypeTable"
   FOR EACH ROW EXECUTE FUNCTION public.kit8_cfr_type_readonly();
+
 
 DO $$
 DECLARE
@@ -4790,7 +3758,8 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
 END $$;
 
--- (the 4 values of the enumeration: start5_sql_upsert_all.sql)
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 18)
+
 
 -- does a center of this CFR take a line of this kind? null CFR (a unit with none up the tree) / null kind = yes (nothing to check)
 CREATE OR REPLACE FUNCTION public.kit8_cfr_accepts(p_cfr text, p_kind text) RETURNS boolean
@@ -4803,21 +3772,8 @@ LANGUAGE sql STABLE AS $$
   END;
 $$;
 
--- ---- businessUnitTable ------------------------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public."businessUnitTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'businessUnitCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_owner_order" ON public."businessUnitTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_parent" ON public."businessUnitTable" ("rowParentGUID");
-CREATE INDEX IF NOT EXISTS "idx_businessUnitTable_cfr" ON public."businessUnitTable" ((("rowJSON"->>'cfrAssigned')));
 SELECT public.kit8_setup_def_table('businessUnitTable');
+
 
 -- the effective CFR of a unit: its own, else the nearest ancestor's, else null
 CREATE OR REPLACE FUNCTION public.kit8_business_unit_cfr(p_unit text) RETURNS text
@@ -4831,6 +3787,7 @@ LANGUAGE sql STABLE AS $$
   )
   SELECT cfr FROM up WHERE cfr IS NOT NULL ORDER BY depth LIMIT 1;
 $$;
+
 
 -- where is a unit used? (text of the first place found, null = nowhere): the guard of the delete
 CREATE OR REPLACE FUNCTION public.kit8_business_unit_used(p_unit text) RETURNS text
@@ -4851,6 +3808,7 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 
 -- guards of a unit: the parent exists, no loop, cfrAssigned exists, and a new CFR must not contradict days already posted on the unit
 CREATE OR REPLACE FUNCTION public.kit8_business_unit_guard() RETURNS trigger
@@ -4900,9 +3858,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS "trg_businessUnitTable_guard" ON public."businessUnitTable";
+
 CREATE TRIGGER "trg_businessUnitTable_guard" BEFORE INSERT OR UPDATE OR DELETE ON public."businessUnitTable"
   FOR EACH ROW EXECUTE FUNCTION public.kit8_business_unit_guard();
+
 
 DO $$
 DECLARE
@@ -4920,9 +3881,8 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- ---- the example company of the document "W1 businessUnit": 29 units, 4 levels, 9 with a CFR (the others inherit; Enterprise #1 = investment center) --------------
--- fixed codes (bu_...) so the demo tree and the tests are repeatable; parents before children
--- (the 29 example units: start5_sql_upsert_all.sql)
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 18)
+
 
 -- ---- businessUnitAssigned on the six catalogs, the line and the project: an existing unit, of the right kind -------------------------------------------------
 -- trigger arguments: 'key' = the unit must exist · 'key:cost' / 'key:revenue' = ... and its effective CFR must take that kind · 'key=profitCenter' = ... and be exactly that CFR
@@ -4953,6 +3913,7 @@ BEGIN
 END;
 $$;
 
+
 DO $$
 DECLARE
   t text;
@@ -4963,12 +3924,17 @@ BEGIN
                    'trg_' || t || '_business_unit', t, 'businessUnitAssigned');
   END LOOP;
 END $$;
+
 DROP TRIGGER IF EXISTS trg_task_line_table_business_unit ON public.task_line_table;
+
 CREATE TRIGGER trg_task_line_table_business_unit BEFORE INSERT OR UPDATE OF "rowJSON" ON public.task_line_table
   FOR EACH ROW EXECUTE FUNCTION public.kit8_check_business_unit_ref('businessUnitTaskLine');
+
 DROP TRIGGER IF EXISTS trg_project_table_business_unit ON public.project_table;
+
 CREATE TRIGGER trg_project_table_business_unit BEFORE INSERT OR UPDATE OF "rowJSON" ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.kit8_check_business_unit_ref('projectCostCenter:cost', 'projectRevenueCenter:revenue', 'projectProfitCenter=profitCenter', 'projectInvestmentCenter=investmentCenter');
+
 
 -- realtime
 DO $$
@@ -4988,45 +3954,16 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT "rowGUID", "rowJSON"->>'acceptsCosts' AS costs, "rowJSON"->>'acceptsRevenues' AS revenues FROM public."cfrTypeTable" ORDER BY "orderInList";
---   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title', "rowJSON"->>'cfrAssigned', public.kit8_business_unit_cfr("rowGUID") AS effective FROM public."businessUnitTable" ORDER BY "orderInList";   -- 29 rows
-
-
 -- ===============================================================================================
 -- PART 19: create_budget_scenario_table.sql
 -- budgetScenarioTable (a plain list of budget scenarios: plan | fact) + the two seed scenarios
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - BUDGET SCENARIOS: create_budget_scenario_table.sql
--- (run AFTER parts 1-18; IDEMPOTENT + NON-DESTRUCTIVE: CREATE ... IF NOT EXISTS, seeds ON CONFLICT. Remove again with PART 16 of delete_sql_structure.sql.)
--- Design: documentation/BUDGET_PLAN_CALCULATION.html, Part 1 (document "W1 BUDGET WBS"). The app: kit8/catalog/budget/scenario (screen /budget/scenario/list), the project keys
--- project_table.rowJSON.budgetScenarioForPlan / budgetScenarioForFact (Project settings -> Budgets). Not here yet: the guards (a scenario in use is not deleted) and the turnover register.
---
--- budgetScenarioTable - a PLAIN LIST (no folders, no tree), the same shape as the other catalogs:
---   rowGUID (text, the code; seeds: planScenarioProject1, factScenarioProject1) · rowOwnerGUID 'budgetScenarioCatalog' · rowParentGUID 'empty' ALWAYS (a CHECK keeps it so)
---   orderInList · rowJSON { title, description, scenarioKind: 'plan' | 'fact', isActive } - scenarioKind is the only field the calculation will read
---   (a CHECK refuses any other value of scenarioKind; a row without it is allowed, so a new row can be added first and filled after)
--- =====================================================================================
 
-CREATE TABLE IF NOT EXISTS public."budgetScenarioTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'budgetScenarioCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "budgetScenarioTable_plain_list_chk" CHECK ("rowParentGUID" = 'empty'),
-  CONSTRAINT "budgetScenarioTable_kind_chk" CHECK ("rowJSON"->>'scenarioKind' IN ('plan', 'fact'))
-);
-CREATE INDEX IF NOT EXISTS "idx_budgetScenarioTable_owner_order" ON public."budgetScenarioTable" ("rowOwnerGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS "idx_budgetScenarioTable_kind" ON public."budgetScenarioTable" ((("rowJSON"->>'scenarioKind')));
 SELECT public.kit8_setup_def_table('budgetScenarioTable');
+
 
 DO $$
 DECLARE
@@ -5044,7 +3981,8 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- the two scenarios of the document
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 19)
+
 
 -- realtime
 DO $$
@@ -5060,15 +3998,18 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT "rowGUID", "rowJSON"->>'title', "rowJSON"->>'scenarioKind' FROM public."budgetScenarioTable" ORDER BY "orderInList";   -- 2 rows
-
 -- ===============================================================================================
 -- PART 20: create_organization_scope.sql
 -- the organization of a user (userTable.rowJSON.userOrganization, obligatory) + project_table.rowParentGUID (= the organization of the owner, never changed) + invitations
 -- ===============================================================================================
+
+
+
+-- Check:
+--   SELECT "rowGUID", "rowJSON"->>'title', "rowJSON"->>'scenarioKind' FROM public."budgetScenarioTable" ORDER BY "orderInList";   -- 2 rows
+
 
 -- =====================================================================================
 -- UNIVERSAL1 - ORGANIZATION SCOPE: create_organization_scope.sql
@@ -5091,15 +4032,21 @@ CREATE OR REPLACE FUNCTION public.organization_of_user(p_user text) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT NULLIF("rowJSON"->>'userOrganization', '') FROM public."userTable" WHERE "rowGUID" = p_user
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_of_user(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_of_user(text) TO authenticated;
+
 
 CREATE OR REPLACE FUNCTION public.organization_of_current_user() RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT public.organization_of_user(public.app_user_guid()::text)
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_of_current_user() FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_of_current_user() TO authenticated;
+
 
 -- the organization OWNED by an e-mail (the creator is its admin): the existing one, else an older one of the catalog owner, else a new one. Internal: no grant.
 CREATE OR REPLACE FUNCTION public.organization_for_email(p_email text, p_first_name text DEFAULT NULL) RETURNS text
@@ -5129,33 +4076,21 @@ BEGIN
   RETURN v_guid;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_for_email(text, text) FROM PUBLIC, anon, authenticated;
 
--- ---- invitations ---------------------------------------------------------------------------------------------------------
---   rowOwnerGUID = organizationTable.rowGUID · rowJSON { inviteEmail (lower case), invitedBy (e-mail), status 'pending' | 'accepted' | 'revoked', decidedAt }
-CREATE TABLE IF NOT EXISTS public."organizationInvitationTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."organizationTable"("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT "organizationInvitation_email_chk" CHECK (COALESCE("rowJSON"->>'inviteEmail', '') <> '' AND "rowJSON"->>'inviteEmail' = lower("rowJSON"->>'inviteEmail')),
-  CONSTRAINT "organizationInvitation_status_chk" CHECK ("rowJSON"->>'status' IN ('pending', 'accepted', 'revoked'))
-);
--- one pending invitation per organization and e-mail
-CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationInvitation_pending" ON public."organizationInvitationTable" ("rowOwnerGUID", ("rowJSON"->>'inviteEmail'))
-  WHERE "rowJSON"->>'status' = 'pending';
-CREATE INDEX IF NOT EXISTS "idx_organizationInvitation_email" ON public."organizationInvitationTable" (("rowJSON"->>'inviteEmail'));
 SELECT public.kit8_setup_def_table('organizationInvitationTable');
+
 -- read: the invited person and the members of the organization; nobody writes directly (only the functions below)
 REVOKE ALL ON public."organizationInvitationTable" FROM anon, authenticated;
+
 GRANT SELECT ON public."organizationInvitationTable" TO authenticated;
+
 DROP POLICY IF EXISTS "organizationInvitationTable_select" ON public."organizationInvitationTable";
+
 CREATE POLICY "organizationInvitationTable_select" ON public."organizationInvitationTable" FOR SELECT TO authenticated
   USING ("rowJSON"->>'inviteEmail' = lower(COALESCE(auth.jwt()->>'email', '')) OR "rowOwnerGUID" = public.organization_of_current_user());
+
 
 -- the admin of an organization = its creator (organizationTable.rowJSON.createdByUser)
 CREATE OR REPLACE FUNCTION public.organization_is_admin(p_organization text) RETURNS boolean
@@ -5163,8 +4098,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public."organizationTable" o
                   WHERE o."rowGUID" = p_organization AND lower(o."rowJSON"->>'createdByUser') = lower(COALESCE(auth.jwt()->>'email', '')))
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_is_admin(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_is_admin(text) TO authenticated;
+
 
 CREATE OR REPLACE FUNCTION public.organization_invite_user(p_email text) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -5189,8 +4127,11 @@ BEGIN
   RETURN v_guid;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_invite_user(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_invite_user(text) TO authenticated;
+
 
 CREATE OR REPLACE FUNCTION public.organization_revoke_invitation(p_invitation text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -5204,8 +4145,11 @@ BEGIN
   UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'revoked', 'decidedAt', now()) WHERE "rowGUID" = p_invitation;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_revoke_invitation(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_revoke_invitation(text) TO authenticated;
+
 
 -- ---- the user: THE way to create one ----------------------------------------------------------------------------------------
 -- organization_ensure_user(e-mail, auth uid, first name, last name) -> { userGUID, organizationGUID, organizationTitle }
@@ -5259,8 +4203,11 @@ BEGIN
                             'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_ensure_user(text, text, text, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_ensure_user(text, text, text, text) TO authenticated;
+
 
 -- an EXISTING user accepts the invitation of his e-mail: his organization becomes the invited one (his old projects keep their organization - rowParentGUID never changes)
 CREATE OR REPLACE FUNCTION public.organization_accept_invitation(p_invitation text) RETURNS jsonb
@@ -5279,8 +4226,11 @@ BEGIN
   RETURN jsonb_build_object('organizationGUID', v_org, 'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_accept_invitation(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_accept_invitation(text) TO authenticated;
+
 
 -- ---- userTable: the organization is obligatory ---------------------------------------------------------------------------
 -- backfill first (the users that exist), then the check
@@ -5298,6 +4248,7 @@ BEGIN
   PERFORM set_config('kit8.user_organization_change', 'off', true);
 END $$;
 
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'userTable_userOrganization_chk') THEN
@@ -5309,6 +4260,7 @@ BEGIN
     RAISE NOTICE 'userTable: some users still have no organization (an empty e-mail?) - the check stays NOT VALID for them';
   END;
 END $$;
+
 
 -- SECURITY INVOKER on purpose: current_user is the role of the caller ('authenticated' = a user, 'postgres' / 'service_role' = an administrator or a SECURITY DEFINER function)
 CREATE OR REPLACE FUNCTION public.organization_user_guard() RETURNS trigger
@@ -5330,21 +4282,24 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_user_table_organization ON public."userTable";
+
 CREATE TRIGGER trg_user_table_organization BEFORE INSERT OR UPDATE OF "rowJSON" ON public."userTable"
   FOR EACH ROW EXECUTE FUNCTION public.organization_user_guard();
 
+
 -- a user is created ONLY by organization_ensure_user (it makes the organization first)
 REVOKE INSERT ON public."userTable" FROM authenticated;
+
 DROP POLICY IF EXISTS "userTable_insert_own" ON public."userTable";
 
--- ---- project_table.rowParentGUID = the organization of the project ----------------------------------------------------------
-ALTER TABLE public.project_table ADD COLUMN IF NOT EXISTS "rowParentGUID" TEXT;
 
 UPDATE public.project_table p
    SET "rowParentGUID" = NULLIF(u."rowJSON"->>'userOrganization', '')
   FROM public."userTable" u
  WHERE p."rowParentGUID" IS NULL AND u."rowGUID" = p."rowOwnerGUID"::text AND NULLIF(u."rowJSON"->>'userOrganization', '') IS NOT NULL;
+
 
 DO $$
 BEGIN
@@ -5358,7 +4313,7 @@ BEGIN
     ALTER TABLE public.project_table ALTER COLUMN "rowParentGUID" SET NOT NULL;
   END IF;
 END $$;
-CREATE INDEX IF NOT EXISTS idx_project_table_organization ON public.project_table ("rowParentGUID", "rowOwnerGUID");
+
 
 -- filled on insert from the owner (the client never sends it; a value sent is overwritten)
 CREATE OR REPLACE FUNCTION public.organization_project_set_parent() RETURNS trigger
@@ -5373,9 +4328,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_table_organization ON public.project_table;
+
 CREATE TRIGGER trg_project_table_organization BEFORE INSERT ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.organization_project_set_parent();
+
 
 -- never changed afterwards (an empty one - an old project of an owner without a user row - may be filled once)
 CREATE OR REPLACE FUNCTION public.organization_project_keep_parent() RETURNS trigger
@@ -5384,10 +4342,13 @@ BEGIN
   RAISE EXCEPTION 'pm_gantt: the organization of a project (rowParentGUID) cannot be changed';
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_project_table_organization_keep ON public.project_table;
+
 CREATE TRIGGER trg_project_table_organization_keep BEFORE UPDATE OF "rowParentGUID" ON public.project_table
   FOR EACH ROW WHEN (OLD."rowParentGUID" IS NOT NULL AND NEW."rowParentGUID" IS DISTINCT FROM OLD."rowParentGUID")
   EXECUTE FUNCTION public.organization_project_keep_parent();
+
 
 -- realtime
 DO $$
@@ -5403,64 +4364,14 @@ BEGIN
   END IF;
 END $$;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT "rowOwnerGUID", "rowJSON"->>'userOrganization' FROM public."userTable";                    -- every user has an organization
---   SELECT count(*) FROM public.project_table WHERE "rowParentGUID" IS NULL;                          -- 0
---   SELECT public.organization_ensure_user('me@example.com');                                          -- as the SQL editor: any e-mail
-
 -- ===============================================================================================
 -- PART 21: create_resource_calendar.sql
 -- the resource calendar = the capacity: hours per day on the management calendars, the key resourceCalendar on person / equipment / contract / template, week modes, the lookup organization_resource_capacity
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - RESOURCE CALENDAR: create_resource_calendar.sql
--- (run AFTER parts 1-20; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1b of delete_sql_structure.sql.)
--- Design: documentation/TIME_GENUS_CONTROL_WBS.html, section 2 (work packages B1-B10).
---
--- The capacity of a resource on a day = the HOURS of its calendar that day. No new table: managementCalendarTable / managementCalendarDaysTable (PART 14) get
---   calendar row rowJSON    kind 'resource' (absent = a project calendar: nothing changes for it) · hoursPerDay · weekDays 5|6|7 · weekPattern {mon..sun: hours} (a custom week)
---                           · workFrom / workTo 'HH:MM' (the work window, used by hour / minute control later) · mode 'quantity'|'exclusive'
---   day row rowJSON         hours 0..24 (0 = not active; the trigger keeps isActive and hours in step) · reason fill | weekend | holiday | manual | vacation | sickLeave | training | other
---                           (a Fill keeps every reason but fill / weekend unless "overwrite manual")
--- Calendar folders: + equipmentCalendarFolder, contractCalendarFolder. Seeded resource calendars (the week modes): standardWorkWeekCalendar (Mon-Fri 8 h, THE default),
--- sixDayWeekCalendar (Mon-Sat), sevenDayWeekCalendar (all days), partTime4hCalendar (Mon-Fri 4 h).
---
--- rowJSON.resourceCalendar = managementCalendarTable.rowGUID on personTable, equipmentTable, contractTable, templateResourceContractTable (a trigger checks it points to a RESOURCE calendar).
--- Which calendar applies to a resource on a day (organization_resource_capacity_info): 1. the calendar of the contract of the person IN FORCE that day (latest start wins) 2. the calendar of the
--- resource 3. the standard work week. A day without a row = NOT FILLED (NULL hours): never guessed.
--- =====================================================================================
 
--- ---- folders + the seeded week modes: the rows are SEED DATA (start5_sql_upsert_all.sql, "the resource calendar (PART 21"); this file only fills their days when they exist ----
-
--- the seeded calendars have days for the previous, this and next year (only when they have none yet - a second run changes nothing)
-DO $$
-DECLARE
-  y integer := extract(year FROM current_date)::integer;
-  c record;
-BEGIN
-  FOR c IN SELECT * FROM (VALUES ('standardWorkWeekCalendar', 'fiveDays'), ('sixDayWeekCalendar', 'sixDays'), ('sevenDayWeekCalendar', 'allDays'), ('partTime4hCalendar', 'fiveDays')) AS v(cal, mode) LOOP
-    IF EXISTS (SELECT 1 FROM public."managementCalendarTable" WHERE "rowGUID" = c.cal)
-       AND NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" = c.cal) THEN
-      PERFORM public.fill_management_calendar(c.cal, y - 1, c.mode);
-      PERFORM public.fill_management_calendar(c.cal, y,     c.mode);
-      PERFORM public.fill_management_calendar(c.cal, y + 1, c.mode);
-    END IF;
-  END LOOP;
-END $$;
-
--- ---- hours of a day row: 0..24, in step with isActive -----------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'management_calendar_day_hours_chk') THEN
-    ALTER TABLE public."managementCalendarDaysTable" ADD CONSTRAINT management_calendar_day_hours_chk CHECK (
-      NOT ("rowJSON" ? 'hours')
-      OR (jsonb_typeof("rowJSON"->'hours') = 'number' AND ("rowJSON"->>'hours')::numeric BETWEEN 0 AND 24
-          AND (("rowJSON"->>'hours')::numeric > 0) = (("rowJSON"->>'isActive')::boolean)));
-  END IF;
-END $$;
 
 -- a day of a RESOURCE calendar: hours and isActive are kept in step (the screen of the project calendar still switches isActive only)
 CREATE OR REPLACE FUNCTION public.organization_calendar_day_normalize() RETURNS trigger
@@ -5489,9 +4400,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_management_calendar_day_normalize ON public."managementCalendarDaysTable";
+
 CREATE TRIGGER trg_management_calendar_day_normalize BEFORE INSERT OR UPDATE OF "rowJSON" ON public."managementCalendarDaysTable"
   FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_day_normalize();
+
 
 -- ---- the key resourceCalendar points to a resource calendar --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.organization_resource_calendar_check() RETURNS trigger
@@ -5507,6 +4421,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DO $$
 DECLARE
   t text;
@@ -5519,6 +4434,7 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
 
 -- a calendar in use (or the standard one) cannot be deleted
 CREATE OR REPLACE FUNCTION public.organization_calendar_in_use_guard() RETURNS trigger
@@ -5541,9 +4457,12 @@ BEGIN
   RETURN OLD;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_management_calendar_in_use ON public."managementCalendarTable";
+
 CREATE TRIGGER trg_management_calendar_in_use BEFORE DELETE ON public."managementCalendarTable"
   FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_in_use_guard();
+
 
 -- ---- the capacity ---------------------------------------------------------------------------------------------------------------
 -- a date from rowJSON text ('YYYY-MM-DD'); anything else = NULL
@@ -5551,6 +4470,7 @@ CREATE OR REPLACE FUNCTION public.organization_json_date(p_text text) RETURNS da
 LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE WHEN p_text ~ '^\d{4}-\d{2}-\d{2}$' THEN p_text::date END
 $$;
+
 
 -- organization_resource_capacity_info(kind, resource, day) -> the calendar that applies, where it comes from ('contract' | 'resource' | 'standard') and its hours that day (NULL = not filled)
 CREATE OR REPLACE FUNCTION public.organization_resource_capacity_info(p_kind text, p_resource text, p_day date)
@@ -5580,8 +4500,11 @@ BEGIN
   RETURN QUERY SELECT v_cal, v_src, public.organization_calendar_day_hours(v_cal, p_day), v_alt, public.organization_calendar_day_hours(v_alt, p_day);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_capacity_info(text, text, date) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_capacity_info(text, text, date) TO authenticated;
+
 
 -- the hours of one day of one calendar (NULL = no day row = not filled); an old day row without hours: isActive ? hoursPerDay : 0
 CREATE OR REPLACE FUNCTION public.organization_calendar_day_hours(p_calendar text, p_day date) RETURNS numeric
@@ -5593,15 +4516,21 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
     JOIN public."managementCalendarTable" c ON c."rowGUID" = d."rowOwnerGUID"
    WHERE d."rowGUID" = p_calendar || ':' || to_char(p_day, 'YYYY-MM-DD')
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_calendar_day_hours(text, date) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_calendar_day_hours(text, date) TO authenticated;
+
 
 CREATE OR REPLACE FUNCTION public.organization_resource_capacity(p_kind text, p_resource text, p_day date) RETURNS numeric
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT hours FROM public.organization_resource_capacity_info(p_kind, p_resource, p_day)
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_capacity(text, text, date) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_capacity(text, text, date) TO authenticated;
+
 
 -- ---- the project calendars of an organization (consistency of a resource calendar with them, Fill "follow project holidays") ----------------------------
 -- the calendars the projects of the organization plan with (project.rowJSON.calendarForTaskPlan, default workingDaysCalendar)
@@ -5610,8 +4539,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT DISTINCT COALESCE(NULLIF(p."rowJSON"->>'calendarForTaskPlan', ''), 'workingDaysCalendar')
     FROM public.project_table p WHERE p."rowParentGUID" = p_organization
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_project_calendars(text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_project_calendars(text) TO authenticated;
+
 
 -- the days of a year flagged holiday (and not active) in ANY project calendar of the organization
 CREATE OR REPLACE FUNCTION public.organization_holiday_days(p_organization text, p_year integer) RETURNS SETOF date
@@ -5622,8 +4554,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
      AND d."rowParentGUID" = p_year::text
      AND d."rowJSON"->>'reason' = 'holiday' AND NOT (d."rowJSON"->>'isActive')::boolean
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_holiday_days(text, integer) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_holiday_days(text, integer) TO authenticated;
+
 
 -- the report of the Fill of a RESOURCE calendar: the days where the project calendars of the organization and the resource calendar disagree
 --   projectWorksResourceOff    some project calendar works that day, the resource calendar has 0 h (a booking there would be BUSY)
@@ -5649,8 +4584,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
    WHERE (p.works AND r.hours = 0) OR (NOT p.works AND r.hours > 0)
    ORDER BY p.day
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_calendar_consistency(text, integer) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_calendar_consistency(text, integer) TO authenticated;
+
 
 -- the "Own calendar" button (copy on write): a private copy of a resource calendar - the row (kind resource, same hours / week mode / work window) and ALL its day rows - in a folder
 -- (personCalendarFolder | equipmentCalendarFolder | contractCalendarFolder). The pointer of the person / equipment / contract is set by the caller. Returns the rowGUID of the copy.
@@ -5674,18 +4612,22 @@ BEGIN
   RETURN v_new;
 END;
 $$;
+
 GRANT EXECUTE ON FUNCTION public.organization_copy_calendar(text, text, text) TO authenticated;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 22: create_resource_busy_check.sql
+-- the occupancy view of the posted days + organization_resource_busy_check (is a resource busy?) + the per-resource lock; the setting is organizationTable.rowJSON.resourceCapacityStrongMode
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT "rowGUID", "rowParentGUID", "rowJSON"->>'title' FROM public."managementCalendarTable" WHERE "rowJSON"->>'kind' = 'resource';          -- 4 week modes
 --   SELECT * FROM public.organization_resource_capacity_info('person', '<person rowGUID>', current_date);                                      -- calendar, source, hours
 
--- ===============================================================================================
--- PART 22: create_resource_busy_check.sql
--- the occupancy view of the posted days + organization_resource_busy_check (is a resource busy?) + the per-resource lock; the setting is organizationTable.rowJSON.resourceCapacityStrongMode
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - RESOURCE BUSY CHECK: create_resource_busy_check.sql
@@ -5729,17 +4671,20 @@ SELECT 'taskLinePlanMovements'::text                                          AS
  WHERE l."rowParentGUID" = 'timeGenus'
    AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> ''
    AND COALESCE(NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''), 'unit_hour') = 'unit_hour';
+
 -- the view reads tables that only the owner of a project may see: nobody queries it directly, the functions below (SECURITY DEFINER) answer
 REVOKE ALL ON public.resource_occupancy_x_movement FROM PUBLIC, anon, authenticated;
 
-CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_day ON public.task_line_plan_movements ("periodDay");
 
 CREATE OR REPLACE FUNCTION public.organization_lock_resource(p_kind text, p_guid text) RETURNS void
 LANGUAGE sql AS $$
   SELECT pg_advisory_xact_lock(hashtextextended('organization_resource:' || p_kind || ':' || p_guid, 0))
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_lock_resource(text, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_lock_resource(text, text) TO authenticated;
+
 
 -- A calendar change cannot see a Post that is not committed yet, so it could not know which resources to wait for. The calendar has a lock of its own:
 -- every Post holds it SHARED (any number of Posts at once) for the calendars of its resources, a change of a calendar takes it EXCLUSIVE and so waits for the Posts in flight.
@@ -5752,8 +4697,11 @@ BEGIN
   END IF;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_lock_calendar(text, boolean) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_lock_calendar(text, boolean) TO authenticated;
+
 
 -- every calendar that can give a resource its capacity: the standard one, its own, and (a person) the calendars of all its contracts
 CREATE OR REPLACE FUNCTION public.organization_resource_calendars(p_kind text, p_guid text) RETURNS SETOF text
@@ -5766,8 +4714,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   UNION
   SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') FROM public."contractTable" c WHERE p_kind = 'person' AND c."rowOwnerGUID" = p_guid AND c."rowParentGUID" = 'person'
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_calendars(text, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_calendars(text, text) TO authenticated;
+
 
 -- the name of a resource for a message
 CREATE OR REPLACE FUNCTION public.organization_resource_title(p_kind text, p_guid text) RETURNS text
@@ -5778,8 +4729,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
          ELSE (SELECT NULLIF(btrim(COALESCE(x."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(x."rowJSON"->>'personLastName', '')), '') FROM public."personTable" x WHERE x."rowGUID" = p_guid)
     END, p_guid)
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_title(text, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_title(text, text) TO authenticated;
+
 
 -- the e-mail of the project manager of a project (project_table.rowJSON.projectManagerPerson = a personTable GUID; personTable.rowJSON.personEmail): where the Share button sends its text
 CREATE OR REPLACE FUNCTION public.organization_project_manager_email(p_project uuid) RETURNS text
@@ -5788,8 +4742,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
     FROM public.project_table p JOIN public."personTable" x ON x."rowGUID" = p."rowJSON"->>'projectManagerPerson'
    WHERE p."rowGUID" = p_project
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_project_manager_email(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_project_manager_email(uuid) TO authenticated;
+
 
 CREATE OR REPLACE FUNCTION public.organization_resource_busy_check(p_task uuid, p_scope text, p_grain text DEFAULT 'day')
 RETURNS TABLE (resource_kind text, resource_guid text, day date, capacity_hours numeric, booked_here numeric, booked_others numeric, over_hours numeric,
@@ -5833,19 +4790,24 @@ BEGIN
    ORDER BY c.k, c.g, c.d;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_busy_check(uuid, text, text) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_busy_check(uuid, text, text) TO authenticated;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 23: create_calendar_lock.sql
+-- the calendar lock: a change of a calendar that would put the capacity of a resource under its POSTED hours is refused (day rows, Fill, the resourceCalendar pointers, the contracts)
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT * FROM public.organization_resource_busy_check('<task rowGUID>', '<organization rowGUID>');       -- one row per busy resource and day
 --   UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"resourceCapacityStrongMode": "capacityModeWarn"}' WHERE "rowGUID" = '<organization rowGUID>';   -- capacityModeOff | capacityModeWarn | capacityModeBlock
 
--- ===============================================================================================
--- PART 23: create_calendar_lock.sql
--- the calendar lock: a change of a calendar that would put the capacity of a resource under its POSTED hours is refused (day rows, Fill, the resourceCalendar pointers, the contracts)
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - CALENDAR LOCK: create_calendar_lock.sql
@@ -5877,8 +4839,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   WHERE x.cal IS NOT NULL AND x.s <= p_day AND COALESCE(x.f, DATE '9999-12-31') >= p_day
   ORDER BY x.s DESC, x.o, x.g LIMIT 1
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_contract_calendar(text, date, text, jsonb) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_contract_calendar(text, date, text, jsonb) TO authenticated;
+
 
 -- the hours posted for a resource on a day (the largest total of one organization)
 CREATE OR REPLACE FUNCTION public.organization_resource_booked(p_kind text, p_guid text, p_day date) RETURNS numeric
@@ -5887,8 +4852,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
     SELECT sum(o."quantityResourceBusy") AS q FROM public.resource_occupancy_x_movement o
      WHERE o."resourceKind" = p_kind AND o."resourceGUID" = p_guid AND o."periodDay" = p_day AND o."statusOfLine" = 'posted' GROUP BY o."scopeGUID") t
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_resource_booked(text, text, date) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_resource_booked(text, text, date) TO authenticated;
+
 
 -- refuse when the capacity falls under the posted hours (and it is a lowering). Locks the resource first (the same lock as Post).
 CREATE OR REPLACE FUNCTION public.organization_assert_capacity(p_kind text, p_guid text, p_day date, p_old numeric, p_new numeric) RETURNS void
@@ -5910,7 +4878,9 @@ BEGIN
   END IF;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_assert_capacity(text, text, date, numeric, numeric) FROM PUBLIC, anon;
+
 
 -- ---- a day row of a resource calendar ------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.organization_calendar_day_lock() RETURNS trigger
@@ -5944,9 +4914,12 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_management_calendar_day_lock ON public."managementCalendarDaysTable";
+
 CREATE TRIGGER trg_management_calendar_day_lock AFTER UPDATE OR DELETE ON public."managementCalendarDaysTable"
   FOR EACH ROW EXECUTE FUNCTION public.organization_calendar_day_lock();
+
 
 -- ---- the resourceCalendar of a person / equipment --------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.organization_resource_pointer_lock() RETURNS trigger
@@ -5972,6 +4945,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DO $$
 DECLARE
   t text;
@@ -5984,6 +4958,7 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
 
 -- ---- the contracts of a person (new, changed, deleted) ------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.organization_contract_lock() RETURNS trigger
@@ -6019,6 +4994,7 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END;
 $$;
+
 DO $$
 BEGIN
   IF to_regclass('public."contractTable"') IS NOT NULL THEN
@@ -6027,6 +5003,7 @@ BEGIN
       FOR EACH ROW EXECUTE FUNCTION public.organization_contract_lock();
   END IF;
 END $$;
+
 
 -- ---- for the screen ---------------------------------------------------------------------------------------------------------------------------
 -- the days of a calendar that are locked (a resource whose calendar of that day it is has posted hours): the capacity of the day cannot go under min_hours
@@ -6040,8 +5017,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
    WHERE (SELECT i.calendar FROM public.organization_resource_capacity_info(b.k, b.g, b.d) i) = p_calendar
    GROUP BY b.d ORDER BY b.d
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_calendar_lock_info(text, date, date) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_calendar_lock_info(text, date, date) TO authenticated;
+
 
 -- what a planned change of the hours of a calendar would break: p_new = {"2026-10-14": 6, ...} (the new hours of the days); one row per resource and day that would fall under its posted hours
 CREATE OR REPLACE FUNCTION public.organization_calendar_change_conflicts(p_calendar text, p_from date, p_to date, p_new jsonb)
@@ -6057,57 +5037,25 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
      AND (p_new->>to_char(b.d, 'YYYY-MM-DD'))::numeric < COALESCE(public.organization_calendar_day_hours(p_calendar, b.d), 0)
    ORDER BY b.d, 3
 $$;
+
 REVOKE ALL ON FUNCTION public.organization_calendar_change_conflicts(text, date, date, jsonb) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.organization_calendar_change_conflicts(text, date, date, jsonb) TO authenticated;
 
+
 NOTIFY pgrst, 'reload schema';
-
--- Check:
---   SELECT * FROM public.organization_calendar_lock_info('standardWorkWeekCalendar', current_date, current_date + 60);           -- the days the screen locks
---   UPDATE public."managementCalendarDaysTable" SET "rowJSON" = "rowJSON" || '{"hours": 1}' WHERE "rowGUID" = 'standardWorkWeekCalendar:' || to_char(current_date, 'YYYY-MM-DD');   -- refused when hours are posted
-
 -- ===============================================================================================
 -- PART 24: create_task_fact_input.sql
 -- the FACT INPUT document of a task: task_fact_header (the document) + task_fact_usage_timeline (its lines) + post_task_fact_document / unpost_task_fact_document
 -- ===============================================================================================
 
--- =====================================================================================
--- UNIVERSAL1 - FACT INPUT: create_task_fact_input.sql
--- (run AFTER parts 1-23; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
--- Design: documentation/FACT_INPUT.html (source: the Google Doc "W1 FACT INPUT"). The screen: kit8/pm/fact/PMFactInputDocument.tsx.
---
--- task_fact_header   the DOCUMENT of one task.   rowJSON.documentHeader = { projectTaskGUID (read only, = rowOwnerGUID) · activeUser (the user who created it) ·
---                    created_at (moment of creation) · documentNumber · documentStatus 'draft' | 'posted' · strongInput (the project setting when the document was created) ·
---                    postedAt · postedBy · unpostedAt }
--- task_fact_usage_timeline the LINES of the document: the fields of task_line_plan_timeline (rowGUID · rowProjectGUID · rowOwnerGUID · rowPeriodDatetime · taskLineGUID · qtyForBudget ·
---                    sumForContract · sumForBudget · created_at · updated_at) + rowHeaderGUID (= task_fact_header.rowGUID) + genusGUID (the tab) + qtyForContract (the quantity the user
---                    states) + periodDay + rowJSON (what the line is: role, resource, unit, price ... copied from the task line).
---                    Not unique per (line, day): a day can have several facts. rowPeriodDatetime is editable in EVERY line.
--- The rule: ALL the lines of task_line_table of the task automatically go to task_fact_usage_timeline when the document is created (task_fact_document_create).
---   projectSettings.factStrongInputByTaskLine = true  (project_table.rowJSON; false by default): the lines keep their taskLineGUID, users CANNOT add lines, only delete and update
---   projectSettings.factStrongInputByTaskLine = false: the fact data is DISCONNECTED from the task line GUIDs (taskLineGUID stays NULL), users add lines freely
---   The mode is copied into the header when the document is created: a later change of the setting never changes an existing document.
--- Users change ONLY rowPeriodDatetime and qtyForContract (and, in the free mode, the description keys of rowJSON): qtyForBudget and the sums are computed / frozen by the database.
--- A POSTED document is read only (RLS); only Unpost makes it a draft again. Only POSTED documents are summed for the report (PART 25: task_line_fact_for_monitor01).
--- =====================================================================================
 
-CREATE SEQUENCE IF NOT EXISTS public.task_fact_document_seq;
-
-CREATE TABLE IF NOT EXISTS public.task_fact_header (
-  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowProjectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"   UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_fact_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
-);
-CREATE INDEX IF NOT EXISTS idx_task_fact_header_task ON public.task_fact_header ("rowOwnerGUID", "created_at");
 
 DROP TRIGGER IF EXISTS trg_task_fact_header_touch ON public.task_fact_header;
+
 CREATE TRIGGER trg_task_fact_header_touch BEFORE UPDATE ON public.task_fact_header
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- the project and the read-only keys of the header are set by the database, never taken from a client
 CREATE OR REPLACE FUNCTION public.task_fact_header_before_write() RETURNS trigger
@@ -6132,62 +5080,26 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_task_fact_header_before_write ON public.task_fact_header;
+
 CREATE TRIGGER trg_task_fact_header_before_write BEFORE INSERT OR UPDATE ON public.task_fact_header
   FOR EACH ROW EXECUTE FUNCTION public.task_fact_header_before_write();
+-- the old triggers, policies and trigger function of a renamed table (all no-ops when nothing was renamed)
+DROP TRIGGER IF EXISTS trg_task_fact_timeline_touch ON public.task_fact_usage_timeline;
+DROP TRIGGER IF EXISTS trg_task_fact_timeline_before_write ON public.task_fact_usage_timeline;
+DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
+DROP POLICY IF EXISTS task_fact_timeline_select ON public.task_fact_usage_timeline;
+DROP POLICY IF EXISTS task_fact_timeline_insert ON public.task_fact_usage_timeline;
+DROP POLICY IF EXISTS task_fact_timeline_update ON public.task_fact_usage_timeline;
+DROP POLICY IF EXISTS task_fact_timeline_delete ON public.task_fact_usage_timeline;
 
--- a database made before the rename (task_fact_timeline -> task_fact_usage_timeline): the table, its indexes and constraints are renamed IN PLACE (the lines stay); the old triggers, policies and
--- trigger function are dropped, the statements below create them again under the new names
-DO $$
-BEGIN
-  IF to_regclass('public.task_fact_timeline') IS NOT NULL AND to_regclass('public.task_fact_usage_timeline') IS NULL THEN
-    ALTER TABLE public.task_fact_timeline RENAME TO task_fact_usage_timeline;
-    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_header  RENAME TO idx_task_fact_usage_timeline_header;
-    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_task    RENAME TO idx_task_fact_usage_timeline_task;
-    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_project RENAME TO idx_task_fact_usage_timeline_project;
-    ALTER INDEX IF EXISTS public.idx_task_fact_timeline_line    RENAME TO idx_task_fact_usage_timeline_line;
-    ALTER TABLE public.task_fact_usage_timeline RENAME CONSTRAINT task_fact_timeline_qty_chk TO task_fact_usage_timeline_qty_chk;
-    ALTER TABLE public.task_fact_usage_timeline RENAME CONSTRAINT task_fact_timeline_genus_chk TO task_fact_usage_timeline_genus_chk;
-    DROP TRIGGER IF EXISTS trg_task_fact_timeline_touch ON public.task_fact_usage_timeline;
-    DROP TRIGGER IF EXISTS trg_task_fact_timeline_before_write ON public.task_fact_usage_timeline;
-    DROP FUNCTION IF EXISTS public.task_fact_timeline_before_write();
-    DROP POLICY IF EXISTS task_fact_timeline_select ON public.task_fact_usage_timeline;
-    DROP POLICY IF EXISTS task_fact_timeline_insert ON public.task_fact_usage_timeline;
-    DROP POLICY IF EXISTS task_fact_timeline_update ON public.task_fact_usage_timeline;
-    DROP POLICY IF EXISTS task_fact_timeline_delete ON public.task_fact_usage_timeline;
-  END IF;
-END $$;
-CREATE TABLE IF NOT EXISTS public.task_fact_usage_timeline (
-  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
-  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "rowHeaderGUID"     UUID          NOT NULL REFERENCES public.task_fact_header("rowGUID") ON DELETE CASCADE,
-  "rowPeriodDatetime" TIMESTAMPTZ   NOT NULL DEFAULT date_trunc('day', NOW()),
-  "taskLineGUID"      UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL,
-  "genusGUID"         TEXT          NOT NULL,
-  "qtyForBudget"      NUMERIC(18,2),
-  "qtyForContract"    NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "sumForContract"    NUMERIC(18,2),
-  "sumForBudget"      NUMERIC(18,2),
-  "sumForAccounting"  NUMERIC(18,2),
-  "periodDay"         DATE,
-  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
-  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID"),
-  CONSTRAINT task_fact_usage_timeline_qty_chk CHECK ("qtyForContract" >= 0),
-  CONSTRAINT task_fact_usage_timeline_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'))
-);
-ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
-CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_header  ON public.task_fact_usage_timeline ("rowHeaderGUID", "genusGUID", "orderInList");
-CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_task    ON public.task_fact_usage_timeline ("rowOwnerGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_project ON public.task_fact_usage_timeline ("rowProjectGUID", "rowPeriodDatetime");
-CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_line    ON public.task_fact_usage_timeline ("taskLineGUID");
 
 DROP TRIGGER IF EXISTS trg_task_fact_usage_timeline_touch ON public.task_fact_usage_timeline;
+
 CREATE TRIGGER trg_task_fact_usage_timeline_touch BEFORE UPDATE ON public.task_fact_usage_timeline
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
 
 -- the state of a document for the policies: 'draft-free' | 'draft-strong' | 'posted' (NULL = no such document). SECURITY DEFINER: the policies of the lines read the header without a second policy round.
 CREATE OR REPLACE FUNCTION public.task_fact_header_state(p_header uuid) RETURNS text
@@ -6198,8 +5110,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
     FROM public.task_fact_header h
    WHERE h."rowGUID" = p_header AND public.pm_owns_project(h."rowProjectGUID");
 $$;
+
 REVOKE ALL ON FUNCTION public.task_fact_header_state(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.task_fact_header_state(uuid) TO authenticated;
+
 
 -- one line: project / task from the header, day grain, the quantity of the budget frozen, the sums computed from the price of the line
 CREATE OR REPLACE FUNCTION public.task_fact_usage_timeline_before_write() RETURNS trigger
@@ -6255,38 +5170,61 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_task_fact_usage_timeline_before_write ON public.task_fact_usage_timeline;
+
 CREATE TRIGGER trg_task_fact_usage_timeline_before_write BEFORE INSERT OR UPDATE ON public.task_fact_usage_timeline
   FOR EACH ROW EXECUTE FUNCTION public.task_fact_usage_timeline_before_write();
 
+
 -- ---- access: the owner of the project reads; writes the lines of a DRAFT (no new lines in the strong mode); the header is written only by the functions below ----
 ALTER TABLE public.task_fact_header REPLICA IDENTITY FULL;
+
 ALTER TABLE public.task_fact_usage_timeline REPLICA IDENTITY FULL;
+
 ALTER TABLE public.task_fact_header ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.task_fact_usage_timeline ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.task_fact_header FROM anon, authenticated;
+
 REVOKE ALL ON public.task_fact_usage_timeline FROM anon, authenticated;
+
 GRANT SELECT, DELETE ON public.task_fact_header TO authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_fact_usage_timeline TO authenticated;
 
+
 DROP POLICY IF EXISTS task_fact_header_select ON public.task_fact_header;
+
 CREATE POLICY task_fact_header_select ON public.task_fact_header FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
 DROP POLICY IF EXISTS task_fact_header_delete ON public.task_fact_header;
+
 CREATE POLICY task_fact_header_delete ON public.task_fact_header FOR DELETE TO authenticated
   USING (public.pm_owns_project("rowProjectGUID") AND public.task_fact_header_state("rowGUID") IN ('draft-free', 'draft-strong'));
 
+
 DROP POLICY IF EXISTS task_fact_usage_timeline_select ON public.task_fact_usage_timeline;
+
 CREATE POLICY task_fact_usage_timeline_select ON public.task_fact_usage_timeline FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
 DROP POLICY IF EXISTS task_fact_usage_timeline_insert ON public.task_fact_usage_timeline;
+
 CREATE POLICY task_fact_usage_timeline_insert ON public.task_fact_usage_timeline FOR INSERT TO authenticated
   WITH CHECK (public.task_fact_header_state("rowHeaderGUID") = 'draft-free');
+
 DROP POLICY IF EXISTS task_fact_usage_timeline_update ON public.task_fact_usage_timeline;
+
 CREATE POLICY task_fact_usage_timeline_update ON public.task_fact_usage_timeline FOR UPDATE TO authenticated
   USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'))
   WITH CHECK (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
+
 DROP POLICY IF EXISTS task_fact_usage_timeline_delete ON public.task_fact_usage_timeline;
+
 CREATE POLICY task_fact_usage_timeline_delete ON public.task_fact_usage_timeline FOR DELETE TO authenticated
   USING (public.task_fact_header_state("rowHeaderGUID") IN ('draft-free', 'draft-strong'));
+
 
 -- realtime
 DO $$
@@ -6305,6 +5243,7 @@ BEGIN
     END LOOP;
   END IF;
 END $$;
+
 
 -- ---- task_fact_document_create(task): a new document; ALL the lines of the task go into task_fact_usage_timeline (the strong mode keeps their GUIDs, the free mode does not) ----
 -- returns the GUID of the document. The day of the new lines is today, the quantity of the user starts as the quantity of the task line (the user corrects it).
@@ -6357,8 +5296,11 @@ BEGIN
   RETURN v_header;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.task_fact_document_create(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.task_fact_document_create(uuid) TO authenticated;
+
 
 -- ---- post_task_fact_document(document): checks the whole document, marks it posted. A refusal is an ANSWER (status 'refused' + the problems per line), nothing is written ----
 CREATE OR REPLACE FUNCTION public.post_task_fact_document(p_header uuid) RETURNS jsonb
@@ -6400,11 +5342,15 @@ BEGIN
   UPDATE public.task_fact_header
      SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
    WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_register_fact(p_header);       -- the project status register (PART 25): the lines become 'used' movements in this transaction
   RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.post_task_fact_document(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.post_task_fact_document(uuid) TO authenticated;
+
 
 -- ---- unpost_task_fact_document(document): the owner takes a posted document back to a draft (to correct it); the report loses its numbers within a refresh interval ----
 CREATE OR REPLACE FUNCTION public.unpost_task_fact_document(p_header uuid) RETURNS jsonb
@@ -6425,11 +5371,15 @@ BEGIN
   UPDATE public.task_fact_header
      SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
    WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_unregister(p_header);          -- the 'used' movements of the document go in this transaction
   RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.unpost_task_fact_document(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.unpost_task_fact_document(uuid) TO authenticated;
+
 
 -- ---- task_fact_document_list(filter, limit, offset): the DOCUMENTS the screen PMFactInputDocumentList lists, each with the totals of ALL its lines -----------------------------------
 -- SECURITY INVOKER: the policies decide what the user sees (the documents of his projects). p_filter keys (all optional; a document is listed when ONE of its lines satisfies ALL the line keys):
@@ -6489,10 +5439,19 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.task_fact_document_list(jsonb, integer, integer) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.task_fact_document_list(jsonb, integer, integer) TO authenticated;
 
+
 NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 25: create_monitor01.sql
+-- Monitor01: monitor01_view (the table the dashboard listens to) + the dirty queue + the pg_cron worker + task_line_fact_for_monitor01 + the drill-down sources
+-- ===============================================================================================
+
+
 
 -- Check:
 --   SELECT public.task_fact_document_create('<task rowGUID>');                                    -- a document with all the lines of the task
@@ -6501,10 +5460,6 @@ NOTIFY pgrst, 'reload schema';
 --   UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"factStrongInputByTaskLine": true}' WHERE "rowGUID" = '<project rowGUID>';   -- the strong mode for NEW documents
 
 
--- ===============================================================================================
--- PART 25: create_monitor01.sql
--- Monitor01: monitor01_view (the table the dashboard listens to) + the dirty queue + the pg_cron worker + task_line_fact_for_monitor01 + the drill-down sources
--- ===============================================================================================
 
 -- =====================================================================================
 -- UNIVERSAL1 - MONITOR01: create_monitor01.sql
@@ -6529,174 +5484,258 @@ NOTIFY pgrst, 'reload schema';
 
 -- the refresh interval of the worker, in seconds (the constant MONITOR01_REFRESH_INTERVAL of kit8/pm/reports/monitor01/monitor01Constants.ts has the same value)
 CREATE OR REPLACE FUNCTION public.monitor01_refresh_interval_seconds() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 2 $$;
+
 -- tasks per batch of the worker and the time budget of one run (ms)
 CREATE OR REPLACE FUNCTION public.monitor01_batch_size() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 500 $$;
+
 CREATE OR REPLACE FUNCTION public.monitor01_run_budget_ms() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 1500 $$;
 
-CREATE TABLE IF NOT EXISTS public.monitor01_view (
-  "rowOwnerGUID"        UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "genusGUID"           TEXT          NOT NULL,
-  "resourceRoleGUID"    TEXT          NOT NULL DEFAULT '',
-  "measureUnit"         TEXT          NOT NULL DEFAULT '',
-  "periodMonth"         DATE          NOT NULL,
-  "rowProjectGUID"      UUID          NOT NULL,
-  "rowOrganizationGUID" TEXT,
-  "rowOwnerUserGUID"    UUID          NOT NULL,
-  "projectName"         TEXT          NOT NULL DEFAULT '',
-  "taskName"            TEXT          NOT NULL DEFAULT '',
-  "resourceRoleName"    TEXT          NOT NULL DEFAULT '',
-  "qtyPlanned"          NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyContracted"       NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "sumForBudget"        NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
-  "qtyDelivered"        NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyDelivered" - "qtyUsed") STORED,
-  "lineCount"           INTEGER       NOT NULL DEFAULT 0,
-  "hasStalePlan"        BOOLEAN       NOT NULL DEFAULT false,
-  "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth"),
-  CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
-);
-CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
-CREATE INDEX IF NOT EXISTS idx_monitor01_view_user    ON public.monitor01_view ("rowOwnerUserGUID", "periodMonth");
-
--- (an installed monitor01_view gains the budget sum)
-ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumForBudget" NUMERIC(18,2) NOT NULL DEFAULT 0;
 ALTER TABLE public.monitor01_view REPLICA IDENTITY FULL;
+
 ALTER TABLE public.monitor01_view ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.monitor01_view FROM anon, authenticated;
+
 GRANT SELECT ON public.monitor01_view TO authenticated;
+
 DROP POLICY IF EXISTS monitor01_view_select ON public.monitor01_view;
+
 CREATE POLICY monitor01_view_select ON public.monitor01_view FOR SELECT TO authenticated USING ("rowOwnerUserGUID" = public.app_user_guid());
+-- the old policy of a renamed table (a no-op when nothing was renamed)
+DROP POLICY IF EXISTS task_line_fact_for_monitor01_select ON public.project_status_month_turnover;
 
--- the same summed key, for the facts: the numbers of the POSTED fact documents
-CREATE TABLE IF NOT EXISTS public.task_line_fact_for_monitor01 (
-  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
-  "genusGUID"         TEXT          NOT NULL,
-  "resourceRoleGUID"  TEXT          NOT NULL DEFAULT '',
-  "measureUnit"       TEXT          NOT NULL DEFAULT '',
-  "periodMonth"       DATE          NOT NULL,
-  "rowProjectGUID"    UUID          NOT NULL,
-  "qtyFact"           NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "sumForContract"    NUMERIC(18,2),
-  "sumForBudget"      NUMERIC(18,2),
-  "sumForAccounting"  NUMERIC(18,2),
-  "lineCount"         INTEGER       NOT NULL DEFAULT 0,
-  "documentCount"     INTEGER       NOT NULL DEFAULT 0,
-  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth")
-);
-ALTER TABLE public.task_line_fact_for_monitor01 ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
-CREATE INDEX IF NOT EXISTS idx_task_line_fact_for_monitor01_project ON public.task_line_fact_for_monitor01 ("rowProjectGUID", "periodMonth");
-ALTER TABLE public.task_line_fact_for_monitor01 REPLICA IDENTITY FULL;
-ALTER TABLE public.task_line_fact_for_monitor01 ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.task_line_fact_for_monitor01 FROM anon, authenticated;
-GRANT SELECT ON public.task_line_fact_for_monitor01 TO authenticated;
-DROP POLICY IF EXISTS task_line_fact_for_monitor01_select ON public.task_line_fact_for_monitor01;
-CREATE POLICY task_line_fact_for_monitor01_select ON public.task_line_fact_for_monitor01 FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+UPDATE public.project_status_month_turnover SET "sumForContractUsed" = COALESCE("sumForContractUsed", 0), "sumForBudgetUsed" = COALESCE("sumForBudgetUsed", 0), "sumForAccountingUsed" = COALESCE("sumForAccountingUsed", 0)
+ WHERE "sumForContractUsed" IS NULL OR "sumForBudgetUsed" IS NULL OR "sumForAccountingUsed" IS NULL;
 
--- the queue: one row per TASK to recompute (a burst of writes to one task is one row). No access for users. attempts >= 5 = parked (lastError says why).
-CREATE UNLOGGED TABLE IF NOT EXISTS public.monitor01_dirty (
-  "rowOwnerGUID" UUID        NOT NULL,
-  "queuedAt"     TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  "reason"       TEXT,
-  "attempts"     INTEGER     NOT NULL DEFAULT 0,
-  "lastError"    TEXT,
-  PRIMARY KEY ("rowOwnerGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_monitor01_dirty_queued ON public.monitor01_dirty ("queuedAt") WHERE "attempts" < 5;
+ALTER TABLE public.project_status_month_turnover ALTER COLUMN "sumForContractUsed" SET NOT NULL, ALTER COLUMN "sumForContractUsed" SET DEFAULT 0,
+  ALTER COLUMN "sumForBudgetUsed" SET NOT NULL, ALTER COLUMN "sumForBudgetUsed" SET DEFAULT 0, ALTER COLUMN "sumForAccountingUsed" SET NOT NULL, ALTER COLUMN "sumForAccountingUsed" SET DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover REPLICA IDENTITY FULL;
+
+ALTER TABLE public.project_status_month_turnover ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_status_month_turnover FROM anon, authenticated;
+
+GRANT SELECT ON public.project_status_month_turnover TO authenticated;
+
+DROP POLICY IF EXISTS project_status_month_turnover_select ON public.project_status_month_turnover;
+
+CREATE POLICY project_status_month_turnover_select ON public.project_status_month_turnover FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
+ALTER TABLE public.project_status_movements ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_status_movements FROM anon, authenticated;
+
+GRANT SELECT ON public.project_status_movements TO authenticated;
+
+DROP POLICY IF EXISTS project_status_movements_select ON public.project_status_movements;
+
+CREATE POLICY project_status_movements_select ON public.project_status_movements FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
 ALTER TABLE public.monitor01_dirty ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.monitor01_dirty FROM PUBLIC, anon, authenticated;
 
--- one row per run that did work (the "data age" and the alarm "lag over 10 s")
-CREATE TABLE IF NOT EXISTS public.monitor01_refresh_log (
-  "rowGUID"      UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "ranAt"        TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  "tasksTaken"   INTEGER     NOT NULL DEFAULT 0,
-  "rowsUpserted" INTEGER     NOT NULL DEFAULT 0,
-  "rowsDeleted"  INTEGER     NOT NULL DEFAULT 0,
-  "durationMs"   INTEGER     NOT NULL DEFAULT 0,
-  "maxLagMs"     INTEGER     NOT NULL DEFAULT 0,
-  "parkedTasks"  INTEGER     NOT NULL DEFAULT 0,
-  PRIMARY KEY ("rowGUID")
-);
-CREATE INDEX IF NOT EXISTS idx_monitor01_refresh_log_ran ON public.monitor01_refresh_log ("ranAt");
 ALTER TABLE public.monitor01_refresh_log ENABLE ROW LEVEL SECURITY;
+
 REVOKE ALL ON public.monitor01_refresh_log FROM PUBLIC, anon, authenticated;
+
 GRANT SELECT ON public.monitor01_refresh_log TO authenticated;
+
 DROP POLICY IF EXISTS monitor01_refresh_log_select ON public.monitor01_refresh_log;
+
 CREATE POLICY monitor01_refresh_log_select ON public.monitor01_refresh_log FOR SELECT TO authenticated USING (true);
 
--- realtime: the dashboard listens to monitor01_view
+
+-- realtime: the dashboard listens to monitor01_view; the month turnover is streamed too (small, only changed rows). The MOVEMENTS are not streamed (a posted plan has thousands of rows).
 DO $$
 DECLARE
-  v_all boolean;
+  v_all boolean; v_t text;
 BEGIN
   SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
   IF NOT FOUND THEN
     RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
-  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'monitor01_view') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.monitor01_view;
+  ELSIF NOT v_all THEN
+    FOREACH v_t IN ARRAY ARRAY['monitor01_view', 'project_status_month_turnover'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = v_t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', v_t);
+      END IF;
+    END LOOP;
   END IF;
 END $$;
 
--- ---- the fresh numbers of some tasks (the ONE definition of every number: the worker, monitor01_verify and the tests use it) ----------------------------------
--- (the result gained sumForAccounting: a function cannot change its result type in place)
-DROP FUNCTION IF EXISTS public.monitor01_fresh_fact_rows(uuid[]);
-CREATE OR REPLACE FUNCTION public.monitor01_fresh_fact_rows(p_tasks uuid[])
-RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date, "rowProjectGUID" uuid,
-               "qtyFact" numeric, "sumForContract" numeric, "sumForBudget" numeric, "sumForAccounting" numeric, "lineCount" integer, "documentCount" integer)
-LANGUAGE sql STABLE SET search_path = public, extensions AS $$
-  SELECT f."rowOwnerGUID", f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''),
-         date_trunc('month', f."periodDay")::date, f."rowProjectGUID",
-         SUM(f."qtyForContract"), SUM(f."sumForContract"), SUM(f."sumForBudget"), SUM(f."sumForAccounting"), (count(*))::integer, (count(DISTINCT f."rowHeaderGUID"))::integer
+
+-- ---- the register functions and the fresh numbers of some tasks (the ONE definition of every number: the worker, monitor01_verify and the tests use it) ----
+-- ---- the register functions: ONE rule for every document type ---------------------------------------------------------------------------------------------------------------------
+-- unregister: the movements of a registrator (a posted document taken back / the plan of a task rewritten)
+CREATE OR REPLACE FUNCTION public.project_status_unregister(p_registrator uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_registrator;
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_unregister(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- the PLAN of some tasks: the posted movements of task_line_plan_movements (planMovementStatus) become 'plan' movements, registrator = the task (type projectTask). Rewritten by the worker for the tasks of its batch
+-- (a line edit, a re-post, a rename ... all queue the task), so the register is never older than one tick. A task whose plan did not change is only READ (a fingerprint), never written.
+CREATE OR REPLACE FUNCTION public.project_status_register_plan(p_tasks uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v integer := 0; v_changed uuid[];
+BEGIN
+  -- only the tasks whose plan CHANGED are rewritten: a fingerprint of the plan rows of the source and of the register is compared (reading is cheap, writing 5 indexes is not)
+  WITH src AS (
+    SELECT m."rowOwnerGUID" AS task, m."rowParentGUID" AS line, m."rowPeriodDatetime" AS moment,
+           ROW(m."rowParentGUID", m."rowPeriodDatetime", COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date), l."rowParentGUID",
+               COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+               NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''),
+               COALESCE(m."qtyTaskLine", 0)::numeric(18,2), COALESCE(m."sumForBudget", 0)::numeric(18,2), COALESCE(m."sumForContract", 0)::numeric(18,2), COALESCE(m."sumForAccounting", 0)::numeric(18,2))::text AS t
+      FROM public.task_line_plan_movements m
+      JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+     WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+  ), f_src AS (
+    SELECT task, md5(string_agg(t, '|' ORDER BY line, moment)) AS fp FROM src GROUP BY task
+  ), f_reg AS (
+    SELECT s."rowOwnerGUID" AS task,
+           md5(string_agg(ROW(s."rowProjectTaskLineGUID", s."rowTurnoverMoment", s."rowTurnoverDay", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."businessUnitGUID", s."contractGUID",
+                              s."qtyProjectStatus", s."sumForBudget", s."sumForContract", s."sumForAccounting")::text, '|' ORDER BY s."rowProjectTaskLineGUID", s."rowTurnoverMoment")) AS fp
+      FROM public.project_status_movements s
+     WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (p_tasks)
+     GROUP BY s."rowOwnerGUID"
+  )
+  SELECT COALESCE(array_agg(x.task), ARRAY[]::uuid[]) INTO v_changed FROM (
+    SELECT fs.task FROM f_src fs LEFT JOIN f_reg fr ON fr.task = fs.task WHERE fr.fp IS DISTINCT FROM fs.fp
+    UNION SELECT fr.task FROM f_reg fr WHERE NOT EXISTS (SELECT 1 FROM f_src fs WHERE fs.task = fr.task)) x;
+  IF cardinality(v_changed) = 0 THEN
+    RETURN 0;
+  END IF;
+  DELETE FROM public.project_status_movements s WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (v_changed);
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "contractGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting")
+  SELECT 'plan', m."rowPeriodDatetime", COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date),
+         m."rowOwnerGUID", 'projectTask', m."rowParentGUID", m."rowProjectGUID", m."rowOwnerGUID", p."rowOwnerGUID",
+         l."rowParentGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''),
+         NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+         NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''),
+         COALESCE(m."qtyTaskLine", 0), COALESCE(m."sumForBudget", 0), COALESCE(m."sumForContract", 0), COALESCE(m."sumForAccounting", 0)
+    FROM public.task_line_plan_movements m
+    JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+    JOIN public.project_table p ON p."rowGUID" = m."rowProjectGUID"
+   WHERE m."rowOwnerGUID" = ANY (v_changed) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_plan(uuid[]) FROM PUBLIC, anon, authenticated;
+
+
+-- a POSTED fact document: its lines become 'used' movements, registrator = the document (type taskFactHeader). A document that is not posted only loses its movements.
+CREATE OR REPLACE FUNCTION public.project_status_register_fact(p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer := 0;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting")
+  SELECT 'used', f."rowPeriodDatetime", f."periodDay", f."rowHeaderGUID", 'taskFactHeader', f."taskLineGUID", f."rowProjectGUID", f."rowOwnerGUID", p."rowOwnerGUID",
+         f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(f."rowJSON"->>'businessUnitTaskLine', ''),
+         COALESCE(f."qtyForContract", 0), COALESCE(f."sumForBudget", 0), COALESCE(f."sumForContract", 0), COALESCE(f."sumForAccounting", 0)
     FROM public.task_fact_usage_timeline f
     JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
-   WHERE f."rowOwnerGUID" = ANY (p_tasks) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
-   GROUP BY 1, 2, 3, 4, 5, 6
+    JOIN public.project_table p ON p."rowGUID" = f."rowProjectGUID"
+   WHERE f."rowHeaderGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+     AND f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
 $$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_fact(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- the fresh turnover of some tasks, summed from the register (the ONE definition: the worker, monitor01_verify and the tests use it)
+DROP FUNCTION IF EXISTS public.project_status_fresh_turnover(uuid[]);
+
+CREATE OR REPLACE FUNCTION public.project_status_fresh_turnover(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "rowTurnoverMonth" date, "rowProjectGUID" uuid, "rowOwnerUserGUID" uuid,
+               "qtyPlan" numeric,
+               "sumForBudgetPlan" numeric,
+               "sumForContractPlan" numeric,
+               "sumForAccountingPlan" numeric,
+               "qtyPlanContracted" numeric,
+               "qtyUsed" numeric,
+               "sumForBudgetUsed" numeric,
+               "sumForContractUsed" numeric,
+               "sumForAccountingUsed" numeric,
+               "qtyInvoiced" numeric,
+               "sumForBudgetInvoiced" numeric,
+               "sumForContractInvoiced" numeric,
+               "sumForAccountingInvoiced" numeric,
+               "vatForContractInvoiced" numeric,
+               "vatForAccountingInvoiced" numeric,
+               "lineCount" integer, "documentCount" integer)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT s."rowOwnerGUID", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."rowTurnoverMonth", s."rowProjectGUID", s."rowOwnerUserGUID",
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."sumForContract")        FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'plan' AND s."contractGUID" IS NOT NULL), 0),
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'used'), 0),
+         COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'used'), 0),
+         COALESCE(SUM(s."sumForContract")        FILTER (WHERE s."rowMovementKind" = 'used'), 0),
+         COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'used'), 0),
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."sumForContract")        FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."vatForContract")        FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."vatForAccounting")      FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(NULLIF((count(DISTINCT s."rowProjectTaskLineGUID") FILTER (WHERE s."rowMovementKind" = 'plan'))::integer, 0), (count(*) FILTER (WHERE s."rowMovementKind" = 'used'))::integer, 0),
+         (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced')))::integer
+    FROM public.project_status_movements s
+   WHERE s."rowOwnerGUID" = ANY (p_tasks) AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+   GROUP BY 1, 2, 3, 4, 5, 6, 7
+$$;
+
+
+-- (the result gained sumForBudget and qtyUsed$$;
 
 -- (the result gained sumForBudget and qtyUsed: a function cannot change its result type in place)
 DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
+
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
                "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
-  -- the PLAN (movements of the posted plan) FULL JOIN the FACT (the posted fact documents: qtyUsed = their quantity): a role / month that has facts but no plan still gets its row
-  WITH plan AS (
-    SELECT m."rowOwnerGUID" AS task, l."rowParentGUID" AS genus,
-           COALESCE(l."rowJSON"->>'resourceRoleItem', '') AS role,
-           COALESCE(l."rowJSON"->>'measureUnitTaskLine', '') AS unit,
-           date_trunc('month', COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date))::date AS month,
-           SUM(COALESCE(m."qtyTaskLine", 0)) AS planned,
-           SUM(COALESCE(m."sumForBudget", 0)) AS budget,
-           SUM(CASE WHEN COALESCE(NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''), '') <> ''
-                    THEN COALESCE(m."qtyTaskLine", 0) ELSE 0 END) AS contracted,
-           (count(DISTINCT l."rowGUID"))::integer AS lines,
+  -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
+  WITH st AS (
+    SELECT s."rowOwnerGUID" AS task, s."genusGUID" AS genus, s."resourceRoleGUID" AS role, s."measureUnit" AS unit, s."rowTurnoverMonth" AS month,
            bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
-      FROM public.task_line_plan_movements m
-      JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
-     WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus"
-       AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+      FROM public.project_status_movements s
+      JOIN public.task_line_table l ON l."rowGUID" = s."rowProjectTaskLineGUID"
+     WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (p_tasks)
      GROUP BY 1, 2, 3, 4, 5
-  ), fact AS (
-    SELECT f."rowOwnerGUID" AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."periodMonth" AS month, f."qtyFact" AS used, f."lineCount" AS lines
-      FROM public.monitor01_fresh_fact_rows(p_tasks) f
-     WHERE f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
   )
-  SELECT x.task, x.genus, x.role, x.unit, x.month,
+  SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
-         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(t."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         COALESCE(a.planned, 0), COALESCE(a.contracted, 0), COALESCE(a.budget, 0), COALESCE(b.used, 0), COALESCE(a.lines, b.lines, 0), COALESCE(a.stale, false)
-    FROM (SELECT task, genus, role, unit, month FROM plan UNION SELECT task, genus, role, unit, month FROM fact) x
-    LEFT JOIN plan a ON a.task = x.task AND a.genus = x.genus AND a.role = x.role AND a.unit = x.unit AND a.month = x.month
-    LEFT JOIN fact b ON b.task = x.task AND b.genus = x.genus AND b.role = x.role AND b.unit = x.unit AND b.month = x.month
-    JOIN public.project_task_table t ON t."rowGUID" = x.task
-    JOIN public.project_table p ON p."rowGUID" = t."projectGUID"
-    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(x.role, '')
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."lineCount", COALESCE(st.stale, false)
+    FROM public.project_status_fresh_turnover(p_tasks) t
+    JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
+    JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
+    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t."resourceRoleGUID", '')
+    LEFT JOIN st ON st.task = t."rowOwnerGUID" AND st.genus = t."genusGUID" AND st.role = t."resourceRoleGUID" AND st.unit = t."measureUnit" AND st.month = t."rowTurnoverMonth"
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
+
 
 
 -- ---- the worker -----------------------------------------------------------------------------------------------------------------------------------------------
@@ -6706,24 +5745,24 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_u integer; v_d integer; v_fu integer; v_fd integer;
 BEGIN
-  -- step 1: task_line_fact_for_monitor01
-  WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_fact_rows(p_tasks)),
+  -- step 0: the PLAN of these tasks is registered again from the posted plan movements (the register is the source of the numbers)
+  PERFORM public.project_status_register_plan(p_tasks);
+
+  -- step 1: project_status_month_turnover = the register summed; only changed rows are written
+  WITH fresh AS MATERIALIZED (SELECT * FROM public.project_status_fresh_turnover(p_tasks)),
        up AS (
-         INSERT INTO public.task_line_fact_for_monitor01 AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID",
-                                                              "qtyFact", "sumForContract", "sumForBudget", "sumForAccounting", "lineCount", "documentCount")
-         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID",
-                f."qtyFact", f."sumForContract", f."sumForBudget", f."sumForAccounting", f."lineCount", f."documentCount" FROM fresh f
-         ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "qtyFact" = EXCLUDED."qtyFact", "sumForContract" = EXCLUDED."sumForContract", "sumForBudget" = EXCLUDED."sumForBudget", "sumForAccounting" = EXCLUDED."sumForAccounting",
-               "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."qtyFact", t."sumForContract", t."sumForBudget", t."sumForAccounting", t."lineCount", t."documentCount")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."qtyFact", EXCLUDED."sumForContract", EXCLUDED."sumForBudget", EXCLUDED."sumForAccounting", EXCLUDED."lineCount", EXCLUDED."documentCount")
+         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "lineCount", "documentCount")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."lineCount", f."documentCount" FROM fresh f
+         ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth") DO UPDATE
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."lineCount", EXCLUDED."documentCount")
          RETURNING 1),
        del AS (
-         DELETE FROM public.task_line_fact_for_monitor01 t
+         DELETE FROM public.project_status_month_turnover t
           WHERE t."rowOwnerGUID" = ANY (p_tasks)
             AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f."rowOwnerGUID" = t."rowOwnerGUID" AND f."genusGUID" = t."genusGUID" AND f."resourceRoleGUID" = t."resourceRoleGUID"
-                                                    AND f."measureUnit" = t."measureUnit" AND f."periodMonth" = t."periodMonth")
+                                                    AND f."measureUnit" = t."measureUnit" AND f."rowTurnoverMonth" = t."rowTurnoverMonth")
          RETURNING 1)
   SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_fu, v_fd;
 
@@ -6754,7 +5793,9 @@ BEGIN
   p_deleted  := v_d + v_fd;
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_apply(uuid[]) FROM PUBLIC, anon, authenticated;
+
 
 -- ONE batch: claim up to p_batch tasks (oldest first, SKIP LOCKED, so two workers never take the same task), apply them, log. A failing batch is retried task by task, so ONE bad task
 -- is parked (attempts 5) and never blocks the others. Returns the number of tasks taken (0 = the queue is empty). No COMMIT inside: tests call it in a transaction; the procedure below commits.
@@ -6792,7 +5833,9 @@ BEGIN
   RETURN cardinality(v_tasks);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_process_batch(integer) FROM PUBLIC, anon, authenticated;
+
 
 -- what pg_cron calls every 2 seconds: batches while the queue is not empty and the time budget lasts, COMMIT after each batch (a procedure without SET / SECURITY DEFINER may commit)
 CREATE OR REPLACE PROCEDURE public.monitor01_process_dirty(p_batch integer DEFAULT 500, p_budget_ms integer DEFAULT 1500)
@@ -6808,7 +5851,9 @@ BEGIN
   END LOOP;
 END;
 $$;
+
 REVOKE ALL ON PROCEDURE public.monitor01_process_dirty(integer, integer) FROM PUBLIC, anon, authenticated;
+
 
 -- ---- queue helpers + triggers: they ONLY write the task keys ------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.monitor01_queue_tasks(p_tasks uuid[], p_reason text DEFAULT NULL) RETURNS integer
@@ -6819,7 +5864,9 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
     ON CONFLICT ("rowOwnerGUID") DO NOTHING RETURNING 1)
   SELECT count(*)::integer FROM q
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_queue_tasks(uuid[], text) FROM PUBLIC, anon, authenticated;
+
 
 -- statement level, with a transition table: ONE insert per statement, whatever the number of rows. The same function for the movements and for the task lines (the column is rowOwnerGUID).
 CREATE OR REPLACE FUNCTION public.monitor01_trg_queue_new() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6828,6 +5875,7 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 CREATE OR REPLACE FUNCTION public.monitor01_trg_queue_old() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
   INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") SELECT DISTINCT o."rowOwnerGUID", TG_ARGV[0] FROM old_rows o ON CONFLICT ("rowOwnerGUID") DO NOTHING;
@@ -6835,19 +5883,32 @@ BEGIN
 END;
 $$;
 
+
 DROP TRIGGER IF EXISTS trg_monitor01_movements_ins ON public.task_line_plan_movements;
+
 CREATE TRIGGER trg_monitor01_movements_ins AFTER INSERT ON public.task_line_plan_movements REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('plan');
+
 DROP TRIGGER IF EXISTS trg_monitor01_movements_upd ON public.task_line_plan_movements;
+
 CREATE TRIGGER trg_monitor01_movements_upd AFTER UPDATE ON public.task_line_plan_movements REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('plan');
+
 DROP TRIGGER IF EXISTS trg_monitor01_movements_del ON public.task_line_plan_movements;
+
 CREATE TRIGGER trg_monitor01_movements_del AFTER DELETE ON public.task_line_plan_movements REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_old('plan');
 
+
 DROP TRIGGER IF EXISTS trg_monitor01_lines_ins ON public.task_line_table;
+
 CREATE TRIGGER trg_monitor01_lines_ins AFTER INSERT ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('line');
+
 DROP TRIGGER IF EXISTS trg_monitor01_lines_upd ON public.task_line_table;
+
 CREATE TRIGGER trg_monitor01_lines_upd AFTER UPDATE ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_new('line');
+
 DROP TRIGGER IF EXISTS trg_monitor01_lines_del ON public.task_line_table;
+
 CREATE TRIGGER trg_monitor01_lines_del AFTER DELETE ON public.task_line_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.monitor01_trg_queue_old('line');
+
 
 -- a fact document is counted ONLY while it is posted: Post / Unpost / delete of a posted document queue its task
 CREATE OR REPLACE FUNCTION public.monitor01_trg_fact_header() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6864,8 +5925,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_monitor01_fact_header ON public.task_fact_header;
+
 CREATE TRIGGER trg_monitor01_fact_header AFTER UPDATE OR DELETE ON public.task_fact_header FOR EACH ROW EXECUTE FUNCTION public.monitor01_trg_fact_header();
+
 
 -- renames: the names are copied into the rows (filters and the screen need no catalog)
 CREATE OR REPLACE FUNCTION public.monitor01_trg_task_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6874,9 +5938,12 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_monitor01_task_rename ON public.project_task_table;
+
 CREATE TRIGGER trg_monitor01_task_rename AFTER UPDATE OF "rowJSON" ON public.project_task_table
   FOR EACH ROW WHEN (OLD."rowJSON"->>'name' IS DISTINCT FROM NEW."rowJSON"->>'name') EXECUTE FUNCTION public.monitor01_trg_task_rename();
+
 
 CREATE OR REPLACE FUNCTION public.monitor01_trg_project_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
@@ -6886,10 +5953,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_monitor01_project_rename ON public.project_table;
+
 CREATE TRIGGER trg_monitor01_project_rename AFTER UPDATE OF "rowJSON", "rowOwnerGUID" ON public.project_table
   FOR EACH ROW WHEN (OLD."rowJSON"->>'name' IS DISTINCT FROM NEW."rowJSON"->>'name' OR OLD."rowJSON"->>'title' IS DISTINCT FROM NEW."rowJSON"->>'title' OR OLD."rowOwnerGUID" IS DISTINCT FROM NEW."rowOwnerGUID")
   EXECUTE FUNCTION public.monitor01_trg_project_rename();
+
 
 CREATE OR REPLACE FUNCTION public.monitor01_trg_role_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
@@ -6899,9 +5969,50 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
 DROP TRIGGER IF EXISTS trg_monitor01_role_rename ON public."resourceRoleTable";
+
 CREATE TRIGGER trg_monitor01_role_rename AFTER UPDATE OF "rowJSON" ON public."resourceRoleTable"
   FOR EACH ROW WHEN (OLD."rowJSON"->>'title' IS DISTINCT FROM NEW."rowJSON"->>'title') EXECUTE FUNCTION public.monitor01_trg_role_rename();
+
+
+-- the register changed by a document (used / invoiced): the task is queued. The PLAN movements are rewritten by the worker itself - they must not queue (it would never end).
+CREATE OR REPLACE FUNCTION public.project_status_trg_queue_new() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") SELECT DISTINCT n."rowOwnerGUID", 'register' FROM new_rows n WHERE n."rowMovementKind" <> 'plan' ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.project_status_trg_queue_old() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason") SELECT DISTINCT o."rowOwnerGUID", 'register' FROM old_rows o WHERE o."rowMovementKind" <> 'plan' ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_status_movements_ins ON public.project_status_movements;
+
+CREATE TRIGGER trg_project_status_movements_ins AFTER INSERT ON public.project_status_movements REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.project_status_trg_queue_new();
+
+DROP TRIGGER IF EXISTS trg_project_status_movements_del ON public.project_status_movements;
+
+CREATE TRIGGER trg_project_status_movements_del AFTER DELETE ON public.project_status_movements REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.project_status_trg_queue_old();
+
+
+-- upgrade: the posted fact documents that are not in the register yet are registered once (idempotent: a registered document is skipped)
+SELECT public.project_status_register_fact(h."rowGUID")
+  FROM public.task_fact_header h
+ WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+   AND NOT EXISTS (SELECT 1 FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = h."rowGUID");
+
+
+-- upgrade: the tasks whose plan is not in the register yet are queued (the worker registers the plan of its batch); a task that has nothing to register is only looked at again
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT m."rowOwnerGUID", 'install' FROM public.task_line_plan_movements m
+ WHERE NOT EXISTS (SELECT 1 FROM public.project_status_movements s WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = m."rowOwnerGUID")
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
 
 -- ---- rebuild / verify (the safety net: anything that bypassed the triggers - TRUNCATE, an import with triggers off) -----------------------------------------
 -- queue every task of one project (or of everything) that has plan movements or posted facts or rows in the view
@@ -6912,7 +6023,9 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
     UNION SELECT f."rowOwnerGUID" FROM public.task_fact_usage_timeline f WHERE p_project IS NULL OR f."rowProjectGUID" = p_project
     UNION SELECT v."rowOwnerGUID" FROM public.monitor01_view v WHERE p_project IS NULL OR v."rowProjectGUID" = p_project), 'rebuild')
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_rebuild(uuid) FROM PUBLIC, anon, authenticated;
+
 
 -- compare a random sample of tasks with the fresh numbers and queue the ones that differ; returns how many were queued
 CREATE OR REPLACE FUNCTION public.monitor01_verify(p_sample integer DEFAULT 200) RETURNS integer
@@ -6940,7 +6053,9 @@ BEGIN
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_verify(integer) FROM PUBLIC, anon, authenticated;
+
 
 -- housekeeping (daily): the log of the worker keeps 3 days, and a sample is verified
 CREATE OR REPLACE FUNCTION public.monitor01_housekeeping() RETURNS integer
@@ -6950,7 +6065,9 @@ BEGIN
   RETURN public.monitor01_verify(500);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_housekeeping() FROM PUBLIC, anon, authenticated;
+
 
 -- ---- the source transactions of any sum (SumExplorerListReusable.tsx) --------------------------------------------------------------------------------------
 -- SECURITY INVOKER: the policies of the source tables apply (the owner of the project only). p_filter keys (all optional): projectGUID · taskGUID · genusGUID · roleGUID ('' = no role) · unit ·
@@ -7014,6 +6131,30 @@ BEGIN
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
       INTO v_count, v_sum, v_rows;
+  ELSIF p_measure = 'invoiced' THEN
+    WITH src AS (
+      SELECT s."rowGUID"::text AS "rowGUID", 'projectStatusMovements'::text AS "sourceName", s."rowTurnoverDay" AS "day", s."rowOwnerGUID"::text AS "taskGUID", s."rowProjectGUID"::text AS "projectGUID",
+             s."rowProjectTaskLineGUID"::text AS "lineGUID", s."rowRegistratorGUID"::text AS "documentGUID", h."rowJSON"->>'vendorInvoiceNumber' AS "documentNumber",
+             s."genusGUID", s."resourceRoleGUID" AS "roleGUID", s."measureUnit" AS "unit", s."qtyProjectStatus" AS "qty"
+        FROM public.project_status_movements s
+        JOIN public.vendor_invoice_header h ON h."rowGUID" = s."rowRegistratorGUID"
+       WHERE s."rowMovementKind" = 'invoiced'
+         AND (NOT f ? 'projectGUID' OR s."rowProjectGUID" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUIDs'   OR s."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR s."genusGUID"      = f->>'genusGUID')
+         AND (NOT f ? 'roleGUID'    OR s."resourceRoleGUID" = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR s."resourceRoleGUID" IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR s."measureUnit" = f->>'unit')
+         AND (NOT f ? 'month'       OR s."rowTurnoverMonth" = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
+    ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
+       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+                 FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
+                         LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
+    SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
+      INTO v_count, v_sum, v_rows;
   ELSIF p_measure = 'delivered' THEN
     v_count := 0; v_sum := 0; v_rows := '[]'::jsonb;
   ELSE
@@ -7022,8 +6163,11 @@ BEGIN
   RETURN jsonb_build_object('measure', p_measure, 'totalCount', v_count, 'sum', v_sum, 'rows', v_rows);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.monitor01_sum_sources(text, jsonb, integer, integer) TO authenticated;
+
 
 -- ---- refresh NOW: the "Refresh" button of the report and its first look. The worker (pg_cron) is the normal way; this is for the moment it is not running (the pg_cron extension is not enabled, the
 -- "N seconds" schedule was refused) or has not come yet: it recomputes the tasks of the USER'S OWN projects (plan movements, posted facts, rows of the view) at once, in the same way as the worker (monitor01_apply),
@@ -7048,8 +6192,29 @@ BEGIN
   RETURN jsonb_build_object('tasks', cardinality(v_tasks), 'upserted', v_up, 'deleted', v_del);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.monitor01_refresh_now(uuid, integer) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.monitor01_refresh_now(uuid, integer) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.monitor01_stamp(p_project uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_count bigint; v_max timestamptz; v_queued bigint; v_age numeric;
+BEGIN
+  SELECT count(*), max(v."updated_at") INTO v_count, v_max FROM public.monitor01_view v
+   WHERE v."rowOwnerUserGUID" = public.app_user_guid() AND (p_project IS NULL OR v."rowProjectGUID" = p_project);
+  SELECT count(*), COALESCE(extract(epoch FROM clock_timestamp() - min(d."queuedAt")), 0) INTO v_queued, v_age
+    FROM public.monitor01_dirty d JOIN public.project_task_table t ON t."rowGUID" = d."rowOwnerGUID"
+   WHERE d."attempts" < 5 AND public.pm_owns_project(t."projectGUID") AND (p_project IS NULL OR t."projectGUID" = p_project);
+  RETURN jsonb_build_object('count', v_count, 'maxUpdatedAt', v_max, 'queued', v_queued, 'queuedAgeSeconds', round(v_age, 1));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.monitor01_stamp(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.monitor01_stamp(uuid) TO authenticated;
+
 
 -- ---- first fill: the install only QUEUES the tasks (no heavy statement inside the install); the worker fills the view in the next ticks. Only when the view is empty ----
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
@@ -7057,10 +6222,12 @@ SELECT DISTINCT m."rowOwnerGUID", 'install' FROM public.task_line_plan_movements
  WHERE NOT EXISTS (SELECT 1 FROM public.monitor01_view LIMIT 1)
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
+
 -- upgrade: the tasks that have fact documents are queued once (qtyUsed was connected after the first release); a second run only re-checks them - rows that did not change are not written
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline f
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
 
 -- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----
 DO $$
@@ -7077,17 +6244,623 @@ BEGIN
   END;
 END $$;
 
+
+NOTIFY pgrst, 'reload schema';
+-- ===============================================================================================
+-- PART 26: create_vendor_invoice.sql
+-- the legal entity catalog (folders by country), the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract), its posting into the project status register
+-- ===============================================================================================
+
+
+SELECT public.kit8_setup_def_table('legalEntityTable');
+
+
+DO $$
+DECLARE
+  t text := 'legalEntityTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+END $$;
+
+
+-- the folder is a country or 'empty'; a legal entity that a contract or an invoice uses is not deleted
+CREATE OR REPLACE FUNCTION public.legal_entity_guard() RETURNS trigger LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowJSON"->>'legalEntityGUID' = OLD."rowGUID")
+       OR (to_regclass('public.vendor_invoice_header') IS NOT NULL AND EXISTS (SELECT 1 FROM public.vendor_invoice_header h WHERE h."rowOwnerGUID" = OLD."rowGUID")) THEN
+      RAISE EXCEPTION 'the legal entity is used by a contract or a vendor invoice: set it inactive instead' USING ERRCODE = '23503';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF NEW."rowParentGUID" IS DISTINCT FROM 'empty' AND NOT EXISTS (SELECT 1 FROM public."countryTable" c WHERE c."rowGUID" = NEW."rowParentGUID") THEN
+    RAISE EXCEPTION 'the folder of a legal entity is a country (countryTable) or empty, not %', NEW."rowParentGUID" USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_legal_entity_guard ON public."legalEntityTable";
+
+CREATE TRIGGER trg_legal_entity_guard BEFORE INSERT OR UPDATE OR DELETE ON public."legalEntityTable" FOR EACH ROW EXECUTE FUNCTION public.legal_entity_guard();
+
+
+-- contractTable.rowJSON.legalEntityGUID: optional, but an existing legal entity
+CREATE OR REPLACE FUNCTION public.contract_legal_entity_guard() RETURNS trigger LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF NULLIF(NEW."rowJSON"->>'legalEntityGUID', '') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public."legalEntityTable" e WHERE e."rowGUID" = NEW."rowJSON"->>'legalEntityGUID') THEN
+    RAISE EXCEPTION 'the legal entity % of the contract does not exist', NEW."rowJSON"->>'legalEntityGUID' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_contract_legal_entity_guard ON public."contractTable";
+
+CREATE TRIGGER trg_contract_legal_entity_guard BEFORE INSERT OR UPDATE OF "rowJSON" ON public."contractTable" FOR EACH ROW EXECUTE FUNCTION public.contract_legal_entity_guard();
+
+
+-- ---- the MAIN VENDOR of a partner / equipment / product -----------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.main_vendor_guard() RETURNS trigger LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v text := NULLIF(NEW."rowJSON"->>'mainVendorGUID', '');
+  c text := NULLIF(NEW."rowJSON"->>'mainVendorContractGUID', '');
+BEGIN
+  IF v IS NULL AND c IS NULL THEN RETURN NEW; END IF;
+  IF v IS NULL THEN
+    RAISE EXCEPTION 'mainVendorContractGUID needs mainVendorGUID' USING ERRCODE = '23514';
+  END IF;
+  IF TG_TABLE_NAME = 'partnerTable' AND v = NEW."rowGUID" THEN
+    RAISE EXCEPTION 'a partner cannot be its own main vendor' USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v) THEN
+    RAISE EXCEPTION 'the main vendor % is not a partner', v USING ERRCODE = '23503';
+  END IF;
+  IF c IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowGUID" = c AND k."rowParentGUID" = 'partner' AND k."rowOwnerGUID" = v) THEN
+    RAISE EXCEPTION 'the main vendor contract % is not a contract of the main vendor %', c, v USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_main_vendor_guard ON public."partnerTable";
+
+CREATE TRIGGER trg_main_vendor_guard BEFORE INSERT OR UPDATE OF "rowJSON" ON public."partnerTable" FOR EACH ROW EXECUTE FUNCTION public.main_vendor_guard();
+
+DROP TRIGGER IF EXISTS trg_main_vendor_guard ON public."equipmentTable";
+
+CREATE TRIGGER trg_main_vendor_guard BEFORE INSERT OR UPDATE OF "rowJSON" ON public."equipmentTable" FOR EACH ROW EXECUTE FUNCTION public.main_vendor_guard();
+
+DROP TRIGGER IF EXISTS trg_main_vendor_guard ON public."productTable";
+
+CREATE TRIGGER trg_main_vendor_guard BEFORE INSERT OR UPDATE OF "rowJSON" ON public."productTable" FOR EACH ROW EXECUTE FUNCTION public.main_vendor_guard();
+
+DROP TRIGGER IF EXISTS trg_vendor_invoice_header_touch ON public.vendor_invoice_header;
+
+CREATE TRIGGER trg_vendor_invoice_header_touch BEFORE UPDATE ON public.vendor_invoice_header FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_vendor_invoice_lines_touch ON public.vendor_invoice_lines;
+
+CREATE TRIGGER trg_vendor_invoice_lines_touch BEFORE UPDATE ON public.vendor_invoice_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- the state of a document for the policies: 'draft' | 'posted' (NULL = no such document in MY organization)
+CREATE OR REPLACE FUNCTION public.vendor_invoice_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted' ELSE 'draft' END
+    FROM public.vendor_invoice_header h
+   WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_state(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_state(uuid) TO authenticated;
+
+
+-- one line: the project / task are the ones of the task line, the sums follow the quantity, the price and the VAT % the user states (the budget / accounting sums by the ratio of the task line)
+CREATE OR REPLACE FUNCTION public.vendor_invoice_lines_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change
+    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" OR NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
+       OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID" OR NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON"
+       OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL) THEN
+      RAISE EXCEPTION 'vendor invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
+  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
+  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
+  NEW."sumForContract" := round(NEW."qtyInvoiced" * NEW."priceInvoiced", 2);
+  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioInvoiced" / 100, 2);
+  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
+  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
+                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
+                             ELSE round(NEW."qtyInvoiced" * v_unit_budget, 2) END;
+  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
+                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
+                                 ELSE round(NEW."qtyInvoiced" * v_unit_accounting, 2) END;
+  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioInvoiced" / 100, 2) END;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_vendor_invoice_lines_before_write ON public.vendor_invoice_lines;
+
+CREATE TRIGGER trg_vendor_invoice_lines_before_write BEFORE INSERT OR UPDATE ON public.vendor_invoice_lines FOR EACH ROW EXECUTE FUNCTION public.vendor_invoice_lines_before_write();
+
+
+-- the header: the organization of the writer, the folder (legal entity + partner) and the currency of the contract are derived; the vendor and the contract of a document never change
+CREATE OR REPLACE FUNCTION public.vendor_invoice_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_partner text := NULLIF(NEW."rowJSON"->>'vendorInvoicePartner', '');
+  v_contract text := NULLIF(NEW."rowJSON"->>'vendorInvoiceContract', '');
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW."rowOrganizationGUID" := public.organization_of_current_user();
+    IF NEW."rowOrganizationGUID" IS NULL THEN
+      RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
+    IF v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoicePartner', '') OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoiceContract', '') THEN
+      RAISE EXCEPTION 'the vendor and the contract of a vendor invoice cannot be changed: make another document' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF v_partner IS NULL THEN
+    RAISE EXCEPTION 'a vendor invoice needs its vendor (vendorInvoicePartner)' USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the vendor % is not a partner', v_partner USING ERRCODE = '23503';
+  END IF;
+  IF v_contract IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowGUID" = v_contract AND k."rowParentGUID" = 'partner' AND k."rowOwnerGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the contract % is not a contract of the vendor %', v_contract, v_partner USING ERRCODE = '23514';
+  END IF;
+  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{vendorInvoiceFolder}', to_jsonb(NEW."rowOwnerGUID" || ':' || v_partner)),
+                             '{vendorInvoiceCurrency}', to_jsonb(COALESCE((SELECT NULLIF(k."rowJSON"->>'contractCurrency', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract), '')));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_vendor_invoice_header_before_write ON public.vendor_invoice_header;
+
+CREATE TRIGGER trg_vendor_invoice_header_before_write BEFORE INSERT OR UPDATE ON public.vendor_invoice_header FOR EACH ROW EXECUTE FUNCTION public.vendor_invoice_header_before_write();
+
+
+-- policies: the header is read by the organization and written ONLY by the RPCs (a draft can also be deleted directly); the lines are read by the organization, the quantity / price / VAT % of a line of a DRAFT are updated and a line is deleted by the owner of its project
+ALTER TABLE public.vendor_invoice_header REPLICA IDENTITY FULL;
+
+ALTER TABLE public.vendor_invoice_header ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.vendor_invoice_header FROM anon, authenticated;
+
+GRANT SELECT, DELETE ON public.vendor_invoice_header TO authenticated;
+
+DROP POLICY IF EXISTS vendor_invoice_header_select ON public.vendor_invoice_header;
+
+CREATE POLICY vendor_invoice_header_select ON public.vendor_invoice_header FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+-- a DRAFT of the organization can be deleted directly (the table of the list does it; its lines go with it); a posted one never
+DROP POLICY IF EXISTS vendor_invoice_header_delete ON public.vendor_invoice_header;
+
+CREATE POLICY vendor_invoice_header_delete ON public.vendor_invoice_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user() AND COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft');
+
+ALTER TABLE public.vendor_invoice_lines REPLICA IDENTITY FULL;
+
+ALTER TABLE public.vendor_invoice_lines ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.vendor_invoice_lines FROM anon, authenticated;
+
+GRANT SELECT, UPDATE, DELETE ON public.vendor_invoice_lines TO authenticated;
+
+DROP POLICY IF EXISTS vendor_invoice_lines_select ON public.vendor_invoice_lines;
+
+CREATE POLICY vendor_invoice_lines_select ON public.vendor_invoice_lines FOR SELECT TO authenticated USING (public.vendor_invoice_state("rowHeaderGUID") IS NOT NULL);
+
+DROP POLICY IF EXISTS vendor_invoice_lines_update ON public.vendor_invoice_lines;
+
+CREATE POLICY vendor_invoice_lines_update ON public.vendor_invoice_lines FOR UPDATE TO authenticated
+  USING (public.vendor_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"))
+  WITH CHECK (public.vendor_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+DROP POLICY IF EXISTS vendor_invoice_lines_delete ON public.vendor_invoice_lines;
+
+CREATE POLICY vendor_invoice_lines_delete ON public.vendor_invoice_lines FOR DELETE TO authenticated
+  USING (public.vendor_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+
+-- realtime: the documents and their lines (the legal entities too)
+DO $$
+DECLARE
+  v_all boolean; t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['vendor_invoice_header', 'vendor_invoice_lines', 'legalEntityTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ---- the register: a POSTED vendor invoice = 'invoiced' movements (registrator = the document, type vendorInvoiceHeader) --------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_status_register_invoice(p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer := 0;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+  SELECT 'invoiced', COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz, h."created_at"),
+         ((COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
+         h."rowGUID", 'vendorInvoiceHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
+         l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+         NULLIF(h."rowJSON"->>'vendorInvoicePartner', ''), NULLIF(h."rowJSON"->>'vendorInvoiceContract', ''), h."rowOwnerGUID",
+         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+    FROM public.vendor_invoice_header h
+    JOIN public.vendor_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
+    JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+   WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted';
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_invoice(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- vendor_invoice_candidates(task, lines): the vendors (and their contracts) of the task lines ---------------------------------------------------------------------------
+-- A line's vendor: the partner of the contract selected on the line (Time: taskResourceContract, Material / Expense: taskLinePartnerContract); else the partner of the line (taskLinePartnerItem);
+-- else the MAIN VENDOR of its resource (equipment of a Time line, product of a Material line) with the main vendor contract. A line without a vendor is counted in "skipped".
+CREATE OR REPLACE FUNCTION public.vendor_invoice_candidates(p_task uuid, p_lines uuid[] DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid; v_rows jsonb; v_skipped integer;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  WITH ln AS (
+    SELECT l."rowGUID" AS line, l."rowParentGUID" AS genus,
+           NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, '') AS line_contract,
+           NULLIF(l."rowJSON"->>'taskLinePartnerItem', '') AS line_partner,
+           NULLIF(l."rowJSON"->>'taskResourceItem', '') AS res,
+           NULLIF(l."rowJSON"->>'taskResourceKind', '') AS kind
+      FROM public.task_line_table l
+     WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND (p_lines IS NULL OR l."rowGUID" = ANY (p_lines))
+  ), mv AS (
+    SELECT ln.*, k."rowGUID" AS k_guid, k."rowOwnerGUID" AS k_partner,
+           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorGUID' WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorGUID' END, '') AS mv_vendor,
+           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorContractGUID' WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorContractGUID' END, '') AS mv_contract
+      FROM ln
+      LEFT JOIN public."contractTable" k ON k."rowGUID" = ln.line_contract AND k."rowParentGUID" = 'partner'
+      LEFT JOIN public."equipmentTable" e ON ln.genus = 'timeGenus' AND ln.kind = 'equipment' AND e."rowGUID" = ln.res
+      LEFT JOIN public."productTable" pr ON ln.genus = 'materialGenus' AND pr."rowGUID" = ln.res
+  ), res AS (
+    SELECT mv.line,
+           CASE WHEN mv.k_guid IS NOT NULL THEN mv.k_partner ELSE COALESCE(mv.line_partner, mv.mv_vendor) END AS partner,
+           CASE WHEN mv.k_guid IS NOT NULL THEN mv.k_guid WHEN COALESCE(mv.line_partner, mv.mv_vendor) = mv.mv_vendor THEN mv.mv_contract END AS contract
+      FROM mv
+  ), grp AS (
+    SELECT r.partner, r.contract, array_agg(r.line ORDER BY r.line) AS lines
+      FROM res r WHERE r.partner IS NOT NULL GROUP BY r.partner, r.contract
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'partnerGUID', g.partner, 'partnerTitle', COALESCE(pt."rowJSON"->>'partnerTitle', g.partner),
+           'contractGUID', g.contract, 'contractInfo', NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''),
+           'contractCurrency', NULLIF(ck."rowJSON"->>'contractCurrency', ''), 'legalEntityGUID', NULLIF(ck."rowJSON"->>'legalEntityGUID', ''),
+           'lineCount', cardinality(g.lines), 'lineGUIDs', to_jsonb(g.lines)) ORDER BY COALESCE(pt."rowJSON"->>'partnerTitle', g.partner), g.contract NULLS FIRST), '[]'::jsonb),
+         (SELECT count(*) FROM res WHERE res.partner IS NULL)
+    INTO v_rows, v_skipped
+    FROM grp g
+    LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = g.partner
+    LEFT JOIN public."contractTable" ck ON ck."rowGUID" = g.contract;
+  RETURN jsonb_build_object('rows', v_rows, 'skipped', COALESCE(v_skipped, 0));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_candidates(uuid, uuid[]) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_candidates(uuid, uuid[]) TO authenticated;
+
+
+-- ---- create_vendor_invoices(task, selection, legal entity): ONE draft document per selected (vendor, contract) -----------------------------------------------------------------
+-- selection = [{ partnerGUID, contractGUID | null, lineGUIDs: [...] }]. The lines come from the task lines; the quantity starts as what is NOT invoiced yet (plan - the quantity on the vendor invoice lines),
+-- the price and the VAT % of the task line. The legal entity: the one given, else the one of the contract; a document without any quantity left is not made.
+CREATE OR REPLACE FUNCTION public.create_vendor_invoices(p_task uuid, p_selection jsonb, p_legal_entity text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid; v_sel jsonb; v_partner text; v_contract text; v_lines uuid[]; v_le text; v_header uuid; v_n integer;
+  v_docs jsonb := '[]'::jsonb; v_skipped jsonb := '[]'::jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
+    RAISE EXCEPTION 'select at least one vendor' USING ERRCODE = '22023';
+  END IF;
+  FOR v_sel IN SELECT * FROM jsonb_array_elements(p_selection) LOOP
+    v_partner := NULLIF(v_sel->>'partnerGUID', '');
+    v_contract := NULLIF(v_sel->>'contractGUID', '');
+    SELECT COALESCE(array_agg(x::uuid), ARRAY[]::uuid[]) INTO v_lines FROM jsonb_array_elements_text(COALESCE(v_sel->'lineGUIDs', '[]'::jsonb)) x;
+    IF v_partner IS NULL THEN
+      RAISE EXCEPTION 'a vendor is missing in the selection' USING ERRCODE = '22023';
+    END IF;
+    v_le := COALESCE(NULLIF(p_legal_entity, ''), (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract));
+    IF v_le IS NULL THEN
+      RAISE EXCEPTION 'choose the legal entity of the invoice (the contract has none)' USING ERRCODE = '22023';
+    END IF;
+    v_header := gen_random_uuid();
+    INSERT INTO public.vendor_invoice_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON")
+    VALUES (v_header, v_le, 'x', jsonb_strip_nulls(jsonb_build_object(
+              'documentHeader', jsonb_build_object('activeUser', public.app_user_guid(), 'documentNumber', 'VI-' || lpad(nextval('public.vendor_invoice_document_seq')::text, 5, '0'),
+                                                    'documentStatus', 'draft', 'created_at', to_jsonb(clock_timestamp())),
+              'vendorInvoicePartner', v_partner, 'vendorInvoiceContract', v_contract,
+              'vendorInvoiceDateTime', to_jsonb(date_trunc('day', NOW())), 'vendorInvoiceNumber', '')));
+    INSERT INTO public.vendor_invoice_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON")
+    SELECT v_header, l."rowProjectGUID", l."rowOwnerGUID", l."rowGUID", l."rowParentGUID", (row_number() OVER (ORDER BY g.ord, l."orderInList", l."created_at"))::numeric,
+           rest.qty,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN round((l."rowJSON"->>'priceTaskLine')::numeric, 4) ELSE 0 END,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'vatRatioTaskLine') = 'number' THEN least(greatest((l."rowJSON"->>'vatRatioTaskLine')::numeric, 0), 100) ELSE 0 END,
+           jsonb_strip_nulls(jsonb_build_object(
+             'resourceRoleItem',     NULLIF(l."rowJSON"->>'resourceRoleItem', ''),
+             'taskResourceItem',     NULLIF(l."rowJSON"->>'taskResourceItem', ''),
+             'taskResourceKind',     NULLIF(l."rowJSON"->>'taskResourceKind', ''),
+             'measureUnitTaskLine',  NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''),
+             'budgetItemTaskLine',   NULLIF(l."rowJSON"->>'budgetItemTaskLine', ''),
+             'businessUnitTaskLine', NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+             'priceTaskLine',        CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+             'unitSumForAccounting', CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
+             'unitSumForBudget',     CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
+      FROM public.task_line_table l
+      JOIN (VALUES ('timeGenus', 1), ('materialGenus', 2), ('expenseGenus', 3)) AS g(genus, ord) ON g.genus = l."rowParentGUID"
+      CROSS JOIN LATERAL (SELECT (CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END)
+                                 - COALESCE((SELECT sum(i."qtyInvoiced") FROM public.vendor_invoice_lines i WHERE i."taskLineGUID" = l."rowGUID" AND i."rowHeaderGUID" <> v_header), 0) AS qty) rest
+     WHERE l."rowOwnerGUID" = p_task AND l."rowGUID" = ANY (v_lines) AND rest.qty > 0;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n = 0 THEN
+      DELETE FROM public.vendor_invoice_header WHERE "rowGUID" = v_header;
+      v_skipped := v_skipped || jsonb_build_object('partnerGUID', v_partner, 'contractGUID', v_contract, 'reason', 'nothingLeftToInvoice');
+    ELSE
+      v_docs := v_docs || jsonb_build_object('documentGUID', v_header, 'partnerGUID', v_partner, 'contractGUID', v_contract, 'lineCount', v_n);
+    END IF;
+  END LOOP;
+  RETURN jsonb_build_object('documents', v_docs, 'skipped', v_skipped);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_vendor_invoices(uuid, jsonb, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.create_vendor_invoices(uuid, jsonb, text) TO authenticated;
+
+
+-- ---- the header of a DRAFT: the number printed on the invoice, its date and the legal entity (the vendor and the contract never change) ----------------------------------------
+CREATE OR REPLACE FUNCTION public.vendor_invoice_set_header(p_header uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_json jsonb;
+BEGIN
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted vendor invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  v_json := h."rowJSON";
+  IF p_patch ? 'vendorInvoiceNumber' THEN
+    v_json := jsonb_set(v_json, '{vendorInvoiceNumber}', to_jsonb(btrim(COALESCE(p_patch->>'vendorInvoiceNumber', ''))));
+  END IF;
+  IF p_patch ? 'vendorInvoiceDateTime' THEN
+    IF NULLIF(p_patch->>'vendorInvoiceDateTime', '') IS NULL THEN
+      v_json := v_json - 'vendorInvoiceDateTime';
+    ELSE
+      v_json := jsonb_set(v_json, '{vendorInvoiceDateTime}', to_jsonb((p_patch->>'vendorInvoiceDateTime')::timestamptz));
+    END IF;
+  END IF;
+  UPDATE public.vendor_invoice_header
+     SET "rowJSON" = v_json,
+         "rowOwnerGUID" = COALESCE(NULLIF(p_patch->>'legalEntityGUID', ''), h."rowOwnerGUID")
+   WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_set_header(uuid, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_set_header(uuid, jsonb) TO authenticated;
+
+
+-- ---- post / unpost / delete ----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.post_vendor_invoice(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_problems jsonb := '[]'::jsonb; v_lines integer;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  SELECT count(*) INTO v_lines FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header;
+  IF v_lines = 0 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
+  END IF;
+  IF NULLIF(btrim(COALESCE(h."rowJSON"->>'vendorInvoiceNumber', '')), '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'invoiceNumberMissing');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'invoiceDateMissing');
+  END IF;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
+    FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyInvoiced" = 0;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
+    FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+  UPDATE public.vendor_invoice_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_register_invoice(p_header);       -- the 'invoiced' movements of the register, in this transaction
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_vendor_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.post_vendor_invoice(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.unpost_vendor_invoice(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public.vendor_invoice_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_unregister(p_header);
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.unpost_vendor_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.unpost_vendor_invoice(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.delete_vendor_invoice(p_header uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted vendor invoice cannot be deleted: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  DELETE FROM public.vendor_invoice_header WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_vendor_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.delete_vendor_invoice(uuid) TO authenticated;
+
+
+-- ---- vendor_invoice_list(filter, limit, offset): the documents with the totals of their lines and the totals PER CURRENCY (currencies are never added) --------------------------------
+-- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the invoice), author (contains)
+CREATE OR REPLACE FUNCTION public.vendor_invoice_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+  v_result jsonb;
+BEGIN
+  WITH docs AS (
+    SELECT h."rowGUID" AS "documentGUID",
+           h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+           COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           COALESCE(h."rowJSON"->>'vendorInvoiceNumber', '') AS "vendorInvoiceNumber",
+           NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '') AS "vendorInvoiceDateTime",
+           ((NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date AS "vendorInvoiceDay",
+           h."rowOwnerGUID" AS "legalEntityGUID", COALESCE(le."rowJSON"->>'title', le."rowGUID", '') AS "legalEntityTitle",
+           NULLIF(h."rowJSON"->>'vendorInvoicePartner', '') AS "partnerGUID", COALESCE(pt."rowJSON"->>'partnerTitle', '') AS "partnerTitle",
+           NULLIF(h."rowJSON"->>'vendorInvoiceContract', '') AS "contractGUID",
+           COALESCE(NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''), '') AS "contractInfo",
+           COALESCE(h."rowJSON"->>'vendorInvoiceCurrency', '') AS "currency",
+           h."rowJSON"->>'vendorInvoiceFolder' AS "folder",
+           h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
+           COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
+           h."created_at" AS "sortAt",
+           (SELECT count(*) FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
+           (SELECT COALESCE(sum(l."sumForContract"), 0) FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumBeforeVAT",
+           (SELECT COALESCE(sum(l."vatForContract"), 0) FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumVAT"
+      FROM public.vendor_invoice_header h
+      LEFT JOIN public."legalEntityTable" le ON le."rowGUID" = h."rowOwnerGUID"
+      LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = h."rowJSON"->>'vendorInvoicePartner'
+      LEFT JOIN public."contractTable" ck ON ck."rowGUID" = h."rowJSON"->>'vendorInvoiceContract'
+      LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+     WHERE (NOT f ? 'documentGUIDs'   OR h."rowGUID"::text IN (SELECT jsonb_array_elements_text(f->'documentGUIDs')))
+       AND (NOT f ? 'legalEntityGUID' OR h."rowOwnerGUID" = f->>'legalEntityGUID')
+       AND (NOT f ? 'partnerGUID'     OR h."rowJSON"->>'vendorInvoicePartner' = f->>'partnerGUID')
+       AND (NOT f ? 'contractGUID'    OR h."rowJSON"->>'vendorInvoiceContract' = f->>'contractGUID')
+       AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'vendorInvoiceCurrency', '') = f->>'currency')
+       AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'vendorInvoiceNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
+       AND (NOT f ? 'fromDay'         OR ((NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date >= (f->>'fromDay')::date)
+       AND (NOT f ? 'toDay'           OR ((NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date <= (f->>'toDay')::date)
+       AND (NOT f ? 'author'          OR NULLIF(btrim(f->>'author'), '') IS NULL
+            OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
+  ), page AS (SELECT * FROM docs ORDER BY "sortAt" DESC, "documentGUID" LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0))
+  SELECT jsonb_build_object(
+           'totalCount', (SELECT count(*) FROM docs),
+           'totalsByCurrency', COALESCE((SELECT jsonb_agg(jsonb_build_object('currency', d.cur, 'count', d.n, 'sumBeforeVAT', d.s, 'sumVAT', d.v, 'sumWithVAT', d.s + d.v) ORDER BY d.cur)
+                                           FROM (SELECT "currency" AS cur, count(*) AS n, sum("sumBeforeVAT") AS s, sum("sumVAT") AS v FROM docs GROUP BY "currency") d), '[]'::jsonb),
+           'rows', COALESCE((SELECT jsonb_agg(to_jsonb(page) - 'sortAt' || jsonb_build_object('sumWithVAT', page."sumBeforeVAT" + page."sumVAT") ORDER BY page."sortAt" DESC, page."documentGUID") FROM page), '[]'::jsonb))
+    INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_list(jsonb, integer, integer) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_list(jsonb, integer, integer) TO authenticated;
+
+
 NOTIFY pgrst, 'reload schema';
 
+
 -- Check:
---   SELECT count(*) FROM public.monitor01_dirty;                                       -- the queue (empty when the worker keeps up)
---   CALL public.monitor01_process_dirty();                                             -- what pg_cron runs every 2 s
---   SELECT * FROM public.monitor01_view ORDER BY "projectName", "taskName", "resourceRoleName", "periodMonth";
---   SELECT * FROM public.monitor01_refresh_log ORDER BY "ranAt" DESC LIMIT 10;
---   SELECT public.monitor01_sum_sources('planned', '{"taskGUID": "<task rowGUID>"}');  -- the source transactions of a sum
---   SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'monitor01%';
+--   SELECT public.vendor_invoice_candidates('<task rowGUID>');                                   -- the vendors of the task lines
+--   SELECT public.create_vendor_invoices('<task rowGUID>', '[{"partnerGUID": "...", "contractGUID": "...", "lineGUIDs": ["..."]}]'::jsonb);
+--   SELECT public.post_vendor_invoice('<document rowGUID>');
+--   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'invoiced';
 
 
 -- ===============================================================================================
--- END of start1_sql_structure.sql
+-- END of start2_sql_code.sql
 -- ===============================================================================================

@@ -7,6 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../ui/components/common';
+import MainVendorFields from '../vendor/MainVendorFields';
+import { mainVendorError } from '../vendor/mainVendorModel';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
@@ -47,6 +49,9 @@ type Form = {
   customerCreditLimit: string;
   customerDefaultCurrency: string;
   customerDiscountPercent: string;
+  // Main vendor (optional)
+  mainVendorGUID: string;
+  mainVendorContractGUID: string;
 };
 
 const toForm = (j?: Partial<PartnerRowJSON>): Form => {
@@ -73,6 +78,8 @@ const toForm = (j?: Partial<PartnerRowJSON>): Form => {
     customerCreditLimit: String(cus.creditLimit ?? 0),
     customerDefaultCurrency: cus.defaultCurrency || 'EUR',
     customerDiscountPercent: String(cus.discountPercent ?? 0),
+    mainVendorGUID: v.mainVendorGUID || '',
+    mainVendorContractGUID: v.mainVendorContractGUID || '',
   };
 };
 
@@ -102,6 +109,8 @@ const fromForm = (f: Form): PartnerRowJSON =>
       defaultCurrency: f.customerDefaultCurrency,
       discountPercent: Number(f.customerDiscountPercent || 0),
     },
+    mainVendorGUID: f.mainVendorGUID,
+    mainVendorContractGUID: f.mainVendorContractGUID,
   });
 
 const rowVersion = (r?: PartnerRow) => (r ? `${r.updated_at ?? ''}|${JSON.stringify(r.rowJSON)}` : '');
@@ -175,7 +184,7 @@ export default function PartnerEdit() {
     const value = fromForm(form);
     const e = validatePartner(value, rows, rowGUID);
     setErrors(e);
-    if (Object.keys(e).length || !actions) return;
+    if (Object.keys(e).length || !actions || mainVendorError(form, allContracts, rowGUID)) return;
 
     if (rowGUID) {
       dispatch(
@@ -326,6 +335,19 @@ export default function PartnerEdit() {
           value={form.partnerIsCustomer}
           onValueChange={(v) => set('partnerIsCustomer', v)}
         />
+      </View>
+
+      {/* the vendor this partner is normally bought through, and ITS contract (optional) */}
+      <View testID="partner-edit-mainVendor" style={styles.subSection}>
+        <Text style={styles.subSectionTitle}>Main vendor</Text>
+        <MainVendorFields
+          testID="partner-edit-vendor"
+          value={form}
+          ownGUID={rowGUID}
+          contracts={allContracts}
+          onChange={(next) => { set('mainVendorGUID', next.mainVendorGUID); set('mainVendorContractGUID', next.mainVendorContractGUID); }}
+        />
+        {!!mainVendorError(form, allContracts, rowGUID) && <Text testID="partner-edit-mainVendor-error" style={{ color: c.error, fontSize: 12 }}>{mainVendorError(form, allContracts, rowGUID)}</Text>}
       </View>
 
       {/* Legal Data Sub-section */}

@@ -1,6 +1,6 @@
 # Local Postgres 15 for testing kit8/sql/start/*.sql (Supabase is only stubbed, see init/00_supabase_stubs.sql).
 #   docker compose up -d          start (first start runs init/*.sql)
-#   ./test_sql.sh                 recreate a fresh database, run start1_sql_structure.sql, delete_sql_structure.sql and verify
+#   ./test_sql.sh                 recreate a fresh database, run start1_sql_tables.sql + start2_sql_code.sql, delete_sql_structure.sql and verify
 #   docker compose down -v        stop and throw the data away
 services:
   db:

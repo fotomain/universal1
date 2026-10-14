@@ -1,6 +1,6 @@
 // CFR type - the enumeration "Centers Of Financial Responsibility" (works like a 1C enumeration): 4 fixed values, written by SQL only.
 //   cfrTypeTable   rowGUID = the code · rowOwnerGUID 'cfrTypeCatalog' · rowParentGUID 'empty' (flat, no folders) · rowJSON { title, description, acceptsCosts, acceptsRevenues }
-//   SQL: kit8/sql/start/start1_sql_structure.sql PART 18 (signed-in users can only READ it; nobody adds, changes or deletes a value at run time).
+//   SQL: kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql PART 18 (signed-in users can only READ it; nobody adds, changes or deletes a value at run time).
 //   The code names the values with CFR_TYPE; WHICH budget kind a center takes is data on the row (acceptsCosts / acceptsRevenues): SQL and the app read the same flags.
 //   There is no screen and no drawer item: the values are picked in the CFR column of the business units.
 import type { DefRow, ProductTableDef } from '../product/productModel';

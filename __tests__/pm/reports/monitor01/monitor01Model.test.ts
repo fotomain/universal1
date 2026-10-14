@@ -220,3 +220,28 @@ describe('the Sum explorer filters', () => {
     expect(drillOperands('onHand')).toEqual([{ measure: 'delivered', sign: 1 }, { measure: 'used', sign: -1 }]);
   });
 });
+
+describe('the stamp (the safety net under Realtime)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { monitor01LocalStamp, monitor01StampDiffers, parseMonitor01Stamp } = require('../../../../kit8/pm/reports/monitor01/monitor01Model');
+  const r = (updated_at?: string) => row({ updated_at });
+  it('the answer of monitor01_stamp is typed; a missing field never throws', () => {
+    expect(parseMonitor01Stamp({ count: '5', maxUpdatedAt: '2026-10-14T10:00:00Z', queued: 2, queuedAgeSeconds: '7.5' })).toEqual({ count: 5, maxUpdatedAt: Date.parse('2026-10-14T10:00:00Z'), queued: 2, queuedAgeSeconds: 7.5 });
+    expect(parseMonitor01Stamp(null)).toEqual({ count: 0, maxUpdatedAt: null, queued: 0, queuedAgeSeconds: 0 });
+    expect(parseMonitor01Stamp({ maxUpdatedAt: 'not a time' }).maxUpdatedAt).toBeNull();
+  });
+  it('the stamp of the rows the screen holds: the number and the newest time', () => {
+    expect(monitor01LocalStamp([r('2026-10-14T09:00:00Z'), r('2026-10-14T10:00:00Z'), r('2026-10-14T08:00:00Z')])).toEqual({ count: 3, maxUpdatedAt: Date.parse('2026-10-14T10:00:00Z') });
+    expect(monitor01LocalStamp([])).toEqual({ count: 0, maxUpdatedAt: null });
+    expect(monitor01LocalStamp([r(undefined)])).toEqual({ count: 1, maxUpdatedAt: null });
+  });
+  it('another number, or a newer change, is a difference; the same instant in another written form is not', () => {
+    const local = { count: 2, maxUpdatedAt: Date.parse('2026-10-14T10:00:00Z') };
+    expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: Date.parse('2026-10-14T10:00:00Z') }, local)).toBe(false);
+    expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: Date.parse('2026-10-14T12:00:00+02:00') }, local)).toBe(false);
+    expect(monitor01StampDiffers({ count: 3, maxUpdatedAt: local.maxUpdatedAt }, local)).toBe(true);
+    expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: Date.parse('2026-10-14T10:00:01Z') }, local)).toBe(true);
+    expect(monitor01StampDiffers({ count: 0, maxUpdatedAt: null }, { count: 0, maxUpdatedAt: null })).toBe(false);
+    expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: null }, { count: 2, maxUpdatedAt: local.maxUpdatedAt })).toBe(false);     // nothing to compare by time
+  });
+});

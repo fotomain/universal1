@@ -1,6 +1,6 @@
 # Fact input - `kit8/pm/fact`
 
-Source: the Google Doc "W1 FACT INPUT"; plan and decisions: `documentation/FACT_INPUT.html`. SQL: **PART 24** of `kit8/sql/start/start1_sql_structure.sql` (mirrored in `start2_sql_code.sql`, dropped by PART 1a of `delete_sql_structure.sql`).
+Source: the Google Doc "W1 FACT INPUT"; plan and decisions: `documentation/FACT_INPUT.html`. SQL: **PART 24** of `kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql` (mirrored in `start2_sql_code.sql`, dropped by PART 1a of `delete_sql_structure.sql`).
 
 The user records what really happened on a task in a **document**. Right button on a line of the Finances table (or on a task of the tree) → **Facts input** → `PMFactInputDocumentForm` opens on the tab of that line. All the documents are in the **list** `PMFactInputDocumentList` (hamburger menu → Budgets → … → divider → **Actuals**, route `app/pm/fact/list`).
 
@@ -8,7 +8,8 @@ The user records what really happened on a task in a **document**. Right button 
 |---|---|
 | `task_fact_header` | the document: `rowJSON.documentHeader` { `projectTaskGUID` (read only) · `activeUser` · `created_at` · `documentNumber` · `documentStatus` draft/posted · `strongInput` · `postedAt` · `postedBy` · `unpostedAt` }. Written only by the RPCs |
 | `task_fact_usage_timeline` | its lines: the fields of `task_line_plan_timeline` (**`sumForBudget` · `sumForContract` · `sumForAccounting`**, each computed from the quantity) + `rowHeaderGUID` · `genusGUID` · **`qtyForContract`** · `periodDay` · `rowJSON` (role, resource, unit, price ... copied from the task line). `rowPeriodDatetime` is editable in every line |
-| `task_line_fact_for_monitor01` | the sums of the POSTED documents per task × genus × role × unit × month, made by the Monitor01 worker (pg_cron) - read only |
+| `project_status_movements` | the **register**: a posted document writes its lines as `used` movements (post / unpost: the same transaction); `qtyProjectStatus` is the quantity |
+| `project_status_month_turnover` | (was `task_line_fact_for_monitor01`) the register summed per task × genus × role × unit × month, made by the Monitor01 worker (pg_cron) - read only |
 
 ## Rules (SQL: triggers + RLS; the TypeScript twins are in `factInputModel.ts`)
 * `task_fact_document_create(task)`: **all the lines of `task_line_table` of the task go to the new document**. `qtyForContract` starts as the quantity of the task line.
@@ -17,7 +18,7 @@ The user records what really happened on a task in a **document**. Right button 
   * **false** (free): the lines are **disconnected from the task line GUIDs** (`taskLineGUID` NULL); users add lines freely ("+ Add line": role, unit, date, qty, price).
 * Users change **only** `rowPeriodDatetime` and `qtyForContract`; `qtyForBudget` is frozen and `sumForContract` / `sumForBudget` / `sumForAccounting` are computed (qty × price, qty × unit budget sum, qty × unit accounting sum - `unitSumForBudget` / `unitSumForAccounting` are copied from the task line).
 * **Post** (`post_task_fact_document`): the whole document is checked (it has lines; no date after tomorrow; strong: every line still has its task line); the answer is data `{ status, lines, problems[] }`, never an exception. Posted = read only (RLS).
-  **Unpost** takes it back to a draft. Only posted documents count in `task_line_fact_for_monitor01`.
+  **Unpost** takes it back to a draft. Only posted documents are in the register (`project_status_movements`) and so in `project_status_month_turnover`.
 * Not a unique (line, day): several facts of a day are allowed.
 
 ## Files

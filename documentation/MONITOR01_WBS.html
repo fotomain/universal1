@@ -207,7 +207,7 @@
 
 <section id="tables">
   <h2>4 - Additional tables</h2>
-  <p class="sub">Style as in the existing PARTs: <code>public.</code>, camelCase quoted columns, <code>rowProjectGUID / rowOwnerGUID / rowParentGUID</code> keys, <code>REPLICA IDENTITY FULL</code> for realtime, RLS on, read by the owner of the project (<code>pm_owns_project</code>). One new <b>PART 24</b> in <code>start1_sql_structure.sql</code>, mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>, with the drop in <code>delete_sql_structure.sql</code> (your SQL workflow).</p>
+  <p class="sub">Style as in the existing PARTs: <code>public.</code>, camelCase quoted columns, <code>rowProjectGUID / rowOwnerGUID / rowParentGUID</code> keys, <code>REPLICA IDENTITY FULL</code> for realtime, RLS on, read by the owner of the project (<code>pm_owns_project</code>). One new <b>PART 24</b> in <code>start1_sql_tables.sql + start2_sql_code.sql</code>, mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code>, with the drop in <code>delete_sql_structure.sql</code> (your SQL workflow).</p>
 
   <h3>4.1 &nbsp;<code>monitor01_view</code> <span class="pill new">new · the table the screen listens to</span></h3>
   <p>A real table (not a SQL view) holding one pre-aggregated row per <b>task × genus × role × unit × month</b>. The client never joins and never computes: every displayed number is a column.</p>
@@ -391,7 +391,7 @@
 
 <section id="wbs">
   <h2>10 - Work breakdown structure</h2>
-  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_structure.sql</code> first (Docker-tested), then mirrored.</p>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL follows your workflow: <code>start1_sql_tables.sql + start2_sql_code.sql</code> first (Docker-tested), then mirrored.</p>
   <div class="scroll"><table>
     <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
 
@@ -453,7 +453,7 @@
     <tr><td><code>kit8/ui/components/common/SumExplorerListReusable.tsx</code></td><td>reusable (next to <code>TextInputApp.tsx</code>)</td></tr>
     <tr><td><code>app/pm/reports/monitor01/index.tsx</code></td><td>route for the separate call</td></tr>
     <tr><td><code>kit8/pm/model/types.ts</code> · <code>kit8/pm/view/gantt/toolbars/GanttRightSideToggle.tsx</code> · <code>kit8/pm/view/reports/PMProjectReportsView.tsx</code></td><td>the toggle (small changes)</td></tr>
-    <tr><td><code>kit8/sql/start/start1_sql_structure.sql</code> (PART 24), <code>start2_sql_code.sql</code>, <code>start5_sql_upsert_all.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
+    <tr><td><code>kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql</code> (PART 24), <code>start2_sql_code.sql</code>, <code>start5_sql_upsert_all.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
     <tr><td><code>kit8/docker/tests/40_monitor01.sql</code>, <code>kit8/docker/test_monitor01.sh</code>, a <code>cron</code> stub in <code>init/00_supabase_stubs.sql</code></td><td>Docker tests</td></tr>
     <tr><td><code>__tests__/pm/reports/monitor01/*</code></td><td>Jest</td></tr>
   </table></div>

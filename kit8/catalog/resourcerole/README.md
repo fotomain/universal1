@@ -104,6 +104,6 @@ Tests: `__tests__/catalog/management` (tree, SQL, dashboard) and `__tests__/cata
 `resourceRoleTypeTable.rowJSON.resourceKind` = `'person'` (default, also when missing) | `'equipment'`: **who works as a role of this type on a Time line**. The role picker of a task line is filtered by the
 genus AND by this kind (a Time line of an equipment offers the roles of equipment role types only); a role of the other kind is marked on the line. Column **Resource kind** of the Role types table,
 `resourceKindOfRoleType()` in `resourceRoleModel.ts`, Check R1 for an unknown value. Seed: role type **Equipment Resources** (genus `timeGenus`, kind `equipment`) with 4 roles (Excavator 20 t, Wheel loader,
-Mobile crane 50 t, Delivery van), a minimum engine power, class x hire mode variants and hourly rates (PART 17 of `kit8/sql/start/start1_sql_structure.sql`; the equipment itself: `kit8/catalog/equipment`).
+Mobile crane 50 t, Delivery van), a minimum engine power, class x hire mode variants and hourly rates (PART 17 of `kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql`; the equipment itself: `kit8/catalog/equipment`).
 Tests: `__tests__/catalog/resourcerole/resourceKind.test.ts`.
 

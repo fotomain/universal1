@@ -5,21 +5,9 @@ Drawer item: **Projects** (kit8/ui/components/CustomDrawerContent.tsx).
 
 ## Setup
 
-1. Run `kit8/sql/init/create_pm_tables.sql` in the Supabase SQL editor (drops + recreates the PM tables).
-   Existing database from the old `pm_gantt_tables.sql`? Run `update_pm_tables_rowJSON.sql` instead (non-destructive:
-   adds `rowJSON` to the dependency + closure tables, moves `rowJSON.color` → `rowJSON.taskColor`).
-   Existing PM tables (before per-user settings)? Run `update_pm_tables_userSettings.sql` (non-destructive: creates
-   `project_user_settings_table` and copies every project's old `rowJSON.uxuiSettings` into its owner's row).
-   Existing PM tables (before realtime)? Run `update_pm_tables_realtime.sql` (non-destructive: adds the PM tables to the
-   `supabase_realtime` publication + `REPLICA IDENTITY FULL`; without it other browsers only see edits after a reload).
-   Kanban: run `create_pm_kanban_tables.sql` after it (non-destructive, safe to re-run; also after every
-   `create_pm_tables.sql`, which drops the project Kanban tables). Remove: `delete_pm_kanban_tables.sql`.
-   Remove everything: `delete_pm_tables.sql`.
-   Project versions (`kit8/pm/version`): the `version_*` tables + RPCs are section 5b of `kit8/sql/init/done/create_tables.sql`.
-   **All SQL files of the catalogs, persons, contract templates and finances, in the right order: `kit8/sql/init/RUN_ORDER.md`.**
-   Finances + the remembered place of a task: run `kit8/sql/init/create_pm_task_line_table.sql` (non-destructive, safe to re-run: `task_line_table` +
-   RPC `pm_set_task_last_edit_place`; needs `managementGenusTable` / the role + product catalogs for the pickers). Remove: `delete_pm_task_line_table.sql`.
-   Without it the **Finances** view / section shows "Could not read the table" and the place of the last edit is simply not saved.
+1. Database: run `kit8/sql/start/start1_sql_tables.sql`, then `start2_sql_code.sql`, then `start3_sql_insert_missing.sql` in the Supabase SQL editor (all idempotent, an existing database is upgraded;
+   they create the PM tables, kanban, templates, versions, finances (`task_line_table`) and the realtime publication). The old `kit8/sql/init/*.sql` files no longer exist; see `KNOW_HOW.md` section 2.
+   Without the finances tables the **Finances** view / section shows "Could not read the table" and the place of the last edit is not saved.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,
    or run `npx setup-skia-web public`). If it is missing, the loader falls back to the jsDelivr CDN.
 3. Sign in (RLS: every row belongs to `auth.uid()`), open **Projects**, press **Demo** to load the use case.

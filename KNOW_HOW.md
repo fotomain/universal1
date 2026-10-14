@@ -1,139 +1,189 @@
-# Universal 1 — Knowledge Base & Architecture Guide (KNOW_HOW)
+# Universal 1 — project knowledge (KNOW_HOW)
 
-This document serves as the primary system reference for AI coding agents (Claude Projects, Gemini, etc.) and developers working on the Universal 1 application.
-
----
-
-## 1. Overview & Technology Stack
-
-Universal 1 is a cross-platform ERP and Project Management application built on:
-- **Client**: Expo (React Native) targeting Web, iOS, and Android.
-- **State Management**: Redux Toolkit + Redux-Saga for side-effects and optimistic CRUD mutations, plus TanStack React Query for cached reads.
-- **Backend / Database**: Supabase (PostgreSQL) with Realtime replication, Row-Level Security (RLS), and JSONB-based document storage.
-- **Design System**: Flexible design system provider (`WithDesignSystem`) supporting native, Material Design 3 (`googlemd3web`), and dark mode.
+The one reference for AI agents (Claude Code, Claude Projects, Gemini ...) and developers. Claude Code loads it by itself: `CLAUDE.md` imports it with `@KNOW_HOW.md`.
+Rule for the keeper of this file: it is a MAP, not a manual. Say where a thing lives and the rule that is not visible in the code; the details are in the README next to the code and in `documentation/`. Keep it short - it is read at the start of every session.
 
 ---
 
-## 2. Database Architecture & SQL Structure
+## 0. Read this first (for Claude)
 
-All database scripts reside in `kit8/sql/start/`. The SQL is cleanly separated into DDL code and DML seed data:
+1. Find the feature in **section 6** (feature index) → open its README / design doc → open the code. Do not search the whole repo first.
+2. SQL: tables → `start1_sql_tables.sql`, everything else → `start2_sql_code.sql`, seeds → `start3_sql_insert_missing.sql` (+ `start5_sql_upsert_all.sql`), drops → `delete_sql_structure.sql`. Test on Docker Postgres (section 2.4) BEFORE handing SQL to the user. `start1_sql_structure.sql` no longer exists.
+3. The user pastes SQL into the Supabase SQL Editor by hand and edits `.env` by hand: every report ends with the paragraph **UPDATE STEP-BY-STEP** (section 8).
+4. Check the list of pitfalls (section 7) before debugging something that "should work".
 
-### 2.1 `start2_sql_code.sql`
-- Contains all **DDL and database schema definitions**:
-  - PostgreSQL extensions (`uuid-ossp`, `pgcrypto`).
-  - Table schemas (`CREATE TABLE IF NOT EXISTS`).
-  - Custom functions and stored procedures (e.g. `pm_rebuild_dependency_closure`, triggers for date recalculations, user calendar event sync).
-  - Row Level Security (RLS) policies and role permissions (`GRANT`/`REVOKE`).
-  - Supabase Realtime publication setup (`ALTER PUBLICATION supabase_realtime ADD TABLE ...`).
-  - Schema reload notification (`NOTIFY pgrst, 'reload schema'`).
+---
 
-### 2.2 `start5_sql_upsert_all.sql`
-- Contains all **authoritative seed and catalog data**:
-  - Reference data: Countries, currencies, European Central Bank (ECB) exchange rates, roles, VAT rates, units of measurement.
-  - Demo catalogs: Products, resource roles, price types, descriptors, budget items, and management calendars.
-- **Upsert Semantics**:
-  - All inserts use real upsert logic (`ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList", "updated_at" = now()`).
-  - Running this script repeatedly is 100% idempotent and safe.
-  - Seed rows are updated to the latest repository values; rows created by users remain untouched; nothing is deleted.
+## 1. Overview & technology stack
 
-### 2.2b `start1_sql_structure.sql` + `start3_sql_insert_missing.sql` / `delete_sql_structure.sql`
-- `start1_sql_structure.sql` is the STRUCTURE in ONE file (numbered PARTs; 17 = equipment, 18 = business units, 24 = fact input, 25 = Monitor01) and has **no seed rows**.
-  **`start3_sql_insert_missing.sql`** (extracted from it, same order, same PART names) holds the seed rows: countries, currencies, ECB rates, catalogs, roles, calendars (and their days), units ... - plain `INSERT ... ON CONFLICT DO NOTHING`.
-  Install = run `start1_sql_structure.sql`, then `start3_sql_insert_missing.sql` (both idempotent). The backfills of data that already exists in a database (userTable from auth.users, project_user_settings_table,
-  the timeline of posted days, the first fill of the Monitor01 queue, the project / task / organization migrations) stay in the structure file next to the table they repair.
-- `delete_sql_structure.sql` is the opposite (it drops the tables with their seed rows); `kit8/docker/test_sql.sh` runs all three on Postgres 15: install twice (same objects, same row counts), the structure alone has 0 seed rows, delete leaves nothing, install again.
-- A change of the structure goes into `start1_sql_structure.sql` and `start2_sql_code.sql` (DDL); a change of a seed goes into `start3_sql_insert_missing.sql` and `start5_sql_upsert_all.sql` (upserts). `__tests__/catalog/equipment/equipmentSql.test.ts` checks that the equipment part is in all of them.
+Universal 1 is a cross-platform ERP and Project Management application:
+- **Client**: Expo (React Native) for Web, iOS and Android; file-based routes in `app/` (expo-router), the code in `kit8/`.
+- **State**: Redux Toolkit + Redux-Saga (optimistic CRUD of the generic tables, `kit8/redux/SystemMetaData.ts`), TanStack React Query (cached reads, PM), `usePMStore` (zustand, PM UI state).
+- **Backend**: Supabase (PostgreSQL 15) - Realtime, Row-Level Security, JSONB documents, RPC functions, pg_cron.
+- **UI**: design system provider `WithDesignSystem` (native, Material Design 3 `googlemd3web`, dark mode), Skia Gantt (`kit8/pm/skia`).
+- **Language texts of the PM screens**: `pmT('text {{n}}', { n })` (`kit8/pm/i18n/pmT.ts`) - the placeholder is `{{n}}`, NOT `{n}`.
 
-### 2.3 Universal Table Schema Convention
-Almost all entity tables in Universal 1 adhere to the standardized schema:
+### 1.1 Folders
+
+| Folder | What is in it |
+|---|---|
+| `app/` | routes (expo-router). `_layout.tsx` = the Drawer screens. `app/pm/…` PM screens, `app/catalog/…` catalogs |
+| `kit8/catalog/<name>/` | one catalog: model (`xxxModel.ts`), metadata for redux, CRUD / dashboard, README. e.g. `equipment`, `business_unit`, `legal_entity`, `vendor`, `partner`, `contract`, `organization`, `management/{genus,calendar}` |
+| `kit8/pm/` | project management: `crud` (React Query + realtime), `view` (gantt, task, tree, kanban), `model`, `fact`, `vendor_invoice`, `reports/monitor01`, `version`, `i18n`, `store` |
+| `kit8/ui/components/` | shared components: `table/reusable` (ReusableTable), `common` (inputs: `DateInputApp`, `TextInputApp`, `SelectItemFromListApp`, `ErrorModalWindow`, `ModalAskComponent`), `CustomDrawerContent.tsx` |
+| `kit8/redux/` | `SystemMetaData.ts` registers every redux entity (table name, columns, realtime) |
+| `kit8/sql/start/` | ALL SQL (section 2) |
+| `kit8/docker/` | local Postgres 15 + the SQL test scripts (section 2.4) |
+| `__tests__/` | Jest (section 5); mirrors the code folders |
+| `documentation/`, `recommendation/` | design documents (HTML) - the WHY behind the features |
+| `scratchpad` | not in the repo: temporary files of a Claude session |
+
+### 1.2 Run and build
+```bash
+npm run web                  # Expo web bundler, port 8088 (npm run ios / android also)
+npx expo start --web -c      # with a cleared cache (after .env / app.config.js changes)
+./save_to_github.command     # saves the work to a timestamped branch expo-YYYY-MM-DD-HH-MM of github.com/fotomain/universal1
+```
+`.env`: Supabase URL / key, `APP_NAME`, `ENVIRONMENT_NAME=DEV_ENVIRONMENT` (developer helpers: the three dots menu of ReusableTable shows the table name and copies it; `kit8/ui/environment.ts`).
+
+---
+
+## 2. Database & SQL (`kit8/sql/start/`)
+
+### 2.1 The files and their order
+| Order | File | Content |
+|---|---|---|
+| 1 | `start1_sql_tables.sql` | the TABLES only: extensions (ltree, pgcrypto, pg_cron - guarded), `CREATE TABLE`, `ALTER TABLE … ADD COLUMN / CHECK`, indexes, sequences, renames of tables. No function / trigger / policy / grant / view / data. One exception: the helper `pm_ltree_label` (four CHECKs call it; start2 has the same copy, a test keeps both equal) |
+| 2 | `start2_sql_code.sql` | everything else of the structure: functions / RPC, triggers, RLS + policies, grants, views, realtime publication, pg_cron job, `kit8_setup_def_table(...)` calls, backfills of data that already exists. Refuses to run without the tables |
+| 3 | `start3_sql_insert_missing.sql` | the seed rows (countries, currencies, ECB rates, catalogs, roles, calendars, units …), `INSERT … ON CONFLICT DO NOTHING`. Needs 1 + 2 |
+| (opt.) | `start5_sql_upsert_all.sql` | the same seeds as UPSERTS (`ON CONFLICT DO UPDATE`): refreshes seed rows to the repository values; user rows are untouched |
+| (undo) | `delete_sql_structure.sql` | drops everything the app created, tables WITH data. Numbered parts, reverse order |
+| (demo) | `equipment_sql_roles_and_more.sql` | demo equipment / roles for one named project (paste and run, on request) |
+
+All of them are idempotent (run twice = no change, also on an existing database: it is upgraded). The numbered **PARTs 1..26** have the same number and title in start1 and start2 (a part without tables is not in start1): 17 equipment, 18 business units, 19 budget scenario, 20 organization scope, 21 resource calendar, 22 resource busy check, 23 calendar lock, 24 fact input, 25 Monitor01 + project status register, 26 legal entity / main vendor / vendor invoice.
+
+### 2.2 How a change is made
+- new table or column → `start1_sql_tables.sql` (inside its PART); function / trigger / policy / grant / RLS / realtime → `start2_sql_code.sql` (same PART);
+- a unique index or NOT NULL that needs a data fix right before it stays in start2 after the fix;
+- seed row → start3 (+ start5); the drop of anything new → `delete_sql_structure.sql` (its numbering test scans `^-- PART (\d+):`, do not write that pattern in a comment);
+- a `RAISE` message: a placeholder is `%`, a percent sign is `%%` (a lone `%` breaks the install: "too few parameters");
+- never put a function call in a table definition (it would not exist yet) - add it later in start2 with `ALTER TABLE`.
+
+### 2.3 Universal table schema (the generic catalogs)
 ```sql
 CREATE TABLE IF NOT EXISTS public."<entityName>Table" (
   "rowGUID"       TEXT        NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "orderInList"   INTEGER     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT now()
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',   -- partition / tenant / owner entity
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',   -- folder / parent
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,   -- all domain fields
+  "created_at" / "updated_at" TIMESTAMPTZ
 );
 ```
-- **`rowGUID`**: Unique identifier (UUID string).
-- **`rowOwnerGUID`**: Partitioning key / tenant / project / entity owner.
-- **`rowParentGUID`**: Hierarchy / grouping key (e.g. parent task or parent folder).
-- **`orderInList`**: Custom ordering / manual sort rank.
-- **`rowJSON`**: Document attributes and domain fields stored as JSONB.
+`kit8_setup_def_table('xTable')` (start2) turns on RLS, REPLICA IDENTITY FULL, the touch trigger and the standard indexes. The PM tables (`project_table`, `project_task_table`, `task_line_table`, …) use UUID ids, an `ltree` path `treePath` and `rowOwnerGUID` = the user (RLS by `app_user_guid()` / `pm_owns_project(project)`); the organization of a user is `userTable.rowJSON.userOrganization` and a project's `rowParentGUID` is that organization.
+Row-level rules: documents (fact, vendor invoice) are written ONLY by RPCs (`SECURITY DEFINER`), the client has SELECT (+ delete of a draft); sums are computed by triggers; "Post" writes the movements in the SAME transaction.
+
+### 2.4 Test the SQL before handing it over (Docker, Postgres 15)
+```bash
+cd kit8/docker && docker compose up -d        # first time; the image postgres:15 is local
+./test_sql.sh                  # fresh db: install twice (same objects + rows), tables alone = only tables, code refuses an empty db, 0 seed rows, delete leaves nothing, install again
+./test_fact_monitor01.sh [NN]  # tests/5N, 6N, 7N only (fact input, Monitor01 + register, vendor invoice): "-> N checks passed"
+./test_time_genus.sh [NN]      # EVERY tests/NN_*.sql (organization 1N, resource calendar 20, busy check 30, calendar lock 40, fact 5N, Monitor01 6N, vendor invoice 7N) or only NN
+./test_time_genus_race.sh      # two sessions: Post vs a calendar change (locks)
+./bench_monitor01.sh 2000      # speed of the Monitor01 worker with 2000 tasks
+```
+A new SQL test is a file `kit8/docker/tests/NN_name.sql` (one transaction, rolled back; helpers in `00_helpers.sql`). Docker has no pg_cron: the install only prints a NOTICE there.
+After a big SQL change compare the schema: `pg_dump -s` of a database made the old way and the new way must be identical.
+
+### 2.5 pg_cron (the Monitor01 worker)
+The worker `monitor01_tick` runs `CALL public.monitor01_process_dirty()` every 2 s. `start1_sql_tables.sql` tries `CREATE EXTENSION pg_cron` (a failure is only a NOTICE); `start2_sql_code.sql` schedules the job when the schema `cron` exists. Check: `select jobname, schedule, active from cron.job;`. Without pg_cron the open report still refreshes itself (section 6, Monitor01).
 
 ---
 
-## 3. UI Framework & Table Component System
+## 3. UI framework & component system
 
-### 3.1 `ReusableTable` (`kit8/ui/components/table/reusable/`)
-The core data grid component used across catalog dashboards, task finance views, and management panels.
-- **Optimistic CRUD**: Managed by `useReusableTableCrud`. Changes are reflected in local state instantly and dispatched via Redux-Saga (`createOne`, `updateOne`, `deleteOne`).
-- **Column Header Context Menu ("Fill all lines")**:
-  - Right-click (Web) or long-press (touch/mobile) on column headers opens `PMContextMenu`.
-  - Item "Fill all lines" opens `ReusableTableFillColumnModal`.
-  - For `catalog` columns: renders `SelectElementFromCatalog` to choose catalog elements.
-  - For primitive columns: renders input with numeric or text keyboard.
-  - Includes **Cancel** and **Fill** buttons to update all rows across the active scope.
-- **Post Button Behavior**:
-  - When `postDataNeeded` is enabled, the Post button appears only while unposted changes exist.
-  - Once posted, the button becomes invisible until subsequent edits require reposting.
+### 3.1 `ReusableTable` (`kit8/ui/components/table/reusable/`, README there)
+The data grid of the catalogs, task finances, fact / invoice lines and the lists.
+- **Optimistic CRUD** by `useReusableTableCrud` → redux saga (`createOne`, `updateOne`, `deleteOne`) on a redux entity registered in `SystemMetaData` (`rootColumns` = whitelist of real columns that are saved, the rest goes to `rowJSON`; `fromStored`, `addEnabled`, `onAdd`, `onRowOpen` + `openLabel` for a list whose row opens a document, `foldersTree` with `folderTarget` / `folderField`).
+- **Column header menu "Fill all lines"** (right-click on web, long press on touch): `ReusableTableFillColumnModal`; catalog columns use `SelectElementFromCatalog`, others a numeric / text input; Cancel / Fill.
+- **Post button** (`postDataNeeded`): visible only while there are unposted changes.
+- **Row-aware catalog column**: `catalogEntityNameOf(row)` + `catalogEntityNames` - one column whose catalog depends on the row (a person OR an equipment); "Fill all lines" fills only the rows of the column's own catalog.
+- **Three dots menu**: with `ENVIRONMENT_NAME=DEV_ENVIRONMENT` its last item is the table name (copied on press). Date cells are centered.
+- Dates: `DateInputApp` accepts 8 digits (`20260101` = YYYYMMDD, `20122026` = DDMMYYYY → `2026-12-20`); filters use `DateInputApp` / `TextInputApp` / `SelectItemFromListApp clearable` with a Clear button inside the field, all in ONE row.
 
----
-
-## 4. Project Management (PM) & Gantt Module
-
-Located in `kit8/pm/`:
-- **Task Hierarchy Tree (`PMProjectTasksTree`)**:
-  - Renders project task WBS hierarchy with synchronized scrollbars.
-  - **Posted Status Column**:
-    - Precedes the task name column.
-    - Icons:
-      - *Unposted*: Empty space.
-      - *Posted*: Green checkmark (`#16a34a`).
-      - *Posted & Changed*: Dark orange checkmark (`#c2410c`).
-    - Tooltips explain the state; accessible on mobile/touch devices on tap.
-- **Project Actions Toolbar (`PMProjectActionsButton`)**:
-  - Positioned on `PMRecentProjectsToolbar` right before the project settings icon.
-  - Menu actions:
-    1. **Post unposted tasks**: Posts all tasks with unposted changes.
-    2. **Repost all tasks**: Force re-posts every task in the project.
-    3. **Refresh the project**: Triggers a manual refresh of the project tree and realtime state.
-- **Task Posting Logic (`useTaskPost` & `runTaskPost`)**:
-  - Calculates movement records and updates task status.
-  - If a task has no budget item selected across its lines, posting halts and opens `ErrorModalWindow` with an explicit error message instead of an ephemeral snackbar.
-
-- **Task input switches** (`kit8/pm/model/taskInputScope.ts`): project settings → Finances → Budgets. With `projectExpenseBudgetNeeded` on: `projectTimeCostsNeeded` ("Time input needed") >
-  `projectTimeOfPersonNeeded` / `projectTimeOfEquipmentNeeded`, `projectMaterialCostsNeeded`, `projectExpenseCostsNeeded`. Master off = as before. A tab that has lines is never hidden.
-- **Equipment on a Time line**: `kit8/catalog/equipment` (a machine with its own Properties and Variants, the analog of the person); a Time line has `rowJSON.taskResourceKind` (`person` | `equipment`,
-  empty = person) and, when the project offers both, the menu "Resource: Person | Equipment" before the resource. The hour of an equipment is costed by the rate of its resource role
-  (`resourceRoleTypeTable.rowJSON.resourceKind`). The design: `recommendation/EQUIPMENT_TIME.html`.
-- **Descriptor sides**: products, roles, persons and equipment share the descriptor tables; the list of the sides is `kit8/catalog/product/crud/descriptorSides.ts` (every dashboard hides the other three).
-- **Row-aware catalog column** (`ReusableTable`): `catalogEntityNameOf(row)` + `catalogEntityNames` - one column whose catalog depends on the row (a person OR an equipment); "Fill all lines" fills only the rows of
-  the column's own `catalogEntityName`.
+### 3.2 Other shared UI
+`ErrorModalWindow` (errors of Post etc. - not an ephemeral snackbar), `ModalAskComponent`, the Drawer (`CustomDrawerContent.tsx` + `app/_layout.tsx`): Budgets → catalogs, then Actuals + Vendor invoices; Catalogs → … Legal entities; Reports → Monitor01.
 
 ---
 
-## 5. Development Workflows & Conventions
+## 4. Project Management (PM) & Gantt module (`kit8/pm/`, README there)
 
-### 5.1 Local Execution
-```bash
-# Start Web bundler
-npm run web
-# Or with cache clear
-npx expo start --web -c
-```
+- **Task tree (`PMProjectTasksTree`)**: WBS with synchronized scrollbars. Posted-status column before the name: nothing = unposted, green check (`#16a34a`) = posted, dark orange check (`#c2410c`) = posted and changed.
+- **Project actions (`PMProjectActionsButton`)** on `PMRecentProjectsToolbar`: Post unposted tasks · Repost all · Refresh the project.
+- **Posting (`useTaskPost` / `runTaskPost`)**: calculates the plan movements (`create_task_line_plan`, one transaction) and the task status; no budget item on a line → `ErrorModalWindow`. The plan of an UNPOSTED task line is not in the reports (a task-line edit changes Monitor01 only after Post).
+- **Task input switches** (`kit8/pm/model/taskInputScope.ts`): project settings → Finances → Budgets; with `projectExpenseBudgetNeeded` on: `projectTimeCostsNeeded` > `projectTimeOfPersonNeeded` / `projectTimeOfEquipmentNeeded`, `projectMaterialCostsNeeded`, `projectExpenseCostsNeeded`. A tab that has lines is never hidden.
+- **Time line of an equipment** (`taskResourceKind` person | equipment): see Equipment below. **Descriptor sides**: products, roles, persons and equipment share the descriptor tables (`kit8/catalog/product/crud/descriptorSides.ts`).
+- Realtime of the PM tables: `kit8/pm/crud/realtime`; the setup text of `kit8/pm/README.md` about `kit8/sql/init` is OLD - use section 2.
 
-### 5.2 Running Tests
-```bash
-# Run Jest test suites
-npm test
-# Run specific test file
-npm test -- reusableTableHeaderContextMenu.test.tsx
-```
+---
 
-### 5.3 Git Sync Script
+## 5. Tests
+
 ```bash
-# Save progress to GitHub on a timestamped branch
-./save_to_github.command
+npm test                                  # all Jest tests (jest-expo, jsdom, react-native-web)
+npm test -- path/or/name                  # one file
+npx tsc -p <narrow tsconfig> --noEmit     # the project-wide tsc crashes (stack overflow) already at baseline: check with a tsconfig that lists only the new files
 ```
+- A helper in `__tests__` must be named `*TestKit.ts(x)` (jest ignores those); otherwise jest runs it as a test and fails "must contain at least one test". UI kit: `__tests__/pm/ui/pmUiTestKit.tsx` (mocks of expo-router, TextInputApp …: to override one use `jest.doMock` + `require` AFTER importing the kit). SQL file helper: `__tests__/sql/sqlFilesTestKit.ts`.
+- SQL is tested twice: Jest reads the .sql files (names, parts, mirrors, the delete file: `__tests__/sql`, `__tests__/**/…Sql.test.ts`) and Docker runs it (2.4).
+- **Baseline**: about 29 suites / 31 tests fail since before the feature work (e.g. partnerCard, currencyEdit, modals, taskFinancesUi "Posted", SwipeableCard, iconapp-web-fallback). A new failure = a suite not in that list; compare the `FAIL` lines of two full runs. `search-opportunistic-saga` is flaky under load (passes alone).
+- Write the test for new code in the same round; when a test and the SQL disagree, run the Docker script - it is the truth.
+
+---
+
+## 6. Feature index (where to look)
+
+| Feature | Code | SQL | Design doc / README | Docker test |
+|---|---|---|---|---|
+| Organization scope (user = 1 organization, projects belong to it, invitations) | `kit8/catalog/organization` | PART 20 | README there | `tests/10,11,12` |
+| Resource calendar = capacity (hours/day), busy check at Post, calendar lock | `kit8/catalog/management/calendar`, `kit8/pm/view/task/plan` | PARTS 21-23 | `documentation/TIME_GENUS_CONTROL_WBS.html` | `tests/20,30,40` |
+| Equipment (a machine like a person; own Properties/Variants; hour costed by the rate of its role) | `kit8/catalog/equipment` | PART 17 | `recommendation/EQUIPMENT_TIME.html` | `test_sql.sh` |
+| Business unit + CFR (cost / revenue / profit / investment centers) | `kit8/catalog/business_unit` | PART 18 | `documentation/BUSINESS_UNIT_CFR_STRUCTURE.html` | `test_sql.sh` |
+| Budget scenarios (plan / fact) | `kit8/catalog/budget/scenario` | PART 19 | README | `test_sql.sh` |
+| Plan calculation of a task line | `kit8/pm/view/task/plan`, `finances` | `create_task_line_plan` (PARTs 15, 22) | `documentation/TASK_LINE_PLAN_CALCULATION.html` | `tests/30,52` |
+| **Fact input** (Actuals): a document per task, Draft → Post; lines of used quantities | `kit8/pm/fact` (Form, List, New document) · routes `app/pm/fact/list`, `app/pm/project/task/fact` | PART 24: `task_fact_header`, `task_fact_usage_timeline`, RPC `task_fact_document_create / post / unpost / list` | `documentation/FACT_INPUT.html`, README | `tests/50,51` |
+| **Project status register** (1C-style accumulation register) | - (SQL only) | PART 25: `project_status_movements` (narrow, kinds plan/ordered/received/invoiced/used/sold, `qtyProjectStatus`), `project_status_month_turnover` (wide, realtime) | `documentation/PROJECT_STATE_WBS.html` | `tests/60` |
+| **Monitor01** report (plan vs contracted vs used vs invoiced per task × genus × role × unit × month) | `kit8/pm/reports/monitor01` · route `app/pm/reports/monitor01` | PART 25: `monitor01_view`, worker `monitor01_apply` / `monitor01_process_dirty` (pg_cron 2 s, queue `monitor01_dirty`), RPC `monitor01_refresh_now`, `monitor01_stamp`, `monitor01_sum_sources`, `monitor01_verify` | `documentation/MONITOR01_WBS.html`, README | `tests/60`, `bench_monitor01.sh` |
+| **Vendor invoice** (1 vendor + 1 contract per document; Draft → Post writes the 'invoiced' movements) | `kit8/pm/vendor_invoice` · routes `app/pm/project/task/vendor-invoice`, `app/pm/vendor-invoice/list` | PART 26: `vendor_invoice_header / lines`, RPC `vendor_invoice_candidates`, `create_vendor_invoices`, `post / unpost / delete_vendor_invoice`, `vendor_invoice_list` | `documentation/PROJECT_STATE_WBS.html`, README | `tests/70` |
+| Legal entity catalog (folders by country) and the **main vendor** of a partner / equipment / product | `kit8/catalog/legal_entity`, `kit8/catalog/vendor` | PART 26 | READMEs | `tests/70` |
+| Project versions (read-only copies of a plan) | `kit8/pm/version` | `version_*` tables (PART 1, 5b) | `documentation/PM_VERSION_STRUCTURE.html` | `test_sql.sh` |
+| Products / descriptors | `kit8/catalog/product` | PART 4 | `documentation/PRODUCT_*` | `test_sql.sh` |
+
+**Monitor01 in one paragraph.** Posting a plan or a fact / invoice document writes movements into the register (same transaction) and queues the task in `monitor01_dirty`; the worker sums the register into the turnover and fills `monitor01_view` (changed rows only); the screen listens to Realtime. Safety net while **Auto refresh** is ON: every 3 s the hook calls `monitor01_stamp(project)` (row count, newest `updated_at`, queue length and age): a difference twice in a row re-reads the rows; a queue older than 6 s makes the screen call `monitor01_refresh_now` (at most once in 15 s). So the report follows even when Realtime is silent or pg_cron is not enabled. Badge: Live / Live: checked every 3 s / Offline / Auto refresh is off.
+
+**Vendor invoice rules.** Candidates of a line: the partner of its contract, else the line's partner (with its main contract), else the main vendor of the equipment / product. A draft line edits only qty / price / VAT %; sums by trigger; RLS by the organization; Post needs the number and date and the ownership of every line's project. The 0333Effect rounding correction is NOT built (user decision).
+
+---
+
+## 7. Pitfalls and lessons (read before debugging)
+
+- `StyleSheet.absoluteFillObject` is removed in RN 0.86 (undefined at runtime → wrong positioning): use `StyleSheet.absoluteFill`.
+- `pmT` placeholders are `{{n}}`. A missing translation key shows the English text.
+- React Native Web `TextInput`: `editable={false}` becomes `readOnly` in jsdom (not `disabled`).
+- Supabase has no pg_cron until it is enabled (Database → Extensions): `relation "cron.job" does not exist` = not enabled. The code works without it.
+- A statement `ALTER TABLE … SET NOT NULL` / a unique index placed BEFORE the data fix that makes it valid breaks an existing database: keep them together.
+- The `delete_sql_structure.sql` numbering test and the "PART n" scans: a comment line that starts with `-- PART <n>:` outside a banner confuses them.
+- zsh does not split an unquoted variable into words: use shell functions in the Docker scripts.
+- macOS `sed -i ''` with `#` delimiters and `[0-9]` classes is fragile: edit with a small Python script.
+- A trigger on the plan movements must NOT queue the Monitor01 dirty queue for the 'plan' kind (the worker rewrites them: loop).
+- `IconApp`, Skia and expo-modules log "An error occurred while requiring the '…' module" in Jest: noise, not a failure.
+
+---
+
+## 8. Working agreement with the owner
+
+- **Every report ends with a last paragraph `UPDATE STEP-BY-STEP`**: numbered steps in the order to do them - which SQL file(s) to run in the Supabase SQL Editor (start1 then start2, start3 only if seeds changed), the `.env` lines, the Expo restart command, what to click to verify, what is NOT needed. Nothing after it. When nothing has to be run or edited, the paragraph is only `UPDATE STEP-BY-STEP: reload app`.
+- The owner edits `.env` (tell the lines, do not edit). No commit unless asked (the owner uses `save_to_github.command`). No subagents unless asked.
+- Say in a few words what you are doing during a long run. Reports are honest: what was tested, what was not, what is unknown (e.g. you cannot see the owner's Supabase or browsers).
+- Code placement: fact code in `kit8/pm/fact`, Monitor01 in `kit8/pm/reports/monitor01`, vendor invoice in `kit8/pm/vendor_invoice`, a catalog in `kit8/catalog/<name>`. Write the tests and the README of a feature in the same round.
+- Specifications often come as Google Docs / screenshots: read the doc again when the owner says so, answer questions in the doc's terms.

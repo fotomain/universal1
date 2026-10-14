@@ -8,7 +8,7 @@ Hamburger menu → **Equipment (properties and variants)** → `/catalog/equipme
 
 ## Setup
 
-`kit8/sql/start/start1_sql_structure.sql` (PART 17; the opposite is PART 6 of `delete_sql_structure.sql`): `equipmentTypeTable`, `equipmentTable`, the descriptors (Class, Hire mode, Engine power,
+`kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql` (PART 17; the opposite is PART 6 of `delete_sql_structure.sql`): `equipmentTypeTable`, `equipmentTable`, the descriptors (Class, Hire mode, Engine power,
 Min. engine power, Year), 2 types (Heavy machinery, Vehicle) with their sets, 6 demo machines with properties and variants, the role type **Equipment Resources** (4 roles, requirements, variants, hourly
 rates) and the CHECK of `task_line_table.rowJSON.taskResourceKind`. Idempotent. Test it on Postgres 15: `cd kit8/docker && docker compose up -d && ./test_sql.sh`.
 

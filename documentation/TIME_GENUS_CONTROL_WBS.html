@@ -507,7 +507,7 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
 
 <section id="wbs">
   <h2>9 - Work breakdown structure</h2>
-  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL packages follow your SQL workflow: <code>start1_sql_structure.sql</code> first (Docker-tested), then mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code> and the drop to <code>delete_sql_structure.sql</code>.</p>
+  <p class="sub">Sizes: S = under half a day, M = about a day, L = several days. SQL packages follow your SQL workflow: <code>start1_sql_tables.sql + start2_sql_code.sql</code> first (Docker-tested), then mirrored to <code>start2_sql_code.sql</code> / <code>start5_sql_upsert_all.sql</code> and the drop to <code>delete_sql_structure.sql</code>.</p>
   <div class="scroll"><table>
     <tr><th>WP</th><th>Work package</th><th>Deliverable</th><th>Size</th><th>Dep</th></tr>
 
@@ -593,7 +593,7 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
   <h2>10 - Files that will be touched</h2>
   <div class="scroll"><table>
     <tr><th>Area</th><th>File</th><th>What</th></tr>
-    <tr><td rowspan="4">SQL</td><td><code>kit8/sql/start/start1_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>new PARTs 20-22 (the next after the budget scenario): organization + <code>organization_ensure_user</code> + <code>project_table.rowParentGUID</code>; calendar hours + capacity function + lock; occupancy views + check; the redefined <code>create_task_line_plan</code> and <code>fill_management_calendar</code></td></tr>
+    <tr><td rowspan="4">SQL</td><td><code>kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql</code> <span class="pill chg">changed</span></td><td>new PARTs 20-22 (the next after the budget scenario): organization + <code>organization_ensure_user</code> + <code>project_table.rowParentGUID</code>; calendar hours + capacity function + lock; occupancy views + check; the redefined <code>create_task_line_plan</code> and <code>fill_management_calendar</code></td></tr>
     <tr><td><code>kit8/sql/start/start2_sql_code.sql</code> <span class="pill chg">changed</span></td><td>the DDL / function half</td></tr>
     <tr><td><code>kit8/sql/start/start5_sql_upsert_all.sql</code> <span class="pill chg">changed</span></td><td>the Standard work week, the folders</td></tr>
     <tr><td><code>kit8/sql/start/delete_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>drops, in the right order (the column <code>rowParentGUID</code> and its triggers before the organization)</td></tr>
