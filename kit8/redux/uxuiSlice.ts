@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { normalizePlayVideoSettings, PLAY_VIDEO_DEFAULTS, PlayVideoSettings } from "./playVideoSettings";
 
 export type FABAnimationVariant = 'defaultFABAnimation' | 'reanimatedBasicFABAnimation';
 export type DesignSystemType = 'tamagui' | 'paper' | 'ant' | 'native' | 'expo' | 'googlemd3web' | 'applemacui';
@@ -37,6 +38,8 @@ export interface UxuiState {
   hideTreeSelectColumn: boolean;
   /** What another app shared into this app (kit8/providers/WithIntent.tsx); null = nothing waiting. */
   intentInfo: UxuiIntentInfo | null;
+  /** Video player (kit8/ui/components/media): hide the buttons after N seconds, rewind / forward N seconds. A persisted state of an older version has none: read it with selectPlayVideoSettings. */
+  PlayVideoSettings: PlayVideoSettings;
 }
 
 /** uxui.intentInfo: what was received + what the user decided to add from it. */
@@ -95,6 +98,7 @@ const uxuiInitialState: UxuiState = {
   refreshProjectData: 0,
   hideTreeSelectColumn: false,
   intentInfo: null,
+  PlayVideoSettings: { ...PLAY_VIDEO_DEFAULTS },
   snackbar: {
     visible: false,
     message: '',
@@ -156,6 +160,13 @@ const uxuiSlice = createSlice({
     },
     setHideTreeSelectColumn: (state, action: PayloadAction<boolean>) => {
       state.hideTreeSelectColumn = action.payload;
+    },
+    /** the settings panel of the video player: only the given fields change, everything is kept valid */
+    setPlayVideoSettings: (state, action: PayloadAction<Partial<PlayVideoSettings>>) => {
+      state.PlayVideoSettings = normalizePlayVideoSettings({ ...normalizePlayVideoSettings(state.PlayVideoSettings), ...action.payload });
+    },
+    resetPlayVideoSettings: (state) => {
+      state.PlayVideoSettings = { ...PLAY_VIDEO_DEFAULTS };
     },
     /** a new share arrived (null = forget it) */
     setIntentInfo: (state, action: PayloadAction<UxuiIntentInfo | null>) => {
@@ -238,6 +249,8 @@ export const {
   setHideTreeSelectColumn,
   setIntentInfo,
   updateIntentInfo,
+  setPlayVideoSettings,
+  resetPlayVideoSettings,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,

@@ -39,6 +39,8 @@ const SIZE_MAP: Record<string, SizeConfig> = {
 export interface TamaguiTextInputSubProps extends TextInputAppProps {
   themeColors: any;
   isDark: boolean;
+  /** mode 'flat' of TextInputApp: no background, no border, no ring */
+  flat?: boolean;
 }
 
 export const TamaguiTextInputSub: React.FC<TamaguiTextInputSubProps> = ({
@@ -65,6 +67,7 @@ export const TamaguiTextInputSub: React.FC<TamaguiTextInputSubProps> = ({
   hideClearIcon = false,
   size = '$4',
   unstyled = false,
+  flat = false,
   themeColors,
   isDark,
   ...props
@@ -167,14 +170,14 @@ export const TamaguiTextInputSub: React.FC<TamaguiTextInputSubProps> = ({
           {
             height: multiline ? undefined : sizeConfig.height,
             minHeight: multiline ? (numberOfLines || 3) * 22 : sizeConfig.height,
-            backgroundColor: bgColor,
+            backgroundColor: flat ? 'transparent' : bgColor,
             borderColor,
-            borderWidth: isFocused ? 1.5 : 1,
+            borderWidth: flat ? 0 : isFocused ? 1.5 : 1,
             borderRadius: sizeConfig.radius,
-            paddingHorizontal: sizeConfig.paddingH,
+            paddingHorizontal: flat ? 0 : sizeConfig.paddingH,
             paddingVertical: multiline ? 8 : 0,
             opacity: disabled ? 0.5 : 1,
-            ...(Platform.OS === 'web' && isFocused
+            ...(Platform.OS === 'web' && isFocused && !flat
               ? {
                   boxShadow: `0 0 0 1px ${borderColor}`,
                 }

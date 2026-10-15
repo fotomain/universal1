@@ -42,7 +42,7 @@ change, `toolbarExtra` puts more buttons after the CRUD panel.
 
 **Where a cell is stored**: `target: 'rowJSON'` (default, rowJSON[field]) or `'rowOwnerGUID'` / `'rowParentGUID'`
 (the root column, saved with `updateOne({ columns })`; "nothing" = 'empty'). `validate(value, row)` refuses a value
-with a snackbar. Number columns: `total: false` = no footer sum (prices, ratios).
+with a snackbar. Number columns: `total: false` = no footer sum (prices, ratios). `totalWhenSame: '<column key>'` (+ `totalSuffix(commonValue)`) = the footer sum only while ALL the rows shown have the SAME value in that column (a quantity in one unit: "12 pcs"), "—" when they differ, nothing without rows; it overrides `total: false` (`columnFooterTotal` in `tableRows.ts`).
 
 **Any root column** (the fact input lines, `kit8/pm/fact`): a column's `target` may name ANY real column of the table (`rowPeriodDatetime`, `qtyForContract` ...), not only
 `rowJSON` / `rowOwnerGUID` / `rowParentGUID`. It is saved only when the entity lists it in its `SystemMetaData` entry `rootColumns` (`reusableRootSaga.ts`, the whitelist of

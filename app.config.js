@@ -85,7 +85,11 @@ module.exports = {
           },
         },
       ],
-      ['expo-camera', { cameraPermission: PERMISSION_TEXT.camera, microphonePermission: PERMISSION_TEXT.microphone, recordAudioAndroid: true }],
+      // record video (kit8/ui/components/media/RecordVideo.tsx): hardware camera + microphone.
+      // Do NOT add expo-camera next to it: it pulls CameraX 1.6.0, vision-camera 4.x needs 1.5.0-alpha03 -> NoClassDefFoundError Camera2CameraInfoImpl on Android
+      ['react-native-vision-camera', { cameraPermissionText: PERMISSION_TEXT.camera, enableMicrophonePermission: true, microphonePermissionText: PERMISSION_TEXT.microphone }],
+      // record / play audio (RecordAudio.tsx, AudioPlayerView.tsx)
+      ['expo-audio', { microphonePermission: PERMISSION_TEXT.microphone }],
       ['expo-media-library', { photosPermission: PERMISSION_TEXT.photos, savePhotosPermission: PERMISSION_TEXT.savePhotos, isAccessMediaLocationEnabled: true }],
     ],
     owner: 'foto888999',

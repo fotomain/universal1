@@ -5,17 +5,18 @@
 //   body      the lines of the task selected in the tree (PMProjectTaskFinancesCRUD); no budget / roll-up of stages in this version
 //
 // The place of the last edit (rowJSON.lastEditPlace, surface 'financesView') is activated when a task is selected: its genus tab opens
-// and its line is marked.
-import React, { useCallback } from 'react';
+// and its line is marked. A deep link (store.placeRequest) opens a task at the place of the link.
+import React, { useCallback, useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
-import { lastEditPlaceOf } from '../../../model/lastEditPlace';
+import { lastEditPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
 import PMProjectTaskFinancesCRUD from './PMProjectTaskFinancesCRUD';
+import EditTaskNameFast from '../EditTaskNameFast';
 
 export interface PMProjectFinancesViewProps {
   projectGUID: string;
@@ -28,7 +29,15 @@ export interface PMProjectFinancesViewProps {
 export default function PMProjectFinancesView({ projectGUID, width, height, palette, crud }: PMProjectFinancesViewProps) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
   const task = usePMStore((s) => (s.selectedGUID ? s.tasksById[s.selectedGUID] : undefined));
-  const place = lastEditPlaceOf(task?.rowJSON);
+  // a deep link (dashboardDeepLink.ts) for THIS task wins over the remembered place; it ends when another task is selected
+  const placeRequest = usePMStore((s) => s.placeRequest);
+  const requested = !!placeRequest && placeRequest.taskGUID === selectedGUID;
+  useEffect(() => {
+    if (placeRequest && selectedGUID && selectedGUID !== placeRequest.taskGUID) usePMStore.getState().setPlaceRequest(null);
+  }, [placeRequest, selectedGUID]);
+  const place: PMLastEditPlace | null = requested
+    ? { v: 1, surface: 'financesView', section: 'finances', at: '', ...(placeRequest!.genus ? { genus: placeRequest!.genus } : {}), ...(placeRequest!.lineGUID ? { lineGUID: placeRequest!.lineGUID } : {}) }
+    : lastEditPlaceOf(task?.rowJSON);
   const recordEditPlace = crud.recordEditPlace;
   const onEditPlace = useCallback(
     (p: { genus: string; lineGUID?: string }) => {
@@ -41,9 +50,14 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-finances-view">
       <PMToolbar background={palette.surface} border={palette.border}>
         <PMTipIcon tip={pmT('Finances')} testID="pm-finances-icon" name="payments" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
-        <Text style={[styles.title, { color: palette.text }]} testID="pm-finances-title" numberOfLines={1}>
-          {task ? task.rowJSON?.name || pmT('Task') : pmT('Finances')}
-        </Text>
+        {task && selectedGUID ? (
+          // the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name
+          <View style={styles.titleBox} testID="pm-finances-title">
+            <EditTaskNameFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
+          </View>
+        ) : (
+          <Text style={[styles.title, { color: palette.text }]} testID="pm-finances-title" numberOfLines={1}>{pmT('Finances')}</Text>
+        )}
       </PMToolbar>
 
       {!task || !selectedGUID ? (
@@ -57,7 +71,7 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <PMProjectTaskFinancesCRUD
-            key={selectedGUID}
+            key={requested ? `${selectedGUID}:${placeRequest!.nonce}` : selectedGUID}
             projectGUID={projectGUID}
             taskGUID={selectedGUID}
             initialPlace={place}
@@ -72,6 +86,7 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
 
 const styles = StyleSheet.create({
   title: { fontSize: 13, fontWeight: '600', marginHorizontal: 6, flexShrink: 1 },
+  titleBox: { flex: 1, minWidth: 0, marginHorizontal: 6 },
   body: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 10, marginBottom: 6 },

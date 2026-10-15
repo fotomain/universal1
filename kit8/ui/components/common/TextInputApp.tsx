@@ -49,6 +49,11 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   heightVariant?: TextInputHeightVariant;
   /** unstyled variant in Tamagui */
   unstyled?: boolean;
+  /**
+   * look of the field: 'outlined' (default, a box with a border) or 'flat' = NO background, NO border / underline, no outer margin - the text sits straight on the page (a name in a title bar).
+   * The label (floating or above the field, as the design system does it) and the placeholder work as in the outlined look.
+   */
+  mode?: 'outlined' | 'flat';
 }
 
 export const TextInputApp: React.FC<TextInputAppProps> = ({
@@ -78,10 +83,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   heightVariant,
   leftIcons,
   unstyled,
+  mode = 'outlined',
   ...props
 }) => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
   const [isFocused, setIsFocused] = useState(false);
+  const flat = mode === 'flat';
 
   const currentValue = typeof value === 'string' ? value : '';
   const checkResult = errorCheck ? errorCheck(currentValue) : null;
@@ -145,6 +152,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           left={left}
           right={right}
           clearButton={!hideClearIcon}
+          variant={flat ? 'flat' : (props as any).variant}
           style={style}
         />
       );
@@ -170,12 +178,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           ) : undefined);
 
       return (
-        <View style={[{ marginBottom: 12, width: '100%' }, style]}>
+        <View style={[{ marginBottom: flat ? 0 : 12, width: '100%' }, style]}>
           {/* paper takes ONE left adornment: several icons are laid over the left part of the input (inside its outline) */}
           {iconsRow && <View style={{ position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', zIndex: 2 }}>{iconsRow}</View>}
           <PaperTextInput
-            contentStyle={iconsRow ? { paddingLeft: 14 + (leftIcons?.length ?? 0) * 22 } : undefined}
-            mode="outlined"
+            contentStyle={iconsRow ? { paddingLeft: 14 + (leftIcons?.length ?? 0) * 22 } : flat ? { paddingHorizontal: 0 } : undefined}
+            mode={flat ? 'flat' : 'outlined'}
             dense={lower > 0}
             label={label}
             value={currentValue}
@@ -192,7 +200,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             right={rightProp}
             outlineColor={themeColors.border}
             activeOutlineColor={themeColors.primary}
-            style={{ backgroundColor: themeColors.surface }}
+            {...(flat ? { underlineColor: 'transparent', activeUnderlineColor: 'transparent' } : null)}
+            style={{ backgroundColor: flat ? 'transparent' : themeColors.surface }}
             {...(props as any)}
           />
           {(hasError || helperText) && (
@@ -230,6 +239,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           hideClearIcon={hideClearIcon}
           size={size ?? (lower === 2 ? '$2' : lower === 1 ? '$3' : undefined)}
           unstyled={unstyled}
+          flat={flat}
           themeColors={themeColors}
           isDark={isDark}
           {...(props as any)}
@@ -241,16 +251,16 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
       const isMultiline = multiline;
       const linesCount = numberOfLines || 2;
       return (
-        <View style={[{ marginBottom: 14, width: '100%' }, style]}>
+        <View style={[{ marginBottom: flat ? 0 : 14, width: '100%' }, style]}>
           <View
             style={{
               flexDirection: 'row',
               alignItems: isMultiline ? 'flex-start' : 'center',
-              backgroundColor: disabled ? '#f5f5f5' : themeColors.surface,
-              borderWidth: 1,
+              backgroundColor: flat ? 'transparent' : disabled ? '#f5f5f5' : themeColors.surface,
+              borderWidth: flat ? 0 : 1,
               borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : '#d9d9d9',
               borderRadius: 4,
-              paddingHorizontal: 11,
+              paddingHorizontal: flat ? 0 : 11,
               paddingVertical: isMultiline ? 8 : [6, 4, 2][lower],
             }}
           >
@@ -300,7 +310,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
 
     case 'expo': {
       return (
-        <View style={[{ marginBottom: 14, width: '100%' }, style]}>
+        <View style={[{ marginBottom: flat ? 0 : 14, width: '100%' }, style]}>
           {label && (
             <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.primary, marginBottom: 4 }}>
               {label}
@@ -308,12 +318,12 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           )}
           <View
             style={{
-              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+              backgroundColor: flat ? 'transparent' : isDark ? '#1e293b' : '#f1f5f9',
               borderRadius: 20,
-              paddingHorizontal: 16,
+              paddingHorizontal: flat ? 0 : 16,
               paddingVertical: [10, 7, 4][lower],
-              borderWidth: 1.5,
-              borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : 'transparent',
+              borderWidth: flat ? 0 : 1.5,
+              borderColor: hasError ? themeColors.error : isFocused && !flat ? themeColors.primary : 'transparent',
               flexDirection: 'row',
               alignItems: 'center',
             }}
@@ -375,6 +385,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           style={style}
+          flat={flat}
           themeColors={themeColors}
           isDark={isDark}
         />
@@ -384,7 +395,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     case 'native':
     default: {
       return (
-        <View style={[{ marginBottom: 12, width: '100%' }, style]}>
+        <View style={[{ marginBottom: flat ? 0 : 12, width: '100%' }, style]}>
           {label && (
             <Text style={{ fontSize: 14, fontWeight: '500', color: themeColors.text, marginBottom: 4 }}>
               {label}
@@ -394,11 +405,11 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              borderWidth: 1,
+              borderWidth: flat ? 0 : 1,
               borderColor: hasError ? themeColors.error : isFocused ? themeColors.primary : themeColors.border,
               borderRadius: 6,
-              paddingHorizontal: 12,
-              backgroundColor: themeColors.surface,
+              paddingHorizontal: flat ? 0 : 12,
+              backgroundColor: flat ? 'transparent' : themeColors.surface,
               height: multiline ? undefined : [44, 38, 32][lower],
               paddingVertical: multiline ? 8 : 0,
             }}

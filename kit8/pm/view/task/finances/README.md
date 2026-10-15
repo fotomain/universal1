@@ -115,3 +115,9 @@ the first of resource › role › budget item › contract › project whose un
 `PMProjectTaskFinancesCRUD.tsx` the lines (tabs + table) · `PMProjectFinancesView.tsx` the dashboard view · `taskLineModel.ts` table, genus tabs, row shape ·
 `taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLineResource.ts` (who a line books: person | equipment | product) · `taskLinePersonMatch.ts` (person / equipment vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus (the **Errors** column - the message text + the ⚠ - is the FIRST one, before `#`, and only there while a line of the tab has an error) · `useTaskLineCatalogs.ts` the catalog rows from redux ·
 `taskLineMetaData.ts` the redux entity (spread into `kit8/redux/SystemMetaData.ts`).
+
+## Footer of a tab
+Every tab (Time, Material, Expenses, Revenues) is a `ReusableTable` with the footer: the count of lines and the **Qty total** - shown only while ALL the lines of THAT tab have the same unit (`totalWhenSame: 'unit'`): `12 hour`, `5 pcs`; `—` when the units differ; the lines of the other tabs are not in it. Price, VAT % and the other non-sum columns have no total.
+
+## Title = the name of the task (editable)
+The title of the Finances view (`PMProjectFinancesView`) is `view/task/EditTaskNameFast.tsx`: a `TextInputApp` in **`mode="flat"`** (no background, no border / underline, no outer margin; the label and the placeholder "Task name" still work). Enter or leaving the field saves (`crud.updateTask`, undo step "Rename task", only the name is written, saved once); Escape or an empty name puts the old name back; a name changed elsewhere follows unless you are typing. `TextInputApp` `mode` = `'outlined'` (default) | `'flat'`, implemented in every design system (paper, native, ant, expo, tamagui, googlemd3web, applemacui).

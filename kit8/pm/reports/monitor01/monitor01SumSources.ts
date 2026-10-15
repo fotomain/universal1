@@ -2,6 +2,7 @@
 //   planned          the movements of the plan                          contracted      the movements of lines that have a resource contract
 //   rest to contract planned − contracted (two lists)                    used            the lines of the POSTED fact documents ("Open" shows the document)       delivered  no data yet: the list is empty
 //   on-hand          delivered − used (two lists)
+//   A click / touch on a row opens its task line (handlers.openTaskLine); the button at the end of the row keeps its own job (Plan / Document).
 import type { SumExplorerSource } from '../../../ui/components/common/SumExplorerListReusable';
 import { MONITOR01_SUM_PAGE_SIZE } from './monitor01Constants';
 import { Monitor01SourceMeasure, Monitor01SourceRow, fetchMonitor01Sources } from './monitor01Api';
@@ -12,6 +13,8 @@ export interface Monitor01SourceHandlers {
   openPlan?: (taskGUID: string) => void;
   /** shows a posted fact document */
   openFactDocument?: (documentGUID: string, taskGUID: string) => void;
+  /** a click / touch on a transaction: its task line (dashboard, Finances view: task + tab + line), in a new tab on the web */
+  openTaskLine?: (row: Monitor01SourceRow) => void;
 }
 
 const TITLE: Record<string, string> = {
@@ -47,6 +50,7 @@ export function buildMonitor01Sources(client: any, measure: Monitor01Measure, fi
         ? (handlers.openFactDocument ? (r) => { if (r.documentGUID) handlers.openFactDocument!(r.documentGUID, r.taskGUID); } : undefined)
         : handlers.openPlan ? (r) => handlers.openPlan!(r.taskGUID) : undefined,
       openLabel: m === 'used' ? 'Document' : 'Plan',
+      onRowPress: handlers.openTaskLine,
     };
   });
 }

@@ -27,7 +27,8 @@ import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
-import { refreshMonitor01Now } from './monitor01Api';
+import { refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
+import { openDashboardLink } from '../../view/project/dashboardDeepLink';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
   filterMonitor01Rows, monitor01NodeKeys, monitor01Totals, monthLabel, rowsOfTab,
@@ -127,6 +128,13 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     router.push({ pathname: TASK_LINE_PLAN_ROUTE, params: { taskGUID, ...(scopeProject ? { projectGUID: scopeProject } : {}) } } as any);
   }, [router, scopeProject]);
 
+  // a transaction: its task line in the dashboard (Finances view: task + tab + line), in a new browser tab; the window stays open for the next one
+  const openTaskLine = useCallback((row: Monitor01SourceRow) => {
+    const projectGUID = row.projectGUID || scopeProject;
+    if (!projectGUID || !row.taskGUID) return;
+    openDashboardLink({ projectGUID, taskGUID: row.taskGUID, genus: row.genusGUID || undefined, lineGUID: row.lineGUID || undefined }, router);
+  }, [router, scopeProject]);
+
   const onCell = useCallback((cell: Monitor01CellPress) => {
     const item: Monitor01Item = cell.item;
     const scope = { projectGUID: scopeProject, filters };
@@ -150,7 +158,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openFactInput, scopeProject]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));

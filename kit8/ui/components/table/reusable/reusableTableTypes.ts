@@ -150,6 +150,13 @@ export interface NumberColumn extends ColumnBase {
   step?: number;
   /** false: no sum in the footer (prices, ratios ... where a sum means nothing). Default true */
   total?: boolean;
+  /**
+   * the key of ANOTHER column of the table (a unit, a currency): the footer shows the sum only while ALL the rows shown have the SAME value in that column (a quantity is a sum
+   * only in one unit); with different values the footer shows "—". Overrides `total: false` of this column. See columnFooterTotal (tableRows.ts).
+   */
+  totalWhenSame?: string;
+  /** with totalWhenSame: text after the sum, made from the common value (e.g. the unit's name: "12 pcs") */
+  totalSuffix?: (commonValue: any) => string;
 }
 
 export interface TextColumn extends ColumnBase { type: 'text'; placeholder?: string }

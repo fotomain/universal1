@@ -153,6 +153,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   cellEdit: null,
   lastCellEditClosedAt: 0,
   focusRequest: null,
+  placeRequest: null,
   undoCount: 0,
   undoLabel: null,
   redoCount: 0,
@@ -331,6 +332,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       lastCellEditClosedAt: edit === null && s.cellEdit !== null ? Date.now() : (s.lastCellEditClosedAt ?? 0),
     })),
 
+  setPlaceRequest: (request) => set((s) => ({ placeRequest: request ? { ...request, nonce: (s.placeRequest?.nonce ?? 0) + 1 } : null })),
   requestFocus: (rowGUID) => set((s) => ({ focusRequest: rowGUID ? { guid: rowGUID, nonce: (s.focusRequest?.nonce ?? 0) + 1 } : null })),
 
   revealRow: (rowGUID) =>

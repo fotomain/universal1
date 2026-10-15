@@ -528,12 +528,10 @@ function RootLayoutContent() {
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
-              <Drawer.Screen name="record/recordvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoWeb') }} />
-              <Drawer.Screen name="play/playvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideoWeb') }} />
-              <Drawer.Screen name="record/recordvideonative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoNative') }} />
-              <Drawer.Screen name="play/playvideonative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideoNative') }} />
-              <Drawer.Screen name="record/recordaudioweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioWeb') }} />
-              <Drawer.Screen name="record/recordaudionative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudioNative') }} />
+              <Drawer.Screen name="media/record/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudio') }} />
+              <Drawer.Screen name="media/record/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideo') }} />
+              <Drawer.Screen name="media/play/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playAudio') }} />
+              <Drawer.Screen name="media/play/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideo') }} />
             </Drawer>
             <AppTooltipLayer />
             <FABAppComponent />

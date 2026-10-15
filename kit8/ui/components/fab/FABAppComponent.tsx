@@ -8,6 +8,7 @@ import { useFAB, useFABCurrentContextActions } from '../../../providers/FABProvi
 import { CustomLightTheme } from '../../theme/palettes';
 import { getFabMainColors, getFabMiniColors } from './fabColors';
 import { useHiddenDuringScreenshot } from '../../../lib/shareScreenshot';
+import { fabBottomOffset, useBottomInset } from '../navigation/bottomTabsLayout';
 
 export interface FABAppAction {
   icon: string;
@@ -36,6 +37,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   /** commands of the open screen (FABProvider.useFABContextActions), e.g. the project management screens */
   const contextActions = useFABCurrentContextActions();
   const win = useWindowDimensions();
+  const bottomInset = useBottomInset();
   const hiddenForScreenshot = useHiddenDuringScreenshot();
 
   const fabIdRef = useRef('app-global-fab');
@@ -138,8 +140,8 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
 
   const fabMainColors = getFabMainColors(selectedFabColor);
 
-  // If bottom tabs are visible, raise the FAB higher so it doesn't overlap
-  const bottomOffset = bottomTabsAreVisible ? 80 : 24;
+  // The FAB sits above the system bar, and above the bottom tabs when they are visible
+  const bottomOffset = fabBottomOffset(bottomTabsAreVisible, bottomInset);
 
   // a picture without the floating button is being taken (project management: Export to PDF)
   if (hiddenForScreenshot) return null;

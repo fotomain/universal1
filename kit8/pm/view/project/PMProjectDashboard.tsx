@@ -2,6 +2,7 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
+//   deep link (useDashboardDeepLink): ?projectGUID&taskGUID&genus&lineGUID opens the Finances view at that task line
 //   Gantt | Kanban | Network | Versions | Finances | Plan switch (uxuiSettings.ganttVsNetworkView, remembered per user AND project): Kanban = tree + view/kanban/PMKanbanDashboard,
 //   Network = view/network/PMNetworkView, Versions = tree + version/view/version/PMProjectVersionsList
 //
@@ -43,6 +44,7 @@ import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
+import { useDashboardDeepLink } from './useDashboardDeepLink';
 
 export default function PMProjectDashboard() {
   // the texts follow the app language (kit8/pm/i18n): a language change re-creates the screen
@@ -81,6 +83,8 @@ function PMProjectDashboardInner() {
   const kanban = useKanbanCommands(selectedProjectGUID);
   const seedDemo = useSeedDemoMutation(ownerGUID);
   useRecentProjects(ownerGUID, projectsQuery.isSuccess);
+  // /pm/project/dashboard?projectGUID=…&taskGUID=…&genus=…&lineGUID=… (a click on a transaction of a source window): project, Finances view, task, tab, line
+  useDashboardDeepLink(ownerGUID, projectsQuery.isSuccess);
 
   // Switching projects (e.g. pressing "Project 2") shows the same loader as the first
   // load until the project's data has been (re)read from the database - not the stale

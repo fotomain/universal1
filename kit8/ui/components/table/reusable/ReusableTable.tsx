@@ -45,7 +45,7 @@ import ReusableTablePostButton, { POST_BUTTON_WIDE_FROM, ReusableTablePostState 
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
 import * as Clipboard from 'expo-clipboard';
 import { isDevEnvironment } from '../../../environment';
-import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths } from './tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths, columnFooterTotal } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -420,8 +420,9 @@ export default function ReusableTable(props: ReusableTableProps) {
   }
 
   // totals of the number columns (not of those with total: false - prices, ratios ...)
-  const numericCols = visualColumns.filter((col) => (col.type === 'integer' || col.type === 'number') && col.total !== false);
-  const total = (col: VisualColumn) => Math.round(visible.reduce((sum, r) => sum + (Number(cellValue(r, col)) || 0), 0) * 1e6) / 1e6;
+  // (a column with totalWhenSame is summed only while its guard column - the unit - has ONE value in the rows shown: columnFooterTotal)
+  const numericCols = visualColumns.filter((col) => (col.type === 'integer' || col.type === 'number') && (col.total !== false || !!(col as { totalWhenSame?: string }).totalWhenSame));
+  const footerTotal = (col: VisualColumn) => columnFooterTotal(visible, col, visualColumns);
 
   // ---- the parts of the bar above the table (placed by uxuiTable.tableBarLayoutVariant) ----
   const barLayout = uxuiTable?.tableBarLayoutVariant ?? 'leftCrudPanel_rightSearch';
@@ -579,7 +580,7 @@ export default function ReusableTable(props: ReusableTableProps) {
             {visualColumns.map((col, i) => (
               <View key={col.key} style={[styles.cell, footerAsRow && minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: numericCols.includes(col) ? (uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? 'flex-end' : 'center') : 'flex-start' }]}>
                 {numericCols.includes(col) ? (
-                  <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text }, uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? { paddingRight: 10 } : null]}>{total(col)}</Text>
+                  <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text }, uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? { paddingRight: 10 } : null]}>{(() => { const t = footerTotal(col); return t.kind === 'sum' ? `${t.value}${t.suffix ? ` ${t.suffix}` : ''}` : t.kind === 'mixed' ? '—' : ''; })()}</Text>
                 ) : i === (visualColumns[0]?.type === 'rowNumber' ? 1 : 0) ? (
                   <Text testID={`${testID}-count`} numberOfLines={1} style={{ color: c.text, opacity: 0.7, fontSize: 13 }}>
                     {viewFiltered ? `${visible.length} of ${rows.length}` : `${rows.length}`} {rows.length === 1 ? itemLabel.toLowerCase() : `${itemLabel.toLowerCase()}s`}

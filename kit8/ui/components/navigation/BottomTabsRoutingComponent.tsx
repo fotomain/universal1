@@ -7,6 +7,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { ActiveUserState } from '../../../redux/activeUserSlice';
 import { setBottomTabsAreVisible } from '../../../redux/uxuiSlice';
+import { BOTTOM_TABS_CONTENT_HEIGHT, BOTTOM_TABS_PADDING, useBottomInset } from './bottomTabsLayout';
 
 export interface TabItem {
   tabIcon: string;
@@ -26,6 +27,7 @@ export default function BottomTabsRoutingComponent(props: BottomTabsRoutingCompo
   const theme = useTheme();
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const bottomInset = useBottomInset();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
   useEffect(() => {
@@ -79,7 +81,13 @@ export default function BottomTabsRoutingComponent(props: BottomTabsRoutingCompo
   };
 
   return (
-    <Surface style={[styles.container, { backgroundColor: theme.colors.elevation.level2, borderTopColor: theme.colors.outlineVariant }]} elevation={2}>
+    <Surface
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.elevation.level2, borderTopColor: theme.colors.outlineVariant, paddingBottom: BOTTOM_TABS_PADDING + bottomInset },
+      ]}
+      elevation={2}
+    >
       <View style={styles.tabsRow}>
         {tabs.map((tab, idx) => {
           const isActive = pathname.includes(tab.tabRoute);
@@ -97,7 +105,7 @@ export default function BottomTabsRoutingComponent(props: BottomTabsRoutingCompo
               <View style={[styles.iconContainer, isActive && { backgroundColor: theme.colors.secondaryContainer }]}>
                 <MaterialCommunityIcons name={tab.tabIcon as any} size={24} color={isActive ? theme.colors.onSecondaryContainer : color} />
               </View>
-              <Text variant="labelMedium" style={[styles.tabLabel, { color }]}>
+              <Text variant="labelMedium" numberOfLines={1} style={[styles.tabLabel, { color }]}>
                 {tab.tabTitle}
               </Text>
             </TouchableOpacity>
@@ -112,10 +120,11 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     borderTopWidth: 1,
-    paddingVertical: 6,
+    paddingTop: BOTTOM_TABS_PADDING,
     paddingHorizontal: 8,
   },
   tabsRow: {
+    height: BOTTOM_TABS_CONTENT_HEIGHT,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',

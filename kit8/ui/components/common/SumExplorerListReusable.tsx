@@ -10,12 +10,18 @@
 //   A plain number has one source; a derived number (rest to contract = planned − contracted, on-hand = delivered − used) has two, each with its sign and its own subtotal.
 // * The window ends with a CHECK LINE: Σ sign × subtotal of the lists against the number that was clicked ("24.00 = 24.00 ✓"). A difference is told, not hidden: a report that
 //   is refreshed every few seconds can be a moment behind its sources.
+// * The ⋮ menu at the top right (like every window / table): Export and Share of the lists (JSON · CSV · PDF) - ALL rows, the pages not read yet are read first.
 // * The component knows nothing about any report: the caller brings the sources.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from './ButtonApp';
 import IconApp from './IconApp';
+import PMContextMenu from '../../../pm/inner/menu/PMContextMenu';
+import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
+import { buildFileFromExportData, exportTableFile, shareTableFile, tableFileResultMessage } from '../table/reusable/tableExportActions';
+import type { TableExportFormat } from '../table/reusable/tableExportActions';
+import { buildSumExplorerExportData, readAllRows } from './sumExplorerExport';
 
 export interface SumExplorerColumn<R> {
   key: string;
@@ -37,6 +43,8 @@ export interface SumExplorerSource<R = any> {
   /** shows the transaction in its own screen */
   onOpen?: (row: R) => void;
   openLabel?: string;
+  /** a click / touch on the row itself (not only on the Open button): e.g. the task line of the transaction in a new tab */
+  onRowPress?: (row: R) => void;
   emptyText?: string;
 }
 
@@ -57,6 +65,12 @@ export interface SumExplorerListReusableProps {
 interface SourceState { rows: any[]; totalCount: number; sum: number; page: number; loading: boolean; error: string | null; loaded: boolean }
 const EMPTY_STATE: SourceState = { rows: [], totalCount: 0, sum: 0, page: -1, loading: false, error: null, loaded: false };
 const TOLERANCE = 0.005;
+// the lists have no GUIDs behind them: one PDF
+const SUM_EXPORT_FORMATS: { format: TableExportFormat; label: string; icon: string }[] = [
+  { format: 'json', label: 'to JSON', icon: 'data_object' },
+  { format: 'csv', label: 'to CSV', icon: 'description' },
+  { format: 'pdfVisible', label: 'PDF', icon: 'picture_as_pdf' },
+];
 
 /** the check line: Σ sign × subtotal against the clicked number (pure, tested) */
 export function sumExplorerCheck(listTotal: number, value: number | null | undefined): { ok: boolean; difference: number } | null {
@@ -68,8 +82,31 @@ export function sumExplorerCheck(listTotal: number, value: number | null | undef
 export default function SumExplorerListReusable({ visible, onClose, title, subtitle, value, unit, sources, resetKey, testID = 'sum-explorer' }: SumExplorerListReusableProps) {
   const { themeColors: c } = useDesignSystem();
   const [state, setState] = useState<Record<string, SourceState>>({});
+  const titleRef = useRef(title);
+  titleRef.current = title;
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const lastPress = useRef({ x: 0, y: 0 });
+
+  /** the lists as they are now, ALL rows -> a file (export = download, share = the share sheet of the platform) */
+  const runExport = useCallback(async (format: TableExportFormat, share: boolean) => {
+    try {
+      const rows: Record<string, any[]> = {};
+      for (const s of sourcesRef.current) {
+        const st = stateRef.current[s.key] ?? EMPTY_STATE;
+        rows[s.key] = await readAllRows(s, st.rows, st.loaded ? st.totalCount : Number.POSITIVE_INFINITY, st.page);
+      }
+      const file = buildFileFromExportData(format, buildSumExplorerExportData(titleRef.current, sourcesRef.current, rows));
+      const result = share ? await shareTableFile(file, titleRef.current) : await exportTableFile(file);
+      setNotice(tableFileResultMessage(result, file.fileName));
+    } catch (e: any) {
+      setNotice(`${share ? 'Share' : 'Export'} failed: ${e?.message || e}`);
+    }
+  }, []);
 
   const readPage = useCallback(async (key: string, page: number) => {
     const source = sourcesRef.current.find((s) => s.key === key);
@@ -90,6 +127,8 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
   useEffect(() => {
     if (!visible) return;
     setState({});
+    setNotice(null);
+    setMenu(null);
     for (const s of sourcesRef.current) void readPage(s.key, 0);
   }, [visible, resetKey, readPage]);
 
@@ -110,6 +149,10 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
             </View>
             {value != null && <Text testID={`${testID}-value`} style={{ color: c.text, fontWeight: '800', fontSize: 16 }}>{fmt(value)}{unit ? ` ${unit}` : ''}</Text>}
             <ButtonApp testID={`${testID}-close`} title="Close" variant="text" size="small" onPress={onClose} />
+            <View onStartShouldSetResponderCapture={(e: any) => { lastPress.current = { x: e?.nativeEvent?.pageX ?? 0, y: e?.nativeEvent?.pageY ?? 0 }; return false; }}>
+              <PMIconButton tipScope="app" testID={`${testID}-more`} icon="more_vert" title="Export, share" color={c.text}
+                onPress={() => setMenu({ x: lastPress.current.x, y: lastPress.current.y })} />
+            </View>
           </View>
 
           <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ paddingBottom: 8 }}>
@@ -132,7 +175,8 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
                     </View>
                   )}
                   {st.rows.map((row) => (
-                    <View key={source.rowKey(row)} testID={`${testID}-row-${source.rowKey(row)}`} style={[styles.row, { borderBottomColor: c.border }]}>
+                    <Pressable key={source.rowKey(row)} testID={`${testID}-row-${source.rowKey(row)}`} accessibilityRole={source.onRowPress ? 'link' : undefined} disabled={!source.onRowPress}
+                      onPress={source.onRowPress ? () => source.onRowPress!(row) : undefined} style={[styles.row, { borderBottomColor: c.border }]}>
                       {source.columns.map((col) => (
                         <Text key={col.key} numberOfLines={1} style={[styles.cell, { color: c.text }, col.align === 'right' && styles.right, col.width ? { width: col.width } : { flex: col.flex ?? 1 }]}>{col.render(row)}</Text>
                       ))}
@@ -141,7 +185,7 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
                           <Text style={{ color: c.primary, fontSize: 12, fontWeight: '600' }}>{source.openLabel ?? 'Open'}</Text>
                         </Pressable>
                       )}
-                    </View>
+                    </Pressable>
                   ))}
                   {st.loaded && st.rows.length < st.totalCount && (
                     <ButtonApp testID={`${testID}-more-${source.key}`} title={`Load more (${st.rows.length} of ${st.totalCount})`} variant="text" size="small" loading={st.loading} onPress={() => { void readPage(source.key, st.page + 1); }} />
@@ -152,6 +196,7 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
             })}
           </ScrollView>
 
+          {!!notice && <Text testID={`${testID}-notice`} style={{ color: c.text, fontSize: 12, opacity: 0.8 }}>{notice}</Text>}
           {check && (
             <View testID={`${testID}-check`} style={[styles.check, { borderColor: check.ok ? c.primary : c.error }]}>
               <IconApp name={check.ok ? 'check_circle' : 'warning'} size={16} color={check.ok ? c.primary : c.error} />
@@ -164,6 +209,15 @@ export default function SumExplorerListReusable({ visible, onClose, title, subti
           )}
         </Pressable>
       </Pressable>
+      {menu && (
+        <PMContextMenu testID={`${testID}-more-menu`} x={menu.x} y={menu.y} onClose={() => setMenu(null)}
+          items={[
+            { testID: `${testID}-more-export`, label: 'Export', icon: 'download', onPress: () => {},
+              submenu: SUM_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-export-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setMenu(null); void runExport(f.format, false); } })) },
+            { testID: `${testID}-more-share`, label: 'Share', icon: 'share', onPress: () => {},
+              submenu: SUM_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-share-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setMenu(null); void runExport(f.format, true); } })) },
+          ]} />
+      )}
     </Modal>
   );
 }

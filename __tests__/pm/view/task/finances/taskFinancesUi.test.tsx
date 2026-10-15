@@ -284,6 +284,52 @@ describe('tabs and tables', () => {
   });
 });
 
+describe('the Qty total in the footer (only while all the lines shown have the same unit)', () => {
+  const qtyTotal = () => q(`${TT}-total-qty`)?.textContent;
+  const L = (guid: string, genus: string, order: number, qty: any, unit: any) => line(guid, genus, order, { qtyTaskLine: qty, measureUnitTaskLine: unit, sumForContract: 1, sumVATForContract: 0 });
+
+  it('Time: 8 + 4 hours = "12 hour" in the footer, under the Qty column', () => {
+    mount({ lines: [L('a', 'timeGenus', 1, 8, 'unit_hour'), L('b', 'timeGenus', 2, 4, 'unit_hour')] });
+    expect(qtyTotal()).toBe('12 hour');
+    expect(q(`${TT}-footer`)!.contains(q(`${TT}-total-qty`))).toBe(true);
+  });
+  it('different units in the tab: "—", no sum', () => {
+    mount({ lines: [L('a', 'timeGenus', 1, 8, 'unit_hour'), L('b', 'timeGenus', 2, 4, 'unit_pcs')] });
+    expect(qtyTotal()).toBe('—');
+  });
+  it('every tab has its own total: the lines of the other tabs (and tasks) are not in it', () => {
+    mount({ lines: [L('t1', 'timeGenus', 1, 8, 'unit_hour'), L('t2', 'timeGenus', 2, 2, 'unit_hour'), L('m1', 'materialGenus', 3, 5, 'unit_pcs'), L('m2', 'materialGenus', 4, 7, 'unit_pcs'),
+      line('o', 'timeGenus', 5, { qtyTaskLine: 100, measureUnitTaskLine: 'unit_pcs' }, 't2')] });
+    expect(qtyTotal()).toBe('10 hour');                                    // the pieces of Material do not make the Time total "mixed"
+    press(`${T}-tab-materialGenus`);
+    expect(qtyTotal()).toBe('12 pcs');
+  });
+  it('Expenses and Revenues have the footer too (the same columns)', () => {
+    mount({ lines: [L('e1', 'expenseGenus', 1, 3, 'unit_pcs'), L('r1', 'revenueGenus', 2, 9, 'unit_pcs')] });
+    press(`${T}-tab-expenseGenus`);
+    expect(qtyTotal()).toBe('3 pcs');
+    press(`${T}-tab-revenueGenus`);
+    expect(qtyTotal()).toBe('9 pcs');
+  });
+  it('lines without a unit are "the same" (all empty): the sum without a unit name; an empty and a filled unit are mixed', () => {
+    mount({ lines: [L('a', 'timeGenus', 1, 2, null), L('b', 'timeGenus', 2, 3, null)] });
+    expect(qtyTotal()).toBe('5');
+    act(() => root?.unmount()); document.body.innerHTML = '';
+    mount({ lines: [L('a', 'timeGenus', 1, 2, null), L('b', 'timeGenus', 2, 3, 'unit_hour')] });
+    expect(qtyTotal()).toBe('—');
+  });
+  it('a tab without lines: the footer shows no Qty total', () => {
+    mount({ lines: [L('a', 'timeGenus', 1, 2, 'unit_hour')] });
+    press(`${T}-tab-materialGenus`);
+    expect(qtyTotal() ?? '').toBe('');
+  });
+  it('the Price, VAT % columns still have no total', () => {
+    mount({ lines: [L('a', 'timeGenus', 1, 2, 'unit_hour')] });
+    expect(q(`${TT}-total-price`)).toBeNull();
+    expect(q(`${TT}-total-vat`)).toBeNull();
+  });
+});
+
 describe('the count badge of a tab', () => {
   it('more than 99 lines: 99+', () => {
     const many = Array.from({ length: 120 }, (_, i) => line(`x${i}`, 'timeGenus', i, {}));

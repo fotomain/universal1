@@ -1,5 +1,5 @@
 // AppleTextField - iOS text field (HIG: Text fields): label, placeholder, helper / error text, clear button,
-// secure entry toggle, focus ring, keyboard types. variant "grouped" = a row of an inset grouped list
+// secure entry toggle, focus ring, keyboard types. variant "grouped" = a row of an inset grouped list, "flat" = no background / border / ring (a name in a title bar)
 // (label at the left, value at the right of it, no own border).
 import React, { forwardRef, memo, useMemo, useState } from 'react';
 import { KeyboardTypeOptions, Platform, Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
@@ -20,7 +20,7 @@ export interface AppleTextFieldProps extends Omit<TextInputProps, 'style' | 'onC
   /** password field with a show / hide toggle */
   secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
-  variant?: 'default' | 'grouped';
+  variant?: 'default' | 'grouped' | 'flat';
   /** custom element inside the field at the left / right (right replaces the clear button) */
   left?: React.ReactNode;
   right?: React.ReactNode;
@@ -64,29 +64,32 @@ export const AppleTextField = memo(
     const hasError = !!error;
     const message = typeof error === 'string' && error ? error : helperText;
     const grouped = variant === 'grouped';
+    // flat: no background, no border, no focus ring, no outer margin; the label stays ABOVE the field (unlike grouped, whose label is inline)
+    const flat = variant === 'flat';
+    const bare = grouped || flat;
 
     const s = useMemo(() => {
       const c = theme.colors;
       return StyleSheet.create({
-        root: { width: '100%', marginBottom: grouped ? 0 : theme.space[3] },
+        root: { width: '100%', marginBottom: bare ? 0 : theme.space[3] },
         label: { ...text('subhead'), color: c.secondaryLabel, marginBottom: theme.space[1] + 2, marginLeft: theme.space[1] },
         groupedLabel: { ...text('body'), color: c.label, minWidth: 96, marginRight: theme.space[3] },
         box: {
           flexDirection: 'row',
           alignItems: multiline ? 'flex-start' : 'center',
           minHeight: theme.size.touchTarget,
-          paddingHorizontal: grouped ? theme.space[4] : theme.space[3],
+          paddingHorizontal: flat ? 0 : grouped ? theme.space[4] : theme.space[3],
           paddingVertical: multiline ? theme.space[2] + 2 : 0,
-          borderRadius: grouped ? 0 : theme.radii.input,
-          backgroundColor: grouped ? 'transparent' : c.tertiaryFill,
-          borderWidth: grouped ? 0 : 1,
+          borderRadius: bare ? 0 : theme.radii.input,
+          backgroundColor: bare ? 'transparent' : c.tertiaryFill,
+          borderWidth: bare ? 0 : 1,
           borderColor: hasError ? c.systemRed : 'transparent',
           opacity: disabled ? 0.5 : 1,
-          ...(Platform.OS === 'web' && !grouped ? { marginHorizontal: theme.focusRing.width, marginVertical: theme.focusRing.width } : null),
+          ...(Platform.OS === 'web' && !bare ? { marginHorizontal: theme.focusRing.width, marginVertical: theme.focusRing.width } : null),
         },
         // focus ring: tint border + soft outer ring (web shadow). The field is inset by the ring's width (ringRoom), so
         // the whole ring is visible inside a scroll view / dialog that clips its content.
-        focused: grouped
+        focused: bare
           ? {}
           : ({ borderColor: hasError ? c.systemRed : theme.tint, ...(Platform.OS === 'web' ? { boxShadow: `0 0 0 ${theme.focusRing.width}px ${theme.focusRing.color}` } : null) } as any),
         input: { ...text('body'), flex: 1, minWidth: 0, color: c.label, paddingVertical: 0, minHeight: multiline ? 66 : undefined, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null) },
@@ -94,7 +97,7 @@ export const AppleTextField = memo(
         adornRight: { marginLeft: theme.space[2], minWidth: 22, minHeight: theme.size.touchTarget, alignItems: 'center', justifyContent: 'center' },
         message: { ...text('footnote'), color: hasError ? c.systemRed : c.secondaryLabel, marginTop: theme.space[1], marginLeft: theme.space[1] },
       });
-    }, [theme, text, grouped, multiline, hasError, disabled]);
+    }, [theme, text, grouped, flat, bare, multiline, hasError, disabled]);
     const c = theme.colors;
     const showClear = clearButton && right === undefined && !disabled && value.length > 0 && !secureTextEntry;
 

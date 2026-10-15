@@ -260,7 +260,8 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
   }
 
   cols.push(
-    { key: 'qty', title: pmT('Qty'), type: 'number', field: 'qtyTaskLine', width: 130, min: 0, max: 1000000000, total: false },
+    // the footer sums the quantity only while ALL the lines of the tab have the SAME unit (2 pcs + 3 pcs = 5 pcs; hours + pieces is no sum): "—" when the units differ
+    { key: 'qty', title: pmT('Qty'), type: 'number', field: 'qtyTaskLine', width: 130, min: 0, max: 1000000000, totalWhenSame: 'unit', totalSuffix: (unit) => unitOptions.find((o) => o.value === unit)?.label ?? '' },
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 110, options: unitOptions, allowEmpty: false },
     { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 130, min: 0, max: 1000000000, total: false },
     { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: 110, min: 0, max: 100, total: false },

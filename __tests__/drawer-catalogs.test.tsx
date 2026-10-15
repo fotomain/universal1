@@ -169,3 +169,33 @@ it('opens by itself on a catalog page (list or edit)', () => {
   expect(q('drawer-subitem-businessunits')).not.toBeNull();
 });
 
+
+it('Record (Audio, Video) and Play (Audio, Video) are closed accordions that open the media screens', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-record')).toBe(ids.indexOf('drawer-item-posts') + 1);
+  expect(ids.indexOf('drawer-item-play')).toBe(ids.indexOf('drawer-item-record') + 1);
+  expect(q('drawer-subitem-record-audio')).toBeNull(); // closed
+  expect(q('drawer-subitem-play-audio')).toBeNull();
+
+  press('drawer-item-record');
+  expect(mockNavigate).not.toHaveBeenCalled(); // a group only toggles
+  expect(q('drawer-subitem-record-audio')!.textContent).toContain('Audio');
+  expect(q('drawer-subitem-record-video')!.textContent).toContain('Video');
+  press('drawer-subitem-record-audio');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/audio');
+  press('drawer-subitem-record-video');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/video');
+
+  press('drawer-item-play');
+  press('drawer-subitem-play-audio');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/play/audio');
+  press('drawer-subitem-play-video');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/play/video');
+});
+
+it('Record opens by itself while a record screen is shown', () => {
+  mount('/media/record/video');
+  expect(q('drawer-subitem-record-video')).not.toBeNull();
+  expect(q('drawer-subitem-play-video')).toBeNull();
+});

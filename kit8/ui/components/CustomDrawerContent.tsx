@@ -57,6 +57,27 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'home', label: t('menu.home'), icon: 'home', route: 'home' },
     { id: 'developer1', label: 'Developer 1', icon: 'logo_dev', route: 'developer1' },
     { id: 'posts', label: 'Media Posts', icon: 'list_alt', route: 'posts/mediapostcrud' },
+    // record with the camera / microphone and play audio / video (kit8/ui/components/media): web, iOS, Android
+    {
+      id: 'record',
+      label: 'Record',
+      icon: 'fiber_manual_record',
+      route: '',
+      children: [
+        { id: 'record-audio', label: 'Audio', icon: 'mic', route: 'media/record/audio' },
+        { id: 'record-video', label: 'Video', icon: 'videocam', route: 'media/record/video' },
+      ],
+    },
+    {
+      id: 'play',
+      label: 'Play',
+      icon: 'play_circle',
+      route: '',
+      children: [
+        { id: 'play-audio', label: 'Audio', icon: 'headphones', route: 'media/play/audio' },
+        { id: 'play-video', label: 'Video', icon: 'movie', route: 'media/play/video' },
+      ],
+    },
     { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
     {
       id: 'catalogs',

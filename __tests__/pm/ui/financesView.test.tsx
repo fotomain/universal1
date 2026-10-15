@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // The Finances main view: the button of the view switch, the view (tree + the lines of the selected task) and the places it reports.
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore, textOf } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, inputValue, press, q, renderUI, seedStore } from './pmUiTestKit';
 
 const mockLines = jest.fn((_props: any) => null);
 jest.mock('../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', () => ({
@@ -61,7 +61,7 @@ describe('PMProjectFinancesView', () => {
     act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, [task.rowGUID]: { ...s.tasksById[task.rowGUID], rowJSON: { ...s.tasksById[task.rowGUID].rowJSON, lastEditPlace: place } } }, selectedGUID: task.rowGUID })));
     renderUI(view());
     expect(q(`lines-of-${task.rowGUID}`)).not.toBeNull();
-    expect(textOf('pm-finances-title')).toBe('Task 111');
+    expect(inputValue('pm-finances-task-name-input')).toBe('Task 111');          // the title is a field: the name can be typed over right there
     expect(mockLines.mock.calls[0][0]).toMatchObject({ projectGUID: 'p', taskGUID: task.rowGUID, initialPlace: place });
   });
 

@@ -38,7 +38,9 @@ Filters above the table: `startDate` · `finishDate` (**`DateInputApp`**: type o
 | `useMonitor01Rows.ts` | paged first load + Realtime: events patched by key, batched 100 ms, read again after a reconnect |
 | `Monitor01Table.tsx` · `Monitor01Filters.tsx` · `Monitor01Toolbar.tsx` · `Monitor01Dashboard.tsx` | the screen |
 | `monitor01Api.ts` · `monitor01SumSources.ts` | the drill-down calls and the lists (planned, contracted; rest = planned − contracted; on-hand = delivered − used) |
-| `kit8/ui/components/common/SumExplorerListReusable.tsx` | the reusable window: lists, subtotals, check line "list total = number ✓" |
+| `kit8/ui/components/common/SumExplorerListReusable.tsx` | the reusable window: lists, subtotals, check line "list total = number ✓"; ⋮ menu at the top right = Export / Share (JSON · CSV · PDF, ALL rows) |
+| `kit8/pm/view/project/dashboardDeepLink.ts`, `useDashboardDeepLink.ts` | a click / touch on a transaction row opens its TASK LINE: `/pm/project/dashboard?projectGUID&taskGUID&view=finances&genus&lineGUID` in a NEW browser tab (web; native = router push); the dashboard selects the project, switches to the Finances ("Edit") view without saving it, scrolls the tree to the task, opens the genus tab and marks the line (`store.placeRequest`); test `__tests__/pm/view/project/dashboardDeepLink.test.tsx` |
+| `kit8/ui/components/common/sumExplorerExport.ts` | the lists as one flat table (column "List" first) + reading of the pages not loaded yet; test `__tests__/ui/sumExplorerExport.test.tsx` |
 
 ## Tests and speed
 * SQL: `cd kit8/docker && ./test_fact_monitor01.sh 60` (85 checks: the numbers of the sheet, only changed rows written, renames, parking, policies, drill-down = the cell, verify) and the procedure with COMMIT (1200 tasks in 3 batches).

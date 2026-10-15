@@ -8,6 +8,7 @@ import { downloadBinaryFile } from '../../../../pm/crud/exchange/pdf/downloadBin
 import type { ReusableTableRow, VisualColumn } from './reusableTableTypes';
 import type { CatalogTitleFn } from './tableFilter';
 import { buildTableExport, exportFileName, exportToCSV, exportToJSON } from './tableExport';
+import type { TableExportData } from './tableExport';
 import { buildTablePdf } from './tablePdf';
 
 export type TableExportFormat = 'json' | 'csv' | 'pdfFull' | 'pdfVisible';
@@ -22,7 +23,12 @@ export interface TableFile { fileName: string; mimeType: string; text?: string; 
 export interface TableExportSource { title: string; rows: ReusableTableRow[]; columns: VisualColumn[]; catalogTitle: CatalogTitleFn }
 
 export function buildTableFile(format: TableExportFormat, src: TableExportSource, now = new Date()): TableFile {
-  const data = buildTableExport({ ...src, withGuids: format !== 'pdfVisible' });
+  return buildFileFromExportData(format, buildTableExport({ ...src, withGuids: format !== 'pdfVisible' }), now);
+}
+
+/** the file of an already flat table (ReusableTable and the other windows with a ⋮ menu, e.g. SumExplorerListReusable) */
+export function buildFileFromExportData(format: TableExportFormat, data: TableExportData, now = new Date()): TableFile {
+  const src = { title: data.title };
   if (format === 'json') return { fileName: exportFileName(src.title, 'json', now), mimeType: 'application/json', text: exportToJSON(data, now) };
   if (format === 'csv') return { fileName: exportFileName(src.title, 'csv', now), mimeType: 'text/csv', text: exportToCSV(data) };
   const subtitle = `${data.rows.length} rows · ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC${format === 'pdfFull' ? ' · full data (with GUIDs)' : ''}`;

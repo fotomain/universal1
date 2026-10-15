@@ -206,6 +206,8 @@ export interface PMStoreState {
   lastCellEditClosedAt?: number;
   /** "Reveal this row" request (e.g. back from the task page): consumed by the Gantt surface. */
   focusRequest: { guid: string; nonce: number } | null;
+  /** a deep link (dashboardDeepLink.ts): the Finances view opens THIS task at this genus tab and marks this line, instead of the remembered place */
+  placeRequest: { taskGUID: string; genus?: string; lineGUID?: string; nonce: number } | null;
   /** Undo stack info for the current project (the entries live in expo-sqlite). */
   undoCount: number;
   undoLabel: string | null;
@@ -254,6 +256,7 @@ export interface PMStoreState {
   setCellEdit: (edit: { guid: string; field: PMCellField } | null) => void;
   /** Ask the Gantt to expand the row's parents, select it and scroll it into view. */
   requestFocus: (rowGUID: string | null) => void;
+  setPlaceRequest: (request: { taskGUID: string; genus?: string; lineGUID?: string } | null) => void;
   /** Expands all ancestors of the row and selects it (no scrolling). */
   revealRow: (rowGUID: string) => void;
   setUndoInfo: (count: number, label: string | null) => void;

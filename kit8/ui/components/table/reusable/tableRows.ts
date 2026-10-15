@@ -30,6 +30,26 @@ export function cellValue(row: ReusableTableRow | null | undefined, col: VisualC
   return col.fromStored ? col.fromStored(stored, row) : stored;
 }
 
+/** what the footer of a number column shows: the sum, or "mixed" (totalWhenSame: the rows have different values in the guard column), or nothing (no rows / no sum wanted) */
+export type FooterTotal = { kind: 'none' } | { kind: 'mixed' } | { kind: 'sum'; value: number; suffix: string };
+
+/**
+ * The footer total of a number column over the rows shown. `total: false` = none, unless `totalWhenSame` names a guard column: then the sum is shown only when every row has the SAME value
+ * there (compared as text, an empty value is a value too), else "mixed". No rows = none. Rounded to 6 decimals like the plain sum.
+ */
+export function columnFooterTotal(rows: ReusableTableRow[], col: VisualColumn, columns: VisualColumn[]): FooterTotal {
+  const guardKey = (col as { totalWhenSame?: string }).totalWhenSame;
+  const sumOf = () => Math.round(rows.reduce((sum, r) => sum + (Number(cellValue(r, col)) || 0), 0) * 1e6) / 1e6;
+  if (!guardKey) return (col as { total?: boolean }).total === false ? { kind: 'none' } : { kind: 'sum', value: sumOf(), suffix: '' };
+  const guard = columns.find((c) => c.key === guardKey);
+  if (!guard || rows.length === 0) return { kind: 'none' };
+  const first = cellValue(rows[0], guard);
+  const same = rows.every((r) => String(cellValue(r, guard) ?? '') === String(first ?? ''));
+  if (!same) return { kind: 'mixed' };
+  const suffix = (col as { totalSuffix?: (v: any) => string }).totalSuffix?.(first) ?? '';
+  return { kind: 'sum', value: sumOf(), suffix };
+}
+
 /** a cell change, split by where it is stored */
 export interface CellPatch {
   rowJSON: Record<string, any>;

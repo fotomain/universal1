@@ -6,7 +6,7 @@ import loadMaterialWebCdn from './loadMaterialWebCdn';
 
 const MdOutlinedTextField = 'md-outlined-text-field' as any;
 
-export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: any; isDark: boolean }> = ({
+export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: any; isDark: boolean; flat?: boolean }> = ({
   label,
   value = '',
   onChangeText,
@@ -23,6 +23,7 @@ export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: 
   themeColors,
   isDark,
   style,
+  flat = false,
 }) => {
   const fieldRef = useRef<any>(null);
 
@@ -48,7 +49,7 @@ export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: 
 
   if (Platform.OS === 'web') {
     return (
-      <div style={{ marginBottom: '16px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ marginBottom: flat ? '0' : '16px', width: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Material 3 Web Outlined Text Field Custom Element */}
         <MdOutlinedTextField
           ref={fieldRef}
@@ -63,8 +64,13 @@ export const GoogleMD3WebTextInput: React.FC<TextInputAppProps & { themeColors: 
           style={{
             width: '100%',
             '--md-outlined-text-field-container-shape': '8px',
-            '--md-outlined-text-field-outline-color': themeColors.border,
-            '--md-outlined-text-field-focus-outline-color': '#0b57d0',
+            // flat: no outline at rest, on hover or on focus (the label still floats and the placeholder still shows)
+            '--md-outlined-text-field-outline-color': flat ? 'transparent' : themeColors.border,
+            '--md-outlined-text-field-hover-outline-color': flat ? 'transparent' : undefined,
+            '--md-outlined-text-field-focus-outline-color': flat ? 'transparent' : '#0b57d0',
+            '--md-outlined-text-field-outline-width': flat ? '0px' : undefined,
+            '--md-outlined-text-field-focus-outline-width': flat ? '0px' : undefined,
+            '--md-outlined-text-field-hover-outline-width': flat ? '0px' : undefined,
             '--md-outlined-text-field-label-text-color': isDark ? '#94a3b8' : '#444746',
             '--md-outlined-text-field-focus-label-text-color': '#0b57d0',
             '--md-outlined-text-field-input-text-color': themeColors.text,
