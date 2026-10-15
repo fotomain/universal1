@@ -31,6 +31,7 @@
 --   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_usage_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 --   26. create_vendor_invoice.sql - the legal entity catalog, the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract) and its posting into the project status register
+--   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
 -- ===============================================================================================
 
 DO $$
@@ -5789,6 +5790,13 @@ BEGIN
          RETURNING 1)
   SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_u, v_d;
 
+  -- step 3 (PART 27): the cost total of the tasks and of the stages above them. A failure here must never stop Monitor01: it is a warning, the toolbar command (update_project_cost_total) heals it.
+  BEGIN
+    PERFORM public.project_cost_apply(p_tasks);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'project_cost_apply failed: %', SQLERRM;
+  END;
+
   p_upserted := v_u + v_fu;
   p_deleted  := v_d + v_fd;
 END;
@@ -5805,6 +5813,7 @@ DECLARE
   v_tasks uuid[]; v_lag interval; v_att jsonb; v_t0 timestamptz := clock_timestamp();
   v_up integer := 0; v_del integer := 0; v_u integer; v_d integer; v_one uuid; v_parked integer;
 BEGIN
+  PERFORM public.project_cost_process_dirty();      -- (PART 27) the projects whose stages were moved / deleted are rebuilt (a tiny queue, usually empty)
   WITH c AS (SELECT d."rowOwnerGUID", d."queuedAt" FROM public.monitor01_dirty d WHERE d."attempts" < 5 ORDER BY d."queuedAt" LIMIT p_batch FOR UPDATE SKIP LOCKED),
        x AS (DELETE FROM public.monitor01_dirty d USING c WHERE d."rowOwnerGUID" = c."rowOwnerGUID" RETURNING d."rowOwnerGUID", c."queuedAt", d."attempts")
   SELECT array_agg(x."rowOwnerGUID"), clock_timestamp() - min(x."queuedAt"), jsonb_object_agg(x."rowOwnerGUID"::text, x."attempts") INTO v_tasks, v_lag, v_att FROM x;
@@ -6859,6 +6868,305 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT public.create_vendor_invoices('<task rowGUID>', '[{"partnerGUID": "...", "contractGUID": "...", "lineGUIDs": ["..."]}]'::jsonb);
 --   SELECT public.post_vendor_invoice('<document rowGUID>');
 --   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'invoiced';
+
+
+-- ===============================================================================================
+-- PART 27: create_project_cost_total.sql
+-- the cost total of every task and stage of the tree (documentation/UPDATE_PROJECT_COST.html): project_task_cost_total + the queue of the projects to rebuild
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - PROJECT COST TOTAL: create_project_cost_total.sql  (run AFTER parts 1-26; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
+--
+-- costTotalForBudget of a task = the plan (sumForBudgetPlan of project_status_month_turnover) of Time + Material + Expense, in the budget currency; of a stage = its own + everything below it.
+-- The server works only while a cost budget is on (project_cost_budget_on): the master switch projectExpenseBudgetNeeded AND one of Time / Material / Expense - the same rule as the app (projectCostBudgetOn).
+--   hot path  step 3 of monitor01_apply (same queue, same pg_cron tick, same transaction as the turnover): project_cost_apply = newOwn - storedOwn (the DELTA) is added to the task and to every stage above it;
+--             the stages are read from the LABELS of treePath (a label = the GUID of that row with - replaced by _): no join, no subtree scan (measured: kit8/docker/bench_project_cost_rollup.sql)
+--   rare path project_cost_rebuild: the same numbers from scratch, one pass (the toolbar command, a switch turned on, a stage moved / deleted, project_cost_verify)
+-- Read policy: rowOwnerUserGUID = the user (one column, no join per event: the fastest realtime). Nobody writes but the SECURITY DEFINER functions.
+-- =====================================================================================
+
+-- one switch of the project settings: a boolean when the key holds a boolean, else its default (the rule of taskInputSwitchesOf)
+CREATE OR REPLACE FUNCTION public.project_cost_flag(p_json jsonb, p_key text, p_default boolean) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT CASE WHEN jsonb_typeof(p_json -> p_key) = 'boolean' THEN (p_json ->> p_key)::boolean ELSE p_default END
+$$;
+
+-- is a cost budget on? Same as projectCostBudgetOn() of kit8/pm/model/taskInputScope.ts: the master projectExpenseBudgetNeeded (default off) AND
+-- (Time [projectTimeCostsNeeded, default on, with person (default on) or equipment (default off)] OR Material (default on) OR Expense (default on))
+CREATE OR REPLACE FUNCTION public.project_cost_budget_on(p_json jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT public.project_cost_flag(p_json, 'projectExpenseBudgetNeeded', false)
+     AND ( (public.project_cost_flag(p_json, 'projectTimeCostsNeeded', true)
+            AND (public.project_cost_flag(p_json, 'projectTimeOfPersonNeeded', true) OR public.project_cost_flag(p_json, 'projectTimeOfEquipmentNeeded', false)))
+        OR public.project_cost_flag(p_json, 'projectMaterialCostsNeeded', true)
+        OR public.project_cost_flag(p_json, 'projectExpenseCostsNeeded', true) )
+$$;
+
+ALTER TABLE public.project_task_cost_total REPLICA IDENTITY FULL;
+
+ALTER TABLE public.project_task_cost_total ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_task_cost_total FROM anon, authenticated;
+
+GRANT SELECT ON public.project_task_cost_total TO authenticated;
+
+DROP POLICY IF EXISTS project_task_cost_total_select ON public.project_task_cost_total;
+
+CREATE POLICY project_task_cost_total_select ON public.project_task_cost_total FOR SELECT TO authenticated USING ("rowOwnerUserGUID" = public.app_user_guid());
+
+ALTER TABLE public.project_cost_dirty ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_cost_dirty FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'project_task_cost_total') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.project_task_cost_total;
+    END IF;
+  END IF;
+END $$;
+
+
+-- ---- the ONE definition of the numbers: own and total of every task of a project, from the turnover, the stages read from the labels of the path ---------------------------------------------------
+-- (project_cost_rebuild writes this, project_cost_verify compares with it, the tests use it)
+CREATE OR REPLACE FUNCTION public.project_cost_fresh(p_project uuid)
+RETURNS TABLE ("rowOwnerGUID" uuid, "costOwnForBudget" numeric, "costTotalForBudget" numeric)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  WITH own AS (
+    SELECT tk."rowGUID" AS task, tk."treePath" AS path, SUM(m."sumForBudgetPlan") AS own
+      FROM public.project_task_table tk
+      JOIN public.project_status_month_turnover m ON m."rowOwnerGUID" = tk."rowGUID"
+     WHERE tk."projectGUID" = p_project
+     GROUP BY tk."rowGUID", tk."treePath"
+    HAVING SUM(m."sumForBudgetPlan") <> 0
+  ), tot AS (
+    SELECT replace(lbl, '_', '-')::uuid AS anc, SUM(o.own) AS total
+      FROM own o
+     CROSS JOIN LATERAL unnest(string_to_array(ltree2text(subpath(o.path, 1)), '.')) AS lbl
+     GROUP BY 1
+  )
+  SELECT t.anc, COALESCE(o.own, 0)::numeric(18,2), t.total::numeric(18,2)
+    FROM tot t LEFT JOIN own o ON o.task = t.anc
+$$;
+
+
+-- ---- rebuild one project from scratch ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Returns { tasks, rows, projectTotal, changedRows, ms }. changedRows > 0 on a project that was up to date = a drift was healed. A project with no cost budget loses its rows.
+CREATE OR REPLACE FUNCTION public.project_cost_rebuild(p_project uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_t0 timestamptz := clock_timestamp(); v_json jsonb; v_user uuid; v_up integer := 0; v_del integer := 0; v_rows integer := 0; v_tasks integer := 0; v_total numeric := 0;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('project_cost'), hashtext(p_project::text));
+  SELECT p."rowJSON", p."rowOwnerGUID" INTO v_json, v_user FROM public.project_table p WHERE p."rowGUID" = p_project;
+  IF NOT FOUND THEN
+    DELETE FROM public.project_task_cost_total c WHERE c."rowProjectGUID" = p_project;
+    RETURN jsonb_build_object('tasks', 0, 'rows', 0, 'projectTotal', 0, 'changedRows', 0, 'ms', 0);
+  END IF;
+  SELECT count(*) INTO v_tasks FROM public.project_task_table t WHERE t."projectGUID" = p_project;
+  IF NOT public.project_cost_budget_on(v_json) THEN
+    DELETE FROM public.project_task_cost_total c WHERE c."rowProjectGUID" = p_project;
+    GET DIAGNOSTICS v_del = ROW_COUNT;
+    RETURN jsonb_build_object('tasks', v_tasks, 'rows', 0, 'projectTotal', 0, 'changedRows', v_del, 'ms', round(extract(epoch FROM clock_timestamp() - v_t0) * 1000));
+  END IF;
+
+  WITH fresh AS MATERIALIZED (SELECT * FROM public.project_cost_fresh(p_project)),
+       up AS (
+         INSERT INTO public.project_task_cost_total AS t ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget")
+         SELECT f."rowOwnerGUID", p_project, v_user, f."costOwnForBudget", f."costTotalForBudget" FROM fresh f
+         ON CONFLICT ("rowOwnerGUID") DO UPDATE
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "costOwnForBudget" = EXCLUDED."costOwnForBudget", "costTotalForBudget" = EXCLUDED."costTotalForBudget", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."costOwnForBudget", t."costTotalForBudget")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."costOwnForBudget", EXCLUDED."costTotalForBudget")
+         RETURNING 1),
+       del AS (
+         DELETE FROM public.project_task_cost_total c
+          WHERE c."rowProjectGUID" = p_project AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f."rowOwnerGUID" = c."rowOwnerGUID")
+         RETURNING 1)
+  SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del), (SELECT count(*) FROM fresh), COALESCE((SELECT SUM(f."costOwnForBudget") FROM fresh f), 0)
+    INTO v_up, v_del, v_rows, v_total;
+  RETURN jsonb_build_object('tasks', v_tasks, 'rows', v_rows, 'projectTotal', v_total, 'changedRows', v_up + v_del, 'ms', round(extract(epoch FROM clock_timestamp() - v_t0) * 1000));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_cost_rebuild(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- the hot path: step 3 of monitor01_apply ----------------------------------------------------------------------------------------------------------------------------------------------------------
+-- For the tasks of the batch (only those of projects with a cost budget on): newOwn = the plan of their turnover rows; d = newOwn - storedOwn; d is added to the own cost of the task and to the total of
+-- the task and of EVERY stage above it (the labels of subpath(treePath, 1)) in ONE statement. Only rows whose numbers change are written; a row that becomes 0 / 0 is deleted. Returns the rows touched.
+CREATE OR REPLACE FUNCTION public.project_cost_apply(p_tasks uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_prj uuid; v_ids uuid[];
+BEGIN
+  -- one cost step per project at a time (the worker, refresh_now and the toolbar command), always in the same order
+  FOR v_prj IN
+    SELECT DISTINCT tk."projectGUID" FROM public.project_task_table tk JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
+     WHERE tk."rowGUID" = ANY (p_tasks) AND public.project_cost_budget_on(p."rowJSON") ORDER BY 1
+  LOOP
+    PERFORM pg_advisory_xact_lock(hashtext('project_cost'), hashtext(v_prj::text));
+  END LOOP;
+
+  WITH t AS (
+    SELECT tk."rowGUID" AS task, tk."projectGUID" AS prj, p."rowOwnerGUID" AS usr, tk."treePath" AS path,
+           COALESCE((SELECT SUM(m."sumForBudgetPlan") FROM public.project_status_month_turnover m WHERE m."rowOwnerGUID" = tk."rowGUID"), 0) AS new_own
+      FROM public.project_task_table tk
+      JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
+     WHERE tk."rowGUID" = ANY (p_tasks) AND public.project_cost_budget_on(p."rowJSON")
+  ), chg AS (
+    SELECT t.task, t.prj, t.usr, t.path, t.new_own - COALESCE(c."costOwnForBudget", 0) AS d
+      FROM t LEFT JOIN public.project_task_cost_total c ON c."rowOwnerGUID" = t.task
+     WHERE t.new_own IS DISTINCT FROM COALESCE(c."costOwnForBudget", 0)
+  ), anc AS (
+    SELECT replace(lbl, '_', '-')::uuid AS a, chg.task, chg.prj, chg.usr, chg.d
+      FROM chg CROSS JOIN LATERAL unnest(string_to_array(ltree2text(subpath(chg.path, 1)), '.')) AS lbl
+  ), ins AS (
+    INSERT INTO public.project_task_cost_total AS c ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget")
+    SELECT anc.a, anc.prj, anc.usr, COALESCE(SUM(anc.d) FILTER (WHERE anc.a = anc.task), 0), SUM(anc.d)
+      FROM anc GROUP BY anc.a, anc.prj, anc.usr
+    ON CONFLICT ("rowOwnerGUID") DO UPDATE
+      SET "costOwnForBudget" = c."costOwnForBudget" + EXCLUDED."costOwnForBudget", "costTotalForBudget" = c."costTotalForBudget" + EXCLUDED."costTotalForBudget", "updated_at" = NOW()
+    RETURNING c."rowOwnerGUID"
+  )
+  SELECT array_agg(ins."rowOwnerGUID") INTO v_ids FROM ins;
+
+  IF v_ids IS NULL THEN
+    RETURN 0;
+  END IF;
+  DELETE FROM public.project_task_cost_total c WHERE c."rowOwnerGUID" = ANY (v_ids) AND c."costOwnForBudget" = 0 AND c."costTotalForBudget" = 0;
+  RETURN cardinality(v_ids);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_cost_apply(uuid[]) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- the queue of the projects to rebuild (a stage moved / deleted) --------------------------------------------------------------------------------------------------------------------------
+-- a bad project is retried on the next tick, parked after 5 tries (lastError says why); the toolbar command heals it by hand
+CREATE OR REPLACE FUNCTION public.project_cost_process_dirty() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_prj uuid; v_att integer; v_n integer := 0;
+BEGIN
+  FOR v_prj, v_att IN WITH x AS (DELETE FROM public.project_cost_dirty d WHERE d."attempts" < 5 RETURNING d."rowProjectGUID", d."attempts") SELECT x."rowProjectGUID", x."attempts" FROM x
+  LOOP
+    BEGIN
+      PERFORM public.project_cost_rebuild(v_prj);
+      v_n := v_n + 1;
+    EXCEPTION WHEN OTHERS THEN
+      INSERT INTO public.project_cost_dirty AS q ("rowProjectGUID", "attempts", "lastError") VALUES (v_prj, v_att + 1, left(SQLERRM, 500))
+      ON CONFLICT ("rowProjectGUID") DO UPDATE SET "attempts" = GREATEST(q."attempts", EXCLUDED."attempts"), "lastError" = EXCLUDED."lastError";
+    END;
+  END LOOP;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_cost_process_dirty() FROM PUBLIC, anon, authenticated;
+
+
+-- ---- triggers --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- a stage is moved (treePath changes) or a task / stage is deleted: the stages above change in a way a delta cannot know cheaply (rare, ~0.1 s for 10 000 tasks): the project is queued for a rebuild.
+-- A project that has no cost rows is not queued.
+CREATE OR REPLACE FUNCTION public.project_cost_trg_queue_project() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_prj uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD."projectGUID" ELSE NEW."projectGUID" END;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.project_task_cost_total c WHERE c."rowProjectGUID" = v_prj LIMIT 1) THEN
+    INSERT INTO public.project_cost_dirty ("rowProjectGUID") VALUES (v_prj) ON CONFLICT ("rowProjectGUID") DO NOTHING;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_cost_task_moved ON public.project_task_table;
+
+CREATE TRIGGER trg_project_cost_task_moved AFTER UPDATE OF "treePath" ON public.project_task_table
+  FOR EACH ROW WHEN (OLD."treePath" IS DISTINCT FROM NEW."treePath") EXECUTE FUNCTION public.project_cost_trg_queue_project();
+
+DROP TRIGGER IF EXISTS trg_project_cost_task_deleted ON public.project_task_table;
+
+CREATE TRIGGER trg_project_cost_task_deleted AFTER DELETE ON public.project_task_table
+  FOR EACH ROW EXECUTE FUNCTION public.project_cost_trg_queue_project();
+
+-- a cost budget is turned on (rebuild at once: the turnover is already there) or off (the rows go); a change of a switch that leaves the rule as it was does nothing
+CREATE OR REPLACE FUNCTION public.project_cost_trg_project_budget() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.project_cost_rebuild(NEW."rowGUID");
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_cost_budget ON public.project_table;
+
+CREATE TRIGGER trg_project_cost_budget AFTER UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN (public.project_cost_budget_on(OLD."rowJSON") IS DISTINCT FROM public.project_cost_budget_on(NEW."rowJSON")) EXECUTE FUNCTION public.project_cost_trg_project_budget();
+
+
+-- ---- verify (read only): the stored rows against the numbers made from scratch; empty = right -----------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_cost_verify(p_project uuid)
+RETURNS TABLE ("rowOwnerGUID" uuid, "storedOwn" numeric, "freshOwn" numeric, "storedTotal" numeric, "freshTotal" numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH f AS (SELECT * FROM public.project_cost_fresh(p_project)
+              WHERE public.project_cost_budget_on((SELECT p."rowJSON" FROM public.project_table p WHERE p."rowGUID" = p_project))),
+       s AS (SELECT c.* FROM public.project_task_cost_total c WHERE c."rowProjectGUID" = p_project)
+  SELECT COALESCE(f."rowOwnerGUID", s."rowOwnerGUID"), COALESCE(s."costOwnForBudget", 0), COALESCE(f."costOwnForBudget", 0), COALESCE(s."costTotalForBudget", 0), COALESCE(f."costTotalForBudget", 0)
+    FROM f FULL JOIN s ON s."rowOwnerGUID" = f."rowOwnerGUID"
+   WHERE COALESCE(s."costOwnForBudget", 0) <> COALESCE(f."costOwnForBudget", 0) OR COALESCE(s."costTotalForBudget", 0) <> COALESCE(f."costTotalForBudget", 0)
+$$;
+
+REVOKE ALL ON FUNCTION public.project_cost_verify(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- the toolbar command: update_project_cost_total(project) ------------------------------------------------------------------------------------------------------------------------------------
+-- Flushes the queued tasks of THIS project (monitor01_apply, the same code as the worker; its step 3 writes the cost), then rebuilds the project from scratch (heals any drift) and answers
+-- { tasks, rows, projectTotal, changedRows, ms, flushed }. Only the owner of the project. An error is not swallowed: the screen shows its message.
+CREATE OR REPLACE FUNCTION public.update_project_cost_total(p_project uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_tasks uuid[]; v_res jsonb;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'update_project_cost_total: project % is not yours', p_project USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  WITH x AS (DELETE FROM public.monitor01_dirty d USING public.project_task_table t WHERE t."rowGUID" = d."rowOwnerGUID" AND t."projectGUID" = p_project RETURNING d."rowOwnerGUID")
+  SELECT array_agg(x."rowOwnerGUID") INTO v_tasks FROM x;
+  IF v_tasks IS NOT NULL THEN
+    PERFORM public.monitor01_apply(v_tasks);
+  END IF;
+  DELETE FROM public.project_cost_dirty q WHERE q."rowProjectGUID" = p_project;
+  v_res := public.project_cost_rebuild(p_project);
+  RETURN v_res || jsonb_build_object('flushed', COALESCE(cardinality(v_tasks), 0));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.update_project_cost_total(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.update_project_cost_total(uuid) TO authenticated;
+
+
+-- upgrade: every project that has a cost budget on and no cost rows yet is rebuilt once (idempotent: a second run only looks at the projects without rows)
+SELECT public.project_cost_rebuild(p."rowGUID")
+  FROM public.project_table p
+ WHERE public.project_cost_budget_on(p."rowJSON")
+   AND NOT EXISTS (SELECT 1 FROM public.project_task_cost_total c WHERE c."rowProjectGUID" = p."rowGUID");
+
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- Check:
+--   SELECT * FROM public.project_task_cost_total WHERE "rowProjectGUID" = '<project rowGUID>' ORDER BY "costTotalForBudget" DESC;
+--   SELECT public.update_project_cost_total('<project rowGUID>');                       -- { tasks, rows, projectTotal, changedRows, ms, flushed }
+--   SELECT * FROM public.project_cost_verify('<project rowGUID>');                      -- empty = the stored totals are right
 
 
 -- ===============================================================================================

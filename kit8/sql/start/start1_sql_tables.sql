@@ -32,6 +32,7 @@
 --   24. create_task_fact_input.sql - the fact input document of a task: task_fact_header + task_fact_usage_timeline (strong / free input by the project setting factStrongInputByTaskLine) + post / unpost
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 --   26. create_vendor_invoice.sql - the legal entity catalog, the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract) and its posting into the project status register
+--   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2469,6 +2470,36 @@ CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_header ON public.vendor_invo
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_task ON public.vendor_invoice_lines ("rowOwnerGUID");
 
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_line ON public.vendor_invoice_lines ("taskLineGUID");
+
+-- ===============================================================================================
+-- PART 27: create_project_cost_total.sql
+-- the cost total of every task and stage of the tree (documentation/UPDATE_PROJECT_COST.html): project_task_cost_total + the queue of the projects to rebuild
+-- ===============================================================================================
+
+-- one row per task or stage that has a cost (sparse; a missing row = no cost). Written ONLY by the SECURITY DEFINER functions of start2 (step 3 of monitor01_apply, project_cost_rebuild).
+--   costOwnForBudget    the task's own lines: the sum of sumForBudgetPlan of its project_status_month_turnover rows (Time + Material + Expense), in the budget currency of the project
+--   costTotalForBudget  own + everything below it in the tree (what the tree column shows)
+--   rowOwnerUserGUID    the owner of the project (the read policy and the realtime filter use this one column, as monitor01_view)
+CREATE TABLE IF NOT EXISTS public.project_task_cost_total (
+  "rowOwnerGUID"       UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"     UUID          NOT NULL,
+  "rowOwnerUserGUID"   UUID,
+  "costOwnForBudget"   NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costTotalForBudget" NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "updated_at"         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_task_cost_total_project ON public.project_task_cost_total ("rowProjectGUID");
+
+-- the projects to rebuild from scratch (a stage was moved or deleted, or a rebuild failed); one row per project. No access for users. attempts >= 5 = parked.
+CREATE UNLOGGED TABLE IF NOT EXISTS public.project_cost_dirty (
+  "rowProjectGUID" UUID        NOT NULL,
+  "queuedAt"       TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "attempts"       INTEGER     NOT NULL DEFAULT 0,
+  "lastError"      TEXT,
+  PRIMARY KEY ("rowProjectGUID")
+);
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

@@ -24,7 +24,7 @@ export default function StopScreen() {
 
   const handleGoToSignIn = () => {
     router.replace({
-      pathname: '/signin',
+      pathname: '/user/signin',
       params: returnTo ? { returnTo } : undefined,
     });
   };

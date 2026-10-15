@@ -69,6 +69,8 @@ export const PM_TREE_COL_START = PM_TREE_COL_TASK_START_DATE;
 /** @deprecated legacy alias for PM_TREE_COL_TASK_DURATION */
 export const PM_TREE_COL_DAYS = PM_TREE_COL_TASK_DURATION;
 export const PM_TREE_COL_PROGRESS = 46;
+/** the Cost column (costTotalForBudget) of the tree */
+export const PM_TREE_COL_COST = 100;
 export const PM_TREE_COL_KANBAN = 88;
 export const PM_TREE_COL_KANBAN_PROGRESS = 58;
 

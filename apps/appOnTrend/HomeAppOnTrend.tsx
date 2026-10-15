@@ -20,7 +20,7 @@ export default function HomeAppOnTrend() {
 
       <ButtonPrimaryApp
         style={styles.menuButton}
-        onPress={() => router.push('/raci/racimember' as any)}
+        onPress={() => router.push('/catalog/raci/racimember' as any)}
       >
         Users (RACI)
       </ButtonPrimaryApp>

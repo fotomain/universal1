@@ -11,7 +11,7 @@ import type { FolderTreeNode } from '../../../ui/components/tree/folderTreeModel
 import type { DefRow, ProductTableDef } from '../../product/productModel';
 import { isManagementGenusFolder } from '../../management/genus/managementGenusModel';
 
-export const BUDGET_ITEM_ROUTES = { list: '/budget/item/list' } as const;
+export const BUDGET_ITEM_ROUTES = { list: '/catalog/budget/item/list' } as const;
 
 export const BUDGET_ITEM_TABLE: ProductTableDef = {
   table: 'budgetItemTable',

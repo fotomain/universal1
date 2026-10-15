@@ -10,7 +10,7 @@ export const CURRENCY_ENTITY = 'currencyReusable';
 /** rowOwnerGUID of every catalog row: the catalog is shared by all users. */
 export const CURRENCY_CATALOG_OWNER = 'currencyCatalog';
 
-export const CURRENCY_ROUTES = { list: '/currency/list', edit: '/currency/edit' } as const;
+export const CURRENCY_ROUTES = { list: '/catalog/currency/list', edit: '/catalog/currency/edit' } as const;
 
 /** readData payload of the catalog (all rows; also the catch-up read after a realtime reconnect). */
 export const CURRENCY_READ_PARAMS = { paginationSize: 1000, originationCurrentPage: 0 };

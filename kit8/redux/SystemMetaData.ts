@@ -129,7 +129,7 @@ const SystemMetaData:any = {
     // Template of the resource contract of a task line (kit8/catalog/management/templateresourcecontract): rowOwnerGUID = management genus.
     // Screen /catalog/management/templateresourcecontract/list, SQL kit8/sql/init/create_template_resource_contract_table.sql
     ...templateResourceContractSystemMetaData(),
-    // Person catalog (kit8/catalog/person): /person/list + /person/edit, Supabase Realtime sync
+    // Person catalog (kit8/catalog/person): /catalog/person/list + /catalog/person/edit, Supabase Realtime sync
     [PERSON_ENTITY]: {
         tableName: personsTable,
         itemLabel: "Person",
@@ -140,7 +140,7 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p: any) => {},
     },
-    // Partner catalog (kit8/catalog/partner): /partner/list + /partner/edit, Supabase Realtime sync
+    // Partner catalog (kit8/catalog/partner): /catalog/partner/list + /catalog/partner/edit, Supabase Realtime sync
     [PARTNER_ENTITY]: {
         tableName: partnersTable,
         itemLabel: "Partner",

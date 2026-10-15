@@ -194,7 +194,7 @@ function PMProjectDashboardInner() {
           title={pmT('Go to Sign In')}
           kind="primary"
           style={{ marginTop: 16 }}
-          onPress={() => router.push('/signin')}
+          onPress={() => router.push('/user/signin')}
         />
       </Centered>
     );

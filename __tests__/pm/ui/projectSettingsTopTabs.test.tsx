@@ -352,6 +352,61 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.exchangeRateTypeForBudget).toBe('Default');
   });
 
+  it('Budgets tab: the switch "show the total cost" (showTotalCostOnTheGanttChart) is usable only while a cost budget is on, is offered switched on, and is saved', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-tab-TabBudgets');
+    const input = () => q('pm-project-show-total-cost')!.querySelector('input') as HTMLInputElement;
+    // no cost budget: the switch is off and cannot be used, the hint says what it needs
+    expect(q('pm-project-show-total-cost')).not.toBeNull();
+    expect(input().disabled).toBe(true);
+    expect(input().checked).toBe(false);
+    expect(q('pm-project-show-total-cost-hint')!.textContent).toContain('Needs a cost budget');
+    // the cost budget becomes on: the switch is usable and offered switched on
+    toggleSwitch('pm-project-expense-budget-needed');
+    expect(input().disabled).toBe(false);
+    expect(input().checked).toBe(true);
+    expect(q('pm-project-show-total-cost-hint')!.textContent).toContain('plan of Time + Material + Expense');
+    // the user may turn it off
+    toggleSwitch('pm-project-show-total-cost');
+    expect(input().checked).toBe(false);
+    press('pm-project-save');
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(true);
+    expect(patchRowJSON.showTotalCostOnTheGanttChart).toBe(false);
+  });
+
+  it('Budgets tab: Time, Material and Expense all off = no cost budget: the switch cannot be used again (its value is kept)', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-tab-TabBudgets');
+    const input = () => q('pm-project-show-total-cost')!.querySelector('input') as HTMLInputElement;
+    toggleSwitch('pm-project-expense-budget-needed');
+    expect(input().checked).toBe(true);
+    press('pm-project-budgets-subtab-TabForTime');
+    toggleSwitch('pm-project-time-costs-needed');
+    press('pm-project-budgets-subtab-TabForMaterial');
+    toggleSwitch('pm-project-material-costs-needed');
+    press('pm-project-budgets-subtab-TabForExpense');
+    toggleSwitch('pm-project-expense-costs-needed');
+    press('pm-project-budgets-subtab-TabBudgetsMain');
+    expect(input().disabled).toBe(true);
+    expect(input().checked).toBe(true);                                  // kept: it comes back when a budget is turned on
+    // Material only is a cost budget
+    press('pm-project-budgets-subtab-TabForMaterial');
+    toggleSwitch('pm-project-material-costs-needed');
+    press('pm-project-budgets-subtab-TabBudgetsMain');
+    expect(input().disabled).toBe(false);
+    press('pm-project-save');
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.projectMaterialCostsNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeCostsNeeded).toBe(false);
+    expect(patchRowJSON.projectExpenseCostsNeeded).toBe(false);
+    expect(patchRowJSON.showTotalCostOnTheGanttChart).toBe(true);
+  });
+
   it('switches to TabPartners and supports supplier & customer selection with contract cascading', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);

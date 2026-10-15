@@ -1,6 +1,6 @@
 # Partner catalog (`kit8/catalog/partner`)
 
-Hamburger menu → **Catalogs** → **Partners** → `/partner/list` · add / edit → `/partner/edit` (`?rowGUID=…` for an existing partner).
+Hamburger menu → **Catalogs** → **Partners** → `/catalog/partner/list` · add / edit → `/catalog/partner/edit` (`?rowGUID=…` for an existing partner).
 
 ## Setup
 

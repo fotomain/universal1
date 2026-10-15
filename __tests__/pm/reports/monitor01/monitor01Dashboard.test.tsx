@@ -30,6 +30,21 @@ const sheet = () => [
 const KEY_T1 = 't1|timeGenus|r1|unit_hour|2026-10-01';
 const rowIds = () => qa('monitor01-table-item-').filter((id) => /\|\d{4}-\d{2}-\d{2}$/.test(id));
 const cell = (key: string, m: string) => `monitor01-table-cell-${key}-${m}`;
+// the tree Project → Resource role → Month → Task: the keys of the subtotal lines (one line per unit) and of the chevrons
+// (the example has two projects: Alpha p1 with the Time rows, Beta p2 with the Material rows)
+const PROJECT = (unit: string) => `node|p|p1|${unit}`;
+const PROJECT_BETA = (unit: string) => `node|p|p2|${unit}`;
+const ROLE_TIME = (unit: string) => `node|p|p1|r|timeGenus|r1|${unit}`;
+const ROLE_MATERIAL = (unit: string) => `node|p|p2|r|materialGenus|r2|${unit}`;
+const MONTH_TIME = (unit: string) => `node|p|p1|r|timeGenus|r1|m|2026-10-01|${unit}`;
+const NODE_PROJECT = 'p|p1';
+const NODE_PROJECT_BETA = 'p|p2';
+const NODE_ROLE_TIME = 'p|p1|r|timeGenus|r1';
+const NODE_ROLE_MATERIAL = 'p|p2|r|materialGenus|r2';
+const NODE_MONTH_TIME = 'p|p1|r|timeGenus|r1|m|2026-10-01';
+const NODE_MONTH_MATERIAL = 'p|p2|r|materialGenus|r2|m|2026-10-01';
+const toggle = (nodeKey: string) => `monitor01-table-toggle-${nodeKey}`;
+const item = (key: string) => `monitor01-table-item-${key}`;
 
 beforeEach(() => {
   mockHook.rows = sheet(); mockHook.live = true; mockHook.checkedAt = null; mockHook.error = null; mockHook.isLoading = false; mockHook.changedAt = Date.now();
@@ -60,6 +75,7 @@ describe('the table of the sheet', () => {
     expect(all).not.toMatch(/requirements dimensions/i);
     expect(all).not.toContain('task.name');
     expect(q(`monitor01-table-item-${KEY_T1}`)!.textContent).not.toContain('Data Analyst line');   // no description text in the rows either
+    expect(q('monitor01-table-head-project')).not.toBeNull();                                         // the tree starts at the project, also in the project mode
   });
 
   it('every header text is centered', () => {
@@ -77,7 +93,10 @@ describe('the table of the sheet', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf(`monitor01-table-budget-${KEY_T1}`)).toBe('480.00');
     expect(textOf('monitor01-table-budget-total|unit_hour')).toBe('1,080.50');
-    expect(textOf('monitor01-table-budget-sub|materialGenus|unit_pcs')).toBe('3,000.00');
+    expect(textOf(`monitor01-table-budget-${PROJECT('unit_hour')}`)).toBe('1,080.50');
+    expect(textOf(`monitor01-table-budget-${PROJECT_BETA('unit_pcs')}`)).toBe('3,000.00');
+    expect(textOf(`monitor01-table-budget-${ROLE_MATERIAL('unit_pcs')}`)).toBe('3,000.00');
+    expect(textOf(`monitor01-table-budget-${MONTH_TIME('unit_hour')}`)).toBe('1,080.50');
   });
 
   it('the numbers of the sheet: 24 / 24 / 0 and 24 / blank / 24; the totals per unit (48 hours)', () => {
@@ -90,18 +109,43 @@ describe('the table of the sheet', () => {
     expect(textOf(cell('t3|timeGenus|r1|unit_hour|2026-10-01', 'restToContract'))).toBe('24');
     expect(textOf(cell('total|unit_hour', 'planned'))).toBe('48');      // the 48 of the sheet
     expect(textOf(cell('total|unit_pcs', 'planned'))).toBe('300');
-    expect(textOf(cell('sub|materialGenus|unit_pcs', 'restToContract'))).toBe('155');
+    expect(textOf(cell(ROLE_MATERIAL('unit_pcs'), 'restToContract'))).toBe('155');
+    expect(textOf(cell(PROJECT('unit_hour'), 'planned'))).toBe('48');
+    expect(textOf(cell(PROJECT_BETA('unit_pcs'), 'planned'))).toBe('300');
   });
 
-  it('column A names every kind of row; roles, months and tasks are in the rows; units use the catalog', () => {
+  it('the tree Project → Resource role → Month → Task name: every level is a line of its own column, the rows hold the task name and the unit (catalog titles)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    expect(textOf('monitor01-table-item-total|unit_hour')).toContain('Total');
-    expect(textOf('monitor01-table-item-group|timeGenus')).toContain('Time');
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Data Analyst');
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Oct 2026');
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('task01');
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('hour');
-    expect(textOf('monitor01-table-item-sub|timeGenus|unit_hour')).toContain('Subtotal Time');
+    expect(textOf(item('total|unit_hour'))).toContain('Total');
+    expect(textOf(item(PROJECT('unit_hour')))).toContain('Alpha');
+    expect(textOf(item(ROLE_TIME('unit_hour')))).toContain('Data Analyst');
+    expect(textOf(item(MONTH_TIME('unit_hour')))).toContain('Oct 2026');
+    expect(textOf(item(KEY_T1))).toContain('task01');
+    expect(textOf(item(KEY_T1))).toContain('hour');
+    expect(textOf(item(KEY_T1))).not.toContain('Data Analyst');                     // the role is on the line above, not repeated in every row
+    expect(textOf(item(PROJECT_BETA('unit_pcs')))).toContain('Beta');
+    expect(textOf(item(ROLE_MATERIAL('unit_pcs')))).toContain('10m pipe section');
+    expectInOrder([item(PROJECT('unit_hour')), item(ROLE_TIME('unit_hour')), item(MONTH_TIME('unit_hour')), item(KEY_T1), item(PROJECT_BETA('unit_pcs')), item(ROLE_MATERIAL('unit_pcs'))]);
+  });
+  it('a project with hours AND pieces has a subtotal line per unit; only the first has the label and the chevron', () => {
+    mockHook.rows = [raw(), raw({ rowOwnerGUID: 't9', taskName: 'task09', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: 'Pipe', measureUnit: 'unit_pcs', qtyPlanned: 100 })].map(parseMonitor01Row);
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(item(PROJECT('unit_hour')))).toContain('Alpha');
+    expect(textOf(item(PROJECT('unit_pcs')))).not.toContain('Alpha');
+    expect(textOf(item(PROJECT('unit_pcs')))).toContain('pcs');
+    expect(qa('monitor01-table-toggle-node').length + qa('monitor01-table-toggle-p|p1').length).toBe(qa('monitor01-table-toggle-p|p1').length);
+    expect(qa('monitor01-table-toggle-p|p1|')).toHaveLength(4);                      // 2 roles + 2 months; the project has ONE chevron
+    expect(q(toggle('p|p1'))).not.toBeNull();
+    expectInOrder([item(PROJECT('unit_hour')), item(PROJECT('unit_pcs')), item(ROLE_TIME('unit_hour'))]);
+    press(toggle('p|p1'));
+    expect(q(item(PROJECT('unit_pcs')))).not.toBeNull();                              // closed: both lines stay
+    expect(q(item(ROLE_TIME('unit_hour')))).toBeNull();
+  });
+  it('every node line is a subtotal that opens its own numbers', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(ROLE_TIME('unit_hour'), 'planned'))).toBe('48');
+    expect(textOf(cell(MONTH_TIME('unit_hour'), 'contracted'))).toBe('24');
+    expect(textOf(cell(PROJECT_BETA('unit_pcs'), 'planned'))).toBe('300');
   });
 
   it('no rows: the hint', () => {
@@ -122,12 +166,92 @@ describe('the tabs', () => {
   it('a tab shows only its genus', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     press('monitor01-tab-time');
-    expect(q('monitor01-table-item-group|materialGenus')).toBeNull();
-    expect(q('monitor01-table-item-group|timeGenus')).not.toBeNull();
-    expect(q('monitor01-table-item-total|unit_pcs')).toBeNull();
+    expect(q(item(ROLE_MATERIAL('unit_pcs')))).toBeNull();
+    expect(q(item(ROLE_TIME('unit_hour')))).not.toBeNull();
+    expect(q(item('total|unit_pcs'))).toBeNull();
+    expect(q(item(PROJECT_BETA('unit_pcs')))).toBeNull();                 // a project without rows of the tab is not drawn
     press('monitor01-tab-material');
-    expect(q('monitor01-table-item-group|timeGenus')).toBeNull();
+    expect(q(item(ROLE_TIME('unit_hour')))).toBeNull();
     expect(textOf(cell('total|unit_pcs', 'planned'))).toBe('300');
+  });
+});
+
+describe('the collapsible tree', () => {
+  it('everything is open at the start; every Project / Resource role / Month line has a chevron (the first line of the node only), the Task lines have none', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    [NODE_PROJECT, NODE_PROJECT_BETA, NODE_ROLE_TIME, NODE_ROLE_MATERIAL, NODE_MONTH_TIME, NODE_MONTH_MATERIAL].forEach((k) => expect(q(toggle(k))).not.toBeNull());
+    expect(qa('monitor01-table-toggle-')).toHaveLength(6);                  // 2 projects, 2 roles, 2 months
+    expect(q(item(KEY_T1))).not.toBeNull();
+    expect(mustGet(toggle(NODE_PROJECT)).getAttribute('aria-expanded')).toBe('true');
+    expect(textOf('monitor01-toolbar')).toContain('Expand all');
+    expect(textOf('monitor01-toolbar')).toContain('Collapse all');
+  });
+  it('a chevron collapses its node: the subtotal stays, everything below it goes; pressing again opens it', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(toggle(NODE_ROLE_TIME));
+    expect(q(item(ROLE_TIME('unit_hour')))).not.toBeNull();              // the subtotal of the role stays ...
+    expect(q(item(MONTH_TIME('unit_hour')))).toBeNull();                 // ... its month and its tasks are gone
+    expect(q(item(KEY_T1))).toBeNull();
+    expect(q(item(ROLE_MATERIAL('unit_pcs')))).not.toBeNull();           // the other project / role is open
+    expect(mustGet(toggle(NODE_ROLE_TIME)).getAttribute('aria-expanded')).toBe('false');
+    expect(textOf(cell(ROLE_TIME('unit_hour'), 'planned'))).toBe('48');   // the subtotal is still the sum of what is hidden
+    press(toggle(NODE_ROLE_TIME));
+    expect(q(item(KEY_T1))).not.toBeNull();
+  });
+  it('collapsing a project hides all its levels; opening it shows them as they were left (a collapsed role below stays collapsed)', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(toggle(NODE_MONTH_TIME));
+    press(toggle(NODE_PROJECT));
+    expect(q(item(ROLE_TIME('unit_hour')))).toBeNull();
+    expect(q(item(PROJECT('unit_hour')))).not.toBeNull();
+    expect(q(item(ROLE_MATERIAL('unit_pcs')))).not.toBeNull();           // Beta is not touched
+    press(toggle(NODE_PROJECT));
+    expect(q(item(ROLE_TIME('unit_hour')))).not.toBeNull();
+    expect(q(item(MONTH_TIME('unit_hour')))).not.toBeNull();             // the month line is there ...
+    expect(q(item(KEY_T1))).toBeNull();                                  // ... but it is still collapsed
+  });
+  it('Collapse all leaves the Project lines with their subtotals; Expand all opens everything', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press('monitor01-toolbar-collapse');
+    expect(qa('monitor01-table-item-node|')).toHaveLength(2);            // the two projects: one line each (hours / pieces)
+    expect(rowIds()).toHaveLength(0);
+    expect(textOf(cell(PROJECT('unit_hour'), 'planned'))).toBe('48');
+    expect(textOf(cell(PROJECT_BETA('unit_pcs'), 'planned'))).toBe('300');
+    press('monitor01-toolbar-expand');
+    expect(rowIds()).toHaveLength(4);
+    expect(q(item(MONTH_TIME('unit_hour')))).not.toBeNull();
+  });
+  it('the TotalsRow and the totals stay while the tree is collapsed', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press('monitor01-toolbar-collapse');
+    expect(textOf('monitor01-table-totals-unit_hour-planned')).toBe('48');
+    expect(textOf(cell('total|unit_hour', 'planned'))).toBe('48');
+  });
+  it('the collapsed nodes are kept when the data changes (a realtime event does not open or close anything)', () => {
+    const view = renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press(toggle(NODE_ROLE_TIME));
+    mockHook.rows = [...mockHook.rows.slice(0, 1).map((r) => ({ ...r, qtyPlanned: 30, updated_at: '2' })), ...mockHook.rows.slice(1)];
+    view.rerender(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(q(item(KEY_T1))).toBeNull();
+    expect(textOf(cell(ROLE_TIME('unit_hour'), 'planned'))).toBe('54');   // the new number is in the closed subtotal
+  });
+  it('the months of a role are in ascending order, also across a year', () => {
+    mockHook.rows = [
+      raw({ rowOwnerGUID: 'a3', taskName: 'task03', periodMonth: '2027-01-01' }),
+      raw({ rowOwnerGUID: 'a2', taskName: 'task02', periodMonth: '2026-12-01' }),
+      raw({ rowOwnerGUID: 'a1', taskName: 'task01', periodMonth: '2026-02-01' }),
+    ].map(parseMonitor01Row);
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    const base = 'node|p|p1|r|timeGenus|r1|m|';
+    expectInOrder([item(`${base}2026-02-01|unit_hour`), item(`${base}2026-12-01|unit_hour`), item(`${base}2027-01-01|unit_hour`)]);
+    expect(textOf(item(`${base}2027-01-01|unit_hour`))).toContain('Jan 2027');
+  });
+  it('two projects (the full data set): every project has its roles, months and tasks under it, projects by name', () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    expectInOrder([item(PROJECT('unit_hour')), item(KEY_T1), item(PROJECT_BETA('unit_pcs')), item(ROLE_MATERIAL('unit_pcs')), item('t3|materialGenus|r2|unit_pcs|2026-10-01')]);
+    press(toggle(NODE_PROJECT));
+    expect(q(item(KEY_T1))).toBeNull();
+    expect(q(item(ROLE_MATERIAL('unit_pcs')))).not.toBeNull();                        // Beta is not touched
   });
 });
 
@@ -165,21 +289,21 @@ describe('the TotalsRow at the bottom', () => {
 });
 
 describe('the two modes and the fast filters', () => {
-  it('project mode: no Project filter, no project column', () => {
+  it('project mode: no Project filter; the tree still starts with the project line', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(q('monitor01-filters-project')).toBeNull();
     expect(q('monitor01-filters-startDate')).not.toBeNull();
     expect(q('monitor01-filters-finishDate')).not.toBeNull();
     expect(q('monitor01-filters-task')).not.toBeNull();
     expect(q('monitor01-filters-resource')).not.toBeNull();
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).not.toContain('Alpha');
+    expect(textOf(item(PROJECT('unit_hour')))).toContain('Alpha');
     expect((useMonitor01Rows as jest.Mock).mock.calls[0][0]).toBe('p1');
   });
   it('standalone: the FULL data set (the hook gets no project) with the Project filter and the project of each row', () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
     expect((useMonitor01Rows as jest.Mock).mock.calls[0][0]).toBeNull();
     expect(q('monitor01-filters-project')).not.toBeNull();
-    expect(textOf(`monitor01-table-item-${KEY_T1}`)).toContain('Alpha');
+    expect(textOf(item(PROJECT('unit_hour')))).toContain('Alpha');
   });
   it('dates use DateInputApp (calendar trigger); the text filters use TextInputApp whose clear icon sits INSIDE the field (no separate Clear button)', () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
@@ -419,12 +543,22 @@ describe('every number opens its source transactions', () => {
     press('monitor01-sum-open-fl1');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/fact', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'doc1' } });
   });
-  it('a subtotal and a total are opened with the keys they share (and the project in the project mode)', async () => {
+  it('a node line and a total are opened with the keys they share (the project, the role and its genus from the role level, the month at the month level)', async () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    press(cell('sub|materialGenus|unit_pcs', 'planned'));
+    press(cell(ROLE_MATERIAL('unit_pcs'), 'planned'));
     await flush();
-    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { genusGUID: 'materialGenus', unit: 'unit_pcs', projectGUID: 'p1' }, 0, expect.any(Number));
-    expect(textOf('monitor01-sum-title')).toContain('Subtotal Material');
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { genusGUID: 'materialGenus', unit: 'unit_pcs', projectGUID: 'p2', roleGUID: 'r2' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-title')).toContain('Subtotal Beta · 10m pipe section');
+    press('monitor01-sum-close');
+    press(cell(PROJECT('unit_hour'), 'planned'));
+    await flush();
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { unit: 'unit_hour', projectGUID: 'p1' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-title')).toContain('Subtotal Alpha ·');
+    press('monitor01-sum-close');
+    press(cell(MONTH_TIME('unit_hour'), 'planned'));
+    await flush();
+    expect(mockFetch).toHaveBeenLastCalledWith(expect.anything(), 'planned', { genusGUID: 'timeGenus', unit: 'unit_hour', projectGUID: 'p1', roleGUID: 'r1', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-title')).toContain('Subtotal Alpha · Data Analyst · Oct 2026');
     press('monitor01-sum-close');
     press(cell('total|unit_hour', 'contracted'));
     await flush();

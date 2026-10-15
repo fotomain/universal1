@@ -10,7 +10,7 @@ jest.mock('../../../kit8/ui/components/common/IconApp', () => {
   const { Text } = require('react-native');
   return { __esModule: true, default: ({ name, testID }: any) => R.createElement(Text, { testID }, name) };
 });
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), setParams: jest.fn() }), usePathname: () => '/budget/scenario/list', useGlobalSearchParams: () => ({}) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), setParams: jest.fn() }), usePathname: () => '/catalog/budget/scenario/list', useGlobalSearchParams: () => ({}) }));
 jest.mock('react-native-paper', () => ({ useTheme: () => ({ colors: { surfaceVariant: '#eee' } }) }));
 jest.mock('expo-crypto', () => { let n = 0; return { randomUUID: () => `uuid-${++n}` }; });
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(() => Promise.resolve()) }));

@@ -13,7 +13,7 @@ export default function HomeAppPostsPage() {
     <View style={styles.container}>
       <H1App>{t('body.welcomeAppPosts')}</H1App>
       <ArticleTextApp>{t('body.homeAppPostsDesc')}</ArticleTextApp>
-      <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
+      <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/catalog/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
 
         <ButtonApp
             icon="list"

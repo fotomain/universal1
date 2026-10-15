@@ -4,6 +4,7 @@
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
 //   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (TextInputApp + Clear)
+//   the table is a TREE Project → Resource role → Month (ascending) → Task name: every Project / Role / Month line is a subtotal and collapses what is below it (Expand all / Collapse all in the toolbar)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,8 +29,8 @@ import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import { refreshMonitor01Now } from './monitor01Api';
 import {
-  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfRow, drillFilterOfRows,
-  filterMonitor01Rows, monitor01GenusTitle, monitor01Totals, monthLabel, rowsOfTab,
+  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
+  filterMonitor01Rows, monitor01NodeKeys, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
 import { useMonitor01Rows } from './useMonitor01Rows';
@@ -104,7 +105,12 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
   const filtered = useMemo(() => filterMonitor01Rows(sourceRows, filters), [sourceRows, filters]);
   const shown = useMemo(() => rowsOfTab(filtered, tab), [filtered, tab]);
-  const items = useMemo(() => buildMonitor01Items(shown), [shown]);
+  // the nodes of the tree that are collapsed (everything is open at the start); it is kept while the rows change, so a realtime event does not open or close anything
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleNode = useCallback((nodeKey: string) => setCollapsed((cur) => { const next = new Set(cur); if (!next.delete(nodeKey)) next.add(nodeKey); return next; }), []);
+  const expandAll = useCallback(() => setCollapsed(new Set()), []);
+  const collapseAll = useCallback(() => setCollapsed(monitor01NodeKeys(shown)), [shown]);
+  const items = useMemo(() => buildMonitor01Items(shown, collapsed), [shown, collapsed]);
   const totals = useMemo(() => monitor01Totals(shown), [shown]);
   const counts = useMemo(() => Object.fromEntries(MONITOR01_TABS.map((t) => [t.id, rowsOfTab(filtered, t.id).length])) as Record<Monitor01Tab, number>, [filtered]);
 
@@ -129,9 +135,12 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       filter = drillFilterOfRow(item.row);
       what = `${item.row.resourceRoleName || pmT('(no role)')} · ${monthLabel(item.row.periodMonth)} · ${item.row.taskName}`;
       unit = item.row.measureUnit;
-    } else if (item.kind === 'subtotal') {
-      filter = drillFilterOfRows(item.rows, scope, { genus: item.genus, unit: item.unit });
-      what = `${pmT('Subtotal')} ${pmT(monitor01GenusTitle(item.genus))}`;
+    } else if (item.kind === 'node') {
+      filter = drillFilterOfNode(item, scope);
+      // the path of the node: Project · Resource role · Month
+      const first = item.rows[0];
+      const path = [first.projectName, ...(item.level !== 'project' ? [first.resourceRoleName || pmT('(no role)')] : []), ...(item.level === 'month' ? [monthLabel(first.periodMonth)] : [])];
+      what = `${pmT('Subtotal')} ${path.join(' · ')}`;
       unit = item.unit;
     } else if (item.kind === 'total') {
       filter = drillFilterOfRows(item.rows, scope, { unit: item.unit });
@@ -153,7 +162,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <IconApp name="monitoring" size={20} color={c.primary} />
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
-        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} busy={refreshSince !== null} />
+        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} busy={refreshSince !== null} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
@@ -187,7 +196,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} totals={totals} showProject={mode === 'standalone'} unitTitle={unitTitle} colors={colors} onCell={onCell} testID={`${testID}-table`} />
+        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} testID={`${testID}-table`} />
       </View>
 
       <SumExplorerListReusable

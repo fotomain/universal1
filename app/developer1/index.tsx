@@ -68,12 +68,12 @@ export default function HomeScreen() {
         <Text variant="titleMedium" style={{ fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.primary }}>
           Application Screens
         </Text>
-        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/catalog/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/sqlite/demo/native')}>{t('menu.sqliteDemo')}</ButtonPrimaryApp>
-        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/userprofile')}>{t('menu.userProfile')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/user/userprofile')}>{t('menu.userProfile')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/about')}>{t('menu.about')}</ButtonPrimaryApp>
-        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/signup')}>{t('menu.signUp')}</ButtonPrimaryApp>
-        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/signin')}>{t('menu.signIn')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/user/signup')}>{t('menu.signUp')}</ButtonPrimaryApp>
+        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/user/signin')}>{t('menu.signIn')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/posts/mediapostcrud' as any)}>{t('menu.posts')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/feedback')}>{t('menu.feedback')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/map')}>{t('menu.map')}</ButtonPrimaryApp>

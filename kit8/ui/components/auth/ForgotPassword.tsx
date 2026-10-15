@@ -1,6 +1,6 @@
 // "Forgot password" form - Supabase resetPasswordForEmail, confirmed by the code in the email (+ new
 // password) or by opening the reset link (that tab/app then shows only the new-password fields).
-// State machine: kit8/hooks/usePasswordReset.ts. Used by app/forgotpassword/index.tsx.
+// State machine: kit8/hooks/usePasswordReset.ts. Used by app/user/forgotpassword/index.tsx.
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';

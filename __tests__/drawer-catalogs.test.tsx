@@ -57,7 +57,7 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   expect(subCurr.textContent).toContain('Currencies');
   expect(getComputedStyle(subCurr).height).toBe(`${DRAWER_SUBITEM_HEIGHT}px`);
   press('drawer-subitem-currencies');
-  expect(mockNavigate).toHaveBeenCalledWith('/currency/list');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/currency/list');
 
   // Persons
   const subPerson = q('drawer-subitem-persons')!;
@@ -121,7 +121,7 @@ it('Budgets is a closed accordion: Budget Items, Budget scenarios, Business unit
   expect(order.indexOf('drawer-subitem-budgets-actuals')).toBe(order.indexOf('drawer-divider-budgets-divider') + 1);
   expect(order.indexOf('drawer-subitem-budgets-vendorinvoices')).toBe(order.indexOf('drawer-subitem-budgets-actuals') + 1);   // Vendor invoices right after Actuals
   press('drawer-subitem-budgets-budgetscenarios');
-  expect(mockNavigate).toHaveBeenCalledWith('/budget/scenario/list');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/budget/scenario/list');
   press('drawer-subitem-budgets-businessunits');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
   press('drawer-subitem-budgets-actuals');
@@ -150,10 +150,10 @@ it('Products (product catalog dashboard) is a menu item after Projects and opens
 });
 
 it('opens by itself on a catalog page (list or edit)', () => {
-  mount('/currency/list');
+  mount('/catalog/currency/list');
   expect(q('drawer-subitem-currencies')).not.toBeNull();
   act(() => root.unmount());
-  mount('/currency/edit');
+  mount('/catalog/currency/edit');
   expect(q('drawer-subitem-currencies')).not.toBeNull();
   act(() => root.unmount());
   mount('/catalog/person/list');

@@ -48,6 +48,7 @@ import { pmT } from "../../../i18n/pmT";
 import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import PMProjectActionsButton from "../buttons/PMProjectActionsButton";
+import { projectCostBudgetOn } from "../../../model/taskInputScope";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
@@ -593,6 +594,7 @@ export default function PMRecentProjectsToolbar({
       {/* Actions (before the settings): Post unposted tasks · Repost all tasks · Refresh the project */}
       <PMProjectActionsButton
         projectGUID={selectedProjectGUID}
+        costBudgetOn={projectCostBudgetOn(selected?.rowJSON)}
         color={themeColors.text}
         disabled={!selected}
         width={PM_SETTINGS_BUTTON_WIDTH}

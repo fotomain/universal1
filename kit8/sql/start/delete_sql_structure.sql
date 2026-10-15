@@ -5,7 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
---   1a. delete_fact_input_and_monitor01.sql - PARTs 24-25: drops the fact documents, Monitor01 (view, queue, log, fact sums), the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
+--   1a. delete_fact_input_and_monitor01.sql - PARTs 24-27: drops the fact documents, Monitor01 (view, queue, log, fact sums), the project cost total, the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
 --   1b. delete_time_genus_control.sql - PARTs 20-23: drops organizationInvitationTable, the view, the organization_* functions and the triggers / constraints on userTable, project_table, the calendar and the resource tables (runs first: it is the newest part)
 --    1. user calendars - user_calendar_table / _event_table / _invitation_table + the sync triggers on the project tables
 --    2. delete_task_line_plan_table.sql - drops task_line_plan + create_task_line_plan + the unpost trigger
@@ -30,7 +30,7 @@
 
 -- =====================================================================================
 -- PART 1a: delete_fact_input_and_monitor01.sql  (the numbering of the other parts stays: 1a runs FIRST, it is the newest)
--- Removes what PARTs 24-26 of start1_sql_tables.sql + start2_sql_code.sql added: the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
+-- Removes what PARTs 24-27 of start1_sql_tables.sql + start2_sql_code.sql added (27: the project cost total): the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
 -- task_line_fact_for_monitor01), the pg_cron jobs, the triggers on the other tables, the functions and the sequence.
 -- =====================================================================================
 DO $$
@@ -59,6 +59,29 @@ BEGIN
     DROP TRIGGER IF EXISTS trg_monitor01_role_rename ON public."resourceRoleTable";
   END IF;
 END $$;
+-- (PART 27 of the structure file: the project cost total - the triggers first, on tables that may still exist, then the tables and the functions)
+DO $$
+BEGIN
+  IF to_regclass('public.project_task_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_project_cost_task_moved ON public.project_task_table;
+    DROP TRIGGER IF EXISTS trg_project_cost_task_deleted ON public.project_task_table;
+  END IF;
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_project_cost_budget ON public.project_table;
+  END IF;
+END $$;
+DROP TABLE IF EXISTS public.project_task_cost_total CASCADE;
+DROP TABLE IF EXISTS public.project_cost_dirty CASCADE;
+DROP FUNCTION IF EXISTS public.update_project_cost_total(uuid);
+DROP FUNCTION IF EXISTS public.project_cost_verify(uuid);
+DROP FUNCTION IF EXISTS public.project_cost_process_dirty();
+DROP FUNCTION IF EXISTS public.project_cost_apply(uuid[]);
+DROP FUNCTION IF EXISTS public.project_cost_rebuild(uuid);
+DROP FUNCTION IF EXISTS public.project_cost_fresh(uuid);
+DROP FUNCTION IF EXISTS public.project_cost_trg_queue_project();
+DROP FUNCTION IF EXISTS public.project_cost_trg_project_budget();
+DROP FUNCTION IF EXISTS public.project_cost_budget_on(jsonb);
+DROP FUNCTION IF EXISTS public.project_cost_flag(jsonb, text, boolean);
 -- (PART 26 of the structure file: the vendor invoice, the legal entity catalog, the main vendor guards; the data of the invoices and of the legal entities goes with the tables)
 DROP TABLE IF EXISTS public.vendor_invoice_lines CASCADE;
 DROP TABLE IF EXISTS public.vendor_invoice_header CASCADE;

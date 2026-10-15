@@ -1,9 +1,9 @@
 # Currency catalog (`kit8/catalog/currency`)
 
-Hamburger menu → **Catalogs** (accordion, compact sub-rows) → **Currencies** → `/currency/list` · add / edit → `/currency/edit` (`?rowGUID=…` for an existing one).
+Hamburger menu → **Catalogs** (accordion, compact sub-rows) → **Currencies** → `/catalog/currency/list` · add / edit → `/catalog/currency/edit` (`?rowGUID=…` for an existing one).
 
 **Exchange rates** of a currency: the **Rates** link on its card / on its edit screen (saved currencies) →
-`/currency/exchange/list?currencyGUID=…` — see [`exchange/README.md`](exchange/README.md).
+`/catalog/currency/exchange/list?currencyGUID=…` — see [`exchange/README.md`](exchange/README.md).
 
 ## Setup
 
@@ -44,5 +44,5 @@ Supabase postgres_changes ─► createSupabaseTableChannel (redux-saga eventCha
 `BASE/CODE` with all its ratios - Default and Budget, the inverse ratios and their dates, the number of rates; row menu: Edit, Rates, Refresh rates,
 Upload all data from a date) · `currencyTableColumns.tsx` (the columns) · `currencyPairs.ts` (pure: pair labels, inverse, latest ratios) ·
 `useCurrencyPairRatios.ts` (one small request per currency: its newest rate rows + their count) · `CurrencyCard.tsx` (the card of the old list, kept) ·
-`CurrencyEdit.tsx` · `CurrencyRealtimeBadge.tsx` · routes `app/currency/list`, `app/currency/edit`.
+`CurrencyEdit.tsx` · `CurrencyRealtimeBadge.tsx` · routes `app/catalog/currency/list`, `app/catalog/currency/edit`.
 Tests: `__tests__/catalog/currency/*`, `__tests__/redux/reusableRealtime.test.ts`.

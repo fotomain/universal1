@@ -214,5 +214,5 @@ it('native default redirect is the app deep link', async () => {
   await act(async () => { await result.current.sendCode(); });
   const redirect = sb.auth.signInWithOtp.mock.calls[0][0].options.emailRedirectTo;
   // jest maps react-native -> react-native-web, so Platform.OS is 'web' here: <origin>/signin
-  expect(redirect).toBe(`${window.location.origin}/signin`);
+  expect(redirect).toBe(`${window.location.origin}/user/signin`);
 });

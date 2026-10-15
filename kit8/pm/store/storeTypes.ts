@@ -135,6 +135,10 @@ export interface PMStoreState {
   planMinute: boolean;
   /** project.rowJSON.planSecond - plan in seconds */
   planSecond: boolean;
+  /** the Cost column of the tree is shown: a cost budget is on AND project.rowJSON.showTotalCostOnTheGanttChart (kit8/pm/cost) */
+  showCostColumn: boolean;
+  /** project.rowJSON.currencyForBudget - the currency in the title of the Cost column */
+  costCurrency: string;
   /** project.rowJSON.planDateInputFormat - date format */
   planDateInputFormat: PMPlanDateInputFormat;
   /** Rows shown only because a descendant matches the filters (drawn muted). */

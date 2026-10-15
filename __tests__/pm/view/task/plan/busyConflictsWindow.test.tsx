@@ -5,7 +5,7 @@ import React, { act } from 'react';
 jest.mock('../../../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ themeColors: { primary: '#6366f1', secondary: '#64748b', onSurface: '#000', onSurfaceVariant: '#555', outline: '#ccc' }, isDark: false }),
 }));
-const mockCopy = jest.fn(() => Promise.resolve(true));
+const mockCopy = jest.fn((_t: string) => Promise.resolve(true));
 jest.mock('expo-clipboard', () => ({ setStringAsync: (t: string) => mockCopy(t) }));
 const mockOpenURL = jest.fn((_u: string) => Promise.resolve(true));
 

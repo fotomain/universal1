@@ -34,7 +34,7 @@ export function subscribeAuthRedirectError(listener: Listener): () => void {
 export function emailLinkRedirectTo(): string | undefined {
   if (Platform.OS === 'web') {
     return typeof window !== 'undefined' && /^https?:/.test(window.location.origin || '')
-      ? `${window.location.origin}/signin`
+      ? `${window.location.origin}/user/signin`
       : undefined;
   }
   try {
@@ -48,7 +48,7 @@ export function emailLinkRedirectTo(): string | undefined {
 export function resetPasswordRedirectTo(): string | undefined {
   if (Platform.OS === 'web') {
     return typeof window !== 'undefined' && /^https?:/.test(window.location.origin || '')
-      ? `${window.location.origin}/forgotpassword`
+      ? `${window.location.origin}/user/forgotpassword`
       : undefined;
   }
   try {

@@ -83,7 +83,7 @@ it('new currency: validation, then createOne with the catalog owner', () => {
   press('currency-edit-save');
   const create = dispatched.find((a) => a.type === 'currencyReusable/createOne');
   expect(create.payload).toMatchObject({ rowGUID: 'new-guid-1', rowOwnerGUID: 'currencyCatalog', rowParentGUID: 'empty', rowJSON: { currencyCode: 'CHF', currencyName: 'Euro again', decimalDigits: 2, isActive: true } });
-  expect(mockReplace).toHaveBeenCalledWith('/currency/list');
+  expect(mockReplace).toHaveBeenCalledWith('/catalog/currency/list');
 });
 
 it('existing currency: updateOne with rowJSON; sql_for_delete asks twice', () => {
@@ -129,5 +129,5 @@ it('hyperlink "Rates": only for a saved currency, opens its exchange rates', () 
   expect(q('currency-edit-rates')).toBeNull();
   mount({ rowGUID: 'eur' });
   press('currency-edit-rates');
-  expect(mockPush).toHaveBeenCalledWith({ pathname: '/currency/exchange/list', params: { currencyGUID: 'eur' } });
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/catalog/currency/exchange/list', params: { currencyGUID: 'eur' } });
 });

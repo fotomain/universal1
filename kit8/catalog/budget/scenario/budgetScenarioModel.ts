@@ -7,7 +7,7 @@
 //   Design: documentation/BUDGET_PLAN_CALCULATION.html (Part 1)
 import type { DefRow, ProductTableDef } from '../../product/productModel';
 
-export const BUDGET_SCENARIO_ROUTES = { list: '/budget/scenario/list' } as const;
+export const BUDGET_SCENARIO_ROUTES = { list: '/catalog/budget/scenario/list' } as const;
 
 export type BudgetScenarioKind = 'plan' | 'fact';
 export const BUDGET_SCENARIO_KINDS: { value: BudgetScenarioKind; label: string }[] = [

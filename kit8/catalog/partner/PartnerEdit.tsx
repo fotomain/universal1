@@ -1,4 +1,4 @@
-// PartnerEdit - route /partner/edit (new) or /partner/edit?rowGUID=… (existing).
+// PartnerEdit - route /catalog/partner/edit (new) or /catalog/partner/edit?rowGUID=… (existing).
 // Includes Legal Data, Supplier Data, Customer Data, and embedded Contracts section.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';

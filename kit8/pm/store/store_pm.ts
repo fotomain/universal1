@@ -119,6 +119,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   planHour: false,
   planMinute: false,
   planSecond: false,
+  showCostColumn: false,
+  costCurrency: '',
   planDateInputFormat: 'YYYY-MM-DD',
   treeFilterContextGUIDs: {},
   treeFilterMatchCount: null,

@@ -56,6 +56,18 @@ export function applyTaskInputPatch(current: TaskInputSwitches, patch: Partial<T
   return next;
 }
 
+/**
+ * Is a cost budget on? (the project cost total, kit8/pm/cost + documentation/UPDATE_PROJECT_COST.html)
+ * The master projectExpenseBudgetNeeded AND one of Time (with a kind, person or equipment) / Material / Expense. The same rule as project_cost_budget_on() of start2_sql_code.sql (PART 27);
+ * __tests__/pm/cost keeps both equal. The master off = a legacy project (no cost budget chosen) = false.
+ */
+export function projectCostBudgetOn(json: Partial<Record<TaskInputSwitchKey, unknown>> | null | undefined): boolean {
+  const s = taskInputSwitchesOf(json);
+  if (!s.projectExpenseBudgetNeeded) return false;
+  const time = s.projectTimeCostsNeeded && (s.projectTimeOfPersonNeeded || s.projectTimeOfEquipmentNeeded);
+  return time || s.projectMaterialCostsNeeded || s.projectExpenseCostsNeeded;
+}
+
 /** which resource kinds a Time line may have */
 export interface TimeInputScope { person: boolean; equipment: boolean }
 export interface TaskInputScope {

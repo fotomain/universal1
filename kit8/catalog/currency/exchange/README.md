@@ -1,7 +1,7 @@
 # Currency exchange rates (`kit8/catalog/currency/exchange`)
 
 Currencies → a currency card's **Rates** link (or **Rates** on the edit screen of a saved currency) →
-`/currency/exchange/list?currencyGUID=…` · add / edit → `/currency/exchange/edit?currencyGUID=…` (`&rowGUID=…` for an existing rate).
+`/catalog/currency/exchange/list?currencyGUID=…` · add / edit → `/catalog/currency/exchange/edit?currencyGUID=…` (`&rowGUID=…` for an existing rate).
 
 ## Setup
 
@@ -58,5 +58,5 @@ so opening the rates of another currency re-subscribes, and the list + edit of t
 
 `currencyExchangeModel.ts` (table, entity, routes, dates, validation, card mapping) · `CurrencyExchangeList.tsx` (web:
 `ListWebCardsComponent` with `reorderEnabled={false}`, phones: FlatList) · `CurrencyRateCard.tsx` (day, ratio, ▲ / ▼ % against the
-previous rate) · `CurrencyExchangeEdit.tsx` · routes `app/currency/exchange/list`, `app/currency/exchange/edit`.
+previous rate) · `CurrencyExchangeEdit.tsx` · routes `app/catalog/currency/exchange/list`, `app/catalog/currency/exchange/edit`.
 Tests: `__tests__/catalog/currency/exchange/*`.

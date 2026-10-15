@@ -25,7 +25,7 @@ const rate = (id: string, day: string, ratio: number, owner = 'usd') => ({
 
 it('table, routes and the currency scope', () => {
   expect(currencyExchangeRateTable).toBe('currencyExchangeRateTable');
-  expect(CURRENCY_EXCHANGE_ROUTES).toEqual({ list: '/currency/exchange/list', edit: '/currency/exchange/edit' });
+  expect(CURRENCY_EXCHANGE_ROUTES).toEqual({ list: '/catalog/currency/exchange/list', edit: '/catalog/currency/exchange/edit' });
   expect(exchangeReadParams('usd')).toEqual({ paginationSize: 1000, originationCurrentPage: 0, match: { rowOwnerGUID: 'usd' } });
 });
 

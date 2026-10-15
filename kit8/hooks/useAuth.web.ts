@@ -37,7 +37,7 @@ export function useAuthWithGoogle() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/signin' },
+      options: { redirectTo: window.location.origin + '/user/signin' },
     });
     if (error) { console.error(error.message); setLoading(false); }
   };

@@ -1,17 +1,18 @@
 // Monitor01Table - the table of the sheet "W1 1-MONITOR01":
-//   header   row 1: Plan (Planned, Contracted, Rest to contract, Sum for budget) · Fact (Delivered, Actually used, On-hand)      row 2: Resource role · Month · Task name · Unit · the columns
+//   header   row 1: Plan (Planned, Contracted, Rest to contract, Sum for budget) · Fact (Delivered, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
-//   body     Total rows (per unit) · per genus: caption, subtotals (per unit), the rows
+//   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
+//            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
 //   footer   the TotalsRow (always visible below the rows): sumForBudget and the quantities (per unit)
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
 import React, { memo, useCallback } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { pmT } from '../../i18n/pmT';
+import IconApp from '../../../ui/components/common/IconApp';
 import { cellTone, toneBackground } from './monitor01Colors';
 import {
-  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, Monitor01Item, Monitor01Measure, Monitor01Row, Monitor01Sums, Monitor01Totals,
-  formatMonitor01Number, monitor01GenusTitle, monthLabel,
+  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, Monitor01Item, Monitor01Level, Monitor01Measure, Monitor01Row, Monitor01Sums, Monitor01Totals, formatMonitor01Number,
 } from './monitor01Model';
 
 export interface Monitor01CellPress { measure: Monitor01Measure; item: Monitor01Item; value: number }
@@ -21,16 +22,18 @@ export interface Monitor01TableProps {
   items: Monitor01Item[];
   /** the TotalsRow at the bottom (of the rows shown) */
   totals: Monitor01Totals;
-  /** the full data set shows the project of every row */
-  showProject: boolean;
+  /** the chevron of a node was pressed (a Project / Resource role / Month line): the screen collapses or expands it */
+  onToggle: (nodeKey: string) => void;
   unitTitle: (unit: string) => string;
   colors: Monitor01TableColors;
   onCell: (cell: Monitor01CellPress) => void;
   testID?: string;
 }
 
-const W = { project: 150, role: 190, month: 86, task: 160, unit: 72, num: 94, budget: 112 };
+const W = { project: 150, role: 190, month: 104, task: 160, unit: 72, num: 94, budget: 112 };
 const ROW_H = 34;
+/** the column of the label of a node, by its level; the Task name column holds the rows */
+const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { project: 'project', role: 'role', month: 'month' };
 
 /** the numbers of a row/subtotal in the shape cellTone reads */
 const asTone = (s: Monitor01Sums, stale = false) => ({
@@ -69,27 +72,50 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
   );
 });
 
-function Monitor01TableImpl({ items, totals, showProject, unitTitle, colors, onCell, testID = 'monitor01-table' }: Monitor01TableProps) {
-  const dimsWidth = (showProject ? W.project : 0) + W.role + W.month + W.task + W.unit;
+function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, testID = 'monitor01-table' }: Monitor01TableProps) {
+  const dimsWidth = W.project + W.role + W.month + W.task + W.unit;
   const width = dimsWidth + NUMS_WIDTH;
   const text = (extra?: object) => [{ color: colors.text, fontSize: 13 }, extra];
 
   const renderItem = useCallback(({ item }: { item: Monitor01Item }) => {
     const bold = item.kind !== 'row';
-    const sums = item.kind === 'row' ? sumsOfRow(item.row) : item.kind === 'group' ? null : item.sums;
-    const budget = item.kind === 'row' ? item.row.sumForBudget : item.kind === 'group' ? null : item.sumForBudget;
-    const bg = item.kind === 'row' ? undefined : item.kind === 'group' ? colors.headerBackground : colors.surface;
-    const label = item.kind === 'total' ? pmT('Total') : item.kind === 'group' ? pmT(monitor01GenusTitle(item.genus)) : item.kind === 'subtotal' ? `${pmT('Subtotal')} ${pmT(monitor01GenusTitle(item.genus))}` : item.row.resourceRoleName || pmT('(no role)');
-    const unit = item.kind === 'row' ? item.row.measureUnit : item.kind === 'group' ? '' : item.unit;
+    const sums = item.kind === 'row' ? sumsOfRow(item.row) : item.sums;
+    const budget = item.kind === 'row' ? item.row.sumForBudget : item.sumForBudget;
+    const bg = item.kind === 'row' ? undefined : item.kind === 'total' ? colors.surface : item.level === 'project' ? colors.headerBackground : colors.surface;
+    const unit = item.kind === 'row' ? item.row.measureUnit : item.unit;
+    // the label of a line is in the column of its level: Project · Resource role · Month · Task name (a Total line has its caption in the first column)
+    const nodeLabel = (level: Monitor01Level) => {
+      if (item.kind !== 'node' || LEVEL_COLUMN[item.level] !== level) return null;
+      // the chevron and the label only on the first line of a node; the lines of its other units are plain subtotals
+      if (!item.first) return null;
+      const label = item.level === 'role' ? item.label || pmT('(no role)') : item.label;
+      return (
+        <Pressable
+          testID={`${testID}-toggle-${item.nodeKey}`}
+          accessibilityRole="button"
+          aria-expanded={item.expanded}
+          accessibilityLabel={`${item.expanded ? pmT('Collapse') : pmT('Expand')} ${label}`}
+          onPress={() => onToggle(item.nodeKey)}
+          style={styles.nodeLabel}
+        >
+          <IconApp name={item.expanded ? 'expand_more' : 'chevron_right'} size={18} color={colors.text} />
+          <Text numberOfLines={1} style={[text({ fontWeight: '800' }), { flexShrink: 1 }]}>{label}</Text>
+        </Pressable>
+      );
+    };
+    const cellOf = (level: Monitor01Level, w: number) => (
+      <View style={{ width: w, paddingHorizontal: 4, justifyContent: 'center' }}>{nodeLabel(level)}</View>
+    );
     return (
       <View testID={`${testID}-item-${item.key}`} style={[styles.row, { height: ROW_H, borderBottomColor: colors.border, backgroundColor: bg }]}>
-        {showProject && <Text numberOfLines={1} style={[text(), { width: W.project, paddingHorizontal: 8 }]}>{item.kind === 'row' ? item.row.projectName : ''}</Text>}
-        <Text numberOfLines={1} style={[text({ fontWeight: bold ? '800' : '400' }), { width: W.role, paddingHorizontal: 8 }]}>{label}</Text>
-        <Text numberOfLines={1} style={[text(), { width: W.month, paddingHorizontal: 8 }]}>{item.kind === 'row' ? monthLabel(item.row.periodMonth) : ''}</Text>
+        {item.kind === 'total'
+          ? <Text numberOfLines={1} style={[text({ fontWeight: '800' }), { width: W.project, paddingHorizontal: 8 }]}>{pmT('Total')}</Text>
+          : cellOf('project', W.project)}
+        {cellOf('role', W.role)}
+        {cellOf('month', W.month)}
         <Text numberOfLines={1} style={[text(), { width: W.task, paddingHorizontal: 8 }]}>{item.kind === 'row' ? item.row.taskName : ''}</Text>
         <Text numberOfLines={1} style={[text({ opacity: 0.8 }), { width: W.unit, paddingHorizontal: 8 }]}>{unit ? unitTitle(unit) : ''}</Text>
         {COLS.map((c) => {
-          if (!sums) return <View key={c.id} style={{ width: colWidth(c) }} />;
           if (c.id === 'sumForBudget') {
             return <Text key={c.id} testID={`${testID}-budget-${item.key}`} style={[text({ fontWeight: bold ? '800' : '400' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{budget ? money(budget) : ''}</Text>;
           }
@@ -97,7 +123,7 @@ function Monitor01TableImpl({ items, totals, showProject, unitTitle, colors, onC
         })}
       </View>
     );
-  }, [colors, onCell, showProject, testID, unitTitle]);
+  }, [colors, onCell, onToggle, testID, unitTitle]);
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
@@ -124,7 +150,7 @@ function Monitor01TableImpl({ items, totals, showProject, unitTitle, colors, onC
         </View>
         {/* header row 2: the columns */}
         <View testID={`${testID}-head`} style={[styles.row, { height: 30, backgroundColor: headBg, borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
-          {showProject && head(W.project, MONITOR01_HEAD.project, `${testID}-head-project`)}
+          {head(W.project, MONITOR01_HEAD.project, `${testID}-head-project`)}
           {head(W.role, MONITOR01_HEAD.role, `${testID}-head-role`)}
           {head(W.month, MONITOR01_HEAD.month, `${testID}-head-month`)}
           {head(W.task, MONITOR01_HEAD.task, `${testID}-head-task`)}
@@ -178,6 +204,7 @@ function Monitor01TableImpl({ items, totals, showProject, unitTitle, colors, onC
 export default memo(Monitor01TableImpl);
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
+  nodeLabel: { flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 },
   cell: { height: '100%', alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 8, borderLeftWidth: StyleSheet.hairlineWidth },
   moneyCell: { textAlign: 'right', paddingHorizontal: 8, borderLeftWidth: StyleSheet.hairlineWidth },
 });

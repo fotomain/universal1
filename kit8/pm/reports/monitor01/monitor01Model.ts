@@ -1,7 +1,8 @@
 // monitor01Model - the rows of monitor01_view (documentation/MONITOR01_WBS.html; SQL: PART 25) and everything the dashboard computes from them, all pure:
 //   * the key of a row and the PATCH of a realtime event (the screen never refetches: it replaces one row by its key)
 //   * the filters of the bar (startDate · finishDate · project · task · resource) and the tabs (Time · Material · Expense · All)
-//   * the table: totals (per unit - hours and pieces are never added), the genus groups with their subtotals, the rows in the order of the sheet, the TotalsRow at the bottom
+//   * the table: the totals (per unit - hours and pieces are never added) and the TREE Project → Resource role → Month (ascending) → Task name, every node with its subtotal (per unit) and
+//     collapsible (the set of collapsed nodes lives on the screen), the TotalsRow at the bottom
 //   * the filter of the Sum explorer for a cell, a subtotal and a total
 // The numbers come ready from the database (rest to contract and on-hand are generated columns): nothing is calculated here except sums of rows.
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
@@ -169,11 +170,12 @@ export function rowsOfTab(rows: Monitor01Row[], tab: Monitor01Tab): Monitor01Row
   return rows.filter((r) => genus.includes(r.genusGUID));
 }
 
-/** the order of the sheet: genus, role name, month, task name (then project, for the full data set) */
+/** the order of the tree: project, genus (Time, Material, Expense), role name, MONTH ASCENDING, task name */
 export function sortMonitor01Rows(rows: Monitor01Row[]): Monitor01Row[] {
   const g = (r: Monitor01Row) => { const i = MONITOR01_GENUS_ORDER.indexOf(r.genusGUID); return i < 0 ? 99 : i; };
   return [...rows].sort((a, b) =>
-    g(a) - g(b) || a.resourceRoleName.localeCompare(b.resourceRoleName) || a.periodMonth.localeCompare(b.periodMonth) || a.taskName.localeCompare(b.taskName) || a.projectName.localeCompare(b.projectName));
+    a.projectName.localeCompare(b.projectName) || a.rowProjectGUID.localeCompare(b.rowProjectGUID) || g(a) - g(b) || a.resourceRoleName.localeCompare(b.resourceRoleName)
+    || a.resourceRoleGUID.localeCompare(b.resourceRoleGUID) || a.periodMonth.localeCompare(b.periodMonth) || a.taskName.localeCompare(b.taskName) || a.rowOwnerGUID.localeCompare(b.rowOwnerGUID));
 }
 
 // ---- totals ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -204,23 +206,74 @@ export function monitor01Totals(rows: Monitor01Row[]): Monitor01Totals {
 }
 
 // ---- the table: what the screen draws ----------------------------------------------------------------------------------------------------------------------
+//   Total (per unit)
+//   Project 1                      ┐ every node has a subtotal (one line per unit: hours and pieces are never added) and a chevron: collapsed, its children are not in the list
+//     Resource role                │
+//       Month (ascending)          │
+//         Task name                ┘ the rows of monitor01_view
+export type Monitor01Level = 'project' | 'role' | 'month';
+export const MONITOR01_LEVELS: Monitor01Level[] = ['project', 'role', 'month'];
 export type Monitor01Item =
   | { kind: 'total'; key: string; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[] }
-  | { kind: 'group'; key: string; genus: string }
-  | { kind: 'subtotal'; key: string; genus: string; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[] }
+  | {
+    kind: 'node'; key: string;
+    /** the node (the same for every unit line of it): what the chevron collapses */
+    nodeKey: string; level: Monitor01Level; label: string; projectGUID: string; genus?: string; roleGUID?: string; month?: string;
+    /** the first line of the node (the one with the chevron and the label); more units of the node follow as plain subtotal lines */
+    first: boolean; expanded: boolean; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[];
+  }
   | { kind: 'row'; key: string; row: Monitor01Row };
 
-/** total rows (per unit) on top, then every genus: its caption, its subtotals (per unit), its rows */
-export function buildMonitor01Items(rows: Monitor01Row[]): Monitor01Item[] {
+export const monitor01ProjectKey = (projectGUID: string): string => `p|${projectGUID}`;
+export const monitor01RoleKey = (r: Pick<Monitor01Row, 'rowProjectGUID' | 'genusGUID' | 'resourceRoleGUID'>): string => `${monitor01ProjectKey(r.rowProjectGUID)}|r|${r.genusGUID}|${r.resourceRoleGUID ?? ''}`;
+export const monitor01MonthKey = (r: Pick<Monitor01Row, 'rowProjectGUID' | 'genusGUID' | 'resourceRoleGUID' | 'periodMonth'>): string => `${monitor01RoleKey(r)}|m|${String(r.periodMonth).slice(0, 10)}`;
+
+/** every node of the tree of these rows (what "Collapse all" collapses) */
+export function monitor01NodeKeys(rows: Iterable<Monitor01Row>): Set<string> {
+  const keys = new Set<string>();
+  for (const r of rows) { keys.add(monitor01ProjectKey(r.rowProjectGUID)); keys.add(monitor01RoleKey(r)); keys.add(monitor01MonthKey(r)); }
+  return keys;
+}
+
+/** the rows of a list grouped by a key, in the order of the first row of each key (the rows are sorted, so the groups are too) */
+function groupInOrder<T>(rows: T[], keyOf: (r: T) => string): { key: string; rows: T[] }[] {
+  const out: { key: string; rows: T[] }[] = [];
+  const at = new Map<string, { key: string; rows: T[] }>();
+  for (const r of rows) {
+    const k = keyOf(r);
+    let g = at.get(k);
+    if (!g) { g = { key: k, rows: [] }; at.set(k, g); out.push(g); }
+    g.rows.push(r);
+  }
+  return out;
+}
+
+/** the total rows (per unit) on top, then the tree Project → Resource role → Month → Task; the nodes in `collapsed` show their subtotal only */
+export function buildMonitor01Items(rows: Monitor01Row[], collapsed: ReadonlySet<string> = new Set()): Monitor01Item[] {
   const sorted = sortMonitor01Rows(rows);
   const items: Monitor01Item[] = [];
   for (const t of totalsByUnit(sorted)) items.push({ kind: 'total', key: `total|${t.unit}`, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, rows: sorted.filter((r) => r.measureUnit === t.unit) });
-  for (const genus of MONITOR01_GENUS_ORDER) {
-    const own = sorted.filter((r) => r.genusGUID === genus);
-    if (!own.length) continue;
-    items.push({ kind: 'group', key: `group|${genus}`, genus });
-    for (const t of totalsByUnit(own)) items.push({ kind: 'subtotal', key: `sub|${genus}|${t.unit}`, genus, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, rows: own.filter((r) => r.measureUnit === t.unit) });
-    for (const r of own) items.push({ kind: 'row', key: monitor01Key(r), row: r });
+
+  /** the subtotal lines of a node (one per unit); returns whether its children are shown */
+  const pushNode = (nodeKey: string, level: Monitor01Level, label: string, own: Monitor01Row[], extra: { genus?: string; roleGUID?: string; month?: string }): boolean => {
+    const expanded = !collapsed.has(nodeKey);
+    totalsByUnit(own).forEach((t, i) => items.push({
+      kind: 'node', key: `node|${nodeKey}|${t.unit}`, nodeKey, level, label, projectGUID: own[0].rowProjectGUID, ...extra, first: i === 0, expanded, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget,
+      rows: own.filter((r) => r.measureUnit === t.unit),
+    }));
+    return expanded;
+  };
+
+  for (const project of groupInOrder(sorted, (r) => monitor01ProjectKey(r.rowProjectGUID))) {
+    if (!pushNode(project.key, 'project', project.rows[0].projectName, project.rows, {})) continue;
+    for (const role of groupInOrder(project.rows, monitor01RoleKey)) {
+      const first = role.rows[0];
+      if (!pushNode(role.key, 'role', first.resourceRoleName, role.rows, { genus: first.genusGUID, roleGUID: first.resourceRoleGUID })) continue;
+      for (const month of groupInOrder(role.rows, monitor01MonthKey)) {
+        if (!pushNode(month.key, 'month', monthLabel(month.rows[0].periodMonth), month.rows, { genus: first.genusGUID, roleGUID: first.resourceRoleGUID, month: month.rows[0].periodMonth })) continue;
+        for (const r of month.rows) items.push({ kind: 'row', key: monitor01Key(r), row: r });
+      }
+    }
   }
   return items;
 }
@@ -247,6 +300,18 @@ export function drillFilterOfRows(rows: Monitor01Row[], scope: Monitor01DrillSco
   if (to) out.toMonth = `${to.slice(0, 7)}-01`;
   if (f.project.trim() || f.task.trim()) out.taskGUIDs = [...new Set(rows.map((r) => r.rowOwnerGUID))];
   if (f.resource.trim()) out.roleGUIDs = [...new Set(rows.map((r) => r.resourceRoleGUID))];
+  return out;
+}
+
+/**
+ * the filter for a NODE of the tree (a subtotal line of a project, a role or a month): the unit of the line, the project the node is in, the role (and its genus) from the role level on, the month at the month level,
+ * and what the active filters cut - so the list adds up to exactly the number of the line
+ */
+export function drillFilterOfNode(node: Extract<Monitor01Item, { kind: 'node' }>, scope: Monitor01DrillScope): Record<string, any> {
+  const out = drillFilterOfRows(node.rows, scope, { unit: node.unit, genus: node.level === 'project' ? undefined : node.genus });
+  out.projectGUID = node.projectGUID;
+  if (node.level !== 'project' && node.roleGUID !== undefined) out.roleGUID = node.roleGUID;
+  if (node.level === 'month' && node.month) out.month = node.month;
   return out;
 }
 

@@ -24,7 +24,7 @@ export const useAppSignOut = () => {
     saveUserData('', '', '', '').then(r => {});
 
     // 4. Route to signin page
-    router.replace('/signin');
+    router.replace('/user/signin');
   };
 
   return { handleSignOut, loading };

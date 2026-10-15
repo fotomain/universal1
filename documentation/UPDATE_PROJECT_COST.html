@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Update project cost - design</title>
+<style>
+  /* Light business theme, same family as documentation/PROJECT_STATE_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font: 12.5px/1.5 var(--mono); margin: 10px 0; }
+  pre code { background: none; padding: 0; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.win td { background: var(--emerald-soft); }
+  tr.lose td { color: var(--muted); }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .badbox { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.warn { background: var(--rose-soft); border-color: #fda4af; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+  table.tree td { padding: 3px 10px; font-size: 13.5px; }
+  table.tree td.stage { font-weight: 700; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Update project cost <span class="pill new" style="margin-left:6px">built</span></div>
+  <nav><ul>
+    <li><a href="#answer">Answer</a></li><li><a href="#today">1 Today</a></li><li><a href="#source">2 Source</a></li><li><a href="#where">3 Where it lives</a></li>
+    <li><a href="#how">4 How to calculate</a></li><li><a href="#bench">5 Measured</a></li><li><a href="#design">6 Design</a></li><li><a href="#edge">7 Edge cases</a></li>
+    <li><a href="#client">8 Client</a></li><li><a href="#wbs">9 WBS</a></li><li><a href="#tests">10 Tests</a></li><li><a href="#open">11 Questions</a></li><li><a href="#built">12 Built</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="answer">
+  <h1>Update project cost <span class="pill new">built 2026-10-15</span></h1>
+  <p class="lead">Request: a server side function <code>update_project_cost_total</code> that calculates the total cost of <b>every task and every stage</b> of the tree, from the register, only when the project has the cost budget on, with real time refresh,
+  a tree column <code>costTotalForBudget</code>, a project switch <code>showTotalCostOnTheGanttChart</code> and a toolbar command before <i>Refresh the project</i>. Asked: <i>"project_status_turnover or ???"</i> and <i>"a field of project_task_table or a separate table???"</i> and <i>"the fastest way"</i>.</p>
+  <div class="good"><b>Decisions of the owner (2026-10-15) - they replace the earlier proposals</b>
+    <ul class="tight">
+      <li><b>CostTotal = Time + Material + Expense</b>: <code>costTotalForBudget</code> is the plan in the budget currency summed over the three cost genera (answers Q1: the plan; used and invoiced are not part of version 1).</li>
+      <li><b>The server does the work only while one of the three budgets is on</b>: Time (<code>projectTimeCostsNeeded</code> with a kind person / equipment) <i>or</i> Material (<code>projectMaterialCostsNeeded</code>) <i>or</i> Expense (<code>projectExpenseCostsNeeded</code>). They are the inputs under the master switch <code>projectExpenseBudgetNeeded</code>; the master off = the legacy project (no cost budget chosen) = no work. The rule is the same in SQL (<code>project_cost_budget_on</code>) and in the app (<code>projectCostBudgetOn</code>), and a test keeps them equal.</li>
+      <li><code>showTotalCostOnTheGanttChart</code> is usable only while that rule is true. The other questions are answered as proposed (section 11).</li>
+      <li>A genus whose input switch is later turned off but that still has plan lines is <b>still summed</b> ("a switch never hides data", as the task tabs).</li>
+    </ul></div>
+  <div class="good"><b>The best solution, in six lines</b>
+    <ol class="steps">
+      <li><b>Source: <code>project_status_month_turnover</code></b> (the user's "project_status_turnover"): column <code>sumForBudgetPlan</code>, already summed per task, written by the Monitor01 worker. No new source of truth.</li>
+      <li><b>Storage: a separate narrow table <code>project_task_cost_total</code></b> (one row per task or stage that has a cost; column <code>costTotalForBudget</code>), <b>not</b> a column of <code>project_task_table</code>. Section 3 says why; the column is the weaker choice.</li>
+      <li><b>Calculation: delta propagation on the ancestors read from the path labels</b> - a task's path already contains the GUID of every stage above it, so the roll-up needs <b>no join and no subtree scan</b>. Measured: <b>500 changed tasks 14-16 ms, one task 0.3 ms</b>. A full rebuild by the same trick: ~60-145 ms for 11 220 tasks. Section 5.</li>
+      <li><b>Where it runs: as step 3 of <code>monitor01_apply</code></b> - the same queue, the same pg_cron tick, the same transaction as the turnover. No new job, no new trigger on the register.</li>
+      <li><b>Real time: Supabase Realtime on the new table</b> (a row = 5 numbers, a change of one task = about 5 small events). The client patches its cache from the event payload: <b>no refetch</b> of the project.</li>
+      <li><b>Settings gate: the server does the work only while one of the Time / Material / Expense budgets is on</b> (all off = the rows are deleted); <code>showTotalCostOnTheGanttChart</code> is display only and is usable only while that is true.</li>
+    </ol></div>
+  <div class="note"><b>About the file name.</b> The request says <code>./documents/UPDATE_PROJECT_COST.html</code>. The folder <code>documents/</code> does not exist; all the plan pages of this project are in <code>documentation/</code>, so this page is <code>documentation/UPDATE_PROJECT_COST.html</code>. (Say so if you want the folder <code>documents/</code> made.)</div>
+  <div class="good"><b>Status 2026-10-15: built and tested</b> - section <a href="#built">12</a> says what is, with the numbers measured on the finished feature. Sections 1-11 are the analysis it came from (kept, so a decision can be traced).</div>
+  <div class="note"><b>What was done before the build (analysis round).</b> Read: the register and the Monitor01 worker (<code>start1/start2</code>, PARTS 15, 25), the task tree and its columns, the project settings Budgets tab, the Actions menu, the realtime hooks. At that time nothing was built.
+  The numbers in section 5 are <b>measured</b> on a throw-away database of the local Docker Postgres 15 (synthetic data, three runs, the numbers are ranges); Supabase will be slower in absolute terms, the order of the options will not change. The database was dropped afterwards.</div>
+</section>
+
+<section id="today">
+  <h2>1 What exists today <span class="pill chg">facts from the code</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Fact</th><th>Where</th></tr>
+    <tr><td>The tree is <code>project_task_table</code>: <code>treePath</code> (ltree, first label = the project, last label = the row itself, one label per level, <b>the label is the GUID with <code>-</code> replaced by <code>_</code></b>, <code>pm_ltree_label</code>), <code>rowJSON.rowKind</code> = <code>task | stage | milestone</code>. Progress of stages is already rolled up by a trigger (<code>pm_recalc_project_progress</code>) - the precedent for a roll-up in SQL.</td><td><code>start1</code> l.388, <code>start2</code> l.81 and l.712</td></tr>
+    <tr><td>The register <code>project_status_movements</code> (plan / used / invoiced ...) and its monthly sum <code>project_status_month_turnover</code> (<code>rowOwnerGUID</code> = the task, <code>sumForBudgetPlan · sumForBudgetUsed · sumForBudgetInvoiced</code>) are kept by the Monitor01 worker.</td><td>PART 25</td></tr>
+    <tr><td><code>monitor01_apply(p_tasks)</code> does: step 0 register the plan · step 1 sum the register into the turnover (changed rows only) · step 2 fill <code>monitor01_view</code>. It is called by the pg_cron worker every 2 s (<code>monitor01_process_batch</code>, 500 tasks per batch, <code>FOR UPDATE SKIP LOCKED</code>) and by <code>monitor01_refresh_now</code>.</td><td><code>start2</code> l.5743</td></tr>
+    <tr><td>The plan of an <b>unposted</b> task line is not in the register (only <code>planMovementStatus = true</code> rows), so it is not in any report. The totals will follow the same rule.</td><td>KNOW_HOW section 4</td></tr>
+    <tr><td>The master switch is <code>project_table.rowJSON.projectExpenseBudgetNeeded</code> (default <b>false</b>; Project settings → Budgets → Main); under it <code>projectTimeCostsNeeded</code> (+ person / equipment), <code>projectMaterialCostsNeeded</code>, <code>projectExpenseCostsNeeded</code> (unsaved = on). Revenue has its own switch <code>projectRevenueBudgetNeeded</code>; the register holds <b>cost</b> genera only (time, material, expense).</td><td><code>taskInputScope.ts</code>, <code>PMProjectBudgetsTab.tsx</code></td></tr>
+    <tr><td>Realtime of the PM screens: any change of <code>project_task_table</code> invalidates the <b>whole project data</b> (all tasks, dependencies, closure), debounced 350 ms (<code>invalidationFor('task')</code>). Monitor01 has its own channel on its own table with the read policy <code>rowOwnerUserGUID = app_user_guid()</code> ("one column, no join per event: the fastest realtime").</td><td><code>projectRealtime.ts</code>, <code>start2</code> l.5503</td></tr>
+    <tr><td>The Actions menu of the project bar (<code>PMProjectActionsButton</code>): Post unposted tasks · Repost all tasks · <b>Refresh the project</b> (last).</td><td><code>kit8/pm/view/project/buttons</code></td></tr>
+  </table></div>
+</section>
+
+<section id="source">
+  <h2>2 What to calculate from <span class="pill mid">project_status_month_turnover</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Source</th><th>Rows for a 10 000 task project</th><th>For</th><th>Against</th><th>Verdict</th></tr>
+    <tr class="win"><td><b><code>project_status_month_turnover</code></b></td><td>~180 000 (task × genus × role × unit × month)</td><td>Already one number per task and month; written by the worker <b>in the same call</b>, so the cost can never disagree with Monitor01; has plan, used and invoiced columns; the PK starts with the task, so "sum of a batch of tasks" is an index read (19 ms for 500 tasks).</td><td>It is the output of the worker, so the cost step must run <b>after</b> step 1 (it does, in the same transaction).</td><td><span class="pill new">use</span></td></tr>
+    <tr class="lose"><td><code>project_status_movements</code> (the register)</td><td>more (one row per day of a plan line)</td><td>The finest grain.</td><td>Re-does what step 1 already did, only slower.</td><td><span class="pill bad">no</span></td></tr>
+    <tr class="lose"><td><code>task_line_plan_movements</code></td><td>e.g. 10 000 tasks × 3 lines × 20 days = 600 000</td><td>Where the plan is born.</td><td>Has the "pending" rows (<code>planMovementStatus</code>), knows nothing of used / invoiced, and would copy the rules that <code>project_status_register_plan</code> already keeps.</td><td><span class="pill bad">no</span></td></tr>
+    <tr class="lose"><td><code>task_line_table.rowJSON.sumForBudget</code></td><td>per line</td><td>Always current.</td><td>Includes <b>unposted</b> lines: the tree would disagree with Monitor01 and with the posted-status column.</td><td><span class="pill bad">no</span></td></tr>
+  </table></div>
+  <p><b>Which number is "total cost"?</b> The turnover has three: plan (<code>sumForBudgetPlan</code>), used (<code>…Used</code>, posted fact documents), invoiced (<code>…Invoiced</code>). <code>costTotalForBudget</code> = <b>the plan in the budget currency</b> (the budget of the task), <b>Time + Material + Expense</b> (decided). The same machinery gives used and invoiced for the price of one more column pair; version 1 builds the plan only.</p>
+  <p class="small">The currency is the budget currency the plan was posted with (<code>sumForBudget</code>). A change of the project budget currency or rate type shows in the totals only after the tasks are reposted - exactly as in Monitor01.</p>
+</section>
+
+<section id="where">
+  <h2>3 Where to store it <span class="pill mid">a column of project_task_table or a separate table</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Question</th><th><code>project_task_table.costTotalForBudget</code> (new column)</th><th><code>project_task_cost_total</code> (new table)</th></tr>
+    <tr><td>Rows written per change</td><td>The task and every stage above it are <b>updated in the most edited table</b>, each a wide row (rowJSON, treePath) with several indexes (btree, GiST, GIN) and the touch trigger <code>trg_project_task_table_touch</code> (moves <code>updated_at</code>).</td><td>Narrow rows (5 numbers) in a table nobody edits by hand. Sparse: a task without cost has no row.</td></tr>
+    <tr><td>Realtime</td><td>Every changed row is a task event; <code>invalidationFor('task')</code> then <b>refetches all tasks, dependencies and closure</b> of the project. During a mass Post the worker ticks every 2 s: a full project refetch every ~2 s on every open screen.</td><td>Own channel: the event carries the numbers, the client patches its cache, <b>no refetch</b>. The Gantt data is not touched.</td></tr>
+    <tr><td>Clash with the user's edits</td><td>The client writes task rows (drag, rename, dates). A derived number in the same row is exposed to a stale overwrite unless every write path is column-exact (to verify in <code>taskApi.ts</code>, <code>ImportExportProject</code>, templates, versions).</td><td>None: only the server writes it (RLS: no write for <code>authenticated</code>).</td></tr>
+    <tr><td>Copies of a project (versions, templates, import/export, "create from template")</td><td>A derived column is copied into every copy and is wrong there; each copier must be taught to skip it.</td><td>Not copied. A restored version simply has no rows until its tasks are posted.</td></tr>
+    <tr><td>Access</td><td>Already in <code>projectData</code>: the tree needs no new query.</td><td>One more read (1.3-1.6 ms for 11 220 rows) and one hook. This is its only cost.</td></tr>
+    <tr><td>Install / undo</td><td><code>ALTER TABLE … ADD COLUMN</code> on the hottest table; undo = drop column.</td><td>One <code>CREATE TABLE</code> in start1; undo = one DROP in <code>delete_sql_structure.sql</code>. The rest of the structure is untouched.</td></tr>
+  </table></div>
+  <div class="good"><b>Decision: the separate table.</b> The column is "free to read" and costs more everywhere else - in the table every screen of the product depends on. The new table is the same pattern as <code>project_status_month_turnover</code> and <code>monitor01_view</code>.
+  The column name <code>costTotalForBudget</code> is kept (in the new table), so the tree column key, the SQL and the texts all say the same word.</div>
+</section>
+
+<section id="how">
+  <h2>4 How to calculate the stages <span class="pill mid">the fastest way</span></h2>
+  <p>A stage total = the own cost of the stage + the own cost of everything below it. The worker already knows <i>which tasks changed</i> (a batch) and the table stores each task's <b>own</b> cost, so the exact change of every stage above is <code>newOwn − storedOwn</code>.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Way</th><th>Idea</th><th>Verdict</th></tr>
+    <tr class="lose"><td>1</td><td>At read time</td><td>A view / RPC sums the turnover per task and rolls it up on every refresh.</td><td>Whole project <b>300-360 ms per refresh</b>, per client, and nothing tells the client <i>when</i> to refresh (no realtime signal). No.</td></tr>
+    <tr class="lose"><td>2</td><td>Recompute the stages above a changed task by a subtree sum</td><td><code>WHERE path &lt;@ stage.path</code> (GiST) for each affected stage.</td><td>300-690 ms for a batch of 500, ~190-200 ms even for one task: the planner scans the subtree of the top stages. No.</td></tr>
+    <tr class="lose"><td>3</td><td>Recompute with the prefixes of the path joined back to the task table</td><td>Every prefix → join <code>treePath = prefix</code>.</td><td>280-370 ms for 500. ltree comparisons are slow. No.</td></tr>
+    <tr class="lose"><td>4</td><td>Delta, ancestors found by a join</td><td><code>total = total + delta</code>.</td><td>40-48 ms for 500. Right idea, avoidable join.</td></tr>
+    <tr class="win"><td>5</td><td><b>Delta, ancestors read from the labels of the path</b></td><td>A label is the GUID of that ancestor: <code>replace(label,'_','-')::uuid</code>. One <code>unnest(string_to_array(…))</code>, one hash aggregate, one update by primary key.</td><td><b>14-16 ms for 500 tasks, 0.26-0.30 ms for one.</b> Used on the hot path.</td></tr>
+    <tr class="win"><td>6</td><td><b>Full rebuild by the same label trick</b></td><td>Own cost of every task (a group by), then the same unnest, one pass.</td><td>~58-67 ms read, ~85-146 ms with the writes, for 11 220 tasks. Used for the rare paths: the toolbar command, switch turned on, a stage moved or deleted, <code>verify</code>.</td></tr>
+  </table></div>
+  <div class="note"><b>Why delta is safe.</b> Money is <code>NUMERIC(18,2)</code>: sums are exact, there is no rounding drift. The stored own cost is the reference of the delta, so a batch processed twice adds 0. A bug or an out-of-band write could still make a stage wrong: therefore way 6 exists as <code>project_cost_verify</code> (compares the stored totals with a rebuild, returns the differences) and as the toolbar command, and it is a test in Docker (section 10) after every scenario.
+  Delta correctness was checked in the benchmark itself: after 500 random changes, <b>0</b> stages differ from the GiST subtree sums.</div>
+</section>
+
+<section id="bench">
+  <h2>5 Measured <span class="pill new">Docker Postgres 15, synthetic</span></h2>
+  <p>Tree of 11 220 rows (20 stages × 10 × 5 stages, 10 tasks under each, depth 5), 180 000 turnover rows (3 genera × 6 months per task), unique btree + GiST on <code>treePath</code>, <code>ANALYZE</code>d. <code>EXPLAIN ANALYZE</code> execution time, <b>three runs</b> (each run builds a new random tree; the first run was colder, it is the high end of the ranges), warm cache otherwise.</p>
+  <div class="scroll"><table>
+    <tr><th>What</th><th class="num">ms</th><th>Note</th></tr>
+    <tr><td>Own cost of 500 changed tasks, from the turnover</td><td class="num">18-19</td><td>PK prefix read - paid by every way</td></tr>
+    <tr><td>Ancestors of 500 tasks: subtree sum (GiST) · prefix join · delta with join</td><td class="num">296-690 · 279-370 · 40-48</td><td>ways 2 · 3 · 4</td></tr>
+    <tr><td><b>Ancestors of 500 tasks: delta by labels</b></td><td class="num"><b>14-16</b></td><td>way 5</td></tr>
+    <tr><td><b>Ancestors of ONE task: delta by labels</b> (5 rows)</td><td class="num"><b>0.26-0.30</b></td><td>the usual case: one Post</td></tr>
+    <tr><td>Ancestors of ONE task: subtree sum + prefix</td><td class="num">187-203</td><td>why recompute is out</td></tr>
+    <tr><td><b>Full rebuild by labels</b>: read · with the writes</td><td class="num"><b>58-67 · 85-146</b></td><td>way 6</td></tr>
+    <tr><td>Whole project at read time from the turnover (not stored)</td><td class="num">298-362</td><td>way 1, per client, per refresh</td></tr>
+    <tr><td>One stage (560 tasks) at read time from the turnover</td><td class="num">18-19</td><td>fine for a drill-down, not for a tree</td></tr>
+    <tr><td><b>The client reads the stored totals</b> of the project (11 220 rows)</td><td class="num"><b>1.3-1.6</b></td><td>first load of the tree</td></tr>
+  </table></div>
+  <p class="small">Reading: the cost step adds <b>~1-16 ms to a worker batch</b> (a batch of 500 tasks of Monitor01 itself took 0.5-1.3 s in its own benchmark, <code>bench_monitor01.sh</code>). The measured SQL is in <code>kit8/docker/bench_project_cost_rollup.sql</code> (run it with the line in its first comment). The real benchmark of the finished feature is <code>bench_project_cost.sh</code> (section 10) with the targets: 500 tasks &lt; 50 ms · one task &lt; 5 ms · rebuild of 10 000 tasks &lt; 250 ms.</p>
+</section>
+
+<section id="design">
+  <h2>6 Design <span class="pill chg">SQL, new PART 27</span></h2>
+  <div class="flow">
+    <span class="box">Post / fact / invoice</span><span class="arrow">→</span><span class="box">register (existing)</span><span class="arrow">→</span><span class="box">monitor01_dirty (existing queue)</span><span class="arrow">→</span>
+    <span class="box on">pg_cron 2 s: monitor01_apply</span><span class="arrow">→</span><span class="box">step 1 turnover</span><span class="arrow">→</span><span class="box">step 2 monitor01_view</span><span class="arrow">→</span>
+    <span class="box ok"><b>step 3 project_cost_apply</b> (new)</span><span class="arrow">→</span><span class="box ok">project_task_cost_total</span><span class="arrow">→</span><span class="box ok">Realtime</span><span class="arrow">→</span><span class="box ok">tree column</span>
+  </div>
+  <div class="flow">
+    <span class="box on">toolbar: Update project cost</span><span class="arrow">→</span><span class="box on">RPC update_project_cost_total(project)</span><span class="arrow">→</span><span class="box">flush the project's queued tasks (monitor01_apply)</span><span class="arrow">→</span><span class="box ok">project_cost_rebuild</span><span class="arrow">→</span><span class="box">{ tasks, projectTotal, changedRows, ms }</span>
+  </div>
+
+  <h3>The table (start1, PART 27)</h3>
+<pre><code>CREATE TABLE IF NOT EXISTS public.project_task_cost_total (
+  "rowOwnerGUID"       UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,  -- the task or the stage
+  "rowProjectGUID"     UUID          NOT NULL,
+  "rowOwnerUserGUID"   UUID,                                   -- the owner of the project: the fast realtime policy (as monitor01_view)
+  "costOwnForBudget"   NUMERIC(18,2) NOT NULL DEFAULT 0,       -- the task's own lines: sum of sumForBudgetPlan of its turnover rows
+  "costTotalForBudget" NUMERIC(18,2) NOT NULL DEFAULT 0,       -- own + everything below (what the tree shows)
+  "updated_at"         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID")
+);
+CREATE INDEX IF NOT EXISTS idx_project_task_cost_total_project ON public.project_task_cost_total ("rowProjectGUID");</code></pre>
+  <p class="small">Sparse: a row exists only while <code>costOwnForBudget ≠ 0</code> or <code>costTotalForBudget ≠ 0</code>. The client treats a missing row as "no cost" (empty cell). A tiny queue <code>project_cost_dirty("rowProjectGUID", "queuedAt")</code> (UNLOGGED, like <code>monitor01_dirty</code>) carries the rare "rebuild this project" requests.</p>
+
+  <h3>The functions and triggers (start2, PART 27)</h3>
+  <div class="scroll"><table>
+    <tr><th>Object</th><th>What it does</th></tr>
+    <tr><td><code>project_cost_apply(p_tasks uuid[])</code> <span class="pill new">hot path</span></td><td>Called as <b>step 3 at the end of <code>monitor01_apply</code></b>. (1) Keeps only the tasks of projects where <code>project_cost_budget_on(rowJSON)</code> is true (master on and one of Time / Material / Expense on). (2) New own cost = sum of <code>sumForBudgetPlan</code> of the turnover of those tasks (the step before wrote it, same transaction). (3) Takes <code>pg_advisory_xact_lock</code> per project (sorted; serializes with a rebuild and with <code>refresh_now</code>, no deadlock). (4) <code>d = newOwn − storedOwn</code>; for the tasks with <code>d ≠ 0</code>: upsert own; then add <code>d</code> to <code>costTotalForBudget</code> of the task and <b>all its ancestors</b> (labels of <code>subpath(treePath,1)</code>), one grouped upsert <code>ON CONFLICT … SET total = total + EXCLUDED.total</code>. (5) Deletes the rows that are 0/0. <b>Only rows whose numbers change are written</b> (no realtime noise).</td></tr>
+    <tr><td><code>project_cost_rebuild(p_project uuid)</code></td><td>The truth from scratch, by labels (way 6): own cost of every task of the project, totals by one unnest-and-group, upsert the changed rows, delete the rows that are no longer needed. Project switch off → deletes the rows. Returns <code>{ tasks, projectTotal, changedRows, ms }</code> (<code>changedRows &gt; 0</code> on a project that was up to date = a drift was healed).</td></tr>
+    <tr><td><code>update_project_cost_total(p_project uuid)</code> <span class="pill chg">RPC, authenticated</span></td><td>The command of the toolbar (the "updateProjectCostTotal" of the request). Checks <code>pm_owns_project</code>; <b>flushes the queued tasks of this project</b> (the same code as <code>monitor01_refresh_now</code>), then calls <code>project_cost_rebuild</code>. The result is the answer of the button. An error is not swallowed (the screen shows it).</td></tr>
+    <tr><td><code>project_cost_verify(p_project uuid)</code></td><td>Read only: the stored totals against a rebuild, returns the differing tasks (empty = right). Used by the tests; callable by hand like <code>monitor01_verify</code>.</td></tr>
+    <tr><td>trigger on <code>project_table</code> (<code>project_cost_budget_on</code> changes its value)</td><td>On → <code>project_cost_rebuild</code> at once (the turnover is already there). Off → <code>DELETE</code> of the project's rows (no worker work any more). A change of a switch that leaves the rule as it was does nothing.</td></tr>
+    <tr><td>statement triggers on <code>project_task_table</code> (<code>treePath</code> update = a stage moved; delete; transition tables)</td><td>One row per project into <code>project_cost_dirty</code>; the worker rebuilds the project once at the end of its tick. A move or a delete changes the ancestors, which a delta cannot know cheaply; both are rare and the rebuild is ~0.1 s. The user's drag stays fast.</td></tr>
+    <tr><td>RLS · grants · realtime</td><td>RLS on, <code>REVOKE ALL</code> from <code>anon, authenticated</code>, <code>GRANT SELECT</code> to <code>authenticated</code>, policy <code>"rowOwnerUserGUID" = app_user_guid()</code>. <code>REPLICA IDENTITY FULL</code> and the table in <code>supabase_realtime</code> (the loop of PART 25 gets one name). The functions are <code>SECURITY DEFINER</code>, no execute for <code>anon</code>.</td></tr>
+    <tr><td>install backfill (start2)</td><td>Every project with the budget switch on is rebuilt once (idempotent: a second install changes 0 rows).</td></tr>
+    <tr><td><code>delete_sql_structure.sql</code></td><td>One new numbered part drops the table, the queue, the functions and the triggers (the numbering test is kept happy).</td></tr>
+  </table></div>
+
+  <h3>The hot-path statement (the shape that was measured)</h3>
+<pre><code>-- changed: (task, project, owner, path, d) for the tasks of the batch whose own cost differs from the stored one
+UPDATE/INSERT … SELECT replace(lbl, '_', '-')::uuid AS anc, c.project, c.usr, sum(c.d)
+  FROM changed c
+  CROSS JOIN LATERAL unnest(string_to_array(ltree2text(subpath(c.path, 1)), '.')) AS lbl   -- every label = a stage above, the last = the task itself
+ GROUP BY 1, 2, 3
+ON CONFLICT ("rowOwnerGUID") DO UPDATE
+   SET "costTotalForBudget" = t."costTotalForBudget" + EXCLUDED."costTotalForBudget", "updated_at" = NOW();</code></pre>
+
+  <h3>What the user sees</h3>
+  <div class="mock">
+    <table class="tree">
+      <tr><th>#</th><th>Task name</th><th>Start</th><th>%</th><th class="num">Cost (EUR)</th></tr>
+      <tr><td class="stage">1</td><td class="stage">Construction</td><td>01.11</td><td>40</td><td class="num stage">48 250.00</td></tr>
+      <tr><td>1.1</td><td>&nbsp;&nbsp;Foundation</td><td>01.11</td><td>100</td><td class="num">31 000.00</td></tr>
+      <tr><td class="stage">1.2</td><td class="stage">&nbsp;&nbsp;Walls</td><td>20.11</td><td>10</td><td class="num stage">17 250.00</td></tr>
+      <tr><td>1.2.1</td><td>&nbsp;&nbsp;&nbsp;&nbsp;Bricklaying</td><td>20.11</td><td>10</td><td class="num">12 000.00</td></tr>
+      <tr><td>1.2.2</td><td>&nbsp;&nbsp;&nbsp;&nbsp;Scaffolding</td><td>25.11</td><td>0</td><td class="num">5 250.00</td></tr>
+      <tr><td>2</td><td>Hand-over (milestone)</td><td>10.12</td><td>0</td><td class="num"></td></tr>
+    </table>
+    <div class="small">Illustration, not real data. Stages bold; no cost = empty cell. The column header says the budget currency.</div>
+  </div>
+</section>
+
+<section id="edge">
+  <h2>7 Edge cases <span class="pill ask">and what the design does</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Case</th><th>Behaviour</th></tr>
+    <tr><td>All cost budgets off (master off, or Time + Material + Expense all off)</td><td>No row, no work (the gate is the first line of <code>project_cost_apply</code>). Turning the last one off deletes the rows; turning one on rebuilds. Old projects (master never saved = off) are not touched by the install.</td></tr>
+    <tr><td>Task not posted, or changed after posting</td><td>The total is the last <b>posted</b> plan (as Monitor01). The posted-status column (green / orange check) already tells which tasks are out of date.</td></tr>
+    <tr><td>A stage is moved / deleted / a subtree is deleted</td><td>Statement trigger queues the project → rebuilt at the end of the tick (≤ 2 s). Rows of deleted tasks go with the task (<code>ON DELETE CASCADE</code>).</td></tr>
+    <tr><td>A stage has cost lines of its own</td><td>Own + below. The formula does not care about <code>rowKind</code>.</td></tr>
+    <tr><td>Two clients / the worker and <code>refresh_now</code> at once</td><td>The per-project advisory lock serializes the cost step; the dirty queue already takes a task only once (<code>SKIP LOCKED</code>).</td></tr>
+    <tr><td>pg_cron not enabled (pitfall in KNOW_HOW)</td><td>Same as Monitor01: nothing moves by itself. The toolbar command works (it flushes the queue itself). Recommended safety net: after a successful Post / Repost the app calls the RPC once (question Q6). It also removes the ≤ 2 s tick from the user's wait: the number appears about 0.1 s after Post.</td></tr>
+    <tr><td>Realtime silent / a socket was down</td><td>The hook refetches on reconnect (the rule of <code>useProjectRealtime</code>) and on the toolbar command.</td></tr>
+    <tr><td>Project versions, templates, import / export</td><td>Not copied (a separate table, derived data). A restored version shows no cost until its tasks are posted; the version view has no cost column.</td></tr>
+    <tr><td>Revenue budget</td><td>Out of scope: the register has cost genera only.</td></tr>
+    <tr><td>Failure inside the cost step</td><td>It is inside <code>monitor01_apply</code>; the existing retry (a bad task is parked after 5 tries, the others go on) covers it. A cost error must not block Monitor01: if you want it isolated, step 3 gets its own <code>BEGIN … EXCEPTION</code> sub-block (decide at build time; default: isolated and logged in <code>lastError</code>).</td></tr>
+  </table></div>
+</section>
+
+<section id="client">
+  <h2>8 Client <span class="pill chg">app</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Part</th><th>Design</th></tr>
+    <tr><td>Code home</td><td>New folder <code>kit8/pm/cost/</code> with a README: <code>costTotalModel.ts</code> (pure: effective switch, formatting, the map task → total), <code>costTotalApi.ts</code> (select + RPC), <code>useProjectCostTotals.ts</code>, tests in <code>__tests__/pm/cost/</code>.</td></tr>
+    <tr><td>Switch <code>showTotalCostOnTheGanttChart</code></td><td>A project field next to <code>projectExpenseBudgetNeeded</code> (<code>project_table.rowJSON</code>), Project settings → Budgets → Main, <b>directly under "Expense budget needed"</b>. <code>SwitchApp disabled</code> with a one-line hint while no cost budget is on. Effective value = <code>projectCostBudgetOn(project) &amp;&amp; showTotalCostOnTheGanttChart</code>; the stored value is kept when the budget is turned off. (Q2: auto-on the first time the budget is turned on.) It is display only: the server keeps the totals while the budget is on.</td></tr>
+    <tr><td>Tree column</td><td>Built-in key <code>costTotalForBudget</code> (title "Cost", right aligned, ~96 px) in <code>treeColumns.ts</code>; <code>normalizeTreeColumnsOrder</code> inserts a missing built-in key by itself, so saved column orders keep working. The layout drops the key while the effective switch is off; it is dropped late on a narrow pane (after "%"). Stage rows bold. The header tip names the budget currency. Cell = <code>map.get(task.rowGUID)</code>, empty when missing.</td></tr>
+    <tr><td>Hook</td><td>React Query reads <code>project_task_cost_total</code> of the project once (~1.5 ms server side). One Realtime channel on the table with <code>rowProjectGUID=eq.&lt;project&gt;</code>: INSERT / UPDATE → patch the map; DELETE (cannot be filtered, key only) → remove the key if it is in the map; patches are batched ~150 ms into one state change. Reconnect → refetch. The hook is off while the effective switch is off (no query, no channel).</td></tr>
+    <tr><td>Toolbar command</td><td>A new item <b>"Update project cost"</b> (icon <code>calculate</code>) in <code>PMProjectActionsButton</code>, <b>directly before "Refresh the project"</b>; shown only while <code>projectCostBudgetOn</code> is true. It calls <code>update_project_cost_total</code>, shows busy state, then refetches the map; the result ("Project cost 123 456.00 EUR · 11 220 tasks · 0.1 s", and "N totals were corrected" when <code>changedRows &gt; 0</code>) goes to a message; an error goes to <code>ErrorModalWindow</code> (not an ephemeral snackbar). Texts through <code>pmT</code>. The Actions icon title is extended. (Q3: a separate icon instead of a menu item.)</td></tr>
+    <tr><td>Gantt bars</td><td>The switch name says "on the Gantt chart", the request asks for the tree column. Version 1 = the tree column only; a text on the bars (as the progress "XX%") is a later step (Q5).</td></tr>
+  </table></div>
+</section>
+
+<section id="wbs">
+  <h2>9 WBS <span class="pill mid">work packages</span></h2>
+  <div class="scroll"><table>
+    <tr><th>WP</th><th>What</th><th>Files</th></tr>
+    <tr><td>1</td><td>Table + queue (PART 27)</td><td><code>start1_sql_tables.sql</code></td></tr>
+    <tr><td>2</td><td>Functions, step 3 in <code>monitor01_apply</code>, triggers, RLS, grants, realtime, install backfill, <code>update_project_cost_total</code>, <code>project_cost_verify</code></td><td><code>start2_sql_code.sql</code> (same PART 27)</td></tr>
+    <tr><td>3</td><td>Undo part</td><td><code>delete_sql_structure.sql</code></td></tr>
+    <tr><td>4</td><td>Docker tests + script + benchmark</td><td><code>kit8/docker/tests/80_project_cost.sql</code>, <code>test_project_cost.sh</code> (or extend <code>test_fact_monitor01.sh</code> to 8N), <code>bench_project_cost.sh</code></td></tr>
+    <tr><td>5</td><td>Model, API, hook (+ README)</td><td><code>kit8/pm/cost/*</code></td></tr>
+    <tr><td>6</td><td>Tree column</td><td><code>treeColumns.ts</code>, <code>PMProjectTasksTree.tsx</code>, the Skia cell drawing (located at build time)</td></tr>
+    <tr><td>7</td><td>Switch + effective rule</td><td><code>PMProjectBudgetsTab.tsx</code>, <code>taskInputScope.ts</code> or a sibling, <code>types.ts</code></td></tr>
+    <tr><td>8</td><td>Toolbar item (+ optional call after Post)</td><td><code>PMProjectActionsButton.tsx</code>, <code>useProjectPostActions.ts</code></td></tr>
+    <tr><td>9</td><td>Jest tests, README, KNOW_HOW feature row</td><td><code>__tests__/pm/cost</code>, <code>__tests__/sql</code>, <code>KNOW_HOW.md</code></td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>10 Tests <span class="pill mid">written in the same round as the code</span></h2>
+  <h3>Docker (<code>tests/80_project_cost.sql</code>, one transaction, rolled back)</h3>
+  <ul class="tight">
+    <li>Gate: master off → no row after a Post; master on with Time only / Material only / Expense only → rows; all three off → rows deleted; one on again → rebuilt; Time on but neither person nor equipment → off (same as the app).</li><li>Total = Time + Material + Expense lines of one task.</li>
+    <li>Leaf Post → own + totals of every stage above; second leaf; a change to a lower number; a task back to 0 → its row (and the stage rows that become 0/0) disappear.</li>
+    <li>After <b>every</b> scenario: <code>project_cost_verify</code> returns nothing and equals the GiST subtree sums (the check of the benchmark).</li>
+    <li>Stage move and subtree delete → project queued → rebuild gives the new totals; the old ancestors lose, the new ones gain.</li>
+    <li>Used and invoiced documents do not change the plan total; an unposted line is not counted.</li>
+    <li>Two batches over the same stage in one transaction; <code>update_project_cost_total</code> on a queued, never processed task; not your project → refused; RLS: another user reads 0 rows; the install twice changes 0 rows; the undo part leaves nothing.</li>
+  </ul>
+  <h3>Speed (<code>bench_project_cost.sh 10000</code>)</h3>
+  <p>Targets from section 5: batch of 500 tasks &lt; 50 ms · one task &lt; 5 ms · rebuild &lt; 250 ms; and a Monitor01 batch with the cost step on is not slower than 5 % than without it.</p>
+  <h3>Jest</h3>
+  <ul class="tight">
+    <li><code>costTotalModel</code> (effective switch, formatting, empty cell, stage bold); the column order normalization with the new key; the settings tab (switch disabled while the budget is off, hint, value kept); the Actions menu (item present only with the budget on, order: before "Refresh the project", calls the RPC, error → modal); the hook (initial read, INSERT / UPDATE patch, DELETE, reconnect refetch, off while the switch is off); the SQL file tests (names, PART numbering, the undo part).</li>
+  </ul>
+  <p class="small">The suites that already fail at baseline (KNOW_HOW section 5) are compared as before: a new failure = a suite not in that list.</p>
+</section>
+
+<section id="open">
+  <h2>11 Questions <span class="pill ask">answer, or "as proposed"</span></h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Proposed</th></tr>
+    <tr><td>Q1</td><td>Is <code>costTotalForBudget</code> the <b>plan</b>? Should version 1 also store <b>used</b> and <b>invoiced</b> totals (and later show them as columns: Plan | Used | Invoiced | Rest)?</td><td><b>Answered:</b> the plan, Time + Material + Expense. The table and the delta are made so that a column pair for used / invoiced can be added later without a redesign.</td></tr>
+    <tr><td>Q2</td><td>Where is <code>showTotalCostOnTheGanttChart</code>? And "must be enabled if the cost budget switch is on": <b>usable</b> only then (greyed otherwise), or also <b>switched on automatically</b> the first time the budget is turned on?</td><td><b>Answered:</b> usable only while one of the three budgets is on (the rule above). Place and auto-on as proposed: Project settings → Budgets → Main under "Expense budget needed"; set to on whenever the cost budget changes from off to on while the switch is off; the user can turn it off.</td></tr>
+    <tr><td>Q3</td><td>"A button on the toolbar before the Refresh Project": the item in the Actions menu directly before "Refresh the project" - or a separate icon button on the bar?</td><td>The menu item (the bar is already full; the Refresh command lives only in that menu).</td></tr>
+    <tr><td>Q4</td><td>A task whose lines changed after posting shows the last posted total. Show a marker in the cell, or rely on the existing posted-status column?</td><td>No marker.</td></tr>
+    <tr><td>Q5</td><td>Text with the total on the Gantt bars (as the progress "XX%")?</td><td>Later, after the tree column.</td></tr>
+    <tr><td>Q6</td><td>After a successful Post / Repost the app calls <code>update_project_cost_total</code> once (works without pg_cron, number in ~0.1 s instead of ≤ 2 s)?</td><td>Yes.</td></tr>
+    <tr><td>Q7</td><td>The project's own total (the root): only in the answer of the command and in the header tip, or a field on the project?</td><td>Only there; the sum of the top rows is the project total.</td></tr>
+    <tr><td>Q8</td><td>The file location: <code>documentation/</code> (project convention) instead of <code>documents/</code>.</td><td>As is.</td></tr>
+  </table></div>
+</section>
+
+
+<section id="built">
+  <h2>12 Built <span class="pill new">the fact, 2026-10-15</span></h2>
+  <div class="scroll"><table>
+    <tr><th>What</th><th>As built</th></tr>
+    <tr><td>SQL, PART 27</td><td><code>start1</code>: <code>project_task_cost_total</code> (+ queue <code>project_cost_dirty</code>). <code>start2</code>: <code>project_cost_flag</code> / <code>project_cost_budget_on</code> (the rule), <code>project_cost_fresh</code> (the one definition of the numbers), <code>project_cost_rebuild</code>, <code>project_cost_apply</code> (hot path), <code>project_cost_process_dirty</code>, <code>project_cost_verify</code>, RPC <code>update_project_cost_total</code>, triggers on <code>project_task_table</code> (moved / deleted → queue) and <code>project_table</code> (the rule changes → rebuild / delete), RLS by <code>rowOwnerUserGUID</code>, realtime, install backfill. Step 3 is a <code>BEGIN … EXCEPTION</code> block inside <code>monitor01_apply</code> (a cost error is a warning, never stops Monitor01); the worker runs <code>project_cost_process_dirty()</code> at the start of every batch. Undo: inside PART 1a of <code>delete_sql_structure.sql</code>.</td></tr>
+    <tr><td>The rule</td><td>Master <code>projectExpenseBudgetNeeded</code> AND (Time with person or equipment OR Material OR Expense), unsaved children read as on (<code>projectCostBudgetOn</code> in <code>taskInputScope.ts</code> = <code>project_cost_budget_on</code>; the same ten cases in Jest and in Docker). The master is part of the rule: with the master off the project is a legacy project (no cost budget chosen). <b>Say if you want the master left out.</b></td></tr>
+    <tr><td>App</td><td><code>kit8/pm/cost/</code> (model, API, hook, README) · tree column <code>costTotalForBudget</code> (title "Cost (EUR)", after "%", stages bold, not in the default order) · switch <code>showTotalCostOnTheGanttChart</code> in Budgets → Main under "Expense budget needed" (disabled with a hint while no cost budget is on, offered switched on when the budget becomes on) · Actions menu item <b>Update project cost</b> directly before "Refresh the project" · the answer in a snackbar, an error in the error window.</td></tr>
+    <tr><td>Not built</td><td>used / invoiced totals · text on the Gantt bars.</td></tr>
+    <tr><td>Q6: update after Post <span class="pill new">built, debounced</span></td><td>After a successful Post of one task (<code>useTaskPost</code>) and after Post unposted / Repost all (<code>useProjectPostActions</code>: <b>one signal for the whole run</b>) the hook <code>useCostRefreshDebounce</code> hands a signal to the scheduler <code>kit8/pm/cost/costRefreshScheduler.ts</code>:
+      <ul class="tight"><li><b>Debounce per project</b>: every signal restarts a quiet time of <code>COST_REFRESH_DEBOUNCE_MS</code> = 500 ms; the RPC <code>update_project_cost_total</code> is called <b>once, after the last signal</b>.</li>
+      <li><b>One at a time</b>: a signal that arrives while the call is running does not start a second one in parallel and is not lost - exactly <b>one more</b> call follows when the running one has finished.</li>
+      <li>Module level, not tied to a component: the Post button or the task page may be closed right after Post. Only while a cost budget is on (a later signal that says "budget off" drops the pending call). Fire and forget: the Post message never waits; an error is only logged (<code>console.warn</code>). The explicit command "Update project cost" cancels the pending call (it does the same work at once).</li>
+      <li>Cost of the debounce: the number appears about 0.5-0.6 s after the last Post (the Post itself is instant), still before the worker's 2 s tick, and it works without pg_cron.</li>
+      <li><b>What React cannot do</b>: merge the Posts of OTHER browsers or users - each browser has its own timer. The server merges them: one queue row per task, one worker batch per 2 s, the cost step serialized per project by an advisory lock, and a rebuild that finds nothing to change writes nothing (about 0.1 s for 10 000 tasks).</li></ul>
+      Tests: <code>costRefreshScheduler.test.ts</code> (11), <code>postRefreshesCost.test.tsx</code> (14), <code>refreshCostAfterPost.test.ts</code> (5), the command test; with the timer restart or the in-flight guard removed 4 / 3 of them fail.</td></tr>
+  </table></div>
+  <h3>Tests</h3>
+  <ul class="tight">
+    <li>Docker <code>tests/80_project_cost.sql</code>: <b>76 checks</b> (gate cases, the switch on / off / partial, Time + Material + Expense = 60, delta up and down, nothing changed = nothing written, used / invoiced do not move the plan, an unposted line, a stage moved, a subtree deleted, a line deleted → no 0/0 row, the command: flush + heal + idempotent, policies, project deleted); <code>verify</code> is empty after every scenario. The whole <code>test_fact_monitor01.sh</code> (fact 58 + 33 + 8, Monitor01 121, vendor invoice 87, cost 76) and <code>test_sql.sh</code> (install twice, delete, install again) pass.</li>
+    <li>Jest <code>__tests__/pm/cost</code>: 9 suites, 96 tests + 2 tests added to <code>projectSettingsTopTabs</code> (the switch) - all pass. The start-file guards now count 27 parts. In the PM folder 9 suites fail (15 tests); I read their messages and none points at this feature (renamed <code>sql_for_delete</code> test ids, Expo module mocks, a missing mock function, the baseline list of KNOW_HOW section 5) - but I did not run the folder before my change, so this is not a before / after comparison.</li>
+  </ul>
+  <h3>Measured on the finished feature (<code>bench_project_cost.sh 10000</code>: 10 000 tasks, depth 5, 175 600 plan movements, one run)</h3>
+  <div class="scroll"><table>
+    <tr><th>What</th><th class="num">ms</th><th>Target</th></tr>
+    <tr><td>a backfill batch of 500 tasks (Monitor01 <b>and</b> the cost step)</td><td class="num">474-524</td><td>Monitor01 alone took 0.5-1.3 s before</td></tr>
+    <tr><td>500 changed tasks, cost step alone (1 102 rows touched)</td><td class="num">55.0</td><td>&lt; 50 - <b>missed by 5 ms</b>; not analysed further (section 5 measured 14-16 ms for the delta statement on a lighter model, here the real rows, indexes and the 1 102 touched rows are included)</td></tr>
+    <tr><td>500 unchanged tasks</td><td class="num">7.3</td><td>0 rows written</td></tr>
+    <tr><td>one changed task (4 rows)</td><td class="num">3.2</td><td>&lt; 5 - met</td></tr>
+    <tr><td>rebuild of the project (10 000 tasks)</td><td class="num">118</td><td>&lt; 250 - met; 0 changed rows</td></tr>
+    <tr><td><code>project_cost_verify</code> · the whole command</td><td class="num">80 · 116</td><td>0 differing rows after the backfill</td></tr>
+  </table></div>
+  <p class="small">Docker on a Mac, not Supabase: absolute numbers will differ, the proportions will not. The 50 ms target for 500 changed tasks was a guess before the build; it is kept as written and reported as missed rather than moved.</p>
+</section>
+
+</main>
+</body>
+</html>

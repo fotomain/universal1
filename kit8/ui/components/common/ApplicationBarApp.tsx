@@ -162,12 +162,12 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
 
   const handleSignIn = () => {
     closeMenu();
-    router.push('/signin');
+    router.push('/user/signin');
   };
 
   const handleSignUp = () => {
     closeMenu();
-    router.push('/signup');
+    router.push('/user/signup');
   };
 
   const onSignOutClick = async () => {

@@ -205,7 +205,7 @@ export default function UserCalendarScreen() {
     return (
       <View style={[styles.center, { backgroundColor: c.background }]} testID="user-calendar-signed-out">
         <Text style={{ color: c.text, fontSize: 16, marginBottom: 14, textAlign: 'center' }}>Sign in to see your calendar.</Text>
-        <CalButton label="Sign in" primary onPress={() => router.push('/signin')} color={c} testID="user-calendar-signin" />
+        <CalButton label="Sign in" primary onPress={() => router.push('/user/signin')} color={c} testID="user-calendar-signin" />
       </View>
     );
   }

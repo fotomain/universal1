@@ -105,7 +105,7 @@ it('new rate: one per day (other currencies do not count), then createOne with o
     rowGUID: 'new-rate-1', rowOwnerGUID: 'usd', rowParentGUID: '2026-09-29', orderInList: orderInListForDate('2026-09-29'),
     rowJSON: { startingDate: '2026-09-29', currencyRatio: 1.09, rateType: 'Default' },
   });
-  expect(mockReplace).toHaveBeenCalledWith({ pathname: '/currency/exchange/list', params: { currencyGUID: 'usd' } });
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: '/catalog/currency/exchange/list', params: { currencyGUID: 'usd' } });
 });
 
 it('existing rate: a new date moves rowParentGUID + orderInList; sql_for_delete asks twice', () => {
@@ -168,7 +168,7 @@ describe('rate type (Default | Budget, as D365 FO)', () => {
     expect(q('currency-exchange-edit-startingDate-error')!.textContent).toMatch(/Budget rate for 2026-09-28 already exists/);
     expect(dispatched.some((a) => a.type === `${E}/createOne`)).toBe(false);
     press('currency-exchange-edit-open-duplicate');
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/currency/exchange/edit', params: { currencyGUID: 'usd', rowGUID: 'b1' } });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/catalog/currency/exchange/edit', params: { currencyGUID: 'usd', rowGUID: 'b1' } });
   });
 
   it('an existing Budget rate opens with its type; changing the type moves rowParentGUID', () => {

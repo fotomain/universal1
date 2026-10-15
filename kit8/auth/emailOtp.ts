@@ -90,7 +90,7 @@ export function mapEmailOtpError(err: any): EmailOtpError {
 /** Web: magic links (if the template sends one) come back to /signin, where the session is picked up from the URL. */
 export function emailOtpRedirectTo(): string | undefined {
   if (typeof window !== 'undefined' && window.location && /^https?:/.test(window.location.origin || '')) {
-    return `${window.location.origin}/signin`;
+    return `${window.location.origin}/user/signin`;
   }
   return undefined;
 }

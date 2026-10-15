@@ -27,7 +27,7 @@ Universal 1 is a cross-platform ERP and Project Management application:
 
 | Folder | What is in it |
 |---|---|
-| `app/` | routes (expo-router). `_layout.tsx` = the Drawer screens. `app/pm/…` PM screens, `app/catalog/…` catalogs |
+| `app/` | routes (expo-router). `_layout.tsx` = the Drawer screens. `app/pm/…` PM screens (+ `kanbanstage`), `app/catalog/…` catalogs (+ `currency`, `budget`, `raci`), `app/user/…` sign in / sign up / forgotpassword / userprofile / historyofactivity |
 | `kit8/catalog/<name>/` | one catalog: model (`xxxModel.ts`), metadata for redux, CRUD / dashboard, README. e.g. `equipment`, `business_unit`, `legal_entity`, `vendor`, `partner`, `contract`, `organization`, `management/{genus,calendar}` |
 | `kit8/pm/` | project management: `crud` (React Query + realtime), `view` (gantt, task, tree, kanban), `model`, `fact`, `vendor_invoice`, `reports/monitor01`, `version`, `i18n`, `store` |
 | `kit8/ui/components/` | shared components: `table/reusable` (ReusableTable), `common` (inputs: `DateInputApp`, `TextInputApp`, `SelectItemFromListApp`, `ErrorModalWindow`, `ModalAskComponent`), `CustomDrawerContent.tsx` |
@@ -87,10 +87,11 @@ Row-level rules: documents (fact, vendor invoice) are written ONLY by RPCs (`SEC
 ```bash
 cd kit8/docker && docker compose up -d        # first time; the image postgres:15 is local
 ./test_sql.sh                  # fresh db: install twice (same objects + rows), tables alone = only tables, code refuses an empty db, 0 seed rows, delete leaves nothing, install again
-./test_fact_monitor01.sh [NN]  # tests/5N, 6N, 7N only (fact input, Monitor01 + register, vendor invoice): "-> N checks passed"
+./test_fact_monitor01.sh [NN]  # tests/5N, 6N, 7N, 8N only (fact input, Monitor01 + register, vendor invoice, project cost total): "-> N checks passed"
 ./test_time_genus.sh [NN]      # EVERY tests/NN_*.sql (organization 1N, resource calendar 20, busy check 30, calendar lock 40, fact 5N, Monitor01 6N, vendor invoice 7N) or only NN
 ./test_time_genus_race.sh      # two sessions: Post vs a calendar change (locks)
 ./bench_monitor01.sh 2000      # speed of the Monitor01 worker with 2000 tasks
+./bench_project_cost.sh 10000 # speed of the project cost total (batch, one task, rebuild, verify)
 ```
 A new SQL test is a file `kit8/docker/tests/NN_name.sql` (one transaction, rolled back; helpers in `00_helpers.sql`). Docker has no pg_cron: the install only prints a NOTICE there.
 After a big SQL change compare the schema: `pg_dump -s` of a database made the old way and the new way must be identical.
@@ -155,6 +156,7 @@ npx tsc -p <narrow tsconfig> --noEmit     # the project-wide tsc crashes (stack 
 | **Project status register** (1C-style accumulation register) | - (SQL only) | PART 25: `project_status_movements` (narrow, kinds plan/ordered/received/invoiced/used/sold, `qtyProjectStatus`), `project_status_month_turnover` (wide, realtime) | `documentation/PROJECT_STATE_WBS.html` | `tests/60` |
 | **Monitor01** report (plan vs contracted vs used vs invoiced per task × genus × role × unit × month) | `kit8/pm/reports/monitor01` · route `app/pm/reports/monitor01` | PART 25: `monitor01_view`, worker `monitor01_apply` / `monitor01_process_dirty` (pg_cron 2 s, queue `monitor01_dirty`), RPC `monitor01_refresh_now`, `monitor01_stamp`, `monitor01_sum_sources`, `monitor01_verify` | `documentation/MONITOR01_WBS.html`, README | `tests/60`, `bench_monitor01.sh` |
 | **Vendor invoice** (1 vendor + 1 contract per document; Draft → Post writes the 'invoiced' movements) | `kit8/pm/vendor_invoice` · routes `app/pm/project/task/vendor-invoice`, `app/pm/vendor-invoice/list` | PART 26: `vendor_invoice_header / lines`, RPC `vendor_invoice_candidates`, `create_vendor_invoices`, `post / unpost / delete_vendor_invoice`, `vendor_invoice_list` | `documentation/PROJECT_STATE_WBS.html`, README | `tests/70` |
+| **Project cost total** per task / stage (tree column `costTotalForBudget` = plan Time + Material + Expense; only while a cost budget is on) | `kit8/pm/cost` (model, API, hook), tree column in `view/tree/columns`, switch in `PMProjectBudgetsTab`, Actions menu item "Update project cost" | PART 27: table `project_task_cost_total`, step 3 of `monitor01_apply` (`project_cost_apply`: delta on the ancestors read from the `treePath` labels), `project_cost_rebuild`, RPC `update_project_cost_total`, `project_cost_verify` | `documentation/UPDATE_PROJECT_COST.html`, README | `tests/80`, `bench_project_cost.sh` |
 | Legal entity catalog (folders by country) and the **main vendor** of a partner / equipment / product | `kit8/catalog/legal_entity`, `kit8/catalog/vendor` | PART 26 | READMEs | `tests/70` |
 | Project versions (read-only copies of a plan) | `kit8/pm/version` | `version_*` tables (PART 1, 5b) | `documentation/PM_VERSION_STRUCTURE.html` | `test_sql.sh` |
 | Products / descriptors | `kit8/catalog/product` | PART 4 | `documentation/PRODUCT_*` | `test_sql.sh` |
@@ -176,6 +178,8 @@ npx tsc -p <narrow tsconfig> --noEmit     # the project-wide tsc crashes (stack 
 - zsh does not split an unquoted variable into words: use shell functions in the Docker scripts.
 - macOS `sed -i ''` with `#` delimiters and `[0-9]` classes is fragile: edit with a small Python script.
 - A trigger on the plan movements must NOT queue the Monitor01 dirty queue for the 'plan' kind (the worker rewrites them: loop).
+- A Postgres trigger with transition tables (`REFERENCING … TABLE`) cannot have a column list (`UPDATE OF …`): use a row trigger with `WHEN`, or a statement trigger that compares the tables.
+- `pmUiTestKit` mocks `react-redux` and `WithSupabase` itself, and a later `jest.mock` of yours loses: override with `jest.doMock` + `require` AFTER importing the kit (see `__tests__/pm/cost`).
 - `IconApp`, Skia and expo-modules log "An error occurred while requiring the '…' module" in Jest: noise, not a failure.
 
 ---

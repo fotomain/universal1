@@ -25,7 +25,7 @@ import { BUDGET_RATE_TYPE, DEFAULT_RATE_TYPE, RATE_TYPES } from '../../../../cat
 import { pmT } from '../../../i18n/pmT';
 import { withAlpha } from '../../theme';
 import { DEFAULT_CALENDAR_FOR_TASK_PLAN, MANAGEMENT_CALENDAR_TABLE, isCalendarFolder } from '../../../../catalog/management/calendar/managementCalendarModel';
-import { applyTaskInputPatch, taskInputSwitchesOf, TaskInputSwitches } from '../../../model/taskInputScope';
+import { applyTaskInputPatch, projectCostBudgetOn, taskInputSwitchesOf, TaskInputSwitches } from '../../../model/taskInputScope';
 import BusinessUnitPickerField from '../../../../catalog/business_unit/BusinessUnitPickerField';
 import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusinessUnitData';
 import { BUDGET_SCENARIO_TABLE, budgetScenarioTitle, budgetScenariosOfKind, projectBudgetScenariosError } from '../../../../catalog/budget/scenario/budgetScenarioModel';
@@ -39,6 +39,8 @@ export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   exchangeRateTypeForAccounting?: string | null;
   exchangeRateTypeForBudget?: string | null;
   projectRevenueBudgetNeeded?: boolean;
+  /** Project cost total (kit8/pm/cost): the tree column "Cost" (costTotalForBudget). Usable only while a cost budget is on (Time or Material or Expense); display only */
+  showTotalCostOnTheGanttChart?: boolean;
   /** Fact input: true = a new fact document keeps the task line GUIDs, delete and update only (kit8/pm/fact) */
   factStrongInputByTaskLine?: boolean;
   calendarForTaskPlan?: string | null;
@@ -76,6 +78,7 @@ export const budgetsValuesOf = (j: PMProjectBudgetsValues | undefined | null): R
   exchangeRateTypeForAccounting: j?.exchangeRateTypeForAccounting || DEFAULT_RATE_TYPE,
   exchangeRateTypeForBudget: j?.exchangeRateTypeForBudget || BUDGET_RATE_TYPE,
   projectRevenueBudgetNeeded: !!j?.projectRevenueBudgetNeeded,
+  showTotalCostOnTheGanttChart: !!j?.showTotalCostOnTheGanttChart,
   factStrongInputByTaskLine: !!j?.factStrongInputByTaskLine,
   ...taskInputSwitchesOf(j),
   calendarForTaskPlan: j?.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN,
@@ -111,7 +114,12 @@ export default function PMProjectBudgetsTab({
   const required = !!values.projectBusinessUnitsRequired;
   const centersError = projectCentersError(values, units.rows, units.cfrRows, units.loaded);
   /** one switch of the input tree: the rules of applyTaskInputPatch (Time needs a kind) decide the whole patch */
-  const setInput = (patch: Partial<TaskInputSwitches>) => onChange(applyTaskInputPatch(inputs, patch));
+  const costBudgetOn = projectCostBudgetOn(inputs);
+  const setInput = (patch: Partial<TaskInputSwitches>) => {
+    const next = applyTaskInputPatch(inputs, patch);
+    // the cost budget becomes on (the master, or the first of Time / Material / Expense): the Cost column is offered switched on - the user may turn it off
+    onChange(!costBudgetOn && projectCostBudgetOn(next) && !values.showTotalCostOnTheGanttChart ? { ...next, showTotalCostOnTheGanttChart: true } : next);
+  };
 
   const visibleTabs = BUDGETS_SUBTABS.filter((t) => !t.needsExpenseBudget || inputs.projectExpenseBudgetNeeded);
   const requested = subTab ?? ownSubTab;
@@ -237,6 +245,19 @@ export default function PMProjectBudgetsTab({
             style={styles.switchRow}
           />
           {inputs.projectExpenseBudgetNeeded && <Text style={styles.hint}>{pmT('The inputs of the expense lines are set in the tabs Time, Material and Expense.')}</Text>}
+          <SwitchApp
+            testID="pm-project-show-total-cost"
+            label={pmT('Show the total cost in the task tree (showTotalCostOnTheGanttChart)')}
+            value={!!values.showTotalCostOnTheGanttChart}
+            disabled={!costBudgetOn}
+            onValueChange={(v) => onChange({ showTotalCostOnTheGanttChart: v })}
+            style={styles.switchRow}
+          />
+          <Text testID="pm-project-show-total-cost-hint" style={styles.hint}>
+            {costBudgetOn
+              ? pmT('The Cost column shows the plan of Time + Material + Expense of every task and stage, in the budget currency.')
+              : pmT('Needs a cost budget: turn on the expense budget and one of Time, Material or Expense.')}
+          </Text>
 
           <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Fact input')}</Text>
           <SwitchApp

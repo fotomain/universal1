@@ -57,7 +57,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     { id: 'home', label: t('menu.home'), icon: 'home', route: 'home' },
     { id: 'developer1', label: 'Developer 1', icon: 'logo_dev', route: 'developer1' },
     { id: 'posts', label: 'Media Posts', icon: 'list_alt', route: 'posts/mediapostcrud' },
-    { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'raci/racimember' },
+    { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
     {
       id: 'catalogs',
       label: 'Catalogs',
@@ -66,18 +66,18 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       // sorted by name
       children: [
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
-        { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
+        { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'catalog/budget/item/list' },
         // the scenarios a project budgets in (Plan | Fact): a plain table
-        { id: 'budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'budget/scenario/list' },
+        { id: 'budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
         // the business units (a tree of any depth; cost / revenue / profit / investment centers) - replaces the old Departments catalog
         { id: 'businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
-        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'currency/list' },
+        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'catalog/currency/list' },
         // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
         { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
         // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
         { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
-        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'catalog/kanbanstage/list' },
+        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'pm/kanbanstage/list' },
         // the companies the vendor invoices are issued to (folders = countries)
         { id: 'legalentities', label: 'Legal entities', icon: 'domain', route: 'catalog/legal/entity' },
         // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
@@ -105,8 +105,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       icon: 'account_balance_wallet',
       route: '',
       children: [
-        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'budget/item/list' },
-        { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'budget/scenario/list' },
+        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'catalog/budget/item/list' },
+        { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
@@ -193,8 +193,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const bottomNavItems: MenuItem[] = [
     // signed out -> "Sign In"; signed in -> "User Profile"
     isLoggedIn
-      ? { id: 'userprofile', label: t('menu.userProfile'), icon: 'account_circle', route: 'userprofile' }
-      : { id: 'signin', label: t('menu.signIn'), icon: 'login', route: 'signin' },
+      ? { id: 'userprofile', label: t('menu.userProfile'), icon: 'account_circle', route: 'user/userprofile' }
+      : { id: 'signin', label: t('menu.signIn'), icon: 'login', route: 'user/signin' },
     { id: 'settings', label: t('menu.settings'), icon: 'settings', route: 'settings' },
   ];
 

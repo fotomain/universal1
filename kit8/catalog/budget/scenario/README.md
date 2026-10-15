@@ -6,7 +6,7 @@ rowGUID = the code (seeds `planScenarioProject1` "Plan scenario-Project #1", `fa
 rowParentGUID `'empty'` always (CHECK) · rowJSON `{ title, description, scenarioKind: 'plan' | 'fact', isActive }` (CHECK on `scenarioKind`).
 
 - SQL: `kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql` PART 19 (mirrored in `start2_sql_code.sql` / `start5_sql_upsert_all.sql`; dropped by PART 16 of `delete_sql_structure.sql`).
-- Route `/budget/scenario/list` → `BudgetScenarioCRUD.tsx` (a `ReusableTable` with CRUD: Scenario, Kind, Code, Description, Active). Drawer: **Budgets → Budget scenarios** (also in Catalogs).
+- Route `/catalog/budget/scenario/list` → `BudgetScenarioCRUD.tsx` (a `ReusableTable` with CRUD: Scenario, Kind, Code, Description, Active). Drawer: **Budgets → Budget scenarios** (also in Catalogs).
 - `project_table.rowJSON.budgetScenarioForPlan` / `budgetScenarioForFact` (`PMProjectJSON`, kit8/pm/model/types.ts) are chosen in **Project settings → Budgets → Main → Budget scenarios**:
   the Plan picker offers the active `plan` scenarios, the Fact picker the active `fact` ones (the one already chosen stays visible); a wrong kind is shown in red (`projectBudgetScenariosError`).
   Empty = no scenario: an old project stays as it is.

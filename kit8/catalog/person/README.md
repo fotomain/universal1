@@ -1,6 +1,6 @@
 # Person catalog (`kit8/catalog/person`)
 
-Hamburger menu → **Catalogs** → **Persons** → `/person/list` · add / edit → `/person/edit` (`?rowGUID=…` for an existing person).
+Hamburger menu → **Catalogs** → **Persons** → `/catalog/person/list` · add / edit → `/catalog/person/edit` (`?rowGUID=…` for an existing person).
 **Persons (properties and variants)** → `/catalog/person/dashboard` - person types, descriptor sets, Properties and Variants of the persons (ReusableTable approach, no folders).
 
 ## Setup

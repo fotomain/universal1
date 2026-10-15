@@ -5,6 +5,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
+import { useCostRefreshDebounce } from '../../../cost/useCostRefreshDebounce';
 import { showErrorModal } from '../../../../ui/components/common/ErrorModalWindow';
 import { usePMStore } from '../../../store/store_pm';
 import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN } from '../../../../catalog/management/calendar/managementCalendarModel';
@@ -30,6 +31,8 @@ export interface UseTaskPostArgs {
 
 export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: UseTaskPostArgs) {
   const dispatch = useDispatch();
+  const requestCostRefresh = useCostRefreshDebounce();
+  const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const calendarForTaskPlan = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON?.calendarForTaskPlan) || DEFAULT_CALENDAR_FOR_TASK_PLAN;
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
   const finishMs = usePMStore((s) => s.schedule[taskGUID]?.finishMs);
@@ -58,8 +61,10 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
         : '';
       say(`${pmT('Posted {{lines}} line(s) · {{rows}} day row(s)', { lines: result.lines, rows: result.rows })}${note}${busyNote}`, failed);
       if (result.busy.length) showBusyConflicts(result.busy, result.mode);
+      // the cost totals (kit8/pm/cost): a signal to the debounced scheduler - ONE call after the last Post, only while a cost budget is on
+      requestCostRefresh(projectGUID, projectJSON);
     }
-  }, [dispatch, taskGUID]);
+  }, [dispatch, taskGUID, projectGUID, requestCostRefresh, projectJSON]);
 
   return { state, post };
 }

@@ -12,6 +12,7 @@
 // scrolls horizontally when the columns are wider than the pane (contentWidth > width).
 
 import {
+  PM_TREE_COL_COST,
   PM_TREE_COL_DAYS,
   PM_TREE_COL_KANBAN,
   PM_TREE_COL_KANBAN_PROGRESS,
@@ -46,6 +47,7 @@ export type PMBuiltinTreeColumnKey =
   | 'progress'
   | 'kanban'
   | 'kanbanStageProgressPercent'
+  | 'costTotalForBudget'
   | 'start'
   | 'days';
 /** Any tree column: built-in or custom ("cc_..."). */
@@ -80,6 +82,7 @@ export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
   progress: '%',
   kanban: 'Kanban',
   kanbanStageProgressPercent: 'Kanban %',
+  costTotalForBudget: 'Cost',
 };
 
 /** Default widths; the Task name column takes the rest of the pane until it is resized. */
@@ -99,6 +102,7 @@ export const PM_TREE_COLUMN_WIDTHS: Record<Exclude<PMBuiltinTreeColumnKey, 'name
   progress: PM_TREE_COL_PROGRESS,
   kanban: PM_TREE_COL_KANBAN,
   kanbanStageProgressPercent: PM_TREE_COL_KANBAN_PROGRESS,
+  costTotalForBudget: PM_TREE_COL_COST,
 };
 
 /** The flexible Task name column never gets narrower than this: other built-in columns are hidden first. */
@@ -116,6 +120,7 @@ const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = [
   'kanbanStageProgressPercent',
   'kanban',
   'progress',
+  'costTotalForBudget',
   'planSecondFinish',
   'planSecondStart',
   'planMinuteFinish',
@@ -139,7 +144,8 @@ export const isBuiltinTreeColumnKey = (k: unknown): k is PMBuiltinTreeColumnKey 
     k === 'planMinuteStart' ||
     k === 'planMinuteFinish' ||
     k === 'planSecondStart' ||
-    k === 'planSecondFinish');
+    k === 'planSecondFinish' ||
+    k === 'costTotalForBudget');
 
 /**
  * Valid, complete, duplicate-free order: unknown keys dropped (also custom keys that are not in
@@ -250,6 +256,10 @@ export interface PMTreeColumnsLayoutOptions {
   planMinute?: boolean;
   /** When true (project.rowJSON.planSecond === true), show planSecondStart + planSecondFinish columns in TaskTree */
   planSecond?: boolean;
+  /** When true (a cost budget is on and showTotalCostOnTheGanttChart is on), show the Cost column (costTotalForBudget, kit8/pm/cost); it is not in the default order: it is placed after "%" unless the user moved it */
+  showCost?: boolean;
+  /** the budget currency of the project, shown in the title of the Cost column */
+  costCurrency?: string;
 }
 
 export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnKey[] | unknown, opts: PMTreeColumnsLayoutOptions = {}): PMTreeColumnsLayout {
@@ -293,6 +303,12 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
     }
   }
 
+  if (opts.showCost && !order.includes('costTotalForBudget')) {
+    const idx = order.indexOf('progress');
+    const kanban = order.indexOf('kanban');
+    order.splice(idx >= 0 ? idx + 1 : kanban >= 0 ? kanban : order.length, 0, 'costTotalForBudget');
+  }
+
   const saved = opts.widths ?? {};
   const widthOf = (k: PMTreeColumnKey): number => {
     if (typeof saved[k] === 'number') return clampTreeColumnWidth(k, saved[k]);
@@ -301,6 +317,7 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
   };
   const visible = new Set<PMTreeColumnKey>(order);
   if (opts.showHierarchyNumbers === false) visible.delete('wbs');
+  if (!opts.showCost) visible.delete('costTotalForBudget');
   if (!opts.planHour) {
     visible.delete('startHourStart');
     visible.delete('startHourFinish');
@@ -338,7 +355,8 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
     if (!visible.has(key)) continue;
     const w = key === 'name' ? nameW : widthOf(key);
     const custom = customByKey.get(key);
-    const col: PMTreeColumn = { key, title: custom ? custom.name : PM_TREE_COLUMN_TITLES[key as PMBuiltinTreeColumnKey], x, w };
+    const baseTitle = custom ? custom.name : PM_TREE_COLUMN_TITLES[key as PMBuiltinTreeColumnKey];
+    const col: PMTreeColumn = { key, title: key === 'costTotalForBudget' && opts.costCurrency ? `${baseTitle} (${opts.costCurrency})` : baseTitle, x, w };
     if (custom) col.customType = custom.type;
     columns.push(col);
     byKey[key] = col;

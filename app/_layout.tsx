@@ -485,16 +485,16 @@ function RootLayoutContent() {
               <Drawer.Screen name="kit8/designs/index" options={{ title: 'Kit8 Designs' }} />
               <Drawer.Screen name="settings/index" options={{ title: t('menu.settings') }} />
               <Drawer.Screen name="sqlite/demo/native/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.sqliteDemo') }} />
-              <Drawer.Screen name="userprofile/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.userProfile') }} />
+              <Drawer.Screen name="user/userprofile/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.userProfile') }} />
               <Drawer.Screen name="about/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.about') }} />
-              <Drawer.Screen name="signup/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signUp') }} />
-              <Drawer.Screen name="signin/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signIn') }} />
-              <Drawer.Screen name="forgotpassword/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.resetPasswordTitle') }} />
+              <Drawer.Screen name="user/signup/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signUp') }} />
+              <Drawer.Screen name="user/signin/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.signIn') }} />
+              <Drawer.Screen name="user/forgotpassword/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.resetPasswordTitle') }} />
               <Drawer.Screen name="posts/mediapostcrud/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.posts') }} />
               <Drawer.Screen name="feedback/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.feedback') }} />
               <Drawer.Screen name="map/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.map') }} />
 
-              <Drawer.Screen name="raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
+              <Drawer.Screen name="catalog/raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
               <Drawer.Screen name="demo/foldertree/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Folder tree 200k' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
@@ -503,19 +503,19 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/management/genus/list/index" options={{ title: 'Management genus', drawerLabel: 'Management genus' }} />
               <Drawer.Screen name="catalog/distribution/list/index" options={{ title: 'Distribution', drawerLabel: 'Distribution' }} />
               <Drawer.Screen name="catalog/management/calendar/list/index" options={{ title: 'Management calendars', drawerLabel: 'Management calendars' }} />
-              <Drawer.Screen name="budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
-              <Drawer.Screen name="budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
+              <Drawer.Screen name="catalog/budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
+              <Drawer.Screen name="catalog/budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
               <Drawer.Screen name="catalog/legal/entity/index" options={{ title: 'Legal entities', drawerLabel: 'Legal entities' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="catalog/equipment/dashboard/index" options={{ title: 'Equipment (properties and variants)', drawerLabel: 'Equipment (properties and variants)' }} />
               <Drawer.Screen name="catalog/business/unit/index" options={{ title: 'Business units', drawerLabel: 'Business units' }} />
-              <Drawer.Screen name="currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />
-              <Drawer.Screen name="currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
-              <Drawer.Screen name="currency/exchange/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rates' }} />
-              <Drawer.Screen name="currency/exchange/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rate' }} />
-              <Drawer.Screen name="kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
-              <Drawer.Screen name="kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
+              <Drawer.Screen name="catalog/currency/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currencies' }} />
+              <Drawer.Screen name="catalog/currency/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Currency' }} />
+              <Drawer.Screen name="catalog/currency/exchange/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rates' }} />
+              <Drawer.Screen name="catalog/currency/exchange/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rate' }} />
+              <Drawer.Screen name="pm/kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
+              <Drawer.Screen name="pm/kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />
               <Drawer.Screen name="pm/project/task/plan/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task plan' }} />
@@ -526,8 +526,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/vendor-invoice/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Vendor invoices' }} />
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
-              <Drawer.Screen name="raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
-              <Drawer.Screen name="historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
+              <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
+              <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
               <Drawer.Screen name="record/recordvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoWeb') }} />
               <Drawer.Screen name="play/playvideoweb/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideoWeb') }} />
               <Drawer.Screen name="record/recordvideonative/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideoNative') }} />

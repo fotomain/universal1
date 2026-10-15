@@ -131,6 +131,8 @@ export interface PMRowJSON {
   projectRevenueBudgetNeeded?: boolean;
   /** Budgets: the project needs an expense budget = the master switch of the cost inputs below (off = every input as before the switches existed) */
   projectExpenseBudgetNeeded?: boolean;
+  /** Project cost total (kit8/pm/cost): show the tree column "Cost" (costTotalForBudget = Time + Material + Expense of the plan). Usable only while a cost budget is on (projectCostBudgetOn); display only - the server keeps the totals while a cost budget is on */
+  showTotalCostOnTheGanttChart?: boolean;
   /** Cost inputs (only while projectExpenseBudgetNeeded; kit8/pm/model/taskInputScope.ts): the Time tab of the task lines ("Time input needed"); default true */
   projectTimeCostsNeeded?: boolean;
   /** ... Time lines of a person; default true */

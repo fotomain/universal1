@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
+import { useCostRefreshDebounce } from '../../../cost/useCostRefreshDebounce';
 import { PRODUCT_READ_PARAMS } from '../../../../catalog/product/dashboard/useProductCatalogData';
 import { DISTRIBUTION_TABLE } from '../../../../catalog/distribution/distributionModel';
 import { MANAGEMENT_CALENDAR_TABLE } from '../../../../catalog/management/calendar/managementCalendarModel';
@@ -24,6 +25,7 @@ export type ProjectPostWhich = 'unposted' | 'all';
 export function useProjectPostActions(projectGUID: string | null | undefined) {
   const dispatch = useDispatch();
   const qc = useQueryClient();
+  const requestCostRefresh = useCostRefreshDebounce();
   const { byTask } = useProjectTaskLines(projectGUID);
   const distributions: DefRow<any>[] = useSelector((s: any) => s?.[DISTRIBUTION_TABLE.entity]?.entityDataFromServer) ?? [];
   const calendars: DefRow<any>[] = useSelector((s: any) => s?.[MANAGEMENT_CALENDAR_TABLE.entity]?.entityDataFromServer) ?? [];
@@ -84,10 +86,12 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
       qc.invalidateQueries({ queryKey: projectTaskLinesKey(projectGUID) });
       const note = failed.length ? ` · ${pmT('{{count}} not posted: {{first}}', { count: failed.length, first: failed[0] })}` : '';
       say(`${pmT('Posted {{tasks}} task(s) · {{rows}} day row(s)', { tasks: posted, rows })}${note}`, failed.length > 0);
+      // the cost totals (kit8/pm/cost): ONE signal for the whole run, not one per task; the scheduler calls the database once, after the last signal, only while a cost budget is on
+      if (posted > 0) requestCostRefresh(projectGUID, usePMStore.getState().projectsById[projectGUID]?.rowJSON);
     } finally {
       setBusy(false);
     }
-  }, [projectGUID, dispatch, qc]);
+  }, [projectGUID, dispatch, qc, requestCostRefresh]);
 
   const postUnposted = useCallback(() => run('unposted'), [run]);
   const repostAll = useCallback(() => run('all'), [run]);

@@ -13,7 +13,7 @@ export const currencyExchangeRateTable = 'currencyExchangeRateTable';
 /** SystemMetaData / redux entity key (reusableCrudSlice + reusableRootSaga). */
 export const CURRENCY_EXCHANGE_ENTITY = 'currencyExchangeRateReusable';
 
-export const CURRENCY_EXCHANGE_ROUTES = { list: '/currency/exchange/list', edit: '/currency/exchange/edit' } as const;
+export const CURRENCY_EXCHANGE_ROUTES = { list: '/catalog/currency/exchange/list', edit: '/catalog/currency/exchange/edit' } as const;
 
 /** readData / realtime payload of ONE currency's rates (match scopes the read, the realtime changes and the list). */
 export const exchangeReadParams = (currencyGUID: string) => ({

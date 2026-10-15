@@ -1,4 +1,4 @@
-// PersonEdit - route /person/edit (new) or /person/edit?rowGUID=… (existing).
+// PersonEdit - route /catalog/person/edit (new) or /catalog/person/edit?rowGUID=… (existing).
 // Includes Employee section and embedded Contracts section.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ResourceCalendarField from '../management/calendar/ResourceCalendarField';

@@ -14,6 +14,8 @@ export function useTreeColumnsLayout(width: number, liveWidth?: { key: PMTreeCol
   const planHour = usePMStore((s) => s.planHour);
   const planMinute = usePMStore((s) => s.planMinute);
   const planSecond = usePMStore((s) => s.planSecond);
+  const showCost = usePMStore((s) => s.showCostColumn);
+  const costCurrency = usePMStore((s) => s.costCurrency);
   const liveKey = liveWidth?.key;
   const liveW = liveWidth?.width;
   return useMemo(() => {
@@ -25,7 +27,9 @@ export function useTreeColumnsLayout(width: number, liveWidth?: { key: PMTreeCol
       planHour,
       planMinute,
       planSecond,
+      showCost,
+      costCurrency,
     });
-  }, [width, order, showHierarchyNumbers, savedWidths, customColumns, planHour, planMinute, planSecond, liveKey, liveW]);
+  }, [width, order, showHierarchyNumbers, savedWidths, customColumns, planHour, planMinute, planSecond, showCost, costCurrency, liveKey, liveW]);
 }
 
