@@ -7,6 +7,10 @@ import { cleanupUI, fakeCrud, press, q, qa, renderUI, seedStore } from '../ui/pm
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
 
+// "Vendor Invoice" CREATES the invoice(s) of the whole task (useStartVendorInvoice; its own tests: vendorInvoice/useVendorInvoice.test.tsx)
+const mockStartVendorInvoice = jest.fn();
+jest.doMock('../../../kit8/pm/vendor_invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
+
 const PMTaskRowMenu = require('../../../kit8/pm/view/task/PMTaskRowMenu').default;
 const { useOpenFactInput } = require('../../../kit8/pm/fact/useOpenFactInput');
 import React from 'react';
@@ -36,7 +40,7 @@ describe('the row menu of the task tree', () => {
 });
 
 describe('"Vendor Invoice" - right after "Facts input" in the row menu of the task tree', () => {
-  it('a task has it, AFTER "Facts input"; it closes the menu and opens the window of the vendors of the task', () => {
+  it('a task has it, AFTER "Facts input"; it closes the menu and CREATES the vendor invoice(s) of all the lines of the task (no choice window)', () => {
     const { byName } = seedStore();
     const task = byName('Task 111');
     renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
@@ -49,7 +53,8 @@ describe('"Vendor Invoice" - right after "Facts input" in the row menu of the ta
     // nothing but the parts of the "Facts input" item itself (its icon / label) comes between the two items
     expect(ids.slice(from + 1, to).every((id) => id.startsWith('pm-row-menu-facts-input-'))).toBe(true);
     press('pm-row-menu-vendor-invoice');
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: task.rowGUID } });
+    expect(mockStartVendorInvoice).toHaveBeenCalledWith({ taskGUID: task.rowGUID });
+    expect(mockPush).not.toHaveBeenCalled();
     expect(usePMStore.getState().rowMenu).toBeNull();
   });
   it('a stage has no lines, so no vendor invoice', () => {

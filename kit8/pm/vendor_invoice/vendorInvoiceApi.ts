@@ -1,8 +1,8 @@
 // vendorInvoiceApi - the calls of the vendor invoice. Every function takes the Supabase client (useSupabase().supabase), so a test passes a fake one.
 // The header is written ONLY by these RPCs; the quantity / price / VAT % of a line of a draft are written by the ReusableTable through the redux entity (vendorInvoiceMetaData.ts).
 import {
-  CreateAnswer, RPC_VENDOR_CANDIDATES, RPC_VENDOR_CREATE, RPC_VENDOR_DELETE, RPC_VENDOR_LIST, RPC_VENDOR_POST, RPC_VENDOR_SET_HEADER, RPC_VENDOR_UNPOST, VendorCandidatesAnswer,
-  VendorInvoiceListAnswer, VendorInvoiceListFilter, VendorInvoicePostAnswer, parseCandidates, parseCreateAnswer, parseListAnswer, parsePostAnswer, vendorInvoiceFilterToRpc,
+  CreateAnswer, RPC_VENDOR_ADD_LINE, RPC_VENDOR_CANDIDATES, RPC_VENDOR_CREATE, RPC_VENDOR_DELETE, RPC_VENDOR_LIST, RPC_VENDOR_POST, RPC_VENDOR_SET_HEADER, RPC_VENDOR_UNPOST, VendorCandidatesAnswer,
+  VendorInvoiceListAnswer, VendorInvoiceListFilter, VendorInvoicePostAnswer, VendorSelection, parseCandidates, parseCreateAnswer, parseListAnswer, parsePostAnswer, vendorInvoiceFilterToRpc,
 } from './vendorInvoiceModel';
 
 type Client = any;
@@ -16,7 +16,7 @@ export async function fetchVendorCandidates(client: Client, taskGUID: string, li
 }
 
 /** one draft document per selected vendor + contract; `legalEntityGUID` is asked when a contract names none */
-export async function createVendorInvoices(client: Client, taskGUID: string, selection: { partnerGUID: string; contractGUID: string | null; lineGUIDs: string[] }[], legalEntityGUID?: string | null): Promise<CreateAnswer> {
+export async function createVendorInvoices(client: Client, taskGUID: string, selection: VendorSelection[], legalEntityGUID?: string | null): Promise<CreateAnswer> {
   const { data, error } = await client.rpc(RPC_VENDOR_CREATE, { p_task: taskGUID, p_selection: selection, p_legal_entity: legalEntityGUID || null });
   if (error) fail(error);
   return parseCreateAnswer(data);
@@ -30,8 +30,8 @@ export async function fetchVendorInvoiceList(client: Client, filter: VendorInvoi
   return parseListAnswer(data);
 }
 
-/** the number printed on the invoice, its date ('YYYY-MM-DD' or an ISO timestamp) and the legal entity of a DRAFT */
-export async function setVendorInvoiceHeader(client: Client, headerGUID: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string }): Promise<void> {
+/** the number printed on the invoice, its date ('YYYY-MM-DD' or an ISO timestamp) and the legal entity of a DRAFT; the vendor (+ contract) only of a draft that has none (made from lines without a vendor) */
+export async function setVendorInvoiceHeader(client: Client, headerGUID: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string; vendorInvoicePartner?: string; vendorInvoiceContract?: string | null }): Promise<void> {
   const { error } = await client.rpc(RPC_VENDOR_SET_HEADER, { p_header: headerGUID, p_patch: patch });
   if (error) fail(error);
 }
@@ -52,4 +52,11 @@ export async function unpostVendorInvoice(client: Client, headerGUID: string): P
 export async function deleteVendorInvoice(client: Client, headerGUID: string): Promise<void> {
   const { error } = await client.rpc(RPC_VENDOR_DELETE, { p_header: headerGUID });
   if (error) fail(error);
+}
+
+/** ONE independent line (no task line) of a DRAFT; the kind = the tab (timeGenus | materialGenus | expenseGenus); returns the GUID of the line */
+export async function addVendorInvoiceLine(client: Client, headerGUID: string, genus: string): Promise<string> {
+  const { data, error } = await client.rpc(RPC_VENDOR_ADD_LINE, { p_header: headerGUID, p_genus: genus });
+  if (error) fail(error);
+  return String(data);
 }

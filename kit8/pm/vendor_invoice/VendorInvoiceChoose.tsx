@@ -3,7 +3,7 @@
 //   ONE draft document is made for each checked pair (1 vendor + 1 contract), then the form opens - with a tab for each document (and a browser tab of its own on the web).
 //   The legal entity of the documents: the one of the contract; a contract without one asks for it here.
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import ButtonApp from '../../ui/components/common/ButtonApp';
@@ -11,8 +11,9 @@ import IconApp from '../../ui/components/common/IconApp';
 import SelectElementFromCatalog from '../../catalog/inner/select_element/SelectElementFromCatalog';
 import { LEGAL_ENTITY_TABLE, legalEntityTitle } from '../../catalog/legal_entity/legalEntityModel';
 import { pmT } from '../i18n/pmT';
-import { VENDOR_INVOICE_ROUTE, candidateKey, candidateSelection, needsLegalEntity, vendorInvoiceDocumentPath, vendorInvoiceRouteParams } from './vendorInvoiceModel';
+import { NO_VENDOR_KEY, candidateKey, candidateSelection, needsLegalEntity } from './vendorInvoiceModel';
 import { useCreateVendorInvoices, useVendorCandidates } from './useVendorInvoice';
+import { showCreatedVendorInvoices } from './vendorInvoiceNavigation';
 
 export interface VendorInvoiceChooseProps {
   taskGUID: string;
@@ -23,6 +24,8 @@ export interface VendorInvoiceChooseProps {
   testID?: string;
 }
 
+const NO_LINES: string[] = [];
+
 export default function VendorInvoiceChoose({ taskGUID, lineGUIDs, projectGUID, onClose, testID = 'vendor-choose' }: VendorInvoiceChooseProps) {
   const { themeColors: c } = useDesignSystem();
   const router = useRouter();
@@ -31,11 +34,13 @@ export default function VendorInvoiceChoose({ taskGUID, lineGUIDs, projectGUID, 
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [legalEntity, setLegalEntity] = useState<string>('');
   const [notice, setNotice] = useState<string | null>(null);
-  // the vendors are all checked when they arrive; the user unchecks the ones not needed
-  const keys = cand.rows.map(candidateKey).join('|');
-  useEffect(() => setChecked(new Set(cand.rows.map(candidateKey))), [keys]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // the lines that have no vendor are ONE more row: a draft without a vendor (the vendor is chosen in the form)
+  const noVendor = cand.skippedLineGUIDs ?? NO_LINES;
+  // everything is checked when it arrives; the user unchecks the ones not needed
+  const keys = [...cand.rows.map(candidateKey), ...(noVendor.length ? [NO_VENDOR_KEY] : [])].join('|');
+  useEffect(() => setChecked(new Set([...cand.rows.map(candidateKey), ...(noVendor.length ? [NO_VENDOR_KEY] : [])])), [keys]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selection = useMemo(() => candidateSelection(cand.rows, checked), [cand.rows, checked]);
+  const selection = useMemo(() => candidateSelection(cand.rows, checked, noVendor), [cand.rows, checked, noVendor]);
   const askLegalEntity = needsLegalEntity(cand.rows, checked);
   const canCreate = selection.length > 0 && (!askLegalEntity || !!legalEntity) && !busy;
   const toggle = (key: string) => setChecked((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -46,9 +51,7 @@ export default function VendorInvoiceChoose({ taskGUID, lineGUIDs, projectGUID, 
     if (!answer) return;
     const guids = answer.documents.map((d) => d.documentGUID);
     if (!guids.length) { setNotice(pmT('Nothing is left to invoice: the whole quantity is already on vendor invoices.')); cand.refetch(); return; }
-    // a browser tab of its own for the other documents (best effort: a browser may block pop-ups after an async call - the form has a tab for each document anyway)
-    if (Platform.OS === 'web' && guids.length > 1 && typeof window !== 'undefined') guids.slice(1).forEach((g) => { try { window.open(vendorInvoiceDocumentPath(g), '_blank'); } catch { /* the tab strip of the form is the fallback */ } });
-    router.replace({ pathname: VENDOR_INVOICE_ROUTE, params: vendorInvoiceRouteParams({ taskGUID, projectGUID, documentGUID: guids[0], documents: guids }) } as any);
+    showCreatedVendorInvoices(router, { taskGUID, projectGUID }, guids, 'replace');
   };
 
   return (
@@ -69,7 +72,7 @@ export default function VendorInvoiceChoose({ taskGUID, lineGUIDs, projectGUID, 
         {!!cand.error && <Text testID={`${testID}-error`} style={{ color: c.error }}>{cand.error}</Text>}
         {!!error && <Text testID={`${testID}-create-error`} style={{ color: c.error }}>{error}</Text>}
         {!!notice && <Text testID={`${testID}-notice`} style={{ color: c.text }}>{notice}</Text>}
-        {!cand.isLoading && !cand.error && cand.rows.length === 0 && (
+        {!cand.isLoading && !cand.error && cand.rows.length === 0 && noVendor.length === 0 && (
           <Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.7 }}>
             {pmT('No vendor was found for the lines of this task. A line has a vendor through its contract, its partner, or the main vendor of its equipment / product (catalogs → Main vendor).')}
           </Text>
@@ -90,9 +93,25 @@ export default function VendorInvoiceChoose({ taskGUID, lineGUIDs, projectGUID, 
           );
         })}
 
-        {cand.skipped > 0 && (
-          <Text testID={`${testID}-skipped`} style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>{cand.skipped} {pmT('lines have no vendor (no contract, no partner, no main vendor) and are not listed.')}</Text>
+        {/* the project switched "empty vendors" off (Project settings → Vendor): those lines are left out */}
+        {cand.skipped > 0 && noVendor.length === 0 && (
+          <Text testID={`${testID}-skipped`} style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>{cand.skipped} {pmT('lines have no vendor and are left out (Project settings → Vendor: create vendor invoices from tasks with empty vendors).')}</Text>
         )}
+
+        {/* the lines without a vendor (no contract, no partner, no main vendor): ONE draft without a vendor - the vendor is chosen in the invoice before Post */}
+        {noVendor.length > 0 && (() => {
+          const on = checked.has(NO_VENDOR_KEY);
+          return (
+            <Pressable key={NO_VENDOR_KEY} accessibilityRole="checkbox" aria-checked={on} testID={`${testID}-row-${NO_VENDOR_KEY}`} onPress={() => toggle(NO_VENDOR_KEY)} style={[styles.row, { borderColor: on ? c.primary : c.border, backgroundColor: on ? `${c.primary}10` : c.surface }]}>
+              <IconApp name={on ? 'check_box' : 'check_box_outline_blank'} size={22} color={on ? c.primary : c.text} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ color: c.text, fontWeight: '700', fontSize: 14 }}>{pmT('No vendor')}</Text>
+                <Text numberOfLines={2} style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('These lines have no vendor: choose it in the invoice before Post.')}</Text>
+              </View>
+              <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{noVendor.length} {pmT('lines')}</Text>
+            </Pressable>
+          );
+        })()}
 
         {askLegalEntity && (
           <View style={{ maxWidth: 420 }}>

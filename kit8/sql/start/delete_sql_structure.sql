@@ -92,6 +92,8 @@ DROP FUNCTION IF EXISTS public.delete_vendor_invoice(uuid);
 DROP FUNCTION IF EXISTS public.unpost_vendor_invoice(uuid);
 DROP FUNCTION IF EXISTS public.post_vendor_invoice(uuid);
 DROP FUNCTION IF EXISTS public.vendor_invoice_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.vendor_invoice_add_line(uuid, text);
+DROP FUNCTION IF EXISTS public.vendor_project_setting(uuid, text);
 DROP FUNCTION IF EXISTS public.create_vendor_invoices(uuid, jsonb, text);
 DROP FUNCTION IF EXISTS public.vendor_invoice_candidates(uuid, uuid[]);
 DROP FUNCTION IF EXISTS public.project_status_register_invoice(uuid);

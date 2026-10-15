@@ -148,6 +148,10 @@ export interface PMRowJSON {
    * false (default) = the fact data is disconnected from the task line GUIDs and users add lines freely. Copied into every document when it is created.
    */
   factStrongInputByTaskLine?: boolean;
+  /** Vendor invoices (kit8/pm/vendor_invoice; Project settings -> Vendor): true (default) = "Vendor Invoice" of a task also makes ONE draft WITHOUT a vendor of the lines that have none; false = such lines are left out */
+  userCanCreateVendorInvoicesFromTasksWithEmptyVendors?: boolean;
+  /** ... true (default) = lines can be ADDED by hand to a draft vendor invoice (a CRUD panel, lines not tied to a task line); false = only the lines made from the task lines */
+  independentInvoiceInputAvailable?: boolean;
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
   /**

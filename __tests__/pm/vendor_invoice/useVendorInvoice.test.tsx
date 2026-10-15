@@ -7,8 +7,9 @@ const fake: any = { calls: [] as { name: string; args: any }[], rpc: {} as Recor
 fake.client = { rpc: jest.fn(async (name: string, args: any) => { fake.calls.push({ name, args }); const r = fake.rpc[name]; return typeof r === 'function' ? r(args) : r ?? { data: null, error: null }; }) };
 jest.doMock('../../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: fake.client }) }));
 const mockPush = jest.fn();
-jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), canGoBack: () => false, navigate: jest.fn() }) }));
-const { useCreateVendorInvoices, useOpenVendorInvoice, useVendorCandidates, useVendorInvoiceDocuments, useVendorInvoiceList } = require('../../../kit8/pm/vendor_invoice/useVendorInvoice');
+const mockReplace = jest.fn();
+jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn(), canGoBack: () => false, navigate: jest.fn() }) }));
+const { useCreateVendorInvoices, useOpenVendorInvoice, useStartVendorInvoice, useVendorCandidates, useVendorInvoiceDocuments, useVendorInvoiceList } = require('../../../kit8/pm/vendor_invoice/useVendorInvoice');
 import { EMPTY_VENDOR_INVOICE_FILTER } from '../../../kit8/pm/vendor_invoice/vendorInvoiceModel';
 
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 0)); }); };
@@ -130,6 +131,22 @@ it('useCreateVendorInvoices: the selection, the legal entity; the answer is type
   expect(callsOf('create_vendor_invoices').at(-1).args.p_legal_entity).toBeNull();
 });
 
+it('useVendorInvoiceDocuments.addLine: the RPC gets the document and the kind; an error of the database is the message', async () => {
+  fake.rpc.vendor_invoice_list = listAnswer(docRow('dA'));
+  fake.rpc.vendor_invoice_add_line = { data: 'new-line-guid', error: null };
+  function Probe() { latest = useVendorInvoiceDocuments(['dA']); return null; }
+  renderUI(<Probe />);
+  await flush();
+  let ok: boolean = false;
+  await act(async () => { ok = await latest.addLine('dA', 'materialGenus'); });
+  expect(ok).toBe(true);
+  expect(callsOf('vendor_invoice_add_line')[0].args).toEqual({ p_header: 'dA', p_genus: 'materialGenus' });
+  fake.rpc.vendor_invoice_add_line = { data: null, error: { message: 'independent invoice input is switched off in the project settings (Vendor)' } };
+  await act(async () => { ok = await latest.addLine('dA', 'timeGenus'); });
+  expect(ok).toBe(false);
+  expect(latest.error).toContain('switched off');
+});
+
 it('useOpenVendorInvoice: the window of the vendors for a task, the form for a document; nothing without either', () => {
   function Probe() { latest = useOpenVendorInvoice(); return null; }
   renderUI(<Probe />);
@@ -140,4 +157,121 @@ it('useOpenVendorInvoice: the window of the vendors for a task, the form for a d
   mockPush.mockClear();
   latest({ taskGUID: '' });
   expect(mockPush).not.toHaveBeenCalled();
+});
+
+describe('useStartVendorInvoice - the context menu "Vendor Invoice" creates the invoice(s) at once', () => {
+  const cand = (over: Record<string, any> = {}) => ({ partnerGUID: 'vp-1', partnerTitle: 'Acme', contractGUID: 'vc-1', legalEntityGUID: 'le-1', lineCount: 2, lineGUIDs: ['l1', 'l2'], ...over });
+  const mount = () => { function Probe() { latest = useStartVendorInvoice(); return null; } renderUI(<Probe />); };
+  const start = async (p: any) => { await act(async () => { await latest.start(p); }); };
+
+  it('every vendor + contract of the lines is created and the form opens on the first document (no choice window)', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [cand(), cand({ partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l3'], lineCount: 1 })], skipped: 0 }, error: null };
+    fake.rpc.create_vendor_invoices = { data: { documents: [{ documentGUID: 'n1', partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 2 }], skipped: [] }, error: null };
+    mount();
+    await start({ taskGUID: 't1' });
+    expect(callsOf('vendor_invoice_candidates')[0].args).toEqual({ p_task: 't1', p_lines: null });
+    expect(callsOf('create_vendor_invoices')[0].args).toEqual({
+      p_task: 't1', p_legal_entity: null,
+      p_selection: [{ partnerGUID: 'vp-1', contractGUID: 'vc-1', lineGUIDs: ['l1', 'l2'] }, { partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l3'] }],
+    });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', documentGUID: 'n1', documents: 'n1' } });
+  });
+
+  it('a line of the Finances table: only that line goes to the candidates (and the project to the form)', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [cand({ lineGUIDs: ['l1'], lineCount: 1 })], skipped: 0 }, error: null };
+    fake.rpc.create_vendor_invoices = { data: { documents: [{ documentGUID: 'n1', partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 1 }], skipped: [] }, error: null };
+    mount();
+    await start({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['l1'] });
+    expect(callsOf('vendor_invoice_candidates')[0].args).toEqual({ p_task: 't1', p_lines: ['l1'] });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'n1', documents: 'n1' } });
+  });
+
+  it('lines WITHOUT any vendor: ONE draft without a vendor is created at once (no legal entity asked) and the form opens', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [], skipped: 2, skippedLineGUIDs: ['l1', 'l2'] }, error: null };
+    fake.rpc.create_vendor_invoices = { data: { documents: [{ documentGUID: 'n1', partnerGUID: null, contractGUID: null, lineCount: 2 }], skipped: [] }, error: null };
+    mount();
+    await start({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['l1', 'l2'] });
+    expect(callsOf('create_vendor_invoices')[0].args).toEqual({ p_task: 't1', p_legal_entity: null, p_selection: [{ partnerGUID: null, contractGUID: null, lineGUIDs: ['l1', 'l2'] }] });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'n1', documents: 'n1' } });
+  });
+
+  it('nothing to invoice at all (no vendor, no line): nothing is created, the choice window opens (it says why) with the same lines', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [], skipped: 0, skippedLineGUIDs: [] }, error: null };
+    mount();
+    await start({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['l1'] });
+    expect(callsOf('create_vendor_invoices')).toHaveLength(0);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: 't1', projectGUID: 'p1', lineGUIDs: 'l1' } });
+  });
+
+  it('a contract without a legal entity needs a person: the choice window asks for it, nothing is created', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [cand({ legalEntityGUID: null })], skipped: 0 }, error: null };
+    mount();
+    await start({ taskGUID: 't1' });
+    expect(callsOf('create_vendor_invoices')).toHaveLength(0);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: 't1' } });
+  });
+
+  it('nothing left to invoice (the database made no document) or a failed call: the choice window opens', async () => {
+    fake.rpc.vendor_invoice_candidates = { data: { rows: [cand()], skipped: 0 }, error: null };
+    fake.rpc.create_vendor_invoices = { data: { documents: [], skipped: [{ partnerGUID: 'vp-1', contractGUID: 'vc-1', reason: 'nothing to invoice' }] }, error: null };
+    mount();
+    await start({ taskGUID: 't1' });
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: 't1' } });
+    fake.rpc.create_vendor_invoices = { data: null, error: { message: 'boom' } };
+    await start({ taskGUID: 't1' });
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/project/task/vendor-invoice/new', params: { taskGUID: 't1' } });
+    expect(mockPush).toHaveBeenCalledTimes(2);
+  });
+
+  describe('on the web the vendor invoice opens in a NEW browser tab', () => {
+    let open: jest.SpyInstance; let tab: { location: { href: string } };
+    beforeEach(() => { tab = { location: { href: '' } }; open = jest.spyOn(window, 'open').mockImplementation(() => tab as any); });
+    afterEach(() => open.mockRestore());
+    it('a blank tab is opened INSIDE the click (before any call) and pointed at the form of the first document; the router is not used', async () => {
+      fake.rpc.vendor_invoice_candidates = { data: { rows: [cand(), cand({ partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l3'], lineCount: 1 })], skipped: 0 }, error: null };
+      fake.rpc.create_vendor_invoices = { data: { documents: [{ documentGUID: 'n1', partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 2 }, { documentGUID: 'n2', partnerGUID: 'vp-2', contractGUID: null, lineCount: 1 }], skipped: [] }, error: null };
+      mount();
+      let p: Promise<void>;
+      act(() => { p = latest.start({ taskGUID: 't1', projectGUID: 'p1' }); });
+      expect(open).toHaveBeenCalledTimes(1);                       // synchronously: before the first await
+      expect(open).toHaveBeenLastCalledWith('', '_blank');
+      expect(fake.calls).toHaveLength(1);                          // only the first call has started
+      await act(async () => { await p; });
+      expect(tab.location.href).toBe('/pm/project/task/vendor-invoice?taskGUID=t1&projectGUID=p1&documentGUID=n1&documents=n1%2Cn2');
+      expect(open).toHaveBeenLastCalledWith('/pm/project/task/vendor-invoice?documentGUID=n2', '_blank');   // the second document: a tab of its own
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+    it('when the choice window is needed it opens in the same new tab', async () => {
+      fake.rpc.vendor_invoice_candidates = { data: { rows: [], skipped: 0, skippedLineGUIDs: [] }, error: null };
+      mount();
+      await start({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['l1'] });
+      expect(tab.location.href).toBe('/pm/project/task/vendor-invoice/new?taskGUID=t1&projectGUID=p1&lineGUIDs=l1');
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+    it('a blocked tab (window.open gives null): the router in this window, as before', async () => {
+      open.mockImplementation(() => null);
+      fake.rpc.vendor_invoice_candidates = { data: { rows: [cand()], skipped: 0 }, error: null };
+      fake.rpc.create_vendor_invoices = { data: { documents: [{ documentGUID: 'n1', partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 2 }], skipped: [] }, error: null };
+      mount();
+      await start({ taskGUID: 't1' });
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', documentGUID: 'n1', documents: 'n1' } });
+    });
+    it('useOpenVendorInvoice with a document: a new tab; a task only (the choice window): this window', () => {
+      function Probe() { latest = useOpenVendorInvoice(); return null; }
+      renderUI(<Probe />);
+      latest({ taskGUID: 't1', projectGUID: 'p1', documentGUID: 'd1' });
+      expect(open).toHaveBeenLastCalledWith('/pm/project/task/vendor-invoice?taskGUID=t1&projectGUID=p1&documentGUID=d1', '_blank');
+      expect(mockPush).not.toHaveBeenCalled();
+      latest({ taskGUID: 't1', lineGUIDs: ['l1'] });
+      expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('nothing without a task', async () => {
+    mount();
+    await start({ taskGUID: '' });
+    expect(fake.calls).toHaveLength(0);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });

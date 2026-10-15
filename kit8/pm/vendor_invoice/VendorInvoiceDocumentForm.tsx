@@ -21,6 +21,9 @@ import { REUSABLE_TABLE_ALL } from '../../ui/components/table/reusable/reusableT
 import type { ReusableTableRow } from '../../ui/components/table/reusable/reusableTableTypes';
 import SelectElementFromCatalog from '../../catalog/inner/select_element/SelectElementFromCatalog';
 import { LEGAL_ENTITY_TABLE, legalEntityTitle } from '../../catalog/legal_entity/legalEntityModel';
+import { PARTNER_CATALOG_OWNER, PARTNER_ENTITY } from '../../catalog/partner/partnerModel';
+import { CONTRACT_ENTITY } from '../../catalog/contract/contractModel';
+import { MANAGEMENT_GENUS } from '../../catalog/management/genus/managementGenusModel';
 import { useTaskLineCatalogs } from '../view/task/finances/useTaskLineCatalogs';
 import { parseDayInput } from '../fact/factInputModel';
 import { pmT } from '../i18n/pmT';
@@ -57,7 +60,9 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
   useEffect(() => setProblems([]), [header?.guid]);
 
   const edit = !!header && canEditVendorInvoice(header);
-  const columns = useMemo(() => buildVendorInvoiceColumns({ data, tab, editable: edit }), [data, tab, edit]);
+  // an UNPOSTED document lets its vendor and contract be chosen / changed (saved at once); the project setting independentInvoiceInputAvailable lets lines be ADDED by hand (not tied to a task line)
+  const independent = edit && !!header?.independentInputAvailable;
+  const columns = useMemo(() => buildVendorInvoiceColumns({ data, tab, editable: edit, independent }), [data, tab, edit, independent]);
   const rowFilter = useMemo(() => {
     const guid = header?.guid;
     return (r: ReusableTableRow) => !!guid && r.rowHeaderGUID === guid && (tab === VENDOR_INVOICE_ALL_TAB || r.genusGUID === tab);
@@ -105,7 +110,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
       <View style={[styles.bar, { borderBottomColor: c.border }]}>
         <IconApp name="receipt_long" size={20} color={c.primary} />
         <View style={{ flexShrink: 1 }}>
-          <Text testID={`${testID}-title`} numberOfLines={1} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Vendor invoice')}{header?.partnerTitle ? ` · ${header.partnerTitle}` : ''}</Text>
+          <Text testID={`${testID}-title`} numberOfLines={1} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Vendor invoice')}{header?.partnerTitle ? ` · ${header.partnerTitle}` : header ? ` · ${pmT('No vendor')}` : ''}</Text>
           {header && (
             <Text testID={`${testID}-subtitle`} numberOfLines={1} style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>
               {header.number}{header.contractInfo ? ` · ${header.contractInfo}` : ` · ${pmT('no contract')}`}{header.currency ? ` · ${header.currency}` : ''}
@@ -137,7 +142,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
             return (
               <View key={h.guid} style={[styles.docTab, { borderBottomColor: active ? c.primary : 'transparent' }]}>
                 <Pressable accessibilityRole="tab" aria-selected={active} testID={`${testID}-document-${h.guid}`} onPress={() => setSelected(h.guid)} style={styles.docTabText}>
-                  <Text numberOfLines={1} style={{ color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{h.partnerTitle || h.partnerGUID}</Text>
+                  <Text numberOfLines={1} style={{ color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{h.partnerTitle || h.partnerGUID || pmT('No vendor')}</Text>
                   <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 11 }}>{h.contractInfo || pmT('no contract')} · {h.number}{h.status === 'posted' ? ` · ${pmT('Posted')}` : ''}</Text>
                 </Pressable>
                 {Platform.OS === 'web' && (
@@ -154,38 +159,63 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
       {/* the form of the document */}
       {header && (
         <View testID={`${testID}-form`} style={styles.form}>
+          {/* every field is a TextInputApp (the selects too: asInput) without its outer margin, so the boxes of the row have the same height and are centered on one line */}
           <View style={{ width: 130 }}>
-            <TextInputApp testID={`${testID}-field-number`} label={pmT('Document')} value={header.number} compact disabled hideClearIcon />
+            <TextInputApp testID={`${testID}-field-number`} label={pmT('Document')} value={header.number} compact disabled hideClearIcon style={FIELD} />
+          </View>
+          <View style={{ width: 200 }}>
+            {/* the project of the document (vendorInvoiceProject): its setting independentInvoiceInputAvailable decides whether lines can be added */}
+            <TextInputApp testID={`${testID}-field-project`} label={pmT('Project')} value={header.projectName || ''} compact disabled hideClearIcon style={FIELD} />
           </View>
           <View style={{ width: 230 }}>
             {edit ? (
               <SelectElementFromCatalog
-                testID={`${testID}-field-legalEntity`} entityName={LEGAL_ENTITY_TABLE.entity} label={pmT('Legal entity')} placeholder={pmT('Select legal entity…')} compact
+                testID={`${testID}-field-legalEntity`} entityName={LEGAL_ENTITY_TABLE.entity} label={pmT('Legal entity')} placeholder={pmT('Select legal entity…')} compact asInput
                 value={header.legalEntityGUID || null} titleExtractor={legalEntityTitle}
                 onChange={(guid) => { if (guid) void doc.setHeader(header.guid, { legalEntityGUID: guid }); }}
               />
             ) : (
-              <TextInputApp testID={`${testID}-field-legalEntity`} label={pmT('Legal entity')} value={header.legalEntityTitle} compact disabled hideClearIcon />
+              <TextInputApp testID={`${testID}-field-legalEntity`} label={pmT('Legal entity')} value={header.legalEntityTitle} compact disabled hideClearIcon style={FIELD} />
             )}
           </View>
-          <View style={{ width: 210 }}>
-            <TextInputApp testID={`${testID}-field-vendor`} label={pmT('Vendor')} value={header.partnerTitle} compact disabled hideClearIcon />
-          </View>
-          <View style={{ width: 230 }}>
-            <TextInputApp testID={`${testID}-field-contract`} label={pmT('Contract')} value={header.contractInfo} compact disabled hideClearIcon />
-          </View>
+          {edit ? (
+            // an unposted document: the vendor and its contract are chosen / changed here and saved AT ONCE (until Post; a new vendor drops the contract of the old one)
+            <>
+              <View style={{ width: 210 }}>
+                <SelectElementFromCatalog
+                  testID={`${testID}-field-vendor`} entityName={PARTNER_ENTITY} rowOwnerGUID={PARTNER_CATALOG_OWNER} label={pmT('Vendor')} placeholder={pmT('Select vendor…')} compact asInput
+                  value={header.partnerGUID || null} onChange={(guid) => { void doc.setHeader(header.guid, { vendorInvoicePartner: guid ?? '' }); }}
+                />
+              </View>
+              <View style={{ width: 230 }}>
+                <SelectElementFromCatalog
+                  testID={`${testID}-field-contract`} entityName={CONTRACT_ENTITY} rowParentGUID="partner" rowOwnerGUID={header.partnerGUID || undefined} label={pmT('Contract')} placeholder={pmT('Select contract…')} compact asInput
+                  value={header.contractGUID || null} disabled={!header.partnerGUID} disabledMessage={pmT('Select a vendor first')} onChange={(guid) => { void doc.setHeader(header.guid, { vendorInvoiceContract: guid ?? '' }); }}
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={{ width: 210 }}>
+                <TextInputApp testID={`${testID}-field-vendor`} label={pmT('Vendor')} value={header.partnerTitle} compact disabled hideClearIcon style={FIELD} />
+              </View>
+              <View style={{ width: 230 }}>
+                <TextInputApp testID={`${testID}-field-contract`} label={pmT('Contract')} value={header.contractInfo} compact disabled hideClearIcon style={FIELD} />
+              </View>
+            </>
+          )}
           <View style={{ width: 90 }}>
-            <TextInputApp testID={`${testID}-field-currency`} label={pmT('Currency')} value={header.currency} compact disabled hideClearIcon />
+            <TextInputApp testID={`${testID}-field-currency`} label={pmT('Currency')} value={header.currency} compact disabled hideClearIcon style={FIELD} />
           </View>
           <View style={{ width: 190 }}>
             <TextInputApp
-              testID={`${testID}-field-invoiceNumber`} label={pmT('Invoice number')} value={number} compact disabled={!edit}
+              testID={`${testID}-field-invoiceNumber`} label={pmT('Invoice number')} value={number} compact disabled={!edit} style={FIELD}
               onChangeText={(t: string) => { setNumber(t); commit({ vendorInvoiceNumber: t }); }}
             />
           </View>
           <View style={{ width: 200 }}>
             <DateInputApp
-              testID={`${testID}-field-invoiceDate`} label={pmT('Invoice date')} value={day} compact disabled={!edit} error={dayError}
+              testID={`${testID}-field-invoiceDate`} label={pmT('Invoice date')} value={day} compact disabled={!edit} error={dayError} style={FIELD}
               onChangeText={(t: string) => { setDay(t); const d = parseDayInput(t); if (d) commit({ vendorInvoiceDateTime: `${d}T00:00:00.000Z` }); }}
             />
           </View>
@@ -245,7 +275,9 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
             readParams={{ match: { rowHeaderGUID: header.guid } }}
             rowFilter={rowFilter}
             visualColumns={columns}
-            addEnabled={false}
+            // independent input (project setting): the + adds a line of the kind of the tab (All: Time) by the database, not tied to a task line; otherwise the lines come from the task lines only
+            addEnabled={independent}
+            onAdd={independent ? () => { void doc.addLine(header.guid, VENDOR_INVOICE_TABS.find((t) => t.id === tab)?.genus ?? MANAGEMENT_GENUS.time); } : undefined}
             crudPanelEnabled={edit}
             contextMenuEnabled={edit}
             selectionEnabled={edit}
@@ -263,13 +295,16 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
   );
 }
 
+/** no outer margin: the boxes of the form row are centered on one line */
+const FIELD = { marginBottom: 0 };
+
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
   bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   docTabs: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8 },
   docTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2 },
   docTabText: { maxWidth: 240 },
-  form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
+  form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
   totals: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 8, marginLeft: 8 },
   problems: { margin: 12, padding: 10, borderWidth: 1, borderRadius: 8 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8 },

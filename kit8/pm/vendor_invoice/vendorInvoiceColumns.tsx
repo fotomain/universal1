@@ -1,7 +1,7 @@
 // vendorInvoiceColumns - the columns of the ReusableTable of the lines of a vendor invoice (VendorInvoiceLines): #, [Genus on the All tab], Role, Resource, Unit, Qty, Price, VAT %,
 // Sum before VAT, VAT, Sum with VAT, Sum for budget, Sum for accounting.
 // Qty / Price / VAT % are the root columns qtyInvoiced / priceInvoiced / vatRatioInvoiced (EDITABLE in a draft only); the sums are root columns computed by the database; the description of the line
-// (role, resource, unit) is read only: it is the task line the line came from.
+// (role, resource, unit) is read only: it is the task line the line came from - except an INDEPENDENT line (no task line, project setting independentInvoiceInputAvailable), which the user describes.
 import { EQUIPMENT_ENTITY } from '../../catalog/equipment/equipmentModel';
 import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../catalog/person/personModel';
 import { PRODUCT_TABLES } from '../../catalog/product/productModel';
@@ -20,12 +20,16 @@ export interface VendorInvoiceColumnsContext {
   tab: string;
   /** the document is a draft: quantity, price and VAT % can be changed */
   editable: boolean;
+  /** independent input is on (draft + the project setting): the role, resource and unit of an INDEPENDENT line (no task line) can be filled in */
+  independent?: boolean;
 }
 
 const genusTitle: Record<string, string> = { [MANAGEMENT_GENUS.time]: 'Time', [MANAGEMENT_GENUS.material]: 'Material', [MANAGEMENT_GENUS.expense]: 'Expenses' };
 const num = (v: unknown): number => { const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : 0; };
 
-export function buildVendorInvoiceColumns({ data, tab, editable }: VendorInvoiceColumnsContext): VisualColumn[] {
+export function buildVendorInvoiceColumns({ data, tab, editable, independent = false }: VendorInvoiceColumnsContext): VisualColumn[] {
+  // a line that came from a task line is described by it: only an independent line (no taskLineGUID) takes a role, resource and unit
+  const describe = { editable: independent, validate: (_v: any, row: ReusableTableRow) => (row.taskLineGUID ? pmT('This line comes from a task line: only the quantity, the price and the VAT % change.') : null) };
   const unitOptions = data.measureUnit.map((u) => ({ value: u.rowGUID, label: rowTitle(u) || u.rowGUID }));
   const root = (key: string, title: string, width: number, total = true): VisualColumn =>
     ({ key, title: pmT(title), type: 'number', target: key as any, width, editable: false, total, stepper: false } as VisualColumn);
@@ -35,17 +39,17 @@ export function buildVendorInvoiceColumns({ data, tab, editable }: VendorInvoice
       ? [{ key: 'genus', title: pmT('Kind'), type: 'text', width: 100, editable: false, fromStored: (_s: any, row: ReusableTableRow) => pmT(genusTitle[String(row.genusGUID)] ?? String(row.genusGUID ?? '')) } as VisualColumn]
       : []),
     {
-      key: 'role', title: pmT('Role'), type: 'catalog', field: 'resourceRoleItem', width: 210, editable: false,
+      key: 'role', title: pmT('Role'), type: 'catalog', field: 'resourceRoleItem', width: 210, ...describe,
       catalogEntityName: RESOURCE_ROLE_OWN_TABLES.resourceRole.entity, placeholder: '',
     } as VisualColumn,
     {
       // Time: person / equipment · Material: the product · Expense: nothing
-      key: 'resource', title: pmT('Resource'), type: 'catalog', field: 'taskResourceItem', width: 230, editable: false,
+      key: 'resource', title: pmT('Resource'), type: 'catalog', field: 'taskResourceItem', width: 230, ...describe,
       catalogEntityName: PRODUCT_TABLES.product.entity, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, PRODUCT_TABLES.product.entity],
       catalogEntityNameOf: (row: ReusableTableRow) => (row.genusGUID === MANAGEMENT_GENUS.time ? (row.rowJSON?.taskResourceKind === 'equipment' ? EQUIPMENT_ENTITY : PERSON_ENTITY) : PRODUCT_TABLES.product.entity),
       titleExtractor: resourceTitleOfRow, placeholder: '',
     } as VisualColumn,
-    { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, editable: false } as VisualColumn,
+    { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, ...describe } as VisualColumn,
     { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyInvoiced', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
     { key: 'price', title: pmT('Price'), type: 'number', target: 'priceInvoiced', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
     { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioInvoiced', width: 100, min: 0, max: 100, total: false, stepper: false, editable } as VisualColumn,

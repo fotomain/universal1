@@ -18,7 +18,7 @@ import { parseMonitor01Row } from '../../../../kit8/pm/reports/monitor01/monitor
 
 const raw = (over: Record<string, any> = {}) => ({
   rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
-  resourceRoleName: 'Data Analyst', qtyPlanned: 24, qtyContracted: 24, sumForBudget: 480, qtyRestToContract: 0, qtyDelivered: 0, qtyUsed: 0, qtyOnHand: 0, lineCount: 1, hasStalePlan: false, updated_at: '1', ...over,
+  resourceRoleName: 'Data Analyst', qtyPlanned: 24, qtyContracted: 24, sumForBudget: 480, qtyRestToContract: 0, qtyDelivered: 0, qtyInvoiced: 0, qtyUsed: 0, qtyOnHand: 0, lineCount: 1, hasStalePlan: false, updated_at: '1', ...over,
 });
 // the example of the sheet
 const sheet = () => [
@@ -60,9 +60,9 @@ describe('the table of the sheet', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
     expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
-    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'delivered', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
-    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Sum for budget', 'Delivered', 'Actually used', 'On-hand']);
-    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-delivered']);
+    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'delivered', 'invoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
+    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Delivered', 'Invoiced', 'Actually used', 'On-hand']);
+    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-delivered', 'monitor01-table-head-invoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
   });
 
   it('headers: "Task name" (not task.name), every header starts with a capital letter, no ROW DESCRIPTION column and no "requirements dimensions"', () => {
@@ -103,9 +103,9 @@ describe('the table of the sheet', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf(cell(KEY_T1, 'planned'))).toBe('24');
     expect(textOf(cell(KEY_T1, 'contracted'))).toBe('24');
-    expect(textOf(cell(KEY_T1, 'restToContract'))).toBe('0');
+    expect(textOf(cell(KEY_T1, 'restToContract'))).toBe('');
     expect(textOf(cell(KEY_T1, 'delivered'))).toBe('');               // facts without data stay blank
-    expect(textOf(cell(KEY_T1, 'onHand'))).toBe('0');
+    expect(textOf(cell(KEY_T1, 'onHand'))).toBe('');
     expect(textOf(cell('t3|timeGenus|r1|unit_hour|2026-10-01', 'restToContract'))).toBe('24');
     expect(textOf(cell('total|unit_hour', 'planned'))).toBe('48');      // the 48 of the sheet
     expect(textOf(cell('total|unit_pcs', 'planned'))).toBe('300');
@@ -281,10 +281,10 @@ describe('the TotalsRow at the bottom', () => {
     expect(q('monitor01-table-totals-all')).toBeNull();                              // one unit: one line
     expect(textOf('monitor01-table-totals-unit_hour-budget')).toBe('600.50');
   });
-  it('no rows: the TotalsRow shows 0.00', async () => {
+  it('no rows: the TotalsRow shows nothing for the money (0 is blank)', async () => {
     mockHook.rows = [];
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    expect(textOf('monitor01-table-totals-none-budget')).toBe('0.00');
+    expect(textOf('monitor01-table-totals-none-budget')).toBe('');
   });
 });
 
@@ -531,6 +531,35 @@ describe('every number opens its source transactions', () => {
     await flush();
     expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['delivered', 'used']);
   });
+  it('"Invoiced" (after Delivered) is the list of the POSTED vendor invoices; Open shows the invoice in the vendor invoice form', async () => {
+    mockHook.rows = [parseMonitor01Row(raw({ qtyInvoiced: 8 }))];
+    mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 8, rows: [{ rowGUID: 'iv1', sourceName: 'projectStatusMovements', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 8, documentGUID: 'vi1', documentNumber: 'INV-77' }] }));
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'invoiced'))).toBe('8');
+    press(cell(KEY_T1, 'invoiced'));
+    await flush();
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'invoiced', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-source-invoiced')).toContain('Posted vendor invoices');
+    expect(textOf('monitor01-sum-source-invoiced')).toContain('INV-77');
+    press('monitor01-sum-open-iv1');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'vi1' } });
+  });
+  it('a cell that is 0 shows nothing - in EVERY column, in the lines, the subtotals and the TotalsRow (the cell stays a button)', () => {
+    mockHook.rows = [parseMonitor01Row(raw({ qtyPlanned: 0, qtyContracted: 0, sumForBudget: 0, qtyUsed: 5, qtyOnHand: -5, qtyRestToContract: 0, lineCount: 0 }))];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    for (const m of ['planned', 'contracted', 'restToContract', 'delivered', 'invoiced']) expect(textOf(cell(KEY_T1, m))).toBe('');
+    expect(textOf(`monitor01-table-budget-${KEY_T1}`)).toBe('');
+    expect(textOf(cell(KEY_T1, 'used'))).toBe('5');
+    expect(textOf(cell(KEY_T1, 'onHand'))).toBe('-5');
+    expect(textOf('monitor01-table-totals-unit_hour-planned')).toBe('');
+    expect(textOf('monitor01-table-totals-unit_hour-budget')).toBe('');
+    expect(textOf('monitor01-table-totals-unit_hour-used')).toBe('5');
+    expect(q(cell(KEY_T1, 'planned'))!.getAttribute('role')).toBe('button');
+  });
+  it('a row without invoices shows a blank Invoiced cell (like Delivered and Actually used)', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'invoiced'))).toBe('');
+  });
   it('"Actually used" is the list of the POSTED fact documents; Open shows the document in the fact input form', async () => {
     mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 24, rows: [{ rowGUID: 'fl1', sourceName: 'taskFactUsageTimeline', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 24, documentGUID: 'doc1', documentNumber: 'FI-00007' }] }));
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
@@ -578,5 +607,42 @@ describe('every number opens its source transactions', () => {
     await flush();
     press('monitor01-sum-open-m1');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/plan', params: { taskGUID: 't1', projectGUID: 'p1' } });
+  });
+});
+
+describe('a double click on a Task name opens the task in the dashboard', () => {
+  let open: jest.SpyInstance;
+  beforeEach(() => { open = jest.spyOn(window, 'open').mockImplementation(() => ({}) as any); });
+  afterEach(() => open.mockRestore());
+  const task = `monitor01-table-task-${KEY_T1}`;
+
+  it('one click does nothing; two clicks open project + task + the tab of the genus + the line of the sum (a row of ONE line)', async () => {
+    mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 24, rows: [{ rowGUID: 'm1', lineGUID: 'l1', sourceName: 'x', day: '2026-10-14', taskGUID: 't1', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 24 }] }));
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press(task);
+    await flush();
+    expect(open).not.toHaveBeenCalled();
+    press(task);
+    await flush();
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'planned', expect.objectContaining({ taskGUID: 't1', genusGUID: 'timeGenus' }), 0, 1);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(String(open.mock.calls[0][0])).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus&lineGUID=l1');
+  });
+
+  it('a row of several lines opens the task and the tab without a line (no lookup)', async () => {
+    mockHook.rows = [parseMonitor01Row(raw({ lineCount: 3 }))];
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press(task); press(task);
+    await flush();
+    expect(mockFetch).not.toHaveBeenCalledWith(expect.anything(), 'planned', expect.anything(), 0, 1);
+    expect(String(open.mock.calls[0][0])).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus');
+  });
+
+  it('two clicks on different tasks are not a double click', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press(task);
+    press(`monitor01-table-task-t3|timeGenus|r1|unit_hour|2026-10-01`);
+    await flush();
+    expect(open).not.toHaveBeenCalled();
   });
 });

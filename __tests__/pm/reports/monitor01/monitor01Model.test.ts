@@ -7,7 +7,7 @@ import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/
 
 const raw = (over: Record<string, any> = {}) => ({
   rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
-  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', sumForBudget: '480.00', qtyRestToContract: '0.00', qtyDelivered: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
+  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', sumForBudget: '480.00', qtyRestToContract: '0.00', qtyDelivered: '0', qtyInvoiced: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
 });
 const row = (over: Record<string, any> = {}): Monitor01Row => parseMonitor01Row(raw(over));
 
@@ -25,6 +25,8 @@ describe('rows', () => {
     expect(r.qtyPlanned).toBe(24);
     expect(r.qtyRestToContract).toBe(14);
     expect(r.qtyOnHand).toBe(4);
+    expect(parseMonitor01Row(raw({ qtyInvoiced: '8.50' })).qtyInvoiced).toBe(8.5);
+    expect(parseMonitor01Row(raw({ qtyInvoiced: undefined })).qtyInvoiced).toBe(0);
     expect(r.periodMonth).toBe('2026-10-01');
   });
   it('the key is the primary key of the table', () => {
@@ -306,6 +308,7 @@ describe('the Sum explorer filters', () => {
   it('a derived number is made of two lists with signs', () => {
     expect(drillOperands('planned')).toEqual([{ measure: 'planned', sign: 1 }]);
     expect(drillOperands('restToContract')).toEqual([{ measure: 'planned', sign: 1 }, { measure: 'contracted', sign: -1 }]);
+    expect(drillOperands('invoiced')).toEqual([{ measure: 'invoiced', sign: 1 }]);
     expect(drillOperands('onHand')).toEqual([{ measure: 'delivered', sign: 1 }, { measure: 'used', sign: -1 }]);
   });
 });

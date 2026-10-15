@@ -5714,7 +5714,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5728,13 +5728,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t."resourceRoleGUID", '')
     LEFT JOIN st ON st.task = t."rowOwnerGUID" AND st.genus = t."genusGUID" AND st.role = t."resourceRoleGUID" AND st.unit = t."measureUnit" AND st.month = t."rowTurnoverMonth"
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 
@@ -5767,20 +5767,20 @@ BEGIN
          RETURNING 1)
   SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_fu, v_fd;
 
-  -- step 2: monitor01_view (qtyUsed = the quantity of the POSTED fact documents; qtyDelivered has no data yet and keeps its default 0)
+  -- step 2: monitor01_view (qtyUsed = the quantity of the POSTED fact documents; qtyInvoiced = the quantity of the POSTED vendor invoices; qtyDelivered has no data yet and keeps its default 0)
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyInvoiced", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6049,16 +6049,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6237,6 +6237,11 @@ INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline f
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
+-- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column Invoiced = qtyInvoiced)
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
 
 -- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----
 DO $$
@@ -6383,9 +6388,10 @@ DECLARE
   v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
 BEGIN
   IF TG_OP = 'UPDATE' THEN
-    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change
+    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit)
     IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" OR NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
-       OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID" OR NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON"
+       OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
+       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
        OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL) THEN
       RAISE EXCEPTION 'vendor invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
@@ -6412,12 +6418,14 @@ DROP TRIGGER IF EXISTS trg_vendor_invoice_lines_before_write ON public.vendor_in
 CREATE TRIGGER trg_vendor_invoice_lines_before_write BEFORE INSERT OR UPDATE ON public.vendor_invoice_lines FOR EACH ROW EXECUTE FUNCTION public.vendor_invoice_lines_before_write();
 
 
--- the header: the organization of the writer, the folder (legal entity + partner) and the currency of the contract are derived; the vendor and the contract of a document never change
+-- the header: the organization of the writer, the folder (legal entity + partner) and the currency of the contract are derived. The vendor and the contract of an UNPOSTED document can be changed
+-- (vendor_invoice_set_header; a draft made from lines without a vendor has none yet); a POSTED document keeps them and needs its vendor and its legal entity
 CREATE OR REPLACE FUNCTION public.vendor_invoice_header_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
   v_partner text := NULLIF(NEW."rowJSON"->>'vendorInvoicePartner', '');
   v_contract text := NULLIF(NEW."rowJSON"->>'vendorInvoiceContract', '');
+  v_status text := COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft');
 BEGIN
   IF TG_OP = 'INSERT' THEN
     NEW."rowOrganizationGUID" := public.organization_of_current_user();
@@ -6426,20 +6434,27 @@ BEGIN
     END IF;
   ELSE
     NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
-    IF v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoicePartner', '') OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoiceContract', '') THEN
-      RAISE EXCEPTION 'the vendor and the contract of a vendor invoice cannot be changed: make another document' USING ERRCODE = '23514';
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'draft'
+       AND (v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoicePartner', '') OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'vendorInvoiceContract', '')) THEN
+      RAISE EXCEPTION 'the vendor and the contract of a POSTED vendor invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
     END IF;
   END IF;
-  IF v_partner IS NULL THEN
-    RAISE EXCEPTION 'a vendor invoice needs its vendor (vendorInvoicePartner)' USING ERRCODE = '23514';
+  IF v_status <> 'draft' AND v_partner IS NULL THEN
+    RAISE EXCEPTION 'a posted vendor invoice needs its vendor (vendorInvoicePartner)' USING ERRCODE = '23514';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
+  IF v_status <> 'draft' AND NEW."rowOwnerGUID" IS NULL THEN
+    RAISE EXCEPTION 'a posted vendor invoice needs its legal entity' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+    RAISE EXCEPTION 'a contract needs its vendor' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
     RAISE EXCEPTION 'the vendor % is not a partner', v_partner USING ERRCODE = '23503';
   END IF;
   IF v_contract IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowGUID" = v_contract AND k."rowParentGUID" = 'partner' AND k."rowOwnerGUID" = v_partner) THEN
     RAISE EXCEPTION 'the contract % is not a contract of the vendor %', v_contract, v_partner USING ERRCODE = '23514';
   END IF;
-  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{vendorInvoiceFolder}', to_jsonb(NEW."rowOwnerGUID" || ':' || v_partner)),
+  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{vendorInvoiceFolder}', to_jsonb(COALESCE(NEW."rowOwnerGUID", 'empty') || ':' || COALESCE(v_partner, 'empty'))),
                              '{vendorInvoiceCurrency}', to_jsonb(COALESCE((SELECT NULLIF(k."rowJSON"->>'contractCurrency', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract), '')));
   RETURN NEW;
 END;
@@ -6538,13 +6553,25 @@ $$;
 REVOKE ALL ON FUNCTION public.project_status_register_invoice(uuid) FROM PUBLIC, anon, authenticated;
 
 
+-- a project switch of the Vendor tab (project_table.rowJSON): true while it was never saved (the settings default to true), false only when it is stored false
+CREATE OR REPLACE FUNCTION public.vendor_project_setting(p_project uuid, p_key text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT p."rowJSON"->>p_key FROM public.project_table p WHERE p."rowGUID" = p_project), 'true') <> 'false';
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_project_setting(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_project_setting(uuid, text) TO authenticated;
+
+
 -- ---- vendor_invoice_candidates(task, lines): the vendors (and their contracts) of the task lines ---------------------------------------------------------------------------
 -- A line's vendor: the partner of the contract selected on the line (Time: taskResourceContract, Material / Expense: taskLinePartnerContract); else the partner of the line (taskLinePartnerItem);
--- else the MAIN VENDOR of its resource (equipment of a Time line, product of a Material line) with the main vendor contract. A line without a vendor is counted in "skipped".
+-- else the MAIN VENDOR of its resource (equipment of a Time line, product of a Material line) with the main vendor contract. A line without a vendor is counted in "skipped" and listed in "skippedLineGUIDs"
+-- (create_vendor_invoices makes ONE draft without a vendor of them: the vendor is chosen in the form).
 CREATE OR REPLACE FUNCTION public.vendor_invoice_candidates(p_task uuid, p_lines uuid[] DEFAULT NULL) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
-  v_project uuid; v_rows jsonb; v_skipped integer;
+  v_project uuid; v_rows jsonb; v_skipped integer; v_skipped_lines jsonb; v_free boolean;
 BEGIN
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
   IF v_project IS NULL THEN
@@ -6583,12 +6610,14 @@ BEGIN
            'contractGUID', g.contract, 'contractInfo', NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''),
            'contractCurrency', NULLIF(ck."rowJSON"->>'contractCurrency', ''), 'legalEntityGUID', NULLIF(ck."rowJSON"->>'legalEntityGUID', ''),
            'lineCount', cardinality(g.lines), 'lineGUIDs', to_jsonb(g.lines)) ORDER BY COALESCE(pt."rowJSON"->>'partnerTitle', g.partner), g.contract NULLS FIRST), '[]'::jsonb),
-         (SELECT count(*) FROM res WHERE res.partner IS NULL)
-    INTO v_rows, v_skipped
+         (SELECT count(*) FROM res WHERE res.partner IS NULL),
+         (SELECT COALESCE(jsonb_agg(res.line ORDER BY res.line), '[]'::jsonb) FROM res WHERE res.partner IS NULL)
+    INTO v_rows, v_skipped, v_skipped_lines
     FROM grp g
     LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = g.partner
     LEFT JOIN public."contractTable" ck ON ck."rowGUID" = g.contract;
-  RETURN jsonb_build_object('rows', v_rows, 'skipped', COALESCE(v_skipped, 0));
+  v_free := public.vendor_project_setting(v_project, 'userCanCreateVendorInvoicesFromTasksWithEmptyVendors');
+  RETURN jsonb_build_object('rows', v_rows, 'skipped', COALESCE(v_skipped, 0), 'skippedLineGUIDs', CASE WHEN v_free THEN COALESCE(v_skipped_lines, '[]'::jsonb) ELSE '[]'::jsonb END, 'noVendorAllowed', v_free);
 END;
 $$;
 
@@ -6598,12 +6627,12 @@ GRANT EXECUTE ON FUNCTION public.vendor_invoice_candidates(uuid, uuid[]) TO auth
 
 
 -- ---- create_vendor_invoices(task, selection, legal entity): ONE draft document per selected (vendor, contract) -----------------------------------------------------------------
--- selection = [{ partnerGUID, contractGUID | null, lineGUIDs: [...] }]. The lines come from the task lines; the quantity starts as what is NOT invoiced yet (plan - the quantity on the vendor invoice lines),
+-- selection = [{ partnerGUID | null, contractGUID | null, lineGUIDs: [...] }]; a null partner = a draft WITHOUT a vendor (and, when no legal entity is given, without one): both are chosen in the form before Post. The lines come from the task lines; the quantity starts as what is NOT invoiced yet (plan - the quantity on the vendor invoice lines),
 -- the price and the VAT % of the task line. The legal entity: the one given, else the one of the contract; a document without any quantity left is not made.
 CREATE OR REPLACE FUNCTION public.create_vendor_invoices(p_task uuid, p_selection jsonb, p_legal_entity text DEFAULT NULL) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
-  v_project uuid; v_sel jsonb; v_partner text; v_contract text; v_lines uuid[]; v_le text; v_header uuid; v_n integer;
+  v_project uuid; v_sel jsonb; v_partner text; v_contract text; v_lines uuid[]; v_le text; v_header uuid; v_n integer; v_free boolean;
   v_docs jsonb := '[]'::jsonb; v_skipped jsonb := '[]'::jsonb;
 BEGIN
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
@@ -6616,15 +6645,19 @@ BEGIN
   IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
     RAISE EXCEPTION 'select at least one vendor' USING ERRCODE = '22023';
   END IF;
+  v_free := public.vendor_project_setting(v_project, 'userCanCreateVendorInvoicesFromTasksWithEmptyVendors');
   FOR v_sel IN SELECT * FROM jsonb_array_elements(p_selection) LOOP
     v_partner := NULLIF(v_sel->>'partnerGUID', '');
     v_contract := NULLIF(v_sel->>'contractGUID', '');
     SELECT COALESCE(array_agg(x::uuid), ARRAY[]::uuid[]) INTO v_lines FROM jsonb_array_elements_text(COALESCE(v_sel->'lineGUIDs', '[]'::jsonb)) x;
-    IF v_partner IS NULL THEN
-      RAISE EXCEPTION 'a vendor is missing in the selection' USING ERRCODE = '22023';
+    IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+      RAISE EXCEPTION 'a contract needs its vendor' USING ERRCODE = '22023';
+    END IF;
+    IF v_partner IS NULL AND NOT v_free THEN
+      RAISE EXCEPTION 'a vendor invoice without a vendor is switched off in the project settings (Vendor)' USING ERRCODE = '23514';
     END IF;
     v_le := COALESCE(NULLIF(p_legal_entity, ''), (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract));
-    IF v_le IS NULL THEN
+    IF v_le IS NULL AND v_partner IS NOT NULL THEN
       RAISE EXCEPTION 'choose the legal entity of the invoice (the contract has none)' USING ERRCODE = '22023';
     END IF;
     v_header := gen_random_uuid();
@@ -6632,7 +6665,7 @@ BEGIN
     VALUES (v_header, v_le, 'x', jsonb_strip_nulls(jsonb_build_object(
               'documentHeader', jsonb_build_object('activeUser', public.app_user_guid(), 'documentNumber', 'VI-' || lpad(nextval('public.vendor_invoice_document_seq')::text, 5, '0'),
                                                     'documentStatus', 'draft', 'created_at', to_jsonb(clock_timestamp())),
-              'vendorInvoicePartner', v_partner, 'vendorInvoiceContract', v_contract,
+              'vendorInvoicePartner', v_partner, 'vendorInvoiceContract', v_contract, 'vendorInvoiceTask', p_task, 'vendorInvoiceProject', v_project,
               'vendorInvoiceDateTime', to_jsonb(date_trunc('day', NOW())), 'vendorInvoiceNumber', '')));
     INSERT INTO public.vendor_invoice_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON")
     SELECT v_header, l."rowProjectGUID", l."rowOwnerGUID", l."rowGUID", l."rowParentGUID", (row_number() OVER (ORDER BY g.ord, l."orderInList", l."created_at"))::numeric,
@@ -6673,7 +6706,7 @@ REVOKE ALL ON FUNCTION public.create_vendor_invoices(uuid, jsonb, text) FROM PUB
 GRANT EXECUTE ON FUNCTION public.create_vendor_invoices(uuid, jsonb, text) TO authenticated;
 
 
--- ---- the header of a DRAFT: the number printed on the invoice, its date and the legal entity (the vendor and the contract never change) ----------------------------------------
+-- ---- the header of a DRAFT (an unposted document): the number printed on the invoice, its date, the legal entity, the vendor and its contract (a posted document: unpost it first) ----------------------------------------
 CREATE OR REPLACE FUNCTION public.vendor_invoice_set_header(p_header uuid, p_patch jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -6697,9 +6730,28 @@ BEGIN
       v_json := jsonb_set(v_json, '{vendorInvoiceDateTime}', to_jsonb((p_patch->>'vendorInvoiceDateTime')::timestamptz));
     END IF;
   END IF;
+  IF p_patch ? 'vendorInvoicePartner' OR p_patch ? 'vendorInvoiceContract' THEN
+    IF p_patch ? 'vendorInvoicePartner' THEN
+      -- another vendor (or none): its contract goes with the old one
+      IF NULLIF(p_patch->>'vendorInvoicePartner', '') IS DISTINCT FROM NULLIF(h."rowJSON"->>'vendorInvoicePartner', '') THEN
+        v_json := v_json - 'vendorInvoicePartner' - 'vendorInvoiceContract';
+        IF NULLIF(p_patch->>'vendorInvoicePartner', '') IS NOT NULL THEN
+          v_json := jsonb_set(v_json, '{vendorInvoicePartner}', to_jsonb(p_patch->>'vendorInvoicePartner'));
+        END IF;
+      END IF;
+    END IF;
+    IF p_patch ? 'vendorInvoiceContract' THEN
+      IF NULLIF(p_patch->>'vendorInvoiceContract', '') IS NULL THEN
+        v_json := v_json - 'vendorInvoiceContract';
+      ELSE
+        v_json := jsonb_set(v_json, '{vendorInvoiceContract}', to_jsonb(p_patch->>'vendorInvoiceContract'));
+      END IF;
+    END IF;
+  END IF;
   UPDATE public.vendor_invoice_header
      SET "rowJSON" = v_json,
-         "rowOwnerGUID" = COALESCE(NULLIF(p_patch->>'legalEntityGUID', ''), h."rowOwnerGUID")
+         "rowOwnerGUID" = COALESCE(NULLIF(p_patch->>'legalEntityGUID', ''), h."rowOwnerGUID",
+                                   (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = NULLIF(v_json->>'vendorInvoiceContract', '')))
    WHERE "rowGUID" = p_header;
 END;
 $$;
@@ -6709,13 +6761,61 @@ REVOKE ALL ON FUNCTION public.vendor_invoice_set_header(uuid, jsonb) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.vendor_invoice_set_header(uuid, jsonb) TO authenticated;
 
 
+-- backfill: a document made before the header field vendorInvoiceProject (and vendorInvoiceTask) gets them from its first line
+UPDATE public.vendor_invoice_header h
+   SET "rowJSON" = h."rowJSON" || jsonb_strip_nulls(jsonb_build_object('vendorInvoiceProject', f.project::text, 'vendorInvoiceTask', COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceTask', ''), f.task::text)))
+  FROM (SELECT DISTINCT ON (l."rowHeaderGUID") l."rowHeaderGUID" AS hdr, l."rowProjectGUID" AS project, l."rowOwnerGUID" AS task
+          FROM public.vendor_invoice_lines l ORDER BY l."rowHeaderGUID", l."orderInList", l."created_at") f
+ WHERE f.hdr = h."rowGUID" AND NULLIF(h."rowJSON"->>'vendorInvoiceProject', '') IS NULL;
+
+
+-- ---- vendor_invoice_add_line(header, genus): ONE independent line (no task line) of a DRAFT; its task is the one the document was made from; the project setting independentInvoiceInputAvailable must not be false ----
+CREATE OR REPLACE FUNCTION public.vendor_invoice_add_line(p_header uuid, p_genus text DEFAULT 'timeGenus') RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_task uuid; v_project uuid; v_line uuid := gen_random_uuid();
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted vendor invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF p_genus NOT IN ('timeGenus', 'materialGenus', 'expenseGenus') THEN
+    RAISE EXCEPTION 'unknown kind of line %', p_genus USING ERRCODE = '22023';
+  END IF;
+  SELECT t."rowGUID", t."projectGUID" INTO v_task, v_project FROM public.project_task_table t
+   WHERE t."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceTask', ''), (SELECT l."rowOwnerGUID"::text FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header ORDER BY l."orderInList", l."created_at" LIMIT 1));
+  IF v_task IS NULL THEN
+    RAISE EXCEPTION 'the task of this vendor invoice is not known' USING ERRCODE = '23503';
+  END IF;
+  v_project := COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceProject', '')::uuid, v_project);
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.vendor_project_setting(v_project, 'independentInvoiceInputAvailable') THEN
+    RAISE EXCEPTION 'independent invoice input is switched off in the project settings (Vendor)' USING ERRCODE = '23514';
+  END IF;
+  INSERT INTO public.vendor_invoice_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON")
+  VALUES (v_line, p_header, v_project, v_task, NULL, p_genus,
+          COALESCE((SELECT max(l."orderInList") FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header), 0) + 1, 0, 0, 0, '{}'::jsonb);
+  RETURN v_line;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_add_line(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_add_line(uuid, text) TO authenticated;
+
+
 -- ---- post / unpost / delete ----------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.post_vendor_invoice(p_header uuid) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_problems jsonb := '[]'::jsonb; v_lines integer;
 BEGIN
-  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
   END IF;
@@ -6725,6 +6825,12 @@ BEGIN
   SELECT count(*) INTO v_lines FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header;
   IF v_lines = 0 THEN
     v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'vendorInvoicePartner', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'vendorMissing');
+  END IF;
+  IF h."rowOwnerGUID" IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'legalEntityMissing');
   END IF;
   IF NULLIF(btrim(COALESCE(h."rowJSON"->>'vendorInvoiceNumber', '')), '') IS NULL THEN
     v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'invoiceNumberMissing');
@@ -6822,6 +6928,9 @@ BEGIN
            COALESCE(NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''), '') AS "contractInfo",
            COALESCE(h."rowJSON"->>'vendorInvoiceCurrency', '') AS "currency",
            h."rowJSON"->>'vendorInvoiceFolder' AS "folder",
+           tk."rowGUID"::text AS "taskGUID",
+           pr."rowGUID"::text AS "projectGUID", COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', '') AS "projectName",
+           (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting(pr."rowGUID", 'independentInvoiceInputAvailable')) AS "independentInputAvailable",
            h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
            COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
            h."created_at" AS "sortAt",
@@ -6833,6 +6942,10 @@ BEGIN
       LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = h."rowJSON"->>'vendorInvoicePartner'
       LEFT JOIN public."contractTable" ck ON ck."rowGUID" = h."rowJSON"->>'vendorInvoiceContract'
       LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+      LEFT JOIN public.project_task_table tk ON tk."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceTask', ''),
+                                                  (SELECT l."rowOwnerGUID"::text FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1))
+      -- the project of the document = the header field vendorInvoiceProject (a document made before it: the project of its task)
+      LEFT JOIN public.project_table pr ON pr."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceProject', ''), tk."projectGUID"::text)
      WHERE (NOT f ? 'documentGUIDs'   OR h."rowGUID"::text IN (SELECT jsonb_array_elements_text(f->'documentGUIDs')))
        AND (NOT f ? 'legalEntityGUID' OR h."rowOwnerGUID" = f->>'legalEntityGUID')
        AND (NOT f ? 'partnerGUID'     OR h."rowJSON"->>'vendorInvoicePartner' = f->>'partnerGUID')

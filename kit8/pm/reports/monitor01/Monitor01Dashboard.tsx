@@ -1,11 +1,12 @@
 // Monitor01Dashboard - the report "Roles Requirements" of the sheet "W1 1-MONITOR01" (documentation/MONITOR01_WBS.html): per resource role, month and task
-// planned · contracted · rest to contract · delivered · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
+// planned · contracted · rest to contract · delivered · invoiced · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
 //   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (TextInputApp + Clear)
 //   the table is a TREE Project → Resource role → Month (ascending) → Task name: every Project / Role / Month line is a subtotal and collapses what is below it (Expand all / Collapse all in the toolbar)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
+//   a double click on a Task name opens the task in the dashboard (Finances view: task + genus tab + line of the sum), in a new browser tab on the web.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme as usePaperTheme } from 'react-native-paper';
@@ -23,14 +24,15 @@ import { colorToHex } from '../../../ui/components/table/reusable/tableRows';
 import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
 import { useOpenFactInput } from '../../fact/useOpenFactInput';
+import { useOpenVendorInvoice } from '../../vendor_invoice/useVendorInvoice';
 import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
-import { refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
+import { fetchMonitor01Sources, refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
 import { openDashboardLink } from '../../view/project/dashboardDeepLink';
 import {
-  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
+  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
   filterMonitor01Rows, monitor01NodeKeys, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
@@ -54,6 +56,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const { supabase } = useSupabase();
   const router = useRouter();
   const openFactInput = useOpenFactInput();
+  const openVendorInvoice = useOpenVendorInvoice();
   const dispatch = useDispatch();
   const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
@@ -135,6 +138,15 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     openDashboardLink({ projectGUID, taskGUID: row.taskGUID, genus: row.genusGUID || undefined, lineGUID: row.lineGUID || undefined }, router);
   }, [router, scopeProject]);
 
+  // a double click on a Task name: the dashboard at its task, the tab of its genus and the line of the sum; a row of ONE line knows its line from its plan movement (several lines: the tab only)
+  const openTask = useCallback(async (row: Monitor01Row) => {
+    let lineGUID: string | null = null;
+    if (row.lineCount === 1) {
+      try { lineGUID = (await fetchMonitor01Sources(supabase, 'planned', drillFilterOfRow(row), 0, 1)).rows[0]?.lineGUID ?? null; } catch { /* the task and its tab are enough */ }
+    }
+    openDashboardLink(dashboardLinkOfRow(row, lineGUID), router);
+  }, [router, supabase]);
+
   const onCell = useCallback((cell: Monitor01CellPress) => {
     const item: Monitor01Item = cell.item;
     const scope = { projectGUID: scopeProject, filters };
@@ -158,7 +170,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, scopeProject]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
@@ -204,7 +216,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} testID={`${testID}-table`} />
+        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} testID={`${testID}-table`} />
       </View>
 
       <SumExplorerListReusable

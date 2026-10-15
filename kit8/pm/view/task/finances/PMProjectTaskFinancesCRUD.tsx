@@ -47,7 +47,9 @@ import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
 import { useOpenFactInput } from '../../../fact/useOpenFactInput';
-import { useOpenVendorInvoice } from '../../../vendor_invoice/useVendorInvoice';
+import { useStartVendorInvoice } from '../../../vendor_invoice/useVendorInvoice';
+import VendorInvoiceScopeModal from '../../../vendor_invoice/VendorInvoiceScopeModal';
+import { vendorInvoiceLinesOfScope } from '../../../vendor_invoice/vendorInvoiceModel';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -72,7 +74,9 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
   const openFactInput = useOpenFactInput();
-  const openVendorInvoice = useOpenVendorInvoice();
+  const { start: startVendorInvoice, busy: vendorInvoiceBusy } = useStartVendorInvoice();
+  // the line the user right-clicked for "Vendor Invoice": the window asks what goes into the invoice (this line / the whole task)
+  const [vendorInvoiceLine, setVendorInvoiceLine] = useState<string | null>(null);
   const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
@@ -247,14 +251,25 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         // right button on a line: "Facts input" (kit8/pm/fact, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
         extraMenuItems={(row, close) => [
           { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
-          // right after "Facts input": the vendor of THIS line (a revenue line has none) → a vendor invoice (kit8/pm/vendor_invoice)
-          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); openVendorInvoice({ taskGUID, projectGUID, lineGUIDs: [row.rowGUID] }); } }] : []),
+          // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/pm/vendor_invoice)
+          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); setVendorInvoiceLine(row.rowGUID); } }] : []),
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}
         toolbarExtra={fxOn ? (
           <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} />
         ) : undefined}
         realtime
+      />
+      <VendorInvoiceScopeModal
+        testID={`${testID}-vendor-scope`}
+        visible={!!vendorInvoiceLine}
+        busy={vendorInvoiceBusy}
+        onCancel={() => setVendorInvoiceLine(null)}
+        onCreate={(scope) => {
+          const line = vendorInvoiceLine;
+          setVendorInvoiceLine(null);
+          if (line) void startVendorInvoice({ taskGUID, projectGUID, lineGUIDs: vendorInvoiceLinesOfScope(scope, line) });
+        }}
       />
     </View>
   );

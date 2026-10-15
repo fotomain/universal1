@@ -2192,6 +2192,7 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   "sumForBudget"        NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
   "qtyDelivered"        NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyInvoiced"         NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyDelivered" - "qtyUsed") STORED,
   "lineCount"           INTEGER       NOT NULL DEFAULT 0,
@@ -2200,6 +2201,9 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth"),
   CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
 );
+
+-- the quantity of the POSTED vendor invoices (a column of the report after Delivered)
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
 
@@ -2395,7 +2399,7 @@ CREATE INDEX IF NOT EXISTS idx_monitor01_view_updated ON public.monitor01_view (
 -- legalEntityTable            a plain catalog; rowParentGUID = the FOLDER = the GUID of the country (countryTable) or 'empty'. rowJSON { title, legalName, registrationNo, vatNo, legalAddress, isActive }
 -- contractTable.rowJSON.legalEntityGUID   OPTIONAL (a contract without one is as before); a value must be an existing legal entity
 -- mainVendorGUID / mainVendorContractGUID in rowJSON of partnerTable, equipmentTable, productTable - the vendor (a partner) and ITS contract; the contract must be a contract of that vendor
--- vendor_invoice_header       ONE vendor + ONE contract (or none) per document. rowOwnerGUID = the legal entity (not unique); rowOrganizationGUID = the organization (RLS); rowJSON { documentHeader,
+-- vendor_invoice_header       ONE vendor + ONE contract (or none) per document; a DRAFT may still have NO vendor / NO legal entity (chosen in the form before Post). rowOwnerGUID = the legal entity (not unique); rowOrganizationGUID = the organization (RLS); rowJSON { documentHeader,
 --                             vendorInvoicePartner, vendorInvoiceContract, vendorInvoiceDateTime, vendorInvoiceNumber, vendorInvoiceFolder, vendorInvoiceCurrency }. Written only by the RPCs below.
 -- vendor_invoice_lines        the lines (task, task line, genus, qty, price, VAT %), sums computed by a trigger; the user changes only qty, price and VAT % of a line of a DRAFT document
 -- post_vendor_invoice         checks the document, marks it posted and writes the 'invoiced' movements of the project status register IN THE SAME TRANSACTION; unpost deletes them
@@ -2425,7 +2429,7 @@ CREATE SEQUENCE IF NOT EXISTS public.vendor_invoice_document_seq;
 
 CREATE TABLE IF NOT EXISTS public.vendor_invoice_header (
   "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"        TEXT        NOT NULL REFERENCES public."legalEntityTable"("rowGUID") ON DELETE RESTRICT,
+  "rowOwnerGUID"        TEXT        REFERENCES public."legalEntityTable"("rowGUID") ON DELETE RESTRICT,
   "rowOrganizationGUID" TEXT        NOT NULL,
   "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
   "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -2433,6 +2437,9 @@ CREATE TABLE IF NOT EXISTS public.vendor_invoice_header (
   PRIMARY KEY ("rowGUID"),
   CONSTRAINT vendor_invoice_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
 );
+
+-- a DRAFT made from a task whose lines have no vendor has neither a vendor nor (when no contract names one) a legal entity: both are chosen in the form before Post (post_vendor_invoice checks them)
+ALTER TABLE public.vendor_invoice_header ALTER COLUMN "rowOwnerGUID" DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_header_org ON public.vendor_invoice_header ("rowOrganizationGUID", "created_at");
 

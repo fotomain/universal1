@@ -27,6 +27,8 @@ export interface Monitor01Row {
   sumForBudget: number;
   qtyRestToContract: number;
   qtyDelivered: number;
+  /** the quantity of the POSTED vendor invoices (the column Invoiced, after Delivered) */
+  qtyInvoiced: number;
   qtyUsed: number;
   qtyOnHand: number;
   lineCount: number;
@@ -45,19 +47,19 @@ export const MONITOR01_GENUS_ORDER: string[] = [MANAGEMENT_GENUS.time, MANAGEMEN
 export const monitor01GenusTitle = (genus: string): string => (genus === MANAGEMENT_GENUS.time ? 'Time' : genus === MANAGEMENT_GENUS.material ? 'Material' : genus === MANAGEMENT_GENUS.expense ? 'Expense' : genus);
 
 /** the six numbers of the sheet, in the order of its columns */
-export const MONITOR01_MEASURES = ['planned', 'contracted', 'restToContract', 'delivered', 'used', 'onHand'] as const;
+export const MONITOR01_MEASURES = ['planned', 'contracted', 'restToContract', 'delivered', 'invoiced', 'used', 'onHand'] as const;
 export type Monitor01Measure = (typeof MONITOR01_MEASURES)[number];
 export const MONITOR01_MEASURE_FIELD: Record<Monitor01Measure, keyof Monitor01Row> = {
-  planned: 'qtyPlanned', contracted: 'qtyContracted', restToContract: 'qtyRestToContract', delivered: 'qtyDelivered', used: 'qtyUsed', onHand: 'qtyOnHand',
+  planned: 'qtyPlanned', contracted: 'qtyContracted', restToContract: 'qtyRestToContract', delivered: 'qtyDelivered', invoiced: 'qtyInvoiced', used: 'qtyUsed', onHand: 'qtyOnHand',
 };
 /** the header texts of the columns (the sheet's own spelling corrected; every header starts with a capital letter) */
 export const MONITOR01_MEASURE_TITLE: Record<Monitor01Measure, string> = {
-  planned: 'Planned', contracted: 'Contracted', restToContract: 'Rest to contract', delivered: 'Delivered', used: 'Actually used', onHand: 'On-hand',
+  planned: 'Planned', contracted: 'Contracted', restToContract: 'Rest to contract', delivered: 'Delivered', invoiced: 'Invoiced', used: 'Actually used', onHand: 'On-hand',
 };
 /** the header texts of the dimension columns and of the money column */
-export const MONITOR01_HEAD = { project: 'Project', role: 'Resource role', month: 'Month', task: 'Task name', unit: 'Unit', sumForBudget: 'Sum for budget' } as const;
+export const MONITOR01_HEAD = { project: 'Project', role: 'Resource role', month: 'Month', task: 'Task name', unit: 'Unit', sumForBudget: 'Budget' } as const;
 /** the group header over the columns */
-export const MONITOR01_MEASURE_GROUP: Record<Monitor01Measure, 'Plan' | 'Fact'> = { planned: 'Plan', contracted: 'Plan', restToContract: 'Plan', delivered: 'Fact', used: 'Fact', onHand: 'Fact' };
+export const MONITOR01_MEASURE_GROUP: Record<Monitor01Measure, 'Plan' | 'Fact'> = { planned: 'Plan', contracted: 'Plan', restToContract: 'Plan', delivered: 'Fact', invoiced: 'Fact', used: 'Fact', onHand: 'Fact' };
 
 // ---- rows: key, parsing, patch ---------------------------------------------------------------------------------------------------------------------------
 export const monitor01Key = (r: Pick<Monitor01Row, 'rowOwnerGUID' | 'genusGUID' | 'resourceRoleGUID' | 'measureUnit' | 'periodMonth'>): string =>
@@ -83,6 +85,7 @@ export function parseMonitor01Row(raw: any): Monitor01Row {
     sumForBudget: num(raw.sumForBudget),
     qtyRestToContract: raw.qtyRestToContract == null ? num(raw.qtyPlanned) - num(raw.qtyContracted) : num(raw.qtyRestToContract),
     qtyDelivered: num(raw.qtyDelivered),
+    qtyInvoiced: num(raw.qtyInvoiced),
     qtyUsed: num(raw.qtyUsed),
     qtyOnHand: raw.qtyOnHand == null ? num(raw.qtyDelivered) - num(raw.qtyUsed) : num(raw.qtyOnHand),
     lineCount: num(raw.lineCount),
@@ -182,7 +185,7 @@ export function sortMonitor01Rows(rows: Monitor01Row[]): Monitor01Row[] {
 export type Monitor01Sums = Record<Monitor01Measure, number>;
 export interface Monitor01UnitTotal { unit: string; sums: Monitor01Sums; sumForBudget: number; rows: number }
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-const emptySums = (): Monitor01Sums => ({ planned: 0, contracted: 0, restToContract: 0, delivered: 0, used: 0, onHand: 0 });
+const emptySums = (): Monitor01Sums => ({ planned: 0, contracted: 0, restToContract: 0, delivered: 0, invoiced: 0, used: 0, onHand: 0 });
 /** sums of rows PER UNIT (never one number for hours + pieces) */
 export function totalsByUnit(rows: Monitor01Row[]): Monitor01UnitTotal[] {
   const map = new Map<string, Monitor01UnitTotal>();
@@ -284,6 +287,10 @@ export interface Monitor01DrillScope { projectGUID?: string | null; filters: Mon
 export function drillFilterOfRow(r: Monitor01Row): Record<string, any> {
   return { taskGUID: r.rowOwnerGUID, genusGUID: r.genusGUID, roleGUID: r.resourceRoleGUID, unit: r.measureUnit, month: r.periodMonth };
 }
+/** the dashboard link of a Task name line: the task, the Finances tab of its genus and - when the line is known - the line of the sum (dashboardDeepLink.ts) */
+export function dashboardLinkOfRow(r: Monitor01Row, lineGUID?: string | null): { projectGUID: string; taskGUID: string; genus: string; lineGUID?: string } {
+  return { projectGUID: r.rowProjectGUID, taskGUID: r.rowOwnerGUID, genus: r.genusGUID, ...(lineGUID ? { lineGUID } : {}) };
+}
 /**
  * the filter for SOME rows (a subtotal, a total): the genus and unit they share, the project, the date window, and - while a text filter is active - the tasks / roles that are shown,
  * so the list adds up to exactly the number on the screen
@@ -316,12 +323,13 @@ export function drillFilterOfNode(node: Extract<Monitor01Item, { kind: 'node' }>
 }
 
 /** the measures whose list is made of two lists (the operands), with their signs */
-export function drillOperands(measure: Monitor01Measure): { measure: 'planned' | 'contracted' | 'delivered' | 'used'; sign: 1 | -1 }[] {
+export function drillOperands(measure: Monitor01Measure): { measure: 'planned' | 'contracted' | 'delivered' | 'invoiced' | 'used'; sign: 1 | -1 }[] {
   switch (measure) {
     case 'planned': return [{ measure: 'planned', sign: 1 }];
     case 'contracted': return [{ measure: 'contracted', sign: 1 }];
     case 'restToContract': return [{ measure: 'planned', sign: 1 }, { measure: 'contracted', sign: -1 }];
     case 'delivered': return [{ measure: 'delivered', sign: 1 }];
+    case 'invoiced': return [{ measure: 'invoiced', sign: 1 }];
     case 'used': return [{ measure: 'used', sign: 1 }];
     case 'onHand': return [{ measure: 'delivered', sign: 1 }, { measure: 'used', sign: -1 }];
   }

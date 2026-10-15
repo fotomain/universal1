@@ -1,12 +1,13 @@
 // Monitor01Table - the table of the sheet "W1 1-MONITOR01":
-//   header   row 1: Plan (Planned, Contracted, Rest to contract, Sum for budget) · Fact (Delivered, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
+//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Delivered, Invoiced, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
 //   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
 //   footer   the TotalsRow (always visible below the rows): sumForBudget and the quantities (per unit)
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
+//            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useRef } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { pmT } from '../../i18n/pmT';
 import IconApp from '../../../ui/components/common/IconApp';
@@ -27,9 +28,13 @@ export interface Monitor01TableProps {
   unitTitle: (unit: string) => string;
   colors: Monitor01TableColors;
   onCell: (cell: Monitor01CellPress) => void;
+  /** a double click / touch on the Task name of a row: the dashboard at that task (the screen decides how) */
+  onTaskOpen?: (row: Monitor01Row) => void;
   testID?: string;
 }
 
+/** two presses on the same task within this time are a double click (a touch too: React Native has no onDoubleClick) */
+export const MONITOR01_DOUBLE_PRESS_MS = 400;
 const W = { project: 150, role: 190, month: 104, task: 160, unit: 72, num: 94, budget: 112 };
 const ROW_H = 34;
 /** the column of the label of a node, by its level; the Task name column holds the rows */
@@ -37,28 +42,29 @@ const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { pro
 
 /** the numbers of a row/subtotal in the shape cellTone reads */
 const asTone = (s: Monitor01Sums, stale = false) => ({
-  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyDelivered: s.delivered, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
+  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyDelivered: s.delivered, qtyInvoiced: s.invoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
 });
 /** the columns after the dimensions, in the order of the sheet: the Plan group has the money after its quantities */
 type Col = { id: Monitor01Measure | 'sumForBudget'; group: 'Plan' | 'Fact' };
 const COLS: Col[] = [
   { id: 'planned', group: 'Plan' }, { id: 'contracted', group: 'Plan' }, { id: 'restToContract', group: 'Plan' }, { id: 'sumForBudget', group: 'Plan' },
-  { id: 'delivered', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
+  { id: 'delivered', group: 'Fact' }, { id: 'invoiced', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
 ];
 const colWidth = (c: Col) => (c.id === 'sumForBudget' ? W.budget : W.num);
 const colTitle = (c: Col) => (c.id === 'sumForBudget' ? MONITOR01_HEAD.sumForBudget : MONITOR01_MEASURE_TITLE[c.id]);
 const NUMS_WIDTH = COLS.reduce((a, c) => a + colWidth(c), 0);
-const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** money with 2 decimals; 0 shows nothing */
+const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 
-const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, delivered: r.qtyDelivered, used: r.qtyUsed, onHand: r.qtyOnHand });
+const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, delivered: r.qtyDelivered, invoiced: r.qtyInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
 
 const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell }: {
   measure: Monitor01Measure; sums: Monitor01Sums; stale: boolean; bold: boolean; item: Monitor01Item; colors: Monitor01TableColors; testID: string; onCell: (c: Monitor01CellPress) => void;
 }) {
   const value = sums[measure];
   const bg = toneBackground(cellTone(measure, asTone(sums, stale)), colors.isDark);
-  // fact columns without data stay blank (as in the sheet); on-hand shows its 0
-  const text = formatMonitor01Number(value, measure === 'delivered' || measure === 'used');
+  // a cell that is 0 shows nothing (every column, every line)
+  const text = formatMonitor01Number(value, true);
   return (
     <Pressable
       testID={testID}
@@ -72,7 +78,14 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
   );
 });
 
-function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, testID = 'monitor01-table' }: Monitor01TableProps) {
+function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, testID = 'monitor01-table' }: Monitor01TableProps) {
+  const lastPress = useRef<{ key: string; at: number } | null>(null);
+  const pressTask = useCallback((key: string, row: Monitor01Row) => {
+    const now = Date.now();
+    const last = lastPress.current;
+    if (last && last.key === key && now - last.at <= MONITOR01_DOUBLE_PRESS_MS) { lastPress.current = null; onTaskOpen?.(row); return; }
+    lastPress.current = { key, at: now };
+  }, [onTaskOpen]);
   const dimsWidth = W.project + W.role + W.month + W.task + W.unit;
   const width = dimsWidth + NUMS_WIDTH;
   const text = (extra?: object) => [{ color: colors.text, fontSize: 13 }, extra];
@@ -113,17 +126,23 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           : cellOf('project', W.project)}
         {cellOf('role', W.role)}
         {cellOf('month', W.month)}
-        <Text numberOfLines={1} style={[text(), { width: W.task, paddingHorizontal: 8 }]}>{item.kind === 'row' ? item.row.taskName : ''}</Text>
+        {item.kind === 'row' && onTaskOpen
+          ? (
+            <Pressable testID={`${testID}-task-${item.key}`} accessibilityRole="link" accessibilityLabel={`${pmT('Open task')} ${item.row.taskName}`} onPress={() => pressTask(item.key, item.row)} style={{ width: W.task, paddingHorizontal: 8, height: '100%', justifyContent: 'center' }}>
+              <Text numberOfLines={1} style={text()}>{item.row.taskName}</Text>
+            </Pressable>
+          )
+          : <Text numberOfLines={1} style={[text(), { width: W.task, paddingHorizontal: 8 }]}>{item.kind === 'row' ? item.row.taskName : ''}</Text>}
         <Text numberOfLines={1} style={[text({ opacity: 0.8 }), { width: W.unit, paddingHorizontal: 8 }]}>{unit ? unitTitle(unit) : ''}</Text>
         {COLS.map((c) => {
           if (c.id === 'sumForBudget') {
-            return <Text key={c.id} testID={`${testID}-budget-${item.key}`} style={[text({ fontWeight: bold ? '800' : '400' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{budget ? money(budget) : ''}</Text>;
+            return <Text key={c.id} testID={`${testID}-budget-${item.key}`} style={[text({ fontWeight: bold ? '800' : '400' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(budget)}</Text>;
           }
           return <Cell key={c.id} measure={c.id} sums={sums} stale={item.kind === 'row' && item.row.hasStalePlan} bold={bold} item={item} colors={colors} testID={`${testID}-cell-${item.key}-${c.id}`} onCell={onCell} />;
         })}
       </View>
     );
-  }, [colors, onCell, onToggle, testID, unitTitle]);
+  }, [colors, onCell, onToggle, onTaskOpen, pressTask, testID, unitTitle]);
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
@@ -176,7 +195,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <Text numberOfLines={1} style={[text({ opacity: 0.8, fontWeight: '700' }), { width: W.unit, paddingHorizontal: 8 }]}>{t.unit ? unitTitle(t.unit) : ''}</Text>
               {COLS.map((c) => c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(t.sumForBudget)}</Text>
-                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }]}>{formatMonitor01Number(t.sums[c.id], c.id === 'delivered' || c.id === 'used')}</Text>)}
+                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }]}>{formatMonitor01Number(t.sums[c.id], true)}</Text>)}
             </View>
           ))}
           {several && (

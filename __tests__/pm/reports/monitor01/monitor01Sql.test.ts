@@ -75,10 +75,11 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain('DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);');
       const rowsFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows');
       const body = src.slice(rowsFn, src.indexOf('\n$$;\n', rowsFn));
-      expect(body).toContain('t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed"');
-      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "lineCount", "hasStalePlan")');                // the apply column list
-      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
-      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "lineCount" = EXCLUDED."lineCount"');
+      expect(body).toContain('t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced"');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "lineCount", "hasStalePlan")');                // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyInvoiced", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "lineCount" = EXCLUDED."lineCount"');
+      expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyInvoiced"');
     }
   });
   it('the project status REGISTER: movements (qtyProjectStatus, kinds, snapshot dimensions) -> month turnover (renamed in place) -> the report; documents write it in their own transaction', () => {
@@ -116,6 +117,10 @@ describe('the structure file, the code file and the delete file carry the same p
     for (const src of [structure]) {
       expect(src).toContain("ELSIF p_measure IN ('fact', 'used') THEN");
       expect(src).toContain("ELSIF p_measure = 'delivered' THEN");
+      // the report column Invoiced: monitor01_view.qtyInvoiced is made by the worker from the register ('invoiced' movements) and checked by monitor01_verify
+      expect(src).toContain('"qtyUsed" numeric, "qtyInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)');
+      expect(src).toContain('"qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced"');
+      expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'invoiced'");
       expect(src).toMatch(/SELECT DISTINCT f\."rowOwnerGUID", 'install' FROM public\.task_fact_usage_timeline f/);
     }
   });

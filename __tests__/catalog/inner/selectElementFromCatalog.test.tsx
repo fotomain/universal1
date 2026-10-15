@@ -336,3 +336,52 @@ describe('SelectElementFromCatalog', () => {
     expect(trigger?.textContent).toContain('LV');
   });
 });
+
+describe('SelectElementFromCatalog asInput (a TextInputApp trigger: the look and height of every input of a form)', () => {
+  const rows = [
+    { rowGUID: 'p1', rowOwnerGUID: 'partnerCatalog', rowParentGUID: 'empty', orderInList: 1, rowJSON: { partnerTitle: 'Acme Supplies' } },
+    { rowGUID: 'p2', rowOwnerGUID: 'partnerCatalog', rowParentGUID: 'empty', orderInList: 2, rowJSON: { partnerTitle: 'Beta Trade' } },
+  ];
+  beforeEach(() => { mockReduxState = { partnerReusable: { entityDataFromServer: rows } }; });
+  afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); });
+  function render(ui: React.ReactElement) {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => { root.render(ui); });
+  }
+  const inputValue = (id: string) => (q(id) as HTMLInputElement).value;
+
+  it('the TextInputApp shows the title of the selected item (or the placeholder), with the label, compact, no outer margin', () => {
+    render(<SelectElementFromCatalog asInput compact testID="sel" entityName="partnerReusable" label="Vendor" placeholder="Select vendor…" value="p2" />);
+    expect(inputValue('sel-input')).toBe('Beta Trade');
+    expect(q('sel-trigger')).not.toBeNull();
+  });
+  it('a press on the field opens the picker; a pick calls onChange with the GUID and the row', () => {
+    const onChange = jest.fn();
+    render(<SelectElementFromCatalog asInput testID="sel" entityName="partnerReusable" onChange={onChange} />);
+    press('sel-trigger');
+    expect(q('sel-modal')).not.toBeNull();
+    press('sel-item-p1');
+    expect(onChange).toHaveBeenCalledWith('p1', expect.objectContaining({ rowGUID: 'p1' }));
+    expect(q('sel-modal')).toBeNull();
+  });
+  it('the clear (x) is inside the field only while something is selected and the field is enabled', () => {
+    const onChange = jest.fn();
+    render(<SelectElementFromCatalog asInput testID="sel" entityName="partnerReusable" value="p1" onChange={onChange} />);
+    press('sel-clear');
+    expect(onChange).toHaveBeenCalledWith(null, null);
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    render(<SelectElementFromCatalog asInput testID="sel" entityName="partnerReusable" value="p1" disabled />);
+    expect(q('sel-clear')).toBeNull();
+    render(<SelectElementFromCatalog asInput testID="sel2" entityName="partnerReusable" />);
+    expect(q('sel2-clear')).toBeNull();
+  });
+  it('disabled: the message is the placeholder and the picker does not open', () => {
+    render(<SelectElementFromCatalog asInput testID="sel" entityName="partnerReusable" disabled disabledMessage="Select a vendor first" />);
+    expect((q('sel-input') as HTMLInputElement).placeholder).toBe('Select a vendor first');
+    press('sel-trigger');
+    expect(q('sel-modal')).toBeNull();
+  });
+});

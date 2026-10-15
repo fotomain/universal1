@@ -1,7 +1,7 @@
 // The pure part of the vendor invoice (kit8/pm/vendor_invoice/vendorInvoiceModel.ts): the answers of the RPCs, the rules of the buttons, the tabs, the totals, the folders, the route.
 import {
   EMPTY_VENDOR_INVOICE_FILTER, VENDOR_INVOICE_ALL_TAB, VENDOR_INVOICE_TABS, VendorCandidate, VendorInvoiceHeaderView, VendorInvoiceListRow, candidateKey, candidateSelection, canDeleteVendorInvoice,
-  canEditVendorInvoice, canPostVendorInvoice, canUnpostVendorInvoice, documentsOfRoute, formatMoney, headerOfListRow, needsLegalEntity, parseCandidates, parseCreateAnswer, parseListAnswer,
+  canEditVendorInvoice, canPostVendorInvoice, canUnpostVendorInvoice, documentsOfRoute, formatMoney, headerOfListRow, needsLegalEntity, parseCandidates, quickVendorInvoicePlan, vendorInvoiceLinesOfScope, DEFAULT_VENDOR_INVOICE_SCOPE, parseCreateAnswer, parseListAnswer,
   parsePostAnswer, vendorInvoiceDateErrors, vendorInvoiceDocumentPath, vendorInvoiceFilterActive, vendorInvoiceFilterToRpc, vendorInvoiceFolderNodes, vendorInvoiceLineSums, vendorInvoiceLinesOf,
   vendorInvoiceMissing, vendorInvoiceProblemText, vendorInvoiceRouteParams, vendorInvoiceTabOf, vendorInvoiceTotals,
 } from '../../../kit8/pm/vendor_invoice/vendorInvoiceModel';
@@ -18,7 +18,9 @@ describe('the vendors of the task lines (candidates)', () => {
     expect(a.skipped).toBe(1);
     expect(a.rows[0]).toMatchObject({ partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 2, lineGUIDs: ['l1', 'l2'] });
     expect(a.rows[1]).toEqual({ partnerGUID: 'vp-2', partnerTitle: 'vp-2', contractGUID: null, contractInfo: null, contractCurrency: null, legalEntityGUID: null, lineCount: 0, lineGUIDs: [] });
-    expect(parseCandidates(null)).toEqual({ rows: [], skipped: 0 });
+    expect(parseCandidates(null)).toEqual({ rows: [], skipped: 0, skippedLineGUIDs: [], noVendorAllowed: true });
+    expect(parseCandidates({ rows: [], noVendorAllowed: false }).noVendorAllowed).toBe(false);
+    expect(parseCandidates({ rows: [], skipped: 1, skippedLineGUIDs: ['l9'] }).skippedLineGUIDs).toEqual(['l9']);
   });
   it('ONE document per (vendor, contract): the key, the selection of the checked ones', () => {
     const rows = [cand(), cand({ contractGUID: 'vc-2', lineGUIDs: ['l3'] }), cand({ partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l4'] })];
@@ -40,6 +42,7 @@ describe('the vendors of the task lines (candidates)', () => {
     expect(a.documents).toEqual([{ documentGUID: 'd1', partnerGUID: 'vp-1', contractGUID: 'vc-1', lineCount: 2 }]);
     expect(a.skipped[0].reason).toBe('nothingLeftToInvoice');
     expect(parseCreateAnswer(undefined)).toEqual({ documents: [], skipped: [] });
+    expect(parseCreateAnswer({ documents: [{ documentGUID: 'd2', partnerGUID: null, lineCount: 1 }] }).documents[0].partnerGUID).toBeNull();
   });
 });
 
@@ -147,5 +150,32 @@ describe('opening the form', () => {
   });
   it('a browser tab of its own: the same route with that single document', () => {
     expect(vendorInvoiceDocumentPath('d 1')).toBe('/pm/project/task/vendor-invoice?documentGUID=d%201');
+  });
+});
+
+describe('the project of the document', () => {
+  it('the list row and the header view carry the project (name) and its independent input switch', () => {
+    const a = parseListAnswer({ rows: [{ documentGUID: 'd1', projectGUID: 'p1', projectName: 'Alpha', independentInputAvailable: true, taskGUID: 't1' }, { documentGUID: 'd2' }] });
+    expect(a.rows[0]).toMatchObject({ projectGUID: 'p1', projectName: 'Alpha', independentInputAvailable: true, taskGUID: 't1' });
+    expect(a.rows[1]).toMatchObject({ projectGUID: '', projectName: '', independentInputAvailable: false });
+    expect(headerOfListRow(a.rows[0])).toMatchObject({ projectGUID: 'p1', projectName: 'Alpha', independentInputAvailable: true });
+  });
+});
+
+describe('the context menu: quick create and its scope', () => {
+  const row = (over: Record<string, any> = {}) => ({ partnerGUID: 'vp-1', partnerTitle: 'Acme', contractGUID: 'vc-1', contractInfo: null, contractCurrency: null, legalEntityGUID: 'le-1', lineCount: 1, lineGUIDs: ['l1'], ...over });
+  it('every vendor + contract is taken; a person is needed when there is none or a contract has no legal entity', () => {
+    expect(quickVendorInvoicePlan([row(), row({ partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l2'] })])).toEqual({ kind: 'create', selection: [{ partnerGUID: 'vp-1', contractGUID: 'vc-1', lineGUIDs: ['l1'] }, { partnerGUID: 'vp-2', contractGUID: null, lineGUIDs: ['l2'] }] });
+    expect(quickVendorInvoicePlan([])).toEqual({ kind: 'choose' });
+    // the lines without a vendor make ONE document without a vendor (no legal entity needed)
+    expect(quickVendorInvoicePlan([], ['l7', 'l8'])).toEqual({ kind: 'create', selection: [{ partnerGUID: null, contractGUID: null, lineGUIDs: ['l7', 'l8'] }] });
+    expect(quickVendorInvoicePlan([row()], ['l7'])).toEqual({ kind: 'create', selection: [{ partnerGUID: 'vp-1', contractGUID: 'vc-1', lineGUIDs: ['l1'] }, { partnerGUID: null, contractGUID: null, lineGUIDs: ['l7'] }] });
+    expect(quickVendorInvoicePlan([row({ legalEntityGUID: null })], ['l7'])).toEqual({ kind: 'choose' });
+    expect(quickVendorInvoicePlan([row(), row({ legalEntityGUID: null, contractGUID: 'vc-2' })])).toEqual({ kind: 'choose' });
+  });
+  it('the scope of a line of the Finances table: the current line is the default; the whole task = no line filter', () => {
+    expect(DEFAULT_VENDOR_INVOICE_SCOPE).toBe('line');
+    expect(vendorInvoiceLinesOfScope('line', 'l9')).toEqual(['l9']);
+    expect(vendorInvoiceLinesOfScope('task', 'l9')).toBeUndefined();
   });
 });

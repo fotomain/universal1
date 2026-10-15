@@ -46,6 +46,9 @@ jest.mock('react-redux', () => {
     useDispatch: () => mockDispatch,
   };
 });
+// "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: vendor_invoice/useVendorInvoice.test.tsx)
+const mockStartVendorInvoice = jest.fn();
+jest.mock('../../../../../kit8/pm/vendor_invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
 const mockPick: Record<string, string> = {};
 const mockSelectProps: Record<string, any> = {};
 jest.mock('../../../../../kit8/catalog/inner/select_element/SelectElementFromCatalog', () => {
@@ -635,6 +638,37 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
     expect(ids).toContain(`${T}-vendor-invoice-fx1`);
     expect(ids.indexOf(`${T}-vendor-invoice-fx1`)).toBe(ids.indexOf(`${T}-facts-fx1`) + 1);
+  });
+
+  it('"Vendor Invoice" of a line asks first: 1) the data of the current line (default) 2) all the lines of the task; Create then makes the invoice', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    expect(q(`${T}-vendor-scope`)).toBeNull();
+    press(`${T}-vendor-invoice-fx1`);
+    expect(q(`${T}-vendor-scope`)).not.toBeNull();
+    expect(mockStartVendorInvoice).not.toHaveBeenCalled();
+    expect(q(`${T}-vendor-scope-line`)!.getAttribute('aria-checked')).toBe('true');
+    expect(q(`${T}-vendor-scope-task`)!.getAttribute('aria-checked')).toBe('false');
+    press(`${T}-vendor-scope-create`);
+    expect(mockStartVendorInvoice).toHaveBeenCalledWith({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['fx1'] });
+    expect(q(`${T}-vendor-scope`)).toBeNull();
+  });
+
+  it('"Vendor Invoice" of a line: the whole task = no line filter; Cancel makes nothing and the next time the default is the line again', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    press(`${T}-vendor-invoice-fx1`);
+    press(`${T}-vendor-scope-task`);
+    press(`${T}-vendor-scope-cancel`);
+    expect(mockStartVendorInvoice).not.toHaveBeenCalled();
+    press(`${TT}-menu-button-fx1`);
+    press(`${T}-vendor-invoice-fx1`);
+    expect(q(`${T}-vendor-scope-line`)!.getAttribute('aria-checked')).toBe('true');
+    press(`${T}-vendor-scope-task`);
+    press(`${T}-vendor-scope-create`);
+    expect(mockStartVendorInvoice).toHaveBeenCalledWith({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: undefined });
   });
 
   it('Recalculate all (bar): every line of the tab; nothing to do = nothing written', () => {

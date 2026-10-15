@@ -15,6 +15,7 @@ export const VENDOR_INVOICE_LINES_ENTITY = 'vendorInvoiceLinesReusable';
 export const RPC_VENDOR_CANDIDATES = 'vendor_invoice_candidates';
 export const RPC_VENDOR_CREATE = 'create_vendor_invoices';
 export const RPC_VENDOR_SET_HEADER = 'vendor_invoice_set_header';
+export const RPC_VENDOR_ADD_LINE = 'vendor_invoice_add_line';
 export const RPC_VENDOR_POST = 'post_vendor_invoice';
 export const RPC_VENDOR_UNPOST = 'unpost_vendor_invoice';
 export const RPC_VENDOR_DELETE = 'delete_vendor_invoice';
@@ -28,7 +29,7 @@ export const VENDOR_INVOICE_LIST_ROUTE = '/pm/vendor-invoice/list';
 export const VENDOR_INVOICE_REGISTRATOR_TYPE = 'vendorInvoiceHeader';
 
 export type VendorInvoiceStatus = 'draft' | 'posted';
-export type VendorInvoiceProblemCode = 'documentIsPosted' | 'documentIsNotPosted' | 'documentHasNoLines' | 'invoiceNumberMissing' | 'invoiceDateMissing' | 'quantityIsZero' | 'notYourProject';
+export type VendorInvoiceProblemCode = 'documentIsPosted' | 'documentIsNotPosted' | 'documentHasNoLines' | 'invoiceNumberMissing' | 'invoiceDateMissing' | 'quantityIsZero' | 'notYourProject' | 'vendorMissing' | 'legalEntityMissing';
 
 /** the tabs of the document: All (default) · Time · Material · Expenses - exactly as the Finances table of a task */
 export const VENDOR_INVOICE_ALL_TAB = 'all';
@@ -51,7 +52,8 @@ export interface VendorCandidate {
   lineCount: number;
   lineGUIDs: string[];
 }
-export interface VendorCandidatesAnswer { rows: VendorCandidate[]; skipped: number }
+/** `skipped` lines have no vendor (no contract, partner or main vendor); `skippedLineGUIDs` are those lines: ONE draft without a vendor is made of them (the vendor is chosen in the form) */
+export interface VendorCandidatesAnswer { rows: VendorCandidate[]; skipped: number; skippedLineGUIDs: string[]; /** project setting userCanCreateVendorInvoicesFromTasksWithEmptyVendors (default true) */ noVendorAllowed: boolean }
 export function parseCandidates(data: any): VendorCandidatesAnswer {
   const d = data && typeof data === 'object' ? data : {};
   const rows: VendorCandidate[] = (Array.isArray(d.rows) ? d.rows : []).map((r: any) => ({
@@ -64,23 +66,43 @@ export function parseCandidates(data: any): VendorCandidatesAnswer {
     lineCount: Number(r.lineCount) || 0,
     lineGUIDs: Array.isArray(r.lineGUIDs) ? r.lineGUIDs.map(String) : [],
   }));
-  return { rows, skipped: Number(d.skipped) || 0 };
+  return { rows, skipped: Number(d.skipped) || 0, skippedLineGUIDs: Array.isArray(d.skippedLineGUIDs) ? d.skippedLineGUIDs.map(String) : [], noVendorAllowed: d.noVendorAllowed !== false };
 }
 /** the key of a (vendor, contract) pair: ONE document each */
 export const candidateKey = (c: Pick<VendorCandidate, 'partnerGUID' | 'contractGUID'>): string => `${c.partnerGUID}|${c.contractGUID ?? ''}`;
-/** the selection the RPC takes */
-export const candidateSelection = (rows: VendorCandidate[], checked: ReadonlySet<string>): { partnerGUID: string; contractGUID: string | null; lineGUIDs: string[] }[] =>
-  rows.filter((r) => checked.has(candidateKey(r))).map((r) => ({ partnerGUID: r.partnerGUID, contractGUID: r.contractGUID, lineGUIDs: r.lineGUIDs }));
+/** the key of the document without a vendor (the lines that have none): checked like a vendor row */
+export const NO_VENDOR_KEY = 'noVendor';
+export interface VendorSelection { partnerGUID: string | null; contractGUID: string | null; lineGUIDs: string[] }
+/** the selection the RPC takes: the checked vendor pairs and, when NO_VENDOR_KEY is checked, ONE document without a vendor of the lines that have none */
+export const candidateSelection = (rows: VendorCandidate[], checked: ReadonlySet<string>, noVendorLineGUIDs: string[] = []): VendorSelection[] => [
+  ...rows.filter((r) => checked.has(candidateKey(r))).map((r) => ({ partnerGUID: r.partnerGUID as string | null, contractGUID: r.contractGUID, lineGUIDs: r.lineGUIDs })),
+  ...(noVendorLineGUIDs.length && checked.has(NO_VENDOR_KEY) ? [{ partnerGUID: null, contractGUID: null, lineGUIDs: noVendorLineGUIDs }] : []),
+];
 /** the legal entity the window has to ask for: every checked pair that has none of its own (its contract names none) needs the one chosen in the window */
 export const needsLegalEntity = (rows: VendorCandidate[], checked: ReadonlySet<string>): boolean => rows.some((r) => checked.has(candidateKey(r)) && !r.legalEntityGUID);
 
-export interface CreatedDocument { documentGUID: string; partnerGUID: string; contractGUID: string | null; lineCount: number }
-export interface CreateAnswer { documents: CreatedDocument[]; skipped: { partnerGUID: string; contractGUID: string | null; reason: string }[] }
+/**
+ * The context menu "Vendor Invoice" creates the documents at once ("quick create"): every vendor + contract of the lines is taken (no choice window).
+ * The window stays for what needs a person: no vendor found (it says why) or a contract without a legal entity (it asks for it).
+ */
+export type QuickVendorInvoicePlan = { kind: 'create'; selection: VendorSelection[] } | { kind: 'choose' };
+export function quickVendorInvoicePlan(rows: VendorCandidate[], noVendorLineGUIDs: string[] = []): QuickVendorInvoicePlan {
+  const all = new Set([...rows.map(candidateKey), ...(noVendorLineGUIDs.length ? [NO_VENDOR_KEY] : [])]);
+  if (!all.size || needsLegalEntity(rows, all)) return { kind: 'choose' };
+  return { kind: 'create', selection: candidateSelection(rows, all, noVendorLineGUIDs) };
+}
+/** which lines the quick create takes: a line of the Finances table asks (this line / the whole task), the task tree takes the whole task */
+export type VendorInvoiceScope = 'line' | 'task';
+export const DEFAULT_VENDOR_INVOICE_SCOPE: VendorInvoiceScope = 'line';
+export const vendorInvoiceLinesOfScope = (scope: VendorInvoiceScope, lineGUID: string): string[] | undefined => (scope === 'line' ? [lineGUID] : undefined);
+
+export interface CreatedDocument { documentGUID: string; partnerGUID: string | null; contractGUID: string | null; lineCount: number }
+export interface CreateAnswer { documents: CreatedDocument[]; skipped: { partnerGUID: string | null; contractGUID: string | null; reason: string }[] }
 export function parseCreateAnswer(data: any): CreateAnswer {
   const d = data && typeof data === 'object' ? data : {};
   return {
-    documents: (Array.isArray(d.documents) ? d.documents : []).map((x: any) => ({ documentGUID: String(x.documentGUID), partnerGUID: String(x.partnerGUID), contractGUID: x.contractGUID ? String(x.contractGUID) : null, lineCount: Number(x.lineCount) || 0 })),
-    skipped: (Array.isArray(d.skipped) ? d.skipped : []).map((x: any) => ({ partnerGUID: String(x.partnerGUID), contractGUID: x.contractGUID ? String(x.contractGUID) : null, reason: String(x.reason ?? '') })),
+    documents: (Array.isArray(d.documents) ? d.documents : []).map((x: any) => ({ documentGUID: String(x.documentGUID), partnerGUID: x.partnerGUID ? String(x.partnerGUID) : null, contractGUID: x.contractGUID ? String(x.contractGUID) : null, lineCount: Number(x.lineCount) || 0 })),
+    skipped: (Array.isArray(d.skipped) ? d.skipped : []).map((x: any) => ({ partnerGUID: x.partnerGUID ? String(x.partnerGUID) : null, contractGUID: x.contractGUID ? String(x.contractGUID) : null, reason: String(x.reason ?? '') })),
   };
 }
 
@@ -100,6 +122,12 @@ export interface VendorInvoiceListRow {
   contractInfo: string;
   currency: string;
   folder: string;
+  /** the task the document was made from; the project setting independentInvoiceInputAvailable (lines can be added by hand to a draft) */
+  taskGUID: string;
+  /** the project of the document (header field vendorInvoiceProject) and its name; independentInputAvailable = ITS setting independentInvoiceInputAvailable */
+  projectGUID: string;
+  projectName: string;
+  independentInputAvailable: boolean;
   authorGUID: string;
   authorName: string;
   lineCount: number;
@@ -129,6 +157,10 @@ export function parseListAnswer(data: any): VendorInvoiceListAnswer {
     contractInfo: String(r.contractInfo ?? ''),
     currency: String(r.currency ?? ''),
     folder: String(r.folder ?? ''),
+    taskGUID: String(r.taskGUID ?? ''),
+    projectGUID: String(r.projectGUID ?? ''),
+    projectName: String(r.projectName ?? ''),
+    independentInputAvailable: !!r.independentInputAvailable,
     authorGUID: String(r.authorGUID ?? ''),
     authorName: String(r.authorName ?? ''),
     lineCount: Number(r.lineCount) || 0,
@@ -190,12 +222,18 @@ export interface VendorInvoiceHeaderView {
   partnerTitle: string;
   contractInfo: string;
   legalEntityTitle: string;
+  /** optional so a test / a caller can leave them out: false */
+  taskGUID?: string;
+  projectGUID?: string;
+  projectName?: string;
+  independentInputAvailable?: boolean;
 }
 export function headerOfListRow(r: VendorInvoiceListRow): VendorInvoiceHeaderView {
   return {
     guid: r.documentGUID, number: r.documentNumber, status: r.documentStatus, vendorInvoiceNumber: r.vendorInvoiceNumber, day: r.vendorInvoiceDay ?? '',
     legalEntityGUID: r.legalEntityGUID, partnerGUID: r.partnerGUID, contractGUID: r.contractGUID, currency: r.currency, authorName: r.authorName,
     partnerTitle: r.partnerTitle, contractInfo: r.contractInfo, legalEntityTitle: r.legalEntityTitle,
+    taskGUID: r.taskGUID, projectGUID: r.projectGUID, projectName: r.projectName, independentInputAvailable: r.independentInputAvailable,
   };
 }
 export const canEditVendorInvoice = (h: VendorInvoiceHeaderView): boolean => h.status === 'draft';
@@ -207,6 +245,8 @@ export const canUnpostVendorInvoice = (h: VendorInvoiceHeaderView): boolean => h
 export function vendorInvoiceMissing(h: VendorInvoiceHeaderView, lineCount: number): VendorInvoiceProblemCode[] {
   const out: VendorInvoiceProblemCode[] = [];
   if (lineCount === 0) out.push('documentHasNoLines');
+  if (!h.partnerGUID) out.push('vendorMissing');
+  if (!h.legalEntityGUID) out.push('legalEntityMissing');
   if (!h.vendorInvoiceNumber.trim()) out.push('invoiceNumberMissing');
   if (!h.day) out.push('invoiceDateMissing');
   return out;
@@ -223,6 +263,8 @@ export function vendorInvoiceProblemText(code: string): string {
     case 'documentIsPosted': return 'The document is already posted.';
     case 'documentIsNotPosted': return 'The document is not posted.';
     case 'documentHasNoLines': return 'The document has no lines.';
+    case 'vendorMissing': return 'Choose the vendor of the vendor invoice.';
+    case 'legalEntityMissing': return 'Choose the legal entity of the vendor invoice.';
     case 'invoiceNumberMissing': return 'Enter the number printed on the vendor invoice.';
     case 'invoiceDateMissing': return 'Enter the date of the vendor invoice.';
     case 'quantityIsZero': return 'A line has the quantity 0: delete it or enter the quantity.';

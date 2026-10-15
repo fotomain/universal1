@@ -78,7 +78,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'play-video', label: 'Video', icon: 'movie', route: 'media/play/video' },
       ],
     },
-    { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
     {
       id: 'catalogs',
       label: 'Catalogs',
@@ -110,6 +109,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
         // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
         { id: 'persondashboard', label: 'Persons (properties and variants)', icon: 'badge', route: 'catalog/person/dashboard' },
+        // product catalog: all product tables (CRUD), checks, product card
+        { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
         { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
         // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
         { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
@@ -117,8 +118,32 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
         { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
         { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
+        { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
       ],
     },
+    // documents (what is filled in and posted), sorted by name: the fact input documents (Actuals, kit8/pm/fact) and the vendor invoices (one vendor + one contract each; folders legal entity → vendor)
+    {
+      id: 'documents',
+      label: 'Documents',
+      icon: 'description',
+      route: '',
+      children: [
+        { id: 'documents-factinput', label: 'Fact input', icon: 'fact_check', route: 'pm/fact/list' },
+        { id: 'documents-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
+      ],
+    },
+    { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
+    // reports: Monitor01 (planned · contracted · delivered · used per resource role, month and task; the FULL data set, live), sorted by name
+    {
+      id: 'reports',
+      label: 'Reports',
+      icon: 'assessment',
+      route: '',
+      children: [
+        { id: 'reports-monitor01', label: 'Monitor01', icon: 'monitoring', route: 'pm/reports/monitor01' },
+      ],
+    },
+
     // budgets: shortcuts to the catalogs a budget is built from (the same pages as in Catalogs), sorted by name
     {
       id: 'budgets',
@@ -131,28 +156,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
-        // below the divider: what really happened (kit8/pm/fact) - the list of the fact input documents, with fast filters
-        { id: 'budgets-divider', label: '', icon: '', route: '', divider: true },
-        { id: 'budgets-actuals', label: 'Actuals', icon: 'fact_check', route: 'pm/fact/list' },
-        // the vendor invoices (one vendor + one contract each): folders legal entity → vendor, quick filters
-        { id: 'budgets-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
       ],
     },
-
-    { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
-    // product catalog: all product tables (CRUD), checks, product card
-    { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
-    // reports: Monitor01 (planned · contracted · delivered · used per resource role, month and task; the FULL data set, live), sorted by name
-    {
-      id: 'reports',
-      label: 'Reports',
-      icon: 'assessment',
-      route: '',
-      children: [
-        { id: 'reports-monitor01', label: 'Monitor01', icon: 'monitoring', route: 'pm/reports/monitor01' },
-      ],
-    },
-
   ];
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----

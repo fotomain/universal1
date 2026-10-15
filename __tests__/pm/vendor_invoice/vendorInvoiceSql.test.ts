@@ -57,8 +57,8 @@ describe('the names the app calls', () => {
 
 describe('the rules in the database (the twins of the app rules)', () => {
   const p = part(structure);
-  it('ONE vendor + ONE contract per document: the pair never changes, the contract is a contract of the vendor', () => {
-    expect(p).toContain('the vendor and the contract of a vendor invoice cannot be changed');
+  it('ONE vendor + ONE contract per document: the pair changes only while the document is UNPOSTED, the contract is a contract of the vendor', () => {
+    expect(p).toContain('the vendor and the contract of a POSTED vendor invoice cannot be changed');
     expect(p).toContain('is not a contract of the vendor');
   });
   it('the header is written only by the RPCs (select + delete of a draft by policy); the lines: select, update and delete of a DRAFT by the owner of the project, no insert', () => {

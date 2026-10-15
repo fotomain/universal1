@@ -67,6 +67,7 @@ import PMCommandsModeSelector from "../settings/PMCommandsModeSelector";
 import { useBusinessUnitData } from "../../../../catalog/business_unit/useBusinessUnitData";
 import { defaultProjectCenters, projectCentersError } from "../../../../catalog/business_unit/businessUnitModel";
 import PMProjectBudgetsTab, { budgetsValuesOf, type BudgetsSubTab, type PMProjectBudgetsValues } from "../settings/PMProjectBudgetsTab";
+import PMProjectVendorTab, { vendorValuesOf, type PMProjectVendorValues } from "../settings/PMProjectVendorTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -76,9 +77,9 @@ import { usePMVersionStore } from "../../../version/store/store_version";
 import { useUxuiCurrentJSON } from "../../../../redux/useUxuiCurrentJSON";
 import ShareScreenshotButton from "../../../../ui/components/common/ShareScreenshotButton";
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectBudgetsValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -245,6 +246,7 @@ export default function PMRecentProjectsToolbar({
       mainCustomerContractGUID: null,
       projectManagerPerson: null,
       ...budgetsValuesOf(null),
+      ...vendorValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
       projectBusinessUnitsRequired: true,
@@ -285,6 +287,7 @@ export default function PMRecentProjectsToolbar({
       mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
       projectManagerPerson: project.rowJSON.projectManagerPerson ?? null,
       ...budgetsValuesOf(project.rowJSON),
+      ...vendorValuesOf(project.rowJSON),
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -396,6 +399,7 @@ export default function PMRecentProjectsToolbar({
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
             projectManagerPerson: draft.projectManagerPerson ?? null,
             ...budgetsValuesOf(draft),
+            ...vendorValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
@@ -425,7 +429,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -696,11 +700,12 @@ export default function PMRecentProjectsToolbar({
                 <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} />
               </View>
 
-              {/* TopTabs Bar: TabMain, TabBudgets, TabUXUI, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabUXUI, TabPartners, TabKanban */}
               <View testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
+                  { id: 'TabVendor' as const, label: 'Vendor', icon: 'receipt_long' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
@@ -832,6 +837,10 @@ export default function PMRecentProjectsToolbar({
                     subTab={budgetsSubTab}
                     onSubTabChange={setBudgetsSubTab}
                   />
+                )}
+
+                {activeTab === 'TabVendor' && (
+                  <PMProjectVendorTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabUXUI' && (

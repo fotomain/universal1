@@ -52,6 +52,11 @@ export interface SelectElementFromCatalogProps {
   testID?: string;
   /** Whether to scope the DB fetch by rowOwnerGUID in match params (default false: in-memory filtering) */
   scopeFetchByOwner?: boolean;
+  /**
+   * the trigger is a TextInputApp (the look and the height of every other input of a form: label, value, placeholder), with the clear (x) and the expand icons inside at the right;
+   * the picker window is the same. No outer margin: the field sits in a row with other inputs.
+   */
+  asInput?: boolean;
 }
 
 export function defaultTitleExtractor(row: any): string {
@@ -124,6 +129,7 @@ export default function SelectElementFromCatalog({
   scopeFetchByOwner = true,
   triggerStyle,
   compact = false,
+  asInput = false,
 }: SelectElementFromCatalogProps) {
   const { themeColors: c } = useDesignSystem();
   const [modalOpen, setModalOpen] = useState(false);
@@ -225,9 +231,41 @@ export default function SelectElementFromCatalog({
   const displayText = disabled && disabledMessage ? disabledMessage : selectedTitle || placeholder;
 
   return (
-    <View style={styles.container}>
-      {!!label && <Text style={[styles.label, { color: c.text }]}>{label}</Text>}
+    <View style={asInput ? styles.inputContainer : styles.container}>
+      {asInput && (
+        <View testID={testID}>
+          {/* the TextInputApp only SHOWS the value (no focus, no typing): a press anywhere on it opens the picker */}
+          <Pressable testID={`${testID}-trigger`} disabled={disabled} onPress={openPicker} accessibilityRole="button" accessibilityLabel={label || 'Select element'}>
+            <View pointerEvents="none">
+              <TextInputApp
+                testID={`${testID}-input`}
+                label={label}
+                value={selectedTitle}
+                placeholder={disabled && disabledMessage ? disabledMessage : placeholder}
+                compact={compact}
+                hideClearIcon
+                disabled={false}
+                showSoftInputOnFocus={false}
+                style={{ marginBottom: 0 }}
+              />
+            </View>
+          </Pressable>
+          {/* the icons over the right end of the input, centered on its box */}
+          <View pointerEvents="box-none" style={styles.inputIcons}>
+            {!!selectedItem && !disabled && (
+              <Pressable testID={`${testID}-clear`} onPress={handleClear} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Clear selection">
+                <IconApp name="close" size={16} color={c.text} />
+              </Pressable>
+            )}
+            <Pressable disabled={disabled} onPress={openPicker} style={styles.iconButton} accessibilityElementsHidden importantForAccessibility="no">
+              <IconApp name="expand_more" size={18} color={disabled ? `${c.text}44` : c.text} />
+            </Pressable>
+          </View>
+        </View>
+      )}
+      {!asInput && !!label && <Text style={[styles.label, { color: c.text }]}>{label}</Text>}
 
+      {!asInput && (
       <View
         testID={testID}
         style={[
@@ -283,6 +321,7 @@ export default function SelectElementFromCatalog({
           <IconApp name="expand_more" size={18} color={disabled ? `${c.text}44` : c.text} />
         </Pressable>
       </View>
+      )}
 
       {modalOpen && (
         <Modal
@@ -412,6 +451,9 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 6,
   },
+  // asInput: no margin; the icons sit over the right end of the input, vertically centered
+  inputContainer: { position: 'relative' },
+  inputIcons: { position: 'absolute', top: 0, right: 6, bottom: 0, flexDirection: 'row', alignItems: 'center' },
   label: {
     fontSize: 13,
     fontWeight: '600',

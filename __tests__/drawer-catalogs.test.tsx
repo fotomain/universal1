@@ -88,17 +88,45 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
 });
 
-it('Catalogs, then Budgets, come right before Projects', () => {
+it('the order of the menu: Catalogs, Documents, Project Dashboard, Reports, Budgets (after Home, Developer 1, Media Posts, Record, Play)', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-budgets')).toBe(ids.indexOf('drawer-item-pm-projects') - 1);
-  expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-budgets') - 1);
+  const order = ['drawer-item-catalogs', 'drawer-item-documents', 'drawer-item-pm-projects', 'drawer-item-reports', 'drawer-item-budgets'];
+  const at = order.map((id) => ids.indexOf(id));
+  expect(at.every((i) => i >= 0)).toBe(true);
+  expect(at).toEqual([at[0], at[0] + 1, at[0] + 2, at[0] + 3, at[0] + 4]);
+  expect(ids.indexOf('drawer-item-play')).toBeLessThan(at[0]);
+  // Products and Users (RACI) are not top-level rows any more: they are in Catalogs
+  expect(ids).not.toContain('drawer-item-products');
+  expect(ids).not.toContain('drawer-item-raci');
 });
 
-it('Reports (after Products) is a closed accordion with Monitor01, which opens the separate screen', () => {
+it('Documents (right after Catalogs) is a closed accordion: Fact input and Vendor invoices', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-reports')).toBe(ids.indexOf('drawer-item-products') + 1);
+  expect(ids.indexOf('drawer-item-documents')).toBe(ids.indexOf('drawer-item-catalogs') + 1);
+  expect(q('drawer-subitem-documents-factinput')).toBeNull(); // closed
+  press('drawer-item-documents');
+  const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
+  expect(subs).toHaveLength(2);
+  expect(subs[0]).toContain('Fact input');
+  expect(subs[1]).toContain('Vendor invoices');
+  press('drawer-subitem-documents-factinput');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/fact/list');
+  press('drawer-subitem-documents-vendorinvoices');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/vendor-invoice/list');
+});
+
+it('Documents opens by itself on the fact input list and on the vendor invoice list', () => {
+  mount('/pm/fact/list');
+  expect(q('drawer-subitem-documents-factinput')).not.toBeNull();
+  act(() => root?.unmount()); document.body.innerHTML = '';
+  mount('/pm/vendor-invoice/list');
+  expect(q('drawer-subitem-documents-vendorinvoices')).not.toBeNull();
+});
+
+it('Reports (after Project Dashboard) is a closed accordion with Monitor01, which opens the separate screen', () => {
+  mount('/home');
   expect(q('drawer-subitem-reports-monitor01')).toBeNull(); // closed
   press('drawer-item-reports');
   expect(q('drawer-subitem-reports-monitor01')!.textContent).toContain('Monitor01');
@@ -106,47 +134,46 @@ it('Reports (after Products) is a closed accordion with Monitor01, which opens t
   expect(mockNavigate).toHaveBeenCalledWith('/pm/reports/monitor01');
 });
 
-it('Budgets is a closed accordion: Budget Items, Budget scenarios, Business units, Resource contract templates, Resource roles (also kept in Catalogs), a divider, then Actuals and Vendor invoices', () => {
+it('Budgets is a closed accordion with the catalogs a budget is built from (also kept in Catalogs); Actuals and Vendor invoices moved to Documents', () => {
   mount('/home');
   expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed
-  expect(q('drawer-divider-budgets-divider')).toBeNull();
   press('drawer-item-budgets');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles', 'Actuals', 'Vendor invoices'];
+  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles'];
   expect(subs).toHaveLength(labels.length);
   labels.forEach((label, i) => expect(subs[i]).toContain(label)); // in this order (the mocked icon adds its name to the text)
-  // the divider sits between the catalogs and Actuals
-  const order = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"], [data-testid^="drawer-divider-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(order.indexOf('drawer-divider-budgets-divider')).toBe(order.indexOf('drawer-subitem-budgets-resourceroles') + 1);
-  expect(order.indexOf('drawer-subitem-budgets-actuals')).toBe(order.indexOf('drawer-divider-budgets-divider') + 1);
-  expect(order.indexOf('drawer-subitem-budgets-vendorinvoices')).toBe(order.indexOf('drawer-subitem-budgets-actuals') + 1);   // Vendor invoices right after Actuals
+  expect(q('drawer-subitem-budgets-actuals')).toBeNull();
+  expect(q('drawer-subitem-budgets-vendorinvoices')).toBeNull();
   press('drawer-subitem-budgets-budgetscenarios');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/budget/scenario/list');
   press('drawer-subitem-budgets-businessunits');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/business/unit');
-  press('drawer-subitem-budgets-actuals');
-  expect(mockNavigate).toHaveBeenCalledWith('/pm/fact/list');
-  press('drawer-subitem-budgets-vendorinvoices');
-  expect(mockNavigate).toHaveBeenCalledWith('/pm/vendor-invoice/list');
   press('drawer-item-catalogs');
   for (const id of ['budgetitems', 'budgetscenarios', 'businessunits', 'templateresourcecontracts', 'resourceroles']) expect(q(`drawer-subitem-${id}`)).not.toBeNull();
   expect(q('drawer-subitem-actuals')).toBeNull(); // Actuals is not a catalog
   expect(q('drawer-subitem-legalentities')).not.toBeNull(); // the legal entities are a catalog (Catalogs > Legal entities)
 });
 
-it('the divider is not a button and Budgets opens by itself on the Actuals list', () => {
-  mount('/pm/fact/list');
-  expect(q('drawer-subitem-budgets-actuals')).not.toBeNull();
-  expect(q('drawer-divider-budgets-divider')!.getAttribute('data-testid')).toBe('drawer-divider-budgets-divider');
-  expect(q('drawer-divider-budgets-divider')!.textContent).toBe('');
+it('Products (product catalog dashboard) and Users (RACI) are in Catalogs (sorted by name) and open their pages', () => {
+  mount('/home');
+  expect(q('drawer-subitem-products')).toBeNull(); // closed
+  press('drawer-item-catalogs');
+  const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(subs.indexOf('drawer-subitem-products')).toBe(subs.indexOf('drawer-subitem-catalog-projects') - 1);   // Products right before Projects
+  expect(subs[subs.length - 1]).toBe('drawer-subitem-raci');                                                   // Users (RACI) after User roles, last
+  expect(subs.indexOf('drawer-subitem-raci')).toBe(subs.indexOf('drawer-subitem-user-roles') + 1);
+  press('drawer-subitem-products');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/product/dashboard');
+  press('drawer-subitem-raci');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/raci/racimember');
 });
 
-it('Products (product catalog dashboard) is a menu item after Projects and opens the dashboard', () => {
-  mount('/home');
-  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-products')).toBe(ids.indexOf('drawer-item-pm-projects') + 1);
-  press('drawer-item-products');
-  expect(mockNavigate).toHaveBeenCalledWith('/catalog/product/dashboard');
+it('Catalogs opens by itself on the product dashboard and on the RACI page', () => {
+  mount('/catalog/product/dashboard');
+  expect(q('drawer-subitem-products')).not.toBeNull();
+  act(() => root?.unmount()); document.body.innerHTML = '';
+  mount('/catalog/raci/racimember');
+  expect(q('drawer-subitem-raci')).not.toBeNull();
 });
 
 it('opens by itself on a catalog page (list or edit)', () => {

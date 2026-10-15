@@ -49,14 +49,14 @@ function setDoc(headers: VendorInvoiceHeaderView[], over: Record<string, any> = 
   Object.keys(mockDoc).forEach((k) => delete mockDoc[k]);
   Object.assign(mockDoc, {
     headers, isLoading: false, error: null, busy: false,
-    setHeader: jest.fn(async () => true), post: jest.fn(async () => ({ status: 'posted', lines: 3, problems: [] })), unpost: jest.fn(async () => ({ status: 'draft', lines: 0, problems: [] })), remove: jest.fn(async () => true), refetch: jest.fn(), ...over,
+    setHeader: jest.fn(async () => true), post: jest.fn(async () => ({ status: 'posted', lines: 3, problems: [] })), unpost: jest.fn(async () => ({ status: 'draft', lines: 0, problems: [] })), remove: jest.fn(async () => true), addLine: jest.fn(async () => true), refetch: jest.fn(), ...over,
   });
   (globalThis as any).__pmTestReduxState = { [VENDOR_INVOICE_LINES_ENTITY]: { entityDataFromServer: rows } };
 }
 const readOnly = (id: string) => { const el = q(id) as HTMLInputElement; return el.readOnly || el.disabled; };
 const lastTable = () => mockTable.mock.calls.at(-1)![0];
 const flush = () => act(async () => { await Promise.resolve(); });
-afterEach(() => { cleanupUI(); jest.clearAllMocks(); (globalThis as any).__pmTestReduxState = undefined; Object.keys(mockButtons).forEach((k) => delete mockButtons[k]); });
+afterEach(() => { cleanupUI(); jest.clearAllMocks(); (globalThis as any).__pmTestReduxState = undefined; Object.keys(mockButtons).forEach((k) => delete mockButtons[k]); Object.keys(mockSelects).forEach((k) => delete mockSelects[k]); });
 
 describe('the bar', () => {
   it('Delete · Unpost · Close, and Post is the LAST - a large button', () => {
@@ -160,12 +160,12 @@ describe('the form of the document', () => {
     setDoc([header('d1', { vendorInvoiceNumber: 'INV-1', day: '2026-10-20' })]);
     renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
     expect(inputValue('vendor-invoice-field-number')).toBe('VI-d1');
-    expect(inputValue('vendor-invoice-field-vendor')).toBe('Vendor d1');
-    expect(inputValue('vendor-invoice-field-contract')).toBe('S-1 · Supply');
     expect(inputValue('vendor-invoice-field-currency')).toBe('EUR');
     expect(inputValue('vendor-invoice-field-invoiceNumber')).toBe('INV-1');
     expect(inputValue('vendor-invoice-field-invoiceDate')).toBe('2026-10-20');
-    expect(readOnly('vendor-invoice-field-vendor')).toBe(true);
+    // an unposted document: the vendor and the contract are selects (changeable)
+    expect(mockSelects['vendor-invoice-field-vendor']).toMatchObject({ entityName: 'partnerReusable', value: 'vp-1' });
+    expect(mockSelects['vendor-invoice-field-contract']).toMatchObject({ entityName: 'contractReusable', value: 'vc-1' });
     expect(readOnly('vendor-invoice-field-invoiceNumber')).toBe(false);
     expect(mockSelects['vendor-invoice-field-legalEntity']).toMatchObject({ entityName: 'legalEntityReusable', value: 'le-1' });
   });
@@ -175,6 +175,9 @@ describe('the form of the document', () => {
     expect(readOnly('vendor-invoice-field-invoiceNumber')).toBe(true);
     expect(readOnly('vendor-invoice-field-invoiceDate')).toBe(true);
     expect(inputValue('vendor-invoice-field-legalEntity')).toBe('Acme SIA');
+    expect(inputValue('vendor-invoice-field-vendor')).toBe('Vendor d1');
+    expect(inputValue('vendor-invoice-field-contract')).toBe('S-1 · Supply');
+    expect(readOnly('vendor-invoice-field-vendor')).toBe(true);
   });
   it('the number and the date are saved a moment after the last key; a legal entity at once; an unreadable date is not saved', async () => {
     setDoc([header('d1')]);
@@ -260,5 +263,94 @@ describe('the table of the lines', () => {
     renderUI(<VendorInvoiceDocumentForm documents={['dX']} />);
     expect(mockTable).not.toHaveBeenCalled();
     expect(textOf('vendor-invoice-empty')).toContain('not found');
+  });
+});
+
+describe('a draft WITHOUT a vendor (made from task lines that have none)', () => {
+  const noVendor = (over: Partial<VendorInvoiceHeaderView> = {}) => header('d1', { partnerGUID: '', partnerTitle: '', contractGUID: null, contractInfo: '', legalEntityGUID: '', legalEntityTitle: '', currency: '', ...over });
+  it('the vendor and its contract are selects in the TextInputApp look (the contract waits for the vendor); there is NO Set vendor button', () => {
+    setDoc([noVendor()]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(mockSelects['vendor-invoice-field-vendor']).toMatchObject({ entityName: 'partnerReusable', value: null, asInput: true });
+    expect(mockSelects['vendor-invoice-field-contract']).toMatchObject({ entityName: 'contractReusable', rowParentGUID: 'partner', disabled: true, asInput: true });
+    expect(mockSelects['vendor-invoice-field-legalEntity']).toMatchObject({ asInput: true });
+    expect(mockButtons['vendor-invoice-set-vendor']).toBeUndefined();
+    expect(q('vendor-invoice-set-vendor')).toBeNull();
+    expect(textOf('vendor-invoice-title')).toContain('No vendor');
+  });
+  it('the vendor is saved AT ONCE when it is chosen; the contract at once when it is chosen; clearing sends an empty value', () => {
+    setDoc([noVendor()]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    act(() => mockSelects['vendor-invoice-field-vendor'].onChange('vp-2'));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { vendorInvoicePartner: 'vp-2' });
+    act(() => mockSelects['vendor-invoice-field-vendor'].onChange(null));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { vendorInvoicePartner: '' });
+  });
+  it('with a vendor chosen its contracts open; a contract is saved at once (the vendor stays changeable until Post)', () => {
+    setDoc([noVendor({ partnerGUID: 'vp-2', partnerTitle: 'Beta', legalEntityGUID: 'le-1' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(mockSelects['vendor-invoice-field-vendor']).toMatchObject({ value: 'vp-2' });
+    expect(mockSelects['vendor-invoice-field-contract']).toMatchObject({ rowOwnerGUID: 'vp-2', disabled: false });
+    act(() => mockSelects['vendor-invoice-field-contract'].onChange('vc-3'));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { vendorInvoiceContract: 'vc-3' });
+    act(() => mockSelects['vendor-invoice-field-contract'].onChange(null));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { vendorInvoiceContract: '' });
+  });
+  it('the line of what is missing names the vendor and the legal entity; the tab says "No vendor"', () => {
+    setDoc([noVendor(), header('d2')]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1', 'd2']} />);
+    expect(textOf('vendor-invoice-missing')).toContain('Choose the vendor');
+    expect(textOf('vendor-invoice-missing')).toContain('Choose the legal entity');
+    expect(textOf('vendor-invoice-document-d1')).toContain('No vendor');
+  });
+  it('an UNPOSTED document made WITH a vendor can change it too: the selects hold the vendor and the contract; a change is saved at once', () => {
+    setDoc([header('d1', { partnerGUID: 'vp-1', contractGUID: 'vc-1' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(mockSelects['vendor-invoice-field-vendor']).toMatchObject({ value: 'vp-1' });
+    expect(mockSelects['vendor-invoice-field-contract']).toMatchObject({ value: 'vc-1', rowOwnerGUID: 'vp-1', disabled: false });
+    act(() => mockSelects['vendor-invoice-field-vendor'].onChange('vp-2'));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { vendorInvoicePartner: 'vp-2' });
+  });
+  it('a POSTED document never offers the selects', () => {
+    setDoc([noVendor({ status: 'posted', partnerGUID: 'vp-2', partnerTitle: 'Beta', legalEntityGUID: 'le-1', legalEntityTitle: 'Acme' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(mockSelects['vendor-invoice-field-vendor']).toBeUndefined();
+    expect(readOnly('vendor-invoice-field-vendor')).toBe(true);
+  });
+});
+
+describe('independent input (project setting independentInvoiceInputAvailable)', () => {
+  it('the header shows the project of the document (read only)', () => {
+    setDoc([header('d1', { projectGUID: 'p1', projectName: 'Alpha', independentInputAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(inputValue('vendor-invoice-field-project')).toBe('Alpha');
+    expect(readOnly('vendor-invoice-field-project')).toBe(true);
+  });
+  it('ON in a draft: the + of the table adds a line of the kind of the tab by the database (All: Time); role / resource / unit of the columns can be filled in', () => {
+    setDoc([header('d1', { independentInputAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(lastTable()).toMatchObject({ addEnabled: true, crudPanelEnabled: true });
+    act(() => lastTable().onAdd());
+    expect(mockDoc.addLine).toHaveBeenLastCalledWith('d1', 'timeGenus');
+    const cols = lastTable().visualColumns;
+    expect(['role', 'resource', 'unit'].map((k) => cols.find((c: any) => c.key === k).editable)).toEqual([true, true, true]);
+    // a line that came from a task line cannot be described by hand
+    expect(cols.find((c: any) => c.key === 'role').validate('x', { taskLineGUID: 'tl-1' })).toContain('task line');
+    expect(cols.find((c: any) => c.key === 'role').validate('x', { taskLineGUID: null })).toBeNull();
+    press('vendor-invoice-tab-materialGenus');
+    act(() => lastTable().onAdd());
+    expect(mockDoc.addLine).toHaveBeenLastCalledWith('d1', 'materialGenus');
+  });
+  it('OFF: no add button, role / resource / unit stay read only (lines come from the task lines)', () => {
+    setDoc([header('d1', { independentInputAvailable: false })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(lastTable()).toMatchObject({ addEnabled: false });
+    expect(lastTable().onAdd).toBeUndefined();
+    expect(['role', 'resource', 'unit'].map((k) => lastTable().visualColumns.find((c: any) => c.key === k).editable)).toEqual([false, false, false]);
+  });
+  it('a POSTED document: no add even when the setting is on', () => {
+    setDoc([header('d1', { status: 'posted', independentInputAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(lastTable()).toMatchObject({ addEnabled: false });
   });
 });

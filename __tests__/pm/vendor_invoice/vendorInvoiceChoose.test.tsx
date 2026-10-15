@@ -122,14 +122,33 @@ it('a failure of the database is shown; no navigation', async () => {
   expect(mockReplace).not.toHaveBeenCalled();
 });
 
-it('no vendor at all: it says where a vendor comes from; lines without a vendor are counted', () => {
-  setCand([], { skipped: 2 });
+it('nothing at all (no vendor row, no line without a vendor): it says where a vendor comes from', () => {
+  setCand([], { skipped: 0, skippedLineGUIDs: [] });
   renderUI(<VendorInvoiceChoose taskGUID="t1" />);
   expect(textOf('vendor-choose-empty')).toContain('Main vendor');
-  cleanupUI();
-  setCand([cand()], { skipped: 3 });
+});
+
+it('lines WITHOUT a vendor are one more row ("No vendor"), checked at the start: Create makes a document with partnerGUID null', async () => {
+  setCand([cand()], { skipped: 2, skippedLineGUIDs: ['n1', 'n2'] });
   renderUI(<VendorInvoiceChoose taskGUID="t1" />);
-  expect(textOf('vendor-choose-skipped')).toContain('3 lines have no vendor');
+  expect(q('vendor-choose-empty')).toBeNull();
+  expect(q('vendor-choose-row-noVendor')!.getAttribute('aria-checked')).toBe('true');
+  expect(textOf('vendor-choose-row-noVendor')).toContain('No vendor');
+  expect(textOf('vendor-choose-row-noVendor')).toContain('2 lines');
+  press('vendor-choose-create');
+  await flush();
+  expect(mockCreate).toHaveBeenCalledWith('t1', [expect.objectContaining({ partnerGUID: 'vp-1' }), { partnerGUID: null, contractGUID: null, lineGUIDs: ['n1', 'n2'] }], null);
+});
+
+it('only lines without a vendor: the window is not empty and needs no legal entity; unchecked = not made', async () => {
+  setCand([], { skipped: 2, skippedLineGUIDs: ['n1', 'n2'] });
+  renderUI(<VendorInvoiceChoose taskGUID="t1" />);
+  expect(q('vendor-choose-legalEntity')).toBeNull();
+  press('vendor-choose-row-noVendor');
+  expect(q('vendor-choose-create')).not.toBeNull();
+  press('vendor-choose-create');
+  await flush();
+  expect(mockCreate).not.toHaveBeenCalled();
 });
 
 it('the vendors are all checked again when the list changes (a refresh)', () => {
