@@ -53,6 +53,11 @@ export interface OrganizationRowJSON {
    * documentation/TIME_GENUS_CONTROL_WBS.html
    */
   resourceCapacityStrongMode?: CapacityMode;
+  /**
+   * Default settings of a NEW project of this organization (plan units, working days, Budgets, Vendor, Subprojects): see defaultProjectSettings.ts.
+   * Edited in Organization edit -> Projects -> Settings, or saved from the Project settings window (three dots menu).
+   */
+  defaultProjectSettings?: Record<string, any>;
 }
 
 export interface OrganizationRow {
@@ -132,6 +137,8 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(raw.notes?.trim() ? { notes: raw.notes.trim() } : {}),
     // only a valid mode is kept; "off" is the default, so it is not written (a missing key reads as off)
     ...(isCapacityMode(raw.resourceCapacityStrongMode) && raw.resourceCapacityStrongMode !== 'capacityModeOff' ? { resourceCapacityStrongMode: raw.resourceCapacityStrongMode } : {}),
+    // the defaults of a new project are kept as they are (an object); anything else is dropped
+    ...(raw.defaultProjectSettings && typeof raw.defaultProjectSettings === 'object' && !Array.isArray(raw.defaultProjectSettings) ? { defaultProjectSettings: raw.defaultProjectSettings } : {}),
   };
 }
 

@@ -1,4 +1,4 @@
-// Monitor01ProjectKindRadio - "Projects | Subprojects | All" (RadioSetApp, horizontal), shown only when a project of the organization uses subprojects (documentation/SUBPROJECTS_BRD_TRD.html).
+// Monitor01ProjectKindRadio - "Projects | Subprojects | All" (RadioSetApp, horizontal, compact: no borders; it stands in the toolbar of the report after "Collapse all"), shown only when a project of the organization uses subprojects (documentation/SUBPROJECTS_BRD_TRD.html).
 //   Projects (default) = the projects that are not a subproject of any task · Subprojects = the projects that are · All = both
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -12,6 +12,7 @@ export default function Monitor01ProjectKindRadio({ value, onChange, testID = 'm
       <RadioSetApp<Monitor01ProjectKind>
         testID={testID}
         horizontal
+        compact
         value={value}
         onChange={onChange}
         options={[
@@ -24,4 +25,4 @@ export default function Monitor01ProjectKindRadio({ value, onChange, testID = 'm
   );
 }
 
-const styles = StyleSheet.create({ wrap: { marginTop: 6 } });
+const styles = StyleSheet.create({ wrap: { marginLeft: 4 } });

@@ -5,6 +5,7 @@
 //   fast filters (ONE row above the table, scrolls sideways when narrow; TextInputApp / DateInputApp / the select, each with a Clear icon inside its field)
 //             factTimelinePeriod (from - to) · factProjectFilter · factBusinessUnitFilter · factRoleFilter · factResourceFilter · authorFilter
 //             - applied by the DATABASE (task_fact_document_list): a document is listed when ONE of its lines satisfies all the line filters; the table shows exactly those documents.
+//   scope     taskGUID / taskLineGUID (props = route params): the documents of that task / task line (menu "Go to → Fact input"); a chip above the filters says it, its x clears it
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
@@ -22,6 +23,9 @@ import { businessUnitPath } from '../../../catalog/business_unit/businessUnitMod
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
 import { personFullName, resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
 import { pmT } from '../../../pm/i18n/pmT';
+import TaskScopeChip from '../../taskScope/TaskScopeChip';
+import { useTaskScope } from '../../taskScope/useTaskScope';
+import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
 import { EMPTY_FACT_LIST_FILTER, FACT_HEADER_ENTITY, FactListFilter, FactListRow, factListDateErrors, factListFilterActive } from './factInputModel';
 import { createFactDocument } from './factInputApi';
 import { factListColumns } from './factListColumns';
@@ -37,6 +41,9 @@ export interface PMFactInputDocumentListProps {
   testID?: string;
   /** the documents of one project only (the project filter is fixed) */
   projectGUID?: string | null;
+  /** the documents of ONE task / task line (route params taskGUID / taskLineGUID; menu "Go to → Fact input"): a chip says so, its x shows all the documents */
+  taskGUID?: string | null;
+  taskLineGUID?: string | null;
 }
 
 /** the select of a filter: the label is its placeholder (like the inputs next to it) and a clear (x) icon INSIDE the field empties it (the picker is searchable above 10 items) */
@@ -48,7 +55,7 @@ function FilterSelect({ testID, label, items, value, onSelect, width = 190 }: { 
   );
 }
 
-export default function PMFactInputDocumentList({ testID = 'fact-list', projectGUID }: PMFactInputDocumentListProps) {
+export default function PMFactInputDocumentList({ testID = 'fact-list', projectGUID, taskGUID, taskLineGUID }: PMFactInputDocumentListProps) {
   const { themeColors: c } = useDesignSystem();
   const data = useTaskLineCatalogs(true);
   const projects = useFactProjects();
@@ -67,7 +74,8 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
   };
   const errors = factListDateErrors(draft);
 
-  const list = useFactDocumentList(applied, LIST_LIMIT);
+  const taskScope = useTaskScope({ taskGUID: taskGUID || '', taskLineGUID: taskLineGUID || '' });
+  const list = useFactDocumentList(applied, LIST_LIMIT, taskScopeToRpc(taskScope.scope));
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, FactListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
@@ -125,6 +133,8 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
         <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" onPress={list.refetch} />
       </View>
 
+      <TaskScopeChip testID={`${testID}-scope`} scope={taskScope.scope} taskName={taskScope.taskName} onClear={taskScope.clear} />
+
       {/* the fast filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters} testID={`${testID}-filters`}>
         <View style={[styles.cell, { width: 200 }]}>
@@ -159,7 +169,7 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
           reorderEnabled={false}
           onAdd={() => { setCreateError(null); setCreating(true); }}
           onRowOpen={(row) => { const r = byGuid.get(row.rowGUID); if (r) openFactInput({ taskGUID: r.taskGUID, projectGUID: r.projectGUID, documentGUID: r.documentGUID }); }}
-          emptyText={list.isLoading ? pmT('Loading…') : factListFilterActive(applied) ? pmT('No document matches the filters.') : pmT('No fact input documents yet. Right-click a line of a task → Facts input.')}
+          emptyText={list.isLoading ? pmT('Loading…') : factListFilterActive(applied) || taskScope.active ? pmT('No document matches the filters.') : pmT('No fact input documents yet. Right-click a line of a task → Facts input.')}
         />
       </View>
       <PMFactNewDocumentModal testID={`${testID}-new`} visible={creating} projectGUID={projectGUID} busy={busy} error={createError} onCancel={() => setCreating(false)} onCreate={create} />

@@ -5,10 +5,10 @@ import { act } from 'react';
 import { cleanupUI, expectInOrder, inputValue, mustGet, press, q, renderUI, textOf, typeInto, wait } from '../../../pm/ui/pmUiTestKit';
 
 const mockAnswer: { current: any } = { current: null };
-const mockCalls: { filter: any; limit: number }[] = [];
+const mockCalls: { filter: any; limit: number; extra?: any }[] = [];
 const mockRefetch = jest.fn();
 jest.mock('../../../../kit8/documents/fact/input/useFactDocumentList', () => ({
-  useFactDocumentList: (filter: any, limit: number) => { mockCalls.push({ filter, limit }); return { answer: mockAnswer.current, isLoading: false, error: (globalThis as any).__listError ?? null, refetch: mockRefetch }; },
+  useFactDocumentList: (filter: any, limit: number, extra?: any) => { mockCalls.push({ filter, limit, extra }); return { answer: mockAnswer.current, isLoading: false, error: (globalThis as any).__listError ?? null, refetch: mockRefetch }; },
   useFactProjects: () => [{ guid: 'p1', name: 'Alpha' }, { guid: 'p2', name: 'Beta' }],
 }));
 const mockOpen = jest.fn();
@@ -263,5 +263,27 @@ describe('the fast filters', () => {
     typeInto(`${T}-authorFilter`, 'Ann');
     press(`${T}-clear`);
     expect(lastFilter()).toEqual({ ...EMPTY_FACT_LIST_FILTER, projectGUID: 'p2' });
+  });
+});
+
+describe('the task / task line scope (menu "Go to → Fact input")', () => {
+  it('no scope: no chip, nothing extra is sent to the database', () => {
+    renderUI(<PMFactInputDocumentList />);
+    expect(q(`${T}-scope`)).toBeNull();
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({});
+  });
+  it('taskGUID + taskLineGUID: a chip says it and the list RPC gets both keys; its x shows all the documents again', () => {
+    renderUI(<PMFactInputDocumentList taskGUID="t-1" taskLineGUID="aaaaaaaa-0000" />);
+    expect(q(`${T}-scope`)).not.toBeNull();
+    expect(textOf(`${T}-scope-label`)).toContain('Task line aaaaaaaa');
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({ taskGUID: 't-1', taskLineGUID: 'aaaaaaaa-0000' });
+    press(`${T}-scope-clear`);
+    expect(q(`${T}-scope`)).toBeNull();
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({});
+  });
+  it('the scope is independent of the project fixed by the screen and of Clear filters', () => {
+    renderUI(<PMFactInputDocumentList projectGUID="p2" taskGUID="t-1" />);
+    expect(lastFilter()).toEqual({ ...EMPTY_FACT_LIST_FILTER, projectGUID: 'p2' });
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({ taskGUID: 't-1' });
   });
 });

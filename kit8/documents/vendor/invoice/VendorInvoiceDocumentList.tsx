@@ -6,9 +6,11 @@
 //             Create = the documents are made from a task (context menu "Vendor Invoice"), the + button says so
 //   quick filters (ONE row, scrolls sideways when narrow; TextInputApp / DateInputApp / the select, each with a Clear icon inside its field) for every column that is not a number:
 //             invoice number · date from - to · legal entity · vendor · contract · currency · status · author - applied by the DATABASE (vendor_invoice_list)
+//   scope     taskGUID / taskLineGUID (props = route params): the documents that invoice that task / task line (menu "Go to → Vendor invoices"); a chip above the filters says it, its x clears it
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -25,6 +27,9 @@ import { PARTNER_ENTITY, PARTNER_READ_PARAMS } from '../../../catalog/partner/pa
 import { useLegalEntityData } from '../../../catalog/legal_entity/useLegalEntityData';
 import { legalEntityTitle } from '../../../catalog/legal_entity/legalEntityModel';
 import { pmT } from '../../../pm/i18n/pmT';
+import TaskScopeChip from '../../taskScope/TaskScopeChip';
+import { useTaskScope } from '../../taskScope/useTaskScope';
+import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
 import {
   EMPTY_VENDOR_INVOICE_FILTER, VENDOR_INVOICE_HEADER_ENTITY, VENDOR_INVOICE_ROUTE, VendorInvoiceListFilter, VendorInvoiceListRow, formatMoney, vendorInvoiceDateErrors, vendorInvoiceFilterActive,
   vendorInvoiceFolderNodes,
@@ -36,6 +41,9 @@ export const VENDOR_LIST_FILTER_DEBOUNCE_MS = 150;
 
 export interface VendorInvoiceDocumentListProps {
   testID?: string;
+  /** the documents of ONE task / task line (route params taskGUID / taskLineGUID; menu "Go to → Vendor invoices"): a chip says so, its x shows all the documents */
+  taskGUID?: string | null;
+  taskLineGUID?: string | null;
 }
 
 /** the select of a filter: the label is its placeholder (like the inputs next to it) and a clear (x) icon INSIDE the field empties it */
@@ -47,7 +55,7 @@ function FilterSelect({ testID, label, items, value, onSelect, width = 190 }: { 
   );
 }
 
-export default function VendorInvoiceDocumentList({ testID = 'vendor-list' }: VendorInvoiceDocumentListProps) {
+export default function VendorInvoiceDocumentList({ testID = 'vendor-list', taskGUID, taskLineGUID }: VendorInvoiceDocumentListProps) {
   const { themeColors: c } = useDesignSystem();
   const router = useRouter();
   const legal = useLegalEntityData(true);
@@ -68,7 +76,8 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list' }: Ve
     timer.current = setTimeout(() => setApplied(next), VENDOR_LIST_FILTER_DEBOUNCE_MS);
   };
   const errors = vendorInvoiceDateErrors(draft);
-  const list = useVendorInvoiceList(applied, 1000);
+  const taskScope = useTaskScope({ taskGUID: taskGUID || '', taskLineGUID: taskLineGUID || '' });
+  const list = useVendorInvoiceList(applied, 1000, taskScopeToRpc(taskScope.scope));
   const [hint, setHint] = useState(false);
   const [folder, setFolder] = useState<string>(TREE_ALL_ID);
 
@@ -76,6 +85,9 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list' }: Ve
   const byGuid = useMemo(() => new Map<string, VendorInvoiceListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
   const columns = useMemo(() => vendorInvoiceListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
+  // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
+  const resolveTask = useCallback((row: { rowGUID: string }) => ({ taskGUID: byGuid.get(row.rowGUID)?.taskGUID, projectGUID: byGuid.get(row.rowGUID)?.projectGUID }), [byGuid]);
+  const rowMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
   // the tree: legal entity → vendor, of the documents that exist
   const nodes = useMemo(() => vendorInvoiceFolderNodes(list.answer.rows), [list.answer.rows]);
   const foldersTree = useMemo(() => ({ nodes, folderTarget: 'rowJSON' as const, folderField: 'vendorInvoiceFolder', noFolderValue: '', onRowsDrop: () => {} }), [nodes]);
@@ -108,6 +120,8 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list' }: Ve
         )}
         <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" onPress={list.refetch} />
       </View>
+
+      <TaskScopeChip testID={`${testID}-scope`} scope={taskScope.scope} taskName={taskScope.taskName} onClear={taskScope.clear} />
 
       {/* the quick filters: every column that is not a number */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters} testID={`${testID}-filters`}>
@@ -146,9 +160,10 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list' }: Ve
           visualColumns={columns}
           rowFilter={rowFilter}
           reorderEnabled={false}
+          extraMenuItems={rowMenu}
           onAdd={() => setHint(true)}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: VENDOR_INVOICE_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
-          emptyText={list.isLoading ? pmT('Loading…') : vendorInvoiceFilterActive(applied) ? pmT('No vendor invoice matches the filters.') : pmT('No vendor invoices yet. Right-click a line of a task → Vendor Invoice.')}
+          emptyText={list.isLoading ? pmT('Loading…') : vendorInvoiceFilterActive(applied) || taskScope.active ? pmT('No vendor invoice matches the filters.') : pmT('No vendor invoices yet. Right-click a line of a task → Vendor Invoice.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}
           uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 240 }}
         />

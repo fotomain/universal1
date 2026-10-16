@@ -24,6 +24,8 @@ import IconApp from '../../../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
+import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
+import { PM_WIDE_ACTION_HEIGHT, PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { todayISO } from '../../../../catalog/currency/exchange/currencyExchangeModel';
 import { formatDateISO } from '../../project/scheduling';
 import ReusableTable from '../../../../ui/components/table/reusable/ReusableTable';
@@ -49,6 +51,7 @@ import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managemen
 import { copyLineGUID } from './copyLineGuid';
 import { pickedLine, usePMPicker } from '../../project/pick/pmPickerContext';
 import { useOpenFactInput } from '../../../../documents/fact/input/useOpenFactInput';
+import { useTaskRelatedMenu } from '../useTaskRelatedMenu';
 import { useStartVendorInvoice } from '../../../../documents/vendor/invoice/useVendorInvoice';
 import VendorInvoiceScopeModal from '../../../../documents/vendor/invoice/VendorInvoiceScopeModal';
 import { vendorInvoiceLinesOfScope } from '../../../../documents/vendor/invoice/vendorInvoiceModel';
@@ -79,8 +82,11 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
   const openFactInput = useOpenFactInput();
+  const relatedMenu = useTaskRelatedMenu();
   // picker mode (view/project/pick): "Select this line" in the row menu (and a click on a read only cell) answers with the line
   const picker = usePMPicker();
+  // line mode: the table's check boxes choose the line for the button "Select this line" (the row menu item does the same for one row)
+  const [checkedLines, setCheckedLines] = useState<string[]>([]);
   const pickLine = picker?.mode === 'line' ? (row: ReusableTableRow) => picker.onPick(pickedLine(projectGUID, taskGUID, row.rowGUID, String(row.rowParentGUID ?? ''))) : undefined;
   const { start: startVendorInvoice, busy: vendorInvoiceBusy } = useStartVendorInvoice();
   const { start: startPurchaseOrder, busy: purchaseOrderBusy } = useStartPurchaseOrder();
@@ -271,10 +277,32 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
           ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-purchase-order-${row.rowGUID}`, label: pmT('Purchase Order'), icon: 'shopping_cart', onPress: () => { close(); setPurchaseOrderLine(row.rowGUID); } }] : []),
           // the GUID of the line (task_line_table) on the clipboard: to paste into a multi project vendor invoice / purchase order line
           { testID: `${testID}-copy-guid-${row.rowGUID}`, label: pmT('Copy line GUID'), icon: 'fingerprint', onPress: () => { close(); void copyLineGUID(row.rowGUID, dispatch); } },
+          // the submenus "Create based on this" and "Go to" for THIS line (the lists open filtered for the task line) - useTaskRelatedMenu
+          ...relatedMenu({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus, idPrefix: `${testID}-line-${row.rowGUID}`, close, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(row.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(row.rowGUID) }),
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}
-        toolbarExtra={fxOn ? (
-          <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} />
+        onSelectionChange={pickLine ? setCheckedLines : undefined}
+        toolbarExtra={fxOn || pickLine ? (
+          <>
+            {/* picker (a line is wanted): the button says what it does; one line must be checked (or marked) - the same size as "Select this task" */}
+            {pickLine ? (
+              <PMDialogButton
+                testID={`${testID}-pick-checked`}
+                kind="primary"
+                icon="task_alt"
+                title={pmT('Select this line')}
+                width={PM_WIDE_ACTION_WIDTH}
+                height={PM_WIDE_ACTION_HEIGHT}
+                disabled={!(checkedLines.length === 1 || (checkedLines.length === 0 && focusLine))}
+                onPress={() => {
+                  const guid = checkedLines.length === 1 ? checkedLines[0] : focusLine;
+                  const row = taskLines.find((l) => l.rowGUID === guid);
+                  if (row) pickLine(row as any);
+                }}
+              />
+            ) : null}
+            {fxOn ? <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} /> : null}
+          </>
         ) : undefined}
         realtime
       />

@@ -11,6 +11,8 @@ The user records what really happened on a task in a **document**. Right button 
 | `project_status_movements` | the **register**: a posted document writes its lines as `used` movements (post / unpost: the same transaction); `qtyProjectStatus` is the quantity |
 | `project_status_month_turnover` | (was `task_line_fact_for_monitor01`) the register summed per task × genus × role × unit × month, made by the Monitor01 worker (pg_cron) - read only |
 
+**Task menus**: "Create based on this → Fact input" and "Go to → Fact input" (Task menu and line menu of the Finances table). "Go to" opens `/pm/fact/list?taskGUID=…[&taskLineGUID=…]`: a chip (Task: …, x clears it) and `task_fact_document_list` with `taskGUID` / `taskLineGUID` (a line key lists the strong documents that have that task line and the free-input documents of its task). See `kit8/documents/taskScope/README.md`.
+
 ## Rules (SQL: triggers + RLS; the TypeScript twins are in `factInputModel.ts`)
 * `task_fact_document_create(task)`: **all the lines of `task_line_table` of the task go to the new document**. `qtyForContract` starts as the quantity of the task line.
 * Project setting **`factStrongInputByTaskLine`** (Project settings → Budgets → Main; false by default), copied into the header when the document is made:

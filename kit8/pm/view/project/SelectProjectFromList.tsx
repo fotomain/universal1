@@ -57,6 +57,14 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
     inputRef.current?.blur();
   };
 
+  /** the LAST item of the dropdown: the "New project" window of the project bar (PMRecentProjectsToolbar answers the request 'new') */
+  const createNew = () => {
+    setFilter('');
+    setOpen(false);
+    inputRef.current?.blur();
+    usePMStore.getState().openProjectSettings('new');
+  };
+
   const onChange = (t: string) => {
     setText(t);
     setFilter(t);
@@ -116,6 +124,7 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
           {search.isFetching && !results.length ? (
             <ActivityIndicatorCircleApp style={{ padding: 12 }} size="small" color={c.primary} />
           ) : (
+            <>
             <FlatList
               data={results}
               keyExtractor={(p) => p.rowGUID}
@@ -140,6 +149,16 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
               )}
               ListEmptyComponent={<Text style={[styles.empty, { color: c.text }]}>{filter ? 'No matching project' : 'No projects yet'}</Text>}
             />
+            <Pressable
+              testID="pm-project-search-create"
+              accessibilityRole="button"
+              onPress={createNew}
+              style={({ hovered, pressed }: any) => [styles.item, styles.create, { borderTopColor: c.border, backgroundColor: hovered || pressed ? `${c.primary}14` : 'transparent' }]}
+            >
+              <IconApp name="add" size={16} color={c.primary} />
+              <Text style={{ color: c.primary, fontWeight: '700', marginLeft: 8 }}>{pmT('Create new')}</Text>
+            </Pressable>
+            </>
           )}
         </View>
       )}
@@ -168,5 +187,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9 },
+  create: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2 },
   empty: { padding: 12, opacity: 0.6, textAlign: 'center' },
 });

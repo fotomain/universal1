@@ -383,6 +383,8 @@ export interface ReusableTableProps {
   computeRowJSON?: (rowJSON: Record<string, any>, row: ReusableTableRow) => Record<string, any> | null | undefined;
   /** more buttons in the bar, after the CRUD panel */
   toolbarExtra?: ReactNode;
+  /** the checked rows changed (the guids of the rows of this table that are checked) */
+  onSelectionChange?: (guids: string[]) => void;
   /**
    * A Post button as the FIRST element of the toolbar (default false; true for the task line table, kit8/pm/view/task/finances): the icon always,
    * the text ("Post" · "Posted" · "Post needed") only on a wide window. The table posts nothing itself: `onPost` does.

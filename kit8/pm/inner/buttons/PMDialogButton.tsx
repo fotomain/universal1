@@ -19,6 +19,7 @@ export function PMDialogButton({
   color,
   width,
   minWidth,
+  height,
   style,
 }: {
   title: string;
@@ -33,6 +34,8 @@ export function PMDialogButton({
   width?: number;
   /** buttons of one group with the same minWidth are equal in size */
   minWidth?: number;
+  /** fixed height (e.g. PM_WIDE_ACTION_HEIGHT: the same as the other buttons of the bar) */
+  height?: number;
   style?: any;
 }) {
   const variant = kind === 'primary' || kind === 'dangerContained' ? 'contained' : kind === 'secondary' || kind === 'dangerOutlined' ? 'outlined' : 'text';
@@ -50,6 +53,7 @@ export function PMDialogButton({
       size="small"
       width={width}
       minWidth={minWidth}
+      height={height}
       style={[{ marginVertical: 0, marginLeft: 8 }, style]}
     />
   );

@@ -45,6 +45,11 @@ SELECT tt.eq((SELECT r->>'strongInput' FROM jsonb_array_elements(:'l0'::jsonb->'
 SELECT tt.eq((SELECT r->>'documentStatus' FROM jsonb_array_elements(:'l0'::jsonb->'rows') r WHERE r->>'documentGUID' = :'d1'), 'posted', 'documentStatus');
 SELECT tt.eq((SELECT r->>'unpostedAt' IS NULL FROM jsonb_array_elements(:'l0'::jsonb->'rows') r WHERE r->>'documentGUID' = :'d1'), true, 'unpostedAt is empty until an Unpost');
 SELECT tt.eq((SELECT count(*) FROM jsonb_array_elements(public.task_fact_document_list(jsonb_build_object('taskGUID', :'ta1'))->'rows')), 1::bigint, 'taskGUID: the documents of ONE task (the form opens with it)');
+-- the menu "Go to -> Fact input" of a task line: taskLineGUID (the document has a line made from it)
+SELECT tt.eq((public.task_fact_document_list('{"taskLineGUID":"aaaaaaaa-0000-0000-0000-0000000000a1"}')->'rows'->0->>'documentGUID'), :'d1', 'taskLineGUID: a FREE input document is listed for the lines of its task');
+SELECT tt.eq((public.task_fact_document_list('{"taskLineGUID":"aaaaaaaa-0000-0000-0000-0000000000a3"}')->'rows'->0->>'documentGUID'), :'d2', '... and the document of the other task');
+SELECT tt.eq((public.task_fact_document_list('{"taskLineGUID":"aaaaaaaa-0000-0000-0000-0000000000a4"}')->>'totalCount')::int, 0, '... a line of another organization: nothing');
+SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('taskGUID', :'ta1', 'taskLineGUID', 'aaaaaaaa-0000-0000-0000-0000000000a3'))->>'totalCount')::int, 0, '... task AND task line are both applied (a3 is a line of the other task)');
 
 -- the fast filters
 SELECT tt.eq((public.task_fact_document_list('{"fromDay":"2026-11-01"}')->>'totalCount')::int, 1, 'factTimelinePeriod from: only the document with a line from 2026-11-01');
@@ -68,4 +73,10 @@ SELECT tt.eq((public.task_fact_document_list()->>'totalCount')::int, 1, 'marko s
 SELECT tt.eq(public.task_fact_document_list()->'rows'->0->>'documentGUID', :'dm', '... his');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.fails($q$SELECT public.task_fact_document_list('{"fromDay":"not a date"}')$q$, 'invalid input syntax', 'a bad date is refused');
+-- STRONG input: the lines of the document carry the task line GUIDs; the filter lists the strong document of that line AND the free documents of the task
+UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"factStrongInputByTaskLine": true}'::jsonb WHERE "rowGUID" = :'pa2';
+SELECT public.task_fact_document_create(:'ta2') AS d3 \gset
+SELECT tt.eq((SELECT count(*) FROM public.task_fact_usage_timeline WHERE "rowHeaderGUID" = :'d3' AND "taskLineGUID" = 'aaaaaaaa-0000-0000-0000-0000000000a3'), 1::bigint, 'strong input: the line of the new document carries the task line GUID');
+SELECT tt.eq((public.task_fact_document_list('{"taskLineGUID":"aaaaaaaa-0000-0000-0000-0000000000a3"}')->>'totalCount')::int, 2, 'taskLineGUID: the strong document AND the free document of the task');
+SELECT tt.eq((public.task_fact_document_list('{"taskLineGUID":"aaaaaaaa-0000-0000-0000-0000000000a1"}')->>'totalCount')::int, 1, '... the other task still lists only its own document');
 ROLLBACK;

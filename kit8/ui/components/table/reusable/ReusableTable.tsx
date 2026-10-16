@@ -82,7 +82,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, onAdd, onRowOpen, openLabel, uxuiTable,
     selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
-    emptyText, testID = 'reusable-table', toolbarExtra, EditRowModalCard,
+    emptyText, testID = 'reusable-table', toolbarExtra, onSelectionChange, EditRowModalCard,
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
   const dispatch = useDispatch();
@@ -271,6 +271,8 @@ export default function ReusableTable(props: ReusableTableProps) {
 
   // ---- selection ----
   const selectedHere = selected.filter((id) => rows.some((r) => r.rowGUID === id));
+  const selectedKey = selectedHere.join('|');
+  useEffect(() => { onSelectionChange?.(selectedHere); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const allSelected = visible.length > 0 && visible.every((r) => selectedHere.includes(r.rowGUID));
   /** some rows of the view are selected, not all: the header check box is marked with − */
   const someSelected = !allSelected && visible.some((r) => selectedHere.includes(r.rowGUID));

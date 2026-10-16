@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -25,6 +26,9 @@ import { PARTNER_ENTITY, PARTNER_READ_PARAMS } from '../../../catalog/partner/pa
 import { useLegalEntityData } from '../../../catalog/legal_entity/useLegalEntityData';
 import { legalEntityTitle } from '../../../catalog/legal_entity/legalEntityModel';
 import { pmT } from '../../../pm/i18n/pmT';
+import TaskScopeChip from '../../taskScope/TaskScopeChip';
+import { useTaskScope } from '../../taskScope/useTaskScope';
+import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
 import {
   EMPTY_PURCHASE_ORDER_FILTER, PURCHASE_ORDER_HEADER_ENTITY, PURCHASE_ORDER_ROUTE, PurchaseOrderListFilter, PurchaseOrderListRow, formatMoney, purchaseOrderDateErrors, purchaseOrderFilterActive,
   purchaseOrderFolderNodes,
@@ -36,6 +40,9 @@ export const VENDOR_LIST_FILTER_DEBOUNCE_MS = 150;
 
 export interface PMPurchaseOrderDocumentListProps {
   testID?: string;
+  /** the documents of ONE task / task line (route params taskGUID / taskLineGUID; menu "Go to → Purchase orders"): a chip says so, its x shows all the documents */
+  taskGUID?: string | null;
+  taskLineGUID?: string | null;
 }
 
 /** the select of a filter: the label is its placeholder (like the inputs next to it) and a clear (x) icon INSIDE the field empties it */
@@ -47,7 +54,7 @@ function FilterSelect({ testID, label, items, value, onSelect, width = 190 }: { 
   );
 }
 
-export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list' }: PMPurchaseOrderDocumentListProps) {
+export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list', taskGUID, taskLineGUID }: PMPurchaseOrderDocumentListProps) {
   const { themeColors: c } = useDesignSystem();
   const router = useRouter();
   const legal = useLegalEntityData(true);
@@ -68,7 +75,8 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list' }: 
     timer.current = setTimeout(() => setApplied(next), VENDOR_LIST_FILTER_DEBOUNCE_MS);
   };
   const errors = purchaseOrderDateErrors(draft);
-  const list = usePurchaseOrderList(applied, 1000);
+  const taskScope = useTaskScope({ taskGUID: taskGUID || '', taskLineGUID: taskLineGUID || '' });
+  const list = usePurchaseOrderList(applied, 1000, taskScopeToRpc(taskScope.scope));
   const [hint, setHint] = useState(false);
   const [folder, setFolder] = useState<string>(TREE_ALL_ID);
 
@@ -76,6 +84,9 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list' }: 
   const byGuid = useMemo(() => new Map<string, PurchaseOrderListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
   const columns = useMemo(() => purchaseOrderListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
+  // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
+  const resolveTask = useCallback((row: { rowGUID: string }) => ({ taskGUID: byGuid.get(row.rowGUID)?.taskGUID, projectGUID: byGuid.get(row.rowGUID)?.projectGUID }), [byGuid]);
+  const rowMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
   // the tree: legal entity → vendor, of the documents that exist
   const nodes = useMemo(() => purchaseOrderFolderNodes(list.answer.rows), [list.answer.rows]);
   const foldersTree = useMemo(() => ({ nodes, folderTarget: 'rowJSON' as const, folderField: 'purchaseOrderFolder', noFolderValue: '', onRowsDrop: () => {} }), [nodes]);
@@ -108,6 +119,8 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list' }: 
         )}
         <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" onPress={list.refetch} />
       </View>
+
+      <TaskScopeChip testID={`${testID}-scope`} scope={taskScope.scope} taskName={taskScope.taskName} onClear={taskScope.clear} />
 
       {/* the quick filters: every column that is not a number */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters} testID={`${testID}-filters`}>
@@ -146,9 +159,10 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list' }: 
           visualColumns={columns}
           rowFilter={rowFilter}
           reorderEnabled={false}
+          extraMenuItems={rowMenu}
           onAdd={() => setHint(true)}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: PURCHASE_ORDER_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
-          emptyText={list.isLoading ? pmT('Loading…') : purchaseOrderFilterActive(applied) ? pmT('No purchase order matches the filters.') : pmT('No purchase orders yet. Right-click a line of a task → Purchase Order.')}
+          emptyText={list.isLoading ? pmT('Loading…') : purchaseOrderFilterActive(applied) || taskScope.active ? pmT('No purchase order matches the filters.') : pmT('No purchase orders yet. Right-click a line of a task → Purchase Order.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}
           uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 240 }}
         />

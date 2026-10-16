@@ -73,6 +73,8 @@ const ALIAS_MAP: Record<string, string> = {
     microphone: 'mic',
     video: 'videocam',
     assessment: 'analytics',
+    add_circle_outline: 'add_circle',
+    'add-circle-outline': 'add_circle',
 
     'cloud-upload-outline': 'cloud_upload',
     'cloud-upload': 'cloud_upload',

@@ -37,6 +37,26 @@ export function parseDashboardLink(params: Record<string, unknown> | null | unde
   return { projectGUID, taskGUID, ...(genus ? { genus } : {}), ...(lineGUID ? { lineGUID } : {}), key: dashboardLinkQuery({ projectGUID, taskGUID, genus, lineGUID }) };
 }
 
+// ---- a link to a PROJECT only (no task): /pm/project/dashboard?projectGUID=… - the dashboard selects the project (menu "Go to → Subproject", "Create based on this → Subproject") ----
+export const dashboardProjectPath = (projectGUID: string): string => `${DASHBOARD_ROUTE}?projectGUID=${encodeURIComponent(projectGUID)}`;
+/** the project of a link that has NO taskGUID (a link with a task is parseDashboardLink's); null otherwise */
+export function parseDashboardProjectLink(params: Record<string, unknown> | null | undefined): string | null {
+  if (clean(params?.taskGUID, 64)) return null;
+  return clean(params?.projectGUID, 64) ?? null;
+}
+/** the project's board in a browser tab of its own (web) or in this app (iOS / Android). `target` = a tab opened by the click (openBlankWindow) and pointed at the board now */
+export function openProjectBoard(projectGUID: string, router: { push: (to: any) => void }, target?: Window | null): void {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      if (target) { target.location.href = dashboardProjectPath(projectGUID); return; }
+      if (window.open(dashboardProjectPath(projectGUID), '_blank')) return;
+    } catch {
+      // the browser blocked the new tab: the same window below
+    }
+  }
+  router.push({ pathname: DASHBOARD_ROUTE, params: { projectGUID } } as any);
+}
+
 /** web: a browser tab of its own; iOS / Android: the dashboard route in this app (its params are applied by useDashboardDeepLink) */
 export function openDashboardLink(link: DashboardLink, router: { push: (to: any) => void }): void {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {

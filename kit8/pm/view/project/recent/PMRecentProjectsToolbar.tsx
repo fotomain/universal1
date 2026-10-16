@@ -77,6 +77,10 @@ import PMContextMenu from "../../../inner/menu/PMContextMenu";
 import { usePMVersionStore } from "../../../version/store/store_version";
 import { useUxuiCurrentJSON } from "../../../../redux/useUxuiCurrentJSON";
 import ShareScreenshotButton from "../../../../ui/components/common/ShareScreenshotButton";
+import { useMyOrganization } from "../../../../catalog/organization/useMyOrganization";
+import { defaultProjectSettingsOf, newProjectPatchFrom } from "../../../../catalog/organization/defaultProjectSettings";
+import { appDispatch } from "../../../../redux/storeRef";
+import { showSnackbar } from "../../../../redux/uxuiSlice";
 
 export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabSubprojects' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
@@ -127,6 +131,8 @@ export default function PMRecentProjectsToolbar({
 
   // the business units (kit8/catalog/business_unit): a new project gets its four centers, and cannot be saved without them
   const units = useBusinessUnitData(true);
+  // the organization of the user: its defaultProjectSettings start every NEW project; the three dots menu of the settings window saves into them
+  const organization = useMyOrganization();
   const buildRow = useBuildProjectRow(ownerGUID);
   const createProject = useCreateProjectMutation(ownerGUID);
   const updateProject = useUpdateProjectMutation(ownerGUID);
@@ -143,6 +149,8 @@ export default function PMRecentProjectsToolbar({
   const [budgetsSubTab, setBudgetsSubTab] = useState<BudgetsSubTab>('TabBudgetsMain');
   /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
+  /** three dots menu of the Project settings window (position of the button) */
+  const [settingsMenuCoords, setSettingsMenuCoords] = useState<{ x: number; y: number } | null>(null);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [createFromTemplateOpen, setCreateFromTemplateOpen] = useState(false);
   const addBtnRef = useRef<View>(null);
@@ -164,8 +172,25 @@ export default function PMRecentProjectsToolbar({
   };
 
   useEffect(() => {
-    if (!draft) setKanbanStagesOpen(false);
+    if (!draft) {
+      setKanbanStagesOpen(false);
+      setSettingsMenuCoords(null);
+    }
   }, [draft]);
+
+  /** "Save settings to organization": the values of the open window become rowJSON.defaultProjectSettings of the user's organization */
+  const saveSettingsToOrganization = async () => {
+    setSettingsMenuCoords(null);
+    if (!draft) return;
+    const r = await organization.saveDefaultProjectSettings(defaultProjectSettingsOf(draft));
+    appDispatch(
+      showSnackbar(
+        r.ok
+          ? pmT('The settings are saved to your organization: new projects start with them.')
+          : pmT('The settings are not saved to the organization: {{error}}', { error: r.error }),
+      ),
+    );
+  };
   const selected = selectedProjectGUID
     ? projectsById[selectedProjectGUID]
     : undefined;
@@ -251,6 +276,8 @@ export default function PMRecentProjectsToolbar({
       ...subprojectValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
+      // the default settings of the organization (Organization edit -> Projects -> Settings; nothing while it never saved them)
+      ...newProjectPatchFrom(organization.defaults),
       projectBusinessUnitsRequired: true,
     });
   };
@@ -702,6 +729,23 @@ export default function PMRecentProjectsToolbar({
                   {draft?.rowGUID ? "Project settings" : "New project"}
                 </Text>
                 <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} />
+                <Pressable
+                  testID="pm-project-settings-menu"
+                  accessibilityRole="button"
+                  accessibilityLabel={pmT('More')}
+                  hitSlop={6}
+                  style={{ padding: 6 }}
+                  onPress={(e: any) => {
+                    const rect = e?.currentTarget?.getBoundingClientRect?.();
+                    const px = e?.nativeEvent?.pageX ?? e?.pageX;
+                    const py = e?.nativeEvent?.pageY ?? e?.pageY;
+                    setSettingsMenuCoords(
+                      rect ? { x: rect.right - 240, y: rect.bottom + 4 } : { x: Math.max(8, (px ?? win.width - 24) - 240), y: (py ?? 40) + 8 },
+                    );
+                  }}
+                >
+                  <IconApp testID="pm-project-settings-menu-icon" name="more_vert" size={20} color={themeColors.text} />
+                </Pressable>
               </View>
 
               {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
@@ -1121,6 +1165,25 @@ export default function PMRecentProjectsToolbar({
             </View>
           </View>
           {/* inside the settings Modal: iOS presents a modal only from the top-most one */}
+          {!!settingsMenuCoords && (
+            <PMContextMenu
+              testID="pm-project-settings-menu-popup"
+              caption={pmT('Project settings')}
+              x={settingsMenuCoords.x}
+              y={settingsMenuCoords.y}
+              width={240}
+              onClose={() => setSettingsMenuCoords(null)}
+              items={[
+                {
+                  testID: "pm-project-settings-save-to-organization",
+                  label: "Save settings to organization",
+                  icon: "domain",
+                  disabled: !organization.organizationGUID,
+                  onPress: saveSettingsToOrganization,
+                },
+              ]}
+            />
+          )}
           <PMKanbanStagesModalWindow
             projectGUID={draft?.rowGUID ?? null}
             projectName={draft?.name}

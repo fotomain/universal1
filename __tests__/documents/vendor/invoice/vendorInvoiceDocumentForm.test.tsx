@@ -8,6 +8,9 @@ const mockDoc: Record<string, any> = {};
 const mockPlaces: Record<string, any> = {};
 // the project tree window carries the whole dashboard (Skia): a fake that shows what it was asked
 const mockPicker = jest.fn();
+// the Task context menu items of a line have their own test (lineplace/useDocumentLineMenu.test.tsx): here the table only has to receive them
+const mockLineMenu = jest.fn(() => []);
+jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => mockLineMenu }));
 jest.mock('../../../../kit8/pm/view/project/pick/PMProjectPickerModal', () => ({ __esModule: true, default: (p: any) => { mockPicker(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
 jest.mock('../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useVendorInvoiceDocuments: () => mockDoc, useVendorInvoiceLinePlaces: () => mockPlaces }));
 jest.mock('../../../../kit8/pm/view/task/finances/useTaskLineCatalogs', () => ({ useTaskLineCatalogs: () => require('../../../../kit8/pm/view/task/finances/taskLineCatalogs').emptyTaskLineCatalogs() }));
@@ -256,6 +259,7 @@ describe('the table of the lines', () => {
     setDoc([header('d1')]);
     renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
     expect(lastTable()).toMatchObject({ crudPanelEnabled: true, contextMenuEnabled: true, selectionEnabled: true });
+    expect(lastTable().extraMenuItems).toBe(mockLineMenu); // the Task context menu items of a line
     const editable = lastTable().visualColumns.filter((c: any) => c.editable === true).map((c: any) => c.key);
     expect(editable).toEqual(['qty', 'price', 'vat']);
   });

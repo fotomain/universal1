@@ -133,3 +133,44 @@ describe('a click on a row of the source window', () => {
     expect(q('sum-explorer-row-m1')!.getAttribute('role')).not.toBe('link');
   });
 });
+
+describe('a link to a PROJECT only (the board of a subproject: menu "Go to → Subproject")', () => {
+  const { dashboardProjectPath, openProjectBoard, parseDashboardProjectLink } = require('../../../../kit8/pm/view/project/dashboardDeepLink');
+  it('path and parse: a project, no task', () => {
+    expect(dashboardProjectPath(P)).toBe(`${DASHBOARD_ROUTE}?projectGUID=${P}`);
+    expect(parseDashboardProjectLink({ projectGUID: P })).toBe(P);
+    expect(parseDashboardProjectLink({ projectGUID: [P] })).toBe(P);
+    expect(parseDashboardProjectLink({ projectGUID: P, taskGUID: T })).toBeNull();      // a link with a task is parseDashboardLink's
+    expect(parseDashboardProjectLink({})).toBeNull();
+  });
+  it('web: a browser tab of its own (or the tab opened by the click); native: the route of this app', () => {
+    const push = jest.fn();
+    const orig = Platform.OS;
+    (Platform as any).OS = 'web';
+    const open = jest.spyOn(window, 'open').mockReturnValue({} as any);
+    openProjectBoard(P, { push });
+    expect(open).toHaveBeenCalledWith(`${DASHBOARD_ROUTE}?projectGUID=${P}`, '_blank');
+    expect(push).not.toHaveBeenCalled();
+    const tab: any = { location: { href: '' } };
+    openProjectBoard(P, { push }, tab);
+    expect(tab.location.href).toBe(`${DASHBOARD_ROUTE}?projectGUID=${P}`);
+    open.mockReturnValue(null);
+    openProjectBoard(P, { push });                                                      // blocked: this window
+    expect(push).toHaveBeenCalledWith({ pathname: DASHBOARD_ROUTE, params: { projectGUID: P } });
+    (Platform as any).OS = 'ios';
+    push.mockClear();
+    openProjectBoard(P, { push });
+    expect(push).toHaveBeenCalledWith({ pathname: DASHBOARD_ROUTE, params: { projectGUID: P } });
+    (Platform as any).OS = orig;
+    open.mockRestore();
+  });
+  it('the dashboard selects the project of such a link and puts it among the recent ones', () => {
+    const { demo } = seedStore();
+    const other = demo.projects[1].rowGUID;
+    act(() => usePMStore.getState().selectProject(demo.projects[0].rowGUID));
+    mockParams.projectGUID = other;
+    function Probe() { useDashboardDeepLink('owner', true); return null; }
+    renderUI(<Probe />);
+    expect(usePMStore.getState().selectedProjectGUID).toBe(other);
+  });
+});

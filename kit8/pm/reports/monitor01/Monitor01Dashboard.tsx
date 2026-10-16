@@ -207,7 +207,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <IconApp name="monitoring" size={20} color={c.primary} />
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
-        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} busy={refreshSince !== null} />
+        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null} busy={refreshSince !== null} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
@@ -221,7 +221,6 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
       <View style={styles.filters}>
         <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={applyFilters} showProject={mode === 'standalone'} projectItems={projectItems} taskItems={taskItems} resourceItems={resourceItems} />
-        {subKind.show && <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} />}
       </View>
 
       <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
@@ -261,7 +260,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 }
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  bar: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   age: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   filters: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },

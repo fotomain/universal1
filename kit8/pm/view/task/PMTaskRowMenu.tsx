@@ -11,6 +11,7 @@ import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput
 import { useStartVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
 import { useStartPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
+import { useTaskRelatedMenu } from './useTaskRelatedMenu';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
@@ -19,6 +20,7 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const openFactInput = useOpenFactInput();
   const { start: startVendorInvoice } = useStartVendorInvoice();
   const { start: startPurchaseOrder } = useStartPurchaseOrder();
+  const related = useTaskRelatedMenu();
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -48,6 +50,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [] : [{ testID: id('vendor-invoice'), label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => { void startVendorInvoice({ taskGUID: guid }); }) }]),
     // right after "Vendor Invoice": the same for a PURCHASE ORDER (kit8/documents/vendor/purchase_order)
     ...(isSummary ? [] : [{ testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID: guid }); }) }]),
+    // right before "Delete": the submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (the document lists of the task · the subproject) - useTaskRelatedMenu
+    ...related({ taskGUID: guid, projectGUID: task.projectGUID, idPrefix: 'pm-row-menu', close }),
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 

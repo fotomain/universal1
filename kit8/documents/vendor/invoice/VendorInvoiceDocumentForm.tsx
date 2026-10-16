@@ -33,6 +33,7 @@ import { parseDayInput } from '../../fact/input/factInputModel';
 import ModalWindowListToSelect from '../../../ui/components/common/ModalWindowListToSelect';
 import type { PMPickedPlace } from '../../../pm/view/project/pick/pmPickerContext';
 import { extractGUID, placeChange, placesSignature } from '../lineplace/linePlaceModel';
+import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import type { PlaceField } from '../lineplace/linePlaceModel';
 import { pmT } from '../../../pm/i18n/pmT';
 import { buildVendorInvoiceColumns } from './vendorInvoiceColumns';
@@ -56,6 +57,8 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
   const { themeColors: c } = useDesignSystem();
   const data = useTaskLineCatalogs(true);
   const doc = useVendorInvoiceDocuments(documents);
+  // the Task context menu items on a line (Open task, Facts input, Vendor Invoice, Purchase Order, Copy GUID ...)
+  const lineMenu = useDocumentLineMenu(`${testID}-lines`);
   const [selected, setSelected] = useState<string>(documents[0] ?? '');
   const [tab, setTab] = useState<string>(VENDOR_INVOICE_ALL_TAB);
   const [problems, setProblems] = useState<VendorInvoicePostProblem[]>([]);
@@ -331,6 +334,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
             onAdd={independent ? () => { void doc.addLine(header.guid, VENDOR_INVOICE_TABS.find((t) => t.id === tab)?.genus ?? MANAGEMENT_GENUS.time); } : undefined}
             crudPanelEnabled={edit}
             contextMenuEnabled={edit}
+            extraMenuItems={lineMenu}
             selectionEnabled={edit}
             reorderEnabled={false}
             dragAndDropColumns

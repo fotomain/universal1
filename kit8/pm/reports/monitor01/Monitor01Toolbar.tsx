@@ -16,12 +16,14 @@ export interface Monitor01ToolbarProps {
   onRefresh: () => void;
   onExpandAll?: () => void;
   onCollapseAll?: () => void;
+  /** shown after "Collapse all" (the Projects | Subprojects | All radio) */
+  extra?: React.ReactNode;
   /** a refresh is running */
   busy?: boolean;
   testID?: string;
 }
 
-export default function Monitor01Toolbar({ autoRefresh, onAutoRefreshChange, onRefresh, onExpandAll, onCollapseAll, busy = false, testID = 'monitor01-toolbar' }: Monitor01ToolbarProps) {
+export default function Monitor01Toolbar({ autoRefresh, onAutoRefreshChange, onRefresh, onExpandAll, onCollapseAll, extra, busy = false, testID = 'monitor01-toolbar' }: Monitor01ToolbarProps) {
   const { themeColors: c } = useDesignSystem();
   return (
     <View testID={testID} style={styles.row}>
@@ -32,6 +34,7 @@ export default function Monitor01Toolbar({ autoRefresh, onAutoRefreshChange, onR
       </View>
       {!!onExpandAll && <ButtonApp testID={`${testID}-expand`} title={pmT('Expand all')} icon="unfold_more" variant="text" size="small" onPress={onExpandAll} />}
       {!!onCollapseAll && <ButtonApp testID={`${testID}-collapse`} title={pmT('Collapse all')} icon="unfold_less" variant="text" size="small" onPress={onCollapseAll} />}
+      {extra}
     </View>
   );
 }

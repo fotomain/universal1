@@ -11,7 +11,8 @@ jest.mock('../../../../../kit8/ui/components/common/IconApp', () => {
   const { Text } = require('react-native');
   return { __esModule: true, default: ({ name, testID }: any) => R.createElement(Text, { testID }, name) };
 });
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), usePathname: () => '/pm/project/task', useGlobalSearchParams: () => ({}) }));
+const mockRouterPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockRouterPush }), usePathname: () => '/pm/project/task', useGlobalSearchParams: () => ({}) }));
 jest.mock('react-native-paper', () => ({ useTheme: () => ({ colors: { surfaceVariant: 'rgb(231, 224, 236)' } }) }));
 jest.mock('expo-crypto', () => { let n = 0; return { randomUUID: () => `new-${++n}` }; });
 // the error window of Post (ErrorModalWindow -> ButtonApp) needs reanimated, which has no native module in jest
@@ -683,6 +684,69 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     expect(require('expo-clipboard').setStringAsync).toHaveBeenCalledWith('fx1');
     expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'snackbar' }));
     expect(q(`${T}-copy-guid-fx1`)).toBeNull();      // the menu is closed
+  });
+
+  describe('the submenus "Create based on this" and "Go to" of a line (useTaskRelatedMenu), right before Delete', () => {
+    const idsNow = () => Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    const L = `${T}-line-fx1`;
+    it('both submenus come after the other commands and before Delete; each opens its items', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      const ids = idsNow().filter((i) => !/-(icon|more)$/.test(String(i)));
+      expect(ids.indexOf(`${L}-create`)).toBeGreaterThan(ids.indexOf(`${T}-copy-guid-fx1`));
+      expect(ids.indexOf(`${L}-goto`)).toBeGreaterThan(ids.indexOf(`${L}-create`));       // "Go to" right after "Create based on this"
+      expect(ids.indexOf(`${L}-goto`)).toBeLessThan(ids.findIndex((i) => /-menu-delete$/.test(String(i))));
+      press(`${L}-create`);
+      expect(idsNow()).toEqual(expect.arrayContaining([`${L}-create-fact`, `${L}-create-vendor-invoice`, `${L}-create-purchase-order`]));
+      expect(q(`${L}-create-subproject`)).toBeNull();       // the project switch subprojectsFunctionalityEnabled is off
+      press(`${L}-goto`);
+      expect(idsNow()).toEqual(expect.arrayContaining([`${L}-goto-vendor-invoices`, `${L}-goto-purchase-orders`, `${L}-goto-fact-input`]));
+      expect(q(`${L}-goto-subproject`)).toBeNull();         // the task is not a subproject
+    });
+    it('Create → Vendor Invoice asks this line / all the lines first (the same window as the flat item)', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-create`);
+      press(`${L}-create-vendor-invoice`);
+      expect(q(`${T}-vendor-scope`)).not.toBeNull();
+    });
+    it('Create → Purchase Order asks this line / all the lines first (the same window as the flat item)', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-create`);
+      press(`${L}-create-purchase-order`);
+      expect(q(`${T}-purchase-order-scope`)).not.toBeNull();
+    });
+    it('Go to → Purchase orders opens the list filtered for the TASK LINE', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-goto`);
+      press(`${L}-goto-purchase-orders`);
+      expect(mockRouterPush).toHaveBeenLastCalledWith({ pathname: '/pm/purchase-order/list', params: { taskGUID: 't1', taskLineGUID: 'fx1' } });
+    });
+    it('Go to → Vendor invoices / Fact input open the lists filtered for the TASK LINE', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-goto`);
+      press(`${L}-goto-vendor-invoices`);
+      expect(mockRouterPush).toHaveBeenLastCalledWith({ pathname: '/pm/vendor-invoice/list', params: { taskGUID: 't1', taskLineGUID: 'fx1' } });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-goto`);
+      press(`${L}-goto-fact-input`);
+      expect(mockRouterPush).toHaveBeenLastCalledWith({ pathname: '/pm/fact/list', params: { taskGUID: 't1', taskLineGUID: 'fx1' } });
+    });
+    it('with the project switch Subprojects on: Create → Subproject is there', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project: { ...project, subprojectsFunctionalityEnabled: true }, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      press(`${L}-create`);
+      expect(q(`${L}-create-subproject`)).not.toBeNull();
+    });
   });
 
   describe('picker mode (the project tree window of a multi project vendor invoice / purchase order)', () => {

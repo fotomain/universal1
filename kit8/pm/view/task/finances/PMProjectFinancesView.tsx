@@ -12,6 +12,7 @@ import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { PMDialogButton, PMTipIcon } from '../../../inner/buttons';
+import { PM_WIDE_ACTION_HEIGHT, PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { pickedTask, usePMPicker } from '../../project/pick/pmPickerContext';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { lastEditPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
@@ -64,7 +65,7 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
           </>
         )}
         {picker && task && selectedGUID ? (
-          <PMDialogButton testID="pm-finances-pick-task" kind="primary" icon="task_alt" title={pmT('Select this task')} onPress={() => picker.onPick(pickedTask(projectGUID, selectedGUID))} />
+          <PMDialogButton testID="pm-finances-pick-task" kind="primary" icon="task_alt" title={pmT('Select this task')} width={PM_WIDE_ACTION_WIDTH} height={PM_WIDE_ACTION_HEIGHT} onPress={() => picker.onPick(pickedTask(projectGUID, selectedGUID))} />
         ) : null}
       </PMToolbar>
 

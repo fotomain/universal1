@@ -150,6 +150,12 @@ SELECT tt.eq((public.purchase_order_list('{"fromDay": "2026-10-20", "toDay": "20
 SELECT tt.eq((public.purchase_order_list('{"legalEntityGUID": "le-2"}')->>'totalCount')::int, 3, 'filter: legal entity');
 SELECT tt.eq((public.purchase_order_list('{"author": "anna"}')->>'totalCount')::int, 3, 'filter: author (contains)');
 SELECT tt.eq(jsonb_array_length(public.purchase_order_list('{}', 2, 0)->'rows'), 2, 'paging: 2 of 3');
+-- the menu "Go to -> Purchase orders" of a task / a task line: taskGUID and taskLineGUID
+SELECT tt.eq((public.purchase_order_list(jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 3, 'filter: taskGUID = the task whose lines are ordered (3 documents)');
+SELECT tt.eq((public.purchase_order_list('{"taskGUID": "00000000-0000-0000-0000-00000000dead"}')->>'totalCount')::int, 0, 'filter: taskGUID of a task with no purchase order = nothing');
+SELECT tt.eq((public.purchase_order_list('{"taskLineGUID": "cccccccc-0000-0000-0000-000000000001"}')->'rows'->0->>'documentGUID'), :'d1', 'filter: taskLineGUID = the document that orders that line');
+SELECT tt.eq((public.purchase_order_list('{"taskLineGUID": "cccccccc-0000-0000-0000-000000000001"}')->>'totalCount')::int, 1, '... only that document');
+SELECT tt.eq((public.purchase_order_list('{"taskLineGUID": "00000000-0000-0000-0000-00000000dead"}')->>'totalCount')::int, 0, 'filter: taskLineGUID of a line nobody ordered = nothing');
 SELECT tt.eq((public.purchase_order_list(jsonb_build_object('documentGUIDs', jsonb_build_array(:'d1', :'d3')))->>'totalCount')::int, 2, 'filter: a list of document GUIDs (the tabs of the form)');
 
 -- 11. another organization sees nothing and may not post ------------------------------------------------------------------------------------------------------------

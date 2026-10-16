@@ -104,6 +104,28 @@ describe('useOpenFactInput - from anywhere a task GUID or a task line GUID is kn
     press('opener');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/fact', params: { taskGUID: 't1', projectGUID: 'p1', taskLineGUID: 'l1', genus: 'materialGenus', documentGUID: 'd1' } });
   });
+  it('newWindow on the web: a NEW browser window, not the router; a blocked window falls back to the router', () => {
+    const { Platform } = require('react-native');
+    const realOS = Platform.OS;
+    Platform.OS = 'web';
+    function NewWin() {
+      const open = useOpenFactInput();
+      return React.createElement('button', { 'data-testid': 'opener-new', onClick: () => open({ taskGUID: 't1', projectGUID: 'p1' }, { newWindow: true }) });
+    }
+    const openSpy = jest.spyOn(window, 'open').mockReturnValue({} as any);
+    try {
+      renderUI(<NewWin />);
+      press('opener-new');
+      expect(openSpy).toHaveBeenCalledWith('/pm/project/task/fact?taskGUID=t1&projectGUID=p1', '_blank');
+      expect(mockPush).not.toHaveBeenCalled();
+      openSpy.mockReturnValue(null);
+      press('opener-new');
+      expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/fact', params: { taskGUID: 't1', projectGUID: 'p1' } });
+    } finally {
+      openSpy.mockRestore();
+      Platform.OS = realOS;
+    }
+  });
   it('without a task GUID nothing is opened', () => {
     renderUI(<Opener params={{ taskGUID: '' }} />);
     press('opener');

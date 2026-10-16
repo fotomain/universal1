@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
 import { pmT } from '../../../pm/i18n/pmT';
+import { usePMTip } from '../../../pm/inner/tooltip/PMTooltip';
 import { LinePlace, PlaceField, placeCellText } from './linePlaceModel';
 
 export interface LinePlaceCellProps {
@@ -17,13 +18,22 @@ export interface LinePlaceCellProps {
   testID: string;
 }
 
+/** one small icon button with its tip (hover on web, long-press on touch; the 'app' layer of the root layout works on every screen) */
+function LinePlaceButton({ icon, label, onPress, testID }: { icon: string; label: string; onPress: () => void; testID: string }) {
+  const { themeColors: c } = useDesignSystem();
+  const tip = usePMTip(label, 'app');
+  return (
+    <Pressable {...tip} testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6} style={styles.btn}>
+      <IconApp name={icon} size={16} color={c.primary} />
+    </Pressable>
+  );
+}
+
 export default function LinePlaceCell({ field, place, editable, onPaste, onPick, onClear, testID }: LinePlaceCellProps) {
   const { themeColors: c } = useDesignSystem();
   const text = placeCellText(field, place);
   const button = (id: string, icon: string, label: string, onPress: () => void) => (
-    <Pressable key={id} testID={`${testID}-${id}`} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6} style={styles.btn}>
-      <IconApp name={icon} size={16} color={c.primary} />
-    </Pressable>
+    <LinePlaceButton key={id} testID={`${testID}-${id}`} icon={icon} label={label} onPress={onPress} />
   );
   return (
     <View style={styles.root} testID={testID}>

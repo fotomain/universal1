@@ -379,4 +379,23 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(usePMStore.getState().selectedProjectGUID).toBe(p2.rowGUID);
     expect(usePMStore.getState().recentProjectGUIDs).toContain(p2.rowGUID);
   });
+
+  it('SelectProjectFromList: "Create new" is the LAST item of the dropdown and opens the New project window', async () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    act(() => mustGet('pm-project-search').querySelector('input')?.focus() ?? (mustGet('pm-project-search') as HTMLInputElement).focus());
+    await wait(300);
+    const list = mustGet('pm-project-search-list');
+    const create = mustGet('pm-project-search-create');
+    // after every project row
+    const rows = qa('pm-project-search-item-').map((id) => mustGet(id));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(r.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.contains(create)).toBe(true);
+    expect(textOf('pm-project-search-create')).toContain('Create new');
+    act(() => press('pm-project-search-create'));
+    await act(async () => undefined);
+    expect(q('pm-project-settings-window')).not.toBeNull();
+    expect(q('pm-project-search-list')).toBeNull();
+  });
 });

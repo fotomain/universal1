@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,6 +27,17 @@ import { organizationOwnerOf } from './ensureUserOrganization';
 import { CAPACITY_MODES, CapacityMode, DEFAULT_CAPACITY_MODE, capacityModeOf } from '../../pm/view/task/plan/busyControl';
 import { pmT } from '../../pm/i18n/pmT';
 
+// Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
+const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
+
+type OrgTab = 'main' | 'projects';
+type ProjectsTab = 'settings';
+const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
+  { id: 'main', label: 'Main', icon: 'info' },
+  { id: 'projects', label: 'Projects', icon: 'view_timeline' },
+];
+const PROJECTS_TABS: { id: ProjectsTab; label: string }[] = [{ id: 'settings', label: 'Settings' }];
+
 type Form = {
   organizationTitle: string;
   organizationLegalName: string;
@@ -43,6 +54,8 @@ type Form = {
   country: string;
   bankIban: string;
   resourceCapacityStrongMode: CapacityMode;
+  /** organizationTable.rowJSON.defaultProjectSettings: kept as stored, edited by Projects -> Settings */
+  defaultProjectSettings?: Record<string, any>;
 };
 
 const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form => {
@@ -64,6 +77,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     country: leg.country || 'LV',
     bankIban: leg.bankIban || '',
     resourceCapacityStrongMode: capacityModeOf(v) ?? DEFAULT_CAPACITY_MODE,
+    defaultProjectSettings: v.defaultProjectSettings,
   };
 };
 
@@ -79,6 +93,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     website: f.website,
     notes: f.notes,
     resourceCapacityStrongMode: f.resourceCapacityStrongMode,
+    defaultProjectSettings: f.defaultProjectSettings,
     legalData: {
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
@@ -112,6 +127,8 @@ export default function OrganizationEdit() {
   const [form, setForm] = useState<Form>(() => toForm(existing?.rowJSON, activeUserEmail));
   const [errors, setErrors] = useState<OrganizationErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [topTab, setTopTab] = useState<OrgTab>('main');
+  const [projectsTab, setProjectsTab] = useState<ProjectsTab>('settings');
 
   useEffect(() => {
     if (existing?.rowJSON) {
@@ -225,8 +242,59 @@ export default function OrganizationEdit() {
         </View>
       )}
 
+      {/* TopTabs: Main | Projects (Projects -> Settings = the default settings of a new project) */}
+      <View testID="organization-toptabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
+        {ORG_TABS.map((tab) => {
+          const on = topTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              testID={`organization-tab-${tab.id}`}
+              accessibilityRole="tab"
+              aria-selected={on}
+              onPress={() => setTopTab(tab.id)}
+              style={[styles.topTabButton, { borderBottomColor: on ? c.primary || '#4f46e5' : 'transparent' }]}
+            >
+              <IconApp name={tab.icon} size={15} color={on ? c.primary || '#4f46e5' : c.text} />
+              <Text style={[styles.topTabText, { color: on ? c.primary || '#4f46e5' : c.text, fontWeight: on ? '700' : '500' }]}>{pmT(tab.label)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {topTab === 'projects' && (
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-projects-tab-content">
+          <View testID="organization-projects-subtabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
+            {PROJECTS_TABS.map((tab) => {
+              const on = projectsTab === tab.id;
+              return (
+                <Pressable
+                  key={tab.id}
+                  testID={`organization-projects-tab-${tab.id}`}
+                  accessibilityRole="tab"
+                  aria-selected={on}
+                  onPress={() => setProjectsTab(tab.id)}
+                  style={[styles.topTabButton, { borderBottomColor: on ? c.primary || '#4f46e5' : 'transparent' }]}
+                >
+                  <Text style={[styles.topTabText, { color: on ? c.primary || '#4f46e5' : c.text, fontWeight: on ? '700' : '500' }]}>{pmT(tab.label)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {projectsTab === 'settings' && (
+            <Suspense fallback={null}>
+              <OrganizationProjectSettings
+                values={form.defaultProjectSettings}
+                onChange={(next: Record<string, any>) => update('defaultProjectSettings', next)}
+                disabled={!canEdit}
+              />
+            </Suspense>
+          )}
+        </View>
+      )}
+
       {/* the Main Details (the Departments tab was removed: see the business units) */}
-      {(
+      {topTab === 'main' && (
         <>
           {/* Main Info */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -403,22 +471,23 @@ export default function OrganizationEdit() {
             />
           </View>
 
-          {/* Save / Actions */}
-          {canEdit && (
-            <View style={styles.actions}>
-              <ButtonPrimaryApp
-                testID="organization-save"
-                title={isNew ? 'Create Organization' : 'Save Changes'}
-                onPress={handleSave}
-              />
-              <ButtonTextApp
-                testID="organization-cancel"
-                title="Cancel"
-                onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
-              />
-            </View>
-          )}
         </>
+      )}
+
+      {/* Save / Actions (both tabs) */}
+      {canEdit && (
+        <View style={styles.actions}>
+          <ButtonPrimaryApp
+            testID="organization-save"
+            title={isNew ? 'Create Organization' : 'Save Changes'}
+            onPress={handleSave}
+          />
+          <ButtonTextApp
+            testID="organization-cancel"
+            title="Cancel"
+            onPress={() => router.replace(ORGANIZATION_ROUTES.list as any)}
+          />
+        </View>
       )}
 
     </ScrollView>

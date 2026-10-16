@@ -23,11 +23,13 @@ export interface RadioSetAppProps<T extends string = string> {
   onChange: (id: T) => void;
   /** options side by side (short labels) instead of one under another */
   horizontal?: boolean;
+  /** no border / background box, small icon + text, no bottom margin: a set inside a toolbar */
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-export default function RadioSetApp<T extends string = string>({ title, options, value, onChange, horizontal = false, style, testID = 'radio-set-app' }: RadioSetAppProps<T>) {
+export default function RadioSetApp<T extends string = string>({ title, options, value, onChange, horizontal = false, compact = false, style, testID = 'radio-set-app' }: RadioSetAppProps<T>) {
   const { themeColors: c } = useDesignSystem();
   return (
     <View style={style} testID={testID} accessibilityRole="radiogroup" accessibilityLabel={title}>
@@ -47,13 +49,14 @@ export default function RadioSetApp<T extends string = string>({ title, options,
               style={({ pressed }) => [
                 styles.option,
                 horizontal ? styles.optionHorizontal : null,
-                { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? `${c.primary}14` : 'transparent', opacity: o.disabled ? 0.45 : pressed ? 0.7 : 1 },
+                compact ? styles.optionCompact : null,
+                compact ? { borderColor: 'transparent', backgroundColor: 'transparent', opacity: o.disabled ? 0.45 : pressed ? 0.7 : 1 } : { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? `${c.primary}14` : 'transparent', opacity: o.disabled ? 0.45 : pressed ? 0.7 : 1 },
               ]}
             >
-              <IconApp name={selected ? 'radio_button_checked' : 'radio_button_unchecked'} size={22} color={selected ? c.primary : c.text} />
+              <IconApp name={selected ? 'radio_button_checked' : 'radio_button_unchecked'} size={compact ? 18 : 22} color={selected ? c.primary : c.text} />
               {!!o.icon && <IconApp name={o.icon} size={20} color={selected ? c.primary : c.text} style={{ marginLeft: 10 }} />}
-              <View style={styles.texts}>
-                <Text style={{ color: c.text, fontSize: 15, fontWeight: selected ? '700' : '500' }}>{o.label}</Text>
+              <View style={[styles.texts, compact ? styles.textsCompact : null]}>
+                <Text style={{ color: c.text, fontSize: compact ? 13 : 15, fontWeight: selected ? '700' : '500' }}>{o.label}</Text>
                 {!!o.description && <Text style={{ color: c.text, opacity: 0.65, fontSize: 12.5, marginTop: 1 }}>{o.description}</Text>}
               </View>
             </Pressable>
@@ -69,5 +72,7 @@ const styles = StyleSheet.create({
   horizontal: { flexDirection: 'row', flexWrap: 'wrap' },
   option: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8 },
   optionHorizontal: { marginRight: 8 },
+  optionCompact: { borderWidth: 0, borderRadius: 0, paddingVertical: 2, paddingHorizontal: 4, marginBottom: 0, marginRight: 6 },
+  textsCompact: { marginLeft: 4 },
   texts: { flexShrink: 1, marginLeft: 10 },
 });

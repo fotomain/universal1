@@ -19,7 +19,7 @@ export interface PMProjectPickerModalProps {
 }
 
 export const pickerHint = (mode: PMPickerMode): string => (mode === 'line'
-  ? 'Click a task in the tree, then choose its line: row menu "Select this line" (or a click on a read only cell). "Select this task" takes the task without a line.'
+  ? 'Click a task in the tree, check its line and press "Select this line" (or row menu "Select this line", or a click on a read only cell). "Select this task" takes the task without a line.'
   : 'Click a task in the tree, then press "Select this task".');
 
 export default function PMProjectPickerModal({ visible, mode, onPick, onClose, testID = 'pm-picker' }: PMProjectPickerModalProps) {

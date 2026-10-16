@@ -7,7 +7,7 @@
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
 //            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
-import React, { memo, useCallback, useRef } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { pmT } from '../../i18n/pmT';
 import IconApp from '../../../ui/components/common/IconApp';
@@ -94,6 +94,14 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
   }, [onTaskOpen]);
   const dimsWidth = W.project + W.role + W.month + W.task + W.unit;
   const width = dimsWidth + NUMS_WIDTH;
+  // the vertical scrollbar of the rows (web: a classic scrollbar takes room from the rows): the rows keep their width and the table is that much wider, so the columns stay under their header
+  const listRef = useRef<FlatList<Monitor01Item>>(null);
+  const [scrollbar, setScrollbar] = useState(0);
+  const measureScrollbar = useCallback(() => {
+    const node = (listRef.current as any)?.getScrollableNode?.();
+    const w = node && typeof node.offsetWidth === 'number' && typeof node.clientWidth === 'number' ? Math.max(0, node.offsetWidth - node.clientWidth) : 0;
+    setScrollbar((cur) => (cur === w ? cur : w));
+  }, []);
   const text = (extra?: object) => [{ color: colors.text, fontSize: 13 }, extra];
 
   const renderItem = useCallback(({ item }: { item: Monitor01Item }) => {
@@ -126,7 +134,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
       <View style={{ width: w, paddingHorizontal: 4, justifyContent: 'center' }}>{nodeLabel(level)}</View>
     );
     return (
-      <View testID={`${testID}-item-${item.key}`} style={[styles.row, { height: ROW_H, borderBottomColor: colors.border, backgroundColor: bg }]}>
+      <View testID={`${testID}-item-${item.key}`} style={[styles.row, { width, flexShrink: 0, height: ROW_H, borderBottomColor: colors.border, backgroundColor: bg }]}>
         {item.kind === 'total'
           ? <Text numberOfLines={1} style={[text({ fontWeight: '800' }), { width: W.project, paddingHorizontal: 8 }]}>{pmT('Total')}</Text>
           : cellOf('project', W.project)}
@@ -144,11 +152,11 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           if (c.id === 'sumForBudget') {
             return <Text key={c.id} testID={`${testID}-budget-${item.key}`} style={[text({ fontWeight: bold ? '800' : '400' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(budget)}</Text>;
           }
-          return <Cell key={c.id} measure={c.id} sums={sums} stale={item.kind === 'row' && item.row.hasStalePlan} bold={bold} item={item} colors={colors} testID={`${testID}-cell-${item.key}-${c.id}`} onCell={onCell} groupBorder={c.id === 'delivered'} />;
+          return <Cell key={c.id} measure={c.id} sums={sums} stale={item.kind === 'row' && item.row.hasStalePlan} bold={bold} item={item} colors={colors} testID={`${testID}-cell-${item.key}-${c.id}`} onCell={onCell} groupBorder={c.id === FIRST_FACT_COLUMN} />;
         })}
       </View>
     );
-  }, [colors, onCell, onToggle, onTaskOpen, pressTask, testID, unitTitle]);
+  }, [colors, onCell, onToggle, onTaskOpen, pressTask, testID, unitTitle, width]);
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
@@ -162,8 +170,8 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
   // the TotalsRow: one line per unit (quantities are never added across units), the money in the same line; several units add one line with the money of all of them
   const several = totals.qty.length > 1;
   return (
-    <ScrollView horizontal testID={testID} showsHorizontalScrollIndicator contentContainerStyle={{ minWidth: width }}>
-      <View style={{ width, flex: 1 }}>
+    <ScrollView horizontal testID={testID} showsHorizontalScrollIndicator contentContainerStyle={{ minWidth: width + scrollbar }}>
+      <View style={{ width: width + scrollbar, flex: 1 }}>
         {/* header row 1: the groups */}
         <View style={[styles.row, { height: 28, backgroundColor: headBg, borderBottomColor: colors.border }]}>
           <View style={{ width: dimsWidth }} />
@@ -183,6 +191,9 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, c.id === FIRST_FACT_COLUMN))}
         </View>
         <FlatList
+          ref={listRef}
+          onLayout={measureScrollbar}
+          onContentSizeChange={measureScrollbar}
           data={items}
           keyExtractor={(it) => it.key}
           renderItem={renderItem}

@@ -11,6 +11,8 @@ Source: the Google Doc "W1 Vendor Invoice"; analysis, decisions and what was bui
 | `/pm/project/task/vendor-invoice` · `VendorInvoiceDocumentForm` | the form: a **tab for each document** (and, on the web, a browser tab of its own for each); bar Delete · Unpost · Close · **Post / Posted (large, last)**; header; tabs **All · Time · Material · Expenses**; the lines table |
 | hamburger menu → **Budgets → Vendor invoices** · `/pm/vendor-invoice/list` · `VendorInvoiceDocumentList` | a `ReusableTable` with folders **legal entity → vendor**, quick filters of every non-number column (one row, a Clear icon in each field), totals **per currency** |
 
+**Task menus**: the submenus "Create based on this" and "Go to" (before Delete) of the Task menu and of the line menu of the Finances table; "Go to → Vendor invoices" opens `/pm/vendor-invoice/list?taskGUID=…[&taskLineGUID=…]` - the list shows a chip (Task: …, x clears it) and `vendor_invoice_list` takes the keys `taskGUID` / `taskLineGUID`. See `kit8/documents/taskScope/README.md`.
+
 ## Where a line's vendor comes from (`vendor_invoice_candidates`)
 1. the partner of the contract selected on the line (Time `taskResourceContract`, Material / Expense `taskLinePartnerContract`);
 2. else the partner of the line (`taskLinePartnerItem`) - and the main vendor contract when it is the main vendor;

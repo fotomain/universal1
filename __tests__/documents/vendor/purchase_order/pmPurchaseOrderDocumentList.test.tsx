@@ -5,10 +5,13 @@ import { act } from 'react';
 import { cleanupUI, expectInOrder, inputValue, mustGet, press, q, qa, renderUI, textOf, typeInto, wait } from '../../../pm/ui/pmUiTestKit';
 
 const mockAnswer: { current: any } = { current: null };
-const mockCalls: { filter: any; limit: number }[] = [];
+const mockCalls: { filter: any; limit: number; extra: any }[] = [];
 const mockRefetch = jest.fn();
+// the Task context menu items of a row have their own test (lineplace/useDocumentLineMenu.test.tsx)
+const mockRowMenu = jest.fn(() => []);
+jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => mockRowMenu }));
 jest.mock('../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({
-  usePurchaseOrderList: (filter: any, limit: number) => { mockCalls.push({ filter, limit }); return { answer: mockAnswer.current, isLoading: false, error: (globalThis as any).__listError ?? null, refetch: mockRefetch }; },
+  usePurchaseOrderList: (filter: any, limit: number, extra: any) => { mockCalls.push({ filter, limit, extra }); return { answer: mockAnswer.current, isLoading: false, error: (globalThis as any).__listError ?? null, refetch: mockRefetch }; },
 }));
 jest.mock('../../../../kit8/catalog/legal_entity/useLegalEntityData', () => ({ useLegalEntityData: () => ({ rows: [{ rowGUID: 'le-1', rowJSON: { title: 'Acme SIA' } }, { rowGUID: 'le-2', rowJSON: { title: 'Acme Holding' } }], countries: [], loaded: true, error: '', reload: jest.fn() }) }));
 jest.mock('../../../../kit8/redux/reusable/useRealtimeEntity', () => ({ useRealtimeEntity: jest.fn() }));
@@ -192,5 +195,27 @@ describe('the quick filters', () => {
   it('the list asks for up to 1000 documents (the table has its own search, sort and column filters)', () => {
     renderUI(<PMPurchaseOrderDocumentList />);
     expect(mockCalls[mockCalls.length - 1].limit).toBe(1000);
+  });
+});
+
+describe('the task / task line scope (menu "Go to → Purchase orders")', () => {
+  it('no scope: no chip, nothing extra is sent to the database', () => {
+    renderUI(<PMPurchaseOrderDocumentList />);
+    expect(q(`${T}-scope`)).toBeNull();
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({});
+  });
+  it('taskGUID: a chip says it and the list RPC gets taskGUID; its x shows all the documents again', () => {
+    renderUI(<PMPurchaseOrderDocumentList taskGUID="t-1" />);
+    expect(q(`${T}-scope`)).not.toBeNull();
+    expect(textOf(`${T}-scope-label`)).toContain('Task:');
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({ taskGUID: 't-1' });
+    press(`${T}-scope-clear`);
+    expect(q(`${T}-scope`)).toBeNull();
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({});
+  });
+  it('taskLineGUID: both keys go to the database and the chip names the line', () => {
+    renderUI(<PMPurchaseOrderDocumentList taskGUID="t-1" taskLineGUID="aaaaaaaa-0000" />);
+    expect(mockCalls[mockCalls.length - 1].extra).toEqual({ taskGUID: 't-1', taskLineGUID: 'aaaaaaaa-0000' });
+    expect(textOf(`${T}-scope-label`)).toContain('Task line aaaaaaaa');
   });
 });

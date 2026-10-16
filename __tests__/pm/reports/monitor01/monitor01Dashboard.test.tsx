@@ -64,6 +64,15 @@ const flush = () => act(async () => { await Promise.resolve(); await Promise.res
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 describe('the table of the sheet', () => {
+  it('the Plan | Fact divider of the body is the left edge of Ordered (same column as the header); a row keeps its full width (a scrollbar of the list must not squeeze the columns)', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    const bw = (id: string) => getComputedStyle(q(id)!).borderLeftWidth;
+    expect(bw(cell(KEY_T1, 'ordered'))).toBe('2px');
+    expect(bw(cell(KEY_T1, 'delivered'))).not.toBe('2px');
+    const row = getComputedStyle(q(`monitor01-table-item-${KEY_T1}`)!);
+    expect(row.width).toBe('1540px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 5 x 94
+    expect(row.flexShrink).toBe('0');
+  });
   it('the two header rows: Plan | Fact and the columns; the resource role column; the seven measures (Ordered is the first of the Fact group)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');

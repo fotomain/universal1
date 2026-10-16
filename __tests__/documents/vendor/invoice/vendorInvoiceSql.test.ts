@@ -110,3 +110,14 @@ describe('the delete file', () => {
     for (const fn of created) expect(del).toMatch(new RegExp(`DROP FUNCTION IF EXISTS public\\.${fn}\\(`));
   });
 });
+
+describe('vendor_invoice_list: the task / task line scope (menu "Go to → Vendor invoices")', () => {
+  const sql = read('start2_sql_code.sql');
+  const start = sql.indexOf('FUNCTION public.vendor_invoice_list(');
+  const body = sql.slice(start, sql.indexOf('GRANT EXECUTE ON FUNCTION public.vendor_invoice_list', start));
+  it('takes taskGUID (a line of the task; a document without lines: its task) and taskLineGUID (a line made from the task line)', () => {
+    expect(body).toContain("NOT f ? 'taskGUID'");
+    expect(body).toContain("NOT f ? 'taskLineGUID'");
+    expect(body).toContain('vendor_invoice_lines');
+  });
+});

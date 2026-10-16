@@ -11,6 +11,7 @@ import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusab
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
 import { pmT } from '../../../pm/i18n/pmT';
+import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import { PURCHASE_ORDER_ALL_TAB, PURCHASE_ORDER_LINES_ENTITY, PURCHASE_ORDER_TABS, PurchaseOrderHeaderView } from './purchaseOrderModel';
 
 export interface PMPurchaseOrderDocumentLinesProps {
@@ -35,6 +36,8 @@ export interface PMPurchaseOrderDocumentLinesProps {
 
 export default function PMPurchaseOrderDocumentLines({ header, tab, onTab, counts, columns, rowFilter, edit, independent, multi, loading, onAddLine, testID = 'purchase-order' }: PMPurchaseOrderDocumentLinesProps) {
   const { themeColors: c } = useDesignSystem();
+  // the Task context menu items on a line (Open task, Facts input, Vendor Invoice, Purchase Order, Copy GUID ...)
+  const lineMenu = useDocumentLineMenu(`${testID}-lines`);
   return (
     <>
       {/* DocumentTabs: All (default) · Time · Material · Expenses */}
@@ -76,6 +79,7 @@ export default function PMPurchaseOrderDocumentLines({ header, tab, onTab, count
             onAdd={independent ? () => onAddLine(PURCHASE_ORDER_TABS.find((t) => t.id === tab)?.genus ?? MANAGEMENT_GENUS.time) : undefined}
             crudPanelEnabled={edit}
             contextMenuEnabled={edit}
+            extraMenuItems={lineMenu}
             selectionEnabled={edit}
             reorderEnabled={false}
             dragAndDropColumns

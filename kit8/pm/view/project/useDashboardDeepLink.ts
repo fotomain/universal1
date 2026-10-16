@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGlobalSearchParams } from 'expo-router';
 import { usePMStore } from '../../store/store_pm';
-import { parseDashboardLink } from './dashboardDeepLink';
+import { parseDashboardLink, parseDashboardProjectLink } from './dashboardDeepLink';
 
 /** the saved view settings that do not arrive (no table / a failed read): go on after this */
 export const DEEP_LINK_SETTINGS_WAIT_MS = 3000;
@@ -14,6 +14,8 @@ export const DEEP_LINK_SETTINGS_WAIT_MS = 3000;
 export function useDashboardDeepLink(ownerGUID: string | null | undefined, projectsLoaded: boolean) {
   const params = useGlobalSearchParams();
   const link = useMemo(() => parseDashboardLink(params as any), [params.projectGUID, params.taskGUID, params.genus, params.lineGUID]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a link with a project only (the board of a subproject): the project is selected, nothing else changes
+  const onlyProject = useMemo(() => parseDashboardProjectLink(params as any), [params.projectGUID, params.taskGUID]); // eslint-disable-line react-hooks/exhaustive-deps
   const applied = useRef<string | null>(null);
   const loadedProjectGUID = usePMStore((s) => s.loadedProjectGUID);
   const keepWorkspaceMode = usePMStore((s) => s.keepWorkspaceMode);
@@ -27,6 +29,15 @@ export function useDashboardDeepLink(ownerGUID: string | null | undefined, proje
     if (s.selectedProjectGUID !== link.projectGUID) s.selectProject(link.projectGUID);
     s.addRecentProject(link.projectGUID);
   }, [link, ownerGUID, projectsLoaded]);
+
+  useEffect(() => {
+    if (!onlyProject || !ownerGUID || !projectsLoaded || applied.current === `project:${onlyProject}`) return;
+    const s = usePMStore.getState();
+    if (!s.projectsById[onlyProject]) return;
+    applied.current = `project:${onlyProject}`;
+    if (s.selectedProjectGUID !== onlyProject) s.selectProject(onlyProject);
+    s.addRecentProject(onlyProject);
+  }, [onlyProject, ownerGUID, projectsLoaded]);
 
   useEffect(() => {
     if (!link || loadedProjectGUID !== link.projectGUID || waitedOut === link.key) return;

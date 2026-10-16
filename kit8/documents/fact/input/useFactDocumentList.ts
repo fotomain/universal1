@@ -6,7 +6,7 @@ import { useSupabase } from '../../../providers/WithSupabase';
 import { fetchFactDocumentList } from './factInputApi';
 import { FactListAnswer, FactListFilter, factListFilterToRpc } from './factInputModel';
 
-export const factListKey = (filter: FactListFilter, limit: number) => ['pm', 'factList', factListFilterToRpc(filter), limit] as const;
+export const factListKey = (filter: FactListFilter, limit: number, extra: Record<string, any> = {}) => ['pm', 'factList', factListFilterToRpc(filter, extra), limit] as const;
 export const factProjectsKey = ['pm', 'factProjects'] as const;
 const EMPTY: FactListAnswer = { totalCount: 0, totals: { sumForBudget: 0, sumForContract: 0, sumForAccounting: 0 }, rows: [] };
 
@@ -17,14 +17,15 @@ export interface UseFactDocumentList {
   refetch: () => void;
 }
 
-export function useFactDocumentList(filter: FactListFilter, limit = 200): UseFactDocumentList {
+/** `extra` = keys the screen sets itself (the task / task line scope: taskGUID, taskLineGUID) */
+export function useFactDocumentList(filter: FactListFilter, limit = 200, extra: Record<string, any> = {}): UseFactDocumentList {
   const { supabase } = useSupabase();
   const q = useQuery({
-    queryKey: factListKey(filter, limit),
+    queryKey: factListKey(filter, limit, extra),
     staleTime: 3_000,
     refetchOnMount: 'always',
     placeholderData: keepPreviousData,        // typing in a filter keeps the old rows on the screen until the new ones arrive
-    queryFn: () => fetchFactDocumentList(supabase, filter, {}, limit, 0),
+    queryFn: () => fetchFactDocumentList(supabase, filter, extra, limit, 0),
   });
   return { answer: q.data ?? EMPTY, isLoading: q.isLoading, error: (q.error as Error | null)?.message ?? null, refetch: () => { void q.refetch(); } };
 }

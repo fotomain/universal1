@@ -5390,6 +5390,8 @@ GRANT EXECUTE ON FUNCTION public.unpost_task_fact_document(uuid) TO authenticate
 -- SECURITY INVOKER: the policies decide what the user sees (the documents of his projects). p_filter keys (all optional; a document is listed when ONE of its lines satisfies ALL the line keys):
 --   fromDay · toDay ('YYYY-MM-DD', the day of a line = factTimelinePeriod) · businessUnitGUID (rowJSON.businessUnitTaskLine of the line) · roleGUID · resourceGUID
 --   and on the document: projectGUID · taskGUID · status ('draft' | 'posted') · author (a part of the name / e-mail / GUID of the user who made it)
+--   taskLineGUID (task_line_table.rowGUID; the menu "Go to → Fact input" of a task line): the document has a line made from that task line (STRONG input), or it is a FREE input document
+--   of the task of that line (its lines carry no task line GUID, so every line of the task lists it)
 -- returns { totalCount, totals: { sumForBudget, sumForContract, sumForAccounting }, rows: [ { documentGUID, documentNumber, documentStatus, strongInput, authorGUID, authorName, createdAt, postedAt, unpostedAt,
 --           projectGUID, projectName, taskGUID, taskName, lineCount, firstDay, lastDay, sumForBudget, sumForContract, sumForAccounting } ] }, newest first
 CREATE OR REPLACE FUNCTION public.task_fact_document_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
@@ -5424,6 +5426,10 @@ BEGIN
      WHERE (NOT f ? 'projectGUID' OR h."rowProjectGUID" = (f->>'projectGUID')::uuid)
        AND (NOT f ? 'taskGUID'    OR h."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
        AND (NOT f ? 'status'      OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'taskLineGUID' OR EXISTS (SELECT 1 FROM public.task_fact_usage_timeline tl WHERE tl."rowHeaderGUID" = h."rowGUID" AND tl."taskLineGUID"::text = f->>'taskLineGUID')
+            -- a FREE input document (factStrongInputByTaskLine off) has no task line GUIDs on its lines: it belongs to the task, so it is listed for every line of that task
+            OR (COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') <> 'true'
+                AND EXISTS (SELECT 1 FROM public.task_line_table k WHERE k."rowGUID"::text = f->>'taskLineGUID' AND k."rowOwnerGUID"::text = h."rowOwnerGUID"::text)))
        AND (NOT f ? 'author'      OR NULLIF(btrim(f->>'author'), '') IS NULL
             OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
        AND ((NOT (f ? 'fromDay' OR f ? 'toDay' OR f ? 'businessUnitGUID' OR f ? 'roleGUID' OR f ? 'resourceGUID'))
@@ -6982,7 +6988,8 @@ GRANT EXECUTE ON FUNCTION public.delete_vendor_invoice(uuid) TO authenticated;
 
 
 -- ---- vendor_invoice_list(filter, limit, offset): the documents with the totals of their lines and the totals PER CURRENCY (currencies are never added) --------------------------------
--- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the invoice), author (contains)
+-- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the invoice), author (contains),
+--   taskGUID (the document has a line of that task; a document without lines: the task it was made from) · taskLineGUID (the document has a line made from that task line) - the menu "Go to → Vendor invoices"
 CREATE OR REPLACE FUNCTION public.vendor_invoice_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
 LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
 DECLARE
@@ -7028,6 +7035,9 @@ BEGIN
        AND (NOT f ? 'contractGUID'    OR h."rowJSON"->>'vendorInvoiceContract' = f->>'contractGUID')
        AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'vendorInvoiceCurrency', '') = f->>'currency')
        AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'taskGUID'        OR EXISTS (SELECT 1 FROM public.vendor_invoice_lines tl WHERE tl."rowHeaderGUID" = h."rowGUID" AND tl."rowOwnerGUID"::text = f->>'taskGUID')
+            OR (tk."rowGUID"::text = f->>'taskGUID' AND NOT EXISTS (SELECT 1 FROM public.vendor_invoice_lines nl WHERE nl."rowHeaderGUID" = h."rowGUID")))
+       AND (NOT f ? 'taskLineGUID'    OR EXISTS (SELECT 1 FROM public.vendor_invoice_lines ll WHERE ll."rowHeaderGUID" = h."rowGUID" AND ll."taskLineGUID"::text = f->>'taskLineGUID'))
        AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'vendorInvoiceNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
        AND (NOT f ? 'fromDay'         OR ((NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date >= (f->>'fromDay')::date)
        AND (NOT f ? 'toDay'           OR ((NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date <= (f->>'toDay')::date)
@@ -7993,7 +8003,8 @@ GRANT EXECUTE ON FUNCTION public.delete_purchase_order(uuid) TO authenticated;
 
 
 -- ---- purchase_order_list(filter, limit, offset): the documents with the totals of their lines and the totals PER CURRENCY (currencies are never added) --------------------------------
--- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the purchase order), author (contains)
+-- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the purchase order), author (contains),
+--   taskGUID (the document has a line of that task; a document without lines: the task it was made from) · taskLineGUID (the document has a line made from that task line) - the menu "Go to → Purchase orders"
 CREATE OR REPLACE FUNCTION public.purchase_order_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
 LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
 DECLARE
@@ -8039,6 +8050,9 @@ BEGIN
        AND (NOT f ? 'contractGUID'    OR h."rowJSON"->>'purchaseOrderContract' = f->>'contractGUID')
        AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'purchaseOrderCurrency', '') = f->>'currency')
        AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'taskGUID'        OR EXISTS (SELECT 1 FROM public.purchase_order_lines tl WHERE tl."rowHeaderGUID" = h."rowGUID" AND tl."rowOwnerGUID"::text = f->>'taskGUID')
+            OR (tk."rowGUID"::text = f->>'taskGUID' AND NOT EXISTS (SELECT 1 FROM public.purchase_order_lines nl WHERE nl."rowHeaderGUID" = h."rowGUID")))
+       AND (NOT f ? 'taskLineGUID'    OR EXISTS (SELECT 1 FROM public.purchase_order_lines ll WHERE ll."rowHeaderGUID" = h."rowGUID" AND ll."taskLineGUID"::text = f->>'taskLineGUID'))
        AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'purchaseOrderNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
        AND (NOT f ? 'fromDay'         OR ((NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date >= (f->>'fromDay')::date)
        AND (NOT f ? 'toDay'           OR ((NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date <= (f->>'toDay')::date)
