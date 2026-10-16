@@ -1,7 +1,7 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
   EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
-  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
+  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
 
@@ -105,13 +105,13 @@ describe('tabs and the order of the sheet', () => {
 describe('filters', () => {
   const rows = [
     row(),
-    row({ rowOwnerGUID: 't2', taskName: 'task02', periodMonth: '2026-11-01', projectName: 'Beta' }),
-    row({ rowOwnerGUID: 't3', taskName: 'task03', periodMonth: '2027-01-01', resourceRoleName: 'Welder' }),
+    row({ rowOwnerGUID: 't2', taskName: 'task02', periodMonth: '2026-11-01', projectName: 'Beta', rowProjectGUID: 'p2' }),
+    row({ rowOwnerGUID: 't3', taskName: 'task03', periodMonth: '2027-01-01', resourceRoleGUID: 'r2', resourceRoleName: 'Welder' }),
   ];
-  it('no filter = all rows; a filter is active when something is typed', () => {
+  it('no filter = all rows; a filter is active when something is picked', () => {
     expect(filterMonitor01Rows(rows, EMPTY_MONITOR01_FILTERS)).toHaveLength(3);
     expect(monitor01FiltersActive(EMPTY_MONITOR01_FILTERS)).toBe(false);
-    expect(monitor01FiltersActive({ ...EMPTY_MONITOR01_FILTERS, task: ' x ' })).toBe(true);
+    expect(monitor01FiltersActive({ ...EMPTY_MONITOR01_FILTERS, taskGUID: 't1' })).toBe(true);
   });
   it('startDate / finishDate cut MONTHS that overlap the window', () => {
     const f = (startDate: string, finishDate: string) => filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, startDate, finishDate }).map((r) => r.rowOwnerGUID);
@@ -127,11 +127,41 @@ describe('filters', () => {
     expect(filterMonitor01Rows(rows, bad)).toHaveLength(3);
     expect(monitor01DateErrors({ ...EMPTY_MONITOR01_FILTERS, startDate: '14.10.2026' })).toEqual({ startDate: false, finishDate: false });
   });
-  it('project / task / resource: contains, case-insensitive', () => {
-    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, project: 'bet' }).map((r) => r.rowOwnerGUID)).toEqual(['t2']);
-    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, task: 'TASK03' }).map((r) => r.rowOwnerGUID)).toEqual(['t3']);
-    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, resource: 'weld' }).map((r) => r.rowOwnerGUID)).toEqual(['t3']);
-    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, resource: 'weld', task: 'task01' })).toEqual([]);
+  it('project / task / resource: the exact GUID picked from the list, never a name search', () => {
+    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, projectGUID: 'p2' }).map((r) => r.rowOwnerGUID)).toEqual(['t2']);
+    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, taskGUID: 't3' }).map((r) => r.rowOwnerGUID)).toEqual(['t3']);
+    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, resourceGUID: 'r2' }).map((r) => r.rowOwnerGUID)).toEqual(['t3']);
+    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, resourceGUID: 'r2', taskGUID: 't1' })).toEqual([]);     // combined: both must match
+    expect(filterMonitor01Rows(rows, { ...EMPTY_MONITOR01_FILTERS, projectGUID: 'does-not-exist' })).toEqual([]);         // an unknown GUID matches nothing (never "everything")
+  });
+});
+
+describe('the items of the Project / Task / Resource selects (picked from the data, not typed)', () => {
+  const rows = [
+    row(),                                                                                                                 // p1 Alpha, t1 task01, r1 Data Analyst
+    row({ rowOwnerGUID: 't2', taskName: 'task02', projectName: 'Beta', rowProjectGUID: 'p2', resourceRoleGUID: 'r2', resourceRoleName: 'Welder' }),
+    row({ rowOwnerGUID: 't1', taskName: 'task01', genusGUID: 'materialGenus', measureUnit: 'unit_pcs', resourceRoleGUID: '' }),      // the same task again, a line with NO resource role
+  ];
+  it('distinct projects, sorted by name', () => {
+    expect(monitor01ProjectOptions(rows)).toEqual([{ value: 'p1', label: 'Alpha' }, { value: 'p2', label: 'Beta' }]);
+  });
+  it('distinct tasks, sorted by name, narrowed to one project when it is given', () => {
+    expect(monitor01TaskOptions(rows)).toEqual([{ value: 't1', label: 'task01' }, { value: 't2', label: 'task02' }]);
+    expect(monitor01TaskOptions(rows, 'p2')).toEqual([{ value: 't2', label: 'task02' }]);
+    expect(monitor01TaskOptions(rows, 'does-not-exist')).toEqual([]);
+  });
+  it('distinct resource roles, narrowed the same way; a row with no role is not offered (its GUID is empty)', () => {
+    expect(monitor01ResourceOptions(rows)).toEqual([{ value: 'r1', label: 'Data Analyst' }, { value: 'r2', label: 'Welder' }]);
+    expect(monitor01ResourceOptions(rows, 'p2')).toEqual([{ value: 'r2', label: 'Welder' }]);
+    expect(monitor01ResourceOptions(rows, 'p1')).toEqual([{ value: 'r1', label: 'Data Analyst' }]);
+  });
+  it('an empty name falls back to the GUID as the label', () => {
+    expect(monitor01ProjectOptions([row({ rowProjectGUID: 'p9', projectName: '' })])).toEqual([{ value: 'p9', label: 'p9' }]);
+  });
+  it('no rows = no items', () => {
+    expect(monitor01ProjectOptions([])).toEqual([]);
+    expect(monitor01TaskOptions([])).toEqual([]);
+    expect(monitor01ResourceOptions([])).toEqual([]);
   });
 });
 
@@ -256,7 +286,7 @@ describe('the collapsible tree: Project → Resource role → Month (ascending) 
     const month = n.find((x) => x.level === 'month' && x.label === 'Nov 2026')!;
     expect(drillFilterOfNode(month, scope)).toEqual({ unit: 'unit_hour', genusGUID: 'timeGenus', projectGUID: 'p1', roleGUID: 'r1', month: '2026-11-01' });
     // under a task filter the list is made of the tasks that are shown
-    const f = drillFilterOfNode(project, { projectGUID: null, filters: { ...EMPTY_MONITOR01_FILTERS, task: 'task01' } });
+    const f = drillFilterOfNode(project, { projectGUID: null, filters: { ...EMPTY_MONITOR01_FILTERS, taskGUID: 'a1' } });
     expect(f.taskGUIDs).toEqual(['a1']);
   });
 });
@@ -300,9 +330,9 @@ describe('the Sum explorer filters', () => {
     expect(f).toEqual({ genusGUID: 'materialGenus', unit: 'unit_pcs' });
     expect(drillFilterOfRows(sheet(), { projectGUID: 'p1', filters: EMPTY_MONITOR01_FILTERS }, { unit: '' })).toEqual({ unit: '', projectGUID: 'p1' });
   });
-  it('under text filters the list is made of the tasks / roles that are shown, so it adds up to the number on the screen', () => {
+  it('under a Project / Task / Resource filter the list is made of the tasks / roles that are shown, so it adds up to the number on the screen', () => {
     const rows = sheet().slice(0, 2);
-    const f = drillFilterOfRows(rows, { projectGUID: null, filters: { ...EMPTY_MONITOR01_FILTERS, task: 'task', resource: 'analyst', startDate: '2026-10-14', finishDate: '2026-12-31' } }, { unit: 'unit_hour' });
+    const f = drillFilterOfRows(rows, { projectGUID: null, filters: { ...EMPTY_MONITOR01_FILTERS, taskGUID: 't1', resourceGUID: 'r1', startDate: '2026-10-14', finishDate: '2026-12-31' } }, { unit: 'unit_hour' });
     expect(f).toEqual({ unit: 'unit_hour', fromMonth: '2026-10-01', toMonth: '2026-12-01', taskGUIDs: ['t1', 't3'], roleGUIDs: ['r1'] });
   });
   it('a derived number is made of two lists with signs', () => {

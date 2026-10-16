@@ -3,7 +3,7 @@
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
-//   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (TextInputApp + Clear)
+//   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (SelectItemFromListApp, picked from the loaded rows - not typed text)
 //   the table is a TREE Project → Resource role → Month (ascending) → Task name: every Project / Role / Month line is a subtotal and collapses what is below it (Expand all / Collapse all in the toolbar)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
 //   a double click on a Task name opens the task in the dashboard (Finances view: task + genus tab + line of the sum), in a new browser tab on the web.
@@ -23,8 +23,8 @@ import { rowTitle } from '../../../catalog/product/crud/productCatalogTools';
 import { colorToHex } from '../../../ui/components/table/reusable/tableRows';
 import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
-import { useOpenFactInput } from '../../fact/useOpenFactInput';
-import { useOpenVendorInvoice } from '../../vendor_invoice/useVendorInvoice';
+import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
+import { useOpenVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
 import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
@@ -33,7 +33,7 @@ import { fetchMonitor01Sources, refreshMonitor01Now, Monitor01SourceRow } from '
 import { openDashboardLink } from '../../view/project/dashboardDeepLink';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
-  filterMonitor01Rows, monitor01NodeKeys, monitor01Totals, monthLabel, rowsOfTab,
+  filterMonitor01Rows, monitor01NodeKeys, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
 import { useMonitor01Rows } from './useMonitor01Rows';
@@ -107,6 +107,21 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   }, [dispatch]);
   const unitTitle = useCallback((u: string) => { const row = units.find((r) => r.rowGUID === u); return row ? rowTitle(row) : fallbackUnit(u); }, [units]);
 
+  // the items of the Project / Task / Resource selects: the names actually in the loaded rows (never typed text - a name is not a key); Task and Resource narrow to the selected project
+  const projectItems = useMemo(() => monitor01ProjectOptions(sourceRows), [sourceRows]);
+  const taskItems = useMemo(() => monitor01TaskOptions(sourceRows, filters.projectGUID || null), [sourceRows, filters.projectGUID]);
+  const resourceItems = useMemo(() => monitor01ResourceOptions(sourceRows, filters.projectGUID || null), [sourceRows, filters.projectGUID]);
+  // a new Project is picked: a Task / Resource that does not belong to it is cleared (a stale GUID would filter the rows down to none, silently)
+  const applyFilters = useCallback((next: Monitor01Filters) => {
+    if (next.projectGUID === filters.projectGUID) { setFilters(next); return; }
+    const okTask = new Set(monitor01TaskOptions(sourceRows, next.projectGUID || null).map((o) => o.value));
+    const okResource = new Set(monitor01ResourceOptions(sourceRows, next.projectGUID || null).map((o) => o.value));
+    setFilters({
+      ...next,
+      taskGUID: next.taskGUID && !okTask.has(next.taskGUID) ? '' : next.taskGUID,
+      resourceGUID: next.resourceGUID && !okResource.has(next.resourceGUID) ? '' : next.resourceGUID,
+    });
+  }, [filters.projectGUID, sourceRows]);
   const filtered = useMemo(() => filterMonitor01Rows(sourceRows, filters), [sourceRows, filters]);
   const shown = useMemo(() => rowsOfTab(filtered, tab), [filtered, tab]);
   // the nodes of the tree that are collapsed (everything is open at the start); it is kept while the rows change, so a realtime event does not open or close anything
@@ -195,7 +210,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       </View>
 
       <View style={styles.filters}>
-        <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={setFilters} showProject={mode === 'standalone'} />
+        <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={applyFilters} showProject={mode === 'standalone'} projectItems={projectItems} taskItems={taskItems} resourceItems={resourceItems} />
       </View>
 
       <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>

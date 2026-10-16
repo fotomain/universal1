@@ -11,6 +11,14 @@ jest.mock('../../../../kit8/pm/reports/monitor01/monitor01Api', () => ({ fetchMo
 jest.mock('../../../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: new Proxy({}, { get: () => ({ actions: { readData: (p: any) => ({ type: 'read', p }) } }) }) }));
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
+// Project / Task / Resource are SelectItemFromListApp (picked, not typed): the double is a plain TextInput whose onChangeText IS onSelect, so a test "types" the GUID it wants picked,
+// as the vendor invoice filter tests do (kit8/documents/vendor/invoice). mockSelects keeps the latest props of each field (items, value, placeholder) for the tests that check them.
+const mockSelects: Record<string, any> = {};
+jest.mock('../../../../kit8/ui/components/common/SelectItemFromListApp', () => {
+  const R = require('react');
+  const { TextInput } = require('react-native');
+  return { __esModule: true, default: (p: any) => { mockSelects[p.testID] = p; return R.createElement(TextInput, { testID: p.testID, value: p.value, onChangeText: p.onSelect }); } };
+});
 
 const Monitor01Dashboard = require('../../../../kit8/pm/reports/monitor01/Monitor01Dashboard').default;
 import { useMonitor01Rows } from '../../../../kit8/pm/reports/monitor01/useMonitor01Rows';
@@ -272,7 +280,7 @@ describe('the TotalsRow at the bottom', () => {
   });
   it('follows the filters and the tab', async () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
-    typeInto('monitor01-filters-task', 'task03');
+    typeInto('monitor01-filters-task', 't3');
     await wait(250);
     expect(textOf('monitor01-table-totals-unit_hour-budget')).toBe('600.50');
     expect(textOf('monitor01-table-totals-all-budget')).toBe('1,600.50');
@@ -305,13 +313,51 @@ describe('the two modes and the fast filters', () => {
     expect(q('monitor01-filters-project')).not.toBeNull();
     expect(textOf(item(PROJECT('unit_hour')))).toContain('Alpha');
   });
-  it('dates use DateInputApp (calendar trigger); the text filters use TextInputApp whose clear icon sits INSIDE the field (no separate Clear button)', () => {
+  it('dates use DateInputApp (calendar trigger); Project / Task / Resource are SelectItemFromListApp, clearable, picked from the data (never typed)', () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
     expect(q('monitor01-filters-startDate-datepicker-trigger')).not.toBeNull();
     expect(q('monitor01-filters-finishDate-datepicker-trigger')).not.toBeNull();
-    ['project', 'task', 'resource'].forEach((k) => { expect(q(`monitor01-filters-${k}-clear`)).toBeNull(); expect(q(`monitor01-filters-${k}-datepicker-trigger`)).toBeNull(); });
+    (['project', 'task', 'resource'] as const).forEach((k) => {
+      expect(q(`monitor01-filters-${k}`)).not.toBeNull();
+      expect(q(`monitor01-filters-${k}-datepicker-trigger`)).toBeNull();
+      expect(mockSelects[`monitor01-filters-${k}`].clearable).toBe(true);
+    });
+    expect(mockSelects['monitor01-filters-project'].placeholder).toBe('Project');
+    expect(mockSelects['monitor01-filters-task'].placeholder).toBe('Task');
+    expect(mockSelects['monitor01-filters-resource'].placeholder).toBe('Resource');
     expect(q('monitor01-filters-startDate-clear-button')).toBeNull();
-    expect(document.body.textContent).not.toContain('Clear');
+  });
+  it('the items of Task / Resource are the tasks / roles actually loaded, and narrow to the selected project', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    const taskValues = () => mockSelects['monitor01-filters-task'].items.map((i: any) => i.value).sort();
+    const resourceValues = () => mockSelects['monitor01-filters-resource'].items.map((i: any) => i.value).sort();
+    expect(mockSelects['monitor01-filters-project'].items).toEqual([{ value: 'p1', label: 'Alpha' }, { value: 'p2', label: 'Beta' }]);
+    expect(taskValues()).toEqual(['t1', 't3', 't4']);             // every task of every project
+    expect(resourceValues()).toEqual(['r1', 'r2']);
+    typeInto('monitor01-filters-project', 'p2');
+    await wait(250);
+    expect(taskValues()).toEqual(['t3', 't4']);                   // only the tasks of Beta
+    expect(resourceValues()).toEqual(['r2']);
+  });
+  it('picking a project clears a Task that does not belong to it (a stale GUID would silently show nothing)', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-task', 't1');
+    await wait(250);
+    expect(inputValue('monitor01-filters-task')).toBe('t1');
+    typeInto('monitor01-filters-project', 'p2');                  // t1 has no row in Beta
+    await wait(250);
+    expect(inputValue('monitor01-filters-task')).toBe('');
+    expect(inputValue('monitor01-filters-project')).toBe('p2');
+    expect(q(`monitor01-table-item-${KEY_T1}`)).toBeNull();          // t1 is of Alpha (p1), not Beta
+    expect(rowIds()).toHaveLength(2);                                // the two Beta rows of t3 / t4
+  });
+  it('a task that still belongs to the newly picked project is kept', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    typeInto('monitor01-filters-task', 't3');                     // t3 has a row in BOTH Alpha and Beta
+    await wait(250);
+    typeInto('monitor01-filters-project', 'p2');
+    await wait(250);
+    expect(inputValue('monitor01-filters-task')).toBe('t3');
   });
   it('all the filter inputs are in ONE row (no wrapping; it scrolls sideways when narrow)', () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
@@ -319,13 +365,26 @@ describe('the two modes and the fast filters', () => {
     const inner = bar.firstElementChild as HTMLElement;
     expect(getComputedStyle(inner).flexWrap).toBe('nowrap');
     expect(getComputedStyle(inner).flexDirection).toBe('row');
-    const ids = ['startDate', 'finishDate', 'project', 'task', 'resource'].map((k) => `monitor01-filters-${k}`);
+    const ids = ['startDate', 'finishDate', 'period-button', 'project', 'task', 'resource'].map((k) => `monitor01-filters-${k}`);
     ids.forEach((id) => expect(inner.contains(mustGet(id))).toBe(true));
     expectInOrder(ids);
   });
+  it('the period button (after Finish date) picks a whole range of months at once', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    press('monitor01-filters-period-button');
+    press('monitor01-filters-period-modal-month-2026-11');                 // November: no row of the sheet is in it
+    press('monitor01-filters-period-modal-select');
+    await wait(250);
+    expect(rowIds()).toHaveLength(0);
+    expect(inputValue('monitor01-filters-startDate')).toBe('2026-11-01');
+    expect(inputValue('monitor01-filters-finishDate')).toBe('2026-11-30');
+    press('monitor01-filters-period-button');                              // re-opened: shows what is active
+    expect(textOf('monitor01-filters-period-modal-from')).toBe('2026-11-01');
+    press('monitor01-filters-period-modal-cancel');
+  });
   it('typing in Task filters the rows after the debounce; the totals follow', async () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
-    typeInto('monitor01-filters-task', 'task03');
+    typeInto('monitor01-filters-task', 't3');
     expect(q(`monitor01-table-item-${KEY_T1}`)).not.toBeNull();       // not yet: the filter waits for the last key
     await wait(250);
     expect(q(`monitor01-table-item-${KEY_T1}`)).toBeNull();
@@ -334,11 +393,11 @@ describe('the two modes and the fast filters', () => {
   });
   it('Project and Resource filters; startDate / finishDate cut months', async () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
-    typeInto('monitor01-filters-project', 'beta');
+    typeInto('monitor01-filters-project', 'p2');
     await wait(250);
     expect(rowIds()).toHaveLength(2);
     typeInto('monitor01-filters-project', '');
-    typeInto('monitor01-filters-resource', 'pipe');
+    typeInto('monitor01-filters-resource', 'r2');
     await wait(250);
     expect(q(`monitor01-table-item-${KEY_T1}`)).toBeNull();
     typeInto('monitor01-filters-resource', '');
@@ -359,7 +418,7 @@ describe('filters at the start, dates, the Monitor01Toolbar and Auto refresh', (
   it('emptying a filter again shows all the data again', async () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
     typeInto('monitor01-filters-startDate', '2026-11-01');
-    typeInto('monitor01-filters-task', 'task03');
+    typeInto('monitor01-filters-task', 't3');
     await wait(250);
     expect(rowIds()).toHaveLength(0);
     typeInto('monitor01-filters-startDate', '');
@@ -393,13 +452,14 @@ describe('filters at the start, dates, the Monitor01Toolbar and Auto refresh', (
   });
   it('Auto refresh ON (default): a realtime change shows at once - also while a filter is set, and after the filter was changed', async () => {
     const view = renderUI(<Monitor01Dashboard mode="standalone" />);
-    typeInto('monitor01-filters-task', 'task03');
+    typeInto('monitor01-filters-task', 't3');
     await wait(250);
     expect(rowIds()).toHaveLength(2);
-    mockHook.rows = [...sheet(), parseMonitor01Row(raw({ rowOwnerGUID: 't9', taskName: 'task03 new', qtyPlanned: 5, qtyContracted: 0, qtyRestToContract: 5, resourceRoleGUID: 'r9' }))];
+    // a new row of the SAME task (t3) arrives live - unlike a text search, an exact GUID filter never widens by accident on an unrelated row
+    mockHook.rows = [...sheet(), parseMonitor01Row(raw({ rowOwnerGUID: 't3', taskName: 'task03', genusGUID: 'expenseGenus', qtyPlanned: 5, qtyContracted: 0, qtyRestToContract: 5, resourceRoleGUID: 'r9' }))];
     view.rerender(<Monitor01Dashboard mode="standalone" />);
     expect(rowIds()).toHaveLength(3);
-    typeInto('monitor01-filters-task', 'task0');
+    typeInto('monitor01-filters-task', '');
     await wait(250);
     expect(rowIds()).toHaveLength(5);
     mockHook.rows = mockHook.rows.slice(0, 3);
@@ -413,7 +473,7 @@ describe('filters at the start, dates, the Monitor01Toolbar and Auto refresh', (
     mockHook.rows = [...sheet(), parseMonitor01Row(raw({ rowOwnerGUID: 't9', taskName: 'task09', resourceRoleGUID: 'r9' }))];
     view.rerender(<Monitor01Dashboard mode="standalone" />);
     expect(rowIds()).toHaveLength(4);                                     // the snapshot: the new row is not shown
-    typeInto('monitor01-filters-task', 'task0');
+    typeInto('monitor01-filters-task', '');
     await wait(250);
     expect(rowIds()).toHaveLength(4);                                     // a filter works on the snapshot
     press('monitor01-toolbar-refresh');
@@ -595,7 +655,7 @@ describe('every number opens its source transactions', () => {
   });
   it('under a text filter the total lists exactly the tasks that are shown', async () => {
     renderUI(<Monitor01Dashboard mode="standalone" />);
-    typeInto('monitor01-filters-task', 'task03');
+    typeInto('monitor01-filters-task', 't3');
     await wait(250);
     press(cell('total|unit_hour', 'planned'));
     await flush();

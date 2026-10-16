@@ -249,20 +249,20 @@ describe('DateInputApp', () => {
     expect(q('d-clear')).toBeNull();
     typeInto('d', '2026-01-02');
     expect(onChange).toHaveBeenLastCalledWith('2026-01-02');
-    expect(q('mock-date-picker-modal')).toBeNull();
+    expect(q('mock-date-picker-content')).toBeNull();
     press('d-datepicker-trigger');
-    expect(q('mock-date-picker-modal')).not.toBeNull();
-    press('mock-date-picker-confirm'); // the mock picks 2026-09-30
+    expect(q('mock-date-picker-content')).not.toBeNull();
+    press('mock-date-picker-content-confirm'); // the mock picks 2026-09-30
     expect(onChange).toHaveBeenLastCalledWith('2026-09-30');
     expect(onSelectDate).toHaveBeenCalledWith(expect.any(Date));
-    expect(q('mock-date-picker-modal')).toBeNull();
+    expect(q('mock-date-picker-content')).toBeNull();
   });
 
   it('PMDateInput writes the picked day in the project date format', () => {
     const onChange = jest.fn();
     renderUI(<PMDateInput testID="p" dateFormat="DD.MM.YYYY" value="05.10.2026" onChangeText={onChange} />);
     press('p-datepicker-trigger');
-    press('mock-date-picker-confirm'); // keeps the shown date
+    press('mock-date-picker-content-confirm'); // keeps the shown date
     expect(onChange).toHaveBeenLastCalledWith('05.10.2026');
   });
 });

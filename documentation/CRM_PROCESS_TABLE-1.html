@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM - golden standard processes</title>
+<style>
+  /* Light business theme, same family as documentation/PROJECT_STATE_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; vertical-align: middle; margin-right: 3px; white-space: nowrap; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.c1 { background: var(--amber-soft); color: #92400e; }
+  .pill.sap { background: var(--cyan-soft); color: #0e7490; }
+  .pill.d365 { background: var(--purple-soft); color: var(--purple); }
+  .pill.ms { background: var(--rose-soft); color: var(--rose); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); position: sticky; top: 54px; z-index: 2; }
+  table.crm { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 980px; }
+  table.crm td.no { width: 36px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  table.crm td.in, table.crm td.out { width: 29%; }
+  table.crm td.desc { width: 42%; }
+  tr.wp td { background: var(--purple-soft); font-weight: 700; color: var(--purple); border-bottom: 1px solid #c4b5fd; }
+  ul.tight, ol.steps { margin: 0; padding-left: 18px; }
+  ul.tight li { margin: 2px 0; }
+  .pname { font-weight: 700; display: block; margin-bottom: 2px; }
+  .bp { display: block; margin-top: 5px; font-size: 13px; color: var(--text-2); }
+  .bp b { color: var(--emerald); }
+  .small { font-size: 13px; color: var(--muted); }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .arrow { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">CRM processes <span class="pill ask" style="margin-left:6px">analysis</span></div>
+  <nav><ul>
+    <li><a href="#status">Status</a></li><li><a href="#flow">Pipeline</a></li><li><a href="#table">The table</a></li>
+    <li><a href="#sources">Sources</a></li><li><a href="#app">In this app</a></li><li><a href="#open">Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="status">
+  <h1>CRM - golden standard processes <span class="pill ask">analysis, no code</span></h1>
+  <p class="lead">Source: the Google Doc <b>"W1 CRM 11"</b> (<code>1JfcXCCdBJIuJcAqsj4N72szH-BmlW_5nr3MQQkQClzQ</code>). Task: <i>show the list of golden standard processes of the CRM as a table; columns PROCESS INPUT, CLOSEST DESCRIPTION, PROCESS OUTPUT; rows = the steps of the customer relationship pipeline; extract, aggregate and improve the best practices of 1C, SAP, D36 FO and Microsoft CRM</i>.</p>
+  <div class="note"><b>How I read the request.</b>
+    <ul class="tight">
+      <li><b>File name.</b> The doc says <code>./documents/CRM_PROCESS_TABLE.html</code>. The folder <code>documents/</code> does not exist; all the plan pages of this project are in <code>documentation/</code> (the same decision as for <code>PROJECT_STATE_WBS.html</code>). If you want another place, tell me.</li>
+      <li><b>"D36 FO"</b> = Microsoft <b>Dynamics 365 Finance and Operations</b> (D365 F&amp;O). <b>"Microsoft CRM"</b> = <b>Dynamics 365 Sales</b> (the CRM side).</li>
+      <li><b>"Output format"</b> = the format of the other pages of <code>documentation/</code> (one HTML page, light theme, tables). Tell me if you meant something else (a spreadsheet, a Google Doc).</li>
+      <li><b>Honesty about the sources.</b> The table is written from my knowledge of the four products (standard modules and typical practice), <b>not</b> checked against a live system or the vendors' current documentation. The names of documents and statuses differ by product and version; where they differ I use a neutral name and show the product term in the "Source" pills only when I am sure of the idea, not of the exact screen name.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="flow">
+  <h2>The pipeline in one line</h2>
+  <p class="sub">Four blocks, 22 processes. Each output is the input of the next step.</p>
+  <div class="flow">
+    <span class="box">A. Marketing &amp; leads</span><span class="arrow">→</span>
+    <span class="box">B. Customer &amp; opportunity</span><span class="arrow">→</span>
+    <span class="box">C. Quote-to-cash</span><span class="arrow">→</span>
+    <span class="box">D. After-sales &amp; management</span><span class="arrow">↺ (renewal / upsell = a new lead or opportunity)</span>
+  </div>
+</section>
+
+<section id="table">
+  <h2>The table</h2>
+  <p class="sub">Source pills: <span class="pill c1">1C</span> 1C (CRM / ERP) · <span class="pill sap">SAP</span> SAP (Sales Cloud / S/4HANA Sales) · <span class="pill d365">D365 F&amp;O</span> Dynamics 365 Finance and Operations · <span class="pill ms">MS CRM</span> Dynamics 365 Sales. "Best practice" = what is taken from the sources and made the rule.</p>
+  <div class="scroll"><table class="crm">
+    <thead><tr><th>#</th><th>Process input</th><th>Closest description</th><th>Process output</th></tr></thead>
+    <tbody>
+
+    <tr class="wp"><td colspan="4">A - Marketing and leads</td></tr>
+
+    <tr><td class="no">1</td>
+      <td class="in"><ul class="tight"><li>target segment criteria (industry, region, size, product interest)</li><li>campaign budget, period, owner</li><li>product / price list to promote</li><li>customer list with marketing consent</li></ul></td>
+      <td class="desc"><span class="pname">Campaign planning and execution</span>Plan a marketing campaign for a customer segment, run its channels (mail, event, web, call) and mark every response with the campaign.
+        <span class="pill c1">1C</span><span class="pill sap">SAP</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> a segment is a saved, repeatable query; each campaign has a budget and a source code so the cost per lead / per won deal can be computed later; consent is checked before sending.</span></td>
+      <td class="out"><ul class="tight"><li>campaign with target list, budget, responsible</li><li>source code for tracking responses</li><li>planned activities (mailing, call list)</li></ul></td></tr>
+
+    <tr><td class="no">2</td>
+      <td class="in"><ul class="tight"><li>web form, e-mail, phone call, event card, import file, partner referral</li><li>campaign response (source code)</li></ul></td>
+      <td class="desc"><span class="pname">Lead capture</span>Register every first contact as a lead (a potential customer who is not yet confirmed as a business opportunity). One place for all channels.
+        <span class="pill c1">1C</span><span class="pill sap">SAP</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> minimum mandatory data (name or company + one way to contact + source); everything else is added later; the source is never lost.</span></td>
+      <td class="out"><ul class="tight"><li>lead with source, contact data, consent flag, status "New"</li><li>first interaction record (call, mail, form)</li></ul></td></tr>
+
+    <tr><td class="no">3</td>
+      <td class="in"><ul class="tight"><li>new lead</li><li>existing customers and contacts</li><li>assignment rules (territory, product line, round robin)</li></ul></td>
+      <td class="desc"><span class="pname">Duplicate check and assignment</span>Compare the lead with existing customers, contacts and other leads; link, merge or keep it new; assign an owner by rule and set the time limit for the first reaction.
+        <span class="pill sap">SAP</span><span class="pill ms">MS CRM</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> never create a second customer record for the same company (match by tax ID, e-mail domain, name); every lead has an owner and a "first reaction until" date; overdue leads are escalated.</span></td>
+      <td class="out"><ul class="tight"><li>lead linked to an existing account / contact, or confirmed as new</li><li>owner (person or queue) and reaction deadline</li><li>task "first contact" created</li></ul></td></tr>
+
+    <tr><td class="no">4</td>
+      <td class="in"><ul class="tight"><li>assigned lead</li><li>qualification questions (budget, authority, need, timeline)</li><li>scoring rules, interaction history</li></ul></td>
+      <td class="desc"><span class="pname">Lead qualification and scoring</span>First contact and a short interview; the lead gets a score and is either qualified (becomes customer + contact + opportunity) or disqualified with a reason.
+        <span class="pill ms">MS CRM</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> a disqualified lead keeps the reason and can come back (nurturing list) - it is not deleted; the conversion is one action that creates the customer, the contact and the opportunity together and keeps the lead as history.</span></td>
+      <td class="out"><ul class="tight"><li>score and status: Qualified / Disqualified (reason) / Nurture</li><li>for Qualified: the three records of process 5 and 6</li></ul></td></tr>
+
+    <tr class="wp"><td colspan="4">B - Customer and opportunity</td></tr>
+
+    <tr><td class="no">5</td>
+      <td class="in"><ul class="tight"><li>qualified lead or a new customer request</li><li>legal data, tax ID, addresses, bank data</li><li>contact persons and their roles</li></ul></td>
+      <td class="desc"><span class="pname">Customer (account) and contact master data</span>The single customer record: company, hierarchy (group → subsidiaries), contact persons, and the roles of the partner in a deal.
+        <span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill c1">1C</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> one record for CRM and finance (no copy of the customer in two systems); separate partner roles on one customer - sold-to, ship-to, bill-to, payer, contact person; customer groups; an ABC / segment class.</span></td>
+      <td class="out"><ul class="tight"><li>customer with contacts, addresses, partner roles</li><li>account manager and team</li><li>payment terms and credit limit proposed (finance confirms in process 14)</li></ul></td></tr>
+
+    <tr><td class="no">6</td>
+      <td class="in"><ul class="tight"><li>qualified lead or customer request</li><li>expected products / services, amount, close date</li><li>sales process type (which stages)</li></ul></td>
+      <td class="desc"><span class="pname">Opportunity (deal) creation</span>A concrete possible sale with a value, a probability and an expected close date, passing the stages of a defined sales process.
+        <span class="pill ms">MS CRM</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> a fixed list of stages (Qualify → Develop → Propose → Negotiate → Close); each stage has a default probability and the data that must be filled to leave it; products with quantity on the opportunity give the forecast amount; competitors and the decision maker are recorded.</span></td>
+      <td class="out"><ul class="tight"><li>opportunity: stage, probability, weighted amount, close date, owner, sales team</li><li>products of interest, competitors, decision maker</li></ul></td></tr>
+
+    <tr><td class="no">7</td>
+      <td class="in"><ul class="tight"><li>open opportunity</li><li>customer requirements</li><li>calendar of the team</li></ul></td>
+      <td class="desc"><span class="pname">Needs analysis and activity planning</span>Calls, meetings, demos, e-mails and tasks around the opportunity; every contact is logged with the result and the next step is planned.
+        <span class="pill c1">1C</span><span class="pill ms">MS CRM</span><span class="pill sap">SAP</span>
+        <span class="bp"><b>Best practice:</b> no open opportunity without a planned next activity (a "stuck deal" list shows the others); the interaction history of the customer is visible to everyone who works with it; activities and mail are linked to the opportunity automatically.</span></td>
+      <td class="out"><ul class="tight"><li>completed activities with results</li><li>requirements list</li><li>next planned activity and date</li></ul></td></tr>
+
+    <tr class="wp"><td colspan="4">C - Quote-to-cash</td></tr>
+
+    <tr><td class="no">8</td>
+      <td class="in"><ul class="tight"><li>opportunity products and quantities</li><li>price lists, customer-specific prices (trade agreements, pricing conditions)</li><li>discount rules, taxes, delivery terms</li></ul></td>
+      <td class="desc"><span class="pname">Quotation (commercial proposal)</span>Prepare an offer with price, discounts, taxes and validity date, send it to the customer and keep every version.
+        <span class="pill c1">1C</span><span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> the price is calculated by rules (price list → customer agreement → discount), never typed freely; a revision is a new version of the same quotation; the document can be converted into an order without retyping; validity date is required.</span></td>
+      <td class="out"><ul class="tight"><li>quotation (version n) with lines, prices, discounts, taxes, validity date</li><li>document for the customer (print / PDF / mail)</li></ul></td></tr>
+
+    <tr><td class="no">9</td>
+      <td class="in"><ul class="tight"><li>quotation with a discount or margin outside the allowed limit</li><li>approval matrix (by amount, discount %, margin)</li></ul></td>
+      <td class="desc"><span class="pname">Approval of conditions</span>A manager approves or rejects non-standard prices, discounts or payment terms before the offer leaves the company.
+        <span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> the rule is data (threshold table), not code; the approver sees margin, not only price; the decision and the comment are kept in the audit trail.</span></td>
+      <td class="out"><ul class="tight"><li>decision: approved / rejected / changed, with comment, approver, date</li><li>quotation released for sending</li></ul></td></tr>
+
+    <tr><td class="no">10</td>
+      <td class="in"><ul class="tight"><li>customer feedback</li><li>competitor information</li><li>previous quotation version</li></ul></td>
+      <td class="desc"><span class="pname">Negotiation and revision</span>Change the offer in rounds until the customer accepts or leaves; the opportunity stage and probability follow the negotiation.
+        <span class="pill ms">MS CRM</span><span class="pill c1">1C</span><span class="pill sap">SAP</span>
+        <span class="bp"><b>Best practice:</b> all versions are comparable (what changed between 2 and 3); the competitor and the price gap are recorded for the lost-deal analysis.</span></td>
+      <td class="out"><ul class="tight"><li>new quotation version, or accepted version</li><li>updated stage, probability, forecast</li></ul></td></tr>
+
+    <tr><td class="no">11</td>
+      <td class="in"><ul class="tight"><li>customer decision</li><li>last quotation version</li></ul></td>
+      <td class="desc"><span class="pname">Close the opportunity: Won / Lost</span>Won starts the execution; Lost closes the deal with a mandatory reason.
+        <span class="pill ms">MS CRM</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> the reason list (price, competitor, no budget, no decision, timing) is a catalog, so the reasons can be summed up; the winning quotation is the one that becomes the order; the closed deal can be reopened only by a role with the right.</span></td>
+      <td class="out"><ul class="tight"><li>Won: accepted quotation → contract / order (process 12-13)</li><li>Lost: reason, competitor, comment; forecast updated</li></ul></td></tr>
+
+    <tr><td class="no">12</td>
+      <td class="in"><ul class="tight"><li>won opportunity</li><li>legal entity of the seller</li><li>terms: price validity, payment, delivery, volumes, penalties</li></ul></td>
+      <td class="desc"><span class="pname">Contract / sales agreement</span>A contract with the customer (single or framework with committed volumes and prices) against which orders are placed.
+        <span class="pill d365">D365 F&amp;O</span><span class="pill c1">1C</span><span class="pill sap">SAP</span>
+        <span class="bp"><b>Best practice:</b> a framework agreement holds the price and volume commitment, the orders only call it off and the remaining volume is always visible; status Draft → Signed → Active → Closed; the contract states the legal entity that sells.</span></td>
+      <td class="out"><ul class="tight"><li>contract with status, terms, price list or lines, validity</li><li>remaining committed volume / amount</li></ul></td></tr>
+
+    <tr><td class="no">13</td>
+      <td class="in"><ul class="tight"><li>contract or accepted quotation</li><li>required delivery date, ship-to, bill-to</li><li>customer purchase order number</li></ul></td>
+      <td class="desc"><span class="pname">Customer order (sales order)</span>The binding order with lines, quantities, prices and dates; the confirmation goes to the customer.
+        <span class="pill c1">1C</span><span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span>
+        <span class="bp"><b>Best practice:</b> the order is created from the quotation or contract (copy of data, link kept = document flow); order lines have their own status (open, reserved, delivered, invoiced) and the order status is derived from them; changes after confirmation are versioned.</span></td>
+      <td class="out"><ul class="tight"><li>order with schedule lines and statuses</li><li>order confirmation document</li><li>reservation of stock / capacity (after process 14)</li></ul></td></tr>
+
+    <tr><td class="no">14</td>
+      <td class="in"><ul class="tight"><li>order</li><li>customer credit limit and open items</li><li>stock or capacity availability</li></ul></td>
+      <td class="desc"><span class="pname">Credit and availability check</span>The order is checked automatically against the credit limit of the customer and against what can be delivered by the requested date.
+        <span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> the block is a status, not an error: the order waits, finance releases it with a comment; the promised date is calculated, not guessed; the check repeats when the order changes.</span></td>
+      <td class="out"><ul class="tight"><li>order released or blocked (reason)</li><li>confirmed delivery date per line</li></ul></td></tr>
+
+    <tr><td class="no">15</td>
+      <td class="in"><ul class="tight"><li>released order lines</li><li>stock, resources, project plan</li></ul></td>
+      <td class="desc"><span class="pname">Fulfilment: delivery or service execution</span>Pick, pack, ship and post the goods issue (goods) or execute the work (services / projects) and record what was really delivered.
+        <span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> delivered quantity is a document (packing slip / delivery note) that moves the stock and updates the order lines; partial deliveries are normal; for services the actuals (time, expenses) are the basis of the invoice.</span></td>
+      <td class="out"><ul class="tight"><li>delivery document / actuals, goods issue posted</li><li>order lines: delivered quantity updated</li></ul></td></tr>
+
+    <tr><td class="no">16</td>
+      <td class="in"><ul class="tight"><li>delivered quantities, milestones or actual time and expenses</li><li>contract prices and tax rules</li><li>legal entity, currency</li></ul></td>
+      <td class="desc"><span class="pname">Invoicing (billing)</span>Create the customer invoice from what was delivered or earned, post it to accounts receivable and revenue.
+        <span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> the invoice is created from the delivery / order lines (never typed again), partially and by milestone or periodic schedule; the posting to accounting happens in the same transaction; a posted invoice is changed only by a credit note.</span></td>
+      <td class="out"><ul class="tight"><li>customer invoice (posted), receivable</li><li>accounting entries; order lines: invoiced quantity</li></ul></td></tr>
+
+    <tr><td class="no">17</td>
+      <td class="in"><ul class="tight"><li>bank statement / incoming payments</li><li>open invoices</li></ul></td>
+      <td class="desc"><span class="pname">Payment, settlement and collections</span>Match payments to invoices, close the receivable, and chase the overdue ones with reminders (dunning levels).
+        <span class="pill d365">D365 F&amp;O</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> automatic matching by reference with a manual list for the rest; the aging list (0-30, 31-60 ...) is visible on the customer card for the sales manager too, so a new deal is not started blind; dunning steps are rules.</span></td>
+      <td class="out"><ul class="tight"><li>settled invoices, closed receivables</li><li>reminders sent, promise-to-pay notes</li><li>customer aging for the credit check</li></ul></td></tr>
+
+    <tr class="wp"><td colspan="4">D - After-sales and management</td></tr>
+
+    <tr><td class="no">18</td>
+      <td class="in"><ul class="tight"><li>customer call, mail or portal request</li><li>customer's orders, contracts, products</li></ul></td>
+      <td class="desc"><span class="pname">Service case and complaint handling</span>Register every customer problem as a case with a priority and a due time, solve it, and keep the history on the customer.
+        <span class="pill ms">MS CRM</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> a case is linked to the sold item / order; service level (response and solution time) is calculated and escalated when late; root-cause category for statistics.</span></td>
+      <td class="out"><ul class="tight"><li>case with status, owner, SLA time, solution</li><li>root cause; follow-up task (replacement, credit note)</li></ul></td></tr>
+
+    <tr><td class="no">19</td>
+      <td class="in"><ul class="tight"><li>return request or accepted complaint</li><li>original order / invoice</li></ul></td>
+      <td class="desc"><span class="pname">Return and credit note</span>Take goods back (or cancel a service), inspect them, and credit or replace.
+        <span class="pill d365">D365 F&amp;O</span><span class="pill sap">SAP</span><span class="pill c1">1C</span>
+        <span class="bp"><b>Best practice:</b> the return is created from the original document (quantity limited to what was sold), the disposition (back to stock, scrap, supplier) is a code, and the credit note refers to the invoice it corrects.</span></td>
+      <td class="out"><ul class="tight"><li>return order, goods receipt</li><li>credit note (posted) or replacement order</li></ul></td></tr>
+
+    <tr><td class="no">20</td>
+      <td class="in"><ul class="tight"><li>closed orders and invoices</li><li>satisfaction survey, contract end dates</li></ul></td>
+      <td class="desc"><span class="pname">Follow-up, renewal and upsell</span>Contact the customer after delivery, measure satisfaction, and open a new opportunity for renewal, extension or an additional product.
+        <span class="pill ms">MS CRM</span><span class="pill c1">1C</span><span class="pill sap">SAP</span>
+        <span class="bp"><b>Best practice:</b> a renewal task or opportunity appears automatically N days before a contract ends; a low satisfaction score creates a task for the account manager.</span></td>
+      <td class="out"><ul class="tight"><li>satisfaction score</li><li>new opportunity (renewal / upsell) → process 6</li></ul></td></tr>
+
+    <tr><td class="no">21</td>
+      <td class="in"><ul class="tight"><li>customer turnover, margin, frequency, payment discipline</li><li>segment rules</li></ul></td>
+      <td class="desc"><span class="pname">Customer segmentation and loyalty</span>Classify customers (ABC by turnover or margin, by potential) and give each class its service level, discounts or loyalty conditions.
+        <span class="pill c1">1C</span><span class="pill sap">SAP</span><span class="pill ms">MS CRM</span>
+        <span class="bp"><b>Best practice:</b> the class is recalculated by a rule on a schedule, not typed; it drives who is called how often and which campaigns the customer gets (back to process 1).</span></td>
+      <td class="out"><ul class="tight"><li>customer class / segment, loyalty level</li><li>segments for the next campaigns</li></ul></td></tr>
+
+    <tr><td class="no">22</td>
+      <td class="in"><ul class="tight"><li>open opportunities with stage and probability</li><li>sales plan / quota per manager and period</li><li>actual orders and invoices</li></ul></td>
+      <td class="desc"><span class="pname">Sales planning, forecast and pipeline analysis</span>Plan versus fact by manager, product and period; the funnel (how many deals pass each stage); weighted forecast; win rate; reasons of lost deals; cost per lead from the campaigns.
+        <span class="pill c1">1C</span><span class="pill ms">MS CRM</span><span class="pill sap">SAP</span><span class="pill d365">D365 F&amp;O</span>
+        <span class="bp"><b>Best practice:</b> the forecast has three views (commit, best case, pipeline); the fact comes from the same movements as the accounting (one truth, no manual report); the manager can adjust the forecast but the original number stays.</span></td>
+      <td class="out"><ul class="tight"><li>forecast, plan-fact report, funnel conversion, win / loss analysis</li><li>management decisions: re-assign, change quota, stop campaigns</li></ul></td></tr>
+
+    </tbody>
+  </table></div>
+</section>
+
+<section id="sources">
+  <h2>What each source contributes</h2>
+  <p class="sub">The idea behind the aggregate (what was kept from whom).</p>
+  <div class="scroll"><table>
+    <tr><th>Source</th><th>Strength used</th><th>Weakness avoided</th></tr>
+    <tr><td><span class="pill c1">1C</span> CRM / ERP</td><td>customer interactions history, simple sales stages, campaigns and segments, customer order → sale, ABC classification, plan-fact of sales.</td><td>the CRM and the ERP side can be two separate objects of the same customer.</td></tr>
+    <tr><td><span class="pill sap">SAP</span></td><td>document flow (inquiry → quotation → order → delivery → billing, each linked to the previous), partner roles, pricing conditions, credit and availability check, approvals.</td><td>heavy set-up and too many mandatory fields in a first contact.</td></tr>
+    <tr><td><span class="pill d365">D365 F&amp;O</span></td><td>sales agreements (framework with commitments), trade agreements, packing slip and invoice from lines, settlement and collections, returns.</td><td>the front part (lead, activities, forecast) is not in F&amp;O - it comes from Dynamics 365 Sales.</td></tr>
+    <tr><td><span class="pill ms">MS CRM</span> Dynamics 365 Sales</td><td>lead → opportunity business process flow with stages, lead scoring, activity timeline, won / lost with reason, forecast, service cases with SLA.</td><td>weaker order, stock and accounting side - it comes from F&amp;O / SAP / 1C.</td></tr>
+  </table></div>
+  <div class="good"><b>The improvement of the aggregate:</b> (1) the front part of Microsoft CRM and the back part of SAP / F&amp;O in ONE chain with a link from each document to the previous one; (2) the rules (assignment, approval limits, stages, segments, dunning) are data, not code; (3) one customer record for CRM and finance; (4) the fact for the sales reports is read from the same movements that accounting uses - the same idea as the project status register of this app.</div>
+</section>
+
+<section id="app">
+  <h2>Where this app already stands <span class="pill ask">my reading of the code, not built</span></h2>
+  <p class="sub">Only a first look at the existing catalogs, to show what a CRM could reuse. Nothing here is built or changed.</p>
+  <div class="scroll"><table>
+    <tr><th>CRM object</th><th>Already in the app</th><th>Missing</th></tr>
+    <tr><td>customer, contact (5)</td><td>catalog <code>kit8/catalog/partner</code> (with the main vendor field), <code>person</code>, <code>organization</code></td><td>partner roles (sold-to / ship-to / payer), customer groups, segment class</td></tr>
+    <tr><td>contract (12)</td><td>catalog <code>kit8/catalog/contract</code> with the optional legal entity, <code>legal_entity</code></td><td>customer side (today it serves the vendor invoice), framework volumes, status flow</td></tr>
+    <tr><td>products, prices (8)</td><td>catalog <code>kit8/catalog/product</code>, currencies and rates</td><td>price lists per customer, discount rules</td></tr>
+    <tr><td>fulfilment, invoice, fact (15, 16)</td><td>projects, tasks, fact input, vendor invoice (cost side), the project status register (<code>sold</code> kind exists, no document yet)</td><td>customer invoice document (a mirror of the vendor invoice with the movement kind <code>sold</code>)</td></tr>
+    <tr><td>lead, opportunity, quotation, order, activities, cases, campaigns (1-4, 6-11, 13, 18, 22)</td><td>-</td><td>everything: tables, documents, screens, reports</td></tr>
+  </table></div>
+</section>
+
+<section id="open">
+  <h2>Questions <span class="pill ask">each has my default</span></h2>
+  <ol class="steps">
+    <li><b>Q1 - the place and the format.</b> OK in <code>documentation/</code> as an HTML page? <i>Default: yes.</i></li>
+    <li><b>Q2 - "D36 FO".</b> Is it Dynamics 365 Finance and Operations? <i>Default: yes.</i></li>
+    <li><b>Q3 - scope.</b> Is this table only the reference, or should the next step be a work breakdown (like <code>PROJECT_STATE_WBS.html</code>) of what to build first? <i>Default: reference only; if a build follows, I suggest the smallest chain that uses what exists: customer (5) → opportunity (6) → quotation (8) → contract (12) → customer invoice from the project actuals (16).</i></li>
+    <li><b>Q4 - rows to cut.</b> 22 processes is the full list; for an ERP / project application the rows 1, 3, 18, 19, 21 may be a later phase. <i>Default: keep all in the table, mark the phase when the WBS is written.</i></li>
+  </ol>
+</section>
+
+</main>
+</body>
+</html>

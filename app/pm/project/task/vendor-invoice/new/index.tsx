@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import VendorInvoiceChoose from '../../../../../../kit8/pm/vendor_invoice/VendorInvoiceChoose';
+import VendorInvoiceChoose from '../../../../../../kit8/documents/vendor/invoice/VendorInvoiceChoose';
 
 // route: /pm/project/task/vendor-invoice/new?taskGUID=<uuid>[&lineGUIDs=<uuid,uuid,...>][&projectGUID=<uuid>] - "Vendor Invoice" of the context menu: the vendors of the lines, a check box each, Create
 export default function VendorInvoiceNewRoute() {

@@ -7,8 +7,8 @@ import React from 'react';
 import { usePMStore } from '../../store/store_pm';
 import { PMCrud } from '../../crud/usePMCrud';
 import PMContextMenu from '../../inner/menu/PMContextMenu';
-import { useOpenFactInput } from '../../fact/useOpenFactInput';
-import { useStartVendorInvoice } from '../../vendor_invoice/useVendorInvoice';
+import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
+import { useStartVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
@@ -40,9 +40,9 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     { testID: id('google-calendar'), label: 'Add to Google Calendar', icon: 'event', onPress: run(() => crud.addToGoogleCalendar(guid)) },
     { testID: id('link'), label: 'Link to…', icon: 'link', onPress: run(() => crud.startLink(guid)) },
     { testID: id('open'), label: 'Open task info', icon: 'open_in_new', onPress: run(() => crud.openInfo(guid)) },
-    // a stage has no lines, so no facts: only a task or a milestone (kit8/pm/fact, documentation/FACT_INPUT.html)
+    // a stage has no lines, so no facts: only a task or a milestone (kit8/documents/fact/input, documentation/FACT_INPUT.html)
     ...(isSummary ? [] : [{ testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID: guid })) }]),
-    // right after "Facts input": CREATES the vendor invoice(s) of ALL the lines of the task (one for each vendor + contract) and opens it (kit8/pm/vendor_invoice)
+    // right after "Facts input": CREATES the vendor invoice(s) of ALL the lines of the task (one for each vendor + contract) and opens it (kit8/documents/vendor/invoice)
     ...(isSummary ? [] : [{ testID: id('vendor-invoice'), label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => { void startVendorInvoice({ taskGUID: guid }); }) }]),
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];

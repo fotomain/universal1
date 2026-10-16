@@ -46,9 +46,9 @@ jest.mock('react-redux', () => {
     useDispatch: () => mockDispatch,
   };
 });
-// "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: vendor_invoice/useVendorInvoice.test.tsx)
+// "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: documents/vendor/invoice/useVendorInvoice.test.tsx)
 const mockStartVendorInvoice = jest.fn();
-jest.mock('../../../../../kit8/pm/vendor_invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
+jest.mock('../../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
 const mockPick: Record<string, string> = {};
 const mockSelectProps: Record<string, any> = {};
 jest.mock('../../../../../kit8/catalog/inner/select_element/SelectElementFromCatalog', () => {

@@ -2,7 +2,7 @@
 //
 //   [ 📅  2026-10-06                              ✕ ]
 //
-//   * calendar icon INSIDE the input area at the left  -> opens DatePickerModal (react-native-paper-dates)
+//   * calendar icon INSIDE the input area at the left  -> opens the calendar (DateQuickPickModal: Today / Tomorrow / Yesterday above the react-native-paper-dates grid)
 //   * close (clear) icon INSIDE the input area at the right (only when the field has text)
 //   * the text stays editable: the user can type the date or pick it
 //
@@ -12,14 +12,15 @@
 //   <DateInputApp testID="start" value={text} onChangeText={setText} />
 //
 // testIDs: `testID` = the text input · `${pickerTestID}-trigger` = calendar icon (pickerTestID defaults to
-// `${testID}-datepicker`) · `${testID}-clear` = clear icon.
+// `${testID}-datepicker`) · `${testID}-clear` = clear icon · the calendar's quick-pick row: see DateQuickPickModal.tsx.
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleProp, Text, TextInput, View, ViewStyle } from 'react-native';
 import { TextInput as PaperTextInput, HelperText as PaperHelperText } from 'react-native-paper';
-import { DatePickerModal, registerTranslation, en } from 'react-native-paper-dates';
+import { registerTranslation, en } from 'react-native-paper-dates';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../IconApp';
+import DateQuickPickModal from './DateQuickPickModal';
 import { defaultFormatDateInput, defaultParseDateInput } from './dateInputFormat';
 
 try {
@@ -50,6 +51,11 @@ export interface DateInputAppProps {
   /** tip / accessibility label of the calendar icon and title of the calendar */
   pickerLabel?: string;
   clearLabel?: string;
+  /** false hides the Today / Tomorrow / Yesterday row of the calendar (default true) */
+  showQuickDates?: boolean;
+  todayLabel?: string;
+  tomorrowLabel?: string;
+  yesterdayLabel?: string;
   validRange?: { startDate?: Date; endDate?: Date };
   /** lower field (32 px, the same as TextInputApp compact) for dense bars and dialogs */
   compact?: boolean;
@@ -91,6 +97,10 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
   locale = 'en',
   pickerLabel = 'Select date',
   clearLabel = 'Clear',
+  showQuickDates = true,
+  todayLabel = 'Today',
+  tomorrowLabel = 'Tomorrow',
+  yesterdayLabel = 'Yesterday',
   validRange,
   compact = false,
   style,
@@ -150,9 +160,9 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
   const keepFocus = Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e?.preventDefault?.() } as any) : {};
 
   const modal = (
-    <DatePickerModal
+    <DateQuickPickModal
+      testID={`${pickerTestID || `${testID}-datepicker`}-quick`}
       locale={locale}
-      mode="single"
       visible={open}
       label={pickerLabel}
       onDismiss={() => setOpen(false)}
@@ -162,6 +172,10 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
         if (p?.date) confirm({ date: p.date });
       }}
       validRange={validRange}
+      showQuickDates={showQuickDates}
+      todayLabel={todayLabel}
+      tomorrowLabel={tomorrowLabel}
+      yesterdayLabel={yesterdayLabel}
     />
   );
 

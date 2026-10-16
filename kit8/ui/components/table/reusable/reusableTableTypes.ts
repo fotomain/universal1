@@ -426,7 +426,7 @@ export interface ReusableTableProps {
   crudPanelEnabled?: boolean;
   /**
    * false: NO new row can be made - the add / add first / duplicate buttons and the row menu commands add above / below / duplicate are gone; update, move and delete stay
-   * (default true). The strong fact input: the lines come from the task lines, the user can only change and delete them (kit8/pm/fact)
+   * (default true). The strong fact input: the lines come from the task lines, the user can only change and delete them (kit8/documents/fact/input)
    */
   addEnabled?: boolean;
   /**

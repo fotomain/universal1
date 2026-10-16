@@ -72,10 +72,10 @@
   <h1>Fact input <span class="pill new">built 2026-10-13</span></h1>
   <p class="lead">Source: Google Doc "W1 FACT INPUT". As the doc says: <b>do not code</b>. The business need: the user records what really happened on a task - hours worked, material delivered or used, expenses, revenues -
   in a <b>document</b> opened from the lines of the task. The posted documents feed the <b>Monitor01</b> report (delivered · actually used · on-hand). This page is the scenario, the tables, the rules, the work breakdown and the questions.</p>
-  <div class="good"><b>Built (the doc was changed after this plan, "start" came with it).</b> SQL <b>PART 24</b> (<code>kit8/sql/start</code>: structure, code, delete PART 1a) · app in <b><code>kit8/pm/fact</code></b>
+  <div class="good"><b>Built (the doc was changed after this plan, "start" came with it).</b> SQL <b>PART 24</b> (<code>kit8/sql/start</code>: structure, code, delete PART 1a) · app in <b><code>kit8/documents/fact/input</code></b>
   (<code>PMFactInputDocument.tsx</code>, <code>FactLinesTable.tsx</code>, <code>factInputModel.ts</code>, <code>factInputApi.ts</code>, <code>useFactInputDocument.ts</code>, <code>useOpenFactInput.ts</code>) · route <code>app/pm/project/task/fact</code> ·
   menu item <b>Facts input</b> in the row menu of the lines of the Finances table and of the task tree · project setting <code>factStrongInputByTaskLine</code> (Project settings → Budgets → Main).
-  Tests: <code>kit8/docker/test_fact_monitor01.sh</code> (54 checks on a real Postgres 15) · Jest <code>__tests__/pm/fact</code> (72 tests).</div>
+  Tests: <code>kit8/docker/test_fact_monitor01.sh</code> (54 checks on a real Postgres 15) · Jest <code>__tests__/documents/fact/input</code> (72 tests).</div>
   <div class="note"><b>Your answers in the doc and what they changed:</b>
     <ul class="tight">
       <li><b>Rule "all data from the task_line_table of the task automatically goes to task_fact_usage_timeline"</b> - replaces my Q4: the document is created with <b>one fact line for every task line</b> (genus, role, resource, unit, price copied; <code>qtyForContract</code> starts as the quantity of the task line), not one per plan day.

@@ -47,3 +47,27 @@ export function utcDayToLocalDate(ms: number): Date {
 export function localDateToUtcDay(date: Date): number {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 }
+
+// ---- Today / Tomorrow / Yesterday (the quick-pick row of the calendar, DateQuickPickModal.tsx) -----------------------------------------------------------
+/** local midnight of `now` (default: this moment) - only year / month / day matter to format() */
+export function localToday(now: Date = new Date()): Date {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+export function localTomorrow(now: Date = new Date()): Date {
+  const d = localToday(now);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+export function localYesterday(now: Date = new Date()): Date {
+  const d = localToday(now);
+  d.setDate(d.getDate() - 1);
+  return d;
+}
+
+/** true when `date` is inside validRange (missing bounds = open on that side), the rule the calendar grid itself applies to a day */
+export function dateInValidRange(date: Date, validRange?: { startDate?: Date; endDate?: Date }): boolean {
+  if (!validRange) return true;
+  if (validRange.startDate && date.getTime() < validRange.startDate.getTime()) return false;
+  if (validRange.endDate && date.getTime() > validRange.endDate.getTime()) return false;
+  return true;
+}

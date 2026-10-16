@@ -46,10 +46,10 @@ import { useLineRateBook } from './useLineRateBook';
 import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
-import { useOpenFactInput } from '../../../fact/useOpenFactInput';
-import { useStartVendorInvoice } from '../../../vendor_invoice/useVendorInvoice';
-import VendorInvoiceScopeModal from '../../../vendor_invoice/VendorInvoiceScopeModal';
-import { vendorInvoiceLinesOfScope } from '../../../vendor_invoice/vendorInvoiceModel';
+import { useOpenFactInput } from '../../../../documents/fact/input/useOpenFactInput';
+import { useStartVendorInvoice } from '../../../../documents/vendor/invoice/useVendorInvoice';
+import VendorInvoiceScopeModal from '../../../../documents/vendor/invoice/VendorInvoiceScopeModal';
+import { vendorInvoiceLinesOfScope } from '../../../../documents/vendor/invoice/vendorInvoiceModel';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -248,10 +248,10 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         duplicateOverrides={DUPLICATE_UNPOSTED}
         onRowEdit={onRowEdit}
         emptyText={pmT('No lines yet. Press "+ Add".')}
-        // right button on a line: "Facts input" (kit8/pm/fact, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
+        // right button on a line: "Facts input" (kit8/documents/fact/input, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
         extraMenuItems={(row, close) => [
           { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
-          // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/pm/vendor_invoice)
+          // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/documents/vendor/invoice)
           ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); setVendorInvoiceLine(row.rowGUID); } }] : []),
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}

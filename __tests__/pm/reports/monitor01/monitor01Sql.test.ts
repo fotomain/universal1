@@ -5,7 +5,7 @@ import { structureParts } from '../../../sql/sqlFilesTestKit';
 import {
   MONITOR01_BATCH_SIZE, MONITOR01_MAX_ATTEMPTS, MONITOR01_POLL_INTERVAL_MS, MONITOR01_QUEUE_STALE_SECONDS, MONITOR01_REFRESH_INTERVAL, MONITOR01_RUN_BUDGET_MS, MONITOR01_VIEW_TABLE, RPC_MONITOR01_STAMP, RPC_MONITOR01_SUM_SOURCES,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Constants';
-import { FACT_HEADER_TABLE, FACT_STRONG_INPUT_SETTING, FACT_SUMMARY_TABLE, FACT_USAGE_TIMELINE_TABLE, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST } from '../../../../kit8/pm/fact/factInputModel';
+import { FACT_HEADER_TABLE, FACT_STRONG_INPUT_SETTING, FACT_SUMMARY_TABLE, FACT_USAGE_TIMELINE_TABLE, RPC_FACT_CREATE, RPC_FACT_POST, RPC_FACT_UNPOST } from '../../../../kit8/documents/fact/input/factInputModel';
 
 const sqlDir = path.join(__dirname, '../../../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(sqlDir, f), 'utf8');

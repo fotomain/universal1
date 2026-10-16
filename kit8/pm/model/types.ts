@@ -144,11 +144,11 @@ export interface PMRowJSON {
   /** ... the Expenses tab; default true */
   projectExpenseCostsNeeded?: boolean;
   /**
-   * Fact input (kit8/pm/fact, documentation/FACT_INPUT.html; Project settings -> Budgets -> Main): true = a new fact document keeps the GUIDs of the task lines, users cannot add lines (delete and update only);
+   * Fact input (kit8/documents/fact/input, documentation/FACT_INPUT.html; Project settings -> Budgets -> Main): true = a new fact document keeps the GUIDs of the task lines, users cannot add lines (delete and update only);
    * false (default) = the fact data is disconnected from the task line GUIDs and users add lines freely. Copied into every document when it is created.
    */
   factStrongInputByTaskLine?: boolean;
-  /** Vendor invoices (kit8/pm/vendor_invoice; Project settings -> Vendor): true (default) = "Vendor Invoice" of a task also makes ONE draft WITHOUT a vendor of the lines that have none; false = such lines are left out */
+  /** Vendor invoices (kit8/documents/vendor/invoice; Project settings -> Vendor): true (default) = "Vendor Invoice" of a task also makes ONE draft WITHOUT a vendor of the lines that have none; false = such lines are left out */
   userCanCreateVendorInvoicesFromTasksWithEmptyVendors?: boolean;
   /** ... true (default) = lines can be ADDED by hand to a draft vendor invoice (a CRUD panel, lines not tied to a task line); false = only the lines made from the task lines */
   independentInvoiceInputAvailable?: boolean;

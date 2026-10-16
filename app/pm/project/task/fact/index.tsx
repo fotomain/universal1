@@ -1,10 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import PMFactInputDocumentForm from '../../../../../kit8/pm/fact/PMFactInputDocumentForm';
+import PMFactInputDocumentForm from '../../../../../kit8/documents/fact/input/PMFactInputDocumentForm';
 
 // route: /pm/project/task/fact?taskGUID=<uuid>&taskLineGUID=<uuid, optional>&genus=<optional>&documentGUID=<optional>&projectGUID=<optional>
-// - the fact input document of a task (kit8/pm/fact): opens on the tab of the clicked line, on the latest draft unless a document is named
+// - the fact input document of a task (kit8/documents/fact/input): opens on the tab of the clicked line, on the latest draft unless a document is named
 export default function PMFactInputRoute() {
   const { taskGUID, taskLineGUID, genus, documentGUID } = useLocalSearchParams<{ taskGUID: string; taskLineGUID?: string; genus?: string; documentGUID?: string; projectGUID?: string }>();
   const router = useRouter();

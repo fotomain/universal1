@@ -1,12 +1,12 @@
 // monitor01Model - the rows of monitor01_view (documentation/MONITOR01_WBS.html; SQL: PART 25) and everything the dashboard computes from them, all pure:
 //   * the key of a row and the PATCH of a realtime event (the screen never refetches: it replaces one row by its key)
-//   * the filters of the bar (startDate · finishDate · project · task · resource) and the tabs (Time · Material · Expense · All)
+//   * the filters of the bar (startDate · finishDate typed, Project · Task · Resource picked from a list - monitor01*Options, exact GUID) and the tabs (Time · Material · Expense · All)
 //   * the table: the totals (per unit - hours and pieces are never added) and the TREE Project → Resource role → Month (ascending) → Task name, every node with its subtotal (per unit) and
 //     collapsible (the set of collapsed nodes lives on the screen), the TotalsRow at the bottom
 //   * the filter of the Sum explorer for a cell, a subtotal and a total
 // The numbers come ready from the database (rest to contract and on-hand are generated columns): nothing is calculated here except sums of rows.
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
-import { parseDayInput } from '../../fact/factInputModel';
+import { parseDayInput } from '../../../documents/fact/input/factInputModel';
 
 export interface Monitor01Row {
   rowOwnerGUID: string;
@@ -139,9 +139,11 @@ export function monitor01StampDiffers(server: Pick<Monitor01Stamp, 'count' | 'ma
 }
 
 // ---- filters ----------------------------------------------------------------------------------------------------------------------------------------------
-export interface Monitor01Filters { startDate: string; finishDate: string; project: string; task: string; resource: string }
-export const EMPTY_MONITOR01_FILTERS: Monitor01Filters = { startDate: '', finishDate: '', project: '', task: '', resource: '' };
-export const monitor01FiltersActive = (f: Monitor01Filters): boolean => !!(f.startDate.trim() || f.finishDate.trim() || f.project.trim() || f.task.trim() || f.resource.trim());
+// project / task / resource are GUIDs (rowProjectGUID / rowOwnerGUID / resourceRoleGUID), picked from a list (monitor01*Options below) - never typed free text:
+// a name is not a key (two tasks can share a name), so the filter must be exact. '' = "not filtered" (also the clear value of the select).
+export interface Monitor01Filters { startDate: string; finishDate: string; projectGUID: string; taskGUID: string; resourceGUID: string }
+export const EMPTY_MONITOR01_FILTERS: Monitor01Filters = { startDate: '', finishDate: '', projectGUID: '', taskGUID: '', resourceGUID: '' };
+export const monitor01FiltersActive = (f: Monitor01Filters): boolean => !!(f.startDate.trim() || f.finishDate.trim() || f.projectGUID.trim() || f.taskGUID.trim() || f.resourceGUID.trim());
 /** an unreadable date is an error of the field, not a filter: the field is red and the rows are not cut */
 export const monitor01DateErrors = (f: Monitor01Filters): { startDate: boolean; finishDate: boolean } => ({
   startDate: !!f.startDate.trim() && parseDayInput(f.startDate) === null,
@@ -152,9 +154,8 @@ const lastDayOfMonth = (monthStart: string): string => {
   const [y, m] = monthStart.split('-').map(Number);
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 };
-const contains = (text: string, needle: string): boolean => !needle.trim() || text.toLowerCase().includes(needle.trim().toLowerCase());
 
-/** A month is shown when it OVERLAPS [startDate, finishDate] (the rows are monthly). The names are matched with "contains", case-insensitive. */
+/** A month is shown when it OVERLAPS [startDate, finishDate] (the rows are monthly). project / task / resource are exact GUID matches. */
 export function filterMonitor01Rows(rows: Iterable<Monitor01Row>, f: Monitor01Filters): Monitor01Row[] {
   const from = parseDayInput(f.startDate);
   const to = parseDayInput(f.finishDate);
@@ -162,11 +163,30 @@ export function filterMonitor01Rows(rows: Iterable<Monitor01Row>, f: Monitor01Fi
   for (const r of rows) {
     if (from && lastDayOfMonth(r.periodMonth) < from) continue;
     if (to && r.periodMonth > to) continue;
-    if (!contains(r.projectName, f.project) || !contains(r.taskName, f.task) || !contains(r.resourceRoleName, f.resource)) continue;
+    if (f.projectGUID && r.rowProjectGUID !== f.projectGUID) continue;
+    if (f.taskGUID && r.rowOwnerGUID !== f.taskGUID) continue;
+    if (f.resourceGUID && r.resourceRoleGUID !== f.resourceGUID) continue;
     out.push(r);
   }
   return out;
 }
+
+export interface Monitor01SelectOption { value: string; label: string }
+const optionsOf = (rows: readonly Monitor01Row[], guidOf: (r: Monitor01Row) => string, nameOf: (r: Monitor01Row) => string, projectGUID?: string | null): Monitor01SelectOption[] => {
+  const byGUID = new Map<string, string>();
+  for (const r of rows) {
+    if (projectGUID && r.rowProjectGUID !== projectGUID) continue;
+    const guid = guidOf(r);
+    if (guid && !byGUID.has(guid)) byGUID.set(guid, nameOf(r) || guid);
+  }
+  return [...byGUID.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+};
+/** the items of the Project select (standalone mode): every project that has at least one row */
+export const monitor01ProjectOptions = (rows: readonly Monitor01Row[]): Monitor01SelectOption[] => optionsOf(rows, (r) => r.rowProjectGUID, (r) => r.projectName);
+/** the items of the Task select, narrowed to one project when `projectGUID` is given (as the Contract select of the vendor invoice filter narrows with its Partner) */
+export const monitor01TaskOptions = (rows: readonly Monitor01Row[], projectGUID?: string | null): Monitor01SelectOption[] => optionsOf(rows, (r) => r.rowOwnerGUID, (r) => r.taskName, projectGUID);
+/** the items of the Resource select, narrowed to one project when `projectGUID` is given. Rows with no role (a Material / Expense line without one) are not offered: an empty value would clash with "not filtered". */
+export const monitor01ResourceOptions = (rows: readonly Monitor01Row[], projectGUID?: string | null): Monitor01SelectOption[] => optionsOf(rows, (r) => r.resourceRoleGUID, (r) => r.resourceRoleName, projectGUID);
 
 export function rowsOfTab(rows: Monitor01Row[], tab: Monitor01Tab): Monitor01Row[] {
   const genus = MONITOR01_TABS.find((t) => t.id === tab)?.genus ?? MONITOR01_GENUS_ORDER;
@@ -292,8 +312,8 @@ export function dashboardLinkOfRow(r: Monitor01Row, lineGUID?: string | null): {
   return { projectGUID: r.rowProjectGUID, taskGUID: r.rowOwnerGUID, genus: r.genusGUID, ...(lineGUID ? { lineGUID } : {}) };
 }
 /**
- * the filter for SOME rows (a subtotal, a total): the genus and unit they share, the project, the date window, and - while a text filter is active - the tasks / roles that are shown,
- * so the list adds up to exactly the number on the screen
+ * the filter for SOME rows (a subtotal, a total): the genus and unit they share, the project, the date window, and - while a Project / Task / Resource filter is set - the tasks / roles that
+ * are shown, so the list adds up to exactly the number on the screen
  */
 export function drillFilterOfRows(rows: Monitor01Row[], scope: Monitor01DrillScope, shared: { genus?: string; unit?: string }): Record<string, any> {
   const out: Record<string, any> = {};
@@ -305,8 +325,8 @@ export function drillFilterOfRows(rows: Monitor01Row[], scope: Monitor01DrillSco
   const to = parseDayInput(f.finishDate);
   if (from) out.fromMonth = `${from.slice(0, 7)}-01`;
   if (to) out.toMonth = `${to.slice(0, 7)}-01`;
-  if (f.project.trim() || f.task.trim()) out.taskGUIDs = [...new Set(rows.map((r) => r.rowOwnerGUID))];
-  if (f.resource.trim()) out.roleGUIDs = [...new Set(rows.map((r) => r.resourceRoleGUID))];
+  if (f.projectGUID.trim() || f.taskGUID.trim()) out.taskGUIDs = [...new Set(rows.map((r) => r.rowOwnerGUID))];
+  if (f.resourceGUID.trim()) out.roleGUIDs = [...new Set(rows.map((r) => r.resourceRoleGUID))];
   return out;
 }
 

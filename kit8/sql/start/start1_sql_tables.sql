@@ -2087,7 +2087,7 @@ CREATE INDEX IF NOT EXISTS idx_task_line_plan_movements_day ON public.task_line_
 -- =====================================================================================
 -- UNIVERSAL1 - FACT INPUT: create_task_fact_input.sql
 -- (run AFTER parts 1-23; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
--- Design: documentation/FACT_INPUT.html (source: the Google Doc "W1 FACT INPUT"). The screen: kit8/pm/fact/PMFactInputDocument.tsx.
+-- Design: documentation/FACT_INPUT.html (source: the Google Doc "W1 FACT INPUT"). The screen: kit8/documents/fact/input/PMFactInputDocument.tsx.
 --
 -- task_fact_header   the DOCUMENT of one task.   rowJSON.documentHeader = { projectTaskGUID (read only, = rowOwnerGUID) · activeUser (the user who created it) ·
 --                    created_at (moment of creation) · documentNumber · documentStatus 'draft' | 'posted' · strongInput (the project setting when the document was created) ·
@@ -2394,7 +2394,7 @@ CREATE INDEX IF NOT EXISTS idx_monitor01_view_updated ON public.monitor01_view (
 -- =====================================================================================
 -- UNIVERSAL1 - VENDOR INVOICE: create_vendor_invoice.sql
 -- (run AFTER parts 1-25; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a of delete_sql_structure.sql.)
--- Design: documentation/PROJECT_STATE_WBS.html (source: the Google Doc "W1 Vendor Invoice"). The app: kit8/catalog/legal_entity, kit8/catalog/vendor, kit8/pm/vendor_invoice.
+-- Design: documentation/PROJECT_STATE_WBS.html (source: the Google Doc "W1 Vendor Invoice"). The app: kit8/catalog/legal_entity, kit8/catalog/vendor, kit8/documents/vendor/invoice.
 --
 -- legalEntityTable            a plain catalog; rowParentGUID = the FOLDER = the GUID of the country (countryTable) or 'empty'. rowJSON { title, legalName, registrationNo, vatNo, legalAddress, isActive }
 -- contractTable.rowJSON.legalEntityGUID   OPTIONAL (a contract without one is as before); a value must be an existing legal entity

@@ -20,11 +20,11 @@ import {distributionSystemMetaData} from "../catalog/distribution/distributionMe
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
-import {vendorInvoiceSystemMetaData} from "../pm/vendor_invoice/vendorInvoiceMetaData";
+import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
-import {taskFactUsageTimelineSystemMetaData} from "../pm/fact/factMetaData";
+import {taskFactUsageTimelineSystemMetaData} from "../documents/fact/input/factMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {equipmentSystemMetaData} from "../catalog/equipment/equipmentMetaData";
 import {businessUnitSystemMetaData} from "../catalog/business_unit/businessUnitMetaData";
@@ -115,7 +115,7 @@ const SystemMetaData:any = {
     ...taskLineSystemMetaData(),
     // Task line plan (kit8/pm/view/task/plan): task_line_plan, the posted days of the task lines (read-only; written by create_task_line_plan).
     ...taskLinePlanSystemMetaData(),
-    // Fact lines (kit8/pm/fact): task_fact_usage_timeline, the lines of a fact input document (documentation/FACT_INPUT.html); the table of the form edits rowPeriodDatetime / qtyForContract (rootColumns).
+    // Fact lines (kit8/documents/fact/input): task_fact_usage_timeline, the lines of a fact input document (documentation/FACT_INPUT.html); the table of the form edits rowPeriodDatetime / qtyForContract (rootColumns).
     ...taskFactUsageTimelineSystemMetaData(),
     // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.
     // Screen /catalog/person/dashboard, SQL kit8/sql/init/create_person_type_table.sql + create_person_descriptors.sql

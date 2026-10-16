@@ -41,7 +41,7 @@ export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   projectRevenueBudgetNeeded?: boolean;
   /** Project cost total (kit8/pm/cost): the tree column "Cost" (costTotalForBudget). Usable only while a cost budget is on (Time or Material or Expense); display only */
   showTotalCostOnTheGanttChart?: boolean;
-  /** Fact input: true = a new fact document keeps the task line GUIDs, delete and update only (kit8/pm/fact) */
+  /** Fact input: true = a new fact document keeps the task line GUIDs, delete and update only (kit8/documents/fact/input) */
   factStrongInputByTaskLine?: boolean;
   calendarForTaskPlan?: string | null;
   projectCostCenter?: string | null;

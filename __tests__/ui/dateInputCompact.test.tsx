@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { cleanupUI, inputValue, renderUI, typeInto } from '../pm/ui/pmUiTestKit';
 import DateInputApp from '../../kit8/ui/components/common/date_input/DateInputApp';
 import { defaultParseDateInput, parseCompactDateDigits } from '../../kit8/ui/components/common/date_input/dateInputFormat';
-import { parseDayInput } from '../../kit8/pm/fact/factInputModel';
+import { parseDayInput } from '../../kit8/documents/fact/input/factInputModel';
 
 afterEach(() => cleanupUI());
 

@@ -121,7 +121,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
       ],
     },
-    // documents (what is filled in and posted), sorted by name: the fact input documents (Actuals, kit8/pm/fact) and the vendor invoices (one vendor + one contract each; folders legal entity → vendor)
+    // documents (what is filled in and posted), sorted by name: the fact input documents (Actuals, kit8/documents/fact/input) and the vendor invoices (one vendor + one contract each; folders legal entity → vendor)
     {
       id: 'documents',
       label: 'Documents',

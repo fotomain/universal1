@@ -37,6 +37,8 @@ export interface Monitor01TableProps {
 export const MONITOR01_DOUBLE_PRESS_MS = 400;
 const W = { project: 150, role: 190, month: 104, task: 160, unit: 72, num: 94, budget: 112 };
 const ROW_H = 34;
+/** the vertical line between the Plan and Fact groups (thicker than the hairline between the other columns), left edge of the first Fact column (delivered) */
+const GROUP_BORDER_W = 2;
 /** the column of the label of a node, by its level; the Task name column holds the rows */
 const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { project: 'project', role: 'role', month: 'month' };
 
@@ -58,8 +60,10 @@ const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionD
 
 const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, delivered: r.qtyDelivered, invoiced: r.qtyInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
 
-const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell }: {
+const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell, groupBorder }: {
   measure: Monitor01Measure; sums: Monitor01Sums; stale: boolean; bold: boolean; item: Monitor01Item; colors: Monitor01TableColors; testID: string; onCell: (c: Monitor01CellPress) => void;
+  /** the left edge of this cell is the Plan | Fact divider (thicker) */
+  groupBorder?: boolean;
 }) {
   const value = sums[measure];
   const bg = toneBackground(cellTone(measure, asTone(sums, stale)), colors.isDark);
@@ -71,7 +75,7 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
       accessibilityRole="button"
       accessibilityLabel={`${MONITOR01_MEASURE_TITLE[measure]} ${text || '0'}`}
       onPress={() => onCell({ measure, item, value })}
-      style={[styles.cell, { width: W.num, backgroundColor: bg, borderLeftColor: colors.border }]}
+      style={[styles.cell, { width: W.num, backgroundColor: bg, borderLeftColor: colors.border }, groupBorder ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}
     >
       <Text style={{ color: colors.text, fontWeight: bold ? '800' : '400', fontSize: 13, textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{text}</Text>
     </Pressable>
@@ -138,7 +142,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           if (c.id === 'sumForBudget') {
             return <Text key={c.id} testID={`${testID}-budget-${item.key}`} style={[text({ fontWeight: bold ? '800' : '400' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(budget)}</Text>;
           }
-          return <Cell key={c.id} measure={c.id} sums={sums} stale={item.kind === 'row' && item.row.hasStalePlan} bold={bold} item={item} colors={colors} testID={`${testID}-cell-${item.key}-${c.id}`} onCell={onCell} />;
+          return <Cell key={c.id} measure={c.id} sums={sums} stale={item.kind === 'row' && item.row.hasStalePlan} bold={bold} item={item} colors={colors} testID={`${testID}-cell-${item.key}-${c.id}`} onCell={onCell} groupBorder={c.id === 'delivered'} />;
         })}
       </View>
     );
@@ -146,8 +150,8 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
-  const head = (w: number, title: string, id?: string) => (
-    <View key={title} style={{ width: w, paddingHorizontal: 8, justifyContent: 'center' }}>
+  const head = (w: number, title: string, id?: string, groupBorder?: boolean) => (
+    <View key={title} style={[{ width: w, paddingHorizontal: 8, justifyContent: 'center' }, groupBorder ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}>
       <Text testID={id} numberOfLines={1} style={text({ fontWeight: '700', textAlign: 'center' })}>{pmT(title)}</Text>
     </View>
   );
@@ -162,7 +166,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
         <View style={[styles.row, { height: 28, backgroundColor: headBg, borderBottomColor: colors.border }]}>
           <View style={{ width: dimsWidth }} />
           {groupTitles.map((g) => (
-            <View key={g} testID={`${testID}-group-${g}`} style={{ width: COLS.filter((c) => c.group === g).reduce((a, c) => a + colWidth(c), 0), alignItems: 'center' }}>
+            <View key={g} testID={`${testID}-group-${g}`} style={[{ width: COLS.filter((c) => c.group === g).reduce((a, c) => a + colWidth(c), 0), alignItems: 'center' }, g === 'Fact' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}>
               <Text style={text({ fontWeight: '800', textAlign: 'center' })}>{pmT(g)}</Text>
             </View>
           ))}
@@ -174,7 +178,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           {head(W.month, MONITOR01_HEAD.month, `${testID}-head-month`)}
           {head(W.task, MONITOR01_HEAD.task, `${testID}-head-task`)}
           {head(W.unit, MONITOR01_HEAD.unit, `${testID}-head-unit`)}
-          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`))}
+          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, c.id === 'delivered'))}
         </View>
         <FlatList
           data={items}
@@ -195,7 +199,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <Text numberOfLines={1} style={[text({ opacity: 0.8, fontWeight: '700' }), { width: W.unit, paddingHorizontal: 8 }]}>{t.unit ? unitTitle(t.unit) : ''}</Text>
               {COLS.map((c) => c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(t.sumForBudget)}</Text>
-                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }]}>{formatMonitor01Number(t.sums[c.id], true)}</Text>)}
+                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}>{formatMonitor01Number(t.sums[c.id], true)}</Text>)}
             </View>
           ))}
           {several && (
@@ -203,7 +207,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <View style={{ width: dimsWidth, justifyContent: 'center', paddingHorizontal: 8 }}><Text style={text({ fontWeight: '800' })}>{pmT('Totals of all units')}</Text></View>
               {COLS.map((c) => c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-all-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(totals.sumForBudget)}</Text>
-                : <View key={c.id} style={{ width: W.num }} />)}
+                : <View key={c.id} style={[{ width: W.num }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />)}
             </View>
           )}
           {totals.qty.length === 0 && (
@@ -211,7 +215,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <View style={{ width: dimsWidth, justifyContent: 'center', paddingHorizontal: 8 }}><Text style={text({ fontWeight: '800' })}>{pmT('Totals')}</Text></View>
               {COLS.map((c) => (c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-none-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(0)}</Text>
-                : <View key={c.id} style={{ width: W.num }} />))}
+                : <View key={c.id} style={[{ width: W.num }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />))}
             </View>
           )}
         </View>

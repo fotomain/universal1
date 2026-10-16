@@ -1,4 +1,4 @@
-// PMProjectVendorTab - "Vendor" tab of the Project settings window (TabVendor, after TabBudgets): what the vendor invoices of the project's tasks may do (kit8/pm/vendor_invoice).
+// PMProjectVendorTab - "Vendor" tab of the Project settings window (TabVendor, after TabBudgets): what the vendor invoices of the project's tasks may do (kit8/documents/vendor/invoice).
 //   project_table.rowJSON (both TRUE while never saved - the database reads a missing value as true):
 //     userCanCreateVendorInvoicesFromTasksWithEmptyVendors  true: "Vendor Invoice" of a task / task line also makes ONE draft WITHOUT a vendor of the lines that have none (the vendor is chosen in the invoice before Post)
 //                                                           false: such lines are left out - an invoice is made only for the vendors the lines have
