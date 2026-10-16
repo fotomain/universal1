@@ -34,8 +34,8 @@ describe('the structure file has no seed rows', () => {
   it('its only top-level INSERTs are the backfills of data that already exists', () => {
     const targets = structureStatements.filter((s) => kindOf(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
     // (the backfill of userTable from auth.users is inside a DO block: a database that has the organization rule needs organization_ensure_user for it)
-    // (monitor01_dirty five times: the first fill of the Monitor01 queue and the upgrade steps that queue the tasks that have fact documents / a plan that is not in the register yet / posted vendor invoices / posted purchase orders)
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    // (monitor01_dirty six times: the first fill of the Monitor01 queue and the upgrade steps that queue the tasks that have fact documents / a plan that is not in the register yet / posted vendor invoices / posted purchase orders / posted product receipts)
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('says where the seeds are', () => {
     expect(structure).toContain('start3_sql_insert_missing.sql');

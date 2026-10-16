@@ -527,6 +527,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/task/purchase-order/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase order' }} />
               <Drawer.Screen name="pm/project/task/purchase-order/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase Order' }} />
               <Drawer.Screen name="pm/purchase-order/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase orders' }} />
+              <Drawer.Screen name="pm/project/task/product-receipt/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Product receipt' }} />
+              <Drawer.Screen name="pm/product-receipt/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Product receipts' }} />
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />

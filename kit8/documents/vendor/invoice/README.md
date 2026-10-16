@@ -64,3 +64,6 @@ SQL (PART 26): `vendor_invoice_set_line_task(line, task, task line)` (a DRAFT of
 
 ## Purchase order
 `kit8/documents/vendor/purchase_order` is the twin of this folder (README there): the same logic, `ordered` movements, the Monitor01 column Ordered.
+
+## From a product receipt
+A vendor invoice can also be made from a POSTED product receipt (`kit8/documents/vendor/product_receipt`, SQL PART 30): receipt form / receipt list row menu **Create based on → Vendor invoice** → `create_vendor_invoice_from_receipt(receipt)`. The draft takes the vendor / contract / legal entity of the receipt and a line for every receipt line that is not fully invoiced (received − the quantity of the other invoice lines with the same `rowJSON.productReceiptLineGUID`); the header keeps `vendorInvoiceProductReceipt`. From there it is an ordinary vendor invoice.

@@ -10,6 +10,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
+import type { PMMenuItemProps } from '../../../pm/inner/menu/PMMenuItem';
+import { canCreateReceiptFromOrder } from '../product_receipt/productReceiptModel';
+import { useCreateProductReceiptFromOrder } from '../product_receipt/useProductReceipt';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -86,7 +89,19 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list', ta
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
   const resolveTask = useCallback((row: { rowGUID: string }) => ({ taskGUID: byGuid.get(row.rowGUID)?.taskGUID, projectGUID: byGuid.get(row.rowGUID)?.projectGUID }), [byGuid]);
-  const rowMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
+  const taskMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
+  // "Create based on → Product receipt" of a POSTED order (the draft receipt opens in a new browser window)
+  const toReceipt = useCreateProductReceiptFromOrder();
+  const rowMenu = useCallback((row: { rowGUID: string }, close: () => void): PMMenuItemProps[] => {
+    const info = byGuid.get(row.rowGUID);
+    const based: PMMenuItemProps[] = info && canCreateReceiptFromOrder(info.documentStatus)
+      ? [{
+          testID: `${testID}-menu-create-${row.rowGUID}`, label: pmT('Create based on'), icon: 'add_circle', onPress: () => {},
+          submenu: [{ testID: `${testID}-menu-create-product-receipt-${row.rowGUID}`, label: pmT('Product receipt'), icon: 'move_to_inbox', onPress: () => { close(); void toReceipt.create(row.rowGUID); } }],
+        }]
+      : [];
+    return [...based, ...taskMenu(row as any, close)];
+  }, [byGuid, taskMenu, toReceipt, testID]);
   // the tree: legal entity → vendor, of the documents that exist
   const nodes = useMemo(() => purchaseOrderFolderNodes(list.answer.rows), [list.answer.rows]);
   const foldersTree = useMemo(() => ({ nodes, folderTarget: 'rowJSON' as const, folderField: 'purchaseOrderFolder', noFolderValue: '', onRowsDrop: () => {} }), [nodes]);
@@ -143,6 +158,7 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list', ta
         </View>
       </ScrollView>
 
+      {!!toReceipt.error && <Text testID={`${testID}-create-error`} style={{ color: c.error, padding: 10 }}>{toReceipt.error}</Text>}
       {!!list.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{list.error}</Text>}
       {hint && <Text testID={`${testID}-hint`} style={{ color: c.text, padding: 10 }}>{pmT('Purchase orders are made from a task: right-click a line of a task → Purchase Order.')}</Text>}
 

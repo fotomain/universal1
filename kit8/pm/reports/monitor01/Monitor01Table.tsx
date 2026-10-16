@@ -5,7 +5,7 @@
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
 //   footer   the TotalsRow (always visible below the rows): sumForBudget and the quantities (per unit)
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
-//            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`
+//            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`; a right click / long press opens the Task menu, `onTaskMenu`
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
 import React, { memo, useCallback, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -30,6 +30,8 @@ export interface Monitor01TableProps {
   onCell: (cell: Monitor01CellPress) => void;
   /** a double click / touch on the Task name of a row: the dashboard at that task (the screen decides how) */
   onTaskOpen?: (row: Monitor01Row) => void;
+  /** a right click (web) / long press (touch) on the Task name of a row: the Task menu at the window point */
+  onTaskMenu?: (row: Monitor01Row, x: number, y: number) => void;
   testID?: string;
 }
 
@@ -84,7 +86,7 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
   );
 });
 
-function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, testID = 'monitor01-table' }: Monitor01TableProps) {
+function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, onTaskMenu, testID = 'monitor01-table' }: Monitor01TableProps) {
   const lastPress = useRef<{ key: string; at: number } | null>(null);
   const pressTask = useCallback((key: string, row: Monitor01Row) => {
     const now = Date.now();
@@ -140,9 +142,17 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           : cellOf('project', W.project)}
         {cellOf('role', W.role)}
         {cellOf('month', W.month)}
-        {item.kind === 'row' && onTaskOpen
+        {item.kind === 'row' && (onTaskOpen || onTaskMenu)
           ? (
-            <Pressable testID={`${testID}-task-${item.key}`} accessibilityRole="link" accessibilityLabel={`${pmT('Open task')} ${item.row.taskName}`} onPress={() => pressTask(item.key, item.row)} style={{ width: W.task, paddingHorizontal: 8, height: '100%', justifyContent: 'center' }}>
+            <Pressable
+              testID={`${testID}-task-${item.key}`}
+              accessibilityRole="link"
+              accessibilityLabel={`${pmT('Open task')} ${item.row.taskName}`}
+              onPress={() => pressTask(item.key, item.row)}
+              onLongPress={onTaskMenu ? (e: any) => onTaskMenu(item.row, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}
+              {...(onTaskMenu ? ({ onContextMenu: (e: any) => { e?.preventDefault?.(); onTaskMenu(item.row, e?.clientX ?? e?.nativeEvent?.clientX ?? 0, e?.clientY ?? e?.nativeEvent?.clientY ?? 0); } } as any) : {})}
+              style={{ width: W.task, paddingHorizontal: 8, height: '100%', justifyContent: 'center' }}
+            >
               <Text numberOfLines={1} style={text()}>{item.row.taskName}</Text>
             </Pressable>
           )
@@ -156,7 +166,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
         })}
       </View>
     );
-  }, [colors, onCell, onToggle, onTaskOpen, pressTask, testID, unitTitle, width]);
+  }, [colors, onCell, onToggle, onTaskOpen, onTaskMenu, pressTask, testID, unitTitle, width]);
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;

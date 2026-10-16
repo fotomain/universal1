@@ -22,6 +22,7 @@ import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetSce
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
 import {purchaseOrderSystemMetaData} from "../documents/vendor/purchase_order/purchaseOrderMetaData";
+import {productReceiptSystemMetaData} from "../documents/vendor/product_receipt/productReceiptMetaData";
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
@@ -110,6 +111,7 @@ const SystemMetaData:any = {
     ...legalEntitySystemMetaData(),
     ...vendorInvoiceSystemMetaData(),
     ...purchaseOrderSystemMetaData(),
+    ...productReceiptSystemMetaData(),
     // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).
     ...managementCalendarSystemMetaData(),
     // PM task lines (kit8/pm/view/task/finances): task_line_table - the Time / Material / Expense / Revenue lines of a task, rowOwnerGUID = task,

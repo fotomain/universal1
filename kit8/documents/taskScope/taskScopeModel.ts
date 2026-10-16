@@ -4,6 +4,7 @@
 export const VENDOR_INVOICE_LIST_ROUTE = '/pm/vendor-invoice/list';
 export const FACT_LIST_ROUTE = '/pm/fact/list';
 export const PURCHASE_ORDER_LIST_ROUTE = '/pm/purchase-order/list';
+export const PRODUCT_RECEIPT_LIST_ROUTE = '/pm/product-receipt/list';
 
 export interface TaskScope {
   taskGUID: string;

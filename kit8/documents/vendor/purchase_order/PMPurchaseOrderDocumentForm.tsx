@@ -2,7 +2,7 @@
 //
 //   documents   the route gives one or MORE documents (the vendors the user checked in the choice window): a TAB for each (vendor · contract). On the web a real BROWSER TAB of its own can be opened for
 //               each document (the icon on the tab; the choice window opens one for every document it made); on a phone the tab strip is the tab bar.
-//   the bar     Delete · Unpost · Close - and the POST button is the LAST (a large button; the Posted state is the same size)
+//   the bar     Delete · Unpost · Create based on… (→ Product receipt, a POSTED order) · Close - and the POST button is the LAST (a large button; the Posted state is the same size)
 //   header      TextInputApp / DateInputApp / the catalog select: document number · legal entity · vendor · contract · currency (read only) · the NUMBER of the purchase order · its DATE · the totals
 //   DocumentTabs All (default) · Time · Material · Expenses, with the number of lines of each - the same look as the Finances table of a task
 //   the lines   a ReusableTable on the redux entity PURCHASE_ORDER_LINES_ENTITY (PurchaseOrderLines; realtime, optimistic): quantity, price and VAT % of a DRAFT are editable and can be deleted; no new
@@ -34,6 +34,8 @@ import {
   purchaseOrderDocumentPath, purchaseOrderLinesOf, purchaseOrderMissing, purchaseOrderProblemText, purchaseOrderTotals,
 } from './purchaseOrderModel';
 import { usePurchaseOrderDocuments, usePurchaseOrderLinePlaces } from './usePurchaseOrder';
+import { canCreateReceiptFromOrder, createFromSkippedText } from '../product_receipt/productReceiptModel';
+import { useCreateProductReceiptFromOrder } from '../product_receipt/useProductReceipt';
 
 // the project tree window (it carries the whole dashboard, Skia included) is loaded when the user opens it
 const PMProjectPickerModal = React.lazy(() => Promise.resolve(require('../../../pm/view/project/pick/PMProjectPickerModal')));
@@ -135,6 +137,16 @@ export default function PMPurchaseOrderDocumentForm({ documents, onClose, testID
       if (rest.length) setSelected(rest[0]); else onClose?.();
     }
   };
+  // "Create based on → Product receipt" (a POSTED order): the draft receipt opens in a new browser tab (kit8/documents/vendor/product_receipt)
+  const [basedOnMenu, setBasedOnMenu] = useState(false);
+  const [notice, setNotice] = useState('');
+  const toReceipt = useCreateProductReceiptFromOrder();
+  useEffect(() => setNotice(''), [header?.guid]);
+  const doCreateReceipt = async () => {
+    if (!header) return;
+    const answer = await toReceipt.create(header.guid);
+    setNotice(answer && !answer.documents.length ? answer.skipped.map((x) => pmT(createFromSkippedText(x.reason))).join(' · ') : '');
+  };
   const missing = header ? purchaseOrderMissing({ ...header, purchaseOrderNumber: number, day: parseDayInput(day) ?? '' }, docRows.length) : [];
   const openInBrowserTab = (guid: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.open(purchaseOrderDocumentPath(guid), '_blank');
@@ -159,6 +171,9 @@ export default function PMPurchaseOrderDocumentForm({ documents, onClose, testID
         )}
         {header && canUnpostPurchaseOrder(header) && (
           <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy} onPress={doUnpost} />
+        )}
+        {header && canCreateReceiptFromOrder(header.status) && (
+          <ButtonApp testID={`${testID}-create-based-on`} title={pmT('Create based on')} icon="add_circle" variant="outlined" size="small" disabled={doc.busy || toReceipt.busy} onPress={() => setBasedOnMenu(true)} />
         )}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
@@ -203,6 +218,8 @@ export default function PMPurchaseOrderDocumentForm({ documents, onClose, testID
       )}
 
       {!!doc.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{doc.error}</Text>}
+      {!!toReceipt.error && <Text testID={`${testID}-create-error`} style={{ color: c.error, padding: 10 }}>{toReceipt.error}</Text>}
+      {!!notice && <Text testID={`${testID}-notice`} style={{ color: c.text, opacity: 0.8, paddingHorizontal: 12, paddingTop: 4, fontSize: 12 }}>{notice}</Text>}
       {!!placeError && <Text testID={`${testID}-place-error`} style={{ color: c.error, paddingHorizontal: 12, paddingTop: 4, fontSize: 12 }}>{placeError}</Text>}
 
       {edit && missing.length > 0 && (
@@ -223,6 +240,12 @@ export default function PMPurchaseOrderDocumentForm({ documents, onClose, testID
       />
       {header && (
         <>
+          <ModalWindowListToSelect
+            visible={basedOnMenu} testID={`${testID}-create-based-on-list`} title={pmT('Create based on this purchase order')} message={pmT('The new document opens in a new window.')}
+            items={[{ id: 'productReceipt', title: pmT('Product receipt'), subtitle: pmT('One draft receipt with the ordered lines that are not received yet'), icon: 'move_to_inbox' }]} selectedId="" cancelLabel={pmT('Cancel')}
+            onClose={() => setBasedOnMenu(false)}
+            onSelect={(id) => { setBasedOnMenu(false); if (id === 'productReceipt') void doCreateReceipt(); }}
+          />
           <ModalWindowListToSelect
             visible={modeMenu} testID={`${testID}-project-mode-list`} title={pmT('Project mode')} message={pmT('Single Project: all the lines belong to the project of the document. Multi Project: each line can belong to any task or task line of your projects.')}
             items={PURCHASE_ORDER_PROJECT_MODES.map((m) => ({ id: m.id, title: pmT(m.title), subtitle: pmT(m.subtitle), icon: m.icon }))} selectedId={multi ? 'multi' : 'single'} cancelLabel={pmT('Cancel')}

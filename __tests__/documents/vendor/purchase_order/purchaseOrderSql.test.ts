@@ -14,7 +14,7 @@ const tables = read('start1_sql_tables.sql');
 const code = read('start2_sql_code.sql');
 const del = read('delete_sql_structure.sql');
 const MARK = '-- PART 28: create_purchase_order.sql';
-const one = (src: string) => { const i = src.indexOf(MARK); return i < 0 ? '' : src.slice(i, src.indexOf('-- END of start', i)); };
+const one = (src: string) => { const i = src.indexOf(MARK); if (i < 0) return ''; const next = src.indexOf('\n-- PART 29:', i); return src.slice(i, next < 0 ? src.indexOf('-- END of start', i) : next); };   // up to PART 29 (PART 30 is the product receipt)
 const p = one(tables) + '\n' + one(code);
 
 describe('the part is in both files: the tables in start1_sql_tables.sql, the code in start2_sql_code.sql', () => {

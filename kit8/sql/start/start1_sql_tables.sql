@@ -35,6 +35,7 @@
 --   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
 --   28. create_purchase_order.sql - the PURCHASE ORDER document (the vendor invoice logic) + its 'ordered' movements in the project status register + the column Ordered of Monitor01
 --   29. create_subprojects.sql - SUBPROJECTS: project_subproject_link (the index of the tasks that stand for another project); the settings are keys of project_table.rowJSON
+--   30. create_product_receipt.sql - the PRODUCT RECEIPT document (the purchase order logic, made from a purchase order) + its 'received' movements in the project status register + the column Delivered of Monitor01
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2609,6 +2610,87 @@ CREATE TABLE IF NOT EXISTS public.project_subproject_link (
 CREATE INDEX IF NOT EXISTS idx_project_subproject_link_sub ON public.project_subproject_link ("rowSubprojectGUID");
 
 CREATE INDEX IF NOT EXISTS idx_project_subproject_link_project ON public.project_subproject_link ("rowProjectGUID");
+
+-- ===============================================================================================
+-- PART 30: create_product_receipt.sql
+-- the PRODUCT RECEIPT document (documentation/PRODUCT_RECEIPT.html; the same logic as the purchase order and the vendor invoice): product_receipt_header + product_receipt_lines; the numbers of the 'received'
+-- movements in the turnover (the column Delivered of the Monitor01 view, qtyDelivered, exists since PART 25 and is fed from these numbers)
+-- ===============================================================================================
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "qtyReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForBudgetReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForContractReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForAccountingReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatForContractReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatForAccountingReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+
+CREATE SEQUENCE IF NOT EXISTS public.product_receipt_document_seq;
+
+
+CREATE TABLE IF NOT EXISTS public.product_receipt_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOwnerGUID"        TEXT        REFERENCES public."legalEntityTable"("rowGUID") ON DELETE RESTRICT,
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT product_receipt_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
+);
+
+-- the legal entity and the vendor of a DRAFT can still be empty (chosen in the form before Post; post_product_receipt checks them)
+ALTER TABLE public.product_receipt_header ALTER COLUMN "rowOwnerGUID" DROP NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_header_org ON public.product_receipt_header ("rowOrganizationGUID", "created_at");
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_header_owner ON public.product_receipt_header ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_header_partner ON public.product_receipt_header ((("rowJSON"->>'productReceiptPartner')));
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_header_order ON public.product_receipt_header ((("rowJSON"->>'productReceiptPurchaseOrder')));
+
+
+CREATE TABLE IF NOT EXISTS public.product_receipt_lines (
+  "rowGUID"             UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID"       UUID          NOT NULL REFERENCES public.product_receipt_header("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"      UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"        UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "taskLineGUID"        UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL,
+  "purchaseOrderLineGUID" UUID        REFERENCES public.purchase_order_lines("rowGUID") ON DELETE SET NULL,   -- the line of the purchase order this line receives (NULL = an independent line)
+  "genusGUID"           TEXT          NOT NULL,
+  "orderInList"         NUMERIC       NOT NULL DEFAULT 0,
+  "qtyReceived"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "priceReceived"       NUMERIC(18,4) NOT NULL DEFAULT 0,
+  "vatRatioReceived"    NUMERIC(7,3)  NOT NULL DEFAULT 0,
+  "sumForBudget"        NUMERIC(18,2),
+  "sumForContract"      NUMERIC(18,2),
+  "vatForContract"      NUMERIC(18,2),
+  "sumForAccounting"    NUMERIC(18,2),
+  "vatForAccounting"    NUMERIC(18,2),
+  "rowJSON"             JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT product_receipt_lines_qty_chk CHECK ("qtyReceived" >= 0 AND "priceReceived" >= 0 AND "vatRatioReceived" >= 0 AND "vatRatioReceived" <= 100),
+  CONSTRAINT product_receipt_lines_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_header ON public.product_receipt_lines ("rowHeaderGUID", "genusGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_task ON public.product_receipt_lines ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_line ON public.product_receipt_lines ("taskLineGUID");
+
+CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_order_line ON public.product_receipt_lines ("purchaseOrderLineGUID");
+
+-- a vendor invoice line made from a product receipt line keeps its GUID in rowJSON.productReceiptLineGUID (what is already invoiced of a received line)
+CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_receipt_line ON public.vendor_invoice_lines ((("rowJSON"->>'productReceiptLineGUID')));
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

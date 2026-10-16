@@ -1,7 +1,8 @@
 // monitor01SumSources - the SumExplorerListReusable sources of a Monitor01 number: which lists make it, with their columns, sign and "Open" action.
 //   planned          the movements of the plan                          contracted      the movements of lines that have a resource contract
 //   invoiced         the movements of the POSTED vendor invoices ("Open" shows the invoice)         ordered   the movements of the POSTED purchase orders ("Open" shows the purchase order)
-//   rest to contract planned − contracted (two lists)                    used            the lines of the POSTED fact documents ("Open" shows the document)       delivered  no data yet: the list is empty
+//   delivered        the movements of the POSTED product receipts ("Open" shows the product receipt)
+//   rest to contract planned − contracted (two lists)                    used            the lines of the POSTED fact documents ("Open" shows the document)       
 //   on-hand          delivered − used (two lists)
 //   A click / touch on a row opens its task line (handlers.openTaskLine); the button at the end of the row keeps its own job (Plan / Document).
 import type { SumExplorerSource } from '../../../ui/components/common/SumExplorerListReusable';
@@ -18,6 +19,8 @@ export interface Monitor01SourceHandlers {
   openVendorInvoice?: (documentGUID: string, taskGUID: string) => void;
   /** shows a posted purchase order */
   openPurchaseOrder?: (documentGUID: string, taskGUID: string) => void;
+  /** shows a posted product receipt */
+  openProductReceipt?: (documentGUID: string, taskGUID: string) => void;
   /** a click / touch on a transaction: its task line (dashboard, Finances view: task + tab + line), in a new tab on the web */
   openTaskLine?: (row: Monitor01SourceRow) => void;
 }
@@ -25,7 +28,7 @@ export interface Monitor01SourceHandlers {
 const TITLE: Record<string, string> = {
   planned: 'Plan movements',
   contracted: 'Plan movements of lines with a resource contract',
-  delivered: 'Delivered',
+  delivered: 'Posted product receipts',
   invoiced: 'Posted vendor invoices',
   ordered: 'Posted purchase orders',
   used: 'Posted fact documents',
@@ -39,12 +42,12 @@ export function buildMonitor01Sources(client: any, measure: Monitor01Measure, fi
       title: TITLE[m] ?? m,
       sign,
       rowKey: (r) => r.rowGUID,
-      emptyText: m === 'delivered' ? 'No data yet: Delivered is drawn without data.' : m === 'used' ? 'No posted fact documents.' : m === 'invoiced' ? 'No posted vendor invoices.' : m === 'ordered' ? 'No posted purchase orders.' : 'No source transactions.',
+      emptyText: m === 'delivered' ? 'No posted product receipts.' : m === 'used' ? 'No posted fact documents.' : m === 'invoiced' ? 'No posted vendor invoices.' : m === 'ordered' ? 'No posted purchase orders.' : 'No source transactions.',
       columns: [
         { key: 'day', title: 'Day', width: 92, render: (r) => String(r.day ?? '').slice(0, 10) },
         { key: 'task', title: 'Task', flex: 1.4, render: (r) => r.taskName || r.taskGUID },
         { key: 'role', title: 'Role', flex: 1.2, render: (r) => r.roleName || (r.roleGUID ? r.roleGUID : '') },
-        ...(m === 'used' || m === 'invoiced' || m === 'ordered' ? [{ key: 'document', title: m === 'invoiced' ? 'Invoice' : m === 'ordered' ? 'Order' : 'Document', width: 100, render: (r: Monitor01SourceRow) => r.documentNumber || '' }] : []),
+        ...(m === 'used' || m === 'invoiced' || m === 'ordered' || m === 'delivered' ? [{ key: 'document', title: m === 'invoiced' ? 'Invoice' : m === 'ordered' ? 'Order' : m === 'delivered' ? 'Receipt' : 'Document', width: 100, render: (r: Monitor01SourceRow) => r.documentNumber || '' }] : []),
         ...(isContract ? [{ key: 'contract', title: 'Contract', flex: 1, render: (r: Monitor01SourceRow) => r.contractGUID || '' }] : []),
         { key: 'qty', title: 'Qty', width: 70, align: 'right' as const, render: (r) => String(Math.round(r.qty * 100) / 100) },
         ...(m === 'planned' ? [{ key: 'stale', title: '', width: 70, render: (r: Monitor01SourceRow) => (r.stale ? 'Post needed' : '') }] : []),
@@ -59,8 +62,10 @@ export function buildMonitor01Sources(client: any, measure: Monitor01Measure, fi
           ? (handlers.openVendorInvoice ? (r) => { if (r.documentGUID) handlers.openVendorInvoice!(r.documentGUID, r.taskGUID); } : undefined)
           : m === 'ordered'
             ? (handlers.openPurchaseOrder ? (r) => { if (r.documentGUID) handlers.openPurchaseOrder!(r.documentGUID, r.taskGUID); } : undefined)
-            : handlers.openPlan ? (r) => handlers.openPlan!(r.taskGUID) : undefined,
-      openLabel: m === 'used' || m === 'invoiced' || m === 'ordered' ? 'Document' : 'Plan',
+            : m === 'delivered'
+              ? (handlers.openProductReceipt ? (r) => { if (r.documentGUID) handlers.openProductReceipt!(r.documentGUID, r.taskGUID); } : undefined)
+              : handlers.openPlan ? (r) => handlers.openPlan!(r.taskGUID) : undefined,
+      openLabel: m === 'used' || m === 'invoiced' || m === 'ordered' || m === 'delivered' ? 'Document' : 'Plan',
       onRowPress: handlers.openTaskLine,
     };
   });

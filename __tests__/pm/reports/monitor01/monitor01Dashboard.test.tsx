@@ -697,8 +697,10 @@ describe('every number opens its source transactions', () => {
 });
 
 describe('a double click on a Task name opens the task in the dashboard', () => {
+  // the window is opened inside the click (a pop-up blocker would stop it after the lookup) and pointed at the board afterwards: `target.location.href`
   let open: jest.SpyInstance;
-  beforeEach(() => { open = jest.spyOn(window, 'open').mockImplementation(() => ({}) as any); });
+  let target: { location: { href: string } };
+  beforeEach(() => { target = { location: { href: '' } }; open = jest.spyOn(window, 'open').mockImplementation(() => target as any); });
   afterEach(() => open.mockRestore());
   const task = `monitor01-table-task-${KEY_T1}`;
 
@@ -712,7 +714,8 @@ describe('a double click on a Task name opens the task in the dashboard', () => 
     await flush();
     expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'planned', expect.objectContaining({ taskGUID: 't1', genusGUID: 'timeGenus' }), 0, 1);
     expect(open).toHaveBeenCalledTimes(1);
-    expect(String(open.mock.calls[0][0])).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus&lineGUID=l1');
+    expect(open).toHaveBeenCalledWith('', '_blank');
+    expect(target.location.href).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus&lineGUID=l1');
   });
 
   it('a row of several lines opens the task and the tab without a line (no lookup)', async () => {
@@ -721,7 +724,7 @@ describe('a double click on a Task name opens the task in the dashboard', () => 
     press(task); press(task);
     await flush();
     expect(mockFetch).not.toHaveBeenCalledWith(expect.anything(), 'planned', expect.anything(), 0, 1);
-    expect(String(open.mock.calls[0][0])).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus');
+    expect(target.location.href).toBe('/pm/project/dashboard?projectGUID=p1&taskGUID=t1&view=finances&genus=timeGenus');
   });
 
   it('two clicks on different tasks are not a double click', async () => {
@@ -730,5 +733,49 @@ describe('a double click on a Task name opens the task in the dashboard', () => 
     press(`monitor01-table-task-t3|timeGenus|r1|unit_hour|2026-10-01`);
     await flush();
     expect(open).not.toHaveBeenCalled();
+  });
+});
+
+describe('the context menu of a Task name (right click / long press)', () => {
+  const task = `monitor01-table-task-${KEY_T1}`;
+  const rightClick = (id: string) => act(() => { mustGet(id).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 })); });
+
+  it('standalone (no project board): its own Task menu with the commands that work from the task', async () => {
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    rightClick(task);
+    await flush();
+    const m = 'monitor01-task-menu';
+    expect(q(m)).not.toBeNull();
+    for (const id of ['open', 'copy-guid', 'facts-input', 'vendor-invoice', 'purchase-order']) expect(q(`${m}-${id}`)).not.toBeNull();
+    expect(q(`${m}-create`)).not.toBeNull();
+    expect(q(`${m}-goto`)).not.toBeNull();
+    // a command of the project board (Edit, Delete ...) needs that board: not here
+    expect(q(`${m}-edit`)).toBeNull();
+    expect(q(`${m}-delete`)).toBeNull();
+  });
+
+  it('project mode with the task in the PM store: the menu of the tree itself (PMTaskRowMenu reads the store)', () => {
+    const { usePMStore } = require('../../../../kit8/pm/store/store_pm');
+    const { seedStore } = require('../../ui/pmUiTestKit');
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    mockHook.rows = [parseMonitor01Row(raw({ rowOwnerGUID: t.rowGUID, rowProjectGUID: t.projectGUID }))];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID={t.projectGUID} />);
+    rightClick(`monitor01-table-task-${t.rowGUID}|timeGenus|r1|unit_hour|2026-10-01`);
+    expect(usePMStore.getState().rowMenu).toEqual(expect.objectContaining({ guid: t.rowGUID, source: 'tree' }));
+    expect(q('monitor01-task-menu')).toBeNull();
+    act(() => usePMStore.getState().setRowMenu(null));
+  });
+
+  it('Copy GUID / Open task close the menu; Open task opens the dashboard at the task', async () => {
+    const open = jest.spyOn(window, 'open').mockImplementation(() => ({ location: { href: '' } }) as any);
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    rightClick(task);
+    await flush();
+    press('monitor01-task-menu-open');
+    await flush();
+    expect(q('monitor01-task-menu')).toBeNull();
+    expect(open).toHaveBeenCalled();
+    open.mockRestore();
   });
 });

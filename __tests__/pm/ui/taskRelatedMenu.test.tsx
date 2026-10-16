@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// The submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (Vendor invoices · Fact input · Subproject) of the Task context menu (PMTaskRowMenu),
+// The submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (Vendor invoices · Purchase orders · Product receipts · Fact input · Subproject) of the Task context menu (PMTaskRowMenu),
 // built by useTaskRelatedMenu (the line menu of the Finances table has its tests in view/task/finances/taskFinancesUi.test.tsx).
 import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore } from './pmUiTestKit';
@@ -106,7 +106,7 @@ describe('Create based on this', () => {
 });
 
 describe('Go to', () => {
-  it('Vendor invoices / Fact input: the lists filtered for the TASK', () => {
+  it('Vendor invoices / Purchase orders / Product receipts / Fact input: the lists filtered for the TASK', () => {
     const t = open('Task 111');
     press('pm-row-menu-goto');
     press('pm-row-menu-goto-vendor-invoices');
@@ -115,6 +115,10 @@ describe('Go to', () => {
     press('pm-row-menu-goto');
     press('pm-row-menu-goto-purchase-orders');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/purchase-order/list', params: { taskGUID: t.rowGUID } });
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-goto');
+    press('pm-row-menu-goto-product-receipts');
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/product-receipt/list', params: { taskGUID: t.rowGUID } });
     act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
     press('pm-row-menu-goto');
     press('pm-row-menu-goto-fact-input');

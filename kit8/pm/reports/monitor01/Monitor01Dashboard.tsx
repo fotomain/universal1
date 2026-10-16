@@ -26,6 +26,7 @@ import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
 import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
 import { useOpenVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
 import { useOpenPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
+import { useOpenProductReceipt } from '../../../documents/vendor/product_receipt/useProductReceipt';
 import Monitor01FiltersBar from './Monitor01Filters';
 import Monitor01ProjectKindRadio from './Monitor01ProjectKindRadio';
 import { MONITOR01_PROJECT_KIND_DEFAULT, Monitor01ProjectKind } from '../../subproject/subprojectModel';
@@ -34,7 +35,10 @@ import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import { fetchMonitor01Sources, refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
-import { openDashboardLink } from '../../view/project/dashboardDeepLink';
+import { dashboardLinkPath, openDashboardLink } from '../../view/project/dashboardDeepLink';
+import { openBlankWindow, sendWindowTo } from '../../../documents/vendor/invoice/vendorInvoiceNavigation';
+import { usePMStore } from '../../store/store_pm';
+import Monitor01TaskMenu, { Monitor01TaskMenuState } from './Monitor01TaskMenu';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, filterMonitor01RowsByProjectKind, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
   filterMonitor01Rows, monitor01NodeKeys, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, rowsOfTab,
@@ -62,6 +66,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const openFactInput = useOpenFactInput();
   const openVendorInvoice = useOpenVendorInvoice();
   const openPurchaseOrder = useOpenPurchaseOrder();
+  const openProductReceipt = useOpenProductReceipt();
   const dispatch = useDispatch();
   const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
@@ -165,12 +170,24 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
   // a double click on a Task name: the dashboard at its task, the tab of its genus and the line of the sum; a row of ONE line knows its line from its plan movement (several lines: the tab only)
   const openTask = useCallback(async (row: Monitor01Row) => {
+    // web: the new browser window is opened NOW, inside the double click (after the await a pop-up blocker would stop it and the board would replace this report), and pointed at the board below
+    const target = openBlankWindow();
     let lineGUID: string | null = null;
     if (row.lineCount === 1) {
       try { lineGUID = (await fetchMonitor01Sources(supabase, 'planned', drillFilterOfRow(row), 0, 1)).rows[0]?.lineGUID ?? null; } catch { /* the task and its tab are enough */ }
     }
-    openDashboardLink(dashboardLinkOfRow(row, lineGUID), router);
+    const link = dashboardLinkOfRow(row, lineGUID);
+    if (target && sendWindowTo(target, dashboardLinkPath(link))) return;
+    openDashboardLink(link, router);
   }, [router, supabase]);
+
+  // the Task menu of a Task name (right click / long press): with the project board open (project mode) the menu of the tree itself - PMTaskRowMenu of the dashboard reads the store -, else its own (Monitor01TaskMenu)
+  const [taskMenu, setTaskMenu] = useState<Monitor01TaskMenuState | null>(null);
+  const openTaskMenu = useCallback((row: Monitor01Row, x: number, y: number) => {
+    const store = usePMStore.getState();
+    if (mode === 'project' && store.tasksById[row.rowOwnerGUID]) { store.setRowMenu({ guid: row.rowOwnerGUID, x, y, source: 'tree' }); return; }
+    setTaskMenu({ row, x, y });
+  }, [mode]);
 
   const onCell = useCallback((cell: Monitor01CellPress) => {
     const item: Monitor01Item = cell.item;
@@ -195,7 +212,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openPurchaseOrder: (documentGUID, taskGUID) => { setDrill(null); openPurchaseOrder({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, openPurchaseOrder, scopeProject]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openPurchaseOrder: (documentGUID, taskGUID) => { setDrill(null); openPurchaseOrder({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openProductReceipt: (documentGUID, taskGUID) => { setDrill(null); openProductReceipt({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, openPurchaseOrder, openProductReceipt, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
@@ -241,7 +258,8 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} testID={`${testID}-table`} />
+        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} onTaskMenu={openTaskMenu} testID={`${testID}-table`} />
+        {taskMenu && <Monitor01TaskMenu testID={`${testID}-task-menu`} menu={taskMenu} onClose={() => setTaskMenu(null)} />}
       </View>
 
       <SumExplorerListReusable

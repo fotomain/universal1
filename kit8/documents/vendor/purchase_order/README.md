@@ -41,4 +41,6 @@ SQL: `purchase_order_set_line_task(line, task, task line)`, `purchase_order_line
 * SQL on Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 71` (155 checks: the whole life of a purchase order, Multi Project) and `./test_fact_monitor01.sh 72` (a purchase order and a vendor invoice of the same lines; the Monitor01 columns Ordered and Invoiced; unpost / rebuild).
 * Jest: `__tests__/documents/vendor/purchase_order` (model, API / hooks, columns, choose window, form, header, lines, list, SQL mirror), `__tests__/pm/reports/monitor01` (the column), `__tests__/documents/vendor/lineplace`.
 
+**Create based on → Product receipt** (PART 30, `kit8/documents/vendor/product_receipt`): a POSTED purchase order offers it in the form bar (**Create based on…**) and in the row menu of the list; the draft receipt opens in a new browser tab.
+
 **Task menus**: the submenus "Create based on this → Purchase Order" and "Go to → Purchase orders" (Task menu and line menu of the Finances table; not on a Revenue line). "Go to" opens `/pm/purchase-order/list?taskGUID=…[&taskLineGUID=…]` in a new browser window: the list shows a chip (Task: …, x clears it) and `purchase_order_list` takes the keys `taskGUID` / `taskLineGUID` (PART 28, test `tests/71`). See `kit8/documents/taskScope/README.md`.

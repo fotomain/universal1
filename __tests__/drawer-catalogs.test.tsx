@@ -101,19 +101,22 @@ it('the order of the menu: Catalogs, Documents, Project Dashboard, Reports, Budg
   expect(ids).not.toContain('drawer-item-raci');
 });
 
-it('Documents (right after Catalogs) is a closed accordion: Fact input, Purchase orders and Vendor invoices (by name)', () => {
+it('Documents (right after Catalogs) is a closed accordion: Fact input, Product receipts, Purchase orders and Vendor invoices (by name)', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
   expect(ids.indexOf('drawer-item-documents')).toBe(ids.indexOf('drawer-item-catalogs') + 1);
   expect(q('drawer-subitem-documents-factinput')).toBeNull(); // closed
   press('drawer-item-documents');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  expect(subs).toHaveLength(3);
+  expect(subs).toHaveLength(4);
   expect(subs[0]).toContain('Fact input');
-  expect(subs[1]).toContain('Purchase orders');
-  expect(subs[2]).toContain('Vendor invoices');
+  expect(subs[1]).toContain('Product receipts');
+  expect(subs[2]).toContain('Purchase orders');
+  expect(subs[3]).toContain('Vendor invoices');
   press('drawer-subitem-documents-factinput');
   expect(mockNavigate).toHaveBeenCalledWith('/pm/fact/list');
+  press('drawer-subitem-documents-productreceipts');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/product-receipt/list');
   press('drawer-subitem-documents-purchaseorders');
   expect(mockNavigate).toHaveBeenCalledWith('/pm/purchase-order/list');
   press('drawer-subitem-documents-vendorinvoices');

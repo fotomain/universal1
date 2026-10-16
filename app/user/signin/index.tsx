@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert, Image } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
@@ -22,6 +22,10 @@ export default function SignInScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const returnTo = params.returnTo || '/user/userprofile';
+  const navigation = useNavigation();
+  // Drawer screens stay mounted after the first visit: a Sign in screen opened earlier lives on behind the project dashboard, and every SIGNED_IN that supabase-js re-sends
+  // (token refresh, the tab coming back to the front) reached the redirects below and threw the user from the dashboard to /user/userprofile. Redirect only while this screen is the one shown.
+  const leaveToReturnTo = () => { if (navigation.isFocused()) router.replace(returnTo as any); };
 
   const { user: googleUser, loading: googleLoading, signIn: signInWithGoogle } = useAuthWithGoogle();
 
@@ -47,7 +51,7 @@ export default function SignInScreen() {
         activeUserFirstName: userFirstName,
         activeUserLastName: userLastName,
       }));
-      router.replace(returnTo as any);
+      leaveToReturnTo();
       return;
     }
     getUserData().then((storedState) => {
@@ -58,7 +62,7 @@ export default function SignInScreen() {
           activeUserFirstName: storedState.activeUserFirstName,
           activeUserLastName: storedState.activeUserLastName,
         }));
-        router.replace(returnTo as any);
+        leaveToReturnTo();
       }
     });
   }, [googleUser, returnTo, dispatch]);
@@ -145,7 +149,7 @@ export default function SignInScreen() {
         <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>{t('screens.or')}</Text>
 
         {emailMode === 'otp' ? (
-          <SignInWithEmailOtp onSignedIn={() => router.replace(returnTo as any)} />
+          <SignInWithEmailOtp onSignedIn={leaveToReturnTo} />
         ) : (
           <>
             <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>

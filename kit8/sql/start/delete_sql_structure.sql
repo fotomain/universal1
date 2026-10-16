@@ -130,6 +130,23 @@ DROP FUNCTION IF EXISTS public.project_cost_trg_project_budget();
 DROP FUNCTION IF EXISTS public.project_cost_budget_on(jsonb);
 DROP FUNCTION IF EXISTS public.project_cost_flag(jsonb, text, boolean);
 -- (PART 26 of the structure file: the vendor invoice, the legal entity catalog, the main vendor guards; the data of the invoices and of the legal entities goes with the tables)
+-- (PART 30 of the structure file: the product receipt - dropped BEFORE the purchase order, its lines point to the order lines; the 'received' movements go with project_status_movements below)
+DROP TABLE IF EXISTS public.product_receipt_lines CASCADE;
+DROP TABLE IF EXISTS public.product_receipt_header CASCADE;
+DROP SEQUENCE IF EXISTS public.product_receipt_document_seq;
+DROP FUNCTION IF EXISTS public.product_receipt_state(uuid);
+DROP FUNCTION IF EXISTS public.product_receipt_lines_before_write();
+DROP FUNCTION IF EXISTS public.product_receipt_header_before_write();
+DROP FUNCTION IF EXISTS public.project_status_register_receipt(uuid);
+DROP FUNCTION IF EXISTS public.create_product_receipt_from_order(uuid);
+DROP FUNCTION IF EXISTS public.create_vendor_invoice_from_receipt(uuid);
+DROP FUNCTION IF EXISTS public.product_receipt_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.product_receipt_add_line(uuid, text);
+DROP FUNCTION IF EXISTS public.post_product_receipt(uuid);
+DROP FUNCTION IF EXISTS public.unpost_product_receipt(uuid);
+DROP FUNCTION IF EXISTS public.delete_product_receipt(uuid);
+DROP FUNCTION IF EXISTS public.product_receipt_list(jsonb, integer, integer);
+DROP FUNCTION IF EXISTS public.product_receipt_line_places(uuid);
 -- (PART 28 of the structure file: the purchase order - its tables with their triggers, then its functions)
 DROP TABLE IF EXISTS public.purchase_order_lines CASCADE;
 DROP TABLE IF EXISTS public.purchase_order_header CASCADE;
