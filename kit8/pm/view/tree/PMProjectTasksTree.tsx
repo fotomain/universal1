@@ -75,6 +75,9 @@ import PMTreeColumnsHeader from './columns/PMTreeColumnsHeader';
 import { isOverTreeRowPanel, placeTreeRowPanel, treeRowPanelViewLeft } from './panels/treeRowPanelGeometry';
 import { treeFilterIconAt } from './filter/treeFilterIconGeometry';
 import PMTreePostStatusIcon, { PM_TREE_POST_STATUS_WIDTH } from './columns/PMTreePostStatusIcon';
+import PMTreeSubprojectIcon, { PM_TREE_SUBPROJECT_WIDTH } from './columns/PMTreeSubprojectIcon';
+import { usePMSubprojectStore } from '../../subproject/store_subproject';
+import { subprojectLabelOf } from '../../subproject/subprojectMarks';
 import { useProjectTaskLines } from '../task/plan/useProjectTaskLines';
 import { describeTreeColumnFilter, isTreeColumnFilterActive, sortLabels, treeColumnDataType } from './filter/treeColumnFilter';
 
@@ -155,8 +158,11 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const dragW = dragEnabled ? PM_TREE_DRAG_WIDTH : 0;
   /** the posted column (check sign of a posted task) sits between the drag column and the grid: always there */
   const statusW = PM_TREE_POST_STATUS_WIDTH;
-  /** everything left of the grid (Skia canvas): the multi-selection column + the drag column + the posted column */
-  const leftW = selectW + dragW + statusW;
+  /** Subprojects: a task of the project stands for another project - the subproject column (icon + warning) sits before the posted column; no such task = no column, nothing changes */
+  const subMarks = usePMSubprojectStore((s) => s.marks);
+  const subW = Object.keys(subMarks).length > 0 ? PM_TREE_SUBPROJECT_WIDTH : 0;
+  /** everything left of the grid (Skia canvas): the multi-selection column + the drag column + the subproject column + the posted column */
+  const leftW = selectW + dragW + subW + statusW;
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
   const { indicators: postIndicators } = useProjectTaskLines(selectedProjectGUID);
   /** the grid (Skia canvas) starts after the multi-selection and the posted columns */
@@ -401,7 +407,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         milestone: !!r?.isMilestone,
         hasChildren,
         isExpanded: expanded?.[guid] !== false,
-        name: ellipsize(t.rowJSON?.name || '(untitled)', nameCol.x + nameCol.w - nameX - 6, measure),
+        name: ellipsize(subprojectLabelOf(t.rowJSON?.name || '(untitled)', subMarks[guid]), nameCol.x + nameCol.w - nameX - 6, measure),
         nameX,
         wbs: wbsCol ? ellipsize(tree.wbsById[guid] ?? '', wbsCol.w - 12, summary ? measureSmallBold : measureSmall) : '',
         start: startText,
@@ -434,7 +440,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costTotals, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costTotals, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond, subMarks]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -1285,6 +1291,29 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           <View testID="pm-tree-drag-header" style={{ height: PM_SCALE_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }} />
         </View>
       </GestureDetector>
+      )}
+      {/* ---- subproject column (only while a task of the project stands for a subproject): the icon of the origin task, dark orange + a warning sign while its dates differ from the subproject; the tip names the subproject ---- */}
+      {subW > 0 && (
+        <GestureDetector gesture={selectScroll}>
+          <View testID="pm-tree-subproject-column" style={{ width: subW, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+            <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: subW, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
+              <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: subW }, selectRowsStyle]}>
+                {rows.map((r) => {
+                  const mark = subMarks[r.guid];
+                  if (!mark) return null;
+                  return (
+                    <View key={r.guid} style={{ position: 'absolute', left: 0, top: r.y, width: subW, height: PM_ROW_HEIGHT }}>
+                      <PMTreeSubprojectIcon testID={`pm-tree-subproject-${mark.conflict ? 'conflict' : 'ok'}-${r.guid}`} mark={mark} height={PM_ROW_HEIGHT} color={palette.primary} />
+                    </View>
+                  );
+                })}
+              </Animated.View>
+            </View>
+            <View testID="pm-tree-subproject-header" style={{ height: PM_SCALE_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+              <PMTipIcon tip={pmT('Subproject: the task stands for another project; dark orange = its dates differ from the subproject')} testID="pm-tree-subproject-header-icon" name="account_tree" size={14} color={palette.textMuted} />
+            </View>
+          </View>
+        </GestureDetector>
       )}
       {/* ---- posted column: nothing (not posted) · green check (posted) · dark orange check (posted, changed since); every icon has a tip ---- */}
       <GestureDetector gesture={selectScroll}>

@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subprojects - BRD and TRD</title>
+<style>
+  /* Light business theme, same family as documentation/PROJECT_STATE_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font: 12.5px/1.5 var(--mono); margin: 10px 0; }
+  pre code { background: none; padding: 0; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.win td { background: var(--emerald-soft); }
+  tr.lose td { color: var(--muted); }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .badbox { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.warn { background: var(--rose-soft); border-color: #fda4af; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+  table.tree td { padding: 3px 10px; font-size: 13.5px; }
+  table.tree td.stage { font-weight: 700; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Subprojects - BRD + TRD <span class="pill ask" style="margin-left:6px">BUILT 2026-10-16</span></div>
+  <nav><ul>
+    <li><a href="#answer">Answer</a></li><li><a href="#today">1 Today</a></li><li><a href="#scenario">2 Scenario</a></li><li><a href="#brd">3 BRD</a></li>
+    <li><a href="#trd">4 TRD</a></li><li><a href="#trace">5 Trace</a></li><li><a href="#tables">6 SQL tables</a></li><li><a href="#algo">7 Algorithms</a></li>
+    <li><a href="#client">8 Client</a></li><li><a href="#edge">9 Edge cases</a></li><li><a href="#tests">10 Tests</a></li><li><a href="#wbs">11 WBS</a></li><li><a href="#open">12 Decisions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="answer">
+  <h1>Subprojects <span class="pill new">built 2026-10-16</span> <span class="pill mid">BRD + TRD</span></h1>
+  <p class="lead">A project can be used as a <b>subproject</b> of a task of another project. The task (the <b>origin task</b>) takes its start and finish from the subproject and follows it automatically, and - when the owner switches it on - Monitor01 shows the Time, Material and Expense plan / fact of the subproject on the origin task too. The subproject is a normal project: nothing new is stored for its data, so the Gantt, Finances, Fact input, vendor documents and Monitor01 work in it unchanged. Everything is OFF by default, so no existing project changes.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">What is new</h3><ul class="tight">
+      <li>6 project switches (tab <code>TabSubprojects</code>): the master, <code>autoChangeOriginTaskBasedOnSubprojects</code> and its <b>four</b> children (dates, Time, Material, Expense)</li>
+      <li>2 task fields: <code>taskIsSubproject</code>, <code>taskSubprojectGUID</code></li>
+      <li>1 table <code>project_subproject_link</code>, 0 new columns</li>
+      <li>24 new SQL functions, 7 triggers; 4 older functions got one line each; <code>monitor01_fresh_rows</code> is replaced</li>
+      <li>Monitor01: aggregation of the subproject into the origin task + radio <b>Projects | Subprojects | All</b></li>
+    </ul></div>
+    <div class="card"><h3 style="margin-top:0">The rules</h3><ol class="steps">
+      <li>No recursion: A in B in A is refused when chosen and cannot be posted.</li>
+      <li>One project may be the subproject of many tasks, in any projects.</li>
+      <li>Subproject dates change = origin task dates change (<code>autoChangeStartAndFinishDatesForOriginTask</code>), through several levels.</li>
+      <li>The child switches are shown only while the switch above them is on.</li>
+      <li>Aggregation (<code>aggregateTime / Material / Expence...</code>) is per genus and OFF by default.</li>
+      <li>The Monitor01 radio appears only if a project of the organization has the functionality on.</li>
+    </ol></div>
+    <div class="card"><h3 style="margin-top:0">Status</h3><p class="small" style="margin:0">SQL PART 29 is tested on Postgres 15 (<code>tests/90_subprojects.sql</code>, 80 checks, plus the whole install / delete / re-install and all older SQL tests). The screens are tested with Jest. <b>Not seen in a real browser and not run on the owner's Supabase.</b> Section 12 lists the decisions and what is not built.</p></div>
+  </div>
+</section>
+
+<section id="today">
+  <h2>1 How the Gantt works today (what the design builds on)</h2>
+  <p class="sub">Facts checked in the code, not assumed.</p>
+  <div class="scroll"><table>
+    <tr><th>Topic</th><th>Today</th><th>Where</th></tr>
+    <tr><td>Project / task storage</td><td><code>project_table</code> and <code>project_task_table</code>: UUID ids, <code>ltree</code> <code>treePath</code>, <code>rowJSON</code> for all settings and fields. A task belongs to ONE project (<code>projectGUID</code>).</td><td>PART 1 of start1</td></tr>
+    <tr><td>Project settings</td><td>Switches live in <code>project_table.rowJSON</code> (e.g. <code>multiProjectVendorInvoceNeeded</code>, <code>projectExpenseBudgetNeeded</code>); one tab component per group in the settings window; the database reads a missing key with a rule (<code>vendor_project_setting</code> = true unless stored false, <code>vendor_project_setting_on</code> = false unless stored true).</td><td><code>kit8/pm/view/project/settings/PMProjectVendorTab.tsx</code>, <code>PMRecentProjectsToolbar.tsx</code> (<code>ProjectSettingsTab</code>)</td></tr>
+    <tr><td>Dates</td><td>The schedule is computed on the <b>client</b> (CPM, <code>scheduleProject</code>) from <code>rowJSON.durationDays</code> + <code>rowJSON.manualStartAt</code> ("start no earlier than") + dependencies, anchored at <code>project_table.rowJSON.projectStartAt</code>. The result is written back by the RPC <code>pm_apply_schedule</code>: <code>project_task_table.rowJSON.startAt</code> + <code>rowDuration</code> (finish), and <code>project_table.rowDuration</code> (project finish). The write-back runs by itself when a project is open (<code>useScheduleWriteBack</code>).</td><td><code>scheduling.ts</code>, <code>storeDerive.ts</code>, <code>crud/queries.ts</code>, <code>pm_apply_schedule</code></td></tr>
+    <tr><td>Date change and posting</td><td>When the start or finish DAY of a task changes, its posted lines become unposted (<code>trg_task_line_plan_unpost_on_dates</code>) and need a new Post.</td><td>PART 15</td></tr>
+    <tr><td>Cycle guard (pattern to copy)</td><td>Task dependencies are protected by <code>pm_dependency_creates_cycle</code> (recursive CTE) in a BEFORE INSERT/UPDATE trigger.</td><td>PART 1</td></tr>
+    <tr><td>Posting</td><td>RPC <code>create_task_line_plan</code>, one transaction; errors go to <code>ErrorModalWindow</code>.</td><td>PART 15, <code>runTaskPost.ts</code></td></tr>
+    <tr><td>Monitor01</td><td>Rows <code>monitor01_view</code> (task x genus x role x unit x month, <code>rowProjectGUID</code>); filters are cut in memory; two modes: <code>project</code> (one project) and <code>standalone</code> (the full data set, with a Project filter).</td><td>PART 25, <code>kit8/pm/reports/monitor01</code></td></tr>
+    <tr><td>Radio component</td><td><code>RadioSetApp</code> (<code>options</code>, <code>value</code>, <code>onChange</code>, <code>horizontal</code>).</td><td><code>kit8/ui/components/RadioSetApp.tsx</code></td></tr>
+  </table></div>
+</section>
+
+<section id="scenario">
+  <h2>2 The user scenario (from the Google Doc)</h2>
+  <ol class="steps">
+    <li>The project manager enters tasks as today.</li>
+    <li>In <b>Project settings - Subprojects</b> he switches <code>subprojectsFunctionalityEnabled</code> on (false by default). Only then the switch <code>autoChangeOriginTaskBasedOnSubprojects</code> (true by default) is shown, and only while that is on its four children: <code>autoChangeStartAndFinishDatesForOriginTask</code> (true), <code>aggregateTimeFromSubprojectToTheOriginTask</code>, <code>aggregateMaterialFromSubprojectToTheOriginTask</code>, <code>aggregateExpenceFromSubprojectToTheOriginTask</code> (false).</li>
+    <li>On a task he sets the flag <code>taskIsSubproject</code>. With the flag on he picks the project from a list: <code>rowJSON.taskSubprojectGUID</code>. A recursive definition is refused with an error.</li>
+    <li>The origin task now has the start and finish of the subproject. The manager works in the subproject as in any project; when its start or end moves, the origin task moves.</li>
+    <li>In Monitor01 the origin task shows the Time / Material / Expense of its subproject for every aggregate switch that is on; he can show projects, subprojects, or all (the radio appears only when the functionality is in use in the organization). By default only projects are shown, so each plan is seen once: on the origin task.</li>
+  </ol>
+  <div class="flow"><span class="box">Project A (origin)</span><span class="arrow">&rarr;</span><span class="box on">Task T1 <code>taskIsSubproject</code></span><span class="arrow">&rarr; <code>taskSubprojectGUID</code> &rarr;</span><span class="box ok">Project B (subproject, a normal project)</span></div>
+  <div class="flow"><span class="box ok">B: start / finish changes</span><span class="arrow">&rarr; <code>subproject_propagate_dates</code> &rarr;</span><span class="box on">T1: startAt / finish = B</span><span class="arrow">&rarr;</span><span class="box">A is re-scheduled (successors of T1 move)</span></div>
+  <div class="note"><b>Far away (the Doc, "for coding of this document"):</b> subprojects will carry all CRM processes as Gantt tree tasks. Nothing is built for it now; the design only has to not block it. It does not: a CRM process is an ordinary project used as a subproject (BR-10).</div>
+</section>
+
+<section id="brd">
+  <h2>3 BRD - business requirements</h2>
+  <p class="sub">Mission: prepare the requirements that make SUBPROJECT functionality production-possible on top of the CURRENT Gantt approach. "Must" = needed for the first release.</p>
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Business requirement</th><th>Source</th><th>Priority</th></tr>
+    <tr><td>BR-01</td><td>The subproject functionality is a <b>per-project option</b>, switched off by default. The setting is <code>subprojectsFunctionalityEnabled</code>; it has its own tab <b>Subprojects</b> in the project settings.</td><td>Doc: "TabSubprojects needed ... false by default - switch needed"</td><td>Must</td></tr>
+    <tr><td>BR-02</td><td>The setting <code>autoChangeOriginTaskBasedOnSubprojects</code> (true by default) decides whether the origin task follows its subproject. It is available only while BR-01 is on; the four switches of BR-13 / BR-14 are available only while it is on.</td><td>Doc: "Of these switches must be opened only if subprojectsFunctionalityEnabled; true by default"; owner's precision (Q2)</td><td>Must</td></tr>
+    <tr><td>BR-03</td><td>A task can be marked as a subproject: flag <code>taskIsSubproject</code>. The flag is offered only in a project with BR-01 on.</td><td>Doc: "The project manager set a special task flag"</td><td>Must</td></tr>
+    <tr><td>BR-04</td><td>With the flag on the manager <b>selects a project from the list of projects</b>; the choice is kept as <code>rowJSON.taskSubprojectGUID</code>.</td><td>Doc: "user can select rowJSON.taskSubprojectGUID from the list of projects"</td><td>Must</td></tr>
+    <tr><td>BR-05</td><td><b>No recursion.</b> A project must never be, directly or through other subprojects, the subproject of itself. The application checks it, raises an error, does not allow the selection, and does not allow posting the tasks of such a (damaged) definition.</td><td>Doc: "check the recurrent definition ... rise errors and do not allow selection and posting tasks"</td><td>Must</td></tr>
+    <tr><td>BR-06</td><td>The data of a subproject is stored <b>exactly like a simple project</b> (same tables, same screens, same reports). A subproject is not a new kind of record.</td><td>Doc: "every sub-project data is stored just like a simple project"</td><td>Must</td></tr>
+    <tr><td>BR-07</td><td>One project may work as a subproject for <b>many tasks of different projects</b> (and of the same project).</td><td>Doc rule 1</td><td>Must</td></tr>
+    <tr><td>BR-08</td><td>When the start or end date of the subproject changes, the origin task changes its start and end <b>automatically</b> (when BR-02 and BR-13 are on), also through several levels (a subproject of a subproject).</td><td>Doc rule 2</td><td>Must</td></tr>
+    <tr><td>BR-09</td><td>Monitor01 has an additional input, a radio set: <b>Projects</b> (default) | <b>Subprojects</b> | <b>All</b> (title "All"). The input appears only if at least one project of the organization has BR-01 on.</td><td>Doc: "Monitor01 must have an additional interface INPUT - RadioSetApp"</td><td>Must</td></tr>
+    <tr><td>BR-10</td><td>The design must allow, later, CRM processes organized as Gantt tree tasks inside subprojects. No special structure is built for it now.</td><td>Doc: "far away business logic"</td><td>Keep open</td></tr>
+    <tr><td>BR-11</td><td>Projects that do not use the functionality behave <b>exactly as today</b> (no new columns on screens, no new filters, no slower reports).</td><td>House rule: old projects unchanged</td><td>Must</td></tr>
+    <tr><td>BR-13</td><td>The switch <code>autoChangeStartAndFinishDatesForOriginTask</code> (true by default) decides whether the origin task takes the start and finish of the subproject (BR-08).</td><td>Owner's precision (Q2), item 1</td><td>Must</td></tr>
+    <tr><td>BR-14</td><td>Three switches, each OFF by default: <code>aggregateTimeFromSubprojectToTheOriginTask</code>, <code>aggregateMaterialFromSubprojectToTheOriginTask</code>, <code>aggregateExpenceFromSubprojectToTheOriginTask</code>. A switch that is on makes the origin task show the planned and the fact numbers of the subproject for that kind of lines (Monitor01), together with its own numbers. Nothing is counted twice: the numbers are taken from the register of the tasks, not from another report row.</td><td>Owner's precision (Q2), items 2-4</td><td>Must</td></tr>
+    <tr><td>BR-12</td><td>A user is told <b>why</b> something is refused (cycle, switch-off with links in use, deleting a project that is a subproject) in a readable error window, not a silent failure.</td><td>House rule (<code>ErrorModalWindow</code>)</td><td>Must</td></tr>
+  </table></div>
+</section>
+
+<section id="trd">
+  <h2>4 TRD - technical requirements</h2>
+  <p class="sub">Every TR names the BR it is based on. Names of tables, fields and algorithms are final unless a question in section 12 changes them.</p>
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Based on</th><th>Technical requirement</th></tr>
+    <tr><td>TR-01</td><td>BR-01</td><td>Key <code>subprojectsFunctionalityEnabled</code> (boolean) in <code>project_table.rowJSON</code>. A missing value = <b>false</b>. SQL reader <code>subproject_enabled(project)</code> (FALSE unless stored true; the pattern of <code>vendor_project_setting_on</code>). Client type: <code>PMRowJSON.subprojectsFunctionalityEnabled?: boolean</code>, new tab id <code>TabSubprojects</code> in <code>ProjectSettingsTab</code> (after <code>TabVendor</code>), component <code>PMProjectSubprojectsTab</code> with <code>subprojectValuesOf()</code>.</td></tr>
+    <tr><td>TR-02</td><td>BR-02, BR-13, BR-14</td><td>Keys in <code>project_table.rowJSON</code> of the ORIGIN project: <code>autoChangeOriginTaskBasedOnSubprojects</code> (true when missing), and under it <code>autoChangeStartAndFinishDatesForOriginTask</code> (true when missing), <code>aggregateTimeFromSubprojectToTheOriginTask</code>, <code>aggregateMaterialFromSubprojectToTheOriginTask</code>, <code>aggregateExpenceFromSubprojectToTheOriginTask</code> (false when missing; the spelling "Expence" is the owner's). ONE SQL reader <code>subproject_setting(project, key, default)</code> returns false unless the functionality AND <code>autoChangeOriginTaskBasedOnSubprojects</code> are on; <code>subproject_auto_change</code>, <code>subproject_dates_on</code>, <code>subproject_aggregate_on(project, genus)</code> are its three faces. In the app the same rule is <code>subprojectEffectiveOf</code>; a test keeps the defaults equal. The follow switch is rendered only while the master is on, its four children only while the follow switch is on.</td></tr>
+    <tr><td>TR-03</td><td>BR-03</td><td>Key <code>taskIsSubproject</code> (boolean) in <code>project_task_table.rowJSON</code>, allowed only on a row with <code>rowKind = 'task'</code> (a leaf, not a stage or milestone) of a project with <code>subproject_enabled</code>. Enforced by trigger <code>trg_subproject_link_validate</code>. A flag set to false clears <code>taskSubprojectGUID</code> and deletes the link row.</td></tr>
+    <tr><td>TR-04</td><td>BR-04, BR-07</td><td>Key <code>taskSubprojectGUID</code> (uuid as text) in <code>project_task_table.rowJSON</code>. It must point to a project the user can see in the same organization (the visibility rule of PART 20). The same subproject GUID may be stored in any number of tasks. RPC <code>subproject_candidates(origin_project)</code> supplies the picker list (only valid choices). The link is mirrored into the table <code>project_subproject_link</code> by <code>trg_subproject_link_maintain</code> (section 6).</td></tr>
+    <tr><td>TR-05</td><td>BR-05</td><td>Cycle guard in three places: (1) <code>subproject_creates_cycle</code> in the validate trigger (refuses the save: message starts with <code>SUBPROJECT_CYCLE:</code>); (2) the picker does not offer a project that would close a cycle; (3) <code>subproject_assert_no_cycle(project)</code> is called at the start of <code>create_task_line_plan</code> and refuses to Post when the project is part of a cycle (data from an import / version restore). The error text names the chain "A -> B -> A".</td></tr>
+    <tr><td>TR-06</td><td>BR-06, BR-11</td><td>No new data table for a subproject's content. Only one NEW table, <code>project_subproject_link</code>, which is an index of "task T uses project S"; it holds no business data that the task rowJSON does not hold (it can be rebuilt by <code>subproject_link_rebuild()</code>).</td></tr>
+    <tr><td>TR-07</td><td>BR-08</td><td>Date propagation by the SQL algorithms <code>subproject_dates_of</code>, <code>subproject_work_days</code>, <code>subproject_sync_origin_task</code>, <code>subproject_propagate_dates</code> (section 7). The origin task receives <code>rowJSON.manualStartAt</code> = sub start, <code>rowJSON.durationDays</code> = working days of the sub, plus <code>rowJSON.startAt</code> and <code>rowDuration</code> directly - so the client CPM (which reads <code>manualStartAt</code> + <code>durationDays</code>) reproduces the same dates and does not need a change.</td></tr>
+    <tr><td>TR-08</td><td>BR-08</td><td>Trigger points: (a) end of <code>pm_apply_schedule(sub)</code> - the normal path, the schedule of the subproject was written; (b) <code>trg_subproject_link_maintain_ins / _upd</code> - at once when a task is linked or the link changes; (c) <code>trg_subproject_resync_on_switch</code> - when any switch of the origin project changes. Propagation goes up level by level inside the same transaction (a changed origin task changes the dates of its project, so the next link up is followed too), depth limit 25.</td></tr>
+    <tr><td>TR-13</td><td>BR-14</td><td>Aggregation in Monitor01: <code>subproject_agg_sources(origin tasks)</code> gives the pairs (source task, genus) - the tasks of the subproject for every genus whose switch is on, and recursively, through the subproject's own origin tasks, the tasks THEY aggregate (each hop by the switches of its own project; <code>UNION</code> stops a damaged graph). <code>monitor01_fresh_rows</code> (replaced in PART 29: a SQL function cannot call a function that is created later) sums the register turnover of the source tasks into the key (origin task, genus, role, unit, month) of the origin task, next to its own numbers. <code>monitor01_apply</code> ends with step 4 <code>subproject_queue_origins</code>: the origin tasks of the changed tasks' projects are queued (one level per worker run); a switch or a link change queues the origin task itself; <code>monitor01_refresh_now</code> also takes the origin tasks of all links (an origin task may have no movement of its own). The drill-down <code>monitor01_sum_sources</code> accepts the movements of the sources for an aggregated row (<code>subproject_drill_match</code>). The turnover table and the cost total (PART 27) are NOT aggregated.</td></tr>
+    <tr><td>TR-09</td><td>BR-08</td><td>An origin task that follows its subproject has its duration and "start no earlier than" inputs read-only in the task editor and the tree; the Gantt bar and the tree row show a subproject icon with the subproject name; a click opens the subproject in the dashboard.</td></tr>
+    <tr><td>TR-10</td><td>BR-09</td><td>RPC <code>organization_has_subprojects_enabled()</code> returns true when any project of the caller's organization has <code>subprojectsFunctionalityEnabled = true</code> (uses the existing GIN index on <code>project_table.rowJSON</code>). Monitor01 (standalone mode) reads it once, shows <code>RadioSetApp</code> (<code>horizontal</code>, ids <code>projects | subprojects | all</code>, titles Projects / Subprojects / All), and filters the rows in memory by the set of subproject GUIDs read from <code>project_subproject_link</code>. When the radio is hidden, no kind filter is applied at all.</td></tr>
+    <tr><td>TR-11</td><td>BR-12</td><td>Server errors use fixed prefixes the client maps to a readable <code>ErrorModalWindow</code> text: <code>SUBPROJECT_CYCLE:</code>, <code>SUBPROJECT_DISABLED:</code>, <code>SUBPROJECT_NOT_FOUND:</code>, <code>SUBPROJECT_IN_USE:</code>, <code>SUBPROJECT_BAD_TASK:</code>.</td></tr>
+    <tr><td>TR-12</td><td>BR-11</td><td>All SQL is idempotent and added to the existing files: table in <code>start1_sql_tables.sql</code> PART 29, code in <code>start2_sql_code.sql</code> PART 29, drop in <code>delete_sql_structure.sql</code>. No seed rows (start3 untouched). Tests: Docker <code>tests/90_subprojects.sql</code>, Jest (section 10).</td></tr>
+  </table></div>
+</section>
+
+<section id="trace">
+  <h2>5 Traceability: business requirement &rarr; technical requirement</h2>
+  <div class="scroll"><table>
+    <tr><th>BR</th><th>TR</th><th>Verified by</th></tr>
+    <tr><td>BR-01</td><td>TR-01</td><td>Jest settings tab; Docker section 0</td></tr>
+    <tr><td>BR-02</td><td>TR-02, TR-08</td><td>Jest settings tab, model; Docker section 5</td></tr>
+    <tr><td>BR-13</td><td>TR-02, TR-07, TR-08</td><td>Docker section 5 (dates switch off / on)</td></tr>
+    <tr><td>BR-14</td><td>TR-02, TR-13</td><td>Docker section 9 (Time, then Material + Expense, re-post, two levels, off, drill-down, Refresh now)</td></tr>
+    <tr><td>BR-03</td><td>TR-03</td><td>Docker section 1; Jest task field</td></tr>
+    <tr><td>BR-04</td><td>TR-04</td><td>Docker sections 1-2; Jest task field</td></tr>
+    <tr><td>BR-05</td><td>TR-05, TR-11</td><td>Docker sections 2-3 (selection and Post)</td></tr>
+    <tr><td>BR-06</td><td>TR-06</td><td>Jest SQL-file test (no ALTER of an existing table); Docker section 9</td></tr>
+    <tr><td>BR-07</td><td>TR-04</td><td>Docker sections 2, 6</td></tr>
+    <tr><td>BR-08</td><td>TR-07, TR-08, TR-09</td><td>Docker sections 4-6 (including the working-days twin of <code>workDaysBetween</code>)</td></tr>
+    <tr><td>BR-09</td><td>TR-10</td><td>Jest Monitor01 radio</td></tr>
+    <tr><td>BR-10</td><td>TR-06 (nothing blocks it)</td><td>review only</td></tr>
+    <tr><td>BR-11</td><td>TR-01, TR-02, TR-10, TR-12</td><td><code>test_sql.sh</code> twice-install; Jest "radio hidden = rows unchanged"</td></tr>
+    <tr><td>BR-13</td><td>The switch <code>autoChangeStartAndFinishDatesForOriginTask</code> (true by default) decides whether the origin task takes the start and finish of the subproject (BR-08).</td><td>Owner's precision (Q2), item 1</td><td>Must</td></tr>
+    <tr><td>BR-14</td><td>Three switches, each OFF by default: <code>aggregateTimeFromSubprojectToTheOriginTask</code>, <code>aggregateMaterialFromSubprojectToTheOriginTask</code>, <code>aggregateExpenceFromSubprojectToTheOriginTask</code>. A switch that is on makes the origin task show the planned and the fact numbers of the subproject for that kind of lines (Monitor01), together with its own numbers. Nothing is counted twice: the numbers are taken from the register of the tasks, not from another report row.</td><td>Owner's precision (Q2), items 2-4</td><td>Must</td></tr>
+    <tr><td>BR-12</td><td>TR-11</td><td>Jest error mapping</td></tr>
+  </table></div>
+</section>
+
+<section id="tables">
+  <h2>6 SQL tables and fields</h2>
+  <p class="sub">PART 29 (new) in <code>start1_sql_tables.sql</code> and <code>start2_sql_code.sql</code>.</p>
+
+  <h3>6.1 No new columns - the keys in existing <code>rowJSON</code></h3>
+  <div class="scroll"><table>
+    <tr><th>Table</th><th>rowJSON key</th><th>Type</th><th>Default when missing</th><th>Meaning</th></tr>
+    <tr><td><code>project_table</code></td><td><code>subprojectsFunctionalityEnabled</code></td><td>boolean</td><td>false</td><td>the functionality is on for tasks of this project (BR-01)</td></tr>
+    <tr><td><code>project_table</code></td><td><code>autoChangeOriginTaskBasedOnSubprojects</code></td><td>boolean</td><td>true (read only while the line above is true)</td><td>origin tasks of this project follow their subproject; the four keys below are read only while this is true (BR-02)</td></tr>
+    <tr><td><code>project_table</code></td><td><code>autoChangeStartAndFinishDatesForOriginTask</code></td><td>boolean</td><td>true</td><td>the origin task takes the start and finish of the subproject (BR-13)</td></tr>
+    <tr><td><code>project_table</code></td><td><code>aggregateTimeFromSubprojectToTheOriginTask</code></td><td>boolean</td><td>false</td><td>Monitor01: the Time of the subproject is also on the origin task (BR-14)</td></tr>
+    <tr><td><code>project_table</code></td><td><code>aggregateMaterialFromSubprojectToTheOriginTask</code></td><td>boolean</td><td>false</td><td>... Material</td></tr>
+    <tr><td><code>project_table</code></td><td><code>aggregateExpenceFromSubprojectToTheOriginTask</code></td><td>boolean</td><td>false</td><td>... Expenses</td></tr>
+    <tr><td><code>project_task_table</code></td><td><code>taskIsSubproject</code></td><td>boolean</td><td>false</td><td>the task stands for a whole project (BR-03)</td></tr>
+    <tr><td><code>project_task_table</code></td><td><code>taskSubprojectGUID</code></td><td>uuid (text)</td><td>null</td><td>the project that is the subproject of this task (BR-04)</td></tr>
+  </table></div>
+
+  <h3>6.2 NEW table <code>project_subproject_link</code></h3>
+  <p class="small">One row per origin task that has a subproject chosen. Written ONLY by the trigger <code>trg_subproject_link_maintain_*</code> (SECURITY DEFINER); the app has SELECT. It makes the cycle check, the "used by" lookup, the guards, the aggregation and the Monitor01 kind filter indexed instead of scanning JSON. It holds no business data that the task rowJSON does not hold: <code>subproject_link_rebuild()</code> makes it again.</p>
+  <div class="scroll"><table>
+    <tr><th>Field</th><th>Type</th><th>Null</th><th>Rule</th></tr>
+    <tr><td><code>"rowOwnerGUID"</code></td><td>UUID</td><td>NOT NULL</td><td>PRIMARY KEY; the origin <b>task</b>; <code>REFERENCES project_task_table("rowGUID") ON DELETE CASCADE</code> (a task has at most one subproject)</td></tr>
+    <tr><td><code>"rowProjectGUID"</code></td><td>UUID</td><td>NOT NULL</td><td>the origin project; <code>REFERENCES project_table("rowGUID") ON DELETE CASCADE</code></td></tr>
+    <tr><td><code>"rowSubprojectGUID"</code></td><td>UUID</td><td>NOT NULL</td><td>the subproject; <code>REFERENCES project_table("rowGUID") ON DELETE RESTRICT</code> (a project in use cannot be deleted; <code>subproject_delete_guard</code> gives the readable message first)</td></tr>
+    <tr><td><code>"linkStartAt"</code>, <code>"linkFinishAt"</code></td><td>TIMESTAMPTZ</td><td>NULL</td><td>start / finish of the subproject last seen by the origin task (also when the dates switch is off: a warning can compare them with the task)</td></tr>
+    <tr><td><code>"linkSyncedAt"</code></td><td>TIMESTAMPTZ</td><td>NULL</td><td>moment of the last look</td></tr>
+    <tr><td><code>"created_at"</code>, <code>"updated_at"</code></td><td>TIMESTAMPTZ</td><td>NOT NULL</td><td>DEFAULT NOW(); the touch trigger <code>pm_touch_updated_at</code></td></tr>
+  </table></div>
+<pre><code>CONSTRAINT project_subproject_link_self_chk CHECK ("rowProjectGUID" &lt;&gt; "rowSubprojectGUID")
+INDEX idx_project_subproject_link_sub     ON project_subproject_link ("rowSubprojectGUID")
+INDEX idx_project_subproject_link_project ON project_subproject_link ("rowProjectGUID")
+RLS: SELECT only; policy = the origin project is visible to the user (the visibility rule of project_table); no INSERT / UPDATE / DELETE grant
+Realtime: in the publication, REPLICA IDENTITY FULL</code></pre>
+
+  <h3>6.3 Existing structures used, not changed</h3>
+  <ul class="tight">
+    <li><code>project_task_table</code>: <code>rowDuration</code> (finish), <code>rowJSON.startAt</code>, <code>rowJSON.manualStartAt</code>, <code>rowJSON.durationDays</code>.</li>
+    <li><code>project_table</code>: <code>rowJSON.skipWeekends</code> (the calendar), <code>rowParentGUID</code> (organization).</li>
+    <li><code>monitor01_view</code>: <b>not changed</b>; the aggregated numbers are rows of the origin task with the same key. <code>monitor01_dirty</code> gets the reason <code>subproject</code>.</li>
+  </ul>
+</section>
+
+<section id="algo">
+  <h2>7 Algorithms (SQL, with names)</h2>
+  <p class="sub">All in <code>start2_sql_code.sql</code> PART 29 (24 new functions, 7 triggers). SECURITY DEFINER unless written otherwise.</p>
+  <div class="scroll"><table>
+    <tr><th>Name</th><th>Kind</th><th>Input &rarr; output</th><th>Description</th></tr>
+    <tr><td><code>subproject_enabled(project)</code></td><td>function</td><td>&rarr; boolean</td><td>TRUE only when <code>subprojectsFunctionalityEnabled</code> is stored true.</td></tr>
+    <tr><td><code>subproject_setting(project, key, default)</code></td><td>function</td><td>&rarr; boolean</td><td>The ONE reader of the switches: false unless the functionality and <code>autoChangeOriginTaskBasedOnSubprojects</code> are on; then the stored boolean of <code>key</code>, or <code>default</code> when missing.</td></tr>
+    <tr><td><code>subproject_auto_change(project)</code>, <code>subproject_dates_on(project)</code>, <code>subproject_aggregate_on(project, genus)</code></td><td>functions</td><td>&rarr; boolean</td><td>The faces of <code>subproject_setting</code>: follow (default true), dates (default true), aggregate by genus <code>timeGenus | materialGenus | expenseGenus</code> (default false).</td></tr>
+    <tr><td><code>subproject_creates_cycle(origin, sub)</code></td><td>function</td><td>&rarr; boolean</td><td>Recursive CTE over <code>project_subproject_link</code> from <code>sub</code>; TRUE if <code>origin</code> is reached or equal. <code>UNION</code> stops an already damaged graph.</td></tr>
+    <tr><td><code>subproject_in_cycle(project)</code>, <code>subproject_cycle_path(origin, sub)</code>, <code>subproject_assert_no_cycle(project)</code></td><td>functions</td><td>boolean / text / raises</td><td>Is the project part of a cycle; the chain "A -> B -> A" with names for the message; the guard that <code>create_task_line_plan</code> calls first (<code>SUBPROJECT_CYCLE</code>, nothing is posted).</td></tr>
+    <tr><td><code>subproject_link_validate()</code> + <code>trg_subproject_link_validate_ins / _upd</code></td><td>trigger, BEFORE, on <code>project_task_table</code>, only when the row has one of the two task keys</td><td>raises or passes</td><td>Skips at once when the flag and the subproject are not touched (the scheduler writes dates of the same row all the time). Flag on: the functionality must be on (<code>SUBPROJECT_DISABLED</code>), the row must be a task (<code>SUBPROJECT_BAD_TASK</code>); a subproject must exist and be visible - RLS applies, this one runs as the user (<code>SUBPROJECT_NOT_FOUND</code>) - and must not close a cycle (<code>SUBPROJECT_CYCLE: A -> B -> A</code>). Flag off: clears <code>taskSubprojectGUID</code>.</td></tr>
+    <tr><td><code>subproject_link_maintain()</code> + <code>trg_subproject_link_maintain_ins / _upd</code></td><td>trigger, AFTER</td><td>&mdash;</td><td>Upserts or deletes the link row; for a new / changed link calls <code>subproject_sync_origin_task</code> and <code>subproject_propagate_dates</code>, and queues the task for Monitor01 (aggregated rows appear / disappear).</td></tr>
+    <tr><td><code>subproject_dates_of(project)</code></td><td>function</td><td>&rarr; (<code>start_at</code>, <code>finish_at</code>)</td><td>start = the earliest <code>rowJSON.startAt</code>, finish = the latest <code>rowDuration</code> of the tasks and milestones (stages are summaries). NULL until the project has been scheduled. Because it reads the tasks, it is already right inside the same transaction in which an origin task changed (multi-level propagation).</td></tr>
+    <tr><td><code>subproject_work_days(start, finish, skip_weekends)</code></td><td>function, IMMUTABLE, INVOKER</td><td>&rarr; integer</td><td>The SQL twin of <code>workDaysBetween</code> (<code>scheduling.ts</code>): 0 if finish &le; start; calendar days when weekends are worked; otherwise the non-Saturday / non-Sunday (UTC) days of [start, finish). Docker cases: 8, 6, 0, 0, 0.</td></tr>
+    <tr><td><code>subproject_sync_origin_task(task)</code></td><td>function</td><td>&rarr; boolean (written)</td><td>Records the dates in <code>linkStartAt / linkFinishAt</code>; if <code>subproject_dates_on</code> is false stops. Otherwise sets on the origin task <code>manualStartAt</code> = start, <code>durationDays</code> = GREATEST(1, work days in the ORIGIN project's calendar), <code>startAt</code> = start, <code>rowDuration</code> = finish - <b>only if a value differs</b> (no loop, no needless unpost of the posted lines). Time format = JavaScript <code>toISOString</code>.</td></tr>
+    <tr><td><code>subproject_propagate_dates(project, depth)</code></td><td>function</td><td>&mdash;</td><td>For every link that points at the project: sync the origin task; when it wrote, do the same for the origin project (its dates changed), depth limit 25. Called at the end of <code>pm_apply_schedule</code>, by the link trigger and by the switch trigger.</td></tr>
+    <tr><td><code>subproject_switch_guard()</code> / <code>trg_subproject_switch_guard</code></td><td>trigger, BEFORE UPDATE on <code>project_table</code></td><td>raises or passes</td><td>The functionality cannot be switched off while a task of the project has a link (<code>SUBPROJECT_IN_USE</code>).</td></tr>
+    <tr><td><code>subproject_resync_on_switch()</code> / <code>trg_subproject_resync_on_switch</code></td><td>trigger, AFTER UPDATE on <code>project_table</code>, when one of the six switches changed</td><td>&mdash;</td><td>Syncs every origin task of the project, queues them for Monitor01, propagates.</td></tr>
+    <tr><td><code>subproject_delete_guard()</code> / <code>trg_subproject_delete_guard</code></td><td>trigger, BEFORE DELETE on <code>project_table</code></td><td>raises or passes</td><td>A project that is the subproject of a task cannot be deleted; the message names "project / task" (<code>SUBPROJECT_IN_USE</code>).</td></tr>
+    <tr><td><code>subproject_candidates(origin_project)</code></td><td>RPC, INVOKER (RLS)</td><td>&rarr; table(<code>projectGUID, projectName, startAt, finishAt, usedByCount</code>)</td><td>The picker: projects of the same organization the user can see, not the origin project, none that would close a cycle; by name.</td></tr>
+    <tr><td><code>organization_has_subprojects_enabled()</code></td><td>RPC, INVOKER</td><td>&rarr; boolean</td><td>EXISTS a visible project with the master switch on; Monitor01 shows its radio only then.</td></tr>
+    <tr><td><code>subproject_link_rebuild()</code></td><td>function, not granted to the app</td><td>&rarr; integer</td><td>Makes <code>project_subproject_link</code> again from the task rowJSON (a repair; a second run changes nothing).</td></tr>
+    <tr><td><code>subproject_agg_sources(origin tasks)</code></td><td>function</td><td>&rarr; (<code>originGUID, taskGUID, genusGUID</code>)</td><td>Which (task, genus) numbers belong to an origin task: the tasks of its subproject for each genus whose switch is on, and recursively the tasks that THOSE origin tasks aggregate (each hop by the switches of its own project). Reads the register, so nothing is counted twice.</td></tr>
+    <tr><td><code>monitor01_fresh_rows(tasks)</code> <span class="pill chg">replaced</span></td><td>function, INVOKER</td><td>&rarr; the report rows</td><td>Own turnover of the tasks + the turnover of their <code>subproject_agg_sources</code>, summed by (origin task, genus, role, unit, month). With no links it equals the old result.</td></tr>
+    <tr><td><code>subproject_queue_origins(tasks)</code></td><td>function</td><td>&rarr; integer</td><td>Step 4 of <code>monitor01_apply</code>: queues (reason <code>subproject</code>) the origin tasks whose subproject contains one of these tasks and aggregates at least one genus.</td></tr>
+    <tr><td><code>subproject_drill_match(row task, task, genus)</code></td><td>function</td><td>&rarr; boolean</td><td>Used by <code>monitor01_sum_sources</code>: does the movement of (task, genus) belong to the aggregated row of the origin task.</td></tr>
+    <tr><td>changed older code <span class="pill chg">1 line each</span></td><td>&mdash;</td><td>&mdash;</td><td><code>pm_apply_schedule</code> (+ propagate), <code>create_task_line_plan</code> (+ cycle guard), <code>monitor01_apply</code> (+ step 4), <code>monitor01_refresh_now</code> (+ the origin tasks of the links), <code>monitor01_sum_sources</code> (4 filters).</td></tr>
+  </table></div>
+
+  <h3>7.1 Date algorithm, step by step (<code>subproject_sync_origin_task</code>)</h3>
+  <ol class="steps">
+    <li>S = the subproject of the task (from <code>project_subproject_link</code>); O = the origin project.</li>
+    <li><code>(start, finish) = subproject_dates_of(S)</code>. If either is NULL: stop (S was never scheduled).</li>
+    <li>Write <code>linkStartAt, linkFinishAt, linkSyncedAt</code> when they differ.</li>
+    <li>If <code>subproject_dates_on(O)</code> is false (the functionality, the follow switch or the dates switch is off): stop - the origin task keeps its own dates.</li>
+    <li><code>days = GREATEST(1, subproject_work_days(start, finish, O.skipWeekends))</code> - the calendar of the ORIGIN project, because its CPM turns days into a finish.</li>
+    <li>If <code>manualStartAt, durationDays, startAt, rowDuration</code> of the task already equal the new values: stop (return false).</li>
+    <li>UPDATE the task. The existing trigger <code>trg_task_line_plan_unpost_on_dates</code> unposts the lines of that task if a DAY changed (see edge cases).</li>
+    <li>The caller (<code>subproject_propagate_dates</code>) now looks at the project of the origin task: its dates changed, so the origin tasks that point at O follow in the same transaction. The open dashboard of O re-runs CPM from the new <code>manualStartAt / durationDays</code> and writes back; that write calls the propagation again and corrects anything the CPM changed (successors of the origin task).</li>
+  </ol>
+
+  <h3>7.2 Aggregation, step by step (<code>monitor01_fresh_rows</code>)</h3>
+  <ol class="steps">
+    <li>For the tasks to apply (a batch of the worker) take <code>subproject_agg_sources</code>: for an origin task O with link to S, every task of S for every genus G with <code>subproject_aggregate_on(O.project, G)</code>; then, for each such task that is itself an origin task X (link to S2), every task of S2 for G if <code>subproject_aggregate_on(X.project, G)</code>; repeat.</li>
+    <li>Read the register turnover once for all the tasks involved (<code>project_status_fresh_turnover</code>).</li>
+    <li>Own rows: (task, every genus). Aggregated rows: (O, G) from the sources. Sum by (O, genus, role, unit, month); the stale flag is the "or" of the plan lines.</li>
+    <li>Name, project and user of the row are those of O. <code>monitor01_apply</code> then upserts changed rows only and deletes the rows that are gone (a switch turned off removes the aggregated rows).</li>
+  </ol>
+</section>
+
+<section id="client">
+  <h2>8 Client (what was created or changed)</h2>
+  <div class="scroll"><table>
+    <tr><th>File</th><th>New / changed</th><th>What</th></tr>
+    <tr><td><code>kit8/pm/subproject/subprojectModel.ts</code></td><td>new</td><td>the six project keys and their defaults (<code>subprojectValuesOf</code>), the effective switches (<code>subprojectEffectiveOf</code>), error prefixes and texts (<code>subprojectErrorText</code>), the picker row, <code>Monitor01ProjectKind</code>.</td></tr>
+    <tr><td><code>subprojectApi.ts</code>, <code>useSubprojectCandidates.ts</code>, <code>useMonitor01SubprojectKind.ts</code>, <code>index.ts</code>, <code>README.md</code></td><td>new</td><td>RPC <code>subproject_candidates</code> / <code>organization_has_subprojects_enabled</code>, the read of the link table; hooks.</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/PMProjectSubprojectsTab.tsx</code></td><td>new</td><td>the tab: the master switch; under it the follow switch; under that the four child switches (<code>SwitchApp</code>, like <code>PMProjectVendorTab</code>).</td></tr>
+    <tr><td><code>PMRecentProjectsToolbar.tsx</code>, <code>kit8/pm/model/types.ts</code></td><td>changed</td><td>tab id <code>TabSubprojects</code>, saved and read with the other settings; the six project keys and the two task keys in <code>PMRowJSON</code>.</td></tr>
+    <tr><td><code>kit8/pm/view/task/PMTaskSubprojectField.tsx</code>, <code>PMTaskEditModal.tsx</code></td><td>new / changed</td><td>a switch "Subproject" and the picker (<code>SelectItemFromListApp</code>) for a TASK of a project with the functionality on; Save writes the two keys; a task that follows its subproject keeps the dates the database gave it.</td></tr>
+    <tr><td><code>subprojectMarks.ts</code>, <code>store_subproject.ts</code>, <code>useProjectSubprojectMarks.ts</code>, <code>view/tree/columns/PMTreeSubprojectIcon.tsx</code>, <code>PMProjectTasksTree.tsx</code>, <code>PMProjectGanttChart.tsx</code>, <code>PMProjectDashboard.tsx</code></td><td>new / changed</td><td><b>Marks of an origin task.</b> The dashboard reads the link rows of the open project (+ the subproject names, Realtime) once and keeps them in a small store. Tree: a narrow column before the posted column - only while the project has an origin task - with the subproject icon, a dark orange warning sign while the dates differ, a tip with the subproject and its dates; the name in the grid reads <code>Task 111  [Project B]</code> (<code> !</code> on a conflict). Gantt: the same label after the task name and a dark orange outline of the bar on a conflict. <b>Date conflict</b> = the project makes the task follow the dates, the subproject is scheduled, and the schedule of the task has another start day or finish day than the subproject.</td></tr>
+    <tr><td><code>kit8/pm/reports/monitor01/Monitor01ProjectKindRadio.tsx</code>, <code>Monitor01Dashboard.tsx</code>, <code>monitor01Model.ts</code></td><td>new / changed</td><td>the radio (<code>RadioSetApp</code>, horizontal) under the filters, only in the full data set and only when the organization uses the functionality; in-memory filter <code>filterMonitor01RowsByProjectKind</code>; Refresh also reads the link table again.</td></tr>
+  </table></div>
+  <div class="mock"><b>Monitor01 filter row (standalone):</b> Start date &middot; Finish date &middot; Select period &middot; Project &middot; Task &middot; Resource<br><b>( &bull; ) Projects &nbsp; (&nbsp;&nbsp;) Subprojects &nbsp; (&nbsp;&nbsp;) All</b> <span class="small">- hidden = no kind filter, the report is exactly as before.</span></div>
+  <div class="note"><b>Not built:</b> the tree "Cost" column does not aggregate; the Finances tabs of the origin task do not show the aggregate (only Monitor01 does); the conflict is shown, not resolved.</div>
+</section>
+
+<section id="edge">
+  <h2>9 Edge cases</h2>
+  <ul class="tight">
+    <li><b>Self reference</b> (A in A): refused by the CHECK of the table and by <code>subproject_creates_cycle</code>.</li>
+    <li><b>Indirect cycle</b> (A&rarr;B&rarr;C&rarr;A): refused at the moment the last task is linked; the message names the chain (tested: "Project B -> Project A -> Project B").</li>
+    <li><b>Cycle from a restore / import:</b> a version restore or an import writes <code>rowJSON</code> too, so the trigger fires there. A cycle that still got in is stopped at Post (<code>subproject_assert_no_cycle</code>); the propagation has a depth limit and the aggregation uses <code>UNION</code>.</li>
+    <li><b>Subproject never scheduled:</b> its dates are NULL; the origin task keeps its own dates.</li>
+    <li><b>Zero length:</b> <code>durationDays</code> is at least 1; the origin task is never turned into a milestone.</li>
+    <li><b>Different calendars</b> (origin skips weekends, sub does not): the start / finish are copied; <code>durationDays</code> is counted in the origin calendar (tested: 18 calendar days = 14 working days).</li>
+    <li><b>The CPM clamps:</b> the client CPM never starts a task before the start of its own project, and a predecessor can push the origin task later than the subproject. Then the bar of the origin task differs from the subproject until the predecessor is changed; the database copies the subproject dates anyway and the CPM write-back corrects them. The warning is built: the tree row and the Gantt bar show it (section 8).</li>
+    <li><b>Posted lines of the origin task:</b> a changed day unposts them (the existing rule); the Post button shows.</li>
+    <li><b>Permissions:</b> the propagation and the aggregation are SECURITY DEFINER, so an origin task in a project of another user of the organization is updated although the editor of the subproject cannot edit it. The picker and the link table follow the visibility rule of <code>project_table</code>.</li>
+    <li><b>Double counting:</b> the default Monitor01 view (Projects) hides the subproject, so the aggregated numbers are seen once. Choosing "All" shows both the subproject and the aggregate on the origin task - that is by design, and the owner chooses it.</li>
+    <li><b>Many origins, one subproject:</b> each link is its own row; each origin task aggregates the same subproject separately.</li>
+    <li><b>Templates and versions:</b> NOT handled yet: "create template from project" copies the two task keys as plain JSON. A template used in another project could then point at a real project; the trigger checks it when the task is written (the project must be visible and no cycle), but a copy does not clear the keys.</li>
+    <li><b>Performance:</b> every lookup is by an index on <code>project_subproject_link</code>; with no link the added work of <code>monitor01_apply</code> and <code>monitor01_fresh_rows</code> is one empty index probe. The task triggers fire only for rows that have one of the two task keys. The Monitor01 bench was not re-run.</li>
+  </ul>
+</section>
+
+<section id="tests">
+  <h2>10 Tests (written and run in the same round)</h2>
+  <div class="scroll"><table>
+    <tr><th>Test</th><th>Where</th><th>What</th><th>Result</th></tr>
+    <tr><td>Docker 90</td><td><code>kit8/docker/tests/90_subprojects.sql</code>, run by <code>test_fact_monitor01.sh 90</code> and by <code>test_time_genus.sh</code></td><td>0 defaults of all six switches &middot; 1 flag rules (disabled, stage, unknown project, itself) &middot; 2 cycles (A-B-A, A-B-C-A, B-C-B), the picker, many origins, flag off, the radio function, another organization &middot; 3 Post refused in a cycle, works again &middot; 4 working days &middot; 5 dates: follow, no change = no write, later end, weekends in the origin calendar, the dates switch off / on, the follow switch off / on &middot; 6 two levels and a second origin &middot; 7 the guards &middot; 8 rebuild &middot; 9 Monitor01 aggregation: Time, Material + Expense, re-post, two levels, off, drill-down, Refresh now &middot; 10 delete</td><td>80 checks passed</td></tr>
+    <tr><td>Install</td><td><code>test_sql.sh</code></td><td>install twice (same objects and rows), tables alone, code refuses an empty database, 0 seed rows, delete leaves nothing, install again</td><td>ALL OK</td></tr>
+    <tr><td>Older SQL tests</td><td><code>test_fact_monitor01.sh</code>, <code>test_time_genus.sh</code></td><td>all tests 10-90, the worker procedure</td><td>ALL OK</td></tr>
+    <tr><td>Jest</td><td><code>__tests__/pm/subproject/*</code> (7 suites, 60 tests), <code>__tests__/sql/startSqlSplit.test.ts</code> (29 parts)</td><td>defaults and effective switches, error texts, the radio filter, the SQL files (both files carry PART 29, names, grants, keys, hooks, delete file), the settings tab (the child switches appear only under their parent), the task field, the radio, the marks (label, tip, date warning), the tree icon cell</td><td>pass</td></tr>
+  </table></div>
+  <p class="small">Not tested: the real browser, a real Supabase, the task window end to end (only its new part), the Monitor01 dashboard with the radio in Jest, speed with thousands of links.</p>
+</section>
+
+<section id="wbs">
+  <h2>11 Work breakdown</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Step</th><th>State</th></tr>
+    <tr><td>1</td><td>SQL: PART 29, the hooks into PARTs 1, 15, 25, delete part</td><td><span class="pill new">done, tested in Docker</span></td></tr>
+    <tr><td>2</td><td>Model, API, hooks, the settings tab, the task field</td><td><span class="pill new">done, Jest</span></td></tr>
+    <tr><td>3</td><td>Monitor01 radio</td><td><span class="pill new">done, Jest (component and filter)</span></td></tr>
+    <tr><td>4</td><td>README, <code>KNOW_HOW.md</code>, this document</td><td><span class="pill new">done</span></td></tr>
+    <tr><td>5</td><td>Subproject icon, name and date warning in the tree and on the Gantt chart</td><td><span class="pill new">done, Jest (the marks, the icon); not seen in a browser</span></td></tr>
+    <tr><td>6</td><td>Templates, the Finances aggregate, the tree "Cost" aggregate</td><td><span class="pill ask">not built (section 12)</span></td></tr>
+  </table></div>
+</section>
+
+<section id="open">
+  <h2>12 Decisions and what is not built</h2>
+  <p class="sub">The owner's answer to Q2 (four more switches) is built as written. The other defaults of the first version of this document were kept.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Decision</th></tr>
+    <tr><td>Q2</td><td>May the origin task also have its own lines, and what does "aggregate" mean?</td><td><span class="pill new">owner</span> Under <code>autoChangeOriginTaskBasedOnSubprojects</code> there are four switches: <code>autoChangeStartAndFinishDatesForOriginTask</code> (true), <code>aggregateTimeFromSubprojectToTheOriginTask</code>, <code>aggregateMaterialFromSubprojectToTheOriginTask</code>, <code>aggregateExpenceFromSubprojectToTheOriginTask</code> (false). <b>Built as:</b> the origin task keeps its own lines; with a switch on, Monitor01 adds the plan and fact numbers of the subproject for that kind of lines to the origin task's row (not the Finances tabs, not the tree cost column).</td></tr>
+    <tr><td>Q1</td><td>Start and end of a subproject</td><td>start = the earliest start, end = the latest finish of its tasks and milestones.</td></tr>
+    <tr><td>Q3</td><td>A predecessor pushes the origin task later</td><td>the client CPM wins ("no earlier than"); a warning is shown in the tree and on the Gantt chart.</td></tr>
+    <tr><td>Q4</td><td>Switch the functionality off while tasks use subprojects</td><td>refused (<code>SUBPROJECT_IN_USE</code>).</td></tr>
+    <tr><td>Q5</td><td>Delete a project that is a subproject</td><td>refused with the list of tasks.</td></tr>
+    <tr><td>Q6</td><td>The radio in the one-project mode</td><td>not shown; only the full data set.</td></tr>
+    <tr><td>Q7</td><td>Meaning of Projects / Subprojects / All</td><td>Projects = not a subproject of any task (default); Subprojects = a subproject of at least one task; All = both.</td></tr>
+    <tr><td>Q8</td><td>Which projects are in the picker</td><td>every project of the organization the user can see, except the project itself and cycle makers.</td></tr>
+    <tr><td>Q9</td><td>Must the subproject have the switch on</td><td>no, only the origin project.</td></tr>
+    <tr><td>Q10</td><td>Server-side scheduling for closed projects</td><td>no; the CPM stays on the client. The dates of a chain are propagated in one transaction from the schedule write of the subproject; what the CPM of an origin project changes (its successors) is written when that project is opened.</td></tr>
+  </table></div>
+  <div class="note"><b>Open for the owner:</b> (1) templates and versions copy the two task keys as they are (section 9); (2) aggregation does not yet reach the tree "Cost" column or the Finances tabs; (3) the tree / Gantt marks are drawn by code that Jest does not render (the Skia canvas): only the icon cell and the date rule are tested - look at them in the app; (4) the spelling <code>aggregateExpenceFromSubprojectToTheOriginTask</code> is kept exactly as written.</div>
+</section>
+
+</main>
+</body>
+</html>

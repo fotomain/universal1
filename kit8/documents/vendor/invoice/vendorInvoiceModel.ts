@@ -16,6 +16,8 @@ export const RPC_VENDOR_CANDIDATES = 'vendor_invoice_candidates';
 export const RPC_VENDOR_CREATE = 'create_vendor_invoices';
 export const RPC_VENDOR_SET_HEADER = 'vendor_invoice_set_header';
 export const RPC_VENDOR_ADD_LINE = 'vendor_invoice_add_line';
+export const RPC_VENDOR_SET_LINE_TASK = 'vendor_invoice_set_line_task';
+export const RPC_VENDOR_LINE_PLACES = 'vendor_invoice_line_places';
 export const RPC_VENDOR_POST = 'post_vendor_invoice';
 export const RPC_VENDOR_UNPOST = 'unpost_vendor_invoice';
 export const RPC_VENDOR_DELETE = 'delete_vendor_invoice';
@@ -128,6 +130,9 @@ export interface VendorInvoiceListRow {
   projectGUID: string;
   projectName: string;
   independentInputAvailable: boolean;
+  /** Multi Project mode of the document (header vendorInvoiceMultiProject) and the project setting multiProjectVendorInvoceNeeded of ITS project */
+  multiProject: boolean;
+  multiProjectAvailable: boolean;
   authorGUID: string;
   authorName: string;
   lineCount: number;
@@ -161,6 +166,8 @@ export function parseListAnswer(data: any): VendorInvoiceListAnswer {
     projectGUID: String(r.projectGUID ?? ''),
     projectName: String(r.projectName ?? ''),
     independentInputAvailable: !!r.independentInputAvailable,
+    multiProject: !!r.multiProject,
+    multiProjectAvailable: !!r.multiProjectAvailable,
     authorGUID: String(r.authorGUID ?? ''),
     authorName: String(r.authorName ?? ''),
     lineCount: Number(r.lineCount) || 0,
@@ -227,6 +234,9 @@ export interface VendorInvoiceHeaderView {
   projectGUID?: string;
   projectName?: string;
   independentInputAvailable?: boolean;
+  /** Multi Project mode (the lines may belong to other tasks / projects) and whether the project setting offers it */
+  multiProject?: boolean;
+  multiProjectAvailable?: boolean;
 }
 export function headerOfListRow(r: VendorInvoiceListRow): VendorInvoiceHeaderView {
   return {
@@ -234,6 +244,7 @@ export function headerOfListRow(r: VendorInvoiceListRow): VendorInvoiceHeaderVie
     legalEntityGUID: r.legalEntityGUID, partnerGUID: r.partnerGUID, contractGUID: r.contractGUID, currency: r.currency, authorName: r.authorName,
     partnerTitle: r.partnerTitle, contractInfo: r.contractInfo, legalEntityTitle: r.legalEntityTitle,
     taskGUID: r.taskGUID, projectGUID: r.projectGUID, projectName: r.projectName, independentInputAvailable: r.independentInputAvailable,
+    multiProject: r.multiProject, multiProjectAvailable: r.multiProjectAvailable,
   };
 }
 export const canEditVendorInvoice = (h: VendorInvoiceHeaderView): boolean => h.status === 'draft';
@@ -328,3 +339,14 @@ export function documentsOfRoute(documentGUID: string | null | undefined, docume
 }
 /** the path of ONE document for a browser tab of its own (web): the same form route with that single document */
 export const vendorInvoiceDocumentPath = (documentGUID: string): string => `${VENDOR_INVOICE_ROUTE}?documentGUID=${encodeURIComponent(documentGUID)}`;
+
+// ---- Single Project | Multi Project (project setting multiProjectVendorInvoceNeeded, Project settings → Vendor) -------------------------------------------------------------------
+export const VENDOR_INVOICE_PROJECT_MODES: { id: 'single' | 'multi'; title: string; subtitle: string; icon: string }[] = [
+  { id: 'single', title: 'Single Project', subtitle: 'All the lines belong to the project of the document', icon: 'folder' },
+  { id: 'multi', title: 'Multi Project', subtitle: 'Each line can belong to any task or task line of any project of yours', icon: 'folder_copy' },
+];
+export const vendorInvoiceProjectMode = (h: Pick<VendorInvoiceHeaderView, 'multiProject'> | null | undefined): 'single' | 'multi' => (h?.multiProject ? 'multi' : 'single');
+/** the chevron next to the Project field is offered when the project setting is on (or the document is already Multi) and the document is a draft */
+export const canChooseProjectMode = (h: VendorInvoiceHeaderView): boolean => h.status === 'draft' && (!!h.multiProjectAvailable || !!h.multiProject);
+/** the three fields of a line of a Multi Project invoice: vendorInvoiceLineProject (read only: the project of the task), vendorInvoiceTaskGUID and vendorInvoiceTaskLineGUID (select / clear / paste) */
+export const VENDOR_INVOICE_LINE_PLACE_FIELDS = ['vendorInvoiceLineProject', 'vendorInvoiceTaskGUID', 'vendorInvoiceTaskLineGUID'] as const;

@@ -32,6 +32,8 @@
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 --   26. create_vendor_invoice.sql - the legal entity catalog, the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract) and its posting into the project status register
 --   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
+--   28. create_purchase_order.sql - the PURCHASE ORDER document (the vendor invoice logic) + its 'ordered' movements in the project status register + the column Ordered of Monitor01
+--   29. create_subprojects.sql - SUBPROJECTS: a task stands for another project (project_subproject_link + subproject_* functions + triggers), the origin task follows the dates and can aggregate the plan / fact of the subproject in Monitor01
 -- ===============================================================================================
 
 DO $$
@@ -839,6 +841,7 @@ BEGIN
      WHERE "rowGUID" = p_project_guid;
   END IF;
   PERFORM public.pm_recalc_project_progress(p_project_guid);
+  PERFORM public.subproject_propagate_dates(p_project_guid, 0);      -- PART 29: the tasks that stand for this project follow its dates
   RETURN v_count;
 END;
 $$;
@@ -3238,6 +3241,7 @@ BEGIN
   IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
     RAISE EXCEPTION 'create_task_line_plan: task % does not exist or is not yours', v_task USING ERRCODE = '42501';
   END IF;
+  PERFORM public.subproject_assert_no_cycle(v_project);      -- PART 29: a project in a cycle of subprojects cannot be posted
   IF jsonb_typeof("taskLinePlanJSON"->'lines') <> 'array' THEN
     RAISE EXCEPTION 'create_task_line_plan: "lines" must be an array';
   END IF;
@@ -5680,6 +5684,12 @@ RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "
                "sumForAccountingInvoiced" numeric,
                "vatForContractInvoiced" numeric,
                "vatForAccountingInvoiced" numeric,
+               "qtyOrdered" numeric,
+               "sumForBudgetOrdered" numeric,
+               "sumForContractOrdered" numeric,
+               "sumForAccountingOrdered" numeric,
+               "vatForContractOrdered" numeric,
+               "vatForAccountingOrdered" numeric,
                "lineCount" integer, "documentCount" integer)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT s."rowOwnerGUID", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."rowTurnoverMonth", s."rowProjectGUID", s."rowOwnerUserGUID",
@@ -5698,8 +5708,14 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
          COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
          COALESCE(SUM(s."vatForContract")        FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
          COALESCE(SUM(s."vatForAccounting")      FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
+         COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
+         COALESCE(SUM(s."sumForContract")        FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
+         COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
+         COALESCE(SUM(s."vatForContract")        FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
+         COALESCE(SUM(s."vatForAccounting")      FILTER (WHERE s."rowMovementKind" = 'ordered'), 0),
          COALESCE(NULLIF((count(DISTINCT s."rowProjectTaskLineGUID") FILTER (WHERE s."rowMovementKind" = 'plan'))::integer, 0), (count(*) FILTER (WHERE s."rowMovementKind" = 'used'))::integer, 0),
-         (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced')))::integer
+         (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced', 'ordered')))::integer
     FROM public.project_status_movements s
    WHERE s."rowOwnerGUID" = ANY (p_tasks) AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
    GROUP BY 1, 2, 3, 4, 5, 6, 7
@@ -5714,7 +5730,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5728,13 +5744,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t."resourceRoleGUID", '')
     LEFT JOIN st ON st.task = t."rowOwnerGUID" AND st.genus = t."genusGUID" AND st.role = t."resourceRoleGUID" AND st.unit = t."measureUnit" AND st.month = t."rowTurnoverMonth"
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 
@@ -5752,12 +5768,12 @@ BEGIN
   -- step 1: project_status_month_turnover = the register summed; only changed rows are written
   WITH fresh AS MATERIALIZED (SELECT * FROM public.project_status_fresh_turnover(p_tasks)),
        up AS (
-         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "lineCount", "documentCount")
-         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."lineCount", f."documentCount" FROM fresh f
+         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "qtyOrdered", "sumForBudgetOrdered", "sumForContractOrdered", "sumForAccountingOrdered", "vatForContractOrdered", "vatForAccountingOrdered", "lineCount", "documentCount")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."qtyOrdered", f."sumForBudgetOrdered", f."sumForContractOrdered", f."sumForAccountingOrdered", f."vatForContractOrdered", f."vatForAccountingOrdered", f."lineCount", f."documentCount" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."lineCount", t."documentCount")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."lineCount", EXCLUDED."documentCount")
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "sumForBudgetOrdered" = EXCLUDED."sumForBudgetOrdered", "sumForContractOrdered" = EXCLUDED."sumForContractOrdered", "sumForAccountingOrdered" = EXCLUDED."sumForAccountingOrdered", "vatForContractOrdered" = EXCLUDED."vatForContractOrdered", "vatForAccountingOrdered" = EXCLUDED."vatForAccountingOrdered", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."qtyOrdered", t."sumForBudgetOrdered", t."sumForContractOrdered", t."sumForAccountingOrdered", t."vatForContractOrdered", t."vatForAccountingOrdered", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."sumForBudgetOrdered", EXCLUDED."sumForContractOrdered", EXCLUDED."sumForAccountingOrdered", EXCLUDED."vatForContractOrdered", EXCLUDED."vatForAccountingOrdered", EXCLUDED."lineCount", EXCLUDED."documentCount")
          RETURNING 1),
        del AS (
          DELETE FROM public.project_status_month_turnover t
@@ -5771,16 +5787,16 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "qtyOrdered", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyInvoiced", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -5795,6 +5811,13 @@ BEGIN
     PERFORM public.project_cost_apply(p_tasks);
   EXCEPTION WHEN OTHERS THEN
     RAISE WARNING 'project_cost_apply failed: %', SQLERRM;
+  END;
+
+  -- step 4 (PART 29): the origin tasks that aggregate the numbers of these tasks are queued (nothing happens when there is no subproject link)
+  BEGIN
+    PERFORM public.subproject_queue_origins(p_tasks);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'subproject_queue_origins failed: %', SQLERRM;
   END;
 
   p_upserted := v_u + v_fu;
@@ -6049,16 +6072,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6099,7 +6122,7 @@ BEGIN
         FROM public.task_line_plan_movements m JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
        WHERE m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
          AND (NOT f ? 'projectGUID' OR m."rowProjectGUID" = (f->>'projectGUID')::uuid)
-         AND (NOT f ? 'taskGUID'    OR m."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR m."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', m."rowOwnerGUID", l."rowParentGUID"))
          AND (NOT f ? 'taskGUIDs'   OR m."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
          AND (NOT f ? 'genusGUID'   OR l."rowParentGUID"  = f->>'genusGUID')
          AND (NOT f ? 'roleGUID'    OR COALESCE(l."rowJSON"->>'resourceRoleItem', '') = f->>'roleGUID')
@@ -6125,7 +6148,7 @@ BEGIN
         FROM public.task_fact_usage_timeline x JOIN public.task_fact_header h ON h."rowGUID" = x."rowHeaderGUID"
        WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
          AND (NOT f ? 'projectGUID' OR x."rowProjectGUID" = (f->>'projectGUID')::uuid)
-         AND (NOT f ? 'taskGUID'    OR x."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR x."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', x."rowOwnerGUID", x."genusGUID"))
          AND (NOT f ? 'taskGUIDs'   OR x."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
          AND (NOT f ? 'genusGUID'   OR x."genusGUID"      = f->>'genusGUID')
          AND (NOT f ? 'roleGUID'    OR COALESCE(x."rowJSON"->>'resourceRoleItem', '') = f->>'roleGUID')
@@ -6149,7 +6172,31 @@ BEGIN
         JOIN public.vendor_invoice_header h ON h."rowGUID" = s."rowRegistratorGUID"
        WHERE s."rowMovementKind" = 'invoiced'
          AND (NOT f ? 'projectGUID' OR s."rowProjectGUID" = (f->>'projectGUID')::uuid)
-         AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', s."rowOwnerGUID", s."genusGUID"))
+         AND (NOT f ? 'taskGUIDs'   OR s."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR s."genusGUID"      = f->>'genusGUID')
+         AND (NOT f ? 'roleGUID'    OR s."resourceRoleGUID" = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR s."resourceRoleGUID" IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR s."measureUnit" = f->>'unit')
+         AND (NOT f ? 'month'       OR s."rowTurnoverMonth" = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
+    ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
+       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+                 FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
+                         LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
+    SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
+      INTO v_count, v_sum, v_rows;
+  ELSIF p_measure = 'ordered' THEN
+    WITH src AS (
+      SELECT s."rowGUID"::text AS "rowGUID", 'projectStatusMovements'::text AS "sourceName", s."rowTurnoverDay" AS "day", s."rowOwnerGUID"::text AS "taskGUID", s."rowProjectGUID"::text AS "projectGUID",
+             s."rowProjectTaskLineGUID"::text AS "lineGUID", s."rowRegistratorGUID"::text AS "documentGUID", h."rowJSON"->>'purchaseOrderNumber' AS "documentNumber",
+             s."genusGUID", s."resourceRoleGUID" AS "roleGUID", s."measureUnit" AS "unit", s."qtyProjectStatus" AS "qty"
+        FROM public.project_status_movements s
+        JOIN public.purchase_order_header h ON h."rowGUID" = s."rowRegistratorGUID"
+       WHERE s."rowMovementKind" = 'ordered'
+         AND (NOT f ? 'projectGUID' OR s."rowProjectGUID" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', s."rowOwnerGUID", s."genusGUID"))
          AND (NOT f ? 'taskGUIDs'   OR s."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
          AND (NOT f ? 'genusGUID'   OR s."genusGUID"      = f->>'genusGUID')
          AND (NOT f ? 'roleGUID'    OR s."resourceRoleGUID" = f->>'roleGUID')
@@ -6190,7 +6237,8 @@ BEGIN
     SELECT DISTINCT x.t FROM (
       SELECT m."rowOwnerGUID" AS t, m."rowProjectGUID" AS pr FROM public.task_line_plan_movements m
       UNION SELECT f."rowOwnerGUID", f."rowProjectGUID" FROM public.task_fact_usage_timeline f
-      UNION SELECT v."rowOwnerGUID", v."rowProjectGUID" FROM public.monitor01_view v) x
+      UNION SELECT v."rowOwnerGUID", v."rowProjectGUID" FROM public.monitor01_view v
+      UNION SELECT k."rowOwnerGUID", k."rowProjectGUID" FROM public.project_subproject_link k) x
      WHERE public.pm_owns_project(x.pr) AND (p_project IS NULL OR x.pr = p_project)
      LIMIT GREATEST(p_max, 1)) s;
   IF v_tasks IS NULL THEN
@@ -6243,6 +6291,12 @@ SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 
+-- upgrade: the tasks that have POSTED purchase orders are queued once (the report gained the column Ordered = qtyOrdered)
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'ordered'
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+
 -- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----
 DO $$
 BEGIN
@@ -6291,8 +6345,9 @@ CREATE OR REPLACE FUNCTION public.legal_entity_guard() RETURNS trigger LANGUAGE 
 BEGIN
   IF TG_OP = 'DELETE' THEN
     IF EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowJSON"->>'legalEntityGUID' = OLD."rowGUID")
-       OR (to_regclass('public.vendor_invoice_header') IS NOT NULL AND EXISTS (SELECT 1 FROM public.vendor_invoice_header h WHERE h."rowOwnerGUID" = OLD."rowGUID")) THEN
-      RAISE EXCEPTION 'the legal entity is used by a contract or a vendor invoice: set it inactive instead' USING ERRCODE = '23503';
+       OR (to_regclass('public.vendor_invoice_header') IS NOT NULL AND EXISTS (SELECT 1 FROM public.vendor_invoice_header h WHERE h."rowOwnerGUID" = OLD."rowGUID"))
+       OR (to_regclass('public.purchase_order_header') IS NOT NULL AND EXISTS (SELECT 1 FROM public.purchase_order_header h WHERE h."rowOwnerGUID" = OLD."rowGUID")) THEN
+      RAISE EXCEPTION 'the legal entity is used by a contract, a vendor invoice or a purchase order: set it inactive instead' USING ERRCODE = '23503';
     END IF;
     RETURN OLD;
   END IF;
@@ -6388,11 +6443,16 @@ DECLARE
   v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
 BEGIN
   IF TG_OP = 'UPDATE' THEN
-    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit)
-    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" OR NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
+    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
+    -- vendor_invoice_set_line_task (a MULTI PROJECT invoice) moves a line to another task / task line: it opens the gate for its own statement only
+    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
+      RAISE EXCEPTION 'vendor invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+    IF COALESCE(current_setting('app.vendor_invoice_line_move', true), '') <> 'on' AND (
+       NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
        OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
        OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
-       OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL) THEN
+       OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
       RAISE EXCEPTION 'vendor invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
   END IF;
@@ -6730,6 +6790,20 @@ BEGIN
       v_json := jsonb_set(v_json, '{vendorInvoiceDateTime}', to_jsonb((p_patch->>'vendorInvoiceDateTime')::timestamptz));
     END IF;
   END IF;
+  -- Single project | Multi project (project setting multiProjectVendorInvoceNeeded): in Multi mode the lines may belong to other tasks / projects (vendor_invoice_set_line_task)
+  IF p_patch ? 'vendorInvoiceMultiProject' THEN
+    IF COALESCE((p_patch->>'vendorInvoiceMultiProject')::boolean, false) THEN
+      IF NOT public.vendor_project_setting_on(NULLIF(h."rowJSON"->>'vendorInvoiceProject', '')::uuid, 'multiProjectVendorInvoceNeeded') THEN
+        RAISE EXCEPTION 'multi project vendor invoices are switched off in the project settings (Vendor)' USING ERRCODE = '23514';
+      END IF;
+      v_json := jsonb_set(v_json, '{vendorInvoiceMultiProject}', 'true'::jsonb);
+    ELSE
+      IF EXISTS (SELECT 1 FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND l."rowProjectGUID" IS DISTINCT FROM NULLIF(h."rowJSON"->>'vendorInvoiceProject', '')::uuid) THEN
+        RAISE EXCEPTION 'the vendor invoice has lines of other projects: move or delete them first' USING ERRCODE = '23514';
+      END IF;
+      v_json := v_json - 'vendorInvoiceMultiProject';
+    END IF;
+  END IF;
   IF p_patch ? 'vendorInvoicePartner' OR p_patch ? 'vendorInvoiceContract' THEN
     IF p_patch ? 'vendorInvoicePartner' THEN
       -- another vendor (or none): its contract goes with the old one
@@ -6931,6 +7005,8 @@ BEGIN
            tk."rowGUID"::text AS "taskGUID",
            pr."rowGUID"::text AS "projectGUID", COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', '') AS "projectName",
            (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting(pr."rowGUID", 'independentInvoiceInputAvailable')) AS "independentInputAvailable",
+           COALESCE(h."rowJSON"->>'vendorInvoiceMultiProject', 'false') = 'true' AS "multiProject",
+           (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting_on(pr."rowGUID", 'multiProjectVendorInvoceNeeded')) AS "multiProjectAvailable",
            h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
            COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
            h."created_at" AS "sortAt",
@@ -6973,11 +7049,135 @@ REVOKE ALL ON FUNCTION public.vendor_invoice_list(jsonb, integer, integer) FROM 
 GRANT EXECUTE ON FUNCTION public.vendor_invoice_list(jsonb, integer, integer) TO authenticated;
 
 
+-- ---- MULTI PROJECT vendor invoice ----------------------------------------------------------------------------------------------------------------------------------------
+-- a project switch that is OFF while never saved (the opposite of vendor_project_setting): true only when it is stored true
+CREATE OR REPLACE FUNCTION public.vendor_project_setting_on(p_project uuid, p_key text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT p."rowJSON"->>p_key FROM public.project_table p WHERE p."rowGUID" = p_project), 'false') = 'true';
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_project_setting_on(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_project_setting_on(uuid, text) TO authenticated;
+
+
+-- the description of a task line copied onto a document line (the same fields create_vendor_invoices copies)
+CREATE OR REPLACE FUNCTION public.vendor_task_line_snapshot(p_task_line uuid) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+           'resourceRoleItem',     NULLIF(l."rowJSON"->>'resourceRoleItem', ''),
+           'taskResourceItem',     NULLIF(l."rowJSON"->>'taskResourceItem', ''),
+           'taskResourceKind',     NULLIF(l."rowJSON"->>'taskResourceKind', ''),
+           'measureUnitTaskLine',  NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''),
+           'budgetItemTaskLine',   NULLIF(l."rowJSON"->>'budgetItemTaskLine', ''),
+           'businessUnitTaskLine', NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+           'priceTaskLine',        CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+           'unitSumForAccounting', CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                        THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
+           'unitSumForBudget',     CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                        THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
+    FROM public.task_line_table l WHERE l."rowGUID" = p_task_line;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_task_line_snapshot(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- vendor_invoice_set_line_task(line, task, task line): the task and the task line of ONE line of a DRAFT MULTI PROJECT invoice (select / clear) -----------------------------------
+-- p_task_line given: the line becomes that task line (its task and project follow; p_task, when also given, must be its task); only p_task given: the line is of that task, without a task line
+-- (an independent line); both NULL (clear): the line goes back to the task and the project of the document, without a task line. The user must own the project of the new task.
+CREATE OR REPLACE FUNCTION public.vendor_invoice_set_line_task(p_line uuid, p_task uuid DEFAULT NULL, p_task_line uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l record; h record; tl record; v_task uuid := p_task; v_project uuid; v_rest numeric;
+BEGIN
+  SELECT x."rowGUID", x."rowHeaderGUID", x."qtyInvoiced" INTO l FROM public.vendor_invoice_lines x WHERE x."rowGUID" = p_line FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'vendor invoice line % does not exist', p_line USING ERRCODE = '23503';
+  END IF;
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = l."rowHeaderGUID" FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'vendor invoice line % does not exist', p_line USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted vendor invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF COALESCE(h."rowJSON"->>'vendorInvoiceMultiProject', 'false') <> 'true' THEN
+    RAISE EXCEPTION 'the task of a line can be changed in a MULTI PROJECT vendor invoice only' USING ERRCODE = '23514';
+  END IF;
+  IF p_task_line IS NOT NULL THEN
+    SELECT t."rowGUID", t."rowOwnerGUID", t."rowParentGUID", t."rowJSON" INTO tl FROM public.task_line_table t
+     WHERE t."rowGUID" = p_task_line AND t."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'task line % does not exist (or is a revenue line)', p_task_line USING ERRCODE = '23503';
+    END IF;
+    IF p_task IS NOT NULL AND p_task <> tl."rowOwnerGUID" THEN
+      RAISE EXCEPTION 'the task line % is not a line of the task %', p_task_line, p_task USING ERRCODE = '22023';
+    END IF;
+    v_task := tl."rowOwnerGUID";
+  END IF;
+  IF v_task IS NULL THEN
+    v_task := NULLIF(h."rowJSON"->>'vendorInvoiceTask', '')::uuid;
+    v_project := NULLIF(h."rowJSON"->>'vendorInvoiceProject', '')::uuid;
+  ELSE
+    SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = v_task;
+    IF v_project IS NULL THEN
+      RAISE EXCEPTION 'task % does not exist', v_task USING ERRCODE = '23503';
+    END IF;
+  END IF;
+  IF v_task IS NULL OR v_project IS NULL THEN
+    RAISE EXCEPTION 'the task of this vendor invoice is not known' USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  PERFORM set_config('app.vendor_invoice_line_move', 'on', true);
+  IF p_task_line IS NOT NULL THEN
+    -- the quantity not on a vendor invoice yet (only when the line has none); the price and the VAT % of the task line
+    v_rest := (CASE WHEN jsonb_typeof(tl."rowJSON"->'qtyTaskLine') = 'number' THEN (tl."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END)
+              - COALESCE((SELECT sum(i."qtyInvoiced") FROM public.vendor_invoice_lines i WHERE i."taskLineGUID" = p_task_line AND i."rowGUID" <> p_line), 0);
+    UPDATE public.vendor_invoice_lines
+       SET "rowProjectGUID" = v_project, "rowOwnerGUID" = v_task, "taskLineGUID" = p_task_line, "genusGUID" = tl."rowParentGUID",
+           "rowJSON" = public.vendor_task_line_snapshot(p_task_line),
+           "qtyInvoiced" = CASE WHEN l."qtyInvoiced" > 0 THEN l."qtyInvoiced" ELSE greatest(v_rest, 0) END,
+           "priceInvoiced" = CASE WHEN jsonb_typeof(tl."rowJSON"->'priceTaskLine') = 'number' THEN round((tl."rowJSON"->>'priceTaskLine')::numeric, 4) ELSE 0 END,
+           "vatRatioInvoiced" = CASE WHEN jsonb_typeof(tl."rowJSON"->'vatRatioTaskLine') = 'number' THEN least(greatest((tl."rowJSON"->>'vatRatioTaskLine')::numeric, 0), 100) ELSE 0 END
+     WHERE "rowGUID" = p_line;
+  ELSE
+    UPDATE public.vendor_invoice_lines SET "rowProjectGUID" = v_project, "rowOwnerGUID" = v_task, "taskLineGUID" = NULL, "rowJSON" = '{}'::jsonb WHERE "rowGUID" = p_line;
+  END IF;
+  PERFORM set_config('app.vendor_invoice_line_move', 'off', true);
+  RETURN jsonb_build_object('projectGUID', v_project, 'taskGUID', v_task, 'taskLineGUID', p_task_line);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_set_line_task(uuid, uuid, uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_set_line_task(uuid, uuid, uuid) TO authenticated;
+
+
+-- ---- vendor_invoice_line_places(header): the project and task NAMES of every line (the lines table shows them in the Multi Project mode) ----------------------------------------------
+CREATE OR REPLACE FUNCTION public.vendor_invoice_line_places(p_header uuid) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(jsonb_object_agg(l."rowGUID"::text, jsonb_build_object(
+           'projectGUID', l."rowProjectGUID", 'projectName', COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', ''),
+           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'name', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
+    FROM public.vendor_invoice_lines l
+    LEFT JOIN public.project_table pr ON pr."rowGUID" = l."rowProjectGUID"
+    LEFT JOIN public.project_task_table tk ON tk."rowGUID" = l."rowOwnerGUID"
+   WHERE l."rowHeaderGUID" = p_header AND public.vendor_invoice_state(p_header) IS NOT NULL;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_invoice_line_places(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vendor_invoice_line_places(uuid) TO authenticated;
+
+
 NOTIFY pgrst, 'reload schema';
 
 
 -- Check:
 --   SELECT public.vendor_invoice_candidates('<task rowGUID>');                                   -- the vendors of the task lines
+--   SELECT public.vendor_invoice_line_places('<document rowGUID>');                              -- project / task names of the lines (multi project)
 --   SELECT public.create_vendor_invoices('<task rowGUID>', '[{"partnerGUID": "...", "contractGUID": "...", "lineGUIDs": ["..."]}]'::jsonb);
 --   SELECT public.post_vendor_invoice('<document rowGUID>');
 --   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'invoiced';
@@ -7281,6 +7481,1207 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT public.update_project_cost_total('<project rowGUID>');                       -- { tasks, rows, projectTotal, changedRows, ms, flushed }
 --   SELECT * FROM public.project_cost_verify('<project rowGUID>');                      -- empty = the stored totals are right
 
+
+-- ===============================================================================================
+-- PART 28: create_purchase_order.sql
+-- the PURCHASE ORDER document (one vendor + one contract, the same logic as the vendor invoice, PART 26): purchase_order_header + purchase_order_lines, its posting into the project status register as 'ordered'
+-- movements, Single / Multi Project, and the column Ordered of Monitor01 (qtyOrdered, fed by the posted purchase orders)
+-- ===============================================================================================
+
+-- A purchase order is made, edited, posted and listed exactly like a vendor invoice; only the names, the number prefix (PO-), the movement kind ('ordered') and the quantity start differ:
+--   the quantity of a new line = what is not on a PURCHASE ORDER yet (plan - the quantity of the other purchase order lines); the project settings of the Vendor tab are shared with the vendor invoice.
+-- Design: documentation/PURCHASE_ORDER.html. The app: kit8/documents/vendor/purchase_order.
+
+DROP TRIGGER IF EXISTS trg_purchase_order_header_touch ON public.purchase_order_header;
+
+CREATE TRIGGER trg_purchase_order_header_touch BEFORE UPDATE ON public.purchase_order_header FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_purchase_order_lines_touch ON public.purchase_order_lines;
+
+CREATE TRIGGER trg_purchase_order_lines_touch BEFORE UPDATE ON public.purchase_order_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- the state of a document for the policies: 'draft' | 'posted' (NULL = no such document in MY organization)
+CREATE OR REPLACE FUNCTION public.purchase_order_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted' ELSE 'draft' END
+    FROM public.purchase_order_header h
+   WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_state(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_state(uuid) TO authenticated;
+
+
+-- one line: the project / task are the ones of the task line, the sums follow the quantity, the price and the VAT % the user states (the budget / accounting sums by the ratio of the task line)
+CREATE OR REPLACE FUNCTION public.purchase_order_lines_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
+    -- purchase_order_set_line_task (a MULTI PROJECT purchase order) moves a line to another task / task line: it opens the gate for its own statement only
+    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
+      RAISE EXCEPTION 'purchase order: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+    IF COALESCE(current_setting('app.purchase_order_line_move', true), '') <> 'on' AND (
+       NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
+       OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
+       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
+      RAISE EXCEPTION 'purchase order: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
+  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
+  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
+  NEW."sumForContract" := round(NEW."qtyOrdered" * NEW."priceOrdered", 2);
+  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioOrdered" / 100, 2);
+  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
+  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
+                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
+                             ELSE round(NEW."qtyOrdered" * v_unit_budget, 2) END;
+  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
+                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
+                                 ELSE round(NEW."qtyOrdered" * v_unit_accounting, 2) END;
+  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioOrdered" / 100, 2) END;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_purchase_order_lines_before_write ON public.purchase_order_lines;
+
+CREATE TRIGGER trg_purchase_order_lines_before_write BEFORE INSERT OR UPDATE ON public.purchase_order_lines FOR EACH ROW EXECUTE FUNCTION public.purchase_order_lines_before_write();
+
+
+-- the header: the organization of the writer, the folder (legal entity + partner) and the currency of the contract are derived. The vendor and the contract of an UNPOSTED document can be changed
+-- (purchase_order_set_header; a draft made from lines without a vendor has none yet); a POSTED document keeps them and needs its vendor and its legal entity
+CREATE OR REPLACE FUNCTION public.purchase_order_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_partner text := NULLIF(NEW."rowJSON"->>'purchaseOrderPartner', '');
+  v_contract text := NULLIF(NEW."rowJSON"->>'purchaseOrderContract', '');
+  v_status text := COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft');
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW."rowOrganizationGUID" := public.organization_of_current_user();
+    IF NEW."rowOrganizationGUID" IS NULL THEN
+      RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'draft'
+       AND (v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'purchaseOrderPartner', '') OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'purchaseOrderContract', '')) THEN
+      RAISE EXCEPTION 'the vendor and the contract of a POSTED purchase order cannot be changed: unpost it first' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF v_status <> 'draft' AND v_partner IS NULL THEN
+    RAISE EXCEPTION 'a posted purchase order needs its vendor (purchaseOrderPartner)' USING ERRCODE = '23514';
+  END IF;
+  IF v_status <> 'draft' AND NEW."rowOwnerGUID" IS NULL THEN
+    RAISE EXCEPTION 'a posted purchase order needs its legal entity' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+    RAISE EXCEPTION 'a contract needs its vendor' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the vendor % is not a partner', v_partner USING ERRCODE = '23503';
+  END IF;
+  IF v_contract IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowGUID" = v_contract AND k."rowParentGUID" = 'partner' AND k."rowOwnerGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the contract % is not a contract of the vendor %', v_contract, v_partner USING ERRCODE = '23514';
+  END IF;
+  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{purchaseOrderFolder}', to_jsonb(COALESCE(NEW."rowOwnerGUID", 'empty') || ':' || COALESCE(v_partner, 'empty'))),
+                             '{purchaseOrderCurrency}', to_jsonb(COALESCE((SELECT NULLIF(k."rowJSON"->>'contractCurrency', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract), '')));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_purchase_order_header_before_write ON public.purchase_order_header;
+
+CREATE TRIGGER trg_purchase_order_header_before_write BEFORE INSERT OR UPDATE ON public.purchase_order_header FOR EACH ROW EXECUTE FUNCTION public.purchase_order_header_before_write();
+
+
+-- policies: the header is read by the organization and written ONLY by the RPCs (a draft can also be deleted directly); the lines are read by the organization, the quantity / price / VAT % of a line of a DRAFT are updated and a line is deleted by the owner of its project
+ALTER TABLE public.purchase_order_header REPLICA IDENTITY FULL;
+
+ALTER TABLE public.purchase_order_header ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.purchase_order_header FROM anon, authenticated;
+
+GRANT SELECT, DELETE ON public.purchase_order_header TO authenticated;
+
+DROP POLICY IF EXISTS purchase_order_header_select ON public.purchase_order_header;
+
+CREATE POLICY purchase_order_header_select ON public.purchase_order_header FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+-- a DRAFT of the organization can be deleted directly (the table of the list does it; its lines go with it); a posted one never
+DROP POLICY IF EXISTS purchase_order_header_delete ON public.purchase_order_header;
+
+CREATE POLICY purchase_order_header_delete ON public.purchase_order_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user() AND COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft');
+
+ALTER TABLE public.purchase_order_lines REPLICA IDENTITY FULL;
+
+ALTER TABLE public.purchase_order_lines ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.purchase_order_lines FROM anon, authenticated;
+
+GRANT SELECT, UPDATE, DELETE ON public.purchase_order_lines TO authenticated;
+
+DROP POLICY IF EXISTS purchase_order_lines_select ON public.purchase_order_lines;
+
+CREATE POLICY purchase_order_lines_select ON public.purchase_order_lines FOR SELECT TO authenticated USING (public.purchase_order_state("rowHeaderGUID") IS NOT NULL);
+
+DROP POLICY IF EXISTS purchase_order_lines_update ON public.purchase_order_lines;
+
+CREATE POLICY purchase_order_lines_update ON public.purchase_order_lines FOR UPDATE TO authenticated
+  USING (public.purchase_order_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"))
+  WITH CHECK (public.purchase_order_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+DROP POLICY IF EXISTS purchase_order_lines_delete ON public.purchase_order_lines;
+
+CREATE POLICY purchase_order_lines_delete ON public.purchase_order_lines FOR DELETE TO authenticated
+  USING (public.purchase_order_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+
+-- realtime: the documents and their lines (the legal entities too)
+DO $$
+DECLARE
+  v_all boolean; t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['purchase_order_header', 'purchase_order_lines', 'legalEntityTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ---- the register: a POSTED purchase order = 'ordered' movements (registrator = the document, type purchaseOrderHeader) --------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_status_register_order(p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer := 0;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+  SELECT 'ordered', COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz, h."created_at"),
+         ((COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
+         h."rowGUID", 'purchaseOrderHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
+         l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+         NULLIF(h."rowJSON"->>'purchaseOrderPartner', ''), NULLIF(h."rowJSON"->>'purchaseOrderContract', ''), h."rowOwnerGUID",
+         COALESCE(l."qtyOrdered", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+    FROM public.purchase_order_header h
+    JOIN public.purchase_order_lines l ON l."rowHeaderGUID" = h."rowGUID"
+    JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+   WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted';
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_order(uuid) FROM PUBLIC, anon, authenticated;
+
+
+
+
+-- the vendors (and their contracts) of the task lines: the same rules as the vendor invoice (partner of the contract of the line, else the partner of the line, else the main vendor of its resource)
+CREATE OR REPLACE FUNCTION public.purchase_order_candidates(p_task uuid, p_lines uuid[] DEFAULT NULL) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.vendor_invoice_candidates(p_task, p_lines);
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_candidates(uuid, uuid[]) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_candidates(uuid, uuid[]) TO authenticated;
+
+
+-- ---- create_purchase_orders(task, selection, legal entity): ONE draft document per selected (vendor, contract) -----------------------------------------------------------------
+-- selection = [{ partnerGUID | null, contractGUID | null, lineGUIDs: [...] }]; a null partner = a draft WITHOUT a vendor (and, when no legal entity is given, without one): both are chosen in the form before Post. The lines come from the task lines; the quantity starts as what is NOT invoiced yet (plan - the quantity on the purchase order lines),
+-- the price and the VAT % of the task line. The legal entity: the one given, else the one of the contract; a document without any quantity left is not made.
+CREATE OR REPLACE FUNCTION public.create_purchase_orders(p_task uuid, p_selection jsonb, p_legal_entity text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid; v_sel jsonb; v_partner text; v_contract text; v_lines uuid[]; v_le text; v_header uuid; v_n integer; v_free boolean;
+  v_docs jsonb := '[]'::jsonb; v_skipped jsonb := '[]'::jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
+    RAISE EXCEPTION 'select at least one vendor' USING ERRCODE = '22023';
+  END IF;
+  v_free := public.vendor_project_setting(v_project, 'userCanCreateVendorInvoicesFromTasksWithEmptyVendors');
+  FOR v_sel IN SELECT * FROM jsonb_array_elements(p_selection) LOOP
+    v_partner := NULLIF(v_sel->>'partnerGUID', '');
+    v_contract := NULLIF(v_sel->>'contractGUID', '');
+    SELECT COALESCE(array_agg(x::uuid), ARRAY[]::uuid[]) INTO v_lines FROM jsonb_array_elements_text(COALESCE(v_sel->'lineGUIDs', '[]'::jsonb)) x;
+    IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+      RAISE EXCEPTION 'a contract needs its vendor' USING ERRCODE = '22023';
+    END IF;
+    IF v_partner IS NULL AND NOT v_free THEN
+      RAISE EXCEPTION 'a purchase order without a vendor is switched off in the project settings (Vendor)' USING ERRCODE = '23514';
+    END IF;
+    v_le := COALESCE(NULLIF(p_legal_entity, ''), (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract));
+    IF v_le IS NULL AND v_partner IS NOT NULL THEN
+      RAISE EXCEPTION 'choose the legal entity of the purchase order (the contract has none)' USING ERRCODE = '22023';
+    END IF;
+    v_header := gen_random_uuid();
+    INSERT INTO public.purchase_order_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON")
+    VALUES (v_header, v_le, 'x', jsonb_strip_nulls(jsonb_build_object(
+              'documentHeader', jsonb_build_object('activeUser', public.app_user_guid(), 'documentNumber', 'PO-' || lpad(nextval('public.purchase_order_document_seq')::text, 5, '0'),
+                                                    'documentStatus', 'draft', 'created_at', to_jsonb(clock_timestamp())),
+              'purchaseOrderPartner', v_partner, 'purchaseOrderContract', v_contract, 'purchaseOrderTask', p_task, 'purchaseOrderProject', v_project,
+              'purchaseOrderDateTime', to_jsonb(date_trunc('day', NOW())), 'purchaseOrderNumber', '')));
+    INSERT INTO public.purchase_order_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyOrdered", "priceOrdered", "vatRatioOrdered", "rowJSON")
+    SELECT v_header, l."rowProjectGUID", l."rowOwnerGUID", l."rowGUID", l."rowParentGUID", (row_number() OVER (ORDER BY g.ord, l."orderInList", l."created_at"))::numeric,
+           rest.qty,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN round((l."rowJSON"->>'priceTaskLine')::numeric, 4) ELSE 0 END,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'vatRatioTaskLine') = 'number' THEN least(greatest((l."rowJSON"->>'vatRatioTaskLine')::numeric, 0), 100) ELSE 0 END,
+           jsonb_strip_nulls(jsonb_build_object(
+             'resourceRoleItem',     NULLIF(l."rowJSON"->>'resourceRoleItem', ''),
+             'taskResourceItem',     NULLIF(l."rowJSON"->>'taskResourceItem', ''),
+             'taskResourceKind',     NULLIF(l."rowJSON"->>'taskResourceKind', ''),
+             'measureUnitTaskLine',  NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''),
+             'budgetItemTaskLine',   NULLIF(l."rowJSON"->>'budgetItemTaskLine', ''),
+             'businessUnitTaskLine', NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+             'priceTaskLine',        CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+             'unitSumForAccounting', CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
+             'unitSumForBudget',     CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
+      FROM public.task_line_table l
+      JOIN (VALUES ('timeGenus', 1), ('materialGenus', 2), ('expenseGenus', 3)) AS g(genus, ord) ON g.genus = l."rowParentGUID"
+      CROSS JOIN LATERAL (SELECT (CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END)
+                                 - COALESCE((SELECT sum(i."qtyOrdered") FROM public.purchase_order_lines i WHERE i."taskLineGUID" = l."rowGUID" AND i."rowHeaderGUID" <> v_header), 0) AS qty) rest
+     WHERE l."rowOwnerGUID" = p_task AND l."rowGUID" = ANY (v_lines) AND rest.qty > 0;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n = 0 THEN
+      DELETE FROM public.purchase_order_header WHERE "rowGUID" = v_header;
+      v_skipped := v_skipped || jsonb_build_object('partnerGUID', v_partner, 'contractGUID', v_contract, 'reason', 'nothingLeftToOrder');
+    ELSE
+      v_docs := v_docs || jsonb_build_object('documentGUID', v_header, 'partnerGUID', v_partner, 'contractGUID', v_contract, 'lineCount', v_n);
+    END IF;
+  END LOOP;
+  RETURN jsonb_build_object('documents', v_docs, 'skipped', v_skipped);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_purchase_orders(uuid, jsonb, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.create_purchase_orders(uuid, jsonb, text) TO authenticated;
+
+
+-- ---- the header of a DRAFT (an unposted document): the number of the purchase order, its date, the legal entity, the vendor and its contract (a posted document: unpost it first) ----------------------------------------
+CREATE OR REPLACE FUNCTION public.purchase_order_set_header(p_header uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_json jsonb;
+BEGIN
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted purchase order cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  v_json := h."rowJSON";
+  IF p_patch ? 'purchaseOrderNumber' THEN
+    v_json := jsonb_set(v_json, '{purchaseOrderNumber}', to_jsonb(btrim(COALESCE(p_patch->>'purchaseOrderNumber', ''))));
+  END IF;
+  IF p_patch ? 'purchaseOrderDateTime' THEN
+    IF NULLIF(p_patch->>'purchaseOrderDateTime', '') IS NULL THEN
+      v_json := v_json - 'purchaseOrderDateTime';
+    ELSE
+      v_json := jsonb_set(v_json, '{purchaseOrderDateTime}', to_jsonb((p_patch->>'purchaseOrderDateTime')::timestamptz));
+    END IF;
+  END IF;
+  -- Single project | Multi project (project setting multiProjectVendorInvoceNeeded): in Multi mode the lines may belong to other tasks / projects (purchase_order_set_line_task)
+  IF p_patch ? 'purchaseOrderMultiProject' THEN
+    IF COALESCE((p_patch->>'purchaseOrderMultiProject')::boolean, false) THEN
+      IF NOT public.vendor_project_setting_on(NULLIF(h."rowJSON"->>'purchaseOrderProject', '')::uuid, 'multiProjectVendorInvoceNeeded') THEN
+        RAISE EXCEPTION 'multi project purchase orders are switched off in the project settings (Vendor)' USING ERRCODE = '23514';
+      END IF;
+      v_json := jsonb_set(v_json, '{purchaseOrderMultiProject}', 'true'::jsonb);
+    ELSE
+      IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND l."rowProjectGUID" IS DISTINCT FROM NULLIF(h."rowJSON"->>'purchaseOrderProject', '')::uuid) THEN
+        RAISE EXCEPTION 'the purchase order has lines of other projects: move or delete them first' USING ERRCODE = '23514';
+      END IF;
+      v_json := v_json - 'purchaseOrderMultiProject';
+    END IF;
+  END IF;
+  IF p_patch ? 'purchaseOrderPartner' OR p_patch ? 'purchaseOrderContract' THEN
+    IF p_patch ? 'purchaseOrderPartner' THEN
+      -- another vendor (or none): its contract goes with the old one
+      IF NULLIF(p_patch->>'purchaseOrderPartner', '') IS DISTINCT FROM NULLIF(h."rowJSON"->>'purchaseOrderPartner', '') THEN
+        v_json := v_json - 'purchaseOrderPartner' - 'purchaseOrderContract';
+        IF NULLIF(p_patch->>'purchaseOrderPartner', '') IS NOT NULL THEN
+          v_json := jsonb_set(v_json, '{purchaseOrderPartner}', to_jsonb(p_patch->>'purchaseOrderPartner'));
+        END IF;
+      END IF;
+    END IF;
+    IF p_patch ? 'purchaseOrderContract' THEN
+      IF NULLIF(p_patch->>'purchaseOrderContract', '') IS NULL THEN
+        v_json := v_json - 'purchaseOrderContract';
+      ELSE
+        v_json := jsonb_set(v_json, '{purchaseOrderContract}', to_jsonb(p_patch->>'purchaseOrderContract'));
+      END IF;
+    END IF;
+  END IF;
+  UPDATE public.purchase_order_header
+     SET "rowJSON" = v_json,
+         "rowOwnerGUID" = COALESCE(NULLIF(p_patch->>'legalEntityGUID', ''), h."rowOwnerGUID",
+                                   (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = NULLIF(v_json->>'purchaseOrderContract', '')))
+   WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_set_header(uuid, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_set_header(uuid, jsonb) TO authenticated;
+
+
+
+-- ---- purchase_order_add_line(header, genus): ONE independent line (no task line) of a DRAFT; its task is the one the document was made from; the project setting independentInvoiceInputAvailable must not be false ----
+CREATE OR REPLACE FUNCTION public.purchase_order_add_line(p_header uuid, p_genus text DEFAULT 'timeGenus') RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_task uuid; v_project uuid; v_line uuid := gen_random_uuid();
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted purchase order cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF p_genus NOT IN ('timeGenus', 'materialGenus', 'expenseGenus') THEN
+    RAISE EXCEPTION 'unknown kind of line %', p_genus USING ERRCODE = '22023';
+  END IF;
+  SELECT t."rowGUID", t."projectGUID" INTO v_task, v_project FROM public.project_task_table t
+   WHERE t."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderTask', ''), (SELECT l."rowOwnerGUID"::text FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header ORDER BY l."orderInList", l."created_at" LIMIT 1));
+  IF v_task IS NULL THEN
+    RAISE EXCEPTION 'the task of this purchase order is not known' USING ERRCODE = '23503';
+  END IF;
+  v_project := COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderProject', '')::uuid, v_project);
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.vendor_project_setting(v_project, 'independentInvoiceInputAvailable') THEN
+    RAISE EXCEPTION 'independent input of purchase order lines is switched off in the project settings (Vendor)' USING ERRCODE = '23514';
+  END IF;
+  INSERT INTO public.purchase_order_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyOrdered", "priceOrdered", "vatRatioOrdered", "rowJSON")
+  VALUES (v_line, p_header, v_project, v_task, NULL, p_genus,
+          COALESCE((SELECT max(l."orderInList") FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header), 0) + 1, 0, 0, 0, '{}'::jsonb);
+  RETURN v_line;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_add_line(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_add_line(uuid, text) TO authenticated;
+
+
+-- ---- post / unpost / delete ----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.post_purchase_order(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_problems jsonb := '[]'::jsonb; v_lines integer;
+BEGIN
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  SELECT count(*) INTO v_lines FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header;
+  IF v_lines = 0 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'purchaseOrderPartner', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'vendorMissing');
+  END IF;
+  IF h."rowOwnerGUID" IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'legalEntityMissing');
+  END IF;
+  IF NULLIF(btrim(COALESCE(h."rowJSON"->>'purchaseOrderNumber', '')), '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'orderNumberMissing');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'orderDateMissing');
+  END IF;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
+    FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyOrdered" = 0;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
+    FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+  UPDATE public.purchase_order_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_register_order(p_header);       -- the 'ordered' movements of the register, in this transaction
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_purchase_order(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.post_purchase_order(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.unpost_purchase_order(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public.purchase_order_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_unregister(p_header);
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.unpost_purchase_order(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.unpost_purchase_order(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.delete_purchase_order(p_header uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted purchase order cannot be deleted: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  DELETE FROM public.purchase_order_header WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_purchase_order(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.delete_purchase_order(uuid) TO authenticated;
+
+
+-- ---- purchase_order_list(filter, limit, offset): the documents with the totals of their lines and the totals PER CURRENCY (currencies are never added) --------------------------------
+-- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the purchase order), author (contains)
+CREATE OR REPLACE FUNCTION public.purchase_order_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+  v_result jsonb;
+BEGIN
+  WITH docs AS (
+    SELECT h."rowGUID" AS "documentGUID",
+           h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+           COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           COALESCE(h."rowJSON"->>'purchaseOrderNumber', '') AS "purchaseOrderNumber",
+           NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '') AS "purchaseOrderDateTime",
+           ((NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date AS "purchaseOrderDay",
+           h."rowOwnerGUID" AS "legalEntityGUID", COALESCE(le."rowJSON"->>'title', le."rowGUID", '') AS "legalEntityTitle",
+           NULLIF(h."rowJSON"->>'purchaseOrderPartner', '') AS "partnerGUID", COALESCE(pt."rowJSON"->>'partnerTitle', '') AS "partnerTitle",
+           NULLIF(h."rowJSON"->>'purchaseOrderContract', '') AS "contractGUID",
+           COALESCE(NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''), '') AS "contractInfo",
+           COALESCE(h."rowJSON"->>'purchaseOrderCurrency', '') AS "currency",
+           h."rowJSON"->>'purchaseOrderFolder' AS "folder",
+           tk."rowGUID"::text AS "taskGUID",
+           pr."rowGUID"::text AS "projectGUID", COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', '') AS "projectName",
+           (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting(pr."rowGUID", 'independentInvoiceInputAvailable')) AS "independentInputAvailable",
+           COALESCE(h."rowJSON"->>'purchaseOrderMultiProject', 'false') = 'true' AS "multiProject",
+           (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting_on(pr."rowGUID", 'multiProjectVendorInvoceNeeded')) AS "multiProjectAvailable",
+           h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
+           COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
+           h."created_at" AS "sortAt",
+           (SELECT count(*) FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
+           (SELECT COALESCE(sum(l."sumForContract"), 0) FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumBeforeVAT",
+           (SELECT COALESCE(sum(l."vatForContract"), 0) FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumVAT"
+      FROM public.purchase_order_header h
+      LEFT JOIN public."legalEntityTable" le ON le."rowGUID" = h."rowOwnerGUID"
+      LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = h."rowJSON"->>'purchaseOrderPartner'
+      LEFT JOIN public."contractTable" ck ON ck."rowGUID" = h."rowJSON"->>'purchaseOrderContract'
+      LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+      LEFT JOIN public.project_task_table tk ON tk."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderTask', ''),
+                                                  (SELECT l."rowOwnerGUID"::text FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1))
+      -- the project of the document = the header field purchaseOrderProject (a document made before it: the project of its task)
+      LEFT JOIN public.project_table pr ON pr."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderProject', ''), tk."projectGUID"::text)
+     WHERE (NOT f ? 'documentGUIDs'   OR h."rowGUID"::text IN (SELECT jsonb_array_elements_text(f->'documentGUIDs')))
+       AND (NOT f ? 'legalEntityGUID' OR h."rowOwnerGUID" = f->>'legalEntityGUID')
+       AND (NOT f ? 'partnerGUID'     OR h."rowJSON"->>'purchaseOrderPartner' = f->>'partnerGUID')
+       AND (NOT f ? 'contractGUID'    OR h."rowJSON"->>'purchaseOrderContract' = f->>'contractGUID')
+       AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'purchaseOrderCurrency', '') = f->>'currency')
+       AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'purchaseOrderNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
+       AND (NOT f ? 'fromDay'         OR ((NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date >= (f->>'fromDay')::date)
+       AND (NOT f ? 'toDay'           OR ((NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date <= (f->>'toDay')::date)
+       AND (NOT f ? 'author'          OR NULLIF(btrim(f->>'author'), '') IS NULL
+            OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
+  ), page AS (SELECT * FROM docs ORDER BY "sortAt" DESC, "documentGUID" LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0))
+  SELECT jsonb_build_object(
+           'totalCount', (SELECT count(*) FROM docs),
+           'totalsByCurrency', COALESCE((SELECT jsonb_agg(jsonb_build_object('currency', d.cur, 'count', d.n, 'sumBeforeVAT', d.s, 'sumVAT', d.v, 'sumWithVAT', d.s + d.v) ORDER BY d.cur)
+                                           FROM (SELECT "currency" AS cur, count(*) AS n, sum("sumBeforeVAT") AS s, sum("sumVAT") AS v FROM docs GROUP BY "currency") d), '[]'::jsonb),
+           'rows', COALESCE((SELECT jsonb_agg(to_jsonb(page) - 'sortAt' || jsonb_build_object('sumWithVAT', page."sumBeforeVAT" + page."sumVAT") ORDER BY page."sortAt" DESC, page."documentGUID") FROM page), '[]'::jsonb))
+    INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_list(jsonb, integer, integer) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_list(jsonb, integer, integer) TO authenticated;
+
+
+
+-- ---- purchase_order_set_line_task(line, task, task line): the task and the task line of ONE line of a DRAFT MULTI PROJECT purchase order (select / clear) -----------------------------------
+-- p_task_line given: the line becomes that task line (its task and project follow; p_task, when also given, must be its task); only p_task given: the line is of that task, without a task line
+-- (an independent line); both NULL (clear): the line goes back to the task and the project of the document, without a task line. The user must own the project of the new task.
+CREATE OR REPLACE FUNCTION public.purchase_order_set_line_task(p_line uuid, p_task uuid DEFAULT NULL, p_task_line uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l record; h record; tl record; v_task uuid := p_task; v_project uuid; v_rest numeric;
+BEGIN
+  SELECT x."rowGUID", x."rowHeaderGUID", x."qtyOrdered" INTO l FROM public.purchase_order_lines x WHERE x."rowGUID" = p_line FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'purchase order line % does not exist', p_line USING ERRCODE = '23503';
+  END IF;
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = l."rowHeaderGUID" FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'purchase order line % does not exist', p_line USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted purchase order cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF COALESCE(h."rowJSON"->>'purchaseOrderMultiProject', 'false') <> 'true' THEN
+    RAISE EXCEPTION 'the task of a line can be changed in a MULTI PROJECT purchase order only' USING ERRCODE = '23514';
+  END IF;
+  IF p_task_line IS NOT NULL THEN
+    SELECT t."rowGUID", t."rowOwnerGUID", t."rowParentGUID", t."rowJSON" INTO tl FROM public.task_line_table t
+     WHERE t."rowGUID" = p_task_line AND t."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'task line % does not exist (or is a revenue line)', p_task_line USING ERRCODE = '23503';
+    END IF;
+    IF p_task IS NOT NULL AND p_task <> tl."rowOwnerGUID" THEN
+      RAISE EXCEPTION 'the task line % is not a line of the task %', p_task_line, p_task USING ERRCODE = '22023';
+    END IF;
+    v_task := tl."rowOwnerGUID";
+  END IF;
+  IF v_task IS NULL THEN
+    v_task := NULLIF(h."rowJSON"->>'purchaseOrderTask', '')::uuid;
+    v_project := NULLIF(h."rowJSON"->>'purchaseOrderProject', '')::uuid;
+  ELSE
+    SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = v_task;
+    IF v_project IS NULL THEN
+      RAISE EXCEPTION 'task % does not exist', v_task USING ERRCODE = '23503';
+    END IF;
+  END IF;
+  IF v_task IS NULL OR v_project IS NULL THEN
+    RAISE EXCEPTION 'the task of this purchase order is not known' USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  PERFORM set_config('app.purchase_order_line_move', 'on', true);
+  IF p_task_line IS NOT NULL THEN
+    -- the quantity not on a purchase order yet (only when the line has none); the price and the VAT % of the task line
+    v_rest := (CASE WHEN jsonb_typeof(tl."rowJSON"->'qtyTaskLine') = 'number' THEN (tl."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END)
+              - COALESCE((SELECT sum(i."qtyOrdered") FROM public.purchase_order_lines i WHERE i."taskLineGUID" = p_task_line AND i."rowGUID" <> p_line), 0);
+    UPDATE public.purchase_order_lines
+       SET "rowProjectGUID" = v_project, "rowOwnerGUID" = v_task, "taskLineGUID" = p_task_line, "genusGUID" = tl."rowParentGUID",
+           "rowJSON" = public.vendor_task_line_snapshot(p_task_line),
+           "qtyOrdered" = CASE WHEN l."qtyOrdered" > 0 THEN l."qtyOrdered" ELSE greatest(v_rest, 0) END,
+           "priceOrdered" = CASE WHEN jsonb_typeof(tl."rowJSON"->'priceTaskLine') = 'number' THEN round((tl."rowJSON"->>'priceTaskLine')::numeric, 4) ELSE 0 END,
+           "vatRatioOrdered" = CASE WHEN jsonb_typeof(tl."rowJSON"->'vatRatioTaskLine') = 'number' THEN least(greatest((tl."rowJSON"->>'vatRatioTaskLine')::numeric, 0), 100) ELSE 0 END
+     WHERE "rowGUID" = p_line;
+  ELSE
+    UPDATE public.purchase_order_lines SET "rowProjectGUID" = v_project, "rowOwnerGUID" = v_task, "taskLineGUID" = NULL, "rowJSON" = '{}'::jsonb WHERE "rowGUID" = p_line;
+  END IF;
+  PERFORM set_config('app.purchase_order_line_move', 'off', true);
+  RETURN jsonb_build_object('projectGUID', v_project, 'taskGUID', v_task, 'taskLineGUID', p_task_line);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_set_line_task(uuid, uuid, uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_set_line_task(uuid, uuid, uuid) TO authenticated;
+
+
+-- ---- purchase_order_line_places(header): the project and task NAMES of every line (the lines table shows them in the Multi Project mode) ----------------------------------------------
+CREATE OR REPLACE FUNCTION public.purchase_order_line_places(p_header uuid) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(jsonb_object_agg(l."rowGUID"::text, jsonb_build_object(
+           'projectGUID', l."rowProjectGUID", 'projectName', COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', ''),
+           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'name', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
+    FROM public.purchase_order_lines l
+    LEFT JOIN public.project_table pr ON pr."rowGUID" = l."rowProjectGUID"
+    LEFT JOIN public.project_task_table tk ON tk."rowGUID" = l."rowOwnerGUID"
+   WHERE l."rowHeaderGUID" = p_header AND public.purchase_order_state(p_header) IS NOT NULL;
+$$;
+
+REVOKE ALL ON FUNCTION public.purchase_order_line_places(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.purchase_order_line_places(uuid) TO authenticated;
+
+
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- Check:
+--   SELECT public.purchase_order_candidates('<task rowGUID>');                                   -- the vendors of the task lines
+--   SELECT public.create_purchase_orders('<task rowGUID>', '[{"partnerGUID": "...", "contractGUID": "...", "lineGUIDs": ["..."]}]'::jsonb);
+--   SELECT public.post_purchase_order('<document rowGUID>');
+--   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'ordered';
+
+
+
+-- ===============================================================================================
+-- PART 29: create_subprojects.sql
+-- SUBPROJECTS (documentation/SUBPROJECTS_BRD_TRD.html). The table project_subproject_link is made by start1_sql_tables.sql.
+--   settings (project_table.rowJSON):  subprojectsFunctionalityEnabled (false)  >  autoChangeOriginTaskBasedOnSubprojects (true)  >
+--       autoChangeStartAndFinishDatesForOriginTask (true), aggregateTimeFromSubprojectToTheOriginTask (false), aggregateMaterialFromSubprojectToTheOriginTask (false), aggregateExpenceFromSubprojectToTheOriginTask (false)
+--   task (project_task_table.rowJSON):  taskIsSubproject, taskSubprojectGUID
+--   error messages start with SUBPROJECT_CYCLE: | SUBPROJECT_DISABLED: | SUBPROJECT_NOT_FOUND: | SUBPROJECT_IN_USE: | SUBPROJECT_BAD_TASK:   (the app maps them to a readable text)
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_subproject_link') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 29 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+-- ---- the settings of a project ----------------------------------------------------------------------------------------------------------------------------------------------
+-- the functionality is on only when it is stored TRUE (a project made before it works as always)
+CREATE OR REPLACE FUNCTION public.subproject_enabled(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT p."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb FROM public.project_table p WHERE p."rowGUID" = p_project), false)
+$$;
+
+-- one switch under autoChangeOriginTaskBasedOnSubprojects: false unless the functionality AND autoChange... are on; a missing key = p_default
+CREATE OR REPLACE FUNCTION public.subproject_setting(p_project uuid, p_key text, p_default boolean) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT p."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb
+                          AND NOT (p."rowJSON" @> '{"autoChangeOriginTaskBasedOnSubprojects": false}'::jsonb)
+                          AND CASE WHEN jsonb_typeof(p."rowJSON"->p_key) = 'boolean' THEN (p."rowJSON"->>p_key)::boolean ELSE p_default END
+                     FROM public.project_table p WHERE p."rowGUID" = p_project), false)
+$$;
+
+-- autoChangeOriginTaskBasedOnSubprojects (true when not stored) - only while the functionality is on
+CREATE OR REPLACE FUNCTION public.subproject_auto_change(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.subproject_setting(p_project, 'autoChangeOriginTaskBasedOnSubprojects', true)
+$$;
+
+-- autoChangeStartAndFinishDatesForOriginTask (true when not stored)
+CREATE OR REPLACE FUNCTION public.subproject_dates_on(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.subproject_setting(p_project, 'autoChangeStartAndFinishDatesForOriginTask', true)
+$$;
+
+-- aggregateTimeFrom... / aggregateMaterialFrom... / aggregateExpenceFromSubprojectToTheOriginTask (false when not stored); p_genus = timeGenus | materialGenus | expenseGenus
+CREATE OR REPLACE FUNCTION public.subproject_aggregate_on(p_project uuid, p_genus text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE p_genus
+    WHEN 'timeGenus'     THEN public.subproject_setting(p_project, 'aggregateTimeFromSubprojectToTheOriginTask', false)
+    WHEN 'materialGenus' THEN public.subproject_setting(p_project, 'aggregateMaterialFromSubprojectToTheOriginTask', false)
+    WHEN 'expenseGenus'  THEN public.subproject_setting(p_project, 'aggregateExpenceFromSubprojectToTheOriginTask', false)
+    ELSE false END
+$$;
+
+
+-- ---- no recursion -----------------------------------------------------------------------------------------------------------------------------------------------------------
+-- would a link "a task of p_origin_project stands for p_sub_project" close a cycle? (the walk goes over the links; UNION, so an already damaged graph also stops)
+CREATE OR REPLACE FUNCTION public.subproject_creates_cycle(p_origin_project uuid, p_sub_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH RECURSIVE reach(project) AS (
+    SELECT p_sub_project
+    UNION
+    SELECT l."rowSubprojectGUID" FROM reach r JOIN public.project_subproject_link l ON l."rowProjectGUID" = r.project
+  )
+  SELECT p_origin_project = p_sub_project OR EXISTS (SELECT 1 FROM reach WHERE project = p_origin_project)
+$$;
+
+-- is the project part of a cycle of subprojects (a damaged definition: an import, a restore)?
+CREATE OR REPLACE FUNCTION public.subproject_in_cycle(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH RECURSIVE reach(project) AS (
+    SELECT l."rowSubprojectGUID" FROM public.project_subproject_link l WHERE l."rowProjectGUID" = p_project
+    UNION
+    SELECT l."rowSubprojectGUID" FROM reach r JOIN public.project_subproject_link l ON l."rowProjectGUID" = r.project
+  )
+  SELECT EXISTS (SELECT 1 FROM reach WHERE project = p_project)
+$$;
+
+-- the chain for the message:  "A -> B -> A"  (names); NULL when there is no cycle
+CREATE OR REPLACE FUNCTION public.subproject_cycle_path(p_origin_project uuid, p_sub_project uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH RECURSIVE w(project, path) AS (
+    SELECT p_sub_project, ARRAY[p_origin_project, p_sub_project]
+    UNION ALL
+    SELECT l."rowSubprojectGUID", w.path || l."rowSubprojectGUID"
+      FROM w JOIN public.project_subproject_link l ON l."rowProjectGUID" = w.project
+     WHERE w.project <> p_origin_project AND array_length(w.path, 1) < 30
+  )
+  SELECT string_agg(COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', x.g::text), ' -> ' ORDER BY x.n)
+    FROM (SELECT path FROM w WHERE project = p_origin_project ORDER BY array_length(path, 1) LIMIT 1) c,
+         LATERAL unnest(c.path) WITH ORDINALITY AS x(g, n)
+    LEFT JOIN public.project_table p ON p."rowGUID" = x.g
+$$;
+
+-- Post is refused when the project is part of a cycle
+CREATE OR REPLACE FUNCTION public.subproject_assert_no_cycle(p_project uuid) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF public.subproject_in_cycle(p_project) THEN
+    RAISE EXCEPTION 'SUBPROJECT_CYCLE: the project is part of a cycle of subprojects - nothing can be posted until the cycle is removed';
+  END IF;
+END;
+$$;
+
+
+-- ---- the dates of a project and the working days ----------------------------------------------------------------------------------------------------------------------------
+-- start = the earliest start and finish = the latest finish of the tasks and milestones (stages are only summaries); NULL until the project has been scheduled
+CREATE OR REPLACE FUNCTION public.subproject_dates_of(p_project uuid, OUT start_at timestamptz, OUT finish_at timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT min(NULLIF(t."rowJSON"->>'startAt', '')::timestamptz), max(t."rowDuration")
+    FROM public.project_task_table t
+   WHERE t."projectGUID" = p_project AND t."rowJSON"->>'rowKind' IN ('task', 'milestone')
+$$;
+
+-- the SQL twin of workDaysBetween (kit8/pm/view/project/scheduling.ts): the days of [start, finish); with skipWeekends the Saturdays and Sundays (UTC) are not counted
+CREATE OR REPLACE FUNCTION public.subproject_work_days(p_start timestamptz, p_finish timestamptz, p_skip_weekends boolean) RETURNS integer
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN p_start IS NULL OR p_finish IS NULL OR p_finish <= p_start THEN 0
+    WHEN NOT COALESCE(p_skip_weekends, false) THEN round(extract(epoch FROM (p_finish - p_start)) / 86400)::integer
+    ELSE (SELECT count(*)::integer
+            FROM generate_series(0, ceil(extract(epoch FROM (p_finish - p_start)) / 86400)::integer - 1) AS k
+           WHERE extract(dow FROM ((p_start + (k * 86400) * INTERVAL '1 second') AT TIME ZONE 'UTC')) NOT IN (0, 6))
+  END
+$$;
+
+
+-- ---- the link table is kept by the task (BEFORE: the checks; AFTER: the link row + the first copy of the dates) ----------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.subproject_link_validate() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_flag boolean := COALESCE(NEW."rowJSON"->'taskIsSubproject' = 'true'::jsonb, false);
+  v_sub  text    := NULLIF(NEW."rowJSON"->>'taskSubprojectGUID', '');
+  v_subg uuid;
+  v_path text;
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND COALESCE(OLD."rowJSON"->'taskIsSubproject' = 'true'::jsonb, false) = v_flag
+     AND NULLIF(OLD."rowJSON"->>'taskSubprojectGUID', '') IS NOT DISTINCT FROM v_sub THEN
+    RETURN NEW;                                   -- the flag and the subproject are not touched (the scheduler writes dates of the same row all the time)
+  END IF;
+  IF NOT v_flag THEN
+    IF v_sub IS NOT NULL THEN
+      NEW."rowJSON" := NEW."rowJSON" || '{"taskSubprojectGUID": null}'::jsonb;     -- no flag = no subproject
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NOT public.subproject_enabled(NEW."projectGUID") THEN
+    RAISE EXCEPTION 'SUBPROJECT_DISABLED: switch on "Subprojects" in the settings of the project first';
+  END IF;
+  IF COALESCE(NEW."rowJSON"->>'rowKind', 'task') <> 'task' THEN
+    RAISE EXCEPTION 'SUBPROJECT_BAD_TASK: only a task (not a stage or a milestone) can stand for a subproject';
+  END IF;
+  IF v_sub IS NOT NULL THEN
+    BEGIN
+      v_subg := v_sub::uuid;
+    EXCEPTION WHEN invalid_text_representation THEN
+      RAISE EXCEPTION 'SUBPROJECT_NOT_FOUND: %', v_sub;
+    END;
+    IF NOT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = v_subg) THEN           -- RLS: only a project the user can see
+      RAISE EXCEPTION 'SUBPROJECT_NOT_FOUND: the project does not exist or you cannot see it';
+    END IF;
+    IF public.subproject_creates_cycle(NEW."projectGUID", v_subg) THEN
+      v_path := COALESCE(public.subproject_cycle_path(NEW."projectGUID", v_subg), 'a project cannot be its own subproject');
+      RAISE EXCEPTION 'SUBPROJECT_CYCLE: %', v_path;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.subproject_link_maintain() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_flag boolean := COALESCE(NEW."rowJSON"->'taskIsSubproject' = 'true'::jsonb, false);
+  v_sub  text    := NULLIF(NEW."rowJSON"->>'taskSubprojectGUID', '');
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND COALESCE(OLD."rowJSON"->'taskIsSubproject' = 'true'::jsonb, false) = v_flag
+     AND NULLIF(OLD."rowJSON"->>'taskSubprojectGUID', '') IS NOT DISTINCT FROM v_sub THEN
+    RETURN NULL;
+  END IF;
+  IF v_flag AND v_sub IS NOT NULL THEN
+    INSERT INTO public.project_subproject_link AS l ("rowOwnerGUID", "rowProjectGUID", "rowSubprojectGUID")
+    VALUES (NEW."rowGUID", NEW."projectGUID", v_sub::uuid)
+    ON CONFLICT ("rowOwnerGUID") DO UPDATE SET "rowSubprojectGUID" = EXCLUDED."rowSubprojectGUID", "linkStartAt" = NULL, "linkFinishAt" = NULL, "linkSyncedAt" = NULL, "updated_at" = NOW();
+    PERFORM public.subproject_sync_origin_task(NEW."rowGUID");
+    PERFORM public.subproject_propagate_dates(NEW."projectGUID", 0);
+  ELSE
+    DELETE FROM public.project_subproject_link WHERE "rowOwnerGUID" = NEW."rowGUID";
+  END IF;
+  PERFORM public.monitor01_queue_tasks(ARRAY[NEW."rowGUID"], 'subproject');        -- the aggregated rows of the origin task appear / disappear
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_subproject_link_validate_ins ON public.project_task_table;
+
+CREATE TRIGGER trg_subproject_link_validate_ins BEFORE INSERT ON public.project_task_table
+  FOR EACH ROW WHEN (NEW."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID']) EXECUTE FUNCTION public.subproject_link_validate();
+
+DROP TRIGGER IF EXISTS trg_subproject_link_validate_upd ON public.project_task_table;
+
+CREATE TRIGGER trg_subproject_link_validate_upd BEFORE UPDATE OF "rowJSON" ON public.project_task_table
+  FOR EACH ROW WHEN (OLD."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID'] OR NEW."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID']) EXECUTE FUNCTION public.subproject_link_validate();
+
+DROP TRIGGER IF EXISTS trg_subproject_link_maintain_ins ON public.project_task_table;
+
+CREATE TRIGGER trg_subproject_link_maintain_ins AFTER INSERT ON public.project_task_table
+  FOR EACH ROW WHEN (NEW."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID']) EXECUTE FUNCTION public.subproject_link_maintain();
+
+DROP TRIGGER IF EXISTS trg_subproject_link_maintain_upd ON public.project_task_table;
+
+CREATE TRIGGER trg_subproject_link_maintain_upd AFTER UPDATE OF "rowJSON" ON public.project_task_table
+  FOR EACH ROW WHEN (OLD."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID'] OR NEW."rowJSON" ?| ARRAY['taskIsSubproject', 'taskSubprojectGUID']) EXECUTE FUNCTION public.subproject_link_maintain();
+
+
+-- ---- the dates: the origin task follows its subproject ---------------------------------------------------------------------------------------------------------------------
+-- Returns true when the task was written. Writes ONLY when a value differs (no loop, no needless unpost of the posted lines).
+-- The task gets manualStartAt + durationDays (what the client CPM reads) AND startAt + rowDuration (so SQL has the dates at once); the client schedule then gives the same dates.
+CREATE OR REPLACE FUNCTION public.subproject_sync_origin_task(p_task uuid) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l record; v_start timestamptz; v_finish timestamptz; v_skip boolean; v_days integer; v_start_txt text;
+BEGIN
+  SELECT * INTO l FROM public.project_subproject_link k WHERE k."rowOwnerGUID" = p_task;
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  SELECT d.start_at, d.finish_at INTO v_start, v_finish FROM public.subproject_dates_of(l."rowSubprojectGUID") d;
+  IF v_start IS NULL OR v_finish IS NULL THEN
+    RETURN false;                                    -- the subproject has no schedule yet
+  END IF;
+  UPDATE public.project_subproject_link k SET "linkStartAt" = v_start, "linkFinishAt" = v_finish, "linkSyncedAt" = NOW(), "updated_at" = NOW()
+   WHERE k."rowOwnerGUID" = p_task AND (k."linkStartAt", k."linkFinishAt") IS DISTINCT FROM (v_start, v_finish);
+  IF NOT public.subproject_dates_on(l."rowProjectGUID") THEN
+    RETURN false;
+  END IF;
+  SELECT COALESCE((p."rowJSON"->>'skipWeekends')::boolean, false) INTO v_skip FROM public.project_table p WHERE p."rowGUID" = l."rowProjectGUID";
+  v_days      := GREATEST(1, public.subproject_work_days(v_start, v_finish, v_skip));      -- in the calendar of the ORIGIN project: its CPM turns the days into a finish
+  v_start_txt := to_char(v_start AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+  UPDATE public.project_task_table t
+     SET "rowJSON" = t."rowJSON" || jsonb_build_object('manualStartAt', v_start_txt, 'startAt', v_start_txt, 'durationDays', v_days),
+         "rowDuration" = v_finish
+   WHERE t."rowGUID" = p_task
+     AND (t."rowDuration" IS DISTINCT FROM v_finish
+          OR NULLIF(t."rowJSON"->>'startAt', '')::timestamptz IS DISTINCT FROM v_start
+          OR NULLIF(t."rowJSON"->>'manualStartAt', '')::timestamptz IS DISTINCT FROM v_start
+          OR NULLIF(t."rowJSON"->>'durationDays', '')::numeric IS DISTINCT FROM v_days);
+  RETURN FOUND;
+END;
+$$;
+
+-- the origin tasks of the links that point at p_project follow it; when one changed, the project of that task changed too: the same for the next level (depth limit 25)
+CREATE OR REPLACE FUNCTION public.subproject_propagate_dates(p_project uuid, p_depth integer DEFAULT 0) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  IF p_depth > 25 THEN
+    RETURN;
+  END IF;
+  FOR r IN SELECT l."rowOwnerGUID" AS task, l."rowProjectGUID" AS project FROM public.project_subproject_link l WHERE l."rowSubprojectGUID" = p_project LOOP
+    IF public.subproject_sync_origin_task(r.task) THEN
+      PERFORM public.subproject_propagate_dates(r.project, p_depth + 1);
+    END IF;
+  END LOOP;
+END;
+$$;
+
+-- the end of the schedule write-back of a project: its origin tasks follow (one line added to pm_apply_schedule above)
+GRANT EXECUTE ON FUNCTION public.subproject_propagate_dates(uuid, integer) TO authenticated;
+
+
+-- ---- project_table: the switches ---------------------------------------------------------------------------------------------------------------------------------------------
+-- BEFORE: the functionality cannot be switched off while a task of the project uses a subproject
+CREATE OR REPLACE FUNCTION public.subproject_switch_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  IF (OLD."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb) AND NOT (NEW."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb) THEN
+    SELECT count(*)::integer INTO v_n FROM public.project_subproject_link l WHERE l."rowProjectGUID" = NEW."rowGUID";
+    IF v_n > 0 THEN
+      RAISE EXCEPTION 'SUBPROJECT_IN_USE: % task(s) of this project stand for a subproject - clear them first', v_n;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- AFTER: a switch under the functionality changed - the dates are copied again and the aggregated rows of Monitor01 are made again
+CREATE OR REPLACE FUNCTION public.subproject_resync_on_switch() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record; v_tasks uuid[] := ARRAY[]::uuid[];
+BEGIN
+  FOR r IN SELECT l."rowOwnerGUID" AS task FROM public.project_subproject_link l WHERE l."rowProjectGUID" = NEW."rowGUID" LOOP
+    PERFORM public.subproject_sync_origin_task(r.task);
+    v_tasks := v_tasks || r.task;
+  END LOOP;
+  IF cardinality(v_tasks) > 0 THEN
+    PERFORM public.monitor01_queue_tasks(v_tasks, 'subproject');
+    PERFORM public.subproject_propagate_dates(NEW."rowGUID", 0);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+-- BEFORE DELETE: a project that is a subproject of a task cannot be deleted (the message names the tasks)
+CREATE OR REPLACE FUNCTION public.subproject_delete_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer; v_names text;
+BEGIN
+  SELECT count(*)::integer, string_agg(COALESCE(p."rowJSON"->>'name', '?') || ' / ' || COALESCE(t."rowJSON"->>'name', '?'), ', ')
+    INTO v_n, v_names
+    FROM public.project_subproject_link l
+    JOIN public.project_task_table t ON t."rowGUID" = l."rowOwnerGUID"
+    JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+   WHERE l."rowSubprojectGUID" = OLD."rowGUID" AND l."rowProjectGUID" <> OLD."rowGUID";
+  IF v_n > 0 THEN
+    v_names := left(v_names, 300);
+    RAISE EXCEPTION 'SUBPROJECT_IN_USE: the project is a subproject of % task(s): %', v_n, v_names;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_subproject_switch_guard ON public.project_table;
+
+CREATE TRIGGER trg_subproject_switch_guard BEFORE UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN (OLD."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb) EXECUTE FUNCTION public.subproject_switch_guard();
+
+DROP TRIGGER IF EXISTS trg_subproject_resync_on_switch ON public.project_table;
+
+CREATE TRIGGER trg_subproject_resync_on_switch AFTER UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN ((OLD."rowJSON" ->> 'autoChangeOriginTaskBasedOnSubprojects', OLD."rowJSON" ->> 'autoChangeStartAndFinishDatesForOriginTask', OLD."rowJSON" ->> 'aggregateTimeFromSubprojectToTheOriginTask',
+                      OLD."rowJSON" ->> 'aggregateMaterialFromSubprojectToTheOriginTask', OLD."rowJSON" ->> 'aggregateExpenceFromSubprojectToTheOriginTask', OLD."rowJSON" ->> 'subprojectsFunctionalityEnabled')
+                     IS DISTINCT FROM
+                     (NEW."rowJSON" ->> 'autoChangeOriginTaskBasedOnSubprojects', NEW."rowJSON" ->> 'autoChangeStartAndFinishDatesForOriginTask', NEW."rowJSON" ->> 'aggregateTimeFromSubprojectToTheOriginTask',
+                      NEW."rowJSON" ->> 'aggregateMaterialFromSubprojectToTheOriginTask', NEW."rowJSON" ->> 'aggregateExpenceFromSubprojectToTheOriginTask', NEW."rowJSON" ->> 'subprojectsFunctionalityEnabled'))
+  EXECUTE FUNCTION public.subproject_resync_on_switch();
+
+DROP TRIGGER IF EXISTS trg_subproject_delete_guard ON public.project_table;
+
+CREATE TRIGGER trg_subproject_delete_guard BEFORE DELETE ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.subproject_delete_guard();
+
+DROP TRIGGER IF EXISTS trg_project_subproject_link_touch ON public.project_subproject_link;
+
+CREATE TRIGGER trg_project_subproject_link_touch BEFORE UPDATE ON public.project_subproject_link
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- ---- what the screens read ---------------------------------------------------------------------------------------------------------------------------------------------------
+-- the picker of the task: projects of the same organization (as far as the user can see them) that are not the project itself and would not close a cycle
+CREATE OR REPLACE FUNCTION public.subproject_candidates(p_origin_project uuid)
+RETURNS TABLE ("projectGUID" uuid, "projectName" text, "startAt" timestamptz, "finishAt" timestamptz, "usedByCount" integer)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT p."rowGUID", COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), d.start_at, d.finish_at,
+         (SELECT count(*)::integer FROM public.project_subproject_link x WHERE x."rowSubprojectGUID" = p."rowGUID")
+    FROM public.project_table p
+    CROSS JOIN LATERAL public.subproject_dates_of(p."rowGUID") d
+   WHERE p."rowGUID" <> p_origin_project
+     AND p."rowParentGUID" IS NOT DISTINCT FROM (SELECT o."rowParentGUID" FROM public.project_table o WHERE o."rowGUID" = p_origin_project)
+     AND NOT public.subproject_creates_cycle(p_origin_project, p."rowGUID")
+   ORDER BY 2, 1
+$$;
+
+-- Monitor01 shows its radio Projects | Subprojects | All only when a project of the organization uses the functionality
+CREATE OR REPLACE FUNCTION public.organization_has_subprojects_enabled() RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowJSON" @> '{"subprojectsFunctionalityEnabled": true}'::jsonb)
+$$;
+
+-- the links again from the tasks (a repair; the install of an existing database)
+CREATE OR REPLACE FUNCTION public.subproject_link_rebuild() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  DELETE FROM public.project_subproject_link l
+   WHERE NOT EXISTS (SELECT 1 FROM public.project_task_table t
+                      WHERE t."rowGUID" = l."rowOwnerGUID" AND t."rowJSON"->'taskIsSubproject' = 'true'::jsonb AND NULLIF(t."rowJSON"->>'taskSubprojectGUID', '') = l."rowSubprojectGUID"::text);
+  INSERT INTO public.project_subproject_link ("rowOwnerGUID", "rowProjectGUID", "rowSubprojectGUID")
+  SELECT t."rowGUID", t."projectGUID", (t."rowJSON"->>'taskSubprojectGUID')::uuid
+    FROM public.project_task_table t
+   WHERE t."rowJSON"->'taskIsSubproject' = 'true'::jsonb AND NULLIF(t."rowJSON"->>'taskSubprojectGUID', '') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = (t."rowJSON"->>'taskSubprojectGUID')::uuid)
+     AND (t."rowJSON"->>'taskSubprojectGUID')::uuid <> t."projectGUID"
+  ON CONFLICT ("rowOwnerGUID") DO UPDATE SET "rowSubprojectGUID" = EXCLUDED."rowSubprojectGUID";
+  SELECT count(*)::integer INTO v_n FROM public.project_subproject_link;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.subproject_link_rebuild() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public.project_subproject_link REPLICA IDENTITY FULL;
+
+ALTER TABLE public.project_subproject_link ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_subproject_link FROM anon, authenticated;
+
+GRANT SELECT ON public.project_subproject_link TO authenticated;
+
+DROP POLICY IF EXISTS project_subproject_link_select ON public.project_subproject_link;
+
+CREATE POLICY project_subproject_link_select ON public.project_subproject_link FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = "rowProjectGUID"));
+
+REVOKE ALL ON FUNCTION public.subproject_candidates(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.subproject_candidates(uuid) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.organization_has_subprojects_enabled() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_has_subprojects_enabled() TO authenticated;
+
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'project_subproject_link') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.project_subproject_link;
+    END IF;
+  END IF;
+END $$;
+
+
+-- ---- Monitor01: the origin task also shows the plan / fact of its subproject (aggregateTime / Material / Expence...) ------------------------------------------------------
+-- (task, genus) pairs whose numbers belong to the origin task: the tasks of its subproject for every genus the origin project aggregates, and - through the subproject's own origin tasks - theirs.
+-- UNION: a damaged graph stops. The numbers are read from the REGISTER (not from monitor01_view), so nothing is counted twice.
+CREATE OR REPLACE FUNCTION public.subproject_agg_sources(p_origins uuid[]) RETURNS TABLE ("originGUID" uuid, "taskGUID" uuid, "genusGUID" text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH RECURSIVE g(genus) AS (VALUES ('timeGenus'), ('materialGenus'), ('expenseGenus')),
+  src(origin, task, genus) AS (
+    SELECT l."rowOwnerGUID", t."rowGUID", g.genus
+      FROM public.project_subproject_link l
+      JOIN public.project_task_table t ON t."projectGUID" = l."rowSubprojectGUID"
+      CROSS JOIN g
+     WHERE l."rowOwnerGUID" = ANY (p_origins) AND public.subproject_aggregate_on(l."rowProjectGUID", g.genus)
+    UNION
+    SELECT s.origin, t2."rowGUID", s.genus
+      FROM src s
+      JOIN public.project_subproject_link l2 ON l2."rowOwnerGUID" = s.task
+      JOIN public.project_task_table t2 ON t2."projectGUID" = l2."rowSubprojectGUID"
+     WHERE public.subproject_aggregate_on(l2."rowProjectGUID", s.genus)
+  )
+  SELECT origin, task, genus FROM src
+$$;
+
+-- the drill-down of an aggregated row: does the movement (task, genus) belong to the row of the origin task p_row_task?
+CREATE OR REPLACE FUNCTION public.subproject_drill_match(p_row_task text, p_task uuid, p_genus text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.project_subproject_link WHERE "rowOwnerGUID" = p_row_task::uuid)
+     AND EXISTS (SELECT 1 FROM public.subproject_agg_sources(ARRAY[p_row_task::uuid]) a WHERE a."taskGUID" = p_task AND a."genusGUID" = p_genus)
+$$;
+
+-- after the numbers of some tasks changed, the origin tasks that aggregate them are queued (the worker does the rest; one level per run)
+CREATE OR REPLACE FUNCTION public.subproject_queue_origins(p_tasks uuid[]) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH q AS (
+    INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+    SELECT DISTINCT l."rowOwnerGUID", 'subproject'
+      FROM public.project_task_table t
+      JOIN public.project_subproject_link l ON l."rowSubprojectGUID" = t."projectGUID"
+     WHERE t."rowGUID" = ANY (p_tasks)
+       AND (public.subproject_aggregate_on(l."rowProjectGUID", 'timeGenus') OR public.subproject_aggregate_on(l."rowProjectGUID", 'materialGenus') OR public.subproject_aggregate_on(l."rowProjectGUID", 'expenseGenus'))
+    ON CONFLICT ("rowOwnerGUID") DO NOTHING RETURNING 1)
+  SELECT count(*)::integer FROM q
+$$;
+
+-- the report row of a task = its own numbers + the numbers of the subproject for the aggregated genera (replaces the version of PART 25: a SQL function cannot call a function that does not exist yet)
+CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
+               "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "lineCount" integer, "hasStalePlan" boolean)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  WITH ids AS (        -- origin task, the task whose movements count for it (itself: every genus; a subproject task: the aggregated genera)
+    SELECT x AS origin, x AS src, NULL::text AS genus FROM unnest(p_tasks) AS x
+    UNION ALL
+    SELECT a."originGUID", a."taskGUID", a."genusGUID" FROM public.subproject_agg_sources(p_tasks) a
+  ),
+  ft AS MATERIALIZED (SELECT * FROM public.project_status_fresh_turnover((SELECT array_agg(DISTINCT i.src) FROM ids i))),
+  t AS (
+    SELECT i.origin AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."rowTurnoverMonth" AS month,
+           sum(f."qtyPlan") AS "qtyPlan", sum(f."qtyPlanContracted") AS "qtyPlanContracted", sum(f."sumForBudgetPlan") AS "sumForBudgetPlan",
+           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."lineCount")::integer AS "lineCount"
+      FROM ids i JOIN ft f ON f."rowOwnerGUID" = i.src AND (i.genus IS NULL OR f."genusGUID" = i.genus)
+     GROUP BY 1, 2, 3, 4, 5
+  ),
+  st AS (
+    SELECT i.origin AS task, s."genusGUID" AS genus, s."resourceRoleGUID" AS role, s."measureUnit" AS unit, s."rowTurnoverMonth" AS month,
+           bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
+      FROM ids i
+      JOIN public.project_status_movements s ON s."rowOwnerGUID" = i.src AND (i.genus IS NULL OR s."genusGUID" = i.genus)
+      JOIN public.task_line_table l ON l."rowGUID" = s."rowProjectTaskLineGUID"
+     WHERE s."rowMovementKind" = 'plan'
+     GROUP BY 1, 2, 3, 4, 5
+  )
+  SELECT t.task, t.genus, t.role, t.unit, t.month,
+         p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."lineCount", COALESCE(st.stale, false)
+    FROM t
+    JOIN public.project_task_table tk ON tk."rowGUID" = t.task
+    JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
+    LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t.role, '')
+    LEFT JOIN st ON st.task = t.task AND st.genus = t.genus AND st.role = t.role AND st.unit = t.unit AND st.month = t.month
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+$$;
+
+NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

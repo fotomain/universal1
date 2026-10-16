@@ -1,5 +1,5 @@
 // Monitor01Table - the table of the sheet "W1 1-MONITOR01":
-//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Delivered, Invoiced, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
+//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Ordered, Delivered, Invoiced, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
 //   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
@@ -37,28 +37,30 @@ export interface Monitor01TableProps {
 export const MONITOR01_DOUBLE_PRESS_MS = 400;
 const W = { project: 150, role: 190, month: 104, task: 160, unit: 72, num: 94, budget: 112 };
 const ROW_H = 34;
-/** the vertical line between the Plan and Fact groups (thicker than the hairline between the other columns), left edge of the first Fact column (delivered) */
+/** the vertical line between the Plan and Fact groups (thicker than the hairline between the other columns), left edge of the first Fact column (ordered) */
 const GROUP_BORDER_W = 2;
 /** the column of the label of a node, by its level; the Task name column holds the rows */
 const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { project: 'project', role: 'role', month: 'month' };
 
 /** the numbers of a row/subtotal in the shape cellTone reads */
 const asTone = (s: Monitor01Sums, stale = false) => ({
-  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyDelivered: s.delivered, qtyInvoiced: s.invoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
+  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyOrdered: s.ordered, qtyDelivered: s.delivered, qtyInvoiced: s.invoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
 });
 /** the columns after the dimensions, in the order of the sheet: the Plan group has the money after its quantities */
 type Col = { id: Monitor01Measure | 'sumForBudget'; group: 'Plan' | 'Fact' };
 const COLS: Col[] = [
   { id: 'planned', group: 'Plan' }, { id: 'contracted', group: 'Plan' }, { id: 'restToContract', group: 'Plan' }, { id: 'sumForBudget', group: 'Plan' },
-  { id: 'delivered', group: 'Fact' }, { id: 'invoiced', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
+  { id: 'ordered', group: 'Fact' }, { id: 'delivered', group: 'Fact' }, { id: 'invoiced', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
 ];
+/** the first column of the Fact group: its left edge is the Plan | Fact divider */
+const FIRST_FACT_COLUMN = (COLS.find((c) => c.group === 'Fact') as Col).id;
 const colWidth = (c: Col) => (c.id === 'sumForBudget' ? W.budget : W.num);
 const colTitle = (c: Col) => (c.id === 'sumForBudget' ? MONITOR01_HEAD.sumForBudget : MONITOR01_MEASURE_TITLE[c.id]);
 const NUMS_WIDTH = COLS.reduce((a, c) => a + colWidth(c), 0);
 /** money with 2 decimals; 0 shows nothing */
 const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 
-const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, delivered: r.qtyDelivered, invoiced: r.qtyInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
+const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, ordered: r.qtyOrdered, delivered: r.qtyDelivered, invoiced: r.qtyInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
 
 const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell, groupBorder }: {
   measure: Monitor01Measure; sums: Monitor01Sums; stale: boolean; bold: boolean; item: Monitor01Item; colors: Monitor01TableColors; testID: string; onCell: (c: Monitor01CellPress) => void;
@@ -178,7 +180,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           {head(W.month, MONITOR01_HEAD.month, `${testID}-head-month`)}
           {head(W.task, MONITOR01_HEAD.task, `${testID}-head-task`)}
           {head(W.unit, MONITOR01_HEAD.unit, `${testID}-head-unit`)}
-          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, c.id === 'delivered'))}
+          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, c.id === FIRST_FACT_COLUMN))}
         </View>
         <FlatList
           data={items}
@@ -199,7 +201,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <Text numberOfLines={1} style={[text({ opacity: 0.8, fontWeight: '700' }), { width: W.unit, paddingHorizontal: 8 }]}>{t.unit ? unitTitle(t.unit) : ''}</Text>
               {COLS.map((c) => c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(t.sumForBudget)}</Text>
-                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}>{formatMonitor01Number(t.sums[c.id], true)}</Text>)}
+                : <Text key={c.id} testID={`${testID}-totals-${t.unit || 'none'}-${c.id}`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.num, borderLeftColor: colors.border }, c.id === FIRST_FACT_COLUMN ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]}>{formatMonitor01Number(t.sums[c.id], true)}</Text>)}
             </View>
           ))}
           {several && (
@@ -207,7 +209,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <View style={{ width: dimsWidth, justifyContent: 'center', paddingHorizontal: 8 }}><Text style={text({ fontWeight: '800' })}>{pmT('Totals of all units')}</Text></View>
               {COLS.map((c) => c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-all-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(totals.sumForBudget)}</Text>
-                : <View key={c.id} style={[{ width: W.num }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />)}
+                : <View key={c.id} style={[{ width: W.num }, c.id === FIRST_FACT_COLUMN ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />)}
             </View>
           )}
           {totals.qty.length === 0 && (
@@ -215,7 +217,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
               <View style={{ width: dimsWidth, justifyContent: 'center', paddingHorizontal: 8 }}><Text style={text({ fontWeight: '800' })}>{pmT('Totals')}</Text></View>
               {COLS.map((c) => (c.id === 'sumForBudget'
                 ? <Text key={c.id} testID={`${testID}-totals-none-budget`} style={[text({ fontWeight: '800' }), styles.moneyCell, { width: W.budget, borderLeftColor: colors.border }]}>{money(0)}</Text>
-                : <View key={c.id} style={[{ width: W.num }, c.id === 'delivered' ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />))}
+                : <View key={c.id} style={[{ width: W.num }, c.id === FIRST_FACT_COLUMN ? { borderLeftWidth: GROUP_BORDER_W, borderLeftColor: colors.text } : null]} />))}
             </View>
           )}
         </View>

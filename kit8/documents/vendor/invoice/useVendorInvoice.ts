@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../../providers/WithSupabase';
 import {
-  addVendorInvoiceLine, createVendorInvoices, deleteVendorInvoice, fetchVendorCandidates, fetchVendorInvoiceList, postVendorInvoice, setVendorInvoiceHeader, unpostVendorInvoice,
+  addVendorInvoiceLine, createVendorInvoices, deleteVendorInvoice, fetchVendorCandidates, fetchVendorInvoiceLinePlaces, fetchVendorInvoiceList, postVendorInvoice, setVendorInvoiceHeader, setVendorInvoiceLineTask, unpostVendorInvoice,
 } from './vendorInvoiceApi';
 import {
   CreateAnswer, OpenVendorInvoiceParams, VENDOR_INVOICE_NEW_ROUTE, VENDOR_INVOICE_ROUTE, VendorInvoiceHeaderView, VendorInvoiceListAnswer, VendorInvoiceListFilter, VendorInvoicePostAnswer, VendorSelection,
@@ -16,6 +16,7 @@ import { openBlankWindow, sendWindowTo, showCreatedVendorInvoices, vendorInvoice
 const EMPTY_LIST: VendorInvoiceListAnswer = { totalCount: 0, totalsByCurrency: [], rows: [] };
 export const vendorCandidatesKey = (taskGUID: string, lines: string[] | null | undefined) => ['pm', 'vendorCandidates', taskGUID, (lines || []).join(',')] as const;
 export const vendorListKey = (filter: VendorInvoiceListFilter | null, extra: Record<string, any>, limit: number) => ['pm', 'vendorInvoiceList', filter ? vendorInvoiceFilterToRpc(filter, extra) : extra, limit] as const;
+export const vendorLinePlacesKey = (header: string, signature: string) => ['pm', 'vendorInvoiceLinePlaces', header, signature] as const;
 export const vendorDocumentsKey = (guids: string[]) => ['pm', 'vendorInvoiceDocuments', guids.join(',')] as const;
 
 /** the vendors (and contracts) of the lines of a task */
@@ -44,12 +45,14 @@ export interface UseVendorInvoiceDocuments {
   isLoading: boolean;
   error: string | null;
   busy: boolean;
-  setHeader: (guid: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string; vendorInvoicePartner?: string; vendorInvoiceContract?: string | null }) => Promise<boolean>;
+  setHeader: (guid: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string; vendorInvoicePartner?: string; vendorInvoiceContract?: string | null; vendorInvoiceMultiProject?: boolean }) => Promise<boolean>;
   post: (guid: string) => Promise<VendorInvoicePostAnswer | null>;
   unpost: (guid: string) => Promise<VendorInvoicePostAnswer | null>;
   remove: (guid: string) => Promise<boolean>;
   /** an independent line of a draft (the kind = a genus); the table shows it by realtime */
   addLine: (guid: string, genus: string) => Promise<boolean>;
+  /** Multi Project: the task / task line of a line (both null = clear); the table shows it by realtime */
+  setLineTask: (lineGUID: string, taskGUID: string | null, taskLineGUID: string | null) => Promise<boolean>;
   refetch: () => void;
 }
 
@@ -89,6 +92,7 @@ export function useVendorInvoiceDocuments(documentGUIDs: string[]): UseVendorInv
     unpost: (guid) => run(async () => { const a = await unpostVendorInvoice(supabase, guid); refetch(); return a; }),
     remove: async (guid) => !!(await run(async () => { await deleteVendorInvoice(supabase, guid); refetch(); return true; })),
     addLine: async (guid, genus) => !!(await run(async () => { await addVendorInvoiceLine(supabase, guid, genus); return true; })),
+    setLineTask: async (lineGUID, taskGUID, taskLineGUID) => !!(await run(async () => { await setVendorInvoiceLineTask(supabase, lineGUID, taskGUID, taskLineGUID); void qc.invalidateQueries({ queryKey: ['pm', 'vendorInvoiceLinePlaces'] }); return true; })),
     refetch,
   };
 }
@@ -175,4 +179,17 @@ export function useStartVendorInvoice() {
     }
   }, [supabase, router, qc]);
   return { start, busy };
+}
+
+/** the project / task names of the lines of a document (Multi Project mode); `signature` changes when a line moved (placesSignature) */
+export function useVendorInvoiceLinePlaces(headerGUID: string | null | undefined, signature: string, enabled: boolean) {
+  const { supabase } = useSupabase();
+  const q = useQuery({
+    queryKey: vendorLinePlacesKey(headerGUID ?? '', signature),
+    enabled: enabled && !!headerGUID,
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+    queryFn: () => fetchVendorInvoiceLinePlaces(supabase, headerGUID as string),
+  });
+  return q.data ?? {};
 }

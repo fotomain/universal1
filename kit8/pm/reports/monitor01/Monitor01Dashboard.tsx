@@ -1,5 +1,5 @@
 // Monitor01Dashboard - the report "Roles Requirements" of the sheet "W1 1-MONITOR01" (documentation/MONITOR01_WBS.html): per resource role, month and task
-// planned · contracted · rest to contract · delivered · invoiced · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
+// planned · contracted · rest to contract · ordered · delivered · invoiced · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
@@ -25,14 +25,18 @@ import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
 import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
 import { useOpenVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
+import { useOpenPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import Monitor01FiltersBar from './Monitor01Filters';
+import Monitor01ProjectKindRadio from './Monitor01ProjectKindRadio';
+import { MONITOR01_PROJECT_KIND_DEFAULT, Monitor01ProjectKind } from '../../subproject/subprojectModel';
+import { useMonitor01SubprojectKind } from '../../subproject/useMonitor01SubprojectKind';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import { fetchMonitor01Sources, refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
 import { openDashboardLink } from '../../view/project/dashboardDeepLink';
 import {
-  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
+  EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, filterMonitor01RowsByProjectKind, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
   filterMonitor01Rows, monitor01NodeKeys, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
@@ -57,6 +61,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const router = useRouter();
   const openFactInput = useOpenFactInput();
   const openVendorInvoice = useOpenVendorInvoice();
+  const openPurchaseOrder = useOpenPurchaseOrder();
   const dispatch = useDispatch();
   const paperTheme = usePaperTheme();
   const scopeProject = mode === 'project' ? (projectGUID || null) : null;
@@ -66,6 +71,9 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
   const [tab, setTab] = useState<Monitor01Tab>('all');
   const [filters, setFilters] = useState<Monitor01Filters>(EMPTY_MONITOR01_FILTERS);
+  // Projects | Subprojects | All (documentation/SUBPROJECTS_BRD_TRD.html): only in the full data set and only when a project of the organization uses subprojects - otherwise no row is cut
+  const [projectKind, setProjectKind] = useState<Monitor01ProjectKind>(MONITOR01_PROJECT_KIND_DEFAULT);
+  const subKind = useMonitor01SubprojectKind(mode === 'standalone');
   const [drill, setDrill] = useState<Drill | null>(null);
 
   // the filters cut the rows in memory, so they work in both modes of Auto refresh
@@ -83,7 +91,8 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       setRefreshError(e?.message || String(e));
     }
     data.reload();
-  }, [data, supabase, scopeProject]);
+    subKind.reload();
+  }, [data, supabase, scopeProject, subKind.reload]);
   const refresh = useCallback(() => { void refreshNow(); }, [refreshNow]);
   // the first look at an EMPTY report: nothing may be waiting for a worker that does not run - the plan data is computed now
   const firstLook = useRef(false);
@@ -97,7 +106,8 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setRefreshSince(null);
     if (!autoRefresh) setSnapshot(data.rows);
   }, [data.changedAt, data.rows, refreshSince, autoRefresh]);
-  const sourceRows = autoRefresh ? data.rows : (snapshot ?? data.rows);
+  const loadedRows = autoRefresh ? data.rows : (snapshot ?? data.rows);
+  const sourceRows = useMemo(() => filterMonitor01RowsByProjectKind(loadedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [loadedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
 
   // the unit titles (the measure unit catalog); until it arrives the key without "unit_" is shown
   const units: any[] = useSelector((s: any) => s?.[PRODUCT_TABLES.measureUnit.entity]?.entityDataFromServer) || [];
@@ -185,7 +195,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, scopeProject]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openPurchaseOrder: (documentGUID, taskGUID) => { setDrill(null); openPurchaseOrder({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, openPurchaseOrder, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
@@ -211,6 +221,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
 
       <View style={styles.filters}>
         <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={applyFilters} showProject={mode === 'standalone'} projectItems={projectItems} taskItems={taskItems} resourceItems={resourceItems} />
+        {subKind.show && <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} />}
       </View>
 
       <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>

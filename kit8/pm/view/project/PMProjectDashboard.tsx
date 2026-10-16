@@ -36,6 +36,7 @@ import { useRecentProjects } from './recent/recentProjects';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
 import { PMDialogButton, PMTipIcon } from '../../inner/buttons';
 import { usePMStore } from '../../store/store_pm';
+import { useProjectSubprojectMarks } from '../../subproject/useProjectSubprojectMarks';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
 import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
@@ -45,18 +46,29 @@ import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 import { useDashboardDeepLink } from './useDashboardDeepLink';
+import { PMPicker, PMPickerScope } from './pick/pmPickerContext';
 
-export default function PMProjectDashboard() {
+export interface PMProjectDashboardProps {
+  /**
+   * PICKER mode (kit8/pm/view/project/pick): the same dashboard - recent projects, the task tree, the Finances view - inside a window that returns a task or a task line.
+   * The right pane is always Finances, the deep link and the FAB commands of the screen are off, and Delete / Enter / Tab on the keyboard do nothing.
+   */
+  picker?: PMPicker | null;
+}
+
+export default function PMProjectDashboard({ picker = null }: PMProjectDashboardProps = {}) {
   // the texts follow the app language (kit8/pm/i18n): a language change re-creates the screen
   const language = usePMLanguage();
   return (
     <PMUndoProvider>
-      <PMProjectDashboardInner key={language} />
+      <PMPickerScope picker={picker}>
+        <PMProjectDashboardInner key={language} picker={picker} />
+      </PMPickerScope>
     </PMUndoProvider>
   );
 }
 
-function PMProjectDashboardInner() {
+function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   const router = useRouter();
   const { themeColors } = useDesignSystem();
   const ownerGUID = usePMOwnerGUID(); // real Supabase auth uid (uuid) - see queries.ts
@@ -79,12 +91,15 @@ function PMProjectDashboardInner() {
   useReadProjectKanbanQuery(ownerGUID ? selectedProjectGUID : null);
   useKanbanRealtime(ownerGUID, selectedProjectGUID);
   useScheduleWriteBack(selectedProjectGUID);
+  // Subprojects: the icon / name / date warning of the origin tasks (tree + Gantt read store_subproject); reads nothing while no task of the project is a subproject
+  useProjectSubprojectMarks(selectedProjectGUID);
   const crud = usePMCrud(ownerGUID, selectedProjectGUID);
   const kanban = useKanbanCommands(selectedProjectGUID);
   const seedDemo = useSeedDemoMutation(ownerGUID);
   useRecentProjects(ownerGUID, projectsQuery.isSuccess);
   // /pm/project/dashboard?projectGUID=…&taskGUID=…&genus=…&lineGUID=… (a click on a transaction of a source window): project, Finances view, task, tab, line
-  useDashboardDeepLink(ownerGUID, projectsQuery.isSuccess);
+  // (a picker is opened from a page whose own route params may look like a link: no deep link there)
+  useDashboardDeepLink(ownerGUID, projectsQuery.isSuccess && !picker);
 
   // Switching projects (e.g. pressing "Project 2") shows the same loader as the first
   // load until the project's data has been (re)read from the database - not the stale
@@ -102,7 +117,7 @@ function PMProjectDashboardInner() {
     if (dataQuery.isError) setAwaitingProject(null);
   }, [dataQuery.isError]);
 
-  useKeyboardShortcuts(crud);
+  useKeyboardShortcuts(crud, !picker);
 
   // ---- app bar buttons (kit8/ui/components/common/ApplicationBarApp.tsx) -> Redux uxuiState ----
   const hideProjectToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideProjectToolBar);
@@ -138,7 +153,7 @@ function PMProjectDashboardInner() {
   const undoCount = usePMStore((s) => s.undoCount);
   const redoCount = usePMStore((s) => s.redoCount);
   const fabActions = useMemo((): FABContextAction[] | null => {
-    if (!ownerGUID) return null;
+    if (!ownerGUID || picker) return null;
     const sel = selectedTaskGUID && currentTaskRow ? selectedTaskGUID : null;
     const a: FABContextAction[] = [];
     if (!selectedProjectGUID) {
@@ -184,7 +199,7 @@ function PMProjectDashboardInner() {
     if (redoCount > 0) a.push({ icon: 'redo', label: pmT('Redo'), onPress: () => crud.redoGanttAction() });
     a.push({ icon: 'cog-outline', label: 'Project settings', onPress: () => usePMStore.getState().openProjectSettings(selectedProjectGUID) });
     return a;
-  }, [ownerGUID, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, redoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
+  }, [ownerGUID, picker, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, redoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
   useFABContextActions('pm-project-dashboard', fabActions);
 
   if (!ownerGUID) {
@@ -266,19 +281,19 @@ function PMProjectDashboardInner() {
         </Centered>
       ) : (
         <View style={{ flex: 1 }}>
-          {ganttVsNetworkView === 'showNetworkView' ? (
+          {!picker && ganttVsNetworkView === 'showNetworkView' ? (
             <PMNetworkView crud={crud} />
           ) : (
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : 'gantt'}
+              rightPane={picker ? 'finances' : ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}
             />
           )}
-          {rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
+          {!picker && rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
             <View pointerEvents="box-none" style={styles.emptyOverlay}>
               <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} style={styles.cta} onPress={() => crud.createStage()} />
             </View>
@@ -312,9 +327,9 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
 }
 
 /** Web: Ctrl/⌘+Z = undo, Del = sql_for_delete, Enter/F2 = edit, Esc = cancel link / clear, Alt+↑↓ = move, Tab/Shift+Tab = indent. */
-function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
+function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>, enabled: boolean = true) {
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (!enabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
@@ -365,7 +380,7 @@ function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [crud]);
+  }, [crud, enabled]);
 }
 
 const styles = StyleSheet.create({

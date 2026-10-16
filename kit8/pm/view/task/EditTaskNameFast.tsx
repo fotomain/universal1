@@ -5,8 +5,11 @@
 //   * an EMPTY name is never saved: the old name comes back when the field is left (a task always has a name)
 //   * the name of the task changed elsewhere (realtime, the tree) shows here at once - unless the user is typing in the field now
 //   * only the name is written: the rest of the task rowJSON is kept as it is
+//   * while the user is editing (the field is focused) a Clear (x) icon is shown at the LEFT of the field; it empties the text (an empty name is still never saved). No icon otherwise
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import IconApp from '../../../ui/components/common/IconApp';
+import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { usePMStore } from '../../store/store_pm';
 import { pmT } from '../../i18n/pmT';
@@ -32,7 +35,12 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
   const task = usePMStore((s) => s.tasksById[guid]);
   const current: string = task?.rowJSON?.name ?? '';
   const [draft, setDraft] = useState(current);
+  const { themeColors } = useDesignSystem();
   const focused = useRef(false);
+  /** the user is editing: the Clear icon is shown */
+  const [editing, setEditing] = useState(false);
+  /** the Clear icon was pressed: the blur it causes is not the end of the editing */
+  const clearing = useRef(false);
   /** the name this field saved last and the store has not shown yet: Enter and then leaving the field must not save it twice */
   const saved = useRef<string | null>(null);
 
@@ -53,9 +61,18 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
     }
   };
 
+  const clear = () => { clearing.current = true; setDraft(''); };
+
   if (!task) return null;
+  const id = testID ?? `pm-task-name-${guid}`;
   return (
-    <View style={styles.box} testID={testID ?? `pm-task-name-${guid}`}>
+    <View style={styles.box} testID={id}>
+      {editing && (
+        <Pressable testID={`${id}-clear`} accessibilityRole="button" accessibilityLabel={pmT('Clear')} onPressIn={() => { clearing.current = true; }} onPress={clear} hitSlop={8} style={styles.clear}>
+          <IconApp name="close" size={18} color={themeColors.text} />
+        </Pressable>
+      )}
+      <View style={styles.field}>
       <TextInputApp
         mode="flat"
         testID={`${testID ?? `pm-task-name-${guid}`}-input`}
@@ -63,8 +80,11 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
         placeholder={pmT('Task name')}
         value={draft}
         onChangeText={(t) => setDraft(t.slice(0, TASK_NAME_MAX))}
-        onFocus={() => { focused.current = true; }}
-        onBlur={() => { focused.current = false; commit(); }}
+        onFocus={() => { focused.current = true; clearing.current = false; setEditing(true); }}
+        onBlur={() => {
+          if (clearing.current) { clearing.current = false; return; }      // Clear was pressed: keep editing, the text is empty until the user types or leaves
+          focused.current = false; setEditing(false); commit();
+        }}
         onSubmitEditing={commit}
         onKeyPress={(e: any) => { if (e?.nativeEvent?.key === 'Escape') setDraft(saved.current ?? current); }}
         selectTextOnFocus
@@ -74,10 +94,13 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
         returnKeyType="done"
         style={textStyle}
       />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  box: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  field: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  clear: { marginHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
 });

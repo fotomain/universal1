@@ -2,7 +2,7 @@
 import { MONITOR01_SUM_PAGE_SIZE, RPC_MONITOR01_REFRESH_NOW, RPC_MONITOR01_STAMP, RPC_MONITOR01_SUM_SOURCES } from './monitor01Constants';
 import { Monitor01Stamp, parseMonitor01Stamp } from './monitor01Model';
 
-export type Monitor01SourceMeasure = 'planned' | 'contracted' | 'delivered' | 'invoiced' | 'used' | 'fact';
+export type Monitor01SourceMeasure = 'planned' | 'contracted' | 'ordered' | 'delivered' | 'invoiced' | 'used' | 'fact';
 /** a row of the list: the movements of the plan (planned, contracted) or the lines of a posted fact document (fact) */
 export interface Monitor01SourceRow {
   rowGUID: string;

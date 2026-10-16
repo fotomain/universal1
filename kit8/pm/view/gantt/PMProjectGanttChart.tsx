@@ -52,6 +52,8 @@ import PMGanttBarHoverPanel from './panels/PMGanttBarHoverPanel';
 import PMGanttToolbar from './toolbars/PMGanttToolbar';
 import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { usePMVersionStore } from '../../version/store/store_version';
+import { usePMSubprojectStore } from '../../subproject/store_subproject';
+import { SUBPROJECT_CONFLICT_COLOR, subprojectLabelOf } from '../../subproject/subprojectMarks';
 import { versionStripGeometry } from '../../version/model/versionCompare';
 import PMGanttVersionsLegend from '../../version/view/legend/PMGanttVersionsLegend';
 
@@ -140,6 +142,8 @@ interface BarDesc {
   label: string;
   labelX: number;
   labelInside: boolean;
+  /** Subprojects: the dates of this origin task differ from its subproject - a dark orange outline */
+  subConflict: boolean;
   /** showTaskProgressOnGantt: "XX%" text, right-justified at the bar end (null = hidden) */
   pctLabel: string | null;
   pctX: number;
@@ -223,6 +227,8 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     barsSV.value = hitTable;
   }, [hitTable, barsSV]);
 
+  // Subprojects: the name of the subproject after the task name, a dark orange outline while the dates differ (store_subproject; empty when no task stands for a subproject)
+  const subMarks = usePMSubprojectStore((st) => st.marks);
   const bars = useMemo<BarDesc[]>(() => {
     const measure = makeMeasure(fonts.regular);
     const measureBold = makeMeasure(fonts.bold);
@@ -243,7 +249,8 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         ? palette.critical
         : (customColor || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar));
       const progressColor = kind === K_SUMMARY ? palette.summaryProgress : critical ? palette.criticalProgress : palette.barProgress;
-      const name = t.rowJSON.name || '';
+      const subMark = subMarks[guid];
+      const name = subprojectLabelOf(t.rowJSON.name || '', subMark);
       const textW = (kind === K_SUMMARY ? measureBold : measure)(name);
       const pctLabel = showTaskProgress && kind === K_TASK ? `${Math.round(r.progress)}%` : null;
       const pctW = pctLabel ? measurePct(pctLabel) : 0;
@@ -263,6 +270,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         label: inside ? name : ellipsize(name, 260, kind === K_SUMMARY ? measureBold : measure),
         labelX: inside ? x + 6 : kind === K_MILESTONE ? x + MILESTONE_HALF + 20 : x + w + 20,
         labelInside: inside,
+        subConflict: !!subMark?.conflict,
         pctLabel,
         pctX: x + w - 5 - pctW, // right-justified at the end of the bar
         progressLinePos: taskLinePos,
@@ -270,7 +278,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold]);
+  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold, subMarks]);
 
   // =====================================================================================
   // Project versions (kit8/pm/version): the checked versions are drawn on the SAME chart as the
@@ -1360,7 +1368,7 @@ const BarShape = React.memo(function BarShape({
   const h = PM_ROW_HEIGHT - 2 * PM_BAR_VPAD;
   const y = bar.y + PM_BAR_VPAD;
   const baseline = bar.cy + 4;
-  const outline = selected || linkSource ? (linkSource ? palette.linkActive : palette.text) : null;
+  const outline = selected || linkSource ? (linkSource ? palette.linkActive : palette.text) : bar.subConflict ? SUBPROJECT_CONFLICT_COLOR : null;
 
   if (bar.kind === K_MILESTONE) {
     const path = milestonePath(bar.x, bar.cy);

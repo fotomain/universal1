@@ -76,9 +76,9 @@ describe('the structure file, the code file and the delete file carry the same p
       const rowsFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows');
       const body = src.slice(rowsFn, src.indexOf('\n$$;\n', rowsFn));
       expect(body).toContain('t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced"');
-      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "lineCount", "hasStalePlan")');                // the apply column list
-      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyInvoiced", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
-      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "lineCount" = EXCLUDED."lineCount"');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "qtyOrdered", "lineCount", "hasStalePlan")');                // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyInvoiced", [fv]\."qtyOrdered", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "lineCount" = EXCLUDED."lineCount"');
       expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyInvoiced"');
     }
   });
@@ -118,10 +118,25 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain("ELSIF p_measure IN ('fact', 'used') THEN");
       expect(src).toContain("ELSIF p_measure = 'delivered' THEN");
       // the report column Invoiced: monitor01_view.qtyInvoiced is made by the worker from the register ('invoiced' movements) and checked by monitor01_verify
-      expect(src).toContain('"qtyUsed" numeric, "qtyInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)');
+      expect(src).toContain('"qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "lineCount" integer, "hasStalePlan" boolean)');
       expect(src).toContain('"qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced"');
       expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'invoiced'");
       expect(src).toMatch(/SELECT DISTINCT f\."rowOwnerGUID", 'install' FROM public\.task_fact_usage_timeline f/);
+    }
+  });
+  it('the column Ordered (PART 28): qtyOrdered of the turnover and of monitor01_view, made from the \'ordered\' movements of the posted purchase orders; the drill-down "ordered"; tasks with orders are queued on upgrade', () => {
+    for (const src of [structure]) {
+      for (const c of ['qtyOrdered', 'sumForBudgetOrdered', 'sumForContractOrdered', 'sumForAccountingOrdered', 'vatForContractOrdered', 'vatForAccountingOrdered']) {
+        expect(src).toContain(`ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "${c}" NUMERIC(18,2) NOT NULL DEFAULT 0;`);
+        expect(src).toContain(`FILTER (WHERE s."rowMovementKind" = 'ordered')`);
+      }
+      expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;');
+      expect(src).toContain("FILTER (WHERE s.\"rowMovementKind\" IN ('used', 'invoiced', 'ordered'))");
+      expect(src).toContain("ELSIF p_measure = 'ordered' THEN");
+      expect(src).toContain("JOIN public.purchase_order_header h ON h.\"rowGUID\" = s.\"rowRegistratorGUID\"");
+      expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'ordered'");
+      expect(src).toContain('t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."lineCount"');                  // monitor01_fresh_rows
+      expect(src).toContain('"vatForContractOrdered" = EXCLUDED."vatForContractOrdered"');                  // the turnover is written with the ordered numbers
     }
   });
   it('monitor01_refresh_now exists in both files, is for the authenticated user (SECURITY DEFINER, own projects only) and is dropped by the delete file', () => {

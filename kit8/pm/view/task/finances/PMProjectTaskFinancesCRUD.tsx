@@ -46,10 +46,15 @@ import { useLineRateBook } from './useLineRateBook';
 import { useTaskPost } from '../plan/useTaskPost';
 import { defaultBudgetItemOfGenus } from '../plan/taskLinePlanModel';
 import { MANAGEMENT_GENUS } from '../../../../catalog/management/genus/managementGenusModel';
+import { copyLineGUID } from './copyLineGuid';
+import { pickedLine, usePMPicker } from '../../project/pick/pmPickerContext';
 import { useOpenFactInput } from '../../../../documents/fact/input/useOpenFactInput';
 import { useStartVendorInvoice } from '../../../../documents/vendor/invoice/useVendorInvoice';
 import VendorInvoiceScopeModal from '../../../../documents/vendor/invoice/VendorInvoiceScopeModal';
 import { vendorInvoiceLinesOfScope } from '../../../../documents/vendor/invoice/vendorInvoiceModel';
+import { useStartPurchaseOrder } from '../../../../documents/vendor/purchase_order/usePurchaseOrder';
+import PurchaseOrderScopeModal from '../../../../documents/vendor/purchase_order/PurchaseOrderScopeModal';
+import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase_order/purchaseOrderModel';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -74,9 +79,15 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
   const openFactInput = useOpenFactInput();
+  // picker mode (view/project/pick): "Select this line" in the row menu (and a click on a read only cell) answers with the line
+  const picker = usePMPicker();
+  const pickLine = picker?.mode === 'line' ? (row: ReusableTableRow) => picker.onPick(pickedLine(projectGUID, taskGUID, row.rowGUID, String(row.rowParentGUID ?? ''))) : undefined;
   const { start: startVendorInvoice, busy: vendorInvoiceBusy } = useStartVendorInvoice();
+  const { start: startPurchaseOrder, busy: purchaseOrderBusy } = useStartPurchaseOrder();
   // the line the user right-clicked for "Vendor Invoice": the window asks what goes into the invoice (this line / the whole task)
   const [vendorInvoiceLine, setVendorInvoiceLine] = useState<string | null>(null);
+  // the same for "Purchase Order" (right after "Vendor Invoice")
+  const [purchaseOrderLine, setPurchaseOrderLine] = useState<string | null>(null);
   const projectJSON = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON);
   const startMs = usePMStore((s) => s.schedule[taskGUID]?.startMs);
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
@@ -249,10 +260,17 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
         onRowEdit={onRowEdit}
         emptyText={pmT('No lines yet. Press "+ Add".')}
         // right button on a line: "Facts input" (kit8/documents/fact/input, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
+        onRowOpen={pickLine}
+        openLabel={pickLine ? pmT('Select this line') : undefined}
         extraMenuItems={(row, close) => [
+          ...(pickLine ? [{ testID: `${testID}-pick-${row.rowGUID}`, label: pmT('Select this line'), icon: 'task_alt', onPress: () => { close(); pickLine(row); } }] : []),
           { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
           // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/documents/vendor/invoice)
           ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); setVendorInvoiceLine(row.rowGUID); } }] : []),
+          // right after "Vendor Invoice": the same question, then the PURCHASE ORDER (kit8/documents/vendor/purchase_order)
+          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-purchase-order-${row.rowGUID}`, label: pmT('Purchase Order'), icon: 'shopping_cart', onPress: () => { close(); setPurchaseOrderLine(row.rowGUID); } }] : []),
+          // the GUID of the line (task_line_table) on the clipboard: to paste into a multi project vendor invoice / purchase order line
+          { testID: `${testID}-copy-guid-${row.rowGUID}`, label: pmT('Copy line GUID'), icon: 'fingerprint', onPress: () => { close(); void copyLineGUID(row.rowGUID, dispatch); } },
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}
         toolbarExtra={fxOn ? (
@@ -269,6 +287,17 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
           const line = vendorInvoiceLine;
           setVendorInvoiceLine(null);
           if (line) void startVendorInvoice({ taskGUID, projectGUID, lineGUIDs: vendorInvoiceLinesOfScope(scope, line) });
+        }}
+      />
+      <PurchaseOrderScopeModal
+        testID={`${testID}-purchase-order-scope`}
+        visible={!!purchaseOrderLine}
+        busy={purchaseOrderBusy}
+        onCancel={() => setPurchaseOrderLine(null)}
+        onCreate={(scope) => {
+          const line = purchaseOrderLine;
+          setPurchaseOrderLine(null);
+          if (line) void startPurchaseOrder({ taskGUID, projectGUID, lineGUIDs: purchaseOrderLinesOfScope(scope, line) });
         }}
       />
     </View>

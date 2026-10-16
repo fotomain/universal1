@@ -33,6 +33,8 @@
 --   25. create_monitor01.sql - Monitor01: monitor01_view (incremental, pg_cron every 2 s, batches) + monitor01_dirty + task_line_fact_for_monitor01 + monitor01_sum_sources
 --   26. create_vendor_invoice.sql - the legal entity catalog, the main vendor of partners / equipment / products, the VENDOR INVOICE document (one vendor + one contract) and its posting into the project status register
 --   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
+--   28. create_purchase_order.sql - the PURCHASE ORDER document (the vendor invoice logic) + its 'ordered' movements in the project status register + the column Ordered of Monitor01
+--   29. create_subprojects.sql - SUBPROJECTS: project_subproject_link (the index of the tasks that stand for another project); the settings are keys of project_table.rowJSON
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2507,6 +2509,106 @@ CREATE UNLOGGED TABLE IF NOT EXISTS public.project_cost_dirty (
   "lastError"      TEXT,
   PRIMARY KEY ("rowProjectGUID")
 );
+
+-- ===============================================================================================
+-- PART 28: create_purchase_order.sql
+-- the PURCHASE ORDER document (the same logic as the vendor invoice): purchase_order_header + purchase_order_lines; the numbers of the 'ordered' movements in the turnover and in the Monitor01 view
+-- ===============================================================================================
+
+-- the numbers of the 'ordered' movements (posted purchase orders): the turnover of the register and the row of the Monitor01 report get the column Ordered
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "qtyOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForBudgetOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForContractOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForAccountingOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatForContractOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatForAccountingOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyOrdered" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+
+-- ---- the purchase order document -------------------------------------------------------------------------------------------------------------------------------------
+CREATE SEQUENCE IF NOT EXISTS public.purchase_order_document_seq;
+
+
+CREATE TABLE IF NOT EXISTS public.purchase_order_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOwnerGUID"        TEXT        REFERENCES public."legalEntityTable"("rowGUID") ON DELETE RESTRICT,
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT purchase_order_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
+);
+
+-- a DRAFT made from a task whose lines have no vendor has neither a vendor nor (when no contract names one) a legal entity: both are chosen in the form before Post (post_purchase_order checks them)
+ALTER TABLE public.purchase_order_header ALTER COLUMN "rowOwnerGUID" DROP NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_header_org ON public.purchase_order_header ("rowOrganizationGUID", "created_at");
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_header_owner ON public.purchase_order_header ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_header_partner ON public.purchase_order_header ((("rowJSON"->>'purchaseOrderPartner')));
+
+
+CREATE TABLE IF NOT EXISTS public.purchase_order_lines (
+  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID"     UUID          NOT NULL REFERENCES public.purchase_order_header("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "taskLineGUID"      UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL,
+  "genusGUID"         TEXT          NOT NULL,
+  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
+  "qtyOrdered"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "priceOrdered"     NUMERIC(18,4) NOT NULL DEFAULT 0,
+  "vatRatioOrdered"  NUMERIC(7,3)  NOT NULL DEFAULT 0,
+  "sumForBudget"      NUMERIC(18,2),
+  "sumForContract"    NUMERIC(18,2),
+  "vatForContract"    NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
+  "vatForAccounting"  NUMERIC(18,2),
+  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT purchase_order_lines_qty_chk CHECK ("qtyOrdered" >= 0 AND "priceOrdered" >= 0 AND "vatRatioOrdered" >= 0 AND "vatRatioOrdered" <= 100),
+  CONSTRAINT purchase_order_lines_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_header ON public.purchase_order_lines ("rowHeaderGUID", "genusGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_task ON public.purchase_order_lines ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_line ON public.purchase_order_lines ("taskLineGUID");
+
+-- ===============================================================================================
+-- PART 29: create_subprojects.sql
+-- SUBPROJECTS (documentation/SUBPROJECTS_BRD_TRD.html): a task of a project stands for ANOTHER project (rowJSON.taskIsSubproject + rowJSON.taskSubprojectGUID of project_task_table).
+-- The only table is the index of those links; the settings are keys of project_table.rowJSON (subprojectsFunctionalityEnabled and the switches below it). No column is added to an existing table.
+-- ===============================================================================================
+
+-- project_subproject_link - ONE row per origin task that has a subproject chosen; written ONLY by the trigger of project_task_table (start2_sql_code.sql), the app has SELECT.
+CREATE TABLE IF NOT EXISTS public.project_subproject_link (
+  "rowOwnerGUID"      UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,   -- the origin TASK
+  "rowProjectGUID"    UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,        -- the origin project
+  "rowSubprojectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE RESTRICT,       -- the subproject
+  "linkStartAt"       TIMESTAMPTZ,                                                                                -- start of the subproject last seen by the origin task
+  "linkFinishAt"      TIMESTAMPTZ,                                                                                -- finish of the subproject last seen by the origin task
+  "linkSyncedAt"      TIMESTAMPTZ,
+  "created_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID"),
+  CONSTRAINT project_subproject_link_self_chk CHECK ("rowProjectGUID" <> "rowSubprojectGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_subproject_link_sub ON public.project_subproject_link ("rowSubprojectGUID");
+
+CREATE INDEX IF NOT EXISTS idx_project_subproject_link_project ON public.project_subproject_link ("rowProjectGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

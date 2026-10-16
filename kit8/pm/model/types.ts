@@ -152,6 +152,22 @@ export interface PMRowJSON {
   userCanCreateVendorInvoicesFromTasksWithEmptyVendors?: boolean;
   /** ... true (default) = lines can be ADDED by hand to a draft vendor invoice (a CRUD panel, lines not tied to a task line); false = only the lines made from the task lines */
   independentInvoiceInputAvailable?: boolean;
+  /** Single / Multi Project vendor invoices and purchase orders: OFF while never saved (Project settings → Vendor) */
+  multiProjectVendorInvoceNeeded?: boolean;
+  /** Subprojects (kit8/pm/subproject; Project settings -> Subprojects): the master switch, OFF while never saved - a task of this project may stand for another project */
+  subprojectsFunctionalityEnabled?: boolean;
+  /** ... true (default): the origin task follows its subproject (the four switches below work only while this and the master switch are on) */
+  autoChangeOriginTaskBasedOnSubprojects?: boolean;
+  /** ... true (default): the origin task takes the start and the finish of the subproject */
+  autoChangeStartAndFinishDatesForOriginTask?: boolean;
+  /** ... false (default): Monitor01 shows the Time / Material / Expense plan and fact of the subproject on the origin task too */
+  aggregateTimeFromSubprojectToTheOriginTask?: boolean;
+  aggregateMaterialFromSubprojectToTheOriginTask?: boolean;
+  aggregateExpenceFromSubprojectToTheOriginTask?: boolean;
+  /** project_task_table only: the task stands for a whole project (a task of a project with subprojectsFunctionalityEnabled) */
+  taskIsSubproject?: boolean;
+  /** project_task_table only: the project (project_table.rowGUID) the task stands for */
+  taskSubprojectGUID?: string | null;
   /** managementCalendarTable.rowGUID of the calendar whose excluded days divide the timeline of a task plan (Post); empty = workingDaysCalendar */
   calendarForTaskPlan?: string | null;
   /**

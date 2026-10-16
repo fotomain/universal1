@@ -44,3 +44,21 @@ A DRAFT shows the CRUD panel of the table with **+**: the RPC `vendor_invoice_ad
 The **project of a document** is a header field (`vendorInvoiceProject`, made with the document from the task's project; an older document gets it from its first line on the next start2 run) and is shown read only in the form header; `independentInvoiceInputAvailable` is read from THAT project, so the CRUD panel with + shows in the lines table when the project allows independent lines.
 
 **New browser tab (web).** "Vendor Invoice" of the menus opens the invoice in a NEW browser tab: `useStartVendorInvoice` opens a blank tab INSIDE the click (`openBlankWindow`, so a pop-up blocker allows it) and points it at the form (`sendWindowTo`) once the document is made - a second, third ... document gets a tab of its own; the choice window, when needed, opens in the same tab. `useOpenVendorInvoice` with a document (Monitor01 → Invoiced → Open) opens a new tab too. A blocked tab, iOS and Android: the router in the same window.
+
+
+## Multi Project (project setting `multiProjectVendorInvoceNeeded`, Project settings → **Vendor**, OFF while never saved)
+A DRAFT invoice of a project that has the setting on shows a **chevron (expand_more)** at the left of its Project field: **Single Project | Multi Project** (`ModalWindowListToSelect`; saved at once by `vendor_invoice_set_header({ vendorInvoiceMultiProject })`; back to Single is refused while a line belongs to another project). In **Multi Project** the lines table gets three fields after `#` (`VENDOR_INVOICE_LINE_PLACE_FIELDS`):
+
+| field | what |
+|---|---|
+| `vendorInvoiceLineProject` | the project of the line's task (read only) |
+| `vendorInvoiceTaskGUID` | the task of the line; Paste · Select · Clear (a DRAFT) |
+| `vendorInvoiceTaskLineGUID` | the task line (`task_line_table`); Paste · Select · Clear |
+
+**Variant 1 - Paste.** The context menus give the GUIDs: the task tree row menu **Copy GUID** (task) and the Finances line row menu **Copy line GUID** (line, `kit8/pm/view/task/finances/copyLineGuid.ts`). Paste reads the clipboard, takes the first GUID of the text (`extractGUID`) and calls `vendor_invoice_set_line_task`: a task GUID sets the task (an independent line of that task), a line GUID sets the task line (its task and project follow); no GUID = a message, nothing changes.
+**Variant 2 - Select.** `PMProjectPickerModal` (`kit8/pm/view/project/pick`): the project dashboard - recent projects, the task tree, the Finances view of the selected task (full data, like Edit) - in a window that returns what is pressed: **Select this task** (Finances toolbar) or **Select this line** (row menu of a line, or a click on a read only cell). The dashboard is the same `PMProjectDashboard`, with `picker` it forces the Finances pane and turns the deep link, the FAB commands and the keyboard shortcuts off (the project the user had open is not changed: the picker only reads the project it shows). The window is loaded when it is opened (`React.lazy`).
+**Clear.** Both null: the line goes back to the task and project of the document, without a task line.
+SQL (PART 26): `vendor_invoice_set_line_task(line, task, task line)` (a DRAFT of a Multi Project invoice; the user must own the project of the new task; a task line copies its description, price and VAT %, the quantity the user typed stays), `vendor_invoice_line_places(header)` (project / task names for the table), `vendor_project_setting_on(project, key)` (the switch that is OFF by default), `vendor_task_line_snapshot(line)`. The identity of a line is still frozen for a plain UPDATE: only the RPC opens the gate (session flag `app.vendor_invoice_line_move`). **Post writes the movement with the project of the LINE.** Docker: `tests/70_vendor_invoice.sql` section 9. The shared code is `kit8/documents/vendor/lineplace` (model + `LinePlaceCell`).
+
+## Purchase order
+`kit8/documents/vendor/purchase_order` is the twin of this folder (README there): the same logic, `ordered` movements, the Monitor01 column Ordered.

@@ -10,6 +10,8 @@ jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate
 // "Vendor Invoice" CREATES the invoice(s) of the whole task (useStartVendorInvoice; its own tests: vendorInvoice/useVendorInvoice.test.tsx)
 const mockStartVendorInvoice = jest.fn();
 jest.doMock('../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
+const mockStartPurchaseOrder = jest.fn();
+jest.doMock('../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockStartPurchaseOrder, busy: false }) }));
 
 const PMTaskRowMenu = require('../../../../kit8/pm/view/task/PMTaskRowMenu').default;
 const { useOpenFactInput } = require('../../../../kit8/documents/fact/input/useOpenFactInput');
@@ -63,6 +65,32 @@ describe('"Vendor Invoice" - right after "Facts input" in the row menu of the ta
     renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
     act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
     expect(q('pm-row-menu-vendor-invoice')).toBeNull();
+  });
+});
+
+describe('"Purchase Order" - right after "Vendor Invoice" in the row menu of the task tree', () => {
+  it('a task has it AFTER "Vendor Invoice"; it closes the menu and CREATES the purchase order(s) of all the lines of the task (no choice window)', () => {
+    const { byName } = seedStore();
+    const task = byName('Task 111');
+    renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: task.rowGUID, x: 10, y: 10, source: 'tree' }));
+    const ids = qa('pm-row-menu-');
+    const invoice = ids.indexOf('pm-row-menu-vendor-invoice');
+    const order = ids.indexOf('pm-row-menu-purchase-order');
+    expect(order).toBeGreaterThan(invoice);
+    expect(ids.slice(invoice + 1, order).every((id) => id.startsWith('pm-row-menu-vendor-invoice-'))).toBe(true);
+    press('pm-row-menu-purchase-order');
+    expect(mockStartPurchaseOrder).toHaveBeenCalledWith({ taskGUID: task.rowGUID });
+    expect(mockStartVendorInvoice).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(usePMStore.getState().rowMenu).toBeNull();
+  });
+  it('a stage has no lines, so no purchase order', () => {
+    const { byName } = seedStore();
+    const stage = byName('Stage 1');
+    renderUI(<PMTaskRowMenu crud={fakeCrud()} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: stage.rowGUID, x: 10, y: 10, source: 'tree' }));
+    expect(q('pm-row-menu-purchase-order')).toBeNull();
   });
 });
 

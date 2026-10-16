@@ -5,10 +5,10 @@ import PMProjectVendorTab, { vendorValuesOf } from '../../../../kit8/pm/view/pro
 
 afterEach(cleanupUI);
 
-it('both are true by default - a missing key is true; only a stored false is false', () => {
-  expect(vendorValuesOf(null)).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: true });
-  expect(vendorValuesOf({})).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: true });
-  expect(vendorValuesOf({ independentInvoiceInputAvailable: false })).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: false });
+it('the first two are true by default - a missing key is true; only a stored false is false. The multi project switch is OFF by default', () => {
+  expect(vendorValuesOf(null)).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: true, multiProjectVendorInvoceNeeded: false });
+  expect(vendorValuesOf({})).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: true, multiProjectVendorInvoceNeeded: false });
+  expect(vendorValuesOf({ independentInvoiceInputAvailable: false })).toEqual({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: true, independentInvoiceInputAvailable: false, multiProjectVendorInvoceNeeded: false });
   expect(vendorValuesOf({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: false }).userCanCreateVendorInvoicesFromTasksWithEmptyVendors).toBe(false);
 });
 
@@ -22,6 +22,15 @@ it('the two switches are on for a project without the keys and change only their
   expect(onChange).toHaveBeenLastCalledWith({ userCanCreateVendorInvoicesFromTasksWithEmptyVendors: false });
   toggleSwitch('pm-project-vendor-independent-input');
   expect(onChange).toHaveBeenLastCalledWith({ independentInvoiceInputAvailable: false });
+});
+
+it('the multi project switch is OFF by default, turns on only for a stored true, and changes only its own key', () => {
+  expect(vendorValuesOf({ multiProjectVendorInvoceNeeded: true }).multiProjectVendorInvoceNeeded).toBe(true);
+  const onChange = jest.fn();
+  renderUI(<PMProjectVendorTab values={{}} onChange={onChange} />);
+  expect((q('pm-project-vendor-multi-project')!.querySelector('input') as HTMLInputElement).checked).toBe(false);
+  toggleSwitch('pm-project-vendor-multi-project');
+  expect(onChange).toHaveBeenLastCalledWith({ multiProjectVendorInvoceNeeded: true });
 });
 
 it('shows the saved false values', () => {

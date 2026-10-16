@@ -36,6 +36,9 @@ import TextInputApp from '../../../ui/components/common/TextInputApp';
 import SegmentButtonsApp from '../../../ui/components/common/SegmentButtonsApp';
 import NumberStepperInputApp, { NUMBER_STEPPER_MIN_WIDTH } from '../../../ui/components/common/NumberStepperInputApp';
 import { pmT } from '../../i18n/pmT';
+import PMTaskSubprojectField from './PMTaskSubprojectField';
+import { subprojectEffectiveOf } from '../../subproject/subprojectModel';
+import { useSubprojectCandidates } from '../../subproject/useSubprojectCandidates';
 
 const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string; icon: string }[] = [
@@ -105,11 +108,16 @@ export default function PMTaskEditModal({
   const [color, setColor] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Subprojects (documentation/SUBPROJECTS_BRD_TRD.html): the flag + the project this task stands for
+  const [subFlag, setSubFlag] = useState(false);
+  const [subGUID, setSubGUID] = useState('');
+  const subSettings = subprojectEffectiveOf(project?.rowJSON);
+  const subCandidates = useSubprojectCandidates(projectGUID, subSettings.enabled && !!task && kind === 'task');
 
   // What the user changed in the window (lastEditPlace): the form as it was when the window opened vs when Save is pressed.
   // The fields are filled by an effect, so the snapshot is taken in the render after it.
   const formNow = () => ({
-    main: [name, kind, days, start, finish, startHour, startMinute, startSecond, finishHour, finishMinute, finishSecond, progress, kanbanProgress, notes].join('\u0001'),
+    main: [name, kind, days, start, finish, startHour, startMinute, startSecond, finishHour, finishMinute, finishSecond, progress, kanbanProgress, notes, subFlag, subGUID].join('\u0001'),
     uxui: color ?? '',
   });
   const formSnapshot = useRef<'none' | 'pending' | 'settling' | { main: string; uxui: string }>('none');
@@ -120,6 +128,8 @@ export default function PMTaskEditModal({
     setName(task.rowJSON.name || '');
     setKind((task.rowJSON.rowKind as any) === 'project' ? 'task' : (task.rowJSON.rowKind as Exclude<PMRowKind, 'project'>) || 'task');
     setDays(String(task.rowJSON.durationDays ?? 1));
+    setSubFlag(task.rowJSON.taskIsSubproject === true);
+    setSubGUID(task.rowJSON.taskSubprojectGUID || '');
     finishUserEditedRef.current = false;
     lastEditedDateFieldRef.current = null;
 
@@ -308,6 +318,18 @@ export default function PMTaskEditModal({
       taskColor: color,
       notes: notes.trim() || undefined,
     };
+    // Subprojects: only a task of a project with the functionality has the flag; a task that follows its subproject keeps the dates the database gave it
+    if (subSettings.enabled && kind === 'task') {
+      updatedJSON.taskIsSubproject = subFlag;
+      updatedJSON.taskSubprojectGUID = subFlag && subGUID ? subGUID : null;
+      if (subFlag && subGUID && subSettings.dates) {
+        updatedJSON.durationDays = task.rowJSON.durationDays;
+        updatedJSON.manualStartAt = task.rowJSON.manualStartAt ?? null;
+      }
+    } else if (kind !== 'task' && task.rowJSON.taskIsSubproject) {
+      updatedJSON.taskIsSubproject = false;
+      updatedJSON.taskSubprojectGUID = null;
+    }
 
     if (planHour) {
       updatedJSON.startHourStart = sH;
@@ -631,6 +653,18 @@ export default function PMTaskEditModal({
                 }}
                 buttons={KINDS.map((k) => ({ value: k.kind, label: pmT(k.label), icon: k.icon }))}
               />
+
+              {subSettings.enabled && kind === 'task' && (
+                <PMTaskSubprojectField
+                  flag={subFlag}
+                  onFlag={(on) => { setSubFlag(on); if (!on) setSubGUID(''); }}
+                  subprojectGUID={subGUID}
+                  onSubproject={setSubGUID}
+                  candidates={subCandidates.rows}
+                  followsDates={subSettings.dates}
+                  error={subCandidates.error}
+                />
+              )}
 
               {sched && (
                 <Text style={[styles.hint, { color: themeColors.text }]}>

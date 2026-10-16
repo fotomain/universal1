@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./kit8/sql/start/run_sql_cli.command:*)"
+    ]
+  }
+}

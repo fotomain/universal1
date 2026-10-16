@@ -129,6 +129,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       children: [
         { id: 'documents-factinput', label: 'Fact input', icon: 'fact_check', route: 'pm/fact/list' },
+        { id: 'documents-purchaseorders', label: 'Purchase orders', icon: 'shopping_cart', route: 'pm/purchase-order/list' },
         { id: 'documents-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
       ],
     },

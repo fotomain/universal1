@@ -46,9 +46,14 @@ jest.mock('react-redux', () => {
     useDispatch: () => mockDispatch,
   };
 });
+// picker mode (view/project/pick): a test sets mockPicker; null = the normal Finances table
+let mockPicker: any = null;
+jest.mock('../../../../../kit8/pm/view/project/pick/pmPickerContext', () => ({ ...jest.requireActual('../../../../../kit8/pm/view/project/pick/pmPickerContext'), usePMPicker: () => mockPicker }));
 // "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: documents/vendor/invoice/useVendorInvoice.test.tsx)
 const mockStartVendorInvoice = jest.fn();
 jest.mock('../../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
+const mockStartPurchaseOrder = jest.fn();
+jest.mock('../../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockStartPurchaseOrder, busy: false }) }));
 const mockPick: Record<string, string> = {};
 const mockSelectProps: Record<string, any> = {};
 jest.mock('../../../../../kit8/catalog/inner/select_element/SelectElementFromCatalog', () => {
@@ -638,6 +643,75 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
     expect(ids).toContain(`${T}-vendor-invoice-fx1`);
     expect(ids.indexOf(`${T}-vendor-invoice-fx1`)).toBe(ids.indexOf(`${T}-facts-fx1`) + 1);
+  });
+
+  it('the row menu has "Purchase Order" right AFTER "Vendor Invoice"; it asks first (this line / the whole task) and Create makes the purchase order', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    expect(ids.indexOf(`${T}-purchase-order-fx1`)).toBe(ids.indexOf(`${T}-vendor-invoice-fx1`) + 1);
+    expect(q(`${T}-purchase-order-scope`)).toBeNull();
+    press(`${T}-purchase-order-fx1`);
+    expect(q(`${T}-purchase-order-scope`)).not.toBeNull();
+    expect(mockStartPurchaseOrder).not.toHaveBeenCalled();
+    expect(q(`${T}-purchase-order-scope-line`)!.getAttribute('aria-checked')).toBe('true');
+    press(`${T}-purchase-order-scope-create`);
+    expect(mockStartPurchaseOrder).toHaveBeenCalledWith({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: ['fx1'] });
+    expect(mockStartVendorInvoice).not.toHaveBeenCalled();
+    expect(q(`${T}-purchase-order-scope`)).toBeNull();
+  });
+
+  it('"Purchase Order" of a line: the whole task = no line filter', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    press(`${T}-purchase-order-fx1`);
+    press(`${T}-purchase-order-scope-task`);
+    press(`${T}-purchase-order-scope-create`);
+    expect(mockStartPurchaseOrder).toHaveBeenCalledWith({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: undefined });
+  });
+
+  it('the row menu has "Copy line GUID" (after Facts input / Vendor Invoice): the GUID of the line goes to the clipboard and a snackbar says so', async () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    press(`${TT}-menu-button-fx1`);
+    const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    expect(ids).toContain(`${T}-copy-guid-fx1`);
+    expect(ids.indexOf(`${T}-copy-guid-fx1`)).toBeGreaterThan(ids.indexOf(`${T}-vendor-invoice-fx1`));
+    await act(async () => { press(`${T}-copy-guid-fx1`); });
+    expect(require('expo-clipboard').setStringAsync).toHaveBeenCalledWith('fx1');
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'snackbar' }));
+    expect(q(`${T}-copy-guid-fx1`)).toBeNull();      // the menu is closed
+  });
+
+  describe('picker mode (the project tree window of a multi project vendor invoice / purchase order)', () => {
+    afterEach(() => { mockPicker = null; });
+    it('mode "line": the row menu starts with "Select this line"; it answers with the project, the task, the line and its kind', () => {
+      const onPick = jest.fn();
+      mockPicker = { mode: 'line', onPick };
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+      expect(ids.indexOf(`${T}-pick-fx1`)).toBeGreaterThan(-1);
+      expect(ids.indexOf(`${T}-pick-fx1`)).toBeLessThan(ids.indexOf(`${T}-facts-fx1`));
+      press(`${T}-pick-fx1`);
+      expect(onPick).toHaveBeenCalledWith({ projectGUID: 'p1', taskGUID: 't1', taskLineGUID: 'fx1', genus: 'timeGenus' });
+    });
+    it('mode "task": a line cannot be selected (only the task)', () => {
+      mockPicker = { mode: 'task', onPick: jest.fn() };
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      expect(q(`${T}-pick-fx1`)).toBeNull();
+    });
+    it('no picker: no "Select this line"', () => {
+      mockBook = book();
+      mount({ lines: [fxLine()], project, startMs: START });
+      press(`${TT}-menu-button-fx1`);
+      expect(q(`${T}-pick-fx1`)).toBeNull();
+    });
   });
 
   it('"Vendor Invoice" of a line asks first: 1) the data of the current line (default) 2) all the lines of the task; Create then makes the invoice', () => {

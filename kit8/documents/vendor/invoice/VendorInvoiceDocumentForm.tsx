@@ -7,9 +7,13 @@
 //   DocumentTabs All (default) · Time · Material · Expenses, with the number of lines of each - the same look as the Finances table of a task
 //   the lines   a ReusableTable on the redux entity VENDOR_INVOICE_LINES_ENTITY (VendorInvoiceLines; realtime, optimistic): quantity, price and VAT % of a DRAFT are editable and can be deleted; no new
 //               lines (they come from the task lines); a posted document is read only. Columns: vendorInvoiceColumns.tsx.
+// MULTI PROJECT (project setting multiProjectVendorInvoceNeeded): a chevron button at the left of the Project field chooses Single Project | Multi Project (saved at once). In Multi Project the lines table gets
+//   vendorInvoiceLineProject (read only) · vendorInvoiceTaskGUID · vendorInvoiceTaskLineGUID: on a DRAFT each of the two GUIDs is pasted from the clipboard (variant 1: "Copy GUID" of the task tree, "Copy line GUID" of the
+//   Finances line), selected in the project tree window (variant 2: PMProjectPickerModal = the dashboard with the Finances view, press to select) or cleared. The lines table of the SQL RPC vendor_invoice_set_line_task.
 // Post checks the whole document (the problems are listed) and writes the 'invoiced' movements of the project status register in the same transaction. The 0333Effect correction is not built yet.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -26,13 +30,20 @@ import { CONTRACT_ENTITY } from '../../../catalog/contract/contractModel';
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
 import { parseDayInput } from '../../fact/input/factInputModel';
+import ModalWindowListToSelect from '../../../ui/components/common/ModalWindowListToSelect';
+import type { PMPickedPlace } from '../../../pm/view/project/pick/pmPickerContext';
+import { extractGUID, placeChange, placesSignature } from '../lineplace/linePlaceModel';
+import type { PlaceField } from '../lineplace/linePlaceModel';
 import { pmT } from '../../../pm/i18n/pmT';
 import { buildVendorInvoiceColumns } from './vendorInvoiceColumns';
 import {
-  VENDOR_INVOICE_ALL_TAB, VENDOR_INVOICE_LINES_ENTITY, VENDOR_INVOICE_TABS, VendorInvoicePostProblem, canDeleteVendorInvoice, canEditVendorInvoice, canPostVendorInvoice, canUnpostVendorInvoice,
+  VENDOR_INVOICE_ALL_TAB, VENDOR_INVOICE_LINES_ENTITY, VENDOR_INVOICE_PROJECT_MODES, VENDOR_INVOICE_TABS, VendorInvoicePostProblem, canChooseProjectMode, canDeleteVendorInvoice, canEditVendorInvoice, canPostVendorInvoice, canUnpostVendorInvoice,
   formatMoney, vendorInvoiceDocumentPath, vendorInvoiceLinesOf, vendorInvoiceMissing, vendorInvoiceProblemText, vendorInvoiceTotals,
 } from './vendorInvoiceModel';
-import { useVendorInvoiceDocuments } from './useVendorInvoice';
+import { useVendorInvoiceDocuments, useVendorInvoiceLinePlaces } from './useVendorInvoice';
+
+// the project tree window (it carries the whole dashboard, Skia included) is loaded when the user opens it
+const PMProjectPickerModal = React.lazy(() => Promise.resolve(require('../../../pm/view/project/pick/PMProjectPickerModal')));
 
 export interface VendorInvoiceDocumentFormProps {
   /** the documents of the form: one tab each (the first is open) */
@@ -62,7 +73,38 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
   const edit = !!header && canEditVendorInvoice(header);
   // an UNPOSTED document lets its vendor and contract be chosen / changed (saved at once); the project setting independentInvoiceInputAvailable lets lines be ADDED by hand (not tied to a task line)
   const independent = edit && !!header?.independentInputAvailable;
-  const columns = useMemo(() => buildVendorInvoiceColumns({ data, tab, editable: edit, independent }), [data, tab, edit, independent]);
+
+  // ---- Single Project | Multi Project: the chevron at the left of the Project field; in Multi each line has a task / task line (paste · select in the project tree · clear) ----
+  const multi = !!header?.multiProject;
+  const [modeMenu, setModeMenu] = useState(false);
+  const [pickFor, setPickFor] = useState<{ rowGUID: string; field: PlaceField } | null>(null);
+  const [placeError, setPlaceError] = useState<string | null>(null);
+  const places = useVendorInvoiceLinePlaces(header?.guid, placesSignature(docRows), multi);
+  const changePlace = async (rowGUID: string, field: PlaceField, guid: string | null) => {
+    const ch = placeChange(field, guid);
+    setPlaceError(null);
+    await doc.setLineTask(rowGUID, ch.task, ch.taskLine);
+  };
+  const placeActions = useMemo(() => ({
+    paste: async (field: PlaceField, row: ReusableTableRow) => {
+      let text = '';
+      try { text = await Clipboard.getStringAsync(); } catch { text = ''; }
+      const guid = extractGUID(text);
+      if (!guid) { setPlaceError(pmT(field === 'task' ? 'The clipboard has no GUID: copy the GUID of a task ("Copy GUID" of the task row menu) and paste it here.' : 'The clipboard has no GUID: copy the GUID of a line ("Copy line GUID" of the Finances line menu) and paste it here.')); return; }
+      await changePlace(String(row.rowGUID), field, guid);
+    },
+    pick: (field: PlaceField, row: ReusableTableRow) => { setPlaceError(null); setPickFor({ rowGUID: String(row.rowGUID), field }); },
+    clear: (field: PlaceField, row: ReusableTableRow) => { void changePlace(String(row.rowGUID), field, null); },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [doc.setLineTask]);
+  const onPicked = (place: PMPickedPlace) => {
+    const target = pickFor;
+    setPickFor(null);
+    if (!target) return;
+    if (target.field === 'taskLine' && place.taskLineGUID) void changePlace(target.rowGUID, 'taskLine', place.taskLineGUID);
+    else void changePlace(target.rowGUID, 'task', place.taskGUID);
+  };
+  const columns = useMemo(() => buildVendorInvoiceColumns({ data, tab, editable: edit, independent, multiProject: multi, places, placeActions }), [data, tab, edit, independent, multi, places, placeActions]);
   const rowFilter = useMemo(() => {
     const guid = header?.guid;
     return (r: ReusableTableRow) => !!guid && r.rowHeaderGUID === guid && (tab === VENDOR_INVOICE_ALL_TAB || r.genusGUID === tab);
@@ -163,9 +205,17 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
           <View style={{ width: 130 }}>
             <TextInputApp testID={`${testID}-field-number`} label={pmT('Document')} value={header.number} compact disabled hideClearIcon style={FIELD} />
           </View>
-          <View style={{ width: 200 }}>
-            {/* the project of the document (vendorInvoiceProject): its setting independentInvoiceInputAvailable decides whether lines can be added */}
-            <TextInputApp testID={`${testID}-field-project`} label={pmT('Project')} value={header.projectName || ''} compact disabled hideClearIcon style={FIELD} />
+          <View style={styles.projectField}>
+            {/* Single Project | Multi Project (project setting multiProjectVendorInvoceNeeded): the chevron at the left of the Project field */}
+            {canChooseProjectMode(header) && (
+              <Pressable testID={`${testID}-project-mode`} accessibilityRole="button" accessibilityLabel={pmT('Single Project | Multi Project')} onPress={() => setModeMenu(true)} hitSlop={6} style={styles.chevron}>
+                <IconApp name="expand_more" size={22} color={c.primary} />
+              </Pressable>
+            )}
+            <View style={{ width: 200 }}>
+              {/* the project of the document (vendorInvoiceProject): its setting independentInvoiceInputAvailable decides whether lines can be added */}
+              <TextInputApp testID={`${testID}-field-project`} label={multi ? pmT('Project · Multi Project') : pmT('Project')} value={header.projectName || ''} compact disabled hideClearIcon style={FIELD} />
+            </View>
           </View>
           <View style={{ width: 230 }}>
             {edit ? (
@@ -229,6 +279,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
       )}
 
       {!!doc.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{doc.error}</Text>}
+      {!!placeError && <Text testID={`${testID}-place-error`} style={{ color: c.error, paddingHorizontal: 12, paddingTop: 4, fontSize: 12 }}>{placeError}</Text>}
 
       {edit && missing.length > 0 && (
         <Text testID={`${testID}-missing`} style={{ color: c.text, opacity: 0.7, fontSize: 12, paddingHorizontal: 12, paddingTop: 4 }}>{missing.map((m) => pmT(vendorInvoiceProblemText(m))).join(' · ')}</Text>
@@ -264,7 +315,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
         {doc.isLoading && <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('Loading…')}</Text>}
         {header && (
           <ReusableTable
-            key={`${header.guid}:${tab}:${header.status}`}
+            key={`${header.guid}:${tab}:${header.status}:${multi ? 'multi' : 'single'}`}
             testID={`${testID}-lines`}
             entityName={VENDOR_INVOICE_LINES_ENTITY}
             crudListTitle={pmT('Invoice lines')}
@@ -289,6 +340,21 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
             uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch' }}
           />
         )}
+        {header && (
+          <>
+            <ModalWindowListToSelect
+              visible={modeMenu} testID={`${testID}-project-mode-list`} title={pmT('Project mode')} message={pmT('Single Project: all the lines belong to the project of the document. Multi Project: each line can belong to any task or task line of your projects.')}
+              items={VENDOR_INVOICE_PROJECT_MODES.map((m) => ({ id: m.id, title: pmT(m.title), subtitle: pmT(m.subtitle), icon: m.icon }))} selectedId={multi ? 'multi' : 'single'} cancelLabel={pmT('Cancel')}
+              onClose={() => setModeMenu(false)}
+              onSelect={(id) => { setModeMenu(false); if ((id === 'multi') !== multi) void doc.setHeader(header.guid, { vendorInvoiceMultiProject: id === 'multi' }); }}
+            />
+            {!!pickFor && (
+              <React.Suspense fallback={null}>
+                <PMProjectPickerModal testID={`${testID}-picker`} visible mode={pickFor.field === 'taskLine' ? 'line' : 'task'} onPick={onPicked} onClose={() => setPickFor(null)} />
+              </React.Suspense>
+            )}
+          </>
+        )}
         {!header && !doc.isLoading && <Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.6 }}>{pmT('The vendor invoice was not found.')}</Text>}
       </ScrollView>
     </View>
@@ -304,6 +370,8 @@ const styles = StyleSheet.create({
   docTabs: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8 },
   docTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2 },
   docTabText: { maxWidth: 240 },
+  projectField: { flexDirection: 'row', alignItems: 'center' },
+  chevron: { paddingRight: 2 },
   form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
   totals: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 8, marginLeft: 8 },
   problems: { margin: 12, padding: 10, borderWidth: 1, borderRadius: 8 },

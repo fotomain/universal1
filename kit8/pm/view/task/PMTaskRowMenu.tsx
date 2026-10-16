@@ -9,6 +9,7 @@ import { PMCrud } from '../../crud/usePMCrud';
 import PMContextMenu from '../../inner/menu/PMContextMenu';
 import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
 import { useStartVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
+import { useStartPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
@@ -17,6 +18,7 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const isSummary = usePMStore((s) => (s.rowMenu ? !!s.schedule[s.rowMenu.guid]?.isSummary : false));
   const openFactInput = useOpenFactInput();
   const { start: startVendorInvoice } = useStartVendorInvoice();
+  const { start: startPurchaseOrder } = useStartPurchaseOrder();
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -44,6 +46,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [] : [{ testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID: guid })) }]),
     // right after "Facts input": CREATES the vendor invoice(s) of ALL the lines of the task (one for each vendor + contract) and opens it (kit8/documents/vendor/invoice)
     ...(isSummary ? [] : [{ testID: id('vendor-invoice'), label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => { void startVendorInvoice({ taskGUID: guid }); }) }]),
+    // right after "Vendor Invoice": the same for a PURCHASE ORDER (kit8/documents/vendor/purchase_order)
+    ...(isSummary ? [] : [{ testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID: guid }); }) }]),
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 

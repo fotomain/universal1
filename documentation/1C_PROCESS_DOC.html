@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1C business processes and tasks - reference</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --purple:#7c3aed; --soft:#f1f5f9; --warn:#b45309; --warnbg:#fef3c7; --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; --mono:ui-monospace,Menlo,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 var(--font); }
+  main { max-width:980px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { margin:34px 0 8px; font-size:19px; border-bottom:1px solid var(--border); padding-bottom:4px; } h3 { margin:20px 0 6px; font-size:16px; }
+  .lead { color:var(--muted); margin:0 0 18px; }
+  code { font:13px var(--mono); background:var(--soft); padding:1px 6px; border-radius:6px; overflow-wrap:anywhere; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:10px 0; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; font-size:14px; } th { background:var(--soft); }
+  .note { background:#ede9fe; border-left:4px solid var(--purple); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  .warn { background:var(--warnbg); border-left:4px solid var(--warn); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  .toc { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 18px; columns:2; column-gap:30px; font-size:14px; }
+  .toc a { color:var(--purple); text-decoration:none; } .toc div { break-inside:avoid; padding:1px 0; }
+  .ru { color:var(--muted); font-size:13px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:10px; overflow-x:auto; font:13px/1.5 var(--mono); }
+  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0; }
+  .flow span { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:4px 10px; font-size:13px; }
+  .flow i { color:var(--muted); font-style:normal; }
+  @media (max-width:640px) { table { display:block; overflow-x:auto; } .toc { columns:1; } }
+</style>
+</head>
+<body>
+<main>
+<h1>1C business processes and tasks - reference</h1>
+<p class="lead">A condensed English reference of two sources on 1C business processes and tasks, written in our own words (read on 2026-10-16):</p>
+<ul>
+<li><b>Part A - the platform.</b> Chapter 13 "Business processes and tasks" of the 1C:Enterprise 8.3.22 Developer's Guide (its.1c.ru, <code>dev/TI000000665</code>), section by section (13.1 - 13.20, including 13.8.1 - 13.8.4). This is the mechanism itself: route map, tasks, addressing.</li>
+<li><b>Part B - a real application on top of it.</b> "Processes and tasks" from the developer guide of 1C:Document Management PROF / CORP / DGU (its.1c.ru, <code>metod8dev/content/5874</code>, version dated 2016-02-20). It shows what a product has to add around the platform: complex processes, templates, subjects, background queues, mail execution, distributed databases, access rights (sections B1 - B12).</li>
+</ul>
+<p class="lead">The Russian terms of the API are kept in grey so they can be matched with the originals. The figures of the originals (458-460 in Part A, one scheme in Part B) are described, not copied.</p>
+
+<div class="toc">
+<div><b>Part A - platform (chapter 13)</b></div><div>&nbsp;</div>
+<div><a href="#s1">13.1 Basic concepts</a></div>
+<div><a href="#s2">13.2 Objects of the mechanism</a></div>
+<div><a href="#s3">13.3 Kinds of routing</a></div>
+<div><a href="#s4">13.4 Addressing system (with worked example)</a></div>
+<div><a href="#s5">13.5 Starting a process</a></div>
+<div><a href="#s6">13.6 Executing a task</a></div>
+<div><a href="#s7">13.7 Fork and join</a></div>
+<div><a href="#s8">13.8 Manual control (13.8.1 - 13.8.4)</a></div>
+<div><a href="#s9">13.9 Conditional transition</a></div>
+<div><a href="#s10">13.10 Choice of a variant</a></div>
+<div><a href="#s11">13.11 Creating tasks</a></div>
+<div><a href="#s12">13.12 Execution check</a></div>
+<div><a href="#s13">13.13 Nested processes</a></div>
+<div><a href="#s14">13.14 Finishing a process</a></div>
+<div><a href="#s15">13.15 Standard attributes</a></div>
+<div><a href="#s16">13.16 Several start points</a></div>
+<div><a href="#s17">13.17 Feedback from other objects</a></div>
+<div><a href="#s18">13.18 Route map</a></div>
+<div><a href="#s19">13.19 Configuring a business process</a></div>
+<div><a href="#s20">13.20 Configuring a task</a></div>
+<div><b>Part B - 1C:Document Management</b></div><div>&nbsp;</div>
+<div><a href="#b0">B0 Overview and workplaces</a></div>
+<div><a href="#b1">B1 How the processes work</a></div>
+<div><a href="#b2">B2 Complex processes</a></div>
+<div><a href="#b3">B3 Role routing</a></div>
+<div><a href="#b4">B4 Process templates</a></div>
+<div><a href="#b5">B5 Subjects of processes and tasks</a></div>
+<div><a href="#b6">B6 Starting processes</a></div>
+<div><a href="#b7">B7 Routing conditions</a></div>
+<div><a href="#b8">B8 Background execution</a></div>
+<div><a href="#b9">B9 Executing tasks by e-mail</a></div>
+<div><a href="#b10">B10 Distributed infobase (RIB)</a></div>
+<div><a href="#b11">B11 Access rights</a></div>
+<div><a href="#b12">B12 Metadata map</a></div>
+<div><a href="#bi">Ideas for Universal 1</a></div>
+<div><a href="#sx">Glossary and quick cheat sheet</a></div>
+</div>
+
+<h2 style="font-size:22px;margin-top:40px">Part A - the platform (chapter 13)</h2>
+
+<h2 id="s1">13.1 Basic concepts</h2>
+<p>A <b>business process</b> (<span class="ru">БизнесПроцесс</span>) joins separate operations into a chain of linked actions that reaches one goal - e.g. "invoice, take cash, release the goods" as the process <i>Sale for cash</i>. It formalizes how events of the organization are handled and brings the performers into the handling. The strongest effect comes from key processes that start and end outside the organization.</p>
+<ul>
+<li>The chain is drawn as a <b>route map</b> (<span class="ru">карта маршрута</span>): the whole life cycle from the start point to the end point as a diagram of linked <b>route points</b> (<span class="ru">точки маршрута</span>).</li>
+<li>Passing along the chain is called the <b>movement</b> of the process.</li>
+<li>A route point is one stage of the life cycle, normally one automatic or manual operation.</li>
+<li>A <b>task</b> (<span class="ru">Задача</span>) is an assignment to a performer. Tasks show how a process advances over its route points; they can also be created by other objects or by users directly, without any process.</li>
+</ul>
+
+<h2 id="s2">13.2 Objects of the mechanism</h2>
+<p>Four configuration objects make the mechanism, plus the reference catalogs used as address dimensions:</p>
+<table>
+<tr><th>Object</th><th>Role</th></tr>
+<tr><td>Business processes</td><td>main object: holds the route map, creates tasks, moves along the route</td></tr>
+<tr><td>Tasks</td><td>main object: the assignments; completing one pushes its process to the next point</td></tr>
+<tr><td>Information register (<span class="ru">Адресация</span>)</td><td>auxiliary: maps performers to roles / departments / ... (see 13.4)</td></tr>
+<tr><td>Session parameter</td><td>auxiliary: the current performer, used to filter "my tasks"</td></tr>
+<tr><td>Catalogs (employees, roles, departments)</td><td>auxiliary: predefined values used as address values in route points</td></tr>
+</table>
+<ul>
+<li>Business process and task talk to each other: the process creates tasks, a finished task advances the process.</li>
+<li>The auxiliary objects do not use each other or the main objects. The route map takes predefined values (roles, departments) from the catalogs; the process reads the register to handle <i>group</i> points; tasks read the register with the session parameter to select tasks of the current performer.</li>
+</ul>
+
+<h2 id="s3">13.3 Kinds of routing</h2>
+<table>
+<tr><th>Kind</th><th>Meaning</th></tr>
+<tr><td>Rigid (<span class="ru">жесткая</span>)</td><td>strict map without conditions or parallel branches; fixed performers for every point</td></tr>
+<tr><td>Free (<span class="ru">свободная</span>)</td><td>performers of a point are not set in the map; they are chosen by code or interactively during the life cycle</td></tr>
+<tr><td>Conditional (<span class="ru">условная</span>)</td><td>the map checks conditions and takes a branch; binary (yes / no) or multiple (choice of a variant)</td></tr>
+<tr><td>Parallel (<span class="ru">параллельная</span>)</td><td>the process splits into branches that advance independently and may be joined (waited for) later</td></tr>
+</table>
+<p>Real maps usually mix all four.</p>
+
+<h2 id="s4">13.4 Addressing system</h2>
+<p>The key idea of the mechanism: tasks can be addressed not only to a person but to a <b>role</b> (role routing, <span class="ru">ролевая адресация</span>) - a set of rules in the metadata that finds the final performer from his roles, department and other addressing attributes.</p>
+<h3>Vocabulary</h3>
+<ul>
+<li><b>Addressing attributes of a task</b> (<span class="ru">реквизиты адресации</span>): the dimensions of the address space of the business domain (employee, role, department ...).</li>
+<li><b>Main addressing attribute</b> (<span class="ru">основной реквизит адресации</span>): the one attribute that means the concrete performer (the employee).</li>
+<li><b>Dereferencing</b> (<span class="ru">разыменование</span>): finding the main attribute from the other attributes.</li>
+<li><b>Addressing register</b> (<span class="ru">Адресация</span>): an information register that stores the current match of performers to departments, work groups, functions ... i.e. to all the other attributes.</li>
+<li>A concrete performer is determined by three task properties: <i>Addressing</i>, <i>Main addressing attribute</i>, <i>Current performer</i>.</li>
+</ul>
+<h3>Idea in one example</h3>
+<p>Register rows: <code>Cashier - Ivanov</code>, <code>Manager - Petrov</code>. A process point "Take cash payment" is addressed only to the role <i>Cashier</i>: one task is created (name = point name, role = Cashier, employee = empty). When Ivanov opens his task list he sees it (the register says Ivanov has the role Cashier); Petrov does not.</p>
+<h3>Setting it up - 13 steps of the manual</h3>
+<ol>
+<li>Choose a 3-dimensional address system: employee, role, department.</li>
+<li>Create a catalog for each dimension (Employees, Roles, Departments) and fill predefined values (e.g. Ivanov / Petrov / Sidorov; Cashier / Manager / Head of department / Storekeeper; Accounting / Sales / Warehouse).</li>
+<li>Create the information register with one dimension per catalog, each typed as a reference to that catalog.</li>
+<li>Create the session parameter <i>CurrentPerformer</i> typed as a reference to Employees.</li>
+<li>Initialise that parameter at system start (look the employee up by the user name; the handler is <span class="ru">УстановкаПараметровСеанса</span>).</li>
+<li>Create the task.</li>
+<li>Put the register into the task property <i>Addressing</i>.</li>
+<li>Add the addressing attributes to the task (Employee, Role, Department).</li>
+<li>Type each as a reference to its catalog and link it to the matching register dimension.</li>
+<li>Make <i>Employee</i> the main addressing attribute.</li>
+<li>Create the first business process, set its <i>Task</i> property, draw its route map choosing address values for the points from the predefined catalog data (Fig. 460 of the original shows such a map).</li>
+<li>Create the next process pointing at the same task.</li>
+<li>Draw its map, and so on.</li>
+</ol>
+<div class="note">Rule: a task type is usually created once and shared by all business processes of the configuration.</div>
+
+<h2 id="s5">13.5 Starting a business process</h2>
+<p>A process starts by the method <code>Start()</code> (<span class="ru">Старт</span>) or by the form button "Start and close". A process can be written without being started (e.g. when the start is triggered later by an event). Programmatic pattern: create the object, fill the date, <code>Write()</code>, <code>Start()</code>.</p>
+<table>
+<tr><th>#</th><th>Platform does</th><th>Your handler</th></tr>
+<tr><td>1</td><td></td><td><code>BeforeStart</code> of the start point (<span class="ru">ПередСтартом</span>)</td></tr>
+<tr><td>2</td><td>advance along the map up to the first action point</td><td></td></tr>
+<tr><td>3</td><td>create tasks (see 13.11)</td><td></td></tr>
+</table>
+
+<h2 id="s6">13.6 Executing a task</h2>
+<p><code>ExecuteTask()</code> (<span class="ru">ВыполнитьЗадачу</span>) checks, marks the task done and notifies the process; when conditions are met the process moves to the next route point. All steps run in one transaction:</p>
+<table>
+<tr><th>#</th><th>Platform does</th><th>Your handler</th></tr>
+<tr><td>1</td><td>begin transaction</td><td></td></tr>
+<tr><td>2</td><td></td><td><code>BeforeExecute</code> on the task</td></tr>
+<tr><td>3</td><td></td><td><code>BeforeExecute</code> on the route point</td></tr>
+<tr><td>4</td><td>set task property <i>Executed</i> = True</td><td></td></tr>
+<tr><td>5</td><td></td><td><code>OnExecute</code> on the task</td></tr>
+<tr><td>6</td><td>write the task</td><td></td></tr>
+<tr><td>7</td><td></td><td><code>OnExecute</code> on the route point</td></tr>
+<tr><td>8</td><td>move the process to the next point</td><td></td></tr>
+<tr><td>9</td><td>create tasks of the new point (13.11)</td><td></td></tr>
+<tr><td>10</td><td>commit</td><td></td></tr>
+</table>
+<p class="ru">ПередВыполнением / ПриВыполнении</p>
+
+<h2 id="s7">13.7 Fork and join</h2>
+<ul>
+<li><b>Fork point</b> (<span class="ru">точка разделения</span>): one input, any number of outputs; the outputs run in parallel and independently.</li>
+<li><b>Join point</b> (<span class="ru">точка слияния</span>): the process does not go past it until <i>all</i> incoming branches are finished; it is a stage where all tasks of the forked branches must be done.</li>
+<li>Nesting is allowed: each join synchronizes only the branches of its own fork.</li>
+<li>A fork <b>without</b> a join is allowed (several parallel branches until the end).</li>
+<li>A join <b>without</b> a fork is not allowed; the route map check reports that not all lines entering the join came from a fork.</li>
+</ul>
+
+<h2 id="s8">13.8 Manual control</h2>
+<div class="warn">The "finished" flag of a process and the "executed" flag of a task can be set by hand, bypassing the mechanism. Do it only when all the consequences below are understood.</div>
+
+<h3>13.8.1 "Finished" flag of a process</h3>
+<ul>
+<li>Setting it makes the process finished even if its tasks are open; completing those tasks later no longer moves the process.</li>
+<li>It can be set on a not started process: it can then never be started.</li>
+<li>Clearing it on a finished process does <b>not</b> reopen its tasks: the process is open but has no open task, and it cannot be started again (it counts as started because tasks exist). To really go back, clear the "executed" flag of the right tasks so the process returns to the wanted point.</li>
+</ul>
+
+<h3>13.8.2 "Executed" flag of a task</h3>
+<ul>
+<li>Setting it by hand does <b>not</b> advance the process and does <b>not</b> call <code>BeforeExecute</code> / <code>OnExecute</code> of the task or of its route point. The process may stall: not finished, no open task.</li>
+<li>Clearing it can create a parallel flow: a process with one done and one open task gets two open tasks; each one then moves the process on from its own point; the process finishes when all tasks of both branches are done.</li>
+<li>Clearing it on a task of an already finished process makes the task show as open in lists, but executing it does not move the process.</li>
+</ul>
+
+<h3>13.8.3 Deleting tasks</h3>
+<ul>
+<li>Deleting the open tasks of an unfinished process may stall it (not finished, nothing active).</li>
+<li>Tasks are used to draw the <i>real</i> route map (passed and active points), so deleting them makes the picture wrong or contradictory.</li>
+<li>Deleting <b>all</b> tasks of an unfinished process turns it back into "not started".</li>
+</ul>
+
+<h3>13.8.4 Adding tasks</h3>
+<ul>
+<li>A task added to a finished process: the process stays finished; executing the task does not move it.</li>
+<li>A task added to a not started process: the process becomes "started", and executing the task advances it along the map.</li>
+<li>A task added to a started, unfinished process: the process becomes parallel.</li>
+</ul>
+
+<table>
+<tr><th>Manual action</th><th>Result</th></tr>
+<tr><td>Set "finished" on a process</td><td>stops it; open tasks no longer move it; no handler but BeforeWrite / OnWrite runs</td></tr>
+<tr><td>Clear "finished"</td><td>process open, tasks stay done: stalled unless "executed" is also cleared on a task</td></tr>
+<tr><td>Set "executed" on a task</td><td>no movement, no handlers</td></tr>
+<tr><td>Clear "executed" on a task</td><td>process may get a parallel flow; on a finished process nothing moves</td></tr>
+<tr><td>Delete open tasks</td><td>may stall; wrong route picture</td></tr>
+<tr><td>Delete all tasks</td><td>process becomes "not started"</td></tr>
+<tr><td>Add a task</td><td>see 13.8.4</td></tr>
+</table>
+
+<h2 id="s9">13.9 Conditional transition</h2>
+<p>A <b>conditional point</b> branches the process by a yes / no result. The handler <i>Condition check</i> (<span class="ru">ПроверкаУсловия</span>) is mandatory; the route map check warns if it is missing. The handler sets <code>Result</code>: True goes by the "Yes" branch, otherwise by "No"; the default is False. Typical body: compare two values and set the result accordingly (the original example limits an invoice discount against the usual discount). For many outcomes, a chain of conditional points works but the <i>choice</i> point (13.10) is better.</p>
+
+<h2 id="s10">13.10 Choice of a variant</h2>
+<p>A <b>choice point</b> (<span class="ru">точка выбора варианта</span>) picks one of several paths. The handler <i>Choice of variant</i> (<span class="ru">ВыборВарианта</span>) is mandatory; the map check warns when it is missing. The handler must set <code>Result</code> to one of the variants declared in the point (e.g. by payment kind: cash, non-cash, offset, credit; the kind is an attribute of the process). If <code>Result</code> is not set, an error is raised and the transaction in which the choice ran is rolled back.</p>
+
+<h2 id="s11">13.11 Creating tasks</h2>
+<ul>
+<li>Tasks are created only when the process enters an <b>action point</b> or a <b>nested process point</b>. Other points (condition, fork, join, processing ...) run their action and pass on at once.</li>
+<li>A point can create one or many tasks. Many tasks are made when the point has the flag <b>group</b> (<span class="ru">групповая</span>): the process selects all rows of the Addressing register that match the point's attributes and creates one task per row. Example: point addressed to the role Cashier, register has two Cashier rows (Ivanov, Petrov) -> two tasks, each with both role and final performer set. So, for group points the role routing is applied only once, at the moment the list of tasks is built.</li>
+</ul>
+<table>
+<tr><th>#</th><th>Platform does</th><th>Your handler</th></tr>
+<tr><td>1</td><td>begin transaction</td><td></td></tr>
+<tr><td>2</td><td></td><td><code>BeforeCreateTasks</code> (<span class="ru">ПередСозданиемЗадач</span>)</td></tr>
+<tr><td>3</td><td>build the list of tasks</td><td></td></tr>
+<tr><td>4</td><td></td><td><code>OnCreateTasks</code> (<span class="ru">ПриСозданииЗадач</span>)</td></tr>
+<tr><td>5</td><td>write all created tasks</td><td></td></tr>
+<tr><td>6</td><td></td><td><code>BeforeWrite</code> of each task</td></tr>
+<tr><td>7</td><td>write the task</td><td></td></tr>
+<tr><td>8</td><td></td><td><code>OnWrite</code> of each task</td></tr>
+<tr><td>9</td><td>commit</td><td></td></tr>
+</table>
+<ul>
+<li><b>Step 2</b>: the handler gets an empty array, so you can fill it yourself and set <code>StandardProcessing = False</code> to skip the standard way.</li>
+<li><b>Step 3</b>: if <code>StandardProcessing</code> is still True, the process dereferences the point's addressing attributes and builds one task (or a list, for group points, e.g. all employees of a department).</li>
+<li><b>Step 4</b>: tasks are not written yet - tune them here (deadline, priority, extra attributes) or add more tasks.</li>
+<li><b>Step 5</b>: if <code>Cancel = True</code> was returned, task creation is interrupted and an exception is thrown - for <code>Start()</code> this cancels the start. Otherwise every task is written (steps 6-8).</li>
+</ul>
+<p>Attributes filled automatically: name = name of the route point; reference to the process instance; reference to the route point; addressing attributes copied from the point.</p>
+
+<h2 id="s12">13.12 Execution check</h2>
+<p>Tasks may be completed by automatic procedures, not only by users (e.g. a task "post the document" is closed when a watcher sees the document posted). The task method <code>CheckExecution()</code> (<span class="ru">ПроверитьВыполнение</span>) and its handlers serve this. Typical use: <i>if the check returns True, call ExecuteTask()</i>.</p>
+<table>
+<tr><th>#</th><th>Platform does</th><th>Your handler</th></tr>
+<tr><td>1</td><td>handle the call</td><td></td></tr>
+<tr><td>2</td><td></td><td><code>ExecutionCheckProcessing</code> of the task (<span class="ru">ОбработкаПроверкиВыполнения</span>); if <code>Result = False</code> the method returns False at once</td></tr>
+<tr><td>3</td><td></td><td>the same handler of the route point</td></tr>
+<tr><td>4</td><td>return the result of step 3; if True, <code>ExecuteTask()</code> may be called</td><td></td></tr>
+</table>
+
+<h2 id="s13">13.13 Executing nested processes</h2>
+<p>A route map may start <b>nested</b> business processes. The parent waits until the nested one ends, only then moves to the next point. Entering a "nested business process" point:</p>
+<table>
+<tr><th>#</th><th>Platform does</th><th>Your handler</th></tr>
+<tr><td>1</td><td>begin transaction</td><td></td></tr>
+<tr><td>2</td><td></td><td><code>BeforeCreateNestedProcesses</code></td></tr>
+<tr><td>3</td><td></td><td><code>BeforeCreateTasks</code> of the point</td></tr>
+<tr><td>4</td><td>if StandardProcessing, build the tasks array</td><td></td></tr>
+<tr><td>5</td><td></td><td><code>OnCreateTasks</code></td></tr>
+<tr><td>6</td><td>write the tasks; create the array of nested processes</td><td></td></tr>
+<tr><td>7</td><td></td><td><code>OnCreateNestedProcesses</code></td></tr>
+<tr><td>8</td><td>write and start the nested processes</td><td></td></tr>
+<tr><td>9</td><td>commit</td><td></td></tr>
+</table>
+<ul>
+<li>Step 2: the array of processes arrives empty; adding your own processes cancels the standard generation.</li>
+<li>Step 3: an empty array of tasks arrives. If standard processing is kept, it is cleared and refilled - <b>one task per started nested process</b>, with name, process reference and route point set.</li>
+<li>Step 5: tune or add tasks.</li>
+<li>Step 6: tasks are written, then for each task a nested process of the type set in the point is created, with date and a reference to the <b>leading task</b> (<span class="ru">ведущая задача</span>).</li>
+<li>Step 7: tune, delete or add nested processes; they are written after the handler ends. Their number equals the number of tasks after step 5.</li>
+</ul>
+
+<h2 id="s14">13.14 Finishing a business process</h2>
+<ul>
+<li>The process becomes finished (<i>Finished = True</i>) automatically when it reaches an end point <b>and</b> has no open tasks.</li>
+<li>A nested process (has a leading task) marks the leading task as executed when it finishes, which moves the parent on.</li>
+<li>On entering the end point the handler <code>OnFinish</code> (<span class="ru">ПриЗавершении</span>) runs. With <code>Cancel = True</code> (e.g. conditions not met) processing stops and the task whose execution led to the end point stays open.</li>
+<li>Setting <i>Finished = True</i> by code or interactively aborts a process or removes it from the list of active ones. Only <code>BeforeWrite</code> and <code>OnWrite</code> run; the leading task is not executed.</li>
+</ul>
+
+<h2 id="s15">13.15 Standard attributes</h2>
+<table>
+<tr><th>Business process attribute</th><th>Type</th></tr>
+<tr><td>DeletionMark</td><td>Boolean</td></tr>
+<tr><td>Number</td><td>String or Number</td></tr>
+<tr><td>Date</td><td>Date</td></tr>
+<tr><td>Completed (Finished)</td><td>Boolean</td></tr>
+<tr><td>HeadTask (leading task)</td><td>TaskRef.&lt;task name&gt;</td></tr>
+<tr><td>Ref</td><td>BusinessProcessRef.&lt;process name&gt;</td></tr>
+</table>
+<table>
+<tr><th>Task attribute</th><th>Type</th></tr>
+<tr><td>DeletionMark</td><td>Boolean</td></tr>
+<tr><td>Number</td><td>String or Number</td></tr>
+<tr><td>Date</td><td>Date</td></tr>
+<tr><td>Description (name)</td><td>String</td></tr>
+<tr><td>Executed</td><td>Boolean</td></tr>
+<tr><td>BusinessProcess</td><td>BusinessProcessRef.&lt;process name&gt;</td></tr>
+<tr><td>RoutePoint</td><td>route point reference (the manual lists a business-process reference type here)</td></tr>
+<tr><td>Ref</td><td>TaskRef.&lt;task name&gt;</td></tr>
+</table>
+
+<h2 id="s16">13.16 Business processes with several start points</h2>
+<ul>
+<li>Several start points mean the start point is chosen by conditions <b>outside</b> the process. If the process itself has all the information, use one start point followed by a condition or choice point.</li>
+<li>With several start points, <code>Start()</code> must get the concrete point, otherwise an error is raised. So: (1) define interactive start commands that pass the right point; (2) if the process is nested in others, write the <code>OnCreateNestedProcesses</code> handler of those points so that it writes and starts every created process from the needed point (loop over the array: write, then start with the chosen point, e.g. a "simplified approval" point).</li>
+<li>Otherwise they work like ordinary processes.</li>
+</ul>
+
+<h2 id="s17">13.17 Feedback from other objects</h2>
+<p>Documents, catalog items and other objects can take part in processes and influence them: e.g. posting a document must execute the waiting task automatically (also: setting a discount on an invoice, reserving goods). The mechanism does not need big changes of the applied solution: the reaction is configured without changing those objects much.</p>
+<p>The manual's example, for "the task needs a posted document":</p>
+<ol>
+<li>The document form notifies of the posting (after write, if it was a posting, send a notification with the document reference).</li>
+<li>Register a notification handler at system start (in the managed application module).</li>
+<li>The handler calls a server common module method (e.g. <i>WorkWithBusinessProcesses</i>) that queries the tasks of that document (<i>Task.Task.TasksByPerformer</i>, filter by the document attribute), and for each runs <code>CheckExecution()</code> and, if True, <code>ExecuteTask()</code>.</li>
+</ol>
+<p>Another way: a <b>scheduled job</b> that selects tasks of a performer on a schedule, checks them and executes the ones that pass.</p>
+
+<h2 id="s18">13.18 Route map</h2>
+<p>The map describes the logic and whole life cycle from start to end as a diagram of linked route points. It is edited in the configurator: tab <i>Other</i> of the process editor -> button <b>Route map</b>. Details are in Chapter 31 "Development tools" of the guide (link in the original; not read here).</p>
+<p>Route point kinds met in this chapter: start, action, condition, choice of variant, fork, join, nested process, processing (automatic), end.</p>
+
+<h2 id="s19">13.19 Configuring a business process</h2>
+<p>Any number of business process kinds can be created. Structure, forms and route map are set in the configurator; properties are edited in the property palette or the object editor (see Chapter 2 of the guide; not read here).</p>
+<table>
+<tr><th>Property</th><th>Meaning</th></tr>
+<tr><td>Task</td><td>mandatory reference to an existing task object; tasks are used to give assignments to performers or start nested processes. Missing -> saving the configuration fails: "business process task is not selected"</td></tr>
+<tr><td>Autonumbering</td><td>new process gets a number automatically; it may be edited</td></tr>
+<tr><td>Number length</td><td>max length; may be 0 if numbers are not used</td></tr>
+<tr><td>Number type</td><td>Number or String (as for a document); string is handy for complex schemes with letters and separators</td></tr>
+<tr><td>Uniqueness check</td><td>the number is checked for uniqueness within the limit set by <i>Periodicity</i></td></tr>
+<tr><td>Periodicity</td><td>limit of the uniqueness check and the period after which autonumbering restarts from 1</td></tr>
+<tr><td>Privileged mode on task creation (tab <i>Rights</i>)</td><td>if on, creating tasks runs in privileged mode (server / file mode; not when run by a thick client in client-server mode). New processes get True when the main launch mode of the configuration is "managed application", False for "ordinary"</td></tr>
+<tr><td>Attributes</td><td>extra attributes for additional information</td></tr>
+<tr><td>Tabular sections</td><td>for list-like properties: documents to approve, resolutions, participants</td></tr>
+</table>
+
+<h2 id="s20">13.20 Configuring a task</h2>
+<p>Tasks give and execute assignments; created by users or by processes. A task can be used alone or by processes of several kinds, but normally one task type serves all process types. Every task has number, date, time and name; when a process creates it, the name equals the name of the route point. Several list / choice / view / edit forms can exist.</p>
+<table>
+<tr><th>Property</th><th>Meaning</th></tr>
+<tr><td>Addressing</td><td>a non-periodic information register whose dimensions are linked to the task's addressing attributes; allows value of the main attribute to be found from register data, i.e. direct <i>and</i> role addressing</td></tr>
+<tr><td>Main addressing attribute</td><td>the attribute that holds the concrete performer; if it is empty, it is derived from the register (property <i>Addressing</i>)</td></tr>
+<tr><td>Current performer</td><td>reference to the session parameter storing the current performer; e.g. the default for the <i>Performer</i> field of a task list</td></tr>
+<tr><td>Addressing attributes (sub-objects)</td><td>type and size of the address space; one may be main; each can be linked to a register dimension</td></tr>
+<tr><td>Task number auto-prefix</td><td><i>Do not use</i> or <i>Business process number</i> (a new task number is extended by the number of its process)</td></tr>
+<tr><td>Number length / type, uniqueness check, autonumbering</td><td>same meaning as for processes (13.19)</td></tr>
+<tr><td>Tabular sections</td><td>for list-like data, e.g. documents to approve</td></tr>
+</table>
+
+<h2 style="font-size:22px;margin-top:48px">Part B - 1C:Document Management (an application on the platform)</h2>
+<p>Source: the "Processes and tasks" article of the 1C:Document Management developer guide (PROF / CORP / DGU, dated 2016-02-20). Part A explains the platform; here is how a big product turns it into something usable. Names of metadata objects are given in English with the original in grey.</p>
+
+<h2 id="b0">B0 Overview and workplaces</h2>
+<p>The block automates how users cooperate. It offers a set of <b>simple typical processes</b> from which bigger ones are built. Every simple process creates tasks; executing the tasks moves the process along its route map; the process is finished when all its tasks are done.</p>
+<table>
+<tr><th>Kind</th><th>What it is</th></tr>
+<tr><td>Simple, one performer</td><td>one task for one person</td></tr>
+<tr><td>Simple, several performers</td><td>some of them allow an <b>order of execution</b>: it decides when the task of a given performer is created (steps; performers of one step work in parallel)</td></tr>
+<tr><td>Complex (<span class="ru">КомплексныйПроцесс</span>)</td><td>built from simple processes, with a configurable order and conditions, in the "Enterprise" mode</td></tr>
+<tr><td>Composite (<span class="ru">составной</span>)</td><td>built from simple processes too, but the order is fixed and cannot be changed by the user. Three exist: handling of internal, incoming and outgoing documents</td></tr>
+</table>
+<p>The simple processes of the product (translated): Execution, Assignment, Familiarization, Invitation, Review, Registration, Agreement, Sign-off, plus "Solving questions of task execution" and the three composite document-handling processes. One task object serves all of them (<i>PerformerTask</i>).</p>
+<h3>Workplaces (lists the user opens)</h3>
+<table>
+<tr><th>Workplace</th><th>Content</th></tr>
+<tr><td>My processes</td><td>processes whose author is me. Not shown: Familiarization, "solving questions", and processes that are only an action inside a complex one (e.g. an Agreement inside a complex process)</td></tr>
+<tr><td>Process list</td><td>all processes available to the user</td></tr>
+<tr><td>Tasks for me</td><td>my tasks including role tasks and delegated tasks</td></tr>
+<tr><td>Tasks from me</td><td>tasks where I am the author</td></tr>
+<tr><td>All tasks</td><td>all available tasks (filter by route point exists)</td></tr>
+<tr><td>Department tasks</td><td>tasks of subordinates by the enterprise structure</td></tr>
+<tr><td>Process creation assistant</td><td>form with the processes available to start; opened from Main - Create - Process and from the "Send" / "Subtasks" menus of lists and cards</td></tr>
+</table>
+
+<h2 id="b1">B1 How the processes work</h2>
+<p>Behaviour of every process is defined by its route map; each route point has handlers with the code. See Part A for the platform side.</p>
+<div class="note"><b>Deliberate break of the platform logic - Familiarization tasks.</b> For Invitation, Review, Registration, Agreement and Sign-off the "familiarize with the result" task may be created <i>after</i> the process finished, which the platform logic does not expect. Reason: if the result is positive (e.g. all agreed, no remarks) the author has nothing more to do with the subjects, and when the process is only a step of a complex process, its positive end must not wait for the author - the complex process must go to its next step at once.</div>
+<ul>
+<li>How it is done: in the handler <code>BeforeCreateTasks</code> of the Familiarization point the standard processing is switched off; when the result is "agreed" and the process is nested in a complex process (the type of the leading task's process says so), the handler just returns. The task is then created in <code>OnFinish</code> of the End point under the opposite condition: agreed + nested in a complex process -> create the task, add a row to the table of familiarization results (with the iteration number), write the process in "simple write" mode.</li>
+<li>Tip from the guide: to switch the familiarization task off completely during an implementation, comment out the code that creates it.</li>
+</ul>
+
+<h2 id="b2">B2 Complex processes</h2>
+<ul>
+<li>The route map of a complex process only makes it <b>finish</b> when all sub-actions are done. The order in which actions are created lives <b>outside</b> the map.</li>
+<li>Starting of sub-actions is decided by the procedure <code>StartNewActions</code> (<span class="ru">СтартоватьНовыеДействия</span>) in the object module of the complex process. It is called first on entering the route point "Execute all actions of the process", and later each time the leading task of an action is executed (event subscription <code>ComplexProcessTaskOnExecute</code>, <span class="ru">ЗадачаКомплексногоПроцессаПриВыполнении</span>).</li>
+<li>That procedure picks the next actions according to the configured order and routing conditions (B7).</li>
+</ul>
+<div class="warn">Advice of the guide: do not change the standard behaviour of complex processes - the logic is intricate.</div>
+
+<h2 id="b3">B3 Role routing</h2>
+<ul>
+<li>A performer can be a user or a <b>role</b>. Each role can have several performers.</li>
+<li>When a process starts for a role, <b>one</b> task is created; all performers of the role see it, any one may execute it.</li>
+<li>Roles are edited in a dedicated form: <i>Process management - Performer roles</i>.</li>
+<li>Each role may have up to <b>two addressing objects</b> - an extra cut of data (organization, department ...) so the same role can be used for different organizations. A role task that has addressing objects can be executed only by performers of the role <i>with the same objects</i>. Example: a task for role "Secretary" and organization "Mercury Project LLC" cannot be done by a Secretary of another organization or by one without an object.</li>
+</ul>
+<table>
+<tr><th>Object</th><th>Use</th></tr>
+<tr><td>Catalog <code>PerformerRoles</code> (<span class="ru">РолиИсполнителей</span>)</td><td>list of roles</td></tr>
+<tr><td>Information register <code>TaskPerformers</code> (<span class="ru">ИсполнителиЗадач</span>)</td><td>who has which role (with addressing objects)</td></tr>
+<tr><td>Chart of characteristic types <code>TaskAddressingObjects</code> (<span class="ru">ОбъектыАдресацииЗадач</span>)</td><td>allowed cuts: Correspondents, Projects, Enterprise structure, Organizations</td></tr>
+<tr><td>Catalogs Users, Roles, Correspondents, Projects, Enterprise structure, Organizations</td><td>the values</td></tr>
+</table>
+<p>This is the standard platform addressing system of Part A, section 13.4. To add your own cut: widen the type and add predefined items in <code>TaskAddressingObjects</code>.</p>
+
+<h2 id="b4">B4 Process templates</h2>
+<ul>
+<li>A <b>template</b> is the settings from which a process is started. Almost every process has templates. Workplace: <i>Process management - Process templates</i>.</li>
+<li>A template can be assigned to several <b>kinds of documents</b>; when a process is created from a document those templates are shown as recommended in the assistant.</li>
+<li>Templates sit in catalogs <code>Templates&lt;ProcessName&gt;</code>. The same catalogs hold hidden <b>service templates</b> - the settings of the actions inside complex-process templates. So a list may show 1 complex template while a query returns thousands of rows.</li>
+<li>Filling a process from a template: <code>FillFromTemplate</code> (<span class="ru">ЗаполнитьПоШаблону</span>) in the object module; used (1) by the creation assistant, (2) at interactive start, (3) by "fill from template" in the process card. Other fill logic (from a project, a project task) lives in <code>FillingProcessing</code> (<span class="ru">ОбработкаЗаполнения</span>). To understand a case, put a breakpoint into <code>FillFromTemplate</code> and read the call stack.</li>
+<li>Extra method <code>FillFromTemplateAndSubject</code>: unused in the standard configuration, meant for creating processes by code in your own extensions.</li>
+</ul>
+
+<h2 id="b5">B5 Subjects of processes and tasks</h2>
+<p>The data that people work on, or that is the result of the work, are called <b>subjects</b> (<span class="ru">предметы</span>). Any number per process or task. Each subject has a role for the process:</p>
+<table>
+<tr><th>Subject role</th><th>Behaviour</th></tr>
+<tr><td>Main</td><td>cannot be deleted in tasks</td></tr>
+<tr><td>Auxiliary</td><td>the role that every subject added in a task gets; can be deleted in the task card</td></tr>
+<tr><td>Fillable</td><td>can be cleared in the task card</td></tr>
+</table>
+<ul>
+<li>Subjects can be added to a process, a template or a task. In a process any role allowed for that subject type may be chosen (allowed roles are set in code). In a <b>template</b> a subject is only a setting (no concrete object reference).</li>
+<li><b>Visibility</b> of subjects in tasks is set in the template and copied to the process: a subject can be visible in the process card but hidden in the task.</li>
+<li>Adding a subject to a process passes it to the open sub-tasks. In a complex process it is <i>not</i> passed to already started actions; all the other actions start with the new set; visibility can be configured for not started actions.</li>
+<li>Adding a subject to a task passes it only to its own process and that process's tasks; a process created from a task inherits the task's subjects.</li>
+<li><b>Files</b> added from disk are inseparable from the process and its tasks and are never passed to other processes. To pass a file on, first put it into the file storage and add it from there.</li>
+</ul>
+<table>
+<tr><th>Storage</th><th>Meaning</th></tr>
+<tr><td>Tabular section <code>Subjects</code> (<span class="ru">Предметы</span>) of processes and tasks, kept in sync</td><td>sync is by name: <code>SubjectName</code> (ref to catalog <code>SubjectNames</code>), the object itself <code>Subject</code>, the role <code>SubjectRole</code> (ref to enumeration <code>SubjectRoles</code>)</td></tr>
+<tr><td>Tabular section <code>TaskSubjects</code></td><td>at which route point a subject is visible</td></tr>
+<tr><td>Common modules <code>Multisubject&lt;...&gt;</code></td><td>all procedures of this mechanism</td></tr>
+</table>
+<div class="warn">Advice of the guide: do not change the standard behaviour of subjects - the logic is intricate.</div>
+
+<h2 id="b6">B6 Starting processes</h2>
+<ol>
+<li>General command <i>Main - Create - Process</i>.</li>
+<li>From an object or a task: menus <i>Send</i> or <i>Subtasks</i> in lists and cards.</li>
+<li>Interactive start: while doing an action in a document card; a special form shows only the processes assigned to the kind of that document.</li>
+<li>Fully automatic start on events, with no user (mechanism of business events; rules in register <code>BusinessProcessAutoStartRules</code>).</li>
+</ol>
+<p>Ways 1 and 2 use the <b>process creation assistant</b> (common form <code>CreateBusinessProcess</code>); its client entry is <code>OpenMainProcessCreationAssistant</code> in the client common module <code>WorkWithBusinessProcessesClient</code>. The guide points to separate articles "Business processes" and "Auto-start of business processes" for details (not linked from the page; not read).</p>
+
+<h2 id="b7">B7 Routing conditions</h2>
+<p>When setting the order of actions of a complex process, or the performers of a multi-performer process, one often needs to include or exclude an action or a performer at run time. For that there are <b>routing conditions</b>, set up by the person responsible for processes, in the Enterprise mode.</p>
+<ul>
+<li>A condition can be built with a constructor (data composition), written as 1C code, or combined from other conditions.</li>
+<li>Complex process: checked during routing; a failed condition means the sub-process (action) is not created.</li>
+<li>Simple multi-performer process: checked when the process is created; a failed condition removes that performer.</li>
+<li>Storage: catalog <code>RoutingConditions</code>; checking: common module <code>WorkWithRoutingConditions</code>.</li>
+</ul>
+
+<h2 id="b8">B8 Background execution</h2>
+<p>To keep the program responsive there are three background mechanisms, each switched by a constant and served by a scheduled job:</p>
+<table>
+<tr><th>Mechanism</th><th>Queue</th><th>Job</th><th>Switch</th></tr>
+<tr><td>Background <b>start</b> of processes</td><td>register <code>ProcessesToStart</code></td><td><code>ProcessStart</code>; deferred start: <code>StartDeferredProcesses</code></td><td>constant <code>UseBackgroundProcessStart</code></td></tr>
+<tr><td>Background <b>task execution</b></td><td>register <code>TasksToExecute</code></td><td><code>TaskExecution</code></td><td>constant <code>UseBackgroundTaskExecution</code></td></tr>
+<tr><td>Background <b>routing of complex processes</b></td><td>register <code>ComplexProcessRoutingQueue</code></td><td><code>BackgroundComplexProcessRouting</code></td><td>constant <code>UseBackgroundComplexProcessRouting</code></td></tr>
+</table>
+<ul>
+<li><b>Start:</b> the user creates and writes the process and it is put in the queue; the server job starts it. On success it leaves the queue; on failure the user gets an application notification. Procedures are in common modules <code>ProcessStart&lt;...&gt;</code>.</li>
+<li><b>Task execution:</b> same idea; procedures in <code>TaskExecution&lt;...&gt;</code>.</li>
+<li><b>Complex routing</b> is different: after each action finishes (task executed) a <b>fictitious task</b> (no performers, never shown) is created for the parent complex process, which stops it, and the action is put in the queue (done in the subscription <code>ComplexProcessTaskOnExecute</code>). The job, for every queue row, finds and starts the next actions, executes the fictitious task (so the complex process can finish if nothing is left), deletes it directly, and removes the queue row.</li>
+</ul>
+<h3>Troubleshooting (guide's advice)</h3>
+<ul>
+<li>Errors reach the author / performer as application notifications, so they can tell the administrator in time. Causes range from a code bug to a wrongly designed action of a complex process; the message usually says what is wrong.</li>
+<li>To diagnose: disable the scheduled job, write a data processor that calls the job's procedure, run it in a full-rights user session, investigate in the Configurator.</li>
+<li>To keep working while investigating: switch the background constants off - new processes and tasks then run in user sessions - and run the job code by hand.</li>
+<li>Background execution works only in the <b>client-server</b> mode; background <i>task</i> execution may also be used in the file mode when a distributed infobase is used.</li>
+</ul>
+
+<h2 id="b9">B9 Executing tasks by e-mail</h2>
+<ol>
+<li>The user gets a notification of a new task; it contains special links, one for each result button of the task.</li>
+<li>Clicking a link opens a new letter (address filled in); the user writes a comment and sends it.</li>
+<li>The program receives the letter, finds the task from its content and executes it.</li>
+</ol>
+<ul>
+<li>Notifications use the standard notification mechanism; special subject and text (built in <code>WorkWithNotifications</code>, search for <code>TaskExecutionByMailServer</code>).</li>
+<li>Procedures: common modules <code>TaskExecutionByMail&lt;...&gt;</code>. Replies are processed by job <code>TaskExecutionByMail</code>; each result is logged in register <code>TaskExecutionByMailLog</code> (results in enumeration <code>TaskByMailExecutionResult</code>). Constant: maximum size of attachments in such notifications.</li>
+<li>To customize: the text is made by <code>FormTaskNotificationTextWithMailExecution</code> in module <code>TaskExecutionByMailServer</code>; the answer variants by functions <code>AnswerVariantsForTaskExecutionByMail</code> in the process object modules.</li>
+</ul>
+
+<h2 id="b10">B10 Processes in a distributed infobase (RIB)</h2>
+<p>With the exchange plan <i>Full</i>, processes and tasks are exchanged in a special way.</p>
+<h3>General rules</h3>
+<ul>
+<li>Every process has a <b>master node</b> - the node where it was created and started. Stored in the attribute <code>ExchangeNode</code> (a unique node id, equal to <code>NodeID</code> of the exchange plan).</li>
+<li><b>Progress</b> (executing tasks and routing complex processes, which hangs on leading tasks) happens only at the master node. This removes collisions and hung processes when tasks are executed in different nodes.</li>
+<li>Data is merged by custom logic; the standard collision handling of the platform is switched off.</li>
+</ul>
+<h3>Limits and side effects</h3>
+<ul>
+<li>The process card can be edited only at the master node.</li>
+<li>A change of performers is stored only in the node where it was made, and becomes current in all nodes after the task is executed at the master.</li>
+<li>If a task is executed in two nodes, the result that reaches the master first and gets processed wins.</li>
+<li>Deleted subjects can come back (a subject can appear again after deletion); for Agreement and Invitation also excluded performers can be restored.</li>
+</ul>
+<h3>How it works</h3>
+<ul>
+<li>A node id is created on the first write of the node of plan <i>Full</i>. A process gets <code>ExchangeNode</code> on its first write, in the subscription <code>BeforeBusinessProcessWrite</code>.</li>
+<li>Background start: processed by the jobs <code>ProcessStart</code> and <code>StartDeferredProcesses</code> only at the master; the current node is found by <code>ThisExchangeNodeForProcessHandling</code> in <code>WorkWithBusinessProcesses</code>. Without background start a process starts at once.</li>
+<li>Tasks are <b>always</b> executed by the background mechanism; jobs <code>TaskExecution</code> and <code>TaskExecutionByMail</code> skip tasks whose process belongs to another node. The same for <code>BusinessProcessRepeat</code> and <code>BackgroundComplexProcessRouting</code>.</li>
+<li>Receiving data from the main and from a subordinate node is handled the same way (overridden in <code>OnReceiveDataFromMaster</code> / <code>OnReceiveDataFromSlave</code> of plan <i>Full</i>), with a per-process procedure <code>HandleRIBProcessReceive</code> in each process's manager module.</li>
+</ul>
+<table>
+<tr><th>Where the process is received</th><th>Rule</th></tr>
+<tr><td>Master node</td><td>incoming data is <b>ignored</b>, except that subjects the local process lacks are added (changes are then registered for all known nodes). Otherwise the incoming process is compared with the local one, ignoring attributes with performers (and in some processes the Author); any difference makes the master register its own data for the other nodes. So the master rejects foreign changes and re-publishes its own data.</td></tr>
+<tr><td>Other node</td><td>accepted fully if the process is finished; accepted fully except controller attributes if the iteration changed; otherwise all data except performers and subjects: subjects are merged, performers are kept (in the execution point) or taken, with the execution result, from the object that is at the check point (the existing one is preferred).</td></tr>
+<tr><td>Task (any node)</td><td>the same, but tasks have no iteration and no route points: performers from other nodes are taken only when the task is executed</td></tr>
+</table>
+<p>Execution at a non-master node: the actual result, performer etc. travel through the background mechanism. When the task is put into <code>TasksToExecute</code>, the execution parameters are stored with it (a structure packed into a value storage in the resource <code>Parameters</code>); the master unpacks them in <code>TaskExecutionServer.ExecuteTaskWithParameters</code>, <code>HandleBeforeTaskExecution</code>, <code>HandleAfterTaskExecution</code> (process manager module) and in <code>BeforeWrite</code> of the process object (search for <code>CurrentTask</code>).</p>
+<h3>Possible problem</h3>
+<p>Before version 2.0.8 processes in RIB were not tied to nodes. On upgrade, node ids are filled and processes are mapped to the current node <b>by the author</b>: if the author has an infobase user, all his processes go to the current node. If one directory user has infobase users in two or more nodes (an error in itself: one directory user must map to exactly one infobase user), the same processes get tied to two nodes and cannot run. Fix: delete the extra infobase users and update <code>ExchangeNode</code> of the processes in all nodes by your own code; use <code>FillExchangeNodeInProcesses</code> in the common module <code>DocumentManagementInfobaseUpdate</code> as a base.</p>
+<div class="warn">Advice of the guide: do not change the standard behaviour of process execution in RIB.</div>
+
+<h2 id="b11">B11 Access rights</h2>
+<p>Part of the objects is restricted at record level.</p>
+<table>
+<tr><th>Process template</th><th>Read</th><th>Add</th><th>Change</th><th>Delete</th></tr>
+<tr><td>Responsible person</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Workgroup (if filled) / all users (if the workgroup is empty)</td><td>yes</td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<table>
+<tr><th>Process</th><th>Read</th><th>Add</th><th>Change</th><th>Delete</th></tr>
+<tr><td>Author</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Performers (also checkers, controllers), current and former participants</td><td>yes</td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<table>
+<tr><th>Task</th><th>Read</th><th>Add</th><th>Change</th><th>Delete</th></tr>
+<tr><td>Author</td><td>yes</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>Performer</td><td>yes</td><td>-</td><td>yes</td><td>-</td></tr>
+<tr><td>Former performers, process participants</td><td>yes</td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<ul>
+<li>Rights to the action templates of a complex template follow the top-level template; action templates of a complex process are open to all its current and former participants.</li>
+<li>Read access to processes and tasks is derived from the register <code>ProcessParticipants</code> (<span class="ru">УчастникиПроцессов</span>), which lists all current and past participants.</li>
+<li><b>Propagation by hierarchy.</b> A new process (once) gives access to the participants of its parent processes that "influence access to subordinates" (decided by the procedure <code>ProcessParticipantsAffectingAccessToSubordinateObjects</code> of each process manager). On every write, new participants get access to the parent processes. So in a complex process the participants of one sub-process may not see another.</li>
+<li>Role performers, delegates and managers by hierarchy see processes and tasks only <b>while</b> that right (role, delegation, management) is in force; excluded from the role = access lost.</li>
+<li>To give access to specific people for all processes of a document kind, department etc., write code that puts those users / roles into the register (via business events or a scheduled job); the same works for giving all participants of a complex process access to all its sub-actions.</li>
+</ul>
+
+<h2 id="b12">B12 Metadata map of the block</h2>
+<table>
+<tr><th>Kind</th><th>Objects (translated names)</th></tr>
+<tr><td>Business processes</td><td>Execution, Complex process, Handling of internal / incoming / outgoing document, Familiarization, Assignment, Invitation, Review, Registration, Solving questions of task execution, Agreement, Sign-off. Each has a process card form and task forms (named <code>TaskForm...</code>); the task form is chosen in <code>TaskExecutionForm</code> of the process manager, called from the form-getting handler of the task</td></tr>
+<tr><td>Task</td><td><code>PerformerTask</code> - one for the whole block</td></tr>
+<tr><td>Common modules</td><td><code>BusinessProcessesAndTasks...</code> (7 modules; BSP-like but very different), <code>WorkWithBusinessProcesses...</code>, <code>TaskExecution...</code>, <code>TaskExecutionByMail...</code>, <code>InteractiveBusinessProcessStart...</code>, <code>TaskEventHistory</code>, <code>Multisubject...</code>, <code>TaskOverview...</code> / <code>ProcessOverview...</code> (HTML views of cards), <code>TaskDeadlineShifting...</code>, <code>BusinessProcessRepeat...</code>, <code>ComplexBusinessProcess...</code> (forms, subscriptions, jobs), <code>WorkWithRoutingConditions</code>, <code>ProcessStart...</code>, <code>BusinessProcessTemplates...</code> (also auto-substitution of performers; the <i>Overridable</i> module is the place for your own)</td></tr>
+<tr><td>Roles</td><td><i>Add/Change reference data</i> (edit templates, routing conditions), <i>Change/Execute tasks</i> (read and execute available tasks), <i>Control of tasks and processes</i> (full rights), <i>Work with tasks and processes</i> (read tasks, execute; read, change, start processes), <i>Work with tasks of department staff</i> (subordinates by the enterprise structure)</td></tr>
+<tr><td>Event subscriptions</td><td>on write / copy of all processes; business-event registration before / after write; <code>ComplexProcessTaskOnExecute</code> (starts next actions); task on write; write into the common process list (register <code>BusinessProcessData</code>); subject update in unfinished tasks; presentation fields; copying additional attributes of subjects; changes registration for RIB; writing the process result (e.g. Agreed / Agreed with remarks / Not agreed) into register <code>ProcessAndTaskExecutionResults</code></td></tr>
+<tr><td>Scheduled jobs (7)</td><td><code>TaskExecution</code>, <code>TaskExecutionByMail</code>, <code>TaskDeadlineControl</code> (notifications about approaching / overdue deadlines), <code>BusinessProcessRepeat</code>, <code>StartDeferredProcesses</code>, <code>ProcessStart</code>, <code>BackgroundComplexProcessRouting</code></td></tr>
+<tr><td>Functional options / constants</td><td>use of processes and tasks; deadline shifting; "task execution questions"; work schedules in deadline calculation; date and time in deadlines; task redirection; process repetition; event invitations; background start / task execution / complex routing; setting "who is the actual performer" (enumeration of the same name) when the current user is not the task's performer</td></tr>
+<tr><td>Information registers</td><td><code>BusinessProcessData</code> (common list), <code>ChildBusinessProcesses</code> (cache of the process hierarchy), <code>TasksToExecute</code>, <code>TaskPerformers</code>, <code>ProcessTemplateUseInDocumentKinds</code>, <code>TaskExecutionHistory</code> (text), <code>TaskEventHistory</code>, <code>BusinessProcessRepeatSettings</code>, <code>BusinessProcessTemplateSettings</code> (template-to-document-kind, interactive start), <code>ComplexProcessRoutingQueue</code>, <code>BusinessProcessAutoStartRules</code>, <code>TaskExecutionByMailLog</code>, <code>ProcessesToStart</code>, <code>TaskPerformerData</code> (all current and past executions), <code>ProcessParticipants</code></td></tr>
+<tr><td>Catalogs</td><td><code>PerformerRoles</code>, <code>RoutingConditions</code>, templates (Execution, Complex, Familiarization, Assignment, Invitation, Review, Registration, Agreement, Composite, Sign-off)</td></tr>
+<tr><td>Enumerations</td><td>task importance; task routing variants (setting and finding the route in Execution, Agreement and complex processes); review variants; kinds of task-execution questions (2 kinds: deadline-shift requests and task questions); kinds of interactive actions that trigger interactive start; task event kinds; <b>order of task execution</b> (groups performers into steps, parallel inside a step); mail-execution results; results of Invitation / Registration / Agreement / Sign-off; subject roles; <b>process states</b> (to tell stopped and aborted ones); states of tasks in the execution queue; states of processes in the start queue; actual performer</td></tr>
+<tr><td>Reports</td><td>by processes, tasks, executions, deferred processes, assignments, agreements, sign-offs; deadline shifting; plan-vs-fact of agreements; performance discipline certificate; statistics of work on documents; templates</td></tr>
+<tr><td>Other</td><td>common forms (choice forms for processes, templates, performer, role with addressing objects, subjects; wizard; "My processes"; process list; hierarchy by subject; reason of interruption), common commands (route map, process lists, create process, print complex process card / scheme), data processor "Process route map", plan of characteristic types <code>TaskAddressingObjects</code>, criteria of selection "processes by template"</td></tr>
+</table>
+
+<h2 id="bi">Ideas for Universal 1 (suggestions, not facts about our code)</h2>
+<p>What Part B shows that could be reused when we build processes / tasks on top of Supabase. Each line is only a pointer to think about; none of it is decided.</p>
+<table>
+<tr><th>1C idea</th><th>Possible use here</th></tr>
+<tr><td>One task type for all processes; process type = route map + handlers</td><td>one <code>task</code> table with a process kind; the logic per kind in SQL functions</td></tr>
+<tr><td>Role task: one task visible to all performers of the role, any can execute; role scoped by an addressing object (organization, department)</td><td>role + scope (organization / business unit / project); we already have organization scope and catalogs for units and projects</td></tr>
+<tr><td>Queues + scheduled jobs for start, execution, complex routing; constants as switches; "fictitious task" to pause a parent</td><td>same pattern as our <code>monitor01_dirty</code> queue with a worker (<code>monitor01_process_dirty</code>, pg_cron every 2 s) and the safety net when the cron is off</td></tr>
+<tr><td>Template -> process; templates assigned to document kinds and shown as recommended</td><td>process templates tied to our documents (fact input, vendor invoice, purchase order)</td></tr>
+<tr><td>Subjects with roles (main / auxiliary / fillable) and per-task visibility</td><td>a link table process-task-subject (document, task line, project) with a role column</td></tr>
+<tr><td>Participants register as the base of read access (current and former), propagated up the hierarchy</td><td>RLS policy over a participants table, next to <code>pm_owns_project</code> / <code>app_user_guid()</code></td></tr>
+<tr><td>Routing conditions as data (constructor, code, combination)</td><td>conditions stored as rows / expressions evaluated by an SQL function; complex-process actions skipped when false</td></tr>
+<tr><td>Execution by e-mail with one link per result</td><td>signed links per result button, a function that executes the task (no user session needed)</td></tr>
+<tr><td>Master node of a process (one place advances it)</td><td>not needed with one Postgres; a hint to keep a single writer (an RPC) for moving a process on</td></tr>
+</table>
+
+<h2 id="sx">Glossary and cheat sheet</h2>
+<table>
+<tr><th>English (here)</th><th>1C term</th></tr>
+<tr><td>business process</td><td>БизнесПроцесс</td></tr>
+<tr><td>task</td><td>Задача</td></tr>
+<tr><td>route map / route point</td><td>карта маршрута / точка маршрута</td></tr>
+<tr><td>action point / condition / choice / fork / join / nested process / end</td><td>точка действия / условного перехода / выбора варианта / разделения / слияния / вложенного БП / завершения</td></tr>
+<tr><td>addressing register</td><td>регистр сведений Адресация</td></tr>
+<tr><td>addressing attribute / main attribute / dereferencing</td><td>реквизит адресации / основной реквизит / разыменование</td></tr>
+<tr><td>group point</td><td>групповая точка</td></tr>
+<tr><td>leading task</td><td>ведущая задача (ВедущаяЗадача)</td></tr>
+<tr><td>complex / composite process</td><td>комплексный / составной процесс</td></tr>
+<tr><td>subject (main / auxiliary / fillable)</td><td>предмет (основной / вспомогательный / заполняемый)</td></tr>
+<tr><td>process template</td><td>шаблон процесса</td></tr>
+<tr><td>routing condition</td><td>условие маршрутизации</td></tr>
+<tr><td>performer role / addressing object</td><td>роль исполнителя / объект адресации</td></tr>
+<tr><td>master node (RIB)</td><td>мастер-узел (РИБ)</td></tr>
+<tr><td>Process kinds of Part B: Execution, Assignment, Familiarization, Invitation, Review, Registration, Agreement, Sign-off</td><td>Исполнение, Поручение, Ознакомление, Приглашение, Рассмотрение, Регистрация, Согласование, Утверждение</td></tr>
+</table>
+
+<h3>Life cycle in one line</h3>
+<div class="flow">
+<span>Write</span><i>→</i><span>Start()</span><i>→</i><span>BeforeStart</span><i>→</i><span>move to first action point</span><i>→</i><span>BeforeCreateTasks / OnCreateTasks</span><i>→</i><span>task written</span><i>→</i><span>performer: ExecuteTask()</span><i>→</i><span>BeforeExecute / OnExecute</span><i>→</i><span>next point ...</span><i>→</i><span>end point (OnFinish)</span><i>→</i><span>Finished = True</span>
+</div>
+
+<h3>Handlers by object</h3>
+<table>
+<tr><th>Handler</th><th>On</th><th>When</th></tr>
+<tr><td>BeforeStart</td><td>start point</td><td>before <code>Start()</code> leaves the start point</td></tr>
+<tr><td>BeforeCreateTasks / OnCreateTasks</td><td>route point</td><td>before / after the standard list of tasks is built (not yet written)</td></tr>
+<tr><td>BeforeCreateNestedProcesses / OnCreateNestedProcesses</td><td>nested process point</td><td>before / after the standard nested processes are built</td></tr>
+<tr><td>BeforeExecute / OnExecute</td><td>task and route point</td><td>around marking the task executed</td></tr>
+<tr><td>ExecutionCheckProcessing</td><td>task and route point</td><td>inside <code>CheckExecution()</code></td></tr>
+<tr><td>ConditionCheck</td><td>condition point</td><td>decides Yes / No (mandatory)</td></tr>
+<tr><td>ChoiceOfVariant</td><td>choice point</td><td>sets <code>Result</code> to a variant (mandatory)</td></tr>
+<tr><td>OnFinish</td><td>end point</td><td>entering the end point; <code>Cancel = True</code> keeps the process open</td></tr>
+</table>
+
+<h3>Messages and warnings of the route map check</h3>
+<ul>
+<li>Condition point without handler: warning; choice point without handler: warning.</li>
+<li>Join without fork: "not all lines entering the join came out of a fork".</li>
+<li>No task selected for the process: error on saving the configuration.</li>
+</ul>
+
+<div class="note">
+<b>Sources and scope.</b> Read through the signed-in Chrome of the owner on 2026-10-16.
+<br><b>Part A</b>: chapter 13 of the Developer's Guide, 8.3.22 - one document with 20 numbered sections (no deeper pages; 13.8 has four subsections). Two links lead outside the chapter and were <b>not</b> read: the route map editor (Chapter 31, "Development tools") and the property palette (Chapter 2, "Working with the configuration"). Figures 458 (business process schema), 459 (addressing schema), 460 (example route map) are not copied.
+<br><b>Part B</b>: <code>metod8dev/content/5874</code>, one document of about 52 000 characters, whole text read; its one picture (the scheme of complex process start) is not copied. The page mentions the articles "Business processes" and "Auto-start of business processes" without a link; they were not read. The article is from 2016 about the 1C:Document Management 2.x line, so object names may differ in newer versions.
+<br>The section "Ideas for Universal 1" is our own suggestion, not part of the sources.
+</div>
+</main>
+</body>
+</html>

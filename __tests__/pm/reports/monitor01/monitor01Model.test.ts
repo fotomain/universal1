@@ -1,7 +1,7 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
   EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
-  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
+  MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
 
@@ -19,6 +19,22 @@ const sheet = (): Monitor01Row[] => [
   row({ rowOwnerGUID: 't4', taskName: 'task04', genusGUID: 'materialGenus', resourceRoleGUID: 'r2', resourceRoleName: '10m pipe section', measureUnit: 'unit_pcs', qtyPlanned: 200, qtyContracted: 80, sumForBudget: 2000, qtyRestToContract: 120 }),
 ];
 
+describe('the column Ordered (posted purchase orders)', () => {
+  it('it is the first measure of the Fact group, before Delivered', () => {
+    expect([...MONITOR01_MEASURES]).toEqual(['planned', 'contracted', 'restToContract', 'ordered', 'delivered', 'invoiced', 'used', 'onHand']);
+    expect(MONITOR01_MEASURE_FIELD.ordered).toBe('qtyOrdered');
+    expect(MONITOR01_MEASURE_TITLE.ordered).toBe('Ordered');
+    expect(MONITOR01_MEASURE_GROUP.ordered).toBe('Fact');
+  });
+  it('it is summed per unit like the other quantities (hours and pieces are never added)', () => {
+    const t = totalsByUnit([row({ qtyOrdered: 3 }), row({ rowOwnerGUID: 't2', qtyOrdered: 4.5 }), row({ rowOwnerGUID: 't3', measureUnit: 'unit_pcs', qtyOrdered: 10 })]);
+    expect(t.map((x) => [x.unit, x.sums.ordered])).toEqual([['unit_hour', 7.5], ['unit_pcs', 10]]);
+  });
+  it('it has no tone (nothing is critical about a quantity ordered)', () => {
+    expect(cellTone('ordered', row({ qtyOrdered: 5 }))).toBe('none');
+  });
+});
+
 describe('rows', () => {
   it('numeric columns that arrive as strings become numbers; the generated ones are derived when missing', () => {
     const r = parseMonitor01Row(raw({ qtyRestToContract: undefined, qtyOnHand: undefined, qtyDelivered: '20', qtyUsed: '16', qtyPlanned: '24', qtyContracted: '10' }));
@@ -27,6 +43,8 @@ describe('rows', () => {
     expect(r.qtyOnHand).toBe(4);
     expect(parseMonitor01Row(raw({ qtyInvoiced: '8.50' })).qtyInvoiced).toBe(8.5);
     expect(parseMonitor01Row(raw({ qtyInvoiced: undefined })).qtyInvoiced).toBe(0);
+    expect(parseMonitor01Row(raw({ qtyOrdered: '11.00' })).qtyOrdered).toBe(11);
+    expect(parseMonitor01Row(raw({ qtyOrdered: undefined })).qtyOrdered).toBe(0);
     expect(r.periodMonth).toBe('2026-10-01');
   });
   it('the key is the primary key of the table', () => {
@@ -339,6 +357,7 @@ describe('the Sum explorer filters', () => {
     expect(drillOperands('planned')).toEqual([{ measure: 'planned', sign: 1 }]);
     expect(drillOperands('restToContract')).toEqual([{ measure: 'planned', sign: 1 }, { measure: 'contracted', sign: -1 }]);
     expect(drillOperands('invoiced')).toEqual([{ measure: 'invoiced', sign: 1 }]);
+    expect(drillOperands('ordered')).toEqual([{ measure: 'ordered', sign: 1 }]);
     expect(drillOperands('onHand')).toEqual([{ measure: 'delivered', sign: 1 }, { measure: 'used', sign: -1 }]);
   });
 });

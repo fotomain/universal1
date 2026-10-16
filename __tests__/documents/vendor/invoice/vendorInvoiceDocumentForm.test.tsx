@@ -5,7 +5,11 @@ import { act } from 'react';
 import { cleanupUI, expectInOrder, inputValue, press, q, qa, renderUI, textOf, typeInto, wait } from '../../../pm/ui/pmUiTestKit';
 
 const mockDoc: Record<string, any> = {};
-jest.mock('../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useVendorInvoiceDocuments: () => mockDoc }));
+const mockPlaces: Record<string, any> = {};
+// the project tree window carries the whole dashboard (Skia): a fake that shows what it was asked
+const mockPicker = jest.fn();
+jest.mock('../../../../kit8/pm/view/project/pick/PMProjectPickerModal', () => ({ __esModule: true, default: (p: any) => { mockPicker(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
+jest.mock('../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useVendorInvoiceDocuments: () => mockDoc, useVendorInvoiceLinePlaces: () => mockPlaces }));
 jest.mock('../../../../kit8/pm/view/task/finances/useTaskLineCatalogs', () => ({ useTaskLineCatalogs: () => require('../../../../kit8/pm/view/task/finances/taskLineCatalogs').emptyTaskLineCatalogs() }));
 const mockButtons: Record<string, any> = {};
 jest.mock('../../../../kit8/ui/components/common/ButtonApp', () => {
@@ -32,6 +36,9 @@ jest.doMock('../../../../kit8/ui/components/common/TextInputApp', () => {
   const TextInputApp = ({ testID, value, disabled, onChangeText, label }: any) => R.createElement(TextInput, { testID, value, editable: !disabled, onChangeText, accessibilityLabel: label });
   return { __esModule: true, default: TextInputApp, TextInputApp };
 });
+// the clipboard of the Paste buttons (the kit's mock only copies)
+let mockClipboardText = '';
+jest.doMock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true), getStringAsync: jest.fn(async () => mockClipboardText) }));
 const VendorInvoiceDocumentForm = require('../../../../kit8/documents/vendor/invoice/VendorInvoiceDocumentForm').default;
 import { VENDOR_INVOICE_LINES_ENTITY, VendorInvoiceHeaderView } from '../../../../kit8/documents/vendor/invoice/vendorInvoiceModel';
 
@@ -49,7 +56,7 @@ function setDoc(headers: VendorInvoiceHeaderView[], over: Record<string, any> = 
   Object.keys(mockDoc).forEach((k) => delete mockDoc[k]);
   Object.assign(mockDoc, {
     headers, isLoading: false, error: null, busy: false,
-    setHeader: jest.fn(async () => true), post: jest.fn(async () => ({ status: 'posted', lines: 3, problems: [] })), unpost: jest.fn(async () => ({ status: 'draft', lines: 0, problems: [] })), remove: jest.fn(async () => true), addLine: jest.fn(async () => true), refetch: jest.fn(), ...over,
+    setHeader: jest.fn(async () => true), post: jest.fn(async () => ({ status: 'posted', lines: 3, problems: [] })), unpost: jest.fn(async () => ({ status: 'draft', lines: 0, problems: [] })), remove: jest.fn(async () => true), addLine: jest.fn(async () => true), setLineTask: jest.fn(async () => true), refetch: jest.fn(), ...over,
   });
   (globalThis as any).__pmTestReduxState = { [VENDOR_INVOICE_LINES_ENTITY]: { entityDataFromServer: rows } };
 }
@@ -352,5 +359,109 @@ describe('independent input (project setting independentInvoiceInputAvailable)',
     setDoc([header('d1', { status: 'posted', independentInputAvailable: true })]);
     renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
     expect(lastTable()).toMatchObject({ addEnabled: false });
+  });
+});
+
+
+describe('Multi Project (project setting multiProjectVendorInvoceNeeded)', () => {
+  const GUID = '1ea2b3c4-0000-4000-8000-000000000001';
+  const colOf = (key: string): any => lastTable().visualColumns.find((c: any) => c.key === key);
+  const cell = (key: string, row: any = { rowGUID: 'l1' }) => colOf(key).renderCell(row);
+
+  it('the chevron at the left of the Project field is there only when the project setting offers it; it opens Single Project | Multi Project', () => {
+    setDoc([header('d1')]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(q('vendor-invoice-project-mode')).toBeNull();
+    cleanupUI();
+    setDoc([header('d1', { multiProjectAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expectInOrder(['vendor-invoice-project-mode', 'vendor-invoice-field-project']);
+    expect(q('vendor-invoice-project-mode-list-window')).toBeNull();
+    press('vendor-invoice-project-mode');
+    expect(q('vendor-invoice-project-mode-list-item-single')).not.toBeNull();
+    expect(q('vendor-invoice-project-mode-list-item-multi')).not.toBeNull();
+  });
+  it('a posted document has no chevron', () => {
+    setDoc([header('d1', { multiProjectAvailable: true, status: 'posted' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(q('vendor-invoice-project-mode')).toBeNull();
+  });
+  it('picking Multi Project saves it at once; picking the mode the document has changes nothing; Single saves false', () => {
+    setDoc([header('d1', { multiProjectAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    press('vendor-invoice-project-mode');
+    press('vendor-invoice-project-mode-list-item-single');
+    expect(mockDoc.setHeader).not.toHaveBeenCalled();
+    press('vendor-invoice-project-mode');
+    press('vendor-invoice-project-mode-list-item-multi');
+    expect(mockDoc.setHeader).toHaveBeenCalledWith('d1', { vendorInvoiceMultiProject: true });
+    cleanupUI();
+    setDoc([header('d1', { multiProject: true, multiProjectAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    press('vendor-invoice-project-mode');
+    press('vendor-invoice-project-mode-list-item-single');
+    expect(mockDoc.setHeader).toHaveBeenCalledWith('d1', { vendorInvoiceMultiProject: false });
+  });
+  it('the Project field says Multi Project; the lines table has the three place fields only then', () => {
+    setDoc([header('d1', { multiProject: true, multiProjectAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect((q('vendor-invoice-field-project') as HTMLInputElement).getAttribute('aria-label')).toBe('Project · Multi Project');
+    expect(lastTable().visualColumns.map((c: any) => c.key).slice(0, 4)).toEqual(['n', 'vendorInvoiceLineProject', 'vendorInvoiceTaskGUID', 'vendorInvoiceTaskLineGUID']);
+    cleanupUI();
+    setDoc([header('d1', { multiProjectAvailable: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(lastTable().visualColumns.map((c: any) => c.key)).not.toContain('vendorInvoiceTaskGUID');
+  });
+  it('variant 1: Paste takes the GUID from the clipboard - a task GUID sets the task, a line GUID sets the task line', async () => {
+    mockClipboardText = `GUID copied: ${GUID}`;
+    setDoc([header('d1', { multiProject: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    await act(async () => { await cell('vendorInvoiceTaskGUID').props.onPaste(); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', GUID, null);
+    await act(async () => { await cell('vendorInvoiceTaskLineGUID').props.onPaste(); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', null, GUID);
+  });
+  it('Paste with no GUID on the clipboard says so and changes nothing', async () => {
+    mockClipboardText = 'hello';
+    setDoc([header('d1', { multiProject: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    await act(async () => { await cell('vendorInvoiceTaskGUID').props.onPaste(); });
+    expect(mockDoc.setLineTask).not.toHaveBeenCalled();
+    expect(textOf('vendor-invoice-place-error')).toContain('no GUID');
+  });
+  it('Clear sends both null (back to the task and the project of the document)', async () => {
+    setDoc([header('d1', { multiProject: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    await act(async () => { cell('vendorInvoiceTaskLineGUID').props.onClear(); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', null, null);
+  });
+  it('variant 2: Select opens the project tree window - for a line in line mode, for a task in task mode; its answer sets the line / the task', async () => {
+    setDoc([header('d1', { multiProject: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(mockPicker).not.toHaveBeenCalled();                                       // not even loaded until it is opened
+    await act(async () => { cell('vendorInvoiceTaskLineGUID').props.onPick(); });
+    await flush(); await flush();
+    expect(mockPicker.mock.calls.at(-1)![0]).toMatchObject({ mode: 'line', visible: true });
+    await act(async () => { mockPicker.mock.calls.at(-1)![0].onPick({ projectGUID: 'p2', taskGUID: 't2', taskLineGUID: 'tl2' }); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', null, 'tl2');
+    expect(q('vendor-invoice-picker')).toBeNull();                                   // closed after the answer
+    await act(async () => { cell('vendorInvoiceTaskGUID').props.onPick(); });
+    await flush(); await flush();
+    expect(mockPicker.mock.calls.at(-1)![0]).toMatchObject({ mode: 'task' });
+    await act(async () => { mockPicker.mock.calls.at(-1)![0].onPick({ projectGUID: 'p2', taskGUID: 't2', taskLineGUID: null }); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', 't2', null);
+  });
+  it('a line mode window answered with only a TASK (button "Select this task") sets the task', async () => {
+    setDoc([header('d1', { multiProject: true })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    await act(async () => { cell('vendorInvoiceTaskLineGUID').props.onPick(); });
+    await flush(); await flush();
+    await act(async () => { mockPicker.mock.calls.at(-1)![0].onPick({ projectGUID: 'p2', taskGUID: 't2', taskLineGUID: null }); });
+    expect(mockDoc.setLineTask).toHaveBeenLastCalledWith('l1', 't2', null);
+  });
+  it('a posted document: the place cells have no buttons', () => {
+    setDoc([header('d1', { multiProject: true, status: 'posted' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(cell('vendorInvoiceTaskGUID').props.editable).toBe(false);
   });
 });

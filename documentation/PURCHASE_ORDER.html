@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Purchase order and Multi Project documents - design</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --purple:#7c3aed; --soft:#f1f5f9; --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; --mono:ui-monospace,Menlo,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 var(--font); }
+  main { max-width:980px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { margin:34px 0 8px; font-size:19px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+  .lead { color:var(--muted); margin:0 0 18px; }
+  code { font:13px var(--mono); background:var(--soft); padding:1px 6px; border-radius:6px; overflow-wrap:anywhere; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:10px 0; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; font-size:14px; } th { background:var(--soft); }
+  .note { background:#ede9fe; border-left:4px solid var(--purple); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  @media (max-width:640px) { table { display:block; overflow-x:auto; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Purchase order and Multi Project documents</h1>
+<p class="lead">Round "IMPROVE IT" of 2026-10-16 (Google Doc). Code: <code>kit8/documents/vendor/purchase_order</code>, <code>kit8/documents/vendor/lineplace</code>, <code>kit8/pm/view/project/pick</code>, <code>kit8/ui/components/app_bottom_tabs</code>. SQL: PART 26 (Multi Project of the vendor invoice) and PART 28 (purchase order, column Ordered).</p>
+
+<h2>1. What the document asked and what was built</h2>
+<table>
+<tr><th>Request</th><th>Built</th></tr>
+<tr><td>Line context menu of Task edit → finances: <b>Copy line GUID</b>, to the clipboard</td><td><code>copyLineGuid.ts</code>; the item is in the row menu of every line of the Finances table, after Vendor Invoice / Purchase Order; a snackbar shows the GUID.</td></tr>
+<tr><td>Bottom tabs: FAB higher than the tabs on web and mobile; <code>ApplicationBottomTabsApp.tsx</code> through expo-router, adapted to all design systems, in <code>kit8/ui/components/app_bottom_tabs</code></td><td>The component, its pure model and the look table by design system; while it is mounted <code>bottomTabsAreVisible</code> is on and the FAB is at <code>bar height + inset + 16</code> (<code>bottomTabsLayout.ts</code>). The old <code>BottomTabsRoutingComponent</code> re-exports it.</td></tr>
+<tr><td>Vendor invoice: project setting <code>multiProjectVendorInvoceNeeded</code>; a chevron-down icon button at the left of the Project field: Single Project | Multi Project</td><td>Setting in Project settings → Vendor (OFF while never saved); chevron + <code>ModalWindowListToSelect</code>; header flag <code>vendorInvoiceMultiProject</code> (RPC <code>vendor_invoice_set_header</code>).</td></tr>
+<tr><td>Multi Project lines: <code>vendorInvoiceLineProject</code>, <code>vendorInvoiceTaskGUID</code>, <code>vendorInvoiceTaskLineGUID</code>; select / clear; variant 1 paste a copied GUID; variant 2 select from the project tree (the dashboard made reusable, full Edit Finances data, press to select a task_line_table line)</td><td>Three columns; Paste · Select · Clear on a draft; <code>PMProjectPickerModal</code> = <code>PMProjectDashboard picker</code>; RPC <code>vendor_invoice_set_line_task</code> and <code>vendor_invoice_line_places</code>.</td></tr>
+<tr><td>PurchaseOrder: <code>PMPurchaseOrderDocumentForm / Header / Lines / List</code> etc., the same logic as VendorInvoice, in <code>kit8/documents/vendor/purchase_order</code>; Monitor01 <b>ordered</b> column from the purchase order lines; run all SQL scripts as needed</td><td>The whole folder, PART 28, routes, Drawer → Documents → Purchase orders, row menus; the column <b>Ordered</b> of Monitor01.</td></tr>
+</table>
+
+<h2>2. Decisions the owner can change</h2>
+<div class="note"><b>Ordered is a new column, "Contracted" is untouched.</b> Monitor01 had no "ordered" column: its register kind <code>ordered</code> existed ("reserved: a value, no table, no column", <code>PROJECT_STATE_WBS.html</code>). The column Ordered (<code>qtyOrdered</code>) was added as the first column of the Fact group, fed by the posted purchase orders exactly as Invoiced is fed by the posted vendor invoices. "Contracted" (the plan quantity of lines that have a resource contract) keeps its meaning; making "Contracted" show the ordered quantity instead would change an existing report and was not done.</div>
+<div class="note"><b>The setting is spelled as in the document</b>: <code>multiProjectVendorInvoceNeeded</code> (sic). One switch serves the vendor invoice and the purchase order. A rename is one search / replace (SQL <code>vendor_project_setting_on</code> calls, <code>PMProjectVendorTab.tsx</code>, <code>types.ts</code>).</div>
+<div class="note"><b>The Vendor tab is shared.</b> <code>userCanCreateVendorInvoicesFromTasksWithEmptyVendors</code> and <code>independentInvoiceInputAvailable</code> also rule the purchase order (one project, one vendor policy).</div>
+<div class="note"><b>Purchase Order sits right AFTER Vendor Invoice in the menus</b> (not before it): the Vendor Invoice item keeps its place right after Facts input, which existing tests and users rely on.</div>
+
+<h2>3. Rules (the purchase order is the vendor invoice with other names)</h2>
+<table>
+<tr><th>Rule</th><th>Where</th></tr>
+<tr><td>ONE document = ONE vendor + ONE contract; Draft → Post; Post needs lines, vendor, legal entity, the order number and date, no zero quantity, the ownership of every line's project; Unpost deletes the movements</td><td><code>post_purchase_order</code>, <code>unpost_purchase_order</code></td></tr>
+<tr><td>The quantity of a new line = plan − the quantity of the other <i>purchase order</i> lines. A purchase order and a vendor invoice of the same lines do not count against each other</td><td><code>create_purchase_orders</code></td></tr>
+<tr><td>A posted purchase order = <code>ordered</code> movements (qty, budget / contract / accounting sums, VAT) with the vendor, contract, legal entity and the project of the LINE; same transaction</td><td><code>project_status_register_order</code></td></tr>
+<tr><td>Monitor01: <code>qtyOrdered</code> in <code>project_status_month_turnover</code> and <code>monitor01_view</code>, the drill-down <code>ordered</code>, <code>monitor01_verify</code> compares it</td><td>PART 25 functions (changed in place), columns in PART 28 of start1</td></tr>
+<tr><td>Multi Project: only a draft whose project has the setting on; the user owns the project of every task chosen; a plain UPDATE still cannot move a line</td><td><code>*_set_line_task</code> + the session flag the trigger reads</td></tr>
+</table>
+
+<h2>4. Tests</h2>
+<p>SQL: <code>kit8/docker/test_sql.sh</code> (install twice, delete, install again), <code>./test_fact_monitor01.sh 70</code> (vendor invoice incl. Multi Project), <code>71</code> (purchase order, 155 checks), <code>72</code> (both documents on the same lines; Ordered and Invoiced columns). Jest: <code>__tests__/documents/vendor</code>, <code>__tests__/ui/appBottomTabs*.ts(x)</code>, <code>__tests__/pm/reports/monitor01</code>, <code>__tests__/pm/view/task/finances/taskFinancesUi.test.tsx</code>, <code>__tests__/sql</code>.</p>
+
+<h2>5. Not seen</h2>
+<p>The picker window was exercised by unit tests with the dashboard faked (it carries Skia and needs a signed-in Supabase); the first real look at it, at the bottom tabs on a phone and at the FAB above them is the owner's.</p>
+</main>
+</body>
+</html>

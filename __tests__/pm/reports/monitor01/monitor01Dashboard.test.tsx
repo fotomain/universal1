@@ -64,13 +64,13 @@ const flush = () => act(async () => { await Promise.resolve(); await Promise.res
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 describe('the table of the sheet', () => {
-  it('the two header rows: Plan | Fact and the columns; the resource role column; the six measures', () => {
+  it('the two header rows: Plan | Fact and the columns; the resource role column; the seven measures (Ordered is the first of the Fact group)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
     expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
-    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'delivered', 'invoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
-    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Delivered', 'Invoiced', 'Actually used', 'On-hand']);
-    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-delivered', 'monitor01-table-head-invoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
+    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'delivered', 'invoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
+    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Delivered', 'Invoiced', 'Actually used', 'On-hand']);
+    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-ordered', 'monitor01-table-head-delivered', 'monitor01-table-head-invoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
   });
 
   it('headers: "Task name" (not task.name), every header starts with a capital letter, no ROW DESCRIPTION column and no "requirements dimensions"', () => {
@@ -604,10 +604,27 @@ describe('every number opens its source transactions', () => {
     press('monitor01-sum-open-iv1');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'vi1' } });
   });
+  it('"Ordered" (the first column of the Fact group) is the list of the POSTED purchase orders; Open shows the purchase order in its form', async () => {
+    mockHook.rows = [parseMonitor01Row(raw({ qtyOrdered: 11 }))];
+    mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 11, rows: [{ rowGUID: 'po1', sourceName: 'projectStatusMovements', day: '2026-10-18', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 11, documentGUID: 'poh1', documentNumber: 'ORD-5' }] }));
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'ordered'))).toBe('11');
+    press(cell(KEY_T1, 'ordered'));
+    await flush();
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'ordered', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-source-ordered')).toContain('Posted purchase orders');
+    expect(textOf('monitor01-sum-source-ordered')).toContain('ORD-5');
+    press('monitor01-sum-open-po1');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/purchase-order', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'poh1' } });
+  });
+  it('a row without purchase orders shows a blank Ordered cell; the Plan | Fact divider is the left edge of Ordered', () => {
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'ordered'))).toBe('');
+  });
   it('a cell that is 0 shows nothing - in EVERY column, in the lines, the subtotals and the TotalsRow (the cell stays a button)', () => {
     mockHook.rows = [parseMonitor01Row(raw({ qtyPlanned: 0, qtyContracted: 0, sumForBudget: 0, qtyUsed: 5, qtyOnHand: -5, qtyRestToContract: 0, lineCount: 0 }))];
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    for (const m of ['planned', 'contracted', 'restToContract', 'delivered', 'invoiced']) expect(textOf(cell(KEY_T1, m))).toBe('');
+    for (const m of ['planned', 'contracted', 'restToContract', 'ordered', 'delivered', 'invoiced']) expect(textOf(cell(KEY_T1, m))).toBe('');
     expect(textOf(`monitor01-table-budget-${KEY_T1}`)).toBe('');
     expect(textOf(cell(KEY_T1, 'used'))).toBe('5');
     expect(textOf(cell(KEY_T1, 'onHand'))).toBe('-5');

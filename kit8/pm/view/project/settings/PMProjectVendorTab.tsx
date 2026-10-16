@@ -3,6 +3,7 @@
 //     userCanCreateVendorInvoicesFromTasksWithEmptyVendors  true: "Vendor Invoice" of a task / task line also makes ONE draft WITHOUT a vendor of the lines that have none (the vendor is chosen in the invoice before Post)
 //                                                           false: such lines are left out - an invoice is made only for the vendors the lines have
 //     independentInvoiceInputAvailable                      true: the lines of a DRAFT vendor invoice can be added (a CRUD panel above the lines), not tied to a task line; false: only the lines made from the task lines
+//     multiProjectVendorInvoceNeeded                        (OFF while never saved) true: a vendor invoice / purchase order of this project may be switched to MULTI PROJECT (the chevron next to its Project field): each line can belong to any task or task line of any project of the user
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
@@ -12,12 +13,14 @@ import { pmT } from '../../../i18n/pmT';
 export interface PMProjectVendorValues {
   userCanCreateVendorInvoicesFromTasksWithEmptyVendors?: boolean;
   independentInvoiceInputAvailable?: boolean;
+  multiProjectVendorInvoceNeeded?: boolean;
 }
 
-/** a missing value is TRUE (a project made before the setting works as the setting says by default) */
+/** a missing value is TRUE (a project made before the setting works as the setting says by default); multiProjectVendorInvoceNeeded is the exception: FALSE until it is switched on */
 export const vendorValuesOf = (j: PMProjectVendorValues | undefined | null): Required<PMProjectVendorValues> => ({
   userCanCreateVendorInvoicesFromTasksWithEmptyVendors: j?.userCanCreateVendorInvoicesFromTasksWithEmptyVendors !== false,
   independentInvoiceInputAvailable: j?.independentInvoiceInputAvailable !== false,
+  multiProjectVendorInvoceNeeded: j?.multiProjectVendorInvoceNeeded === true,
 });
 
 export default function PMProjectVendorTab({ values, onChange }: { values: PMProjectVendorValues; onChange: (patch: PMProjectVendorValues) => void }) {
@@ -42,6 +45,14 @@ export default function PMProjectVendorTab({ values, onChange }: { values: PMPro
         style={styles.switchRow}
       />
       <Text style={styles.hint}>{pmT('On: lines can be added to a draft vendor invoice by hand (a CRUD panel above its lines), not tied to a task line. Off: only the lines made from the task lines.')}</Text>
+      <SwitchApp
+        testID="pm-project-vendor-multi-project"
+        label={pmT('Multi project vendor invoices and purchase orders (multiProjectVendorInvoceNeeded)')}
+        value={v.multiProjectVendorInvoceNeeded}
+        onValueChange={(on) => onChange({ multiProjectVendorInvoceNeeded: on })}
+        style={styles.switchRow}
+      />
+      <Text style={styles.hint}>{pmT('On: a draft document has a chevron next to its Project field: Single Project | Multi Project. In Multi Project each line can be given any task or task line of your projects. Off: all the lines belong to the project of the document.')}</Text>
     </View>
   );
 }

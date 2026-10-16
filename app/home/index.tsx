@@ -12,7 +12,7 @@ import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
 import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
-import BottomTabsRoutingComponent from '../../kit8/ui/components/navigation/BottomTabsRoutingComponent';
+import ApplicationBottomTabsApp from '../../kit8/ui/components/app_bottom_tabs/ApplicationBottomTabsApp';
 
 const homeComponentsMap = {
   appPosts: HomeAppPostsPage,
@@ -42,8 +42,8 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* BottomTabsRoutingComponent at the home page */}
-      <BottomTabsRoutingComponent tabsNavigatorName="tabsHome" />
+      {/* the bottom tabs at the home page; the FAB stands above them */}
+      <ApplicationBottomTabsApp tabsNavigatorName="tabsHome" />
     </View>
   );
 }

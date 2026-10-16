@@ -11,7 +11,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMCrud } from '../../../crud/usePMCrud';
-import { PMTipIcon } from '../../../inner/buttons';
+import { PMDialogButton, PMTipIcon } from '../../../inner/buttons';
+import { pickedTask, usePMPicker } from '../../project/pick/pmPickerContext';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { lastEditPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
@@ -28,6 +29,8 @@ export interface PMProjectFinancesViewProps {
 
 export default function PMProjectFinancesView({ projectGUID, width, height, palette, crud }: PMProjectFinancesViewProps) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
+  // picker mode (project/pick): the toolbar answers with the selected task
+  const picker = usePMPicker();
   const task = usePMStore((s) => (s.selectedGUID ? s.tasksById[s.selectedGUID] : undefined));
   // a deep link (dashboardDeepLink.ts) for THIS task wins over the remembered place; it ends when another task is selected
   const placeRequest = usePMStore((s) => s.placeRequest);
@@ -49,15 +52,20 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
   return (
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-finances-view">
       <PMToolbar background={palette.surface} border={palette.border}>
-        <PMTipIcon tip={pmT('Finances')} testID="pm-finances-icon" name="payments" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
         {task && selectedGUID ? (
           // the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name
           <View style={styles.titleBox} testID="pm-finances-title">
             <EditTaskNameFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
           </View>
         ) : (
-          <Text style={[styles.title, { color: palette.text }]} testID="pm-finances-title" numberOfLines={1}>{pmT('Finances')}</Text>
+          <>
+            <PMTipIcon tip={pmT('Finances')} testID="pm-finances-icon" name="payments" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
+            <Text style={[styles.title, { color: palette.text }]} testID="pm-finances-title" numberOfLines={1}>{pmT('Finances')}</Text>
+          </>
         )}
+        {picker && task && selectedGUID ? (
+          <PMDialogButton testID="pm-finances-pick-task" kind="primary" icon="task_alt" title={pmT('Select this task')} onPress={() => picker.onPick(pickedTask(projectGUID, selectedGUID))} />
+        ) : null}
       </PMToolbar>
 
       {!task || !selectedGUID ? (

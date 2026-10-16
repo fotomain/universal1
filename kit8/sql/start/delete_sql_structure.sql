@@ -5,7 +5,8 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
---   1a. delete_fact_input_and_monitor01.sql - PARTs 24-27: drops the fact documents, Monitor01 (view, queue, log, fact sums), the project cost total, the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
+--  1a-0. delete_subprojects.sql - PART 29: drops project_subproject_link, its triggers and the subproject_* functions (runs very first)
+--   1a. delete_fact_input_and_monitor01.sql - PARTs 24-28: drops the fact documents, Monitor01 (view, queue, log, fact sums), the project cost total, the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
 --   1b. delete_time_genus_control.sql - PARTs 20-23: drops organizationInvitationTable, the view, the organization_* functions and the triggers / constraints on userTable, project_table, the calendar and the resource tables (runs first: it is the newest part)
 --    1. user calendars - user_calendar_table / _event_table / _invitation_table + the sync triggers on the project tables
 --    2. delete_task_line_plan_table.sql - drops task_line_plan + create_task_line_plan + the unpost trigger
@@ -29,8 +30,54 @@
 
 
 -- =====================================================================================
+-- PART 1a-0: delete_subprojects.sql  (PART 29 of the structure file: SUBPROJECTS - runs before everything else, it is the newest)
+-- Drops project_subproject_link (the task keys taskIsSubproject / taskSubprojectGUID stay as inert JSON), the triggers on project_task_table / project_table and the subproject_* functions.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public.project_task_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_subproject_link_validate_ins ON public.project_task_table;
+    DROP TRIGGER IF EXISTS trg_subproject_link_validate_upd ON public.project_task_table;
+    DROP TRIGGER IF EXISTS trg_subproject_link_maintain_ins ON public.project_task_table;
+    DROP TRIGGER IF EXISTS trg_subproject_link_maintain_upd ON public.project_task_table;
+  END IF;
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_subproject_switch_guard ON public.project_table;
+    DROP TRIGGER IF EXISTS trg_subproject_resync_on_switch ON public.project_table;
+    DROP TRIGGER IF EXISTS trg_subproject_delete_guard ON public.project_table;
+  END IF;
+END $$;
+
+DROP TABLE IF EXISTS public.project_subproject_link CASCADE;
+DROP FUNCTION IF EXISTS public.subproject_enabled(uuid);
+DROP FUNCTION IF EXISTS public.subproject_setting(uuid, text, boolean);
+DROP FUNCTION IF EXISTS public.subproject_auto_change(uuid);
+DROP FUNCTION IF EXISTS public.subproject_dates_on(uuid);
+DROP FUNCTION IF EXISTS public.subproject_aggregate_on(uuid, text);
+DROP FUNCTION IF EXISTS public.subproject_creates_cycle(uuid, uuid);
+DROP FUNCTION IF EXISTS public.subproject_in_cycle(uuid);
+DROP FUNCTION IF EXISTS public.subproject_cycle_path(uuid, uuid);
+DROP FUNCTION IF EXISTS public.subproject_assert_no_cycle(uuid);
+DROP FUNCTION IF EXISTS public.subproject_dates_of(uuid);
+DROP FUNCTION IF EXISTS public.subproject_work_days(timestamptz, timestamptz, boolean);
+DROP FUNCTION IF EXISTS public.subproject_link_validate();
+DROP FUNCTION IF EXISTS public.subproject_link_maintain();
+DROP FUNCTION IF EXISTS public.subproject_sync_origin_task(uuid);
+DROP FUNCTION IF EXISTS public.subproject_propagate_dates(uuid, integer);
+DROP FUNCTION IF EXISTS public.subproject_switch_guard();
+DROP FUNCTION IF EXISTS public.subproject_resync_on_switch();
+DROP FUNCTION IF EXISTS public.subproject_delete_guard();
+DROP FUNCTION IF EXISTS public.subproject_candidates(uuid);
+DROP FUNCTION IF EXISTS public.organization_has_subprojects_enabled();
+DROP FUNCTION IF EXISTS public.subproject_link_rebuild();
+DROP FUNCTION IF EXISTS public.subproject_agg_sources(uuid[]);
+DROP FUNCTION IF EXISTS public.subproject_drill_match(text, uuid, text);
+DROP FUNCTION IF EXISTS public.subproject_queue_origins(uuid[]);
+
+
+-- =====================================================================================
 -- PART 1a: delete_fact_input_and_monitor01.sql  (the numbering of the other parts stays: 1a runs FIRST, it is the newest)
--- Removes what PARTs 24-27 of start1_sql_tables.sql + start2_sql_code.sql added (27: the project cost total): the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
+-- Removes what PARTs 24-28 of start1_sql_tables.sql + start2_sql_code.sql added (27: the project cost total): the fact input documents (task_fact_header / task_fact_usage_timeline, DATA INCLUDED), Monitor01 (monitor01_view, the queue, the log,
 -- task_line_fact_for_monitor01), the pg_cron jobs, the triggers on the other tables, the functions and the sequence.
 -- =====================================================================================
 DO $$
@@ -83,6 +130,24 @@ DROP FUNCTION IF EXISTS public.project_cost_trg_project_budget();
 DROP FUNCTION IF EXISTS public.project_cost_budget_on(jsonb);
 DROP FUNCTION IF EXISTS public.project_cost_flag(jsonb, text, boolean);
 -- (PART 26 of the structure file: the vendor invoice, the legal entity catalog, the main vendor guards; the data of the invoices and of the legal entities goes with the tables)
+-- (PART 28 of the structure file: the purchase order - its tables with their triggers, then its functions)
+DROP TABLE IF EXISTS public.purchase_order_lines CASCADE;
+DROP TABLE IF EXISTS public.purchase_order_header CASCADE;
+DROP SEQUENCE IF EXISTS public.purchase_order_document_seq;
+DROP FUNCTION IF EXISTS public.purchase_order_state(uuid);
+DROP FUNCTION IF EXISTS public.purchase_order_lines_before_write();
+DROP FUNCTION IF EXISTS public.purchase_order_header_before_write();
+DROP FUNCTION IF EXISTS public.project_status_register_order(uuid);
+DROP FUNCTION IF EXISTS public.purchase_order_candidates(uuid, uuid[]);
+DROP FUNCTION IF EXISTS public.create_purchase_orders(uuid, jsonb, text);
+DROP FUNCTION IF EXISTS public.purchase_order_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.purchase_order_add_line(uuid, text);
+DROP FUNCTION IF EXISTS public.post_purchase_order(uuid);
+DROP FUNCTION IF EXISTS public.unpost_purchase_order(uuid);
+DROP FUNCTION IF EXISTS public.delete_purchase_order(uuid);
+DROP FUNCTION IF EXISTS public.purchase_order_list(jsonb, integer, integer);
+DROP FUNCTION IF EXISTS public.purchase_order_set_line_task(uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public.purchase_order_line_places(uuid);
 DROP TABLE IF EXISTS public.vendor_invoice_lines CASCADE;
 DROP TABLE IF EXISTS public.vendor_invoice_header CASCADE;
 DROP TABLE IF EXISTS public."legalEntityTable" CASCADE;
@@ -94,6 +159,10 @@ DROP FUNCTION IF EXISTS public.post_vendor_invoice(uuid);
 DROP FUNCTION IF EXISTS public.vendor_invoice_set_header(uuid, jsonb);
 DROP FUNCTION IF EXISTS public.vendor_invoice_add_line(uuid, text);
 DROP FUNCTION IF EXISTS public.vendor_project_setting(uuid, text);
+DROP FUNCTION IF EXISTS public.vendor_project_setting_on(uuid, text);
+DROP FUNCTION IF EXISTS public.vendor_task_line_snapshot(uuid);
+DROP FUNCTION IF EXISTS public.vendor_invoice_set_line_task(uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public.vendor_invoice_line_places(uuid);
 DROP FUNCTION IF EXISTS public.create_vendor_invoices(uuid, jsonb, text);
 DROP FUNCTION IF EXISTS public.vendor_invoice_candidates(uuid, uuid[]);
 DROP FUNCTION IF EXISTS public.project_status_register_invoice(uuid);

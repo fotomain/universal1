@@ -1,4 +1,6 @@
 // The columns of the lines table and of the list table of the vendor invoice.
+// the cell of the place columns (multi project) pulls the design system in: its render is tested with the form
+jest.mock('../../../../kit8/documents/vendor/lineplace/LinePlaceCell', () => ({ __esModule: true, default: () => null }));
 import { buildVendorInvoiceColumns } from '../../../../kit8/documents/vendor/invoice/vendorInvoiceColumns';
 import { vendorInvoiceListColumns } from '../../../../kit8/documents/vendor/invoice/vendorInvoiceListColumns';
 import { emptyTaskLineCatalogs } from '../../../../kit8/pm/view/task/finances/taskLineCatalogs';

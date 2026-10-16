@@ -1,9 +1,10 @@
 // vendorInvoiceApi - the calls of the vendor invoice. Every function takes the Supabase client (useSupabase().supabase), so a test passes a fake one.
 // The header is written ONLY by these RPCs; the quantity / price / VAT % of a line of a draft are written by the ReusableTable through the redux entity (vendorInvoiceMetaData.ts).
 import {
-  CreateAnswer, RPC_VENDOR_ADD_LINE, RPC_VENDOR_CANDIDATES, RPC_VENDOR_CREATE, RPC_VENDOR_DELETE, RPC_VENDOR_LIST, RPC_VENDOR_POST, RPC_VENDOR_SET_HEADER, RPC_VENDOR_UNPOST, VendorCandidatesAnswer,
+  CreateAnswer, RPC_VENDOR_ADD_LINE, RPC_VENDOR_CANDIDATES, RPC_VENDOR_CREATE, RPC_VENDOR_DELETE, RPC_VENDOR_LINE_PLACES, RPC_VENDOR_LIST, RPC_VENDOR_POST, RPC_VENDOR_SET_HEADER, RPC_VENDOR_SET_LINE_TASK, RPC_VENDOR_UNPOST, VendorCandidatesAnswer,
   VendorInvoiceListAnswer, VendorInvoiceListFilter, VendorInvoicePostAnswer, VendorSelection, parseCandidates, parseCreateAnswer, parseListAnswer, parsePostAnswer, vendorInvoiceFilterToRpc,
 } from './vendorInvoiceModel';
+import { LinePlace, parseLinePlaces } from '../lineplace/linePlaceModel';
 
 type Client = any;
 const fail = (error: any): never => { throw new Error(error?.message || String(error)); };
@@ -31,7 +32,7 @@ export async function fetchVendorInvoiceList(client: Client, filter: VendorInvoi
 }
 
 /** the number printed on the invoice, its date ('YYYY-MM-DD' or an ISO timestamp) and the legal entity of a DRAFT; the vendor (+ contract) only of a draft that has none (made from lines without a vendor) */
-export async function setVendorInvoiceHeader(client: Client, headerGUID: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string; vendorInvoicePartner?: string; vendorInvoiceContract?: string | null }): Promise<void> {
+export async function setVendorInvoiceHeader(client: Client, headerGUID: string, patch: { vendorInvoiceNumber?: string; vendorInvoiceDateTime?: string | null; legalEntityGUID?: string; vendorInvoicePartner?: string; vendorInvoiceContract?: string | null; vendorInvoiceMultiProject?: boolean }): Promise<void> {
   const { error } = await client.rpc(RPC_VENDOR_SET_HEADER, { p_header: headerGUID, p_patch: patch });
   if (error) fail(error);
 }
@@ -59,4 +60,17 @@ export async function addVendorInvoiceLine(client: Client, headerGUID: string, g
   const { data, error } = await client.rpc(RPC_VENDOR_ADD_LINE, { p_header: headerGUID, p_genus: genus });
   if (error) fail(error);
   return String(data);
+}
+
+/** Multi Project: the task and the task line of ONE line of a DRAFT (both null = clear: back to the task and the project of the document) */
+export async function setVendorInvoiceLineTask(client: Client, lineGUID: string, taskGUID: string | null, taskLineGUID: string | null): Promise<void> {
+  const { error } = await client.rpc(RPC_VENDOR_SET_LINE_TASK, { p_line: lineGUID, p_task: taskGUID, p_task_line: taskLineGUID });
+  if (error) fail(error);
+}
+
+/** the project and task names of the lines of a document: { lineGUID: place } */
+export async function fetchVendorInvoiceLinePlaces(client: Client, headerGUID: string): Promise<Record<string, LinePlace>> {
+  const { data, error } = await client.rpc(RPC_VENDOR_LINE_PLACES, { p_header: headerGUID });
+  if (error) fail(error);
+  return parseLinePlaces(data);
 }

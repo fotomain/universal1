@@ -142,3 +142,44 @@ describe('nameToSave (pure)', () => {
     expect(nameToSave('y'.repeat(TASK_NAME_MAX + 1), 'Old')).toHaveLength(TASK_NAME_MAX);
   });
 });
+
+describe('the Clear icon at the left', () => {
+  const clearBtn = () => q('pm-task-name-clear');
+  const pressClear = () => act(() => { clearBtn()!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); });
+  it('is not there until the user starts editing; it is shown at the left while the field is focused; it goes when the field is left', () => {
+    mount();
+    expect(clearBtn()).toBeNull();
+    focus();
+    expect(clearBtn()).not.toBeNull();
+    blur();
+    expect(clearBtn()).toBeNull();
+  });
+  it('it comes BEFORE the field (at the left)', () => {
+    mount();
+    focus();
+    const box = q('pm-task-name')!;
+    expect(box.firstElementChild).toBe(clearBtn());
+  });
+  it('the field itself has no clear icon of its own (hideClearIcon): one Clear only', () => {
+    mount();
+    expect(lastProps.hideClearIcon).toBe(true);
+  });
+  it('pressing it empties the text and keeps editing; nothing is saved while the text is empty; leaving then puts the old name back', () => {
+    const { crud } = mount();
+    focus(); type('Foundation');
+    pressClear();
+    expect(inputValue(ID)).toBe('');
+    blur();                                   // the blur caused by the press itself
+    expect(clearBtn()).not.toBeNull();        // still editing
+    expect(crud.updateTask).not.toHaveBeenCalled();
+    blur();                                   // the user leaves the field
+    expect(crud.updateTask).not.toHaveBeenCalled();
+    expect(inputValue(ID)).toBe('Task 111');
+    expect(clearBtn()).toBeNull();
+  });
+  it('after Clear the user types a new name and leaves: it is saved', () => {
+    const { crud } = mount();
+    focus(); pressClear(); blur(); focus(); type('New name'); blur();
+    expect(crud.updateTask).toHaveBeenCalledTimes(1);
+  });
+});

@@ -181,7 +181,7 @@ SELECT public.create_vendor_invoices(:'t3', :'sel'::jsonb, 'le-2') AS regen \gse
 SELECT tt.eq(jsonb_array_length(:'regen'::jsonb->'documents'), 2, 'after the delete the quantity is free again (B-1 is made again) and the part of S-1 that the first document did not take (10 - 4 = 6) gets its own document');
 SELECT tt.eq((SELECT sum("qtyInvoiced") FROM public.vendor_invoice_lines l JOIN public.vendor_invoice_header h ON h."rowGUID" = l."rowHeaderGUID" WHERE l."taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'), 10::numeric, 'all of the plan quantity of the line is on invoices, never more');
 SELECT tt.as_admin();
-SELECT tt.fails($q$DELETE FROM public."legalEntityTable" WHERE "rowGUID" = 'le-2'$q$, 'used by a contract or a vendor invoice', 'a legal entity of an invoice is not deleted');
+SELECT tt.fails($q$DELETE FROM public."legalEntityTable" WHERE "rowGUID" = 'le-2'$q$, 'used by a contract, a vendor invoice or a purchase order', 'a legal entity of an invoice is not deleted');
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT COALESCE(sum("qtyInvoiced"), 0) FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'the turnover loses the invoiced numbers after Unpost (the row itself goes: nothing else in it)');
 SELECT tt.eq((SELECT count(*) FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 0::bigint, '... no empty row stays');
@@ -267,5 +267,57 @@ SELECT tt.eq(:'c4'::jsonb->'skippedLineGUIDs', '[]'::jsonb, '... and the lines w
 SELECT tt.fails(format($q$SELECT public.create_vendor_invoices(%L, '[{"partnerGUID": null, "contractGUID": null, "lineGUIDs": []}]'::jsonb)$q$, :'t3'), 'switched off', 'setting off: a document without a vendor is refused by the database too');
 SELECT tt.fails(format($q$SELECT public.vendor_invoice_add_line(%L)$q$, :'dn'), 'switched off', 'setting off: no independent line');
 SELECT tt.eq((SELECT (public.vendor_invoice_list(jsonb_build_object('documentGUIDs', jsonb_build_array(:'dn')))->'rows'->0->>'independentInputAvailable')::boolean), false, 'setting off: the list says independent input is not available');
+
+-- 9. MULTI PROJECT (project setting multiProjectVendorInvoceNeeded, off by default): the lines may belong to other tasks / projects -----------------------------------------------------------
+SELECT tt.as_admin();
+SELECT k."rowGUID" AS t_other, k."projectGUID" AS p_other FROM public.project_task_table k
+ WHERE k."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND k."projectGUID" <> (SELECT "projectGUID" FROM public.project_task_table WHERE "rowGUID" = :'t3') ORDER BY k."rowGUID" LIMIT 1 \gset
+SELECT "projectGUID" AS p_base FROM public.project_task_table WHERE "rowGUID" = :'t3' \gset
+INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('cccccccc-0000-0000-0000-000000000009', :'t_other', 'materialGenus', 1, jsonb_build_object('resourceRoleItem', :'role1', 'measureUnitTaskLine', 'unit_pcs', 'qtyTaskLine', 3, 'priceTaskLine', 4, 'vatRatioTaskLine', 10));
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.eq(public.vendor_project_setting_on(:'p_base', 'multiProjectVendorInvoceNeeded'), false, 'multiProjectVendorInvoceNeeded is OFF while never saved');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_header(%L, '{"vendorInvoiceMultiProject": true}'::jsonb)$q$, :'dn'), 'switched off', 'Multi Project is refused while the project setting is off');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, NULL, 'cccccccc-0000-0000-0000-000000000009')$q$, :'ln'), 'MULTI PROJECT vendor invoice only', 'a line cannot change its task in a SINGLE project invoice');
+SELECT tt.as_admin();
+UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"multiProjectVendorInvoceNeeded": true}'::jsonb WHERE "rowGUID" = :'p_base';
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.vendor_invoice_set_header(:'dn', '{"vendorInvoiceMultiProject": true}'::jsonb);
+SELECT tt.eq((SELECT "rowJSON"->>'vendorInvoiceMultiProject' FROM public.vendor_invoice_header WHERE "rowGUID" = :'dn'), 'true', 'the document is now a MULTI PROJECT invoice');
+SELECT tt.eq((public.vendor_invoice_list(jsonb_build_object('documentGUIDs', jsonb_build_array(:'dn')))->'rows'->0->>'multiProject')::boolean, true, 'the list says it');
+SELECT tt.eq((public.vendor_invoice_list(jsonb_build_object('documentGUIDs', jsonb_build_array(:'dn')))->'rows'->0->>'multiProjectAvailable')::boolean, true, '... and that the project setting allows it');
+-- select: an independent line becomes a line of a task line of ANOTHER project
+SELECT public.vendor_invoice_set_line_task(:'ln', NULL, 'cccccccc-0000-0000-0000-000000000009') AS mv \gset
+SELECT tt.eq(:'mv'::jsonb->>'projectGUID', :'p_other', 'select the task line: the project follows the task line');
+SELECT tt.eq((SELECT ("rowProjectGUID" = :'p_other'::uuid, "rowOwnerGUID" = :'t_other'::uuid, "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000009'::uuid, "genusGUID", "priceInvoiced", "vatRatioInvoiced", "qtyInvoiced")::text FROM public.vendor_invoice_lines WHERE "rowGUID" = :'ln'),
+             '(t,t,t,materialGenus,4.0000,10.000,3.00)', 'project, task, task line, kind, price and VAT % are the task line''s; the quantity the user typed stays');
+SELECT tt.eq((SELECT ("sumForContract", "vatForContract")::text FROM public.vendor_invoice_lines WHERE "rowGUID" = :'ln'), '(12.00,1.20)', 'the sums follow (3 x 4, VAT 10 %)');
+SELECT tt.eq(public.vendor_invoice_line_places(:'dn')->(:'ln')->>'projectGUID', :'p_other', 'the places RPC names the project of the line');
+SELECT tt.eq(public.vendor_invoice_line_places(:'dn')->(:'ln')->>'taskGUID', :'t_other', '... and its task');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, %L, 'cccccccc-0000-0000-0000-000000000001')$q$, :'ln', :'t_other'), 'is not a line of the task', 'a task line that is not a line of the given task is refused');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, NULL, 'cccccccc-0000-0000-0000-000000000099')$q$, :'ln'), 'does not exist', 'an unknown task line is refused');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_header(%L, '{"vendorInvoiceMultiProject": false}'::jsonb)$q$, :'dn'), 'lines of other projects', 'back to Single Project is refused while a line belongs to another project');
+-- Post writes the movement with the project of the LINE
+SELECT public.post_vendor_invoice(:'dn') AS pm \gset
+SELECT tt.eq(:'pm'::jsonb->>'status', 'posted', 'the multi project document is posted');
+SELECT tt.eq((SELECT "rowProjectGUID" FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'dn' AND "rowProjectTaskLineGUID" = 'cccccccc-0000-0000-0000-000000000009'), :'p_other'::uuid, 'the register carries the project of the line (not the project of the document)');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, NULL, NULL)$q$, :'ln'), 'unpost it first', 'a POSTED document cannot change the task of a line');
+SELECT public.unpost_vendor_invoice(:'dn');
+-- clear: the line goes back to the task and the project of the document, without a task line
+SELECT public.vendor_invoice_set_line_task(:'ln', NULL, NULL);
+SELECT tt.eq((SELECT ("rowProjectGUID" = :'p_base'::uuid, "rowOwnerGUID" = :'t3'::uuid, "taskLineGUID" IS NULL, "rowJSON" = '{}'::jsonb)::text FROM public.vendor_invoice_lines WHERE "rowGUID" = :'ln'), '(t,t,t,t)', 'clear: the task and project of the document, no task line, an independent line again');
+SELECT public.vendor_invoice_set_line_task(:'ln', :'t_other', NULL);
+SELECT tt.eq((SELECT ("rowProjectGUID" = :'p_other'::uuid, "rowOwnerGUID" = :'t_other'::uuid, "taskLineGUID" IS NULL)::text FROM public.vendor_invoice_lines WHERE "rowGUID" = :'ln'), '(t,t,t)', 'select only a TASK: the line is an independent line of that task');
+-- rights
+SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, NULL, NULL)$q$, :'ln'), 'does not exist', 'another organization cannot touch the line');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_line_task(%L, %L)$q$, :'ln', :'tm'), 'not your project', 'a task of another user''s project is refused');
+-- the line goes back, then Single Project is allowed again
+SELECT public.vendor_invoice_set_line_task(:'ln', NULL, NULL);
+SELECT public.vendor_invoice_set_header(:'dn', '{"vendorInvoiceMultiProject": false}'::jsonb);
+SELECT tt.eq((SELECT "rowJSON" ? 'vendorInvoiceMultiProject' FROM public.vendor_invoice_header WHERE "rowGUID" = :'dn'), false, 'Single Project again: the flag is gone');
+-- the identity of a line is still frozen for a plain UPDATE
+SELECT tt.fails(format($q$UPDATE public.vendor_invoice_lines SET "rowOwnerGUID" = %L WHERE "rowGUID" = %L$q$, :'t_other', :'ln'), 'only the quantity', 'a plain UPDATE still cannot move a line');
 
 ROLLBACK;

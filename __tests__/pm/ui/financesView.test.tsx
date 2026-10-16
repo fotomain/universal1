@@ -19,6 +19,7 @@ import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { pmMainViewOf, uxuiSettingsOf } from '../../../kit8/pm/model/types';
 import { makeLastEditPlace } from '../../../kit8/pm/model/lastEditPlace';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
+import { PMPickerProvider } from '../../../kit8/pm/view/project/pick/pmPickerContext';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#f8fafc', text: '#0f172a', border: '#cbd5e1', error: '#dc2626' }, false);
 
@@ -93,5 +94,32 @@ describe('PMProjectFinancesView', () => {
     renderUI(view());
     act(() => usePMStore.setState({ ganttVsNetworkView: 'showFinancesView' }));
     expect(document.querySelector('[data-testid^="pm-gantt-vs-network-show"]')).toBeNull();
+  });
+});
+
+
+describe('picker mode (the project tree window of a multi project vendor invoice / purchase order)', () => {
+  const view = (picker: any) => (
+    <PMPickerProvider value={picker}>
+      <PMProjectFinancesView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />
+    </PMPickerProvider>
+  );
+  it('a selected task: the toolbar has "Select this task"; it answers with the project and the task (no line)', () => {
+    const { byName } = seedStore();
+    const task = byName('Task 111');
+    act(() => usePMStore.setState({ selectedGUID: task.rowGUID }));
+    const onPick = jest.fn();
+    renderUI(view({ mode: 'line', onPick }));
+    press('pm-finances-pick-task');
+    expect(onPick).toHaveBeenCalledWith({ projectGUID: 'p', taskGUID: task.rowGUID, taskLineGUID: null });
+  });
+  it('no task selected: nothing to select; not a picker: no button', () => {
+    const { byName } = seedStore();
+    renderUI(view({ mode: 'task', onPick: jest.fn() }));
+    expect(q('pm-finances-pick-task')).toBeNull();
+    cleanupUI();
+    act(() => usePMStore.setState({ selectedGUID: byName('Task 111').rowGUID }));
+    renderUI(view(null));
+    expect(q('pm-finances-pick-task')).toBeNull();
   });
 });

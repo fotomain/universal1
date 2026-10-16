@@ -71,7 +71,7 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
   });
   it('has the same seed-free rule as before: the only INSERTs are the backfills of data that already exists', () => {
     const targets = codeStatements.filter((s) => kind(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('a unique index / NOT NULL that needs the data fix right before it stays here, after the fix', () => {
     const fix = codeSql.indexOf('UPDATE public."organizationTable" o');
@@ -87,19 +87,19 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
 
 describe('the two files carry the same parts', () => {
   const parts = (src: string) => Array.from(src.matchAll(/^-- PART (\d+): (\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-  it('the code file has every part, 1..27, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
+  it('the code file has every part, 1..29, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
     const code = parts(codeSql);
     const tables = parts(tablesSql);
-    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
+    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 29 }, (_, i) => i + 1));
     const nums = tables.map(([n]) => n);
     expect(nums).toEqual([...nums].sort((a, b) => a - b));
     expect(tables.length).toBeGreaterThan(15);
     for (const [n, title] of tables) expect(code).toContainEqual([n, title]);
   });
-  it('the number lists at the top of both files name the same 27 parts as the banners', () => {
+  it('the number lists at the top of both files name the same 29 parts as the banners', () => {
     for (const src of [tablesSql, codeSql]) {
       const list = Array.from(src.slice(0, src.indexOf('-- PART 1:')).matchAll(/^--\s+(\d+)\. ((?:create|update|insert)_\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-      expect(list.length).toBe(27);
+      expect(list.length).toBe(29);
       for (const [n, title] of list) expect(codeSql).toContain(`-- PART ${n}: ${title}`);
     }
   });
