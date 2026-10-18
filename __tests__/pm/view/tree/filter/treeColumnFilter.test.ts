@@ -229,7 +229,7 @@ const task = (id: string, parent: string | null, order: number, name: string, ex
     rowDuration: null,
     rowProgress: 0,
     orderInList: order,
-    rowJSON: { rowKind: parent ? 'task' : 'stage', name, durationDays: 1, ...extra },
+    rowJSON: { rowKind: parent ? 'task' : 'stage', taskDescription: name, durationDays: 1, ...extra },
   }) as PMTaskRow;
 
 //  S1 Design          (stage)

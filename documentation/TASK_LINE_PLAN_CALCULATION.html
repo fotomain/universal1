@@ -73,7 +73,7 @@
 
 <section id="view">
   <h2>Part 1 - the Plan view</h2>
-  <p class="sub">Works like the Finances view (<code>PMProjectFinancesView</code> + <code>PMProjectTaskFinancesCRUD</code>) except that there are no genus tabs: <b>all lines of the task are in one table</b>.</p>
+  <p class="sub">Works like the Finances view (<code>PMTaskEditView</code> + <code>PMProjectTaskFinancesCRUD</code>) except that there are no genus tabs: <b>all lines of the task are in one table</b>.</p>
   <div class="scroll"><table>
     <tr><th>What</th><th>Where / how</th></tr>
     <tr><td>Plan button</td><td>After Finances on the Gantt bar: new value <code>'showPlanView'</code> in <code>PMGanttVsNetworkView</code> (<code>kit8/pm/model/types.ts</code> and its validator), a new entry in <code>GANTT_VS_NETWORK_VIEW_OPTIONS</code> (<code>GanttToNetworkViewToggleButtons.tsx</code>; icon e.g. <code>event_note</code>, label "Plan",

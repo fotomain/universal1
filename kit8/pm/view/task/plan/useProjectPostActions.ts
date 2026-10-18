@@ -72,7 +72,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
       for (const taskGUID of ids) {
         const task = state.tasksById[taskGUID];
         const sched = usePMStore.getState().schedule[taskGUID];
-        const name = task?.rowJSON?.name || taskGUID;
+        const name = task?.rowJSON?.taskDescription || taskGUID;
         const result = await runTaskPost({
           taskGUID, lines: L.byTask[taskGUID] || [], distributions: L.distributions, calendars: L.calendars, calendarForTaskPlan,
           startMs: sched?.startMs, finishMs: sched?.finishMs, lineCheck: L.lineCheck,

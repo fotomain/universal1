@@ -13,7 +13,7 @@ DECLARE
 BEGIN
   SELECT CASE WHEN p_parent IS NULL THEN public.pm_ltree_label(p_project) ELSE (SELECT t."treePath" FROM public.project_task_table t WHERE t."rowGUID" = p_parent) END INTO v_parent;
   INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowJSON")
-  VALUES (v, v_parent || public.pm_ltree_label(v), p_project, '11111111-1111-1111-1111-111111111111', jsonb_build_object('name', p_name, 'rowKind', p_kind));
+  VALUES (v, v_parent || public.pm_ltree_label(v), p_project, '11111111-1111-1111-1111-111111111111', jsonb_build_object('taskDescription', p_name, 'rowKind', p_kind));
   RETURN v;
 END $$;
 

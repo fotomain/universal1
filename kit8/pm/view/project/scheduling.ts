@@ -204,7 +204,7 @@ export function buildTreeIndex(tasks: PMTaskRow[]): PMTreeIndex {
   const cmp = (a: string, b: string) => {
     const ta = byGUID.get(a)!;
     const tb = byGUID.get(b)!;
-    return ta.orderInList - tb.orderInList || (ta.rowJSON?.name || '').localeCompare(tb.rowJSON?.name || '');
+    return ta.orderInList - tb.orderInList || (ta.rowJSON?.taskDescription || '').localeCompare(tb.rowJSON?.taskDescription || '');
   };
   for (const key of Object.keys(childrenById)) childrenById[key].sort(cmp);
 

@@ -1,4 +1,4 @@
-// EditTaskNameFast - the name of a task as a text that can be typed over at once (the title of the Finances view, the title of a task page):
+// EditTaskDescriptionFast - the name of a task as a text that can be typed over at once (the title of the Finances view, the title of a task page):
 // TextInputApp in FLAT mode = no background, no border, no underline; the label and the placeholder work as in any TextInputApp.
 //   * Enter or leaving the field saves the name (crud.updateTask, one undo step "Rename task"); Escape (web) puts the old name back
 //   * the text is selected when the field is focused (a click then typing replaces it)
@@ -24,7 +24,7 @@ export function nameToSave(draft: string, current: string): string | null {
   return next;
 }
 
-export default function EditTaskNameFast({ guid, crud, label, testID, textStyle }: {
+export default function EditTaskDescriptionFast({ guid, crud, label, testID, textStyle }: {
   guid: string;
   crud: Pick<PMCrud, 'updateTask'>;
   /** the label of the field (floats above the text in the design systems that have one); none = the placeholder only */
@@ -33,7 +33,7 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
   textStyle?: any;
 }) {
   const task = usePMStore((s) => s.tasksById[guid]);
-  const current: string = task?.rowJSON?.name ?? '';
+  const current: string = task?.rowJSON?.taskDescription ?? '';
   const [draft, setDraft] = useState(current);
   const { themeColors } = useDesignSystem();
   const focused = useRef(false);
@@ -54,7 +54,7 @@ export default function EditTaskNameFast({ guid, crud, label, testID, textStyle 
     const next = nameToSave(draft, saved.current ?? current);
     if (next && task) {
       saved.current = next;
-      crud.updateTask(guid, { rowJSON: { ...task.rowJSON, name: next } }, 'Rename task');
+      crud.updateTask(guid, { rowJSON: { ...task.rowJSON, taskDescription: next } }, 'Rename task');
       setDraft(next);
     } else {
       setDraft(saved.current ?? current);        // empty or unchanged: show the saved name (trimmed) again

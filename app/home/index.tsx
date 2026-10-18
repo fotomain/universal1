@@ -27,8 +27,8 @@ export default function HomeScreen() {
   const { workPlaceGUID } = useWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
-  const appName = (Constants.expoConfig?.extra?.appName as keyof typeof homeComponentsMap) || 'appClothes1';
-  const HomeComponent = homeComponentsMap[appName] || HomeAppClothes1;
+  const configurationName = (Constants.expoConfig?.extra?.configurationName as keyof typeof homeComponentsMap) || 'appClothes1';
+  const HomeComponent = homeComponentsMap[configurationName] || HomeAppClothes1;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>

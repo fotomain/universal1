@@ -162,9 +162,9 @@ describe('templateApi (templates_project_* CRUD & copy operations)', () => {
 
     const firstTask = data.tasks[0];
     const updatedTask = await api.updateTemplateTask(firstTask.rowGUID, {
-      rowJSON: { ...firstTask.rowJSON, name: 'Updated Template Task Name' },
+      rowJSON: { ...firstTask.rowJSON, taskDescription: 'Updated Template Task Name' },
     });
-    expect(updatedTask.rowJSON.name).toBe('Updated Template Task Name');
+    expect(updatedTask.rowJSON.taskDescription).toBe('Updated Template Task Name');
 
     const stages = await api.readTemplateKanbanStages(template.rowGUID);
     expect(stages).toHaveLength(1);

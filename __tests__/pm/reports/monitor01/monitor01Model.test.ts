@@ -7,7 +7,7 @@ import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/
 
 const raw = (over: Record<string, any> = {}) => ({
   rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
-  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', sumForBudget: '480.00', qtyRestToContract: '0.00', qtyDelivered: '0', qtyInvoiced: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
+  resourceRoleName: 'Data Analyst', qtyPlanned: '24.00', qtyContracted: '24.00', sumForBudget: '480.00', qtyRestToContract: '0.00', qtyReceived: '0', qtyVendorInvoiced: '0', qtyUsed: '0', qtyOnHand: '0', lineCount: 1, hasStalePlan: false, updated_at: '2026-10-14T10:00:00Z', ...over,
 });
 const row = (over: Record<string, any> = {}): Monitor01Row => parseMonitor01Row(raw(over));
 
@@ -20,8 +20,8 @@ const sheet = (): Monitor01Row[] => [
 ];
 
 describe('the column Ordered (posted purchase orders)', () => {
-  it('it is the first measure of the Fact group, before Delivered', () => {
-    expect([...MONITOR01_MEASURES]).toEqual(['planned', 'contracted', 'restToContract', 'ordered', 'delivered', 'invoiced', 'used', 'onHand']);
+  it('it is the first measure of the Fact group, before Received', () => {
+    expect([...MONITOR01_MEASURES]).toEqual(['planned', 'contracted', 'restToContract', 'ordered', 'received', 'vendorInvoiced', 'used', 'onHand']);
     expect(MONITOR01_MEASURE_FIELD.ordered).toBe('qtyOrdered');
     expect(MONITOR01_MEASURE_TITLE.ordered).toBe('Ordered');
     expect(MONITOR01_MEASURE_GROUP.ordered).toBe('Fact');
@@ -37,12 +37,12 @@ describe('the column Ordered (posted purchase orders)', () => {
 
 describe('rows', () => {
   it('numeric columns that arrive as strings become numbers; the generated ones are derived when missing', () => {
-    const r = parseMonitor01Row(raw({ qtyRestToContract: undefined, qtyOnHand: undefined, qtyDelivered: '20', qtyUsed: '16', qtyPlanned: '24', qtyContracted: '10' }));
+    const r = parseMonitor01Row(raw({ qtyRestToContract: undefined, qtyOnHand: undefined, qtyReceived: '20', qtyUsed: '16', qtyPlanned: '24', qtyContracted: '10' }));
     expect(r.qtyPlanned).toBe(24);
     expect(r.qtyRestToContract).toBe(14);
     expect(r.qtyOnHand).toBe(4);
-    expect(parseMonitor01Row(raw({ qtyInvoiced: '8.50' })).qtyInvoiced).toBe(8.5);
-    expect(parseMonitor01Row(raw({ qtyInvoiced: undefined })).qtyInvoiced).toBe(0);
+    expect(parseMonitor01Row(raw({ qtyVendorInvoiced: '8.50' })).qtyVendorInvoiced).toBe(8.5);
+    expect(parseMonitor01Row(raw({ qtyVendorInvoiced: undefined })).qtyVendorInvoiced).toBe(0);
     expect(parseMonitor01Row(raw({ qtyOrdered: '11.00' })).qtyOrdered).toBe(11);
     expect(parseMonitor01Row(raw({ qtyOrdered: undefined })).qtyOrdered).toBe(0);
     expect(r.periodMonth).toBe('2026-10-01');
@@ -327,7 +327,7 @@ describe('colours of the critical cells', () => {
     expect(cellTone('planned', { ...v({}), hasStalePlan: true })).toBe('warn');
     expect(cellTone('planned', v({}))).toBe('none');
     expect(cellTone('contracted', v({}))).toBe('none');
-    expect(cellTone('delivered', v({}))).toBe('none');
+    expect(cellTone('received', v({}))).toBe('none');
   });
   it('a tone has a background in light and dark; none has none', () => {
     for (const t of ['good', 'warn', 'bad'] as const) {
@@ -356,9 +356,9 @@ describe('the Sum explorer filters', () => {
   it('a derived number is made of two lists with signs', () => {
     expect(drillOperands('planned')).toEqual([{ measure: 'planned', sign: 1 }]);
     expect(drillOperands('restToContract')).toEqual([{ measure: 'planned', sign: 1 }, { measure: 'contracted', sign: -1 }]);
-    expect(drillOperands('invoiced')).toEqual([{ measure: 'invoiced', sign: 1 }]);
+    expect(drillOperands('vendorInvoiced')).toEqual([{ measure: 'vendorInvoiced', sign: 1 }]);
     expect(drillOperands('ordered')).toEqual([{ measure: 'ordered', sign: 1 }]);
-    expect(drillOperands('onHand')).toEqual([{ measure: 'delivered', sign: 1 }, { measure: 'used', sign: -1 }]);
+    expect(drillOperands('onHand')).toEqual([{ measure: 'received', sign: 1 }, { measure: 'used', sign: -1 }]);
   });
 });
 

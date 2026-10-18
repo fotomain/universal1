@@ -181,7 +181,7 @@ export function buildMSProjectXml(input: MSProjectExportInput): string {
     xml += '    <Task>\n';
     xml += el('UID', i + 1, T);
     xml += el('ID', i + 1, T);
-    xml += el('Name', task.rowJSON?.name || '', T);
+    xml += el('Name', task.rowJSON?.taskDescription || '', T);
     xml += el('Type', summary ? 1 : 0, T);
     xml += el('IsNull', 0, T);
     xml += el('CreateDate', (task.created_at || '').slice(0, 19) || created, T);

@@ -171,12 +171,12 @@ export function buildKanbanBoard(input: PMKanbanInput): PMKanbanBoard {
     const kanbanStageProgressPercent = kanbanStageProgressOf(state, 0);
     const card: PMKanbanCard = {
       guid: g,
-      name: t.rowJSON?.name || '',
+      name: t.rowJSON?.taskDescription || '',
       kind: t.rowJSON?.rowKind === 'milestone' || sch?.isMilestone ? 'milestone' : 'task',
       wbs: tree.wbsById[g] || '',
       progress: Math.round(sch?.progress ?? t.rowProgress ?? 0),
       kanbanStageProgressPercent,
-      parentName: parent ? tasksById[parent]?.rowJSON?.name || '' : '',
+      parentName: parent ? tasksById[parent]?.rowJSON?.taskDescription || '' : '',
       color: taskColorOf(t.rowJSON),
       critical: !!sch?.isCritical,
       startMs: sch ? sch.startMs : null,

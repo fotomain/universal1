@@ -136,12 +136,12 @@ export function buildActivityNetwork(input: PMActivityNetworkInput): PMActivityN
     const parent = tree.parentById[g] ?? null;
     const a: PMNetActivity = {
       guid: g,
-      name: t.rowJSON.name || '(unnamed)',
+      name: t.rowJSON.taskDescription || '(unnamed)',
       kind: r.isMilestone || t.rowJSON.rowKind === 'milestone' ? 'milestone' : 'task',
       wbs: wbs[g] || '',
       seq: activities.length + 1,
       stageGUID: parent,
-      stageName: parent ? (byTask.get(parent)?.rowJSON.name ?? null) : null,
+      stageName: parent ? (byTask.get(parent)?.rowJSON.taskDescription ?? null) : null,
       color: taskColorOf(t.rowJSON),
       duration: r.durationDays,
       es,

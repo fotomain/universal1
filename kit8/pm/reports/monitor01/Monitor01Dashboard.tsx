@@ -1,5 +1,5 @@
 // Monitor01Dashboard - the report "Roles Requirements" of the sheet "W1 1-MONITOR01" (documentation/MONITOR01_WBS.html): per resource role, month and task
-// planned · contracted · rest to contract · ordered · delivered · invoiced · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
+// planned · contracted · rest to contract · ordered · received · vendorInvoiced · actually used · on-hand, live (monitor01_view is refreshed by pg_cron every MONITOR01_REFRESH_INTERVAL seconds and listened to by Realtime).
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter

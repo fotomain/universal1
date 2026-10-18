@@ -53,7 +53,7 @@ export function createTaskApi(sb: SupabaseClient) {
       rowDuration: null,
       rowProgress: 0,
       orderInList: params.orderInList,
-      rowJSON: { rowKind: params.rowKind, name: params.name, durationDays: params.durationDays },
+      rowJSON: { rowKind: params.rowKind, taskDescription: params.name, durationDays: params.durationDays },
     };
   }
 

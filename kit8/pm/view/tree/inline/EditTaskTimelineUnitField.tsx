@@ -16,7 +16,7 @@ export type PMPlanningUnitField =
   | 'planSecondStart'
   | 'planSecondFinish';
 
-export default function EditTaskPlanningUnitField(props: {
+export default function EditTaskTimelineUnitField(props: {
   guid: string;
   field: PMPlanningUnitField;
   rowIndex: number;

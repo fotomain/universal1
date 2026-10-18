@@ -152,7 +152,7 @@ export default function PMProjectReportsView({ projectGUID, width, height, palet
             </View>
             {page === 'costs' && <ReportTable testID="pm-report-genus" title={pmT('By kind')} rows={report.byGenus} nameOf={(r) => titleOf(genusRows, r.key)} palette={palette} wide={wide} />}
             <ReportTable testID="pm-report-items" title={pmT('By budget item')} rows={report.byBudgetItem} nameOf={(r) => titleOf(budgetItems, r.key)} palette={palette} wide={wide} />
-            <ReportTable testID="pm-report-tasks" title={pmT('By task')} rows={report.byTask} nameOf={(r) => String(tasksById[r.key]?.rowJSON?.name ?? r.key)} palette={palette} wide={wide} />
+            <ReportTable testID="pm-report-tasks" title={pmT('By task')} rows={report.byTask} nameOf={(r) => String(tasksById[r.key]?.rowJSON?.taskDescription ?? r.key)} palette={palette} wide={wide} />
           </>
         )}
       </ScrollView>

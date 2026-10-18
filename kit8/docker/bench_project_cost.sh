@@ -32,10 +32,10 @@ CREATE TEMP TABLE leaf AS SELECT gen_random_uuid() AS g, s.pp AS parent, NULL::l
 UPDATE leaf SET pp = parent || public.pm_ltree_label(g);
 DELETE FROM leaf WHERE rn > GREATEST(0, $N - 1220);
 INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowJSON")
-SELECT g, path, 'bbbbbbbb-0000-0000-0000-000000000001'::uuid, '99999999-9999-9999-9999-999999999999'::uuid, jsonb_build_object('name', 'stage', 'rowKind', 'stage') FROM n
-UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('name', 'stage', 'rowKind', 'stage') FROM n2
-UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('name', 'stage', 'rowKind', 'stage') FROM n3
-UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('name', 'task') FROM leaf;
+SELECT g, path, 'bbbbbbbb-0000-0000-0000-000000000001'::uuid, '99999999-9999-9999-9999-999999999999'::uuid, jsonb_build_object('taskDescription', 'stage', 'rowKind', 'stage') FROM n
+UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('taskDescription', 'stage', 'rowKind', 'stage') FROM n2
+UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('taskDescription', 'stage', 'rowKind', 'stage') FROM n3
+UNION ALL SELECT g, pp, 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('taskDescription', 'task') FROM leaf;
 INSERT INTO public.task_line_table ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
 SELECT t."projectGUID", t."rowGUID", (ARRAY['timeGenus','materialGenus'])[k], k,
        jsonb_build_object('resourceRoleItem', (SELECT "rowGUID" FROM public."resourceRoleTable" ORDER BY "rowGUID" OFFSET k LIMIT 1), 'measureUnitTaskLine', (ARRAY['unit_hour','unit_pcs'])[k], 'qtyTaskLine', 100, 'priceTaskLine', 2)

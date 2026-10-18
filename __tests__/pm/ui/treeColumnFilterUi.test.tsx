@@ -26,7 +26,7 @@ const task = (id: string, name: string, days: number, flag?: boolean): PMTaskRow
     rowDuration: null,
     rowProgress: 0,
     orderInList: days,
-    rowJSON: { rowKind: 'task', name, durationDays: days, ...(flag === undefined ? {} : { customColumns: { cc_flag0001: flag } }) },
+    rowJSON: { rowKind: 'task', taskDescription: name, durationDays: days, ...(flag === undefined ? {} : { customColumns: { cc_flag0001: flag } }) },
   }) as PMTaskRow;
 const rows = [task('a', 'Design', 1, true), task('b', 'Develop', 2, false), task('c', 'Build', 3)];
 const flagCol = { key: 'cc_flag0001' as const, name: 'Approved', type: 'boolean' as const };

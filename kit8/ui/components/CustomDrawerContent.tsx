@@ -135,7 +135,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       ],
     },
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
-    // reports: Monitor01 (planned · contracted · delivered · used per resource role, month and task; the FULL data set, live), sorted by name
+    // reports: Monitor01 (planned · contracted · received · used per resource role, month and task; the FULL data set, live), sorted by name
     {
       id: 'reports',
       label: 'Reports',

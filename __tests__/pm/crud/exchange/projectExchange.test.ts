@@ -81,7 +81,7 @@ describe('planProjectImport', () => {
       expect(t).toMatchObject({ projectGUID: P2.rowGUID, rowOwnerGUID: OWNER });
     }
     // same shape: a stage keeps its children (by name)
-    const byName = (rows: any[], name: string) => rows.find((t) => t.rowJSON.name === name);
+    const byName = (rows: any[], name: string) => rows.find((t) => t.rowJSON.taskDescription === name);
     expect(byName(plan.tasks, 'Task 113').treePath.startsWith(byName(plan.tasks, 'Stage 1').treePath + '.')).toBe(true);
     // dependencies re-pointed
     expect(plan.dependencies).toHaveLength(file.dependencies.length);

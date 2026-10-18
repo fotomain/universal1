@@ -76,7 +76,7 @@ describe('custom columns', () => {
     const t = g('Task 111');
     await run(() => h.crud.setCustomColumnValue(t, key, 8));
     expect(h.db.task(t)!.rowJSON.customColumns).toEqual({ [key]: 8 });
-    expect(h.db.task(t)!.rowJSON.name).toBe('Task 111'); // the rest of rowJSON is kept
+    expect(h.db.task(t)!.rowJSON.taskDescription).toBe('Task 111'); // the rest of rowJSON is kept
     await run(() => h.crud.setCustomColumnValue(g('Stage 1'), key, 21)); // stages have values too
     expect(h.db.task(g('Stage 1'))!.rowJSON.customColumns).toEqual({ [key]: 21 });
     await run(() => h.crud.setCustomColumnValue(t, key, null));

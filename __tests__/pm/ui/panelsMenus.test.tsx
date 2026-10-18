@@ -119,7 +119,7 @@ describe('PMDependencyMenu (right click on a dependency arrow)', () => {
     expect(q('pm-dep-menu')).toBeNull();
     act(() => usePMStore.getState().setDepMenu({ ...ref, x: 100, y: 100 }));
     const names = usePMStore.getState().tasksById;
-    expect(textOf('pm-dep-menu-caption')).toBe(`${names[dep.rowDependsOnGUID].rowJSON.name} → ${names[dep.rowGUID].rowJSON.name}`);
+    expect(textOf('pm-dep-menu-caption')).toBe(`${names[dep.rowDependsOnGUID].rowJSON.taskDescription} → ${names[dep.rowGUID].rowJSON.taskDescription}`);
     expectInOrder(['pm-dep-menu-edit', 'pm-dep-menu-sql_for_delete']);
     press('pm-dep-menu-edit');
     expect(crud.openDependencyEditor).toHaveBeenCalledWith(ref);

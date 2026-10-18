@@ -76,10 +76,12 @@ describe('the structure file, the code file and the delete file carry the same p
       const rowsFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows');
       const body = src.slice(rowsFn, src.indexOf('\n$$;\n', rowsFn));
       expect(body).toContain('t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced"');
-      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "qtyOrdered", "qtyDelivered", "lineCount", "hasStalePlan")');                // the apply column list
-      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyInvoiced", [fv]\."qtyOrdered", [fv]\."qtyDelivered", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
-      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyDelivered" = EXCLUDED."qtyDelivered", "lineCount" = EXCLUDED."lineCount"');
-      expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyInvoiced"');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "qtyOrdered", "qtyReceived", "lineCount", "hasStalePlan")');                // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyVendorInvoiced", [fv]\."qtyOrdered", [fv]\."qtyReceived", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "lineCount" = EXCLUDED."lineCount"');
+      expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyVendorInvoiced"');
+      expect(src).toContain('RENAME COLUMN "qtyDelivered" TO "qtyReceived"');          // upgrade of an existing database
+      expect(src).toContain('RENAME COLUMN "qtyInvoiced" TO "qtyVendorInvoiced"');
     }
   });
   it('the project status REGISTER: movements (qtyProjectStatus, kinds, snapshot dimensions) -> month turnover (renamed in place) -> the report; documents write it in their own transaction', () => {
@@ -116,10 +118,11 @@ describe('the structure file, the code file and the delete file carry the same p
   it('the POSTED facts feed qtyUsed through the register; the drill-down "used" lists the fact lines; tasks with facts are queued on upgrade', () => {
     for (const src of [structure]) {
       expect(src).toContain("ELSIF p_measure IN ('fact', 'used') THEN");
-      expect(src).toContain("ELSIF p_measure = 'delivered' THEN");
-      // the report column Invoiced: monitor01_view.qtyInvoiced is made by the worker from the register ('invoiced' movements) and checked by monitor01_verify
-      expect(src).toContain('"qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "qtyDelivered" numeric, "lineCount" integer, "hasStalePlan" boolean)');
-      expect(src).toContain('"qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced"');
+      expect(src).toContain("ELSIF p_measure = 'received' THEN");
+      expect(src).toContain("ELSIF p_measure = 'vendorInvoiced' THEN");
+      // the report column VendorInvoiced: monitor01_view.qtyVendorInvoiced is made by the worker from the register (the 'invoiced' movements) and checked by monitor01_verify
+      expect(src).toContain('"qtyUsed" numeric, "qtyVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)');
+      expect(src).toContain('"qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced"');
       expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'invoiced'");
       expect(src).toMatch(/SELECT DISTINCT f\."rowOwnerGUID", 'install' FROM public\.task_fact_usage_timeline f/);
     }
@@ -139,16 +142,16 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain('"vatForContractOrdered" = EXCLUDED."vatForContractOrdered"');                  // the turnover is written with the ordered numbers
     }
   });
-  it('the column Delivered (PART 30): qtyReceived of the turnover becomes qtyDelivered of monitor01_view, made from the \'received\' movements of the posted product receipts; the drill-down "delivered"; tasks with receipts are queued on upgrade', () => {
+  it('the column Received (PART 30): qtyReceived of the turnover becomes qtyReceived of monitor01_view, made from the \'received\' movements of the posted product receipts; the drill-down "received"; tasks with receipts are queued on upgrade', () => {
     for (const src of [structure]) {
       for (const c of ['qtyReceived', 'sumForBudgetReceived', 'sumForContractReceived', 'sumForAccountingReceived', 'vatForContractReceived', 'vatForAccountingReceived']) {
         expect(src).toContain(`ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "${c}" NUMERIC(18,2) NOT NULL DEFAULT 0;`);
       }
       expect(src).toContain(`FILTER (WHERE s."rowMovementKind" = 'received')`);
       expect(src).toContain('"qtyReceived" = EXCLUDED."qtyReceived"');                                         // the turnover is written with the received numbers
-      expect(src).toContain('"qtyOrdered" = EXCLUDED."qtyOrdered", "qtyDelivered" = EXCLUDED."qtyDelivered"');   // ... and the view gets them as qtyDelivered
-      expect(src).toContain('sum(f."qtyReceived") AS "qtyDelivered"');                                          // PART 29 monitor01_fresh_rows (the last definition)
-      expect(src).toContain("ELSIF p_measure = 'delivered' THEN");
+      expect(src).toContain('"qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived"');   // ... and the view gets them as qtyReceived
+      expect(src).toContain('sum(f."qtyReceived") AS "qtyReceived"');                                          // PART 29 monitor01_fresh_rows (the last definition)
+      expect(src).toContain("ELSIF p_measure = 'received' THEN");
       expect(src).toContain("JOIN public.product_receipt_header h ON h.\"rowGUID\" = s.\"rowRegistratorGUID\"");
       expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'received'");
       expect(src).not.toContain('No data yet');

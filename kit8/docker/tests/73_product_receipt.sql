@@ -1,4 +1,4 @@
--- PART 30 + 28 + 26: a PRODUCT RECEIPT is made from a POSTED purchase order, posted ('received' movements -> the column Delivered of Monitor01), and a VENDOR INVOICE is made from the posted receipt
+-- PART 30 + 28 + 26: a PRODUCT RECEIPT is made from a POSTED purchase order, posted ('received' movements -> the column Received of Monitor01), and a VENDOR INVOICE is made from the posted receipt
 BEGIN;
 SELECT tt.as_admin();
 
@@ -8,8 +8,8 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SEL
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
 DELETE FROM public.monitor01_dirty;
-SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 112' \gset
-SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 112' \gset
+SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
+SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
 SELECT r."rowGUID" AS role1 FROM public."resourceRoleTable" r ORDER BY r."rowGUID" LIMIT 1 \gset
 SELECT c."rowGUID" AS country1 FROM public."countryTable" c ORDER BY c."orderInList" LIMIT 1 \gset
 
@@ -95,20 +95,20 @@ SELECT tt.eq((SELECT string_agg("qtyReceived"::text, ',' ORDER BY "orderInList")
 SELECT public.delete_product_receipt(:'pr2');
 SELECT tt.eq((SELECT count(*) FROM public.product_receipt_header WHERE "rowGUID" = :'pr2'), 0::bigint, 'a draft receipt is deleted with its lines');
 
--- 8. Monitor01: the column Delivered ----------------------------------------------------------------------------------------------------------------------------------------
+-- 8. Monitor01: the column Received ----------------------------------------------------------------------------------------------------------------------------------------
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT sum("qtyDelivered") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 9::numeric, 'monitor01_view.qtyDelivered = the quantity of the posted receipt (5 + 4)');
+SELECT tt.eq((SELECT sum("qtyReceived") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 9::numeric, 'monitor01_view.qtyReceived = the quantity of the posted receipt (5 + 4)');
 SELECT tt.eq((SELECT sum("qtyOrdered") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 11::numeric, '... qtyOrdered stays the quantity of the purchase order (the columns do not mix)');
-SELECT tt.eq((SELECT sum("qtyInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, '... and nothing is invoiced yet');
+SELECT tt.eq((SELECT sum("qtyVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, '... and nothing is invoiced yet');
 SELECT tt.eq((SELECT sum("qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 9::numeric, 'on hand = delivered - used');
 SELECT tt.eq((SELECT sum("qtyReceived") || '/' || sum("sumForContractReceived") || '/' || sum("vatForContractReceived") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), '9.00/33.00/6.93', 'the turnover: qtyReceived, sumForContractReceived, vatForContractReceived');
-SELECT tt.eq((SELECT sum(f."qtyDelivered") FROM public.monitor01_fresh_rows(ARRAY[:'t3'::uuid]) f), 9::numeric, 'monitor01_fresh_rows carries qtyDelivered, so monitor01_verify compares it');
+SELECT tt.eq((SELECT sum(f."qtyReceived") FROM public.monitor01_fresh_rows(ARRAY[:'t3'::uuid]) f), 9::numeric, 'monitor01_fresh_rows carries qtyReceived, so monitor01_verify compares it');
 SELECT tt.eq(public.monitor01_verify(500), 0, 'monitor01_verify finds nothing to repair');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
-SELECT tt.eq((public.monitor01_sum_sources('delivered', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 2, 'the drill-down of "delivered" lists the movements of the receipt');
-SELECT tt.eq((public.monitor01_sum_sources('delivered', jsonb_build_object('taskGUID', :'t3'))->'rows'->0->>'documentNumber'), 'GRN-1', '... with the number of the receipt');
-SELECT tt.eq((public.monitor01_sum_sources('delivered', jsonb_build_object('taskGUID', :'t3'))->>'sum')::numeric, 9::numeric, '... and its sum is the number of the cell');
+SELECT tt.eq((public.monitor01_sum_sources('received', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 2, 'the drill-down of "received" lists the movements of the receipt');
+SELECT tt.eq((public.monitor01_sum_sources('received', jsonb_build_object('taskGUID', :'t3'))->'rows'->0->>'documentNumber'), 'GRN-1', '... with the number of the receipt');
+SELECT tt.eq((public.monitor01_sum_sources('received', jsonb_build_object('taskGUID', :'t3'))->>'sum')::numeric, 9::numeric, '... and its sum is the number of the cell');
 
 -- 9. the list --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 SELECT tt.eq((public.product_receipt_list('{}'::jsonb)->>'totalCount')::int, 1, 'product_receipt_list: one document');
@@ -138,17 +138,17 @@ SELECT public.vendor_invoice_set_header(:'vi', '{"vendorInvoiceNumber": "INV-9",
 SELECT tt.eq(public.post_vendor_invoice(:'vi')->>'status', 'posted', 'the invoice made from the receipt is posted');
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT sum("qtyDelivered") || '/' || sum("qtyInvoiced") || '/' || sum("qtyOrdered") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '9.00/7.00/11.00', 'Monitor01: Ordered 11 · Delivered 9 · Invoiced 7 (3 + 4) - three columns, three documents');
+SELECT tt.eq((SELECT sum("qtyReceived") || '/' || sum("qtyVendorInvoiced") || '/' || sum("qtyOrdered") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '9.00/7.00/11.00', 'Monitor01: Ordered 11 · Received 9 · VendorInvoiced 7 (3 + 4) - three columns, three documents');
 
--- 11. unpost the receipt: only the Delivered column goes ---------------------------------------------------------------------------------------------------------------------
+-- 11. unpost the receipt: only the Received column goes ---------------------------------------------------------------------------------------------------------------------
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq(public.unpost_product_receipt(:'pr')->>'status', 'draft', 'the receipt is unposted');
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT COALESCE(sum("qtyDelivered"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'after Unpost the column Delivered is 0');
-SELECT tt.eq((SELECT sum("qtyOrdered") || '/' || sum("qtyInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '11.00/7.00', '... Ordered and Invoiced stay');
+SELECT tt.eq((SELECT COALESCE(sum("qtyReceived"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'after Unpost the column Received is 0');
+SELECT tt.eq((SELECT sum("qtyOrdered") || '/' || sum("qtyVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '11.00/7.00', '... Ordered and VendorInvoiced stay');
 SELECT public.monitor01_rebuild(NULL);
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT COALESCE(sum("qtyDelivered"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'a rebuild of the report gives the same numbers');
+SELECT tt.eq((SELECT COALESCE(sum("qtyReceived"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'a rebuild of the report gives the same numbers');
 
 ROLLBACK;

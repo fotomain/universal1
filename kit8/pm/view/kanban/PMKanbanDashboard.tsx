@@ -367,7 +367,7 @@ export default function PMKanbanDashboard({ projectGUID, width, height, palette,
         onToggleNoStateFilter={toggleNoStateFilter}
         crud={crud}
         palette={palette}
-        scopeName={scopeRow ? scopeRow.rowJSON?.name || '(no name)' : null}
+        scopeName={scopeRow ? scopeRow.rowJSON?.taskDescription || '(no name)' : null}
         scopeStage={scopeStage}
         cardCount={board.cardCount}
         onClearScope={() => setScope(null)}

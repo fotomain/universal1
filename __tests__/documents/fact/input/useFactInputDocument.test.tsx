@@ -44,7 +44,7 @@ const row = (guid: string, over: Record<string, any> = {}) => ({
   projectGUID: 'p1', projectName: 'Alpha', taskGUID: 't1', taskName: 'task03', lineCount: 2, firstDay: null, lastDay: null, sumForBudget: '10.5', sumForContract: '20', sumForAccounting: '30.25', ...over,
 });
 const list = (...rows: any[]) => ({ data: { totalCount: rows.length, totals: { sumForBudget: 0, sumForContract: 0, sumForAccounting: 0 }, rows }, error: null });
-const task = { data: { projectGUID: 'p1', rowJSON: { name: 'task03' } }, error: null };
+const task = { data: { projectGUID: 'p1', rowJSON: { taskDescription: 'task03' } }, error: null };
 
 let latest: any;
 let n = 0;

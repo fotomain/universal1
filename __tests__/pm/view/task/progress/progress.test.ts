@@ -9,7 +9,7 @@ const t = (guid: string, path: string, kind: 'stage' | 'task' | 'milestone', day
   rowDuration: null,
   rowProgress: progress,
   orderInList: 1024,
-  rowJSON: { rowKind: kind, name: guid, durationDays: days },
+  rowJSON: { rowKind: kind, taskDescription: guid, durationDays: days },
 });
 
 describe('project progress formula (same as SQL pm_recalc_project_progress)', () => {

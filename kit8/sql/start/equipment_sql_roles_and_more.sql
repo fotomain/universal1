@@ -193,7 +193,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 -- Check:
---   SELECT t."rowJSON"->>'name' AS task, r."rowJSON"->>'title' AS role, e."rowJSON"->>'equipmentTitle' AS equipment, l."rowJSON"->>'qtyTaskLine' AS hours,
+--   SELECT t."rowJSON"->>'taskDescription' AS task, r."rowJSON"->>'title' AS role, e."rowJSON"->>'equipmentTitle' AS equipment, l."rowJSON"->>'qtyTaskLine' AS hours,
 --          l."rowJSON"->>'priceTaskLine' AS price, l."rowJSON"->>'sumForContract' AS sum
 --     FROM public.task_line_table l
 --     JOIN public.project_task_table t ON t."rowGUID" = l."rowOwnerGUID"

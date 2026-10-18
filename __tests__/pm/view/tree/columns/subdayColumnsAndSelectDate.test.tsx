@@ -7,7 +7,7 @@ import {
   PM_TREE_COLUMN_WIDTHS,
 } from '../../../../../kit8/pm/view/tree/columns/treeColumns';
 import SelectDateApp, { normalizeDateValue } from '../../../../../kit8/ui/components/common/SelectDateApp';
-import EditTaskPlanningUnitField from '../../../../../kit8/pm/view/tree/inline/EditTaskPlanningUnitField';
+import EditTaskTimelineUnitField from '../../../../../kit8/pm/view/tree/inline/EditTaskTimelineUnitField';
 import EditTaskStartDate from '../../../../../kit8/pm/view/tree/inline/EditTaskStartDate';
 import EditTaskFinishDate from '../../../../../kit8/pm/view/tree/inline/EditTaskFinishDate';
 import { usePMStore } from '../../../../../kit8/pm/store/store_pm';
@@ -190,7 +190,7 @@ describe('SelectDateApp component', () => {
   });
 });
 
-describe('EditTaskPlanningUnitField inline editing', () => {
+describe('EditTaskTimelineUnitField inline editing', () => {
   const scrollY = { value: 0 } as any;
   const colors = { text: '#000', background: '#fff', primary: '#007aff', error: '#ff3b30' };
 
@@ -201,7 +201,7 @@ describe('EditTaskPlanningUnitField inline editing', () => {
     act(() => usePMStore.getState().setCellEdit({ guid: g, field: 'startHourStart' }));
 
     renderUI(
-      <EditTaskPlanningUnitField
+      <EditTaskTimelineUnitField
         guid={g}
         field="startHourStart"
         rowIndex={1}
@@ -234,7 +234,7 @@ describe('EditTaskPlanningUnitField inline editing', () => {
     act(() => usePMStore.getState().setCellEdit({ guid: g, field: 'planMinuteFinish' }));
 
     renderUI(
-      <EditTaskPlanningUnitField
+      <EditTaskTimelineUnitField
         guid={g}
         field="planMinuteFinish"
         rowIndex={1}
@@ -266,7 +266,7 @@ describe('EditTaskPlanningUnitField inline editing', () => {
     act(() => usePMStore.getState().setCellEdit({ guid: g, field: 'startHourStart' }));
 
     renderUI(
-      <EditTaskPlanningUnitField
+      <EditTaskTimelineUnitField
         guid={g}
         field="startHourStart"
         rowIndex={1}

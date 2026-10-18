@@ -61,7 +61,7 @@ export default function PMNetworkView({ crud, readOnly, showGanttToggle = true, 
   const editable = canEdit(crud, readOnly);
   const mode = usePMStore((s) => s.networkViewMode);
   const showCritical = usePMStore((s) => s.showCriticalPath);
-  const linkSourceName = usePMStore((s) => (editable && s.linkSourceGUID ? (s.tasksById[s.linkSourceGUID]?.rowJSON.name ?? '') : null));
+  const linkSourceName = usePMStore((s) => (editable && s.linkSourceGUID ? (s.tasksById[s.linkSourceGUID]?.rowJSON.taskDescription ?? '') : null));
   const setters = useNetworkViewSetters(crud, readOnly);
   const net = useActivityNetwork();
 

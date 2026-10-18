@@ -43,7 +43,7 @@ export default function PMTaskKanbanStateCard({
   const stages = usePMKanbanStore((s) => s.stages || []);
   const stage = stages.find((st) => st.rowGUID === stageGUID);
 
-  const taskName = task?.rowJSON?.name || card.title || `Task (${taskGUID?.slice(0, 8) || 'unknown'})`;
+  const taskName = task?.rowJSON?.taskDescription || card.title || `Task (${taskGUID?.slice(0, 8) || 'unknown'})`;
   const stageName = stage?.rowJSON?.stageName || 'Default stage';
   const stageColor = stage?.rowJSON?.stageColor || c.primary;
 

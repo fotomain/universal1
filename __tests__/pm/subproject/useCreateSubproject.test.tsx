@@ -55,7 +55,7 @@ it('creates "Subproject of <task>", links it to the task, refreshes the caches a
   expect(mockApi.updateTask).toHaveBeenCalledTimes(1);
   const [guid, patch] = mockApi.updateTask.mock.calls[0];
   expect(guid).toBe(t.rowGUID);
-  expect(patch.rowJSON).toMatchObject({ name: 'Task 111', taskIsSubproject: true, taskSubprojectGUID: 'new-project' });
+  expect(patch.rowJSON).toMatchObject({ taskDescription: 'Task 111', taskIsSubproject: true, taskSubprojectGUID: 'new-project' });
   expect(mockApi.createProject.mock.invocationCallOrder[0]).toBeLessThan(mockApi.updateTask.mock.invocationCallOrder[0]);   // the project exists before the task points at it
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['pm', 'projects'] });
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['pm', 'projectData', t.projectGUID] });

@@ -14,7 +14,7 @@ jest.mock('../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', () =>
 
 import React from 'react';
 import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
-import PMProjectFinancesView from '../../../kit8/pm/view/task/finances/PMProjectFinancesView';
+import PMTaskEditView from '../../../kit8/pm/view/task/finances/PMTaskEditView';
 import { makePMPalette } from '../../../kit8/pm/view/theme';
 import { pmMainViewOf, uxuiSettingsOf } from '../../../kit8/pm/model/types';
 import { makeLastEditPlace } from '../../../kit8/pm/model/lastEditPlace';
@@ -44,8 +44,8 @@ describe('the view switch', () => {
   });
 });
 
-describe('PMProjectFinancesView', () => {
-  const view = (crud = fakeCrud()) => <PMProjectFinancesView projectGUID="p" width={800} height={600} palette={palette} crud={crud} />;
+describe('PMTaskEditView', () => {
+  const view = (crud = fakeCrud()) => <PMTaskEditView projectGUID="p" width={800} height={600} palette={palette} crud={crud} />;
 
   it('no task selected: asks to select one; the bar has no view switch (it is in the app bar)', () => {
     seedStore();
@@ -101,7 +101,7 @@ describe('PMProjectFinancesView', () => {
 describe('picker mode (the project tree window of a multi project vendor invoice / purchase order)', () => {
   const view = (picker: any) => (
     <PMPickerProvider value={picker}>
-      <PMProjectFinancesView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />
+      <PMTaskEditView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />
     </PMPickerProvider>
   );
   it('a selected task: the toolbar has "Select this task"; it answers with the project and the task (no line)', () => {

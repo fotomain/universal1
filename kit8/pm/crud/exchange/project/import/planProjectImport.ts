@@ -8,7 +8,7 @@
 
 import { PMProjectRow, PMRowJSON, PMTaskDependencyRow, PMTaskRow, PMUxUiSettings } from '../../../../model/types';
 import { buildTreePath, projectTreePath, toLtreeLabel } from '../../../../view/project/scheduling';
-import { PMProjectExchangeError, PMProjectExchangeFile } from '../projectExchangeFormat';
+import { PMProjectExchangeError, PMProjectExchangeFile, taskJSONOfFile } from '../projectExchangeFormat';
 import { applyBudgetSettingsOfImport, BudgetCatalogsForImport } from './budgetSettingsOfImport';
 
 export interface PMProjectImportPlan {
@@ -43,12 +43,12 @@ export function planProjectImport(
   const tasks: PMTaskRow[] = [];
   for (const t of ordered) {
     const labels = t.treePath.split('.');
-    if (labels[labels.length - 1] !== toLtreeLabel(t.rowGUID)) throw new PMProjectExchangeError(`Task "${t.rowJSON?.name ?? t.rowGUID}" has a wrong tree path.`);
+    if (labels[labels.length - 1] !== toLtreeLabel(t.rowGUID)) throw new PMProjectExchangeError(`Task "${taskJSONOfFile(t.rowJSON).taskDescription || t.rowGUID}" has a wrong tree path.`);
     const parentLabel = labels.length > 2 ? labels[labels.length - 2] : null;
     let parentPath = projectTreePath(target.rowGUID);
     if (parentLabel) {
       const parent = byLabel.get(parentLabel);
-      if (!parent || !newPath[parent.rowGUID]) throw new PMProjectExchangeError(`Task "${t.rowJSON?.name ?? t.rowGUID}" has no parent in the file.`);
+      if (!parent || !newPath[parent.rowGUID]) throw new PMProjectExchangeError(`Task "${taskJSONOfFile(t.rowJSON).taskDescription || t.rowGUID}" has no parent in the file.`);
       parentPath = newPath[parent.rowGUID];
     }
     const rowGUID = idMap[t.rowGUID];
@@ -62,7 +62,7 @@ export function planProjectImport(
       rowOwnerGUID: ownerGUID,
       rowProgress: Number(t.rowProgress) || 0,
       orderInList: Number(t.orderInList) || 0,
-      rowJSON: { ...t.rowJSON },
+      rowJSON: taskJSONOfFile(t.rowJSON),
     });
   }
 

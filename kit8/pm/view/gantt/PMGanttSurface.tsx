@@ -2,7 +2,7 @@
 // Kanban mode (rightPane='kanban'): [ tree | splitter | PMKanbanDashboard ]; tree rows can be dragged onto
 // the board through view/kanban/kanbanTreeBridge.ts.
 // Versions mode (rightPane='versions'): [ tree | splitter | PMProjectVersionsList ] (kit8/pm/version).
-// Finances mode (rightPane='finances'): [ tree | splitter | PMProjectFinancesView ] (the lines of the selected task, view/task/finances).
+// Finances mode (rightPane='finances'): [ tree | splitter | PMTaskEditView ] (the lines of the selected task, view/task/finances).
 // Plan mode (rightPane='plan'): [ tree | splitter | PMTaskLinePlanView ] (the posted days of the lines of the selected task, view/task/plan).
 // Reports mode (rightPane='reports'): [ tree | splitter | PMProjectReportsView ] (project summary, view/reports).
 // On web this module (and everything that imports Skia) is loaded lazily, after
@@ -35,7 +35,7 @@ import { useKanbanTreeBridge } from '../kanban/kanbanTreeBridge';
 import PMProjectVersionsList from '../../version/view/list/PMProjectVersionsList';
 import { usePMVersionStore } from '../../version/store/store_version';
 import { overlaysRange } from '../../version/model/versionCompare';
-import PMProjectFinancesView from '../task/finances/PMProjectFinancesView';
+import PMTaskEditView from '../task/finances/PMTaskEditView';
 import PMTaskLinePlanView from '../task/plan/PMTaskLinePlanView';
 import PMProjectReportsView from '../reports/PMProjectReportsView';
 
@@ -348,7 +348,7 @@ export default function PMGanttSurface({
           ) : isPlan ? (
             <PMTaskLinePlanView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isFinances ? (
-            <PMProjectFinancesView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
+            <PMTaskEditView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isVersions ? (
             <PMProjectVersionsList ownerGUID={ownerGUID} projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isKanban ? (

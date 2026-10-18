@@ -5,7 +5,7 @@
 //   ganttVsNetworkView = 'showKanbanView'  -> tree + PMKanbanDashboard (view/kanban)
 //   ganttVsNetworkView = 'showNetworkView' -> PMNetworkView (network diagram / network schedule)
 //   ganttVsNetworkView = 'showVersionsView' -> tree + PMProjectVersionsList (kit8/pm/version)
-//   ganttVsNetworkView = 'showFinancesView' -> tree + PMProjectFinancesView (the lines of the selected task: view/task/finances)
+//   ganttVsNetworkView = 'showFinancesView' -> tree + PMTaskEditView (the lines of the selected task: view/task/finances)
 //   ganttVsNetworkView = 'showPlanView' -> tree + PMTaskLinePlanView (the posted days of the lines of the selected task: view/task/plan)
 //   ganttVsNetworkView = 'showReportsView' -> tree + PMProjectReportsView (project summary: view/reports)
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);

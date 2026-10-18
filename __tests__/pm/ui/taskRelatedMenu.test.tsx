@@ -140,3 +140,20 @@ describe('Go to', () => {
     expect(q('pm-row-menu-goto-subproject')).toBeNull();
   });
 });
+
+describe('Task menu: Options opens the task window (PMTaskEditModal)', () => {
+  it('"Options" calls crud.edit(taskGUID) and closes the menu; there is no "Edit" item', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    const crud = fakeCrud();
+    renderUI(<PMTaskRowMenu crud={crud} />);
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 100, y: 80, source: 'tree' }));
+    expect(q('pm-row-menu-edit')).toBeNull();
+    expect(document.body.textContent).toContain('Options');
+    const all = ids();
+    expect(all.indexOf('pm-row-menu-options')).toBe(all.indexOf('pm-row-menu-delete') - 1); // Options stands right before Delete
+    press('pm-row-menu-options');
+    expect(crud.edit).toHaveBeenCalledWith(t.rowGUID);
+    expect(usePMStore.getState().rowMenu).toBeNull();
+  });
+});

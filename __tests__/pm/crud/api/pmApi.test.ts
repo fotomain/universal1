@@ -15,7 +15,7 @@ function setup() {
   db.seed('project_task_table', demo.tasks);
   db.seed('project_task_dependencies_table', demo.deps.map((d) => ({ ...d, rowJSON: {} })));
   const api = createPMApi(db as any);
-  const byName = (name: string) => demo.tasks.find((t) => t.rowJSON.name === name)!;
+  const byName = (name: string) => demo.tasks.find((t) => t.rowJSON.taskDescription === name)!;
   return { db, api, demo, byName, P1: demo.projects[0].rowGUID, P2: demo.projects[1].rowGUID };
 }
 
@@ -109,7 +109,7 @@ describe('project_task_table CRUD', () => {
 
   it('readTask: one row or null', async () => {
     const { api, byName } = setup();
-    expect((await api.readTask(byName('Task 112').rowGUID))?.rowJSON.name).toBe('Task 112');
+    expect((await api.readTask(byName('Task 112').rowGUID))?.rowJSON.taskDescription).toBe('Task 112');
     expect(await api.readTask('nope')).toBeNull();
   });
 
@@ -120,14 +120,14 @@ describe('project_task_table CRUD', () => {
     expect(inStage.treePath).toBe(`${stage.treePath}.aaaa_bbbb`);
     const top = api.buildTaskRow({ ownerGUID: OWNER, projectGUID: P1, parentTreePath: null, rowKind: 'stage', name: 'S', durationDays: 0, orderInList: 1 });
     expect(top.treePath.split('.')[0]).toBe(P1.replace(/-/g, '_'));
-    expect(top.rowJSON).toEqual({ rowKind: 'stage', name: 'S', durationDays: 0 });
+    expect(top.rowJSON).toEqual({ rowKind: 'stage', taskDescription: 'S', durationDays: 0 });
   });
 
   it('createTask inserts one row and returns it', async () => {
     const { api, db, P1, byName } = setup();
     const row = api.buildTaskRow({ ownerGUID: OWNER, projectGUID: P1, parentTreePath: byName('Stage 2').treePath, rowKind: 'milestone', name: 'M', durationDays: 0, orderInList: 5000 });
     const created = await api.createTask(row);
-    expect(created).toMatchObject({ rowGUID: row.rowGUID, rowJSON: { rowKind: 'milestone', name: 'M' } });
+    expect(created).toMatchObject({ rowGUID: row.rowGUID, rowJSON: { rowKind: 'milestone', taskDescription: 'M' } });
     expect(db.task(row.rowGUID)).toBeDefined();
   });
 
@@ -148,7 +148,7 @@ describe('project_task_table CRUD', () => {
   it('deleteTask of a stage removes the subtree and its dependencies (trigger)', async () => {
     const { api, db, byName } = setup();
     await api.deleteTask(byName('Stage 1').rowGUID);
-    const names = db.rows('project_task_table').map((t) => t.rowJSON.name);
+    const names = db.rows('project_task_table').map((t) => t.rowJSON.taskDescription);
     expect(names).not.toContain('Task 111');
     expect(names).toContain('Task 121');
     expect(db.rows('project_task_dependencies_table').some((d) => d.rowGUID === byName('Task 113').rowGUID)).toBe(false);

@@ -18,7 +18,7 @@ beforeEach(() => {
   usePMStore.getState().setProjects(demo.projects);
   usePMStore.getState().selectProject(P1);
   usePMStore.getState().hydrate(P1, demo.tasks.filter((t: any) => t.projectGUID === P1), demo.deps.filter((d: any) => d.projectGUID === P1));
-  byName = (name) => usePMStore.getState().tasks.find((t) => t.rowJSON.name === name);
+  byName = (name) => usePMStore.getState().tasks.find((t) => t.rowJSON.taskDescription === name);
 });
 
 const pad = (n: number) => String(n).padStart(2, '0');

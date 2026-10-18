@@ -30,7 +30,7 @@ export default function PMTaskLinePlanView({ projectGUID, width, height, palette
       <PMToolbar background={palette.surface} border={palette.border}>
         <PMTipIcon tip={pmT('Budgets')} testID="pm-plan-icon" name="event_note" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
         <Text style={[styles.title, { color: palette.text }]} testID="pm-plan-title" numberOfLines={1}>
-          {task ? task.rowJSON?.name || pmT('Task') : pmT('Budgets')}
+          {task ? task.rowJSON?.taskDescription || pmT('Task') : pmT('Budgets')}
         </Text>
       </PMToolbar>
 

@@ -16,7 +16,7 @@ import EditTaskProgress from './EditTaskProgress';
 import EditTaskCustomValue from './EditTaskCustomValue';
 import PMKanbanChangeStageInTree from './PMKanbanChangeStageInTree';
 import EditTaskKanbanProgress from './EditTaskKanbanProgress';
-import EditTaskPlanningUnitField from './EditTaskPlanningUnitField';
+import EditTaskTimelineUnitField from './EditTaskTimelineUnitField';
 
 // [clear (web only)] [date text] [date picker] - just enough for a full date, no empty space around
 const DATE_EDITOR_MIN_W = Platform.OS === 'web' ? 116 : 98;
@@ -71,7 +71,7 @@ export default function PMInlineCellEditor({
     field === 'planSecondStart' ||
     field === 'planSecondFinish'
   ) {
-    return <EditTaskPlanningUnitField {...common} field={field} x={col.x + 2} width={col.w - 4} />;
+    return <EditTaskTimelineUnitField {...common} field={field} x={col.x + 2} width={col.w - 4} />;
   }
   if (field === 'kanban') {
     const w = Math.min(Math.max(160, col.w - 4), contentW - 4);

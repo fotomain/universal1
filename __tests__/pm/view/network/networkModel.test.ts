@@ -10,7 +10,7 @@ const t = (guid: string, path: string, kind: 'stage' | 'task' | 'milestone', day
   rowDuration: null,
   rowProgress: 0,
   orderInList: 1024,
-  rowJSON: { rowKind: kind, name: guid.toUpperCase(), durationDays: days },
+  rowJSON: { rowKind: kind, taskDescription: guid.toUpperCase(), durationDays: days },
 });
 const d = (pred: string, succ: string, linkType: PMLinkType = 'FS', lagDays = 0): PMTaskDependencyRow => ({
   rowGUID: succ,

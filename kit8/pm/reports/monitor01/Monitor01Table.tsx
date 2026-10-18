@@ -1,5 +1,5 @@
 // Monitor01Table - the table of the sheet "W1 1-MONITOR01":
-//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Ordered, Delivered, Invoiced, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
+//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Ordered, Received, VendorInvoiced, Actually used, On-hand)      row 2: Project · Resource role · Month · Task name · Unit · the columns
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
 //   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
@@ -46,13 +46,13 @@ const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { pro
 
 /** the numbers of a row/subtotal in the shape cellTone reads */
 const asTone = (s: Monitor01Sums, stale = false) => ({
-  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyOrdered: s.ordered, qtyDelivered: s.delivered, qtyInvoiced: s.invoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
+  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyOrdered: s.ordered, qtyReceived: s.received, qtyVendorInvoiced: s.vendorInvoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
 });
 /** the columns after the dimensions, in the order of the sheet: the Plan group has the money after its quantities */
 type Col = { id: Monitor01Measure | 'sumForBudget'; group: 'Plan' | 'Fact' };
 const COLS: Col[] = [
   { id: 'planned', group: 'Plan' }, { id: 'contracted', group: 'Plan' }, { id: 'restToContract', group: 'Plan' }, { id: 'sumForBudget', group: 'Plan' },
-  { id: 'ordered', group: 'Fact' }, { id: 'delivered', group: 'Fact' }, { id: 'invoiced', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
+  { id: 'ordered', group: 'Fact' }, { id: 'received', group: 'Fact' }, { id: 'vendorInvoiced', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
 ];
 /** the first column of the Fact group: its left edge is the Plan | Fact divider */
 const FIRST_FACT_COLUMN = (COLS.find((c) => c.group === 'Fact') as Col).id;
@@ -62,7 +62,7 @@ const NUMS_WIDTH = COLS.reduce((a, c) => a + colWidth(c), 0);
 /** money with 2 decimals; 0 shows nothing */
 const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 
-const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, ordered: r.qtyOrdered, delivered: r.qtyDelivered, invoiced: r.qtyInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
+const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, ordered: r.qtyOrdered, received: r.qtyReceived, vendorInvoiced: r.qtyVendorInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
 
 const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell, groupBorder }: {
   measure: Monitor01Measure; sums: Monitor01Sums; stale: boolean; bold: boolean; item: Monitor01Item; colors: Monitor01TableColors; testID: string; onCell: (c: Monitor01CellPress) => void;

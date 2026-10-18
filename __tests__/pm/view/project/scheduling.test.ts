@@ -19,7 +19,7 @@ const DAY = 86400000;
 function demo() {
   n = 0;
   const data = buildDemoData('11111111-1111-4111-8111-111111111111', START, guid);
-  const byName = (name: string) => data.tasks.find((t) => t.rowJSON.name === name) as PMTaskRow;
+  const byName = (name: string) => data.tasks.find((t) => t.rowJSON.taskDescription === name) as PMTaskRow;
   return { data, byName };
 }
 
@@ -38,7 +38,7 @@ describe('pm scheduling - TRD use case', () => {
   it('numbers rows 1 / 1.1 / 1.1.1 from treePath + sibling order', () => {
     const P = 'p';
     const row = (id: string, path: string, orderInList: number) =>
-      ({ rowGUID: id, treePath: `${P}.${path}`, projectGUID: P, orderInList, rowJSON: { name: id } }) as unknown as PMTaskRow;
+      ({ rowGUID: id, treePath: `${P}.${path}`, projectGUID: P, orderInList, rowJSON: { taskDescription: id } }) as unknown as PMTaskRow;
     const tree = buildTreeIndex([
       row('b', 'b', 2048), // listed first, ordered second
       row('a', 'a', 1024),

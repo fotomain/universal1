@@ -38,7 +38,7 @@ export default function PMGanttToolbar({
   activeUnit: PMScaleUnit;
   actions: PMGanttToolbarActions;
 }) {
-  const linkSourceName = usePMStore((s) => (s.linkSourceGUID ? s.tasksById[s.linkSourceGUID]?.rowJSON.name ?? '' : null));
+  const linkSourceName = usePMStore((s) => (s.linkSourceGUID ? s.tasksById[s.linkSourceGUID]?.rowJSON.taskDescription ?? '' : null));
   return (
     <PMToolbar background={palette.surface} border={palette.border}>
       {linkSourceName !== null ? (

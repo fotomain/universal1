@@ -91,7 +91,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         rowDuration: null,
         rowProgress: 0,
         orderInList,
-        rowJSON: { rowKind: params.rowKind, name: params.name, durationDays: params.durationDays },
+        rowJSON: { rowKind: params.rowKind, taskDescription: params.name, durationDays: params.durationDays },
       };
       record('task-create', `Add ${params.rowKind}`);
       // rare: fractional gap collapsed -> re-space siblings first
@@ -241,7 +241,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
             rowOwnerGUID: ownerGUID,
             orderInList: order,
             rowDuration: null, // scheduler output - written back after the insert
-            rowJSON: { ...orig.rowJSON, name: isTop ? `${orig.rowJSON.name} (copy)` : orig.rowJSON.name },
+            rowJSON: { ...orig.rowJSON, taskDescription: isTop ? `${orig.rowJSON.taskDescription} (copy)` : orig.rowJSON.taskDescription },
           });
           for (const kid of s.tree.childrenById[orig.rowGUID] || []) {
             const k = s.tasksById[kid];
@@ -250,7 +250,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
           return rowGUID;
         };
         const copyGUID = copy(src, parent ? parent.treePath : projectTreePath(projectGUID), orderInList, true);
-        record('task-create', `Duplicate "${src.rowJSON.name}"`);
+        record('task-create', `Duplicate "${src.rowJSON.taskDescription}"`);
         for (const r of rebalance || []) updateTaskMutation.mutate({ rowGUID: r.rowGUID, patch: { orderInList: r.orderInList } });
         createTasksMutation.mutate(rows);
         s.setSelected(copyGUID);
@@ -271,13 +271,13 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         const kids = (s.tree.childrenById[guid] || []).length;
         const kind = s.schedule[guid]?.isSummary || kids ? 'stage' : row.rowJSON.rowKind === 'milestone' ? 'milestone' : 'task';
         const ok = await approvePM({
-          title: `Delete ${kind} "${row.rowJSON.name}"?`,
+          title: `Delete ${kind} "${row.rowJSON.taskDescription}"?`,
           message: `${kids ? `The ${kids} row(s) inside it and all their dependencies will be deleted too.` : 'Its dependencies will be deleted too.'} You can undo it with the Undo button.`,
           yesLabel: 'Delete',
           destructive: true,
         });
         if (!ok || !st().tasksById[guid]) return;
-        record('task-delete', `Delete "${row.rowJSON.name}"`);
+        record('task-delete', `Delete "${row.rowJSON.taskDescription}"`);
         deleteTaskMutation.mutate(guid);
       },
 
@@ -366,17 +366,17 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         const cal = calendar();
         if (mode === 'move') {
           const start = r.startMs + daysDelta * DAY_MS;
-          record('task-move', `Move "${t.rowJSON.name}"`);
+          record('task-move', `Move "${t.rowJSON.taskDescription}"`);
           updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, manualStartAt: new Date(start).toISOString() } } });
         } else if (mode === 'resize-end') {
           const finish = Math.max(r.startMs + DAY_MS, r.finishMs + daysDelta * DAY_MS);
           const durationDays = Math.max(1, workDaysBetween(r.startMs, finish, cal));
-          record('task-resize', `Stretch "${t.rowJSON.name}"`);
+          record('task-resize', `Stretch "${t.rowJSON.taskDescription}"`);
           updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, durationDays } } });
         } else {
           const start = Math.min(r.finishMs - DAY_MS, r.startMs + daysDelta * DAY_MS);
           const durationDays = Math.max(1, workDaysBetween(start, r.finishMs, cal));
-          record('task-resize', `Stretch "${t.rowJSON.name}"`);
+          record('task-resize', `Stretch "${t.rowJSON.taskDescription}"`);
           updateTaskMutation.mutate({
             rowGUID: guid,
             patch: { rowJSON: { ...t.rowJSON, durationDays, manualStartAt: new Date(start).toISOString() } },
@@ -388,7 +388,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         const p = Math.round(Math.min(100, Math.max(0, progress)));
         const t = st().tasksById[guid];
         if (!t || Math.round(t.rowProgress) === p) return;
-        record('task-progress', `Progress of "${t.rowJSON.name}"`);
+        record('task-progress', `Progress of "${t.rowJSON.taskDescription}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowProgress: p } });
       },
 
@@ -398,7 +398,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         if (!t || isSummary(guid) || t.rowJSON.rowKind === 'milestone') return;
         const durationDays = Math.max(1, Math.round(days));
         if (durationDays === t.rowJSON.durationDays) return;
-        record('task-resize', `Duration of "${t.rowJSON.name}"`);
+        record('task-resize', `Duration of "${t.rowJSON.taskDescription}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, durationDays } } });
       },
 
@@ -408,7 +408,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         if (!t || isSummary(guid)) return;
         const manualStartAt = startMs === null ? null : new Date(startMs).toISOString();
         if ((t.rowJSON.manualStartAt ?? null) === manualStartAt) return;
-        record('task-move', `Start of "${t.rowJSON.name}"`);
+        record('task-move', `Start of "${t.rowJSON.taskDescription}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, manualStartAt } } });
       },
 
@@ -422,7 +422,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         if (value === null) delete next[key];
         else next[key] = value;
         const col = st().customColumns.find((c) => c.key === key);
-        record('task-update', `${col?.name ?? 'Custom column'} of "${t.rowJSON.name}"`);
+        record('task-update', `${col?.name ?? 'Custom column'} of "${t.rowJSON.taskDescription}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, customColumns: next } } });
       },
 

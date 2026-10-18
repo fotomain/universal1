@@ -23,7 +23,7 @@ beforeEach(() => {
   s.setProjects(demo.projects);
   usePMStore.getState().selectProject(P1);
   usePMStore.getState().hydrate(P1, demo.tasks.filter((t: any) => t.projectGUID === P1), demo.deps.filter((d: any) => d.projectGUID === P1));
-  byName = (n) => usePMStore.getState().tasks.find((t) => t.rowJSON.name === n);
+  byName = (n) => usePMStore.getState().tasks.find((t) => t.rowJSON.taskDescription === n);
   delete (navigator as any).share;
 });
 

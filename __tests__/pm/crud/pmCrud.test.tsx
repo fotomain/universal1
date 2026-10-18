@@ -14,7 +14,7 @@ const run = async (fn: () => unknown) => {
   await h.settle();
   return out;
 };
-const dbTask = (name: string) => h.db.rows('project_task_table').find((t) => t.rowJSON.name === name)!;
+const dbTask = (name: string) => h.db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === name)!;
 const dbDeps = () => h.db.rows('project_task_dependencies_table').filter((d) => d.projectGUID === h.P1);
 const hasDep = (pred: string, succ: string) => dbDeps().some((d) => d.rowGUID === h.byName(succ).rowGUID && d.rowDependsOnGUID === h.byName(pred).rowGUID);
 const g = (name: string) => h.byName(name).rowGUID as string;
@@ -46,7 +46,7 @@ describe('load', () => {
 describe('create: stages / tasks / milestones', () => {
   it('createStage() appends "New stage" at the root and selects it', async () => {
     const guid = (await run(() => h.crud.createStage())) as string;
-    expect(h.db.task(guid)).toMatchObject({ rowJSON: { rowKind: 'stage', name: 'New stage', durationDays: 0 }, projectGUID: h.P1, rowOwnerGUID: h.owner });
+    expect(h.db.task(guid)).toMatchObject({ rowJSON: { rowKind: 'stage', taskDescription: 'New stage', durationDays: 0 }, projectGUID: h.P1, rowOwnerGUID: h.owner });
     expect(h.childrenOf(null)).toEqual(['Stage 1', 'Stage 2', 'New stage']);
     expect(h.store().selectedGUID).toBe(guid);
   });
@@ -62,7 +62,7 @@ describe('create: stages / tasks / milestones', () => {
 
     const m = (await run(() => h.crud.createTask(g('Task 111'), 'milestone'))) as string;
     expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 111', 'New milestone', 'Task 112', 'Task 113']);
-    expect(h.db.task(m)!.rowJSON).toEqual({ rowKind: 'milestone', name: 'New milestone', durationDays: 0 });
+    expect(h.db.task(m)!.rowJSON).toEqual({ rowKind: 'milestone', taskDescription: 'New milestone', durationDays: 0 });
     expect(h.db.task(m)!.treePath.startsWith(`${dbTask('Stage 1').treePath}.`)).toBe(true);
 
     await run(() => h.crud.createTask(null));
@@ -83,8 +83,8 @@ describe('create: stages / tasks / milestones', () => {
     expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 111', 'Task 111 (copy)', 'Task 112', 'Task 113']);
     const orig = dbTask('Task 111');
     const dup = h.db.task(copy)!;
-    const { name: _n1, startAt: _s1, ...origJSON } = orig.rowJSON;
-    const { name: _n2, startAt: _s2, ...dupJSON } = dup.rowJSON;
+    const { taskDescription: _n1, startAt: _s1, ...origJSON } = orig.rowJSON;
+    const { taskDescription: _n2, startAt: _s2, ...dupJSON } = dup.rowJSON;
     expect(dupJSON).toEqual(origJSON);
     expect(dup).toMatchObject({ rowProgress: 30, projectGUID: h.P1, rowOwnerGUID: h.owner });
     expect(dup.treePath.startsWith(`${dbTask('Stage 1').treePath}.`)).toBe(true);
@@ -120,9 +120,9 @@ describe('create: stages / tasks / milestones', () => {
 describe('update: edit / inline cells / chart drags', () => {
   it('updateTask saves the task edit dialog patch', async () => {
     const t = h.byName('Task 111');
-    await run(() => h.crud.updateTask(t.rowGUID, { rowProgress: 30, rowJSON: { ...t.rowJSON, name: 'Design', notes: 'n', taskColor: '#22c55e' } }, 'Edit'));
-    expect(h.db.task(t.rowGUID)).toMatchObject({ rowProgress: 30, rowJSON: { name: 'Design', notes: 'n', taskColor: '#22c55e' } });
-    expect(h.store().tasksById[t.rowGUID].rowJSON.name).toBe('Design');
+    await run(() => h.crud.updateTask(t.rowGUID, { rowProgress: 30, rowJSON: { ...t.rowJSON, taskDescription: 'Design', notes: 'n', taskColor: '#22c55e' } }, 'Edit'));
+    expect(h.db.task(t.rowGUID)).toMatchObject({ rowProgress: 30, rowJSON: { taskDescription: 'Design', notes: 'n', taskColor: '#22c55e' } });
+    expect(h.store().tasksById[t.rowGUID].rowJSON.taskDescription).toBe('Design');
   });
 
   it('setProgress clamps to 0..100 and skips no-op writes', async () => {
@@ -222,7 +222,7 @@ describe('sql_for_delete (asks first)', () => {
 
   it('Yes deletes the task and its dependencies', async () => {
     await run(() => h.crud.deleteTask(g('Task 111')));
-    expect(h.db.rows('project_task_table').some((t) => t.rowJSON.name === 'Task 111')).toBe(false);
+    expect(h.db.rows('project_task_table').some((t) => t.rowJSON.taskDescription === 'Task 111')).toBe(false);
     expect(dbDeps()).toHaveLength(3);
     expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 112', 'Task 113']);
   });

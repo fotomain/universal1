@@ -26,7 +26,7 @@ import { parseMonitor01Row } from '../../../../kit8/pm/reports/monitor01/monitor
 
 const raw = (over: Record<string, any> = {}) => ({
   rowOwnerGUID: 't1', genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: 'task01',
-  resourceRoleName: 'Data Analyst', qtyPlanned: 24, qtyContracted: 24, sumForBudget: 480, qtyRestToContract: 0, qtyDelivered: 0, qtyInvoiced: 0, qtyUsed: 0, qtyOnHand: 0, lineCount: 1, hasStalePlan: false, updated_at: '1', ...over,
+  resourceRoleName: 'Data Analyst', qtyPlanned: 24, qtyContracted: 24, sumForBudget: 480, qtyRestToContract: 0, qtyReceived: 0, qtyVendorInvoiced: 0, qtyUsed: 0, qtyOnHand: 0, lineCount: 1, hasStalePlan: false, updated_at: '1', ...over,
 });
 // the example of the sheet
 const sheet = () => [
@@ -68,7 +68,7 @@ describe('the table of the sheet', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     const bw = (id: string) => getComputedStyle(q(id)!).borderLeftWidth;
     expect(bw(cell(KEY_T1, 'ordered'))).toBe('2px');
-    expect(bw(cell(KEY_T1, 'delivered'))).not.toBe('2px');
+    expect(bw(cell(KEY_T1, 'received'))).not.toBe('2px');
     const row = getComputedStyle(q(`monitor01-table-item-${KEY_T1}`)!);
     expect(row.width).toBe('1540px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 5 x 94
     expect(row.flexShrink).toBe('0');
@@ -77,9 +77,9 @@ describe('the table of the sheet', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
     expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
-    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'delivered', 'invoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
-    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Delivered', 'Invoiced', 'Actually used', 'On-hand']);
-    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-ordered', 'monitor01-table-head-delivered', 'monitor01-table-head-invoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
+    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'vendorInvoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
+    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Received', 'VendorInvoiced', 'Actually used', 'On-hand']);
+    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-ordered', 'monitor01-table-head-received', 'monitor01-table-head-vendorInvoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
   });
 
   it('headers: "Task name" (not task.name), every header starts with a capital letter, no ROW DESCRIPTION column and no "requirements dimensions"', () => {
@@ -121,7 +121,7 @@ describe('the table of the sheet', () => {
     expect(textOf(cell(KEY_T1, 'planned'))).toBe('24');
     expect(textOf(cell(KEY_T1, 'contracted'))).toBe('24');
     expect(textOf(cell(KEY_T1, 'restToContract'))).toBe('');
-    expect(textOf(cell(KEY_T1, 'delivered'))).toBe('');               // facts without data stay blank
+    expect(textOf(cell(KEY_T1, 'received'))).toBe('');               // facts without data stay blank
     expect(textOf(cell(KEY_T1, 'onHand'))).toBe('');
     expect(textOf(cell('t3|timeGenus|r1|unit_hour|2026-10-01', 'restToContract'))).toBe('24');
     expect(textOf(cell('total|unit_hour', 'planned'))).toBe('48');      // the 48 of the sheet
@@ -594,22 +594,22 @@ describe('every number opens its source transactions', () => {
     expect(q('monitor01-sum-source-planned')).not.toBeNull();
     expect(textOf('monitor01-sum-source-contracted')).toContain('−');
   });
-  it('on-hand is made of delivered and used - without data yet', async () => {
+  it('on-hand is made of received and used - without data yet', async () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     press(cell(KEY_T1, 'onHand'));
     await flush();
-    expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['delivered', 'used']);
+    expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['received', 'used']);
   });
-  it('"Invoiced" (after Delivered) is the list of the POSTED vendor invoices; Open shows the invoice in the vendor invoice form', async () => {
-    mockHook.rows = [parseMonitor01Row(raw({ qtyInvoiced: 8 }))];
+  it('"VendorInvoiced" (after Received) is the list of the POSTED vendor invoices; Open shows the invoice in the vendor invoice form', async () => {
+    mockHook.rows = [parseMonitor01Row(raw({ qtyVendorInvoiced: 8 }))];
     mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 8, rows: [{ rowGUID: 'iv1', sourceName: 'projectStatusMovements', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 8, documentGUID: 'vi1', documentNumber: 'INV-77' }] }));
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    expect(textOf(cell(KEY_T1, 'invoiced'))).toBe('8');
-    press(cell(KEY_T1, 'invoiced'));
+    expect(textOf(cell(KEY_T1, 'vendorInvoiced'))).toBe('8');
+    press(cell(KEY_T1, 'vendorInvoiced'));
     await flush();
-    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'invoiced', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
-    expect(textOf('monitor01-sum-source-invoiced')).toContain('Posted vendor invoices');
-    expect(textOf('monitor01-sum-source-invoiced')).toContain('INV-77');
+    expect(mockFetch).toHaveBeenCalledWith(expect.anything(), 'vendorInvoiced', { taskGUID: 't1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', month: '2026-10-01' }, 0, expect.any(Number));
+    expect(textOf('monitor01-sum-source-vendorInvoiced')).toContain('Posted vendor invoices');
+    expect(textOf('monitor01-sum-source-vendorInvoiced')).toContain('INV-77');
     press('monitor01-sum-open-iv1');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/vendor-invoice', params: { taskGUID: 't1', projectGUID: 'p1', documentGUID: 'vi1' } });
   });
@@ -633,7 +633,7 @@ describe('every number opens its source transactions', () => {
   it('a cell that is 0 shows nothing - in EVERY column, in the lines, the subtotals and the TotalsRow (the cell stays a button)', () => {
     mockHook.rows = [parseMonitor01Row(raw({ qtyPlanned: 0, qtyContracted: 0, sumForBudget: 0, qtyUsed: 5, qtyOnHand: -5, qtyRestToContract: 0, lineCount: 0 }))];
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    for (const m of ['planned', 'contracted', 'restToContract', 'ordered', 'delivered', 'invoiced']) expect(textOf(cell(KEY_T1, m))).toBe('');
+    for (const m of ['planned', 'contracted', 'restToContract', 'ordered', 'received', 'vendorInvoiced']) expect(textOf(cell(KEY_T1, m))).toBe('');
     expect(textOf(`monitor01-table-budget-${KEY_T1}`)).toBe('');
     expect(textOf(cell(KEY_T1, 'used'))).toBe('5');
     expect(textOf(cell(KEY_T1, 'onHand'))).toBe('-5');
@@ -642,9 +642,9 @@ describe('every number opens its source transactions', () => {
     expect(textOf('monitor01-table-totals-unit_hour-used')).toBe('5');
     expect(q(cell(KEY_T1, 'planned'))!.getAttribute('role')).toBe('button');
   });
-  it('a row without invoices shows a blank Invoiced cell (like Delivered and Actually used)', () => {
+  it('a row without invoices shows a blank VendorInvoiced cell (like Received and Actually used)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
-    expect(textOf(cell(KEY_T1, 'invoiced'))).toBe('');
+    expect(textOf(cell(KEY_T1, 'vendorInvoiced'))).toBe('');
   });
   it('"Actually used" is the list of the POSTED fact documents; Open shows the document in the fact input form', async () => {
     mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 24, rows: [{ rowGUID: 'fl1', sourceName: 'taskFactUsageTimeline', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 24, documentGUID: 'doc1', documentNumber: 'FI-00007' }] }));

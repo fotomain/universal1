@@ -4,7 +4,7 @@ SELECT tt.as_admin();
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
-SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
   ('cccccccc-0000-0000-0000-000000000001', :'t1', 'materialGenus', 1, '{"measureUnitTaskLine":"unit_pcs","qtyTaskLine":30,"priceTaskLine":3}'),
   ('cccccccc-0000-0000-0000-000000000002', :'t1', 'expenseGenus',  2, '{"measureUnitTaskLine":"unit_pcs","qtyTaskLine":3,"priceTaskLine":1}');

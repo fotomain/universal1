@@ -353,7 +353,7 @@ Main view switch **Gantt | Kanban | Network** (`GanttToggleButtons`, on the Gant
 Full description: `kit8/pm/view/task/finances/README.md`.
 
 * **Finances button** - the last button of the view switch (Gantt | Kanban | Network | Versions | **Finances**, `GanttToggleButtons`):
-  tree on the left, on the right the lines of the task selected in the tree (`PMProjectFinancesView`; `PMGanttSurface` `rightPane='finances'`).
+  tree on the left, on the right the lines of the task selected in the tree (`PMTaskEditView`; `PMGanttSurface` `rightPane='finances'`).
   A stage has no lines (select a task); no budget / roll-up in this version.
 * **`task_line_table`** - the Time / Material / Expense / Revenue lines of ONE task (`rowOwnerGUID` = the task, `rowParentGUID` = the management genus),
   edited in place by `PMProjectTaskFinancesCRUD` (a `ReusableTable` per genus tab). It is also a section of the task page (`PMProjectTaskInfo`);

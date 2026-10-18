@@ -19,7 +19,7 @@ export function useTaskScope(initial: TaskScope | null | undefined) {
     (async () => {
       try {
         const { data } = await supabase.from('project_task_table').select('rowJSON').eq('rowGUID', taskGUID).maybeSingle();
-        if (alive) setNames((n) => ({ ...n, [taskGUID]: String((data as any)?.rowJSON?.name ?? '') }));
+        if (alive) setNames((n) => ({ ...n, [taskGUID]: String((data as any)?.rowJSON?.taskDescription ?? '') }));
       } catch {
         if (alive) setNames((n) => ({ ...n, [taskGUID]: '' }));
       }

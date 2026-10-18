@@ -13,7 +13,7 @@ jest.mock('../../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', ()
 
 import React from 'react';
 import { DASHBOARD_ROUTE, dashboardLinkPath, openDashboardLink, parseDashboardLink } from '../../../../kit8/pm/view/project/dashboardDeepLink';
-import PMProjectFinancesView from '../../../../kit8/pm/view/task/finances/PMProjectFinancesView';
+import PMTaskEditView from '../../../../kit8/pm/view/task/finances/PMTaskEditView';
 import SumExplorerListReusable from '../../../../kit8/ui/components/common/SumExplorerListReusable';
 import { buildMonitor01Sources } from '../../../../kit8/pm/reports/monitor01/monitor01SumSources';
 import { makePMPalette } from '../../../../kit8/pm/view/theme';
@@ -91,7 +91,7 @@ describe('useDashboardDeepLink (the dashboard applies the link once)', () => {
 });
 
 describe('the Finances view starts at the place of the link', () => {
-  const view = () => <PMProjectFinancesView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />;
+  const view = () => <PMTaskEditView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />;
   it('the tab and the line of the link win over the remembered place; another task ends the request', () => {
     const { byName } = seedStore();
     const a = byName('Task 111');

@@ -77,7 +77,7 @@ describe('PMTaskEditModal', () => {
     const [guid, patch] = crud.updateTask.mock.calls[0];
     expect(guid).toBe(t.rowGUID);
     expect(patch.rowProgress).toBe(40);
-    expect(patch.rowJSON).toMatchObject({ name: 'Renamed task', durationDays: 7, rowKind: 'task', notes: 'hello' });
+    expect(patch.rowJSON).toMatchObject({ taskDescription: 'Renamed task', durationDays: 7, rowKind: 'task', notes: 'hello' });
     expect(patch.rowJSON.manualStartAt).toBe(new Date(Date.UTC(2026, 9, 5)).toISOString());
   });
 

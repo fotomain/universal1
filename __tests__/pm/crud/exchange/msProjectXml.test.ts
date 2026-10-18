@@ -20,7 +20,7 @@ const row = (guid: string, name: string, kind: string, extra: any = {}) => ({
   rowDuration: null,
   rowProgress: 0,
   orderInList: 1,
-  rowJSON: { rowKind: kind, name, durationDays: 1, ...extra },
+  rowJSON: { rowKind: kind, taskDescription: name, durationDays: 1, ...extra },
 });
 const sch = (startMs: number, finishMs: number, days: number, extra: any = {}) => ({
   startAt: '',

@@ -25,7 +25,7 @@ const flush = async () => {
     await new Promise((resolve) => setTimeout(resolve, 700));
   });
 };
-const dbPlace = (name: string) => lastEditPlaceOf(h.db.rows('project_task_table').find((t) => t.rowJSON.name === name)?.rowJSON);
+const dbPlace = (name: string) => lastEditPlaceOf(h.db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === name)?.rowJSON);
 const storePlace = (name: string) => lastEditPlaceOf(h.store().tasksById[g(name)]?.rowJSON);
 
 describe('recordEditPlace', () => {
@@ -41,10 +41,10 @@ describe('recordEditPlace', () => {
   });
 
   it('the rest of rowJSON is not sent: nothing else of the task can be overwritten', async () => {
-    const before = { ...h.db.rows('project_task_table').find((t) => t.rowJSON.name === 'Task 111')!.rowJSON };
+    const before = { ...h.db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === 'Task 111')!.rowJSON };
     act(() => h.crud.recordEditPlace(g('Task 111'), { surface: 'editModal', section: 'TabUXUI' }));
     await flush();
-    const after = h.db.rows('project_task_table').find((t) => t.rowJSON.name === 'Task 111')!.rowJSON;
+    const after = h.db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === 'Task 111')!.rowJSON;
     const { lastEditPlace: _p, ...rest } = after;
     expect(rest).toEqual(before);
     expect(Object.keys(rpcCalls()[0].args).sort()).toEqual(['p_place', 'p_task_guid']);

@@ -36,7 +36,6 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [{ testID: id('add-inside'), label: 'Add task inside', icon: 'add', onPress: run(() => crud.createTask(guid)) }] : []),
     { testID: id('add-stage-below'), label: 'Add stage below', icon: 'create_new_folder', onPress: run(() => crud.createStageBelow(guid)) },
     { testID: id('add-stage-above'), label: 'Add stage above', icon: 'drive_folder_upload', onPress: run(() => crud.createStageAbove(guid)) },
-    { testID: id('edit'), label: 'Edit', icon: 'edit', onPress: run(() => crud.edit(guid)) },
     { testID: id('duplicate'), label: 'Duplicate', icon: 'control_point_duplicate', onPress: run(() => crud.duplicateTask(guid)) },
     { testID: id('copy-info'), label: 'Copy task info', icon: 'content_copy', onPress: run(() => crud.copyTaskInfo(guid)) },
     { testID: id('copy-guid'), label: 'Copy GUID', icon: 'fingerprint', onPress: run(() => crud.copyTaskGUID(guid)) },
@@ -52,8 +51,10 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [] : [{ testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID: guid }); }) }]),
     // right before "Delete": the submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (the document lists of the task · the subproject) - useTaskRelatedMenu
     ...related({ taskGUID: guid, projectGUID: task.projectGUID, idPrefix: 'pm-row-menu', close }),
+    // right before "Delete": opens the task window (PMTaskEditModal)
+    { testID: id('options'), label: 'Options', icon: 'tune', onPress: run(() => crud.edit(guid)) },
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 
-  return <PMContextMenu testID="pm-row-menu" x={menu.x} y={menu.y} caption={task.rowJSON.name} items={items} onClose={close} />;
+  return <PMContextMenu testID="pm-row-menu" x={menu.x} y={menu.y} caption={task.rowJSON.taskDescription} items={items} onClose={close} />;
 }

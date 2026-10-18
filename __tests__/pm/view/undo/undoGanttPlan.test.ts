@@ -12,7 +12,7 @@ function task(guid: string, path: string, extra: Partial<PMTaskRow> = {}): PMTas
     rowDuration: null,
     rowProgress: 0,
     orderInList: 1024,
-    rowJSON: { rowKind: 'task', name: guid, durationDays: 1 },
+    rowJSON: { rowKind: 'task', taskDescription: guid, durationDays: 1 },
     ...extra,
   };
 }
@@ -20,7 +20,7 @@ function dep(succ: string, pred: string, extra: Partial<PMTaskDependencyRow> = {
   return { rowGUID: succ, rowDependsOnGUID: pred, projectGUID: P, rowOwnerGUID: 'u', linkType: 'FS', lagDays: 0, rowJSON: {}, ...extra };
 }
 
-const S = task('s', 'p.s', { rowJSON: { rowKind: 'stage', name: 'S', durationDays: 0 } });
+const S = task('s', 'p.s', { rowJSON: { rowKind: 'stage', taskDescription: 'S', durationDays: 0 } });
 const A = task('a', 'p.s.a');
 const B = task('b', 'p.s.b', { orderInList: 2048 });
 const base: PMProjectData = { tasks: [S, A, B], deps: [dep('b', 'a')] };
@@ -102,8 +102,8 @@ describe('misc', () => {
     expect(scaleLevelsFor(4)).toEqual({ top: 'year', bottom: 'month' });
   });
   it('taskColorOf prefers rowJSON.taskColor, null = automatic', () => {
-    expect(taskColorOf({ rowKind: 'task', name: '', durationDays: 1, taskColor: '#fff', color: '#000' })).toBe('#fff');
-    expect(taskColorOf({ rowKind: 'task', name: '', durationDays: 1, taskColor: null, color: '#000' })).toBeNull();
-    expect(taskColorOf({ rowKind: 'task', name: '', durationDays: 1, color: '#000' })).toBe('#000');
+    expect(taskColorOf({ rowKind: 'task', taskDescription: '', durationDays: 1, taskColor: '#fff', color: '#000' })).toBe('#fff');
+    expect(taskColorOf({ rowKind: 'task', taskDescription: '', durationDays: 1, taskColor: null, color: '#000' })).toBeNull();
+    expect(taskColorOf({ rowKind: 'task', taskDescription: '', durationDays: 1, color: '#000' })).toBe('#000');
   });
 });

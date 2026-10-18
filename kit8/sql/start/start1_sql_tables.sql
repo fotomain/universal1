@@ -2194,10 +2194,10 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   "qtyContracted"       NUMERIC(18,2) NOT NULL DEFAULT 0,
   "sumForBudget"        NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
-  "qtyDelivered"        NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyInvoiced"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyReceived"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "qtyVendorInvoiced"   NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
-  "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyDelivered" - "qtyUsed") STORED,
+  "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyReceived" - "qtyUsed") STORED,
   "lineCount"           INTEGER       NOT NULL DEFAULT 0,
   "hasStalePlan"        BOOLEAN       NOT NULL DEFAULT false,
   "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -2205,8 +2205,21 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
 );
 
--- the quantity of the POSTED vendor invoices (a column of the report after Delivered)
-ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
+-- upgrade: the columns were called qtyDelivered / qtyInvoiced (renamed Received / VendorInvoiced; the generated qtyOnHand follows the rename)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'monitor01_view' AND column_name = 'qtyDelivered')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'monitor01_view' AND column_name = 'qtyReceived') THEN
+    ALTER TABLE public.monitor01_view RENAME COLUMN "qtyDelivered" TO "qtyReceived";
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'monitor01_view' AND column_name = 'qtyInvoiced')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'monitor01_view' AND column_name = 'qtyVendorInvoiced') THEN
+    ALTER TABLE public.monitor01_view RENAME COLUMN "qtyInvoiced" TO "qtyVendorInvoiced";
+  END IF;
+END $$;
+
+-- the quantity of the POSTED vendor invoices (a column of the report after Received)
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyVendorInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
 
@@ -2614,7 +2627,7 @@ CREATE INDEX IF NOT EXISTS idx_project_subproject_link_project ON public.project
 -- ===============================================================================================
 -- PART 30: create_product_receipt.sql
 -- the PRODUCT RECEIPT document (documentation/PRODUCT_RECEIPT.html; the same logic as the purchase order and the vendor invoice): product_receipt_header + product_receipt_lines; the numbers of the 'received'
--- movements in the turnover (the column Delivered of the Monitor01 view, qtyDelivered, exists since PART 25 and is fed from these numbers)
+-- movements in the turnover (the column Received of the Monitor01 view, qtyReceived, exists since PART 25 and is fed from these numbers)
 -- ===============================================================================================
 
 ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "qtyReceived" NUMERIC(18,2) NOT NULL DEFAULT 0;

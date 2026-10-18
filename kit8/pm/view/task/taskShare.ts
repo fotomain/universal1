@@ -44,14 +44,14 @@ export function buildTaskInfoText(guid: string, s: PMState = usePMStore.getState
   const t = s.tasksById[guid];
   if (!t) return null;
   const r = s.schedule[guid];
-  const nameOf = (g: string) => s.tasksById[g]?.rowJSON.name ?? g;
+  const nameOf = (g: string) => s.tasksById[g]?.rowJSON.taskDescription ?? g;
   const lines: string[] = [];
   const project = t.projectGUID ? s.projectsById[t.projectGUID] : undefined;
   if (project) lines.push(`Project: ${project.rowJSON.name}`);
   const parents: string[] = [];
   for (let p = s.tree.parentById[guid]; p; p = s.tree.parentById[p]) parents.unshift(nameOf(p));
   if (parents.length) lines.push(`In: ${parents.join(' › ')}`);
-  lines.push(`${kindOf(s, guid)}: ${t.rowJSON.name}`);
+  lines.push(`${kindOf(s, guid)}: ${t.rowJSON.taskDescription}`);
   if (r) {
     lines.push(`Start: ${formatDateISO(r.startMs)}`);
     lines.push(`Finish: ${formatDateISO(Math.max(r.startMs, r.finishMs - 1))}`);
@@ -91,7 +91,7 @@ export async function shareTask(guid: string): Promise<PMShareResult> {
   const t = s.tasksById[guid];
   if (!t) return 'failed';
   const url = taskShareURL(guid, t.projectGUID);
-  const title = t.rowJSON.name;
+  const title = t.rowJSON.taskDescription;
   try {
     if (Platform.OS === 'web') {
       const nav: any = typeof navigator !== 'undefined' ? navigator : null;

@@ -7,7 +7,7 @@
 //   />
 //
 // * A SOURCE is one list: its columns, how to read a page (fetchPage → rows + the exact count + the exact sum of ALL its rows) and what "Open" does on a row.
-//   A plain number has one source; a derived number (rest to contract = planned − contracted, on-hand = delivered − used) has two, each with its sign and its own subtotal.
+//   A plain number has one source; a derived number (rest to contract = planned − contracted, on-hand = received − used) has two, each with its sign and its own subtotal.
 // * The window ends with a CHECK LINE: Σ sign × subtotal of the lists against the number that was clicked ("24.00 = 24.00 ✓"). A difference is told, not hidden: a report that
 //   is refreshed every few seconds can be a moment behind its sources.
 // * The ⋮ menu at the top right (like every window / table): Export and Share of the lists (JSON · CSV · PDF) - ALL rows, the pages not read yet are read first.

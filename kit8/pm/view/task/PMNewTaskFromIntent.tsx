@@ -70,7 +70,7 @@ export default function PMNewTaskFromIntent() {
         .filter((t) => t.rowJSON.rowKind === 'stage')
         .sort((a, b) => a.treePath.localeCompare(b.treePath))
         // treePath = project.stage.substage ... -> indent by depth
-        .map((t) => ({ id: t.rowGUID, title: `${'    '.repeat(Math.max(0, t.treePath.split('.').length - 2))}${t.rowJSON.name || 'Stage'}`, icon: 'folder' })),
+        .map((t) => ({ id: t.rowGUID, title: `${'    '.repeat(Math.max(0, t.treePath.split('.').length - 2))}${t.rowJSON.taskDescription || 'Stage'}`, icon: 'folder' })),
     [tasks]
   );
   useEffect(() => {
@@ -150,7 +150,7 @@ export default function PMNewTaskFromIntent() {
             onPress={() => projectGUID && setMenu('stage')}
             style={[field, styles.select, { color: c.text, opacity: projectGUID ? 1 : 0.5 }]}
           >
-            {stage ? stage.rowJSON.name : dataQuery.isLoading ? 'Loading…' : 'No stage - directly under the project'}
+            {stage ? stage.rowJSON.taskDescription : dataQuery.isLoading ? 'Loading…' : 'No stage - directly under the project'}
           </Text>
 
           {label('Notes')}

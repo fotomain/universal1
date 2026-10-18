@@ -13,7 +13,7 @@
 // (Time / Material / Expenses) is not offered, and a Time line may be a person or an equipment (the menu "Resource: Person | Equipment" is a column of
 // the Time table). Off = as before. A tab that has lines is never hidden: a switch never hides data.
 //
-// Shown by the task page (PMProjectTaskInfo) and the Finances view of the dashboard (PMProjectFinancesView). It does not know PMCrud:
+// Shown by the task page (PMProjectTaskInfo) and the Finances view of the dashboard (PMTaskEditView). It does not know PMCrud:
 // `onEditPlace` tells the parent where the user edited (the parent saves rowJSON.lastEditPlace of the task, with its own surface) and
 // `initialPlace` is the place to open at (the genus tab + the line, marked). Stages have no lines: only tasks and milestones.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';

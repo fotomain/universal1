@@ -71,7 +71,7 @@ export function buildDemoData(
         rowDuration: null,
         rowProgress: 0,
         orderInList: stageOrder,
-        rowJSON: { rowKind: 'stage', name: s.name, durationDays: 0 },
+        rowJSON: { rowKind: 'stage', taskDescription: s.name, durationDays: 0 },
       });
 
       const stageTaskGUIDs: string[] = [];
@@ -88,7 +88,7 @@ export function buildDemoData(
           rowDuration: null,
           rowProgress: 0,
           orderInList: taskOrder,
-          rowJSON: { rowKind: 'task', name: t.name, durationDays: t.days },
+          rowJSON: { rowKind: 'task', taskDescription: t.name, durationDays: t.days },
         });
         for (const idx of t.after || []) {
           deps.push({

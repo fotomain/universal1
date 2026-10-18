@@ -14,7 +14,7 @@ const run = async (fn: () => unknown) => {
   await h.settle();
   return out;
 };
-const dbTask = (name: string) => h.db.rows('project_task_table').find((t) => t.rowJSON.name === name)!;
+const dbTask = (name: string) => h.db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === name)!;
 const dbDeps = () => h.db.rows('project_task_dependencies_table').filter((d) => d.projectGUID === h.P1);
 const hasDep = (pred: string, succ: string) => dbDeps().some((d) => d.rowGUID === h.byName(succ).rowGUID && d.rowDependsOnGUID === h.byName(pred).rowGUID);
 const g = (name: string) => h.byName(name).rowGUID as string;
@@ -47,7 +47,7 @@ describe('add stage below / above / substage (row menu, hover panels, "+ Stage" 
 
   it('createSubStage: a stage INSIDE the stage (last row); a substage is dragged like any other row', async () => {
     const sub = (await run(() => h.crud.createSubStage(g('Stage 1')))) as string;
-    expect(h.db.task(sub)).toMatchObject({ rowJSON: { rowKind: 'stage', name: 'New substage' } });
+    expect(h.db.task(sub)).toMatchObject({ rowJSON: { rowKind: 'stage', taskDescription: 'New substage' } });
     expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 111', 'Task 112', 'Task 113', 'New substage']);
     expect(h.store().tree.parentById[sub]).toBe(g('Stage 1'));
   });

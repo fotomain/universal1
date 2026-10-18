@@ -34,17 +34,17 @@
   <div class="arrow">Purchase Order<br>▶</div>
   <div class="step"><b>Purchase order</b><span>posted: <code>ordered</code> movements → <b>Ordered</b></span></div>
   <div class="arrow">Create based on →<br>Product receipt ▶</div>
-  <div class="step new"><b>Product receipt (new)</b><span>posted: <code>received</code> movements → <b>Delivered</b></span></div>
+  <div class="step new"><b>Product receipt (new)</b><span>posted: <code>received</code> movements → <b>Received</b></span></div>
   <div class="arrow">Create based on →<br>Vendor invoice ▶</div>
-  <div class="step"><b>Vendor invoice</b><span>posted: <code>invoiced</code> movements → <b>Invoiced</b></span></div>
+  <div class="step"><b>Vendor invoice</b><span>posted: <code>invoiced</code> movements → <b>VendorInvoiced</b></span></div>
 </div>
-<p>Each step makes ONE draft document in a new browser tab; every draft is checked and posted by the user. The three Monitor01 columns Ordered · Delivered · Invoiced are fed by three different documents and never mix.</p>
+<p>Each step makes ONE draft document in a new browser tab; every draft is checked and posted by the user. The three Monitor01 columns Ordered · Received · VendorInvoiced are fed by three different documents and never mix.</p>
 
 <h2>2. What was asked and what was built</h2>
 <table>
 <tr><th>Request</th><th>Built</th></tr>
 <tr><td>Form, Header, Lines, List like the vendor invoice / purchase order, in <code>kit8/documents/vendor/product_receipt</code></td><td><code>PMProductReceiptDocumentForm / Header / Lines / List</code> (the twins of the purchase order files, same look: bar Delete · Unpost · Close · large Post / Posted, document tabs, DocumentTabs All · Time · Material · Expenses, the lines table, quick filters, folders legal entity → vendor, totals per currency). Extra header field <b>Purchase order</b> (read only), extra list column <b>Purchase order</b>.</td></tr>
-<tr><td>Data of the document in the <b>Delivered</b> column of Monitor01</td><td>A posted receipt writes <code>received</code> movements (<code>project_status_register_receipt</code>, same transaction as Post, removed by Unpost) → <code>project_status_month_turnover.qtyReceived</code> → <code>monitor01_view.qtyDelivered</code> (the column existed since PART 25, always 0). <b>On-hand = delivered − used</b> now has real data. The drill-down of a Delivered cell lists the movements with the receipt number; "Document" opens the receipt.</td></tr>
+<tr><td>Data of the document in the <b>Received</b> column of Monitor01</td><td>A posted receipt writes <code>received</code> movements (<code>project_status_register_receipt</code>, same transaction as Post, removed by Unpost) → <code>project_status_month_turnover.qtyReceived</code> → <code>monitor01_view.qtyReceived</code> (the column existed since PART 25, always 0). <b>On-hand = received − used</b> now has real data. The drill-down of a Received cell lists the movements with the receipt number; "Document" opens the receipt.</td></tr>
 <tr><td>1. task or task line → Create based on → PurchaseOrder</td><td>Already there since PART 28 (Task menu and the line menu of the Finances table). Unchanged. The Task menu "Go to" got <b>Product receipts</b> (list filtered for the task / line).</td></tr>
 <tr><td>2. PurchaseOrder → Create based on → ProductReceiptDocument</td><td>Button <b>Create based on…</b> in the bar of a <i>posted</i> purchase order, and a submenu <b>Create based on → Product receipt</b> in the row menu of the purchase order list. RPC <code>create_product_receipt_from_order(order)</code>.</td></tr>
 <tr><td>3. ProductReceiptDocument → Create based on → vendor invoice</td><td>The same button / row-menu submenu on a <i>posted</i> receipt → <b>Vendor invoice</b>. RPC <code>create_vendor_invoice_from_receipt(receipt)</code>.</td></tr>
@@ -67,7 +67,7 @@
 <tr><th>Object</th><th>What</th></tr>
 <tr><td><code>product_receipt_header</code> · <code>product_receipt_lines</code> · sequence <code>product_receipt_document_seq</code> (<code>PR-00001</code>)</td><td>start1. Lines: <code>qtyReceived · priceReceived · vatRatioReceived</code>, sums by trigger, <code>purchaseOrderLineGUID</code> (FK to <code>purchase_order_lines</code>, ON DELETE SET NULL)</td></tr>
 <tr><td><code>project_status_month_turnover</code> + <code>qtyReceived, sumForBudgetReceived, sumForContractReceived, sumForAccountingReceived, vatForContractReceived, vatForAccountingReceived</code></td><td>start1 (ALTER … ADD COLUMN IF NOT EXISTS)</td></tr>
-<tr><td><code>project_status_fresh_turnover</code>, <code>monitor01_fresh_rows</code> (PART 25 and its last definition in PART 29), <code>monitor01_apply</code>, <code>monitor01_verify</code>, <code>monitor01_sum_sources('delivered')</code></td><td>start2, changed in place; <code>qtyReceived</code> is named <code>qtyDelivered</code> in the report. Install queues the tasks that have posted receipts once</td></tr>
+<tr><td><code>project_status_fresh_turnover</code>, <code>monitor01_fresh_rows</code> (PART 25 and its last definition in PART 29), <code>monitor01_apply</code>, <code>monitor01_verify</code>, <code>monitor01_sum_sources('received')</code></td><td>start2, changed in place; <code>qtyReceived</code> keeps its name in the report (renamed from <code>qtyReceived</code> on 2026-10-18). Install queues the tasks that have posted receipts once</td></tr>
 <tr><td><code>project_status_register_receipt</code> · <code>post / unpost / delete_product_receipt</code> · <code>product_receipt_set_header / add_line / list / line_places / state</code></td><td>start2</td></tr>
 <tr><td><code>create_product_receipt_from_order</code> · <code>create_vendor_invoice_from_receipt</code></td><td>start2 — the two "Create based on" steps</td></tr>
 <tr><td>drops</td><td><code>delete_sql_structure.sql</code> (PART 1a, before the purchase order tables)</td></tr>
@@ -77,7 +77,7 @@
 <div class="note"><b>Only a posted purchase order gives a receipt.</b> A draft order can still change its lines, so a receipt made from it could point at a quantity that disappears. The button is offered only on a posted order (the database refuses the rest). Allowing drafts is a one-line change in <code>create_product_receipt_from_order</code> and <code>canCreateReceiptFromOrder</code>.</div>
 <div class="note"><b>A receipt is made from an order, not from a task.</b> The three options of the request start with the order; a receipt for goods that came without an order is an <i>independent</i> receipt only through the + button of an existing draft (project setting <code>independentInvoiceInputAvailable</code>). A "Receipt" item of the Task menu would be a copy of the purchase order's quick create.</div>
 <div class="note"><b>Receiving more than ordered is allowed by hand</b> (you can type a larger quantity); the new receipt made from the order never offers more than is left. The invoice made from a receipt follows the same rule against the receipt. A hard limit ("not more than ordered") is not built.</div>
-<div class="note"><b>Delivered shows the quantity</b> of the posted receipts. The money of the receipts (<code>sumFor…Received</code>) is in the turnover for later columns (it is not shown in Monitor01).</div>
+<div class="note"><b>Received shows the quantity</b> of the posted receipts. The money of the receipts (<code>sumFor…Received</code>) is in the turnover for later columns (it is not shown in Monitor01).</div>
 <div class="note"><b>Unposting an order that already has a posted receipt is not blocked</b> (the same as an invoice of a task line does not block its order). The receipt keeps its own movements.</div>
 
 <h2>6. Where it is</h2>
@@ -86,14 +86,14 @@
 <tr><td>Form</td><td><code>/pm/project/task/product-receipt?documentGUID=…</code></td></tr>
 <tr><td>List</td><td><code>/pm/product-receipt/list[?taskGUID=…&amp;taskLineGUID=…]</code> — Drawer → Documents → <b>Product receipts</b> (sorted by name: before Purchase orders); Task menu → Go to → Product receipts</td></tr>
 <tr><td>Create based on</td><td>Purchase order form bar / list row menu → <b>Product receipt</b>; Product receipt form bar / list row menu → <b>Vendor invoice</b></td></tr>
-<tr><td>Monitor01</td><td>column <b>Delivered</b>; click a number → the source movements → Document</td></tr>
+<tr><td>Monitor01</td><td>column <b>Received</b>; click a number → the source movements → Document</td></tr>
 </table>
 
 <h2>7. Tests</h2>
-<p>SQL on Postgres 15: <code>cd kit8/docker &amp;&amp; ./test_fact_monitor01.sh 73</code> — 63 checks: the order is posted; a draft order is refused; another organization does not see it; the receipt (lines, sums, number <code>PR-nnnnn</code>); a partial receipt (7 → 5); frozen line fields; Post asks for the number; the register; the second receipt gets what is left and is deleted; Monitor01 <code>qtyDelivered</code>, <code>qtyOnHand</code>, the turnover, <code>monitor01_verify</code>, the drill-down; the list and its filters; the invoice from the receipt (lines, header link, nothing left, 3 of 5 invoiced → 2 left); Ordered 11 · Delivered 9 · Invoiced 7 together; Unpost and rebuild. The whole suite (<code>./test_fact_monitor01.sh</code>, <code>./test_sql.sh</code>) passes. Jest: <code>__tests__/documents/vendor/product_receipt</code>, <code>purchase_order/purchaseOrderCreateBasedOn.test.tsx</code>, <code>pm/reports/monitor01/monitor01SumSources.test.ts</code>, <code>monitor01Sql.test.ts</code>, <code>pm/ui/taskRelatedMenu.test.tsx</code>, <code>drawer-catalogs.test.tsx</code>, <code>__tests__/sql</code>.</p>
+<p>SQL on Postgres 15: <code>cd kit8/docker &amp;&amp; ./test_fact_monitor01.sh 73</code> — 63 checks: the order is posted; a draft order is refused; another organization does not see it; the receipt (lines, sums, number <code>PR-nnnnn</code>); a partial receipt (7 → 5); frozen line fields; Post asks for the number; the register; the second receipt gets what is left and is deleted; Monitor01 <code>qtyReceived</code>, <code>qtyOnHand</code>, the turnover, <code>monitor01_verify</code>, the drill-down; the list and its filters; the invoice from the receipt (lines, header link, nothing left, 3 of 5 invoiced → 2 left); Ordered 11 · Received 9 · Invoiced 7 together; Unpost and rebuild. The whole suite (<code>./test_fact_monitor01.sh</code>, <code>./test_sql.sh</code>) passes. Jest: <code>__tests__/documents/vendor/product_receipt</code>, <code>purchase_order/purchaseOrderCreateBasedOn.test.tsx</code>, <code>pm/reports/monitor01/monitor01SumSources.test.ts</code>, <code>monitor01Sql.test.ts</code>, <code>pm/ui/taskRelatedMenu.test.tsx</code>, <code>drawer-catalogs.test.tsx</code>, <code>__tests__/sql</code>.</p>
 
 <h2>8. Not seen</h2>
-<p>The screens were exercised by unit tests with the table and the data hooks faked, and the SQL on a local Postgres 15 (no pg_cron, no Supabase Realtime). The first real look at the form, at "Create based on" opening a new browser tab and at the Delivered column on the owner's Supabase is the owner's. If the SQL is run with the Supabase CLI the database is upgraded in place (idempotent).</p>
+<p>The screens were exercised by unit tests with the table and the data hooks faked, and the SQL on a local Postgres 15 (no pg_cron, no Supabase Realtime). The first real look at the form, at "Create based on" opening a new browser tab and at the Received column on the owner's Supabase is the owner's. If the SQL is run with the Supabase CLI the database is upgraded in place (idempotent).</p>
 </main>
 </body>
 </html>

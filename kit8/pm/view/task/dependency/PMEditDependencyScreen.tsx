@@ -111,8 +111,8 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
   const dep = usePMStore((s) =>
     s.editingDep ? s.deps.find((d) => d.rowGUID === s.editingDep!.rowGUID && d.rowDependsOnGUID === s.editingDep!.dependsOnGUID) : undefined
   );
-  const fromName = usePMStore((s) => (dep ? s.tasksById[dep.rowDependsOnGUID]?.rowJSON.name : undefined));
-  const toName = usePMStore((s) => (dep ? s.tasksById[dep.rowGUID]?.rowJSON.name : undefined));
+  const fromName = usePMStore((s) => (dep ? s.tasksById[dep.rowDependsOnGUID]?.rowJSON.taskDescription : undefined));
+  const toName = usePMStore((s) => (dep ? s.tasksById[dep.rowGUID]?.rowJSON.taskDescription : undefined));
   const close = () => usePMStore.getState().setEditingDep(null);
   // uxui.currentJSON while the window is open ("Share screenshot + JSON")
   useUxuiCurrentJSON(dep ? { kind: 'dependency', title: `${fromName || '?'} -> ${toName || '?'}`, json: dep } : null);

@@ -7,7 +7,7 @@
 //   the lines   a ReusableTable on the redux entity PRODUCT_RECEIPT_LINES_ENTITY (realtime, optimistic): quantity, price and VAT % of a DRAFT are editable and can be deleted; the lines come from the purchase order
 //               (and an independent line can be added when the project setting allows it); a posted document is read only. Columns: productReceiptColumns.tsx. A Multi Project order gives a Multi Project receipt: the
 //               project / task / task line of every line are shown (read only).
-// Post checks the whole document (the problems are listed) and writes the 'received' movements of the project status register in the same transaction: Monitor01 column Delivered.
+// Post checks the whole document (the problems are listed) and writes the 'received' movements of the project status register in the same transaction: Monitor01 column Received.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';

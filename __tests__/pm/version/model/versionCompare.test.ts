@@ -133,7 +133,7 @@ describe('scheduleVersion + compareVersionWithCurrent', () => {
     const now = tasks
       .filter((t) => t.rowGUID !== deleted.rowGUID) // one task was deleted
       .map((t) => (t.rowGUID === longer.rowGUID ? { ...t, rowJSON: { ...t.rowJSON, durationDays: t.rowJSON.durationDays + 5 } } : t));
-    const extra: PMTaskRow = { ...leaf[0], rowGUID: 'ffffffff-ffff-4fff-8fff-ffffffffffff', treePath: `${project.treePath}.ffffffff_ffff_4fff_8fff_ffffffffffff`, rowJSON: { rowKind: 'task', name: 'New', durationDays: 1 } };
+    const extra: PMTaskRow = { ...leaf[0], rowGUID: 'ffffffff-ffff-4fff-8fff-ffffffffffff', treePath: `${project.treePath}.ffffffff_ffff_4fff_8fff_ffffffffffff`, rowJSON: { rowKind: 'task', taskDescription: 'New', durationDays: 1 } };
     const removedCount = tasks.length - now.length;
     const nowDeps = deps.filter((d: any) => now.some((t) => t.rowGUID === d.rowGUID) && now.some((t) => t.rowGUID === d.rowDependsOnGUID));
     const diff = compareVersionWithCurrent(s.bars, s.finishMs, currentOf(project, [...now, extra], nowDeps));
@@ -152,7 +152,7 @@ describe('scheduleVersion + compareVersionWithCurrent', () => {
   it('a renamed row with the same dates counts as changed', () => {
     const { project, tasks, deps } = demo();
     const s = scheduleVersion(versionOf(project, 1, 'Baseline'), { tasks, deps });
-    const now = tasks.map((t, i) => (i === tasks.length - 1 ? { ...t, rowJSON: { ...t.rowJSON, name: 'Renamed' } } : t));
+    const now = tasks.map((t, i) => (i === tasks.length - 1 ? { ...t, rowJSON: { ...t.rowJSON, taskDescription: 'Renamed' } } : t));
     const diff = compareVersionWithCurrent(s.bars, s.finishMs, currentOf(project, now, deps));
     expect([diff.changed, diff.moved, diff.added, diff.removed]).toEqual([1, 0, 0, 0]);
   });

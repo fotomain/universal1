@@ -22,7 +22,7 @@ const row = (guid: string, parentPath: string, kind: 'stage' | 'task' | 'milesto
   rowDuration: null,
   rowProgress: progress,
   orderInList: order,
-  rowJSON: { rowKind: kind, name, durationDays: kind === 'milestone' ? 0 : 1 },
+  rowJSON: { rowKind: kind, taskDescription: name, durationDays: kind === 'milestone' ? 0 : 1 },
 });
 const root = toLtreeLabel(P);
 // Stage A (t1, t2, milestone m3) · Stage B (t4) · empty Stage C
@@ -76,7 +76,7 @@ describe('planKanbanMove', () => {
   });
   it('reorders inside a column (index = place in the column as shown)', () => {
     const writes = planKanbanMove(board, {}, [m3.rowGUID], 's-wait', 0);
-    expect(writes.map((w) => [tasksById[w.taskGUID].rowJSON.name, w.orderInList])).toEqual([
+    expect(writes.map((w) => [tasksById[w.taskGUID].rowJSON.taskDescription, w.orderInList])).toEqual([
       ['Milestone 3', 1024],
       ['Task 1', 2048],
       ['Task 2', 3072],

@@ -17,10 +17,10 @@ SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SE
 SELECT tt.as_user('eva@other.test', '33333333-3333-3333-3333-333333333333'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
 -- three tasks of ACME (two projects of anna, one of marko) and one task of the other organization
-SELECT t."rowGUID" AS ta1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
-SELECT t."rowGUID" AS ta2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 112' \gset
-SELECT t."rowGUID" AS tm1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 111' \gset
-SELECT t."rowGUID" AS te1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '33333333-3333-3333-3333-333333333333' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS ta1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
+SELECT t."rowGUID" AS ta2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
+SELECT t."rowGUID" AS tm1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
+SELECT t."rowGUID" AS te1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '33333333-3333-3333-3333-333333333333' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 SELECT tt.line(:'ta1', 'person', 'p-boris') AS la1 \gset
 SELECT tt.line(:'tm1', 'person', 'p-boris') AS lm1 \gset
 SELECT tt.line(:'ta2', 'person', 'p-boris') AS la2 \gset

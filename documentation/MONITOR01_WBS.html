@@ -224,9 +224,9 @@
     <tr><td><code>projectName · taskName · resourceRoleName</code></td><td>text</td><td>titles copied so the filters and the screen need no catalog (Q11). A rename queues the affected tasks (trigger on rename)</td></tr>
     <tr><td><code>qtyPlanned</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_plan_movements.qtyTaskLine</code> (section 5)</td></tr>
     <tr><td><code>qtyContracted</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_contract_movements.qtyContracted</code></td></tr>
-    <tr><td><code>qtyDelivered · qtyUsed</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_fact_movements.qtyFact</code> by <code>factKind</code></td></tr>
+    <tr><td><code>qtyReceived (first design: qtyDelivered) · qtyUsed</code></td><td>numeric(18,2)</td><td>Σ <code>task_line_fact_movements.qtyFact</code> by <code>factKind</code></td></tr>
     <tr><td><code>qtyRestToContract</code></td><td>numeric, <b>generated stored</b></td><td><code>qtyPlanned − qtyContracted</code> (the database computes it once; the client only reads)</td></tr>
-    <tr><td><code>qtyOnHand</code></td><td>numeric, <b>generated stored</b></td><td><code>qtyDelivered − qtyUsed</code></td></tr>
+    <tr><td><code>qtyOnHand</code></td><td>numeric, <b>generated stored</b></td><td><code>qtyReceived − qtyUsed</code></td></tr>
     <tr><td><code>lineCount · hasStalePlan</code></td><td>int · boolean</td><td>number of lines in the row; true when a line of the row has <code>taskIsPosted = false</code> (Q3)</td></tr>
     <tr><td><code>updated_at</code></td><td>timestamptz</td><td>set <b>only when a number changes</b> (the "data age" and the order of realtime events)</td></tr>
   </table></div>

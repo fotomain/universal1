@@ -48,7 +48,7 @@ export function scheduleVersion(version: PMProjectVersionRow, data: Pick<PMVersi
   for (const t of data.tasks) {
     const r: PMScheduledRow | undefined = result.rows[t.rowGUID];
     if (!r) continue;
-    bars[t.rowGUID] = { startMs: r.startMs, finishMs: r.finishMs, isMilestone: r.isMilestone, isSummary: r.isSummary, progress: r.progress, name: t.rowJSON?.name || '' };
+    bars[t.rowGUID] = { startMs: r.startMs, finishMs: r.finishMs, isMilestone: r.isMilestone, isSummary: r.isSummary, progress: r.progress, name: t.rowJSON?.taskDescription || '' };
   }
   return { bars, startMs: result.projectStartMs, finishMs: result.projectFinishMs };
 }
@@ -84,7 +84,7 @@ export function compareVersionWithCurrent(
     }
     if (!now) continue;
     if (now.startMs !== was.startMs || now.finishMs !== was.finishMs) diff.moved++;
-    else if ((current.tasksById[guid].rowJSON?.name || '') !== was.name || Math.round(now.progress) !== Math.round(was.progress)) diff.changed++;
+    else if ((current.tasksById[guid].rowJSON?.taskDescription || '') !== was.name || Math.round(now.progress) !== Math.round(was.progress)) diff.changed++;
     else diff.unchanged++;
   }
   for (const guid of Object.keys(versionBars)) if (!current.tasksById[guid]) diff.removed++;

@@ -166,7 +166,7 @@ export default function PMTaskKanbanStateEditModal({
                       ]}
                       numberOfLines={1}
                     >
-                      {t.rowJSON?.name || t.rowGUID.slice(0, 8)}
+                      {t.rowJSON?.taskDescription || t.rowGUID.slice(0, 8)}
                     </Text>
                   </Pressable>
                 );

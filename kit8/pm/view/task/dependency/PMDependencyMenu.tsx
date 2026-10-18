@@ -11,7 +11,7 @@ export default function PMDependencyMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.depMenu);
   const caption = usePMStore((s) =>
     s.depMenu
-      ? `${s.tasksById[s.depMenu.dependsOnGUID]?.rowJSON.name ?? '?'} → ${s.tasksById[s.depMenu.rowGUID]?.rowJSON.name ?? '?'}`
+      ? `${s.tasksById[s.depMenu.dependsOnGUID]?.rowJSON.taskDescription ?? '?'} → ${s.tasksById[s.depMenu.rowGUID]?.rowJSON.taskDescription ?? '?'}`
       : ''
   );
   if (!menu) return null;

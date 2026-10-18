@@ -7,9 +7,9 @@ SELECT public.organization_ensure_user('marko@acme.test', '22222222-2222-2222-22
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SELECT public.pm_seed_demo();
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
-SELECT t."rowGUID" AS ta FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS ta FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 SELECT t."projectGUID" AS pa FROM public.project_task_table t WHERE t."rowGUID" = :'ta' \gset
-SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 
 -- three lines of the task: Time (8 h, price 10), Material (100 pcs, price 2), Revenue (1, price 500)
 INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES

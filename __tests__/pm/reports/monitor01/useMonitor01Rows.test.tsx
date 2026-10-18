@@ -39,7 +39,7 @@ const { useMonitor01Rows } = require('../../../../kit8/pm/reports/monitor01/useM
 
 const raw = (i: number, over: Record<string, any> = {}) => ({
   rowOwnerGUID: `t${i}`, genusGUID: 'timeGenus', resourceRoleGUID: 'r1', measureUnit: 'unit_hour', periodMonth: '2026-10-01', rowProjectGUID: 'p1', projectName: 'Alpha', taskName: `task${i}`,
-  resourceRoleName: 'Role', qtyPlanned: '8.00', qtyContracted: '0.00', qtyRestToContract: '8.00', qtyDelivered: '0.00', qtyUsed: '0.00', qtyOnHand: '0.00', lineCount: 1, hasStalePlan: false, updated_at: `v${i}`, ...over,
+  resourceRoleName: 'Role', qtyPlanned: '8.00', qtyContracted: '0.00', qtyRestToContract: '8.00', qtyReceived: '0.00', qtyUsed: '0.00', qtyOnHand: '0.00', lineCount: 1, hasStalePlan: false, updated_at: `v${i}`, ...over,
 });
 
 let latest: any;

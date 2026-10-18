@@ -8,8 +8,8 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SEL
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
 DELETE FROM public.monitor01_dirty;
-SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 112' \gset
-SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 112' \gset
+SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
+SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
 SELECT r."rowGUID" AS role1 FROM public."resourceRoleTable" r ORDER BY r."rowGUID" LIMIT 1 \gset
 SELECT c."rowGUID" AS country1 FROM public."countryTable" c ORDER BY c."orderInList" LIMIT 1 \gset
 
@@ -76,11 +76,11 @@ SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMov
 SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowMovementKind" = 'invoiced' AND "rowRegistratorType" = 'vendorInvoiceHeader'), 2::bigint, '... and the 2 invoiced movements of the invoice');
 SELECT tt.eq((SELECT "rowTurnoverDay" FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'po' LIMIT 1), '2026-10-18'::date, 'the moment of an ordered movement = the date of the purchase order');
 
--- 6. Monitor01: the column Ordered next to Invoiced ----------------------------------------------------------------------------------------------------------------------
+-- 6. Monitor01: the column Ordered next to VendorInvoiced ----------------------------------------------------------------------------------------------------------------------
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT sum("qtyOrdered") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 11::numeric, 'monitor01_view.qtyOrdered = the quantity of the posted purchase order (7 + 4)');
-SELECT tt.eq((SELECT sum("qtyInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 8::numeric, '... qtyInvoiced = the quantity of the posted vendor invoice (4 + 4): the two columns do not mix');
+SELECT tt.eq((SELECT sum("qtyVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 8::numeric, '... qtyVendorInvoiced = the quantity of the posted vendor invoice (4 + 4): the two columns do not mix');
 SELECT tt.eq((SELECT sum("qtyOrdered") || '/' || sum("sumForContractOrdered") || '/' || sum("vatForContractOrdered") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), '11.00/43.00/9.03', 'the turnover: qtyOrdered, sumForContractOrdered, vatForContractOrdered (7 x 5 + 4 x 2 = 43; VAT 21 % of the task lines = 9.03)');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'ordered is not used');
 SELECT tt.eq((SELECT sum(f."qtyOrdered") FROM public.monitor01_fresh_rows(ARRAY[:'t3'::uuid]) f), 11::numeric, 'monitor01_fresh_rows carries qtyOrdered, so monitor01_verify compares it');
@@ -89,16 +89,16 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq((public.monitor01_sum_sources('ordered', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 2, 'the drill-down of "ordered" lists the movements of the purchase order');
 SELECT tt.eq((public.monitor01_sum_sources('ordered', jsonb_build_object('taskGUID', :'t3'))->'rows'->0->>'documentNumber'), 'ORD-5', '... with the number of the purchase order');
 SELECT tt.eq((public.monitor01_sum_sources('ordered', jsonb_build_object('taskGUID', :'t3'))->>'sum')::numeric, 11::numeric, '... and its sum is the number of the cell');
-SELECT tt.eq((public.monitor01_sum_sources('invoiced', jsonb_build_object('taskGUID', :'t3'))->>'sum')::numeric, 8::numeric, 'the drill-down of "invoiced" is not touched by the purchase order');
+SELECT tt.eq((public.monitor01_sum_sources('vendorInvoiced', jsonb_build_object('taskGUID', :'t3'))->>'sum')::numeric, 8::numeric, 'the drill-down of "vendorInvoiced" is not touched by the purchase order');
 
 -- 7. unpost the purchase order: only the Ordered column goes ---------------------------------------------------------------------------------------------------------------
 SELECT public.unpost_purchase_order(:'po');
 SELECT tt.as_admin();
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT COALESCE(sum("qtyOrdered"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, 'after Unpost the column Ordered is 0');
-SELECT tt.eq((SELECT sum("qtyInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 8::numeric, '... the invoiced numbers stay');
+SELECT tt.eq((SELECT sum("qtyVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 8::numeric, '... the invoiced numbers stay');
 SELECT public.monitor01_rebuild(NULL);
 SELECT public.monitor01_process_batch();
-SELECT tt.eq((SELECT COALESCE(sum("qtyInvoiced"), 0) || '/' || COALESCE(sum("qtyOrdered"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '8.00/0.00', 'a rebuild of the report gives the same numbers');
+SELECT tt.eq((SELECT COALESCE(sum("qtyVendorInvoiced"), 0) || '/' || COALESCE(sum("qtyOrdered"), 0) FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), '8.00/0.00', 'a rebuild of the report gives the same numbers');
 
 ROLLBACK;

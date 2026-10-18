@@ -177,10 +177,10 @@ export async function mountPM(opts: { writeBack?: boolean; seed?: (db: FakeSupab
     },
     setSearch: (t: string) => act(() => setSearchText(t)),
     store,
-    byName: (name) => store().tasks.find((t) => t.rowJSON.name === name) ?? db.rows('project_task_table').find((t) => t.rowJSON.name === name),
+    byName: (name) => store().tasks.find((t) => t.rowJSON.taskDescription === name) ?? db.rows('project_task_table').find((t) => t.rowJSON.taskDescription === name),
     childrenOf: (guid) => {
       const s = store();
-      return (s.tree.childrenById[guid ?? '__root__'] ?? s.tree.childrenById[guid ?? ''] ?? []).map((g: string) => s.tasksById[g]?.rowJSON.name);
+      return (s.tree.childrenById[guid ?? '__root__'] ?? s.tree.childrenById[guid ?? ''] ?? []).map((g: string) => s.tasksById[g]?.rowJSON.taskDescription);
     },
     settle,
     until,

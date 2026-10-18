@@ -43,7 +43,7 @@ export function useCreateSubproject() {
     let created: string | null = null;
     try {
       const last = s.projectOrder[s.projectOrder.length - 1];
-      const row = api.buildProjectRow(project.rowOwnerGUID, subprojectNameOf(task.rowJSON.name), last ? s.projectsById[last]?.orderInList ?? null : null, subprojectStartMs(task.rowJSON, todayUTC()));
+      const row = api.buildProjectRow(project.rowOwnerGUID, subprojectNameOf(task.rowJSON.taskDescription), last ? s.projectsById[last]?.orderInList ?? null : null, subprojectStartMs(task.rowJSON, todayUTC()));
       Object.assign(row.rowJSON, subprojectStartSettings(project.rowJSON));
       await api.createProject(row);
       created = row.rowGUID;

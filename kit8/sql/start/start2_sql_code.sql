@@ -855,7 +855,7 @@ SELECT t."rowGUID",
        t."projectGUID",
        t."treePath",
        nlevel(t."treePath") - 1                                 AS "treeDepth",
-       t."rowJSON"->>'name'                                     AS "name",
+       t."rowJSON"->>'taskDescription'                          AS "name",
        t."rowJSON"->>'rowKind'                                  AS "rowKind",
        (t."rowJSON"->>'startAt')::timestamptz                   AS "startAt",
        t."rowDuration"                                          AS "finishAt",
@@ -937,7 +937,7 @@ BEGIN
       v_s_order := v_s_order + 1024;
       INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "orderInList", "rowJSON")
       VALUES (v_s, public.pm_ltree_label(v_p) || public.pm_ltree_label(v_s), v_p, p_owner, v_s_order,
-              jsonb_build_object('rowKind', 'stage', 'name', v_stage->>'name', 'durationDays', 0));
+              jsonb_build_object('rowKind', 'stage', 'taskDescription', v_stage->>'name', 'durationDays', 0));
       v_t_order := 0;
       v_ids := ARRAY[]::uuid[];
       FOR v_task IN SELECT * FROM jsonb_array_elements(v_stage->'tasks') LOOP
@@ -946,7 +946,7 @@ BEGIN
         v_ids := v_ids || v_t;
         INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "orderInList", "rowJSON")
         VALUES (v_t, public.pm_ltree_label(v_p) || public.pm_ltree_label(v_s) || public.pm_ltree_label(v_t), v_p, p_owner, v_t_order,
-                jsonb_build_object('rowKind', 'task', 'name', v_task->>'name', 'durationDays', (v_task->>'days')::int));
+                jsonb_build_object('rowKind', 'task', 'taskDescription', v_task->>'name', 'durationDays', (v_task->>'days')::int));
         FOR v_after IN SELECT jsonb_array_elements_text(COALESCE(v_task->'after', '[]'::jsonb))::int LOOP
           INSERT INTO public.project_task_dependencies_table ("rowGUID", "rowDependsOnGUID", "projectGUID", "rowOwnerGUID", "linkType", "lagDays", "rowJSON")
           VALUES (v_t, v_ids[v_after], v_p, p_owner, 'FS', 0, '{}'::jsonb);
@@ -3498,7 +3498,7 @@ BEGIN
             OR COALESCE((v_project."rowJSON"->>'planSecond')::boolean, false);
   RETURN jsonb_build_object(
     'kind', 'projectTask',
-    'title', COALESCE(NULLIF(p_task."rowJSON"->>'name', ''), 'Task'),
+    'title', COALESCE(NULLIF(p_task."rowJSON"->>'taskDescription', ''), 'Task'),
     'allDay', NOT v_sub_day,
     'startAt', to_char(v_start AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
     'endAt', to_char((CASE WHEN v_finish > v_start THEN v_finish ELSE v_start + (CASE WHEN v_sub_day THEN INTERVAL '1 hour' ELSE INTERVAL '1 day' END) END) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
@@ -5413,7 +5413,7 @@ BEGIN
            h."rowJSON"->'documentHeader'->>'unpostedAt' AS "unpostedAt",
            h."created_at" AS "sortAt",
            h."rowProjectGUID" AS "projectGUID", COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', '') AS "projectName",
-           h."rowOwnerGUID" AS "taskGUID", COALESCE(t."rowJSON"->>'name', '') AS "taskName",
+           h."rowOwnerGUID" AS "taskGUID", COALESCE(t."rowJSON"->>'taskDescription', '') AS "taskName",
            (SELECT count(*) FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
            (SELECT min(l."periodDay") FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "firstDay",
            (SELECT max(l."periodDay") FROM public.task_fact_usage_timeline l WHERE l."rowHeaderGUID" = h."rowGUID") AS "lastDay",
@@ -5485,7 +5485,7 @@ NOTIFY pgrst, 'reload schema';
 --     sumForBudget      sum of task_line_plan_movements.sumForBudget (planMovementStatus = true)  - the money of the plan (the TotalsRow of the screen)
 --     qtyRestToContract planned - contracted                (generated)
 --     qtyUsed           the quantity (qtyForContract) of the POSTED fact documents (task_fact_usage_timeline), also where the role / month has no plan
---     qtyDelivered      no data now (0);  qtyOnHand = delivered - used (generated)   ("draw delivered + undefined fields without data now")
+--     qtyReceived       the quantity of the POSTED product receipts (PART 30);  qtyOnHand = received - used (generated)
 --   It is a real table (no join, no arithmetic on the client) kept in step INCREMENTALLY:
 --     triggers (statement level, transition tables) only write the TASK key into monitor01_dirty  ->  pg_cron every monitor01_refresh_interval_seconds() = 2 s calls
 --     monitor01_process_dirty: BATCHES of 500 tasks, FOR UPDATE SKIP LOCKED, one set-based statement per batch, ONLY THE ROWS WHOSE NUMBERS CHANGED are written (no realtime noise).
@@ -5749,7 +5749,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "qtyDelivered" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5762,7 +5762,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   )
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
-         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
          t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
@@ -5802,20 +5802,20 @@ BEGIN
          RETURNING 1)
   SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_fu, v_fd;
 
-  -- step 2: monitor01_view (qtyUsed = the quantity of the POSTED fact documents; qtyInvoiced = the quantity of the POSTED vendor invoices; qtyOrdered = the POSTED purchase orders; qtyDelivered = the quantity of the POSTED product receipts)
+  -- step 2: monitor01_view (qtyUsed = the quantity of the POSTED fact documents; qtyVendorInvoiced = the quantity of the POSTED vendor invoices; qtyOrdered = the POSTED purchase orders; qtyReceived = the quantity of the POSTED product receipts)
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyInvoiced", "qtyOrdered", "qtyDelivered", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "qtyOrdered", "qtyReceived", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."qtyDelivered", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyDelivered" = EXCLUDED."qtyDelivered", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."qtyDelivered", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyDelivered", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -5993,7 +5993,7 @@ $$;
 DROP TRIGGER IF EXISTS trg_monitor01_task_rename ON public.project_task_table;
 
 CREATE TRIGGER trg_monitor01_task_rename AFTER UPDATE OF "rowJSON" ON public.project_task_table
-  FOR EACH ROW WHEN (OLD."rowJSON"->>'name' IS DISTINCT FROM NEW."rowJSON"->>'name') EXECUTE FUNCTION public.monitor01_trg_task_rename();
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'taskDescription' IS DISTINCT FROM NEW."rowJSON"->>'taskDescription') EXECUTE FUNCTION public.monitor01_trg_task_rename();
 
 
 CREATE OR REPLACE FUNCTION public.monitor01_trg_project_rename() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6091,16 +6091,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."qtyDelivered", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."qtyDelivered", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyInvoiced", v."qtyOrdered", v."qtyDelivered", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyInvoiced", f."qtyOrdered", f."qtyDelivered", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6122,7 +6122,7 @@ REVOKE ALL ON FUNCTION public.monitor01_housekeeping() FROM PUBLIC, anon, authen
 
 -- ---- the source transactions of any sum (SumExplorerListReusable.tsx) --------------------------------------------------------------------------------------
 -- SECURITY INVOKER: the policies of the source tables apply (the owner of the project only). p_filter keys (all optional): projectGUID · taskGUID · genusGUID · roleGUID ('' = no role) · unit ·
--- taskGUIDs · roleGUIDs (arrays, for a subtotal under filters) · month ('YYYY-MM-01') · fromMonth · toMonth. Measures: planned · contracted (the movements) · fact (the lines of the POSTED fact documents) · used · invoiced · ordered (posted purchase orders) · delivered (posted product receipts).
+-- taskGUIDs · roleGUIDs (arrays, for a subtotal under filters) · month ('YYYY-MM-01') · fromMonth · toMonth. Measures: planned · contracted (the movements) · fact (the lines of the POSTED fact documents) · used · vendorInvoiced (posted vendor invoices) · ordered (posted purchase orders) · received (posted product receipts).
 CREATE OR REPLACE FUNCTION public.monitor01_sum_sources(p_measure text, p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 100, p_offset integer DEFAULT 0) RETURNS jsonb
 LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
 DECLARE
@@ -6154,7 +6154,7 @@ BEGIN
          AND (NOT f ? 'toMonth'   OR date_trunc('month', s."day")::date <= (f->>'toMonth')::date)
          AND (p_measure = 'planned' OR s."contractGUID" IS NOT NULL)
     ), pg AS (SELECT * FROM flt ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
-       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM flt), (SELECT COALESCE(sum("qty"), 0) FROM flt), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
@@ -6177,12 +6177,12 @@ BEGIN
          AND (NOT f ? 'fromMonth'   OR date_trunc('month', x."periodDay")::date >= (f->>'fromMonth')::date)
          AND (NOT f ? 'toMonth'     OR date_trunc('month', x."periodDay")::date <= (f->>'toMonth')::date)
     ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
-       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
       INTO v_count, v_sum, v_rows;
-  ELSIF p_measure = 'invoiced' THEN
+  ELSIF p_measure = 'vendorInvoiced' THEN
     WITH src AS (
       SELECT s."rowGUID"::text AS "rowGUID", 'projectStatusMovements'::text AS "sourceName", s."rowTurnoverDay" AS "day", s."rowOwnerGUID"::text AS "taskGUID", s."rowProjectGUID"::text AS "projectGUID",
              s."rowProjectTaskLineGUID"::text AS "lineGUID", s."rowRegistratorGUID"::text AS "documentGUID", h."rowJSON"->>'vendorInvoiceNumber' AS "documentNumber",
@@ -6201,7 +6201,7 @@ BEGIN
          AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
          AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
     ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
-       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
@@ -6225,12 +6225,12 @@ BEGIN
          AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
          AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
     ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
-       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
       INTO v_count, v_sum, v_rows;
-  ELSIF p_measure = 'delivered' THEN
+  ELSIF p_measure = 'received' THEN
     WITH src AS (
       SELECT s."rowGUID"::text AS "rowGUID", 'projectStatusMovements'::text AS "sourceName", s."rowTurnoverDay" AS "day", s."rowOwnerGUID"::text AS "taskGUID", s."rowProjectGUID"::text AS "projectGUID",
              s."rowProjectTaskLineGUID"::text AS "lineGUID", s."rowRegistratorGUID"::text AS "documentGUID", h."rowJSON"->>'productReceiptNumber' AS "documentNumber",
@@ -6249,7 +6249,7 @@ BEGIN
          AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
          AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
     ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
-       pgn AS (SELECT pg.*, t."rowJSON"->>'name' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
                          LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
     SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
@@ -6326,7 +6326,7 @@ INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline f
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
--- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column Invoiced = qtyInvoiced)
+-- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column VendorInvoiced = qtyVendorInvoiced)
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
@@ -6338,7 +6338,7 @@ SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 
--- upgrade: the tasks that have POSTED product receipts are queued once (the report gained the column Delivered = qtyDelivered, PART 30)
+-- upgrade: the tasks that have POSTED product receipts are queued once (the report gained the column Received = qtyReceived, PART 30)
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'received'
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
@@ -7211,7 +7211,7 @@ CREATE OR REPLACE FUNCTION public.vendor_invoice_line_places(p_header uuid) RETU
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT COALESCE(jsonb_object_agg(l."rowGUID"::text, jsonb_build_object(
            'projectGUID', l."rowProjectGUID", 'projectName', COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', ''),
-           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'name', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
+           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'taskDescription', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
     FROM public.vendor_invoice_lines l
     LEFT JOIN public.project_table pr ON pr."rowGUID" = l."rowProjectGUID"
     LEFT JOIN public.project_task_table tk ON tk."rowGUID" = l."rowOwnerGUID"
@@ -8194,7 +8194,7 @@ CREATE OR REPLACE FUNCTION public.purchase_order_line_places(p_header uuid) RETU
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT COALESCE(jsonb_object_agg(l."rowGUID"::text, jsonb_build_object(
            'projectGUID', l."rowProjectGUID", 'projectName', COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', ''),
-           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'name', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
+           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'taskDescription', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
     FROM public.purchase_order_lines l
     LEFT JOIN public.project_table pr ON pr."rowGUID" = l."rowProjectGUID"
     LEFT JOIN public.project_task_table tk ON tk."rowGUID" = l."rowOwnerGUID"
@@ -8533,7 +8533,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_n integer; v_names text;
 BEGIN
-  SELECT count(*)::integer, string_agg(COALESCE(p."rowJSON"->>'name', '?') || ' / ' || COALESCE(t."rowJSON"->>'name', '?'), ', ')
+  SELECT count(*)::integer, string_agg(COALESCE(p."rowJSON"->>'name', '?') || ' / ' || COALESCE(t."rowJSON"->>'taskDescription', '?'), ', ')
     INTO v_n, v_names
     FROM public.project_subproject_link l
     JOIN public.project_task_table t ON t."rowGUID" = l."rowOwnerGUID"
@@ -8700,7 +8700,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyInvoiced" numeric, "qtyOrdered" numeric, "qtyDelivered" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   WITH ids AS (        -- origin task, the task whose movements count for it (itself: every genus; a subproject task: the aggregated genera)
     SELECT x AS origin, x AS src, NULL::text AS genus FROM unnest(p_tasks) AS x
@@ -8711,7 +8711,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   t AS (
     SELECT i.origin AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."rowTurnoverMonth" AS month,
            sum(f."qtyPlan") AS "qtyPlan", sum(f."qtyPlanContracted") AS "qtyPlanContracted", sum(f."sumForBudgetPlan") AS "sumForBudgetPlan",
-           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyDelivered", sum(f."lineCount")::integer AS "lineCount"
+           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."lineCount")::integer AS "lineCount"
       FROM ids i JOIN ft f ON f."rowOwnerGUID" = i.src AND (i.genus IS NULL OR f."genusGUID" = i.genus)
      GROUP BY 1, 2, 3, 4, 5
   ),
@@ -8726,20 +8726,20 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   )
   SELECT t.task, t.genus, t.role, t.unit, t.month,
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
-         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'name', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."qtyDelivered", t."lineCount", COALESCE(st.stale, false)
+         COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
     FROM t
     JOIN public.project_task_table tk ON tk."rowGUID" = t.task
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t.role, '')
     LEFT JOIN st ON st.task = t.task AND st.genus = t.genus AND st.role = t.role AND st.unit = t.unit AND st.month = t.month
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyDelivered" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyVendorInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 -- ===============================================================================================
 -- PART 30: create_product_receipt.sql
 -- the PRODUCT RECEIPT document (documentation/PRODUCT_RECEIPT.html): the twin of the purchase order (PART 28) and the vendor invoice (PART 26): product_receipt_header + product_receipt_lines, its posting into the project status
--- register as 'received' movements (the column Delivered of Monitor01 = qtyDelivered, fed by the posted product receipts) and the two "Create based on" steps of the chain
+-- register as 'received' movements (the column Received of Monitor01 = qtyReceived, fed by the posted product receipts) and the two "Create based on" steps of the chain
 --   purchase order -> product receipt (create_product_receipt_from_order)  ->  vendor invoice (create_vendor_invoice_from_receipt).
 -- ===============================================================================================
 
@@ -9234,7 +9234,7 @@ CREATE OR REPLACE FUNCTION public.product_receipt_line_places(p_header uuid) RET
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT COALESCE(jsonb_object_agg(l."rowGUID"::text, jsonb_build_object(
            'projectGUID', l."rowProjectGUID", 'projectName', COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', ''),
-           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'name', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
+           'taskGUID', l."rowOwnerGUID", 'taskName', COALESCE(tk."rowJSON"->>'taskDescription', ''), 'taskLineGUID', l."taskLineGUID")), '{}'::jsonb)
     FROM public.product_receipt_lines l
     LEFT JOIN public.project_table pr ON pr."rowGUID" = l."rowProjectGUID"
     LEFT JOIN public.project_task_table tk ON tk."rowGUID" = l."rowOwnerGUID"
@@ -9346,8 +9346,27 @@ NOTIFY pgrst, 'reload schema';
 -- Check:
 --   SELECT public.create_product_receipt_from_order('<posted purchase order rowGUID>');
 --   SELECT public.post_product_receipt('<document rowGUID>');
---   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'received';      -- the column Delivered of Monitor01
+--   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'received';      -- the column Received of Monitor01
 --   SELECT public.create_vendor_invoice_from_receipt('<posted product receipt rowGUID>');
+
+-- upgrade 2026-10-18: the text of a task row is rowJSON.taskDescription (it was rowJSON.name; the projects keep name).
+-- Existing rows of the three task tables are renamed ONCE (idempotent: a row without the key 'name' is not touched). The user triggers
+-- are off during the update, so updated_at stays (the "posted and changed" mark is not set) and no queue is filled.
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY['project_task_table', 'templates_project_task_table', 'version_project_task_table'] LOOP
+    IF to_regclass('public.' || v_table) IS NULL THEN CONTINUE; END IF;
+    EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER USER', v_table);
+    EXECUTE format($q$UPDATE public.%I
+                         SET "rowJSON" = ("rowJSON" - 'name')
+                             || CASE WHEN "rowJSON" ? 'taskDescription' THEN '{}'::jsonb ELSE jsonb_build_object('taskDescription', "rowJSON"->'name') END
+                       WHERE "rowJSON" ? 'name'$q$, v_table);
+    EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER USER', v_table);
+  END LOOP;
+END
+$$;
 
 NOTIFY pgrst, 'reload schema';
 

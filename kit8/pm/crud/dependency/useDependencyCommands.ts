@@ -20,7 +20,7 @@ export function useDependencyCommands(ownerGUID: string, projectGUID: string | n
   return useMemo(() => {
     const st = () => usePMStore.getState();
     const find = (ref: PMDepRef) => st().deps.find((d) => d.rowGUID === ref.rowGUID && d.rowDependsOnGUID === ref.dependsOnGUID);
-    const nameOf = (guid: string) => st().tasksById[guid]?.rowJSON.name || '?';
+    const nameOf = (guid: string) => st().tasksById[guid]?.rowJSON.taskDescription || '?';
 
     /** Asks first (PMApproveYesNoCancelModalWindow); deletes only the dependency, never a task. */
     const deleteDependency = async (ref: PMDepRef) => {

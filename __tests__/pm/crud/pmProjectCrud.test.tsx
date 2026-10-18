@@ -82,7 +82,7 @@ describe('scheduler write-back (pm_apply_schedule)', () => {
     expect(call.fn).toBe('pm_apply_schedule');
     expect(call.args.p_project_guid).toBe(h.P1);
     expect(call.args.p_rows).toHaveLength(8);
-    const t111 = h.store().tasks.find((t) => t.rowJSON.name === 'Task 111')!;
+    const t111 = h.store().tasks.find((t) => t.rowJSON.taskDescription === 'Task 111')!;
     const w = call.args.p_rows.find((r: any) => r.rowGUID === t111.rowGUID);
     expect(Date.parse(w.startAt)).toBe(h.store().schedule[t111.rowGUID].startMs);
     expect(call.args.p_project_finish).toBe(new Date(h.store().projectFinishMs).toISOString());

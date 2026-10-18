@@ -45,7 +45,7 @@ export function taskGoogleCalendarURL(guid: string, s: PMState = usePMStore.getS
   const details = buildTaskInfoText(guid, s, url) ?? url;
   const params: Record<string, string> = {
     action: 'TEMPLATE',
-    text: project ? `${t.rowJSON.name} · ${project.rowJSON.name}` : t.rowJSON.name,
+    text: project ? `${t.rowJSON.taskDescription} · ${project.rowJSON.name}` : t.rowJSON.taskDescription,
     dates,
     details,
   };

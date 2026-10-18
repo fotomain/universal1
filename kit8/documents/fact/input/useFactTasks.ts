@@ -11,7 +11,7 @@ export function leafTasks(rows: { rowGUID: string; rowOwnerGUID: string; treePat
   return rows
     .filter((r) => !parents.has(r.rowGUID))
     .sort((a, b) => String(a.treePath ?? '').localeCompare(String(b.treePath ?? '')))
-    .map((r) => ({ guid: String(r.rowGUID), name: String(r.rowJSON?.name || r.rowJSON?.title || r.rowGUID) }));
+    .map((r) => ({ guid: String(r.rowGUID), name: String(r.rowJSON?.taskDescription || r.rowJSON?.title || r.rowGUID) }));
 }
 
 export function useFactTasks(projectGUID: string): FactTaskItem[] {

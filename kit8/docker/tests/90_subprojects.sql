@@ -17,7 +17,7 @@ CREATE FUNCTION tt.mk_task(p_project uuid, p_kind text, p_name text) RETURNS uui
 DECLARE v uuid := gen_random_uuid();
 BEGIN
   INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowJSON")
-  VALUES (v, public.pm_ltree_label(p_project) || public.pm_ltree_label(v), p_project, '11111111-1111-1111-1111-111111111111', jsonb_build_object('name', p_name, 'rowKind', p_kind));
+  VALUES (v, public.pm_ltree_label(p_project) || public.pm_ltree_label(v), p_project, '11111111-1111-1111-1111-111111111111', jsonb_build_object('taskDescription', p_name, 'rowKind', p_kind));
   RETURN v;
 END $$;
 

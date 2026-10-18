@@ -12,7 +12,7 @@ import PMSegmentedIconButtons, { PMSegmentOption } from '../../network/PMSegment
 export const REPORTS_SECTION_OPTIONS: PMSegmentOption<PMReportsSection>[] = [
   { value: 'costs', icon: 'trending_down', label: 'Costs', title: 'Costs: the Time, Material and Expense lines of the whole project' },
   { value: 'revenues', icon: 'trending_up', label: 'Revenues', title: 'Revenues: the Revenue lines of the whole project' },
-  { value: 'monitor01', icon: 'monitoring', label: 'Monitor01', title: 'Monitor01: planned, contracted, delivered and used quantities per resource role, month and task - live' },
+  { value: 'monitor01', icon: 'monitoring', label: 'Monitor01', title: 'Monitor01: planned, contracted, received and used quantities per resource role, month and task - live' },
   { value: 'network', icon: 'account_tree', label: 'Network', title: 'Network view: network diagram / network schedule' },
 ];
 

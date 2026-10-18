@@ -11,7 +11,7 @@ INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES
 INSERT INTO public."equipmentTable" ("rowGUID","rowJSON") VALUES ('e-crane', '{"equipmentTitle":"Tower crane","resourceCalendar":"sixDayWeekCalendar"}');
 INSERT INTO public."contractTable" ("rowGUID","rowOwnerGUID","rowParentGUID","rowJSON") VALUES
   ('c-dan-7d', 'p-dan', 'person', '{"contractPartyType":"person","contractSumBeforeVAT":1,"contractStartDate":"2026-10-01","contractFinishDate":null,"contractNumber":"7","resourceCalendar":"sevenDayWeekCalendar"}');
-SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 SELECT tt.line(:'t1', 'person', 'p-boris') AS lb \gset
 SELECT tt.line(:'t1', 'person', 'p-clara') AS lc \gset
 SELECT tt.line(:'t1', 'person', 'p-dan')   AS ld \gset

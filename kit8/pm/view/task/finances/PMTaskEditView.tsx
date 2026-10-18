@@ -1,4 +1,4 @@
-// PMProjectFinancesView - the "Finances" view (right pane of PMGanttSurface when uxuiSettings.ganttVsNetworkView = 'showFinancesView';
+// PMTaskEditView - the "Finances" view (right pane of PMGanttSurface when uxuiSettings.ganttVsNetworkView = 'showFinancesView';
 // the Skia task tree stays on the left):
 //
 //   toolbar   <task name> ........ [Gantt | Kanban | Network | Versions | Finances]
@@ -18,9 +18,9 @@ import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPri
 import { lastEditPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
 import PMProjectTaskFinancesCRUD from './PMProjectTaskFinancesCRUD';
-import EditTaskNameFast from '../EditTaskNameFast';
+import EditTaskDescriptionFast from '../EditTaskDescriptionFast';
 
-export interface PMProjectFinancesViewProps {
+export interface PMTaskEditViewProps {
   projectGUID: string;
   width: number;
   height: number;
@@ -28,7 +28,7 @@ export interface PMProjectFinancesViewProps {
   crud: PMCrud;
 }
 
-export default function PMProjectFinancesView({ projectGUID, width, height, palette, crud }: PMProjectFinancesViewProps) {
+export default function PMTaskEditView({ projectGUID, width, height, palette, crud }: PMTaskEditViewProps) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
   // picker mode (project/pick): the toolbar answers with the selected task
   const picker = usePMPicker();
@@ -56,7 +56,7 @@ export default function PMProjectFinancesView({ projectGUID, width, height, pale
         {task && selectedGUID ? (
           // the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name
           <View style={styles.titleBox} testID="pm-finances-title">
-            <EditTaskNameFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
+            <EditTaskDescriptionFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
           </View>
         ) : (
           <>

@@ -55,26 +55,38 @@ import ShareScreenshotButton from '../../../ui/components/common/ShareScreenshot
 export default function PMTaskEditModal({
   crud,
   kanban: kanbanProp,
+  guid: guidProp,
+  embedded = false,
+  onClose,
+  closeOnSave = true,
 }: {
   crud: PMCrud;
   kanban?: PMKanbanCommands;
+  /** the task to edit; default = store.editingGUID (the window opened by the edit buttons) */
+  guid?: string;
+  /** true = the form fills its parent (the task window, TabTaskEditMain) instead of a Modal; Delete / Details do not close it */
+  embedded?: boolean;
+  /** X / Cancel; default = close the Modal (store.editingGUID = null) */
+  onClose?: () => void;
+  /** false = Save keeps the form open (the task window) */
+  closeOnSave?: boolean;
 }) {
   const { themeColors } = useDesignSystem();
   // width of the Duration / Progress / Kanban row (0 = not measured yet): too narrow for 3 fields -> one per row
   const [numbersWidth, setNumbersWidth] = useState(0);
   // web: always one row of 3 inputs; smartphones (iOS / Android): one input per row when the row is too narrow
   const numbersStacked = Platform.OS !== 'web' && numbersWidth > 0 && (numbersWidth - 2 * 8) / 3 < NUMBER_STEPPER_MIN_WIDTH;
-  const editingGUID = usePMStore((s) => s.editingGUID);
-  const task = usePMStore((s) => (s.editingGUID ? s.tasksById[s.editingGUID] : undefined));
+  const editingGUID = usePMStore((s) => guidProp ?? s.editingGUID);
+  const task = usePMStore((s) => (editingGUID ? s.tasksById[editingGUID] : undefined));
   // uxui.currentJSON while the window is open ("Share screenshot + JSON")
-  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.name || 'task', json: task } : null);
-  const sched = usePMStore((s) => (s.editingGUID ? s.schedule[s.editingGUID] : undefined));
-  const hasChildren = usePMStore((s) => (s.editingGUID ? (s.tree.childrenById[s.editingGUID]?.length ?? 0) > 0 : false));
+  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.taskDescription || 'task', json: task } : null);
+  const sched = usePMStore((s) => (editingGUID ? s.schedule[editingGUID] : undefined));
+  const hasChildren = usePMStore((s) => (editingGUID ? (s.tree.childrenById[editingGUID]?.length ?? 0) > 0 : false));
   const projectGUID = usePMStore((s) => s.selectedProjectGUID);
   const project = usePMStore((s) => (projectGUID ? s.projectsById[projectGUID] : undefined));
   const tasksById = usePMStore((s) => s.tasksById);
   const tree = usePMStore((s) => s.tree);
-  const close = () => usePMStore.getState().setEditing(null);
+  const close = onClose ?? (() => usePMStore.getState().setEditing(null));
 
   // Project planning units & format settings
   const planDay = usePMStore((s) => s.planDay);
@@ -125,7 +137,7 @@ export default function PMTaskEditModal({
   useEffect(() => {
     if (!task) return;
     setActiveTab(modalTabOf(lastEditPlaceOf(task.rowJSON)));
-    setName(task.rowJSON.name || '');
+    setName(task.rowJSON.taskDescription || '');
     setKind((task.rowJSON.rowKind as any) === 'project' ? 'task' : (task.rowJSON.rowKind as Exclude<PMRowKind, 'project'>) || 'task');
     setDays(String(task.rowJSON.durationDays ?? 1));
     setSubFlag(task.rowJSON.taskIsSubproject === true);
@@ -311,7 +323,7 @@ export default function PMTaskEditModal({
     const { color: _legacyColor, ...json } = task.rowJSON;
     const updatedJSON: any = {
       ...json,
-      name: name.trim() || task.rowJSON.name,
+      taskDescription: name.trim() || task.rowJSON.taskDescription,
       rowKind: kind,
       durationDays,
       manualStartAt: fullStartMs === null ? null : new Date(fullStartMs).toISOString(),
@@ -362,7 +374,7 @@ export default function PMTaskEditModal({
         rowProgress: newProgress,
         rowJSON: updatedJSON,
       },
-      `Edit "${name.trim() || task.rowJSON.name}"`
+      `Edit "${name.trim() || task.rowJSON.taskDescription}"`
     );
 
     if (summary) {
@@ -374,16 +386,17 @@ export default function PMTaskEditModal({
       kanban?.setTaskKanbanProgress?.(task.rowGUID, kanbanPct);
     }
 
-    close();
+    if (closeOnSave) close();
+    else formSnapshot.current = 'pending'; // the saved form is the new "as it was"
   };
 
   const labelStyle = [styles.label, { color: themeColors.text }];
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={close}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} />
-        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+    <ModalOrPage embedded={embedded} onRequestClose={close}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={embedded ? styles.pageOverlay : styles.overlay}>
+        {embedded ? null : <Pressable style={StyleSheet.absoluteFill} onPress={close} />}
+        <View testID={embedded ? 'pm-task-edit-page' : undefined} style={[embedded ? styles.pageCard : styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: themeColors.text }]}>Edit {summary ? 'stage' : kind}</Text>
@@ -716,8 +729,8 @@ export default function PMTaskEditModal({
 
           {/* Footer Actions */}
           <View style={styles.actions}>
-            <PMDialogButton testID="pm-edit-delete" kind="danger" title={pmT('Delete')} style={{ marginLeft: 0 }} onPress={() => { close(); crud.deleteTask(task.rowGUID); }} />
-            <PMDialogButton testID="pm-edit-open" kind="text" title={pmT('Details')} onPress={() => { close(); crud.openInfo(task.rowGUID); }} />
+            <PMDialogButton testID="pm-edit-delete" kind="danger" title={pmT('Delete')} style={{ marginLeft: 0 }} onPress={() => { if (!embedded) close(); crud.deleteTask(task.rowGUID); }} />
+            <PMDialogButton testID="pm-edit-open" kind="text" title={pmT('Details')} onPress={() => { if (!embedded) close(); crud.openInfo(task.rowGUID); }} />
             {/* Cancel + Save always stay together on the right (phones: they wrap as ONE group) */}
             <View style={styles.actionsRight}>
               <PMDialogButton testID="pm-edit-cancel" kind="secondary" title={pmT('Cancel')} color={themeColors.text} style={{ marginLeft: 0 }} onPress={close} />
@@ -726,6 +739,16 @@ export default function PMTaskEditModal({
           </View>
         </View>
       </KeyboardAvoidingView>
+    </ModalOrPage>
+  );
+}
+
+/** the window of the edit buttons (Modal) or the form that fills its parent (the task window, embedded) */
+function ModalOrPage({ embedded, onRequestClose, children }: { embedded: boolean; onRequestClose: () => void; children: React.ReactNode }) {
+  if (embedded) return <View style={{ flex: 1 }}>{children}</View>;
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onRequestClose}>
+      {children}
     </Modal>
   );
 }
@@ -733,6 +756,9 @@ export default function PMTaskEditModal({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   card: { width: '100%', maxWidth: 460, height: 600, maxHeight: '92%', borderRadius: 14, padding: 18, borderWidth: StyleSheet.hairlineWidth },
+  // embedded (the task window): the card fills the tab
+  pageOverlay: { flex: 1, padding: 12 },
+  pageCard: { flex: 1, width: '100%', maxWidth: 820, alignSelf: 'center', borderRadius: 14, padding: 18, borderWidth: StyleSheet.hairlineWidth },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   title: { flex: 1, fontSize: 17, fontWeight: '700' },
   topTabsBar: {

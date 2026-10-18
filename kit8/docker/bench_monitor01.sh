@@ -22,7 +22,7 @@ INSERT INTO public.project_table ("rowGUID", "treePath", "rowOwnerGUID", "rowJSO
 VALUES ('bbbbbbbb-0000-0000-0000-000000000001', public.pm_ltree_label('bbbbbbbb-0000-0000-0000-000000000001'), '99999999-9999-9999-9999-999999999999', '{"name":"Bench"}');
 SET session_replication_role = replica;
 INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowJSON")
-SELECT g, public.pm_ltree_label('bbbbbbbb-0000-0000-0000-000000000001') || public.pm_ltree_label(g), 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('name', 'task' || i)
+SELECT g, public.pm_ltree_label('bbbbbbbb-0000-0000-0000-000000000001') || public.pm_ltree_label(g), 'bbbbbbbb-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', jsonb_build_object('taskDescription', 'task' || i)
   FROM (SELECT gen_random_uuid() AS g, i FROM generate_series(1, $N) i) s;
 INSERT INTO public.task_line_table ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
 SELECT t."projectGUID", t."rowGUID", (ARRAY['timeGenus','materialGenus','expenseGenus'])[k], k,

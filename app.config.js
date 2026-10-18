@@ -47,8 +47,8 @@ const PERMISSION_TEXT = {
 };
 
 const defaultVariant = 'appClothes1';
-const appName = process.env.APP_NAME || defaultVariant;
-const variant = variantConfigs[appName] || variantConfigs[defaultVariant];
+const configurationName = process.env.APP_NAME || defaultVariant;
+const variant = variantConfigs[configurationName] || variantConfigs[defaultVariant];
 
 module.exports = {
   expo: {
@@ -94,7 +94,7 @@ module.exports = {
     ],
     owner: 'foto888999',
     extra: {
-      appName,
+      configurationName,
       // .env ENVIRONMENT_NAME (e.g. DEV_ENVIRONMENT): the developer helpers of the UI (kit8/ui/environment.ts)
       environmentName: process.env.ENVIRONMENT_NAME || '',
       eas: {

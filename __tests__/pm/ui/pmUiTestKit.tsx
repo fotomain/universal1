@@ -287,7 +287,7 @@ export function seedStore() {
     usePMStore.getState().selectProject(demo.projects[0].rowGUID);
     usePMStore.getState().hydrate(demo.projects[0].rowGUID, demo.tasks.filter((t: any) => t.projectGUID === demo.projects[0].rowGUID), demo.deps.filter((d: any) => d.projectGUID === demo.projects[0].rowGUID));
   });
-  const byName = (name: string) => demo.tasks.find((t: any) => t.rowJSON.name === name)!;
+  const byName = (name: string) => demo.tasks.find((t: any) => t.rowJSON.taskDescription === name)!;
   return { demo, byName, store: usePMStore };
 }
 

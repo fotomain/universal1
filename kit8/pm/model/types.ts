@@ -237,6 +237,16 @@ export interface PMProjectRow {
   updated_at?: string;
 }
 
+/**
+ * project_task_table.rowJSON (stage / task / milestone rows): the same payload as PMRowJSON, but the text of the row is
+ * `taskDescription` (it was `name` until 2026-10-18; the SQL upgrade renames the key in the existing rows). The project
+ * rows (project_table) keep `name`.
+ */
+export type PMTaskJSON = PMRowJSONCommon & { taskDescription: string };
+
+/** The payload shared by project and task rows (everything except the text key: `name` for a project, `taskDescription` for a task). */
+export type PMRowJSONCommon = Omit<PMRowJSON, 'name'>;
+
 export interface PMTaskRow {
   rowGUID: string;
   /** ltree: <projectLabel>.<stageLabel>.<taskLabel> - labels are GUIDs with '-' -> '_'. */
@@ -246,7 +256,7 @@ export interface PMTaskRow {
   rowDuration: string | null;
   rowProgress: number;
   orderInList: number;
-  rowJSON: PMRowJSON;
+  rowJSON: PMTaskJSON;
   created_at?: string;
   updated_at?: string;
 }
@@ -422,7 +432,7 @@ export type PMNetworkScheduleVariant = 'eventCircles' | 'timeScaled';
  * Effective settings = the user's own row (project_user_settings_table.rowJSON.uxuiSettings)
  * over the project's legacy rowJSON.uxuiSettings, then legacy top-level keys, then defaults.
  */
-export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?: PMUxUiSettings | null): Required<PMUxUiSettings> {
+export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSettings?: PMUxUiSettings | null): Required<PMUxUiSettings> {
   const u: PMUxUiSettings = { ...(json?.uxuiSettings || {}), ...(userSettings || {}) };
   const pos = (v: unknown, d: PMProgressLinePosition): PMProgressLinePosition =>
     v === 'onTop' || v === 'onBottom' || v === 'atTheMiddle' ? v : d;
@@ -461,7 +471,7 @@ export function uxuiSettingsOf(json: PMRowJSON | undefined | null, userSettings?
 export type PMLinkLineForm = 'smoothForm' | 'squareForm';
 
 /** Task bar color from rowJSON (taskColor, legacy color fallback). */
-export function taskColorOf(json: PMRowJSON | undefined | null): string | null {
+export function taskColorOf(json: PMRowJSONCommon | undefined | null): string | null {
   if (!json) return null;
   if (json.taskColor !== undefined) return json.taskColor || null; // explicit (null = automatic)
   return json.color || null;

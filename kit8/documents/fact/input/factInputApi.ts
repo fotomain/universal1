@@ -44,5 +44,5 @@ export async function deleteFactDocument(client: Client, headerGUID: string): Pr
 export async function fetchTaskInfo(client: Client, taskGUID: string): Promise<{ projectGUID: string; name: string } | null> {
   const { data, error } = await client.from('project_task_table').select('projectGUID,rowJSON').eq('rowGUID', taskGUID).maybeSingle();
   if (error) fail(error);
-  return data ? { projectGUID: String(data.projectGUID), name: String(data.rowJSON?.name || '') } : null;
+  return data ? { projectGUID: String(data.projectGUID), name: String(data.rowJSON?.taskDescription || '') } : null;
 }

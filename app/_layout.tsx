@@ -517,6 +517,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
               <Drawer.Screen name="pm/kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
+              <Drawer.Screen name="pm/project/task/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />
               <Drawer.Screen name="pm/project/task/plan/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task plan' }} />
               <Drawer.Screen name="pm/project/task/fact/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Facts input' }} />

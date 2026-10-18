@@ -6,9 +6,9 @@ SELECT public.organization_ensure_user('marko@acme.test', '22222222-2222-2222-22
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SELECT public.pm_seed_demo();
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
-SELECT t."rowGUID" AS ta1, t."projectGUID" AS pa1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
-SELECT t."rowGUID" AS ta2, t."projectGUID" AS pa2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 211' \gset
-SELECT t."rowGUID" AS tm1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS ta1, t."projectGUID" AS pa1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
+SELECT t."rowGUID" AS ta2, t."projectGUID" AS pa2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 211' \gset
+SELECT t."rowGUID" AS tm1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 SELECT r."rowGUID" AS role1 FROM public."resourceRoleTable" r ORDER BY r."rowGUID" LIMIT 1 \gset
 SELECT r."rowGUID" AS role2 FROM public."resourceRoleTable" r ORDER BY r."rowGUID" OFFSET 1 LIMIT 1 \gset
 INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES

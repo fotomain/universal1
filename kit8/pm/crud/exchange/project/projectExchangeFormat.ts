@@ -52,6 +52,12 @@ export function buildProjectExchangeFile(
   };
 }
 
+/** The task JSON of a file: a file exported before 2026-10-18 keeps the text of a task under `name` (now `taskDescription`). */
+export function taskJSONOfFile(json: any): PMTaskRow['rowJSON'] {
+  const { name, ...rest } = json || {};
+  return { ...rest, taskDescription: rest.taskDescription ?? name ?? '' };
+}
+
 export class PMProjectExchangeError extends Error {}
 
 /** Parses + checks a file's text; throws PMProjectExchangeError with a user-readable message. */

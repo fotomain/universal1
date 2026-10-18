@@ -267,7 +267,7 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
     case 'wbs':
       return ctx.tree.wbsById[guid] ?? '';
     case 'name':
-      return t?.rowJSON?.name ?? '';
+      return t?.rowJSON?.taskDescription ?? '';
     case 'taskStartDate':
     case 'start':
       return r ? r.startMs : null;

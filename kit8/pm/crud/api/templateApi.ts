@@ -25,6 +25,7 @@ import {
   PMProjectData,
   PMProjectRow,
   PMRowJSON,
+  PMTaskJSON,
   PMTaskDependencyClosureRow,
   PMTaskDependencyRow,
   PMTaskRow,
@@ -549,7 +550,7 @@ export function createTemplateApi(sb: SupabaseClient) {
         .map((part) => labelMap.get(part) || part)
         .join('.');
 
-      const shiftedRowJSON: PMRowJSON = {
+      const shiftedRowJSON: PMTaskJSON = {
         ...t.rowJSON,
         startAt: shiftIso(t.rowJSON?.startAt, deltaMs),
         manualStartAt: shiftIso(t.rowJSON?.manualStartAt, deltaMs),

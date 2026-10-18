@@ -101,7 +101,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   const crud = usePMCrud(ownerGUID, projectGUID);
   const kanban = useKanbanCommands(projectGUID);
   // uxui.currentJSON ("Share screenshot + JSON") + the main FAB commands of the task page
-  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.name || 'task', json: task } : null);
+  useUxuiCurrentJSON(task ? { kind: 'task', title: task.rowJSON?.taskDescription || 'task', json: task } : null);
   const fabActions = useMemo(
     (): FABContextAction[] | null =>
       task
@@ -141,14 +141,14 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
     if (!adding) return [];
     const q = search.trim().toLowerCase();
     return tasks
-      .filter((t) => t.rowGUID !== taskGUID && (!q || (t.rowJSON.name || '').toLowerCase().includes(q)))
+      .filter((t) => t.rowGUID !== taskGUID && (!q || (t.rowJSON.taskDescription || '').toLowerCase().includes(q)))
       .map((t) => ({ t, problem: validateNewDependency(tasks, deps, t.rowGUID, taskGUID) }))
       .slice(0, 40);
   }, [adding, search, tasks, deps, taskGUID]);
 
   const breadcrumb = useMemo(() => {
     const names: string[] = [];
-    for (let g = tree.parentById[taskGUID]; g; g = tree.parentById[g]) names.unshift(tasksById[g]?.rowJSON.name || '');
+    for (let g = tree.parentById[taskGUID]; g; g = tree.parentById[g]) names.unshift(tasksById[g]?.rowJSON.taskDescription || '');
     return names;
   }, [tree, tasksById, taskGUID]);
   const projectName = usePMStore((s) => (projectGUID ? s.projectsById[projectGUID]?.rowJSON.name : undefined));
@@ -196,7 +196,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
     );
   }
 
-  const nameOf = (guid: string) => tasksById[guid]?.rowJSON.name || guid.slice(0, 8);
+  const nameOf = (guid: string) => tasksById[guid]?.rowJSON.taskDescription || guid.slice(0, 8);
   const cycleType = (d: PMTaskDependencyRow) => {
     const next = LINK_TYPES[(LINK_TYPES.indexOf(d.linkType || 'FS') + 1) % LINK_TYPES.length];
     mark('dependencies');
@@ -274,7 +274,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
           {[projectName, ...breadcrumb].filter(Boolean).join('  ›  ')}
         </Text>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: c.text, flexShrink: 1 }]}>{task.rowJSON.name}</Text>
+          <Text style={[styles.title, { color: c.text, flexShrink: 1 }]}>{task.rowJSON.taskDescription}</Text>
           <View style={[styles.kind, { backgroundColor: `${c.primary}1f` }]}>
             <Text style={{ color: c.primary, fontSize: 11, fontWeight: '800' }}>{(isSummary ? 'stage' : task.rowJSON.rowKind).toUpperCase()}</Text>
           </View>
@@ -394,7 +394,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
                 style={[styles.candidate, { opacity: problem ? 0.4 : 1 }]}
               >
                 <Text style={{ color: c.text, flex: 1 }} numberOfLines={1}>
-                  {t.rowJSON.name}
+                  {t.rowJSON.taskDescription}
                 </Text>
                 {problem && <Text style={{ color: c.text, opacity: 0.7, fontSize: 11 }}>{problem}</Text>}
               </Pressable>

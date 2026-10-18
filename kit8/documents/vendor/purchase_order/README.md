@@ -38,7 +38,7 @@ Project settings → **Vendor** → `multiProjectVendorInvoceNeeded` (OFF while 
 SQL: `purchase_order_set_line_task(line, task, task line)`, `purchase_order_line_places(header)`; the register takes the project of the LINE.
 
 ## Tests
-* SQL on Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 71` (155 checks: the whole life of a purchase order, Multi Project) and `./test_fact_monitor01.sh 72` (a purchase order and a vendor invoice of the same lines; the Monitor01 columns Ordered and Invoiced; unpost / rebuild).
+* SQL on Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 71` (155 checks: the whole life of a purchase order, Multi Project) and `./test_fact_monitor01.sh 72` (a purchase order and a vendor invoice of the same lines; the Monitor01 columns Ordered and VendorInvoiced; unpost / rebuild).
 * Jest: `__tests__/documents/vendor/purchase_order` (model, API / hooks, columns, choose window, form, header, lines, list, SQL mirror), `__tests__/pm/reports/monitor01` (the column), `__tests__/documents/vendor/lineplace`.
 
 **Create based on → Product receipt** (PART 30, `kit8/documents/vendor/product_receipt`): a POSTED purchase order offers it in the form bar (**Create based on…**) and in the row menu of the list; the draft receipt opens in a new browser tab.

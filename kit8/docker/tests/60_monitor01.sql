@@ -9,10 +9,10 @@ SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SE
 SELECT tt.as_admin();
 DELETE FROM public.monitor01_dirty;     -- the demo projects queued their own lines
 -- the example of the sheet: Data Analyst task01 and task03 (October), 10m pipe section task03 and task04
-SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
-SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 112' \gset
-SELECT t."rowGUID" AS t4 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 113' \gset
-SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'name' = 'Task 111' \gset
+SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
+SELECT t."rowGUID" AS t3 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
+SELECT t."rowGUID" AS t4 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 113' \gset
+SELECT t."rowGUID" AS tm FROM public.project_task_table t WHERE t."rowOwnerGUID" = '22222222-2222-2222-2222-222222222222' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
 SELECT t."projectGUID" AS pa FROM public.project_task_table t WHERE t."rowGUID" = :'t1' \gset
 SELECT r."rowGUID" AS role1, r."rowJSON"->>'title' AS role1name FROM public."resourceRoleTable" r ORDER BY r."rowGUID" LIMIT 1 \gset
 SELECT r."rowGUID" AS role2 FROM public."resourceRoleTable" r ORDER BY r."rowGUID" OFFSET 1 LIMIT 1 \gset
@@ -66,7 +66,7 @@ SELECT tt.eq((SELECT sum("sumForBudget") FROM public.monitor01_view WHERE "rowOw
 SELECT tt.eq((SELECT sum("sumForBudget") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t4'), (SELECT sum(COALESCE(m."sumForBudget", 0)) FROM public.task_line_plan_movements m JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID" WHERE m."rowOwnerGUID" = :'t4' AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 'sumForBudget of the view = the budget sum of the plan movements (task04, two months)');
 SELECT tt.eq((SELECT sum("sumForBudget") > 0 FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1'), true, 'the plan of task01 has a budget sum');
 SELECT tt.eq((SELECT count(*) FROM public.monitor01_view WHERE "genusGUID" NOT IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0::bigint, 'revenue is not in the view');
-SELECT tt.eq((SELECT ("qtyDelivered", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1')::text, '(0.00,0.00,0.00)', 'delivered / used / on-hand are drawn without data');
+SELECT tt.eq((SELECT ("qtyReceived", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1')::text, '(0.00,0.00,0.00)', 'received / used / on-hand are drawn without data');
 SELECT tt.eq((SELECT "resourceRoleName" FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1' AND "genusGUID" = 'timeGenus'), :'role1name', 'the role name is copied');
 SELECT tt.eq((SELECT "taskName" FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1' AND "genusGUID" = 'timeGenus'), 'Task 111', 'the task name is copied');
 SELECT tt.eq((SELECT "rowOwnerUserGUID" FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1' LIMIT 1), '11111111-1111-1111-1111-111111111111'::uuid, 'the owner of the project is copied into the row (the one-column policy)');
@@ -87,7 +87,7 @@ SELECT tt.eq((SELECT "qtyContracted" FROM public.monitor01_view WHERE "rowOwnerG
 UPDATE public.task_line_table SET "rowJSON" = "rowJSON" - 'taskResourceContract' WHERE "rowGUID" = 'bbbbbbbb-0000-0000-0000-000000000002';
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT "qtyContracted" FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), 0::numeric, 'the contract removed: contracted 0 again');
-UPDATE public.project_task_table SET "rowJSON" = "rowJSON" || '{"name": "Renamed task"}' WHERE "rowGUID" = :'t1';
+UPDATE public.project_task_table SET "rowJSON" = "rowJSON" || '{"taskDescription": "Renamed task"}' WHERE "rowGUID" = :'t1';
 SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT "taskName" FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t1' AND "genusGUID" = 'timeGenus'), 'Renamed task', 'a renamed task: the name follows');
 UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"name": "Renamed project"}' WHERE "rowGUID" = :'pa';
@@ -125,7 +125,7 @@ SELECT public.monitor01_process_batch();
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'project_status_month_turnover: the material facts of task03 (65 + 35)');
 SELECT tt.eq((SELECT ("qtyUsed", "lineCount", "documentCount") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus')::text, '(24.00,1,1)', 'project_status_month_turnover: the time fact, 1 line, 1 document');
 SELECT tt.eq((SELECT "rowTurnoverMonth" FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), date_trunc('month', current_date)::date, '... in the month of the date of the fact (today)');
-SELECT tt.eq((SELECT ("qtyDelivered", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' LIMIT 1)::text, '(0.00,24.00,-24.00)', 'the POSTED fact fills qtyUsed (24); delivered has no data; on-hand = delivered - used');
+SELECT tt.eq((SELECT ("qtyReceived", "qtyUsed", "qtyOnHand") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus' LIMIT 1)::text, '(0.00,24.00,-24.00)', 'the POSTED fact fills qtyUsed (24); received has no data; on-hand = received - used');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'materialGenus'), 100::numeric, 'the material facts of task03 (65 + 35) are qtyUsed');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), (SELECT sum("qtyUsed") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 'the view and project_status_month_turnover agree');
 SELECT tt.eq((SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3' AND "genusGUID" = 'timeGenus'), 24::numeric, 'the plan numbers did not change');
@@ -170,7 +170,7 @@ SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('roleGU
 SELECT tt.eq(public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3', 'genusGUID', 'timeGenus'))->'rows'->0->>'taskName', 'Task 112', 'drill-down rows carry the task name');
 SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('projectGUID', :'pa'))->>'sum')::numeric, (SELECT sum("qtyPlanned") FROM public.monitor01_view WHERE "rowProjectGUID" = :'pa'), 'drill-down of a total (the whole project) equals the sum of the rows');
 SELECT tt.eq((public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3'), 1, 1)->'rows')::jsonb @> '[]'::jsonb AND jsonb_array_length(public.monitor01_sum_sources('planned', jsonb_build_object('taskGUID', :'t3'), 1, 1)->'rows') = 1, true, 'paging: limit 1 offset 1 gives one row');
-SELECT tt.eq((public.monitor01_sum_sources('delivered', '{}'::jsonb)->>'totalCount')::int, 0, 'delivered has no data yet');
+SELECT tt.eq((public.monitor01_sum_sources('received', '{}'::jsonb)->>'totalCount')::int, 0, 'received has no data yet');
 SELECT tt.eq((public.monitor01_sum_sources('used', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 0, 'used: no posted document at this moment = no lines');
 SELECT tt.fails($q$SELECT public.monitor01_sum_sources('nonsense')$q$, 'unknown measure', 'an unknown measure is refused');
 -- the facts of a posted document

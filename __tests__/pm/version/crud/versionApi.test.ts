@@ -44,7 +44,7 @@ describe('versionApi', () => {
   it('readVersionData: tasks + dependencies of the version', async () => {
     const f = fakeSupabase({
       tables: {
-        version_project_task_table: { data: [{ rowVersionGUID: 'v', rowGUID: 't1', orderInList: '1024', rowProgress: '0', rowJSON: { name: 'A' } }] },
+        version_project_task_table: { data: [{ rowVersionGUID: 'v', rowGUID: 't1', orderInList: '1024', rowProgress: '0', rowJSON: { taskDescription: 'A' } }] },
         version_project_task_dependencies_table: { data: [{ rowVersionGUID: 'v', rowGUID: 't2', rowDependsOnGUID: 't1', lagDays: '2' }] },
       },
     });

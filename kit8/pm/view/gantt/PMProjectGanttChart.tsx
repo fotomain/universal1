@@ -56,6 +56,8 @@ import { usePMSubprojectStore } from '../../subproject/store_subproject';
 import { SUBPROJECT_CONFLICT_COLOR, subprojectLabelOf } from '../../subproject/subprojectMarks';
 import { versionStripGeometry } from '../../version/model/versionCompare';
 import PMGanttVersionsLegend from '../../version/view/legend/PMGanttVersionsLegend';
+import { useRouter } from 'expo-router';
+import { openTaskEditWindow } from '../task/edit/taskEditWindowLink';
 
 const IS_WEB = Platform.OS === 'web';
 /** Fingers (phones / tablets, also in the mobile browser): bigger link circles + grab zones, shown on the selected bar. */
@@ -160,6 +162,7 @@ function linkHandleOffset(kind: number): number {
 }
 
 export default function PMProjectGanttChart({ viewport, width, height, palette, crud, timelineStartMs, totalDays, readOnly, hideToolbar = false }: Props) {
+  const router = useRouter();
   const fonts = usePMFonts();
   const skiaRef = useCanvasRef();
   const ganttPeriod = usePMStore((s) => s.ganttPeriod);
@@ -250,7 +253,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         : (customColor || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar));
       const progressColor = kind === K_SUMMARY ? palette.summaryProgress : critical ? palette.criticalProgress : palette.barProgress;
       const subMark = subMarks[guid];
-      const name = subprojectLabelOf(t.rowJSON.name || '', subMark);
+      const name = subprojectLabelOf(t.rowJSON.taskDescription || '', subMark);
       const textW = (kind === K_SUMMARY ? measureBold : measure)(name);
       const pctLabel = showTaskProgress && kind === K_TASK ? `${Math.round(r.progress)}%` : null;
       const pctW = pctLabel ? measurePct(pctLabel) : 0;
@@ -785,10 +788,11 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         const ref = hitLinkAt(x, y);
         if (ref) return crud.openDependencyEditor(ref);
       }
+      // double-click on a task -> the task window (TabTaskEditMain · TabTaskEditPlan) in a NEW browser window; iOS / Android: in this app
       const guid = idx >= 0 ? usePMStore.getState().visibleRows[idx] : undefined;
-      if (guid) crud.edit(guid);
+      if (guid) openTaskEditWindow({ taskGUID: guid, projectGUID: usePMStore.getState().tasksById[guid]?.projectGUID }, router);
     },
-    [crud, hitLinkAt]
+    [crud, hitLinkAt, router]
   );
 
   /** onRightClickMenuMode: select the bar's task and open PMTaskRowMenu at the window point */

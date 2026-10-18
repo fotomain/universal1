@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// EditTaskNameFast: the name of a task typed over in a flat TextInputApp - Enter / leaving saves (once), Escape and an empty name restore, external changes follow, only the name is written.
+// EditTaskDescriptionFast: the name of a task typed over in a flat TextInputApp - Enter / leaving saves (once), Escape and an empty name restore, external changes follow, only the name is written.
 import React, { act } from 'react';
 import { cleanupUI, fakeCrud, inputValue, q, renderUI, seedStore } from './pmUiTestKit';
 
@@ -11,7 +11,7 @@ jest.doMock('../../../kit8/ui/components/common/TextInputApp', () => {
   const TextInputApp = (props: any) => { lastProps = props; return R.createElement(TextInput, { testID: props.testID, value: props.value, placeholder: props.placeholder, onChangeText: props.onChangeText, onFocus: props.onFocus, onBlur: props.onBlur, onSubmitEditing: props.onSubmitEditing, onKeyPress: props.onKeyPress, accessibilityLabel: props.label }); };
   return { __esModule: true, default: TextInputApp, TextInputApp };
 });
-const { default: EditTaskNameFast, nameToSave, TASK_NAME_MAX } = require('../../../kit8/pm/view/task/EditTaskNameFast');
+const { default: EditTaskDescriptionFast, nameToSave, TASK_NAME_MAX } = require('../../../kit8/pm/view/task/EditTaskDescriptionFast');
 const { usePMStore } = require('../../../kit8/pm/store/store_pm');
 
 const ID = 'pm-task-name-input';
@@ -21,7 +21,7 @@ const focus = () => act(() => { lastProps.onFocus(); });
 const blur = () => act(() => { lastProps.onBlur(); });
 const enter = () => act(() => { lastProps.onSubmitEditing(); });
 const key = (k: string) => act(() => { lastProps.onKeyPress({ nativeEvent: { key: k } }); });
-const rename = (guid: string, name: string) => act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, [guid]: { ...s.tasksById[guid], rowJSON: { ...s.tasksById[guid].rowJSON, name } } } })));
+const rename = (guid: string, name: string) => act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, [guid]: { ...s.tasksById[guid], rowJSON: { ...s.tasksById[guid].rowJSON, taskDescription: name } } } })));
 
 afterEach(() => { cleanupUI(); jest.clearAllMocks(); lastProps = {}; });
 
@@ -29,7 +29,7 @@ function mount(over: Record<string, any> = {}) {
   const { byName } = seedStore();
   const task = byName('Task 111');
   const crud = fakeCrud();
-  renderUI(<EditTaskNameFast guid={task.rowGUID} crud={crud} testID="pm-task-name" {...over} />);
+  renderUI(<EditTaskDescriptionFast guid={task.rowGUID} crud={crud} testID="pm-task-name" {...over} />);
   return { task, crud };
 }
 
@@ -48,7 +48,7 @@ describe('the field', () => {
   });
   it('a task that does not exist: nothing is drawn', () => {
     seedStore();
-    renderUI(<EditTaskNameFast guid="nope" crud={fakeCrud()} testID="pm-task-name" />);
+    renderUI(<EditTaskDescriptionFast guid="nope" crud={fakeCrud()} testID="pm-task-name" />);
     expect(q('pm-task-name')).toBeNull();
   });
 });
@@ -60,7 +60,7 @@ describe('saving', () => {
     expect(crud.updateTask).toHaveBeenCalledTimes(1);
     const [guid, patch, label] = crud.updateTask.mock.calls[0];
     expect(guid).toBe(task.rowGUID);
-    expect(patch.rowJSON).toEqual({ ...task.rowJSON, name: 'Foundation works' });
+    expect(patch.rowJSON).toEqual({ ...task.rowJSON, taskDescription: 'Foundation works' });
     expect(label).toBe('Rename task');
     expect(inputValue(ID)).toBe('Foundation works');                   // trimmed in the field too
   });
@@ -101,7 +101,7 @@ describe('saving', () => {
   it('the name is cut at TASK_NAME_MAX', () => {
     const { crud } = mount();
     focus(); type('x'.repeat(TASK_NAME_MAX + 50)); blur();
-    expect(crud.updateTask.mock.calls[0][1].rowJSON.name).toHaveLength(TASK_NAME_MAX);
+    expect(crud.updateTask.mock.calls[0][1].rowJSON.taskDescription).toHaveLength(TASK_NAME_MAX);
   });
 });
 
@@ -123,7 +123,7 @@ describe('the name changed elsewhere', () => {
     rename(task.rowGUID, 'One');
     focus(); type('Two'); blur();
     expect(crud.updateTask).toHaveBeenCalledTimes(2);
-    expect(crud.updateTask.mock.calls[1][1].rowJSON.name).toBe('Two');
+    expect(crud.updateTask.mock.calls[1][1].rowJSON.taskDescription).toBe('Two');
   });
 });
 

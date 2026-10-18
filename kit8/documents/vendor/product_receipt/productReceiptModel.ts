@@ -1,6 +1,6 @@
 // productReceiptModel - the PRODUCT RECEIPT document, the twin of the PURCHASE ORDER (kit8/documents/vendor/purchase_order) and of the VENDOR INVOICE (kit8/documents/vendor/invoice);
 //   documentation/PRODUCT_RECEIPT.html; SQL: PART 30 of kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql.
-//   Its posting writes 'received' movements (column Delivered of Monitor01 = qtyDelivered). A receipt is made from a POSTED purchase order ("Create based on → Product receipt"): its lines are the lines of the
+//   Its posting writes 'received' movements (column Received of Monitor01 = qtyReceived). A receipt is made from a POSTED purchase order ("Create based on → Product receipt"): its lines are the lines of the
 //   order, the quantity of a new line = ordered - what the other receipts of that order line already received. From a posted receipt "Create based on → Vendor invoice" makes the invoice.
 //   ONE document = ONE vendor + ONE contract (or none). rowOwnerGUID of the header = the legal entity (not unique).
 //   product_receipt_header  rowJSON { documentHeader { activeUser · created_at · documentNumber PR-00001 · documentStatus draft | posted · postedAt · postedBy · unpostedAt },

@@ -21,8 +21,8 @@ SELECT public.pm_seed_demo();
 SELECT tt.as_admin();
 UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"resourceCapacityStrongMode": "capacityModeBlock"}' WHERE "rowOwnerGUID" = 'anna@race.test';
 INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-race', '{"personFirstName":"Race","personLastName":"R"}');
-SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 111' \gset
-SELECT t."rowGUID" AS t2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'name' = 'Task 112' \gset
+SELECT t."rowGUID" AS t1 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 111' \gset
+SELECT t."rowGUID" AS t2 FROM public.project_task_table t WHERE t."rowOwnerGUID" = '11111111-1111-1111-1111-111111111111' AND t."rowJSON"->>'taskDescription' = 'Task 112' \gset
 SELECT tt.line(:'t1', 'person', 'p-race') AS l1 \gset
 SELECT tt.line(:'t2', 'person', 'p-race') AS l2 \gset
 CREATE TABLE tt.world AS SELECT :'t1'::uuid AS t1, :'t2'::uuid AS t2, :'l1'::uuid AS l1, :'l2'::uuid AS l2;
