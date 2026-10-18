@@ -3,6 +3,8 @@
 //   1st level tabs
 //     TabTaskEditMain  the task form of PMTaskEditModal (the same component, embedded: 2nd level tabs Main · UX/UI, Delete · Details · Cancel · Save; Save keeps the window open)
 //     TabTaskEditPlan  PMTaskEditView: the lines of the task (Time · Material · Expense · Revenue), the title can be typed over
+//     TabTaskEditFact  2nd level tab TabFactInput: the list of the fact input documents of the task (PMFactInputDocumentList with the scope of the task; a click on a row opens
+//                      the document); created on the first visit
 // Both tabs stay mounted (an unsaved form is not lost when the user looks at the lines). Like the task page it finds the project of the task, loads its data and follows Realtime.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -23,11 +25,13 @@ import { PMTooltipLayer } from '../../../inner/tooltip/PMTooltip';
 import { pmT, usePMLanguage } from '../../../i18n/pmT';
 import PMTaskEditModal from '../PMTaskEditModal';
 import PMTaskEditView from '../finances/PMTaskEditView';
+import TabTaskEditFact from './TabTaskEditFact';
 import { DEFAULT_TASK_EDIT_WINDOW_TAB, TaskEditWindowTab } from './taskEditWindowLink';
 
 export const TASK_EDIT_WINDOW_TAB_LIST: { id: TaskEditWindowTab; label: string; icon: string }[] = [
   { id: 'TabTaskEditMain', label: 'Main', icon: 'edit' },
   { id: 'TabTaskEditPlan', label: 'Plan', icon: 'payments' },
+  { id: 'TabTaskEditFact', label: 'Fact', icon: 'fact_check' },
 ];
 
 export default function PMTaskEditWindow(props: { taskGUID: string; projectGUID?: string; tab?: TaskEditWindowTab }) {
@@ -45,6 +49,9 @@ function PMTaskEditWindowInner({ taskGUID, projectGUID: projectHint, tab: initia
   const ownerGUID = usePMOwnerGUID();
   const [activeTab, setActiveTab] = useState<TaskEditWindowTab>(initialTab ?? DEFAULT_TASK_EDIT_WINDOW_TAB);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  // the fact list reads from the database: created when its tab is first opened, then kept
+  const [factVisited, setFactVisited] = useState(initialTab === 'TabTaskEditFact');
+  useEffect(() => { if (activeTab === 'TabTaskEditFact') setFactVisited(true); }, [activeTab]);
 
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
   const task = usePMStore((s) => s.tasksById[taskGUID]);
@@ -121,6 +128,9 @@ function PMTaskEditWindowInner({ taskGUID, projectGUID: projectHint, tab: initia
           </View>
           <View style={activeTab === 'TabTaskEditPlan' ? styles.fill : styles.hidden} testID="pm-task-edit-window-plan">
             {projectGUID && size.w > 0 ? <PMTaskEditView projectGUID={projectGUID} width={size.w} height={size.h} palette={palette} crud={crud} /> : null}
+          </View>
+          <View style={activeTab === 'TabTaskEditFact' ? styles.fill : styles.hidden} testID="pm-task-edit-window-fact">
+            {factVisited ? <TabTaskEditFact projectGUID={projectGUID} taskGUID={taskGUID} /> : null}
           </View>
         </View>
       )}

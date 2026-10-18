@@ -132,7 +132,7 @@ describe('PMDependencyMenu (right click on a dependency arrow)', () => {
 });
 
 describe('PMTaskRowMenu (onRightClickMenuMode: right-click / long-press on a tree row or Gantt bar)', () => {
-  const ITEMS = ['add-below', 'add-above', 'edit', 'duplicate', 'copy-info', 'share', 'link', 'open', 'delete'];
+  const ITEMS = ['add-below', 'add-above', 'duplicate', 'copy-info', 'share', 'link', 'open', 'options', 'delete'];
 
   it('hidden without store.rowMenu; task: every command of the hover panel, in order, each closes the menu', () => {
     const { byName } = seedStore();
@@ -148,8 +148,8 @@ describe('PMTaskRowMenu (onRightClickMenuMode: right-click / long-press on a tre
     expect(q('pm-row-menu-add-inside')).toBeNull(); // a leaf task has no "inside"
 
     const calls: [string, string][] = [
-      ['add-below', 'createTaskBelow'], ['add-above', 'createTaskAbove'], ['edit', 'edit'], ['duplicate', 'duplicateTask'],
-      ['copy-info', 'copyTaskInfo'], ['share', 'shareTask'], ['link', 'startLink'], ['open', 'openInfo'], ['delete', 'deleteTask'],
+      ['add-below', 'createTaskBelow'], ['add-above', 'createTaskAbove'], ['duplicate', 'duplicateTask'],
+      ['copy-info', 'copyTaskInfo'], ['share', 'shareTask'], ['link', 'startLink'], ['open', 'openInfo'], ['options', 'editOptions'], ['delete', 'deleteTask'],
     ];
     for (const [item, fn] of calls) {
       act(() => usePMStore.getState().setRowMenu({ guid: task.rowGUID, x: 120, y: 80, source: 'gantt' }));

@@ -27,8 +27,10 @@ export interface Monitor01Row {
   sumForBudget: number;
   qtyRestToContract: number;
   qtyReceived: number;
-  /** the quantity of the POSTED vendor invoices (the column VendorInvoiced, after Received) */
+  /** the quantity of the POSTED vendor invoices (the column Vendor Invoiced, after Received) */
   qtyVendorInvoiced: number;
+  /** the money of the POSTED vendor invoices (Σ sumForBudget of the 'invoiced' movements, the same money as the Budget column; the column Sum under Vendor Invoice) */
+  sumVendorInvoiced: number;
   /** the quantity of the POSTED purchase orders (the column Ordered, the first of the Fact group; SQL PART 28: 'ordered' movements) */
   qtyOrdered: number;
   qtyUsed: number;
@@ -56,12 +58,14 @@ export const MONITOR01_MEASURE_FIELD: Record<Monitor01Measure, keyof Monitor01Ro
 };
 /** the header texts of the columns (the sheet's own spelling corrected; every header starts with a capital letter) */
 export const MONITOR01_MEASURE_TITLE: Record<Monitor01Measure, string> = {
-  planned: 'Planned', contracted: 'Contracted', restToContract: 'Rest to contract', ordered: 'Ordered', received: 'Received', vendorInvoiced: 'VendorInvoiced', used: 'Actually used', onHand: 'On-hand',
+  planned: 'Planned', contracted: 'Contracted', restToContract: 'Rest to contract', ordered: 'Ordered', received: 'Received', vendorInvoiced: 'Vendor Invoiced', used: 'Actually used', onHand: 'On-hand',
 };
 /** the header texts of the dimension columns and of the money column */
 export const MONITOR01_HEAD = { project: 'Project', role: 'Resource role', month: 'Month', task: 'Task name', unit: 'Unit', sumForBudget: 'Budget' } as const;
+/** the group Vendor Invoice (1st level, after Fact) has two columns (2nd level): its quantity and its money */
+export const MONITOR01_VENDOR_INVOICE_HEAD = { group: 'Vendor Invoice', qty: 'Qty', sum: 'Sum' } as const;
 /** the group header over the columns */
-export const MONITOR01_MEASURE_GROUP: Record<Monitor01Measure, 'Plan' | 'Fact'> = { planned: 'Plan', contracted: 'Plan', restToContract: 'Plan', ordered: 'Fact', received: 'Fact', vendorInvoiced: 'Fact', used: 'Fact', onHand: 'Fact' };
+export const MONITOR01_MEASURE_GROUP: Record<Monitor01Measure, 'Plan' | 'Fact' | 'Vendor Invoice'> = { planned: 'Plan', contracted: 'Plan', restToContract: 'Plan', ordered: 'Fact', received: 'Fact', vendorInvoiced: 'Vendor Invoice', used: 'Fact', onHand: 'Fact' };
 
 // ---- rows: key, parsing, patch ---------------------------------------------------------------------------------------------------------------------------
 export const monitor01Key = (r: Pick<Monitor01Row, 'rowOwnerGUID' | 'genusGUID' | 'resourceRoleGUID' | 'measureUnit' | 'periodMonth'>): string =>
@@ -88,6 +92,7 @@ export function parseMonitor01Row(raw: any): Monitor01Row {
     qtyRestToContract: raw.qtyRestToContract == null ? num(raw.qtyPlanned) - num(raw.qtyContracted) : num(raw.qtyRestToContract),
     qtyReceived: num(raw.qtyReceived),
     qtyVendorInvoiced: num(raw.qtyVendorInvoiced),
+    sumVendorInvoiced: num(raw.sumVendorInvoiced),
     qtyOrdered: num(raw.qtyOrdered),
     qtyUsed: num(raw.qtyUsed),
     qtyOnHand: raw.qtyOnHand == null ? num(raw.qtyReceived) - num(raw.qtyUsed) : num(raw.qtyOnHand),
@@ -215,29 +220,30 @@ export function sortMonitor01Rows(rows: Monitor01Row[]): Monitor01Row[] {
 
 // ---- totals ----------------------------------------------------------------------------------------------------------------------------------------------
 export type Monitor01Sums = Record<Monitor01Measure, number>;
-export interface Monitor01UnitTotal { unit: string; sums: Monitor01Sums; sumForBudget: number; rows: number }
+export interface Monitor01UnitTotal { unit: string; sums: Monitor01Sums; sumForBudget: number; sumVendorInvoiced: number; rows: number }
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const emptySums = (): Monitor01Sums => ({ planned: 0, contracted: 0, restToContract: 0, ordered: 0, received: 0, vendorInvoiced: 0, used: 0, onHand: 0 });
 /** sums of rows PER UNIT (never one number for hours + pieces) */
 export function totalsByUnit(rows: Monitor01Row[]): Monitor01UnitTotal[] {
   const map = new Map<string, Monitor01UnitTotal>();
   for (const r of rows) {
-    const t = map.get(r.measureUnit) ?? { unit: r.measureUnit, sums: emptySums(), sumForBudget: 0, rows: 0 };
+    const t = map.get(r.measureUnit) ?? { unit: r.measureUnit, sums: emptySums(), sumForBudget: 0, sumVendorInvoiced: 0, rows: 0 };
     for (const m of MONITOR01_MEASURES) t.sums[m] += r[MONITOR01_MEASURE_FIELD[m]] as number;
     t.sumForBudget += r.sumForBudget;
+    t.sumVendorInvoiced += r.sumVendorInvoiced;
     t.rows += 1;
     map.set(r.measureUnit, t);
   }
-  return [...map.values()].map((t) => ({ ...t, sumForBudget: round2(t.sumForBudget), sums: Object.fromEntries(MONITOR01_MEASURES.map((m) => [m, round2(t.sums[m])])) as Monitor01Sums })).sort((a, b) => a.unit.localeCompare(b.unit));
+  return [...map.values()].map((t) => ({ ...t, sumForBudget: round2(t.sumForBudget), sumVendorInvoiced: round2(t.sumVendorInvoiced), sums: Object.fromEntries(MONITOR01_MEASURES.map((m) => [m, round2(t.sums[m])])) as Monitor01Sums })).sort((a, b) => a.unit.localeCompare(b.unit));
 }
 
 /**
  * The TotalsRow at the bottom of the table: `sumForBudget` (money - one number for all the rows shown) and `qty` (the six quantity columns, PER UNIT - hours and pieces are never added:
  * one line per unit). The quantity columns are blank on the line of the money alone when the rows have more than one unit.
  */
-export interface Monitor01Totals { sumForBudget: number; qty: Monitor01UnitTotal[]; rows: Monitor01Row[] }
+export interface Monitor01Totals { sumForBudget: number; sumVendorInvoiced: number; qty: Monitor01UnitTotal[]; rows: Monitor01Row[] }
 export function monitor01Totals(rows: Monitor01Row[]): Monitor01Totals {
-  return { sumForBudget: round2(rows.reduce((a, r) => a + r.sumForBudget, 0)), qty: totalsByUnit(rows), rows };
+  return { sumForBudget: round2(rows.reduce((a, r) => a + r.sumForBudget, 0)), sumVendorInvoiced: round2(rows.reduce((a, r) => a + r.sumVendorInvoiced, 0)), qty: totalsByUnit(rows), rows };
 }
 
 // ---- the table: what the screen draws ----------------------------------------------------------------------------------------------------------------------
@@ -249,13 +255,13 @@ export function monitor01Totals(rows: Monitor01Row[]): Monitor01Totals {
 export type Monitor01Level = 'project' | 'role' | 'month';
 export const MONITOR01_LEVELS: Monitor01Level[] = ['project', 'role', 'month'];
 export type Monitor01Item =
-  | { kind: 'total'; key: string; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[] }
+  | { kind: 'total'; key: string; unit: string; sums: Monitor01Sums; sumForBudget: number; sumVendorInvoiced: number; rows: Monitor01Row[] }
   | {
     kind: 'node'; key: string;
     /** the node (the same for every unit line of it): what the chevron collapses */
     nodeKey: string; level: Monitor01Level; label: string; projectGUID: string; genus?: string; roleGUID?: string; month?: string;
     /** the first line of the node (the one with the chevron and the label); more units of the node follow as plain subtotal lines */
-    first: boolean; expanded: boolean; unit: string; sums: Monitor01Sums; sumForBudget: number; rows: Monitor01Row[];
+    first: boolean; expanded: boolean; unit: string; sums: Monitor01Sums; sumForBudget: number; sumVendorInvoiced: number; rows: Monitor01Row[];
   }
   | { kind: 'row'; key: string; row: Monitor01Row };
 
@@ -287,13 +293,13 @@ function groupInOrder<T>(rows: T[], keyOf: (r: T) => string): { key: string; row
 export function buildMonitor01Items(rows: Monitor01Row[], collapsed: ReadonlySet<string> = new Set()): Monitor01Item[] {
   const sorted = sortMonitor01Rows(rows);
   const items: Monitor01Item[] = [];
-  for (const t of totalsByUnit(sorted)) items.push({ kind: 'total', key: `total|${t.unit}`, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, rows: sorted.filter((r) => r.measureUnit === t.unit) });
+  for (const t of totalsByUnit(sorted)) items.push({ kind: 'total', key: `total|${t.unit}`, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, sumVendorInvoiced: t.sumVendorInvoiced, rows: sorted.filter((r) => r.measureUnit === t.unit) });
 
   /** the subtotal lines of a node (one per unit); returns whether its children are shown */
   const pushNode = (nodeKey: string, level: Monitor01Level, label: string, own: Monitor01Row[], extra: { genus?: string; roleGUID?: string; month?: string }): boolean => {
     const expanded = !collapsed.has(nodeKey);
     totalsByUnit(own).forEach((t, i) => items.push({
-      kind: 'node', key: `node|${nodeKey}|${t.unit}`, nodeKey, level, label, projectGUID: own[0].rowProjectGUID, ...extra, first: i === 0, expanded, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget,
+      kind: 'node', key: `node|${nodeKey}|${t.unit}`, nodeKey, level, label, projectGUID: own[0].rowProjectGUID, ...extra, first: i === 0, expanded, unit: t.unit, sums: t.sums, sumForBudget: t.sumForBudget, sumVendorInvoiced: t.sumVendorInvoiced,
       rows: own.filter((r) => r.measureUnit === t.unit),
     }));
     return expanded;

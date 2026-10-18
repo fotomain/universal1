@@ -21,6 +21,9 @@ jest.mock('../../../kit8/pm/crud/usePMCrud', () => ({ usePMCrud: () => mockCrud 
 jest.mock('../../../kit8/pm/crud/kanban/useKanbanCommands', () => ({ useKanbanCommands: () => ({ setTaskKanbanProgress: jest.fn(), setTasksKanbanProgress: jest.fn() }) }));
 jest.mock('../../../kit8/pm/view/undo/PMUndoProvider', () => ({ __esModule: true, default: ({ children }: any) => children }));
 jest.mock('../../../kit8/pm/view/task/finances/PMTaskEditView', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-plan-view" data-project={p.projectGUID} data-width={p.width} /> }));
+jest.mock('../../../kit8/documents/fact/input/PMFactInputDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-fact-list" data-task={p.taskGUID} data-project={p.projectGUID} /> }));
+jest.mock('../../../kit8/documents/vendor/product_receipt/PMProductReceiptDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-receipt-list" data-task={p.taskGUID} /> }));
+jest.mock('../../../kit8/documents/vendor/invoice/VendorInvoiceDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-invoice-list" data-task={p.taskGUID} /> }));
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), navigate: mockNavigate, replace: jest.fn(), back: jest.fn() }), useNavigation: () => ({ setOptions: jest.fn() }) }));
 
 const PMTaskEditWindow = require('../../../kit8/pm/view/task/edit/PMTaskEditWindow').default;
@@ -37,6 +40,7 @@ describe('taskEditWindowLink', () => {
   });
   it('parse: only known tabs, an array param takes its first value, no task = empty GUID', () => {
     expect(parseTaskEditWindowParams({ taskGUID: 't1', projectGUID: 'p1', tab: 'TabTaskEditPlan' })).toEqual({ taskGUID: 't1', projectGUID: 'p1', tab: 'TabTaskEditPlan' });
+    expect(parseTaskEditWindowParams({ taskGUID: 't1', tab: 'TabTaskEditFact' }).tab).toBe('TabTaskEditFact');
     expect(parseTaskEditWindowParams({ taskGUID: ['t1', 't2'], tab: 'nonsense' })).toEqual({ taskGUID: 't1', tab: 'TabTaskEditMain' });
     expect(parseTaskEditWindowParams({})).toEqual({ taskGUID: '', tab: 'TabTaskEditMain' });
     expect(parseTaskEditWindowParams(undefined).taskGUID).toBe('');
@@ -62,7 +66,7 @@ describe('PMTaskEditWindow', () => {
     return t;
   };
 
-  it('two 1st level tabs: Main (the task form) is shown, Plan (PMTaskEditView) is hidden but mounted', () => {
+  it('Main (the task form) is shown, Plan (PMTaskEditView) is hidden but mounted', () => {
     openWindow();
     expect(q('pm-task-edit-window-TabTaskEditMain')).not.toBeNull();
     expect(q('pm-task-edit-window-TabTaskEditPlan')).not.toBeNull();
@@ -92,6 +96,60 @@ describe('PMTaskEditWindow', () => {
     expect(usePMStore.getState().selectedGUID).toBe(t.rowGUID);
     expect(hidden('pm-task-edit-window-plan')).toBe(false);
     expect(hidden('pm-task-edit-window-main')).toBe(true);
+  });
+
+  it('TabTaskEditFact lists the fact input documents of THIS task; it is created on the first visit and kept', () => {
+    const t = openWindow('Task 111');
+    expect(q('stub-fact-list')).toBeNull(); // not visited yet: no database read
+    expect(hidden('pm-task-edit-window-fact')).toBe(true);
+    press('pm-task-edit-window-TabTaskEditFact');
+    expect(hidden('pm-task-edit-window-fact')).toBe(false);
+    expect(hidden('pm-task-edit-window-main')).toBe(true);
+    const list = q('stub-fact-list') as HTMLElement;
+    expect(list.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(list.getAttribute('data-project')).toBe(t.projectGUID);
+    // TabFactInput: the 2nd level tab of the Fact tab holds the list
+    expect(q('pm-task-edit-fact-tabs')).not.toBeNull();
+    expect(q('pm-task-edit-fact-TabFactInput')).not.toBeNull();
+    expect(q('pm-task-edit-tab-fact-input')!.contains(list)).toBe(true);
+    press('pm-task-edit-window-TabTaskEditMain');
+    expect(q('stub-fact-list')).not.toBeNull(); // kept
+  });
+
+  it('TabTaskEditFact: 2nd level tabs TabFactInput · TabProductReceipt · TabVendorInvoice, each list of THIS task, created on its first visit and kept', () => {
+    const t = openWindow('Task 111');
+    press('pm-task-edit-window-TabTaskEditFact');
+    const ids = Array.from(document.querySelectorAll('[data-testid^="pm-task-edit-fact-Tab"]')).map((e) => e.getAttribute('data-testid'));
+    expect(ids).toEqual(['pm-task-edit-fact-TabFactInput', 'pm-task-edit-fact-TabProductReceipt', 'pm-task-edit-fact-TabVendorInvoice']);
+    // only the first tab is built; the other lists are not read before the user opens them
+    expect(q('stub-fact-list')).not.toBeNull();
+    expect(q('stub-receipt-list')).toBeNull();
+    expect(q('stub-invoice-list')).toBeNull();
+    press('pm-task-edit-fact-TabProductReceipt');
+    expect(q('stub-receipt-list')!.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(hidden('pm-task-edit-fact-content-TabProductReceipt')).toBe(false);
+    expect(hidden('pm-task-edit-fact-content-TabFactInput')).toBe(true);
+    expect(q('pm-task-edit-tab-product-receipt')!.contains(q('stub-receipt-list'))).toBe(true);
+    press('pm-task-edit-fact-TabVendorInvoice');
+    expect(q('stub-invoice-list')!.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(hidden('pm-task-edit-fact-content-TabVendorInvoice')).toBe(false);
+    expect(hidden('pm-task-edit-fact-content-TabProductReceipt')).toBe(true);
+    expect(q('pm-task-edit-tab-vendor-invoice')!.contains(q('stub-invoice-list'))).toBe(true);
+    press('pm-task-edit-fact-TabFactInput');
+    expect(q('stub-receipt-list')).not.toBeNull(); // kept
+    expect(q('stub-invoice-list')).not.toBeNull();
+  });
+
+  it('the three 1st level tabs, in this order: Main · Plan · Fact', () => {
+    openWindow();
+    const ids = Array.from(document.querySelectorAll('[data-testid^="pm-task-edit-window-Tab"]')).map((e) => e.getAttribute('data-testid'));
+    expect(ids).toEqual(['pm-task-edit-window-TabTaskEditMain', 'pm-task-edit-window-TabTaskEditPlan', 'pm-task-edit-window-TabTaskEditFact']);
+  });
+
+  it('?tab=TabTaskEditFact opens on the Fact tab', () => {
+    openWindow('Task 111', { tab: 'TabTaskEditFact' });
+    expect(hidden('pm-task-edit-window-fact')).toBe(false);
+    expect(q('stub-fact-list')).not.toBeNull();
   });
 
   it('an unsaved form survives a visit of the other tab', () => {

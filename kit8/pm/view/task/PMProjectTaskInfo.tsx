@@ -35,6 +35,7 @@ import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
 import { formatDateISO, LINK_TYPES, validateNewDependency } from '../project/scheduling';
 import { PMTaskDependencyRow } from '../../model/types';
 import PMTaskEditModal from './PMTaskEditModal';
+import PMTaskEditOptions from './PMTaskEditOptions';
 import PMProjectTaskFinancesCRUD from './finances/PMProjectTaskFinancesCRUD';
 import { PMTaskPageSection } from '../../model/lastEditPlace';
 import { useTaskPlaceActivation } from './useTaskPlaceActivation';
@@ -438,6 +439,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         </View>
       </ScrollView>
       <PMTaskEditModal crud={crud} kanban={kanban} />
+      <PMTaskEditOptions crud={crud} />
       <PMEditDependencyScreen crud={crud} />
       <PMApproveYesNoCancelModalWindow />
       <PMTooltipLayer />

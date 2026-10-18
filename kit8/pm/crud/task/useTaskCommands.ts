@@ -258,6 +258,8 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
       },
 
       edit: (guid: string) => st().setEditing(guid),
+      /** the context menu item "Options": PMTaskEditOptions (UX/UI of the task only) */
+      editOptions: (guid: string) => st().setEditingOptions(guid),
 
       /** Hover panels "Copy task info": plain-text summary + deep link on the clipboard. */
       copyTaskInfo: (guid: string) => copyTaskInfo(guid),

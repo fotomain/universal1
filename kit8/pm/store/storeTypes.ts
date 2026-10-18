@@ -81,6 +81,7 @@ export interface PMStoreState {
   selectedGUID: string | null;
   linkSourceGUID: string | null; // tap-to-link mode (touch devices / hover panel)
   editingGUID: string | null; // row shown in PMTaskEditModal
+  editingOptionsGUID: string | null; // row shown in PMTaskEditOptions (the context menu item "Options": UX/UI only)
   dayWidth: number;
   treeWidth: number;
   showCriticalPath: boolean;
@@ -243,6 +244,7 @@ export interface PMStoreState {
   setSelected: (rowGUID: string | null) => void;
   setLinkSource: (rowGUID: string | null) => void;
   setEditing: (rowGUID: string | null) => void;
+  setEditingOptions: (rowGUID: string | null) => void;
   setDayWidth: (px: number) => void;
   setTreeWidth: (px: number) => void;
   toggleCriticalPath: () => void;

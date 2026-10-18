@@ -1,12 +1,13 @@
-// taskEditWindowLink - a link to the task window: /pm/project/task/edit?taskGUID=…&projectGUID=…&tab=TabTaskEditMain | TabTaskEditPlan
-//   The window (PMTaskEditWindow) has two 1st level tabs: TabTaskEditMain (the task form of PMTaskEditModal) and TabTaskEditPlan (PMTaskEditView: the lines of the task).
+// taskEditWindowLink - a link to the task window: /pm/project/task/edit?taskGUID=…&projectGUID=…&tab=TabTaskEditMain | TabTaskEditPlan | TabTaskEditFact
+//   The window (PMTaskEditWindow) has three 1st level tabs: TabTaskEditMain (the task form of PMTaskEditModal), TabTaskEditPlan (PMTaskEditView: the lines of the task)
+//   and TabTaskEditFact (the fact input documents of the task).
 //   A double click on a task of the Gantt chart opens it in a NEW browser window (web) or in this app (iOS / Android).
 // Pure (tested) except `openTaskEditWindow`.
 import { Platform } from 'react-native';
 
 export const TASK_EDIT_ROUTE = '/pm/project/task/edit';
 
-export const TASK_EDIT_WINDOW_TABS = ['TabTaskEditMain', 'TabTaskEditPlan'] as const;
+export const TASK_EDIT_WINDOW_TABS = ['TabTaskEditMain', 'TabTaskEditPlan', 'TabTaskEditFact'] as const;
 export type TaskEditWindowTab = (typeof TASK_EDIT_WINDOW_TABS)[number];
 export const DEFAULT_TASK_EDIT_WINDOW_TAB: TaskEditWindowTab = 'TabTaskEditMain';
 

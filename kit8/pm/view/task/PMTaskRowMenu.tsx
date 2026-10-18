@@ -51,8 +51,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [] : [{ testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID: guid }); }) }]),
     // right before "Delete": the submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (the document lists of the task · the subproject) - useTaskRelatedMenu
     ...related({ taskGUID: guid, projectGUID: task.projectGUID, idPrefix: 'pm-row-menu', close }),
-    // right before "Delete": opens the task window (PMTaskEditModal)
-    { testID: id('options'), label: 'Options', icon: 'tune', onPress: run(() => crud.edit(guid)) },
+    // right before "Delete": PMTaskEditOptions (the UX/UI of the task)
+    { testID: id('options'), label: 'Options', icon: 'tune', onPress: run(() => crud.editOptions(guid)) },
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },
   ];
 

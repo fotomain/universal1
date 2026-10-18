@@ -1,7 +1,7 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
   EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
-  MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
+  MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
 
@@ -25,6 +25,18 @@ describe('the column Ordered (posted purchase orders)', () => {
     expect(MONITOR01_MEASURE_FIELD.ordered).toBe('qtyOrdered');
     expect(MONITOR01_MEASURE_TITLE.ordered).toBe('Ordered');
     expect(MONITOR01_MEASURE_GROUP.ordered).toBe('Fact');
+  });
+  it('Vendor Invoice has a 1st level group after Fact; its Qty is qtyVendorInvoiced and its Sum is the money sumVendorInvoiced (parsed, summed per unit, in the totals and the tree lines)', () => {
+    expect(MONITOR01_MEASURE_GROUP.vendorInvoiced).toBe('Vendor Invoice');
+    expect(MONITOR01_VENDOR_INVOICE_HEAD).toEqual({ group: 'Vendor Invoice', qty: 'Qty', sum: 'Sum' });
+    expect(row({ sumVendorInvoiced: '120.50' }).sumVendorInvoiced).toBe(120.5);
+    expect(row({}).sumVendorInvoiced).toBe(0);
+    const rows = [row({ sumVendorInvoiced: 100.1, qtyVendorInvoiced: 2 }), row({ rowOwnerGUID: 't2', sumVendorInvoiced: 20.2, qtyVendorInvoiced: 1 }), row({ rowOwnerGUID: 't3', measureUnit: 'unit_pcs', sumVendorInvoiced: 5 })];
+    expect(totalsByUnit(rows).map((x) => [x.unit, x.sumVendorInvoiced, x.sums.vendorInvoiced])).toEqual([['unit_hour', 120.3, 3], ['unit_pcs', 5, 0]]);
+    expect(monitor01Totals(rows).sumVendorInvoiced).toBe(125.3);
+    const items = buildMonitor01Items(rows);
+    expect(items.filter((i) => i.kind === 'total').map((i: any) => i.sumVendorInvoiced)).toEqual([120.3, 5]);
+    expect(items.filter((i) => i.kind === 'node').every((i: any) => typeof i.sumVendorInvoiced === 'number')).toBe(true);
   });
   it('it is summed per unit like the other quantities (hours and pieces are never added)', () => {
     const t = totalsByUnit([row({ qtyOrdered: 3 }), row({ rowOwnerGUID: 't2', qtyOrdered: 4.5 }), row({ rowOwnerGUID: 't3', measureUnit: 'unit_pcs', qtyOrdered: 10 })]);

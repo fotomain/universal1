@@ -22,6 +22,7 @@ import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
 import PMNetworkView from '../network/PMNetworkView';
 import PMTaskEditModal from '../task/PMTaskEditModal';
+import PMTaskEditOptions from '../task/PMTaskEditOptions';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMEditDependencyScreen from '../task/dependency/PMEditDependencyScreen';
 import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
@@ -302,6 +303,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
       )}
 
       <PMTaskEditModal crud={crud} kanban={kanban} />
+      <PMTaskEditOptions crud={crud} />
       <PMEditDependencyScreen crud={crud} />
       <PMDependencyMenu crud={crud} />
       <PMTaskRowMenu crud={crud} />

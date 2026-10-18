@@ -2196,6 +2196,7 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   "qtyRestToContract"   NUMERIC(18,2) GENERATED ALWAYS AS ("qtyPlanned" - "qtyContracted") STORED,
   "qtyReceived"         NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyVendorInvoiced"   NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumVendorInvoiced"   NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyUsed"             NUMERIC(18,2) NOT NULL DEFAULT 0,
   "qtyOnHand"           NUMERIC(18,2) GENERATED ALWAYS AS ("qtyReceived" - "qtyUsed") STORED,
   "lineCount"           INTEGER       NOT NULL DEFAULT 0,
@@ -2220,6 +2221,8 @@ END $$;
 
 -- the quantity of the POSTED vendor invoices (a column of the report after Received)
 ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyVendorInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
+-- the money of the POSTED vendor invoices (the column Sum under Vendor Invoice; = sumForBudgetInvoiced of the register, the same money as the Budget column)
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumVendorInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_monitor01_view_project ON public.monitor01_view ("rowProjectGUID", "genusGUID", "periodMonth");
 

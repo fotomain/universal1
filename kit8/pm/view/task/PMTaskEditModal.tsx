@@ -40,7 +40,7 @@ import PMTaskSubprojectField from './PMTaskSubprojectField';
 import { subprojectEffectiveOf } from '../../subproject/subprojectModel';
 import { useSubprojectCandidates } from '../../subproject/useSubprojectCandidates';
 
-const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
+export const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string; icon: string }[] = [
   { kind: 'stage', label: 'Stage', icon: 'folder' },
   { kind: 'task', label: 'Task', icon: 'task_alt' },

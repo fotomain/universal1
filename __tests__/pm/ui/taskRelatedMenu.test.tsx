@@ -141,8 +141,8 @@ describe('Go to', () => {
   });
 });
 
-describe('Task menu: Options opens the task window (PMTaskEditModal)', () => {
-  it('"Options" calls crud.edit(taskGUID) and closes the menu; there is no "Edit" item', () => {
+describe('Task menu: Options opens PMTaskEditOptions (UX/UI only)', () => {
+  it('"Options" calls crud.editOptions(taskGUID) and closes the menu; there is no "Edit" item', () => {
     const { byName } = seedStore();
     const t = byName('Task 111');
     const crud = fakeCrud();
@@ -153,7 +153,8 @@ describe('Task menu: Options opens the task window (PMTaskEditModal)', () => {
     const all = ids();
     expect(all.indexOf('pm-row-menu-options')).toBe(all.indexOf('pm-row-menu-delete') - 1); // Options stands right before Delete
     press('pm-row-menu-options');
-    expect(crud.edit).toHaveBeenCalledWith(t.rowGUID);
+    expect(crud.editOptions).toHaveBeenCalledWith(t.rowGUID);
+    expect(crud.edit).not.toHaveBeenCalled(); // the full form is not the context menu's
     expect(usePMStore.getState().rowMenu).toBeNull();
   });
 });

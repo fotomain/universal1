@@ -9,6 +9,12 @@ const mockFetch = jest.fn();
 const mockRefresh = jest.fn(async (..._a: any[]) => ({ tasks: 3, upserted: 4, deleted: 0 }));
 jest.mock('../../../../kit8/pm/reports/monitor01/monitor01Api', () => ({ fetchMonitor01Sources: (...a: any[]) => mockFetch(...a), refreshMonitor01Now: (...a: any[]) => (mockRefresh as any)(...a) }));
 jest.mock('../../../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: new Proxy({}, { get: () => ({ actions: { readData: (p: any) => ({ type: 'read', p }) } }) }) }));
+// the tips of the cells (usePMTip): the texts it was asked for, in the order of the render
+const mockTipTexts: (string | undefined)[] = [];
+jest.mock('../../../../kit8/pm/inner/tooltip/PMTooltip', () => ({
+  ...jest.requireActual('../../../../kit8/pm/inner/tooltip/PMTooltip'),
+  usePMTip: (text?: string) => { mockTipTexts.push(text); return { ref: { current: null }, accessibilityHint: text }; },
+}));
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false }) }));
 // Project / Task / Resource are SelectItemFromListApp (picked, not typed): the double is a plain TextInput whose onChangeText IS onSelect, so a test "types" the GUID it wants picked,
@@ -64,22 +70,42 @@ const flush = () => act(async () => { await Promise.resolve(); await Promise.res
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 describe('the table of the sheet', () => {
-  it('the Plan | Fact divider of the body is the left edge of Ordered (same column as the header); a row keeps its full width (a scrollbar of the list must not squeeze the columns)', () => {
+  it('the dividers Plan | Fact | Vendor Invoice of the body are the left edges of Ordered and of Vendor Invoice / Qty (same columns as the header); a row keeps its full width (a scrollbar of the list must not squeeze the columns)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     const bw = (id: string) => getComputedStyle(q(id)!).borderLeftWidth;
     expect(bw(cell(KEY_T1, 'ordered'))).toBe('2px');
     expect(bw(cell(KEY_T1, 'received'))).not.toBe('2px');
+    expect(bw(cell(KEY_T1, 'used'))).not.toBe('2px');
+    expect(bw(cell(KEY_T1, 'vendorInvoiced'))).toBe('2px');
     const row = getComputedStyle(q(`monitor01-table-item-${KEY_T1}`)!);
-    expect(row.width).toBe('1540px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 5 x 94
+    expect(row.width).toBe('1652px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 4 x 94 + 94 + 112
     expect(row.flexShrink).toBe('0');
   });
-  it('the two header rows: Plan | Fact and the columns; the resource role column; the seven measures (Ordered is the first of the Fact group)', () => {
+  it('every header cell has a tip = its title (the groups too; also when the column is too narrow for the text)', () => {
+    mockHook.rows = [parseMonitor01Row(raw())];
+    renderUI(<Monitor01Dashboard mode="standalone" />);
+    const heads = ['project', 'role', 'month', 'task', 'unit', 'planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced'];
+    for (const m of heads) {
+      const el = q(`monitor01-table-head-${m}`)!;
+      expect(mockTipTexts).toContain((el.textContent || '').trim());
+      expect(el.parentElement!.getAttribute('aria-label')).toBe((el.textContent || '').trim()); // the cell itself carries the title
+    }
+    for (const [key, title] of [['Plan', 'Plan'], ['Fact', 'Fact'], ['VendorInvoice', 'Vendor Invoice']]) {
+      expect(mockTipTexts).toContain(title);
+      expect(q(`monitor01-table-group-${key}`)!.getAttribute('aria-label')).toBe(title);
+    }
+    for (const t of ['Received', 'Qty', 'Sum']) expect(mockTipTexts).toContain(t);
+  });
+
+  it('the two header rows: 1st level Plan | Fact | Vendor Invoice (after Fact), 2nd level the columns, Vendor Invoice has Qty and Sum; Ordered is the first of the Fact group', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
     expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
-    const heads = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'vendorInvoiced', 'used', 'onHand'].map((m) => textOf(`monitor01-table-head-${m}`));
-    expect(heads).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Received', 'VendorInvoiced', 'Actually used', 'On-hand']);
-    expectInOrder(['monitor01-table-head-planned', 'monitor01-table-head-contracted', 'monitor01-table-head-restToContract', 'monitor01-table-head-sumForBudget', 'monitor01-table-head-ordered', 'monitor01-table-head-received', 'monitor01-table-head-vendorInvoiced', 'monitor01-table-head-used', 'monitor01-table-head-onHand']);
+    expect(textOf('monitor01-table-group-VendorInvoice')).toBe('Vendor Invoice');
+    expectInOrder(['monitor01-table-group-Plan', 'monitor01-table-group-Fact', 'monitor01-table-group-VendorInvoice']);
+    const cols = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced'];
+    expect(cols.map((m) => textOf(`monitor01-table-head-${m}`))).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Received', 'Actually used', 'On-hand', 'Qty', 'Sum']);
+    expectInOrder(cols.map((m) => `monitor01-table-head-${m}`));
   });
 
   it('headers: "Task name" (not task.name), every header starts with a capital letter, no ROW DESCRIPTION column and no "requirements dimensions"', () => {
@@ -269,6 +295,23 @@ describe('the collapsible tree', () => {
     press(toggle(NODE_PROJECT));
     expect(q(item(KEY_T1))).toBeNull();
     expect(q(item(ROLE_MATERIAL('unit_pcs')))).not.toBeNull();                        // Beta is not touched
+  });
+});
+
+describe('Vendor Invoice: Qty and Sum', () => {
+  it('a row, a subtotal, the Totals and the total line show the Qty (a button) and the Sum (money, 0 = blank) of the posted vendor invoices', () => {
+    mockHook.rows = [
+      parseMonitor01Row(raw({ qtyVendorInvoiced: 8, sumVendorInvoiced: 1234.5 })),
+      parseMonitor01Row(raw({ rowOwnerGUID: 't3', taskName: 'task03', qtyVendorInvoiced: 0, sumVendorInvoiced: 0 })),
+    ];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf(cell(KEY_T1, 'vendorInvoiced'))).toBe('8');
+    expect(textOf(`monitor01-table-sumVendorInvoiced-${KEY_T1}`)).toBe('1,234.50');
+    expect(textOf('monitor01-table-sumVendorInvoiced-total|unit_hour')).toBe('1,234.50');
+    expect(textOf(`monitor01-table-sumVendorInvoiced-${PROJECT('unit_hour')}`)).toBe('1,234.50');
+    expect(textOf('monitor01-table-totals-unit_hour-sumVendorInvoiced')).toBe('1,234.50');
+    expect(textOf('monitor01-table-totals-unit_hour-vendorInvoiced')).toBe('8');
+    expect(textOf(`monitor01-table-sumVendorInvoiced-t3|timeGenus|r1|unit_hour|2026-10-01`)).toBe(''); // a zero shows nothing
   });
 });
 
@@ -600,7 +643,7 @@ describe('every number opens its source transactions', () => {
     await flush();
     expect(mockFetch.mock.calls.map((c) => c[1]).sort()).toEqual(['received', 'used']);
   });
-  it('"VendorInvoiced" (after Received) is the list of the POSTED vendor invoices; Open shows the invoice in the vendor invoice form', async () => {
+  it('"Vendor Invoiced" (after Received) is the list of the POSTED vendor invoices; Open shows the invoice in the vendor invoice form', async () => {
     mockHook.rows = [parseMonitor01Row(raw({ qtyVendorInvoiced: 8 }))];
     mockFetch.mockImplementation(async (_c: any, measure: string) => ({ measure, totalCount: 1, sum: 8, rows: [{ rowGUID: 'iv1', sourceName: 'projectStatusMovements', day: '2026-10-14', taskGUID: 't1', taskName: 'task01', projectGUID: 'p1', genusGUID: 'timeGenus', roleGUID: 'r1', unit: 'unit_hour', qty: 8, documentGUID: 'vi1', documentNumber: 'INV-77' }] }));
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
@@ -642,7 +685,7 @@ describe('every number opens its source transactions', () => {
     expect(textOf('monitor01-table-totals-unit_hour-used')).toBe('5');
     expect(q(cell(KEY_T1, 'planned'))!.getAttribute('role')).toBe('button');
   });
-  it('a row without invoices shows a blank VendorInvoiced cell (like Received and Actually used)', () => {
+  it('a row without invoices shows a blank Vendor Invoiced cell (like Received and Actually used)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     expect(textOf(cell(KEY_T1, 'vendorInvoiced'))).toBe('');
   });

@@ -35,7 +35,7 @@ export const TASK_LINE_GENUS: TaskLineGenusDef[] = [
   { genus: MANAGEMENT_GENUS.time, title: 'Time', icon: 'schedule', resource: 'person', resources: ['person', 'equipment'], hasPartner: false },
   { genus: MANAGEMENT_GENUS.material, title: 'Material', icon: 'inventory_2', resource: 'product', resources: ['product'], hasPartner: true },
   { genus: MANAGEMENT_GENUS.expense, title: 'Expenses', icon: 'receipt_long', resource: 'product', resources: ['product'], hasPartner: true },
-  { genus: MANAGEMENT_GENUS.revenue, title: 'Revenues', icon: 'payments', resource: 'product', resources: ['product'], hasPartner: true },
+  { genus: MANAGEMENT_GENUS.revenue, title: 'Deliverable', icon: 'payments', resource: 'product', resources: ['product'], hasPartner: true },
 ];
 export const TASK_LINE_DEFAULT_GENUS = TASK_LINE_GENUS[0].genus;
 export const taskLineGenusDef = (genus: string | null | undefined): TaskLineGenusDef | undefined => TASK_LINE_GENUS.find((g) => g.genus === genus);

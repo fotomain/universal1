@@ -132,6 +132,9 @@ SELECT tt.eq((SELECT sum("qtyUsed") FROM public.project_status_month_turnover WH
 SELECT tt.eq((SELECT sum("qtyVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 8::numeric, 'monitor01_view: the column qtyVendorInvoiced = the quantity of the posted vendor invoice (the report column VendorInvoiced)');
 SELECT tt.eq((SELECT sum("qtyUsed") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 0::numeric, '... and invoiced is not used');
 SELECT tt.eq((SELECT sum(f."qtyVendorInvoiced") FROM public.monitor01_fresh_rows(ARRAY[:'t3'::uuid]) f), 8::numeric, 'monitor01_fresh_rows: the same quantity (the report is the fresh rows, so monitor01_verify compares qtyVendorInvoiced too)');
+SELECT tt.eq((SELECT sum("sumVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), (SELECT sum("sumForBudgetInvoiced") FROM public.project_status_month_turnover WHERE "rowOwnerGUID" = :'t3'), 'monitor01_view: the column sumVendorInvoiced (Vendor Invoice / Sum) = the money (sumForBudget) of the posted invoice, as in the register');
+SELECT tt.eq((SELECT sum(f."sumVendorInvoiced") FROM public.monitor01_fresh_rows(ARRAY[:'t3'::uuid]) f), (SELECT sum("sumVendorInvoiced") FROM public.monitor01_view WHERE "rowOwnerGUID" = :'t3'), 'monitor01_fresh_rows: the same money (monitor01_verify compares it too)');
+SELECT tt.eq(public.monitor01_verify(), 0, 'monitor01_verify: no difference after the money column');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq((public.monitor01_sum_sources('vendorInvoiced', jsonb_build_object('taskGUID', :'t3'))->>'totalCount')::int, 2, 'the drill-down of "vendorInvoiced" lists the movements of the posted invoice');
 SELECT tt.eq((public.monitor01_sum_sources('vendorInvoiced', jsonb_build_object('taskGUID', :'t3'))->'rows'->0->>'documentNumber'), 'INV-77', '... with the number of the invoice');

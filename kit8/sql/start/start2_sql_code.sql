@@ -5749,7 +5749,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5763,13 +5763,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t."resourceRoleGUID", '')
     LEFT JOIN st ON st.task = t."rowOwnerGUID" AND st.genus = t."genusGUID" AND st.role = t."resourceRoleGUID" AND st.unit = t."measureUnit" AND st.month = t."rowTurnoverMonth"
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."sumForBudgetInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 
@@ -5806,16 +5806,16 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "qtyOrdered", "qtyReceived", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."sumVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6091,16 +6091,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6327,6 +6327,12 @@ SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 -- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column VendorInvoiced = qtyVendorInvoiced)
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+
+-- upgrade: the same tasks again: the group Vendor Invoice gained the column Sum = sumVendorInvoiced (the money of the vendor invoices, new column of monitor01_view)
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
@@ -8700,7 +8706,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   WITH ids AS (        -- origin task, the task whose movements count for it (itself: every genus; a subproject task: the aggregated genera)
     SELECT x AS origin, x AS src, NULL::text AS genus FROM unnest(p_tasks) AS x
@@ -8711,7 +8717,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   t AS (
     SELECT i.origin AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."rowTurnoverMonth" AS month,
            sum(f."qtyPlan") AS "qtyPlan", sum(f."qtyPlanContracted") AS "qtyPlanContracted", sum(f."sumForBudgetPlan") AS "sumForBudgetPlan",
-           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."lineCount")::integer AS "lineCount"
+           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."sumForBudgetInvoiced") AS "sumVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."lineCount")::integer AS "lineCount"
       FROM ids i JOIN ft f ON f."rowOwnerGUID" = i.src AND (i.genus IS NULL OR f."genusGUID" = i.genus)
      GROUP BY 1, 2, 3, 4, 5
   ),
@@ -8727,13 +8733,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t.task, t.genus, t.role, t.unit, t.month,
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."sumVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
     FROM t
     JOIN public.project_task_table tk ON tk."rowGUID" = t.task
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t.role, '')
     LEFT JOIN st ON st.task = t.task AND st.genus = t.genus AND st.role = t.role AND st.unit = t.unit AND st.month = t.month
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyVendorInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyVendorInvoiced" <> 0 OR t."sumVendorInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 -- ===============================================================================================
