@@ -34,7 +34,8 @@
 --   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
 --   28. create_purchase_order.sql - the PURCHASE ORDER document (the vendor invoice logic) + its 'ordered' movements in the project status register + the column Ordered of Monitor01
 --   29. create_subprojects.sql - SUBPROJECTS: a task stands for another project (project_subproject_link + subproject_* functions + triggers), the origin task follows the dates and can aggregate the plan / fact of the subproject in Monitor01
---   30. create_product_receipt.sql - the PRODUCT RECEIPT document (made from a posted purchase order) + its 'received' movements in the project status register + the column Delivered of Monitor01; Create based on: purchase order -> product receipt -> vendor invoice
+--   30. create_product_receipt.sql - the PRODUCT RECEIPT document (made from a posted purchase order) + its 'received' movements in the project status register + the column Received of Monitor01; Create based on: purchase order -> product receipt -> vendor invoice
+--   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + its 'sold' movements in the project status register + the group Customer Invoice of Monitor01
 -- ===============================================================================================
 
 DO $$
@@ -5703,6 +5704,8 @@ RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "
                "sumForAccountingReceived" numeric,
                "vatForContractReceived" numeric,
                "vatForAccountingReceived" numeric,
+               "qtySold" numeric,
+               "sumForBudgetSold" numeric,
                "lineCount" integer, "documentCount" integer)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT s."rowOwnerGUID", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."rowTurnoverMonth", s."rowProjectGUID", s."rowOwnerUserGUID",
@@ -5733,10 +5736,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
          COALESCE(SUM(s."sumForAccounting")      FILTER (WHERE s."rowMovementKind" = 'received'), 0),
          COALESCE(SUM(s."vatForContract")        FILTER (WHERE s."rowMovementKind" = 'received'), 0),
          COALESCE(SUM(s."vatForAccounting")      FILTER (WHERE s."rowMovementKind" = 'received'), 0),
+         COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'sold'), 0),
+         COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'sold'), 0),
          COALESCE(NULLIF((count(DISTINCT s."rowProjectTaskLineGUID") FILTER (WHERE s."rowMovementKind" = 'plan'))::integer, 0), (count(*) FILTER (WHERE s."rowMovementKind" = 'used'))::integer, 0),
-         (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced', 'ordered', 'received')))::integer
+         (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced', 'ordered', 'received', 'sold')))::integer
     FROM public.project_status_movements s
-   WHERE s."rowOwnerGUID" = ANY (p_tasks) AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+   -- the Revenue (Deliverable) genus is in the report ONLY through the posted customer invoices ('sold'): no plan, no Contracted, no Budget of the revenue lines (decision Q4 stays for those)
+   WHERE s."rowOwnerGUID" = ANY (p_tasks) AND (s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') OR s."rowMovementKind" = 'sold')
    GROUP BY 1, 2, 3, 4, 5, 6, 7
 $$;
 
@@ -5749,7 +5755,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5763,13 +5769,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."qtySold", t."sumForBudgetSold", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t."resourceRoleGUID", '')
     LEFT JOIN st ON st.task = t."rowOwnerGUID" AND st.genus = t."genusGUID" AND st.role = t."resourceRoleGUID" AND st.unit = t."measureUnit" AND st.month = t."rowTurnoverMonth"
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."sumForBudgetInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyInvoiced" <> 0 OR t."sumForBudgetInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."qtySold" <> 0 OR t."sumForBudgetSold" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 
@@ -5787,12 +5793,12 @@ BEGIN
   -- step 1: project_status_month_turnover = the register summed; only changed rows are written
   WITH fresh AS MATERIALIZED (SELECT * FROM public.project_status_fresh_turnover(p_tasks)),
        up AS (
-         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "qtyOrdered", "sumForBudgetOrdered", "sumForContractOrdered", "sumForAccountingOrdered", "vatForContractOrdered", "vatForAccountingOrdered", "qtyReceived", "sumForBudgetReceived", "sumForContractReceived", "sumForAccountingReceived", "vatForContractReceived", "vatForAccountingReceived", "lineCount", "documentCount")
-         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."qtyOrdered", f."sumForBudgetOrdered", f."sumForContractOrdered", f."sumForAccountingOrdered", f."vatForContractOrdered", f."vatForAccountingOrdered", f."qtyReceived", f."sumForBudgetReceived", f."sumForContractReceived", f."sumForAccountingReceived", f."vatForContractReceived", f."vatForAccountingReceived", f."lineCount", f."documentCount" FROM fresh f
+         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "qtyOrdered", "sumForBudgetOrdered", "sumForContractOrdered", "sumForAccountingOrdered", "vatForContractOrdered", "vatForAccountingOrdered", "qtyReceived", "sumForBudgetReceived", "sumForContractReceived", "sumForAccountingReceived", "vatForContractReceived", "vatForAccountingReceived", "qtySold", "sumForBudgetSold", "lineCount", "documentCount")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."qtyOrdered", f."sumForBudgetOrdered", f."sumForContractOrdered", f."sumForAccountingOrdered", f."vatForContractOrdered", f."vatForAccountingOrdered", f."qtyReceived", f."sumForBudgetReceived", f."sumForContractReceived", f."sumForAccountingReceived", f."vatForContractReceived", f."vatForAccountingReceived", f."qtySold", f."sumForBudgetSold", f."lineCount", f."documentCount" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "sumForBudgetOrdered" = EXCLUDED."sumForBudgetOrdered", "sumForContractOrdered" = EXCLUDED."sumForContractOrdered", "sumForAccountingOrdered" = EXCLUDED."sumForAccountingOrdered", "vatForContractOrdered" = EXCLUDED."vatForContractOrdered", "vatForAccountingOrdered" = EXCLUDED."vatForAccountingOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "sumForBudgetReceived" = EXCLUDED."sumForBudgetReceived", "sumForContractReceived" = EXCLUDED."sumForContractReceived", "sumForAccountingReceived" = EXCLUDED."sumForAccountingReceived", "vatForContractReceived" = EXCLUDED."vatForContractReceived", "vatForAccountingReceived" = EXCLUDED."vatForAccountingReceived", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."qtyOrdered", t."sumForBudgetOrdered", t."sumForContractOrdered", t."sumForAccountingOrdered", t."vatForContractOrdered", t."vatForAccountingOrdered", t."qtyReceived", t."sumForBudgetReceived", t."sumForContractReceived", t."sumForAccountingReceived", t."vatForContractReceived", t."vatForAccountingReceived", t."lineCount", t."documentCount")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."sumForBudgetOrdered", EXCLUDED."sumForContractOrdered", EXCLUDED."sumForAccountingOrdered", EXCLUDED."vatForContractOrdered", EXCLUDED."vatForAccountingOrdered", EXCLUDED."qtyReceived", EXCLUDED."sumForBudgetReceived", EXCLUDED."sumForContractReceived", EXCLUDED."sumForAccountingReceived", EXCLUDED."vatForContractReceived", EXCLUDED."vatForAccountingReceived", EXCLUDED."lineCount", EXCLUDED."documentCount")
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "sumForBudgetOrdered" = EXCLUDED."sumForBudgetOrdered", "sumForContractOrdered" = EXCLUDED."sumForContractOrdered", "sumForAccountingOrdered" = EXCLUDED."sumForAccountingOrdered", "vatForContractOrdered" = EXCLUDED."vatForContractOrdered", "vatForAccountingOrdered" = EXCLUDED."vatForAccountingOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "sumForBudgetReceived" = EXCLUDED."sumForBudgetReceived", "sumForContractReceived" = EXCLUDED."sumForContractReceived", "sumForAccountingReceived" = EXCLUDED."sumForAccountingReceived", "vatForContractReceived" = EXCLUDED."vatForContractReceived", "vatForAccountingReceived" = EXCLUDED."vatForAccountingReceived", "qtySold" = EXCLUDED."qtySold", "sumForBudgetSold" = EXCLUDED."sumForBudgetSold", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."qtyOrdered", t."sumForBudgetOrdered", t."sumForContractOrdered", t."sumForAccountingOrdered", t."vatForContractOrdered", t."vatForAccountingOrdered", t."qtyReceived", t."sumForBudgetReceived", t."sumForContractReceived", t."sumForAccountingReceived", t."vatForContractReceived", t."vatForAccountingReceived", t."qtySold", t."sumForBudgetSold", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."sumForBudgetOrdered", EXCLUDED."sumForContractOrdered", EXCLUDED."sumForAccountingOrdered", EXCLUDED."vatForContractOrdered", EXCLUDED."vatForAccountingOrdered", EXCLUDED."qtyReceived", EXCLUDED."sumForBudgetReceived", EXCLUDED."sumForContractReceived", EXCLUDED."sumForAccountingReceived", EXCLUDED."vatForContractReceived", EXCLUDED."vatForAccountingReceived", EXCLUDED."qtySold", EXCLUDED."sumForBudgetSold", EXCLUDED."lineCount", EXCLUDED."documentCount")
          RETURNING 1),
        del AS (
          DELETE FROM public.project_status_month_turnover t
@@ -5806,16 +5812,16 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "qtyCustomerInvoiced" = EXCLUDED."qtyCustomerInvoiced", "sumCustomerInvoiced" = EXCLUDED."sumCustomerInvoiced", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."sumVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."sumVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."qtyCustomerInvoiced", EXCLUDED."sumCustomerInvoiced", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6091,16 +6097,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6190,6 +6196,30 @@ BEGIN
         FROM public.project_status_movements s
         JOIN public.vendor_invoice_header h ON h."rowGUID" = s."rowRegistratorGUID"
        WHERE s."rowMovementKind" = 'invoiced'
+         AND (NOT f ? 'projectGUID' OR s."rowProjectGUID" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', s."rowOwnerGUID", s."genusGUID"))
+         AND (NOT f ? 'taskGUIDs'   OR s."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR s."genusGUID"      = f->>'genusGUID')
+         AND (NOT f ? 'roleGUID'    OR s."resourceRoleGUID" = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR s."resourceRoleGUID" IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR s."measureUnit" = f->>'unit')
+         AND (NOT f ? 'month'       OR s."rowTurnoverMonth" = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth'   OR s."rowTurnoverMonth" >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'     OR s."rowTurnoverMonth" <= (f->>'toMonth')::date)
+    ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
+       pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
+                 FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
+                         LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(pg."roleGUID", ''))
+    SELECT (SELECT count(*) FROM src), (SELECT COALESCE(sum("qty"), 0) FROM src), COALESCE((SELECT jsonb_agg(to_jsonb(pgn) ORDER BY pgn."day" DESC, pgn."rowGUID") FROM pgn), '[]'::jsonb)
+      INTO v_count, v_sum, v_rows;
+  ELSIF p_measure = 'customerInvoiced' THEN
+    WITH src AS (
+      SELECT s."rowGUID"::text AS "rowGUID", 'projectStatusMovements'::text AS "sourceName", s."rowTurnoverDay" AS "day", s."rowOwnerGUID"::text AS "taskGUID", s."rowProjectGUID"::text AS "projectGUID",
+             s."rowProjectTaskLineGUID"::text AS "lineGUID", s."rowRegistratorGUID"::text AS "documentGUID", h."rowJSON"->>'customerInvoiceNumber' AS "documentNumber",
+             s."genusGUID", s."resourceRoleGUID" AS "roleGUID", s."measureUnit" AS "unit", s."qtyProjectStatus" AS "qty"
+        FROM public.project_status_movements s
+        JOIN public.customer_invoice_header h ON h."rowGUID" = s."rowRegistratorGUID"
+       WHERE s."rowMovementKind" = 'sold'
          AND (NOT f ? 'projectGUID' OR s."rowProjectGUID" = (f->>'projectGUID')::uuid)
          AND (NOT f ? 'taskGUID'    OR s."rowOwnerGUID"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', s."rowOwnerGUID", s."genusGUID"))
          AND (NOT f ? 'taskGUIDs'   OR s."rowOwnerGUID"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
@@ -6326,13 +6356,7 @@ INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT f."rowOwnerGUID", 'install' FROM public.task_fact_usage_timeline f
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
--- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column VendorInvoiced = qtyVendorInvoiced)
-INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
-SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
-ON CONFLICT ("rowOwnerGUID") DO NOTHING;
-
-
--- upgrade: the same tasks again: the group Vendor Invoice gained the column Sum = sumVendorInvoiced (the money of the vendor invoices, new column of monitor01_view)
+-- upgrade: the tasks that have POSTED vendor invoices are queued once (the report gained the column VendorInvoiced = qtyVendorInvoiced) and, with the money column, Vendor Invoice / Sum = sumVendorInvoiced (every run of this file queues them again; the worker writes only the rows that changed)
 INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
 SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements s WHERE s."rowMovementKind" = 'invoiced'
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
@@ -8706,7 +8730,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   WITH ids AS (        -- origin task, the task whose movements count for it (itself: every genus; a subproject task: the aggregated genera)
     SELECT x AS origin, x AS src, NULL::text AS genus FROM unnest(p_tasks) AS x
@@ -8717,7 +8741,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   t AS (
     SELECT i.origin AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."rowTurnoverMonth" AS month,
            sum(f."qtyPlan") AS "qtyPlan", sum(f."qtyPlanContracted") AS "qtyPlanContracted", sum(f."sumForBudgetPlan") AS "sumForBudgetPlan",
-           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."sumForBudgetInvoiced") AS "sumVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."lineCount")::integer AS "lineCount"
+           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."sumForBudgetInvoiced") AS "sumVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."qtySold") AS "qtyCustomerInvoiced", sum(f."sumForBudgetSold") AS "sumCustomerInvoiced", sum(f."lineCount")::integer AS "lineCount"
       FROM ids i JOIN ft f ON f."rowOwnerGUID" = i.src AND (i.genus IS NULL OR f."genusGUID" = i.genus)
      GROUP BY 1, 2, 3, 4, 5
   ),
@@ -8733,13 +8757,13 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t.task, t.genus, t.role, t.unit, t.month,
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."sumVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."sumVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."qtyCustomerInvoiced", t."sumCustomerInvoiced", t."lineCount", COALESCE(st.stale, false)
     FROM t
     JOIN public.project_task_table tk ON tk."rowGUID" = t.task
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
     LEFT JOIN public."resourceRoleTable" r ON r."rowGUID" = NULLIF(t.role, '')
     LEFT JOIN st ON st.task = t.task AND st.genus = t.genus AND st.role = t.role AND st.unit = t.unit AND st.month = t.month
-   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyVendorInvoiced" <> 0 OR t."sumVendorInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
+   WHERE t."qtyPlan" <> 0 OR t."qtyUsed" <> 0 OR t."qtyVendorInvoiced" <> 0 OR t."sumVendorInvoiced" <> 0 OR t."qtyOrdered" <> 0 OR t."qtyReceived" <> 0 OR t."qtyCustomerInvoiced" <> 0 OR t."sumCustomerInvoiced" <> 0 OR t."sumForBudgetPlan" <> 0 OR t."lineCount" > 0
 $$;
 
 -- ===============================================================================================
@@ -9354,6 +9378,631 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT public.post_product_receipt('<document rowGUID>');
 --   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'received';      -- the column Received of Monitor01
 --   SELECT public.create_vendor_invoice_from_receipt('<posted product receipt rowGUID>');
+
+-- ===============================================================================================
+-- PART 31: create_customer_invoice.sql
+-- the CUSTOMER INVOICE document (the twin of the vendor invoice, made from the Revenue (Deliverable) lines of a task): customer_invoice_header + customer_invoice_lines, its posting into the project status
+-- register as 'sold' movements (the group Customer Invoice of Monitor01: Qty = qtyCustomerInvoiced, Sum = sumCustomerInvoiced). Project switch: customerInvoiceFunctionalityEnabled (true while never saved).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.customer_invoice_header') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 31 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+-- A customer invoice is made, edited, posted and listed like a vendor invoice; the differences: the number prefix (CI-), the movement kind ('sold'), the lines come from the Revenue (Deliverable) lines of the task
+-- (genus revenueGenus only), the customer is a partner (its contract: taskLinePartnerContract / the partner of the line), no Multi Project, no main customer. The app: kit8/documents/customer/invoice.
+
+DROP TRIGGER IF EXISTS trg_customer_invoice_header_touch ON public.customer_invoice_header;
+
+CREATE TRIGGER trg_customer_invoice_header_touch BEFORE UPDATE ON public.customer_invoice_header FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_customer_invoice_lines_touch ON public.customer_invoice_lines;
+
+CREATE TRIGGER trg_customer_invoice_lines_touch BEFORE UPDATE ON public.customer_invoice_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- the state of a document for the policies: 'draft' | 'posted' (NULL = no such document in MY organization)
+CREATE OR REPLACE FUNCTION public.customer_invoice_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted' ELSE 'draft' END
+    FROM public.customer_invoice_header h
+   WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+$$;
+
+REVOKE ALL ON FUNCTION public.customer_invoice_state(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.customer_invoice_state(uuid) TO authenticated;
+
+
+-- one line: the project / task are the ones of the task line, the sums follow the quantity, the price and the VAT % the user states (the budget / accounting sums by the ratio of the task line)
+CREATE OR REPLACE FUNCTION public.customer_invoice_lines_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
+    -- customer_invoice_set_line_task (a MULTI PROJECT invoice) moves a line to another task / task line: it opens the gate for its own statement only
+    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
+      RAISE EXCEPTION 'customer invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+    IF COALESCE(current_setting('app.customer_invoice_line_move', true), '') <> 'on' AND (
+       NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
+       OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
+       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
+      RAISE EXCEPTION 'customer invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
+  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
+  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
+  NEW."sumForContract" := round(NEW."qtyInvoiced" * NEW."priceInvoiced", 2);
+  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioInvoiced" / 100, 2);
+  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
+  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
+                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
+                             ELSE round(NEW."qtyInvoiced" * v_unit_budget, 2) END;
+  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
+                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
+                                 ELSE round(NEW."qtyInvoiced" * v_unit_accounting, 2) END;
+  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioInvoiced" / 100, 2) END;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_customer_invoice_lines_before_write ON public.customer_invoice_lines;
+
+CREATE TRIGGER trg_customer_invoice_lines_before_write BEFORE INSERT OR UPDATE ON public.customer_invoice_lines FOR EACH ROW EXECUTE FUNCTION public.customer_invoice_lines_before_write();
+
+
+-- the header: the organization of the writer, the folder (legal entity + partner) and the currency of the contract are derived. The customer and the contract of an UNPOSTED document can be changed
+-- (customer_invoice_set_header; a draft made from lines without a customer has none yet); a POSTED document keeps them and needs its customer and its legal entity
+CREATE OR REPLACE FUNCTION public.customer_invoice_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_partner text := NULLIF(NEW."rowJSON"->>'customerInvoicePartner', '');
+  v_contract text := NULLIF(NEW."rowJSON"->>'customerInvoiceContract', '');
+  v_status text := COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft');
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW."rowOrganizationGUID" := public.organization_of_current_user();
+    IF NEW."rowOrganizationGUID" IS NULL THEN
+      RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'draft'
+       AND (v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'customerInvoicePartner', '') OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'customerInvoiceContract', '')) THEN
+      RAISE EXCEPTION 'the customer and the contract of a POSTED customer invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF v_status <> 'draft' AND v_partner IS NULL THEN
+    RAISE EXCEPTION 'a posted customer invoice needs its customer (customerInvoicePartner)' USING ERRCODE = '23514';
+  END IF;
+  IF v_status <> 'draft' AND NEW."rowOwnerGUID" IS NULL THEN
+    RAISE EXCEPTION 'a posted customer invoice needs its legal entity' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+    RAISE EXCEPTION 'a contract needs its customer' USING ERRCODE = '23514';
+  END IF;
+  IF v_partner IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the customer % is not a partner', v_partner USING ERRCODE = '23503';
+  END IF;
+  IF v_contract IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."contractTable" k WHERE k."rowGUID" = v_contract AND k."rowParentGUID" = 'partner' AND k."rowOwnerGUID" = v_partner) THEN
+    RAISE EXCEPTION 'the contract % is not a contract of the customer %', v_contract, v_partner USING ERRCODE = '23514';
+  END IF;
+  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{customerInvoiceFolder}', to_jsonb(COALESCE(NEW."rowOwnerGUID", 'empty') || ':' || COALESCE(v_partner, 'empty'))),
+                             '{customerInvoiceCurrency}', to_jsonb(COALESCE((SELECT NULLIF(k."rowJSON"->>'contractCurrency', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract), '')));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_customer_invoice_header_before_write ON public.customer_invoice_header;
+
+CREATE TRIGGER trg_customer_invoice_header_before_write BEFORE INSERT OR UPDATE ON public.customer_invoice_header FOR EACH ROW EXECUTE FUNCTION public.customer_invoice_header_before_write();
+
+
+-- policies: the header is read by the organization and written ONLY by the RPCs (a draft can also be deleted directly); the lines are read by the organization, the quantity / price / VAT % of a line of a DRAFT are updated and a line is deleted by the owner of its project
+ALTER TABLE public.customer_invoice_header REPLICA IDENTITY FULL;
+
+ALTER TABLE public.customer_invoice_header ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.customer_invoice_header FROM anon, authenticated;
+
+GRANT SELECT, DELETE ON public.customer_invoice_header TO authenticated;
+
+DROP POLICY IF EXISTS customer_invoice_header_select ON public.customer_invoice_header;
+
+CREATE POLICY customer_invoice_header_select ON public.customer_invoice_header FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+-- a DRAFT of the organization can be deleted directly (the table of the list does it; its lines go with it); a posted one never
+DROP POLICY IF EXISTS customer_invoice_header_delete ON public.customer_invoice_header;
+
+CREATE POLICY customer_invoice_header_delete ON public.customer_invoice_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user() AND COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft');
+
+ALTER TABLE public.customer_invoice_lines REPLICA IDENTITY FULL;
+
+ALTER TABLE public.customer_invoice_lines ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.customer_invoice_lines FROM anon, authenticated;
+
+GRANT SELECT, UPDATE, DELETE ON public.customer_invoice_lines TO authenticated;
+
+DROP POLICY IF EXISTS customer_invoice_lines_select ON public.customer_invoice_lines;
+
+CREATE POLICY customer_invoice_lines_select ON public.customer_invoice_lines FOR SELECT TO authenticated USING (public.customer_invoice_state("rowHeaderGUID") IS NOT NULL);
+
+DROP POLICY IF EXISTS customer_invoice_lines_update ON public.customer_invoice_lines;
+
+CREATE POLICY customer_invoice_lines_update ON public.customer_invoice_lines FOR UPDATE TO authenticated
+  USING (public.customer_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"))
+  WITH CHECK (public.customer_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+DROP POLICY IF EXISTS customer_invoice_lines_delete ON public.customer_invoice_lines;
+
+CREATE POLICY customer_invoice_lines_delete ON public.customer_invoice_lines FOR DELETE TO authenticated
+  USING (public.customer_invoice_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+
+-- realtime: the documents and their lines (the legal entities too)
+DO $$
+DECLARE
+  v_all boolean; t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['customer_invoice_header', 'customer_invoice_lines', 'legalEntityTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+
+-- ---- the register: a POSTED customer invoice = 'sold' movements (registrator = the document, type customerInvoiceHeader) --------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_status_register_customer_invoice(p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer := 0;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+  SELECT 'sold', COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz, h."created_at"),
+         ((COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
+         h."rowGUID", 'customerInvoiceHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
+         l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+         NULLIF(h."rowJSON"->>'customerInvoicePartner', ''), NULLIF(h."rowJSON"->>'customerInvoiceContract', ''), h."rowOwnerGUID",
+         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+    FROM public.customer_invoice_header h
+    JOIN public.customer_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
+    JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+   WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted';
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_customer_invoice(uuid) FROM PUBLIC, anon, authenticated;
+
+
+
+-- ---- customer_invoice_candidates(task, lines): the customers (and their contracts) of the Revenue (Deliverable) lines of the task --------------------------------------------------------
+-- A line's customer: the partner of the contract selected on the line (taskLinePartnerContract); else the partner of the line (taskLinePartnerItem); else the MAIN CUSTOMER of the project
+-- (project_table.rowJSON.mainCustomerGUID, Project settings → Partners) with its main contract. A line without a customer is counted in "skipped" and listed in "skippedLineGUIDs"
+-- (create_customer_invoices makes ONE draft without a customer of them: the customer is chosen in the form).
+CREATE OR REPLACE FUNCTION public.customer_invoice_candidates(p_task uuid, p_lines uuid[] DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid; v_rows jsonb; v_skipped integer; v_skipped_lines jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  WITH ln AS (
+    SELECT l."rowGUID" AS line,
+           NULLIF(l."rowJSON"->>'taskLinePartnerContract', '') AS line_contract,
+           NULLIF(l."rowJSON"->>'taskLinePartnerItem', '') AS line_partner
+      FROM public.task_line_table l
+     WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'revenueGenus' AND (p_lines IS NULL OR l."rowGUID" = ANY (p_lines))
+  ), pm AS (
+    SELECT NULLIF(p."rowJSON"->>'mainCustomerGUID', '') AS partner, NULLIF(p."rowJSON"->>'mainCustomerContractGUID', '') AS contract
+      FROM public.project_table p WHERE p."rowGUID" = v_project
+  ), res AS (
+    SELECT ln.line,
+           CASE WHEN k."rowGUID" IS NOT NULL THEN k."rowOwnerGUID" ELSE COALESCE(ln.line_partner, pm.partner) END AS partner,
+           CASE WHEN k."rowGUID" IS NOT NULL THEN k."rowGUID" WHEN COALESCE(ln.line_partner, pm.partner) = pm.partner THEN pm.contract END AS contract
+      FROM ln
+      LEFT JOIN pm ON true
+      LEFT JOIN public."contractTable" k ON k."rowGUID" = ln.line_contract AND k."rowParentGUID" = 'partner'
+  ), grp AS (
+    SELECT r.partner, r.contract, array_agg(r.line ORDER BY r.line) AS lines
+      FROM res r WHERE r.partner IS NOT NULL GROUP BY r.partner, r.contract
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'partnerGUID', g.partner, 'partnerTitle', COALESCE(pt."rowJSON"->>'partnerTitle', g.partner),
+           'contractGUID', g.contract, 'contractInfo', NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''),
+           'contractCurrency', NULLIF(ck."rowJSON"->>'contractCurrency', ''), 'legalEntityGUID', NULLIF(ck."rowJSON"->>'legalEntityGUID', ''),
+           'lineCount', cardinality(g.lines), 'lineGUIDs', to_jsonb(g.lines)) ORDER BY COALESCE(pt."rowJSON"->>'partnerTitle', g.partner), g.contract NULLS FIRST), '[]'::jsonb),
+         (SELECT count(*) FROM res WHERE res.partner IS NULL),
+         (SELECT COALESCE(jsonb_agg(res.line ORDER BY res.line), '[]'::jsonb) FROM res WHERE res.partner IS NULL)
+    INTO v_rows, v_skipped, v_skipped_lines
+    FROM grp g
+    LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = g.partner
+    LEFT JOIN public."contractTable" ck ON ck."rowGUID" = g.contract;
+  RETURN jsonb_build_object('rows', v_rows, 'skipped', COALESCE(v_skipped, 0), 'skippedLineGUIDs', COALESCE(v_skipped_lines, '[]'::jsonb), 'noCustomerAllowed', true);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.customer_invoice_candidates(uuid, uuid[]) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.customer_invoice_candidates(uuid, uuid[]) TO authenticated;
+
+
+-- ---- create_customer_invoices(task, selection, legal entity): ONE draft document per selected (customer, contract) -----------------------------------------------------------------
+-- selection = [{ partnerGUID | null, contractGUID | null, lineGUIDs: [...] }]; a null partner = a draft WITHOUT a customer (and, when no legal entity is given, without one): both are chosen in the form before Post. The lines come from the task lines; the quantity starts as what is NOT invoiced yet (plan - the quantity on the customer invoice lines),
+-- the price and the VAT % of the task line. The legal entity: the one given, else the one of the contract; a document without any quantity left is not made.
+CREATE OR REPLACE FUNCTION public.create_customer_invoices(p_task uuid, p_selection jsonb, p_legal_entity text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid; v_sel jsonb; v_partner text; v_contract text; v_lines uuid[]; v_le text; v_header uuid; v_n integer;
+  v_docs jsonb := '[]'::jsonb; v_skipped jsonb := '[]'::jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
+    RAISE EXCEPTION 'select at least one customer' USING ERRCODE = '22023';
+  END IF;
+  IF NOT public.vendor_project_setting(v_project, 'customerInvoiceFunctionalityEnabled') THEN
+    RAISE EXCEPTION 'customer invoices are switched off in the project settings (Customer)' USING ERRCODE = '23514';
+  END IF;
+  FOR v_sel IN SELECT * FROM jsonb_array_elements(p_selection) LOOP
+    v_partner := NULLIF(v_sel->>'partnerGUID', '');
+    v_contract := NULLIF(v_sel->>'contractGUID', '');
+    SELECT COALESCE(array_agg(x::uuid), ARRAY[]::uuid[]) INTO v_lines FROM jsonb_array_elements_text(COALESCE(v_sel->'lineGUIDs', '[]'::jsonb)) x;
+    IF v_partner IS NULL AND v_contract IS NOT NULL THEN
+      RAISE EXCEPTION 'a contract needs its customer' USING ERRCODE = '22023';
+    END IF;
+    v_le := COALESCE(NULLIF(p_legal_entity, ''), (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = v_contract));
+    IF v_le IS NULL AND v_partner IS NOT NULL THEN
+      RAISE EXCEPTION 'choose the legal entity of the invoice (the contract has none)' USING ERRCODE = '22023';
+    END IF;
+    v_header := gen_random_uuid();
+    INSERT INTO public.customer_invoice_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON")
+    VALUES (v_header, v_le, 'x', jsonb_strip_nulls(jsonb_build_object(
+              'documentHeader', jsonb_build_object('activeUser', public.app_user_guid(), 'documentNumber', 'CI-' || lpad(nextval('public.customer_invoice_document_seq')::text, 5, '0'),
+                                                    'documentStatus', 'draft', 'created_at', to_jsonb(clock_timestamp())),
+              'customerInvoicePartner', v_partner, 'customerInvoiceContract', v_contract, 'customerInvoiceTask', p_task, 'customerInvoiceProject', v_project,
+              'customerInvoiceDateTime', to_jsonb(date_trunc('day', NOW())), 'customerInvoiceNumber', '')));
+    INSERT INTO public.customer_invoice_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON")
+    SELECT v_header, l."rowProjectGUID", l."rowOwnerGUID", l."rowGUID", l."rowParentGUID", (row_number() OVER (ORDER BY g.ord, l."orderInList", l."created_at"))::numeric,
+           rest.qty,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN round((l."rowJSON"->>'priceTaskLine')::numeric, 4) ELSE 0 END,
+           CASE WHEN jsonb_typeof(l."rowJSON"->'vatRatioTaskLine') = 'number' THEN least(greatest((l."rowJSON"->>'vatRatioTaskLine')::numeric, 0), 100) ELSE 0 END,
+           jsonb_strip_nulls(jsonb_build_object(
+             'resourceRoleItem',     NULLIF(l."rowJSON"->>'resourceRoleItem', ''),
+             'taskResourceItem',     NULLIF(l."rowJSON"->>'taskResourceItem', ''),
+             'taskResourceKind',     NULLIF(l."rowJSON"->>'taskResourceKind', ''),
+             'measureUnitTaskLine',  NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''),
+             'budgetItemTaskLine',   NULLIF(l."rowJSON"->>'budgetItemTaskLine', ''),
+             'businessUnitTaskLine', NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+             'priceTaskLine',        CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
+             'unitSumForAccounting', CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
+             'unitSumForBudget',     CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
+                                          THEN to_jsonb(round((l."rowJSON"->>'sumForBudget')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END))
+      FROM public.task_line_table l
+      JOIN (VALUES ('revenueGenus', 1)) AS g(genus, ord) ON g.genus = l."rowParentGUID"
+      CROSS JOIN LATERAL (SELECT (CASE WHEN jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' THEN (l."rowJSON"->>'qtyTaskLine')::numeric ELSE 0 END)
+                                 - COALESCE((SELECT sum(i."qtyInvoiced") FROM public.customer_invoice_lines i WHERE i."taskLineGUID" = l."rowGUID" AND i."rowHeaderGUID" <> v_header), 0) AS qty) rest
+     WHERE l."rowOwnerGUID" = p_task AND l."rowGUID" = ANY (v_lines) AND rest.qty > 0;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n = 0 THEN
+      DELETE FROM public.customer_invoice_header WHERE "rowGUID" = v_header;
+      v_skipped := v_skipped || jsonb_build_object('partnerGUID', v_partner, 'contractGUID', v_contract, 'reason', 'nothingLeftToInvoice');
+    ELSE
+      v_docs := v_docs || jsonb_build_object('documentGUID', v_header, 'partnerGUID', v_partner, 'contractGUID', v_contract, 'lineCount', v_n);
+    END IF;
+  END LOOP;
+  RETURN jsonb_build_object('documents', v_docs, 'skipped', v_skipped);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_customer_invoices(uuid, jsonb, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.create_customer_invoices(uuid, jsonb, text) TO authenticated;
+
+
+-- ---- the header of a DRAFT (an unposted document): the number printed on the invoice, its date, the legal entity, the customer and its contract (a posted document: unpost it first) ----------------------------------------
+CREATE OR REPLACE FUNCTION public.customer_invoice_set_header(p_header uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_json jsonb;
+BEGIN
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted customer invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  v_json := h."rowJSON";
+  IF p_patch ? 'customerInvoiceNumber' THEN
+    v_json := jsonb_set(v_json, '{customerInvoiceNumber}', to_jsonb(btrim(COALESCE(p_patch->>'customerInvoiceNumber', ''))));
+  END IF;
+  IF p_patch ? 'customerInvoiceDateTime' THEN
+    IF NULLIF(p_patch->>'customerInvoiceDateTime', '') IS NULL THEN
+      v_json := v_json - 'customerInvoiceDateTime';
+    ELSE
+      v_json := jsonb_set(v_json, '{customerInvoiceDateTime}', to_jsonb((p_patch->>'customerInvoiceDateTime')::timestamptz));
+    END IF;
+  END IF;
+  IF p_patch ? 'customerInvoicePartner' OR p_patch ? 'customerInvoiceContract' THEN
+    IF p_patch ? 'customerInvoicePartner' THEN
+      -- another customer (or none): its contract goes with the old one
+      IF NULLIF(p_patch->>'customerInvoicePartner', '') IS DISTINCT FROM NULLIF(h."rowJSON"->>'customerInvoicePartner', '') THEN
+        v_json := v_json - 'customerInvoicePartner' - 'customerInvoiceContract';
+        IF NULLIF(p_patch->>'customerInvoicePartner', '') IS NOT NULL THEN
+          v_json := jsonb_set(v_json, '{customerInvoicePartner}', to_jsonb(p_patch->>'customerInvoicePartner'));
+        END IF;
+      END IF;
+    END IF;
+    IF p_patch ? 'customerInvoiceContract' THEN
+      IF NULLIF(p_patch->>'customerInvoiceContract', '') IS NULL THEN
+        v_json := v_json - 'customerInvoiceContract';
+      ELSE
+        v_json := jsonb_set(v_json, '{customerInvoiceContract}', to_jsonb(p_patch->>'customerInvoiceContract'));
+      END IF;
+    END IF;
+  END IF;
+  UPDATE public.customer_invoice_header
+     SET "rowJSON" = v_json,
+         "rowOwnerGUID" = COALESCE(NULLIF(p_patch->>'legalEntityGUID', ''), h."rowOwnerGUID",
+                                   (SELECT NULLIF(k."rowJSON"->>'legalEntityGUID', '') FROM public."contractTable" k WHERE k."rowGUID" = NULLIF(v_json->>'customerInvoiceContract', '')))
+   WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.customer_invoice_set_header(uuid, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.customer_invoice_set_header(uuid, jsonb) TO authenticated;
+
+
+
+-- ---- customer_invoice_add_line(header, genus): ONE independent line (no task line) of a DRAFT; its task is the one the document was made from; the project setting independentInvoiceInputAvailable must not be false ----
+CREATE OR REPLACE FUNCTION public.customer_invoice_add_line(p_header uuid, p_genus text DEFAULT 'revenueGenus') RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_task uuid; v_project uuid; v_line uuid := gen_random_uuid();
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted customer invoice cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF p_genus <> 'revenueGenus' THEN
+    RAISE EXCEPTION 'unknown kind of line %', p_genus USING ERRCODE = '22023';
+  END IF;
+  SELECT t."rowGUID", t."projectGUID" INTO v_task, v_project FROM public.project_task_table t
+   WHERE t."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceTask', ''), (SELECT l."rowOwnerGUID"::text FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header ORDER BY l."orderInList", l."created_at" LIMIT 1));
+  IF v_task IS NULL THEN
+    RAISE EXCEPTION 'the task of this customer invoice is not known' USING ERRCODE = '23503';
+  END IF;
+  v_project := COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceProject', '')::uuid, v_project);
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.vendor_project_setting(v_project, 'customerInvoiceFunctionalityEnabled') THEN
+    RAISE EXCEPTION 'customer invoices are switched off in the project settings (Customer)' USING ERRCODE = '23514';
+  END IF;
+  INSERT INTO public.customer_invoice_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "taskLineGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON")
+  VALUES (v_line, p_header, v_project, v_task, NULL, p_genus,
+          COALESCE((SELECT max(l."orderInList") FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header), 0) + 1, 0, 0, 0, '{}'::jsonb);
+  RETURN v_line;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.customer_invoice_add_line(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.customer_invoice_add_line(uuid, text) TO authenticated;
+
+
+-- ---- post / unpost / delete ----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.post_customer_invoice(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_problems jsonb := '[]'::jsonb; v_lines integer;
+BEGIN
+  SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  SELECT count(*) INTO v_lines FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header;
+  IF v_lines = 0 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'customerInvoicePartner', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'customerMissing');
+  END IF;
+  IF h."rowOwnerGUID" IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'legalEntityMissing');
+  END IF;
+  IF NULLIF(btrim(COALESCE(h."rowJSON"->>'customerInvoiceNumber', '')), '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'invoiceNumberMissing');
+  END IF;
+  IF NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '') IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'invoiceDateMissing');
+  END IF;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
+    FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyInvoiced" = 0;
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
+    FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+  UPDATE public.customer_invoice_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_register_customer_invoice(p_header);       -- the 'sold' movements of the register, in this transaction
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_customer_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.post_customer_invoice(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.unpost_customer_invoice(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public.customer_invoice_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_unregister(p_header);
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.unpost_customer_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.unpost_customer_invoice(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.delete_customer_invoice(p_header uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted customer invoice cannot be deleted: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  DELETE FROM public.customer_invoice_header WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_customer_invoice(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.delete_customer_invoice(uuid) TO authenticated;
+
+
+-- ---- customer_invoice_list(filter, limit, offset): the documents with the totals of their lines and the totals PER CURRENCY (currencies are never added) --------------------------------
+-- filter keys: documentGUIDs (an array), legalEntityGUID, partnerGUID, contractGUID, currency, status, number (contains), fromDay / toDay (the date of the invoice), author (contains),
+--   taskGUID (the document has a line of that task; a document without lines: the task it was made from) · taskLineGUID (the document has a line made from that task line) - the menu "Go to → Customer invoices"
+CREATE OR REPLACE FUNCTION public.customer_invoice_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+  v_result jsonb;
+BEGIN
+  WITH docs AS (
+    SELECT h."rowGUID" AS "documentGUID",
+           h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+           COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           COALESCE(h."rowJSON"->>'customerInvoiceNumber', '') AS "customerInvoiceNumber",
+           NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '') AS "customerInvoiceDateTime",
+           ((NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date AS "customerInvoiceDay",
+           h."rowOwnerGUID" AS "legalEntityGUID", COALESCE(le."rowJSON"->>'title', le."rowGUID", '') AS "legalEntityTitle",
+           NULLIF(h."rowJSON"->>'customerInvoicePartner', '') AS "partnerGUID", COALESCE(pt."rowJSON"->>'partnerTitle', '') AS "partnerTitle",
+           NULLIF(h."rowJSON"->>'customerInvoiceContract', '') AS "contractGUID",
+           COALESCE(NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''), '') AS "contractInfo",
+           COALESCE(h."rowJSON"->>'customerInvoiceCurrency', '') AS "currency",
+           h."rowJSON"->>'customerInvoiceFolder' AS "folder",
+           tk."rowGUID"::text AS "taskGUID",
+           pr."rowGUID"::text AS "projectGUID", COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', '') AS "projectName",
+           (pr."rowGUID" IS NOT NULL AND public.vendor_project_setting(pr."rowGUID", 'customerInvoiceFunctionalityEnabled')) AS "independentInputAvailable",
+           h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
+           COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
+           h."created_at" AS "sortAt",
+           (SELECT count(*) FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
+           (SELECT COALESCE(sum(l."sumForContract"), 0) FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumBeforeVAT",
+           (SELECT COALESCE(sum(l."vatForContract"), 0) FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumVAT"
+      FROM public.customer_invoice_header h
+      LEFT JOIN public."legalEntityTable" le ON le."rowGUID" = h."rowOwnerGUID"
+      LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = h."rowJSON"->>'customerInvoicePartner'
+      LEFT JOIN public."contractTable" ck ON ck."rowGUID" = h."rowJSON"->>'customerInvoiceContract'
+      LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+      LEFT JOIN public.project_task_table tk ON tk."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceTask', ''),
+                                                  (SELECT l."rowOwnerGUID"::text FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1))
+      -- the project of the document = the header field customerInvoiceProject (a document made before it: the project of its task)
+      LEFT JOIN public.project_table pr ON pr."rowGUID"::text = COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceProject', ''), tk."projectGUID"::text)
+     WHERE (NOT f ? 'documentGUIDs'   OR h."rowGUID"::text IN (SELECT jsonb_array_elements_text(f->'documentGUIDs')))
+       AND (NOT f ? 'legalEntityGUID' OR h."rowOwnerGUID" = f->>'legalEntityGUID')
+       AND (NOT f ? 'partnerGUID'     OR h."rowJSON"->>'customerInvoicePartner' = f->>'partnerGUID')
+       AND (NOT f ? 'contractGUID'    OR h."rowJSON"->>'customerInvoiceContract' = f->>'contractGUID')
+       AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'customerInvoiceCurrency', '') = f->>'currency')
+       AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'taskGUID'        OR EXISTS (SELECT 1 FROM public.customer_invoice_lines tl WHERE tl."rowHeaderGUID" = h."rowGUID" AND tl."rowOwnerGUID"::text = f->>'taskGUID')
+            OR (tk."rowGUID"::text = f->>'taskGUID' AND NOT EXISTS (SELECT 1 FROM public.customer_invoice_lines nl WHERE nl."rowHeaderGUID" = h."rowGUID")))
+       AND (NOT f ? 'taskLineGUID'    OR EXISTS (SELECT 1 FROM public.customer_invoice_lines ll WHERE ll."rowHeaderGUID" = h."rowGUID" AND ll."taskLineGUID"::text = f->>'taskLineGUID'))
+       AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'customerInvoiceNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
+       AND (NOT f ? 'fromDay'         OR ((NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date >= (f->>'fromDay')::date)
+       AND (NOT f ? 'toDay'           OR ((NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date <= (f->>'toDay')::date)
+       AND (NOT f ? 'author'          OR NULLIF(btrim(f->>'author'), '') IS NULL
+            OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
+  ), page AS (SELECT * FROM docs ORDER BY "sortAt" DESC, "documentGUID" LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0))
+  SELECT jsonb_build_object(
+           'totalCount', (SELECT count(*) FROM docs),
+           'totalsByCurrency', COALESCE((SELECT jsonb_agg(jsonb_build_object('currency', d.cur, 'count', d.n, 'sumBeforeVAT', d.s, 'sumVAT', d.v, 'sumWithVAT', d.s + d.v) ORDER BY d.cur)
+                                           FROM (SELECT "currency" AS cur, count(*) AS n, sum("sumBeforeVAT") AS s, sum("sumVAT") AS v FROM docs GROUP BY "currency") d), '[]'::jsonb),
+           'rows', COALESCE((SELECT jsonb_agg(to_jsonb(page) - 'sortAt' || jsonb_build_object('sumWithVAT', page."sumBeforeVAT" + page."sumVAT") ORDER BY page."sortAt" DESC, page."documentGUID") FROM page), '[]'::jsonb))
+    INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.customer_invoice_list(jsonb, integer, integer) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.customer_invoice_list(jsonb, integer, integer) TO authenticated;
+
+
+
+
+-- Check:
+--   SELECT public.customer_invoice_candidates('<task rowGUID>');
+--   SELECT public.create_customer_invoices('<task rowGUID>', '[{"partnerGUID": "<customer>", "contractGUID": null, "lineGUIDs": ["<revenue task line>"]}]'::jsonb, '<legal entity>');
+--   SELECT * FROM public.project_status_movements WHERE "rowMovementKind" = 'sold';      -- the column Customer Invoice of Monitor01
+
+NOTIFY pgrst, 'reload schema';
 
 -- upgrade 2026-10-18: the text of a task row is rowJSON.taskDescription (it was rowJSON.name; the projects keep name).
 -- Existing rows of the three task tables are renamed ONCE (idempotent: a row without the key 'name' is not touched). The user triggers

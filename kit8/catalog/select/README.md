@@ -24,5 +24,5 @@ Pure side: `withFoldersModel.ts`. Tests: `__tests__/catalog/select/with_folders`
 
 First users (task line table, `kit8/pm/view/task/finances/taskLineColumns.tsx`; each is a `renderPicker` of a catalog column, so title / search / fill column stay as they were):
 * **Budget item** - `data.budgetItem`, `isBudgetItemFolder`, the items of the genus of the tab.
-* **Product** - views Tree | Tree + items | List; `productRowsWithFolders(data.productFolder, data.product)` (`kit8/catalog/product/productSelectModel.ts`: a product's `rowParentGUID` is its folder, `empty` = no folder = shown at the top level), columns Description + SKU, the List shows title + description.
+* **Product** - views Tree | Tree + items | List; `productRowsWithFolders(data.productFolder, data.product)` (`kit8/catalog/product/productSelectModel.ts`: a product's `rowParentGUID` is its folder, `empty` = no folder = shown at the top level), columns Item number / Search name join Description + SKU while the project switches say so (`productSelectColumns(fields)`, `productSubtitle`; a `WithFoldersColumn` with `searchOnly` is searched but not drawn), columns Description + SKU, the List shows title + description.
 

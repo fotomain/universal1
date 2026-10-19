@@ -1,11 +1,14 @@
 # Local Postgres 15 for testing kit8/sql/start/*.sql (Supabase is only stubbed, see init/00_supabase_stubs.sql).
 #   docker compose up -d          start (first start runs init/*.sql)
+#   ./test_cron.sh                the pg_cron schedule of the Monitor01 worker for real (database sqlcron)
 #   ./test_sql.sh                 recreate a fresh database, run start1_sql_tables.sql + start2_sql_code.sql, delete_sql_structure.sql and verify
 #   docker compose down -v        stop and throw the data away
 services:
   db:
-    image: postgres:15
-    pull_policy: never   # the image is already local; Docker Desktop hangs when it asks the registry (first time: docker pull postgres:15)
+    build: .             # postgres:15 + pg_cron (Dockerfile); the base image is local, only the apt package is downloaded (docker compose build)
+    image: universal1-pgtest:15-cron
+    pull_policy: never   # Docker Desktop hangs when it asks the registry for an image that is local (first time: docker pull postgres:15, then docker compose build)
+    command: ["postgres", "-c", "shared_preload_libraries=pg_cron", "-c", "cron.database_name=sqlcron"]
     container_name: universal1-pgtest
     environment:
       POSTGRES_PASSWORD: postgres

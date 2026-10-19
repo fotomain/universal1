@@ -86,7 +86,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       // sorted by name
       children: [
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
-        { id: 'budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'catalog/budget/item/list' },
+        { id: 'budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
         // the scenarios a project budgets in (Plan | Fact): a plain table
         { id: 'budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
         // the business units (a tree of any depth; cost / revenue / profit / investment centers) - replaces the old Departments catalog
@@ -132,6 +132,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'documents-productreceipts', label: 'Product receipts', icon: 'move_to_inbox', route: 'pm/product-receipt/list' },
         { id: 'documents-purchaseorders', label: 'Purchase orders', icon: 'shopping_cart', route: 'pm/purchase-order/list' },
         { id: 'documents-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
+        { id: 'documents-customerinvoices', label: 'Customer invoices', icon: 'payments', route: 'pm/customer-invoice/list' },
       ],
     },
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
@@ -153,7 +154,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       icon: 'account_balance_wallet',
       route: '',
       children: [
-        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'request_quote', route: 'catalog/budget/item/list' },
+        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
         { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
         { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },

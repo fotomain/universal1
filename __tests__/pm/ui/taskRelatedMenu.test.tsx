@@ -8,12 +8,14 @@ const mockPush = jest.fn();
 const mockFact = jest.fn();
 const mockInvoice = jest.fn();
 const mockOrder = jest.fn();
+const mockCustomer = jest.fn();
 const mockCreateSub = jest.fn(async () => 'sub-1');
 const mockOpenBoard = jest.fn();
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('../../../kit8/documents/fact/input/useOpenFactInput', () => ({ useOpenFactInput: () => mockFact }));
 jest.mock('../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockInvoice, busy: false }) }));
+jest.mock('../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockCustomer, busy: false }) }));
 jest.mock('../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockOrder, busy: false }) }));
 jest.mock('../../../kit8/pm/subproject/useCreateSubproject', () => ({ useCreateSubproject: () => ({ create: (...a: any[]) => (mockCreateSub as any)(...a), busy: false }) }));
 jest.mock('../../../kit8/pm/view/project/dashboardDeepLink', () => ({ ...jest.requireActual('../../../kit8/pm/view/project/dashboardDeepLink'), openProjectBoard: (...a: any[]) => mockOpenBoard(...a) }));
@@ -138,6 +140,78 @@ describe('Go to', () => {
     open('Task 111', { task: { taskIsSubproject: true, taskSubprojectGUID: null } });
     press('pm-row-menu-goto');
     expect(q('pm-row-menu-goto-subproject')).toBeNull();
+  });
+});
+
+describe('Customer invoice (project switch customerInvoiceFunctionalityEnabled, true by default)', () => {
+  it('Create based on this → Customer Invoice and Go to → Customer invoices are there by default; they work on the Deliverable (Revenue) lines of the TASK', () => {
+    const t = open('Task 111');
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-customer-invoice')).not.toBeNull();
+    press('pm-row-menu-create-customer-invoice');
+    expect(mockCustomer).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID });
+    expect(usePMStore.getState().rowMenu).toBeNull();
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-goto');
+    expect(q('pm-row-menu-goto-customer-invoices')).not.toBeNull();
+    press('pm-row-menu-goto-customer-invoices');
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/customer-invoice/list', params: { taskGUID: t.rowGUID } });
+  });
+  it('the items come after Vendor Invoice (Create) and after Vendor invoices (Go to)', () => {
+    open('Task 111');
+    press('pm-row-menu-create');
+    const create = ids().filter((i) => /^pm-row-menu-create-/.test(i));
+    expect(create.indexOf('pm-row-menu-create-customer-invoice')).toBeGreaterThan(create.indexOf('pm-row-menu-create-purchase-order'));
+    cleanupUI();
+    open('Task 111');
+    press('pm-row-menu-goto');
+    const go = ids().filter((i) => /^pm-row-menu-goto-/.test(i));
+    expect(go.indexOf('pm-row-menu-goto-customer-invoices')).toBe(go.indexOf('pm-row-menu-goto-vendor-invoices') + 1);
+  });
+  it('the switch OFF: neither item', () => {
+    open('Task 111', { project: { customerInvoiceFunctionalityEnabled: false } });
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-fact')).not.toBeNull();
+    expect(q('pm-row-menu-create-customer-invoice')).toBeNull();
+    cleanupUI();
+    open('Task 111', { project: { customerInvoiceFunctionalityEnabled: false } });
+    press('pm-row-menu-goto');
+    expect(q('pm-row-menu-goto-customer-invoices')).toBeNull();
+  });
+});
+
+describe('Customer invoice in the line menu of the Finances table', () => {
+  const { useTaskRelatedMenu } = require('../../../kit8/pm/view/task/useTaskRelatedMenu');
+  let build: any;
+  function Probe() { build = useTaskRelatedMenu(); return null; }
+  const items = (ctx: any) => {
+    const [create, goto] = build({ idPrefix: 'm', close: jest.fn(), ...ctx });
+    return { create: create.submenu.map((i: any) => i.testID), goto: goto.submenu.map((i: any) => i.testID), createItems: create.submenu };
+  };
+  it('a Deliverable (Revenue) line: Customer Invoice and Customer invoices (no vendor items); a Material line: the vendor items only', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    renderUI(<Probe />);
+    const rev = items({ taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: 'l-rev', genus: 'revenueGenus', noVendor: true });
+    expect(rev.create).toContain('m-create-customer-invoice');
+    expect(rev.create).not.toContain('m-create-vendor-invoice');
+    expect(rev.goto).toContain('m-goto-customer-invoices');
+    const mat = items({ taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: 'l-mat', genus: 'materialGenus' });
+    expect(mat.create).toContain('m-create-vendor-invoice');
+    expect(mat.create).not.toContain('m-create-customer-invoice');
+    expect(mat.goto).not.toContain('m-goto-customer-invoices');
+  });
+  it('the item of a Revenue line creates the invoice of THAT line (lineGUIDs), or asks first when the menu gives onCustomerInvoice', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    renderUI(<Probe />);
+    const ask = jest.fn();
+    items({ taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: 'l-rev', genus: 'revenueGenus', noVendor: true }).createItems.find((i: any) => i.testID === 'm-create-customer-invoice').onPress();
+    expect(mockCustomer).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID, lineGUIDs: ['l-rev'] });
+    mockCustomer.mockClear();
+    items({ taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: 'l-rev', genus: 'revenueGenus', noVendor: true, onCustomerInvoice: ask }).createItems.find((i: any) => i.testID === 'm-create-customer-invoice').onPress();
+    expect(ask).toHaveBeenCalled();
+    expect(mockCustomer).not.toHaveBeenCalled();
   });
 });
 

@@ -13,6 +13,7 @@ import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGe
 import { pmT } from '../../../pm/i18n/pmT';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import { PRODUCT_RECEIPT_ALL_TAB, PRODUCT_RECEIPT_LINES_ENTITY, PRODUCT_RECEIPT_TABS, ProductReceiptHeaderView } from './productReceiptModel';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 export interface PMProductReceiptDocumentLinesProps {
   /** the open document; null = none (the "not found" text, or the loading text) */
@@ -41,7 +42,7 @@ export default function PMProductReceiptDocumentLines({ header, tab, onTab, coun
   return (
     <>
       {/* DocumentTabs: All (default) · Time · Material · Expenses */}
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {PRODUCT_RECEIPT_TABS.map((t) => {
           const active = t.id === tab;
           return (
@@ -56,7 +57,7 @@ export default function PMProductReceiptDocumentLines({ header, tab, onTab, coun
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">

@@ -35,7 +35,8 @@
 --   27. create_project_cost_total.sql - the cost total of every task and stage (Time + Material + Expense, plan in the budget currency): project_task_cost_total + the queue project_cost_dirty
 --   28. create_purchase_order.sql - the PURCHASE ORDER document (the vendor invoice logic) + its 'ordered' movements in the project status register + the column Ordered of Monitor01
 --   29. create_subprojects.sql - SUBPROJECTS: project_subproject_link (the index of the tasks that stand for another project); the settings are keys of project_table.rowJSON
---   30. create_product_receipt.sql - the PRODUCT RECEIPT document (the purchase order logic, made from a purchase order) + its 'received' movements in the project status register + the column Delivered of Monitor01
+--   30. create_product_receipt.sql - the PRODUCT RECEIPT document (the purchase order logic, made from a purchase order) + its 'received' movements in the project status register + the column Received of Monitor01
+--   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + the numbers of its 'sold' movements + the group Customer Invoice of Monitor01
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2203,7 +2204,7 @@ CREATE TABLE IF NOT EXISTS public.monitor01_view (
   "hasStalePlan"        BOOLEAN       NOT NULL DEFAULT false,
   "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth"),
-  CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
+  CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'))
 );
 
 -- upgrade: the columns were called qtyDelivered / qtyInvoiced (renamed Received / VendorInvoiced; the generated qtyOnHand follows the rename)
@@ -2707,6 +2708,84 @@ CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_order_line ON public.produc
 
 -- a vendor invoice line made from a product receipt line keeps its GUID in rowJSON.productReceiptLineGUID (what is already invoiced of a received line)
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_receipt_line ON public.vendor_invoice_lines ((("rowJSON"->>'productReceiptLineGUID')));
+
+-- ===============================================================================================
+-- PART 31: create_customer_invoice.sql
+-- the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines of a task): customer_invoice_header + customer_invoice_lines; the numbers of the 'sold' movements in the turnover and the
+-- group Customer Invoice (Qty, Sum) of the Monitor01 view
+-- ===============================================================================================
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "qtySold" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "sumForBudgetSold" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyCustomerInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumCustomerInvoiced" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+-- the Revenue (Deliverable) genus is in the report only through the posted customer invoices: the check of an existing database is widened once
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'monitor01_view_genus_chk' AND conrelid = 'public.monitor01_view'::regclass AND pg_get_constraintdef(oid) LIKE '%revenueGenus%') THEN
+    ALTER TABLE public.monitor01_view DROP CONSTRAINT IF EXISTS monitor01_view_genus_chk;
+    ALTER TABLE public.monitor01_view ADD CONSTRAINT monitor01_view_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus'));
+  END IF;
+END $$;
+
+CREATE SEQUENCE IF NOT EXISTS public.customer_invoice_document_seq;
+
+
+CREATE TABLE IF NOT EXISTS public.customer_invoice_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOwnerGUID"        TEXT        REFERENCES public."legalEntityTable"("rowGUID") ON DELETE RESTRICT,
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT customer_invoice_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
+);
+
+-- a DRAFT made from a task whose lines have no customer has neither a customer nor (when no contract names one) a legal entity: both are chosen in the form before Post (post_customer_invoice checks them)
+ALTER TABLE public.customer_invoice_header ALTER COLUMN "rowOwnerGUID" DROP NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_header_org ON public.customer_invoice_header ("rowOrganizationGUID", "created_at");
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_header_owner ON public.customer_invoice_header ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_header_partner ON public.customer_invoice_header ((("rowJSON"->>'customerInvoicePartner')));
+
+
+CREATE TABLE IF NOT EXISTS public.customer_invoice_lines (
+  "rowGUID"           UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID"     UUID          NOT NULL REFERENCES public.customer_invoice_header("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"    UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"      UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "taskLineGUID"      UUID          REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL,
+  "genusGUID"         TEXT          NOT NULL,
+  "orderInList"       NUMERIC       NOT NULL DEFAULT 0,
+  "qtyInvoiced"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "priceInvoiced"     NUMERIC(18,4) NOT NULL DEFAULT 0,
+  "vatRatioInvoiced"  NUMERIC(7,3)  NOT NULL DEFAULT 0,
+  "sumForBudget"      NUMERIC(18,2),
+  "sumForContract"    NUMERIC(18,2),
+  "vatForContract"    NUMERIC(18,2),
+  "sumForAccounting"  NUMERIC(18,2),
+  "vatForAccounting"  NUMERIC(18,2),
+  "rowJSON"           JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT customer_invoice_lines_qty_chk CHECK ("qtyInvoiced" >= 0 AND "priceInvoiced" >= 0 AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100),
+  CONSTRAINT customer_invoice_lines_genus_chk CHECK ("genusGUID" = 'revenueGenus')
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_header ON public.customer_invoice_lines ("rowHeaderGUID", "genusGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_task ON public.customer_invoice_lines ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_line ON public.customer_invoice_lines ("taskLineGUID");
+
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

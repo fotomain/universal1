@@ -28,7 +28,8 @@ import { fxEnabled, fxProblem, fxSnapshotText, LineFxContext, LineFxProject } fr
 import type { TaskLineGenusDef } from './taskLineModel';
 import { pmT } from '../../../i18n/pmT';
 import { businessUnitNodes, businessUnitPath, businessUnitProblem, isBusinessUnitActive, selectableBusinessUnits } from '../../../../catalog/business_unit/businessUnitModel';
-import { isProductFolder, PRODUCT_SELECT_COLUMNS, productRowsWithFolders } from '../../../../catalog/product/productSelectModel';
+import { isProductFolder, productRowsWithFolders, productSelectColumns, productSubtitle } from '../../../../catalog/product/productSelectModel';
+import { NO_PRODUCT_FIELDS, type ProductFields } from '../../../../catalog/product/productFieldsModel';
 import SelectCatalogItemWithFolders from '../../../../catalog/select/with_folders/SelectCatalogItemWithFolders';
 import SelectCatalogItemFromTreeReusable from '../../../../catalog/select/from_tree/SelectCatalogItemFromTreeReusable';
 import { BUSINESS_UNIT_SOURCE_TEXT, lineBudgetKind } from './taskLineBusinessUnit';
@@ -57,9 +58,11 @@ export interface TaskLineColumnsContext {
   showErrors?: boolean;
   /** Time: the resource kinds the table offers (taskInputScope.ts `timeKindsOffered`); two = the menu "Resource: Person | Equipment". Default: a person only (as before equipment) */
   timeKinds?: TimeResourceKind[];
+  /** the optional product fields (Item number, Search name) of THIS project (productFieldsOfProject): columns / details / search of the product window. Default: none */
+  productFields?: ProductFields;
 }
 
-export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true, timeKinds = ['person'] }: TaskLineColumnsContext): VisualColumn[] {
+export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true, timeKinds = ['person'], productFields = NO_PRODUCT_FIELDS }: TaskLineColumnsContext): VisualColumn[] {
   const unitOptions = data.measureUnit.map((u) => ({ value: u.rowGUID, label: rowTitle(u) || u.rowGUID }));
   const worker = genus.resource !== 'product';
   const kinds = worker && timeKinds.length ? timeKinds : ['person' as const];
@@ -71,6 +74,7 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
   const budgetItemOfGenus = (item: any) => !isBudgetItemFolder(item) && item.rowJSON?.managementGenusItem === genus.genus;
   /** the product folders + the products in one list (the window that chooses a product) */
   const productRows = productRowsWithFolders(data.productFolder, data.product);
+  const productColumns = productSelectColumns(productFields);
   const cols: VisualColumn[] = [
     // the error messages of the line: the first column of the table (after the drag and the select-row columns), before the number; not there when no line has an error
     ...(showErrors ? [{
@@ -221,10 +225,10 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
             testID={testID}
             rows={productRows}
             isFolder={isProductFolder}
-            columns={PRODUCT_SELECT_COLUMNS}
+            columns={productColumns}
             // Tree | Tree + items (the folders on the left, the products of the branch on the right) | List
             views={['tree', 'split', 'list']}
-            subtitleOf={(r) => r.rowJSON?.description || undefined}
+            subtitleOf={(r) => productSubtitle(r, productFields)}
             value={value}
             onChange={(guid) => onChange(guid)}
             title={pmT('Product')}

@@ -2,6 +2,7 @@
 import type { SelectOption } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { DefRow } from '../productModel';
 import { MODE_PROPERTY } from '../productModel';
+import { NO_PRODUCT_FIELDS, productDetailParts, type ProductFields } from '../productFieldsModel';
 import { byGUID, isSet, ProductCatalogData, rowTitle, sortBySort } from './productCatalogTools';
 
 const byTitle = (a: SelectOption, b: SelectOption) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' });
@@ -31,7 +32,8 @@ export interface ProductLabels {
   };
 }
 
-export function buildProductLabels(data: ProductCatalogData): ProductLabels {
+/** `fields`: the optional product fields that are switched on (the item number joins the details of a product in the pick lists) */
+export function buildProductLabels(data: ProductCatalogData, fields: ProductFields = NO_PRODUCT_FIELDS): ProductLabels {
   const idx = {
     valueAddedTax: byGUID(data.valueAddedTax), measureUnit: byGUID(data.measureUnit), descriptorGenus: byGUID(data.descriptorGenus), descriptorValue: byGUID(data.descriptorValue),
     descriptorMode: byGUID(data.descriptorMode), descriptorDestination: byGUID(data.descriptorDestination), descriptorPlan: byGUID(data.descriptorPlan),
@@ -96,15 +98,15 @@ export function buildProductLabels(data: ProductCatalogData): ProductLabels {
     genus: opt(data.descriptorGenus, rowTitle, (r) => [r.rowJSON?.valueType, r.rowJSON?.unit].filter(Boolean).join(' · ')),
     types: opt(data.productType, rowTitle, (r) => r.rowJSON?.variantMode),
     folders: opt(data.productFolder, (r) => folderPath(r.rowGUID)),
-    products: opt(data.product, rowTitle, (r) => [r.rowJSON?.sku, title('productType', r.rowOwnerGUID)].filter(Boolean).join(' · ')),
+    products: opt(data.product, rowTitle, (r) => [...productDetailParts(r, fields), title('productType', r.rowOwnerGUID)].filter(Boolean).join(' · ')),
     destinations: opt(data.descriptorDestination, (r) => rowTitle(r), (r) => `${title('productType', r.rowOwnerGUID)} · ${r.rowParentGUID === MODE_PROPERTY ? 'Property set' : 'Variant set'}`),
     priceTypes: opt(data.priceType, rowTitle, (r) => [r.rowJSON?.currency, r.rowJSON?.vatIncluded ? 'VAT incl.' : 'VAT excl.'].join(' · ')),
     variants: opt(data.variant, (r) => variantLabel(r.rowGUID), (r) => r.rowJSON?.descriptorKey),
     variantOwners: [
       ...opt(data.productType.filter((t) => t.rowJSON?.variantMode === 'perType'), (r) => `Type · ${rowTitle(r)}`),
-      ...opt(data.product.filter((p) => typeById.get(p.rowOwnerGUID)?.rowJSON?.variantMode === 'perProduct'), (r) => `Product · ${rowTitle(r)}`, (r) => r.rowJSON?.sku),
+      ...opt(data.product.filter((p) => typeById.get(p.rowOwnerGUID)?.rowJSON?.variantMode === 'perProduct'), (r) => `Product · ${rowTitle(r)}`, (r) => productDetailParts(r, fields).join(' · ')),
     ],
-    packOwners: [...opt(data.productType, (r) => `Type · ${rowTitle(r)}`), ...opt(data.product, (r) => `Product · ${rowTitle(r)}`, (r) => r.rowJSON?.sku)],
+    packOwners: [...opt(data.productType, (r) => `Type · ${rowTitle(r)}`), ...opt(data.product, (r) => `Product · ${rowTitle(r)}`, (r) => productDetailParts(r, fields).join(' · '))],
     valuesOf: (genusGUID) => (isSet(genusGUID)
       ? sortBySort(data.descriptorValue.filter((v) => v.rowOwnerGUID === genusGUID)).map((v) => ({ value: v.rowGUID, label: rowTitle(v), ...(v.rowJSON?.hex ? { color: v.rowJSON.hex } : {}), ...(v.rowJSON?.code ? { hint: v.rowJSON.code } : {}) }))
       : []),

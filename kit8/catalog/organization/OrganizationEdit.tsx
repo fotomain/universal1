@@ -26,6 +26,7 @@ import {
 import { organizationOwnerOf } from './ensureUserOrganization';
 import { CAPACITY_MODES, CapacityMode, DEFAULT_CAPACITY_MODE, capacityModeOf } from '../../pm/view/task/plan/busyControl';
 import { pmT } from '../../pm/i18n/pmT';
+import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
@@ -243,7 +244,7 @@ export default function OrganizationEdit() {
       )}
 
       {/* TopTabs: Main | Projects (Projects -> Settings = the default settings of a new project) */}
-      <View testID="organization-toptabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID="organization-toptabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
         {ORG_TABS.map((tab) => {
           const on = topTab === tab.id;
           return (
@@ -260,11 +261,11 @@ export default function OrganizationEdit() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       {topTab === 'projects' && (
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-projects-tab-content">
-          <View testID="organization-projects-subtabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
+          <ScrollableTabBar testID="organization-projects-subtabs" style={[styles.topTabsBar, { borderBottomColor: c.border }]}>
             {PROJECTS_TABS.map((tab) => {
               const on = projectsTab === tab.id;
               return (
@@ -280,7 +281,7 @@ export default function OrganizationEdit() {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollableTabBar>
           {projectsTab === 'settings' && (
             <Suspense fallback={null}>
               <OrganizationProjectSettings

@@ -21,6 +21,7 @@ import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaDat
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
+import {customerInvoiceSystemMetaData} from "../documents/customer/invoice/customerInvoiceMetaData";
 import {purchaseOrderSystemMetaData} from "../documents/vendor/purchase_order/purchaseOrderMetaData";
 import {productReceiptSystemMetaData} from "../documents/vendor/product_receipt/productReceiptMetaData";
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
@@ -110,6 +111,7 @@ const SystemMetaData:any = {
     ...budgetScenarioSystemMetaData(),
     ...legalEntitySystemMetaData(),
     ...vendorInvoiceSystemMetaData(),
+    ...customerInvoiceSystemMetaData(),
     ...purchaseOrderSystemMetaData(),
     ...productReceiptSystemMetaData(),
     // Management calendars (kit8/catalog/management/calendar): managementCalendarTable (folders > calendars) + managementCalendarDaysTable (one row per day).

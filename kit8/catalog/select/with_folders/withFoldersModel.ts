@@ -14,7 +14,12 @@ export interface WithFoldersColumn {
   title: string;
   width?: number;
   text: (row: Row) => string;
+  /** not shown as a column, but the search looks in it (the SearchName of a product) */
+  searchOnly?: boolean;
 }
+
+/** the columns the tables show (the search looks in all of them, `searchOnly` ones included) */
+export const shownColumns = (columns: WithFoldersColumn[]): WithFoldersColumn[] => columns.filter((c) => !c.searchOnly);
 
 export const rowTitleText = (r: Row): string => String(r?.rowJSON?.title ?? r?.rowJSON?.name ?? r?.rowGUID ?? '');
 

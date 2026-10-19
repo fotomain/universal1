@@ -25,6 +25,7 @@ import { pmT } from '../../i18n/pmT';
 import { TASK_LINE_PLAN_ROUTE } from '../../view/task/plan/taskLinePlanModel';
 import { useOpenFactInput } from '../../../documents/fact/input/useOpenFactInput';
 import { useOpenVendorInvoice } from '../../../documents/vendor/invoice/useVendorInvoice';
+import { useOpenCustomerInvoice } from '../../../documents/customer/invoice/useCustomerInvoice';
 import { useOpenPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import { useOpenProductReceipt } from '../../../documents/vendor/product_receipt/useProductReceipt';
 import Monitor01FiltersBar from './Monitor01Filters';
@@ -45,6 +46,7 @@ import {
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
 import { useMonitor01Rows } from './useMonitor01Rows';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 export interface Monitor01DashboardProps {
   mode: 'project' | 'standalone';
@@ -65,6 +67,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const router = useRouter();
   const openFactInput = useOpenFactInput();
   const openVendorInvoice = useOpenVendorInvoice();
+  const openCustomerInvoice = useOpenCustomerInvoice();
   const openPurchaseOrder = useOpenPurchaseOrder();
   const openProductReceipt = useOpenProductReceipt();
   const dispatch = useDispatch();
@@ -212,7 +215,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     setDrill({ key: `${item.key}|${cell.measure}|${Date.now()}`, title: `${what} · ${pmT(MONITOR01_MEASURE_TITLE[cell.measure])}`, subtitle: item.kind === 'row' ? item.row.projectName : '', value: cell.value, unit: unit ? unitTitle(unit) : '', measure: cell.measure, filter });
   }, [filters, scopeProject, unitTitle]);
 
-  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openPurchaseOrder: (documentGUID, taskGUID) => { setDrill(null); openPurchaseOrder({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openProductReceipt: (documentGUID, taskGUID) => { setDrill(null); openProductReceipt({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, openPurchaseOrder, openProductReceipt, scopeProject]);
+  const sources = useMemo(() => (drill ? buildMonitor01Sources(supabase, drill.measure, drill.filter, { openPlan, openTaskLine, openFactDocument: (documentGUID, taskGUID) => { setDrill(null); openFactInput({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openVendorInvoice: (documentGUID, taskGUID) => { setDrill(null); openVendorInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openCustomerInvoice: (documentGUID, taskGUID) => { setDrill(null); openCustomerInvoice({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openPurchaseOrder: (documentGUID, taskGUID) => { setDrill(null); openPurchaseOrder({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); }, openProductReceipt: (documentGUID, taskGUID) => { setDrill(null); openProductReceipt({ taskGUID, documentGUID, projectGUID: scopeProject ?? undefined }); } }) : []), [drill, supabase, openPlan, openTaskLine, openFactInput, openVendorInvoice, openCustomerInvoice, openPurchaseOrder, openProductReceipt, scopeProject]);
 
   // the header (and the TotalsRow) have the background of the header of ReusableTable: the surfaceVariant of the paper theme
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
@@ -240,7 +243,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={applyFilters} showProject={mode === 'standalone'} projectItems={projectItems} taskItems={taskItems} resourceItems={resourceItems} />
       </View>
 
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {MONITOR01_TABS.map((t) => {
           const active = t.id === tab;
           return (
@@ -251,7 +254,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       {!!data.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{data.error}</Text>}
       {!!refreshError && <Text testID={`${testID}-refresh-error`} style={{ color: c.error, padding: 10 }}>{pmT('Refresh failed')}: {refreshError}</Text>}

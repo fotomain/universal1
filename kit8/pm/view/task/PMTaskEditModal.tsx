@@ -51,6 +51,7 @@ export type TaskEditTab = 'TabMain' | 'TabUXUI';
 
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
 import ShareScreenshotButton from '../../../ui/components/common/ShareScreenshotButton';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 export default function PMTaskEditModal({
   crud,
@@ -406,7 +407,7 @@ export default function PMTaskEditModal({
           </View>
 
           {/* TopTabs Bar: TabMain, TabUXUI */}
-          <View testID="pm-task-edit-toptabs" style={styles.topTabsBar}>
+          <ScrollableTabBar testID="pm-task-edit-toptabs" style={styles.topTabsBar}>
             {[
               { id: 'TabMain' as const, label: 'Main', icon: 'info' },
               { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
@@ -446,7 +447,7 @@ export default function PMTaskEditModal({
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollableTabBar>
 
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1, marginTop: 8 }} contentContainerStyle={{ paddingBottom: 12 }}>
             {/* TabMain content */}

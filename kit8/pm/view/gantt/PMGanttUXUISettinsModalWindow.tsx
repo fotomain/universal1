@@ -37,6 +37,7 @@ import PMCommandsModeSelector from '../project/settings/PMCommandsModeSelector';
 import { normalizeTreeColumnsOrder, PM_TREE_COLUMNS_DEFAULT_ORDER, sameTreeColumnsOrder, treeColumnTitle } from '../tree/columns/treeColumns';
 import { PM_COLUMN_FILTER_ICON_COLORS, PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../tree/filter/treeColumnFilter';
 import { pmT } from '../../i18n/pmT';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 type Draft = Required<PMUxUiSettings>;
 
@@ -184,7 +185,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
             ))}
 
           {/* ---- top tabs ---- */}
-          <View style={[styles.tabs, { borderColor: c.border }]} accessibilityRole="tablist">
+          <ScrollableTabBar style={[styles.tabs, { borderColor: c.border }]}>
             {PM_UXUI_TABS.map((t) => {
               const active = tab === t.key;
               return (
@@ -202,7 +203,7 @@ export default function PMGanttUXUISettinsModalWindow({ crud }: { crud: PMCrud }
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollableTabBar>
 
           <OptContext.Provider value={optCtx}>
           {/* the tab panel takes the rest of the fixed card height: switching tabs never resizes the window */}

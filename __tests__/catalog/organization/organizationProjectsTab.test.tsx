@@ -87,6 +87,20 @@ describe('OrganizationEdit - Main | Projects -> Settings', () => {
     expect(input.checked).toBe(true);
   });
 
+  it('Projects -> Settings -> Product: the Product switches (off by default) are saved in the defaults - the Product catalog of the organization reads them', async () => {
+    renderUI(<OrganizationEdit />);
+    press('organization-tab-projects');
+    await wait(50);
+    press('organization-project-settings-tab-product');
+    expect(q('pm-project-tab-product-content')).not.toBeNull();
+    toggleSwitch('pm-project-search-name-enabled');
+    press('organization-save');
+    const d = mockUpdateOne.mock.calls[0][0].rowJSON.defaultProjectSettings;
+    expect(d.searchNameFunctionalityEnabled).toBe(true);
+    expect(d.itemNumberFunctionalityEnabled).toBe(false);
+    expect(d.searchNameFunctionalityVisibleInProjects).toBe(false);
+  });
+
   it('a user who cannot edit the organization cannot change the defaults', async () => {
     (globalThis as any).__pmTestReduxState.activeUserState = { activeUserEmail: 'other@universal.io' };
     renderUI(<OrganizationEdit />);

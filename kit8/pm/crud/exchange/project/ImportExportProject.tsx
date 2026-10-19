@@ -22,6 +22,7 @@ import { PMRowJSON } from '../../../model/types';
 import { usePMStore } from '../../../store/store_pm';
 import { projectDataFileName } from './projectExchangeFormat';
 import { useProjectExchange } from './useProjectExchange';
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export default function ImportExportProject({
   ownerGUID,
@@ -56,7 +57,7 @@ export default function ImportExportProject({
       <Text style={[styles.title, { color: colors.text }]}>{pmT('Import / Export')}</Text>
 
       {/* ---- top tabs ---- */}
-      <View style={[styles.tabs, { borderColor: colors.border }]} accessibilityRole="tablist">
+      <ScrollableTabBar style={[styles.tabs, { borderColor: colors.border }]}>
         {PM_EXCHANGE_TABS.map((t) => {
           const active = tab === t.key;
           return (
@@ -74,7 +75,7 @@ export default function ImportExportProject({
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       <View style={styles.panel} testID={`pm-project-exchange-panel-${tab}`}>
         {tab === 'TabImport' ? (

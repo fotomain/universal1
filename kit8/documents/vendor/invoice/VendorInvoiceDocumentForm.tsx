@@ -42,6 +42,7 @@ import {
   formatMoney, vendorInvoiceDocumentPath, vendorInvoiceLinesOf, vendorInvoiceMissing, vendorInvoiceProblemText, vendorInvoiceTotals,
 } from './vendorInvoiceModel';
 import { useVendorInvoiceDocuments, useVendorInvoiceLinePlaces } from './useVendorInvoice';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 // the project tree window (it carries the whole dashboard, Skia included) is loaded when the user opens it
 const PMProjectPickerModal = React.lazy(() => Promise.resolve(require('../../../pm/view/project/pick/PMProjectPickerModal')));
@@ -297,7 +298,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
       )}
 
       {/* DocumentTabs: All (default) · Time · Material · Expenses */}
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {VENDOR_INVOICE_TABS.map((t) => {
           const active = t.id === tab;
           return (
@@ -312,7 +313,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {doc.isLoading && <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('Loading…')}</Text>}

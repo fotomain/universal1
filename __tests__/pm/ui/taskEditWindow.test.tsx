@@ -24,6 +24,7 @@ jest.mock('../../../kit8/pm/view/task/finances/PMTaskEditView', () => ({ __esMod
 jest.mock('../../../kit8/documents/fact/input/PMFactInputDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-fact-list" data-task={p.taskGUID} data-project={p.projectGUID} /> }));
 jest.mock('../../../kit8/documents/vendor/product_receipt/PMProductReceiptDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-receipt-list" data-task={p.taskGUID} /> }));
 jest.mock('../../../kit8/documents/vendor/invoice/VendorInvoiceDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-invoice-list" data-task={p.taskGUID} /> }));
+jest.mock('../../../kit8/documents/customer/invoice/CustomerInvoiceDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-customer-list" data-task={p.taskGUID} /> }));
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), navigate: mockNavigate, replace: jest.fn(), back: jest.fn() }), useNavigation: () => ({ setOptions: jest.fn() }) }));
 
 const PMTaskEditWindow = require('../../../kit8/pm/view/task/edit/PMTaskEditWindow').default;
@@ -116,15 +117,16 @@ describe('PMTaskEditWindow', () => {
     expect(q('stub-fact-list')).not.toBeNull(); // kept
   });
 
-  it('TabTaskEditFact: 2nd level tabs TabFactInput · TabProductReceipt · TabVendorInvoice, each list of THIS task, created on its first visit and kept', () => {
+  it('TabTaskEditFact: 2nd level tabs TabFactInput · TabProductReceipt · TabVendorInvoice · TabCustomerInvoice, each list of THIS task, created on its first visit and kept', () => {
     const t = openWindow('Task 111');
     press('pm-task-edit-window-TabTaskEditFact');
     const ids = Array.from(document.querySelectorAll('[data-testid^="pm-task-edit-fact-Tab"]')).map((e) => e.getAttribute('data-testid'));
-    expect(ids).toEqual(['pm-task-edit-fact-TabFactInput', 'pm-task-edit-fact-TabProductReceipt', 'pm-task-edit-fact-TabVendorInvoice']);
+    expect(ids).toEqual(['pm-task-edit-fact-TabFactInput', 'pm-task-edit-fact-TabProductReceipt', 'pm-task-edit-fact-TabVendorInvoice', 'pm-task-edit-fact-TabCustomerInvoice']);
     // only the first tab is built; the other lists are not read before the user opens them
     expect(q('stub-fact-list')).not.toBeNull();
     expect(q('stub-receipt-list')).toBeNull();
     expect(q('stub-invoice-list')).toBeNull();
+    expect(q('stub-customer-list')).toBeNull();
     press('pm-task-edit-fact-TabProductReceipt');
     expect(q('stub-receipt-list')!.getAttribute('data-task')).toBe(t.rowGUID);
     expect(hidden('pm-task-edit-fact-content-TabProductReceipt')).toBe(false);
@@ -135,9 +137,21 @@ describe('PMTaskEditWindow', () => {
     expect(hidden('pm-task-edit-fact-content-TabVendorInvoice')).toBe(false);
     expect(hidden('pm-task-edit-fact-content-TabProductReceipt')).toBe(true);
     expect(q('pm-task-edit-tab-vendor-invoice')!.contains(q('stub-invoice-list'))).toBe(true);
+    press('pm-task-edit-fact-TabCustomerInvoice');
+    expect(q('stub-customer-list')!.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(hidden('pm-task-edit-fact-content-TabCustomerInvoice')).toBe(false);
+    expect(q('pm-task-edit-tab-customer-invoice')!.contains(q('stub-customer-list'))).toBe(true);
     press('pm-task-edit-fact-TabFactInput');
     expect(q('stub-receipt-list')).not.toBeNull(); // kept
     expect(q('stub-invoice-list')).not.toBeNull();
+  });
+
+  it('the Customer invoice tab is there only while the project switch customerInvoiceFunctionalityEnabled is on (the default)', () => {
+    const t = openWindow('Task 111');
+    act(() => usePMStore.setState((st: any) => ({ projectsById: { ...st.projectsById, [t.projectGUID]: { ...st.projectsById[t.projectGUID], rowJSON: { ...st.projectsById[t.projectGUID].rowJSON, customerInvoiceFunctionalityEnabled: false } } } })));
+    press('pm-task-edit-window-TabTaskEditFact');
+    expect(q('pm-task-edit-fact-TabCustomerInvoice')).toBeNull();
+    expect(q('pm-task-edit-fact-TabVendorInvoice')).not.toBeNull();
   });
 
   it('the three 1st level tabs, in this order: Main · Plan · Fact', () => {

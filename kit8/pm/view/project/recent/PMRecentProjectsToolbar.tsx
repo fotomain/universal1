@@ -68,6 +68,8 @@ import { useBusinessUnitData } from "../../../../catalog/business_unit/useBusine
 import { defaultProjectCenters, projectCentersError } from "../../../../catalog/business_unit/businessUnitModel";
 import PMProjectBudgetsTab, { budgetsValuesOf, type BudgetsSubTab, type PMProjectBudgetsValues } from "../settings/PMProjectBudgetsTab";
 import PMProjectVendorTab, { vendorValuesOf, type PMProjectVendorValues } from "../settings/PMProjectVendorTab";
+import PMProjectCustomerTab, { customerValuesOf, type PMProjectCustomerValues } from "../settings/PMProjectCustomerTab";
+import PMProjectProductTab, { productValuesOf, type PMProjectProductValues } from "../settings/PMProjectProductTab";
 import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } from "../settings/PMProjectSubprojectsTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
@@ -81,10 +83,11 @@ import { useMyOrganization } from "../../../../catalog/organization/useMyOrganiz
 import { defaultProjectSettingsOf, newProjectPatchFrom } from "../../../../catalog/organization/defaultProjectSettings";
 import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabSubprojects' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMSubprojectValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -273,6 +276,8 @@ export default function PMRecentProjectsToolbar({
       projectManagerPerson: null,
       ...budgetsValuesOf(null),
       ...vendorValuesOf(null),
+      ...customerValuesOf(null),
+      ...productValuesOf(null),
       ...subprojectValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
@@ -317,6 +322,8 @@ export default function PMRecentProjectsToolbar({
       projectManagerPerson: project.rowJSON.projectManagerPerson ?? null,
       ...budgetsValuesOf(project.rowJSON),
       ...vendorValuesOf(project.rowJSON),
+      ...customerValuesOf(project.rowJSON),
+      ...productValuesOf(project.rowJSON),
       ...subprojectValuesOf(project.rowJSON),
     });
   };
@@ -430,6 +437,8 @@ export default function PMRecentProjectsToolbar({
             projectManagerPerson: draft.projectManagerPerson ?? null,
             ...budgetsValuesOf(draft),
             ...vendorValuesOf(draft),
+            ...customerValuesOf(draft),
+            ...productValuesOf(draft),
             ...subprojectValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
@@ -460,7 +469,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), subprojectValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -748,12 +757,14 @@ export default function PMRecentProjectsToolbar({
                 </Pressable>
               </View>
 
-              {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
-              <View testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
+              {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
+              <ScrollableTabBar testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
                   { id: 'TabVendor' as const, label: 'Vendor', icon: 'receipt_long' },
+                  { id: 'TabCustomer' as const, label: 'Customer', icon: 'request_quote' },
+                  { id: 'TabProduct' as const, label: 'Product', icon: 'inventory_2' },
                   { id: 'TabSubprojects' as const, label: 'Subprojects', icon: 'account_tree' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
@@ -794,7 +805,7 @@ export default function PMRecentProjectsToolbar({
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollableTabBar>
 
               <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 {activeTab === 'TabMain' && (
@@ -890,6 +901,14 @@ export default function PMRecentProjectsToolbar({
 
                 {activeTab === 'TabVendor' && (
                   <PMProjectVendorTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
+
+                {activeTab === 'TabCustomer' && (
+                  <PMProjectCustomerTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
+
+                {activeTab === 'TabProduct' && (
+                  <PMProjectProductTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabSubprojects' && (

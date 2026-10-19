@@ -2,25 +2,34 @@
 //   TabFactInput       the fact input documents (TabFactInput.tsx)
 //   TabProductReceipt  the product receipts (TabProductReceipt.tsx)
 //   TabVendorInvoice   the vendor invoices (TabVendorInvoice.tsx)
+//   TabCustomerInvoice the customer invoices (TabCustomerInvoice.tsx; only while the project switch customerInvoiceFunctionalityEnabled is on)
 // A list is created when its tab is first opened (it reads the database) and kept after that.
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../../../ui/components/common/IconApp';
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import { pmT } from '../../../i18n/pmT';
 import TabFactInput from './TabFactInput';
 import TabProductReceipt from './TabProductReceipt';
 import TabVendorInvoice from './TabVendorInvoice';
+import TabCustomerInvoice from './TabCustomerInvoice';
+import { usePMStore } from '../../../store/store_pm';
+import { customerInvoiceEnabledOf } from '../../project/settings/PMProjectCustomerTab';
 
-export type TaskEditFactTab = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice';
+export type TaskEditFactTab = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice' | 'TabCustomerInvoice';
 export const TASK_EDIT_FACT_TABS: { id: TaskEditFactTab; label: string; icon: string }[] = [
   { id: 'TabFactInput', label: 'Fact input', icon: 'fact_check' },
   { id: 'TabProductReceipt', label: 'Product receipt', icon: 'move_to_inbox' },
   { id: 'TabVendorInvoice', label: 'Vendor invoice', icon: 'receipt_long' },
+  { id: 'TabCustomerInvoice', label: 'Customer invoice', icon: 'payments' },
 ];
 
 export default function TabTaskEditFact({ projectGUID, taskGUID }: { projectGUID: string | null; taskGUID: string }) {
   const { themeColors } = useDesignSystem();
+  // the Customer invoice tab is there only while the project switch is on
+  const customerOn = usePMStore((s) => customerInvoiceEnabledOf(projectGUID ? s.projectsById[projectGUID]?.rowJSON : undefined));
+  const tabs = TASK_EDIT_FACT_TABS.filter((t) => t.id !== 'TabCustomerInvoice' || customerOn);
   const [active, setActive] = useState<TaskEditFactTab>('TabFactInput');
   const [visited, setVisited] = useState<Record<string, boolean>>({ TabFactInput: true });
   const open = (id: TaskEditFactTab) => { setActive(id); setVisited((v) => (v[id] ? v : { ...v, [id]: true })); };
@@ -28,8 +37,8 @@ export default function TabTaskEditFact({ projectGUID, taskGUID }: { projectGUID
   return (
     <View style={{ flex: 1 }} testID="pm-task-edit-tab-fact">
       <View style={[styles.barBox, { borderBottomColor: themeColors.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="pm-task-edit-fact-tabs" contentContainerStyle={styles.bar}>
-          {TASK_EDIT_FACT_TABS.map((t) => {
+        <ScrollableTabBar testID="pm-task-edit-fact-tabs" style={styles.bar}>
+          {tabs.map((t) => {
             const on = active === t.id;
             return (
               <Pressable
@@ -45,7 +54,7 @@ export default function TabTaskEditFact({ projectGUID, taskGUID }: { projectGUID
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollableTabBar>
       </View>
       <View style={show('TabFactInput')} testID="pm-task-edit-fact-content-TabFactInput">
         {visited.TabFactInput ? <TabFactInput projectGUID={projectGUID} taskGUID={taskGUID} /> : null}
@@ -56,6 +65,11 @@ export default function TabTaskEditFact({ projectGUID, taskGUID }: { projectGUID
       <View style={show('TabVendorInvoice')} testID="pm-task-edit-fact-content-TabVendorInvoice">
         {visited.TabVendorInvoice ? <TabVendorInvoice taskGUID={taskGUID} /> : null}
       </View>
+      {customerOn ? (
+        <View style={show('TabCustomerInvoice')} testID="pm-task-edit-fact-content-TabCustomerInvoice">
+          {visited.TabCustomerInvoice ? <TabCustomerInvoice taskGUID={taskGUID} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }

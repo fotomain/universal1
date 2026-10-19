@@ -154,6 +154,13 @@ export interface PMRowJSON {
   independentInvoiceInputAvailable?: boolean;
   /** Single / Multi Project vendor invoices and purchase orders: OFF while never saved (Project settings → Vendor) */
   multiProjectVendorInvoceNeeded?: boolean;
+  /** Customer invoices (kit8/documents/customer/invoice; Project settings -> Customer): true (default, also while never saved) = the Task menu offers "Create based on this → Customer invoice" and "Go to → Customer invoices" */
+  customerInvoiceFunctionalityEnabled?: boolean;
+  /** Product fields (kit8/catalog/product/productFieldsModel.ts; Project settings -> Product): ALL OFF while never saved. Enabled = the Product has ItemNumber / SearchName (list, card, search); VisibleInProjects = the product windows of the project show it too */
+  itemNumberFunctionalityEnabled?: boolean;
+  itemNumberFunctionalityVisibleInProjects?: boolean;
+  searchNameFunctionalityEnabled?: boolean;
+  searchNameFunctionalityVisibleInProjects?: boolean;
   /** Subprojects (kit8/pm/subproject; Project settings -> Subprojects): the master switch, OFF while never saved - a task of this project may stand for another project */
   subprojectsFunctionalityEnabled?: boolean;
   /** ... true (default): the origin task follows its subproject (the four switches below work only while this and the master switch are on) */

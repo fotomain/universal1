@@ -29,6 +29,7 @@ import {
   factRowsOf, factTotalsOf, parseDayInput,
 } from './factInputModel';
 import { useFactInputDocument } from './useFactInputDocument';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 export interface PMFactInputDocumentFormProps {
   taskGUID: string;
@@ -173,7 +174,7 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
       )}
 
       {/* DocumentTabs: the same look as the genus tabs of the Finances table */}
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {FACT_TABS.map((t) => {
           const active = t.genus === tab;
           return (
@@ -189,7 +190,7 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {doc.isLoading && <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('Loading…')}</Text>}

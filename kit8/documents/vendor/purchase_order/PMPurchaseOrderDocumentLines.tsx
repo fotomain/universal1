@@ -13,6 +13,7 @@ import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGe
 import { pmT } from '../../../pm/i18n/pmT';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import { PURCHASE_ORDER_ALL_TAB, PURCHASE_ORDER_LINES_ENTITY, PURCHASE_ORDER_TABS, PurchaseOrderHeaderView } from './purchaseOrderModel';
+import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 
 export interface PMPurchaseOrderDocumentLinesProps {
   /** the open document; null = none (the "not found" text, or the loading text) */
@@ -41,7 +42,7 @@ export default function PMPurchaseOrderDocumentLines({ header, tab, onTab, count
   return (
     <>
       {/* DocumentTabs: All (default) · Time · Material · Expenses */}
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {PURCHASE_ORDER_TABS.map((t) => {
           const active = t.id === tab;
           return (
@@ -56,7 +57,7 @@ export default function PMPurchaseOrderDocumentLines({ header, tab, onTab, count
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">

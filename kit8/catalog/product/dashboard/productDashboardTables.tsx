@@ -12,6 +12,7 @@ import {
   byGUID, currentPrice, currentPriceOfProduct, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantLinesOfOwner, variantsOfProduct,
 } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
+import { itemNumberTaken, NO_PRODUCT_FIELDS, type ProductFields } from '../productFieldsModel';
 import DescriptorValueCell from './DescriptorValueCell';
 
 /** a filter above a table: picks ONE owner / parent / rowJSON value; new rows get it too */
@@ -49,6 +50,8 @@ export interface DashboardTableContext {
   today?: string;
   /** the "Business unit" column (rowJSON.businessUnitAssigned, kit8/catalog/business_unit): the default unit of a line that uses this product */
   businessUnitColumn?: VisualColumn;
+  /** the optional fields ItemNumber / SearchName (productFieldsModel.ts; default: none): a field that is `shown` (Enabled AND VisibleInProjects) has a column before the SKU in the Products table, so the list sorts / filters / searches it and the card edits it */
+  productFields?: ProductFields;
 }
 
 function Dim({ children, testID }: { children: React.ReactNode; testID?: string }) {
@@ -66,6 +69,7 @@ export const lower = (s: any) => String(s ?? '').trim().toLowerCase();
 export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels, ctx: DashboardTableContext): Record<ProductTableKey, DashboardTableConfig> {
   const O = L.options;
   const today = ctx.today ?? todayISO();
+  const fields = ctx.productFields ?? NO_PRODUCT_FIELDS;
   const genusById = byGUID(data.descriptorGenus);
   const destById = byGUID(data.descriptorDestination);
   const planById = byGUID(data.descriptorPlan);
@@ -111,6 +115,10 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
       columns: [
         rowNo,
         { key: 'title', title: 'Title', type: 'text', width: 220, placeholder: 'Product title' },
+        // ItemNumber / SearchName: before the SKU, only while Enabled AND VisibleInProjects are on (organization default settings)
+        ...(fields.itemNumber.shown ? [{ key: 'itemNumber', title: 'Item number', type: 'text', width: 130, placeholder: 'Item number',
+          validate: (v, row) => (itemNumberTaken(data.product, v, row.rowGUID) ? `Item number "${String(v).trim()}" is already used` : null) } as VisualColumn] : []),
+        ...(fields.searchName.shown ? [{ key: 'searchName', title: 'Search name', type: 'text', width: 170, placeholder: 'Name used to find the product' } as VisualColumn] : []),
         { key: 'sku', title: 'SKU', type: 'text', width: 130,
           validate: (v, row) => (lower(v) && data.product.some((p) => p.rowGUID !== row.rowGUID && lower(p.rowJSON?.sku) === lower(v)) ? `SKU "${v}" is already used` : null) },
         typeColumn(),

@@ -11,6 +11,7 @@ import {
   currentPriceOfProduct, isSet, ProductCatalogData, priceTypeForProducts, propertyLinesOfProduct, rowTitle, variantOwnerOfProduct, variantsOfProduct, vatRateOfProduct,
 } from '../crud/productCatalogTools';
 import type { ProductLabels } from '../crud/productLabels';
+import { itemNumberOf, NO_PRODUCT_FIELDS, searchNameOf, type ProductFields } from '../productFieldsModel';
 
 export interface ProductCardViewProps {
   data: ProductCatalogData;
@@ -19,9 +20,11 @@ export interface ProductCardViewProps {
   onPickProduct: (guid: string | null) => void;
   onOpenTable: (key: ProductTableKey, filters: Record<string, string>) => void;
   today?: string;
+  /** the optional fields (ItemNumber, SearchName) that are switched on: a row of Main data each */
+  productFields?: ProductFields;
 }
 
-export default function ProductCardView({ data, labels: L, productGUID, onPickProduct, onOpenTable, today = todayISO() }: ProductCardViewProps) {
+export default function ProductCardView({ data, labels: L, productGUID, onPickProduct, onOpenTable, today = todayISO(), productFields = NO_PRODUCT_FIELDS }: ProductCardViewProps) {
   const { themeColors: c } = useDesignSystem();
   const [picking, setPicking] = useState(false);
   const product = useMemo(() => data.product.find((p) => p.rowGUID === productGUID), [data.product, productGUID]);
@@ -86,6 +89,8 @@ export default function ProductCardView({ data, labels: L, productGUID, onPickPr
           {section('Main data', link('Edit', 'product', {}, 'product'), (
             <>
               {kv('SKU', String(product.rowJSON?.sku ?? ''), 'sku')}
+              {productFields.itemNumber.shown && kv('Item number', itemNumberOf(product), 'item-number')}
+              {productFields.searchName.shown && kv('Search name', searchNameOf(product), 'search-name')}
               {kv('Unit for inventory', L.title('measureUnit', product.rowJSON?.measureUnitForInventory), 'unit')}
               {kv('Default unit', L.title('measureUnit', product.rowJSON?.measureUnitDefault), 'unit-default')}
               {kv('Variants', type?.rowJSON?.variantMode === 'none' || !variantOwnerOfProduct(data, product) ? 'none' : `${variants.length} (${L.ownerLabel(variantOwnerOfProduct(data, product))})`, 'variants')}

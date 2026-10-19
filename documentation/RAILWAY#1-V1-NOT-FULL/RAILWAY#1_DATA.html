@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Railway #1: New York Washington — Master Project & Task Data Report</title>
+  
+  <!-- Modern Typography (Tamagui Design System aesthetic) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for High-Definition Business Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* -------------------------------------------------------------
+       TAMAGUI LIGHT THEME TOKENS & CSS VARIABLES
+       ------------------------------------------------------------- */
+    :root {
+      --bg: #f8fafc;
+      --bg-subtle: #f1f5f9;
+      --card: #ffffff;
+      --card-hover: #fcfdfe;
+      --border: #e2e8f0;
+      --border-focus: #cbd5e1;
+      
+      --text: #0f172a;
+      --text-2: #334155;
+      --muted: #64748b;
+      --text-invert: #ffffff;
+
+      --purple: #7c3aed;
+      --purple-soft: #ede9fe;
+      --indigo: #6366f1;
+      --indigo-soft: #e0e7ff;
+      --cyan: #0891b2;
+      --cyan-soft: #cffafe;
+      --emerald: #059669;
+      --emerald-soft: #d1fae5;
+      --amber: #d97706;
+      --amber-soft: #fef3c7;
+      --rose: #e11d48;
+      --rose-soft: #ffe4e6;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 10px 25px -4px rgba(15, 23, 42, 0.10);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --display: 'Space Grotesk', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.65 var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    code {
+      font: 13px/1.4 var(--mono);
+      background: var(--bg-subtle);
+      color: #0f172a;
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      font: 12.5px/1.55 var(--mono);
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 20px;
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    pre code { background: none; border: none; padding: 0; color: inherit; }
+
+    /* Sticky Header with Reactivated Menu on Scroll */
+    header.top {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s ease;
+    }
+    .top-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 12px 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--purple-soft);
+      color: var(--purple);
+    }
+    nav { overflow-x: auto; flex: 1; scrollbar-width: none; }
+    nav::-webkit-scrollbar { display: none; }
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+    }
+    nav a {
+      display: block;
+      white-space: nowrap;
+      padding: 7px 14px;
+      border-radius: var(--radius-pill);
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13.5px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    nav a:hover {
+      background: var(--bg-subtle);
+      color: var(--text);
+    }
+    nav a.active {
+      background: var(--purple);
+      color: var(--text-invert);
+      box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 32px 24px 100px;
+    }
+    section { margin-top: 48px; }
+
+    h1 {
+      font-family: var(--display);
+      font-size: 38px;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+      color: var(--text);
+    }
+    h2 {
+      font-family: var(--display);
+      font-size: 25px;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 24px 0 10px;
+    }
+    .lead {
+      font-size: 17.5px;
+      line-height: 1.6;
+      color: var(--text-2);
+      max-width: 960px;
+      margin: 0 0 24px;
+    }
+    .sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      padding: 24px;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-focus);
+    }
+
+    /* Grid Layouts */
+    .grid-4 {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      margin: 20px 0;
+    }
+    .grid-2 {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      margin: 20px 0;
+    }
+
+    /* KPI Metrics Box */
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .metric-title {
+      font-size: 12.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .metric-value {
+      font-family: var(--display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .metric-caption {
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    /* Pills & Badges */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    .pill.revenue  { background: var(--purple-soft); color: var(--purple); }
+    .pill.material { background: var(--cyan-soft); color: var(--cyan); }
+    .pill.expense  { background: var(--amber-soft); color: var(--amber); }
+    .pill.time     { background: var(--emerald-soft); color: var(--emerald); }
+    .pill.posted   { background: var(--emerald-soft); color: var(--emerald); }
+
+    /* Tables with Filter & Sort UI */
+    .table-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin: 18px 0;
+    }
+    .table-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      font-size: 13.5px;
+      min-width: 240px;
+    }
+    .search-box input {
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--text);
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    select.filter-select {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--text-2);
+      outline: none;
+      font-family: inherit;
+    }
+    .row-counter {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: #ffffff;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+    }
+    th:hover {
+      background: var(--bg-subtle);
+      color: var(--text);
+    }
+    th.sorted-asc::after { content: " ▲"; font-size: 10px; color: var(--purple); }
+    th.sorted-desc::after { content: " ▼"; font-size: 10px; color: var(--purple); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:hover { background: rgba(248, 250, 252, 0.8); }
+
+    /* Alert Boxes */
+    .note {
+      background: var(--purple-soft);
+      border-left: 4px solid var(--purple);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 14.5px;
+    }
+    .good {
+      background: var(--emerald-soft);
+      border-left: 4px solid var(--emerald);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 14.5px;
+    }
+    .info {
+      background: var(--cyan-soft);
+      border-left: 4px solid var(--cyan);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 14.5px;
+    }
+
+    /* Lifecycle Timeline Visualizer */
+    .lifecycle-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      padding: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .flow-step.active {
+      background: #ffffff;
+      border-color: var(--purple);
+      box-shadow: 0 0 0 1px var(--purple);
+    }
+    .step-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--purple);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .flow-arrow {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .table-container { overflow-x: auto; }
+      table { min-width: 680px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Top Navigation with Scroll-Spy Reactivation -->
+  <header class="top" id="topNav">
+    <div class="top-inner">
+      <div class="brand">
+        <span>🚄 Railway #1 NEC</span>
+        <span class="brand-badge">Enterprise Data</span>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#tasklines">Task Lines & Genera</a></li>
+          <li><a href="#market">Market Prices</a></li>
+          <li><a href="#lifecycle">Task Lifecycle Docs</a></li>
+          <li><a href="#charts">Visualizations</a></li>
+          <li><a href="#inputdata">Input Data</a></li>
+          <li><a href="#outputdata">Output Data</a></li>
+          <li><a href="#verification">Verification</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Section 1: Overview -->
+    <section id="overview">
+      <div class="sub">UNIVERSAL1 ENTERPRISE PROJECT DATA SPECIFICATION</div>
+      <h1>Railway #1: New York – Washington NEC Construction</h1>
+      <p class="lead">
+        Comprehensive master project dataset for <b>Railway #1</b>: Turnkey Contract for Track Superstructure & Rail Construction Works on the 225-mile New York – Washington section of the Northeast Corridor. Generated in strict compliance with the Universal1 database architecture (<code>/kit8/sql/start/start1_sql_tables.sql</code>).
+      </p>
+
+      <div class="good">
+        <b>Project Constraints Verified:</b> Exactly <b>1 single task</b> created, containing <b>1 line for each management genus</b> (Revenue, Material, Expense, Time). All five transactional documents across the task lifecycle (Purchase Order, Product Receipt, Fact Input, Vendor Invoice, Customer Invoice) have been authored, costed, and posted with corresponding register movements.
+      </div>
+
+      <!-- Key Project Metrics -->
+      <div class="grid-4">
+        <div class="metric-card">
+          <div class="metric-title">Turnkey Deliverable</div>
+          <div class="metric-value">225 mi</div>
+          <div class="metric-caption">Railroad Segment No. 1 (NY-WAS)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Contract Value (Revenue)</div>
+          <div class="metric-value">$270.00M</div>
+          <div class="metric-caption">$1,200,000 / track-mile</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Direct Budgeted Cost</div>
+          <div class="metric-value">$59.97M</div>
+          <div class="metric-caption">Materials + Equipment + Labor</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Project Gross Margin</div>
+          <div class="metric-value">77.8%</div>
+          <div class="metric-caption">$210.03M Net Construction Margin</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Task Lines & Management Genera -->
+    <section id="tasklines">
+      <h2>1. Single Task Architecture & Management Genus Breakdown</h2>
+      <p class="sub">
+        Task: <code>Railroad Segment No. 1 Construction (225 miles)</code> | Stage: <code>Stage 1: Track Construction</code> | Project GUID: <code>a1000000-0000-4000-8000-000000000001</code>
+      </p>
+      
+      <div class="table-container">
+        <div class="table-controls">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="linesSearch" placeholder="Search task lines, roles, resources..." onkeyup="filterTable('linesTable', 'linesSearch', 'genusFilter')">
+          </div>
+          <div class="filter-group">
+            <select id="genusFilter" class="filter-select" onchange="filterTable('linesTable', 'linesSearch', 'genusFilter')">
+              <option value="ALL">All Management Genera</option>
+              <option value="revenueGenus">revenueGenus (Deliverable)</option>
+              <option value="materialGenus">materialGenus (Materials)</option>
+              <option value="expenseGenus">expenseGenus (Equipment)</option>
+              <option value="timeGenus">timeGenus (Human Resource)</option>
+            </select>
+            <span class="row-counter" id="linesCounter">Showing 4 of 4 lines</span>
+          </div>
+        </div>
+
+        <table id="linesTable">
+          <thead>
+            <tr>
+              <th onclick="sortTable('linesTable', 0)">Genus</th>
+              <th onclick="sortTable('linesTable', 1)">Resource Role</th>
+              <th onclick="sortTable('linesTable', 2)">Assigned Resource</th>
+              <th onclick="sortTable('linesTable', 3)">Unit</th>
+              <th class="num" onclick="sortTable('linesTable', 4)">Quantity</th>
+              <th class="num" onclick="sortTable('linesTable', 5)">Unit Price ($)</th>
+              <th class="num" onclick="sortTable('linesTable', 6)">Total Budget ($)</th>
+              <th onclick="sortTable('linesTable', 7)">Contract / Partner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-genus="revenueGenus">
+              <td><span class="pill revenue">revenueGenus</span></td>
+              <td><b>Railroad Segment Construction</b></td>
+              <td>Railroad Segment No. 1 (225 miles)</td>
+              <td><code>unit_mile</code></td>
+              <td class="num"><b>225.00</b></td>
+              <td class="num">$1,200,000.00</td>
+              <td class="num"><b>$270,000,000.00</b></td>
+              <td>Amtrak (CT-AMTRK-NEC-2026)</td>
+            </tr>
+            <tr data-genus="materialGenus">
+              <td><span class="pill material">materialGenus</span></td>
+              <td><b>136 RE Carbon Steel Rail Supply</b></td>
+              <td>136 RE Rail (80-Foot Stick)</td>
+              <td><code>unit_pcs</code></td>
+              <td class="num"><b>29,700.00</b></td>
+              <td class="num">$1,850.00</td>
+              <td class="num"><b>$54,945,000.00</b></td>
+              <td>Eastern Rail (CT-SUPP-136RE-2026)</td>
+            </tr>
+            <tr data-genus="expenseGenus">
+              <td><span class="pill expense">expenseGenus</span></td>
+              <td><b>Tamper: Continuous-Action Tamper</b></td>
+              <td>Plasser 09-3X / Dynacat</td>
+              <td><code>unit_hour</code></td>
+              <td class="num"><b>6,750.00</b></td>
+              <td class="num">$650.00</td>
+              <td class="num"><b>$4,387,500.00</b></td>
+              <td>Plasser American (CT-LEASE-TAMPER-2026)</td>
+            </tr>
+            <tr data-genus="timeGenus">
+              <td><span class="pill time">timeGenus</span></td>
+              <td><b>Machine (RMM) Operator</b></td>
+              <td>John Rimm</td>
+              <td><code>unit_hour</code></td>
+              <td class="num"><b>6,750.00</b></td>
+              <td class="num">$95.00</td>
+              <td class="num"><b>$641,250.00</b></td>
+              <td>Direct Employee (EMP-RIMM-001)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <b>Mathematical Rule for 136 RE Steel Rail Stick Count:</b><br>
+        A standard railway track alignment consists of <b>two running rails</b> (left and right). For 225 miles of railway track alignment:
+        <br><code>Total Rail Length = 225 miles × 5,280 ft/mile × 2 rails = 2,376,000 linear feet of rail</code>.
+        <br><code>Total 80-Foot Sticks = 2,376,000 ft ÷ 80 ft/stick = 29,700 sticks</code>.
+      </div>
+    </section>
+
+    <!-- Section 3: Actual Market Prices Justification -->
+    <section id="market">
+      <h2>2. Engineering & Actual Market Price Justification</h2>
+      <p class="sub">Validated against 2025/2026 North American rail procurement & Davis-Bacon union wage schedules.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>🛤️ 136 RE Carbon Steel Rail (80-ft Sticks)</h3>
+          <p><b>Market Benchmark: $1,600 – $2,200 per 80-ft stick (Selected: $1,850.00)</b></p>
+          <ul style="padding-left:20px; font-size:14px; color:var(--text-2);">
+            <li><b>Section Weight:</b> AREMA 136 RE rail weighs 136 lbs per yard (45.33 lbs/ft).</li>
+            <li><b>Stick Weight:</b> Each 80-ft stick weighs 3,627 lbs (1.8135 short tons).</li>
+            <li><b>Steel Price Equivalent:</b> At $1,850 per stick, the unit price equates to ~$1,020 per ton of premium head-hardened continuous welded rail (CWR) steel, perfectly aligned with commercial quotes from Steel Dynamics (SDI) and EVRAZ Rocky Mountain Steel.</li>
+            <li><b>Total Rail Material Investment:</b> 29,700 sticks × $1,850.00 = <b>$54,945,000.00</b>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>🚜 Tamper: Plasser 09-3X Dynacat Machine</h3>
+          <p><b>Market Benchmark: $600 – $750 per operating hour (Selected: $650.00)</b></p>
+          <ul style="padding-left:20px; font-size:14px; color:var(--text-2);">
+            <li><b>Machine Specification:</b> Continuous-action 3-tie production tamping machine with integrated dynamic track stabilization (DTS), tamping at up to 1.5 track-miles per hour.</li>
+            <li><b>Lease Structure:</b> Heavy roadway maintenance machine (RMM) dry/wet plant hire rate covering equipment depreciation, maintenance cycles, and hydraulic tooling consumables.</li>
+            <li><b>Production Schedule:</b> 6,750 operating hours across 2026 track shifts.</li>
+            <li><b>Total Tamper Equipment Cost:</b> 6,750 hours × $650.00 = <b>$4,387,500.00</b>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>👷 Machine (RMM) Operator: John Rimm</h3>
+          <p><b>Market Benchmark: $85 – $115 per loaded hour (Selected: $95.00)</b></p>
+          <ul style="padding-left:20px; font-size:14px; color:var(--text-2);">
+            <li><b>Classification:</b> Specialized Class 1 Railroad Maintenance Machine Operator (BMWED / IBT union scale).</li>
+            <li><b>Rate Composition:</b> $56.50/hr base prevailing wage + 68% fringe benefit package (railroad retirement Tier I/II, healthcare, field per-diem) yielding a loaded cost of $95.00/hr.</li>
+            <li><b>Operational Hours:</b> 6,750 shift hours synchronized with tamper deployment.</li>
+            <li><b>Total Operator Labor Cost:</b> 6,750 hours × $95.00 = <b>$641,250.00</b>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>🏁 Turnkey Deliverable: Railroad Segment No. 1</h3>
+          <p><b>Market Benchmark: $1.0M – $1.5M per track-mile (Selected: $1,200,000.00)</b></p>
+          <ul style="padding-left:20px; font-size:14px; color:var(--text-2);">
+            <li><b>Scope:</b> Complete superstructure installation: continuous welded rail laying, dual-rail alignment, geometric laser tamping, and final high-speed track dynamic stabilization on the Northeast Corridor.</li>
+            <li><b>Contract Terms:</b> Turnkey commercial progress billing contract with Amtrak.</li>
+            <li><b>Milestones:</b> Billed in 3 major progress certificates (75 miles milestone 1).</li>
+            <li><b>Total Deliverable Revenue:</b> 225 miles × $1,200,000.00 = <b>$270,000,000.00</b>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Task Lifecycle Documents -->
+    <section id="lifecycle">
+      <h2>3. The 5 Documents of Project Task Lifecycle</h2>
+      <p class="sub">Complete transactional cycle executed, checked, and posted with register movements.</p>
+
+      <div class="lifecycle-flow">
+        <div class="flow-step active">
+          <div class="step-num">1</div>
+          <span>Purchase Order (PO)</span>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-step active">
+          <div class="step-num">2</div>
+          <span>Product Receipt (PR)</span>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-step active">
+          <div class="step-num">3</div>
+          <span>Fact Input (FI)</span>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-step active">
+          <div class="step-num">4</div>
+          <span>Vendor Invoice (VI)</span>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-step active">
+          <div class="step-num">5</div>
+          <span>Customer Invoice (CI)</span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Doc Type</th>
+              <th>Document Number</th>
+              <th>Date</th>
+              <th>Partner / Counterparty</th>
+              <th>Lines Included</th>
+              <th class="num">Document Total</th>
+              <th>Status</th>
+              <th>Register Kind</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>1. Purchase Order</b></td>
+              <td><code>PO-NYWAS-00001</code></td>
+              <td>2026-01-05</td>
+              <td>Eastern Rail Supply Corp.</td>
+              <td>29,700 sticks rail + 6,750 tamper hrs</td>
+              <td class="num"><b>$59,332,500.00</b></td>
+              <td><span class="pill posted">Posted</span></td>
+              <td><code>ordered</code></td>
+            </tr>
+            <tr>
+              <td><b>2. Product Receipt</b></td>
+              <td><code>PR-NYWAS-00001</code></td>
+              <td>2026-02-15</td>
+              <td>Eastern Rail Supply Corp.</td>
+              <td>10,000 sticks rail + 2,250 tamper hrs</td>
+              <td class="num"><b>$19,962,500.00</b></td>
+              <td><span class="pill posted">Posted</span></td>
+              <td><code>received</code></td>
+            </tr>
+            <tr>
+              <td><b>3. Fact Input</b></td>
+              <td><code>FI-NYWAS-00001</code></td>
+              <td>2026-04-30</td>
+              <td>Internal Production Execution</td>
+              <td>10k sticks + 2,250h tamper + 2,250h operator + 75mi</td>
+              <td class="num"><b>$110,176,250.00</b></td>
+              <td><span class="pill posted">Posted</span></td>
+              <td><code>used</code></td>
+            </tr>
+            <tr>
+              <td><b>4. Vendor Invoice</b></td>
+              <td><code>VI-SUPP-98421</code></td>
+              <td>2026-03-01</td>
+              <td>Eastern Rail Supply Corp.</td>
+              <td>10,000 sticks rail + 2,250 tamper hrs</td>
+              <td class="num"><b>$19,962,500.00</b></td>
+              <td><span class="pill posted">Posted</span></td>
+              <td><code>invoiced</code></td>
+            </tr>
+            <tr>
+              <td><b>5. Customer Invoice</b></td>
+              <td><code>CI-AMTRK-2026-001</code></td>
+              <td>2026-05-01</td>
+              <td>Amtrak (Customer)</td>
+              <td>75 track-miles milestone billing</td>
+              <td class="num"><b>$90,000,000.00</b></td>
+              <td><span class="pill posted">Posted</span></td>
+              <td><code>sold</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 5: Visualizations -->
+    <section id="charts">
+      <h2>4. Visualizations & Business Analytics</h2>
+      <p class="sub">High-definition graphical breakdown of Railway #1 financial allocations and lifecycle status.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Financial Distribution by Management Genus</h3>
+          <div style="height: 300px; position: relative;">
+            <canvas id="genusChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Task Lifecycle Commitment & Cashflow Movement</h3>
+          <div style="height: 300px; position: relative;">
+            <canvas id="lifecycleChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Sample Input Data -->
+    <section id="inputdata">
+      <h2>5. Sample of Input Data</h2>
+      <p class="sub">Exact structural JSON data payload matching Universal1 database import standards.</p>
+      
+      <pre><code>{
+  "project": {
+    "rowGUID": "a1000000-0000-4000-8000-000000000001",
+    "name": "Railway #1: New York Washington-Contract for Construction Works on the New York – Washington Section of the Northeast Corridor",
+    "startDate": "2026-01-01",
+    "endDate": "2026-12-31",
+    "currencyForBudget": "USD"
+  },
+  "task": {
+    "rowGUID": "a3000000-0000-4000-8000-000000000001",
+    "name": "Railroad Segment No. 1 Construction (225 miles)",
+    "durationDays": 365,
+    "lines": [
+      {
+        "rowGUID": "b1000000-0000-4000-8000-000000000001",
+        "genus": "revenueGenus",
+        "role": "role-rail-segment",
+        "qty": 225.00,
+        "price": 1200000.00,
+        "sum": 270000000.00,
+        "partner": "ptn-amtrak"
+      },
+      {
+        "rowGUID": "b2000000-0000-4000-8000-000000000002",
+        "genus": "materialGenus",
+        "role": "role-steel-rail",
+        "resource": "prd-136re-rail-80ft",
+        "qty": 29700.00,
+        "price": 1850.00,
+        "sum": 54945000.00,
+        "partner": "ptn-eastern-rail"
+      },
+      {
+        "rowGUID": "b3000000-0000-4000-8000-000000000003",
+        "genus": "expenseGenus",
+        "role": "role-tamper-machine",
+        "resource": "eq-plasser-093x",
+        "qty": 6750.00,
+        "price": 650.00,
+        "sum": 4387500.00,
+        "partner": "ptn-plasser-usa"
+      },
+      {
+        "rowGUID": "b4000000-0000-4000-8000-000000000004",
+        "genus": "timeGenus",
+        "role": "role-rmm-operator",
+        "resource": "per-john-rimm",
+        "qty": 6750.00,
+        "price": 95.00,
+        "sum": 641250.00
+      }
+    ]
+  }
+}</code></pre>
+    </section>
+
+    <!-- Section 7: Sample Output Data -->
+    <section id="outputdata">
+      <h2>6. Sample of Output Data (Monitor01 Reporting Row)</h2>
+      <p class="sub">Real-time consolidated ledger view extracted from <code>public.monitor01_view</code>.</p>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Task Name</th>
+              <th>Management Genus</th>
+              <th class="num">Plan Qty</th>
+              <th class="num">Ordered</th>
+              <th class="num">Received</th>
+              <th class="num">Used (Fact)</th>
+              <th class="num">Vendor Invoiced</th>
+              <th class="num">Customer Invoiced</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Railroad Segment No. 1</td>
+              <td><span class="pill revenue">revenueGenus</span></td>
+              <td class="num">225.00 mi</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num">75.00 mi</td>
+              <td class="num">—</td>
+              <td class="num"><b>75.00 mi ($90.0M)</b></td>
+            </tr>
+            <tr>
+              <td>Railroad Segment No. 1</td>
+              <td><span class="pill material">materialGenus</span></td>
+              <td class="num">29,700 pcs</td>
+              <td class="num">29,700 pcs</td>
+              <td class="num">10,000 pcs</td>
+              <td class="num">10,000 pcs</td>
+              <td class="num">10,000 pcs ($18.5M)</td>
+              <td class="num">—</td>
+            </tr>
+            <tr>
+              <td>Railroad Segment No. 1</td>
+              <td><span class="pill expense">expenseGenus</span></td>
+              <td class="num">6,750 h</td>
+              <td class="num">6,750 h</td>
+              <td class="num">2,250 h</td>
+              <td class="num">2,250 h</td>
+              <td class="num">2,250 h ($1.46M)</td>
+              <td class="num">—</td>
+            </tr>
+            <tr>
+              <td>Railroad Segment No. 1</td>
+              <td><span class="pill time">timeGenus</span></td>
+              <td class="num">6,750 h</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num">2,250 h</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 8: Verification & Execution Protocol -->
+    <section id="verification">
+      <h2>7. Verification & Automation Execution Protocol</h2>
+      <p class="sub">Step-by-step verification instructions to run the loader script locally or in production.</p>
+
+      <div class="card">
+        <h3>Command Line Automation</h3>
+        <p>To populate your database automatically, execute the provided double-clickable command script:</p>
+        <pre><code>./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command</code></pre>
+        <p>Or execute the SQL file directly via the Supabase CLI:</p>
+        <pre><code>supabase db query --linked -f ./documentation/RAILWAY#1/RAILWAY#1_DATA.sql</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- Interactive JavaScript: Scroll-Spy, Sort, Filter & Charts -->
+  <script>
+    // 1. Scroll-Spy Reactivation for Header Navigation
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section');
+      const navLinks = document.querySelectorAll('nav a');
+      let currentSectionId = '';
+
+      sections.forEach(section => {
+        const top = section.offsetTop - 100;
+        const height = section.offsetHeight;
+        if (window.scrollY >= top && window.scrollY < top + height) {
+          currentSectionId = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + currentSectionId) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // 2. Table Search & Filtering Functionality
+    function filterTable(tableId, searchInputId, filterSelectId) {
+      const table = document.getElementById(tableId);
+      const query = document.getElementById(searchInputId).value.toLowerCase();
+      const selectedGenus = document.getElementById(filterSelectId).value;
+      const rows = table.querySelectorAll('tbody tr');
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const genus = row.getAttribute('data-genus');
+        const matchesQuery = text.includes(query);
+        const matchesGenus = selectedGenus === 'ALL' || genus === selectedGenus;
+
+        if (matchesQuery && matchesGenus) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      document.getElementById('linesCounter').innerText = `Showing ${visibleCount} of ${rows.length} lines`;
+    }
+
+    // 3. Table Column Sorting Functionality
+    let sortDirection = {};
+    function sortTable(tableId, colIndex) {
+      const table = document.getElementById(tableId);
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const th = table.querySelectorAll('th')[colIndex];
+
+      const isAsc = !sortDirection[colIndex];
+      sortDirection[colIndex] = isAsc;
+
+      table.querySelectorAll('th').forEach(header => {
+        header.classList.remove('sorted-asc', 'sorted-desc');
+      });
+      th.classList.add(isAsc ? 'sorted-asc' : 'sorted-desc');
+
+      rows.sort((a, b) => {
+        const cellA = a.children[colIndex].innerText.replace(/[\$,]/g, '').trim();
+        const cellB = b.children[colIndex].innerText.replace(/[\$,]/g, '').trim();
+        const numA = parseFloat(cellA);
+        const numB = parseFloat(cellB);
+
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return isAsc ? numA - numB : numB - numA;
+        }
+        return isAsc ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+      });
+
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // 4. Initialize Chart.js Business Visualizations
+    window.addEventListener('DOMContentLoaded', () => {
+      // Genus Distribution Doughnut Chart
+      const ctxGenus = document.getElementById('genusChart').getContext('2d');
+      new Chart(ctxGenus, {
+        type: 'doughnut',
+        data: {
+          labels: ['Rail Material ($54.95M)', 'Tamper Equipment ($4.39M)', 'Operator Labor ($0.64M)'],
+          datasets: [{
+            data: [54945000, 4387500, 641250],
+            backgroundColor: ['#0891b2', '#d97706', '#059669'],
+            hoverOffset: 6,
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Inter', size: 12 } } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ' ' + ctx.label + ': $' + (ctx.raw / 1000000).toFixed(2) + 'M';
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Lifecycle Transactional Bar Chart
+      const ctxLifecycle = document.getElementById('lifecycleChart').getContext('2d');
+      new Chart(ctxLifecycle, {
+        type: 'bar',
+        data: {
+          labels: ['Total Budget Cost', 'PO Ordered', 'PR Received', 'Fact Used', 'VI Invoiced', 'CI Sold (Rev)'],
+          datasets: [{
+            label: 'Transaction Sum ($ Millions)',
+            data: [59.97, 59.33, 19.96, 20.18, 19.96, 90.00],
+            backgroundColor: ['#6366f1', '#7c3aed', '#0891b2', '#059669', '#d97706', '#2563eb'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: value => '$' + value + 'M', font: { family: 'Inter', size: 11 } },
+              grid: { color: '#f1f5f9' }
+            },
+            x: {
+              ticks: { font: { family: 'Inter', size: 11 } },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) { return ' Total: $' + ctx.raw.toFixed(2) + ' Million'; }
+              }
+            }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

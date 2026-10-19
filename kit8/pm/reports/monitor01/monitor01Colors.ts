@@ -9,7 +9,7 @@ import type { Monitor01Measure, Monitor01Row } from './monitor01Model';
 export type Monitor01Tone = 'none' | 'good' | 'warn' | 'bad';
 
 /** the tone of one number cell of a row (or of a subtotal: pass the sums as a row-like object) */
-export function cellTone(measure: Monitor01Measure, v: Pick<Monitor01Row, 'qtyPlanned' | 'qtyContracted' | 'qtyRestToContract' | 'qtyReceived' | 'qtyVendorInvoiced' | 'qtyOrdered' | 'qtyUsed' | 'qtyOnHand'> & { hasStalePlan?: boolean }): Monitor01Tone {
+export function cellTone(measure: Monitor01Measure, v: Pick<Monitor01Row, 'qtyPlanned' | 'qtyContracted' | 'qtyRestToContract' | 'qtyReceived' | 'qtyVendorInvoiced' | 'qtyCustomerInvoiced' | 'qtyOrdered' | 'qtyUsed' | 'qtyOnHand'> & { hasStalePlan?: boolean }): Monitor01Tone {
   switch (measure) {
     case 'restToContract':
       if (v.qtyRestToContract > 0) return 'warn';

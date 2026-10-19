@@ -16,10 +16,10 @@ the capacity check reads the organization of a *user* - the scope is always the 
 ## Default project settings (`rowJSON.defaultProjectSettings`)
 
 * **Organization edit** has two top tabs: **Main** (the old form) and **Projects** → sub tab **Settings** (`OrganizationProjectSettings.tsx`, loaded lazily): the same switches and tabs as the Project settings window
-  (Main = working days / plan units / date format, Budgets, Vendor, Subprojects - the very same components) edit the defaults of a NEW project. Save / Cancel are on both tabs; a user who is not the administrator sees them read-only.
+  (Main = working days / plan units / date format, Budgets, Vendor, Product, Subprojects - the very same components) edit the defaults of a NEW project. Save / Cancel are on both tabs; a user who is not the administrator sees them read-only.
 * **Project settings window → three dots menu → "Save settings to organization"** (`PMRecentProjectsToolbar`, testID `pm-project-settings-save-to-organization`): the values IN the window (also unsaved edits) become `defaultProjectSettings`
   (`useMyOrganization().saveDefaultProjectSettings`: reads the newest `rowJSON`, merges ONE key, updates; no row back = not the administrator -> told in a snackbar).
 * **A new project** (`openNew` of the same toolbar) starts from them: `newProjectPatchFrom(defaults)`. An organization that never saved them changes nothing. A center (cost / revenue / profit / investment) the defaults leave empty is
   not overwritten (the first fitting business unit stays), the "business units required" flag of a new project stays on. Existing projects, templates and imports are not touched.
-* What is a setting: `defaultProjectSettings.ts` (`defaultProjectSettingsOf`): Main + `budgetsValuesOf` + `vendorValuesOf` + `subprojectValuesOf`. NOT: name, dates, project manager, partners, kanban, the row command modes.
+* What is a setting: `defaultProjectSettings.ts` (`defaultProjectSettingsOf`): Main + `budgetsValuesOf` + `vendorValuesOf` + `customerValuesOf` + `productValuesOf` (the Product catalog of the organization reads its ItemNumber / SearchName switches from here: `kit8/catalog/product/useProductFields.ts`) + `subprojectValuesOf`. NOT: name, dates, project manager, partners, kanban, the row command modes.
 * No SQL: it is a key of `organizationTable.rowJSON` (the update policy lets only the creator write). Tests: `__tests__/catalog/organization/defaultProjectSettings.test.ts`, `organizationProjectsTab.test.tsx`, `__tests__/pm/ui/projectSettingsOrganizationDefaults.test.tsx`.

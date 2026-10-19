@@ -14,7 +14,7 @@
 //     calendarForTaskPlan = the management calendar (managementCalendarTable) whose excluded days divide the timeline of a task plan (Post of the task
 //       lines, kit8/pm/view/task/plan); default workingDaysCalendar (Mon-Fri, no holidays)
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import SwitchApp from '../../../../ui/components/common/SwitchApp';
@@ -31,6 +31,7 @@ import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusine
 import { BUDGET_SCENARIO_TABLE, budgetScenarioTitle, budgetScenariosOfKind, projectBudgetScenariosError } from '../../../../catalog/budget/scenario/budgetScenarioModel';
 import { useBudgetScenarioData } from '../../../../catalog/budget/scenario/useBudgetScenarioData';
 import { PROJECT_CENTER_FIELDS, projectCentersError, unitFitsProjectCenter } from '../../../../catalog/business_unit/businessUnitModel';
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   currencyForBudget?: string | null;
@@ -130,7 +131,7 @@ export default function PMProjectBudgetsTab({
   return (
     <View testID="pm-project-tab-budgets-content">
       {/* SubTabs Bar: TabBudgetsMain, TabForTime, TabForMaterial, TabForExpense, TabBusinessUnits */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="pm-project-budgets-subtabs" style={styles.subTabsBar} contentContainerStyle={{ gap: 4 }}>
+      <ScrollableTabBar testID="pm-project-budgets-subtabs" style={[styles.subTabsBar, { gap: 4 }]}>
         {visibleTabs.map((t) => {
           const on = active === t.id;
           return (
@@ -146,7 +147,7 @@ export default function PMProjectBudgetsTab({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </ScrollableTabBar>
 
       {active === 'TabBudgetsMain' && (
         <View testID="pm-project-budgets-main-content">

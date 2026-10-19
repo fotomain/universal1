@@ -1,5 +1,5 @@
 // Monitor01Table - the table of the sheet "W1 1-MONITOR01":
-//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Ordered, Received, Actually used, On-hand) · Vendor Invoice (Qty, Sum)      row 2: Project · Resource role · Month · Task name · Unit · the columns
+//   header   row 1: Plan (Planned, Contracted, Rest to contract, Budget) · Fact (Ordered, Received, Actually used, On-hand) · Vendor Invoice (Qty, Sum) · Customer Invoice (Qty, Sum)      row 2: Project · Resource role · Month · Task name · Unit · the columns
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
 //   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
@@ -14,7 +14,7 @@ import { usePMTip } from '../../inner/tooltip/PMTooltip';
 import IconApp from '../../../ui/components/common/IconApp';
 import { cellTone, toneBackground } from './monitor01Colors';
 import {
-  MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, Monitor01Item, Monitor01Level, Monitor01Measure, Monitor01Row, Monitor01Sums, Monitor01Totals, formatMonitor01Number,
+  MONITOR01_CUSTOMER_INVOICE_HEAD, MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, Monitor01Item, Monitor01Level, Monitor01Measure, Monitor01Row, Monitor01Sums, Monitor01Totals, formatMonitor01Number,
 } from './monitor01Model';
 
 export interface Monitor01CellPress { measure: Monitor01Measure; item: Monitor01Item; value: number }
@@ -47,21 +47,22 @@ const LEVEL_COLUMN: Record<Monitor01Level, 'project' | 'role' | 'month'> = { pro
 
 /** the numbers of a row/subtotal in the shape cellTone reads */
 const asTone = (s: Monitor01Sums, stale = false) => ({
-  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyOrdered: s.ordered, qtyReceived: s.received, qtyVendorInvoiced: s.vendorInvoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
+  qtyPlanned: s.planned, qtyContracted: s.contracted, qtyRestToContract: s.restToContract, qtyOrdered: s.ordered, qtyReceived: s.received, qtyVendorInvoiced: s.vendorInvoiced, qtyCustomerInvoiced: s.customerInvoiced, qtyUsed: s.used, qtyOnHand: s.onHand, hasStalePlan: stale,
 });
 /** the columns after the dimensions, in the order of the sheet: the Plan group has the money after its quantities */
-type Group = 'Plan' | 'Fact' | 'Vendor Invoice';
-/** the money columns (not buttons): the Budget of the plan and the Sum of the vendor invoices; the suffix of their test ids */
-type MoneyId = 'sumForBudget' | 'sumVendorInvoiced';
-const MONEY_SUFFIX: Record<MoneyId, string> = { sumForBudget: 'budget', sumVendorInvoiced: 'sumVendorInvoiced' };
-const isMoney = (id: Col['id']): id is MoneyId => id === 'sumForBudget' || id === 'sumVendorInvoiced';
+type Group = 'Plan' | 'Fact' | 'Vendor Invoice' | 'Customer Invoice';
+/** the money columns (not buttons): the Budget of the plan and the Sum of the vendor / customer invoices; the suffix of their test ids */
+type MoneyId = 'sumForBudget' | 'sumVendorInvoiced' | 'sumCustomerInvoiced';
+const MONEY_SUFFIX: Record<MoneyId, string> = { sumForBudget: 'budget', sumVendorInvoiced: 'sumVendorInvoiced', sumCustomerInvoiced: 'sumCustomerInvoiced' };
+const isMoney = (id: Col['id']): id is MoneyId => id === 'sumForBudget' || id === 'sumVendorInvoiced' || id === 'sumCustomerInvoiced';
 type Col = { id: Monitor01Measure | MoneyId; group: Group };
-/** the 1st level of the header; the Vendor Invoice group comes after Fact and has the 2nd level columns Qty and Sum */
-const GROUPS: { id: Group; testKey: string }[] = [{ id: 'Plan', testKey: 'Plan' }, { id: 'Fact', testKey: 'Fact' }, { id: 'Vendor Invoice', testKey: 'VendorInvoice' }];
+/** the 1st level of the header; the Vendor Invoice group comes after Fact, the Customer Invoice group is the LAST; both have the 2nd level columns Qty and Sum */
+const GROUPS: { id: Group; testKey: string }[] = [{ id: 'Plan', testKey: 'Plan' }, { id: 'Fact', testKey: 'Fact' }, { id: 'Vendor Invoice', testKey: 'VendorInvoice' }, { id: 'Customer Invoice', testKey: 'CustomerInvoice' }];
 const COLS: Col[] = [
   { id: 'planned', group: 'Plan' }, { id: 'contracted', group: 'Plan' }, { id: 'restToContract', group: 'Plan' }, { id: 'sumForBudget', group: 'Plan' },
   { id: 'ordered', group: 'Fact' }, { id: 'received', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
   { id: 'vendorInvoiced', group: 'Vendor Invoice' }, { id: 'sumVendorInvoiced', group: 'Vendor Invoice' },
+  { id: 'customerInvoiced', group: 'Customer Invoice' }, { id: 'sumCustomerInvoiced', group: 'Customer Invoice' },
 ];
 /** the first column of every group after Plan: its left edge is the divider between the groups (Plan | Fact | Vendor Invoice) */
 const GROUP_START_COLUMNS: Col['id'][] = GROUPS.slice(1).map((g) => (COLS.find((c) => c.group === g.id) as Col).id);
@@ -83,12 +84,12 @@ function HeadCell({ title, width, testID, textTestID, borderColor, center, textS
 }
 
 /** the header text of a column: the 2nd level under Vendor Invoice is Qty | Sum */
-const colTitle = (c: Col) => (c.id === 'sumForBudget' ? MONITOR01_HEAD.sumForBudget : c.id === 'sumVendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.sum : c.id === 'vendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.qty : MONITOR01_MEASURE_TITLE[c.id]);
+const colTitle = (c: Col) => (c.id === 'sumForBudget' ? MONITOR01_HEAD.sumForBudget : c.id === 'sumVendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.sum : c.id === 'vendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.qty : c.id === 'sumCustomerInvoiced' ? MONITOR01_CUSTOMER_INVOICE_HEAD.sum : c.id === 'customerInvoiced' ? MONITOR01_CUSTOMER_INVOICE_HEAD.qty : MONITOR01_MEASURE_TITLE[c.id]);
 const NUMS_WIDTH = COLS.reduce((a, c) => a + colWidth(c), 0);
 /** money with 2 decimals; 0 shows nothing */
 const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 
-const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, ordered: r.qtyOrdered, received: r.qtyReceived, vendorInvoiced: r.qtyVendorInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
+const sumsOfRow = (r: Monitor01Row): Monitor01Sums => ({ planned: r.qtyPlanned, contracted: r.qtyContracted, restToContract: r.qtyRestToContract, ordered: r.qtyOrdered, received: r.qtyReceived, vendorInvoiced: r.qtyVendorInvoiced, customerInvoiced: r.qtyCustomerInvoiced, used: r.qtyUsed, onHand: r.qtyOnHand });
 
 const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, testID, onCell, groupBorder }: {
   measure: Monitor01Measure; sums: Monitor01Sums; stale: boolean; bold: boolean; item: Monitor01Item; colors: Monitor01TableColors; testID: string; onCell: (c: Monitor01CellPress) => void;
@@ -135,7 +136,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
   const renderItem = useCallback(({ item }: { item: Monitor01Item }) => {
     const bold = item.kind !== 'row';
     const sums = item.kind === 'row' ? sumsOfRow(item.row) : item.sums;
-    const money2 = { sumForBudget: item.kind === 'row' ? item.row.sumForBudget : item.sumForBudget, sumVendorInvoiced: item.kind === 'row' ? item.row.sumVendorInvoiced : item.sumVendorInvoiced };
+    const money2 = { sumForBudget: item.kind === 'row' ? item.row.sumForBudget : item.sumForBudget, sumVendorInvoiced: item.kind === 'row' ? item.row.sumVendorInvoiced : item.sumVendorInvoiced, sumCustomerInvoiced: item.kind === 'row' ? item.row.sumCustomerInvoiced : item.sumCustomerInvoiced };
     const bg = item.kind === 'row' ? undefined : item.kind === 'total' ? colors.surface : item.level === 'project' ? colors.headerBackground : colors.surface;
     const unit = item.kind === 'row' ? item.row.measureUnit : item.unit;
     // the label of a line is in the column of its level: Project · Resource role · Month · Task name (a Total line has its caption in the first column)
@@ -198,7 +199,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
   const headBg = colors.headerBackground;
   // the tip of a header cell = its title (also when the column is too narrow for it)
   const head = (w: number, title: string, id?: string, groupBorder?: boolean) => (
-    <HeadCell key={title} title={pmT(title)} width={w} textTestID={id} borderColor={groupBorder ? colors.text : undefined} textStyle={text({ fontWeight: '700', textAlign: 'center' })} />
+    <HeadCell key={id ?? title} title={pmT(title)} width={w} textTestID={id} borderColor={groupBorder ? colors.text : undefined} textStyle={text({ fontWeight: '700', textAlign: 'center' })} />
   );
 
   // the TotalsRow: one line per unit (quantities are never added across units), the money in the same line; several units add one line with the money of all of them

@@ -1,7 +1,7 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
   EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
-  MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
+  MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, MONITOR01_CUSTOMER_INVOICE_HEAD, MONITOR01_TABS, monitor01GenusTitle, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
 
@@ -21,14 +21,34 @@ const sheet = (): Monitor01Row[] => [
 
 describe('the column Ordered (posted purchase orders)', () => {
   it('it is the first measure of the Fact group, before Received', () => {
-    expect([...MONITOR01_MEASURES]).toEqual(['planned', 'contracted', 'restToContract', 'ordered', 'received', 'vendorInvoiced', 'used', 'onHand']);
+    expect([...MONITOR01_MEASURES]).toEqual(['planned', 'contracted', 'restToContract', 'ordered', 'received', 'vendorInvoiced', 'used', 'onHand', 'customerInvoiced']);
     expect(MONITOR01_MEASURE_FIELD.ordered).toBe('qtyOrdered');
     expect(MONITOR01_MEASURE_TITLE.ordered).toBe('Ordered');
     expect(MONITOR01_MEASURE_GROUP.ordered).toBe('Fact');
   });
+  it('Customer Invoice is the LAST 1st level group (after Vendor Invoice) with Qty = qtyCustomerInvoiced and Sum = the money sumCustomerInvoiced (parsed, per unit, totals, tree lines)', () => {
+    expect(MONITOR01_MEASURE_GROUP.customerInvoiced).toBe('Customer Invoice');
+    expect(MONITOR01_MEASURE_FIELD.customerInvoiced).toBe('qtyCustomerInvoiced');
+    expect(MONITOR01_CUSTOMER_INVOICE_HEAD).toEqual({ group: 'Customer Invoice', qty: 'Quantity', sum: 'Amount' });
+    expect(row({ qtyCustomerInvoiced: '4', sumCustomerInvoiced: '500.25' })).toMatchObject({ qtyCustomerInvoiced: 4, sumCustomerInvoiced: 500.25 });
+    expect(row({})).toMatchObject({ qtyCustomerInvoiced: 0, sumCustomerInvoiced: 0 });
+    const rows = [row({ qtyCustomerInvoiced: 2, sumCustomerInvoiced: 10.1 }), row({ rowOwnerGUID: 't2', qtyCustomerInvoiced: 1, sumCustomerInvoiced: 20.2 }), row({ rowOwnerGUID: 't3', measureUnit: 'unit_pcs', sumCustomerInvoiced: 5 })];
+    expect(totalsByUnit(rows).map((x) => [x.unit, x.sumCustomerInvoiced, x.sums.customerInvoiced])).toEqual([['unit_hour', 30.3, 3], ['unit_pcs', 5, 0]]);
+    expect(monitor01Totals(rows).sumCustomerInvoiced).toBe(35.3);
+    expect(buildMonitor01Items(rows).filter((i) => i.kind === 'total').map((i: any) => i.sumCustomerInvoiced)).toEqual([30.3, 5]);
+    expect(drillOperands('customerInvoiced')).toEqual([{ measure: 'customerInvoiced', sign: 1 }]);
+  });
+  it('the Deliverable (Revenue) genus has a tab of its own and is in All; its rows have only the customer invoice numbers', () => {
+    expect(MONITOR01_TABS.map((t) => t.id)).toEqual(['time', 'material', 'expense', 'deliverable', 'all']);
+    const rows = [row({ genusGUID: 'timeGenus' }), row({ rowOwnerGUID: 't2', genusGUID: 'revenueGenus', qtyCustomerInvoiced: 1 })];
+    expect(rowsOfTab(rows, 'deliverable').map((r) => r.genusGUID)).toEqual(['revenueGenus']);
+    expect(rowsOfTab(rows, 'time').map((r) => r.genusGUID)).toEqual(['timeGenus']);
+    expect(rowsOfTab(rows, 'all')).toHaveLength(2);
+    expect(monitor01GenusTitle('revenueGenus')).toBe('Deliverable');
+  });
   it('Vendor Invoice has a 1st level group after Fact; its Qty is qtyVendorInvoiced and its Sum is the money sumVendorInvoiced (parsed, summed per unit, in the totals and the tree lines)', () => {
     expect(MONITOR01_MEASURE_GROUP.vendorInvoiced).toBe('Vendor Invoice');
-    expect(MONITOR01_VENDOR_INVOICE_HEAD).toEqual({ group: 'Vendor Invoice', qty: 'Qty', sum: 'Sum' });
+    expect(MONITOR01_VENDOR_INVOICE_HEAD).toEqual({ group: 'Vendor Invoice', qty: 'Quantity', sum: 'Amount' });
     expect(row({ sumVendorInvoiced: '120.50' }).sumVendorInvoiced).toBe(120.5);
     expect(row({}).sumVendorInvoiced).toBe(0);
     const rows = [row({ sumVendorInvoiced: 100.1, qtyVendorInvoiced: 2 }), row({ rowOwnerGUID: 't2', sumVendorInvoiced: 20.2, qtyVendorInvoiced: 1 }), row({ rowOwnerGUID: 't3', measureUnit: 'unit_pcs', sumVendorInvoiced: 5 })];

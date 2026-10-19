@@ -124,3 +124,18 @@ The descriptor tables (`descriptorGenusTable`, `descriptorValueTable`, `descript
 - The validation (`crud/productValidation.ts`) takes a `CatalogKind`: the same rules run for products (`PRODUCT_KIND`) and, on the role data, for roles
   (`ROLE_KIND`); `dashboard/CatalogChecksPanel.tsx` is the shared Checks panel.
 - `card/ProductItemEditModalCard.tsx` exports its parts (`MainField`, `OwnerRowsTable`, `productModalLook`, `modalCardStyles`) for the role card.
+
+## Optional fields: ItemNumber and SearchName
+
+Two optional text fields of a product, stored in `productTable.rowJSON` (`itemNumber`, `searchName`; no SQL). Four project settings switch them (Project settings → **Product** tab, also Organization edit → Projects → Settings → Product); **all are false by default**:
+
+| setting (`rowJSON` key) | what it does |
+|---|---|
+| `itemNumberFunctionalityEnabled` / `searchNameFunctionalityEnabled` | the field exists: the search of the product windows looks in it. With the Visible switch (next row) it is also a column of the Products list (add / edit / **sort / filter**) and a field of the card. The Item number must be unique (cell validation, like the SKU) |
+| `itemNumberFunctionalityVisibleInProjects` / `searchNameFunctionalityVisibleInProjects` | the field is **shown**: in the Products list (organization settings) - a column BEFORE the SKU, Item number first, then Search name - and in the windows of a project that choose a product (a column of the Tree / Tree + items tables, the details line of the List). Works only while its Enabled switch is on |
+
+* **Who reads which settings** (`productFieldsModel.ts`): the Products list and card belong to the organization, so `useProductFields()` reads the **default project settings of the organization** (`productFieldsOfCatalog`: a column only while Enabled AND VisibleInProjects; no organization / no providers = no fields). A project screen (the product of a Material line, `PMProjectTaskFinancesCRUD` → `buildTaskLineColumns({ productFields })`) reads **its own project** (`productFieldsOfProject(project.rowJSON)`).
+* **Search**: `productSelectColumns(fields)` (`productSelectModel.ts`) adds the columns; a field that is Enabled but not Visible is a `searchOnly` column of `WithFoldersColumn` - never drawn, but `rowMatches` / `searchIds` look in it. So a SearchName can find a product without ever showing.
+* The pick lists of the catalog (`buildProductLabels(data, fields)`) put the shown item number in the details of a product.
+* NOT done: the document windows (fact input, invoices, purchase order, product receipt) choose a product with the generic `SelectElementFromCatalog` (title + subtitle) and do not look in these fields yet.
+* Tests: `__tests__/catalog/product/productFields.test.tsx`, `productFieldsSettings.test.tsx`, `useProductFields.test.tsx`.

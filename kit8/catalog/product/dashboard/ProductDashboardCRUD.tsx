@@ -33,6 +33,7 @@ import { issuesByTable, validateProductCatalog } from '../crud/productValidation
 import ProductCardView from '../card/ProductCardView';
 import { useProductCatalogData } from './useProductCatalogData';
 import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
+import { useProductFields } from '../useProductFields';
 import { buildDashboardTables, DASHBOARD_GROUPS, DASHBOARD_TABLE_ORDER, matchesScopeFilters, newRowFromScopeFilters, ScopeFilterDef } from './productDashboardTables';
 import ProductDashboardOverview from './ProductDashboardOverview';
 import GenerateVariantsWindow from './GenerateVariantsWindow';
@@ -55,7 +56,9 @@ export default function ProductDashboardCRUD() {
   const selectRowCheckBoxForm = usePMStore((s: any) => s.selectRowCheckBoxForm);
 
   const { data, status, reload, roleOwned } = useProductCatalogData(true);
-  const labels = useMemo(() => buildProductLabels(data), [data]);
+  // ItemNumber / SearchName of the Product: switched on in the default project settings of the organization (Product tab)
+  const productFields = useProductFields();
+  const labels = useMemo(() => buildProductLabels(data, productFields), [data, productFields]);
   const issues = useMemo(() => validateProductCatalog(data), [data]);
   const issuesPerTable = useMemo(() => issuesByTable(issues), [issues]);
 
@@ -84,12 +87,13 @@ export default function ProductDashboardCRUD() {
   const tables = useMemo(() => buildDashboardTables(data, labels, {
     today: todayISO(),
     businessUnitColumn,
+    productFields,
     openTable: (key, f, fromRowGUID) => openTable(key, f, undefined, fromRowGUID),
     assignBarcode: (row) => {
       const code = assignNextBarcode(dispatch, data, row);
       if (code) dispatch(showSnackbar({ message: `Barcode ${code} assigned` }));
     },
-  }), [data, labels, dispatch, openTable, businessUnitColumn]);
+  }), [data, labels, dispatch, openTable, businessUnitColumn, productFields]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;
@@ -267,7 +271,7 @@ export default function ProductDashboardCRUD() {
           )}
           {tab === 'card' && (
             <ProductCardView data={data} labels={labels} productGUID={typeof params.product === 'string' ? params.product : null}
-              onPickProduct={(g) => go('card', { product: g ?? undefined })} onOpenTable={(k, f) => openTable(k, f)} />
+              onPickProduct={(g) => go('card', { product: g ?? undefined })} productFields={productFields} onOpenTable={(k, f) => openTable(k, f)} />
           )}
           {tableView}
         </ScrollView>

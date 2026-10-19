@@ -1,5 +1,5 @@
 // Organization edit -> Projects -> Settings: the DEFAULT settings of a new project (organizationTable.rowJSON.defaultProjectSettings, defaultProjectSettings.ts).
-// The same switches and tabs as the Project settings window (Main, Budgets, Vendor, Subprojects) - the very same components - so a value means the same thing in both.
+// The same switches and tabs as the Project settings window (Main, Budgets, Vendor, Product, Subprojects) - the very same components - so a value means the same thing in both.
 // Loaded lazily by OrganizationEdit (only while the Projects tab is open).
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,15 +10,18 @@ import { PM_PLAN_DATE_INPUT_FORMATS } from '../../pm/model/types';
 import { withAlpha } from '../../pm/view/theme';
 import PMProjectBudgetsTab, { type BudgetsSubTab } from '../../pm/view/project/settings/PMProjectBudgetsTab';
 import PMProjectVendorTab from '../../pm/view/project/settings/PMProjectVendorTab';
+import PMProjectProductTab from '../../pm/view/project/settings/PMProjectProductTab';
 import PMProjectSubprojectsTab from '../../pm/view/project/settings/PMProjectSubprojectsTab';
 import { DefaultProjectSettings, defaultProjectSettingsOf, mainValuesOf } from './defaultProjectSettings';
+import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 
-export type OrganizationSettingsTab = 'main' | 'budgets' | 'vendor' | 'subprojects';
+export type OrganizationSettingsTab = 'main' | 'budgets' | 'vendor' | 'product' | 'subprojects';
 
 const TABS: { id: OrganizationSettingsTab; label: string }[] = [
   { id: 'main', label: 'Main' },
   { id: 'budgets', label: 'Budgets' },
   { id: 'vendor', label: 'Vendor' },
+  { id: 'product', label: 'Product' },
   { id: 'subprojects', label: 'Subprojects' },
 ];
 
@@ -47,7 +50,7 @@ export default function OrganizationProjectSettings({
       <Text style={{ color: c.text, opacity: 0.7, fontSize: 12, marginBottom: 8 }}>
         {pmT('These settings are given to every NEW project of the organization. Existing projects are not changed.')}
       </Text>
-      <View testID="organization-project-settings-tabs" style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID="organization-project-settings-tabs" style={[styles.tabs, { borderBottomColor: c.border }]}>
         {TABS.map((t) => {
           const on = tab === t.id;
           return (
@@ -63,7 +66,7 @@ export default function OrganizationProjectSettings({
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       {/* read-only for a user who cannot edit the organization */}
       <View pointerEvents={disabled ? 'none' : 'auto'} style={{ opacity: disabled ? 0.6 : 1 }}>
@@ -96,6 +99,7 @@ export default function OrganizationProjectSettings({
         )}
         {tab === 'budgets' && <PMProjectBudgetsTab values={v} onChange={patch} subTab={budgetsSubTab} onSubTabChange={setBudgetsSubTab} />}
         {tab === 'vendor' && <PMProjectVendorTab values={v} onChange={patch} />}
+        {tab === 'product' && <PMProjectProductTab values={v} onChange={patch} />}
         {tab === 'subprojects' && <PMProjectSubprojectsTab values={v} onChange={patch} />}
       </View>
     </View>

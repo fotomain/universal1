@@ -6,7 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
 import { buildTreeIndex, flattenTree } from '../../../ui/components/tree/folderTreeModel';
-import { allNodes, searchIds } from './withFoldersModel';
+import { allNodes, searchIds, shownColumns } from './withFoldersModel';
 import type { WithFoldersViewProps } from './withFoldersViewTypes';
 
 const INDENT = 20;
@@ -26,7 +26,7 @@ export default function WithFoldersTreeTable({ rows, isFolder, titleOf, columns,
     return Array.from({ length: flat.length }, (_, k) => ({ row: byId.get(nodes[flat.idx[k]].id)!, depth: flat.depth[k], hasKids: index.childStart[flat.idx[k] + 1] > index.childStart[flat.idx[k]] }));
   }, [index, nodes, expanded, found, byId]);
   const toggle = (id: string) => setExpanded((old) => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  const [first, ...rest] = columns;
+  const [first, ...rest] = shownColumns(columns);
 
   return (
     <View style={{ flex: 1 }} testID={testID}>

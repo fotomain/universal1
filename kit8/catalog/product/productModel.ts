@@ -55,7 +55,7 @@ export const PRODUCT_TABLES = {
     emptyRowJSON: () => ({ title: null }) }),
   product: def({ table: 'productTable', entity: 'productReusable', itemLabel: 'Product', catalogOwner: null,
     purpose: 'The catalog item customers see and order (iPhone 11, Chicken nuggets).',
-    emptyRowJSON: () => ({ title: null, sku: null, measureUnitForInventory: 'unit_pcs', measureUnitDefault: 'unit_pcs', productVATRate: null, description: null, isActive: true }) }),
+    emptyRowJSON: () => ({ title: null, sku: null, itemNumber: null, searchName: null, measureUnitForInventory: 'unit_pcs', measureUnitDefault: 'unit_pcs', productVATRate: null, description: null, isActive: true }) }),
   propertyValue: def({ table: 'propertyValueTable', entity: 'propertyValueReusable', itemLabel: 'Property value', catalogOwner: null,
     purpose: 'The Property values of each product (Brand = Apple, Calories = 290) for cards, filters and search.',
     emptyRowJSON: () => ({ descriptorValueGUID: null, value: null }) }),
@@ -154,7 +154,7 @@ export interface ProductTypeJSON {
   variantSharedTypeGUID?: string | null; uniqueVariants?: boolean; variantTitleTemplate?: string | null;
   useSerialNumbers?: boolean; usePackaging?: boolean; useSeries?: boolean; isActive?: boolean;
 }
-export interface ProductJSON { title: string; sku?: string | null; /** measureUnitTable rowGUID (required): the unit the product is counted and stocked in */ measureUnitForInventory: string; /** measureUnitTable rowGUID (required): the unit the product is offered, ordered and reported in */ measureUnitDefault: string; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
+export interface ProductJSON { title: string; sku?: string | null; /** optional (project switch itemNumberFunctionalityEnabled): the item number, unique among the products */ itemNumber?: string | null; /** optional (searchNameFunctionalityEnabled): a name only for finding the product */ searchName?: string | null; /** measureUnitTable rowGUID (required): the unit the product is counted and stocked in */ measureUnitForInventory: string; /** measureUnitTable rowGUID (required): the unit the product is offered, ordered and reported in */ measureUnitDefault: string; /** valueAddedTaxTable rowGUID; null = the product type default */ productVATRate?: string | null; description?: string | null; isActive?: boolean }
 /** ref genus -> descriptorValueGUID; scalar genus -> value */
 export interface PropertyValueJSON { descriptorValueGUID?: string | null; value?: string | number | boolean | null }
 export interface VariantJSON { title: string; descriptorKey: string; isActive?: boolean }

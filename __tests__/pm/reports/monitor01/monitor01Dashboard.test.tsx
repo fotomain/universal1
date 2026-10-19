@@ -70,31 +70,32 @@ const flush = () => act(async () => { await Promise.resolve(); await Promise.res
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 describe('the table of the sheet', () => {
-  it('the dividers Plan | Fact | Vendor Invoice of the body are the left edges of Ordered and of Vendor Invoice / Qty (same columns as the header); a row keeps its full width (a scrollbar of the list must not squeeze the columns)', () => {
+  it('the dividers Plan | Fact | Vendor Invoice | Customer Invoice of the body are the left edges of Ordered, Vendor Invoice / Qty and Customer Invoice / Qty (same columns as the header); a row keeps its full width (a scrollbar of the list must not squeeze the columns)', () => {
     renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
     const bw = (id: string) => getComputedStyle(q(id)!).borderLeftWidth;
     expect(bw(cell(KEY_T1, 'ordered'))).toBe('2px');
     expect(bw(cell(KEY_T1, 'received'))).not.toBe('2px');
     expect(bw(cell(KEY_T1, 'used'))).not.toBe('2px');
     expect(bw(cell(KEY_T1, 'vendorInvoiced'))).toBe('2px');
+    expect(bw(cell(KEY_T1, 'customerInvoiced'))).toBe('2px');
     const row = getComputedStyle(q(`monitor01-table-item-${KEY_T1}`)!);
-    expect(row.width).toBe('1652px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 4 x 94 + 94 + 112
+    expect(row.width).toBe('1858px'); // 150 + 190 + 104 + 160 + 72 + 3 x 94 + 112 + 4 x 94 + (94 + 112) x 2
     expect(row.flexShrink).toBe('0');
   });
   it('every header cell has a tip = its title (the groups too; also when the column is too narrow for the text)', () => {
     mockHook.rows = [parseMonitor01Row(raw())];
     renderUI(<Monitor01Dashboard mode="standalone" />);
-    const heads = ['project', 'role', 'month', 'task', 'unit', 'planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced'];
+    const heads = ['project', 'role', 'month', 'task', 'unit', 'planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced', 'customerInvoiced', 'sumCustomerInvoiced'];
     for (const m of heads) {
       const el = q(`monitor01-table-head-${m}`)!;
       expect(mockTipTexts).toContain((el.textContent || '').trim());
       expect(el.parentElement!.getAttribute('aria-label')).toBe((el.textContent || '').trim()); // the cell itself carries the title
     }
-    for (const [key, title] of [['Plan', 'Plan'], ['Fact', 'Fact'], ['VendorInvoice', 'Vendor Invoice']]) {
+    for (const [key, title] of [['Plan', 'Plan'], ['Fact', 'Fact'], ['VendorInvoice', 'Vendor Invoice'], ['CustomerInvoice', 'Customer Invoice']]) {
       expect(mockTipTexts).toContain(title);
       expect(q(`monitor01-table-group-${key}`)!.getAttribute('aria-label')).toBe(title);
     }
-    for (const t of ['Received', 'Qty', 'Sum']) expect(mockTipTexts).toContain(t);
+    for (const t of ['Received', 'Quantity', 'Amount']) expect(mockTipTexts).toContain(t);
   });
 
   it('the two header rows: 1st level Plan | Fact | Vendor Invoice (after Fact), 2nd level the columns, Vendor Invoice has Qty and Sum; Ordered is the first of the Fact group', () => {
@@ -102,9 +103,10 @@ describe('the table of the sheet', () => {
     expect(textOf('monitor01-table-group-Plan')).toBe('Plan');
     expect(textOf('monitor01-table-group-Fact')).toBe('Fact');
     expect(textOf('monitor01-table-group-VendorInvoice')).toBe('Vendor Invoice');
-    expectInOrder(['monitor01-table-group-Plan', 'monitor01-table-group-Fact', 'monitor01-table-group-VendorInvoice']);
-    const cols = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced'];
-    expect(cols.map((m) => textOf(`monitor01-table-head-${m}`))).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Received', 'Actually used', 'On-hand', 'Qty', 'Sum']);
+    expect(textOf('monitor01-table-group-CustomerInvoice')).toBe('Customer Invoice');
+    expectInOrder(['monitor01-table-group-Plan', 'monitor01-table-group-Fact', 'monitor01-table-group-VendorInvoice', 'monitor01-table-group-CustomerInvoice']);
+    const cols = ['planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced', 'customerInvoiced', 'sumCustomerInvoiced'];
+    expect(cols.map((m) => textOf(`monitor01-table-head-${m}`))).toEqual(['Planned', 'Contracted', 'Rest to contract', 'Budget', 'Ordered', 'Received', 'Actually used', 'On-hand', 'Quantity', 'Amount', 'Quantity', 'Amount']);
     expectInOrder(cols.map((m) => `monitor01-table-head-${m}`));
   });
 
@@ -312,6 +314,40 @@ describe('Vendor Invoice: Qty and Sum', () => {
     expect(textOf('monitor01-table-totals-unit_hour-sumVendorInvoiced')).toBe('1,234.50');
     expect(textOf('monitor01-table-totals-unit_hour-vendorInvoiced')).toBe('8');
     expect(textOf(`monitor01-table-sumVendorInvoiced-t3|timeGenus|r1|unit_hour|2026-10-01`)).toBe(''); // a zero shows nothing
+  });
+});
+
+describe('Customer Invoice: Qty and Sum (the last group; the Deliverable = Revenue genus)', () => {
+  const REV = (over: Record<string, any> = {}) => raw({ rowOwnerGUID: 't9', taskName: 'task09', genusGUID: 'revenueGenus', resourceRoleGUID: 'r9', resourceRoleName: 'Stage #1 Revenue', measureUnit: 'unit_pcs', qtyPlanned: 0, qtyContracted: 0, sumForBudget: 0, qtyRestToContract: 0, qtyCustomerInvoiced: 4, sumCustomerInvoiced: 2500.5, ...over });
+  it('a Deliverable row shows the Qty (a button) and the Sum (money) of the posted customer invoices; the subtotals, the total line and the TotalsRow too', () => {
+    mockHook.rows = [parseMonitor01Row(REV()), parseMonitor01Row(raw({ qtyCustomerInvoiced: 0, sumCustomerInvoiced: 0 }))];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    const key = 't9|revenueGenus|r9|unit_pcs|2026-10-01';
+    expect(textOf(cell(key, 'customerInvoiced'))).toBe('4');
+    expect(textOf(`monitor01-table-sumCustomerInvoiced-${key}`)).toBe('2,500.50');
+    expect(textOf('monitor01-table-sumCustomerInvoiced-total|unit_pcs')).toBe('2,500.50');
+    expect(textOf('monitor01-table-totals-unit_pcs-sumCustomerInvoiced')).toBe('2,500.50');
+    expect(textOf('monitor01-table-totals-unit_pcs-customerInvoiced')).toBe('4');
+    expect(textOf(`monitor01-table-sumCustomerInvoiced-${KEY_T1}`)).toBe('');   // a zero shows nothing
+    expect(textOf(`monitor01-table-sumVendorInvoiced-${key}`)).toBe('');        // the vendor invoice columns are not the customer ones
+  });
+  it('a click on the Qty lists the POSTED customer invoices (measure customerInvoiced); Open shows the invoice in the customer invoice form', async () => {
+    mockHook.rows = [parseMonitor01Row(REV())];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    const key = 't9|revenueGenus|r9|unit_pcs|2026-10-01';
+    press(cell(key, 'customerInvoiced'));
+    await flush();
+    expect(mockFetch.mock.calls.map((c) => c[1])).toEqual(['customerInvoiced']);
+  });
+  it('the Deliverable tab shows only the Revenue rows and is counted; All has them too', () => {
+    mockHook.rows = [...sheet(), parseMonitor01Row(REV())];
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(q('monitor01-tab-deliverable')).not.toBeNull();
+    expect(textOf('monitor01-tab-deliverable-count')).toBe('1');
+    expect(textOf('monitor01-tab-all-count')).toBe('5');
+    press('monitor01-tab-deliverable');
+    expect(rowIds().every((id) => id.includes('revenueGenus'))).toBe(true);
+    expect(rowIds()).toHaveLength(1);
   });
 });
 

@@ -2,6 +2,7 @@
 // /pm/purchase-order/list?… and /pm/fact/list?taskGUID=…&taskLineGUID=…. The scope is NOT one of the quick filters (no column): the list shows a chip "Task: …" with a Clear icon and sends the scope to the
 // list RPC (vendor_invoice_list / task_fact_document_list: keys taskGUID, taskLineGUID). Pure TypeScript, unit-tested.
 export const VENDOR_INVOICE_LIST_ROUTE = '/pm/vendor-invoice/list';
+export const CUSTOMER_INVOICE_LIST_ROUTE = '/pm/customer-invoice/list';
 export const FACT_LIST_ROUTE = '/pm/fact/list';
 export const PURCHASE_ORDER_LIST_ROUTE = '/pm/purchase-order/list';
 export const PRODUCT_RECEIPT_LIST_ROUTE = '/pm/product-receipt/list';
@@ -42,6 +43,7 @@ const withScope = (route: string, s: TaskScope): string => {
   return q ? `${route}?${q}` : route;
 };
 export const vendorInvoiceListPath = (s: TaskScope): string => withScope(VENDOR_INVOICE_LIST_ROUTE, s);
+export const customerInvoiceListPath = (s: TaskScope): string => withScope(CUSTOMER_INVOICE_LIST_ROUTE, s);
 export const factListPath = (s: TaskScope): string => withScope(FACT_LIST_ROUTE, s);
 
 /** the text of the chip: "Task: <name>" or "Task line of <name> (<id>)"; the name is '' until it is read */

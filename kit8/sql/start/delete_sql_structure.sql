@@ -130,6 +130,22 @@ DROP FUNCTION IF EXISTS public.project_cost_trg_project_budget();
 DROP FUNCTION IF EXISTS public.project_cost_budget_on(jsonb);
 DROP FUNCTION IF EXISTS public.project_cost_flag(jsonb, text, boolean);
 -- (PART 26 of the structure file: the vendor invoice, the legal entity catalog, the main vendor guards; the data of the invoices and of the legal entities goes with the tables)
+-- (PART 31 of the structure file: the customer invoice - its tables with their triggers, then its functions; the 'sold' movements and the columns of Monitor01 / the turnover go with their tables below)
+DROP TABLE IF EXISTS public.customer_invoice_lines CASCADE;
+DROP TABLE IF EXISTS public.customer_invoice_header CASCADE;
+DROP SEQUENCE IF EXISTS public.customer_invoice_document_seq;
+DROP FUNCTION IF EXISTS public.customer_invoice_state(uuid);
+DROP FUNCTION IF EXISTS public.customer_invoice_lines_before_write();
+DROP FUNCTION IF EXISTS public.customer_invoice_header_before_write();
+DROP FUNCTION IF EXISTS public.project_status_register_customer_invoice(uuid);
+DROP FUNCTION IF EXISTS public.customer_invoice_candidates(uuid, uuid[]);
+DROP FUNCTION IF EXISTS public.create_customer_invoices(uuid, jsonb, text);
+DROP FUNCTION IF EXISTS public.customer_invoice_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.customer_invoice_add_line(uuid, text);
+DROP FUNCTION IF EXISTS public.post_customer_invoice(uuid);
+DROP FUNCTION IF EXISTS public.unpost_customer_invoice(uuid);
+DROP FUNCTION IF EXISTS public.delete_customer_invoice(uuid);
+DROP FUNCTION IF EXISTS public.customer_invoice_list(jsonb, integer, integer);
 -- (PART 30 of the structure file: the product receipt - dropped BEFORE the purchase order, its lines point to the order lines; the 'received' movements go with project_status_movements below)
 DROP TABLE IF EXISTS public.product_receipt_lines CASCADE;
 DROP TABLE IF EXISTS public.product_receipt_header CASCADE;

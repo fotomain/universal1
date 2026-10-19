@@ -5,13 +5,14 @@ import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import FolderTreeReusable from '../../../ui/components/tree/FolderTreeReusable';
 import { TREE_ALL_ID, TREE_NONE_ID } from '../../../ui/components/tree/folderTreeModel';
-import { folderNodes, itemsInFolder, rowMatches, WITH_FOLDERS_NONE, WITH_FOLDERS_SMALL_WIDTH } from './withFoldersModel';
+import { folderNodes, itemsInFolder, rowMatches, shownColumns, WITH_FOLDERS_NONE, WITH_FOLDERS_SMALL_WIDTH } from './withFoldersModel';
 import type { WithFoldersViewProps } from './withFoldersViewTypes';
 
 export default function WithFoldersSplit({ rows, isFolder, titleOf, columns, value, query, onPick, testID }: WithFoldersViewProps) {
   const { themeColors: c } = useDesignSystem();
   const { width } = useWindowDimensions();
   const narrow = width < WITH_FOLDERS_SMALL_WIDTH;
+  const shown = useMemo(() => shownColumns(columns), [columns]);
   const [folder, setFolder] = useState<string | null>(null);
   const nodes = useMemo(() => folderNodes(rows, isFolder, titleOf), [rows, isFolder, titleOf]);
   // the items of each folder (direct) for the counts beside the folders
@@ -45,7 +46,7 @@ export default function WithFoldersSplit({ rows, isFolder, titleOf, columns, val
       </View>
       <View style={[styles.right, { borderColor: c.border }]} testID={`${testID}-table`}>
         <View style={[styles.head, { backgroundColor: c.border + '30', borderBottomColor: c.border }]}>
-          {columns.map((col, i) => <Text key={col.key} numberOfLines={1} style={[styles.headCell, i === 0 ? { flex: 1 } : { width: col.width ?? 120 }, { color: c.text, borderLeftColor: c.border }]}>{col.title}</Text>)}
+          {shown.map((col, i) => <Text key={col.key} numberOfLines={1} style={[styles.headCell, i === 0 ? { flex: 1 } : { width: col.width ?? 120 }, { color: c.text, borderLeftColor: c.border }]}>{col.title}</Text>)}
         </View>
         <FlatList
           data={items}
@@ -57,7 +58,7 @@ export default function WithFoldersSplit({ rows, isFolder, titleOf, columns, val
             const chosen = r.rowGUID === value;
             return (
               <Pressable testID={`${testID}-item-${r.rowGUID}`} accessibilityRole="button" onPress={() => onPick(r)} style={[styles.row, { borderBottomColor: c.border + '55', backgroundColor: chosen ? c.primary + '22' : 'transparent' }]}>
-                {columns.map((col, i) => (
+                {shown.map((col, i) => (
                   <Text key={col.key} numberOfLines={1} style={[styles.cellText, i === 0 ? { flex: 1, fontWeight: chosen ? '700' : '500', color: chosen ? c.primary : c.text } : { width: col.width ?? 120, color: c.text, opacity: 0.8 }]}>{col.text(r)}</Text>
                 ))}
               </Pressable>

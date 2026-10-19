@@ -27,6 +27,7 @@ import PMTaskEditModal from '../PMTaskEditModal';
 import PMTaskEditView from '../finances/PMTaskEditView';
 import TabTaskEditFact from './TabTaskEditFact';
 import { DEFAULT_TASK_EDIT_WINDOW_TAB, TaskEditWindowTab } from './taskEditWindowLink';
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export const TASK_EDIT_WINDOW_TAB_LIST: { id: TaskEditWindowTab; label: string; icon: string }[] = [
   { id: 'TabTaskEditMain', label: 'Main', icon: 'edit' },
@@ -94,7 +95,7 @@ function PMTaskEditWindowInner({ taskGUID, projectGUID: projectHint, tab: initia
   return (
     <View style={{ flex: 1, backgroundColor: themeColors.background }} testID="pm-task-edit-window">
       {/* 1st level tabs */}
-      <View testID="pm-task-edit-window-tabs" style={[styles.tabsBar, { borderBottomColor: themeColors.border }]}>
+      <ScrollableTabBar testID="pm-task-edit-window-tabs" style={[styles.tabsBar, { borderBottomColor: themeColors.border }]}>
         {TASK_EDIT_WINDOW_TAB_LIST.map((t) => {
           const active = activeTab === t.id;
           return (
@@ -111,7 +112,7 @@ function PMTaskEditWindowInner({ taskGUID, projectGUID: projectHint, tab: initia
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       {!taskGUID ? (
         <Notice testID="pm-task-edit-window-nolink" text={pmT('No task in the link.')} />

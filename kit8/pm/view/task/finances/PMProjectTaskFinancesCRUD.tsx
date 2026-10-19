@@ -41,6 +41,7 @@ import type { TaskLineRow } from './taskLineModel';
 import { formatMoney, taskLineTotals } from './taskLineMoney';
 import { computeTaskLineRowJSON } from './taskLineCompute';
 import { buildTaskLineColumns, taskLineErrors } from './taskLineColumns';
+import { productFieldsOfProject } from '../../../../catalog/product/productFieldsModel';
 import { useTaskLineCatalogs } from './useTaskLineCatalogs';
 import { computeFx, fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
 import { lineContractCurrency } from './taskLineCatalogs';
@@ -58,6 +59,7 @@ import { vendorInvoiceLinesOfScope } from '../../../../documents/vendor/invoice/
 import { useStartPurchaseOrder } from '../../../../documents/vendor/purchase_order/usePurchaseOrder';
 import PurchaseOrderScopeModal from '../../../../documents/vendor/purchase_order/PurchaseOrderScopeModal';
 import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase_order/purchaseOrderModel';
+import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export interface PMProjectTaskFinancesCRUDProps {
   projectGUID: string;
@@ -109,6 +111,8 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
 
   // ---- the input switches of the project: which tabs and which kinds of Time resource are offered (a tab with lines is never hidden) ----
   const scope = useMemo(() => taskInputScopeOf(projectJSON), [projectJSON]);
+  // the optional product fields (Item number, Search name) the project switches on: the product window of a Material line
+  const productFields = useMemo(() => productFieldsOfProject(projectJSON), [projectJSON]);
   const visibleGenus = useMemo(
     () => TASK_LINE_GENUS.filter((g) => tabVisible(scope, g.genus, taskLines.filter((l) => l.rowParentGUID === g.genus).length)),
     [scope, taskLines],
@@ -145,8 +149,8 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
     [taskLines, def, data, fx],
   );
   const columns = useMemo(
-    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds }),
-    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds],
+    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds, productFields }),
+    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds, productFields],
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it
@@ -208,7 +212,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
 
   return (
     <View testID={testID} style={styles.root}>
-      <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+      <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {visibleGenus.map((g) => {
           const active = g.genus === genus;
           const t = totals.find((x) => x.genus === g.genus);
@@ -237,7 +241,7 @@ export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initi
             </Pressable>
           );
         })}
-      </View>
+      </ScrollableTabBar>
 
       <ReusableTable
         key={def.genus}
