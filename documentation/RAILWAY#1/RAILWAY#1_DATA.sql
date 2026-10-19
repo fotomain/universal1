@@ -46,10 +46,12 @@ DECLARE
   -- Purchase Order Lines
   v_po_line_mat         uuid := 'd1000000-0000-4000-8000-000000000001'::uuid;
   v_po_line_exp         uuid := 'd1000000-0000-4000-8000-000000000002'::uuid;
+  v_po_line_time        uuid := 'd1000000-0000-4000-8000-000000000003'::uuid;
 
   -- Product Receipt Lines
   v_pr_line_mat         uuid := 'd2000000-0000-4000-8000-000000000001'::uuid;
   v_pr_line_exp         uuid := 'd2000000-0000-4000-8000-000000000002'::uuid;
+  v_pr_line_time        uuid := 'd2000000-0000-4000-8000-000000000003'::uuid;
 
   -- Fact Input Lines
   v_fact_line_rev       uuid := 'd3000000-0000-4000-8000-000000000001'::uuid;
@@ -57,9 +59,13 @@ DECLARE
   v_fact_line_exp       uuid := 'd3000000-0000-4000-8000-000000000003'::uuid;
   v_fact_line_time      uuid := 'd3000000-0000-4000-8000-000000000004'::uuid;
 
+  -- Kanban Stage GUID
+  v_kanban_stage_exec   uuid;
+
   -- Vendor Invoice Lines
   v_vi_line_mat         uuid := 'd4000000-0000-4000-8000-000000000001'::uuid;
   v_vi_line_exp         uuid := 'd4000000-0000-4000-8000-000000000002'::uuid;
+  v_vi_line_time        uuid := 'd4000000-0000-4000-8000-000000000003'::uuid;
 
   -- Customer Invoice Line
   v_ci_line_rev         uuid := 'd5000000-0000-4000-8000-000000000001'::uuid;
@@ -81,7 +87,7 @@ DECLARE
   c_operator_hour_rate   numeric := 95.00;             -- $95/hr specialized RMM union operator prevailing wage
   c_operator_sum         numeric := 641250.00;
 
-  c_vendor_total_sum     numeric := 59332500.00;       -- Rail Material ($54.945M) + Tamper Hire ($4.3875M)
+  c_vendor_total_sum     numeric := 59973750.00;       -- Rail Material ($54.945M) + Tamper Hire ($4.3875M) + Operator Labor ($0.64125M)
   c_budget_cost_total    numeric := 59973750.00;       -- Material + Equipment + Time
   c_vat_rate             numeric := 0.000;             -- Municipal infrastructure project exempt
 
@@ -202,6 +208,14 @@ BEGIN
       'contractCurrency', 'USD',
       'contractSumBeforeVAT', c_tamper_sum,
       'legalEntityGUID', 'le-nec-infra'
+    )),
+    ('ct-plasser-operator-01', 'ptn-plasser-usa', 'partner', 4096, jsonb_build_object(
+      'contractPartyType', 'partner',
+      'contractNumber', 'CT-SRV-OPERATOR-2026',
+      'contractTitle', 'Master Agreement - Specialized Heavy Railway Machinery (RMM) Lead Operator Services',
+      'contractCurrency', 'USD',
+      'contractSumBeforeVAT', c_operator_sum,
+      'legalEntityGUID', 'le-nec-infra'
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";
 
@@ -260,51 +274,51 @@ BEGIN
 
   -- Resource Roles
   INSERT INTO public."resourceRoleTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
-    ('role-rail-segment', 'resourceRoleCatalog', 'empty', 1024, jsonb_build_object(
+    ('role-rail-segment', 'revenueResources', 'empty', 1024, jsonb_build_object(
       'title', 'Railroad Segment Construction Turnkey Works',
       'roleTitle', 'Railroad Segment Construction Turnkey Works',
       'measureUnit', 'unit_mile',
       'managementGenus', 'revenueGenus'
     )),
-    ('role-steel-rail', 'resourceRoleCatalog', 'empty', 2048, jsonb_build_object(
+    ('role-steel-rail', 'materialResources', 'empty', 2048, jsonb_build_object(
       'title', '136 RE Carbon Steel Rail Sticks Supply',
       'roleTitle', '136 RE Carbon Steel Rail Sticks Supply',
       'measureUnit', 'unit_pcs',
       'managementGenus', 'materialGenus'
     )),
-    ('role-tamper-machine', 'resourceRoleCatalog', 'empty', 3072, jsonb_build_object(
+    ('role-tamper-machine', 'expenseResources', 'empty', 3072, jsonb_build_object(
       'title', 'Tamper: Continuous-Action Production Tamper',
       'roleTitle', 'Tamper: Continuous-Action Production Tamper',
       'measureUnit', 'unit_hour',
       'managementGenus', 'expenseGenus'
     )),
-    ('role-rmm-operator', 'resourceRoleCatalog', 'empty', 4096, jsonb_build_object(
+    ('role-rmm-operator', 'humanResources', 'empty', 4096, jsonb_build_object(
       'title', 'Machine Operator: Machine (RMM) Operator',
       'roleTitle', 'Machine Operator: Machine (RMM) Operator',
       'measureUnit', 'unit_hour',
       'managementGenus', 'timeGenus'
     ))
-  ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";
+  ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowOwnerGUID" = EXCLUDED."rowOwnerGUID";
 
   -- Budget Items
   INSERT INTO public."budgetItemTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
-    ('bi-nec-turnkey-rev', 'budgetItemCatalog', 'revenuesGenus', 1024, jsonb_build_object(
+    ('bi-nec-turnkey-rev', 'budgetItemCatalog', 'revenuesBudgetFolder', 1024, jsonb_build_object(
       'title', 'High-Speed Track Turnkey Construction Revenue',
       'managementGenusItem', 'revenueGenus'
     )),
-    ('bi-nec-rail-mat', 'budgetItemCatalog', 'costsGenus', 2048, jsonb_build_object(
+    ('bi-nec-rail-mat', 'budgetItemCatalog', 'costsBudgetFolder', 2048, jsonb_build_object(
       'title', 'Track Steel Rails & Permanent Way Material',
       'managementGenusItem', 'materialGenus'
     )),
-    ('bi-nec-tamper-exp', 'budgetItemCatalog', 'costsGenus', 3072, jsonb_build_object(
+    ('bi-nec-tamper-exp', 'budgetItemCatalog', 'costsBudgetFolder', 3072, jsonb_build_object(
       'title', 'Specialized Heavy Railway Machinery Hire & Tamping',
       'managementGenusItem', 'expenseGenus'
     )),
-    ('bi-nec-operator-lab', 'budgetItemCatalog', 'costsGenus', 4096, jsonb_build_object(
+    ('bi-nec-operator-lab', 'budgetItemCatalog', 'costsBudgetFolder', 4096, jsonb_build_object(
       'title', 'Specialized Railway Equipment Operators Labor',
       'managementGenusItem', 'timeGenus'
     ))
-  ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";
+  ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowParentGUID" = EXCLUDED."rowParentGUID";
 
   -- ---------------------------------------------------------------------------------------------
   -- 2. CREATE PROJECT: Railway #1 (Northeast Corridor) - IDEMPOTENT CLEANUP
@@ -331,6 +345,7 @@ BEGIN
 
   DELETE FROM public.task_line_table WHERE "rowProjectGUID" = v_project;
   DELETE FROM public.project_task_dependencies_table WHERE "projectGUID" = v_project;
+  DELETE FROM public.project_task_kanban_state_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_task_table WHERE "projectGUID" = v_project;
   DELETE FROM public.project_user_settings_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = v_project;
@@ -436,6 +451,30 @@ BEGIN
   -- Ensure Kanban stages for Railway #1
   PERFORM public.pm_kanban_ensure_project_stages(v_project);
 
+  -- Set 100% Kanban execution state for Task 1 (final column: Execute at 100%)
+  SELECT "rowGUID" INTO v_kanban_stage_exec
+  FROM public.project_kanban_stage_table
+  WHERE "rowOwnerGUID" = v_project
+  ORDER BY "orderInList" DESC
+  LIMIT 1;
+
+  IF v_kanban_stage_exec IS NOT NULL THEN
+    INSERT INTO public.project_task_kanban_state_table (
+      "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON", "created_at", "updated_at"
+    ) VALUES (
+      gen_random_uuid(),
+      v_project,
+      v_task,
+      1024,
+      jsonb_build_object(
+        'stageGUID', v_kanban_stage_exec::text,
+        'kanbanStageProgressPercent', 100
+      ),
+      NOW(),
+      NOW()
+    );
+  END IF;
+
   -- Project User Settings (allows immediate loading of Gantt, Tree, and Ribbon for user)
   INSERT INTO public.project_user_settings_table (
     "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON"
@@ -482,6 +521,7 @@ BEGIN
       'sumForAccounting', c_miles_sum,
       'taskLinePartnerItem', 'ptn-amtrak',
       'taskLinePartnerContract', 'ct-amtrak-nec-01',
+      'budgetItemTaskLine', 'bi-nec-turnkey-rev',
       'budgetItemItem', 'bi-nec-turnkey-rev',
       'description', 'Turnkey Track Superstructure Construction - Railroad Segment No. 1 (225 miles)'
     )
@@ -509,6 +549,7 @@ BEGIN
       'sumForAccounting', c_rail_sum,
       'taskLinePartnerItem', 'ptn-eastern-rail',
       'taskLinePartnerContract', 'ct-eastern-rail-01',
+      'budgetItemTaskLine', 'bi-nec-rail-mat',
       'budgetItemItem', 'bi-nec-rail-mat',
       'description', '136 RE Carbon Steel Rail 80-Foot Sticks (29,700 sticks for 225 miles track alignment)'
     )
@@ -536,6 +577,7 @@ BEGIN
       'sumForAccounting', c_tamper_sum,
       'taskLinePartnerItem', 'ptn-plasser-usa',
       'taskLinePartnerContract', 'ct-plasser-tamper-01',
+      'budgetItemTaskLine', 'bi-nec-tamper-exp',
       'budgetItemItem', 'bi-nec-tamper-exp',
       'description', 'Continuous-Action Production Tamper Machinery Deployment (Plasser 09-3X / Dynacat)'
     )
@@ -562,6 +604,11 @@ BEGIN
       'sumForContract', c_operator_sum,
       'sumForBudget', c_operator_sum,
       'sumForAccounting', c_operator_sum,
+      'taskLinePartnerItem', 'ptn-plasser-usa',
+      'taskLinePartnerContract', 'ct-plasser-operator-01',
+      'taskResourcePartner', 'ptn-plasser-usa',
+      'taskResourceContract', 'ct-plasser-operator-01',
+      'budgetItemTaskLine', 'bi-nec-operator-lab',
       'budgetItemItem', 'bi-nec-operator-lab',
       'description', 'Specialized Heavy Railway Machinery (RMM) Lead Operator John Rimm'
     )
@@ -620,16 +667,21 @@ BEGIN
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
     "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "planMovementStatus", "periodDay", "rowJSON"
   ) VALUES
-    (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-02-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-02-01', '{}'::jsonb),
-    (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-03-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-03-01', '{}'::jsonb),
-    (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-03-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-03-01', '{}'::jsonb);
+    (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-rail-mat', 'taskManagementGenusLine', 'materialGenus')),
+    (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-tamper-exp', 'taskManagementGenusLine', 'expenseGenus')),
+    (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-operator-lab', 'taskManagementGenusLine', 'timeGenus'));
 
   INSERT INTO public.task_line_plan_timeline (
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting"
   ) VALUES
-    (gen_random_uuid(), v_project, v_task, '2026-02-01T00:00:00Z'::timestamptz, v_line_material, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum),
-    (gen_random_uuid(), v_project, v_task, '2026-03-01T00:00:00Z'::timestamptz, v_line_expense,  c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum),
-    (gen_random_uuid(), v_project, v_task, '2026-03-01T00:00:00Z'::timestamptz, v_line_time,     c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum);
+    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_material, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum),
+    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_expense,  c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum),
+    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_time,     c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum);
+
+  -- Mark task lines as posted so Monitor01 does not show stale plan warning (yellow)
+  UPDATE public.task_line_table
+  SET "rowJSON" = "rowJSON" || '{"taskIsPosted": true, "baseOfDistribution": 1}'::jsonb
+  WHERE "rowOwnerGUID" = v_task;
 
   -- Register plan movements
   PERFORM public.project_status_register_plan(ARRAY[v_task]);
@@ -647,19 +699,19 @@ BEGIN
       'purchaseOrderPartner', 'ptn-eastern-rail',
       'purchaseOrderContract', 'ct-eastern-rail-01',
       'purchaseOrderNumber', 'PO-NYWAS-00001',
-      'purchaseOrderDateTime', '2026-01-05T09:00:00Z',
+      'purchaseOrderDateTime', '2026-11-01T09:00:00Z',
       'purchaseOrderCurrency', 'USD',
       'purchaseOrderFolder', 'le-nec-infra:ptn-eastern-rail',
       'documentHeader', jsonb_build_object(
         'documentNumber', 'PO-NYWAS-00001',
         'documentStatus', 'posted',
-        'postedAt', '2026-01-05T09:30:00Z',
+        'postedAt', '2026-11-01T09:30:00Z',
         'postedBy', v_owner,
-        'title', 'Purchase Order: 100% Full Project Order - Steel Rails & Tamper Plant Hire'
+        'title', 'Purchase Order: 100% Full Project Order - Steel Rails, Tamper Plant Hire & Operator Services'
       )
     ),
-    '2026-01-05T09:00:00Z'::timestamptz,
-    '2026-01-05T09:30:00Z'::timestamptz
+    '2026-11-01T09:00:00Z'::timestamptz,
+    '2026-11-01T09:30:00Z'::timestamptz
   );
 
   INSERT INTO public.purchase_order_lines (
@@ -671,7 +723,10 @@ BEGIN
      v_json_mat || jsonb_build_object('itemTitle', '136 RE Carbon Steel Rail 80ft Sticks (Full Project Amount: 29,700 sticks)')),
     (v_po_line_exp, v_po_header, v_project, v_task, v_line_expense, 'expenseGenus', 2048,
      c_tamper_hours_total, c_tamper_hour_rate, c_vat_rate, c_tamper_sum, c_tamper_sum, 0.00, c_tamper_sum, 0.00,
-     v_json_exp || jsonb_build_object('itemTitle', 'Plasser 09-3X Dynacat Tamper Hire (Full Project Amount: 6,750 hours)'));
+     v_json_exp || jsonb_build_object('itemTitle', 'Plasser 09-3X Dynacat Tamper Hire (Full Project Amount: 6,750 hours)')),
+    (v_po_line_time, v_po_header, v_project, v_task, v_line_time, 'timeGenus', 3072,
+     c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
+     v_json_time || jsonb_build_object('itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Project Amount: 6,750 hours)'));
 
   PERFORM public.project_status_register_order(v_po_header);
 
@@ -689,19 +744,19 @@ BEGIN
       'productReceiptContract', 'ct-eastern-rail-01',
       'productReceiptPurchaseOrder', v_po_header,
       'productReceiptNumber', 'PR-NYWAS-00001',
-      'productReceiptDateTime', '2026-06-15T14:00:00Z',
+      'productReceiptDateTime', '2026-11-15T14:00:00Z',
       'productReceiptCurrency', 'USD',
       'productReceiptFolder', 'le-nec-infra:ptn-eastern-rail',
       'documentHeader', jsonb_build_object(
         'documentNumber', 'PR-NYWAS-00001',
         'documentStatus', 'posted',
-        'postedAt', '2026-06-15T15:00:00Z',
+        'postedAt', '2026-11-15T15:00:00Z',
         'postedBy', v_owner,
-        'title', 'Product Receipt: 100% Full Project Delivery - Steel Rails & Tamper Plant'
+        'title', 'Product Receipt: 100% Full Project Delivery - Steel Rails, Tamper Plant & Operator Services'
       )
     ),
-    '2026-06-15T14:00:00Z'::timestamptz,
-    '2026-06-15T15:00:00Z'::timestamptz
+    '2026-11-15T14:00:00Z'::timestamptz,
+    '2026-11-15T15:00:00Z'::timestamptz
   );
 
   INSERT INTO public.product_receipt_lines (
@@ -713,7 +768,10 @@ BEGIN
      v_json_mat || jsonb_build_object('deliveryWaybill', 'WB-NEC-FULL-136RE-01', 'itemTitle', '136 RE Carbon Steel Rail 80ft Sticks (Full Delivery: 29,700 sticks)')),
     (v_pr_line_exp, v_pr_header, v_project, v_task, v_line_expense, v_po_line_exp, 'expenseGenus', 2048,
      c_tamper_hours_total, c_tamper_hour_rate, c_vat_rate, c_tamper_sum, c_tamper_sum, 0.00, c_tamper_sum, 0.00,
-     v_json_exp || jsonb_build_object('deliveryWaybill', 'WB-NEC-FULL-TAMPER-01', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full Operating Hours: 6,750 hours)'));
+     v_json_exp || jsonb_build_object('deliveryWaybill', 'WB-NEC-FULL-TAMPER-01', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full Operating Hours: 6,750 hours)')),
+    (v_pr_line_time, v_pr_header, v_project, v_task, v_line_time, v_po_line_time, 'timeGenus', 3072,
+     c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
+     v_json_time || jsonb_build_object('deliveryWaybill', 'TS-NEC-FULL-OPERATOR-01', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Delivery: 6,750 hours)'));
 
   PERFORM public.project_status_register_receipt(v_pr_header);
 
@@ -775,19 +833,19 @@ BEGIN
       'vendorInvoicePartner', 'ptn-eastern-rail',
       'vendorInvoiceContract', 'ct-eastern-rail-01',
       'vendorInvoiceNumber', 'VI-SUPP-98421',
-      'vendorInvoiceDateTime', '2026-07-01T10:00:00Z',
+      'vendorInvoiceDateTime', '2026-11-20T10:00:00Z',
       'vendorInvoiceCurrency', 'USD',
       'vendorInvoiceFolder', 'le-nec-infra:ptn-eastern-rail',
       'documentHeader', jsonb_build_object(
         'documentNumber', 'VI-SUPP-98421',
         'documentStatus', 'posted',
-        'postedAt', '2026-07-02T11:00:00Z',
+        'postedAt', '2026-11-20T11:00:00Z',
         'postedBy', v_owner,
-        'title', 'Vendor Invoice: 100% Full Project Billing - Steel Rails & Tamper Plant Hire'
+        'title', 'Vendor Invoice: 100% Full Project Billing - Steel Rails, Tamper Plant Hire & Operator Services'
       )
     ),
-    '2026-07-01T10:00:00Z'::timestamptz,
-    '2026-07-02T11:00:00Z'::timestamptz
+    '2026-11-20T10:00:00Z'::timestamptz,
+    '2026-11-20T11:00:00Z'::timestamptz
   );
 
   INSERT INTO public.vendor_invoice_lines (
@@ -799,7 +857,10 @@ BEGIN
      v_json_mat || jsonb_build_object('productReceiptLineGUID', v_pr_line_mat, 'vendorItemCode', '136RE-80-FULL', 'itemTitle', '136 RE Carbon Steel Rail (Full: 29,700 sticks)')),
     (v_vi_line_exp, v_vi_header, v_project, v_task, v_line_expense, 'expenseGenus', 2048,
      c_tamper_hours_total, c_tamper_hour_rate, c_vat_rate, c_tamper_sum, c_tamper_sum, 0.00, c_tamper_sum, 0.00,
-     v_json_exp || jsonb_build_object('productReceiptLineGUID', v_pr_line_exp, 'vendorItemCode', 'PLASSER-093X-FULL', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full: 6,750 hours)'));
+     v_json_exp || jsonb_build_object('productReceiptLineGUID', v_pr_line_exp, 'vendorItemCode', 'PLASSER-093X-FULL', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full: 6,750 hours)')),
+    (v_vi_line_time, v_vi_header, v_project, v_task, v_line_time, 'timeGenus', 3072,
+     c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
+     v_json_time || jsonb_build_object('productReceiptLineGUID', v_pr_line_time, 'vendorItemCode', 'RMM-OP-FULL', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full: 6,750 hours)'));
 
   PERFORM public.project_status_register_invoice(v_vi_header);
 
@@ -816,19 +877,19 @@ BEGIN
       'customerInvoicePartner', 'ptn-amtrak',
       'customerInvoiceContract', 'ct-amtrak-nec-01',
       'customerInvoiceNumber', 'CI-AMTRK-2026-001',
-      'customerInvoiceDateTime', '2026-12-20T10:00:00Z',
+      'customerInvoiceDateTime', '2026-11-30T10:00:00Z',
       'customerInvoiceCurrency', 'USD',
       'customerInvoiceFolder', 'le-nec-infra:ptn-amtrak',
       'documentHeader', jsonb_build_object(
         'documentNumber', 'CI-AMTRK-2026-001',
         'documentStatus', 'posted',
-        'postedAt', '2026-12-20T12:00:00Z',
+        'postedAt', '2026-11-30T12:00:00Z',
         'postedBy', v_owner,
         'title', 'Customer Invoice: 100% Full Project Billing - 225 Miles Railroad Segment 1'
       )
     ),
-    '2026-12-20T10:00:00Z'::timestamptz,
-    '2026-12-20T12:00:00Z'::timestamptz
+    '2026-11-30T10:00:00Z'::timestamptz,
+    '2026-11-30T12:00:00Z'::timestamptz
   );
 
   INSERT INTO public.customer_invoice_lines (
@@ -845,6 +906,12 @@ BEGIN
   -- 11. FINANCIAL ROLLUP & MONITOR01 REPORT SYNC
   -- ---------------------------------------------------------------------------------------------
   PERFORM public.project_cost_rebuild(v_project);
+
+  -- Ensure task lines stay posted after cost rollup so Monitor01 hasStalePlan is false
+  UPDATE public.task_line_table
+  SET "rowJSON" = "rowJSON" || '{"taskIsPosted": true, "baseOfDistribution": 1}'::jsonb
+  WHERE "rowOwnerGUID" = v_task;
+
   -- queue every task of the project so Monitor01 rows are rebuilt with the new amounts / roles
   PERFORM public.monitor01_queue_tasks(ARRAY[v_stage, v_task], 'railway1_seed');
   PERFORM public.monitor01_process_batch();
