@@ -1,5 +1,5 @@
-export { default as PMProjectTaskFinancesCRUD } from './PMProjectTaskFinancesCRUD';
-export type { PMProjectTaskFinancesCRUDProps } from './PMProjectTaskFinancesCRUD';
+export { default as PMProjectTaskInputCRUD } from './PMProjectTaskInputCRUD';
+export type { PMProjectTaskInputCRUDProps } from './PMProjectTaskInputCRUD';
 export { default as PMTaskEditView } from './PMTaskEditView';
 export * from './taskLineModel';
 export * from './taskLineMoney';

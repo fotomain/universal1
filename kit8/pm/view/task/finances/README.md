@@ -8,7 +8,7 @@ Source: the sheet "W1 TASK LINES". SQL: `kit8/sql/init/create_pm_task_line_table
 | Where | What |
 |---|---|
 | Dashboard → **Finances** button (Gantt · Kanban · Network · Versions · Finances · Plan) | tree + the lines of the task selected in the tree (`PMTaskEditView`). A stage: "select a task". No budget now |
-| Task page (`/pm/project/task`) → section **Finances** | the same lines (`PMProjectTaskFinancesCRUD`) |
+| Task page (`/pm/project/task`) → section **Finances** | the same lines (`PMProjectTaskInputCRUD`) |
 | Task window (`PMTaskEditModal`) | **no lines** (it has Save / Cancel; lines are saved row by row) |
 
 The view is remembered per user AND project (`uxuiSettings.ganttVsNetworkView` in `project_user_settings_table`, saved in the database).
@@ -107,12 +107,12 @@ the first of resource › role › budget item › contract › project whose un
 
 ## lastEditPlace
 
-`PMProjectTaskFinancesCRUD` reports `{ genus, lineGUID }` (only for the user's own create / change / move / delete, `ReusableTable.onRowEdit`) and opens at
+`PMProjectTaskInputCRUD` reports `{ genus, lineGUID }` (only for the user's own create / change / move / delete, `ReusableTable.onRowEdit`) and opens at
 `initialPlace` (the tab + the line, marked with `ReusableTable.focusRowGUID`). The parents add the surface and save it: see `kit8/pm/README.md`.
 
 ## Files
 
-`PMProjectTaskFinancesCRUD.tsx` the lines (tabs + table) · `PMTaskEditView.tsx` the dashboard view · `taskLineModel.ts` table, genus tabs, row shape ·
+`PMProjectTaskInputCRUD.tsx` the lines (tabs + table) · `PMTaskEditView.tsx` the dashboard view · `taskLineModel.ts` table, genus tabs, row shape ·
 `taskLineMoney.ts` · `taskLineCatalogs.ts` · `taskLineResource.ts` (who a line books: person | equipment | product) · `taskLinePersonMatch.ts` (person / equipment vs role) · `taskLineContractCost.ts` (cost from a contract) · `taskLineCompute.ts` · `taskLineColumns.tsx` columns of a genus (the **Errors** column - the message text + the ⚠ - is the FIRST one, before `#`, and only there while a line of the tab has an error) · `useTaskLineCatalogs.ts` the catalog rows from redux ·
 `taskLineMetaData.ts` the redux entity (spread into `kit8/redux/SystemMetaData.ts`).
 
@@ -128,3 +128,5 @@ Facts input · Vendor Invoice · Purchase Order (the last two ask first: this li
 
 ## Picker mode
 The same table is the "select a line" window of the Multi Project documents: `PMProjectDashboard picker={…}` (`kit8/pm/view/project/pick`) provides `PMPickerContext`; with `mode: 'line'` the row menu starts with **Select this line** (and a click on a read only cell does the same), and the Finances toolbar has **Select this task**. Outside a picker nothing changes.
+
+**Item number / Search name** (Material, Expense, Revenue tabs): the read-only columns `productItemNumber` / `productSearchName` stand BEFORE `product` while the project shows the field (`productFieldsOfProject(...).shown`: Enabled AND Visible in projects, project settings → Product). They are also INPUTS for a fast choice (`ProductFieldInputCell.tsx`): type (a part of) the number / name, Enter or leave the cell → the line gets that product (`findProductByField`: whole text, then starts with, then contains; exactly one product must match; none / several = red border + tip, the line is unchanged). Tests: `taskLineResource.test.ts`, `productFieldInputCell.test.tsx`.

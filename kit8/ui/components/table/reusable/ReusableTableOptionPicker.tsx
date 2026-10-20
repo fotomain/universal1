@@ -58,11 +58,11 @@ export default function ReusableTableOptionPicker({ title, options, multi, selec
               style={[styles.search, { color: c.text, borderColor: c.border }]} />
           )}
           {!multi && allowEmpty && (
-            <Pressable testID={`${testID}-none`} onPress={() => onPick([])} style={[styles.item, { borderBottomColor: c.border }]}>
+            <Pressable testID={`${testID}-none`} onPress={() => onPick([])} style={[styles.item, styles.inset, { borderBottomColor: c.border }]}>
               <Text style={{ color: c.text, opacity: 0.6, fontStyle: 'italic' }}>— none —</Text>
             </Pressable>
           )}
-          <FlatList data={shown} keyExtractor={(o) => o.value} renderItem={renderItem} style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled"
+          <FlatList data={shown} keyExtractor={(o) => o.value} renderItem={renderItem} style={[styles.inset, { maxHeight: 380 }]} keyboardShouldPersistTaps="handled"
             ListEmptyComponent={<Text style={{ color: c.text, opacity: 0.6, padding: 12 }}>{options.length ? 'No matches found.' : 'No options yet.'}</Text>} />
           {multi && (
             <View style={styles.buttons}>
@@ -82,9 +82,11 @@ export default function ReusableTableOptionPicker({ title, options, multi, selec
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   window: { width: '100%', maxWidth: 420, borderWidth: 1, borderRadius: 12, paddingVertical: 12, overflow: 'hidden' },
-  title: { fontSize: 16, fontWeight: '700', paddingHorizontal: 16, marginBottom: 8 },
+  title: { fontSize: 16, fontWeight: '700', paddingHorizontal: 12, marginBottom: 8 },
+  // the list has the same left / right space as the search box (12), so its lines end where the box ends
+  inset: { marginHorizontal: 12 },
   search: { marginHorizontal: 12, marginBottom: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 36, fontSize: 14, ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }) },
-  item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   box: { width: 18, height: 18, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   tick: { color: '#fff', fontSize: 12, lineHeight: 14, fontWeight: '900' },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },

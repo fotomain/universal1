@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// PMProjectTaskFinancesCRUD: the lines of ONE task in a ReusableTable per management genus (tabs), the money computed on every change,
+// PMProjectTaskInputCRUD: the lines of ONE task in a ReusableTable per management genus (tabs), the money computed on every change,
 // the remembered place (genus tab + line) opened and reported. The redux entity, the catalogs and the catalog selects are test doubles.
 import React, { act } from 'react';
 
@@ -127,7 +127,7 @@ jest.mock('../../../../../kit8/redux/uxuiSlice', () => ({ showSnackbar: (p: any)
 jest.mock('../../../../../kit8/pm/crud/exchange/project/export/downloadTextFile', () => ({ downloadTextFile: jest.fn() }));
 jest.mock('../../../../../kit8/pm/crud/exchange/pdf/downloadBinaryFile', () => ({ downloadBinaryFile: jest.fn() }));
 
-import PMProjectTaskFinancesCRUD from '../../../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD';
+import PMProjectTaskInputCRUD from '../../../../../kit8/pm/view/task/finances/PMProjectTaskInputCRUD';
 import { makeLastEditPlace } from '../../../../../kit8/pm/model/lastEditPlace';
 import { PRODUCT_TABLES } from '../../../../../kit8/catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../../../kit8/catalog/resourcerole/resourceRoleModel';
@@ -218,7 +218,7 @@ function mount(opts: { lines?: any[]; place?: any; stage?: boolean; project?: Re
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<PMProjectTaskFinancesCRUD projectGUID="p1" taskGUID="t1" initialPlace={opts.place} onEditPlace={onEditPlace} testID={T} />));
+  act(() => root.render(<PMProjectTaskInputCRUD projectGUID="p1" taskGUID="t1" initialPlace={opts.place} onEditPlace={onEditPlace} testID={T} />));
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockBook = null; for (const k of Object.keys(mockPick)) delete mockPick[k]; });
 

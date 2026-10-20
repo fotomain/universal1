@@ -1,7 +1,7 @@
 // pmPickerContext - the project dashboard used as a PICKER of a task or of a task line (kit8/documents/vendor/lineplace: the lines of a multi project vendor invoice / purchase order).
 // PMProjectDashboard gets `picker`, provides it here, and the parts that know a task / a line read it:
 //   PMTaskEditView         a "Select this task" button in its toolbar (picker.mode 'task' | 'line')
-//   PMProjectTaskFinancesCRUD     the row menu of a line gets "Select this line" (picker.mode 'line'); a click on a read only cell does the same
+//   PMProjectTaskInputCRUD     the row menu of a line gets "Select this line" (picker.mode 'line'); a click on a read only cell does the same
 // Outside a picker the context is null and nothing changes.
 import React, { createContext, useContext } from 'react';
 

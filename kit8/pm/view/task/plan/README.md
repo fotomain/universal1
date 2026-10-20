@@ -43,8 +43,8 @@ The app only reads the table; ONE call of the procedure = ONE transaction: lock 
 
 ## The Plan view
 
-`PMTaskLinePlanView.tsx` = the **Plan** button after Finances on the Gantt bar (`ganttVsNetworkView = 'showPlanView'`) → the bar + `PMProjectTaskPlanCRUD.tsx` for the selected task.
-`PMProjectTaskPlanCRUD.tsx` = ONE table with the days of all the lines of the task (`ReusableTable` on `taskLinePlanReusable`, all-rows mode on the parent), **no CRUD** (no panel, no menu, no check boxes, no reorder, no edit),
+`PMTaskLinePlanView.tsx` = the **Plan** button after Finances on the Gantt bar (`ganttVsNetworkView = 'showPlanView'`) → the bar + `PMProjectTaskTimelinePlanCRUD.tsx` for the selected task.
+`PMProjectTaskTimelinePlanCRUD.tsx` = ONE table with the days of all the lines of the task (`ReusableTable` on `taskLinePlanReusable`, all-rows mode on the parent), **no CRUD** (no panel, no menu, no check boxes, no reorder, no edit),
 columns `# · Budget item · Genus · Line (role · person / equipment / product, by the GUID of the resource) · Period · Coefficient · Qty · Sum for budget · Sum for contract` (the amounts are the root columns, so the footer adds them up); above it one line per posted line with its
 days and sums against the line (✓ when equal). Route `/pm/project/task/plan?taskGUID=…` (`app/pm/project/task/plan`).
 
@@ -55,7 +55,7 @@ days and sums against the line (✓ when equal). Route `/pm/project/task/plan?ta
 | `calculateTaskLinePlan.ts` | the calculation, `normalizedCoefficients`, `distributeCorrect033` |
 | `taskLinePlanApi.ts` | the RPC call |
 | `useTaskPost.ts` | Post of one task (reads the calendar, calculates, calls the RPC, tells the user) |
-| `planColumns.tsx` · `PMProjectTaskPlanCRUD.tsx` · `PMTaskLinePlanView.tsx` | the Plan view |
+| `planColumns.tsx` · `PMProjectTaskTimelinePlanCRUD.tsx` · `PMTaskLinePlanView.tsx` | the Plan view |
 
 Tests: `__tests__/pm/view/task/plan` (calculation, Correct033, Post state, Plan view, SQL text), `__tests__/ui/table/reusableTablePost.test.tsx` (the button), `taskFinancesUi.test.tsx` (the column, Post).
 

@@ -2,7 +2,7 @@
 // the Skia task tree stays on the left):
 //
 //   toolbar   <task name> ........ [Gantt | Kanban | Network | Versions | Finances]
-//   body      the lines of the task selected in the tree (PMProjectTaskFinancesCRUD); no budget / roll-up of stages in this version
+//   body      the lines of the task selected in the tree (PMProjectTaskInputCRUD); no budget / roll-up of stages in this version
 //
 // The place of the last edit (rowJSON.lastEditPlace, surface 'financesView') is activated when a task is selected: its genus tab opens
 // and its line is marked. A deep link (store.placeRequest) opens a task at the place of the link.
@@ -17,8 +17,9 @@ import { pickedTask, usePMPicker } from '../../project/pick/pmPickerContext';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { lastEditPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { pmT } from '../../../i18n/pmT';
-import PMProjectTaskFinancesCRUD from './PMProjectTaskFinancesCRUD';
+import PMProjectTaskInputCRUD from './PMProjectTaskInputCRUD';
 import EditTaskDescriptionFast from '../EditTaskDescriptionFast';
+import TaskDatesBar from '../TaskDatesBar';
 
 export interface PMTaskEditViewProps {
   projectGUID: string;
@@ -54,10 +55,14 @@ export default function PMTaskEditView({ projectGUID, width, height, palette, cr
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-finances-view">
       <PMToolbar background={palette.surface} border={palette.border}>
         {task && selectedGUID ? (
-          // the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name
-          <View style={styles.titleBox} testID="pm-finances-title">
-            <EditTaskDescriptionFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
-          </View>
+          <>
+            {/* the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name */}
+            <View style={styles.titleBox} testID="pm-finances-title">
+              <EditTaskDescriptionFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
+            </View>
+            {/* right of the name: Start date · Finish date · Select period (the dates of the task) */}
+            <TaskDatesBar key={`dates-${selectedGUID}`} guid={selectedGUID} crud={crud} testID="pm-finances-dates" />
+          </>
         ) : (
           <>
             <PMTipIcon tip={pmT('Finances')} testID="pm-finances-icon" name="payments" size={18} color={palette.primary} style={{ marginHorizontal: 4 }} />
@@ -79,7 +84,7 @@ export default function PMTaskEditView({ projectGUID, width, height, palette, cr
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <PMProjectTaskFinancesCRUD
+          <PMProjectTaskInputCRUD
             key={requested ? `${selectedGUID}:${placeRequest!.nonce}` : selectedGUID}
             projectGUID={projectGUID}
             taskGUID={selectedGUID}

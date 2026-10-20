@@ -356,7 +356,7 @@ Full description: `kit8/pm/view/task/finances/README.md`.
   tree on the left, on the right the lines of the task selected in the tree (`PMTaskEditView`; `PMGanttSurface` `rightPane='finances'`).
   A stage has no lines (select a task); no budget / roll-up in this version.
 * **`task_line_table`** - the Time / Material / Expense / Revenue lines of ONE task (`rowOwnerGUID` = the task, `rowParentGUID` = the management genus),
-  edited in place by `PMProjectTaskFinancesCRUD` (a `ReusableTable` per genus tab). It is also a section of the task page (`PMProjectTaskInfo`);
+  edited in place by `PMProjectTaskInputCRUD` (a `ReusableTable` per genus tab). It is also a section of the task page (`PMProjectTaskInfo`);
   the task window (`PMTaskEditModal`) has no lines.
 * **`project_task_table.rowJSON.lastEditPlace`** - where the user edited the task last (`model/lastEditPlace.ts`): `{ v: 1, surface: 'editModal' | 'taskPage' | 'financesView',
   section, genus?, lineGUID?, at, by? }`. Written by `crud.recordEditPlace(taskGUID, { surface, section, genus?, lineGUID? })` only when the PLACE changes
@@ -381,7 +381,7 @@ three `TabFor*` SubTabs appear with the input switches (pure rules: `model/taskI
 * **Master off = everything as before** (all four tabs, person Time lines). A switch that was never saved reads as its default (`taskInputSwitchesOf`, not `false`).
 * **Hidden is not deleted**: a switch under a parent that is off keeps its value; a tab (or a kind of Time resource) that already has lines is never hidden (`tabVisible`, `timeKindsOffered`).
 * **Time needs a kind**: turning off the last of Person / Equipment turns Time off; turning Time on with no kind chosen turns Person on (`applyTaskInputPatch`).
-* The Finances view / task page read them in `PMProjectTaskFinancesCRUD` (tabs, the kinds of the Time table). Equipment: `kit8/catalog/equipment/README.md`; the Time line: `view/task/finances/README.md`.
+* The Finances view / task page read them in `PMProjectTaskInputCRUD` (tabs, the kinds of the Time table). Equipment: `kit8/catalog/equipment/README.md`; the Time line: `view/task/finances/README.md`.
 
 ### The view switch, Reports and Network (2026-10-12)
 

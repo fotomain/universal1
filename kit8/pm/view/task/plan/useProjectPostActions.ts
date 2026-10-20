@@ -1,6 +1,7 @@
 // useProjectPostActions - the "Actions" of the project bar that post MANY tasks at once (the Post button of one task is useTaskPost):
 //   postUnposted()  Post every task that is not posted now (never posted, or changed after posting)
 //   repostAll()     Post EVERY task that has a line with a budget item again (the posted days are replaced)
+//   postTask(guid)  Post (replan) ONE task, no question asked - the task window does it after the dates of a posted task were changed
 // Each task goes through runTaskPost, one after the other (one SQL transaction per task, like the button of the task), and the user gets ONE
 // message: how many tasks and day rows were posted and which ones were not (a task without dates, a line the calendar cannot place ...).
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,11 +42,11 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
     if (actions?.readData) dispatch(actions.readData(PRODUCT_READ_PARAMS));
   }, [projectGUID, dispatch]);
 
-  const run = useCallback(async (which: ProjectPostWhich): Promise<void> => {
+  const run = useCallback(async (which: ProjectPostWhich, only?: string): Promise<void> => {
     const say = (message: string, isError = false) => dispatch(showSnackbar({ message, isError }));
     const L = live.current;
     if (!projectGUID || L.busy) return;
-    const ids = tasksToPost(L.byTask, which);
+    const ids = only ? tasksToPost({ [only]: L.byTask[only] || [] }, 'all') : tasksToPost(L.byTask, which);
     if (ids.length === 0) {
       say(which === 'all' ? pmT('Nothing to post: no task has a line with a budget item') : pmT('Every task is posted already'));
       return;
@@ -54,7 +55,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
       say(pmT('The distributions are still being read: try again in a moment'));
       return;
     }
-    if (which === 'all') {
+    if (which === 'all' && !only) {
       const ok = await approvePM({
         title: pmT('Repost all tasks?'),
         message: pmT('The posted days of {{count}} task(s) will be calculated again and replaced.', { count: ids.length }),
@@ -95,5 +96,6 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
 
   const postUnposted = useCallback(() => run('unposted'), [run]);
   const repostAll = useCallback(() => run('all'), [run]);
-  return { postUnposted, repostAll, busy };
+  const postTask = useCallback((taskGUID: string) => run('all', taskGUID), [run]);
+  return { postUnposted, repostAll, postTask, busy };
 }

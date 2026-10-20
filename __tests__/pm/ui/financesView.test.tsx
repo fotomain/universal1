@@ -4,7 +4,7 @@ import { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, inputValue, press, q, renderUI, seedStore } from './pmUiTestKit';
 
 const mockLines = jest.fn((_props: any) => null);
-jest.mock('../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', () => ({
+jest.mock('../../../kit8/pm/view/task/finances/PMProjectTaskInputCRUD', () => ({
   __esModule: true,
   default: (props: any) => {
     mockLines(props);

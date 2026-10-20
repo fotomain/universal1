@@ -1,4 +1,4 @@
-// PMProjectTaskFinancesCRUD - the finance lines of ONE task, one table per management genus (tabs):
+// PMProjectTaskInputCRUD - the finance lines of ONE task, one table per management genus (tabs):
 //   Time (a role + a person + his variant + his contract) · Material · Expenses · Revenues (a role + a product + a contract template + a partner)
 // Each line is a row of task_line_table (rowOwnerGUID = the task, rowParentGUID = the genus), edited in place in a ReusableTable: add,
 // duplicate, move, sql_for_delete (+ Undo), search, sort, filter, export. The money (sum = qty * price, VAT) and the defaults (unit, VAT, price from
@@ -61,7 +61,7 @@ import PurchaseOrderScopeModal from '../../../../documents/vendor/purchase_order
 import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase_order/purchaseOrderModel';
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export interface PMProjectTaskFinancesCRUDProps {
+export interface PMProjectTaskInputCRUDProps {
   projectGUID: string;
   taskGUID: string;
   /** the place to open at (task.rowJSON.lastEditPlace): the genus tab and the line to mark. Read when the component starts: give it key={taskGUID} */
@@ -75,7 +75,7 @@ const NO_LINES: TaskLineRow[] = [];
 /** a duplicated line was never posted */
 const DUPLICATE_UNPOSTED = { taskIsPosted: false, baseOfDistribution: null };
 
-export default function PMProjectTaskFinancesCRUD({ projectGUID, taskGUID, initialPlace, onEditPlace, testID = 'task-finances' }: PMProjectTaskFinancesCRUDProps) {
+export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialPlace, onEditPlace, testID = 'task-finances' }: PMProjectTaskInputCRUDProps) {
   const { themeColors: c } = useDesignSystem();
   const task = usePMStore((s) => s.tasksById[taskGUID]);
   const isStage = usePMStore((s) => !!s.schedule[taskGUID]?.isSummary || (s.tree.childrenById[taskGUID]?.length ?? 0) > 0 || s.tasksById[taskGUID]?.rowJSON?.rowKind === 'stage');

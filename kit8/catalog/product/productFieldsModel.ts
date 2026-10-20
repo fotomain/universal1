@@ -79,3 +79,23 @@ export function itemNumberTaken(products: DefRow<any>[], value: unknown, ownGUID
   const v = text(value).toLowerCase();
   return !!v && products.some((p) => p.rowGUID !== ownGUID && itemNumberOf(p).toLowerCase() === v);
 }
+
+export type ProductByFieldResult = { product: DefRow<any> } | { error: 'none' | 'many'; count: number };
+
+/**
+ * Fast choice of a product by typing its Item number / Search name (the input cell of a task line).
+ * The first tier with a match decides: the whole text (case-insensitive) -> starts with the text -> contains the text; the tier must have exactly ONE product
+ * (none = 'none', several = 'many', the user types more). An empty text is no search.
+ */
+export function findProductByField(products: DefRow<any>[], field: 'itemNumber' | 'searchName', typed: unknown): ProductByFieldResult {
+  const t = text(typed).toLowerCase();
+  const valueOf = field === 'itemNumber' ? itemNumberOf : searchNameOf;
+  const have = (products || []).map((p) => ({ p, v: valueOf(p).toLowerCase() })).filter((x) => x.v);
+  if (!t) return { error: 'none', count: 0 };
+  for (const same of [(v: string) => v === t, (v: string) => v.startsWith(t), (v: string) => v.includes(t)]) {
+    const hit = have.filter((x) => same(x.v));
+    if (hit.length === 1) return { product: hit[0].p };
+    if (hit.length > 1) return { error: 'many', count: hit.length };
+  }
+  return { error: 'none', count: 0 };
+}

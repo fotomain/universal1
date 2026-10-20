@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 // "Facts input" is offered where a task GUID (the row menu of the task tree) is known; it opens the route of the fact document with the GUID. The
-// right-click menu of the lines of the Finances table has the same item (PMProjectTaskFinancesCRUD: extraMenuItems → useOpenFactInput; its screen test is taskFinancesUi).
+// right-click menu of the lines of the Finances table has the same item (PMProjectTaskInputCRUD: extraMenuItems → useOpenFactInput; its screen test is taskFinancesUi).
 import { act } from 'react';
 import { cleanupUI, fakeCrud, press, q, qa, renderUI, seedStore } from '../../../pm/ui/pmUiTestKit';
 

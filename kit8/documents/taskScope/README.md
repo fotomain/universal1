@@ -1,6 +1,6 @@
 # Task scope of the document lists + the Task submenus "Create based on this" / "Go to"
 
-Two submenus stand **before Delete** (and "Go to" right after "Create based on this") in the **Task context menu** (`kit8/pm/view/task/PMTaskRowMenu.tsx`) and in the **line context menu** of the Task Edit (Finances) table (`extraMenuItems` of `PMProjectTaskFinancesCRUD.tsx`). Both are built by one hook, `kit8/pm/view/task/useTaskRelatedMenu.ts`. A stage has none (no lines, no documents). The flat items "Facts input", "Vendor Invoice", "Purchase Order" stay.
+Two submenus stand **before Delete** (and "Go to" right after "Create based on this") in the **Task context menu** (`kit8/pm/view/task/PMTaskRowMenu.tsx`) and in the **line context menu** of the Task Edit (Finances) table (`extraMenuItems` of `PMProjectTaskInputCRUD.tsx`). Both are built by one hook, `kit8/pm/view/task/useTaskRelatedMenu.ts`. A stage has none (no lines, no documents). The flat items "Facts input", "Vendor Invoice", "Purchase Order" stay.
 
 | Submenu | Item | What it does |
 |---|---|---|

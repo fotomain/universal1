@@ -11,13 +11,15 @@ export interface SelectPeriodButtonProps {
   onApply: (next: { startDate: string; finishDate: string }) => void;
   color: string;
   testID?: string;
+  /** the small (24 px) icon button, for a dense bar */
+  compact?: boolean;
 }
 
-export default function SelectPeriodButton({ value, onApply, color, testID = 'monitor01-filters-period' }: SelectPeriodButtonProps) {
+export default function SelectPeriodButton({ value, onApply, color, testID = 'monitor01-filters-period', compact }: SelectPeriodButtonProps) {
   const [open, setOpen] = useState(false);
   return (
     <View>
-      <PMIconButton testID={`${testID}-button`} icon="date_range" title={pmT('Select period (a range of months)')} color={color} onPress={() => setOpen(true)} />
+      <PMIconButton testID={`${testID}-button`} icon="date_range" title={pmT('Select period (a range of months)')} color={color} compact={compact} onPress={() => setOpen(true)} />
       <SelectPeriodModal testID={`${testID}-modal`} visible={open} value={value} onApply={onApply} onClose={() => setOpen(false)} />
     </View>
   );

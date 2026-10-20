@@ -1,4 +1,4 @@
-// PMProjectTaskPlanCRUD - the posted days (task_line_plan) of ALL the lines of ONE task, in ONE table (the Finances view shows one genus per tab).
+// PMProjectTaskTimelinePlanCRUD - the posted days (task_line_plan) of ALL the lines of ONE task, in ONE table (the Finances view shows one genus per tab).
 // NO CRUD: the rows are written by Post only (SQL create_task_line_plan), so the table has no add / duplicate / delete / reorder, no row menu, no check
 // boxes, and no cell is edited. Search, column sort / filter and export stay. Above the table: one line per posted line - its days, coefficients and sums
 // against the totals of the line (a ✓ when they are equal: the Correct033 rule leaves nothing lost by the rounding).
@@ -32,7 +32,7 @@ export const PLAN_BUDGET_TABS = [
 
 export type PlanBudgetTabId = (typeof PLAN_BUDGET_TABS)[number]['id'];
 
-export interface PMProjectTaskPlanCRUDProps {
+export interface PMProjectTaskTimelinePlanCRUDProps {
   projectGUID: string;
   taskGUID: string;
   testID?: string;
@@ -43,7 +43,7 @@ const NO_ROWS: TaskLinePlanRow[] = [];
 /** one task can have thousands of days (lines × days): the page of the read (the server may cap it lower) */
 const READ_PARAMS = { paginationSize: 5000 };
 
-export default function PMProjectTaskPlanCRUD({ projectGUID: _projectGUID, taskGUID, testID = 'task-plan' }: PMProjectTaskPlanCRUDProps) {
+export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUID, taskGUID, testID = 'task-plan' }: PMProjectTaskTimelinePlanCRUDProps) {
   const { themeColors: c } = useDesignSystem();
   const task = usePMStore((s) => s.tasksById[taskGUID]);
   const isStage = usePMStore((s) => !!s.schedule[taskGUID]?.isSummary || (s.tree.childrenById[taskGUID]?.length ?? 0) > 0 || s.tasksById[taskGUID]?.rowJSON?.rowKind === 'stage');

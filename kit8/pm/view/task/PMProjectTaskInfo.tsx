@@ -36,7 +36,7 @@ import { formatDateISO, LINK_TYPES, validateNewDependency } from '../project/sch
 import { PMTaskDependencyRow } from '../../model/types';
 import PMTaskEditModal from './PMTaskEditModal';
 import PMTaskEditOptions from './PMTaskEditOptions';
-import PMProjectTaskFinancesCRUD from './finances/PMProjectTaskFinancesCRUD';
+import PMProjectTaskInputCRUD from './finances/PMProjectTaskInputCRUD';
 import { PMTaskPageSection } from '../../model/lastEditPlace';
 import { useTaskPlaceActivation } from './useTaskPlaceActivation';
 import PMEditDependencyScreen from './dependency/PMEditDependencyScreen';
@@ -361,7 +361,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         <View onLayout={sectionLayout('finances')} testID="pm-task-finances-section">
           <Text style={[styles.section, { color: c.text }]}>{pmT('Finances')}</Text>
           {projectGUID && placeReady && (
-            <PMProjectTaskFinancesCRUD key={taskGUID} projectGUID={projectGUID} taskGUID={taskGUID} initialPlace={financesPlace} onEditPlace={markFinances} testID="pm-task-finances" />
+            <PMProjectTaskInputCRUD key={taskGUID} projectGUID={projectGUID} taskGUID={taskGUID} initialPlace={financesPlace} onEditPlace={markFinances} testID="pm-task-finances" />
           )}
         </View>
 

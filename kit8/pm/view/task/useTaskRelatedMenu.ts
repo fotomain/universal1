@@ -1,4 +1,4 @@
-// useTaskRelatedMenu - the two submenus of the Task context menu (PMTaskRowMenu) and of the line context menu of the Task Edit (Finances) table (PMProjectTaskFinancesCRUD), placed BEFORE "Delete":
+// useTaskRelatedMenu - the two submenus of the Task context menu (PMTaskRowMenu) and of the line context menu of the Task Edit (Finances) table (PMProjectTaskInputCRUD), placed BEFORE "Delete":
 //   "Create based on this"   Fact input · Vendor Invoice · Purchase Order · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
 //                            to the task and opens its board in a new browser window - kit8/pm/subproject/useCreateSubproject)
 //   "Go to"                  Vendor invoices · Customer invoices (switch on) · Purchase orders · Product receipts · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,

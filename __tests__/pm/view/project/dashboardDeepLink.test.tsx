@@ -9,7 +9,7 @@ const mockParams: Record<string, any> = {};
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), useGlobalSearchParams: () => mockParams }));
 const mockLines = jest.fn((_p: any) => null);
-jest.mock('../../../../kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD', () => ({ __esModule: true, default: (props: any) => { mockLines(props); return null; } }));
+jest.mock('../../../../kit8/pm/view/task/finances/PMProjectTaskInputCRUD', () => ({ __esModule: true, default: (props: any) => { mockLines(props); return null; } }));
 
 import React from 'react';
 import { DASHBOARD_ROUTE, dashboardLinkPath, openDashboardLink, parseDashboardLink } from '../../../../kit8/pm/view/project/dashboardDeepLink';

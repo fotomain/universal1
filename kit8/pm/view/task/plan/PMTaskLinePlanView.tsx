@@ -2,7 +2,7 @@
 // on the left). Like the Finances view, but it shows the PLAN: the posted days (task_line_plan) of ALL the lines of the selected task in one table.
 //
 //   toolbar   <task name> ........ [Gantt | Kanban | Network | Versions | Finances | Plan]
-//   body      PMProjectTaskPlanCRUD (read-only - nothing is edited here; Post is on the Finances tab)
+//   body      PMProjectTaskTimelinePlanCRUD (read-only - nothing is edited here; Post is on the Finances tab)
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePMStore } from '../../../store/store_pm';
@@ -11,7 +11,7 @@ import { PMCrud } from '../../../crud/usePMCrud';
 import { PMTipIcon } from '../../../inner/buttons';
 import { PMToolbar, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { pmT } from '../../../i18n/pmT';
-import PMProjectTaskPlanCRUD from './PMProjectTaskPlanCRUD';
+import PMProjectTaskTimelinePlanCRUD from './PMProjectTaskTimelinePlanCRUD';
 
 export interface PMTaskLinePlanViewProps {
   projectGUID: string;
@@ -44,7 +44,7 @@ export default function PMTaskLinePlanView({ projectGUID, width, height, palette
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <PMProjectTaskPlanCRUD key={selectedGUID} projectGUID={projectGUID} taskGUID={selectedGUID} testID="pm-plan" />
+          <PMProjectTaskTimelinePlanCRUD key={selectedGUID} projectGUID={projectGUID} taskGUID={selectedGUID} testID="pm-plan" />
         </ScrollView>
       )}
     </View>

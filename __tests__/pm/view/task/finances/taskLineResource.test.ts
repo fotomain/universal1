@@ -293,3 +293,37 @@ describe('the columns of the Time table follow the kinds the project offers', ()
     expect(k).not.toContain('resource');
   });
 });
+
+describe('Item number / Search name columns of the Material table (project settings "Visible in projects")', () => {
+  const d = data();
+  d.product = [{ rowGUID: 'p1', rowOwnerGUID: 'type', rowParentGUID: 'empty', orderInList: 0, rowJSON: { title: 'Bolt', itemNumber: '100-0245', searchName: 'screw' } } as any];
+  const field = (shown: boolean) => ({ enabled: shown, shown });
+  const keys = (productFields?: any, genus = MATERIAL) => buildTaskLineColumns({ data: d, genus, textColor: '#000', errorColor: '#f00', showErrors: false, productFields }).map((c) => c.key);
+  it('no switch = no column (as before)', () => {
+    expect(keys()).not.toContain('productItemNumber');
+    expect(keys()).not.toContain('productSearchName');
+    expect(keys({ itemNumber: { enabled: true, shown: false }, searchName: { enabled: true, shown: false } })).not.toContain('productItemNumber');
+  });
+  it('both shown: Item number, Search name, then Product', () => {
+    const k = keys({ itemNumber: field(true), searchName: field(true) });
+    expect(k.indexOf('productItemNumber')).toBe(k.indexOf('productSearchName') - 1);
+    expect(k.indexOf('productSearchName')).toBe(k.indexOf('product') - 1);
+  });
+  it('each one alone, right before Product; the Time table has none', () => {
+    const a = keys({ itemNumber: field(true), searchName: field(false) });
+    expect(a.indexOf('productItemNumber')).toBe(a.indexOf('product') - 1);
+    expect(a).not.toContain('productSearchName');
+    const b = keys({ itemNumber: field(false), searchName: field(true) });
+    expect(b.indexOf('productSearchName')).toBe(b.indexOf('product') - 1);
+    expect(keys({ itemNumber: field(true), searchName: field(true) }, TIME)).not.toContain('productItemNumber');
+  });
+  it('the cells show the field of the chosen product (and are inputs for a fast choice)', () => {
+    const cols: any[] = buildTaskLineColumns({ data: d, genus: MATERIAL, textColor: '#000', errorColor: '#f00', showErrors: false, productFields: { itemNumber: field(true), searchName: field(true) } });
+    const item = cols.find((c) => c.key === 'productItemNumber');
+    const name = cols.find((c) => c.key === 'productSearchName');
+    expect(item.editable).not.toBe(false);
+    expect(item.searchText({ rowJSON: { taskResourceItem: 'p1' } })).toBe('100-0245');
+    expect(name.searchText({ rowJSON: { taskResourceItem: 'p1' } })).toBe('screw');
+    expect(item.searchText({ rowJSON: { taskResourceItem: 'none' } })).toBe('');
+  });
+});

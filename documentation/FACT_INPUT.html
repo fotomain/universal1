@@ -119,7 +119,7 @@
   <h3>What already exists (checked in the repository)</h3>
   <ul class="tight">
     <li><code>task_line_plan_timeline</code> (PART 15): <code>rowGUID · rowProjectGUID · rowOwnerGUID (task) · rowPeriodDatetime · taskLineGUID · qtyForBudget · sumForContract · sumForBudget · created_at · updated_at</code>, <b>unique per line and day</b>, read policy <code>pm_owns_project</code>, realtime. The fact timeline copies these fields.</li>
-    <li>The lines are shown in the <b>Finances</b> view and in the <b>Task page → Finances</b> section (<code>PMProjectTaskFinancesCRUD</code>, already <code>postDataNeeded</code> with the Post button). <b>The task window (<code>PMTaskEditModal</code>) has no lines</b> (its tabs are Main · UX/UI) - see Q6.</li>
+    <li>The lines are shown in the <b>Finances</b> view and in the <b>Task page → Finances</b> section (<code>PMProjectTaskInputCRUD</code>, already <code>postDataNeeded</code> with the Post button). <b>The task window (<code>PMTaskEditModal</code>) has no lines</b> (its tabs are Main · UX/UI) - see Q6.</li>
     <li>Genus is the <code>rowParentGUID</code> of a task line: <code>timeGenus · materialGenus · expenseGenus · revenueGenus</code>.</li>
     <li>Project settings are keys of <code>project_table.rowJSON</code> (e.g. <code>projectManagerPerson</code>, <code>currencyForBudget</code>) in <code>kit8/pm/model/types.ts</code>.</li>
     <li>Post of the plan: <code>useTaskPost → runTaskPost → create_task_line_plan</code> (one SQL transaction, the answer is data, not an exception).</li>
@@ -308,7 +308,7 @@
     <tr><td><code>kit8/pm/view/task/fact/PMFactInputDocument.tsx</code></td><td>the document screen (next to <code>finances/</code> and <code>plan/</code>)</td></tr>
     <tr><td><code>kit8/pm/view/task/fact/{factInputModel,factInputApi,useFactInputDocument,factInputColumns}.ts(x)</code></td><td>pure logic, RPC, hook, columns</td></tr>
     <tr><td><code>kit8/pm/view/task/fact/README.md</code></td><td>how it works</td></tr>
-    <tr><td><code>kit8/pm/view/task/finances/PMProjectTaskFinancesCRUD.tsx</code></td><td>the menu item (small change)</td></tr>
+    <tr><td><code>kit8/pm/view/task/finances/PMProjectTaskInputCRUD.tsx</code></td><td>the menu item (small change)</td></tr>
     <tr><td><code>kit8/pm/model/types.ts</code> and the Project settings screen</td><td>the setting</td></tr>
     <tr><td><code>kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql</code> (new PART), <code>start2_sql_code.sql</code>, <code>start5_sql_upsert_all.sql</code>, <code>delete_sql_structure.sql</code></td><td>the SQL, four files in step</td></tr>
     <tr><td><code>kit8/docker/tests/NN_fact_input.sql</code>, <code>kit8/docker/test_fact_input.sh</code></td><td>Docker tests</td></tr>

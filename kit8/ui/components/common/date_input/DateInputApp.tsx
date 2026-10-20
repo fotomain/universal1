@@ -59,6 +59,8 @@ export interface DateInputAppProps {
   validRange?: { startDate?: Date; endDate?: Date };
   /** lower field (32 px, the same as TextInputApp compact) for dense bars and dialogs */
   compact?: boolean;
+  /** exact height of the field box in px (overrides compact); Paper: the whole input incl. the room of the floating label */
+  inputHeight?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   pickerTestID?: string;
@@ -103,6 +105,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
   yesterdayLabel = 'Yesterday',
   validRange,
   compact = false,
+  inputHeight,
   style,
   testID = 'date-input-app',
   pickerTestID,
@@ -200,7 +203,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           right={showClear ? <PaperTextInput.Icon testID={clearID} icon="close" onPress={clear} forceTextInputFocus={false} accessibilityLabel={clearLabel} /> : undefined}
           outlineColor={themeColors.border}
           activeOutlineColor={themeColors.primary}
-          style={{ backgroundColor: themeColors.surface }}
+          style={{ backgroundColor: themeColors.surface, ...(inputHeight ? { height: inputHeight } : null) }}
         />
         {(hasError && !!errorText) || helperText ? (
           <PaperHelperText type={hasError ? 'error' : 'info'} visible>
@@ -249,7 +252,7 @@ export const DateInputApp: React.FC<DateInputAppProps> = ({
           radius: 6, height: 44, paddingH: 12, fontSize: 15, icon: '#888', placeholder: isDark ? '#71717a' : '#a1a1aa', marginBottom: 12,
           labelStyle: { fontSize: 14, fontWeight: '500', color: themeColors.text, marginBottom: 4 },
         };
-  const height = compact ? 32 : look.height;
+  const height = inputHeight ?? (compact ? 32 : look.height);
   const appleRing = activeSystem === 'applemacui' && Platform.OS === 'web';
   const iconColor = disabled ? look.placeholder : themeColors.primary;
 

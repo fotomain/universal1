@@ -4,7 +4,8 @@
 //   Time:                      # · Role · Role attributes · Person · Person variant (his own variants, taskLinePersonMatch.ts) · Contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 //     with equipment (the project's input switches, kit8/pm/model/taskInputScope.ts): person only = as above | equipment only = Equipment · Equipment variant (no Contract) |
 //     both = # · Resource (the menu Person | Equipment) · Role · Role attributes · Person / Equipment (ONE column, the catalog follows the Resource of the row) · Variant · Contract
-//   Material / Expense / Revenue: # · Role · Role attributes · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
+//   Material / Expense / Revenue: # · Role · Role attributes · [Item number] · [Search name] · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
+//     (Item number / Search name: inputs for a fast choice of the product (they show the chosen product's field), only while the project shows them - productFieldsOfProject `shown`)
 // Only GUIDs / keys / numbers are stored in rowJSON (taskLineModel.ts); titles are read from the catalogs.
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -30,7 +31,7 @@ import { pmNumberColumn } from '../../../components/pmNumberColumn';
 import { pmT } from '../../../i18n/pmT';
 import { businessUnitNodes, businessUnitPath, businessUnitProblem, isBusinessUnitActive, selectableBusinessUnits } from '../../../../catalog/business_unit/businessUnitModel';
 import { isProductFolder, productRowsWithFolders, productSelectColumns, productSubtitle } from '../../../../catalog/product/productSelectModel';
-import { NO_PRODUCT_FIELDS, type ProductFields } from '../../../../catalog/product/productFieldsModel';
+import { itemNumberOf, NO_PRODUCT_FIELDS, searchNameOf, type ProductFields } from '../../../../catalog/product/productFieldsModel';
 import SelectCatalogItemWithFolders from '../../../../catalog/select/with_folders/SelectCatalogItemWithFolders';
 import SelectCatalogItemFromTreeReusable from '../../../../catalog/select/from_tree/SelectCatalogItemFromTreeReusable';
 import { BUSINESS_UNIT_SOURCE_TEXT, lineBudgetKind } from './taskLineBusinessUnit';
@@ -216,7 +217,25 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       } as VisualColumn]),
     );
   } else {
+    /** the field of the chosen product (rowJSON.taskResourceItem) + an input: typing finds a product (ProductFieldInputCell) */
+    const productFieldColumn = (key: string, title: string, width: number, field: 'itemNumber' | 'searchName', textOf: (r: any) => string): VisualColumn => {
+      const valueOf = (row: any) => textOf(data.product.find((p) => p.rowGUID === row.rowJSON?.taskResourceItem));
+      return {
+        key, title: pmT(title), type: 'custom', width,
+        // loaded when a cell is drawn: the cell needs the design system, and the node tests import this file without it
+        renderCell: (row, _i, patch) => {
+          const ProductFieldInputCell = require('./ProductFieldInputCell').default;
+          return (
+          <ProductFieldInputCell testID={`task-line-${key}-${row.rowGUID}`} field={field} shown={valueOf(row)} products={data.product} onPick={(guid: string) => patch({ taskResourceItem: guid })} />
+          );
+        },
+        searchText: valueOf,
+      } as VisualColumn;
+    };
     cols.push(
+      // the optional product fields, BEFORE the Product (project settings -> Product: Enabled AND "Visible in projects")
+      ...(productFields.itemNumber.shown ? [productFieldColumn('productItemNumber', 'Item number', 150, 'itemNumber', itemNumberOf)] : []),
+      ...(productFields.searchName.shown ? [productFieldColumn('productSearchName', 'Search name', 170, 'searchName', searchNameOf)] : []),
       {
         key: 'product', title: pmT('Product'), type: 'catalog', field: 'taskResourceItem', width: 220,
         catalogEntityName: PRODUCT_TABLES.product.entity, placeholder: pmT('Select product…'),

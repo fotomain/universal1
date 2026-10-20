@@ -73,13 +73,13 @@
 
 <section id="view">
   <h2>Part 1 - the Plan view</h2>
-  <p class="sub">Works like the Finances view (<code>PMTaskEditView</code> + <code>PMProjectTaskFinancesCRUD</code>) except that there are no genus tabs: <b>all lines of the task are in one table</b>.</p>
+  <p class="sub">Works like the Finances view (<code>PMTaskEditView</code> + <code>PMProjectTaskInputCRUD</code>) except that there are no genus tabs: <b>all lines of the task are in one table</b>.</p>
   <div class="scroll"><table>
     <tr><th>What</th><th>Where / how</th></tr>
     <tr><td>Plan button</td><td>After Finances on the Gantt bar: new value <code>'showPlanView'</code> in <code>PMGanttVsNetworkView</code> (<code>kit8/pm/model/types.ts</code> and its validator), a new entry in <code>GANTT_VS_NETWORK_VIEW_OPTIONS</code> (<code>GanttToNetworkViewToggleButtons.tsx</code>; icon e.g. <code>event_note</code>, label "Plan",
       title "Plan: the days of every posted line of the selected task"), and <code>rightPane='plan'</code> in <code>PMProjectDashboard.tsx</code> / <code>PMGanttSurface</code>. Remembered per user and project like the other views. Tests and READMEs that list the five buttons are updated.</td></tr>
-    <tr><td><code>kit8/pm/view/task/plan/PMTaskLinePlanView.tsx</code></td><td>The dashboard pane: toolbar (icon, task name, the view switch) + <code>PMProjectTaskPlanCRUD</code> for the selected task; "Select a task" for none; a stage shows the same note as Finances ("A stage has no lines"). Records no <code>lastEditPlace</code> (nothing is edited).</td></tr>
-    <tr><td><code>PMProjectTaskPlanCRUD.tsx</code></td><td>A <code>ReusableTable</code> over the <code>task_line_plan</code> entity: <code>listOwnerGUID = taskGUID</code>, <code>listParentGUID = REUSABLE_TABLE_ALL</code> (every line of the task, the same all-rows mode Finances uses), <b>no CRUD</b>: <code>crudPanelEnabled={false}</code>, <code>contextMenuEnabled={false}</code>,
+    <tr><td><code>kit8/pm/view/task/plan/PMTaskLinePlanView.tsx</code></td><td>The dashboard pane: toolbar (icon, task name, the view switch) + <code>PMProjectTaskTimelinePlanCRUD</code> for the selected task; "Select a task" for none; a stage shows the same note as Finances ("A stage has no lines"). Records no <code>lastEditPlace</code> (nothing is edited).</td></tr>
+    <tr><td><code>PMProjectTaskTimelinePlanCRUD.tsx</code></td><td>A <code>ReusableTable</code> over the <code>task_line_plan</code> entity: <code>listOwnerGUID = taskGUID</code>, <code>listParentGUID = REUSABLE_TABLE_ALL</code> (every line of the task, the same all-rows mode Finances uses), <b>no CRUD</b>: <code>crudPanelEnabled={false}</code>, <code>contextMenuEnabled={false}</code>,
       <code>selectionEnabled={false}</code>, <code>reorderEnabled={false}</code>, cells not editable. Search, column sort / filter, export and footer totals stay (they are not CRUD).</td></tr>
     <tr><td>Columns</td><td>Budget item · Genus · Line (role / resource title, read from the line + catalogs, never copied) · <b>Period</b> (date-time) · <b>Coefficient</b> (10 digits) · Qty · Sum for budget · Sum for contract. The footer totals per line equal the line's totals (that is the visible proof of Correct033).
       Rows are sorted genus → line order → period before they are shown.</td></tr>
@@ -91,7 +91,7 @@
 
 <section id="post">
   <h2>Part 1.1 - postTask</h2>
-  <h3>Budget item column and the posted flag (<code>PMProjectTaskFinancesCRUD</code>)</h3>
+  <h3>Budget item column and the posted flag (<code>PMProjectTaskInputCRUD</code>)</h3>
   <ul class="tight">
     <li><b>First column</b> <code>budgetItemTaskLine</code> = a <code>catalog</code> column on <code>budgetItemTable</code> (first in <code>taskLineColumns.tsx</code>, before the Errors column). The table is built like <code>managementGenusTable</code> (folders + items,
     <code>rowOwnerGUID='budgetItemCatalog'</code>, <code>rowJSON { title, description, managementGenusItem }</code>); its default rows are made by SQL from the genus rows (one item per genus item), so a new line gets the item of its tab at once and the list per tab is filtered by <code>managementGenusItem</code>.
@@ -236,9 +236,9 @@
     <tr><td><code>create_management_calendar_tables.sql</code></td><td>the two calendar tables, the 3 folders, the default "Working days without holidays" calendar</td></tr>
     <tr><td><code>create_task_line_plan_table.sql</code></td><td>the table, RLS (read only for the app), realtime, <code>create_task_line_plan</code>, the unpost trigger. Needs <code>create_pm_task_line_table.sql</code>, the distribution and calendar files</td></tr>
     <tr><td><code>kit8/catalog/management/budgetitem/*</code>, <code>…/calendar/*</code></td><td>model, metadata, data hook, screen, README (patterns of genus / distribution)</td></tr>
-    <tr><td><code>kit8/pm/view/task/plan/*</code></td><td><code>PMTaskLinePlanView.tsx</code>, <code>PMProjectTaskPlanCRUD.tsx</code>, <code>taskLinePlanModel.ts</code>, <code>taskLinePlanMetaData.ts</code> (spread into <code>SystemMetaData.ts</code>), <code>planColumns.tsx</code>, <code>calculateTaskLinePlan.ts</code>, <code>taskLinePlanApi.ts</code> (the RPC call), README</td></tr>
+    <tr><td><code>kit8/pm/view/task/plan/*</code></td><td><code>PMTaskLinePlanView.tsx</code>, <code>PMProjectTaskTimelinePlanCRUD.tsx</code>, <code>taskLinePlanModel.ts</code>, <code>taskLinePlanMetaData.ts</code> (spread into <code>SystemMetaData.ts</code>), <code>planColumns.tsx</code>, <code>calculateTaskLinePlan.ts</code>, <code>taskLinePlanApi.ts</code> (the RPC call), README</td></tr>
     <tr><td><code>app/pm/project/task/plan/index.tsx</code></td><td>the route</td></tr>
-    <tr><td>Changed</td><td><code>ReusableTable.tsx</code> + types + README (Post button) · <code>taskLineModel.ts</code>, <code>taskLineColumns.tsx</code>, <code>PMProjectTaskFinancesCRUD.tsx</code> · <code>types.ts</code> (<code>showPlanView</code>, <code>postButtonBackgroundColor</code>, <code>calendarForTaskPlan</code>) ·
+    <tr><td>Changed</td><td><code>ReusableTable.tsx</code> + types + README (Post button) · <code>taskLineModel.ts</code>, <code>taskLineColumns.tsx</code>, <code>PMProjectTaskInputCRUD.tsx</code> · <code>types.ts</code> (<code>showPlanView</code>, <code>postButtonBackgroundColor</code>, <code>calendarForTaskPlan</code>) ·
       <code>GanttToNetworkViewToggleButtons.tsx</code>, <code>PMProjectDashboard.tsx</code>, project settings · <code>kit8/pm/README.md</code>, <code>finances/README.md</code></td></tr>
   </table></div>
   <h3>Tests (Jest, next to the existing ones)</h3>
@@ -257,7 +257,7 @@
     <li>Calendars (tables, CRUD, Fill, <code>calendarForTaskPlan</code>).</li>
     <li><code>task_line_plan</code> + <code>create_task_line_plan</code> + Correct033 (SQL first, tested on its own).</li>
     <li><code>calculateTaskLinePlan</code> + Post button in <code>ReusableTable</code> + the <code>postButtonBackgroundColor</code> setting.</li>
-    <li>Plan view: Plan button, <code>PMTaskLinePlanView</code>, <code>PMProjectTaskPlanCRUD</code>, route.</li>
+    <li>Plan view: Plan button, <code>PMTaskLinePlanView</code>, <code>PMProjectTaskTimelinePlanCRUD</code>, route.</li>
   </ol>
 </section>
 

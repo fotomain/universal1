@@ -468,7 +468,7 @@ describe('the two modes and the fast filters', () => {
     expect(inputValue('monitor01-filters-startDate')).toBe('2026-11-01');
     expect(inputValue('monitor01-filters-finishDate')).toBe('2026-11-30');
     press('monitor01-filters-period-button');                              // re-opened: shows what is active
-    expect(textOf('monitor01-filters-period-modal-from')).toBe('2026-11-01');
+    expect(inputValue('monitor01-filters-period-modal-from')).toBe('2026-11-01');
     press('monitor01-filters-period-modal-cancel');
   });
   it('typing in Task filters the rows after the debounce; the totals follow', async () => {

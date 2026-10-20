@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-// The Plan view: the Plan button (after Finances), PMTaskLinePlanView (the bar + the table of the selected task) and PMProjectTaskPlanCRUD
+// The Plan view: the Plan button (after Finances), PMTaskLinePlanView (the bar + the table of the selected task) and PMProjectTaskTimelinePlanCRUD
 // (all the lines of the task in ONE read-only table, the sums per line against the line). The table itself is a test double that records its props.
 import React, { act } from 'react';
 import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore, textOf } from '../../../ui/pmUiTestKit';
@@ -19,7 +19,7 @@ jest.mock('../../../../../kit8/ui/components/common/IconApp', () => ({ __esModul
 
 import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../../../kit8/pm/view/gantt/toolbars/GanttToggleButtons';
 import PMTaskLinePlanView from '../../../../../kit8/pm/view/task/plan/PMTaskLinePlanView';
-import PMProjectTaskPlanCRUD, { PLAN_BUDGET_TABS } from '../../../../../kit8/pm/view/task/plan/PMProjectTaskPlanCRUD';
+import PMProjectTaskTimelinePlanCRUD, { PLAN_BUDGET_TABS } from '../../../../../kit8/pm/view/task/plan/PMProjectTaskTimelinePlanCRUD';
 import { buildPlanColumns, planLineLabel, planPeriodText } from '../../../../../kit8/pm/view/task/plan/planColumns';
 import { TASK_LINE_PLAN_ENTITY, buildTaskLinePlanTimeline } from '../../../../../kit8/pm/view/task/plan/taskLinePlanModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
@@ -95,7 +95,7 @@ describe('the Post button colour setting', () => {
 });
 
 describe('PMTaskLinePlanView', () => {
-  jest.mock('../../../../../kit8/pm/view/task/plan/PMProjectTaskPlanCRUD', () => ({
+  jest.mock('../../../../../kit8/pm/view/task/plan/PMProjectTaskTimelinePlanCRUD', () => ({
     __esModule: true,
     default: (props: any) => require('react').createElement(require('react-native').Text, { testID: `plan-of-${props.taskGUID}` }, 'plan'),
   }));
@@ -123,7 +123,7 @@ describe('PMTaskLinePlanView', () => {
   });
 });
 
-describe('PMProjectTaskPlanCRUD', () => {
+describe('PMProjectTaskTimelinePlanCRUD', () => {
   const planRow = (id: string, line: string, i: number, c: number, q: number, b: number, k: number | null) =>
     ({ rowGUID: id, rowOwnerGUID: 't1', rowParentGUID: line, orderInList: i, rowPeriodDatetime: `2026-10-${12 + i}T00:00:00+00:00`, rowCoefficient: c, qtyTaskLine: q, sumForBudget: b, sumForContract: k, rowJSON: { budgetItemTaskLine: 'timeBudgetItem', taskManagementGenusLine: 'timeGenus' } });
   const lineRow = (guid: string, genus: string, json: Record<string, any>) => ({ rowGUID: guid, rowOwnerGUID: 't1', rowParentGUID: genus, orderInList: 1, rowJSON: { budgetItemTaskLine: 'timeBudgetItem', taskIsPosted: true, baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, ...json } });
@@ -137,7 +137,7 @@ describe('PMProjectTaskPlanCRUD', () => {
     };
     act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, t1: { rowGUID: 't1', rowJSON: { rowKind: opts.stage ? 'stage' : 'task', name: 'T' } } }, schedule: { ...s.schedule, t1: { isSummary: !!opts.stage } }, tree: { ...s.tree, childrenById: { ...s.tree.childrenById, t1: opts.stage ? ['c'] : [] } } })));
     void task;
-    return renderUI(<PMProjectTaskPlanCRUD projectGUID="p" taskGUID="t1" testID="tp" />);
+    return renderUI(<PMProjectTaskTimelinePlanCRUD projectGUID="p" taskGUID="t1" testID="tp" />);
   }
 
   it('ONE read-only table for all the lines of the task: no CRUD panel, no row menu, no check boxes, no reorder', () => {
