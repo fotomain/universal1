@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ROI - settings, formulas, Monitor01</title>
+<title>ROI - month totals, Monitor02, Monitor03</title>
 <style>
   /* Light business theme, same family as ACTIVITY_GENUS.html (works offline) */
   :root {
@@ -65,207 +65,229 @@
   <div class="brand">ROI</div>
   <nav><ul>
     <li><a href="#verdict">Verdict</a></li>
-    <li><a href="#settings">TabROI</a></li>
+    <li><a href="#settings">Settings</a></li>
     <li><a href="#kinds">ROI 1-4</a></li>
     <li><a href="#vat">Taxes</a></li>
-    <li><a href="#how">How to calculate</a></li>
-    <li><a href="#monitor">Monitor01</a></li>
+    <li><a href="#data">Data</a></li>
+    <li><a href="#how">Calculation</a></li>
+    <li><a href="#reports">Monitor01 / 02 / 03</a></li>
     <li><a href="#calc">Try it</a></li>
     <li><a href="#decisions">Decisions</a></li>
-    <li><a href="#build">Build plan</a></li>
+    <li><a href="#build">Built</a></li>
   </ul></nav>
 </div></header>
 <main>
 
-<h1>ROI per task and per project</h1>
-<p class="lead">A <b>design proposal - nothing is built</b>. Four kinds of return on investment (plan / fact combinations of costs and revenues), a project-settings tab <b>TabROI</b> that says which taxes count, a switch <b><code>roiForTasksFunctionalityEnabled</code></b> (OFF by default) that decides whether ROI is calculated and shown <b>per task</b>, and a new view in <b>Monitor01</b> with one line per task (when the switch is ON) and project totals in the footer. This page answers: <b>is the idea good</b>, <b>what is missing in the data</b>, and <b>the best way to calculate</b>.</p>
+<h1>ROI: month totals, Monitor02 (now), Monitor03 (history) <span class="pill new">BUILT 2026-10-20</span></h1>
+<p class="lead"><b>Built</b> (SQL PARTs 33 + 34, <code>kit8/pm/reports/roi</code>, <code>monitor02</code>, <code>monitor03</code>; READMEs there). Four kinds of return on investment (ROI1-4); the <b>additive</b> money in <code>project_status_roi_task_month</code> (task × month) and <code>project_status_month_totals</code> (project × month); the report <b>Monitor02_ROINow</b>; the append-only <code>project_status_roi_history</code> behind the project switch <code>roiHistoryFunctionalityEnabled</code> and the report <b>Monitor03_ROIHistory</b>. <b>Monitor01</b> got a strip (section 7.1). ROI2 uses the <b>fact input</b> of the Revenue lines; ROI4 counts the cost that is never invoiced. Where the built system differs from the first design of this page, the text below says what is built.</p>
 
 <section id="verdict">
-  <h2>1. Verdict: is it good?</h2>
-  <div class="good"><b>Yes - the idea is sound and fits the system.</b> Three of the four numbers already exist in <code>monitor01_view</code> (plan cost, vendor invoice, customer invoice), the VAT components are already stored, and Monitor01 already has a footer (<code>TotalsRow</code>). Two things must be fixed before it is built.</div>
+  <h2>1. Verdict</h2>
+  <div class="good"><b>The design holds, and both variants fit together.</b> The month totals are the one source of truth for the project level (now, history, footers); the monitor01 rows stay the source for the task level. Nothing stores a ratio except what a view computes.</div>
   <div class="grid">
-    <div class="card"><span class="pill gap">GAP 1</span> <b>There is no planned revenue in the register.</b>
-      <div class="small">PART 25 deliberately lets the Revenue (Deliverable) genus into the report <i>only</i> through posted customer invoices (<code>project_status_register_plan</code> reads the cost genera only; <code>project_status_fresh_turnover</code> keeps a revenue movement only when its kind is <code>sold</code>). So "Revenues Planned" (ROI1, ROI2) has no source until the plan of the Revenue lines is registered - in its own columns, so the Budget / Planned columns of the old report stay as they are (section 5).</div></div>
-    <div class="card"><span class="pill gap">GAP 2</span> <b>"FactRevenues" (ROI2) does not exist.</b>
-      <div class="small">The only fact of a revenue is the posted <b>customer invoice</b> - and that is exactly ROI3's "Customer invoice data". Today ROI2 and ROI3 would show the <i>same number</i>. A second revenue fact (revenue recognised on delivery, or cash received) needs a document that is not built. Decision Q1.</div></div>
-    <div class="card"><span class="pill dec">NOTE</span> <b>ROI4 costs = vendor invoices only.</b>
-      <div class="small">Time of your own employees is never invoiced: it is a fact input (<code>sumForBudgetUsed</code>). ROI4 as written leaves it out, so ROI4 is too good for a project with much internal work. Decision Q2.</div></div>
-    <div class="card"><span class="pill dec">NOTE</span> <b>Plan cost against partial revenue.</b>
-      <div class="small">ROI2 and ROI3 divide a <i>part</i> of the revenue (what is delivered / invoiced so far) by the <i>whole</i> plan cost. Early in a project they are strongly negative by construction. That is correct as a "so far" number, but the screen must say so (header tip) and it follows the period filter. Section 5.4.</div></div>
+    <div class="card"><span class="pill gap">GAP 1</span> <b>No planned revenue in the register.</b>
+      <div class="small"><code>project_status_register_plan</code> reads the cost genera only, and <code>project_status_fresh_turnover</code> keeps a revenue movement only when its kind is <code>sold</code> (PART 25, decision Q4 of Monitor01). ROI1 / ROI2 need the plan of the Revenue lines - registered into <b>new</b> columns, so Budget / Planned / Contracted of Monitor01 do not change.</div></div>
+    <div class="card"><span class="pill new">RESOLVED</span> <b>ROI2 = plan cost against the fact input of the Revenue lines.</b>
+      <div class="small">Found in the code: the fact input document already creates lines for all four genera (<code>task_fact_document_create</code> joins <code>revenueGenus</code>), but <code>project_status_register_fact</code> drops them (<code>genusGUID IN (timeGenus, materialGenus, expenseGenus)</code>). So the revenue fact is typed in today and never reaches a report. It is registered as kind <code>used</code> into new revenue columns. ROI2 is then different from ROI3 (customer invoice) - the old Gap 2 is gone.</div></div>
+    <div class="card"><span class="pill new">DECIDED</span> <b>ROI4 cost = vendor invoices + the cost that is never invoiced.</b>
+      <div class="small">Own staff time is never invoiced (it is a fact input). Rule built: the posted fact input of a cost line that has <b>no vendor</b> (no vendor on its contract / on the line / main vendor of its equipment or product) is "own cost" and is added to the vendor invoices. A cost line <i>with</i> a vendor counts when its invoice is posted (a fact input that waits for its invoice is not in ROI4 yet). Decision Q2.</div></div>
+    <div class="card"><span class="pill dec">NOTE</span> <b>Part of the revenue against the whole plan cost.</b>
+      <div class="small">ROI2 and ROI3 divide a <i>part</i> of the revenue (entered / invoiced so far) by the <i>whole</i> plan cost: early in a project they are strongly negative by construction. The header tip says so; they follow the period filter. Section 6.4.</div></div>
   </div>
-  <h3>Small corrections of the names</h3>
+  <h3>Names</h3>
   <table>
-    <tr><th>You wrote</th><th>Use</th><th>Why</th></tr>
-    <tr><td><code>projectROIIcludeAllTaxes</code></td><td><code>projectROIIncludeAllTaxes</code></td><td>typo (Iclude → Include)</td></tr>
-    <tr><td><code>projectROIIcludeSaleVAT</code></td><td><code>projectROIIncludeSaleVAT</code></td><td>same typo</td></tr>
-    <tr><td><code>projectROIIcludePurchaseVAT</code></td><td><code>projectROIIncludePurchaseVAT</code></td><td>same typo</td></tr>
-    <tr><td>RO1, RO2, RO3, ROI4</td><td>ROI1 … ROI4</td><td>RO1 / RO2 / RO3 are typos; the keys in code: <code>roi1</code> … <code>roi4</code></td></tr>
+    <tr><th>You wrote</th><th>Use</th></tr>
+    <tr><td><code>projectROIIcludeAllTaxes</code> · <code>…IcludeSaleVAT</code> · <code>…IcludePurchaseVAT</code></td><td><code>projectROIIncludeAllTaxes</code> · <code>…IncludeSaleVAT</code> · <code>…IncludePurchaseVAT</code> (typo Iclude → Include)</td></tr>
+    <tr><td>RO1, RO2, RO3, ROI4</td><td>ROI1 … ROI4 (keys in code <code>roi1</code> … <code>roi4</code>)</td></tr>
   </table>
-  <p class="small">The keys are stored in <code>project_table.rowJSON</code> (like every project switch) - no SQL is needed for the settings themselves.</p>
 </section>
 
 <section id="settings">
-  <h2>2. Project settings - TabROI</h2>
-  <p class="sub">New tab after Customer (<code>kit8/pm/view/project/settings/PMProjectROITab.tsx</code>), also in Organization edit → Projects → Settings (defaults of a new project, like the Product tab). Same pattern as <code>PMProjectCustomerTab</code>: a <code>roiValuesOf()</code> that reads a missing value as the default.</p>
+  <h2>2. Project settings - tab ROI</h2>
+  <p class="sub">New tab <b>ROI</b> after Subprojects (<code>kit8/pm/view/project/settings/PMProjectRoiTab.tsx</code>), also in Organization edit → Projects → Settings (defaults of a new project, <code>defaultProjectSettings</code>). The keys live in <code>project_table.rowJSON</code>; <b>all five default to false</b> - a missing value is OFF. In SQL read them with <code>vendor_project_setting_on(project, key)</code> (FALSE unless stored true), <b>not</b> <code>vendor_project_setting</code> (pitfall, KNOW_HOW section 7); in TypeScript <code>roiValuesOf()</code> tests <code>=== true</code>.</p>
   <table>
     <tr><th>Key (rowJSON)</th><th>Default</th><th>Meaning</th></tr>
-    <tr><td><code>roiForTasksFunctionalityEnabled</code> <span class="pill new">NEW</span></td><td>false</td><td><b>ROI for tasks.</b> OFF: ROI is calculated and shown for the <b>project</b> only (Monitor01 ROI tab: one line per project, no task lines; the per-task calculation does not run). ON: it is also calculated and shown <b>per task</b>. The three tax switches below apply to both levels.</td></tr>
-    <tr><td><code>projectROIIncludeAllTaxes</code></td><td>false</td><td>Master switch. ON = both VAT switches below are ON and shown locked (one click for the cash view). OFF = the two switches are free.</td></tr>
-    <tr><td><code>projectROIIncludeSaleVAT</code></td><td>false</td><td>ON: the VAT of the <b>customer invoice / planned revenue</b> is added to the revenue. OFF: revenue is net.</td></tr>
-    <tr><td><code>projectROIIncludePurchaseVAT</code></td><td>false</td><td>ON: <b>all</b> VAT of the vendor invoice / planned cost is added to the cost. OFF: cost = net + the VAT that is cost (not recoverable) - the IFRS / GAAP cost, same as the default basis of every other report.</td></tr>
+    <tr><td><code>roiForTasksFunctionalityEnabled</code></td><td>false</td><td>ROI per <b>task</b>. ON: <b>Monitor02 shows the project, with a line per task</b>. OFF: the project is <b>not in Monitor02 at all</b> and no task is calculated (<code>roi_task_lines</code> returns no rows). The project ROI itself is the same either way (Monitor03 and the strip of Monitor01 do not depend on this switch). <i>Decided: Monitor02 is for the projects with the switch ON only.</i></td></tr>
+    <tr><td><code>roiHistoryFunctionalityEnabled</code> <span class="pill new">NEW</span></td><td>false</td><td>ROI <b>history</b>. ON: the Monitor01 worker writes a snapshot row into <code>project_status_roi_history</code> whenever the project's totals change (section 5.3), and Monitor03 offers the "as seen on" curve. OFF: nothing is written. Turning it OFF keeps the rows already written (they are never deleted by a switch); turning it ON again continues the history, and the gap is drawn dashed.</td></tr>
+    <tr><td><code>projectROIIncludeAllTaxes</code></td><td>false</td><td>Master: ON = both VAT switches ON and locked. Label it "Include all taxes (VAT)": the system stores no other tax.</td></tr>
+    <tr><td><code>projectROIIncludeSaleVAT</code></td><td>false</td><td>ON: the VAT of the revenue side (planned revenue, fact input, customer invoice) is added to the revenue. OFF: revenue is net.</td></tr>
+    <tr><td><code>projectROIIncludePurchaseVAT</code></td><td>false</td><td>ON: all VAT of the cost side (plan, vendor invoice) is added. OFF: cost = net + the VAT that is cost (not recoverable) - the IFRS / GAAP cost, the default of every other report.</td></tr>
   </table>
-  <div class="good"><b>The new switch, in short.</b> Name and default follow the other functionality switches (<code>customerInvoiceFunctionalityEnabled</code>, <code>subprojectsFunctionalityEnabled</code>), but the default is <b>false</b>: a missing value is read as OFF - the opposite of the Customer switch. In SQL that is <code>vendor_project_setting_on(project, key)</code> (FALSE unless stored true), <b>not</b> <code>vendor_project_setting</code> (see the pitfall in KNOW_HOW.md section 7). In TypeScript <code>roiValuesOf()</code> reads <code>j?.roiForTasksFunctionalityEnabled === true</code>.
-    <br>The tab shows the switch first, with the hint "On: Monitor01 → ROI has a line per task. Off: one line per project." The project switch belongs in the Organization defaults too (<code>defaultProjectSettings</code>), so a new project starts as the organization wants. No SQL is needed to store it.</div>
-  <div class="note"><b>"All taxes" means VAT.</b> The system stores no other tax (no income tax, duty, withholding). The label of the master switch should say "VAT" to avoid a promise the numbers cannot keep: <i>Include all taxes (VAT)</i>.</div>
-  <div class="good"><b>Why OFF by default.</b> Recoverable VAT is a receivable / payable to the tax authority, not a cost and not revenue (IFRS / GAAP, see the VAT basis in <code>kit8/pm/vat/README.md</code>). ROI on the default setting is therefore the accounting ROI. ON is a cash view. Both are legitimate, so the choice is the project's.</div>
-  <p class="small">These switches belong to the project, not to the user: they replace the global Cost | Net | With VAT choice (<code>VatBasisSelect</code>) <i>inside the ROI view only</i>. Two competing selectors on one screen would give two answers to the same question; the ROI header tip states the basis used.</p>
+  <div class="good"><b>The tax switches change only the view of the numbers, never the stored ones.</b> The tables hold net · VAT · VAT that is cost; the switches choose which components are added. Changing a switch therefore redraws the whole history consistently and invalidates nothing.</div>
+  <p class="small">These switches replace the global Cost | Net | With VAT choice (<code>VatBasisSelect</code>) <i>inside the ROI reports only</i>; their header tips state the basis used.</p>
 </section>
 
 <section id="kinds">
   <h2>3. The four ROI kinds</h2>
-  <p class="sub">All money is in the budget currency (<code>sumForBudget</code> family), net of VAT before the VAT rules of section 4. <b>C</b> = cost, <b>R</b> = revenue.</p>
+  <p class="sub">Budget currency (<code>sumForBudget</code> family), VAT rules of section 4. <b>C</b> = cost, <b>R</b> = revenue.</p>
   <div class="formula">Profit = R − C &nbsp;&nbsp;&nbsp; ROI = (R − C) / C &nbsp;&nbsp;&nbsp; (C = 0 → no value, shown "–")</div>
   <div class="scroll"><table>
-    <tr><th>Kind</th><th>Cost C</th><th>Revenue R</th><th>Source today</th><th>Status</th></tr>
-    <tr><td><b>ROI1</b> plan - plan</td><td>Σ plan cost<br><code>monitor01_view.sumForBudget</code> (+ <code>vatBudget</code>, <code>vatInCostBudget</code>), genus Time / Material / Expense</td><td>Σ planned revenue<br><code>sumRevenuePlan</code> (+ <code>vatRevenuePlan</code>) <span class="pill new">NEW</span></td><td>cost: ready · revenue: <b>GAP 1</b></td><td><span class="pill dec">needs revenue plan</span></td></tr>
-    <tr><td><b>ROI2</b> plan - fact</td><td>Σ plan cost (as ROI1)</td><td>"Fact revenue" - Q1</td><td>cost: ready · revenue: <b>GAP 2</b></td><td><span class="pill gap">undefined</span></td></tr>
-    <tr><td><b>ROI3</b> plan - invoiced</td><td>Σ plan cost (as ROI1)</td><td>Σ customer invoices<br><code>sumCustomerInvoiced</code> (+ <code>vatCustomerInvoiced</code>)</td><td>ready</td><td><span class="pill old">can be built</span></td></tr>
-    <tr><td><b>ROI4</b> fact - fact</td><td>Σ vendor invoices<br><code>sumVendorInvoiced</code> (+ <code>vatVendorInvoiced</code>, <code>vatInCostVendorInvoiced</code>) - Q2</td><td>Σ customer invoices (as ROI3)</td><td>ready</td><td><span class="pill old">can be built</span></td></tr>
+    <tr><th>Kind</th><th>Cost C</th><th>Revenue R</th><th>Answers</th></tr>
+    <tr><td><b>ROI1</b> plan - plan</td><td>plan cost (Time + Material + Expense)</td><td>planned revenue <span class="pill new">NEW column</span></td><td>Is the project worth it on paper? Moves when the plan is re-posted.</td></tr>
+    <tr><td><b>ROI2</b> plan - fact</td><td>plan cost</td><td><b>fact input of the Revenue lines</b> (posted fact documents, kind <code>used</code>) <span class="pill new">NEW column</span></td><td>Given the plan cost, what did the entered (delivered) work earn?</td></tr>
+    <tr><td><b>ROI3</b> plan - invoiced</td><td>plan cost</td><td>posted customer invoices</td><td>What has the customer been billed against what we plan to spend?</td></tr>
+    <tr><td><b>ROI4</b> fact - fact</td><td>posted vendor invoices <b>+ the cost that is never invoiced</b> (Q2)</td><td>posted customer invoices</td><td>What really happened in invoiced money.</td></tr>
   </table></div>
-  <h3>What each kind answers</h3>
-  <ul class="tight">
-    <li><b>ROI1</b> - is the project worth starting? Available the moment the plan is posted. Changes when the plan is re-posted.</li>
-    <li><b>ROI2</b> - given the plan cost, what did the delivered work earn? (needs a revenue fact other than the invoice)</li>
-    <li><b>ROI3</b> - what has the customer been billed, against what we plan to spend? Meaningful at the end of the project or with a period filter.</li>
-    <li><b>ROI4</b> - what really happened: money invoiced to the customer against money invoiced by vendors. The honest "so far" result.</li>
-  </ul>
-  <div class="bad"><b>Do not average the ROI of tasks.</b> The ROI of a project is Σ profit / Σ cost of its tasks, <i>never</i> the mean of the task ROIs (a small task with ROI 400 % would drag a large one). The footer is computed from sums, so it is also correct when the tasks shown are filtered.</div>
+  <div class="bad"><b>Never average the ROI of tasks or months.</b> The ROI of a project (or of a period) is Σ profit / Σ cost - the money is added first, the ratio is taken last. This is also why month totals hold money only.</div>
 </section>
 
 <section id="vat">
-  <h2>4. Taxes - how the two switches change C and R</h2>
-  <p class="sub">The register already stores every amount as components: net · VAT · VAT that is cost (<code>vat_basis_amount</code> / <code>amountOfVatBasis</code>). ROI only picks the components; it adds no new VAT logic.</p>
+  <h2>4. Taxes - which components are added</h2>
   <table>
-    <tr><th>Side</th><th>IncludePurchaseVAT / IncludeSaleVAT</th><th>Amount used</th></tr>
-    <tr><td rowspan="2"><b>Cost</b> (plan, vendor invoice)</td><td>OFF (default)</td><td>net + VAT that is cost &nbsp;= basis <code>cost</code></td></tr>
-    <tr><td>ON</td><td>net + all VAT &nbsp;= basis <code>gross</code></td></tr>
-    <tr><td rowspan="2"><b>Revenue</b> (planned, customer invoice)</td><td>OFF (default)</td><td>net</td></tr>
-    <tr><td>ON</td><td>net + VAT (a customer invoice's VAT is never cost, it has no "in cost" part)</td></tr>
+    <tr><th>Side</th><th>Switch</th><th>Amount used</th></tr>
+    <tr><td rowspan="2"><b>Cost</b> (plan, vendor invoice)</td><td>IncludePurchaseVAT OFF</td><td>net + VAT that is cost (= basis <code>cost</code>)</td></tr>
+    <tr><td>ON</td><td>net + all VAT (= basis <code>gross</code>)</td></tr>
+    <tr><td rowspan="2"><b>Revenue</b> (planned, fact input, customer invoice)</td><td>IncludeSaleVAT OFF</td><td>net</td></tr>
+    <tr><td>ON</td><td>net + VAT (the VAT of a revenue is never cost: no "in cost" part)</td></tr>
   </table>
-  <p>The two switches are independent on purpose. Typical case: a company that cannot recover input VAT (non-recoverable → already in the default cost) but is asked "what is the ROI incl. the VAT I invoice" turns on SaleVAT only.</p>
-  <div class="note">If every VAT rate has the same recoverable share on both sides, switching both on changes C and R by the same factor - the ROI ratio stays, the profit amount grows. The ROI differs only when the rates / recoverable shares differ between purchases and sales. The calculator (section 7) shows both effects.</div>
+  <div class="note">With equal rates and fully recoverable VAT on both sides, switching both ON changes C and R by the same factor: the ROI stays, the profit grows. The ROI differs only when rates or recoverable shares differ. Section 8 shows both effects.</div>
+</section>
+
+<section id="data">
+  <h2>5. Data: what is stored</h2>
+  <p class="sub">Rule: <b>store money, never ratios</b>. The tables below hold 15 additive components; the ratios come from <code>roiOfMoney()</code> (app) and <code>roi_ratio()</code> (SQL views), always under the project's <i>current</i> tax switches.</p>
+
+  <h3>5.1 The register learns the Revenue lines and the "own cost" (SQL PART 33)</h3>
+  <ul class="tight">
+    <li><b>Plan of the Revenue lines</b>: <code>project_status_register_plan</code> also registers their <code>plan</code> movements. <b>Fact input of the Revenue lines</b>: <code>project_status_register_fact</code> also registers their <code>used</code> movements (before, the filter dropped them).</li>
+    <li><b>Own cost</b>: a <code>used</code> movement of a cost line carries <code>rowJSON.ownCost</code> = the line has no vendor (<code>pm_line_has_vendor(genus, json)</code>: the rule of <code>vendor_invoice_candidates</code>, read from the JSON the fact line copied from its task line - in the default FREE fact mode the fact line has no task line GUID). Set at Post; an unpost + post refreshes it.</li>
+    <li><b>Monitor01 does not change</b>: <code>project_status_fresh_turnover</code> still keeps a revenue movement only when its kind is <code>sold</code>; the stale flag of <code>monitor01_fresh_rows</code> counts the cost plan only (both definitions). <code>monitor01_view</code> and the turnover got <b>no</b> new column (the first design had four): the ROI money has its own tables.</li>
+    <li>On an existing database the install re-registers the posted fact documents that have no <code>ownCost</code> yet or have Revenue lines, and queues every task with a plan or a movement; the worker (or Refresh) fills the ROI tables.</li>
+  </ul>
+
+  <h3>5.2 The tables</h3>
+  <div class="scroll"><table>
+    <tr><th>Table</th><th>Key</th><th>Written by</th></tr>
+    <tr><td><code>project_status_roi_task_month</code></td><td>task × month</td><td>step 5 of <code>monitor01_apply</code> = <code>roi_apply(tasks)</code>: summed from <code>project_status_movements</code>, <b>only changed rows</b> are written, a vanished row is deleted. A failure is a WARNING (it never stops Monitor01); <code>roi_rebuild(project)</code> heals.</td></tr>
+    <tr><td><code>project_status_month_totals</code></td><td>project × month</td><td>statement triggers (with transition tables) on the table above: the touched (project, month) pairs are re-summed - so it is never older than the task rows, also when a task is deleted by a cascade. No drift (a re-sum, not a delta).</td></tr>
+    <tr><td><code>project_status_roi_history</code></td><td>project × day</td><td><code>roi_history_apply</code>, called after a project month changed and by a trigger when the switch is turned ON (section 5.3)</td></tr>
+  </table></div>
+  <p>The 15 components (in all three tables, <code>RoiMoney</code> in the app): <code>costPlan</code> · <code>revenuePlan</code> · <code>revenueUsed</code> · <code>costOwn</code> · <code>costInvoiced</code> · <code>revenueInvoiced</code>, each as <code>…Net</code> and <code>…Vat</code>, the costs also <code>…VatInCost</code> (the part of the VAT that is cost). Own tasks only: a subproject's cost is not added to its origin task.</p>
+  <ul class="tight">
+    <li>Views (<code>security_invoker</code>: the policies of the tables apply): <code>project_status_totals</code> (ONE line per project = the sum of its months + ROI1-4), <code>project_status_month_roi</code> (the cumulative curve in business time), <code>project_status_roi_history_v</code> (the log + ROI1-4).</li>
+    <li>Functions: <code>roi_project(project, from, to)</code> (one row), <code>roi_task_lines(project, from, to)</code> (a row per task, <b>only while the task switch is ON</b>), <code>roi_report_projects()</code> (the projects of Monitor02), <code>roi_rebuild(project)</code>, <code>roi_verify(project)</code> (maintenance: the stored tables against a full re-sum of the register).</li>
+    <li>RLS: the owner of the project reads (<code>pm_owns_project</code>), nobody writes but the SECURITY DEFINER functions; month totals and history are in the Realtime publication; everything is dropped by PART 1a-00 of <code>delete_sql_structure.sql</code>.</li>
+  </ul>
+
+  <h3>5.3 <code>project_status_roi_history</code> - the log of what was seen (switch <code>roiHistoryFunctionalityEnabled</code>)</h3>
+  <p>The curve of the month totals shows the past <i>as the data stands today</i>: after a plan re-post the old months change too. The log keeps what the project looked like on each day.</p>
+  <ul class="tight">
+    <li><b>Key</b> <code>(project, day)</code>: at most one row per project per day (the day's last state wins; the reasons of the day are joined). No pg_cron: a day without a change has no row and the chart draws a step line.</li>
+    <li><b>Columns</b>: the 15 components (the project's Σ at that moment) + <code>reason</code> (<code>history on</code> · <code>plan</code> · <code>fact input</code> · <code>vendor invoice</code> · <code>customer invoice</code>, found by comparing with the newest row). Components, not percentages: a change of a tax switch redraws the whole log.</li>
+    <li><b>Written</b> only for projects with the switch ON and only when the totals differ from the project's newest row. Turning the switch ON writes the first row at once (a trigger on <code>project_table</code>); <b>history exists only from that day</b>; switching OFF stops writing and keeps the rows.</li>
+    <li>Project level only. <b>The one table that cannot be rebuilt</b>: <code>start5</code> never touches it, <code>delete_sql_structure.sql</code> drops it with its data.</li>
+  </ul>
 </section>
 
 <section id="how">
-  <h2>5. The best way to calculate</h2>
-  <p class="sub">The question is <i>where</i> the ratio is computed. Short answer: <b>store additive money in the database, compute the ratio in one pure function.</b></p>
+  <h2>6. The calculation: one pure function over a money bundle</h2>
   <div class="scroll"><table>
-    <tr><th>Option</th><th>Verdict</th><th>Why</th></tr>
-    <tr><td>A. Store ROI in <code>monitor01_view</code> (a column per row)</td><td><span class="pill gap">NO</span></td><td>A ratio is not additive. The table is incremental (the worker rewrites changed rows only), a row is one genus × role × month, and the tree subtotals add rows up: a stored ROI would be wrong in every subtotal and every filter.</td></tr>
-    <tr><td>B. SQL view / RPC that returns ROI per task</td><td><span class="pill dec">only as a check</span></td><td>Correct, but one more round trip, no Realtime, and it ignores the filters of the bar (period, role, unit) that the screen applies.</td></tr>
-    <tr><td><b>C. Store the money (additive) + compute the ratio on the client from the rows Monitor01 already holds</b></td><td><span class="pill new">YES</span></td><td>Zero new queries, follows Realtime and the filters for free, the footer is the same code as the task line. The same pattern as <code>monitor01Totals</code> (sums of rows, nothing else).</td></tr>
+    <tr><th>Where the ratio is computed</th><th>Verdict</th><th>Why</th></tr>
+    <tr><td>Stored in a table (<code>monitor01_view</code>, the month totals, the log)</td><td><span class="pill gap">NO</span></td><td>Not additive: wrong in every subtotal, filter and period; depends on the tax switches.</td></tr>
+    <tr><td>SQL views (<code>project_status_totals</code>, the curve, the log view)</td><td><span class="pill new">YES, project level</span></td><td>Sort / filter in SQL, no staleness. Same formula via <code>roi_ratio()</code>.</td></tr>
+    <tr><td>Client function <code>roiOfMoney</code> over the money bundles the screen reads</td><td><span class="pill new">YES, the screens</span></td><td>One formula for every line of Monitor02 / Monitor03 (a task, a project, a footer, a point); the SQL views are its mirror and the sort / filter / alert side.</td></tr>
   </table></div>
 
-  <h3>5.1 What is stored (SQL, additive)</h3>
-  <ul class="tight">
-    <li><b>Cost plan, vendor invoice, customer invoice</b>: nothing new, the columns exist in <code>monitor01_view</code>.</li>
-    <li><b>Planned revenue</b> <span class="pill new">NEW</span>: <code>project_status_register_plan</code> also registers the <code>plan</code> movements of the Revenue lines; <code>project_status_fresh_turnover</code> puts them into <b>new</b> turnover columns <code>sumForBudgetRevenuePlan</code>, <code>vatForBudgetRevenuePlan</code>, and <code>monitor01_view</code> gets <code>sumRevenuePlan</code>, <code>vatRevenuePlan</code> (NET and VAT, like every money pair). They are <b>not</b> written into <code>sumForBudgetPlan</code>: the Budget / Planned / Contracted columns of the old report stay byte-for-byte what they are (decision Q4 of Monitor01 stays true for those columns).</li>
-    <li>Nothing else. No stored ROI, no stored profit.</li>
-  </ul>
+  <h3>6.1 The function (TypeScript, <code>kit8/pm/reports/roi/roiModel.ts</code>)</h3>
+  <pre>/** the 15 additive components; ONE bundle = a project-month, a task, a snapshot, or any SUM of them */
+export type RoiMoney = Record&lt;'costPlanNet' | 'costPlanVat' | 'costPlanVatInCost'
+  | 'revenuePlanNet' | 'revenuePlanVat' | 'revenueUsedNet' | 'revenueUsedVat'
+  | 'costOwnNet' | 'costOwnVat' | 'costOwnVatInCost'
+  | 'costInvoicedNet' | 'costInvoicedVat' | 'costInvoicedVatInCost'
+  | 'revenueInvoicedNet' | 'revenueInvoicedVat', number&gt;;
 
-  <h3>5.2 The pure function (one place, TypeScript)</h3>
-  <pre>// kit8/pm/reports/monitor01/roi/roiModel.ts - pure, no React, no I/O
-export interface RoiSettings { includeSaleVat: boolean; includePurchaseVat: boolean }   // from roiValuesOf(project.rowJSON)
+const cost = (net, vat, inCost, includeVat) =&gt; net + (includeVat ? vat : inCost);
+const revenue = (net, vat, includeVat) =&gt; net + (includeVat ? vat : 0);
 
-const cost = (net: number, vat: number, vatInCost: number, s: RoiSettings) =&gt;
-  net + (s.includePurchaseVat ? vat : vatInCost);                    // amountOfVatBasis(..., 'gross' | 'cost')
-const revenue = (net: number, vat: number, s: RoiSettings) =&gt;
-  net + (s.includeSaleVat ? vat : 0);
+/** cost = 0 → null (shown "-"): never 0, never Infinity */
+export const roiRatio = (r: number, c: number) =&gt; (c === 0 ? null : (r - c) / c);
 
-/** the ratio. cost = 0 → null (shown "–"): never 0, never Infinity */
-export const roiRatio = (r: number, c: number): number | null =&gt;
-  c === 0 ? null : (r - c) / c;
-
-export function roiOfRows(rows: Monitor01Row[], s: RoiSettings): RoiLine {
-  const sum = (f: (x: Monitor01Row) =&gt; number) =&gt; rows.reduce((a, x) =&gt; a + f(x), 0);
-  const planCost  = sum(x =&gt; isCostGenus(x.genusGUID) ? cost(x.sumForBudget, x.vatBudget ?? 0, x.vatInCostBudget ?? 0, s) : 0);
-  const factCost  = sum(x =&gt; cost(x.sumVendorInvoiced, x.vatVendorInvoiced ?? 0, x.vatInCostVendorInvoiced ?? 0, s));
-  const planRev   = sum(x =&gt; revenue(x.sumRevenuePlan ?? 0, x.vatRevenuePlan ?? 0, s));
-  const factRev   = sum(x =&gt; revenue(x.sumCustomerInvoiced, x.vatCustomerInvoiced ?? 0, s));
-  return {
-    planCost, factCost, planRev, factRev,
-    roi1: roiRatio(planRev, planCost),
-    roi2: null,                                    // Q1 - no second revenue fact yet
-    roi3: roiRatio(factRev, planCost),
-    roi4: roiRatio(factRev, factCost),
-  };
+export function roiOfMoney(m: RoiMoney, tax: RoiTaxSettings): RoiLine {
+  const planCost  = cost(m.costPlanNet, m.costPlanVat, m.costPlanVatInCost, tax.includePurchaseVat);
+  const factCost  = cost(m.costInvoicedNet, m.costInvoicedVat, m.costInvoicedVatInCost, tax.includePurchaseVat)
+                  + cost(m.costOwnNet, m.costOwnVat, m.costOwnVatInCost, tax.includePurchaseVat);   // vendor invoices + the cost never invoiced
+  const planRev   = revenue(m.revenuePlanNet, m.revenuePlanVat, tax.includeSaleVat);
+  const usedRev   = revenue(m.revenueUsedNet, m.revenueUsedVat, tax.includeSaleVat);                 // the fact input of the Revenue lines
+  const billedRev = revenue(m.revenueInvoicedNet, m.revenueInvoicedVat, tax.includeSaleVat);
+  return { /* the five values, */ roi1: roiRatio(planRev, planCost), roi2: roiRatio(usedRev, planCost),
+           roi3: roiRatio(billedRev, planCost), roi4: roiRatio(billedRev, factCost) };
 }</pre>
-  <p>The task line is <code>roiOfRows(rows of ONE task)</code>; a stage / project line is the same call on the <b>rows</b> of its tasks - never on the ROIs. The footer is the same call on all rows shown.</p>
-  <h4 style="margin:14px 0 6px">The switch <code>roiForTasksFunctionalityEnabled</code> gates the task level</h4>
-  <pre>// the screen asks for lines; the switch of EACH project decides whether it gets task lines
-export function roiLinesOf(rows: Monitor01Row[], settingsOf: (projectGUID: string) =&gt; RoiProjectSettings): RoiLine[] {
-  const out: RoiLine[] = [];
-  for (const [projectGUID, projectRows] of groupBy(rows, r =&gt; r.rowProjectGUID)) {
-    const s = settingsOf(projectGUID);                        // { includeSaleVat, includePurchaseVat, forTasks }
-    if (s.forTasks) {                                         // ON: one line per task - the only place that calculates a task
-      for (const [taskGUID, taskRows] of groupBy(projectRows, r =&gt; r.rowOwnerGUID)) {
-        out.push({ level: 'task', projectGUID, taskGUID, ...roiOfRows(taskRows, s) });
-      }
-    }
-    out.push({ level: 'project', projectGUID, ...roiOfRows(projectRows, s) });   // always: the footer / the one line of a project
-  }
-  return out;
-}</pre>
-  <p>With the switch OFF the code never groups by task, so there is nothing to compute, to render or to drill into. The project level is the same call on the same rows, so turning the switch ON changes <b>only</b> which lines exist - never a project number.</p>
+  <p>Every line of every report is <code>roiOfMoney(Σ bundles)</code>: a task = its task-month rows for the period, a project = Σ of its month totals, a footer = the sum of the project lines' <i>values</i> (each already under its own project's switches) with the ratios taken of the sums, a history point = one snapshot. The task lines exist only for projects with <code>roiForTasksFunctionalityEnabled</code>; the code never groups by task otherwise.</p>
 
-  <h3>5.3 The SQL mirror (the check, not the source)</h3>
-  <p>The project already keeps a rule twice and lets a test compare (<code>kit8_budget_item_key_matrix()</code> / <code>BUDGET_ITEM_KEY_MATRIX</code>). Same here: <code>public.project_roi(project, include_sale_vat, include_purchase_vat)</code> returns the same four numbers from the register - one line per task only when <code>vendor_project_setting_on(project, 'roiForTasksFunctionalityEnabled')</code> is true, always the project line - and Docker test <code>tests/92_roi.sql</code> compares them with a hand-computed fixture. The screen does not call it; <code>monitor01_verify</code> can.</p>
+  <h3>6.2 The SQL mirror (the check)</h3>
+  <p><code>public.roi_ratio / roi_cost / roi_revenue</code>, the views and <code>public.roi_project(project, from, to)</code> / <code>roi_task_lines</code> implement the same rule (the project keeps a rule twice and lets a test compare, like <code>kit8_budget_item_key_matrix()</code>); Docker test <code>tests/92_roi.sql</code> (96 checks) and <code>roiModel.test.ts</code> use the fixture of section 8.</p>
 
-  <h3>5.4 Rules that keep the numbers right</h3>
+  <h3>6.3 Where each report reads</h3>
+  <table>
+    <tr><th>Report / line</th><th>Reads</th></tr>
+    <tr><td>Monitor02, project line and footer</td><td><code>project_status_month_totals</code> (period filter = months in range)</td></tr>
+    <tr><td>Monitor02, task lines (switch ON)</td><td><code>roi_task_lines(project, from, to)</code> (task-month rows summed per task by the database)</td></tr>
+    <tr><td>Monitor03, business-month curve</td><td>view <code>project_status_month_roi</code></td></tr>
+    <tr><td>Monitor03, "as seen on" curve</td><td>view <code>project_status_roi_history_v</code> (switch ON)</td></tr>
+  </table>
+
+  <h3>6.4 Rules that keep the numbers right</h3>
   <ol class="lv">
-    <li><b>Sum first, divide last.</b> Round only the displayed percent (1 decimal); the sums keep the cents of the rows.</li>
-    <li><b>C = 0 gives "–"</b>, not 0 % and not ∞. Profit is still shown.</li>
-    <li><b>Units</b>: money has no unit, so ROI adds across hours and pieces without the per-unit split Monitor01 uses for quantities.</li>
-    <li><b>Genus</b>: C takes only Time / Material / Expense rows, R only the Revenue rows. A task line therefore needs the rows of <i>all</i> genera of the task - the ROI view ignores the genus tabs (Time / Material / …).</li>
-    <li><b>Subprojects</b>: Monitor01 can show a subproject's cost in the origin task (radio Projects / Subprojects / All). The ROI view takes the rows as filtered by that radio, so a footer never counts the same subproject twice; the tip of the header says which radio is on.</li>
-    <li><b>Corrections / credit notes</b> are negative movements and sum naturally. A negative R is allowed.</li>
-    <li><b>Period</b>: the bar's start / finish dates filter the months of the rows, so ROI3 / ROI4 become "ROI of the period". Plan cost in ROI3 is then the plan cost <i>of the same months</i>.</li>
+    <li><b>Sum first, divide last</b>; round only the displayed percent (1 decimal).</li>
+    <li><b>C = 0 gives "–"</b> (grey), not 0 % and not ∞; the profit amount is still shown.</li>
+    <li><b>Money has no unit</b>: ROI adds across hours and pieces.</li>
+    <li><b>Genus</b>: cost = Time / Material / Expense only, revenue = the Revenue genus only. The ROI reports have no genus tabs.</li>
+    <li><b>Subprojects</b>: month totals count a project's own tasks. The task lines of Monitor02 take the rows as the radio of Monitor01 filters them; the header tip names the radio. A footer never adds a subproject twice.</li>
+    <li><b>Corrections / credit notes</b> are negative movements and sum naturally; a negative R is allowed.</li>
+    <li><b>Period</b>: months in range. ROI2 / ROI3 / ROI4 become "ROI of the period" and the plan cost is the plan cost of the same months.</li>
   </ol>
 </section>
 
-<section id="monitor">
-  <h2>6. Monitor01 - what is shown</h2>
-  <p class="sub">"Show all ROI1-4, per task and per project in the footer" - the task level only for projects that have <code>roiForTasksFunctionalityEnabled</code> ON.</p>
-  <p>A Monitor01 row is <i>one genus × role × unit × month of a task</i>. A ROI column on that row would be meaningless (a Time row has no revenue). So ROI is a <b>new tab "ROI"</b> (after Deliverable, before All) with a different table: <b>one line per task</b> (project switch ON), project totals in the footer. The existing tabs and columns are unchanged.</p>
-  <p><b>Switch ON</b> (below). <b>Switch OFF</b> (default): the same table has no task lines - one line per project, the numbers of the footer; the tab hint says "ROI per task: Project settings → ROI → ROI for tasks". A bar that shows several projects mixes both: a project with the switch ON gets its task lines under its own total, a project with it OFF only its total line.</p>
+<section id="reports">
+  <h2>7. The reports</h2>
+
+  <h3>7.1 Monitor01 - what changed</h3>
+  <p>ROI does <b>not</b> go into the Monitor01 table (a Monitor01 row is one genus × role × unit × month of a task - the wrong grain for a ratio); Monitor02 is the home of ROI. Monitor01 gained, from the month totals, only what they can answer:</p>
+  <ol class="lv">
+    <li><b>The strip above the tabs</b> (<code>Monitor01ProjectStrip</code>): <b>Budget (cost plan) · Vendor Invoice Amount · Customer Invoice Amount</b> of the project(s) in the bar for the chosen period, on the VAT basis of the screen - one small query on the month totals (a few rows per project), shown before the big row query has finished, read again when the report's rows change. It is the same money as the three money columns of the table (the same movements). Not shown while the month totals are empty or unreadable.</li>
+    <li><b>Not done</b> (only the possible calculations were asked for): the money subtotals of the tree and the TotalsRow still sum the rows - they follow the role / task / unit filters, which the month totals do not have - and the tree is not loaded lazily (that needs aggregates per role). No existing column changed.</li>
+  </ol>
+
+  <h3>7.2 Monitor02_ROINow - ROI as the data stands now</h3>
+  <p>Drawer → Reports → <b>Monitor02 ROI now</b>, route <code>app/pm/reports/monitor02</code>, code <code>kit8/pm/reports/monitor02</code>. <b>Only projects with <code>roiForTasksFunctionalityEnabled</code> ON are in it</b> (decided). Bar: startDate · finishDate · the period button (months: any day of a month counts for the whole month) · Project · Task (shows only that task's line; the project line stays: it is the total) · Refresh (computes now, works without pg_cron) · Auto refresh (Realtime on the month totals) · the Live / Offline badge. One line per project (the month totals of the period); under it one line per task; the footer adds the project lines (the values are added, the ratios are of the sums).</p>
   <div class="scroll"><table class="mock">
-    <tr><th>Task</th><th class="n">Cost plan</th><th class="n">Revenue plan</th><th class="n">Vendor inv.</th><th class="n">Customer inv.</th><th class="n">ROI1<br><span class="small">plan-plan</span></th><th class="n">ROI2<br><span class="small">plan-fact</span></th><th class="n">ROI3<br><span class="small">plan-invoiced</span></th><th class="n">ROI4<br><span class="small">fact-fact</span></th></tr>
-    <tr><td>Design</td><td class="n">1 000.00</td><td class="n">1 500.00</td><td class="n">900.00</td><td class="n">1 200.00</td><td class="n pos">50.0 %</td><td class="n na">–</td><td class="n pos">20.0 %</td><td class="n pos">33.3 %</td></tr>
-    <tr><td>Build</td><td class="n">4 000.00</td><td class="n">3 600.00</td><td class="n">1 500.00</td><td class="n">0.00</td><td class="n neg">−10.0 %</td><td class="n na">–</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td></tr>
-    <tr><td>Acceptance</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n na">–</td><td class="n na">–</td><td class="n na">–</td><td class="n na">–</td></tr>
-    <tr class="foot"><td>Project total (footer)</td><td class="n">5 000.00</td><td class="n">5 100.00</td><td class="n">2 400.00</td><td class="n">1 200.00</td><td class="n pos">2.0 %</td><td class="n na">–</td><td class="n neg">−76.0 %</td><td class="n neg">−50.0 %</td></tr>
+    <tr><th>Task</th><th class="n">Cost plan</th><th class="n">Revenue plan</th><th class="n">Revenue fact input</th><th class="n">Cost fact</th><th class="n">Customer invoiced</th><th class="n">ROI1<br><span class="small">plan-plan</span></th><th class="n">ROI2<br><span class="small">plan-fact input</span></th><th class="n">ROI3<br><span class="small">plan-invoiced</span></th><th class="n">ROI4<br><span class="small">fact-fact</span></th></tr>
+    <tr><td>Design</td><td class="n">1 000.00</td><td class="n">1 500.00</td><td class="n">1 100.00</td><td class="n">900.00</td><td class="n">1 200.00</td><td class="n pos">50.0 %</td><td class="n pos">10.0 %</td><td class="n pos">20.0 %</td><td class="n pos">33.3 %</td></tr>
+    <tr><td>Build</td><td class="n">4 000.00</td><td class="n">3 600.00</td><td class="n">1 800.00</td><td class="n">1 500.00</td><td class="n">0.00</td><td class="n neg">−10.0 %</td><td class="n neg">−55.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td></tr>
+    <tr><td>Acceptance</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n na">–</td><td class="n na">–</td><td class="n na">–</td><td class="n na">–</td></tr>
+    <tr class="foot"><td>Project total (footer)</td><td class="n">5 000.00</td><td class="n">5 100.00</td><td class="n">2 900.00</td><td class="n">2 400.00</td><td class="n">1 200.00</td><td class="n pos">2.0 %</td><td class="n neg">−42.0 %</td><td class="n neg">−76.0 %</td><td class="n neg">−50.0 %</td></tr>
   </table></div>
-  <p class="small">The footer ROI1 is 2.0 % = (5 100 − 5 000) / 5 000 - not the average of 50 % and −10 %. A task without cost shows "–".</p>
+  <p class="small">The footer ROI1 is (5 100 − 5 000) / 5 000 = 2.0 %, not the average of 50 % and −10 %. ROI ≥ 0 green, &lt; 0 red, "–" (no cost) grey. Every header has a tip with its formula; a double click on a task opens it in the dashboard. <b>Not built:</b> the drill-down of a money cell into the source documents (the Sum explorer) - Monitor01 still has it.</p>
+
+  <h3>7.3 Monitor03_ROIHistory - ROI over time</h3>
+  <p>Drawer → Reports → <b>Monitor03 ROI history</b>, route <code>app/pm/reports/monitor03</code> (<code>?projectGUID=</code>), code <code>kit8/pm/reports/monitor03</code>. One project at a time (the projects that have ROI numbers). The period (startDate · finishDate · the period button, by month) cuts what is shown. A line chart of ROI1-4 (legend chips switch a kind off) and a table of the points. Two modes (a toggle):</p>
   <ul class="tight">
-    <li>Row actions as in Monitor01: double click on a task → the dashboard at that task; the sum cells open the Sum explorer (drill-down measures <code>planCost</code>, <code>vendorInvoiced</code>, <code>customerInvoiced</code>, new <code>planRevenue</code>).</li>
-    <li>Colour: ROI ≥ 0 green, &lt; 0 red, "–" grey (never red).</li>
-    <li>Each ROI header has the tip with its formula and the tax rule in force ("cost = net + VAT that is cost", "revenue = net").</li>
-    <li>The bar's filters (project, task, period) apply; the Auto refresh badge and the Realtime patch work unchanged because the rows are the same rows.</li>
-    <li>The tab itself stays visible whatever the switch says (the project ROI is always there); the switch changes the lines, not the tab.</li>
-    <li>If a project has the Customer switch off or no revenue plan, ROI1 / ROI3 / ROI4 show "–" and not 0 %.</li>
+    <li><b>Business month</b> - the cumulative curve of the month totals, summed from the first month of the period (<code>cumulateMonthRows</code>; the SQL view <code>project_status_month_roi</code> is the same curve since the start of the project): "how the project developed"; for every project, history switch or not, also for the past.</li>
+    <li><b>As seen on a date</b> - the points of the log as a step line; the reason of every row in the table. Available while <code>roiHistoryFunctionalityEnabled</code> is ON for the project; otherwise the toggle is disabled with the hint "Project settings → ROI → ROI history".</li>
   </ul>
+  <div class="scroll"><table class="mock">
+    <tr><th>Day</th><th>Reason</th><th class="n">ROI1</th><th class="n">ROI2</th><th class="n">ROI3</th><th class="n">ROI4</th></tr>
+    <tr><td>2026-10-01</td><td>history on</td><td class="n pos">8.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td><td class="n na">–</td></tr>
+    <tr><td>2026-10-09</td><td>plan</td><td class="n pos">2.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td><td class="n na">–</td></tr>
+    <tr><td>2026-10-14</td><td>vendor invoice</td><td class="n pos">2.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td></tr>
+    <tr><td>2026-10-18</td><td>fact input</td><td class="n pos">2.0 %</td><td class="n neg">−78.0 %</td><td class="n neg">−100.0 %</td><td class="n neg">−100.0 %</td></tr>
+    <tr><td>2026-10-20</td><td>customer invoice</td><td class="n pos">2.0 %</td><td class="n neg">−78.0 %</td><td class="n neg">−76.0 %</td><td class="n pos">33.3 %</td></tr>
+  </table></div>
+  <p class="small">(Example: plan cost 5 000 throughout; the early negative ROI2 / ROI3 is the "part against the whole" effect of section 1.) Project level only: there is no task-level history.</p>
 </section>
 
 <section id="calc">
-  <h2>7. Worked example</h2>
-  <p class="sub">One task. Numbers are the base of the example in the table above ("Design"); change them and switch the taxes. VAT amounts are given as a percent of the net.</p>
+  <h2>8. Worked example</h2>
+  <p class="sub">One task (the "Design" line above). Change the numbers and the switches; VAT is a percent of the net. This is the fixture of <code>tests/92_roi.sql</code> and <code>roiModel.test.ts</code>.</p>
   <div class="card calc">
     <div class="inputs">
       <label>Cost plan (net) <input type="number" id="cPlan" value="1000"></label>
       <label>Cost plan VAT % <input type="number" id="cPlanV" value="20"></label>
       <label>Share of it recoverable % <input type="number" id="cRec" value="100"></label>
       <label>Revenue plan (net) <input type="number" id="rPlan" value="1500"></label>
+      <label>Revenue fact input (net) <input type="number" id="rUsed" value="1100"></label>
       <label>Vendor invoices (net) <input type="number" id="cFact" value="900"></label>
+      <label>Cost never invoiced (fact input, no vendor) <input type="number" id="cOwn" value="0"></label>
       <label>Customer invoices (net) <input type="number" id="rFact" value="1200"></label>
       <label>Sale VAT % <input type="number" id="sV" value="20"></label>
     </div>
@@ -274,44 +296,44 @@ export function roiLinesOf(rows: Monitor01Row[], settingsOf: (projectGUID: strin
     <label><input type="checkbox" id="incAll"> projectROIIncludeAllTaxes (sets both)</label>
     <div class="scroll"><table id="out" style="margin-top:12px"></table></div>
   </div>
-  <div class="small" style="margin-top:8px">With the defaults (both OFF): ROI1 50.0 %, ROI3 20.0 %, ROI4 33.3 %. Switch only SaleVAT on: ROI1 80.0 %, ROI3 44.0 %, ROI4 60.0 %. Only PurchaseVAT on (VAT 20 %, 100 % recoverable): ROI1 25.0 %, ROI3 0.0 %, ROI4 11.1 %.</div>
+  <div class="small" style="margin-top:8px">Defaults (both OFF): ROI1 50.0 %, ROI2 10.0 %, ROI3 20.0 %, ROI4 33.3 %. SaleVAT only: 80.0 %, 32.0 %, 44.0 %, 60.0 %. PurchaseVAT only (VAT 20 %, 100 % recoverable): 25.0 %, −8.3 %, 0.0 %, 11.1 %.</div>
 </section>
 
 <section id="decisions">
-  <h2>8. Decisions needed</h2>
+  <h2>9. Decisions</h2>
   <table>
-    <tr><th>#</th><th>Question</th><th>Recommendation</th></tr>
-    <tr><td><span class="pill dec">Q1</span></td><td>What is "FactRevenues" of ROI2? Today the only revenue fact is the customer invoice (= ROI3).</td><td>Ship ROI1, ROI3, ROI4 now; show ROI2 as a column that reads "–" with the tip "needs a revenue fact other than the invoice". Define ROI2 when a document exists for it (revenue recognised on acceptance of a Deliverable, or the customer payment: <code>inboundPaymentGenus</code>). Do <b>not</b> fill ROI2 with the invoice number - two columns with one number mislead.</td></tr>
-    <tr><td><span class="pill dec">Q2</span></td><td>ROI4 cost: vendor invoices only (as written), or also the facts that are not invoiced (own staff time, fact input)?</td><td>Keep vendor invoices only (as you wrote) for now and say so in the tip. An "invoiced, else used" rule per task line is possible later (<code>sumForBudgetUsed</code> exists) but needs a rule against counting a line twice.</td></tr>
-    <tr><td><span class="pill dec">Q3</span></td><td>Three tax switches or one?</td><td>Three, as written: the master is a one-click shortcut, the two children cover the mixed cases. Label the master "VAT", not "all taxes".</td></tr>
-    <tr><td><span class="pill dec">Q4</span></td><td>Planned revenue: register the Revenue lines' plan in new columns (section 5.1)?</td><td>Yes, in separate columns, so Budget / Planned / Contracted of the existing report do not change. Check in Docker that <code>create_task_line_plan</code> already produces posted days for the Revenue lines (its business-unit rule mentions <code>budgetKind = 'revenue'</code>, so it should).</td></tr>
-    <tr><td><span class="pill dec">Q5</span></td><td>Also show margin (profit / revenue)?</td><td>Not now. The profit amount (R − C) is shown in the drill-down; margin can be a later column with the same <code>roiRatio</code> style function.</td></tr>
-    <tr><td><span class="pill dec">Q6</span></td><td>Currency of the ROI view.</td><td>The budget currency only (as Budget in Monitor01). A multi-currency project is converted in the register already.</td></tr>
-    <tr><td><span class="pill dec">Q7</span></td><td>With <code>roiForTasksFunctionalityEnabled</code> OFF, is the <b>project</b> ROI still shown?</td><td>Yes (as written above): the switch gates the <i>task</i> level only, the project totals stay. If you want OFF to mean "no ROI at all in Monitor01", the ROI tab is hidden instead - one condition in <code>MONITOR01_TABS</code>; say so and I change this page.</td></tr>
+    <tr><th>#</th><th>Question</th><th>Decision</th></tr>
+    <tr><td><span class="pill new">Q1</span></td><td>Revenue fact of ROI2.</td><td>The fact input of the Revenue lines (built, section 5.1).</td></tr>
+    <tr><td><span class="pill new">Q2</span></td><td>ROI4 cost.</td><td>Vendor invoices <b>+ the cost that is never invoiced</b> (answered): the fact input of the cost lines with no vendor. Limit: a cost line WITH a vendor counts when its invoice is posted.</td></tr>
+    <tr><td><span class="pill new">Q3</span></td><td>Tax switches.</td><td>Three (master + sale + purchase), labelled "VAT".</td></tr>
+    <tr><td><span class="pill new">Q4</span></td><td>Planned revenue.</td><td>Registered for ROI only; Monitor01 does not change.</td></tr>
+    <tr><td><span class="pill new">Q5</span></td><td>Margin.</td><td>Not built.</td></tr>
+    <tr><td><span class="pill new">Q6</span></td><td>Currency.</td><td>The budget currency only.</td></tr>
+    <tr><td><span class="pill new">Q7</span></td><td>Task switch OFF.</td><td><b>Answered</b>: Monitor02 is for the projects with the switch ON only; with it OFF the project is not in Monitor02 and no task is calculated.</td></tr>
+    <tr><td><span class="pill new">Q8</span></td><td>Monitor01 improvement.</td><td><b>Answered</b>: only the possible calculations - the strip from the month totals. No lazy tree, no change of the subtotals.</td></tr>
+    <tr><td><span class="pill new">Q9</span></td><td>History granularity.</td><td>Project level, at most one row per day, written on change (assumed: not answered).</td></tr>
+    <tr><td><span class="pill new">Q10</span></td><td>History before the switch.</td><td>Not reconstructed; the business-month curve covers the past (assumed: not answered).</td></tr>
   </table>
 </section>
 
 <section id="build">
-  <h2>9. Build plan (when you say go)</h2>
+  <h2>10. What is built, where, and how it is tested</h2>
   <table>
     <tr><th>Part</th><th>What</th><th>Where</th></tr>
-    <tr><td>SQL tables</td><td>turnover columns <code>sumForBudgetRevenuePlan</code>, <code>vatForBudgetRevenuePlan</code>; <code>monitor01_view</code> columns <code>sumRevenuePlan</code>, <code>vatRevenuePlan</code> - a new PART 33 (ROI)</td><td><code>start1_sql_tables.sql</code></td></tr>
-    <tr><td>SQL code</td><td>register the plan of the Revenue lines (<code>project_status_register_plan</code>); read it in <code>project_status_fresh_turnover</code> into the new columns only; carry the columns through <code>monitor01_fresh_rows</code> (<b>both</b> definitions: PART 25 and PART 29 - the last one is the real one, change both) and <code>monitor01_apply</code>; <code>project_roi()</code> for the check (task lines only when the project switch is ON)</td><td><code>start2_sql_code.sql</code></td></tr>
-    <tr><td>SQL tests</td><td><code>tests/92_roi.sql</code> (fixture of this page, VAT combinations, cost 0, project footer = Σ/Σ, switch OFF = no task lines and the same project numbers, missing key = OFF); run <code>test_sql.sh</code> and <code>test_fact_monitor01.sh</code></td><td><code>kit8/docker/tests</code></td></tr>
-    <tr><td>Settings</td><td><code>PMProjectROITab</code> + <code>roiValuesOf</code> (four keys: <code>roiForTasksFunctionalityEnabled</code> first, then the three tax switches; missing = false), tab in the settings window and in Organization defaults</td><td><code>kit8/pm/view/project/settings</code></td></tr>
-    <tr><td>Calculation</td><td><code>roiModel.ts</code> (section 5.2) + hook</td><td><code>kit8/pm/reports/monitor01/roi</code></td></tr>
-    <tr><td>Screen</td><td>tab ROI in <code>Monitor01Dashboard</code>, <code>Monitor01RoiTable</code> (task lines when the project switch is ON + project lines / footer), <code>roiLinesOf</code> with the switch of each project (read with the project rows), header tips, drill-down measures</td><td><code>kit8/pm/reports/monitor01</code></td></tr>
-    <tr><td>Jest</td><td><code>roiModel.test.ts</code> (every case of section 5.4, the example of section 7, switch ON / OFF / missing / mixed projects), tab and table tests with <code>pmUiTestKit</code></td><td><code>__tests__/pm/reports/monitor01</code></td></tr>
-    <tr><td>Docs</td><td>README of the roi folder, a row in the feature index of <code>KNOW_HOW.md</code> once built</td><td>-</td></tr>
+    <tr><td>SQL tables</td><td>PART 33: <code>project_status_roi_task_month</code>, <code>project_status_month_totals</code>; PART 34: <code>project_status_roi_history</code></td><td><code>start1_sql_tables.sql</code></td></tr>
+    <tr><td>SQL code</td><td>the Revenue lines in the register (plan, fact input) and <code>ownCost</code>; <code>roi_apply</code> = step 5 of <code>monitor01_apply</code>; the statement triggers; the views; <code>roi_project</code>, <code>roi_task_lines</code>, <code>roi_report_projects</code>, <code>roi_rebuild</code>, <code>roi_verify</code>; <code>roi_history_apply</code> + the switch trigger; the install backfill (re-register the posted fact documents, queue the tasks); the stale flag of <code>monitor01_fresh_rows</code> counts the cost plan only (both definitions)</td><td><code>start2_sql_code.sql</code></td></tr>
+    <tr><td>Undo</td><td>PART 1a-00: tables with their data, views, trigger, functions</td><td><code>delete_sql_structure.sql</code></td></tr>
+    <tr><td>App</td><td>the model and the reads; the tab ROI (Project settings + Organization defaults); Monitor02; Monitor03 (chart: react-native-svg); the strip of Monitor01; routes and Drawer entries</td><td><code>kit8/pm/reports/{roi,monitor02,monitor03}</code>, <code>monitor01/Monitor01ProjectStrip.tsx</code>, <code>view/project/settings/PMProjectRoiTab.tsx</code>, <code>app/pm/reports/monitor02|03</code></td></tr>
+    <tr><td>Tests</td><td>Docker <code>tests/92_roi.sql</code> (96 checks: the rules, the register, Monitor01 unchanged, the four kinds of the fixture, the tax switches, the views and RLS, the task switch, the history, a cascade, rebuild / verify) · <code>test_sql.sh</code> (install twice, undo leaves nothing) · Jest <code>__tests__/pm/reports/{roi,monitor02,monitor03}</code>, the strip, the ROI tab in <code>projectSettingsTopTabs</code> and the Organization defaults</td><td><code>kit8/docker/tests</code>, <code>__tests__</code></td></tr>
   </table>
-  <p class="small">Seeds: none (no start3 / start5 change). Delete file: none (new columns go with their tables).</p>
+  <p class="small">Seeds: none (no start4 / start5 change). Not built: the drill-down of Monitor02, margin, a task-level history, the lazy tree of Monitor01.</p>
 </section>
 
 </main>
 
 <script>
 (function () {
-  // the same rules as roiModel.ts (section 5.2); all amounts here are one task
+  // the same rules as roiModel.ts (section 6.1); all amounts here are one task
   var $ = function (id) { return document.getElementById(id); };
   function num(id) { var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
   function fmt(x) { return (Math.round(x * 100) / 100).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -326,25 +348,25 @@ export function roiLinesOf(rows: Monitor01Row[], settingsOf: (projectGUID: strin
     if (all) { $('incSale').checked = true; $('incPur').checked = true; }
     $('incSale').disabled = all; $('incPur').disabled = all;
     var sale = $('incSale').checked, pur = $('incPur').checked;
-    var cPlanNet = num('cPlan'), cV = num('cPlanV') / 100, rec = num('cRec') / 100, sV = num('sV') / 100;
-    var cFactNet = num('cFact'), rPlanNet = num('rPlan'), rFactNet = num('rFact');
-    // purchase side: VAT of the plan and of the vendor invoices use the same rate; the part that is not recoverable is cost
+    var cV = num('cPlanV') / 100, rec = num('cRec') / 100, sV = num('sV') / 100;
+    // purchase side: the plan and the vendor invoices use the same rate; the part that is not recoverable is cost
     var cost = function (net) { var vat = net * cV; var inCost = vat * (1 - rec); return net + (pur ? vat : inCost); };
     var rev = function (net) { return net + (sale ? net * sV : 0); };
-    var C = cost(cPlanNet), CF = cost(cFactNet), R = rev(rPlanNet), RF = rev(rFactNet);
+    var C = cost(num('cPlan')), CF = cost(num('cFact')) + cost(num('cOwn'));
+    var R = rev(num('rPlan')), RU = rev(num('rUsed')), RF = rev(num('rFact'));
     var rows = [
-      ['ROI1 plan - plan', R, C, roiRatio(R, C)],
-      ['ROI2 plan - fact', null, C, null],
-      ['ROI3 plan - invoiced', RF, C, roiRatio(RF, C)],
-      ['ROI4 fact - fact', RF, CF, roiRatio(RF, CF)]
+      ['ROI1 plan - plan', R, C],
+      ['ROI2 plan - fact input', RU, C],
+      ['ROI3 plan - invoiced', RF, C],
+      ['ROI4 fact - fact', RF, CF]
     ];
     var h = '<tr><th>Kind</th><th class="n">Revenue R</th><th class="n">Cost C</th><th class="n">Profit R − C</th><th class="n">ROI</th></tr>';
     rows.forEach(function (r) {
-      h += '<tr><td>' + r[0] + '</td><td class="n">' + (r[1] === null ? '<span class="na">–</span>' : fmt(r[1])) + '</td><td class="n">' + fmt(r[2]) + '</td><td class="n">' + (r[1] === null ? '<span class="na">–</span>' : fmt(r[1] - r[2])) + '</td><td class="n">' + pct(r[3]) + '</td></tr>';
+      h += '<tr><td>' + r[0] + '</td><td class="n">' + fmt(r[1]) + '</td><td class="n">' + fmt(r[2]) + '</td><td class="n">' + fmt(r[1] - r[2]) + '</td><td class="n">' + pct(roiRatio(r[1], r[2])) + '</td></tr>';
     });
     $('out').innerHTML = h;
   }
-  ['cPlan', 'cPlanV', 'cRec', 'rPlan', 'cFact', 'rFact', 'sV', 'incSale', 'incPur', 'incAll'].forEach(function (id) { $(id).addEventListener('input', render); $(id).addEventListener('change', render); });
+  ['cPlan', 'cPlanV', 'cRec', 'rPlan', 'rUsed', 'cFact', 'cOwn', 'rFact', 'sV', 'incSale', 'incPur', 'incAll'].forEach(function (id) { $(id).addEventListener('input', render); $(id).addEventListener('change', render); });
   render();
 })();
 </script>

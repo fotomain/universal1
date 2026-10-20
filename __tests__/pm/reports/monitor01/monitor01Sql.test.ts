@@ -47,7 +47,7 @@ describe('the names the app calls exist in the SQL', () => {
 
 describe('the structure file, the code file and the delete file carry the same parts', () => {
   const partsText = structureParts(24, 25);
-  it('PART 24 and 25: the tables are in start1_sql_tables.sql, the code (functions, triggers, policies, realtime, cron) in start2_sql_code.sql', () => {
+  it('PART 24 and 25: the tables are in start1_sql_tables.sql, the code (functions, triggers, policies, realtime) in start2_sql_code.sql, the cron schedule in start3_sql_pg_cron.sql', () => {
     for (const n of [24, 25]) {
       expect(tables).toContain(`-- PART ${n}: `);
       expect(structure).toContain(`-- PART ${n}: `);
@@ -184,6 +184,6 @@ describe('the structure file, the code file and the delete file carry the same p
     expect(MONITOR01_QUEUE_STALE_SECONDS).toBe(MONITOR01_REFRESH_INTERVAL * 3);
   });
   it('the worker is scheduled with the interval function', () => {
-    expect(structure).toContain("cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds'");
+    expect(fs.readFileSync(path.join(__dirname, '../../../../kit8/sql/start/start3_sql_pg_cron.sql'), 'utf8')).toContain("cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds'");
   });
 });

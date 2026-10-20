@@ -138,7 +138,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       ],
     },
     { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
-    // reports: Monitor01 (planned · contracted · received · used per resource role, month and task; the FULL data set, live), sorted by name
+    // reports: Monitor01 (planned · contracted · received · used per resource role, month and task; the FULL data set, live), Monitor02 ROI now, Monitor03 ROI history
     {
       id: 'reports',
       label: 'Reports',
@@ -146,6 +146,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       children: [
         { id: 'reports-monitor01', label: 'Monitor01', icon: 'monitoring', route: 'pm/reports/monitor01' },
+        { id: 'reports-monitor02', label: 'Monitor02 ROI now', icon: 'trending_up', route: 'pm/reports/monitor02' },
+        { id: 'reports-monitor03', label: 'Monitor03 ROI history', icon: 'show_chart', route: 'pm/reports/monitor03' },
       ],
     },
 

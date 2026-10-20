@@ -1,0 +1,11 @@
+# Monitor03_ROIHistory - ROI over time
+
+Route `app/pm/reports/monitor03` (drawer: Reports -> Monitor03 ROI history; `?projectGUID=` starts with that project). Model, rules and the SQL: `../roi/README.md`, `documentation/ROI_DOC.html` section 7.3.
+
+One project at a time (the select lists the projects that have ROI numbers). **The period**: startDate · finishDate · the period button (a range of months), as in Monitor01 / Monitor02; an unreadable date is a red field, not a period. A line chart of ROI1-4 (legend chips switch a kind off) and a table of the points. Two modes (a toggle):
+* **Business month** - the cumulative curve of the month totals (`cumulateMonthRows`): the months that overlap the period, **summed from the first month of the period** (no period = from the first month of the project; only months with data): how the project developed; **with BOTH startDate and finishDate typed every month of the period is a row** (`cumulateMonthRows(..., fill)`, at most 240 months): a month without data adds zero - before the first data the ratios are empty (no cost, no ratio, a gap in the chart), after the last they stay where they are; for every project, history switch or not, also for the past. It shows the past as the data stands today (a re-posted plan changes the old months too).
+* **As seen on a date** - the log `project_status_roi_history` as STEP lines (the value stays until the next row), the reason of every row in the table (history on / plan / fact input / vendor invoice / customer invoice). Available while the project switch `roiHistoryFunctionalityEnabled` is ON (history exists only from that day); the period cuts the rows by their day; otherwise the toggle is disabled and the hint says where to switch it on.
+
+The ratios are never stored: every point is `roiOfMoney` of the stored money under the project's CURRENT tax switches. ROI2 and ROI3 divide a part of the revenue by the whole plan cost: early in a project they are negative by construction.
+
+Files: `useMonitor03Data.ts` (reads + Realtime: the month totals and the log), `Monitor03PeriodBar.tsx`, `Monitor03Chart.tsx` (react-native-svg), `Monitor03Dashboard.tsx`. Tests: `__tests__/pm/reports/monitor03`.

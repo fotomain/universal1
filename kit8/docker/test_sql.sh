@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests kit8/sql/start on a throwaway database of the local Postgres (docker compose up -d first):
-#   1. fresh database  2. start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql (twice = idempotent: the same objects AND the same number of rows in every table)
-#   3. delete_sql_structure.sql (must leave NOTHING of the app)  4. start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql again on the emptied database
+#   1. fresh database  2. start1_sql_tables.sql + start2_sql_code.sql + start3_sql_pg_cron.sql + start4_sql_insert_missing.sql (twice = idempotent: the same objects AND the same number of rows in every table)
+#   3. delete_sql_structure.sql (must leave NOTHING of the app)  4. start1_sql_tables.sql + start2_sql_code.sql + start3_sql_pg_cron.sql + start4_sql_insert_missing.sql again on the emptied database
 # Usage: ./test_sql.sh
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -36,26 +36,28 @@ psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create datab
 inventory > /tmp/inv_empty.txt
 echo "   objects in empty db: $(wc -l < /tmp/inv_empty.txt)"
 
-echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql (1st run)"
+echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_pg_cron.sql + start4_sql_insert_missing.sql (1st run)"
 psqlc -d "$DB" -f /sql/start1_sql_tables.sql >/dev/null
 psqlc -d "$DB" -f /sql/start2_sql_code.sql >/dev/null
-psqlc -d "$DB" -f /sql/start3_sql_insert_missing.sql >/dev/null
+psqlc -d "$DB" -f /sql/start3_sql_pg_cron.sql >/dev/null
+psqlc -d "$DB" -f /sql/start4_sql_insert_missing.sql >/dev/null
 inventory > /tmp/inv_started.txt
 rowcounts > /tmp/rows_started.txt
 echo "   rows in all tables: $(awk '{s+=$2} END {print s}' /tmp/rows_started.txt)"
 echo "   objects: $(wc -l < /tmp/inv_started.txt)  tables: $(grep -c '^table ' /tmp/inv_started.txt)  functions: $(grep -c '^function ' /tmp/inv_started.txt)"
 
-echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql (2nd run, must not fail or change anything)"
+echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_pg_cron.sql + start4_sql_insert_missing.sql (2nd run, must not fail or change anything)"
 psqlc -d "$DB" -f /sql/start1_sql_tables.sql >/dev/null
 psqlc -d "$DB" -f /sql/start2_sql_code.sql >/dev/null
-psqlc -d "$DB" -f /sql/start3_sql_insert_missing.sql >/dev/null
+psqlc -d "$DB" -f /sql/start3_sql_pg_cron.sql >/dev/null
+psqlc -d "$DB" -f /sql/start4_sql_insert_missing.sql >/dev/null
 inventory > /tmp/inv_started2.txt
 diff /tmp/inv_started.txt /tmp/inv_started2.txt
 rowcounts > /tmp/rows_started2.txt
 diff /tmp/rows_started.txt /tmp/rows_started2.txt
 echo "   same objects, same rows"
 
-echo "== start1_sql_tables.sql + start2_sql_code.sql alone has no seed rows in the catalogs (start3_sql_insert_missing.sql fills them)"
+echo "== start1_sql_tables.sql + start2_sql_code.sql alone has no seed rows in the catalogs (start4_sql_insert_missing.sql fills them)"
 psqlc -d postgres -c "drop database if exists ${DB}_bare with (force)" -c "create database ${DB}_bare template supabase_stub" >/dev/null
 psqlc -d "${DB}_bare" -f /sql/start1_sql_tables.sql >/dev/null
 psqlc -d "${DB}_bare" -f /sql/start2_sql_code.sql >/dev/null
@@ -72,8 +74,9 @@ base=$(psqlc -d postgres -At -c "select 1" >/dev/null; psqlc -d supabase_stub -A
 tabs=$(psqlc -d "${DB}_tab" -At -c "select count(*) from pg_class where relnamespace='public'::regnamespace and relkind='r'")
 psqlc -d postgres -c "drop database if exists ${DB}_tab2 with (force)" -c "create database ${DB}_tab2 template supabase_stub" >/dev/null
 if psqlc -d "${DB}_tab2" -f /sql/start2_sql_code.sql >/dev/null 2>&1; then refused=no; else refused=yes; fi
+if psqlc -d "${DB}_tab2" -f /sql/start3_sql_pg_cron.sql >/dev/null 2>&1; then refused3=no; else refused3=yes; fi
 psqlc -d postgres -c "drop database if exists ${DB}_tab with (force)" -c "drop database if exists ${DB}_tab2 with (force)" >/dev/null
-if [ "$only" = "$base" ] && [ "$refused" = "yes" ] && [ "$tabs" -gt 80 ]; then echo "   OK: $tabs tables, nothing else; the code file refuses an empty database"; else echo "   FAILED: tables=$tabs other-objects=$only (stub has $base) code-refused=$refused"; exit 1; fi
+if [ "$only" = "$base" ] && [ "$refused" = "yes" ] && [ "$refused3" = "yes" ] && [ "$tabs" -gt 80 ]; then echo "   OK: $tabs tables, nothing else; the code file and the pg_cron file refuse an empty database"; else echo "   FAILED: tables=$tabs other-objects=$only (stub has $base) code-refused=$refused cron-refused=$refused3"; exit 1; fi
 
 echo "== delete_sql_structure.sql (1st run)"
 psqlc -d "$DB" -f /sql/delete_sql_structure.sql >/dev/null
@@ -84,10 +87,11 @@ echo "== delete_sql_structure.sql (2nd run, must not fail)"
 psqlc -d "$DB" -f /sql/delete_sql_structure.sql >/dev/null
 echo "   OK"
 
-echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql on the emptied database"
+echo "== start1_sql_tables.sql + start2_sql_code.sql + start3_sql_pg_cron.sql + start4_sql_insert_missing.sql on the emptied database"
 psqlc -d "$DB" -f /sql/start1_sql_tables.sql >/dev/null
 psqlc -d "$DB" -f /sql/start2_sql_code.sql >/dev/null
-psqlc -d "$DB" -f /sql/start3_sql_insert_missing.sql >/dev/null
+psqlc -d "$DB" -f /sql/start3_sql_pg_cron.sql >/dev/null
+psqlc -d "$DB" -f /sql/start4_sql_insert_missing.sql >/dev/null
 inventory > /tmp/inv_restarted.txt
 diff /tmp/inv_started.txt /tmp/inv_restarted.txt
 rowcounts > /tmp/rows_restarted.txt

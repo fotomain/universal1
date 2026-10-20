@@ -25,7 +25,7 @@ import { usePMStore } from '../../../pm/store/store_pm';
 import { usePMOwnerGUID } from '../../../pm/crud/queries';
 import { useProjectViewSettings } from '../../../pm/crud/project/useProjectViewSettings';
 
-/** User calendar route (kit8/catalog/user/calendar). */
+/** User calendar route (kit8/ui/calendar). */
 const USER_CALENDAR_PATH = '/user/calendar';
 
 /**

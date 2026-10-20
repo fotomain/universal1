@@ -3,7 +3,7 @@
 -- Only table definitions: extensions, CREATE TABLE (columns, defaults, primary / foreign keys, CHECK constraints), ALTER TABLE ... ADD COLUMN / constraints of tables that already exist,
 -- indexes, sequences, and the renames of tables made under an older name. NO functions, triggers, policies, grants, views, realtime and NO data.
 -- Order: 1. start1_sql_tables.sql   2. start2_sql_code.sql (everything else of the structure: functions, triggers, policies, RLS, grants, views, realtime, pg_cron, backfills of existing data)
---        3. start3_sql_insert_missing.sql (the seed rows).   Supabase -> SQL Editor -> paste a file -> Run. All of them are idempotent: safe to run twice.
+--        3. start4_sql_insert_missing.sql (the seed rows).   Supabase -> SQL Editor -> paste a file -> Run. All of them are idempotent: safe to run twice.
 -- The opposite is delete_sql_structure.sql (next to this file). The parts have the same numbers as in start2_sql_code.sql (a part without tables is not here):
 --
 --    1. create_tables.sql - base tables, personTable, contractTable, the PM project / task tables, kit8_setup_def_table, pm_touch_updated_at, pm_owns_project
@@ -38,6 +38,8 @@
 --   30. create_product_receipt.sql - the PRODUCT RECEIPT document (the purchase order logic, made from a purchase order) + its 'received' movements in the project status register + the column Received of Monitor01
 --   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + the numbers of its 'sold' movements + the group Customer Invoice of Monitor01
 --   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
+--   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
+--   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -199,7 +201,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_countryTable_code" ON public."countryTabl
 
 CREATE INDEX IF NOT EXISTS "idx_countryTable_name" ON public."countryTable" ((lower("rowJSON"->>'countryName')));
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 1)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 -- ---- currencyTable: rowOwnerGUID 'currencyCatalog'. Read: everybody; write: signed-in -------
@@ -217,7 +219,7 @@ CREATE TABLE IF NOT EXISTS public."currencyTable" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_currencyTable_code" ON public."currencyTable" (upper("rowJSON"->>'currencyCode'));
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 1)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 -- ---- currencyExchangeRateTable: rowOwnerGUID = currency, rowParentGUID = 'YYYY-MM-DD' -------
@@ -333,7 +335,7 @@ CREATE TABLE IF NOT EXISTS public."roleTable" (
 
 CREATE INDEX IF NOT EXISTS "idx_roleTable_name" ON public."roleTable" ((lower("rowJSON"->>'roleName')));
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 1)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 -- ---- userRoleTable: rowOwnerGUID = user email / uid, rowParentGUID = roleGUID or 'empty' ------
@@ -352,7 +354,7 @@ CREATE INDEX IF NOT EXISTS "idx_userRoleTable_owner" ON public."userRoleTable" (
 
 CREATE INDEX IF NOT EXISTS "idx_userRoleTable_role" ON public."userRoleTable" ((lower("rowJSON"->>'roleName')));
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 1)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 
@@ -509,7 +511,7 @@ CREATE INDEX IF NOT EXISTS idx_kanban_stage_owner ON public.kanban_stage_table (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_kanban_stage_code ON public.kanban_stage_table ("rowOwnerGUID", lower("rowJSON"->>'stageCode'));
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 1)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 CREATE TABLE IF NOT EXISTS public.project_kanban_stage_table (
@@ -1771,8 +1773,8 @@ CREATE INDEX IF NOT EXISTS idx_task_line_plan_timeline_project ON public.task_li
 -- UNIVERSAL1 - USER CALENDAR: create_user_calendar_tables.sql
 -- (run AFTER create_tables.sql; idempotent - safe to run twice)
 --
--- App code: kit8/register/user_calendar (model, CRUD, recurrence, Google sync, reminders,
---           e-mail invitations) + kit8/catalog/user/calendar (screens), route /user/calendar.
+-- App code: kit8/ui/calendar/data (model, CRUD, recurrence, Google sync, reminders,
+--           e-mail invitations) + kit8/ui/calendar (screens), route /user/calendar.
 --
 -- Tables (prefix user_calendar_, kit8/sql/defTable.md pattern, UUID ids, owner RLS):
 --   user_calendar_table             the user's calendars ("My calendar", "Tasks", "Birthdays", "Project tasks")
@@ -1892,7 +1894,7 @@ CREATE INDEX IF NOT EXISTS "idx_equipmentTable_type" ON public."equipmentTable" 
 
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_equipmentTable_code" ON public."equipmentTable" (lower("rowJSON"->>'equipmentCode')) WHERE NOT coalesce("rowJSON"->>'equipmentCode', '') = '';
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 17)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 17)
 
 
 
@@ -2060,7 +2062,7 @@ CREATE INDEX IF NOT EXISTS idx_project_table_organization ON public.project_tabl
 -- Which calendar applies to a resource on a day (organization_resource_capacity_info): 1. the calendar of the contract of the person IN FORCE that day (latest start wins) 2. the calendar of the
 -- resource 3. the standard work week. A day without a row = NOT FILLED (NULL hours): never guessed.
 -- =====================================================================================
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 21)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 21)
 
 
 
@@ -2902,6 +2904,99 @@ CREATE INDEX IF NOT EXISTS "idx_budgetItemGenericKeyTable_owner_order" ON public
 
 -- the activity key of a budget item (the filter of the screens)
 CREATE INDEX IF NOT EXISTS "idx_budgetItemTable_key" ON public."budgetItemTable" ((("rowJSON"->>'budgetItemGenericKey')));
+
+-- ===============================================================================================
+-- PART 33: create_roi.sql
+-- ROI (documentation/ROI_DOC.html): the ADDITIVE money of the four ROI kinds, per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals). Only money is stored,
+-- never a ratio: net / VAT / VAT that is cost, in the budget currency. The worker (step 5 of monitor01_apply) fills the task rows from the register; a trigger sums them into the project months.
+-- The project settings (roiForTasksFunctionalityEnabled, roiHistoryFunctionalityEnabled, projectROIInclude...) are keys of project_table.rowJSON: no column.
+-- ===============================================================================================
+
+-- one row per task x month that has any ROI number. Components (all in the budget currency):
+--   costPlan*         the plan of Time + Material + Expense                  revenuePlan*      the plan of the Revenue lines
+--   revenueUsed*      the posted FACT INPUT of the Revenue lines (ROI2)       costOwn*          the posted fact input of the cost lines that have NO vendor (own staff / equipment / material): cost that is never invoiced
+--   costInvoiced*     the posted vendor invoices                              revenueInvoiced*  the posted customer invoices
+-- ...Net = sumForBudget, ...Vat = vatForBudget, ...VatInCost = vatInCostForBudget (the part of the VAT that is cost) of the register movements
+CREATE TABLE IF NOT EXISTS public.project_status_roi_task_month (
+  "rowOwnerGUID"             UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowTurnoverMonth"         DATE          NOT NULL,
+  "rowProjectGUID"           UUID          NOT NULL,
+  "costPlanNet"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVat"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVatInCost"        NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnNet"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVat"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVatInCost"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedNet"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVat"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVatInCost"    NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedNet"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedVat"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "updated_at"               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOwnerGUID", "rowTurnoverMonth")
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_status_roi_task_month_project ON public.project_status_roi_task_month ("rowProjectGUID", "rowTurnoverMonth");
+
+-- one row per project x month: the sum of the task rows of that month (written by the statement triggers of start2 on the table above, so it can never be older than the task rows)
+CREATE TABLE IF NOT EXISTS public.project_status_month_totals (
+  "rowProjectGUID"           UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowTurnoverMonth"         DATE          NOT NULL,
+  "costPlanNet"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVat"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVatInCost"        NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnNet"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVat"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVatInCost"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedNet"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVat"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVatInCost"    NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedNet"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedVat"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "taskCount"                INTEGER       NOT NULL DEFAULT 0,
+  "updated_at"               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowProjectGUID", "rowTurnoverMonth")
+);
+
+
+-- ===============================================================================================
+-- PART 34: create_roi_history.sql
+-- the ROI HISTORY (project setting roiHistoryFunctionalityEnabled, OFF by default): an append-only log of the project's ROI money, at most one row per project per day, written when the totals change.
+-- The same 15 components as the month totals (the project's SUM at that moment) + the reason; the ratios are computed by a view with the project's CURRENT tax switches.
+-- This is the one table of the ROI design that cannot be rebuilt from the register.
+-- ===============================================================================================
+CREATE TABLE IF NOT EXISTS public.project_status_roi_history (
+  "rowProjectGUID"           UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowSnapshotDay"           DATE          NOT NULL,
+  "costPlanNet"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVat"              NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costPlanVatInCost"        NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenuePlanVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedNet"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueUsedVat"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnNet"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVat"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costOwnVatInCost"         NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedNet"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVat"          NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "costInvoicedVatInCost"    NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedNet"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "revenueInvoicedVat"       NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "reason"                   TEXT          NOT NULL DEFAULT '',
+  "created_at"               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowProjectGUID", "rowSnapshotDay")
+);
+
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

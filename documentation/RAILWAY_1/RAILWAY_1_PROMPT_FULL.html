@@ -379,19 +379,19 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
   1) revenueGenus  : Deliverable (Railroad Segment No. 1 - 225 miles @ actual market contract price: $1,200,000/mi = $270,000,000.00).
   2) materialGenus : Permanent Way Material (136 RE carbon steel rail - 80-ft sticks, calculate exact stick count for 225 miles of dual rails: 29,700 sticks @ $1,850/stick = $54,945,000.00).
   3) expenseGenus  : Machinery Hire (Plasser 09-3X / Dynacat Continuous-Action Tamper - 6,750 operating hours @ $650/hr = $4,387,500.00).
-  4) timeGenus     : Equipment Labor (Machine (RMM) Operator John Rimm - 6,750 shift hours @ $95/hr = $641,250.00).
+  4) timeGenus     : Equipment Labor (Machine (RMM) Operator John Rimm - 6,750 shift hours @ $95/hr = $197,600.00).
 - Activity Genus Constraint (PART 32, documentation/ACTIVITY_GENUS.html): the budget item of every task line MUST carry
   rowJSON.budgetItemGenericKey = '<activity>.<management genus>' (an ALLOWED cell of kit8_budget_item_key_matrix(): operating and investing x all six genus, financing x the two payments genus only),
   rowJSON.direction = 'inbound' | 'outbound' (default = the direction of the key), and the names webIfrsName (IAS 7 paragraph), d365foName, sapName. Railway #1 is a pure operating project:
-  operatingActivity.revenueGenus inbound / .materialGenus, .expenseGenus, .timeGenus outbound. The net operating cash flow budget = inbound - outbound = $210,026,250.00.
+  operatingActivity.revenueGenus inbound / .materialGenus, .expenseGenus, .timeGenus outbound. The net operating cash flow budget = inbound - outbound = $210,469,900.00.
   Explain in the report when a line would leave operating: a tamper BOUGHT = investingActivity.materialGenus (IAS 7.16(a)); a lease over 12 months = financingActivity.outboundPaymentGenus (IAS 7.17(e)).
 - Schema Drift Constraint: the SQL MUST run on the CURRENT schema (e.g. task_line_plan was replaced by task_line_plan_movements + task_line_plan_timeline) - run it twice on the Docker Postgres of kit8/docker before delivery.
 - Full Project Amounts Across 1 Document of Each Type:
   Each of the 5 documents across the project task lifecycle must be created and posted with 100% FULL PROJECT AMOUNTS:
-  1) Purchase Order (PO-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs + 6,750 operator hrs = $59,973,750.00 (posted via project_status_register_order).
-  2) Product Receipt (PR-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs + 6,750 operator hrs = $59,973,750.00 (posted via project_status_register_receipt).
-  3) Fact Input (FI-NYWAS-00001) -> 225 mi rev + 29.7k sticks mat + 6.75k h exp + 6.75k h time = $329,973,750.00 (posted via project_status_register_fact).
-  4) Vendor Invoice (VI-SUPP-98421) -> 29,700 rail sticks + 6,750 tamper hrs + 6,750 operator hrs = $59,973,750.00 (posted via project_status_register_invoice).
+  1) Purchase Order (PO-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs + 2,080 operator hrs = $59,530,100.00 (posted via project_status_register_order).
+  2) Product Receipt (PR-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs + 2,080 operator hrs = $59,530,100.00 (posted via project_status_register_receipt).
+  3) Fact Input (FI-NYWAS-00001) -> 225 mi rev + 29.7k sticks mat + 6.75k h exp + 2.08k h time = $329,530,100.00 (posted via project_status_register_fact).
+  4) Vendor Invoice (VI-SUPP-98421) -> 29,700 rail sticks + 6,750 tamper hrs + 2,080 operator hrs = $59,530,100.00 (posted via project_status_register_invoice).
   5) Customer Invoice (CI-AMTRK-2026-001) -> 225 miles turnkey deliverable = $270,000,000.00 (posted via project_status_register_customer_invoice).
 - Reporting Integration: Trigger Monitor01 process batch and project_cost_rebuild to ensure zero discrepancies in Monitor01 and tree cost columns. The verification (run.command --verify) lists the budget items with key and direction and the cash flow by activity.
 - Market Price Realism: Justify all unit prices against North American Class 1 freight and Northeast Corridor high-speed rail standards.</code></pre>
@@ -488,7 +488,7 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
             <tr data-cat="DOCS">
               <td><span class="pill lifecycle">DOCS</span></td>
               <td><b>How do we guarantee that each document contains 100% full project amounts?</b></td>
-              <td>Set quantities in PO, PR, VI to 29,700 sticks, 6,750 tamper hrs and 6,750 operator hrs; in Fact Input to 225 mi, 29.7k sticks, 6.75k tamper hrs, 6.75k operator hrs; in CI to 225 mi.</td>
+              <td>Set quantities in PO, PR, VI to 29,700 sticks, 6,750 tamper hrs and 2,080 operator hrs; in Fact Input to 225 mi, 29.7k sticks, 6.75k tamper hrs, 2.08k operator hrs; in CI to 225 mi.</td>
               <td>Every document total equals the full project contract/budget scope without partial balances remaining.</td>
             </tr>
             <tr data-cat="DOCS">
@@ -507,7 +507,7 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
               <td><span class="pill ledger">LEDGER</span></td>
               <td><b>How is project cost total rebuilt in the database?</b></td>
               <td><code>project_cost_rebuild(projectGUID)</code> recalculates own and subtree costs from register movements.</td>
-              <td><code>project_task_cost_total</code> contains accurate <code>costTotalForBudget</code> = $59,973,750.</td>
+              <td><code>project_task_cost_total</code> contains accurate <code>costTotalForBudget</code> = $59,530,100.</td>
             </tr>
             <tr data-cat="SCRIPT">
               <td><span class="pill wbs">SCRIPT</span></td>
@@ -542,14 +542,14 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
             <tr data-cat="ACTIVITY">
               <td><span class="pill act">ACTIVITY</span></td>
               <td><b>How is the net operating cash flow budget proven?</b></td>
-              <td>Inbound minus outbound of the budget items whose key starts with <code>operatingActivity</code>: $270,000,000.00 - $59,973,750.00.</td>
-              <td>The SQL guard passes and prints $210,026,250.00; <code>run.command --verify</code> shows the rows <code>2c. Cash flow</code>.</td>
+              <td>Inbound minus outbound of the budget items whose key starts with <code>operatingActivity</code>: $270,000,000.00 - $59,530,100.00.</td>
+              <td>The SQL guard passes and prints $210,469,900.00; <code>run.command --verify</code> shows the rows <code>2c. Cash flow</code>.</td>
             </tr>
             <tr data-cat="SCRIPT">
               <td><span class="pill wbs">SCRIPT</span></td>
               <td><b>How is the seed kept in step with the schema when tables are renamed?</b></td>
               <td>The seed deleted from <code>task_line_plan</code>, which the schema replaced by <code>task_line_plan_movements</code> + <code>task_line_plan_timeline</code>; a stale statement stops the whole script.</td>
-              <td>The SQL runs twice without an error on the Docker Postgres of <code>kit8/docker</code> (fresh database from start1 + start2 + start3).</td>
+              <td>The SQL runs twice without an error on the Docker Postgres of <code>kit8/docker</code> (fresh database from start1 + start2 + start4).</td>
             </tr>
           </tbody>
         </table>
@@ -623,9 +623,9 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
           <li>Check that exactly 1 line exists for <code>revenueGenus</code>, <code>materialGenus</code>, <code>expenseGenus</code>, and <code>timeGenus</code>.</li>
           <li>Confirm that 136 RE rail sticks equal 29,700 sticks (2 rails × 225 miles × 5,280 ft ÷ 80 ft).</li>
           <li>Verify unit price is within $1,600 – $2,200 (selected: $1,850.00/stick).</li>
-          <li>Confirm equipment has 6,750 hours and operator John Rimm has 6,750 hours.</li>
-          <li><b>Every budget item has an allowed key (<code>operatingActivity.&lt;genus&gt;</code>), a direction and the three names; the net operating budget is $210,026,250.00.</b></li>
-          <li>The activity genus (PART 32) is installed: <code>start1</code> + <code>start2</code> + <code>start3</code> of <code>kit8/sql/start</code> ran before the seed.</li>
+          <li>Confirm equipment has 6,750 hours and operator John Rimm has 2,080 hours (a normal work week: 261 working days x 7.97 h, under his 8 h a day).</li>
+          <li><b>Every budget item has an allowed key (<code>operatingActivity.&lt;genus&gt;</code>), a direction and the three names; the net operating budget is $210,469,900.00.</b></li>
+          <li>The activity genus (PART 32) is installed: <code>start1</code> + <code>start2</code> + <code>start4</code> of <code>kit8/sql/start</code> ran before the seed.</li>
           <li>The SQL ran twice on the Docker Postgres (<code>kit8/docker</code>) without an error.</li>
           <li><b>Ensure all 5 documents (PO, PR, Fact, VI, CI) contain 100% full project amounts.</b></li>
           <li>Run <code>public.monitor01_process_batch()</code> and <code>public.project_cost_rebuild()</code>.</li>

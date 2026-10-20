@@ -115,8 +115,8 @@ describe('the SQL part (PART 19 of start1_sql_tables.sql + start2_sql_code.sql, 
   const dir = path.join(__dirname, '../../../kit8/sql/start');
   const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
   const tables = read('start1_sql_tables.sql'), code = read('start2_sql_code.sql'), start = tables + '\n' + code, data = read('start5_sql_upsert_all.sql'), del = read('delete_sql_structure.sql');
-  // the DDL of the part (start1_sql_tables.sql + start2_sql_code.sql) and its seed rows (start3_sql_insert_missing.sql)
-  const part = tables.slice(tables.indexOf('-- PART 19: create_budget_scenario_table.sql')) + '\n' + code.slice(code.indexOf('-- PART 19: create_budget_scenario_table.sql')) + '\n' + read('start3_sql_insert_missing.sql').slice(read('start3_sql_insert_missing.sql').indexOf('-- PART 19: create_budget_scenario_table.sql'));
+  // the DDL of the part (start1_sql_tables.sql + start2_sql_code.sql) and its seed rows (start4_sql_insert_missing.sql)
+  const part = tables.slice(tables.indexOf('-- PART 19: create_budget_scenario_table.sql')) + '\n' + code.slice(code.indexOf('-- PART 19: create_budget_scenario_table.sql')) + '\n' + read('start4_sql_insert_missing.sql').slice(read('start4_sql_insert_missing.sql').indexOf('-- PART 19: create_budget_scenario_table.sql'));
   it('the table, a plain list, the kind check, the two seeds', () => {
     expect(start).toContain('19. create_budget_scenario_table.sql');
     for (const g of ['CREATE TABLE IF NOT EXISTS public."budgetScenarioTable"', "DEFAULT 'budgetScenarioCatalog'", `CHECK ("rowParentGUID" = 'empty')`, `IN ('plan', 'fact')`]) expect(part).toContain(g);

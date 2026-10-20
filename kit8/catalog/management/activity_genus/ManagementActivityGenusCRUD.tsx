@@ -81,7 +81,7 @@ export default function ManagementActivityGenusCRUD() {
           <IconApp name="database" size={18} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>
             {error ? `The activity genus could not be read (${error}). ` : 'The activity genus tables are empty. '}
-            Run start1_sql_tables.sql, start2_sql_code.sql and start3_sql_insert_missing.sql (kit8/sql/start, PART 32) in the Supabase SQL editor and sign in.
+            Run start1_sql_tables.sql, start2_sql_code.sql and start4_sql_insert_missing.sql (kit8/sql/start, PART 32) in the Supabase SQL editor and sign in.
           </Text>
         </View>
       )}

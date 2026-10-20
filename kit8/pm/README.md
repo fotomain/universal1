@@ -5,7 +5,7 @@ Drawer item: **Projects** (kit8/ui/components/CustomDrawerContent.tsx).
 
 ## Setup
 
-1. Database: run `kit8/sql/start/start1_sql_tables.sql`, then `start2_sql_code.sql`, then `start3_sql_insert_missing.sql` in the Supabase SQL editor (all idempotent, an existing database is upgraded;
+1. Database: run `kit8/sql/start/start1_sql_tables.sql`, then `start2_sql_code.sql`, then `start4_sql_insert_missing.sql` in the Supabase SQL editor (all idempotent, an existing database is upgraded;
    they create the PM tables, kanban, templates, versions, finances (`task_line_table`) and the realtime publication). The old `kit8/sql/init/*.sql` files no longer exist; see `KNOW_HOW.md` section 2.
    Without the finances tables the **Finances** view / section shows "Could not read the table" and the place of the last edit is not saved.
 2. Web only: `public/canvaskit.wasm` must exist (copied from `node_modules/canvaskit-wasm/bin/full/`,

@@ -84,6 +84,18 @@ describe('Project settings window - organization default project settings', () =
     expect(switchChecked('pm-project-plan-day')).toBe(true); // not stored = the default of the setting
   });
 
+  it('the ROI switches are part of the defaults: a new project starts with them (all OFF when the organization stored none)', () => {
+    mockDefaults = { roiForTasksFunctionalityEnabled: true, projectROIIncludeSaleVAT: true };
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    openNewWindow();
+    press('pm-project-tab-TabROI');
+    expect(switchChecked('pm-project-roi-for-tasks')).toBe(true);
+    expect(switchChecked('pm-project-roi-sale-vat')).toBe(true);
+    expect(switchChecked('pm-project-roi-history')).toBe(false);
+    expect(switchChecked('pm-project-roi-purchase-vat')).toBe(false);
+  });
+
   it('an organization that never saved defaults changes nothing', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);

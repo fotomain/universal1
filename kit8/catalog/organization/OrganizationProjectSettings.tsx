@@ -1,5 +1,5 @@
 // Organization edit -> Projects -> Settings: the DEFAULT settings of a new project (organizationTable.rowJSON.defaultProjectSettings, defaultProjectSettings.ts).
-// The same switches and tabs as the Project settings window (Main, Budgets, Vendor, Product, Subprojects) - the very same components - so a value means the same thing in both.
+// The same switches and tabs as the Project settings window (Main, Budgets, Vendor, Product, Subprojects, ROI) - the very same components - so a value means the same thing in both.
 // Loaded lazily by OrganizationEdit (only while the Projects tab is open).
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,10 +12,11 @@ import PMProjectBudgetsTab, { type BudgetsSubTab } from '../../pm/view/project/s
 import PMProjectVendorTab from '../../pm/view/project/settings/PMProjectVendorTab';
 import PMProjectProductTab from '../../pm/view/project/settings/PMProjectProductTab';
 import PMProjectSubprojectsTab from '../../pm/view/project/settings/PMProjectSubprojectsTab';
+import PMProjectRoiTab from '../../pm/view/project/settings/PMProjectRoiTab';
 import { DefaultProjectSettings, defaultProjectSettingsOf, mainValuesOf } from './defaultProjectSettings';
 import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 
-export type OrganizationSettingsTab = 'main' | 'budgets' | 'vendor' | 'product' | 'subprojects';
+export type OrganizationSettingsTab = 'main' | 'budgets' | 'vendor' | 'product' | 'subprojects' | 'roi';
 
 const TABS: { id: OrganizationSettingsTab; label: string }[] = [
   { id: 'main', label: 'Main' },
@@ -23,6 +24,7 @@ const TABS: { id: OrganizationSettingsTab; label: string }[] = [
   { id: 'vendor', label: 'Vendor' },
   { id: 'product', label: 'Product' },
   { id: 'subprojects', label: 'Subprojects' },
+  { id: 'roi', label: 'ROI' },
 ];
 
 export default function OrganizationProjectSettings({
@@ -101,6 +103,7 @@ export default function OrganizationProjectSettings({
         {tab === 'vendor' && <PMProjectVendorTab values={v} onChange={patch} />}
         {tab === 'product' && <PMProjectProductTab values={v} onChange={patch} />}
         {tab === 'subprojects' && <PMProjectSubprojectsTab values={v} onChange={patch} />}
+        {tab === 'roi' && <PMProjectRoiTab values={v} onChange={patch} />}
       </View>
     </View>
   );

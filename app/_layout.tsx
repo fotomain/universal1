@@ -37,7 +37,8 @@ import { appleMacUITheme } from '../kit8/ui/applemacui/appleMacUITheme';
 import IconApp from '../kit8/ui/components/common/IconApp';
 import SnackbarApp from '../kit8/ui/components/common/SnackbarApp';
 import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
-import UserCalendarNotifier from '../kit8/catalog/user/calendar/UserCalendarNotifier';
+import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
+import ReminderHost from '../kit8/ui/reminder/ReminderHost';
 import WithIntent from '../kit8/providers/WithIntent';
 import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
 
@@ -535,6 +536,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/task/product-receipt/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Product receipt' }} />
               <Drawer.Screen name="pm/product-receipt/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Product receipts' }} />
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
+              <Drawer.Screen name="pm/reports/monitor02/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor02' }} />
+              <Drawer.Screen name="pm/reports/monitor03/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor03' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
@@ -547,6 +550,8 @@ function RootLayoutContent() {
             <FABAppComponent />
             {/* calendar: reminders (open the entry as a modal window) + the entry windows, on every screen */}
             <UserCalendarNotifier />
+            {/* reminders with the app closed: OS scheduled notifications (phones), tap opens the entry */}
+            <ReminderHost />
             {/* share intent (uxui.intentInfo): RadioSetApp asks what to add */}
             <IntentAddModalWindow />
             <SnackbarApp />

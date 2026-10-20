@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminder (idle mode) - WBS</title>
+<style>
+  /* Light business theme, same family as documentation/MONITOR01_WBS.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.bad { background: var(--rose-soft); color: var(--rose); }
+  .pill.mid { background: var(--purple-soft); color: var(--purple); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  tr.wp td { background: var(--bg-subtle); font-weight: 700; }
+  ul.tight, ol.steps { margin: 0; padding-left: 20px; }
+  ul.tight li, ol.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .badbox { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; }
+  .box.on { background: var(--purple-soft); border-color: #c4b5fd; }
+  .box.warn { background: var(--rose-soft); border-color: #fda4af; }
+  .box.ok { background: var(--emerald-soft); border-color: #6ee7b7; }
+  .arrow { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+  .mock { background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Reminder (idle)</div>
+  <nav><ul>
+    <li><a href="#status">Status</a></li><li><a href="#read">1 What I read</a></li><li><a href="#rules">2 Rules</a></li><li><a href="#why">3 Why native</a></li>
+    <li><a href="#arch">4 Architecture</a></li><li><a href="#flows">5 Flows</a></li><li><a href="#login">6 Logged in only</a></li><li><a href="#native">7 Native part</a></li>
+    <li><a href="#server">8 Server (phase 2)</a></li><li><a href="#ui">9 Screens</a></li><li><a href="#wbs">10 WBS</a></li><li><a href="#files">11 Files</a></li>
+    <li><a href="#risks">12 Risks</a></li><li><a href="#tests">13 Tests</a></li><li><a href="#order">14 Order</a></li><li><a href="#open">15 Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="status">
+  <h1>Reminder (idle mode) <span class="pill new">Phase 1 built 2026-10-20</span></h1>
+  <div class="good"><b>Decisions of the owner (2026-10-20):</b> build Phase 1; <b>no Phase 2</b> (no server push); the calendar code lives in <code>kit8/ui/calendar</code> (screens + <code>data/</code>), the reminder code in <code>kit8/ui/reminder</code>; the web gets a service worker (<code>public/reminder-sw.js</code>). <b>Built differently from this plan:</b> (1) no own Kotlin module: the source of <code>expo-notifications</code> 57 uses <code>setExactAndAllowWhileIdle</code> when exact alarms are allowed and has a boot receiver (still to be confirmed on real phones, WP0); (2) the <code>expo-notifications</code> config plugin is not used (it forces the iOS push entitlement); (3) the background top-up task is not built, the list is topped up when the app is open; (4) the web shows reminders only while the browser is open: a closed browser needs a push server (= Phase 2). See <code>kit8/ui/reminder/README.md</code>.</div>
+  <p class="lead">Source: the note "W1 REMINDER IDLE": <i>no code, this WBS document needed; calendar task reminder; only for logged in users; it must work in idle mode
+     also, when the application is in the background on Android and Apple - that is why native code is needed.</i> Nothing is built. This page is the plan.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">The answer in four lines</h3>
+      <ul class="tight">
+        <li>The reminders already exist (<code>notifications</code> of a calendar entry) but fire only while the app runs (<code>UserCalendarNotifier</code>, a 30 s timer).</li>
+        <li>Phase 1 = the phone's OS fires them: we hand the next reminders to the OS as <b>local scheduled notifications</b> (Android alarm, iOS notification center). Works with the app closed, the phone locked, in Doze, offline.</li>
+        <li>Phase 2 (optional) = a <b>server push</b> (FCM / APNs) as the long range and cross-device safety net.</li>
+        <li>Logged in only: schedule after sign in, wipe everything at sign out / user change.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">What is NOT in this plan</h3>
+      <ul class="tight">
+        <li>Web / browser (no idle mode there; the existing in-app modal + browser Notification stay as they are).</li>
+        <li>New reminder fields: the calendar editor already has them (amount, unit, all-day time).</li>
+        <li>Code. The next round builds Phase 1 after the spike (WP0), see section 10.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="read">
+  <h2>1 What I read</h2>
+  <p class="sub">So the plan starts from the code, not from a blank page.</p>
+  <div class="scroll"><table>
+    <tr><th>Where</th><th>What is there</th><th>Consequence</th></tr>
+    <tr><td><code>kit8/register/user_calendar/userCalendarModel.ts</code></td><td>Entry kinds <code>event | task | birthday | projectTask</code>; <code>rowJSON.notifications[]</code> = <code>{amount, unit, atTime?}</code> ("5 minutes before"; all-day entries need the time of day, default 09:00); <code>recurrence</code>, <code>exDates</code>, <code>done</code></td><td>The reminder model is complete: no new field for Phase 1</td></tr>
+    <tr><td><code>userCalendarReminders.ts</code> (<code>dueReminders</code>) + <code>userCalendarRecurrence.ts</code> (<code>expandEvents</code>)</td><td>Pure TypeScript: expands repeating entries and returns the reminders that fell into a time window. Done tasks do not remind</td><td>The same functions can answer "which reminders fire in the next N days" - the planner reuses them</td></tr>
+    <tr><td><code>kit8/catalog/user/calendar/UserCalendarNotifier.tsx</code></td><td>Mounted once in <code>app/_layout.tsx</code>; checks every 30 s, shows a modal and (web) a browser Notification; "shown once per device" in AsyncStorage (<code>userCalendar.shownReminders</code>); missed reminders shown at the next start if younger than 12 h</td><td>This is the foreground path. On a phone a timer stops in the background - that is exactly the gap of this task. The shown-keys store is reused for de-duplication</td></tr>
+    <tr><td>SQL PART 16 (<code>user_calendar_project_task_sync</code>)</td><td>A trigger copies every project task / milestone into <code>user_calendar_event_table</code> as <code>kind='projectTask'</code> with <code>notifications = []</code>; reminders added by the user on the copy are kept</td><td>"Calendar task" = calendar to-do AND the project task copy: both reminded through the same rows (question 1)</td></tr>
+    <tr><td><code>app/user/calendar/index.tsx</code></td><td>Route <code>/user/calendar?eventGUID=&lt;uuid&gt;&amp;date=YYYY-MM-DD</code></td><td>A tap on a system notification can deep link there</td></tr>
+    <tr><td><code>app.config.js</code></td><td>Dev client + prebuild; 4 variants (own bundle id / package); Android already lists <code>POST_NOTIFICATIONS</code> and <code>VIBRATE</code>; no <code>expo-notifications</code>, no background task library, no <code>supabase/functions</code> folder</td><td>A native rebuild (<code>expo run:android|ios</code>) is needed; Expo Go cannot be used for this feature</td></tr>
+  </table></div>
+</section>
+
+<section id="rules">
+  <h2>2 Rules</h2>
+  <ol class="steps">
+    <li><b>Only for logged in users.</b> No session = no scheduled reminder and no push token on the server (section 6).</li>
+    <li><b>Idle mode:</b> a reminder is shown on time when the app is closed (swiped away), in the background, the screen is locked, the phone is in Doze / Low power mode and has no network at that moment.</li>
+    <li>The source of truth stays <code>user_calendar_event_table</code>. The OS schedule is a <b>cache</b> of it: it can be wiped and rebuilt at any time (idempotent sync).</li>
+    <li>One reminder = one OS notification with a stable key <code>${rowGUID}:${YYYY-MM-DD}:${index}</code> (the key <code>dueReminders</code> already uses). A reminder is never shown twice (OS notification + in-app modal): the shown-keys store decides.</li>
+    <li>A tap opens the entry (<code>/user/calendar?eventGUID&amp;date</code>); the in-app modal does not open a second time for the same key.</li>
+    <li>Done tasks do not remind (same rule as <code>dueReminders</code>); an edit / delete / "done" removes or moves the scheduled notification at the next sync.</li>
+    <li>Times follow the phone's local clock and time zone (travel, summer time): an all-day reminder "09:00" is 09:00 where the phone is.</li>
+    <li>The user can switch reminders off per device, and sees clearly when the OS blocks them (no permission, exact alarms off, battery saver) - section 9.</li>
+  </ol>
+</section>
+
+<section id="why">
+  <h2>3 Why native code is needed - the OS limits</h2>
+  <p class="sub">A JavaScript timer (<code>setInterval</code>) is frozen or killed when the app is in the background. Only the operating system can wake the phone at a time.</p>
+  <div class="scroll"><table>
+    <tr><th></th><th>Android</th><th>iOS</th></tr>
+    <tr><td><b>Local scheduled notification</b> (no network, no server)</td><td>AlarmManager <code>setExactAndAllowWhileIdle</code>. Survives swipe-away; lost at reboot unless a boot receiver re-schedules; lost on "Force stop" until the app is opened again</td><td><code>UNUserNotificationCenter</code> request with a calendar / time-interval trigger. Survives swipe-away and reboot. <b>Maximum 64 pending per app</b> (the OS keeps the nearest, drops the rest)</td></tr>
+    <tr><td><b>Permission</b></td><td>Android 13+: <code>POST_NOTIFICATIONS</code> (runtime, already declared). Android 12+: exact alarms need <code>SCHEDULE_EXACT_ALARM</code> (user switch) or <code>USE_EXACT_ALARM</code> (granted at install, only for alarm / calendar apps by Play policy). Without exact alarm the OS may delay by minutes</td><td>One prompt (alert / sound / badge); asked once, then only Settings. Optional <i>time-sensitive</i> level (entitlement) breaks through Focus</td></tr>
+    <tr><td><b>Battery managers</b></td><td>Doze: exact alarms still fire (a few per hour are rationed). OEM layers (Samsung "sleeping apps", Xiaomi, Huawei, OnePlus) can kill the app and its alarms - the user must whitelist the app; we can only guide them</td><td>None for local notifications. A force-quit (swipe up) does NOT cancel pending local notifications</td></tr>
+    <tr><td><b>Server push</b></td><td>FCM high priority wakes Doze; not delivered after "Force stop"</td><td>APNs alert push is delivered when the app is closed; a silent push (content-available) is throttled and not delivered after a force-quit</td></tr>
+    <tr><td><b>Run code at a time</b></td><td>WorkManager is inexact (15 min minimum, deferred in Doze): <b>not</b> for a reminder, only for topping up the schedule</td><td>BGTaskScheduler is opportunistic (the OS chooses): <b>not</b> for a reminder, only for topping up</td></tr>
+  </table></div>
+  <div class="note"><b>Consequence:</b> the reminder itself must be a notification that the OS owns (local scheduled or push). Code that runs "at 09:00" cannot be trusted on either platform. "Native code" here means: notification channel + exact alarm + boot re-schedule on Android, notification center + categories on iOS, FCM / APNs registration for phase 2 - see section 7 for how much of it a library already gives us.</div>
+</section>
+
+<section id="arch">
+  <h2>4 Architecture</h2>
+  <div class="flow">
+    <span class="box on">user_calendar_event_table<br><span class="small">notifications[], recurrence, done</span></span><span class="arrow">&rarr;</span>
+    <span class="box">React Query + realtime<br><span class="small">already loaded by the Notifier</span></span><span class="arrow">&rarr;</span>
+    <span class="box on">planner (pure TS)<br><span class="small">next 60 reminders = "the plan"</span></span><span class="arrow">&rarr;</span>
+    <span class="box on">sync (diff)<br><span class="small">schedule / cancel by key</span></span><span class="arrow">&rarr;</span>
+    <span class="box ok">OS alarm / notification center<br><span class="small">fires with the app dead</span></span>
+  </div>
+  <h3>Phase 1 - local schedule <span class="pill new">required</span></h3>
+  <ul class="tight">
+    <li><b>Planner</b> (pure function, no OS): input = event rows, now, limit (60, below the iOS 64; one slot is kept free for a test notification), output = the <i>plan</i>: list of <code>{key, fireAtMs, title, body, data:{ownerGUID, eventGUID, date}}</code>, nearest first, only the future, done tasks removed. Built on <code>expandEvents</code> / <code>notificationTimeMs</code>, so the in-app modal and the OS use the same times.</li>
+    <li><b>Scheduler</b> (adapter): reads the OS list of pending notifications, compares with the plan by key and fire time, cancels what is gone or changed, schedules what is new. Idempotent: run it as often as needed.</li>
+    <li><b>When it runs:</b> after sign in; whenever the calendar rows change (the realtime hook is already mounted); app start; app returns to foreground; a time zone / clock change; permission change; after a boot (Android, by the OS re-delivering the alarms or our boot receiver); best-effort by a background task (daily) to top up when the user does not open the app for days.</li>
+    <li><b>Horizon:</b> the plan holds the next 60 reminders. A phone with few entries is covered for months. A phone with many entries (every day a reminder) is covered for about 2 months on Android and, with 60 on iOS, for the nearest 60 reminders: when the user does not open the app, the window empties. That hole is what phase 2 closes.</li>
+  </ul>
+  <h3>Phase 2 - server push <span class="pill mid">optional, decide in question 2</span></h3>
+  <ul class="tight">
+    <li>Long range: reminders behind the local window; cross-device: an entry changed on the web while the phone's app was closed.</li>
+    <li>Needs: a device table with the push token, the due reminders computed in SQL, a sender (pg_cron &rarr; Edge Function &rarr; FCM / APNs), credentials per app variant. Section 8.</li>
+    <li>De-duplication rule: the server pushes a reminder to a device only when the reminder is <b>behind that device's local horizon</b> (the device reports <code>localHorizonAt</code> at every sync). The push is therefore never a second copy of a local one.</li>
+  </ul>
+  <div class="good"><b>Recommendation:</b> build Phase 1 first. It alone fulfils "works in idle mode in the background on Android and Apple". Phase 2 adds infrastructure (Firebase project, APNs key, Edge Function, secrets) and is only worth it if users do not open the app for weeks or edit on several devices.</div>
+</section>
+
+<section id="flows">
+  <h2>5 Flows</h2>
+  <h3>5.1 Set a reminder (any screen)</h3>
+  <div class="flow"><span class="box">user saves an entry with "10 minutes before"</span><span class="arrow">&rarr;</span><span class="box">row saved (existing code)</span><span class="arrow">&rarr;</span><span class="box">realtime / cache change</span><span class="arrow">&rarr;</span><span class="box on">sync: plan, diff, schedule</span><span class="arrow">&rarr;</span><span class="box ok">OS holds it</span></div>
+  <p class="small">First reminder ever: the permission prompt appears here (not at the app start), with a short explanation card first. If the user refuses, the entry is saved and the calendar shows "Reminders are blocked on this phone".</p>
+  <h3>5.2 The reminder fires with the app closed</h3>
+  <div class="flow"><span class="box ok">OS shows the notification (title = entry, body = when + label)</span><span class="arrow">&rarr;</span><span class="box">user taps</span><span class="arrow">&rarr;</span><span class="box">app starts, session restored (SecureStore)</span><span class="arrow">&rarr;</span><span class="box on">deep link <code>/user/calendar?eventGUID&amp;date</code></span><span class="arrow">&rarr;</span><span class="box">quick view opens, key marked as shown</span></div>
+  <h3>5.3 Edit / delete / done / move</h3>
+  <p class="small">Any change is just a new plan: the diff cancels the old key and schedules the new one. A project task that moves (the SQL trigger rewrites the copy's dates) changes the plan the same way - when the phone sees the realtime event or at the next app start. If the app is not running when the project plan changes, the old alarm fires at the old time (section 12, risk 4).</p>
+  <h3>5.4 Foreground</h3>
+  <p class="small">While the app is open the existing modal remains the way to show a reminder. The OS notification for the same key is suppressed in the foreground handler (<code>shouldShowAlert=false</code>) when the in-app modal takes it, so there is one reminder, never two.</p>
+  <h3>5.5 Reboot, update, time zone</h3>
+  <p class="small">Android: alarms are cleared at reboot - the boot receiver (library or ours) re-creates them from the saved plan; the app also re-syncs at its next start. iOS: nothing to do. Time zone change: re-plan (all-day reminders are wall-clock times).</p>
+</section>
+
+<section id="login">
+  <h2>6 Logged in only</h2>
+  <div class="scroll"><table>
+    <tr><th>Situation</th><th>Rule</th></tr>
+    <tr><td>Not signed in</td><td>The sync does nothing and the app registers no push token. A first start asks no notification permission.</td></tr>
+    <tr><td>Sign in (<code>SIGNED_IN</code>, owner GUID known)</td><td>Cancel every scheduled notification that has another <code>ownerGUID</code> in its data, then plan and schedule for this user.</td></tr>
+    <tr><td>Sign out (button, <code>SIGNED_OUT</code>, refresh token invalid, account removed)</td><td><b>Cancel all scheduled notifications + clear the shown-keys + delete the saved plan.</b> Phase 2: unregister the push token (RPC; if offline, retried at the next start and, as a backstop, the server stops pushing to a token whose session no longer exists).</td></tr>
+    <tr><td>Another user signs in on the same phone</td><td>As sign out, then sign in. A notification of user A is never shown to user B.</td></tr>
+    <tr><td>Session expired while the app was closed</td><td>The already scheduled local notifications still fire (the OS does not know about the session). Accepted: they show only what the user had scheduled while logged in; the next start finds no session, cancels everything. (The text can be limited by the privacy setting, question 4.)</td></tr>
+    <tr><td>Data cleared / app uninstalled</td><td>The OS removes the local schedule. The server row is cleaned when the push provider reports the token invalid.</td></tr>
+  </table></div>
+</section>
+
+<section id="native">
+  <h2>7 The native part</h2>
+  <p class="sub">Decision: use the Expo notification module as the native layer and add our own native code only where the spike (WP0) proves a gap.</p>
+  <div class="scroll"><table>
+    <tr><th>Piece</th><th>Android</th><th>iOS</th></tr>
+    <tr><td>Library (native code, config plugin)</td><td colspan="2"><code>expo-notifications</code> (SDK 57 line): permission, channels / categories, scheduled notifications, tap response, push token (phase 2). Needs a rebuild of the dev client. <code>expo-device</code> is already installed (real device check)</td></tr>
+    <tr><td>Config plugin entries in <code>app.config.js</code></td><td>Channel "calendar-reminders" (importance high, sound, vibration, lights); permissions <code>SCHEDULE_EXACT_ALARM</code> or <code>USE_EXACT_ALARM</code> (question 3), <code>RECEIVE_BOOT_COMPLETED</code>; small notification icon + colour; phase 2: <code>google-services.json</code> per variant</td><td>Phase 2: <code>aps-environment</code> entitlement + Background Modes "Remote notifications". Optional: time-sensitive entitlement. <code>infoPlist</code> needs no usage string for notifications</td></tr>
+    <tr><td>Exact time</td><td>To prove in WP0: the scheduler must end in an exact, Doze-allowed alarm. If the library only does inexact alarms on the test phones, we add a <b>small own Expo module</b> (<code>kit8/native/reminder</code>, Kotlin: AlarmManager <code>setAlarmClock</code> / <code>setExactAndAllowWhileIdle</code> + a <code>BroadcastReceiver</code> that posts the notification + the boot receiver)</td><td>Library is enough (UNCalendarNotificationTrigger). Own Swift code only for actions (snooze) if wanted</td></tr>
+    <tr><td>"Allow exact alarms" settings screen</td><td>Android 12+: deep link to <code>ACTION_REQUEST_SCHEDULE_EXACT_ALARM</code>; shown as a card when the permission is missing</td><td>-</td></tr>
+    <tr><td>Battery optimisation hint</td><td>Link to the app's battery settings (<code>ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS</code>) + a text per vendor ("Samsung: Never sleeping apps")</td><td>-</td></tr>
+    <tr><td>Top-up in the background (optional)</td><td>WorkManager periodic job (the Expo background task module) - only calls the sync, never fires a reminder</td><td>BGTaskScheduler (same)</td></tr>
+  </table></div>
+  <div class="note"><b>Honest limit:</b> a phone whose user force-stops the app (Android) or whose OEM kills alarms will miss reminders; no code can fix that. The plan shows the user the status (section 9) so it is visible instead of a silent failure.</div>
+</section>
+
+<section id="server">
+  <h2>8 Server part (phase 2, optional)</h2>
+  <p class="sub">Only if question 2 is answered "yes". New SQL PART 35 (tables in <code>start1_sql_tables.sql</code>, functions / RLS in <code>start2_sql_code.sql</code>, schedule in <code>start3_sql_pg_cron.sql</code>); the Edge Function is deployed with the Supabase CLI, not with the SQL editor.</p>
+  <div class="scroll"><table>
+    <tr><th>Object</th><th>What</th></tr>
+    <tr><td>table <code>user_device_table</code></td><td>One row per phone: <code>rowOwnerGUID</code>, platform, push token (FCM / APNs), app variant (bundle id), IANA time zone, <code>localHorizonAt</code>, <code>syncedAt</code>, permission state, <code>sessionId</code>, <code>lastSeenAt</code>, active. Owner RLS. The row is written by an RPC <code>user_device_register</code> and removed by <code>user_device_unregister</code></td></tr>
+    <tr><td>table <code>user_calendar_reminder_due</code></td><td>The next reminders as rows (key, owner, <code>fireAt</code>, title, body, event GUID, <code>sentAt</code>). Rebuilt for one entry by a trigger on <code>user_calendar_event_table</code> (horizon 60 days / 200 rows per user)</td></tr>
+    <tr><td>SQL expansion of repeating entries</td><td>The recurrence (day / week / month, n-th weekday, until / count, <code>exDates</code>, all-day time) must exist in plpgsql too. <b>Parity test</b> against the TypeScript <code>expandEvents</code> on golden cases (same pattern as <code>pm_ltree_label</code>, the budget matrix). Fallback if too costly: the device uploads its plan (<code>user_calendar_reminder_due</code> written by an RPC) and only a stale device is a gap</td></tr>
+    <tr><td>pg_cron job <code>reminder_push_tick</code> (every minute)</td><td>Calls the Edge Function with the reminders due in the next 60 s that are behind the device's horizon; marks <code>sentAt</code></td></tr>
+    <tr><td>Edge Function <code>supabase/functions/reminder-push</code></td><td>Sends through FCM HTTP v1 (Android + iOS via FCM or APNs directly) with high priority; a bad token &rarr; deletes the device row. Secrets in Supabase (service account key, APNs key) - never in <code>.env</code> of the app</td></tr>
+    <tr><td>Accuracy</td><td>Up to about 1 minute late (the tick). Local notifications are the precise ones; the push is the safety net</td></tr>
+  </table></div>
+</section>
+
+<section id="ui">
+  <h2>9 Screens</h2>
+  <div class="grid">
+    <div class="mock"><b>Calendar &rarr; toolbar &rarr; "Reminders on this phone"</b> (small window)
+      <ul class="tight"><li>Switch: Reminders on this device (default on)</li>
+      <li>Status line: <span class="pill new">Active, 12 scheduled, next 14:30 Fri</span> / <span class="pill bad">Blocked: allow notifications</span> / <span class="pill ask">Exact alarms off</span> / <span class="pill ask">Battery saver may delay</span></li>
+      <li>Buttons: Open settings · Send a test in 10 seconds</li></ul></div>
+    <div class="mock"><b>Permission card</b> (before the OS prompt)
+      <p style="margin:6px 0">"Allow notifications so your calendar reminders reach you when the app is closed." [Not now] [Continue]</p></div>
+    <div class="mock"><b>Notification</b>
+      <p style="margin:6px 0">Title = entry title · Body = "Fri 14:30 - in 10 minutes" (the existing <code>eventWhenText</code> + label). Tap = quick view of the entry. Optional later: actions "Snooze 10 min" / "Done" for tasks (question 5)</p></div>
+  </div>
+  <p class="small">A web build shows none of this (the switch is hidden); the calendar behaves as today. Texts go through <code>pmT</code> only where the PM screens already use it; the calendar uses its own plain strings, so follow the calendar.</p>
+</section>
+
+<section id="wbs">
+  <h2>10 WBS</h2>
+  <p class="sub">Effort in working days, my estimate for one developer, without store review waits.</p>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Work package</th><th>Result</th><th>Days</th></tr>
+    <tr class="wp"><td>WP0</td><td colspan="2">Spike on real devices (before anything else)</td><td>2</td></tr>
+    <tr><td>0.1</td><td>Add <code>expo-notifications</code> to a scratch dev build; schedule one notification 2 min ahead</td><td>Fires with the app swiped away: Pixel (Android 14 / 15), a Samsung, an iPhone (locked, Focus on, force-quit)</td><td></td></tr>
+    <tr><td>0.2</td><td>Doze test (<code>adb shell dumpsys deviceidle force-idle</code>), reboot, airplane mode</td><td>Is the library alarm exact? Is a boot receiver present? Decides "own Kotlin module: yes / no"</td><td></td></tr>
+    <tr class="wp"><td>WP1</td><td colspan="2">Planner (pure TypeScript)</td><td>2</td></tr>
+    <tr><td>1.1</td><td><code>planReminders(rows, nowMs, limit)</code> from <code>expandEvents</code> / <code>notificationTimeMs</code>; stable keys; done / past removed; nearest 60</td><td>Same times as the in-app modal</td><td></td></tr>
+    <tr><td>1.2</td><td><code>diffPlan(plan, pending)</code></td><td>cancel / schedule lists, no churn when nothing changed</td><td></td></tr>
+    <tr class="wp"><td>WP2</td><td colspan="2">Scheduler + sync hook (Phase 1 core)</td><td>3</td></tr>
+    <tr><td>2.1</td><td>Adapter over <code>expo-notifications</code> (permission, channel, schedule, cancel, list, response handler)</td><td>One file that tests mock</td><td></td></tr>
+    <tr><td>2.2</td><td><code>useReminderSync</code> mounted next to <code>UserCalendarNotifier</code>: triggers listed in section 4</td><td>Idempotent sync, serialized (no two runs at once)</td><td></td></tr>
+    <tr><td>2.3</td><td>Foreground handler + shown-keys de-duplication with the in-app modal; tap &rarr; deep link</td><td>One reminder, one place</td><td></td></tr>
+    <tr class="wp"><td>WP3</td><td colspan="2">Logged in only</td><td>1</td></tr>
+    <tr><td>3.1</td><td>Sign in / out / user change handling (section 6)</td><td>Everything wiped at sign out, offline too</td><td></td></tr>
+    <tr class="wp"><td>WP4</td><td colspan="2">Native configuration</td><td>1-4</td></tr>
+    <tr><td>4.1</td><td><code>app.config.js</code>: plugin, channel, icon, permissions, boot receiver (all 4 variants)</td><td>Dev build runs</td><td>1</td></tr>
+    <tr><td>4.2</td><td>Own Android module (<code>kit8/native/reminder</code>) <i>only if WP0 says so</i></td><td>Exact alarm + receiver + boot receiver</td><td>+3</td></tr>
+    <tr class="wp"><td>WP5</td><td colspan="2">Screens (section 9)</td><td>2</td></tr>
+    <tr><td>5.1</td><td>"Reminders on this phone" window, permission card, status, test button, settings links</td><td>The user sees why a reminder may not come</td><td></td></tr>
+    <tr class="wp"><td>WP6</td><td colspan="2">Tests + README + KNOW_HOW row</td><td>2</td></tr>
+    <tr><td>6.1</td><td>Jest (section 13), device checklist, README of the feature folder</td><td>Written in the same round as the code</td><td></td></tr>
+    <tr class="wp"><td>WP7</td><td colspan="2">Phase 2 - server push (only if question 2 = yes)</td><td>6-8</td></tr>
+    <tr><td>7.1</td><td>Firebase project + APNs key + <code>google-services.json</code> / entitlement per variant; push token registration</td><td>A test push reaches a closed app</td><td>1.5</td></tr>
+    <tr><td>7.2</td><td>SQL PART 35: tables, RPCs, RLS, delete-file part, SQL recurrence expansion + trigger</td><td>Docker <code>tests/93</code></td><td>3</td></tr>
+    <tr><td>7.3</td><td>Edge Function + pg_cron tick + horizon rule</td><td>Push 1 min accuracy, no duplicate with local</td><td>1.5</td></tr>
+    <tr><td>7.4</td><td>Silent resync push when an entry changes on another device (best effort)</td><td>Fewer stale alarms</td><td>1</td></tr>
+  </table></div>
+  <p><b>Total:</b> Phase 1 = about 11 days (14 if the own Android module is needed). Phase 2 adds about 7.</p>
+</section>
+
+<section id="files">
+  <h2>11 Files (planned, nothing created yet)</h2>
+  <div class="scroll"><table>
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>kit8/register/user_calendar/reminderPlan.ts</code></td><td>Planner + diff (pure)</td></tr>
+    <tr><td><code>kit8/register/user_calendar/reminderScheduler.ts</code></td><td>Adapter over the OS notification API</td></tr>
+    <tr><td><code>kit8/register/user_calendar/useReminderSync.ts</code></td><td>The sync hook (login aware)</td></tr>
+    <tr><td><code>kit8/catalog/user/calendar/ReminderSettingsWindow.tsx</code></td><td>Switch, status, test, links</td></tr>
+    <tr><td><code>kit8/catalog/user/calendar/UserCalendarNotifier.tsx</code> (change)</td><td>Shared shown-keys, mounts the hook, handles the tap</td></tr>
+    <tr><td><code>kit8/native/reminder/</code> (only if needed)</td><td>Android Expo module + README</td></tr>
+    <tr><td><code>app.config.js</code> (change)</td><td>Plugin, permissions, channel</td></tr>
+    <tr><td>Phase 2: <code>kit8/sql/start/*</code> PART 35, <code>supabase/functions/reminder-push</code>, <code>kit8/docker/tests/93_reminder_push.sql</code></td><td>Server side</td></tr>
+    <tr><td><code>__tests__/register/user_calendar/reminder*.test.ts(x)</code>, <code>kit8/register/user_calendar/README.md</code> (update: the "app must be open" rule)</td><td>Tests, docs</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>12 Risks</h2>
+  <ol class="steps">
+    <li><b>OEM battery killers</b> (Samsung, Xiaomi, Huawei) kill alarms. Mitigation: status + guide in section 9; cannot be removed by code.</li>
+    <li><b>Android exact alarm policy:</b> <code>USE_EXACT_ALARM</code> is for apps whose core function is an alarm or a calendar. If Play review does not accept this app as one, use <code>SCHEDULE_EXACT_ALARM</code> (the user switches it on) and fall back to inexact. Question 3.</li>
+    <li><b>iOS 64 limit:</b> top-up on every app start / foreground; phase 2 for the long range.</li>
+    <li><b>Stale alarm:</b> an entry changed on another device (or by the project plan) while this phone's app is closed: the old alarm fires at the old time. Mitigation: re-sync at every start, silent push (WP7.4). A reminder of a deleted entry may still show once; a tap finds nothing and says so.</li>
+    <li><b>Force stop / force quit:</b> Android force stop cancels alarms and push until the next launch; iOS force quit stops silent pushes but keeps local notifications.</li>
+    <li><b>Time zones:</b> an all-day reminder follows the phone clock; the server (phase 2) uses the zone last reported by the device.</li>
+    <li><b>Native build:</b> a new plugin needs <code>expo run:android|ios</code>; Expo Go cannot test it (same lesson as the media libraries). Four variants: every variant has its own bundle id, so its own push credentials.</li>
+    <li><b>Library versions:</b> <code>expo-notifications</code> must match SDK 57; do not add a second notification library (like the camera / video clashes in KNOW_HOW section 7).</li>
+    <li><b>Privacy:</b> a notification text is visible on the lock screen. Option "hide the title on the lock screen" (question 4).</li>
+  </ol>
+</section>
+
+<section id="tests">
+  <h2>13 Tests</h2>
+  <h3>Jest (written with the code)</h3>
+  <ul class="tight">
+    <li>Planner: single / repeating entries, all-day with <code>atTime</code>, several reminders per entry, <code>exDates</code>, done task, past reminders, limit 60 nearest, stable keys, time zone and summer time cases.</li>
+    <li>Diff: nothing changed = no calls; moved reminder = cancel + schedule; deleted entry = cancel.</li>
+    <li>Scheduler with a mocked OS module: permission denied = no schedule and status "blocked"; sign out = cancel all and clear keys; user change = A's notifications cancelled before B's are scheduled; not signed in = no calls.</li>
+    <li>Notifier: a tapped OS notification marks the key as shown, no second modal; the foreground handler suppresses the OS banner when the modal shows.</li>
+    <li>Same guard test as the SQL files: <code>app.config.js</code> lists the plugin and the permissions (a file test).</li>
+  </ul>
+  <h3>On devices (manual checklist, cannot be automated here)</h3>
+  <ul class="tight">
+    <li>Android: app swiped away, screen off 10 min, Doze forced, reboot, airplane mode, battery saver, exact alarm switch off, "Force stop" (documented as lost), time zone change.</li>
+    <li>iPhone: locked, Focus on, force-quit, 70 reminders (the 64 limit), time zone change, notification permission denied then allowed in Settings.</li>
+    <li>Both: sign out then wait for a due time = nothing shows; sign in as another user = only that user's reminders.</li>
+  </ul>
+  <h3>Docker (phase 2 only)</h3>
+  <p class="small"><code>tests/93_reminder_push.sql</code>: the SQL expansion equals the TypeScript golden cases; the horizon rule; RLS (a user cannot read another's device row); unregister; the tick sends each reminder once. Added to <code>test_fact_monitor01.sh</code>.</p>
+</section>
+
+<section id="order">
+  <h2>14 Order</h2>
+  <div class="flow"><span class="box on">WP0 spike</span><span class="arrow">&rarr;</span><span class="box">WP1 planner</span><span class="arrow">&rarr;</span><span class="box">WP2 scheduler + sync</span><span class="arrow">&rarr;</span><span class="box">WP3 login</span><span class="arrow">&rarr;</span><span class="box">WP4 native config</span><span class="arrow">&rarr;</span><span class="box">WP5 screens</span><span class="arrow">&rarr;</span><span class="box">WP6 tests + docs</span><span class="arrow">&rarr;</span><span class="box warn">WP7 push (decision)</span></div>
+  <p class="small">WP1 does not need a device and can start together with WP0. If WP0 fails on Android, WP4.2 moves before WP2.</p>
+</section>
+
+<section id="open">
+  <h2>15 Questions</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Question</th><th>My default</th></tr>
+    <tr><td>1</td><td>"Calendar task reminder": all calendar kinds (event, task, birthday, project task) or only <code>task</code> + <code>projectTask</code>?</td><td>All kinds: they share the same <code>notifications</code> field and the same code</td></tr>
+    <tr><td>2</td><td>Phase 2 (server push) wanted now, later, or never? It needs a Firebase project, an Apple push key and an Edge Function</td><td>Later: build Phase 1, measure</td></tr>
+    <tr><td>3</td><td>Android exact alarm: try <code>USE_EXACT_ALARM</code> (no user step, Play may question it) or <code>SCHEDULE_EXACT_ALARM</code> (user switches it on)?</td><td><code>SCHEDULE_EXACT_ALARM</code> + the card of section 9</td></tr>
+    <tr><td>4</td><td>Show the title on the lock screen, or a neutral "Calendar reminder" with a setting?</td><td>Show the title; setting "Hide details on the lock screen" off by default</td></tr>
+    <tr><td>5</td><td>Notification actions (Snooze 10 min, Mark task done) now or later?</td><td>Later</td></tr>
+    <tr><td>6</td><td>A project task copy has no reminder until the user adds one. Should the project (or organization) setting give a default reminder for the tasks assigned to the user?</td><td>No (not in this plan)</td></tr>
+    <tr><td>7</td><td>Which app variants of <code>app.config.js</code> (posts, cc1, ontrend, clothes1) get the feature?</td><td>All four (the plugin is shared)</td></tr>
+    <tr><td>8</td><td>Web: any wish for browser push (service worker) in a later round?</td><td>No</td></tr>
+  </table></div>
+</section>
+
+</main>
+</body>
+</html>

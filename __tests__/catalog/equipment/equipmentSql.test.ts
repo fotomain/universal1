@@ -10,8 +10,8 @@ import { tablesSql } from '../../sql/sqlFilesTestKit';
 const dir = path.join(__dirname, '../../../kit8/sql/start');
 const start = fs.readFileSync(path.join(dir, 'start1_sql_tables.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
-const insert = fs.readFileSync(path.join(dir, 'start3_sql_insert_missing.sql'), 'utf8');
-// the DDL of the part (start1_sql_tables.sql + start2_sql_code.sql) and its seed rows (start3_sql_insert_missing.sql)
+const insert = fs.readFileSync(path.join(dir, 'start4_sql_insert_missing.sql'), 'utf8');
+// the DDL of the part (start1_sql_tables.sql + start2_sql_code.sql) and its seed rows (start4_sql_insert_missing.sql)
 const from17 = (src: string) => src.slice(src.indexOf('-- PART 17: create_equipment_tables.sql'));
 const part = from17(tablesSql) + '\n' + from17(start.slice(tablesSql.length)) + '\n' + insert.slice(insert.indexOf('-- PART 17: create_equipment_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 6: delete_equipment_tables.sql'), del.indexOf('-- PART 7:'));

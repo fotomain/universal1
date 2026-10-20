@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00. delete_roi.sql - PARTs 33 + 34: drops the ROI tables (the task months, the project months, the HISTORY with its rows), the views, the trigger on project_table and the roi_* functions (runs very first)
 --  1a-0. delete_subprojects.sql - PART 29: drops project_subproject_link, its triggers and the subproject_* functions (runs very first)
 --   1a. delete_fact_input_and_monitor01.sql - PARTs 24-28: drops the fact documents, Monitor01 (view, queue, log, fact sums), the project cost total, the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
 --   1b. delete_time_genus_control.sql - PARTs 20-23: drops organizationInvitationTable, the view, the organization_* functions and the triggers / constraints on userTable, project_table, the calendar and the resource tables (runs first: it is the newest part)
@@ -27,6 +28,43 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-00: delete_roi.sql  (PARTs 33 + 34 of the structure file: ROI and the ROI history - runs before everything else, it is the newest)
+-- Drops the ROI tables (the task months, the project months, the HISTORY with all its rows), the views, the trigger on project_table and the roi_* functions. The ownCost flag on the 'used' movements and the
+-- Revenue plan / fact movements of the register go with the register; the settings keys of project_table.rowJSON stay as inert JSON.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_roi_history_switch ON public.project_table;
+  END IF;
+END $$;
+DROP VIEW IF EXISTS public.project_status_roi_history_v;
+DROP VIEW IF EXISTS public.project_status_month_roi;
+DROP VIEW IF EXISTS public.project_status_totals;
+DROP TABLE IF EXISTS public.project_status_roi_history CASCADE;
+DROP TABLE IF EXISTS public.project_status_month_totals CASCADE;
+DROP TABLE IF EXISTS public.project_status_roi_task_month CASCADE;
+DROP FUNCTION IF EXISTS public.roi_trg_history_switch();
+DROP FUNCTION IF EXISTS public.roi_history_apply(uuid[], text);
+DROP FUNCTION IF EXISTS public.roi_verify(uuid);
+DROP FUNCTION IF EXISTS public.roi_rebuild(uuid);
+DROP FUNCTION IF EXISTS public.roi_report_projects();
+DROP FUNCTION IF EXISTS public.roi_task_lines(uuid, date, date);
+DROP FUNCTION IF EXISTS public.roi_project(uuid, date, date);
+DROP FUNCTION IF EXISTS public.roi_trg_task_month_new();
+DROP FUNCTION IF EXISTS public.roi_trg_task_month_old();
+DROP FUNCTION IF EXISTS public.roi_trg_task_month_upd();
+DROP FUNCTION IF EXISTS public.roi_month_totals_refresh(uuid[], date[]);
+DROP FUNCTION IF EXISTS public.roi_apply(uuid[]);
+DROP FUNCTION IF EXISTS public.roi_task_month_fresh(uuid[]);
+DROP FUNCTION IF EXISTS public.pm_line_has_vendor(text, jsonb);
+DROP FUNCTION IF EXISTS public.roi_include_vat(uuid, text);
+DROP FUNCTION IF EXISTS public.roi_revenue(numeric, numeric, boolean);
+DROP FUNCTION IF EXISTS public.roi_cost(numeric, numeric, numeric, boolean);
+DROP FUNCTION IF EXISTS public.roi_ratio(numeric, numeric);
 
 
 -- =====================================================================================

@@ -101,6 +101,16 @@ describe('A8: the scope of the check is the organization of the PROJECT, never t
     expect(check).not.toContain('userOrganization');
     expect(check).toContain('p_scope');
   });
+  // the capacity of a day is computed ONCE per day: without MATERIALIZED the planner copies the call into every use of `cap` (a Post of 261 days took 8 s on Supabase, over the 8 s limit)
+  it('the busy check computes the capacity once per day', () => {
+    const check = start.slice(start.indexOf('CREATE OR REPLACE FUNCTION public.organization_resource_busy_check'), start.indexOf('REVOKE ALL ON FUNCTION public.organization_resource_busy_check'));
+    expect(check).toContain('calc AS MATERIALIZED (');
+    // the occupancy view is read once (a Post of 261 days took 12 s on Supabase when the planner ran it once per day)
+    expect(check).toContain('occ AS MATERIALIZED (');
+    expect(check).toContain('res AS MATERIALIZED (');
+    const others = check.slice(check.indexOf('others AS ('), check.indexOf('calc AS MATERIALIZED'));
+    expect(others).not.toMatch(/JOIN mine/);
+  });
 });
 
 describe('the behaviour tests exist', () => {

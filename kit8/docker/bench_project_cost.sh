@@ -10,9 +10,9 @@ DB=sqlcostbench
 N=${1:-10000}
 psqlc() { docker exec -i -e PGOPTIONS="-c client_min_messages=notice" "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
 
-echo "== fresh database $DB + start1_sql_tables.sql + start2_sql_code.sql + start3_sql_insert_missing.sql"
+echo "== fresh database $DB + start1_sql_tables.sql + start2_sql_code.sql + start4_sql_insert_missing.sql"
 psqlc -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB template supabase_stub" >/dev/null
-for f in start1_sql_tables start2_sql_code start3_sql_insert_missing; do
+for f in start1_sql_tables start2_sql_code start4_sql_insert_missing; do
   docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/$f.sql >/dev/null
 done
 

@@ -1,10 +1,10 @@
 #!/bin/zsh
 # =========================================================================
 # UNIVERSAL1 - Railway #1 sample data on the LINKED Supabase project: runs TWO SQL files, in this order
-#   1. kit8/sql/start/start3_sql_insert_missing.sql   the seed rows (INSERT ... ON CONFLICT DO NOTHING): adds what is missing, among it the standard budget items
+#   1. kit8/sql/start/start4_sql_insert_missing.sql   the seed rows (INSERT ... ON CONFLICT DO NOTHING): adds what is missing, among it the standard budget items
 #                                                       (PART 32) that Railway #1 uses; nothing of yours is changed
 #   2. documentation/RAILWAY_1/RAILWAY_1_DATA.sql     the project Railway #1: task, lines, plan, purchase order, product receipt, fact, vendor invoice, customer invoice
-#                                                       (it REPLACES the earlier Railway #1 data; it stops with a message when start1 + start2 + start3 were not run)
+#                                                       (it REPLACES the earlier Railway #1 data; it stops with a message when start1 + start2 + start4 were not run)
 #   both are idempotent: safe to run again.
 #   NOT run on purpose: start1 / start2 (the structure: kit8/sql/start/run_sql_cli.command), start5 (overwrites seed rows), delete_sql_structure.sql.
 #
@@ -50,7 +50,7 @@ fi
 [ -n "$REF" ] || die "no project: run 'supabase link' in $REPO_DIR or set PROJECT_REF"
 
 # the two files, in this order (the seeds first: the project points at the standard budget items)
-FILES=("$REPO_DIR/kit8/sql/start/start3_sql_insert_missing.sql" "$HERE/RAILWAY_1_DATA.sql")
+FILES=("$REPO_DIR/kit8/sql/start/start4_sql_insert_missing.sql" "$HERE/RAILWAY_1_DATA.sql")
 for f in "${FILES[@]}"; do [ -f "$f" ] || die "missing file: $f"; done
 
 # supabase db query --linked talks to the Management API; --project-ref names the project explicitly (the plain --linked can fail with ProjectRefNotLinkedError)

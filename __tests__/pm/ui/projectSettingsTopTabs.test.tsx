@@ -248,6 +248,33 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.searchNameFunctionalityVisibleInProjects).toBe(false);
   });
 
+  it('TabROI (after TabSubprojects): every ROI switch is OFF by default; the master shows both VAT switches ON and locked; the keys are saved to rowJSON', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    const tabIds = Array.from(q('pm-project-settings-toptabs')!.querySelectorAll('[data-testid^="pm-project-tab-"]')).map((e: any) => e.getAttribute('data-testid'));
+    expect(tabIds.indexOf('pm-project-tab-TabROI')).toBe(tabIds.indexOf('pm-project-tab-TabSubprojects') + 1);
+
+    press('pm-project-tab-TabROI');
+    expect(q('pm-project-tab-roi-content')).not.toBeNull();
+    expect(q('pm-project-tab-main-content')).toBeNull();
+    const checked = (id: string) => (q(id)!.querySelector('input') as HTMLInputElement | null)?.checked ?? (q(id) as HTMLInputElement).checked;
+    for (const id of ['pm-project-roi-for-tasks', 'pm-project-roi-history', 'pm-project-roi-all-taxes', 'pm-project-roi-sale-vat', 'pm-project-roi-purchase-vat']) expect(checked(id)).toBe(false);
+    toggleSwitch('pm-project-roi-for-tasks');
+    toggleSwitch('pm-project-roi-all-taxes');
+    // the master: both VAT switches are shown ON (locked); their own values are not changed
+    expect(checked('pm-project-roi-sale-vat')).toBe(true);
+    expect(checked('pm-project-roi-purchase-vat')).toBe(true);
+    press('pm-project-save');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
+    expect(patchRowJSON.roiForTasksFunctionalityEnabled).toBe(true);
+    expect(patchRowJSON.roiHistoryFunctionalityEnabled).toBe(false);
+    expect(patchRowJSON.projectROIIncludeAllTaxes).toBe(true);
+    expect(patchRowJSON.projectROIIncludeSaleVAT).toBe(false);
+    expect(patchRowJSON.projectROIIncludePurchaseVAT).toBe(false);
+  });
+
   it('switches to TabBudgets and saves the 3 currencies and the budget checkboxes to rowJSON', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);

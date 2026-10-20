@@ -1,5 +1,5 @@
 import React from 'react';
-import UserCalendarScreen from '../../../kit8/catalog/user/calendar/UserCalendarScreen';
+import UserCalendarScreen from '../../../kit8/ui/calendar/UserCalendarScreen';
 
 // route: /user/calendar   (?new=event|task|birthday · ?eventGUID=<uuid> · ?date=YYYY-MM-DD)
 export default function UserCalendarRoute() {

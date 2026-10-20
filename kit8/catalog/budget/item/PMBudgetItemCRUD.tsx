@@ -108,7 +108,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
           <IconApp name="database" size={18} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>
             {error ? `The budget items could not be read (${error}). ` : 'The budget item table is empty. '}
-            Run start1_sql_tables.sql, start2_sql_code.sql and start3_sql_insert_missing.sql (kit8/sql/start) in the Supabase SQL editor and sign in.
+            Run start1_sql_tables.sql, start2_sql_code.sql and start4_sql_insert_missing.sql (kit8/sql/start) in the Supabase SQL editor and sign in.
           </Text>
         </View>
       )}

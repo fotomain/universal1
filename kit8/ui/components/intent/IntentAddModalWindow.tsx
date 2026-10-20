@@ -20,8 +20,8 @@ import IconApp from '../common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { SystemMetaData } from '../../../redux/SystemMetaData';
 import { setIntentInfo, showSnackbar, updateIntentInfo, UxuiIntentInfo, UxuiIntentPostType, UxuiIntentTarget } from '../../../redux/uxuiSlice';
-import { newEventJSON } from '../../../register/user_calendar/userCalendarModel';
-import { useUserCalendarUiStore } from '../../../catalog/user/calendar/userCalendarUiStore';
+import { newEventJSON } from '../../calendar/data/userCalendarModel';
+import { useUserCalendarUiStore } from '../../calendar/userCalendarUiStore';
 import { intentLinkOf, intentMediaPostRow, intentTitleAndNotes } from './intentInfo';
 
 const TARGETS: RadioSetOption<UxuiIntentTarget>[] = [

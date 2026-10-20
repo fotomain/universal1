@@ -1,9 +1,9 @@
-// The business unit rows of the tests: parsed from the SEED of PART 18 in kit8/sql/start/start3_sql_insert_missing.sql, so the tests run on exactly the 29 units of the
+// The business unit rows of the tests: parsed from the SEED of PART 18 in kit8/sql/start/start4_sql_insert_missing.sql, so the tests run on exactly the 29 units of the
 // document "W1 businessUnit" that SQL creates (and a change of the seed is a change of the tests).
 import fs from 'fs';
 import path from 'path';
 
-const sql = fs.readFileSync(path.join(__dirname, '../../../kit8/sql/start/start3_sql_insert_missing.sql'), 'utf8');
+const sql = fs.readFileSync(path.join(__dirname, '../../../kit8/sql/start/start4_sql_insert_missing.sql'), 'utf8');
 const part = sql.slice(sql.indexOf('-- PART 18: create_business_unit_tables.sql'));
 
 export const cfrRows = (): any[] => [

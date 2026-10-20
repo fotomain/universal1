@@ -1,4 +1,4 @@
-// start3_sql_insert_missing.sql is the seed data EXTRACTED from the structure (start1_sql_tables.sql + start2_sql_code.sql): the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
+// start4_sql_insert_missing.sql is the seed data EXTRACTED from the structure (start1_sql_tables.sql + start2_sql_code.sql): the structure file has no seed rows any more, the insert file has no DDL, every PART of the insert file is
 // a PART of the structure file, and a seed is idempotent. (The SQL itself is run on a real Postgres 15 by kit8/docker/test_sql.sh: install twice = same objects and same row counts,
 // the structure alone = 0 seed rows, delete leaves nothing.)
 import * as fs from 'fs';
@@ -7,7 +7,7 @@ import * as path from 'path';
 const dir = path.join(__dirname, '../../kit8/sql/start');
 const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
 const structure = read('start1_sql_tables.sql') + '\n' + read('start2_sql_code.sql');
-const insert = read('start3_sql_insert_missing.sql');
+const insert = read('start4_sql_insert_missing.sql');
 
 /** the top-level statements of a file: split at ";" followed by a line end, outside strings, dollar quotes and comments */
 function statements(src: string): string[] {
@@ -35,10 +35,10 @@ describe('the structure file has no seed rows', () => {
     const targets = structureStatements.filter((s) => kindOf(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
     // (the backfill of userTable from auth.users is inside a DO block: a database that has the organization rule needs organization_ensure_user for it)
     // (monitor01_dirty seven times - the last one queues the tasks that have VAT after the VAT basis columns -, project_cost_dirty once (the cost totals gained the with-VAT pair); monitor01_dirty: the first fill of the Monitor01 queue and the upgrade steps that queue the tasks that have fact documents / a plan that is not in the register yet / posted vendor invoices / posted purchase orders / posted product receipts)
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('says where the seeds are', () => {
-    expect(structure).toContain('start3_sql_insert_missing.sql');
+    expect(structure).toContain('start4_sql_insert_missing.sql');
     expect(structure).toMatch(/NO seed rows/);
   });
 });

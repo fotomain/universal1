@@ -4,7 +4,7 @@
 //   The activity of a budget item is the activity of its KEY: budgetItemTable.rowJSON.budgetItemGenericKey = '<activity>.<management genus>' (see kit8/catalog/budget/item/budgetItemKeyModel.ts).
 //   webIfrsName / d365foName / sapName = how the same class is named on the web / in IFRS (IAS 7 paragraph), in Dynamics 365 Finance and Operations and in SAP (indicative texts of
 //   documentation/ACTIVITY_GENUS.html; only a few terms of them are confirmed by a vendor source).
-//   SQL: kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql PART 32 (seed rows: start3_sql_insert_missing.sql) · Screen: ManagementActivityGenusCRUD · route MANAGEMENT_ACTIVITY_GENUS_ROUTES.list
+//   SQL: kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql PART 32 (seed rows: start4_sql_insert_missing.sql) · Screen: ManagementActivityGenusCRUD · route MANAGEMENT_ACTIVITY_GENUS_ROUTES.list
 import type { DefRow, ProductTableDef } from '../../product/productModel';
 
 export const MANAGEMENT_ACTIVITY_GENUS_ROUTES = { list: '/catalog/management/activity_genus/list' } as const;

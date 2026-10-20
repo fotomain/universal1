@@ -173,6 +173,12 @@ export interface PMRowJSON {
   aggregateTimeFromSubprojectToTheOriginTask?: boolean;
   aggregateMaterialFromSubprojectToTheOriginTask?: boolean;
   aggregateExpenceFromSubprojectToTheOriginTask?: boolean;
+  /** ROI (kit8/pm/reports/roi; Project settings -> ROI): ALL OFF while never saved. roiForTasks = Monitor02 shows the project with a line per task; roiHistory = the ROI history log is written; the three tax switches choose which VAT is added to the revenue / the cost */
+  roiForTasksFunctionalityEnabled?: boolean;
+  roiHistoryFunctionalityEnabled?: boolean;
+  projectROIIncludeAllTaxes?: boolean;
+  projectROIIncludeSaleVAT?: boolean;
+  projectROIIncludePurchaseVAT?: boolean;
   /** project_task_table only: the task stands for a whole project (a task of a project with subprojectsFunctionalityEnabled) */
   taskIsSubproject?: boolean;
   /** project_task_table only: the project (project_table.rowGUID) the task stands for */

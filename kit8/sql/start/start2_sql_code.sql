@@ -1,8 +1,8 @@
 -- ===============================================================================================
 -- UNIVERSAL1 - start2_sql_code.sql: everything of the structure that is NOT a table. Run it SECOND, after start1_sql_tables.sql.
--- functions / RPC, triggers, row level security + policies, grants, views, realtime publication, pg_cron, the setup of the generic tables (kit8_setup_def_table), the data migrations / backfills of a
--- database that already exists - and NO seed rows (start3_sql_insert_missing.sql) and NO table definitions (start1_sql_tables.sql).
--- Order: 1. start1_sql_tables.sql   2. start2_sql_code.sql   3. start3_sql_insert_missing.sql.   Supabase -> SQL Editor -> paste a file -> Run. All of them are idempotent: safe to run twice.
+-- functions / RPC, triggers, row level security + policies, grants, views, realtime publication, the setup of the generic tables (kit8_setup_def_table), the data migrations / backfills of a
+-- database that already exists - and NO seed rows (start4_sql_insert_missing.sql) and NO table definitions (start1_sql_tables.sql).
+-- Order: 1. start1_sql_tables.sql   2. start2_sql_code.sql   3. start3_sql_pg_cron.sql (the pg_cron schedule of the Monitor01 worker)   4. start4_sql_insert_missing.sql.   Supabase -> SQL Editor -> paste a file -> Run. All of them are idempotent: safe to run twice.
 -- The opposite is delete_sql_structure.sql (next to this file). Parts, in this order (the same numbers as in start1_sql_tables.sql):
 --
 --    1. create_tables.sql - base tables, personTable, contractTable, the PM project / task tables, kit8_setup_def_table, pm_touch_updated_at, pm_owns_project
@@ -37,6 +37,8 @@
 --   30. create_product_receipt.sql - the PRODUCT RECEIPT document (made from a posted purchase order) + its 'received' movements in the project status register + the column Received of Monitor01; Create based on: purchase order -> product receipt -> vendor invoice
 --   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + its 'sold' movements in the project status register + the group Customer Invoice of Monitor01
 --   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
+--   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
+--   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 -- ===============================================================================================
 
 DO $$
@@ -1948,7 +1950,7 @@ NOTIFY pgrst, 'reload schema';
 --                  follow the daily rate). rowParentGUID = 'YYYY-MM-DD|Budget', rowJSON.rateType = 'Budget'.
 --   The currency is found by its ISO code, so the script works with any rowGUID of currencyTable. A code that is not in currencyTable is skipped.
 -- =====================================================================================
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 3)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 3)
 
 
 
@@ -2047,7 +2049,7 @@ END $$;
 -- =====================================================================================
 -- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
 -- =====================================================================================
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 4)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 4)
 
 
 
@@ -2203,7 +2205,7 @@ END $$;
 -- 4. Seed (ON CONFLICT DO NOTHING: a row the user changed or deleted-and-recreated is left alone)
 --    First the rows the role side adds to the SHARED tables, then the four role tables.
 -- =====================================================================================
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 5)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 5)
 
 
 
@@ -2296,7 +2298,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 6)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 6)
 
 
 
@@ -2371,7 +2373,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 7)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 7)
 
 
 -- realtime: the table in the supabase_realtime publication (auto refresh in every browser)
@@ -2500,7 +2502,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 8)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 8)
 
 
 
@@ -2555,7 +2557,7 @@ NOTIFY pgrst, 'reload schema';
 -- IDEMPOTENT + NON-DESTRUCTIVE: seeds ON CONFLICT DO NOTHING (a row you changed or deleted is left alone).
 -- Rows: measureUnitTable 5, resourceRoleFolderTable 11, resourceRoleTypeTable 4, descriptorDestinationTable 2, descriptorPlanTable 4, variantTable 3, variantValueTable 6, resourceRoleTable 27, propertyValueTable 8, rolePriceTable 57
 -- =====================================================================================
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 9)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 9)
 
 
 
@@ -2634,7 +2636,7 @@ CREATE POLICY "personTypeTable_update" ON public."personTypeTable" FOR UPDATE TO
 
 CREATE POLICY "personTypeTable_delete" ON public."personTypeTable" FOR DELETE TO authenticated USING (true);
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 10)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 10)
 
 
 
@@ -2697,7 +2699,7 @@ BEGIN
   IF to_regclass('public."contractTable"') IS NULL THEN RAISE EXCEPTION 'Run create_tables.sql first (contractTable)'; END IF;
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 11)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 11)
 
 
 
@@ -2773,7 +2775,7 @@ CREATE POLICY "templateResourceContractTable_update" ON public."templateResource
 
 CREATE POLICY "templateResourceContractTable_delete" ON public."templateResourceContractTable" FOR DELETE TO authenticated USING (true);
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 12)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 12)
 
 
 DO $$
@@ -2951,7 +2953,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 14)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 14)
 
 
 -- -------------------------------------------------------------------------------------
@@ -3031,7 +3033,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.fill_management_calendar(text, integer, text, boolean, numeric, boolean) TO authenticated;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 14)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 14)
 
 
 -- realtime: both tables in the supabase_realtime publication
@@ -3594,7 +3596,7 @@ CREATE TRIGGER trg_project_table_zzz_user_calendar
   AFTER UPDATE OF "rowJSON" ON public.project_table
   FOR EACH ROW EXECUTE FUNCTION public.user_calendar_project_sync();
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 16)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 16)
 
 
 -- ---- realtime (the calendar refreshes itself in every browser / phone of the user) --------
@@ -3777,7 +3779,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 18)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 18)
 
 
 -- does a center of this CFR take a line of this kind? null CFR (a unit with none up the tree) / null kind = yes (nothing to check)
@@ -3900,7 +3902,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 18)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 18)
 
 
 -- ---- businessUnitAssigned on the six catalogs, the line and the project: an existing unit, of the right kind -------------------------------------------------
@@ -4000,7 +4002,7 @@ BEGIN
   EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 19)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 19)
 
 
 -- realtime
@@ -4781,20 +4783,32 @@ BEGIN
     RAISE EXCEPTION 'organization_resource_busy_check: the organization is not yours' USING ERRCODE = '42501';
   END IF;
   RETURN QUERY
-  WITH mine AS (
-    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q, array_agg(DISTINCT o."lineGUID"::uuid) AS lines
+  -- The occupancy view is read ONCE (occ, MATERIALIZED) and only for the resources of this task: joined straight to the view, the planner ran the whole view once per day
+  -- of the task (261 days = 68 121 index scans, 12 s on Supabase, over its 8 s limit). `others` does not join `mine` (a nested loop of 261 x 261 scans of occ cost 3.4 s again): occ has only
+  -- the resources of the task, the join to the days is the LEFT JOIN in calc.
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT o."resourceKind" AS k, o."resourceGUID" AS g
       FROM public.resource_occupancy_x_movement o
-     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" = p_task::text AND o."statusOfLine" IN ('free', 'posted')
+     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" = p_task::text AND o."statusOfLine" IN ('free', 'posted')),
+  occ AS MATERIALIZED (
+    SELECT o."resourceKind", o."resourceGUID", o."periodDay", o."quantityResourceBusy", o."lineGUID", o."projectGUID", o."taskLineMovementGUID", o."statusOfLine"
+      FROM public.resource_occupancy_x_movement o
+     WHERE o."scopeGUID" = p_scope AND o."statusOfLine" IN ('free', 'posted')
+       AND EXISTS (SELECT 1 FROM res r WHERE r.k = o."resourceKind" AND r.g = o."resourceGUID")),
+  mine AS (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q, array_agg(DISTINCT o."lineGUID"::uuid) AS lines
+      FROM occ o
+     WHERE o."taskLineMovementGUID" = p_task::text
      GROUP BY 1, 2, 3),
   others AS (
     SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q,
            jsonb_agg(jsonb_build_object('projectGUID', o."projectGUID", 'taskGUID', o."taskLineMovementGUID", 'hours', o."quantityResourceBusy",
                                         'managerEmail', public.organization_project_manager_email(o."projectGUID"::uuid)) ORDER BY o."projectGUID", o."taskLineMovementGUID") AS who
-      FROM public.resource_occupancy_x_movement o
-      JOIN mine m ON m.k = o."resourceKind" AND m.g = o."resourceGUID" AND m.d = o."periodDay"
-     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" <> p_task::text AND o."statusOfLine" = 'posted'
+      FROM occ o
+     WHERE o."taskLineMovementGUID" <> p_task::text AND o."statusOfLine" = 'posted'
      GROUP BY 1, 2, 3),
-  calc AS (
+  -- MATERIALIZED: without it the planner copies the capacity call into every place `cap` is used (7 times per day)
+  calc AS MATERIALIZED (
     SELECT m.k, m.g, m.d, public.organization_resource_capacity(m.k, m.g, m.d) AS cap, m.q AS here, COALESCE(x.q, 0) AS oth, COALESCE(x.who, '[]'::jsonb) AS who, m.lines
       FROM mine m LEFT JOIN others x ON x.k = m.k AND x.g = m.g AND x.d = m.d)
   SELECT c.k, c.g, c.d, c.cap, c.here, c.oth,
@@ -5636,7 +5650,7 @@ BEGIN
                COALESCE(m."vatForBudget", 0)::numeric(18,2), COALESCE(m."vatInCostForBudget", 0)::numeric(18,2))::text AS t
       FROM public.task_line_plan_movements m
       JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
-     WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
+     WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus')
   ), f_src AS (
     SELECT task, md5(string_agg(t, '|' ORDER BY line, moment)) AS fp FROM src GROUP BY task
   ), f_reg AS (
@@ -5665,7 +5679,7 @@ BEGIN
     FROM public.task_line_plan_movements m
     JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
     JOIN public.project_table p ON p."rowGUID" = m."rowProjectGUID"
-   WHERE m."rowOwnerGUID" = ANY (v_changed) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+   WHERE m."rowOwnerGUID" = ANY (v_changed) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus');
   GET DIAGNOSTICS v = ROW_COUNT;
   RETURN v;
 END;
@@ -5682,16 +5696,18 @@ BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
          "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting",
-         "vatForContract", "vatForBudget", "vatInCostForBudget", "vatForAccounting", "vatInCostForAccounting")
+         "vatForContract", "vatForBudget", "vatInCostForBudget", "vatForAccounting", "vatInCostForAccounting", "rowJSON")
   SELECT 'used', f."rowPeriodDatetime", f."periodDay", f."rowHeaderGUID", 'taskFactHeader', f."taskLineGUID", f."rowProjectGUID", f."rowOwnerGUID", p."rowOwnerGUID",
          f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(f."rowJSON"->>'businessUnitTaskLine', ''),
          COALESCE(f."qtyForContract", 0), COALESCE(f."sumForBudget", 0), COALESCE(f."sumForContract", 0), COALESCE(f."sumForAccounting", 0),
-         COALESCE(f."vatForContract", 0), COALESCE(f."vatForBudget", 0), COALESCE(f."vatInCostForBudget", 0), COALESCE(f."vatForAccounting", 0), COALESCE(f."vatInCostForAccounting", 0)
+         COALESCE(f."vatForContract", 0), COALESCE(f."vatForBudget", 0), COALESCE(f."vatInCostForBudget", 0), COALESCE(f."vatForAccounting", 0), COALESCE(f."vatInCostForAccounting", 0),
+         -- ownCost (PART 33): a cost line with NO vendor can only be a fact input: its cost is never invoiced and counts for ROI4
+         jsonb_build_object('ownCost', f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND NOT public.pm_line_has_vendor(f."genusGUID", f."rowJSON"))
     FROM public.task_fact_usage_timeline f
     JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
     JOIN public.project_table p ON p."rowGUID" = f."rowProjectGUID"
    WHERE f."rowHeaderGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
-     AND f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus');
+     AND f."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus');
   GET DIAGNOSTICS v = ROW_COUNT;
   RETURN v;
 END;
@@ -5797,7 +5813,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
            bool_or(COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false) = false) AS stale
       FROM public.project_status_movements s
       JOIN public.task_line_table l ON l."rowGUID" = s."rowProjectTaskLineGUID"
-     WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (p_tasks)
+     WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (p_tasks) AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
      GROUP BY 1, 2, 3, 4, 5
   )
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
@@ -5877,6 +5893,13 @@ BEGIN
     PERFORM public.subproject_queue_origins(p_tasks);
   EXCEPTION WHEN OTHERS THEN
     RAISE WARNING 'subproject_queue_origins failed: %', SQLERRM;
+  END;
+
+  -- step 5 (PART 33): the ROI money of these tasks (task x month); the project months follow by the triggers of that table. A failure here must never stop Monitor01: it is a warning, roi_rebuild heals it.
+  BEGIN
+    PERFORM public.roi_apply(p_tasks);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'roi_apply failed: %', SQLERRM;
   END;
 
   p_upserted := v_u + v_fu;
@@ -6408,20 +6431,7 @@ SELECT DISTINCT s."rowOwnerGUID", 'install' FROM public.project_status_movements
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 
--- ---- pg_cron: the tick (every monitor01_refresh_interval_seconds() seconds) and the housekeeping (daily). Without the cron schema (Docker test, a database without the extension) the install goes on. ----
-DO $$
-BEGIN
-  IF to_regnamespace('cron') IS NULL THEN
-    RAISE NOTICE 'schema cron does not exist (enable the pg_cron extension in the Supabase dashboard) - the Monitor01 worker is NOT scheduled; call CALL public.monitor01_process_dirty() by hand';
-    RETURN;
-  END IF;
-  BEGIN
-    PERFORM cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds', 'CALL public.monitor01_process_dirty()');
-    PERFORM cron.schedule('monitor01_housekeeping', '17 3 * * *', 'SELECT public.monitor01_housekeeping()');
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'pg_cron refused the schedule (%): the "N seconds" form needs pg_cron 1.5 or newer. Run by hand or schedule it in the dashboard: CALL public.monitor01_process_dirty()', SQLERRM;
-  END;
-END $$;
+-- ---- pg_cron: the tick and the housekeeping of the Monitor01 worker are scheduled by start3_sql_pg_cron.sql (run it after this file; the install of this file does not need pg_cron). ----
 
 
 NOTIFY pgrst, 'reload schema';
@@ -8917,7 +8927,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
       FROM ids i
       JOIN public.project_status_movements s ON s."rowOwnerGUID" = i.src AND (i.genus IS NULL OR s."genusGUID" = i.genus)
       JOIN public.task_line_table l ON l."rowGUID" = s."rowProjectTaskLineGUID"
-     WHERE s."rowMovementKind" = 'plan'
+     WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
      GROUP BY 1, 2, 3, 4, 5
   )
   SELECT t.task, t.genus, t.role, t.unit, t.month,
@@ -10236,7 +10246,7 @@ SELECT public.kit8_setup_def_table('managementActivityGenusTable');
 
 SELECT public.kit8_setup_def_table('budgetItemGenericKeyTable');
 
--- security: signed-in users only READ the two catalogs (the activities and the keys are constants of the app; the seed rows come from start3_sql_insert_missing.sql)
+-- security: signed-in users only READ the two catalogs (the activities and the keys are constants of the app; the seed rows come from start4_sql_insert_missing.sql)
 DO $$
 DECLARE
   t text;
@@ -10362,7 +10372,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 32)
+-- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 32)
 -- Check:
 --   SELECT * FROM public.kit8_budget_item_key_matrix();                                                         -- 14 rows
 --   SELECT "rowGUID", "rowJSON"->>'budgetItemGenericKey', "rowJSON"->>'direction' FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' ORDER BY "orderInList";
@@ -10415,6 +10425,460 @@ ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 INSERT INTO public.project_cost_dirty ("rowProjectGUID")
 SELECT DISTINCT c."rowProjectGUID" FROM public.project_task_cost_total c WHERE c."costTotalForBudget" <> 0 AND c."costTotalForBudgetWithVAT" = 0
 ON CONFLICT ("rowProjectGUID") DO NOTHING;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 33: create_roi.sql
+-- ROI (documentation/ROI_DOC.html): the additive money of the four ROI kinds per task x month and per project x month; the register learns the Revenue lines (plan, fact input) and the cost that has no
+-- vendor; the worker fills the tables (step 5 of monitor01_apply); views and functions compute the ratios. Only money is stored.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_status_roi_task_month') IS NULL OR to_regclass('public.project_status_month_totals') IS NULL OR to_regclass('public.project_status_roi_history') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 33 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+-- ---- the rules, ONE definition (the app has the same in kit8/pm/reports/roi/roiModel.ts; a Jest test and tests/92_roi.sql use the same numbers) -------------------------------------------------------
+-- ratio: no cost = no value (NULL), never 0 and never infinity
+CREATE OR REPLACE FUNCTION public.roi_ratio(p_revenue numeric, p_cost numeric) RETURNS numeric
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT CASE WHEN COALESCE(p_cost, 0) = 0 THEN NULL ELSE (COALESCE(p_revenue, 0) - p_cost) / p_cost END
+$$;
+
+-- cost side: net + (all the VAT when the purchase VAT is included, else only the VAT that is cost = the IFRS / GAAP cost)
+CREATE OR REPLACE FUNCTION public.roi_cost(p_net numeric, p_vat numeric, p_vat_in_cost numeric, p_include_vat boolean) RETURNS numeric
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT COALESCE(p_net, 0) + CASE WHEN p_include_vat THEN COALESCE(p_vat, 0) ELSE COALESCE(p_vat_in_cost, 0) END
+$$;
+
+-- revenue side: net + (the VAT when the sale VAT is included; the VAT of a revenue is never cost)
+CREATE OR REPLACE FUNCTION public.roi_revenue(p_net numeric, p_vat numeric, p_include_vat boolean) RETURNS numeric
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT COALESCE(p_net, 0) + CASE WHEN p_include_vat THEN COALESCE(p_vat, 0) ELSE 0 END
+$$;
+
+-- the tax switches of a project: side 'sale' | 'purchase'. A missing key is OFF (vendor_project_setting_on); the master projectROIIncludeAllTaxes turns both ON.
+CREATE OR REPLACE FUNCTION public.roi_include_vat(p_project uuid, p_side text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.vendor_project_setting_on(p_project, 'projectROIIncludeAllTaxes')
+      OR public.vendor_project_setting_on(p_project, CASE p_side WHEN 'sale' THEN 'projectROIIncludeSaleVAT' ELSE 'projectROIIncludePurchaseVAT' END)
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_include_vat(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.roi_include_vat(uuid, text) TO authenticated;
+
+
+-- ---- cost that is never invoiced: does a line have a vendor? (the rule of vendor_invoice_candidates, read from the JSON a fact line copies from its task line: the partner of the line's contract, else the
+-- partner of the line, else the main vendor of the equipment / product). A line WITHOUT a vendor (own staff, own equipment, own material, a line typed by hand) can only be a fact input: its cost is "not invoiced"
+-- and counts for ROI4. A cost line WITH a vendor counts when the vendor invoice is posted.
+CREATE OR REPLACE FUNCTION public.pm_line_has_vendor(p_genus text, p_json jsonb) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((
+    SELECT (CASE WHEN k."rowGUID" IS NOT NULL THEN k."rowOwnerGUID"
+                 ELSE COALESCE(NULLIF(p_json->>'taskLinePartnerItem', ''),
+                               NULLIF(CASE WHEN p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'equipment' THEN e."rowJSON"->>'mainVendorGUID'
+                                           WHEN p_genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorGUID' END, ''))
+            END) IS NOT NULL
+      FROM (SELECT 1) one
+      LEFT JOIN public."contractTable" k ON k."rowGUID" = NULLIF(CASE WHEN p_genus = 'timeGenus' THEN p_json->>'taskResourceContract' ELSE p_json->>'taskLinePartnerContract' END, '') AND k."rowParentGUID" = 'partner'
+      LEFT JOIN public."equipmentTable" e ON p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'equipment' AND e."rowGUID" = NULLIF(p_json->>'taskResourceItem', '')
+      LEFT JOIN public."productTable" pr ON p_genus = 'materialGenus' AND pr."rowGUID" = NULLIF(p_json->>'taskResourceItem', '')), false)
+$$;
+
+REVOKE ALL ON FUNCTION public.pm_line_has_vendor(text, jsonb) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- the register learns the Revenue lines: their PLAN (registered by project_status_register_plan) and their FACT INPUT ('used', by project_status_register_fact, see PART 25).
+-- Both are read ONLY by the ROI numbers: project_status_fresh_turnover keeps a revenue movement only when its kind is 'sold', so Monitor01 does not change.
+
+-- ---- the task rows: the ONE definition of the ROI money of some tasks, summed from the register ----------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.roi_task_month_fresh(p_tasks uuid[])
+RETURNS TABLE ("rowOwnerGUID" uuid, "rowTurnoverMonth" date, "rowProjectGUID" uuid, "costPlanNet" numeric, "costPlanVat" numeric, "costPlanVatInCost" numeric, "revenuePlanNet" numeric, "revenuePlanVat" numeric, "revenueUsedNet" numeric, "revenueUsedVat" numeric, "costOwnNet" numeric, "costOwnVat" numeric, "costOwnVatInCost" numeric, "costInvoicedNet" numeric, "costInvoicedVat" numeric, "costInvoicedVatInCost" numeric, "revenueInvoicedNet" numeric, "revenueInvoicedVat" numeric)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT x.* FROM (
+    SELECT s."rowOwnerGUID", s."rowTurnoverMonth", s."rowProjectGUID",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costPlanNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costPlanVat",
+       COALESCE(SUM(s."vatInCostForBudget") FILTER (WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costPlanVatInCost",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" = 'revenueGenus'), 0)::numeric(18,2) AS "revenuePlanNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'plan' AND s."genusGUID" = 'revenueGenus'), 0)::numeric(18,2) AS "revenuePlanVat",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'used' AND s."genusGUID" = 'revenueGenus'), 0)::numeric(18,2) AS "revenueUsedNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'used' AND s."genusGUID" = 'revenueGenus'), 0)::numeric(18,2) AS "revenueUsedVat",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'used' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND COALESCE(s."rowJSON"->>'ownCost', 'false') = 'true'), 0)::numeric(18,2) AS "costOwnNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'used' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND COALESCE(s."rowJSON"->>'ownCost', 'false') = 'true'), 0)::numeric(18,2) AS "costOwnVat",
+       COALESCE(SUM(s."vatInCostForBudget") FILTER (WHERE s."rowMovementKind" = 'used' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND COALESCE(s."rowJSON"->>'ownCost', 'false') = 'true'), 0)::numeric(18,2) AS "costOwnVatInCost",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'invoiced' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costInvoicedNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'invoiced' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costInvoicedVat",
+       COALESCE(SUM(s."vatInCostForBudget") FILTER (WHERE s."rowMovementKind" = 'invoiced' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')), 0)::numeric(18,2) AS "costInvoicedVatInCost",
+       COALESCE(SUM(s."sumForBudget") FILTER (WHERE s."rowMovementKind" = 'sold'), 0)::numeric(18,2) AS "revenueInvoicedNet",
+       COALESCE(SUM(s."vatForBudget") FILTER (WHERE s."rowMovementKind" = 'sold'), 0)::numeric(18,2) AS "revenueInvoicedVat"
+      FROM public.project_status_movements s
+     WHERE s."rowOwnerGUID" = ANY (p_tasks)
+     GROUP BY s."rowOwnerGUID", s."rowTurnoverMonth", s."rowProjectGUID") x
+  WHERE x."costPlanNet" <> 0 OR x."costPlanVat" <> 0 OR x."costPlanVatInCost" <> 0 OR x."revenuePlanNet" <> 0 OR x."revenuePlanVat" <> 0 OR x."revenueUsedNet" <> 0 OR x."revenueUsedVat" <> 0 OR x."costOwnNet" <> 0 OR x."costOwnVat" <> 0 OR x."costOwnVatInCost" <> 0 OR x."costInvoicedNet" <> 0 OR x."costInvoicedVat" <> 0 OR x."costInvoicedVatInCost" <> 0 OR x."revenueInvoicedNet" <> 0 OR x."revenueInvoicedVat" <> 0
+$$;
+
+
+-- ---- the worker step: only the rows whose numbers changed are written ------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.roi_apply(p_tasks uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_u integer; v_d integer;
+BEGIN
+  WITH fresh AS MATERIALIZED (SELECT * FROM public.roi_task_month_fresh(p_tasks)),
+       up AS (
+         INSERT INTO public.project_status_roi_task_month AS t ("rowOwnerGUID", "rowTurnoverMonth", "rowProjectGUID", "costPlanNet", "costPlanVat", "costPlanVatInCost", "revenuePlanNet", "revenuePlanVat", "revenueUsedNet", "revenueUsedVat", "costOwnNet", "costOwnVat", "costOwnVatInCost", "costInvoicedNet", "costInvoicedVat", "costInvoicedVatInCost", "revenueInvoicedNet", "revenueInvoicedVat")
+         SELECT f."rowOwnerGUID", f."rowTurnoverMonth", f."rowProjectGUID", f."costPlanNet", f."costPlanVat", f."costPlanVatInCost", f."revenuePlanNet", f."revenuePlanVat", f."revenueUsedNet", f."revenueUsedVat", f."costOwnNet", f."costOwnVat", f."costOwnVatInCost", f."costInvoicedNet", f."costInvoicedVat", f."costInvoicedVatInCost", f."revenueInvoicedNet", f."revenueInvoicedVat" FROM fresh f
+         ON CONFLICT ("rowOwnerGUID", "rowTurnoverMonth") DO UPDATE
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "costPlanNet" = EXCLUDED."costPlanNet", "costPlanVat" = EXCLUDED."costPlanVat", "costPlanVatInCost" = EXCLUDED."costPlanVatInCost", "revenuePlanNet" = EXCLUDED."revenuePlanNet", "revenuePlanVat" = EXCLUDED."revenuePlanVat", "revenueUsedNet" = EXCLUDED."revenueUsedNet", "revenueUsedVat" = EXCLUDED."revenueUsedVat", "costOwnNet" = EXCLUDED."costOwnNet", "costOwnVat" = EXCLUDED."costOwnVat", "costOwnVatInCost" = EXCLUDED."costOwnVatInCost", "costInvoicedNet" = EXCLUDED."costInvoicedNet", "costInvoicedVat" = EXCLUDED."costInvoicedVat", "costInvoicedVatInCost" = EXCLUDED."costInvoicedVatInCost", "revenueInvoicedNet" = EXCLUDED."revenueInvoicedNet", "revenueInvoicedVat" = EXCLUDED."revenueInvoicedVat", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."costPlanNet", t."costPlanVat", t."costPlanVatInCost", t."revenuePlanNet", t."revenuePlanVat", t."revenueUsedNet", t."revenueUsedVat", t."costOwnNet", t."costOwnVat", t."costOwnVatInCost", t."costInvoicedNet", t."costInvoicedVat", t."costInvoicedVatInCost", t."revenueInvoicedNet", t."revenueInvoicedVat") IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."costPlanNet", EXCLUDED."costPlanVat", EXCLUDED."costPlanVatInCost", EXCLUDED."revenuePlanNet", EXCLUDED."revenuePlanVat", EXCLUDED."revenueUsedNet", EXCLUDED."revenueUsedVat", EXCLUDED."costOwnNet", EXCLUDED."costOwnVat", EXCLUDED."costOwnVatInCost", EXCLUDED."costInvoicedNet", EXCLUDED."costInvoicedVat", EXCLUDED."costInvoicedVatInCost", EXCLUDED."revenueInvoicedNet", EXCLUDED."revenueInvoicedVat")
+         RETURNING 1),
+       del AS (
+         DELETE FROM public.project_status_roi_task_month t
+          WHERE t."rowOwnerGUID" = ANY (p_tasks)
+            AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f."rowOwnerGUID" = t."rowOwnerGUID" AND f."rowTurnoverMonth" = t."rowTurnoverMonth")
+         RETURNING 1)
+  SELECT (SELECT count(*) FROM up), (SELECT count(*) FROM del) INTO v_u, v_d;
+  RETURN v_u + v_d;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_apply(uuid[]) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- the project months: re-summed from the task rows for the (project, month) pairs given -------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.roi_month_totals_refresh(p_projects uuid[], p_months date[]) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  IF p_projects IS NULL OR cardinality(p_projects) = 0 THEN
+    RETURN;
+  END IF;
+  WITH keys AS (SELECT DISTINCT k.p, k.m FROM unnest(p_projects, p_months) AS k(p, m)),
+       sums AS (
+         SELECT r."rowProjectGUID" AS project, r."rowTurnoverMonth" AS month, SUM(r."costPlanNet")::numeric(18,2) AS c1, SUM(r."costPlanVat")::numeric(18,2) AS c2, SUM(r."costPlanVatInCost")::numeric(18,2) AS c3, SUM(r."revenuePlanNet")::numeric(18,2) AS c4, SUM(r."revenuePlanVat")::numeric(18,2) AS c5, SUM(r."revenueUsedNet")::numeric(18,2) AS c6, SUM(r."revenueUsedVat")::numeric(18,2) AS c7, SUM(r."costOwnNet")::numeric(18,2) AS c8, SUM(r."costOwnVat")::numeric(18,2) AS c9, SUM(r."costOwnVatInCost")::numeric(18,2) AS c10, SUM(r."costInvoicedNet")::numeric(18,2) AS c11, SUM(r."costInvoicedVat")::numeric(18,2) AS c12, SUM(r."costInvoicedVatInCost")::numeric(18,2) AS c13, SUM(r."revenueInvoicedNet")::numeric(18,2) AS c14, SUM(r."revenueInvoicedVat")::numeric(18,2) AS c15, count(*)::integer AS tasks
+           FROM public.project_status_roi_task_month r JOIN keys k ON k.p = r."rowProjectGUID" AND k.m = r."rowTurnoverMonth"
+          GROUP BY 1, 2),
+       up AS (
+         INSERT INTO public.project_status_month_totals AS t ("rowProjectGUID", "rowTurnoverMonth", "costPlanNet", "costPlanVat", "costPlanVatInCost", "revenuePlanNet", "revenuePlanVat", "revenueUsedNet", "revenueUsedVat", "costOwnNet", "costOwnVat", "costOwnVatInCost", "costInvoicedNet", "costInvoicedVat", "costInvoicedVatInCost", "revenueInvoicedNet", "revenueInvoicedVat", "taskCount")
+         SELECT s.project, s.month, s.c1, s.c2, s.c3, s.c4, s.c5, s.c6, s.c7, s.c8, s.c9, s.c10, s.c11, s.c12, s.c13, s.c14, s.c15, s.tasks FROM sums s
+         ON CONFLICT ("rowProjectGUID", "rowTurnoverMonth") DO UPDATE
+           SET "costPlanNet" = EXCLUDED."costPlanNet", "costPlanVat" = EXCLUDED."costPlanVat", "costPlanVatInCost" = EXCLUDED."costPlanVatInCost", "revenuePlanNet" = EXCLUDED."revenuePlanNet", "revenuePlanVat" = EXCLUDED."revenuePlanVat", "revenueUsedNet" = EXCLUDED."revenueUsedNet", "revenueUsedVat" = EXCLUDED."revenueUsedVat", "costOwnNet" = EXCLUDED."costOwnNet", "costOwnVat" = EXCLUDED."costOwnVat", "costOwnVatInCost" = EXCLUDED."costOwnVatInCost", "costInvoicedNet" = EXCLUDED."costInvoicedNet", "costInvoicedVat" = EXCLUDED."costInvoicedVat", "costInvoicedVatInCost" = EXCLUDED."costInvoicedVatInCost", "revenueInvoicedNet" = EXCLUDED."revenueInvoicedNet", "revenueInvoicedVat" = EXCLUDED."revenueInvoicedVat", "taskCount" = EXCLUDED."taskCount", "updated_at" = NOW()
+         WHERE (t."costPlanNet", t."costPlanVat", t."costPlanVatInCost", t."revenuePlanNet", t."revenuePlanVat", t."revenueUsedNet", t."revenueUsedVat", t."costOwnNet", t."costOwnVat", t."costOwnVatInCost", t."costInvoicedNet", t."costInvoicedVat", t."costInvoicedVatInCost", t."revenueInvoicedNet", t."revenueInvoicedVat", t."taskCount") IS DISTINCT FROM (EXCLUDED."costPlanNet", EXCLUDED."costPlanVat", EXCLUDED."costPlanVatInCost", EXCLUDED."revenuePlanNet", EXCLUDED."revenuePlanVat", EXCLUDED."revenueUsedNet", EXCLUDED."revenueUsedVat", EXCLUDED."costOwnNet", EXCLUDED."costOwnVat", EXCLUDED."costOwnVatInCost", EXCLUDED."costInvoicedNet", EXCLUDED."costInvoicedVat", EXCLUDED."costInvoicedVatInCost", EXCLUDED."revenueInvoicedNet", EXCLUDED."revenueInvoicedVat", EXCLUDED."taskCount")
+         RETURNING 1),
+       del AS (
+         DELETE FROM public.project_status_month_totals t USING keys k
+          WHERE t."rowProjectGUID" = k.p AND t."rowTurnoverMonth" = k.m
+            AND NOT EXISTS (SELECT 1 FROM sums s WHERE s.project = k.p AND s.month = k.m)
+         RETURNING 1)
+  SELECT (SELECT count(*) FROM up) + (SELECT count(*) FROM del) INTO v_n;
+  PERFORM public.roi_history_apply(ARRAY(SELECT DISTINCT p FROM unnest(p_projects) AS p));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_month_totals_refresh(uuid[], date[]) FROM PUBLIC, anon, authenticated;
+
+
+-- statement triggers on the task rows (with transition tables): the project months of every row written or deleted - also by the cascade of a deleted task - are re-summed
+CREATE OR REPLACE FUNCTION public.roi_trg_task_month_new() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_p uuid[]; v_m date[];
+BEGIN
+  SELECT array_agg(k.p), array_agg(k.m) INTO v_p, v_m FROM (SELECT DISTINCT n."rowProjectGUID" AS p, n."rowTurnoverMonth" AS m FROM new_rows n) k;
+  PERFORM public.roi_month_totals_refresh(v_p, v_m);
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.roi_trg_task_month_old() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_p uuid[]; v_m date[];
+BEGIN
+  SELECT array_agg(k.p), array_agg(k.m) INTO v_p, v_m FROM (SELECT DISTINCT o."rowProjectGUID" AS p, o."rowTurnoverMonth" AS m FROM old_rows o) k;
+  PERFORM public.roi_month_totals_refresh(v_p, v_m);
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.roi_trg_task_month_upd() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_p uuid[]; v_m date[];
+BEGIN
+  SELECT array_agg(k.p), array_agg(k.m) INTO v_p, v_m FROM (
+    SELECT n."rowProjectGUID" AS p, n."rowTurnoverMonth" AS m FROM new_rows n UNION SELECT o."rowProjectGUID", o."rowTurnoverMonth" FROM old_rows o) k;
+  PERFORM public.roi_month_totals_refresh(v_p, v_m);
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_roi_task_month_ins ON public.project_status_roi_task_month;
+
+CREATE TRIGGER trg_roi_task_month_ins AFTER INSERT ON public.project_status_roi_task_month REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.roi_trg_task_month_new();
+
+DROP TRIGGER IF EXISTS trg_roi_task_month_upd ON public.project_status_roi_task_month;
+
+CREATE TRIGGER trg_roi_task_month_upd AFTER UPDATE ON public.project_status_roi_task_month REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.roi_trg_task_month_upd();
+
+DROP TRIGGER IF EXISTS trg_roi_task_month_del ON public.project_status_roi_task_month;
+
+CREATE TRIGGER trg_roi_task_month_del AFTER DELETE ON public.project_status_roi_task_month REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.roi_trg_task_month_old();
+
+
+-- ---- security: the owner of the project reads; nobody writes but the SECURITY DEFINER functions above -------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_t text;
+BEGIN
+  FOREACH v_t IN ARRAY ARRAY['project_status_roi_task_month', 'project_status_month_totals', 'project_status_roi_history'] LOOP
+    EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL', v_t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', v_t);
+    EXECUTE format('GRANT SELECT ON public.%I TO authenticated', v_t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', v_t || '_select', v_t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"))', v_t || '_select', v_t);
+  END LOOP;
+END $$;
+
+DO $$
+DECLARE
+  v_all boolean; v_t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH v_t IN ARRAY ARRAY['project_status_month_totals', 'project_status_roi_history'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = v_t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', v_t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ---- views (security_invoker: the policies of the tables apply to the user who reads) ----------------------------------------------------------------------------------------------------
+-- project_status_totals: ONE line per project = the sum of its months + the five values and the four ROI ratios under the project's own tax switches
+CREATE OR REPLACE VIEW public.project_status_totals WITH (security_invoker = true) AS
+SELECT v."rowProjectGUID", v."firstMonth", v."lastMonth", v."costPlanNet", v."costPlanVat", v."costPlanVatInCost", v."revenuePlanNet", v."revenuePlanVat", v."revenueUsedNet", v."revenueUsedVat", v."costOwnNet", v."costOwnVat", v."costOwnVatInCost", v."costInvoicedNet", v."costInvoicedVat", v."costInvoicedVatInCost", v."revenueInvoicedNet", v."revenueInvoicedVat",
+       v."planCost", v."factCost", v."planRevenue", v."usedRevenue", v."billedRevenue", public.roi_ratio(v."planRevenue", v."planCost") AS "roi1", public.roi_ratio(v."usedRevenue", v."planCost") AS "roi2", public.roi_ratio(v."billedRevenue", v."planCost") AS "roi3", public.roi_ratio(v."billedRevenue", v."factCost") AS "roi4"
+  FROM (
+    SELECT s.*, public.roi_cost(s."costPlanNet", s."costPlanVat", s."costPlanVatInCost", s."pur") AS "planCost", public.roi_cost(s."costInvoicedNet", s."costInvoicedVat", s."costInvoicedVatInCost", s."pur") + public.roi_cost(s."costOwnNet", s."costOwnVat", s."costOwnVatInCost", s."pur") AS "factCost", public.roi_revenue(s."revenuePlanNet", s."revenuePlanVat", s."sale") AS "planRevenue", public.roi_revenue(s."revenueUsedNet", s."revenueUsedVat", s."sale") AS "usedRevenue", public.roi_revenue(s."revenueInvoicedNet", s."revenueInvoicedVat", s."sale") AS "billedRevenue"
+      FROM (
+        SELECT m."rowProjectGUID", min(m."rowTurnoverMonth") AS "firstMonth", max(m."rowTurnoverMonth") AS "lastMonth", COALESCE(SUM(m."costPlanNet"), 0)::numeric(18,2) AS "costPlanNet", COALESCE(SUM(m."costPlanVat"), 0)::numeric(18,2) AS "costPlanVat", COALESCE(SUM(m."costPlanVatInCost"), 0)::numeric(18,2) AS "costPlanVatInCost", COALESCE(SUM(m."revenuePlanNet"), 0)::numeric(18,2) AS "revenuePlanNet", COALESCE(SUM(m."revenuePlanVat"), 0)::numeric(18,2) AS "revenuePlanVat", COALESCE(SUM(m."revenueUsedNet"), 0)::numeric(18,2) AS "revenueUsedNet", COALESCE(SUM(m."revenueUsedVat"), 0)::numeric(18,2) AS "revenueUsedVat", COALESCE(SUM(m."costOwnNet"), 0)::numeric(18,2) AS "costOwnNet", COALESCE(SUM(m."costOwnVat"), 0)::numeric(18,2) AS "costOwnVat", COALESCE(SUM(m."costOwnVatInCost"), 0)::numeric(18,2) AS "costOwnVatInCost", COALESCE(SUM(m."costInvoicedNet"), 0)::numeric(18,2) AS "costInvoicedNet", COALESCE(SUM(m."costInvoicedVat"), 0)::numeric(18,2) AS "costInvoicedVat", COALESCE(SUM(m."costInvoicedVatInCost"), 0)::numeric(18,2) AS "costInvoicedVatInCost", COALESCE(SUM(m."revenueInvoicedNet"), 0)::numeric(18,2) AS "revenueInvoicedNet", COALESCE(SUM(m."revenueInvoicedVat"), 0)::numeric(18,2) AS "revenueInvoicedVat",
+               public.roi_include_vat(m."rowProjectGUID", 'sale') AS "sale", public.roi_include_vat(m."rowProjectGUID", 'purchase') AS "pur"
+          FROM public.project_status_month_totals m GROUP BY m."rowProjectGUID") s) v;
+
+-- project_status_month_roi: the CUMULATIVE curve in business time (running sum over the months of a project), no storage
+CREATE OR REPLACE VIEW public.project_status_month_roi WITH (security_invoker = true) AS
+SELECT v."rowProjectGUID", v."rowTurnoverMonth", v."costPlanNet", v."costPlanVat", v."costPlanVatInCost", v."revenuePlanNet", v."revenuePlanVat", v."revenueUsedNet", v."revenueUsedVat", v."costOwnNet", v."costOwnVat", v."costOwnVatInCost", v."costInvoicedNet", v."costInvoicedVat", v."costInvoicedVatInCost", v."revenueInvoicedNet", v."revenueInvoicedVat",
+       v."planCost", v."factCost", v."planRevenue", v."usedRevenue", v."billedRevenue", public.roi_ratio(v."planRevenue", v."planCost") AS "roi1", public.roi_ratio(v."usedRevenue", v."planCost") AS "roi2", public.roi_ratio(v."billedRevenue", v."planCost") AS "roi3", public.roi_ratio(v."billedRevenue", v."factCost") AS "roi4"
+  FROM (
+    SELECT c.*, public.roi_cost(c."costPlanNet", c."costPlanVat", c."costPlanVatInCost", c."pur") AS "planCost", public.roi_cost(c."costInvoicedNet", c."costInvoicedVat", c."costInvoicedVatInCost", c."pur") + public.roi_cost(c."costOwnNet", c."costOwnVat", c."costOwnVatInCost", c."pur") AS "factCost", public.roi_revenue(c."revenuePlanNet", c."revenuePlanVat", c."sale") AS "planRevenue", public.roi_revenue(c."revenueUsedNet", c."revenueUsedVat", c."sale") AS "usedRevenue", public.roi_revenue(c."revenueInvoicedNet", c."revenueInvoicedVat", c."sale") AS "billedRevenue"
+      FROM (
+        SELECT m."rowProjectGUID", m."rowTurnoverMonth", SUM(m."costPlanNet") OVER w AS "costPlanNet", SUM(m."costPlanVat") OVER w AS "costPlanVat", SUM(m."costPlanVatInCost") OVER w AS "costPlanVatInCost", SUM(m."revenuePlanNet") OVER w AS "revenuePlanNet", SUM(m."revenuePlanVat") OVER w AS "revenuePlanVat", SUM(m."revenueUsedNet") OVER w AS "revenueUsedNet", SUM(m."revenueUsedVat") OVER w AS "revenueUsedVat", SUM(m."costOwnNet") OVER w AS "costOwnNet", SUM(m."costOwnVat") OVER w AS "costOwnVat", SUM(m."costOwnVatInCost") OVER w AS "costOwnVatInCost", SUM(m."costInvoicedNet") OVER w AS "costInvoicedNet", SUM(m."costInvoicedVat") OVER w AS "costInvoicedVat", SUM(m."costInvoicedVatInCost") OVER w AS "costInvoicedVatInCost", SUM(m."revenueInvoicedNet") OVER w AS "revenueInvoicedNet", SUM(m."revenueInvoicedVat") OVER w AS "revenueInvoicedVat",
+               public.roi_include_vat(m."rowProjectGUID", 'sale') AS "sale", public.roi_include_vat(m."rowProjectGUID", 'purchase') AS "pur"
+          FROM public.project_status_month_totals m
+        WINDOW w AS (PARTITION BY m."rowProjectGUID" ORDER BY m."rowTurnoverMonth")) c) v;
+
+-- project_status_roi_history_v: the log with the ratios of the project's CURRENT tax switches (a change of a switch redraws the whole log; nothing stored goes stale)
+CREATE OR REPLACE VIEW public.project_status_roi_history_v WITH (security_invoker = true) AS
+SELECT v."rowProjectGUID", v."rowSnapshotDay", v."reason", v."costPlanNet", v."costPlanVat", v."costPlanVatInCost", v."revenuePlanNet", v."revenuePlanVat", v."revenueUsedNet", v."revenueUsedVat", v."costOwnNet", v."costOwnVat", v."costOwnVatInCost", v."costInvoicedNet", v."costInvoicedVat", v."costInvoicedVatInCost", v."revenueInvoicedNet", v."revenueInvoicedVat",
+       v."planCost", v."factCost", v."planRevenue", v."usedRevenue", v."billedRevenue", public.roi_ratio(v."planRevenue", v."planCost") AS "roi1", public.roi_ratio(v."usedRevenue", v."planCost") AS "roi2", public.roi_ratio(v."billedRevenue", v."planCost") AS "roi3", public.roi_ratio(v."billedRevenue", v."factCost") AS "roi4"
+  FROM (
+    SELECT h.*, public.roi_cost(h."costPlanNet", h."costPlanVat", h."costPlanVatInCost", public.roi_include_vat(h."rowProjectGUID", 'purchase')) AS "planCost", public.roi_cost(h."costInvoicedNet", h."costInvoicedVat", h."costInvoicedVatInCost", public.roi_include_vat(h."rowProjectGUID", 'purchase')) + public.roi_cost(h."costOwnNet", h."costOwnVat", h."costOwnVatInCost", public.roi_include_vat(h."rowProjectGUID", 'purchase')) AS "factCost", public.roi_revenue(h."revenuePlanNet", h."revenuePlanVat", public.roi_include_vat(h."rowProjectGUID", 'sale')) AS "planRevenue", public.roi_revenue(h."revenueUsedNet", h."revenueUsedVat", public.roi_include_vat(h."rowProjectGUID", 'sale')) AS "usedRevenue", public.roi_revenue(h."revenueInvoicedNet", h."revenueInvoicedVat", public.roi_include_vat(h."rowProjectGUID", 'sale')) AS "billedRevenue"
+      FROM public.project_status_roi_history h) v;
+
+GRANT SELECT ON public.project_status_totals, public.project_status_month_roi, public.project_status_roi_history_v TO authenticated;
+
+
+-- ---- functions the screens call ----------------------------------------------------------------------------------------------------------------------------------------------------
+-- the ROI of ONE project for a period (months p_from .. p_to; NULL = no limit): always one row; the mirror of roiOfMoney() of the app
+CREATE OR REPLACE FUNCTION public.roi_project(p_project uuid, p_from date DEFAULT NULL, p_to date DEFAULT NULL)
+RETURNS TABLE ("planCost" numeric, "factCost" numeric, "planRevenue" numeric, "usedRevenue" numeric, "billedRevenue" numeric, "roi1" numeric, "roi2" numeric, "roi3" numeric, "roi4" numeric)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT v."planCost", v."factCost", v."planRevenue", v."usedRevenue", v."billedRevenue", public.roi_ratio(v."planRevenue", v."planCost") AS "roi1", public.roi_ratio(v."usedRevenue", v."planCost") AS "roi2", public.roi_ratio(v."billedRevenue", v."planCost") AS "roi3", public.roi_ratio(v."billedRevenue", v."factCost") AS "roi4"
+    FROM (
+      SELECT public.roi_cost(s."costPlanNet", s."costPlanVat", s."costPlanVatInCost", public.roi_include_vat(p_project, 'purchase')) AS "planCost", public.roi_cost(s."costInvoicedNet", s."costInvoicedVat", s."costInvoicedVatInCost", public.roi_include_vat(p_project, 'purchase')) + public.roi_cost(s."costOwnNet", s."costOwnVat", s."costOwnVatInCost", public.roi_include_vat(p_project, 'purchase')) AS "factCost", public.roi_revenue(s."revenuePlanNet", s."revenuePlanVat", public.roi_include_vat(p_project, 'sale')) AS "planRevenue", public.roi_revenue(s."revenueUsedNet", s."revenueUsedVat", public.roi_include_vat(p_project, 'sale')) AS "usedRevenue", public.roi_revenue(s."revenueInvoicedNet", s."revenueInvoicedVat", public.roi_include_vat(p_project, 'sale')) AS "billedRevenue"
+        FROM (SELECT COALESCE(SUM(m."costPlanNet"), 0)::numeric(18,2) AS "costPlanNet", COALESCE(SUM(m."costPlanVat"), 0)::numeric(18,2) AS "costPlanVat", COALESCE(SUM(m."costPlanVatInCost"), 0)::numeric(18,2) AS "costPlanVatInCost", COALESCE(SUM(m."revenuePlanNet"), 0)::numeric(18,2) AS "revenuePlanNet", COALESCE(SUM(m."revenuePlanVat"), 0)::numeric(18,2) AS "revenuePlanVat", COALESCE(SUM(m."revenueUsedNet"), 0)::numeric(18,2) AS "revenueUsedNet", COALESCE(SUM(m."revenueUsedVat"), 0)::numeric(18,2) AS "revenueUsedVat", COALESCE(SUM(m."costOwnNet"), 0)::numeric(18,2) AS "costOwnNet", COALESCE(SUM(m."costOwnVat"), 0)::numeric(18,2) AS "costOwnVat", COALESCE(SUM(m."costOwnVatInCost"), 0)::numeric(18,2) AS "costOwnVatInCost", COALESCE(SUM(m."costInvoicedNet"), 0)::numeric(18,2) AS "costInvoicedNet", COALESCE(SUM(m."costInvoicedVat"), 0)::numeric(18,2) AS "costInvoicedVat", COALESCE(SUM(m."costInvoicedVatInCost"), 0)::numeric(18,2) AS "costInvoicedVatInCost", COALESCE(SUM(m."revenueInvoicedNet"), 0)::numeric(18,2) AS "revenueInvoicedNet", COALESCE(SUM(m."revenueInvoicedVat"), 0)::numeric(18,2) AS "revenueInvoicedVat"
+                FROM public.project_status_month_totals m
+               WHERE m."rowProjectGUID" = p_project
+                 AND (p_from IS NULL OR m."rowTurnoverMonth" >= date_trunc('month', p_from)::date) AND (p_to IS NULL OR m."rowTurnoverMonth" <= date_trunc('month', p_to)::date)) s) v
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_project(uuid, date, date) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.roi_project(uuid, date, date) TO authenticated;
+
+-- the task lines of Monitor02: ONE row per task of a project for a period, ONLY while the project switch roiForTasksFunctionalityEnabled is ON (OFF = no rows: the per-task calculation does not run).
+-- The money comes as components; the app computes the ratios with roiOfMoney(), the ratio columns are the SQL mirror (the tests compare them).
+CREATE OR REPLACE FUNCTION public.roi_task_lines(p_project uuid, p_from date DEFAULT NULL, p_to date DEFAULT NULL)
+RETURNS TABLE ("rowOwnerGUID" uuid, "taskName" text, "costPlanNet" numeric, "costPlanVat" numeric, "costPlanVatInCost" numeric, "revenuePlanNet" numeric, "revenuePlanVat" numeric, "revenueUsedNet" numeric, "revenueUsedVat" numeric, "costOwnNet" numeric, "costOwnVat" numeric, "costOwnVatInCost" numeric, "costInvoicedNet" numeric, "costInvoicedVat" numeric, "costInvoicedVatInCost" numeric, "revenueInvoicedNet" numeric, "revenueInvoicedVat" numeric, "planCost" numeric, "factCost" numeric, "planRevenue" numeric, "usedRevenue" numeric, "billedRevenue" numeric, "roi1" numeric, "roi2" numeric, "roi3" numeric, "roi4" numeric)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT v."rowOwnerGUID", COALESCE(tk."rowJSON"->>'taskDescription', ''), v."costPlanNet", v."costPlanVat", v."costPlanVatInCost", v."revenuePlanNet", v."revenuePlanVat", v."revenueUsedNet", v."revenueUsedVat", v."costOwnNet", v."costOwnVat", v."costOwnVatInCost", v."costInvoicedNet", v."costInvoicedVat", v."costInvoicedVatInCost", v."revenueInvoicedNet", v."revenueInvoicedVat", v."planCost", v."factCost", v."planRevenue", v."usedRevenue", v."billedRevenue", public.roi_ratio(v."planRevenue", v."planCost") AS "roi1", public.roi_ratio(v."usedRevenue", v."planCost") AS "roi2", public.roi_ratio(v."billedRevenue", v."planCost") AS "roi3", public.roi_ratio(v."billedRevenue", v."factCost") AS "roi4"
+    FROM (
+      SELECT s.*, public.roi_cost(s."costPlanNet", s."costPlanVat", s."costPlanVatInCost", s."pur") AS "planCost", public.roi_cost(s."costInvoicedNet", s."costInvoicedVat", s."costInvoicedVatInCost", s."pur") + public.roi_cost(s."costOwnNet", s."costOwnVat", s."costOwnVatInCost", s."pur") AS "factCost", public.roi_revenue(s."revenuePlanNet", s."revenuePlanVat", s."sale") AS "planRevenue", public.roi_revenue(s."revenueUsedNet", s."revenueUsedVat", s."sale") AS "usedRevenue", public.roi_revenue(s."revenueInvoicedNet", s."revenueInvoicedVat", s."sale") AS "billedRevenue"
+        FROM (
+          SELECT m."rowOwnerGUID", COALESCE(SUM(m."costPlanNet"), 0)::numeric(18,2) AS "costPlanNet", COALESCE(SUM(m."costPlanVat"), 0)::numeric(18,2) AS "costPlanVat", COALESCE(SUM(m."costPlanVatInCost"), 0)::numeric(18,2) AS "costPlanVatInCost", COALESCE(SUM(m."revenuePlanNet"), 0)::numeric(18,2) AS "revenuePlanNet", COALESCE(SUM(m."revenuePlanVat"), 0)::numeric(18,2) AS "revenuePlanVat", COALESCE(SUM(m."revenueUsedNet"), 0)::numeric(18,2) AS "revenueUsedNet", COALESCE(SUM(m."revenueUsedVat"), 0)::numeric(18,2) AS "revenueUsedVat", COALESCE(SUM(m."costOwnNet"), 0)::numeric(18,2) AS "costOwnNet", COALESCE(SUM(m."costOwnVat"), 0)::numeric(18,2) AS "costOwnVat", COALESCE(SUM(m."costOwnVatInCost"), 0)::numeric(18,2) AS "costOwnVatInCost", COALESCE(SUM(m."costInvoicedNet"), 0)::numeric(18,2) AS "costInvoicedNet", COALESCE(SUM(m."costInvoicedVat"), 0)::numeric(18,2) AS "costInvoicedVat", COALESCE(SUM(m."costInvoicedVatInCost"), 0)::numeric(18,2) AS "costInvoicedVatInCost", COALESCE(SUM(m."revenueInvoicedNet"), 0)::numeric(18,2) AS "revenueInvoicedNet", COALESCE(SUM(m."revenueInvoicedVat"), 0)::numeric(18,2) AS "revenueInvoicedVat", public.roi_include_vat(p_project, 'sale') AS "sale", public.roi_include_vat(p_project, 'purchase') AS "pur"
+            FROM public.project_status_roi_task_month m
+           WHERE m."rowProjectGUID" = p_project AND public.vendor_project_setting_on(p_project, 'roiForTasksFunctionalityEnabled')
+             AND (p_from IS NULL OR m."rowTurnoverMonth" >= date_trunc('month', p_from)::date) AND (p_to IS NULL OR m."rowTurnoverMonth" <= date_trunc('month', p_to)::date)
+           GROUP BY m."rowOwnerGUID") s) v
+    JOIN public.project_task_table tk ON tk."rowGUID" = v."rowOwnerGUID"
+   ORDER BY COALESCE(tk."rowJSON"->>'taskDescription', ''), v."rowOwnerGUID"
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_task_lines(uuid, date, date) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.roi_task_lines(uuid, date, date) TO authenticated;
+
+-- the projects Monitor02 shows: mine, with roiForTasksFunctionalityEnabled ON
+CREATE OR REPLACE FUNCTION public.roi_report_projects() RETURNS SETOF uuid
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT p."rowGUID" FROM public.project_table p WHERE public.pm_owns_project(p."rowGUID") AND public.vendor_project_setting_on(p."rowGUID", 'roiForTasksFunctionalityEnabled')
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_report_projects() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.roi_report_projects() TO authenticated;
+
+
+-- ---- rebuild + verify (like project_cost_rebuild / project_cost_verify) ------------------------------------------------------------------------------------------------------------------
+-- rebuild from the register: the task rows of every task of the project, then (by the triggers) the project months
+CREATE OR REPLACE FUNCTION public.roi_rebuild(p_project uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_tasks uuid[]; v_n integer;
+BEGIN
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  SELECT array_agg(t."rowGUID") INTO v_tasks FROM public.project_task_table t WHERE t."projectGUID" = p_project;
+  v_n := public.roi_apply(COALESCE(v_tasks, ARRAY[]::uuid[]));
+  DELETE FROM public.project_status_month_totals t WHERE t."rowProjectGUID" = p_project
+     AND NOT EXISTS (SELECT 1 FROM public.project_status_roi_task_month r WHERE r."rowProjectGUID" = p_project AND r."rowTurnoverMonth" = t."rowTurnoverMonth");
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_rebuild(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.roi_rebuild(uuid) TO authenticated;
+
+-- the number of rows where the stored tables differ from a full re-sum of the register (0 = all right); p_project NULL = every project. A maintenance function (like monitor01_verify): the SQL editor / the tests call it.
+CREATE OR REPLACE FUNCTION public.roi_verify(p_project uuid DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_bad integer;
+BEGIN
+  WITH tasks AS (SELECT t."rowGUID" AS task, t."projectGUID" AS project FROM public.project_task_table t WHERE p_project IS NULL OR t."projectGUID" = p_project),
+       fresh AS (SELECT f.* FROM public.roi_task_month_fresh((SELECT array_agg(task) FROM tasks)) f),
+       stored AS (SELECT r.* FROM public.project_status_roi_task_month r WHERE r."rowOwnerGUID" IN (SELECT task FROM tasks)),
+       task_bad AS (
+         SELECT 1 FROM fresh f FULL JOIN stored s ON s."rowOwnerGUID" = f."rowOwnerGUID" AND s."rowTurnoverMonth" = f."rowTurnoverMonth"
+          WHERE ROW(f."costPlanNet", f."costPlanVat", f."costPlanVatInCost", f."revenuePlanNet", f."revenuePlanVat", f."revenueUsedNet", f."revenueUsedVat", f."costOwnNet", f."costOwnVat", f."costOwnVatInCost", f."costInvoicedNet", f."costInvoicedVat", f."costInvoicedVatInCost", f."revenueInvoicedNet", f."revenueInvoicedVat") IS DISTINCT FROM ROW(s."costPlanNet", s."costPlanVat", s."costPlanVatInCost", s."revenuePlanNet", s."revenuePlanVat", s."revenueUsedNet", s."revenueUsedVat", s."costOwnNet", s."costOwnVat", s."costOwnVatInCost", s."costInvoicedNet", s."costInvoicedVat", s."costInvoicedVatInCost", s."revenueInvoicedNet", s."revenueInvoicedVat")),
+       month_sum AS (SELECT s."rowProjectGUID" AS project, s."rowTurnoverMonth" AS month, SUM(s."costPlanNet") AS c1, SUM(s."costPlanVat") AS c2, SUM(s."costPlanVatInCost") AS c3, SUM(s."revenuePlanNet") AS c4, SUM(s."revenuePlanVat") AS c5, SUM(s."revenueUsedNet") AS c6, SUM(s."revenueUsedVat") AS c7, SUM(s."costOwnNet") AS c8, SUM(s."costOwnVat") AS c9, SUM(s."costOwnVatInCost") AS c10, SUM(s."costInvoicedNet") AS c11, SUM(s."costInvoicedVat") AS c12, SUM(s."costInvoicedVatInCost") AS c13, SUM(s."revenueInvoicedNet") AS c14, SUM(s."revenueInvoicedVat") AS c15 FROM stored s GROUP BY 1, 2),
+       month_bad AS (
+         SELECT 1 FROM month_sum a FULL JOIN (SELECT m.* FROM public.project_status_month_totals m WHERE m."rowProjectGUID" IN (SELECT project FROM tasks)) m
+                 ON m."rowProjectGUID" = a.project AND m."rowTurnoverMonth" = a.month
+          WHERE ROW(a.c1, a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8, a.c9, a.c10, a.c11, a.c12, a.c13, a.c14, a.c15) IS DISTINCT FROM ROW(m."costPlanNet", m."costPlanVat", m."costPlanVatInCost", m."revenuePlanNet", m."revenuePlanVat", m."revenueUsedNet", m."revenueUsedVat", m."costOwnNet", m."costOwnVat", m."costOwnVatInCost", m."costInvoicedNet", m."costInvoicedVat", m."costInvoicedVatInCost", m."revenueInvoicedNet", m."revenueInvoicedVat"))
+  SELECT (SELECT count(*) FROM task_bad) + (SELECT count(*) FROM month_bad) INTO v_bad;
+  RETURN v_bad;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_verify(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ===============================================================================================
+-- PART 34: create_roi_history.sql
+-- the ROI HISTORY: roi_history_apply writes the log (called by roi_month_totals_refresh and by the switch trigger); the log is read through project_status_roi_history_v (PART 33).
+-- ===============================================================================================
+
+-- write the snapshot of the given projects that have roiHistoryFunctionalityEnabled ON: only when the project's totals differ from its newest row (the first row is always written);
+-- at most one row per day (the day's last state wins; the reasons of the day are joined). p_reason is used for the first row of a project ('history on' when the switch was just turned on).
+CREATE OR REPLACE FUNCTION public.roi_history_apply(p_projects uuid[], p_reason text DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  WITH on_ AS (
+         SELECT DISTINCT p AS project FROM unnest(p_projects) AS p WHERE p IS NOT NULL AND public.vendor_project_setting_on(p, 'roiHistoryFunctionalityEnabled')),
+       cur AS (
+         SELECT o.project AS "rowProjectGUID", COALESCE(SUM(m."costPlanNet"), 0)::numeric(18,2) AS "costPlanNet", COALESCE(SUM(m."costPlanVat"), 0)::numeric(18,2) AS "costPlanVat", COALESCE(SUM(m."costPlanVatInCost"), 0)::numeric(18,2) AS "costPlanVatInCost", COALESCE(SUM(m."revenuePlanNet"), 0)::numeric(18,2) AS "revenuePlanNet", COALESCE(SUM(m."revenuePlanVat"), 0)::numeric(18,2) AS "revenuePlanVat", COALESCE(SUM(m."revenueUsedNet"), 0)::numeric(18,2) AS "revenueUsedNet", COALESCE(SUM(m."revenueUsedVat"), 0)::numeric(18,2) AS "revenueUsedVat", COALESCE(SUM(m."costOwnNet"), 0)::numeric(18,2) AS "costOwnNet", COALESCE(SUM(m."costOwnVat"), 0)::numeric(18,2) AS "costOwnVat", COALESCE(SUM(m."costOwnVatInCost"), 0)::numeric(18,2) AS "costOwnVatInCost", COALESCE(SUM(m."costInvoicedNet"), 0)::numeric(18,2) AS "costInvoicedNet", COALESCE(SUM(m."costInvoicedVat"), 0)::numeric(18,2) AS "costInvoicedVat", COALESCE(SUM(m."costInvoicedVatInCost"), 0)::numeric(18,2) AS "costInvoicedVatInCost", COALESCE(SUM(m."revenueInvoicedNet"), 0)::numeric(18,2) AS "revenueInvoicedNet", COALESCE(SUM(m."revenueInvoicedVat"), 0)::numeric(18,2) AS "revenueInvoicedVat"
+           FROM on_ o LEFT JOIN public.project_status_month_totals m ON m."rowProjectGUID" = o.project GROUP BY o.project),
+       lst AS (
+         SELECT DISTINCT ON (h."rowProjectGUID") h.* FROM public.project_status_roi_history h WHERE h."rowProjectGUID" IN (SELECT project FROM on_)
+          ORDER BY h."rowProjectGUID", h."rowSnapshotDay" DESC),
+       chg AS (
+         SELECT c.*, CASE WHEN l."rowProjectGUID" IS NULL THEN COALESCE(NULLIF(p_reason, ''), 'history on')
+                          ELSE concat_ws(', ',
+          CASE WHEN c."costPlanNet" IS DISTINCT FROM l."costPlanNet" OR c."costPlanVat" IS DISTINCT FROM l."costPlanVat" OR c."costPlanVatInCost" IS DISTINCT FROM l."costPlanVatInCost" OR c."revenuePlanNet" IS DISTINCT FROM l."revenuePlanNet" OR c."revenuePlanVat" IS DISTINCT FROM l."revenuePlanVat" THEN 'plan' END,
+          CASE WHEN c."revenueUsedNet" IS DISTINCT FROM l."revenueUsedNet" OR c."revenueUsedVat" IS DISTINCT FROM l."revenueUsedVat" OR c."costOwnNet" IS DISTINCT FROM l."costOwnNet" OR c."costOwnVat" IS DISTINCT FROM l."costOwnVat" OR c."costOwnVatInCost" IS DISTINCT FROM l."costOwnVatInCost" THEN 'fact input' END,
+          CASE WHEN c."costInvoicedNet" IS DISTINCT FROM l."costInvoicedNet" OR c."costInvoicedVat" IS DISTINCT FROM l."costInvoicedVat" OR c."costInvoicedVatInCost" IS DISTINCT FROM l."costInvoicedVatInCost" THEN 'vendor invoice' END,
+          CASE WHEN c."revenueInvoicedNet" IS DISTINCT FROM l."revenueInvoicedNet" OR c."revenueInvoicedVat" IS DISTINCT FROM l."revenueInvoicedVat" THEN 'customer invoice' END) END AS reason
+           FROM cur c LEFT JOIN lst l ON l."rowProjectGUID" = c."rowProjectGUID"
+          WHERE l."rowProjectGUID" IS NULL OR c."costPlanNet" IS DISTINCT FROM l."costPlanNet" OR c."costPlanVat" IS DISTINCT FROM l."costPlanVat" OR c."costPlanVatInCost" IS DISTINCT FROM l."costPlanVatInCost" OR c."revenuePlanNet" IS DISTINCT FROM l."revenuePlanNet" OR c."revenuePlanVat" IS DISTINCT FROM l."revenuePlanVat" OR c."revenueUsedNet" IS DISTINCT FROM l."revenueUsedNet" OR c."revenueUsedVat" IS DISTINCT FROM l."revenueUsedVat" OR c."costOwnNet" IS DISTINCT FROM l."costOwnNet" OR c."costOwnVat" IS DISTINCT FROM l."costOwnVat" OR c."costOwnVatInCost" IS DISTINCT FROM l."costOwnVatInCost" OR c."costInvoicedNet" IS DISTINCT FROM l."costInvoicedNet" OR c."costInvoicedVat" IS DISTINCT FROM l."costInvoicedVat" OR c."costInvoicedVatInCost" IS DISTINCT FROM l."costInvoicedVatInCost" OR c."revenueInvoicedNet" IS DISTINCT FROM l."revenueInvoicedNet" OR c."revenueInvoicedVat" IS DISTINCT FROM l."revenueInvoicedVat"),
+       up AS (
+         INSERT INTO public.project_status_roi_history AS h ("rowProjectGUID", "rowSnapshotDay", "costPlanNet", "costPlanVat", "costPlanVatInCost", "revenuePlanNet", "revenuePlanVat", "revenueUsedNet", "revenueUsedVat", "costOwnNet", "costOwnVat", "costOwnVatInCost", "costInvoicedNet", "costInvoicedVat", "costInvoicedVatInCost", "revenueInvoicedNet", "revenueInvoicedVat", "reason")
+         SELECT c."rowProjectGUID", CURRENT_DATE, c."costPlanNet", c."costPlanVat", c."costPlanVatInCost", c."revenuePlanNet", c."revenuePlanVat", c."revenueUsedNet", c."revenueUsedVat", c."costOwnNet", c."costOwnVat", c."costOwnVatInCost", c."costInvoicedNet", c."costInvoicedVat", c."costInvoicedVatInCost", c."revenueInvoicedNet", c."revenueInvoicedVat", c.reason FROM chg c
+         ON CONFLICT ("rowProjectGUID", "rowSnapshotDay") DO UPDATE
+           SET "costPlanNet" = EXCLUDED."costPlanNet", "costPlanVat" = EXCLUDED."costPlanVat", "costPlanVatInCost" = EXCLUDED."costPlanVatInCost", "revenuePlanNet" = EXCLUDED."revenuePlanNet", "revenuePlanVat" = EXCLUDED."revenuePlanVat", "revenueUsedNet" = EXCLUDED."revenueUsedNet", "revenueUsedVat" = EXCLUDED."revenueUsedVat", "costOwnNet" = EXCLUDED."costOwnNet", "costOwnVat" = EXCLUDED."costOwnVat", "costOwnVatInCost" = EXCLUDED."costOwnVatInCost", "costInvoicedNet" = EXCLUDED."costInvoicedNet", "costInvoicedVat" = EXCLUDED."costInvoicedVat", "costInvoicedVatInCost" = EXCLUDED."costInvoicedVatInCost", "revenueInvoicedNet" = EXCLUDED."revenueInvoicedNet", "revenueInvoicedVat" = EXCLUDED."revenueInvoicedVat",
+               "reason" = (SELECT string_agg(DISTINCT r, ', ' ORDER BY r) FROM unnest(string_to_array(concat_ws(', ', NULLIF(h."reason", ''), NULLIF(EXCLUDED."reason", '')), ', ')) AS r WHERE r <> ''),
+               "updated_at" = NOW()
+         RETURNING 1)
+  SELECT count(*) INTO v_n FROM up;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.roi_history_apply(uuid[], text) FROM PUBLIC, anon, authenticated;
+
+-- turning the switch ON writes the first row at once (the starting point; history exists only from that day)
+CREATE OR REPLACE FUNCTION public.roi_trg_history_switch() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.roi_history_apply(ARRAY[NEW."rowGUID"], 'history on');
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_roi_history_switch ON public.project_table;
+
+CREATE TRIGGER trg_roi_history_switch AFTER UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN (NEW."rowJSON"->>'roiHistoryFunctionalityEnabled' = 'true' AND OLD."rowJSON"->>'roiHistoryFunctionalityEnabled' IS DISTINCT FROM 'true')
+  EXECUTE FUNCTION public.roi_trg_history_switch();
+
+
+-- ---- the data that exists already: the register learns the Revenue lines and the "own cost" flag; the worker fills the ROI tables -----------------------------------------------------------------
+-- 1. posted fact documents whose 'used' movements have no ownCost flag yet, or whose Revenue lines are not in the register: register them again
+--    (the movements of a document are rewritten in one statement; the worker then fills the ROI rows)
+DO $$
+DECLARE
+  v_h uuid;
+BEGIN
+  FOR v_h IN
+    SELECT DISTINCT s."rowRegistratorGUID" FROM public.project_status_movements s
+     WHERE s."rowMovementKind" = 'used' AND s."rowRegistratorType" = 'taskFactHeader' AND s."genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND NOT (s."rowJSON" ? 'ownCost')
+    UNION
+    SELECT DISTINCT f."rowHeaderGUID" FROM public.task_fact_usage_timeline f JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
+     WHERE f."genusGUID" = 'revenueGenus' AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+       AND NOT EXISTS (SELECT 1 FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = f."rowHeaderGUID" AND s."genusGUID" = 'revenueGenus')
+  LOOP
+    PERFORM public.project_status_register_fact(v_h);
+  END LOOP;
+END $$;
+
+-- 2. the worker writes the plan of the Revenue lines (step 0) and the ROI rows (step 5): queue every task that has a plan or a movement and no ROI row yet
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT x."rowOwnerGUID", 'install' FROM (
+  SELECT m."rowOwnerGUID" FROM public.task_line_plan_movements m WHERE m."planMovementStatus"
+  UNION SELECT s."rowOwnerGUID" FROM public.project_status_movements s) x
+WHERE NOT EXISTS (SELECT 1 FROM public.project_status_roi_task_month r WHERE r."rowOwnerGUID" = x."rowOwnerGUID")
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';
 

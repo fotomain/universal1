@@ -1,5 +1,5 @@
 // Budget item key (activity x management genus) + direction: the model helpers, the equality of the TS matrix with the SQL function, and the SQL files of PART 32
-// (tables, trigger, CHECK, read-only grants, the seed rows of start3 / start5, the drop in delete_sql_structure.sql). The SQL itself runs in kit8/docker/tests/91_activity_genus.sql.
+// (tables, trigger, CHECK, read-only grants, the seed rows of start4 / start5, the drop in delete_sql_structure.sql). The SQL itself runs in kit8/docker/tests/91_activity_genus.sql.
 import {
   BUDGET_ITEM_DIRECTIONS, BUDGET_ITEM_KEY_MATRIX, BUDGET_ITEM_KEY_TABLE, budgetItemActivitiesOfGenus, budgetItemActivityOf, budgetItemActivityOptions, budgetItemDefaultKey,
   budgetItemDirectionError, budgetItemKeyDirection, budgetItemKeyError, budgetItemKeyOf, budgetItemKeyParts, budgetItemKeyPatch, budgetItemsWithoutKey,
@@ -10,7 +10,7 @@ import { MANAGEMENT_ACTIVITY_GENUS_CODES } from '../../../kit8/catalog/managemen
 import { MANAGEMENT_GENUS } from '../../../kit8/catalog/management/genus/managementGenusModel';
 import { codeSql, readSql, sqlPart, tablesSql } from '../../sql/sqlFilesTestKit';
 
-const start3 = readSql('start3_sql_insert_missing.sql');
+const start4 = readSql('start4_sql_insert_missing.sql');
 const start5 = readSql('start5_sql_upsert_all.sql');
 const del = readSql('delete_sql_structure.sql');
 
@@ -128,7 +128,7 @@ describe('the model and the metadata', () => {
 describe('the SQL of PART 32', () => {
   const t1 = sqlPart(tablesSql, 32);
   const t2 = sqlPart(codeSql, 32);
-  const t3 = sqlPart(start3, 32);
+  const t3 = sqlPart(start4, 32);
 
   it('start1: the two tables (the def-table shape) and the index of the key; no function, trigger or policy', () => {
     for (const t of ['managementActivityGenusTable', 'budgetItemGenericKeyTable']) {
@@ -165,7 +165,7 @@ describe('the SQL of PART 32', () => {
     expect(tablesSql).not.toContain('budgetItemTable_key_chk');
   });
 
-  it('start3: the seed rows: 3 activities, 14 keys, 36 possible budget items - every field of the tree', () => {
+  it('start4: the seed rows: 3 activities, 14 keys, 36 possible budget items - every field of the tree', () => {
     const rowsOf = (table: string) => Array.from(t3.matchAll(new RegExp(`INSERT INTO public\\."${table}"[\\s\\S]*?ON CONFLICT`, 'g'))).map((m) => m[0]);
     const tuples = (block: string) => Array.from(block.matchAll(/^  \('([^']+)', '([^']+)', '([^']+)', (\d+), '(\{.*\})'::jsonb\)/gm)).map((m) => ({ guid: m[1], owner: m[2], parent: m[3], json: JSON.parse(m[5].replace(/''/g, "'")) }));
     const activities = tuples(rowsOf('managementActivityGenusTable')[0]);
@@ -202,7 +202,7 @@ describe('the SQL of PART 32', () => {
     expect([per('operatingActivity'), per('investingActivity'), per('financingActivity')]).toEqual([18, 11, 7]);
   });
 
-  it('start5 has the same rows as start3 (upserts), start3 only inserts what is missing', () => {
+  it('start5 has the same rows as start4 (upserts), start4 only inserts what is missing', () => {
     const codes = (src: string) => Array.from(src.matchAll(/^  \('([^']+)', '(?:budgetItemCatalog|budgetItemGenericKeyCatalog|managementActivityGenusCatalog)'/gm)).map((m) => m[1]).sort();
     const s5 = start5.slice(start5.indexOf('Activity genus, budget item keys'));
     expect(codes(s5)).toEqual(codes(t3));
@@ -214,8 +214,8 @@ describe('the SQL of PART 32', () => {
   });
 
   it('the seed of the six default items (PART 8) comes first and needs no key: the trigger gives them the operating one', () => {
-    expect(start3.indexOf('-- PART 8: create_budget_item_table.sql')).toBeLessThan(start3.indexOf('-- PART 32: create_activity_genus.sql'));
-    expect(sqlPart(start3, 8)).not.toContain('budgetItemGenericKey');
+    expect(start4.indexOf('-- PART 8: create_budget_item_table.sql')).toBeLessThan(start4.indexOf('-- PART 32: create_activity_genus.sql'));
+    expect(sqlPart(start4, 8)).not.toContain('budgetItemGenericKey');
   });
 
   it('delete_sql_structure.sql drops the two catalogs and the three functions', () => {

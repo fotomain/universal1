@@ -71,6 +71,7 @@ import PMProjectVendorTab, { vendorValuesOf, type PMProjectVendorValues } from "
 import PMProjectCustomerTab, { customerValuesOf, type PMProjectCustomerValues } from "../settings/PMProjectCustomerTab";
 import PMProjectProductTab, { productValuesOf, type PMProjectProductValues } from "../settings/PMProjectProductTab";
 import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } from "../settings/PMProjectSubprojectsTab";
+import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
 import CreateProjectFromTemplate from "../CreateProjectFromTemplate";
@@ -85,9 +86,9 @@ import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabUXUI' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -279,6 +280,7 @@ export default function PMRecentProjectsToolbar({
       ...customerValuesOf(null),
       ...productValuesOf(null),
       ...subprojectValuesOf(null),
+      ...roiValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
       // the default settings of the organization (Organization edit -> Projects -> Settings; nothing while it never saved them)
@@ -325,6 +327,7 @@ export default function PMRecentProjectsToolbar({
       ...customerValuesOf(project.rowJSON),
       ...productValuesOf(project.rowJSON),
       ...subprojectValuesOf(project.rowJSON),
+      ...roiValuesOf(project.rowJSON),
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -440,6 +443,7 @@ export default function PMRecentProjectsToolbar({
             ...customerValuesOf(draft),
             ...productValuesOf(draft),
             ...subprojectValuesOf(draft),
+            ...roiValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
@@ -469,7 +473,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -757,7 +761,7 @@ export default function PMRecentProjectsToolbar({
                 </Pressable>
               </View>
 
-              {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabBudgets, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabROI, TabUXUI, TabPartners, TabKanban */}
               <ScrollableTabBar testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
@@ -766,6 +770,7 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabCustomer' as const, label: 'Customer', icon: 'request_quote' },
                   { id: 'TabProduct' as const, label: 'Product', icon: 'inventory_2' },
                   { id: 'TabSubprojects' as const, label: 'Subprojects', icon: 'account_tree' },
+                  { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
@@ -913,6 +918,10 @@ export default function PMRecentProjectsToolbar({
 
                 {activeTab === 'TabSubprojects' && (
                   <PMProjectSubprojectsTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
+
+                {activeTab === 'TabROI' && (
+                  <PMProjectRoiTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabUXUI' && (

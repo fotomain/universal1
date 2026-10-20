@@ -2,7 +2,7 @@
 //   * Organization edit -> Projects -> Settings edits them (OrganizationProjectSettings.tsx).
 //   * Project settings window (three dots menu) -> "Save settings to organization" writes the values of the window there (useMyOrganization).
 //   * A NEW project starts from them (PMRecentProjectsToolbar.openNew): newProjectPatchFrom(). An organization that never saved them changes nothing.
-// What is a "setting": the plan units + the date format + working days (Main), the Budgets tab, the Vendor tab, the Product tab and the Subprojects tab of the
+// What is a "setting": the plan units + the date format + working days (Main), the Budgets tab, the Vendor tab, the Customer tab, the Product tab, the Subprojects tab and the ROI tab of the
 // project settings. NOT: name, dates, project manager, partners, kanban, the row command modes (those are of the project / the user).
 import type { PMPlanDateInputFormat } from '../../pm/model/types';
 import { PM_PLAN_DATE_INPUT_FORMATS } from '../../pm/model/types';
@@ -11,6 +11,7 @@ import { vendorValuesOf, type PMProjectVendorValues } from '../../pm/view/projec
 import { customerValuesOf, type PMProjectCustomerValues } from '../../pm/view/project/settings/PMProjectCustomerTab';
 import { productValuesOf, type PMProjectProductValues } from '../../pm/view/project/settings/PMProjectProductTab';
 import { subprojectValuesOf, type PMSubprojectValues } from '../../pm/subproject/subprojectModel';
+import { roiValuesOf, type PMProjectRoiValues } from '../../pm/reports/roi/roiSettings';
 import { PROJECT_CENTER_FIELDS } from '../business_unit/businessUnitModel';
 
 export const DEFAULT_PROJECT_SETTINGS_KEY = 'defaultProjectSettings';
@@ -24,7 +25,7 @@ export interface PMProjectMainValues {
   planDateInputFormat?: PMPlanDateInputFormat;
 }
 
-export interface DefaultProjectSettings extends PMProjectMainValues, PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues {}
+export interface DefaultProjectSettings extends PMProjectMainValues, PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues {}
 
 export const mainValuesOf = (j: PMProjectMainValues | undefined | null): Required<PMProjectMainValues> => ({
   skipWeekends: !!j?.skipWeekends,
@@ -47,6 +48,7 @@ export const defaultProjectSettingsOf = (source: DefaultProjectSettings | undefi
   ...customerValuesOf(source),
   ...productValuesOf(source),
   ...subprojectValuesOf(source),
+  ...roiValuesOf(source),
 });
 
 /** The defaults stored in an organization's rowJSON, or null when the organization never saved them. */

@@ -59,7 +59,7 @@ export default function BusinessUnitCRUD({ noCrud = false }: BusinessUnitCRUDPro
       allLabel="All business units"
       noCrud={noCrud}
       deleteHint="A unit with sub-units, or one used by a project, a line or a contract, is not deleted: deactivate it instead."
-      setupHint="Run kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql and then start3_sql_insert_missing.sql (PART 18) in the Supabase SQL editor and sign in."
+      setupHint="Run kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql and then start4_sql_insert_missing.sql (PART 18) in the Supabase SQL editor and sign in."
     />
   );
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The pg_cron part of the Monitor01 worker, for real (the Docker image has pg_cron: Dockerfile, docker-compose.yml; the extension lives in the database sqlcron).
-#   1. the install in sqlcron creates the extension and the jobs monitor01_tick (every 2 seconds) and monitor01_housekeeping (daily)  2. a second install changes nothing (still 2 jobs)
+#   1. the install in sqlcron (start1 + start2 + start3_sql_pg_cron.sql + start4) creates the extension and the jobs monitor01_tick (every 2 seconds) and monitor01_housekeeping (daily)  2. a second install changes nothing (still 2 jobs)
 #   3. a queued task is drained BY THE SCHEDULER (nobody calls monitor01_process_dirty), within a few seconds; cron.job_run_details shows the runs 'succeeded'
 #   4. delete_sql_structure.sql unschedules the jobs  5. the install again schedules them
 # Needs: docker compose up -d (the image with pg_cron: docker compose build). Usage: ./test_cron.sh
@@ -13,7 +13,7 @@ fail=0
 ok() { echo "   ok: $1"; }
 bad() { echo "   FAILED: $1"; fail=1; }
 jobs() { psqlc -At -c "select jobname||' '||schedule||' '||active from cron.job where jobname like 'monitor01%' order by jobname"; }
-install() { for f in start1_sql_tables start2_sql_code start3_sql_insert_missing; do psqlc -f /sql/$f.sql >/dev/null; done; }
+install() { for f in start1_sql_tables start2_sql_code start3_sql_pg_cron start4_sql_insert_missing; do psqlc -f /sql/$f.sql >/dev/null; done; }
 
 echo "== the image has pg_cron and the scheduler runs in $DB"
 [ "$(docker exec "$C" psql -U postgres -Atc "show shared_preload_libraries")" = "pg_cron" ] || { echo "   FAILED: not the pg_cron image: docker compose down -v && docker compose build && docker compose up -d"; exit 1; }

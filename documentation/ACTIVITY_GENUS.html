@@ -163,7 +163,7 @@
     <li><b>Level 3 - plan:</b> <code>task_line_table</code> points at the budget item (<code>rowJSON.budgetItemTaskLine</code>). Reports (Monitor01) can group by activity and direction through the item - a later step.</li>
   </ol>
   <h3>SQL order</h3>
-  <p class="small">Tables → <code>start1_sql_tables.sql</code> (new PART: activity genus, key; new <code>budgetItemTable</code> constraints). Triggers / checks / seed rows of the 3 activities and the 14 keys → <code>start2_sql_code.sql</code> / <code>start3</code> (+ <code>start5</code>); backfill of old budget items from their genus; drops → <code>delete_sql_structure.sql</code>. Create: activity → key → budget item check. Drop: reverse.</p>
+  <p class="small">Tables → <code>start1_sql_tables.sql</code> (new PART: activity genus, key; new <code>budgetItemTable</code> constraints). Triggers / checks / seed rows of the 3 activities and the 14 keys → <code>start2_sql_code.sql</code> / <code>start4</code> (+ <code>start5</code>); backfill of old budget items from their genus; drops → <code>delete_sql_structure.sql</code>. Create: activity → key → budget item check. Drop: reverse.</p>
 </section>
 
 <section id="tree">

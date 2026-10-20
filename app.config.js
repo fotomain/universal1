@@ -135,6 +135,8 @@ module.exports = {
         'android.permission.READ_MEDIA_VIDEO',
         'android.permission.READ_MEDIA_AUDIO',
         'android.permission.POST_NOTIFICATIONS',
+        // calendar reminders on the minute (kit8/ui/reminder): the user switches "Alarms & reminders" on; without it Android may delay them
+        'android.permission.SCHEDULE_EXACT_ALARM',
         'android.permission.VIBRATE',
       ],
     },

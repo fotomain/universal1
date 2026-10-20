@@ -8,13 +8,13 @@
 --   1. revenueGenus  : Deliverable Railroad Segment No. 1 (225 miles @ $1,200,000.00 / mile = $270,000,000.00)
 --   2. materialGenus : 136 RE carbon steel rail (80-Foot Stick) (29,700 sticks @ $1,850.00 / stick = $54,945,000.00)
 --   3. expenseGenus  : Tamper Equipment: Plasser 09-3X / Dynacat (6,750 hours @ $650.00 / hour = $4,387,500.00)
---   4. timeGenus     : Machine (RMM) Operator: John Rimm (6,750 hours @ $95.00 / hour = $641,250.00)
+--   4. timeGenus     : Machine (RMM) Operator: John Rimm (2,080 hours @ $95.00 / hour = $197,600.00)
 --
 -- Full 5-Document Project Lifecycle (1 document of each type, ALL WITH FULL PROJECT AMOUNTS):
---   1. Purchase Order   : PO-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
---   2. Product Receipt  : PR-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
---   3. Fact Input       : FI-NYWAS-00001 (FULL: 29,700 sticks + 6,750 tamper hrs + 6,750 operator hrs + 225 mi deliverable = $329,973,750.00)
---   4. Vendor Invoice   : VI-SUPP-98421  (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
+--   1. Purchase Order   : PO-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 2,080 operator hours = $59,530,100.00)
+--   2. Product Receipt  : PR-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 2,080 operator hours = $59,530,100.00)
+--   3. Fact Input       : FI-NYWAS-00001 (FULL: 29,700 sticks + 6,750 tamper hrs + 2,080 operator hrs + 225 mi deliverable = $329,530,100.00)
+--   4. Vendor Invoice   : VI-SUPP-98421  (FULL: 29,700 sticks rail + 6,750 tamper hours + 2,080 operator hours = $59,530,100.00)
 --   5. Customer Invoice : CI-AMTRK-2026-001 (FULL: 225 miles turnkey deliverable = $270,000,000.00)
 --
 -- Activity genus (PART 32 of start1_sql_tables.sql + start2_sql_code.sql, documentation/ACTIVITY_GENUS.html): every budget item of the project carries its KEY (activity.genus),
@@ -22,9 +22,9 @@
 --   operatingActivity.revenueGenus  inbound   $270,000,000.00   (IAS 7.14(a))
 --   operatingActivity.materialGenus outbound   $54,945,000.00   (IAS 7.14(c))
 --   operatingActivity.expenseGenus  outbound    $4,387,500.00   (IAS 7.14(c))   short-term plant hire: operating (a lease > 12 months would be financing, IAS 7.17(e))
---   operatingActivity.timeGenus     outbound      $641,250.00   (IAS 7.14(c))   operators invoiced by a vendor (external labor)
---   net operating cash flow budget  $210,026,250.00; investing and financing: none (the tamper is hired, not bought; no loan lines)
--- The script stops with a message when PART 32 is not installed (run start1 + start2 + start3 first).
+--   operatingActivity.timeGenus     outbound      $197,600.00   (IAS 7.14(c))   operators invoiced by a vendor (external labor)
+--   net operating cash flow budget  $210,469,900.00; investing and financing: none (the tamper is hired, not bought; no loan lines)
+-- The script stops with a message when PART 32 is not installed (run start1 + start2 + start4 first).
 --
 -- Safe, idempotent script. Can be executed multiple times.
 -- ===============================================================================================
@@ -92,14 +92,14 @@ DECLARE
   c_tamper_hour_rate     numeric := 650.00;            -- $650/hr Plasser 09-3X Dynacat tamper wet machine rate
   c_tamper_sum           numeric := 4387500.00;
 
-  c_operator_hours_total numeric := 6750.00;
+  c_operator_hours_total numeric := 2080.00;          -- a normal work week: 40 h x 52 weeks = 261 working days x 7.97 h (capacity of John Rimm = 8 h a day, standard work week)
   c_operator_hour_rate   numeric := 95.00;             -- $95/hr specialized RMM union operator prevailing wage
-  c_operator_sum         numeric := 641250.00;
+  c_operator_sum         numeric := 197600.00;
 
-  c_vendor_total_sum     numeric := 59973750.00;       -- Rail Material ($54.945M) + Tamper Hire ($4.3875M) + Operator Labor ($0.64125M)
-  c_budget_cost_total    numeric := 59973750.00;       -- Material + Equipment + Time
+  c_vendor_total_sum     numeric := 59530100.00;       -- Rail Material ($54.945M) + Tamper Hire ($4.3875M) + Operator Labor ($0.1976M)
+  c_budget_cost_total    numeric := 59530100.00;       -- Material + Equipment + Time
   c_vat_rate             numeric := 0.000;             -- Municipal infrastructure project exempt
-  -- the 0 % row of valueAddedTaxTable (start3), fully recoverable: every document line carries it, so the VAT column of the lines shows "0 %" (documentation/VENDOR_INVOICE_DOC.html)
+  -- the 0 % row of valueAddedTaxTable (start4), fully recoverable: every document line carries it, so the VAT column of the lines shows "0 %" (documentation/VENDOR_INVOICE_DOC.html)
   c_vat_json             jsonb := '{"vatRateGUID": "vat_0", "vatTablePercent": 0, "vatRecoverablePercent": 100}'::jsonb;
 
   -- Document line descriptions copied from the task lines (same keys as the app's create_*_from_* RPCs).
@@ -116,7 +116,7 @@ BEGIN
   -- 0a. PREREQUISITE: the activity genus (PART 32)
   -- ---------------------------------------------------------------------------------------------
   IF to_regclass('public."budgetItemGenericKeyTable"') IS NULL OR to_regprocedure('public.kit8_budget_item_key_direction(text)') IS NULL THEN
-    RAISE EXCEPTION 'Railway #1: the activity genus (PART 32) is not installed - run start1_sql_tables.sql, start2_sql_code.sql and start3_sql_insert_missing.sql (kit8/sql/start) first';
+    RAISE EXCEPTION 'Railway #1: the activity genus (PART 32) is not installed - run start1_sql_tables.sql, start2_sql_code.sql and start4_sql_insert_missing.sql (kit8/sql/start) first';
   END IF;
 
   -- ---------------------------------------------------------------------------------------------
@@ -318,7 +318,7 @@ BEGIN
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowOwnerGUID" = EXCLUDED."rowOwnerGUID";
 
-  -- Budget Items: the STANDARD items of the tree of possible budget items (documentation/ACTIVITY_GENUS.html; seeded by start3_sql_insert_missing.sql PART 32). Each one carries its KEY activity.genus,
+  -- Budget Items: the STANDARD items of the tree of possible budget items (documentation/ACTIVITY_GENUS.html; seeded by start4_sql_insert_missing.sql PART 32). Each one carries its KEY activity.genus,
   -- its DIRECTION and the names in IFRS / D365 FO / SAP, so the project invents none:
   --   revenue  serviceRevenueBudgetItem          Rendering of services (project billing)   operatingActivity.revenueGenus   inbound   IAS 7.14(a)
   --   material rawMaterialsBudgetItem            Raw materials and components               operatingActivity.materialGenus  outbound  IAS 7.14(c)
@@ -326,7 +326,7 @@ BEGIN
   --   time     externalLaborBudgetItem           External labor hours (contractors)         operatingActivity.timeGenus      outbound  IAS 7.14(c)  (the operators are invoiced by a vendor)
   -- The settlement of the two invoices would use vendorPaymentsBudgetItem / customerReceiptsBudgetItem (operating payment items): this data posts no payment.
   IF (SELECT count(*) FROM public."budgetItemTable" WHERE "rowGUID" IN ('serviceRevenueBudgetItem', 'rawMaterialsBudgetItem', 'subcontractedServicesBudgetItem', 'externalLaborBudgetItem')) <> 4 THEN
-    RAISE EXCEPTION 'Railway #1: the standard budget items are missing - run start3_sql_insert_missing.sql (PART 32) first';
+    RAISE EXCEPTION 'Railway #1: the standard budget items are missing - run start4_sql_insert_missing.sql (PART 32) first';
   END IF;
 
   -- ---------------------------------------------------------------------------------------------
@@ -520,6 +520,7 @@ BEGIN
     1024,
     jsonb_build_object(
       'taskManagementGenusLine', 'revenueGenus',
+      'distributionForBudgetTaskLine', 'uniformDistribution',
       'resourceRoleItem', 'role-rail-segment',
       'measureUnitTaskLine', 'unit_mile',
       'qtyTaskLine', c_miles_total,
@@ -547,6 +548,7 @@ BEGIN
     2048,
     jsonb_build_object(
       'taskManagementGenusLine', 'materialGenus',
+      'distributionForBudgetTaskLine', 'uniformDistribution',
       'resourceRoleItem', 'role-steel-rail',
       'taskResourceItem', 'prd-136re-rail-80ft',
       'measureUnitTaskLine', 'unit_pcs',
@@ -575,6 +577,7 @@ BEGIN
     3072,
     jsonb_build_object(
       'taskManagementGenusLine', 'expenseGenus',
+      'distributionForBudgetTaskLine', 'uniformDistribution',
       'resourceRoleItem', 'role-tamper-machine',
       'taskResourceItem', 'eq-plasser-093x',
       'measureUnitTaskLine', 'unit_hour',
@@ -603,6 +606,7 @@ BEGIN
     4096,
     jsonb_build_object(
       'taskManagementGenusLine', 'timeGenus',
+      'distributionForBudgetTaskLine', 'uniformDistribution',
       'resourceRoleItem', 'role-rmm-operator',
       'taskResourceItem', 'per-john-rimm',
       'taskResourceKind', 'person',
@@ -677,22 +681,45 @@ BEGIN
   -- ---------------------------------------------------------------------------------------------
   -- 5. TASK LINE PLAN & TIMELINE (Plan Movements across 2026)
   -- ---------------------------------------------------------------------------------------------
+  -- The plan is what Post writes for "Uniform (even)": one row per ACTIVE day of the calendar of the project (workingDaysCalendar, 2026), every day the same share;
+  -- the rounding rest goes to the last day (Correct033). The Time line of John Rimm (2,080 h = 7.97 h on each of the 261 days) fits his 8 h a day (standard work week),
+  -- so the capacity check (capacityModeBlock) finds no conflict. A calendar that is not filled for 2026 falls back to Monday-Friday.
+  CREATE TEMP TABLE IF NOT EXISTS railway1_days (d date, rn int, n int) ON COMMIT DROP;
+  DELETE FROM railway1_days;
+  INSERT INTO railway1_days
+  SELECT x.d, row_number() OVER (ORDER BY x.d)::int, (count(*) OVER ())::int
+    FROM (SELECT (c."rowJSON"->>'day')::date AS d FROM public."managementCalendarDaysTable" c
+           WHERE c."rowOwnerGUID" = 'workingDaysCalendar' AND (c."rowJSON"->>'isActive')::boolean IS TRUE AND c."rowJSON"->>'day' BETWEEN '2026-01-01' AND '2026-12-31'
+          UNION
+          SELECT g::date FROM generate_series('2026-01-01'::date, '2026-12-31'::date, interval '1 day') g
+           WHERE extract(isodow FROM g) < 6
+             AND NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" c WHERE c."rowOwnerGUID" = 'workingDaysCalendar' AND c."rowJSON"->>'day' BETWEEN '2026-01-01' AND '2026-12-31')) x;
+
   INSERT INTO public.task_line_plan_movements (
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
     "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "planMovementStatus", "periodDay", "rowJSON"
-  ) VALUES
-    (gen_random_uuid(), v_project, v_task, v_line_revenue,  1000, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'serviceRevenueBudgetItem', 'taskManagementGenusLine', 'revenueGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'rawMaterialsBudgetItem', 'taskManagementGenusLine', 'materialGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'subcontractedServicesBudgetItem', 'taskManagementGenusLine', 'expenseGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'externalLaborBudgetItem', 'taskManagementGenusLine', 'timeGenus'));
+  )
+  SELECT gen_random_uuid(), v_project, v_task, L.line, L.ord * 100000 + t.rn, t.d::timestamp AT TIME ZONE 'UTC',
+         CASE WHEN t.rn < t.n THEN round(1.0 / t.n, 10) ELSE 1 - (t.n - 1) * round(1.0 / t.n, 10) END,
+         CASE WHEN t.rn < t.n THEN round(L.qty / t.n, 2) ELSE L.qty - (t.n - 1) * round(L.qty / t.n, 2) END,
+         CASE WHEN t.rn < t.n THEN round(L.amt / t.n, 2) ELSE L.amt - (t.n - 1) * round(L.amt / t.n, 2) END,
+         CASE WHEN t.rn < t.n THEN round(L.amt / t.n, 2) ELSE L.amt - (t.n - 1) * round(L.amt / t.n, 2) END,
+         CASE WHEN t.rn < t.n THEN round(L.amt / t.n, 2) ELSE L.amt - (t.n - 1) * round(L.amt / t.n, 2) END,
+         true, t.d, L.js
+    FROM (VALUES
+      (v_line_revenue,  1, c_miles_total,         c_miles_sum,   jsonb_build_object('budgetItemTaskLine', 'serviceRevenueBudgetItem', 'taskManagementGenusLine', 'revenueGenus')),
+      (v_line_material, 2, c_rail_sticks_total,   c_rail_sum,    jsonb_build_object('budgetItemTaskLine', 'rawMaterialsBudgetItem', 'taskManagementGenusLine', 'materialGenus')),
+      (v_line_expense,  3, c_tamper_hours_total,  c_tamper_sum,  jsonb_build_object('budgetItemTaskLine', 'subcontractedServicesBudgetItem', 'taskManagementGenusLine', 'expenseGenus')),
+      (v_line_time,     4, c_operator_hours_total, c_operator_sum, jsonb_build_object('budgetItemTaskLine', 'externalLaborBudgetItem', 'taskManagementGenusLine', 'timeGenus'))
+    ) AS L(line, ord, qty, amt, js)
+    CROSS JOIN railway1_days t;
 
   INSERT INTO public.task_line_plan_timeline (
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting"
-  ) VALUES
-    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_revenue,  c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum),
-    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_material, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum),
-    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_expense,  c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum),
-    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_time,     c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum);
+  )
+  SELECT gen_random_uuid(), m."rowProjectGUID", m."rowOwnerGUID", m."rowPeriodDatetime", m."rowParentGUID",
+         m."qtyTaskLine", m."sumForContract", m."sumForBudget", m."sumForAccounting"
+    FROM public.task_line_plan_movements m WHERE m."rowOwnerGUID" = v_task;
 
   -- Mark task lines as posted so Monitor01 does not show stale plan warning (yellow)
   UPDATE public.task_line_table
@@ -703,7 +730,7 @@ BEGIN
   PERFORM public.project_status_register_plan(ARRAY[v_task]);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 6. LIFECYCLE DOCUMENT 1: PURCHASE ORDER (FULL PROJECT AMOUNT: $59,973,750.00)
+  -- 6. LIFECYCLE DOCUMENT 1: PURCHASE ORDER (FULL PROJECT AMOUNT: $59,530,100.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.purchase_order_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -742,12 +769,12 @@ BEGIN
      v_json_exp || jsonb_build_object('itemTitle', 'Plasser 09-3X Dynacat Tamper Hire (Full Project Amount: 6,750 hours)')),
     (v_po_line_time, v_po_header, v_project, v_task, v_line_time, 'timeGenus', 3072,
      c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
-     v_json_time || jsonb_build_object('itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Project Amount: 6,750 hours)'));
+     v_json_time || jsonb_build_object('itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Project Amount: 2,080 hours)'));
 
   PERFORM public.project_status_register_order(v_po_header);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 7. LIFECYCLE DOCUMENT 2: PRODUCT RECEIPT (FULL PROJECT AMOUNT: $59,973,750.00)
+  -- 7. LIFECYCLE DOCUMENT 2: PRODUCT RECEIPT (FULL PROJECT AMOUNT: $59,530,100.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.product_receipt_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -787,7 +814,7 @@ BEGIN
      v_json_exp || jsonb_build_object('deliveryWaybill', 'WB-NEC-FULL-TAMPER-01', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full Operating Hours: 6,750 hours)')),
     (v_pr_line_time, v_pr_header, v_project, v_task, v_line_time, v_po_line_time, 'timeGenus', 3072,
      c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
-     v_json_time || jsonb_build_object('deliveryWaybill', 'TS-NEC-FULL-OPERATOR-01', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Delivery: 6,750 hours)'));
+     v_json_time || jsonb_build_object('deliveryWaybill', 'TS-NEC-FULL-OPERATOR-01', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full Delivery: 2,080 hours)'));
 
   PERFORM public.project_status_register_receipt(v_pr_header);
 
@@ -832,12 +859,12 @@ BEGIN
      v_json_exp || jsonb_build_object('logReport', '100% Full Operation - 6,750 operating hours Plasser 09-3X Dynacat tamper')),
     (v_fact_line_time, v_project, v_task, v_fact_header, v_line_time, 'timeGenus', 4096,
      '2026-11-30T00:00:00Z'::timestamptz, '2026-11-30'::date, c_operator_hours_total, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum,
-     v_json_time || jsonb_build_object('timesheetRef', '100% Full Execution - John Rimm 6,750 shift hours completed'));
+     v_json_time || jsonb_build_object('timesheetRef', '100% Full Execution - John Rimm 2,080 shift hours completed'));
 
   PERFORM public.project_status_register_fact(v_fact_header);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 9. LIFECYCLE DOCUMENT 4: VENDOR INVOICE (FULL PROJECT AMOUNT: $59,973,750.00)
+  -- 9. LIFECYCLE DOCUMENT 4: VENDOR INVOICE (FULL PROJECT AMOUNT: $59,530,100.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.vendor_invoice_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -876,7 +903,7 @@ BEGIN
      v_json_exp || jsonb_build_object('productReceiptLineGUID', v_pr_line_exp, 'vendorItemCode', 'PLASSER-093X-FULL', 'itemTitle', 'Plasser 09-3X Dynacat Tamper (Full: 6,750 hours)')),
     (v_vi_line_time, v_vi_header, v_project, v_task, v_line_time, 'timeGenus', 3072,
      c_operator_hours_total, c_operator_hour_rate, c_vat_rate, c_operator_sum, c_operator_sum, 0.00, c_operator_sum, 0.00,
-     v_json_time || jsonb_build_object('productReceiptLineGUID', v_pr_line_time, 'vendorItemCode', 'RMM-OP-FULL', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full: 6,750 hours)'));
+     v_json_time || jsonb_build_object('productReceiptLineGUID', v_pr_line_time, 'vendorItemCode', 'RMM-OP-FULL', 'itemTitle', 'Specialized Heavy Railway Machinery (RMM) Lead Operator Services (Full: 2,080 hours)'));
 
   PERFORM public.project_status_register_invoice(v_vi_header);
 

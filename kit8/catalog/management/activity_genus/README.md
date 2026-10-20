@@ -27,7 +27,7 @@ A **budget item** has an obligatory `rowJSON.budgetItemGenericKey` = `'<activity
 - **Direction**: the default is the direction of the key (costs outbound, revenue inbound, payments as named). Only an item marked `rowJSON.isCorrection` (credit note, refund) may go the other way.
 - **The activity is chosen on the item, never derived from the genus**: interest and dividends are *policy items* (IAS 7 lets the company choose; `isPolicyItem`).
 - **Old budget items** get `operatingActivity.<genus>` and the default direction (the trigger / the backfill of PART 32), so old projects stay unchanged.
-- Both catalogs are **read only** for a signed-in user (SELECT policy only); the seed rows come from `start3_sql_insert_missing.sql` (3 activities, 14 keys, 36 possible budget items), `start5` refreshes them.
+- Both catalogs are **read only** for a signed-in user (SELECT policy only); the seed rows come from `start4_sql_insert_missing.sql` (3 activities, 14 keys, 36 possible budget items), `start5` refreshes them.
 
 ## Screen
 
@@ -46,6 +46,6 @@ The budget items themselves (Activity, Direction, Correction, Web + IFRS, D365 F
 | `../../budget/item/budgetItemKeyModel.ts` | the matrix, the key / direction checks, `budgetItemKeyPatch` (derived fields), the Activity options of a genus |
 | `../../budget/item/budgetItemKeyMetaData.ts` | SystemMetaData entry of `budgetItemGenericKeyTable` |
 
-SQL: `kit8/sql/start` start1_sql_tables.sql + start2_sql_code.sql **PART 32** (`create_activity_genus.sql`), seeds start3 / start5, drop in `delete_sql_structure.sql`.
+SQL: `kit8/sql/start` start1_sql_tables.sql + start2_sql_code.sql **PART 32** (`create_activity_genus.sql`), seeds start4 / start5, drop in `delete_sql_structure.sql`.
 Docker test: `kit8/docker/tests/91_activity_genus.sql` (`./test_fact_monitor01.sh 91`). Jest: `__tests__/catalog/budget/budgetItemKey.test.ts`, `__tests__/catalog/management/activityGenus*.test.ts(x)`.
 Design: `documentation/ACTIVITY_GENUS.html` (matrix, ER waterfall, the tree of 36 possible budget items with the Web + IFRS / D365 FO / SAP columns).

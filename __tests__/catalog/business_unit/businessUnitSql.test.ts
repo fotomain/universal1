@@ -11,11 +11,11 @@ const dir = path.join(__dirname, '../../../kit8/sql/start');
 const start = fs.readFileSync(path.join(dir, 'start1_sql_tables.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
 const code = fs.readFileSync(path.join(dir, 'start2_sql_code.sql'), 'utf8');
 const data = fs.readFileSync(path.join(dir, 'start5_sql_upsert_all.sql'), 'utf8');
-const insert = fs.readFileSync(path.join(dir, 'start3_sql_insert_missing.sql'), 'utf8');
+const insert = fs.readFileSync(path.join(dir, 'start4_sql_insert_missing.sql'), 'utf8');
 const del = fs.readFileSync(path.join(dir, 'delete_sql_structure.sql'), 'utf8');
 const from18 = (src: string) => src.slice(src.indexOf('-- PART 18: create_business_unit_tables.sql'));
 const part = from18(tablesSql) + '\n' + from18(code);          // the tables and the code of PART 18 on
-const insertPart = insert.slice(insert.indexOf('-- PART 18: create_business_unit_tables.sql'));       // the seed rows (start3_sql_insert_missing.sql)
+const insertPart = insert.slice(insert.indexOf('-- PART 18: create_business_unit_tables.sql'));       // the seed rows (start4_sql_insert_missing.sql)
 const codePart = code.slice(code.indexOf('-- PART 18: create_business_unit_tables.sql'));
 const delPart = del.slice(del.indexOf('-- PART 15: delete_business_unit_tables.sql'), del.indexOf('-- PART 16:'));
 

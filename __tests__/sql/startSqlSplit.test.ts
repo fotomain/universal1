@@ -17,7 +17,7 @@ describe('the files', () => {
   it('start1_sql_structure.sql is removed; the two files and the seeds are there', () => {
     const files = fs.readdirSync(sqlDir);
     expect(files).not.toContain('start1_sql_structure.sql');
-    for (const f of ['start1_sql_tables.sql', 'start2_sql_code.sql', 'start3_sql_insert_missing.sql', 'start5_sql_upsert_all.sql', 'delete_sql_structure.sql']) expect(files).toContain(f);
+    for (const f of ['start1_sql_tables.sql', 'start2_sql_code.sql', 'start3_sql_pg_cron.sql', 'start4_sql_insert_missing.sql', 'start5_sql_upsert_all.sql', 'delete_sql_structure.sql']) expect(files).toContain(f);
   });
 });
 
@@ -56,11 +56,11 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
     expect(codeStatements.filter((s) => /^CREATE (UNLOGGED )?TABLE/.test(head(s)))).toHaveLength(0);
     for (const s of codeStatements.filter((x) => kind(x) === 'DO')) expect(s).not.toMatch(/CREATE (UNLOGGED )?TABLE/);
   });
-  it('has the functions, triggers, policies, grants, views, realtime and cron', () => {
+  it('has the functions, triggers, policies, grants, views and realtime (the cron schedule is in start3)', () => {
     const kinds = new Set(codeStatements.map(kind));
     for (const k of ['CREATE OR REPLACE FUNCTION', 'CREATE TRIGGER', 'CREATE POLICY', 'GRANT', 'REVOKE', 'DO', 'NOTIFY', 'CREATE OR REPLACE VIEW', 'CREATE OR REPLACE PROCEDURE']) expect(kinds).toContain(k);
     expect(codeSql).toContain('ALTER PUBLICATION supabase_realtime ADD TABLE');
-    expect(codeSql).toContain("cron.schedule('monitor01_tick'");
+    expect(codeSql).not.toContain('cron.schedule'); // the schedule is start3_sql_pg_cron.sql
     expect(codeSql).toContain("PERFORM public.kit8_setup_def_table(t);");
   });
   it('refuses to run before the tables exist, and says which file to run first', () => {
@@ -71,7 +71,7 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
   });
   it('has the same seed-free rule as before: the only INSERTs are the backfills of data that already exists', () => {
     const targets = codeStatements.filter((s) => kind(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('a unique index / NOT NULL that needs the data fix right before it stays here, after the fix', () => {
     const fix = codeSql.indexOf('UPDATE public."organizationTable" o');
@@ -87,19 +87,19 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
 
 describe('the two files carry the same parts', () => {
   const parts = (src: string) => Array.from(src.matchAll(/^-- PART (\d+): (\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-  it('the code file has every part, 1..32, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
+  it('the code file has every part, 1..34, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
     const code = parts(codeSql);
     const tables = parts(tablesSql);
-    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 32 }, (_, i) => i + 1));
+    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 34 }, (_, i) => i + 1));
     const nums = tables.map(([n]) => n);
     expect(nums).toEqual([...nums].sort((a, b) => a - b));
     expect(tables.length).toBeGreaterThan(15);
     for (const [n, title] of tables) expect(code).toContainEqual([n, title]);
   });
-  it('the number lists at the top of both files name the same 32 parts as the banners', () => {
+  it('the number lists at the top of both files name the same 34 parts as the banners', () => {
     for (const src of [tablesSql, codeSql]) {
       const list = Array.from(src.slice(0, src.indexOf('-- PART 1:')).matchAll(/^--\s+(\d+)\. ((?:create|update|insert)_\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-      expect(list.length).toBe(32);
+      expect(list.length).toBe(34);
       for (const [n, title] of list) expect(codeSql).toContain(`-- PART ${n}: ${title}`);
     }
   });
@@ -118,10 +118,29 @@ describe('pm_ltree_label is the one function in both files: the two copies are t
 
 describe('the seeds and the delete file follow the split', () => {
   it('the seed file asks for both files first', () => {
-    expect(readSql('start3_sql_insert_missing.sql')).toContain('start1_sql_tables.sql + start2_sql_code.sql');
+    expect(readSql('start4_sql_insert_missing.sql')).toContain('start1_sql_tables.sql + start2_sql_code.sql');
   });
   it('the delete file names the two files it undoes', () => {
     expect(readSql('delete_sql_structure.sql')).toContain('start1_sql_tables.sql + start2_sql_code.sql');
     expect(path.basename(sqlDir)).toBe('start');
+  });
+});
+
+describe('start3_sql_pg_cron.sql is only the schedule of the Monitor01 worker', () => {
+  const cron = readSql('start3_sql_pg_cron.sql');
+  it('schedules the tick and the housekeeping, and refuses to run before start2 and without pg_cron only prints a notice', () => {
+    expect(cron).toContain("cron.schedule('monitor01_tick', public.monitor01_refresh_interval_seconds()::text || ' seconds', 'CALL public.monitor01_process_dirty()')");
+    expect(cron).toContain("cron.schedule('monitor01_housekeeping', '17 3 * * *', 'SELECT public.monitor01_housekeeping()')");
+    expect(cron).toContain("to_regnamespace('cron') IS NULL");
+    expect(cron).toContain("RAISE EXCEPTION 'Run start1_sql_tables.sql and start2_sql_code.sql first");
+  });
+  it('has no DDL: no table, function, trigger, policy, grant, insert', () => {
+    const code = cron.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+    expect(code).not.toMatch(/\b(CREATE|ALTER|DROP) (TABLE|FUNCTION|TRIGGER|POLICY|VIEW|INDEX)\b|\bGRANT\b|\bINSERT\b|\bDELETE FROM\b/);
+  });
+  it('delete_sql_structure.sql unschedules both jobs', () => {
+    const del = readSql('delete_sql_structure.sql');
+    expect(del).toContain("cron.unschedule('monitor01_tick')");
+    expect(del).toContain("cron.unschedule('monitor01_housekeeping')");
   });
 });

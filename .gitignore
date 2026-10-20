@@ -42,3 +42,6 @@ android_screen.png
 android_emulator_build.log
 .android_rerun
 auth_server.log
+
+# written by kit8/sql/start/run_sql_cli.command
+kit8/sql/start/sql_errors.txt
