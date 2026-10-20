@@ -14,7 +14,8 @@ import { pmT } from '../../../pm/i18n/pmT';
 import { genusOfRole } from '../../../pm/view/task/finances/taskLineCatalogs';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
 import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
-import { FACT_NEW_ROW_KEYS, FactHeaderView, canEditLines, dayOfPeriod } from './factInputModel';
+import { FACT_NEW_ROW_KEYS, FACT_USAGE_TIMELINE_TABLE, FactHeaderView, canEditLines, dayOfPeriod } from './factInputModel';
+import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
 
 export interface FactColumnsContext {
   data: TaskLineCatalogData;
@@ -58,8 +59,8 @@ export function buildFactColumns({ data, genus, header }: FactColumnsContext): V
         } as VisualColumn,
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 110, options: unitOptions, allowEmpty: false, editable: description } as VisualColumn,
     root('qtyForBudget', 'Planned', 110, false),
-    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyForContract', width: 130, min: 0, max: 1000000000, total: false, stepper: false, editable: dateAndQty } as VisualColumn,
-    { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable: description } as VisualColumn,
+    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyForContract', width: 130, min: 0, max: 1000000000, total: false, stepper: false, editable: dateAndQty, ...pmNumberColumn(FACT_USAGE_TIMELINE_TABLE, 'qtyForContract') } as VisualColumn,
+    { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable: description, ...pmNumberColumn(FACT_USAGE_TIMELINE_TABLE, 'priceTaskLine') } as VisualColumn,
     root('sumForBudget', 'Sum for budget', 140),
     root('sumForContract', 'Sum for contract', 140),
     root('sumForAccounting', 'Sum for accounting', 150),

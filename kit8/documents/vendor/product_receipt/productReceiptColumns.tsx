@@ -14,7 +14,8 @@ import type { ReusableTableRow, VisualColumn } from '../../../ui/components/tabl
 import { pmT } from '../../../pm/i18n/pmT';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
 import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
-import { PRODUCT_RECEIPT_ALL_TAB } from './productReceiptModel';
+import { PRODUCT_RECEIPT_ALL_TAB, PRODUCT_RECEIPT_LINES_TABLE } from './productReceiptModel';
+import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
 import LinePlaceCell from '../lineplace/LinePlaceCell';
 import type { LinePlace, PlaceField } from '../lineplace/linePlaceModel';
 
@@ -78,9 +79,9 @@ export function buildProductReceiptColumns({ data, tab, editable, independent = 
       titleExtractor: resourceTitleOfRow, placeholder: '',
     } as VisualColumn,
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, ...describe } as VisualColumn,
-    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyReceived', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
-    { key: 'price', title: pmT('Price'), type: 'number', target: 'priceReceived', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
-    { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioReceived', width: 100, min: 0, max: 100, total: false, stepper: false, editable } as VisualColumn,
+    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyReceived', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(PRODUCT_RECEIPT_LINES_TABLE, 'qtyReceived') } as VisualColumn,
+    { key: 'price', title: pmT('Price'), type: 'number', target: 'priceReceived', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(PRODUCT_RECEIPT_LINES_TABLE, 'priceReceived') } as VisualColumn,
+    { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioReceived', width: 100, min: 0, max: 100, total: false, stepper: false, editable, ...pmNumberColumn(PRODUCT_RECEIPT_LINES_TABLE, 'vatRatioReceived') } as VisualColumn,
     root('sumForContract', 'Sum before VAT', 150),
     root('vatForContract', 'VAT', 120),
     { key: 'sumWithVAT', title: pmT('Sum with VAT'), type: 'number', width: 150, editable: false, stepper: false, fromStored: (_s: any, row: ReusableTableRow) => Math.round((num(row.sumForContract) + num(row.vatForContract)) * 100) / 100 } as VisualColumn,

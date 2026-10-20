@@ -25,7 +25,8 @@ import { personFullName, resourceTitleOfRow, RESOURCE_WORDS } from './taskLineRe
 import type { TimeResourceKind } from '../../../model/taskInputScope';
 import { personMatchProblems, personVariantOptions } from './taskLinePersonMatch';
 import { fxEnabled, fxProblem, fxSnapshotText, LineFxContext, LineFxProject } from './taskLineFx';
-import type { TaskLineGenusDef } from './taskLineModel';
+import { taskLineTable, type TaskLineGenusDef } from './taskLineModel';
+import { pmNumberColumn } from '../../../components/pmNumberColumn';
 import { pmT } from '../../../i18n/pmT';
 import { businessUnitNodes, businessUnitPath, businessUnitProblem, isBusinessUnitActive, selectableBusinessUnits } from '../../../../catalog/business_unit/businessUnitModel';
 import { isProductFolder, productRowsWithFolders, productSelectColumns, productSubtitle } from '../../../../catalog/product/productSelectModel';
@@ -265,10 +266,10 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
 
   cols.push(
     // the footer sums the quantity only while ALL the lines of the tab have the SAME unit (2 pcs + 3 pcs = 5 pcs; hours + pieces is no sum): "—" when the units differ
-    { key: 'qty', title: pmT('Qty'), type: 'number', field: 'qtyTaskLine', width: 130, min: 0, max: 1000000000, totalWhenSame: 'unit', totalSuffix: (unit) => unitOptions.find((o) => o.value === unit)?.label ?? '' },
+    { key: 'qty', title: pmT('Qty'), type: 'number', field: 'qtyTaskLine', width: 130, min: 0, max: 1000000000, totalWhenSame: 'unit', totalSuffix: (unit) => unitOptions.find((o) => o.value === unit)?.label ?? '', ...pmNumberColumn(taskLineTable, 'qtyTaskLine') },
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 110, options: unitOptions, allowEmpty: false },
-    { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 130, min: 0, max: 1000000000, total: false },
-    { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: 110, min: 0, max: 100, total: false },
+    { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 130, min: 0, max: 1000000000, total: false, ...pmNumberColumn(taskLineTable, 'priceTaskLine') },
+    { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: 110, min: 0, max: 100, total: false, ...pmNumberColumn(taskLineTable, 'vatRatioTaskLine') },
     // how the budget of the line is spread over its days (catalog Distribution, read-only there); stored as the rowGUID
     { key: 'distribution', title: pmT('Budget distribution'), type: 'select', field: 'distributionForBudgetTaskLine', width: 190, options: distributionOptions(data.distribution), placeholder: pmT('Not chosen') },
     { key: 'sum', title: pmT('Sum'), type: 'number', field: 'sumForContract', width: 120, editable: false },

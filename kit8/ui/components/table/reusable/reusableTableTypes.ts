@@ -138,9 +138,30 @@ export interface CatalogColumn extends ColumnBase {
   renderPicker?: (props: CatalogPickerRenderProps) => ReactNode;
 }
 
+/** what an editable number cell hands to `NumberColumn.renderNumber` (everything the stock number cell uses) */
+export interface NumberCellRenderProps {
+  testID: string;
+  value: any;
+  editable: boolean;
+  integer: boolean;
+  min?: number;
+  max?: number;
+  stepper: boolean;
+  step?: number;
+  placeholder?: string;
+  align: 'left' | 'center' | 'right';
+  radius: number;
+  border: number;
+  h: number;
+  /** the number the user typed / stepped to (null = emptied); called only when it really changed */
+  onCommit: (n: number | null) => void;
+}
+
 export interface NumberColumn extends ColumnBase {
   /** integer: digits only; number: decimals allowed */
   type: 'integer' | 'number';
+  /** Another input instead of the stock number cell (e.g. PMNumberInputApp of kit8/pm/components for task lines and document lines). Only for an EDITABLE cell. */
+  renderNumber?: (props: NumberCellRenderProps) => ReactNode;
   min?: number;
   max?: number;
   placeholder?: string;

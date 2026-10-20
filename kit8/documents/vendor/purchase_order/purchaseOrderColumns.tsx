@@ -14,7 +14,8 @@ import type { ReusableTableRow, VisualColumn } from '../../../ui/components/tabl
 import { pmT } from '../../../pm/i18n/pmT';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
 import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
-import { PURCHASE_ORDER_ALL_TAB } from './purchaseOrderModel';
+import { PURCHASE_ORDER_ALL_TAB, PURCHASE_ORDER_LINES_TABLE } from './purchaseOrderModel';
+import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
 import LinePlaceCell from '../lineplace/LinePlaceCell';
 import type { LinePlace, PlaceField } from '../lineplace/linePlaceModel';
 
@@ -78,9 +79,9 @@ export function buildPurchaseOrderColumns({ data, tab, editable, independent = f
       titleExtractor: resourceTitleOfRow, placeholder: '',
     } as VisualColumn,
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, ...describe } as VisualColumn,
-    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyOrdered', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
-    { key: 'price', title: pmT('Price'), type: 'number', target: 'priceOrdered', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable } as VisualColumn,
-    { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioOrdered', width: 100, min: 0, max: 100, total: false, stepper: false, editable } as VisualColumn,
+    { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyOrdered', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(PURCHASE_ORDER_LINES_TABLE, 'qtyOrdered') } as VisualColumn,
+    { key: 'price', title: pmT('Price'), type: 'number', target: 'priceOrdered', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(PURCHASE_ORDER_LINES_TABLE, 'priceOrdered') } as VisualColumn,
+    { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioOrdered', width: 100, min: 0, max: 100, total: false, stepper: false, editable, ...pmNumberColumn(PURCHASE_ORDER_LINES_TABLE, 'vatRatioOrdered') } as VisualColumn,
     root('sumForContract', 'Sum before VAT', 150),
     root('vatForContract', 'VAT', 120),
     { key: 'sumWithVAT', title: pmT('Sum with VAT'), type: 'number', width: 150, editable: false, stepper: false, fromStored: (_s: any, row: ReusableTableRow) => Math.round((num(row.sumForContract) + num(row.vatForContract)) * 100) / 100 } as VisualColumn,

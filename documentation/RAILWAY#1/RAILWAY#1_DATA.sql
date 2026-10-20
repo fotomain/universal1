@@ -667,6 +667,7 @@ BEGIN
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
     "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "planMovementStatus", "periodDay", "rowJSON"
   ) VALUES
+    (gen_random_uuid(), v_project, v_task, v_line_revenue,  1000, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-turnkey-rev', 'taskManagementGenusLine', 'revenueGenus')),
     (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-rail-mat', 'taskManagementGenusLine', 'materialGenus')),
     (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-tamper-exp', 'taskManagementGenusLine', 'expenseGenus')),
     (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-operator-lab', 'taskManagementGenusLine', 'timeGenus'));
@@ -674,6 +675,7 @@ BEGIN
   INSERT INTO public.task_line_plan_timeline (
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting"
   ) VALUES
+    (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_revenue,  c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum),
     (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_material, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum),
     (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_expense,  c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum),
     (gen_random_uuid(), v_project, v_task, '2026-11-01T00:00:00Z'::timestamptz, v_line_time,     c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum);
@@ -912,7 +914,8 @@ BEGIN
   SET "rowJSON" = "rowJSON" || '{"taskIsPosted": true, "baseOfDistribution": 1}'::jsonb
   WHERE "rowOwnerGUID" = v_task;
 
-  -- queue every task of the project so Monitor01 rows are rebuilt with the new amounts / roles
+  -- Refresh Monitor01 view immediately and queue tasks
+  PERFORM public.monitor01_refresh_now(v_project);
   PERFORM public.monitor01_queue_tasks(ARRAY[v_stage, v_task], 'railway1_seed');
   PERFORM public.monitor01_process_batch();
 
@@ -930,3 +933,10 @@ BEGIN
 END $$;
 
 COMMIT;
+
+-- Ensure lines are marked as posted and Monitor01 is refreshed after transaction commits
+UPDATE public.task_line_table
+SET "rowJSON" = "rowJSON" || '{"taskIsPosted": true, "baseOfDistribution": 1}'::jsonb
+WHERE "rowOwnerGUID" = 'a3000000-0000-4000-8000-000000000001'::uuid;
+
+SELECT public.monitor01_refresh_now('a1000000-0000-4000-8000-000000000001'::uuid);

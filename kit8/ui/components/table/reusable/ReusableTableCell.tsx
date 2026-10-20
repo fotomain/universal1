@@ -97,6 +97,9 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
   }
 
   if (col.type === 'integer' || col.type === 'number') {
+    if (col.renderNumber && editable) {
+      return <>{col.renderNumber({ testID: id, value, editable, integer: col.type === 'integer', min: col.min, max: col.max, radius, border, h, stepper: col.stepper !== false, step: col.step, placeholder: col.placeholder, align: col.align ?? (col.stepper !== false ? 'center' : 'right'), onCommit: (n) => onChange(col.key, n) })}</>;
+    }
     return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} onCommit={(n) => onChange(col.key, n)} />;
   }
 
@@ -208,7 +211,7 @@ function JsonCell({ testID, title, value, editable, h, onCommit }: { testID: str
 }
 
 /** number input: free typing, saved on blur / Enter (only when the value really changed) */
-function NumberCell({ radius, border, h, value, editable, integer, min, max, stepper, step, placeholder, align, onCommit, testID }: { radius: number; border: number; h: number; value: any; editable: boolean; integer: boolean; min?: number; max?: number; stepper: boolean; step?: number; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (n: number | null) => void; testID: string }) {
+export function NumberCell({ radius, border, h, value, editable, integer, min, max, stepper, step, placeholder, align, onCommit, testID, dataSet }: { radius: number; border: number; h: number; value: any; editable: boolean; integer: boolean; min?: number; max?: number; stepper: boolean; step?: number; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (n: number | null) => void; testID: string; dataSet?: Record<string, string> }) {
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(shown);
@@ -222,6 +225,7 @@ function NumberCell({ radius, border, h, value, editable, integer, min, max, ste
   const input = (
     <TextInput
       testID={testID}
+      {...(dataSet ? ({ dataSet } as any) : {})}
       value={draft}
       onChangeText={(t) => setDraft(sanitizeNumberText(t, integer, min === undefined || min < 0))}
       onBlur={commit}
