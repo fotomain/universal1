@@ -76,9 +76,9 @@ describe('the structure file, the code file and the delete file carry the same p
       const rowsFn = src.indexOf('CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows');
       const body = src.slice(rowsFn, src.indexOf('\n$$;\n', rowsFn));
       expect(body).toContain('t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced"');
-      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "lineCount", "hasStalePlan")');                // the apply column list
-      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyVendorInvoiced", [fv]\."sumVendorInvoiced", [fv]\."qtyOrdered", [fv]\."qtyReceived", [fv]\."qtyCustomerInvoiced", [fv]\."sumCustomerInvoiced", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
-      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "qtyCustomerInvoiced" = EXCLUDED."qtyCustomerInvoiced", "sumCustomerInvoiced" = EXCLUDED."sumCustomerInvoiced", "lineCount" = EXCLUDED."lineCount"');
+      expect(src).toContain('"qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "vatBudget", "vatInCostBudget", "vatVendorInvoiced", "vatInCostVendorInvoiced", "vatCustomerInvoiced", "lineCount", "hasStalePlan")');                // the apply column list
+      expect(src.match(/[fv]\."qtyContracted", [fv]\."sumForBudget", [fv]\."qtyUsed", [fv]\."qtyVendorInvoiced", [fv]\."sumVendorInvoiced", [fv]\."qtyOrdered", [fv]\."qtyReceived", [fv]\."qtyCustomerInvoiced", [fv]\."sumCustomerInvoiced", [fv]\."vatBudget", [fv]\."vatInCostBudget", [fv]\."vatVendorInvoiced", [fv]\."vatInCostVendorInvoiced", [fv]\."vatCustomerInvoiced", [fv]\."lineCount"/g)!.length).toBeGreaterThanOrEqual(5);   // apply select + verify (4)
+      expect(src).toContain('"sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "qtyCustomerInvoiced" = EXCLUDED."qtyCustomerInvoiced", "sumCustomerInvoiced" = EXCLUDED."sumCustomerInvoiced", "vatBudget" = EXCLUDED."vatBudget", "vatInCostBudget" = EXCLUDED."vatInCostBudget", "vatVendorInvoiced" = EXCLUDED."vatVendorInvoiced", "vatInCostVendorInvoiced" = EXCLUDED."vatInCostVendorInvoiced", "vatCustomerInvoiced" = EXCLUDED."vatCustomerInvoiced", "lineCount" = EXCLUDED."lineCount"');
       expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "qtyVendorInvoiced"');
       expect(src).toContain('ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumVendorInvoiced"');   // Vendor Invoice / Sum: the money of the posted invoices (= sumForBudgetInvoiced of the register)
       expect(src).toContain('RENAME COLUMN "qtyDelivered" TO "qtyReceived"');          // upgrade of an existing database
@@ -122,7 +122,7 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain("ELSIF p_measure = 'received' THEN");
       expect(src).toContain("ELSIF p_measure = 'vendorInvoiced' THEN");
       // the report column VendorInvoiced: monitor01_view.qtyVendorInvoiced is made by the worker from the register (the 'invoiced' movements) and checked by monitor01_verify
-      expect(src).toContain('"qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)');
+      expect(src).toContain('"qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "vatBudget" numeric, "vatInCostBudget" numeric, "vatVendorInvoiced" numeric, "vatInCostVendorInvoiced" numeric, "vatCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)');
       expect(src).toContain('"qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced"');
       expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'invoiced'");
       expect(src).toMatch(/SELECT DISTINCT f\."rowOwnerGUID", 'install' FROM public\.task_fact_usage_timeline f/);
@@ -139,7 +139,7 @@ describe('the structure file, the code file and the delete file carry the same p
       expect(src).toContain("ELSIF p_measure = 'ordered' THEN");
       expect(src).toContain("JOIN public.purchase_order_header h ON h.\"rowGUID\" = s.\"rowRegistratorGUID\"");
       expect(src).toContain("SELECT DISTINCT s.\"rowOwnerGUID\", 'install' FROM public.project_status_movements s WHERE s.\"rowMovementKind\" = 'ordered'");
-      expect(src).toContain('t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."qtySold", t."sumForBudgetSold", t."lineCount"');                  // monitor01_fresh_rows
+      expect(src).toContain('t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."qtySold", t."sumForBudgetSold", t."vatForBudgetPlan", t."vatInCostForBudgetPlan", t."vatForBudgetInvoiced", t."vatInCostForBudgetInvoiced", t."vatForBudgetSold", t."lineCount"');                  // monitor01_fresh_rows
       expect(src).toContain('"vatForContractOrdered" = EXCLUDED."vatForContractOrdered"');                  // the turnover is written with the ordered numbers
     }
   });

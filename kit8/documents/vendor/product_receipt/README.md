@@ -47,3 +47,6 @@ Shared on purpose: the project settings of the **Vendor** tab (`independentInvoi
 ## Tests
 * SQL on Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 73` (63 checks: order → receipt → Post → Received in Monitor01 → vendor invoice from the receipt → Unpost; partial receipts, nothing left, another organization) and the whole `./test_fact_monitor01.sh`, `./test_sql.sh`.
 * Jest: `__tests__/documents/vendor/product_receipt` (model, SQL mirror, hooks, columns, form, list), `__tests__/documents/vendor/purchase_order/purchaseOrderCreateBasedOn.test.tsx`, `__tests__/pm/reports/monitor01/monitor01SumSources.test.ts`, `monitor01Sql.test.ts`.
+
+## VAT columns (2026-10-20)
+The product receipt lines have the same VAT rate select and accounting columns as the vendor invoice (`kit8/documents/vat/README.md`, `documentation/VENDOR_INVOICE_DOC.html`).

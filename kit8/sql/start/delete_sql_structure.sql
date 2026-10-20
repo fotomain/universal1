@@ -964,6 +964,11 @@ NOTIFY pgrst, 'reload schema';
 
 DROP FUNCTION IF EXISTS public.kit8_touch_updated_at();
 
+-- the VAT basis helpers (PART 26)
+DROP FUNCTION IF EXISTS public.vat_basis_amount(numeric, numeric, numeric, text);
+DROP FUNCTION IF EXISTS public.vat_rate_lookup(text);
+DROP FUNCTION IF EXISTS public.vat_line_calc(numeric, numeric, numeric, jsonb, boolean, boolean, numeric, numeric, numeric, numeric, numeric, numeric, numeric, text);
+
 NOTIFY pgrst, 'reload schema';
 
 

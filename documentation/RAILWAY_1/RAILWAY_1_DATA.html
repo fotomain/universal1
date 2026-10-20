@@ -773,7 +773,7 @@
         <div class="metric-card">
           <div class="metric-title">Operating outbound</div>
           <div class="metric-value">$59.97M</div>
-          <div class="metric-caption">IAS 7.14(c) rail + hire, 7.14(d) operator</div>
+          <div class="metric-caption">IAS 7.14(c) rail + hire + operators</div>
         </div>
         <div class="metric-card">
           <div class="metric-title">Net operating (budget)</div>
@@ -802,40 +802,40 @@
           </thead>
           <tbody>
             <tr>
-              <td><b>High-Speed Track Turnkey Construction Revenue</b><br><code>bi-nec-turnkey-rev</code></td>
+              <td><b>Rendering of services (project billing)</b><br><code>serviceRevenueBudgetItem</code></td>
               <td><span class="pill op">operating</span> <code>operatingActivity.revenueGenus</code></td>
               <td><span class="pill in">inbound</span></td>
               <td class="num"><b>$270,000,000.00</b></td>
-              <td>7.14(a) receipts from rendering of services: turnkey track construction, progress billing to Amtrak</td>
-              <td>Fee category; project invoice proposal (progress billing)</td>
-              <td>PS billing: milestone or resource-related billing; revenue G/L account</td>
+              <td>7.14(a) receipts from rendering of services</td>
+              <td>Fee category; project invoice proposal</td>
+              <td>PS billing (milestone or resource-related)</td>
             </tr>
             <tr>
-              <td><b>Track Steel Rails &amp; Permanent Way Material</b><br><code>bi-nec-rail-mat</code></td>
+              <td><b>Raw materials and components</b><br><code>rawMaterialsBudgetItem</code></td>
               <td><span class="pill op">operating</span> <code>operatingActivity.materialGenus</code></td>
               <td><span class="pill out">outbound</span></td>
               <td class="num"><b>$54,945,000.00</b></td>
-              <td>7.14(c) payments to suppliers for goods: 136 RE rail sticks (a cost of the contract, not a PP&amp;E purchase of the contractor)</td>
+              <td>7.14(c) payments to suppliers for goods</td>
               <td>Item category; purchase order → product receipt → vendor invoice</td>
               <td>Purchase order → goods receipt → invoice verification; consumption on a primary cost element</td>
             </tr>
             <tr>
-              <td><b>Specialized Heavy Railway Machinery Hire &amp; Tamping</b><br><code>bi-nec-tamper-exp</code></td>
+              <td><b>Subcontracted services</b><br><code>subcontractedServicesBudgetItem</code></td>
               <td><span class="pill op">operating</span> <code>operatingActivity.expenseGenus</code></td>
               <td><span class="pill out">outbound</span></td>
               <td class="num"><b>$4,387,500.00</b></td>
-              <td>7.14(c) payments to suppliers for services: short-term plant hire of the tamper (a lease over 12 months would put the principal into financing, 7.17(e))</td>
-              <td>Expense category; purchase order for plant hire</td>
+              <td>7.14(c) payments to suppliers for services</td>
+              <td>Expense category; purchase order for services</td>
               <td>Service purchase order; external services cost element</td>
             </tr>
             <tr>
-              <td><b>Specialized Railway Equipment Operators Labor</b><br><code>bi-nec-operator-lab</code></td>
+              <td><b>External labor hours (contractors)</b><br><code>externalLaborBudgetItem</code></td>
               <td><span class="pill op">operating</span> <code>operatingActivity.timeGenus</code></td>
               <td><span class="pill out">outbound</span></td>
               <td class="num"><b>$641,250.00</b></td>
-              <td>7.14(d) payments to and on behalf of employees: RMM operator, loaded rate $95 per hour</td>
-              <td>Hour category; payroll journal; main account type Expense</td>
-              <td>Payroll wage type → G/L account; CO activity type</td>
+              <td>7.14(c) payments to suppliers for services</td>
+              <td>Hour category; vendor invoice with a procurement category</td>
+              <td>Service purchase order + service entry sheet; primary cost element</td>
             </tr>
           </tbody>
         </table>
@@ -845,6 +845,9 @@
         <b>Why a pure operating project.</b> The tamper is <b>hired</b> (short-term plant hire = operating). If the contractor <b>bought</b> it, the budget item would be
         <code>investingActivity.materialGenus</code> (IAS 7.16(a), CapEx); if it were <b>leased for more than 12 months</b>, the lease principal would be financing
         (<code>financingActivity.outboundPaymentGenus</code>, IAS 7.17(e)). The key of a budget item is chosen on the item in <b>Budget Items</b>; the Activity column offers only the activities its genus can have.
+        <br><br><b>Standard items.</b> The four lines use the <b>standard budget items</b> of the tree of possible budget items (<code>documentation/ACTIVITY_GENUS.html</code>, seeded by <code>start3_sql_insert_missing.sql</code>), not items of their own.
+        The operators are invoiced by a vendor, so their labor is <i>External labor hours (contractors)</i> (7.14(c)). The cash settlement of the two invoices has items of its own in the payments folder:
+        <code>vendorPaymentsBudgetItem</code> (Payments to vendors, outbound) and <code>customerReceiptsBudgetItem</code> (Receipts from customers, inbound); this data posts no payment.
       </div>
 
       <div class="card" style="margin-top:16px; height: 320px;">
@@ -1014,11 +1017,11 @@
       <div class="card" style="margin-top:16px">
         <h3>Command Line Automation</h3>
         <p>To populate your database automatically with full project amounts, execute the provided double-clickable command script:</p>
-        <pre><code>./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command</code></pre>
+        <pre><code>./documentation/RAILWAY_1/run_2_sql.command</code></pre>
         <p>Or execute the SQL file directly via the Supabase CLI:</p>
-        <pre><code>supabase db query --linked -f ./documentation/RAILWAY#1/RAILWAY#1_DATA.sql</code></pre>
+        <pre><code>supabase db query --linked -f ./documentation/RAILWAY_1/RAILWAY_1_DATA.sql</code></pre>
         <p>Verification only (project, task lines with key and direction, the 5 documents, the cash flow by activity and direction):</p>
-        <pre><code>./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command --verify</code></pre>
+        <pre><code>./documentation/RAILWAY_1/run_2_sql.command --verify</code></pre>
       </div>
     </section>
   </main>

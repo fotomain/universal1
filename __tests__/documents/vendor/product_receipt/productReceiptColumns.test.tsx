@@ -11,13 +11,14 @@ const build = (over: Record<string, any> = {}) => buildProductReceiptColumns({ d
 const keys = (cols: any[]) => cols.map((c) => c.key);
 
 it('the columns of the All tab: # · Kind · Role · Resource · Unit · Qty · Price · VAT % · the sums', () => {
-  expect(keys(build())).toEqual(['n', 'genus', 'role', 'resource', 'unit', 'qty', 'price', 'vat', 'sumForContract', 'vatForContract', 'sumWithVAT', 'sumForBudget', 'sumForAccounting']);
+  expect(keys(build())).toEqual(['n', 'genus', 'role', 'resource', 'unit', 'qty', 'price', 'vat', 'sumForContract', 'vatForContract', 'sumWithVAT', 'sumForBudget', 'vatForBudget', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT', 'sumForAccounting']);
   expect(keys(build({ tab: 'timeGenus' }))).not.toContain('genus');
 });
 it('qty, price and VAT % are the real columns of the receipt and editable only in a draft', () => {
   const cols = build();
   const by = (k: string) => cols.find((c: any) => c.key === k) as any;
-  expect([by('qty').target, by('price').target, by('vat').target]).toEqual(['qtyReceived', 'priceReceived', 'vatRatioReceived']);
+  expect([by('qty').target, by('price').target]).toEqual(['qtyReceived', 'priceReceived']);
+  expect(by('vat')).toMatchObject({ type: 'select', field: 'vatRateGUID', allowEmpty: false });   // the VAT rate is chosen from valueAddedTaxTable
   expect([by('qty').editable, by('price').editable, by('vat').editable]).toEqual([true, true, true]);
   const ro = build({ editable: false }) as any[];
   expect(ro.filter((c) => ['qty', 'price', 'vat'].includes(c.key)).map((c) => c.editable)).toEqual([false, false, false]);

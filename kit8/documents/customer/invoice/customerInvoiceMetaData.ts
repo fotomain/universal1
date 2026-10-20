@@ -16,7 +16,7 @@ export function customerInvoiceSystemMetaData(): Record<string, any> {
     [CUSTOMER_INVOICE_LINES_ENTITY]: {
       tableName: CUSTOMER_INVOICE_LINES_TABLE,
       itemLabel: 'Invoice line',
-      rootColumns: ['qtyInvoiced', 'priceInvoiced', 'vatRatioInvoiced'],
+      rootColumns: ['qtyInvoiced', 'priceInvoiced', 'vatRatioInvoiced', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT'],
       updateValidator: () => {},
       defaultData: {},
       prepareCreateApi: () => { throw new Error('the lines of a customer invoice come from the task lines'); },

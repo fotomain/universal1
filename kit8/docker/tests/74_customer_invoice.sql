@@ -73,6 +73,12 @@ SELECT public.post_customer_invoice(:'d3') AS r3 \gset
 SELECT tt.eq((SELECT p->>'problem' FROM jsonb_array_elements(:'r3'::jsonb->'problems') p WHERE p->>'problem' = 'customerMissing'), 'customerMissing', 'a draft without a customer cannot be posted');
 UPDATE public.customer_invoice_lines SET "qtyInvoiced" = 4, "priceInvoiced" = 25 WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001';
 SELECT tt.eq((SELECT ("sumForContract", "vatForContract", "sumForBudget")::text FROM public.customer_invoice_lines WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001'), '(100.00,21.00,200.00)', 'the sums follow the quantity and the price (budget sum = contract sum at the plan rate)');
+-- VAT basis: even a NOT recoverable rate gives no cost on a customer invoice (the VAT is collected for the tax authority, IFRS 15)
+INSERT INTO public."valueAddedTaxTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES ('vat_nd10', 'valueAddedTaxCatalog', 'empty', 9000, '{"vatTableTitle": "10 % not deductible", "vatTablePercent": 10, "vatRecoverablePercent": 0}') ON CONFLICT ("rowGUID") DO NOTHING;
+UPDATE public.customer_invoice_lines SET "rowJSON" = "rowJSON" || '{"vatRateGUID": "vat_nd10"}' WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001';
+SELECT tt.eq((SELECT ("vatRatioInvoiced", "vatForContract", "vatInCostForBudget")::text FROM public.customer_invoice_lines WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001'), '(10.000,10.00,0.00)', 'customer invoice: the rate comes from the catalog, the VAT that is cost is always 0');
+UPDATE public.customer_invoice_lines SET "rowJSON" = "rowJSON" || '{"vatRateGUID": "vat_21"}' WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001';
+SELECT tt.eq((SELECT "vatForContract" FROM public.customer_invoice_lines WHERE "taskLineGUID" = 'dddddddd-0000-0000-0000-000000000001'), 21::numeric, '... back to 21 %');
 SELECT public.post_customer_invoice(:'d1') AS r1 \gset
 SELECT tt.eq(:'r1'::jsonb->>'status', 'posted', 'the invoice is posted');
 SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1' AND "rowMovementKind" = 'sold' AND "rowRegistratorType" = 'customerInvoiceHeader'), 1::bigint, 'register: a sold movement, registrator = the document (same transaction)');

@@ -1,5 +1,5 @@
 -- ===============================================================================================
--- UNIVERSAL1 - RAILWAY #1 DATA SEED: RAILWAY#1_DATA.sql
+-- UNIVERSAL1 - RAILWAY #1 DATA SEED: RAILWAY_1_DATA.sql
 -- Project: Railway #1: New York Washington-Contract for Construction Works on the New York – Washington Section of the Northeast Corridor
 -- Dates: 2026-01-01 to 2026-12-31
 -- Target Schema: Universal1 PM & ERP System (/kit8/sql/start/start1_sql_tables.sql)
@@ -22,7 +22,7 @@
 --   operatingActivity.revenueGenus  inbound   $270,000,000.00   (IAS 7.14(a))
 --   operatingActivity.materialGenus outbound   $54,945,000.00   (IAS 7.14(c))
 --   operatingActivity.expenseGenus  outbound    $4,387,500.00   (IAS 7.14(c))   short-term plant hire: operating (a lease > 12 months would be financing, IAS 7.17(e))
---   operatingActivity.timeGenus     outbound      $641,250.00   (IAS 7.14(d))
+--   operatingActivity.timeGenus     outbound      $641,250.00   (IAS 7.14(c))   operators invoiced by a vendor (external labor)
 --   net operating cash flow budget  $210,026,250.00; investing and financing: none (the tamper is hired, not bought; no loan lines)
 -- The script stops with a message when PART 32 is not installed (run start1 + start2 + start3 first).
 --
@@ -99,6 +99,8 @@ DECLARE
   c_vendor_total_sum     numeric := 59973750.00;       -- Rail Material ($54.945M) + Tamper Hire ($4.3875M) + Operator Labor ($0.64125M)
   c_budget_cost_total    numeric := 59973750.00;       -- Material + Equipment + Time
   c_vat_rate             numeric := 0.000;             -- Municipal infrastructure project exempt
+  -- the 0 % row of valueAddedTaxTable (start3), fully recoverable: every document line carries it, so the VAT column of the lines shows "0 %" (documentation/VENDOR_INVOICE_DOC.html)
+  c_vat_json             jsonb := '{"vatRateGUID": "vat_0", "vatTablePercent": 0, "vatRecoverablePercent": 100}'::jsonb;
 
   -- Document line descriptions copied from the task lines (same keys as the app's create_*_from_* RPCs).
   -- REQUIRED: the *_lines_before_write triggers compute sumForBudget / sumForAccounting ONLY from
@@ -316,49 +318,16 @@ BEGIN
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowOwnerGUID" = EXCLUDED."rowOwnerGUID";
 
-  -- Budget Items (each with its KEY activity.genus, its DIRECTION and the names in IFRS / D365 FO / SAP; the trigger of PART 32 checks key, genus and direction)
-  INSERT INTO public."budgetItemTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
-    ('bi-nec-turnkey-rev', 'budgetItemCatalog', 'revenuesBudgetFolder', 1024, jsonb_build_object(
-      'title', 'High-Speed Track Turnkey Construction Revenue',
-      'managementGenusItem', 'revenueGenus',
-      'budgetItemGenericKey', 'operatingActivity.revenueGenus',
-      'direction', 'inbound',
-      'isPolicyItem', false,
-      'webIfrsName', '7.14(a) receipts from rendering of services: turnkey track construction, progress billing to Amtrak',
-      'd365foName', 'Fee category; project invoice proposal (progress billing)',
-      'sapName', 'PS billing: milestone or resource-related billing; revenue G/L account'
-    )),
-    ('bi-nec-rail-mat', 'budgetItemCatalog', 'costsBudgetFolder', 2048, jsonb_build_object(
-      'title', 'Track Steel Rails & Permanent Way Material',
-      'managementGenusItem', 'materialGenus',
-      'budgetItemGenericKey', 'operatingActivity.materialGenus',
-      'direction', 'outbound',
-      'isPolicyItem', false,
-      'webIfrsName', '7.14(c) payments to suppliers for goods: 136 RE rail sticks (a cost of the contract, not a PP&E purchase of the contractor)',
-      'd365foName', 'Item category; purchase order → product receipt → vendor invoice',
-      'sapName', 'Purchase order → goods receipt → invoice verification; consumption on a primary cost element'
-    )),
-    ('bi-nec-tamper-exp', 'budgetItemCatalog', 'costsBudgetFolder', 3072, jsonb_build_object(
-      'title', 'Specialized Heavy Railway Machinery Hire & Tamping',
-      'managementGenusItem', 'expenseGenus',
-      'budgetItemGenericKey', 'operatingActivity.expenseGenus',
-      'direction', 'outbound',
-      'isPolicyItem', false,
-      'webIfrsName', '7.14(c) payments to suppliers for services: short-term plant hire of the tamper (a lease over 12 months would put the principal into financing, 7.17(e))',
-      'd365foName', 'Expense category; purchase order for plant hire',
-      'sapName', 'Service purchase order; external services cost element'
-    )),
-    ('bi-nec-operator-lab', 'budgetItemCatalog', 'costsBudgetFolder', 4096, jsonb_build_object(
-      'title', 'Specialized Railway Equipment Operators Labor',
-      'managementGenusItem', 'timeGenus',
-      'budgetItemGenericKey', 'operatingActivity.timeGenus',
-      'direction', 'outbound',
-      'isPolicyItem', false,
-      'webIfrsName', '7.14(d) payments to and on behalf of employees: RMM operator, loaded rate $95 per hour',
-      'd365foName', 'Hour category; payroll journal; main account type Expense',
-      'sapName', 'Payroll wage type → G/L account; CO activity type'
-    ))
-  ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowParentGUID" = EXCLUDED."rowParentGUID";
+  -- Budget Items: the STANDARD items of the tree of possible budget items (documentation/ACTIVITY_GENUS.html; seeded by start3_sql_insert_missing.sql PART 32). Each one carries its KEY activity.genus,
+  -- its DIRECTION and the names in IFRS / D365 FO / SAP, so the project invents none:
+  --   revenue  serviceRevenueBudgetItem          Rendering of services (project billing)   operatingActivity.revenueGenus   inbound   IAS 7.14(a)
+  --   material rawMaterialsBudgetItem            Raw materials and components               operatingActivity.materialGenus  outbound  IAS 7.14(c)
+  --   expense  subcontractedServicesBudgetItem   Subcontracted services (the tamper hire)   operatingActivity.expenseGenus   outbound  IAS 7.14(c)
+  --   time     externalLaborBudgetItem           External labor hours (contractors)         operatingActivity.timeGenus      outbound  IAS 7.14(c)  (the operators are invoiced by a vendor)
+  -- The settlement of the two invoices would use vendorPaymentsBudgetItem / customerReceiptsBudgetItem (operating payment items): this data posts no payment.
+  IF (SELECT count(*) FROM public."budgetItemTable" WHERE "rowGUID" IN ('serviceRevenueBudgetItem', 'rawMaterialsBudgetItem', 'subcontractedServicesBudgetItem', 'externalLaborBudgetItem')) <> 4 THEN
+    RAISE EXCEPTION 'Railway #1: the standard budget items are missing - run start3_sql_insert_missing.sql (PART 32) first';
+  END IF;
 
   -- ---------------------------------------------------------------------------------------------
   -- 2. CREATE PROJECT: Railway #1 (Northeast Corridor) - IDEMPOTENT CLEANUP
@@ -561,8 +530,8 @@ BEGIN
       'sumForAccounting', c_miles_sum,
       'taskLinePartnerItem', 'ptn-amtrak',
       'taskLinePartnerContract', 'ct-amtrak-nec-01',
-      'budgetItemTaskLine', 'bi-nec-turnkey-rev',
-      'budgetItemItem', 'bi-nec-turnkey-rev',
+      'budgetItemTaskLine', 'serviceRevenueBudgetItem',
+      'budgetItemItem', 'serviceRevenueBudgetItem',
       'description', 'Turnkey Track Superstructure Construction - Railroad Segment No. 1 (225 miles)'
     )
   );
@@ -589,8 +558,8 @@ BEGIN
       'sumForAccounting', c_rail_sum,
       'taskLinePartnerItem', 'ptn-eastern-rail',
       'taskLinePartnerContract', 'ct-eastern-rail-01',
-      'budgetItemTaskLine', 'bi-nec-rail-mat',
-      'budgetItemItem', 'bi-nec-rail-mat',
+      'budgetItemTaskLine', 'rawMaterialsBudgetItem',
+      'budgetItemItem', 'rawMaterialsBudgetItem',
       'description', '136 RE Carbon Steel Rail 80-Foot Sticks (29,700 sticks for 225 miles track alignment)'
     )
   );
@@ -617,8 +586,8 @@ BEGIN
       'sumForAccounting', c_tamper_sum,
       'taskLinePartnerItem', 'ptn-plasser-usa',
       'taskLinePartnerContract', 'ct-plasser-tamper-01',
-      'budgetItemTaskLine', 'bi-nec-tamper-exp',
-      'budgetItemItem', 'bi-nec-tamper-exp',
+      'budgetItemTaskLine', 'subcontractedServicesBudgetItem',
+      'budgetItemItem', 'subcontractedServicesBudgetItem',
       'description', 'Continuous-Action Production Tamper Machinery Deployment (Plasser 09-3X / Dynacat)'
     )
   );
@@ -648,8 +617,8 @@ BEGIN
       'taskLinePartnerContract', 'ct-plasser-operator-01',
       'taskResourcePartner', 'ptn-plasser-usa',
       'taskResourceContract', 'ct-plasser-operator-01',
-      'budgetItemTaskLine', 'bi-nec-operator-lab',
-      'budgetItemItem', 'bi-nec-operator-lab',
+      'budgetItemTaskLine', 'externalLaborBudgetItem',
+      'budgetItemItem', 'externalLaborBudgetItem',
       'description', 'Specialized Heavy Railway Machinery (RMM) Lead Operator John Rimm'
     )
   );
@@ -700,6 +669,11 @@ BEGIN
            'unitSumForAccounting', to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / NULLIF((l."rowJSON"->>'qtyTaskLine')::numeric, 0), 6))))
     INTO v_json_time FROM public.task_line_table l WHERE l."rowGUID" = v_line_time;
 
+  v_json_rev  := v_json_rev  || c_vat_json;
+  v_json_mat  := v_json_mat  || c_vat_json;
+  v_json_exp  := v_json_exp  || c_vat_json;
+  v_json_time := v_json_time || c_vat_json;
+
   -- ---------------------------------------------------------------------------------------------
   -- 5. TASK LINE PLAN & TIMELINE (Plan Movements across 2026)
   -- ---------------------------------------------------------------------------------------------
@@ -707,10 +681,10 @@ BEGIN
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
     "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "planMovementStatus", "periodDay", "rowJSON"
   ) VALUES
-    (gen_random_uuid(), v_project, v_task, v_line_revenue,  1000, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-turnkey-rev', 'taskManagementGenusLine', 'revenueGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-rail-mat', 'taskManagementGenusLine', 'materialGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-tamper-exp', 'taskManagementGenusLine', 'expenseGenus')),
-    (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'bi-nec-operator-lab', 'taskManagementGenusLine', 'timeGenus'));
+    (gen_random_uuid(), v_project, v_task, v_line_revenue,  1000, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_miles_total, c_miles_sum, c_miles_sum, c_miles_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'serviceRevenueBudgetItem', 'taskManagementGenusLine', 'revenueGenus')),
+    (gen_random_uuid(), v_project, v_task, v_line_material, 1024, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_rail_sticks_total, c_rail_sum, c_rail_sum, c_rail_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'rawMaterialsBudgetItem', 'taskManagementGenusLine', 'materialGenus')),
+    (gen_random_uuid(), v_project, v_task, v_line_expense,  2048, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_tamper_hours_total, c_tamper_sum, c_tamper_sum, c_tamper_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'subcontractedServicesBudgetItem', 'taskManagementGenusLine', 'expenseGenus')),
+    (gen_random_uuid(), v_project, v_task, v_line_time,     3072, '2026-11-01T00:00:00Z'::timestamptz, 1.0, c_operator_hours_total, c_operator_sum, c_operator_sum, c_operator_sum, true, '2026-11-01', jsonb_build_object('budgetItemTaskLine', 'externalLaborBudgetItem', 'taskManagementGenusLine', 'timeGenus'));
 
   INSERT INTO public.task_line_plan_timeline (
     "rowGUID", "rowProjectGUID", "rowOwnerGUID", "rowPeriodDatetime", "taskLineGUID", "qtyForBudget", "sumForContract", "sumForBudget", "sumForAccounting"
@@ -964,6 +938,9 @@ BEGIN
      OR EXISTS (SELECT 1 FROM public.customer_invoice_lines WHERE "rowHeaderGUID" = v_ci_header AND "sumForBudget" IS NULL) THEN
     RAISE EXCEPTION 'Railway #1: vendor / customer invoice lines have NULL sumForBudget';
   END IF;
+
+  -- the budget items this script made before it used the standard ones (nothing points at them any more)
+  DELETE FROM public."budgetItemTable" WHERE "rowGUID" IN ('bi-nec-turnkey-rev', 'bi-nec-rail-mat', 'bi-nec-tamper-exp', 'bi-nec-operator-lab');
 
   -- guard (activity genus): the 4 lines point at budget items that have a key and a direction; the budget cash flow by activity and direction is the one of the design
   IF (SELECT count(*) FROM public.task_line_table l JOIN public."budgetItemTable" b ON b."rowGUID" = l."rowJSON"->>'budgetItemTaskLine'

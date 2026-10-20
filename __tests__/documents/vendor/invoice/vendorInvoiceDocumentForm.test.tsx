@@ -255,13 +255,13 @@ describe('the table of the lines', () => {
     expect(lastTable()).toMatchObject({ entityName: VENDOR_INVOICE_LINES_ENTITY, listOwnerGUID: '*', listParentGUID: '*', addEnabled: false, reorderEnabled: false, realtime: true });
     expect(lastTable().readParams).toEqual({ match: { rowHeaderGUID: 'd1' } });
   });
-  it('DRAFT: update (qty, price, VAT %), delete, selection', () => {
+  it('DRAFT: update (qty, price, VAT rate, the two accounting sums), delete, selection', () => {
     setDoc([header('d1')]);
     renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
     expect(lastTable()).toMatchObject({ crudPanelEnabled: true, contextMenuEnabled: true, selectionEnabled: true });
     expect(lastTable().extraMenuItems).toBe(mockLineMenu); // the Task context menu items of a line
     const editable = lastTable().visualColumns.filter((c: any) => c.editable === true).map((c: any) => c.key);
-    expect(editable).toEqual(['qty', 'price', 'vat']);
+    expect(editable).toEqual(['qty', 'price', 'vat', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT']);
   });
   it('POSTED: read only - no panel, no menu, no selection, no editable cell', () => {
     setDoc([header('d1', { status: 'posted' })]);

@@ -67,3 +67,6 @@ SQL (PART 26): `vendor_invoice_set_line_task(line, task, task line)` (a DRAFT of
 
 ## From a product receipt
 A vendor invoice can also be made from a POSTED product receipt (`kit8/documents/vendor/product_receipt`, SQL PART 30): receipt form / receipt list row menu **Create based on → Vendor invoice** → `create_vendor_invoice_from_receipt(receipt)`. The draft takes the vendor / contract / legal entity of the receipt and a line for every receipt line that is not fully invoiced (received − the quantity of the other invoice lines with the same `rowJSON.productReceiptLineGUID`); the header keeps `vendorInvoiceProductReceipt`. From there it is an ordinary vendor invoice.
+
+## VAT columns (2026-10-20)
+The VAT rate of a line is chosen from `valueAddedTaxTable`; the line has **Accounting before VAT** and **VAT for accounting** (typed by the user in a draft: the price / the VAT % are calculated back) and **Sum for accounting (with VAT)**; `sumForBudget` stays NET beside `vatForBudget`. Posting writes the net sums and the VAT parts into the register. See `kit8/documents/vat/README.md` and `documentation/VENDOR_INVOICE_DOC.html`. Test: `kit8/docker/tests/75_vat_basis.sql`.

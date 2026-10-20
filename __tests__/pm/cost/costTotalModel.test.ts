@@ -49,7 +49,7 @@ describe('the switch showTotalCostOnTheGanttChart', () => {
 
 describe('rows and totals', () => {
   it('numeric columns arrive as strings', () => {
-    expect(parseCostRow({ rowOwnerGUID: 't1', costOwnForBudget: '10.50', costTotalForBudget: '48250.00' })).toEqual({ taskGUID: 't1', own: 10.5, total: 48250 });
+    expect(parseCostRow({ rowOwnerGUID: 't1', costOwnForBudget: '10.50', costTotalForBudget: '48250.00' })).toEqual({ taskGUID: 't1', own: 10.5, total: 48250, ownWithVat: 0, totalWithVat: 0 });
   });
   it('costTotalsOf keeps the total per task and skips zeros', () => {
     const m = costTotalsOf([parseCostRow({ rowOwnerGUID: 't1', costTotalForBudget: '5' }), parseCostRow({ rowOwnerGUID: 't2', costTotalForBudget: '0' })]);
@@ -115,5 +115,29 @@ describe('the stale bus', () => {
     off();
     emitCostTotalsStale('p1');
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the cost with VAT (costTotalForBudgetWithVAT)', () => {
+  const { costWithVatColumnShown } = require('../../../kit8/pm/cost/costTotalModel');
+  it('the column is shown only while a cost budget is on AND its own switch is on (off by default)', () => {
+    const on = { projectExpenseBudgetNeeded: true };
+    expect(costWithVatColumnShown(on)).toBe(false);
+    expect(costWithVatColumnShown({ ...on, showTotalCostWithVATOnTheGanttChart: true })).toBe(true);
+    expect(costWithVatColumnShown({ showTotalCostWithVATOnTheGanttChart: true })).toBe(false);       // no cost budget
+    expect(costWithVatColumnShown(null)).toBe(false);
+  });
+  it('a row carries both totals; each map holds one of them (a zero is no entry)', () => {
+    const rows = [parseCostRow({ rowOwnerGUID: 't1', costTotalForBudget: '100', costTotalForBudgetWithVAT: '121', costOwnForBudgetWithVAT: '121' }), parseCostRow({ rowOwnerGUID: 't2', costTotalForBudget: '50', costTotalForBudgetWithVAT: '0' })];
+    expect(rows[0]).toMatchObject({ total: 100, totalWithVat: 121, ownWithVat: 121 });
+    expect([...costTotalsOf(rows)]).toEqual([['t1', 100], ['t2', 50]]);
+    expect([...costTotalsOf(rows, 'totalWithVat')]).toEqual([['t1', 121]]);
+  });
+  it('Realtime events patch the chosen total', () => {
+    const start = costTotalsOf([parseCostRow({ rowOwnerGUID: 't1', costTotalForBudgetWithVAT: '121' })], 'totalWithVat');
+    const next = applyCostEvents(start, [{ eventType: 'UPDATE', new: { rowOwnerGUID: 't1', costTotalForBudget: '100', costTotalForBudgetWithVAT: '130' } }], 'totalWithVat');
+    expect(next.get('t1')).toBe(130);
+    expect(applyCostEvents(next, [{ eventType: 'UPDATE', new: { rowOwnerGUID: 't1', costTotalForBudget: '100', costTotalForBudgetWithVAT: '130' } }], 'totalWithVat')).toBe(next);   // nothing changed: the same map
+    expect(applyCostEvents(next, [{ eventType: 'DELETE', old: { rowOwnerGUID: 't1' } }], 'totalWithVat').has('t1')).toBe(false);
   });
 });

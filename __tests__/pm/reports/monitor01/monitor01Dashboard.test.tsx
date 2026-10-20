@@ -88,14 +88,15 @@ describe('the table of the sheet', () => {
     const heads = ['project', 'role', 'month', 'task', 'unit', 'planned', 'contracted', 'restToContract', 'sumForBudget', 'ordered', 'received', 'used', 'onHand', 'vendorInvoiced', 'sumVendorInvoiced', 'customerInvoiced', 'sumCustomerInvoiced'];
     for (const m of heads) {
       const el = q(`monitor01-table-head-${m}`)!;
-      expect(mockTipTexts).toContain((el.textContent || '').trim());
+      const money = ['sumForBudget', 'sumVendorInvoiced', 'sumCustomerInvoiced'].includes(m);        // the tip of a money column = its title + the VAT basis in force (Cost by default)
+      expect(mockTipTexts).toContain((el.textContent || '').trim() + (money ? ' - Cost' : ''));
       expect(el.parentElement!.getAttribute('aria-label')).toBe((el.textContent || '').trim()); // the cell itself carries the title
     }
     for (const [key, title] of [['Plan', 'Plan'], ['Fact', 'Fact'], ['VendorInvoice', 'Vendor Invoice'], ['CustomerInvoice', 'Customer Invoice']]) {
       expect(mockTipTexts).toContain(title);
       expect(q(`monitor01-table-group-${key}`)!.getAttribute('aria-label')).toBe(title);
     }
-    for (const t of ['Received', 'Quantity', 'Amount']) expect(mockTipTexts).toContain(t);
+    for (const t of ['Received', 'Quantity', 'Amount - Cost']) expect(mockTipTexts).toContain(t);          // the money tips carry the VAT basis
   });
 
   it('the two header rows: 1st level Plan | Fact | Vendor Invoice (after Fact), 2nd level the columns, Vendor Invoice has Qty and Sum; Ordered is the first of the Fact group', () => {
@@ -856,5 +857,47 @@ describe('the context menu of a Task name (right click / long press)', () => {
     expect(q('monitor01-task-menu')).toBeNull();
     expect(open).toHaveBeenCalled();
     open.mockRestore();
+  });
+});
+
+describe('the VAT basis switch (documentation/VENDOR_INVOICE_DOC.html section 13): Cost (default) | Net | With VAT', () => {
+  const { resetVatBasisForTest } = require('../../../../kit8/pm/vat/useVatBasis');
+  beforeEach(() => resetVatBasisForTest());
+  // the budget 100 (VAT 21, 5 of it cost), a vendor invoice 50 (VAT 10.5, all cost), a customer invoice 200 (VAT 42)
+  const withVat = () => [parseMonitor01Row(raw({ sumForBudget: 100, vatBudget: 21, vatInCostBudget: 5, sumVendorInvoiced: 50, vatVendorInvoiced: 10.5, vatInCostVendorInvoiced: 10.5, qtyVendorInvoiced: 1, sumCustomerInvoiced: 200, vatCustomerInvoiced: 42, qtyCustomerInvoiced: 1 }))];
+  const budget = () => textOf(`monitor01-table-budget-${KEY_T1}`);
+  const vendor = () => textOf(`monitor01-table-sumVendorInvoiced-${KEY_T1}`);
+  const customer = () => textOf(`monitor01-table-sumCustomerInvoiced-${KEY_T1}`);
+
+  it('the switch is in the toolbar and starts on Cost: net + the VAT that is cost (a customer invoice stays net)', () => {
+    mockHook.rows = withVat();
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(q('monitor01-vat-basis')).not.toBeNull();
+    expect(qa('monitor01-vat-basis-radio-').map((id) => id.replace('monitor01-vat-basis-radio-', ''))).toEqual(['cost', 'net', 'gross']);
+    expect([budget(), vendor(), customer()]).toEqual(['105.00', '60.50', '200.00']);
+  });
+  it('Net: the amounts without VAT; With VAT: all the VAT; the totals row and the subtotals follow', () => {
+    mockHook.rows = withVat();
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    press('monitor01-vat-basis-radio-net');
+    expect([budget(), vendor(), customer()]).toEqual(['100.00', '50.00', '200.00']);
+    press('monitor01-vat-basis-radio-gross');
+    expect([budget(), vendor(), customer()]).toEqual(['121.00', '60.50', '242.00']);
+    expect(textOf('monitor01-table-budget-total|unit_hour')).toBe('121.00');
+    expect(textOf(`monitor01-table-budget-${PROJECT('unit_hour')}`)).toBe('121.00');
+  });
+  it('while all the VAT is recoverable the default basis shows exactly the net numbers of before', () => {
+    mockHook.rows = sheet();
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(textOf('monitor01-table-budget-total|unit_hour')).toBe('1,080.50');
+  });
+  it('the header tip of each money column says the basis in force', () => {
+    mockHook.rows = withVat();
+    renderUI(<Monitor01Dashboard mode="project" projectGUID="p1" />);
+    expect(mockTipTexts).toContain('Budget - Cost');
+    expect(mockTipTexts).toContain('Amount - Cost');
+    mockTipTexts.length = 0;
+    press('monitor01-vat-basis-radio-gross');
+    expect(mockTipTexts).toContain('Budget - With VAT');
   });
 });

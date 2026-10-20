@@ -44,3 +44,6 @@ SQL: `purchase_order_set_line_task(line, task, task line)`, `purchase_order_line
 **Create based on → Product receipt** (PART 30, `kit8/documents/vendor/product_receipt`): a POSTED purchase order offers it in the form bar (**Create based on…**) and in the row menu of the list; the draft receipt opens in a new browser tab.
 
 **Task menus**: the submenus "Create based on this → Purchase Order" and "Go to → Purchase orders" (Task menu and line menu of the Finances table; not on a Revenue line). "Go to" opens `/pm/purchase-order/list?taskGUID=…[&taskLineGUID=…]` in a new browser window: the list shows a chip (Task: …, x clears it) and `purchase_order_list` takes the keys `taskGUID` / `taskLineGUID` (PART 28, test `tests/71`). See `kit8/documents/taskScope/README.md`.
+
+## VAT columns (2026-10-20)
+The purchase order lines have the same VAT rate select and accounting columns as the vendor invoice (`kit8/documents/vat/README.md`, `documentation/VENDOR_INVOICE_DOC.html`).

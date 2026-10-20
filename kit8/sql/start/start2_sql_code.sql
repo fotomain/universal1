@@ -3218,6 +3218,7 @@ DECLARE
   v_genus    text;
   v_item     jsonb;
   v_ljson    jsonb;
+  v_vsrc     jsonb;
   v_unit     text;
   v_kind     text;
   v_col      text;
@@ -3310,6 +3311,14 @@ BEGIN
       END IF;
     END IF;
     v_item := v_item || jsonb_build_object('businessUnitAssigned', to_jsonb(v_unit), 'budgetKind', to_jsonb(v_kind));
+    -- the VAT basis (documentation/VENDOR_INVOICE_DOC.html section 12): the VAT of the budget sum of the task line (taskLineFx: sumVATForBudget) and the part of it that is cost
+    -- (the share that is NOT recoverable: vatRecoverablePercentTaskLine, missing = 100 % recoverable) are distributed over the days like sumForBudget
+    v_line := v_line - 'vatForBudget' - 'vatInCostForBudget';
+    v_vsrc := CASE WHEN jsonb_typeof(v_line->'sumVATForBudget') = 'number' THEN v_line ELSE v_ljson END;       -- the Post states it (like the other sums), else the line row has it
+    IF jsonb_typeof(v_vsrc->'sumVATForBudget') = 'number' THEN
+      v_line := v_line || jsonb_build_object('vatForBudget', round((v_vsrc->>'sumVATForBudget')::numeric, 2),
+        'vatInCostForBudget', round((v_vsrc->>'sumVATForBudget')::numeric * (1 - LEAST(100, GREATEST(0, CASE WHEN jsonb_typeof(v_ljson->'vatRecoverablePercentTaskLine') = 'number' THEN (v_ljson->>'vatRecoverablePercentTaskLine')::numeric ELSE 100 END)) / 100), 2));
+    END IF;
 
     v_days := v_line->'days';
     IF jsonb_typeof(v_days) <> 'array' OR jsonb_array_length(v_days) = 0 THEN
@@ -3329,7 +3338,7 @@ BEGIN
 
     -- one row per day: coefficient rounded to 10 digits, amounts = round(total * coefficient, 2) (null total = null amount)
     INSERT INTO public.task_line_plan_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowPeriodDatetime", "rowCoefficient",
-                                       "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "rowJSON", "planMovementStatus", "periodDay")
+                                       "qtyTaskLine", "sumForBudget", "sumForContract", "sumForAccounting", "vatForBudget", "vatInCostForBudget", "rowJSON", "planMovementStatus", "periodDay")
     SELECT v_project, v_task, v_guid, v_idx * 100000 + e.ord,
            ((e.value->>'d')::date)::timestamp AT TIME ZONE v_tz,
            round((e.value->>'c')::numeric, 10),
@@ -3337,6 +3346,8 @@ BEGIN
            CASE WHEN jsonb_typeof(v_line->'sumForBudget')      = 'number' THEN round((v_line->>'sumForBudget')::numeric      * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForContract')    = 'number' THEN round((v_line->>'sumForContract')::numeric    * round((e.value->>'c')::numeric, 10), 2) END,
            CASE WHEN jsonb_typeof(v_line->'sumForAccounting')  = 'number' THEN round((v_line->>'sumForAccounting')::numeric  * round((e.value->>'c')::numeric, 10), 2) END,
+           CASE WHEN jsonb_typeof(v_line->'vatForBudget')       = 'number' THEN round((v_line->>'vatForBudget')::numeric       * round((e.value->>'c')::numeric, 10), 2) END,
+           CASE WHEN jsonb_typeof(v_line->'vatInCostForBudget') = 'number' THEN round((v_line->>'vatInCostForBudget')::numeric * round((e.value->>'c')::numeric, 10), 2) END,
            v_item,
            -- false = waits for the capacity check (only a Time line with a resource); every other row is active at once
            NOT (v_check AND v_genus = 'timeGenus' AND COALESCE(v_ljson->>'taskResourceItem', '') <> ''),
@@ -3353,7 +3364,7 @@ BEGIN
       UPDATE public.task_line_plan_movements SET "rowCoefficient" = "rowCoefficient" + v_diff WHERE "rowGUID" = v_last;
     END IF;
 
-    FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract', 'sumForAccounting'] LOOP
+    FOREACH v_col IN ARRAY ARRAY['qtyTaskLine', 'sumForBudget', 'sumForContract', 'sumForAccounting', 'vatForBudget', 'vatInCostForBudget'] LOOP
       IF jsonb_typeof(v_line->v_col) <> 'number' THEN CONTINUE; END IF;
       v_total := round((v_line->>v_col)::numeric, 2);
       EXECUTE format('SELECT COALESCE(SUM(%I), 0) FROM public.task_line_plan_movements WHERE "rowParentGUID" = $1', v_col) INTO v_sum USING v_guid;
@@ -5133,6 +5144,8 @@ DECLARE
   v_price numeric;
   v_unit_budget numeric;
   v_unit_accounting numeric;
+  v_vat numeric;
+  v_share numeric;
 BEGIN
   SELECT x."rowProjectGUID", x."rowOwnerGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
   IF NOT FOUND THEN
@@ -5175,6 +5188,14 @@ BEGIN
   v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
   NEW."sumForBudget"   := CASE WHEN v_unit_budget IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_unit_budget, 2) END;
   NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL ELSE round(NEW."qtyForContract" * v_unit_accounting, 2) END;
+  -- the VAT sums from the VAT rate of the line's task line (a STRONG line only; a free line has no task line, so no VAT rate: NULL). The sums above stay net.
+  v_vat   := CASE WHEN jsonb_typeof(NEW."rowJSON"->'vatRatioTaskLine') = 'number' THEN (NEW."rowJSON"->>'vatRatioTaskLine')::numeric END;
+  v_share := 1 - LEAST(100, GREATEST(0, CASE WHEN jsonb_typeof(NEW."rowJSON"->'vatRecoverablePercent') = 'number' THEN (NEW."rowJSON"->>'vatRecoverablePercent')::numeric ELSE 100 END)) / 100;
+  NEW."vatForContract"         := CASE WHEN v_vat IS NULL OR NEW."sumForContract"   IS NULL THEN NULL ELSE round(NEW."sumForContract"   * v_vat / 100, 2) END;
+  NEW."vatForBudget"           := CASE WHEN v_vat IS NULL OR NEW."sumForBudget"     IS NULL THEN NULL ELSE round(NEW."sumForBudget"     * v_vat / 100, 2) END;
+  NEW."vatForAccounting"       := CASE WHEN v_vat IS NULL OR NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * v_vat / 100, 2) END;
+  NEW."vatInCostForBudget"     := CASE WHEN NEW."vatForBudget"     IS NULL THEN NULL ELSE round(NEW."vatForBudget"     * v_share, 2) END;
+  NEW."vatInCostForAccounting" := CASE WHEN NEW."vatForAccounting" IS NULL THEN NULL ELSE round(NEW."vatForAccounting" * v_share, 2) END;
   RETURN NEW;
 END;
 $$;
@@ -5294,6 +5315,9 @@ BEGIN
            'taskLinePartnerContract', NULLIF(l."rowJSON"->>'taskLinePartnerContract', ''),
            'priceTaskLine',          CASE WHEN jsonb_typeof(l."rowJSON"->'priceTaskLine') = 'number' THEN l."rowJSON"->'priceTaskLine' END,
            'businessUnitTaskLine',   NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
+           -- the VAT of the task line, frozen into the fact line (VAT basis, documentation/VENDOR_INVOICE_DOC.html section 16)
+           'vatRatioTaskLine',       CASE WHEN jsonb_typeof(l."rowJSON"->'vatRatioTaskLine') = 'number' THEN l."rowJSON"->'vatRatioTaskLine' END,
+           'vatRecoverablePercent',  CASE WHEN jsonb_typeof(l."rowJSON"->'vatRecoverablePercentTaskLine') = 'number' THEN l."rowJSON"->'vatRecoverablePercentTaskLine' END,
            'unitSumForAccounting',   CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
                                           THEN to_jsonb(round((l."rowJSON"->>'sumForAccounting')::numeric / (l."rowJSON"->>'qtyTaskLine')::numeric, 6)) END,
            'unitSumForBudget',       CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0
@@ -5608,7 +5632,8 @@ BEGIN
            ROW(m."rowParentGUID", m."rowPeriodDatetime", COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date), l."rowParentGUID",
                COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
                NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''),
-               COALESCE(m."qtyTaskLine", 0)::numeric(18,2), COALESCE(m."sumForBudget", 0)::numeric(18,2), COALESCE(m."sumForContract", 0)::numeric(18,2), COALESCE(m."sumForAccounting", 0)::numeric(18,2))::text AS t
+               COALESCE(m."qtyTaskLine", 0)::numeric(18,2), COALESCE(m."sumForBudget", 0)::numeric(18,2), COALESCE(m."sumForContract", 0)::numeric(18,2), COALESCE(m."sumForAccounting", 0)::numeric(18,2),
+               COALESCE(m."vatForBudget", 0)::numeric(18,2), COALESCE(m."vatInCostForBudget", 0)::numeric(18,2))::text AS t
       FROM public.task_line_plan_movements m
       JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
      WHERE m."rowOwnerGUID" = ANY (p_tasks) AND m."planMovementStatus" AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus')
@@ -5617,7 +5642,7 @@ BEGIN
   ), f_reg AS (
     SELECT s."rowOwnerGUID" AS task,
            md5(string_agg(ROW(s."rowProjectTaskLineGUID", s."rowTurnoverMoment", s."rowTurnoverDay", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."businessUnitGUID", s."contractGUID",
-                              s."qtyProjectStatus", s."sumForBudget", s."sumForContract", s."sumForAccounting")::text, '|' ORDER BY s."rowProjectTaskLineGUID", s."rowTurnoverMoment")) AS fp
+                              s."qtyProjectStatus", s."sumForBudget", s."sumForContract", s."sumForAccounting", s."vatForBudget", s."vatInCostForBudget")::text, '|' ORDER BY s."rowProjectTaskLineGUID", s."rowTurnoverMoment")) AS fp
       FROM public.project_status_movements s
      WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (p_tasks)
      GROUP BY s."rowOwnerGUID"
@@ -5630,13 +5655,13 @@ BEGIN
   END IF;
   DELETE FROM public.project_status_movements s WHERE s."rowMovementKind" = 'plan' AND s."rowOwnerGUID" = ANY (v_changed);
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
-         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "contractGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting")
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "contractGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting", "vatForBudget", "vatInCostForBudget")
   SELECT 'plan', m."rowPeriodDatetime", COALESCE(m."periodDay", ((m."rowPeriodDatetime" + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date),
          m."rowOwnerGUID", 'projectTask', m."rowParentGUID", m."rowProjectGUID", m."rowOwnerGUID", p."rowOwnerGUID",
          l."rowParentGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''),
          NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
          NULLIF(CASE WHEN l."rowParentGUID" = 'timeGenus' THEN l."rowJSON"->>'taskResourceContract' ELSE l."rowJSON"->>'taskLinePartnerContract' END, ''),
-         COALESCE(m."qtyTaskLine", 0), COALESCE(m."sumForBudget", 0), COALESCE(m."sumForContract", 0), COALESCE(m."sumForAccounting", 0)
+         COALESCE(m."qtyTaskLine", 0), COALESCE(m."sumForBudget", 0), COALESCE(m."sumForContract", 0), COALESCE(m."sumForAccounting", 0), COALESCE(m."vatForBudget", 0), COALESCE(m."vatInCostForBudget", 0)
     FROM public.task_line_plan_movements m
     JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
     JOIN public.project_table p ON p."rowGUID" = m."rowProjectGUID"
@@ -5656,10 +5681,12 @@ DECLARE v integer := 0;
 BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
-         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting")
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting",
+         "vatForContract", "vatForBudget", "vatInCostForBudget", "vatForAccounting", "vatInCostForAccounting")
   SELECT 'used', f."rowPeriodDatetime", f."periodDay", f."rowHeaderGUID", 'taskFactHeader', f."taskLineGUID", f."rowProjectGUID", f."rowOwnerGUID", p."rowOwnerGUID",
          f."genusGUID", COALESCE(f."rowJSON"->>'resourceRoleItem', ''), COALESCE(f."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(f."rowJSON"->>'businessUnitTaskLine', ''),
-         COALESCE(f."qtyForContract", 0), COALESCE(f."sumForBudget", 0), COALESCE(f."sumForContract", 0), COALESCE(f."sumForAccounting", 0)
+         COALESCE(f."qtyForContract", 0), COALESCE(f."sumForBudget", 0), COALESCE(f."sumForContract", 0), COALESCE(f."sumForAccounting", 0),
+         COALESCE(f."vatForContract", 0), COALESCE(f."vatForBudget", 0), COALESCE(f."vatInCostForBudget", 0), COALESCE(f."vatForAccounting", 0), COALESCE(f."vatInCostForAccounting", 0)
     FROM public.task_fact_usage_timeline f
     JOIN public.task_fact_header h ON h."rowGUID" = f."rowHeaderGUID"
     JOIN public.project_table p ON p."rowGUID" = f."rowProjectGUID"
@@ -5707,6 +5734,7 @@ RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "
                "vatForAccountingReceived" numeric,
                "qtySold" numeric,
                "sumForBudgetSold" numeric,
+               "vatForBudgetPlan" numeric, "vatInCostForBudgetPlan" numeric, "vatForBudgetInvoiced" numeric, "vatInCostForBudgetInvoiced" numeric, "vatForBudgetSold" numeric,
                "lineCount" integer, "documentCount" integer)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT s."rowOwnerGUID", s."genusGUID", s."resourceRoleGUID", s."measureUnit", s."rowTurnoverMonth", s."rowProjectGUID", s."rowOwnerUserGUID",
@@ -5739,6 +5767,11 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
          COALESCE(SUM(s."vatForAccounting")      FILTER (WHERE s."rowMovementKind" = 'received'), 0),
          COALESCE(SUM(s."qtyProjectStatus")      FILTER (WHERE s."rowMovementKind" = 'sold'), 0),
          COALESCE(SUM(s."sumForBudget")          FILTER (WHERE s."rowMovementKind" = 'sold'), 0),
+         COALESCE(SUM(s."vatForBudget")          FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."vatInCostForBudget")    FILTER (WHERE s."rowMovementKind" = 'plan'), 0),
+         COALESCE(SUM(s."vatForBudget")          FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."vatInCostForBudget")    FILTER (WHERE s."rowMovementKind" = 'invoiced'), 0),
+         COALESCE(SUM(s."vatForBudget")          FILTER (WHERE s."rowMovementKind" = 'sold'), 0),
          COALESCE(NULLIF((count(DISTINCT s."rowProjectTaskLineGUID") FILTER (WHERE s."rowMovementKind" = 'plan'))::integer, 0), (count(*) FILTER (WHERE s."rowMovementKind" = 'used'))::integer, 0),
          (count(DISTINCT s."rowRegistratorGUID") FILTER (WHERE s."rowMovementKind" IN ('used', 'invoiced', 'ordered', 'received', 'sold')))::integer
     FROM public.project_status_movements s
@@ -5756,7 +5789,7 @@ DROP FUNCTION IF EXISTS public.monitor01_fresh_rows(uuid[]);
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "vatBudget" numeric, "vatInCostBudget" numeric, "vatVendorInvoiced" numeric, "vatInCostVendorInvoiced" numeric, "vatCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   -- the report row = the turnover of the register + the names + "plan not posted after a change" (the line says so)
   WITH st AS (
@@ -5770,7 +5803,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t."rowOwnerGUID", t."genusGUID", t."resourceRoleGUID", t."measureUnit", t."rowTurnoverMonth",
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."qtySold", t."sumForBudgetSold", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."qtyOrdered", t."qtyReceived", t."qtySold", t."sumForBudgetSold", t."vatForBudgetPlan", t."vatInCostForBudgetPlan", t."vatForBudgetInvoiced", t."vatInCostForBudgetInvoiced", t."vatForBudgetSold", t."lineCount", COALESCE(st.stale, false)
     FROM public.project_status_fresh_turnover(p_tasks) t
     JOIN public.project_task_table tk ON tk."rowGUID" = t."rowOwnerGUID"
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
@@ -5794,12 +5827,12 @@ BEGIN
   -- step 1: project_status_month_turnover = the register summed; only changed rows are written
   WITH fresh AS MATERIALIZED (SELECT * FROM public.project_status_fresh_turnover(p_tasks)),
        up AS (
-         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "qtyOrdered", "sumForBudgetOrdered", "sumForContractOrdered", "sumForAccountingOrdered", "vatForContractOrdered", "vatForAccountingOrdered", "qtyReceived", "sumForBudgetReceived", "sumForContractReceived", "sumForAccountingReceived", "vatForContractReceived", "vatForAccountingReceived", "qtySold", "sumForBudgetSold", "lineCount", "documentCount")
-         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."qtyOrdered", f."sumForBudgetOrdered", f."sumForContractOrdered", f."sumForAccountingOrdered", f."vatForContractOrdered", f."vatForAccountingOrdered", f."qtyReceived", f."sumForBudgetReceived", f."sumForContractReceived", f."sumForAccountingReceived", f."vatForContractReceived", f."vatForAccountingReceived", f."qtySold", f."sumForBudgetSold", f."lineCount", f."documentCount" FROM fresh f
+         INSERT INTO public.project_status_month_turnover AS t ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth", "rowProjectGUID", "rowOwnerUserGUID", "qtyPlan", "sumForBudgetPlan", "sumForContractPlan", "sumForAccountingPlan", "vatForBudgetPlan", "vatInCostForBudgetPlan", "qtyPlanContracted", "qtyUsed", "sumForBudgetUsed", "sumForContractUsed", "sumForAccountingUsed", "qtyInvoiced", "sumForBudgetInvoiced", "sumForContractInvoiced", "sumForAccountingInvoiced", "vatForContractInvoiced", "vatForAccountingInvoiced", "qtyOrdered", "sumForBudgetOrdered", "sumForContractOrdered", "sumForAccountingOrdered", "vatForContractOrdered", "vatForAccountingOrdered", "qtyReceived", "sumForBudgetReceived", "sumForContractReceived", "sumForAccountingReceived", "vatForContractReceived", "vatForAccountingReceived", "qtySold", "sumForBudgetSold", "lineCount", "documentCount")
+         SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."rowTurnoverMonth", f."rowProjectGUID", f."rowOwnerUserGUID", f."qtyPlan", f."sumForBudgetPlan", f."sumForContractPlan", f."sumForAccountingPlan", f."vatForBudgetPlan", f."vatInCostForBudgetPlan", f."qtyPlanContracted", f."qtyUsed", f."sumForBudgetUsed", f."sumForContractUsed", f."sumForAccountingUsed", f."qtyInvoiced", f."sumForBudgetInvoiced", f."sumForContractInvoiced", f."sumForAccountingInvoiced", f."vatForContractInvoiced", f."vatForAccountingInvoiced", f."qtyOrdered", f."sumForBudgetOrdered", f."sumForContractOrdered", f."sumForAccountingOrdered", f."vatForContractOrdered", f."vatForAccountingOrdered", f."qtyReceived", f."sumForBudgetReceived", f."sumForContractReceived", f."sumForAccountingReceived", f."vatForContractReceived", f."vatForAccountingReceived", f."qtySold", f."sumForBudgetSold", f."lineCount", f."documentCount" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "rowTurnoverMonth") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "sumForBudgetOrdered" = EXCLUDED."sumForBudgetOrdered", "sumForContractOrdered" = EXCLUDED."sumForContractOrdered", "sumForAccountingOrdered" = EXCLUDED."sumForAccountingOrdered", "vatForContractOrdered" = EXCLUDED."vatForContractOrdered", "vatForAccountingOrdered" = EXCLUDED."vatForAccountingOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "sumForBudgetReceived" = EXCLUDED."sumForBudgetReceived", "sumForContractReceived" = EXCLUDED."sumForContractReceived", "sumForAccountingReceived" = EXCLUDED."sumForAccountingReceived", "vatForContractReceived" = EXCLUDED."vatForContractReceived", "vatForAccountingReceived" = EXCLUDED."vatForAccountingReceived", "qtySold" = EXCLUDED."qtySold", "sumForBudgetSold" = EXCLUDED."sumForBudgetSold", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."qtyOrdered", t."sumForBudgetOrdered", t."sumForContractOrdered", t."sumForAccountingOrdered", t."vatForContractOrdered", t."vatForAccountingOrdered", t."qtyReceived", t."sumForBudgetReceived", t."sumForContractReceived", t."sumForAccountingReceived", t."vatForContractReceived", t."vatForAccountingReceived", t."qtySold", t."sumForBudgetSold", t."lineCount", t."documentCount")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."sumForBudgetOrdered", EXCLUDED."sumForContractOrdered", EXCLUDED."sumForAccountingOrdered", EXCLUDED."vatForContractOrdered", EXCLUDED."vatForAccountingOrdered", EXCLUDED."qtyReceived", EXCLUDED."sumForBudgetReceived", EXCLUDED."sumForContractReceived", EXCLUDED."sumForAccountingReceived", EXCLUDED."vatForContractReceived", EXCLUDED."vatForAccountingReceived", EXCLUDED."qtySold", EXCLUDED."sumForBudgetSold", EXCLUDED."lineCount", EXCLUDED."documentCount")
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "qtyPlan" = EXCLUDED."qtyPlan", "sumForBudgetPlan" = EXCLUDED."sumForBudgetPlan", "sumForContractPlan" = EXCLUDED."sumForContractPlan", "sumForAccountingPlan" = EXCLUDED."sumForAccountingPlan", "vatForBudgetPlan" = EXCLUDED."vatForBudgetPlan", "vatInCostForBudgetPlan" = EXCLUDED."vatInCostForBudgetPlan", "qtyPlanContracted" = EXCLUDED."qtyPlanContracted", "qtyUsed" = EXCLUDED."qtyUsed", "sumForBudgetUsed" = EXCLUDED."sumForBudgetUsed", "sumForContractUsed" = EXCLUDED."sumForContractUsed", "sumForAccountingUsed" = EXCLUDED."sumForAccountingUsed", "qtyInvoiced" = EXCLUDED."qtyInvoiced", "sumForBudgetInvoiced" = EXCLUDED."sumForBudgetInvoiced", "sumForContractInvoiced" = EXCLUDED."sumForContractInvoiced", "sumForAccountingInvoiced" = EXCLUDED."sumForAccountingInvoiced", "vatForContractInvoiced" = EXCLUDED."vatForContractInvoiced", "vatForAccountingInvoiced" = EXCLUDED."vatForAccountingInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "sumForBudgetOrdered" = EXCLUDED."sumForBudgetOrdered", "sumForContractOrdered" = EXCLUDED."sumForContractOrdered", "sumForAccountingOrdered" = EXCLUDED."sumForAccountingOrdered", "vatForContractOrdered" = EXCLUDED."vatForContractOrdered", "vatForAccountingOrdered" = EXCLUDED."vatForAccountingOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "sumForBudgetReceived" = EXCLUDED."sumForBudgetReceived", "sumForContractReceived" = EXCLUDED."sumForContractReceived", "sumForAccountingReceived" = EXCLUDED."sumForAccountingReceived", "vatForContractReceived" = EXCLUDED."vatForContractReceived", "vatForAccountingReceived" = EXCLUDED."vatForAccountingReceived", "qtySold" = EXCLUDED."qtySold", "sumForBudgetSold" = EXCLUDED."sumForBudgetSold", "lineCount" = EXCLUDED."lineCount", "documentCount" = EXCLUDED."documentCount", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."qtyPlan", t."sumForBudgetPlan", t."sumForContractPlan", t."sumForAccountingPlan", t."vatForBudgetPlan", t."vatInCostForBudgetPlan", t."qtyPlanContracted", t."qtyUsed", t."sumForBudgetUsed", t."sumForContractUsed", t."sumForAccountingUsed", t."qtyInvoiced", t."sumForBudgetInvoiced", t."sumForContractInvoiced", t."sumForAccountingInvoiced", t."vatForContractInvoiced", t."vatForAccountingInvoiced", t."qtyOrdered", t."sumForBudgetOrdered", t."sumForContractOrdered", t."sumForAccountingOrdered", t."vatForContractOrdered", t."vatForAccountingOrdered", t."qtyReceived", t."sumForBudgetReceived", t."sumForContractReceived", t."sumForAccountingReceived", t."vatForContractReceived", t."vatForAccountingReceived", t."qtySold", t."sumForBudgetSold", t."lineCount", t."documentCount")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."qtyPlan", EXCLUDED."sumForBudgetPlan", EXCLUDED."sumForContractPlan", EXCLUDED."sumForAccountingPlan", EXCLUDED."vatForBudgetPlan", EXCLUDED."vatInCostForBudgetPlan", EXCLUDED."qtyPlanContracted", EXCLUDED."qtyUsed", EXCLUDED."sumForBudgetUsed", EXCLUDED."sumForContractUsed", EXCLUDED."sumForAccountingUsed", EXCLUDED."qtyInvoiced", EXCLUDED."sumForBudgetInvoiced", EXCLUDED."sumForContractInvoiced", EXCLUDED."sumForAccountingInvoiced", EXCLUDED."vatForContractInvoiced", EXCLUDED."vatForAccountingInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."sumForBudgetOrdered", EXCLUDED."sumForContractOrdered", EXCLUDED."sumForAccountingOrdered", EXCLUDED."vatForContractOrdered", EXCLUDED."vatForAccountingOrdered", EXCLUDED."qtyReceived", EXCLUDED."sumForBudgetReceived", EXCLUDED."sumForContractReceived", EXCLUDED."sumForAccountingReceived", EXCLUDED."vatForContractReceived", EXCLUDED."vatForAccountingReceived", EXCLUDED."qtySold", EXCLUDED."sumForBudgetSold", EXCLUDED."lineCount", EXCLUDED."documentCount")
          RETURNING 1),
        del AS (
          DELETE FROM public.project_status_month_turnover t
@@ -5813,16 +5846,16 @@ BEGIN
   WITH fresh AS MATERIALIZED (SELECT * FROM public.monitor01_fresh_rows(p_tasks)),
        up AS (
          INSERT INTO public.monitor01_view AS v ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth", "rowProjectGUID", "rowOrganizationGUID", "rowOwnerUserGUID",
-                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "lineCount", "hasStalePlan")
+                                                "projectName", "taskName", "resourceRoleName", "qtyPlanned", "qtyContracted", "sumForBudget", "qtyUsed", "qtyVendorInvoiced", "sumVendorInvoiced", "qtyOrdered", "qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "vatBudget", "vatInCostBudget", "vatVendorInvoiced", "vatInCostVendorInvoiced", "vatCustomerInvoiced", "lineCount", "hasStalePlan")
          SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID",
-                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM fresh f
+                f."projectName", f."taskName", f."resourceRoleName", f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."vatBudget", f."vatInCostBudget", f."vatVendorInvoiced", f."vatInCostVendorInvoiced", f."vatCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM fresh f
          ON CONFLICT ("rowOwnerGUID", "genusGUID", "resourceRoleGUID", "measureUnit", "periodMonth") DO UPDATE
            SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID",
                "projectName" = EXCLUDED."projectName", "taskName" = EXCLUDED."taskName", "resourceRoleName" = EXCLUDED."resourceRoleName",
-               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "qtyCustomerInvoiced" = EXCLUDED."qtyCustomerInvoiced", "sumCustomerInvoiced" = EXCLUDED."sumCustomerInvoiced", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
-         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan")
+               "qtyPlanned" = EXCLUDED."qtyPlanned", "qtyContracted" = EXCLUDED."qtyContracted", "sumForBudget" = EXCLUDED."sumForBudget", "qtyUsed" = EXCLUDED."qtyUsed", "qtyVendorInvoiced" = EXCLUDED."qtyVendorInvoiced", "sumVendorInvoiced" = EXCLUDED."sumVendorInvoiced", "qtyOrdered" = EXCLUDED."qtyOrdered", "qtyReceived" = EXCLUDED."qtyReceived", "qtyCustomerInvoiced" = EXCLUDED."qtyCustomerInvoiced", "sumCustomerInvoiced" = EXCLUDED."sumCustomerInvoiced", "vatBudget" = EXCLUDED."vatBudget", "vatInCostBudget" = EXCLUDED."vatInCostBudget", "vatVendorInvoiced" = EXCLUDED."vatVendorInvoiced", "vatInCostVendorInvoiced" = EXCLUDED."vatInCostVendorInvoiced", "vatCustomerInvoiced" = EXCLUDED."vatCustomerInvoiced", "lineCount" = EXCLUDED."lineCount", "hasStalePlan" = EXCLUDED."hasStalePlan", "updated_at" = NOW()
+         WHERE (v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName", v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."vatBudget", v."vatInCostBudget", v."vatVendorInvoiced", v."vatInCostVendorInvoiced", v."vatCustomerInvoiced", v."lineCount", v."hasStalePlan")
                IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOrganizationGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."projectName", EXCLUDED."taskName", EXCLUDED."resourceRoleName",
-                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."sumVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."qtyCustomerInvoiced", EXCLUDED."sumCustomerInvoiced", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
+                                 EXCLUDED."qtyPlanned", EXCLUDED."qtyContracted", EXCLUDED."sumForBudget", EXCLUDED."qtyUsed", EXCLUDED."qtyVendorInvoiced", EXCLUDED."sumVendorInvoiced", EXCLUDED."qtyOrdered", EXCLUDED."qtyReceived", EXCLUDED."qtyCustomerInvoiced", EXCLUDED."sumCustomerInvoiced", EXCLUDED."vatBudget", EXCLUDED."vatInCostBudget", EXCLUDED."vatVendorInvoiced", EXCLUDED."vatInCostVendorInvoiced", EXCLUDED."vatCustomerInvoiced", EXCLUDED."lineCount", EXCLUDED."hasStalePlan")
          RETURNING 1),
        del AS (
          DELETE FROM public.monitor01_view v
@@ -6098,16 +6131,16 @@ BEGIN
   IF v_sample IS NULL THEN RETURN 0; END IF;
   SELECT array_agg(DISTINCT d.task) INTO v_bad FROM (
     (SELECT f."rowOwnerGUID" AS task, f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."vatBudget", f."vatInCostBudget", f."vatVendorInvoiced", f."vatInCostVendorInvoiced", f."vatCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f
       EXCEPT
       SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."vatBudget", v."vatInCostBudget", v."vatVendorInvoiced", v."vatInCostVendorInvoiced", v."vatCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample))
     UNION ALL
     (SELECT v."rowOwnerGUID", v."genusGUID", v."resourceRoleGUID", v."measureUnit", v."periodMonth", v."rowProjectGUID", v."rowOrganizationGUID", v."rowOwnerUserGUID", v."projectName", v."taskName", v."resourceRoleName",
-             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
+             v."qtyPlanned", v."qtyContracted", v."sumForBudget", v."qtyUsed", v."qtyVendorInvoiced", v."sumVendorInvoiced", v."qtyOrdered", v."qtyReceived", v."qtyCustomerInvoiced", v."sumCustomerInvoiced", v."vatBudget", v."vatInCostBudget", v."vatVendorInvoiced", v."vatInCostVendorInvoiced", v."vatCustomerInvoiced", v."lineCount", v."hasStalePlan" FROM public.monitor01_view v WHERE v."rowOwnerGUID" = ANY (v_sample)
       EXCEPT
       SELECT f."rowOwnerGUID", f."genusGUID", f."resourceRoleGUID", f."measureUnit", f."periodMonth", f."rowProjectGUID", f."rowOrganizationGUID", f."rowOwnerUserGUID", f."projectName", f."taskName", f."resourceRoleName",
-             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
+             f."qtyPlanned", f."qtyContracted", f."sumForBudget", f."qtyUsed", f."qtyVendorInvoiced", f."sumVendorInvoiced", f."qtyOrdered", f."qtyReceived", f."qtyCustomerInvoiced", f."sumCustomerInvoiced", f."vatBudget", f."vatInCostBudget", f."vatVendorInvoiced", f."vatInCostVendorInvoiced", f."vatCustomerInvoiced", f."lineCount", f."hasStalePlan" FROM public.monitor01_fresh_rows(v_sample) f)) d;
   RETURN public.monitor01_queue_tasks(v_bad, 'verify');
 END;
 $$;
@@ -6514,13 +6547,111 @@ REVOKE ALL ON FUNCTION public.vendor_invoice_state(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.vendor_invoice_state(uuid) TO authenticated;
 
 
+-- ---- the VAT basis (documentation/VENDOR_INVOICE_DOC.html) ------------------------------------------------------------------------------------------------------------------
+-- Every money amount is stored as COMPONENTS: net, VAT, and the part of the VAT that is cost (not recoverable). A report shows ONE of three bases through this function:
+--   'cost'  = net + the VAT that is cost (the IFRS / GAAP cost; default)  ·  'net' = net  ·  'gross' = net + all VAT (With VAT)
+CREATE OR REPLACE FUNCTION public.vat_basis_amount(p_net numeric, p_vat numeric, p_vat_in_cost numeric, p_basis text) RETURNS numeric
+LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+  IF p_basis = 'cost' THEN RETURN COALESCE(p_net, 0) + COALESCE(p_vat_in_cost, 0);
+  ELSIF p_basis = 'net' THEN RETURN COALESCE(p_net, 0);
+  ELSIF p_basis = 'gross' THEN RETURN COALESCE(p_net, 0) + COALESCE(p_vat, 0);
+  END IF;
+  RAISE EXCEPTION 'vat_basis_amount: the basis must be cost, net or gross, not %', p_basis USING ERRCODE = '22023';
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.vat_basis_amount(numeric, numeric, numeric, text) TO authenticated;
+
+
+-- a row of valueAddedTaxTable: its percent and the share of it that can be recovered (rowJSON.vatRecoverablePercent, missing = 100). NULL percent = no such rate.
+CREATE OR REPLACE FUNCTION public.vat_rate_lookup(p_guid text, OUT o_percent numeric, OUT o_recoverable numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN v."rowJSON"->>'vatTablePercent' ~ '^[0-9]+(\.[0-9]+)?$' THEN (v."rowJSON"->>'vatTablePercent')::numeric END,
+         CASE WHEN v."rowJSON"->>'vatRecoverablePercent' ~ '^[0-9]+(\.[0-9]+)?$' THEN LEAST(100, (v."rowJSON"->>'vatRecoverablePercent')::numeric) ELSE 100 END
+    FROM public."valueAddedTaxTable" v WHERE v."rowGUID" = p_guid
+$$;
+
+REVOKE ALL ON FUNCTION public.vat_rate_lookup(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.vat_rate_lookup(text) TO authenticated;
+
+
+-- THE calculation of a document line (the four triggers call it): qty x price x VAT % -> the contract sums -> the budget and accounting sums (at the rate of the plan of the line) and the other way
+-- round: the user may type the accounting sum before VAT (the PRICE is calculated back) or the accounting VAT (the VAT % is calculated, the price stays).
+--   p_in_before / p_in_vatacc = the values of the row being saved; p_old_* = the values of the row before (UPDATE) - a typed accounting value is recognized by "the quantity, the price and the VAT %
+--   did not change but the accounting value did". A change of the quantity, the price or the VAT % calculates everything again (a typed value is dropped).
+--   p_customer: the VAT of a customer invoice is never cost (IFRS 15: collected for the tax authority).
+CREATE OR REPLACE FUNCTION public.vat_line_calc(
+  p_qty numeric, p_price numeric, p_vat numeric, p_json jsonb, p_customer boolean,
+  p_is_update boolean, p_old_qty numeric, p_old_price numeric, p_old_vat numeric, p_old_before numeric, p_old_vatacc numeric,
+  p_in_before numeric, p_in_vatacc numeric, p_what text,
+  OUT o_price numeric, OUT o_vat numeric, OUT o_vat_custom boolean,
+  OUT o_contract numeric, OUT o_vat_contract numeric,
+  OUT o_budget numeric, OUT o_vat_budget numeric, OUT o_in_cost_budget numeric,
+  OUT o_acc_before numeric, OUT o_acc_vat numeric, OUT o_acc_total numeric, OUT o_in_cost_acc numeric)
+LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_pp numeric; v_ub numeric; v_ua numeric; v_share numeric; v_rate boolean; v_mb boolean; v_mv boolean; v_before numeric;
+BEGIN
+  v_pp := CASE WHEN jsonb_typeof(p_json->'priceTaskLine') = 'number' THEN (p_json->>'priceTaskLine')::numeric END;
+  v_ub := CASE WHEN jsonb_typeof(p_json->'unitSumForBudget') = 'number' THEN (p_json->>'unitSumForBudget')::numeric END;
+  v_ua := CASE WHEN jsonb_typeof(p_json->'unitSumForAccounting') = 'number' THEN (p_json->>'unitSumForAccounting')::numeric END;
+  v_share := CASE WHEN p_customer THEN 0
+                  ELSE 1 - LEAST(100, GREATEST(0, CASE WHEN jsonb_typeof(p_json->'vatRecoverablePercent') = 'number' THEN (p_json->>'vatRecoverablePercent')::numeric ELSE 100 END)) / 100 END;
+  v_rate := v_ua IS NOT NULL AND v_pp IS NOT NULL AND v_pp > 0;
+  o_price := p_price; o_vat := p_vat; o_vat_custom := false;
+
+  v_mb := p_is_update AND p_in_before IS NOT NULL AND p_qty IS NOT DISTINCT FROM p_old_qty AND p_price IS NOT DISTINCT FROM p_old_price AND p_vat IS NOT DISTINCT FROM p_old_vat
+          AND p_in_before IS DISTINCT FROM p_old_before;
+  v_mv := p_is_update AND p_in_vatacc IS NOT NULL AND p_qty IS NOT DISTINCT FROM p_old_qty AND p_price IS NOT DISTINCT FROM p_old_price AND p_vat IS NOT DISTINCT FROM p_old_vat
+          AND p_in_vatacc IS DISTINCT FROM p_old_vatacc;
+  IF (v_mb OR v_mv) AND NOT v_rate THEN
+    RAISE EXCEPTION '%: this line has no plan rate (a plan price and a unit sum), so the accounting sums cannot be typed', p_what USING ERRCODE = '23514';
+  END IF;
+
+  IF v_mb THEN
+    IF COALESCE(p_qty, 0) = 0 OR v_ua = 0 THEN
+      RAISE EXCEPTION '%: the price cannot be calculated from the accounting sum (the quantity or the unit sum is 0)', p_what USING ERRCODE = '23514';
+    END IF;
+    o_price := round(p_in_before * v_pp / v_ua / p_qty, 4);
+  END IF;
+  IF v_mv THEN
+    v_before := CASE WHEN v_mb THEN p_in_before ELSE COALESCE(p_in_before, round(round(p_qty * o_price, 2) * v_ua / v_pp, 2)) END;
+    IF v_before IS NULL OR v_before <= 0 THEN
+      RAISE EXCEPTION '%: the VAT %% cannot be calculated from a zero accounting sum', p_what USING ERRCODE = '23514';
+    END IF;
+    o_vat := round(p_in_vatacc / v_before * 100, 3);
+    IF o_vat > 100 THEN RAISE EXCEPTION '%: the VAT would be above 100 %% of the sum', p_what USING ERRCODE = '23514'; END IF;
+    o_vat_custom := true;
+  END IF;
+
+  o_contract := round(p_qty * o_price, 2);
+  o_vat_contract := round(o_contract * o_vat / 100, 2);
+  IF v_ub IS NULL THEN o_budget := NULL; o_vat_budget := NULL;
+  ELSIF v_pp IS NOT NULL AND v_pp > 0 THEN o_budget := round(o_contract * v_ub / v_pp, 2); o_vat_budget := round(o_vat_contract * v_ub / v_pp, 2);
+  ELSE o_budget := round(p_qty * v_ub, 2); o_vat_budget := round(o_budget * o_vat / 100, 2); END IF;
+  IF v_ua IS NULL THEN o_acc_before := NULL; o_acc_vat := NULL;
+  ELSIF v_pp IS NOT NULL AND v_pp > 0 THEN o_acc_before := round(o_contract * v_ua / v_pp, 2); o_acc_vat := round(o_vat_contract * v_ua / v_pp, 2);
+  ELSE o_acc_before := round(p_qty * v_ua, 2); o_acc_vat := round(o_acc_before * o_vat / 100, 2); END IF;
+  IF v_mb THEN o_acc_before := p_in_before; END IF;                  -- a typed value stays as typed
+  IF v_mv THEN o_acc_vat := p_in_vatacc; END IF;
+  o_acc_total := CASE WHEN o_acc_before IS NULL THEN NULL ELSE o_acc_before + COALESCE(o_acc_vat, 0) END;
+  o_in_cost_budget := CASE WHEN o_vat_budget IS NULL THEN NULL ELSE round(o_vat_budget * v_share, 2) END;
+  o_in_cost_acc    := CASE WHEN o_acc_vat IS NULL THEN NULL ELSE round(o_acc_vat * v_share, 2) END;
+END;
+$$;
+
+
 -- one line: the project / task are the ones of the task line, the sums follow the quantity, the price and the VAT % the user states (the budget / accounting sums by the ratio of the task line)
 CREATE OR REPLACE FUNCTION public.vendor_invoice_lines_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
-  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+  v_rate record; v_calc record; v_o_qty numeric; v_o_price numeric; v_o_vat numeric; v_o_before numeric; v_o_vatacc numeric;
 BEGIN
+  IF COALESCE(current_setting('app.vat_backfill', true), '') = 'on' THEN RETURN NEW; END IF;      -- the one-time backfill of start2 sets the columns itself
   IF TG_OP = 'UPDATE' THEN
+    v_o_qty := OLD."qtyInvoiced"; v_o_price := OLD."priceInvoiced"; v_o_vat := OLD."vatRatioInvoiced"; v_o_before := OLD."sumForAccountingBeforeVAT"; v_o_vatacc := OLD."sumForAccountingVAT";
     -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
     -- vendor_invoice_set_line_task (a MULTI PROJECT invoice) moves a line to another task / task line: it opens the gate for its own statement only
     IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
@@ -6529,24 +6660,36 @@ BEGIN
     IF COALESCE(current_setting('app.vendor_invoice_line_move', true), '') <> 'on' AND (
        NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
        OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
-       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR ((NEW."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) IS DISTINCT FROM (OLD."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
        OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
       RAISE EXCEPTION 'vendor invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
   END IF;
-  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
-  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
-  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
-  NEW."sumForContract" := round(NEW."qtyInvoiced" * NEW."priceInvoiced", 2);
-  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioInvoiced" / 100, 2);
-  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
-  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
-                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
-                             ELSE round(NEW."qtyInvoiced" * v_unit_budget, 2) END;
-  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
-                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
-                                 ELSE round(NEW."qtyInvoiced" * v_unit_accounting, 2) END;
-  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioInvoiced" / 100, 2) END;
+  -- the VAT rate chosen from valueAddedTaxTable (rowJSON.vatRateGUID): its percent and its recoverable share go into the line
+  IF NEW."rowJSON"->>'vatRateGUID' IS NOT NULL AND (TG_OP = 'INSERT' OR NEW."rowJSON"->>'vatRateGUID' IS DISTINCT FROM OLD."rowJSON"->>'vatRateGUID') THEN
+    SELECT * INTO v_rate FROM public.vat_rate_lookup(NEW."rowJSON"->>'vatRateGUID');
+    IF v_rate.o_percent IS NULL THEN
+      RAISE EXCEPTION 'vendor invoice: the VAT rate does not exist' USING ERRCODE = '23514';
+    END IF;
+    NEW."vatRatioInvoiced" := v_rate.o_percent;
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('vatTablePercent', v_rate.o_percent, 'vatRecoverablePercent', v_rate.o_recoverable);
+  END IF;
+  -- the sums (documentation/VENDOR_INVOICE_DOC.html sections 8, 9): price -> contract sums -> budget / accounting sums, or a typed accounting sum -> the price / the VAT %
+  SELECT * INTO v_calc FROM public.vat_line_calc(NEW."qtyInvoiced", NEW."priceInvoiced", NEW."vatRatioInvoiced", NEW."rowJSON", false, TG_OP = 'UPDATE', v_o_qty, v_o_price, v_o_vat, v_o_before, v_o_vatacc,
+                                                  NEW."sumForAccountingBeforeVAT", NEW."sumForAccountingVAT", 'vendor invoice');
+  NEW."priceInvoiced" := v_calc.o_price;
+  NEW."vatRatioInvoiced" := v_calc.o_vat;
+  IF v_calc.o_vat_custom THEN NEW."rowJSON" := NEW."rowJSON" - 'vatRateGUID' - 'vatTablePercent'; END IF;
+  NEW."sumForContract" := v_calc.o_contract;
+  NEW."vatForContract" := v_calc.o_vat_contract;
+  NEW."sumForBudget" := v_calc.o_budget;
+  NEW."vatForBudget" := v_calc.o_vat_budget;
+  NEW."vatInCostForBudget" := v_calc.o_in_cost_budget;
+  NEW."sumForAccountingBeforeVAT" := v_calc.o_acc_before;
+  NEW."sumForAccountingVAT" := v_calc.o_acc_vat;
+  NEW."sumForAccounting" := v_calc.o_acc_total;           -- on a LINE: the total with VAT (the register gets the two parts)
+  NEW."vatForAccounting" := v_calc.o_acc_vat;
+  NEW."vatInCostForAccounting" := v_calc.o_in_cost_acc;
   RETURN NEW;
 END;
 $$;
@@ -6672,13 +6815,13 @@ BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
          "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
-         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting", "vatForBudget", "vatInCostForBudget", "vatInCostForAccounting")
   SELECT 'invoiced', COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz, h."created_at"),
          ((COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
          h."rowGUID", 'vendorInvoiceHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
          l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
          NULLIF(h."rowJSON"->>'vendorInvoicePartner', ''), NULLIF(h."rowJSON"->>'vendorInvoiceContract', ''), h."rowOwnerGUID",
-         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccountingBeforeVAT", 0), COALESCE(l."sumForAccountingVAT", 0), COALESCE(l."vatForBudget", 0), COALESCE(l."vatInCostForBudget", 0), COALESCE(l."vatInCostForAccounting", 0)
     FROM public.vendor_invoice_header h
     JOIN public.vendor_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
     JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
@@ -7331,23 +7474,26 @@ END $$;
 
 -- ---- the ONE definition of the numbers: own and total of every task of a project, from the turnover, the stages read from the labels of the path ---------------------------------------------------
 -- (project_cost_rebuild writes this, project_cost_verify compares with it, the tests use it)
+DROP FUNCTION IF EXISTS public.project_cost_fresh(uuid);
+
 CREATE OR REPLACE FUNCTION public.project_cost_fresh(p_project uuid)
-RETURNS TABLE ("rowOwnerGUID" uuid, "costOwnForBudget" numeric, "costTotalForBudget" numeric)
+RETURNS TABLE ("rowOwnerGUID" uuid, "costOwnForBudget" numeric, "costTotalForBudget" numeric, "costOwnForBudgetWithVAT" numeric, "costTotalForBudgetWithVAT" numeric)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   WITH own AS (
-    SELECT tk."rowGUID" AS task, tk."treePath" AS path, SUM(m."sumForBudgetPlan") AS own
+    -- own = the COST basis (net + the VAT that is cost), ownv = net + all VAT (documentation/VENDOR_INVOICE_DOC.html section 17)
+    SELECT tk."rowGUID" AS task, tk."treePath" AS path, SUM(m."sumForBudgetPlan" + m."vatInCostForBudgetPlan") AS own, SUM(m."sumForBudgetPlan" + m."vatForBudgetPlan") AS ownv
       FROM public.project_task_table tk
       JOIN public.project_status_month_turnover m ON m."rowOwnerGUID" = tk."rowGUID"
      WHERE tk."projectGUID" = p_project
      GROUP BY tk."rowGUID", tk."treePath"
-    HAVING SUM(m."sumForBudgetPlan") <> 0
+    HAVING SUM(m."sumForBudgetPlan") <> 0 OR SUM(m."vatForBudgetPlan") <> 0 OR SUM(m."vatInCostForBudgetPlan") <> 0
   ), tot AS (
-    SELECT replace(lbl, '_', '-')::uuid AS anc, SUM(o.own) AS total
+    SELECT replace(lbl, '_', '-')::uuid AS anc, SUM(o.own) AS total, SUM(o.ownv) AS totalv
       FROM own o
      CROSS JOIN LATERAL unnest(string_to_array(ltree2text(subpath(o.path, 1)), '.')) AS lbl
      GROUP BY 1
   )
-  SELECT t.anc, COALESCE(o.own, 0)::numeric(18,2), t.total::numeric(18,2)
+  SELECT t.anc, COALESCE(o.own, 0)::numeric(18,2), t.total::numeric(18,2), COALESCE(o.ownv, 0)::numeric(18,2), t.totalv::numeric(18,2)
     FROM tot t LEFT JOIN own o ON o.task = t.anc
 $$;
 
@@ -7374,12 +7520,13 @@ BEGIN
 
   WITH fresh AS MATERIALIZED (SELECT * FROM public.project_cost_fresh(p_project)),
        up AS (
-         INSERT INTO public.project_task_cost_total AS t ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget")
-         SELECT f."rowOwnerGUID", p_project, v_user, f."costOwnForBudget", f."costTotalForBudget" FROM fresh f
+         INSERT INTO public.project_task_cost_total AS t ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget", "costOwnForBudgetWithVAT", "costTotalForBudgetWithVAT")
+         SELECT f."rowOwnerGUID", p_project, v_user, f."costOwnForBudget", f."costTotalForBudget", f."costOwnForBudgetWithVAT", f."costTotalForBudgetWithVAT" FROM fresh f
          ON CONFLICT ("rowOwnerGUID") DO UPDATE
-           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "costOwnForBudget" = EXCLUDED."costOwnForBudget", "costTotalForBudget" = EXCLUDED."costTotalForBudget", "updated_at" = NOW()
-         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."costOwnForBudget", t."costTotalForBudget")
-               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."costOwnForBudget", EXCLUDED."costTotalForBudget")
+           SET "rowProjectGUID" = EXCLUDED."rowProjectGUID", "rowOwnerUserGUID" = EXCLUDED."rowOwnerUserGUID", "costOwnForBudget" = EXCLUDED."costOwnForBudget", "costTotalForBudget" = EXCLUDED."costTotalForBudget",
+               "costOwnForBudgetWithVAT" = EXCLUDED."costOwnForBudgetWithVAT", "costTotalForBudgetWithVAT" = EXCLUDED."costTotalForBudgetWithVAT", "updated_at" = NOW()
+         WHERE (t."rowProjectGUID", t."rowOwnerUserGUID", t."costOwnForBudget", t."costTotalForBudget", t."costOwnForBudgetWithVAT", t."costTotalForBudgetWithVAT")
+               IS DISTINCT FROM (EXCLUDED."rowProjectGUID", EXCLUDED."rowOwnerUserGUID", EXCLUDED."costOwnForBudget", EXCLUDED."costTotalForBudget", EXCLUDED."costOwnForBudgetWithVAT", EXCLUDED."costTotalForBudgetWithVAT")
          RETURNING 1),
        del AS (
          DELETE FROM public.project_task_cost_total c
@@ -7412,23 +7559,26 @@ BEGIN
 
   WITH t AS (
     SELECT tk."rowGUID" AS task, tk."projectGUID" AS prj, p."rowOwnerGUID" AS usr, tk."treePath" AS path,
-           COALESCE((SELECT SUM(m."sumForBudgetPlan") FROM public.project_status_month_turnover m WHERE m."rowOwnerGUID" = tk."rowGUID"), 0) AS new_own
+           COALESCE(a.own, 0) AS new_own, COALESCE(a.ownv, 0) AS new_ownv
       FROM public.project_task_table tk
       JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
+      LEFT JOIN LATERAL (SELECT SUM(m."sumForBudgetPlan" + m."vatInCostForBudgetPlan") AS own, SUM(m."sumForBudgetPlan" + m."vatForBudgetPlan") AS ownv      -- the cost basis, and With VAT
+                           FROM public.project_status_month_turnover m WHERE m."rowOwnerGUID" = tk."rowGUID") a ON true
      WHERE tk."rowGUID" = ANY (p_tasks) AND public.project_cost_budget_on(p."rowJSON")
   ), chg AS (
-    SELECT t.task, t.prj, t.usr, t.path, t.new_own - COALESCE(c."costOwnForBudget", 0) AS d
+    SELECT t.task, t.prj, t.usr, t.path, t.new_own - COALESCE(c."costOwnForBudget", 0) AS d, t.new_ownv - COALESCE(c."costOwnForBudgetWithVAT", 0) AS dv
       FROM t LEFT JOIN public.project_task_cost_total c ON c."rowOwnerGUID" = t.task
-     WHERE t.new_own IS DISTINCT FROM COALESCE(c."costOwnForBudget", 0)
+     WHERE t.new_own IS DISTINCT FROM COALESCE(c."costOwnForBudget", 0) OR t.new_ownv IS DISTINCT FROM COALESCE(c."costOwnForBudgetWithVAT", 0)
   ), anc AS (
-    SELECT replace(lbl, '_', '-')::uuid AS a, chg.task, chg.prj, chg.usr, chg.d
+    SELECT replace(lbl, '_', '-')::uuid AS a, chg.task, chg.prj, chg.usr, chg.d, chg.dv
       FROM chg CROSS JOIN LATERAL unnest(string_to_array(ltree2text(subpath(chg.path, 1)), '.')) AS lbl
   ), ins AS (
-    INSERT INTO public.project_task_cost_total AS c ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget")
-    SELECT anc.a, anc.prj, anc.usr, COALESCE(SUM(anc.d) FILTER (WHERE anc.a = anc.task), 0), SUM(anc.d)
+    INSERT INTO public.project_task_cost_total AS c ("rowOwnerGUID", "rowProjectGUID", "rowOwnerUserGUID", "costOwnForBudget", "costTotalForBudget", "costOwnForBudgetWithVAT", "costTotalForBudgetWithVAT")
+    SELECT anc.a, anc.prj, anc.usr, COALESCE(SUM(anc.d) FILTER (WHERE anc.a = anc.task), 0), SUM(anc.d), COALESCE(SUM(anc.dv) FILTER (WHERE anc.a = anc.task), 0), SUM(anc.dv)
       FROM anc GROUP BY anc.a, anc.prj, anc.usr
     ON CONFLICT ("rowOwnerGUID") DO UPDATE
-      SET "costOwnForBudget" = c."costOwnForBudget" + EXCLUDED."costOwnForBudget", "costTotalForBudget" = c."costTotalForBudget" + EXCLUDED."costTotalForBudget", "updated_at" = NOW()
+      SET "costOwnForBudget" = c."costOwnForBudget" + EXCLUDED."costOwnForBudget", "costTotalForBudget" = c."costTotalForBudget" + EXCLUDED."costTotalForBudget",
+          "costOwnForBudgetWithVAT" = c."costOwnForBudgetWithVAT" + EXCLUDED."costOwnForBudgetWithVAT", "costTotalForBudgetWithVAT" = c."costTotalForBudgetWithVAT" + EXCLUDED."costTotalForBudgetWithVAT", "updated_at" = NOW()
     RETURNING c."rowOwnerGUID"
   )
   SELECT array_agg(ins."rowOwnerGUID") INTO v_ids FROM ins;
@@ -7436,7 +7586,7 @@ BEGIN
   IF v_ids IS NULL THEN
     RETURN 0;
   END IF;
-  DELETE FROM public.project_task_cost_total c WHERE c."rowOwnerGUID" = ANY (v_ids) AND c."costOwnForBudget" = 0 AND c."costTotalForBudget" = 0;
+  DELETE FROM public.project_task_cost_total c WHERE c."rowOwnerGUID" = ANY (v_ids) AND c."costOwnForBudget" = 0 AND c."costTotalForBudget" = 0 AND c."costOwnForBudgetWithVAT" = 0 AND c."costTotalForBudgetWithVAT" = 0;
   RETURN cardinality(v_ids);
 END;
 $$;
@@ -7516,6 +7666,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT COALESCE(f."rowOwnerGUID", s."rowOwnerGUID"), COALESCE(s."costOwnForBudget", 0), COALESCE(f."costOwnForBudget", 0), COALESCE(s."costTotalForBudget", 0), COALESCE(f."costTotalForBudget", 0)
     FROM f FULL JOIN s ON s."rowOwnerGUID" = f."rowOwnerGUID"
    WHERE COALESCE(s."costOwnForBudget", 0) <> COALESCE(f."costOwnForBudget", 0) OR COALESCE(s."costTotalForBudget", 0) <> COALESCE(f."costTotalForBudget", 0)
+      OR COALESCE(s."costOwnForBudgetWithVAT", 0) <> COALESCE(f."costOwnForBudgetWithVAT", 0) OR COALESCE(s."costTotalForBudgetWithVAT", 0) <> COALESCE(f."costTotalForBudgetWithVAT", 0)
 $$;
 
 REVOKE ALL ON FUNCTION public.project_cost_verify(uuid) FROM PUBLIC, anon, authenticated;
@@ -7600,9 +7751,11 @@ GRANT EXECUTE ON FUNCTION public.purchase_order_state(uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.purchase_order_lines_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
-  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+  v_rate record; v_calc record; v_o_qty numeric; v_o_price numeric; v_o_vat numeric; v_o_before numeric; v_o_vatacc numeric;
 BEGIN
+  IF COALESCE(current_setting('app.vat_backfill', true), '') = 'on' THEN RETURN NEW; END IF;      -- the one-time backfill of start2 sets the columns itself
   IF TG_OP = 'UPDATE' THEN
+    v_o_qty := OLD."qtyOrdered"; v_o_price := OLD."priceOrdered"; v_o_vat := OLD."vatRatioOrdered"; v_o_before := OLD."sumForAccountingBeforeVAT"; v_o_vatacc := OLD."sumForAccountingVAT";
     -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
     -- purchase_order_set_line_task (a MULTI PROJECT purchase order) moves a line to another task / task line: it opens the gate for its own statement only
     IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
@@ -7611,24 +7764,36 @@ BEGIN
     IF COALESCE(current_setting('app.purchase_order_line_move', true), '') <> 'on' AND (
        NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
        OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
-       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR ((NEW."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) IS DISTINCT FROM (OLD."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
        OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
       RAISE EXCEPTION 'purchase order: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
   END IF;
-  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
-  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
-  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
-  NEW."sumForContract" := round(NEW."qtyOrdered" * NEW."priceOrdered", 2);
-  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioOrdered" / 100, 2);
-  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
-  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
-                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
-                             ELSE round(NEW."qtyOrdered" * v_unit_budget, 2) END;
-  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
-                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
-                                 ELSE round(NEW."qtyOrdered" * v_unit_accounting, 2) END;
-  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioOrdered" / 100, 2) END;
+  -- the VAT rate chosen from valueAddedTaxTable (rowJSON.vatRateGUID): its percent and its recoverable share go into the line
+  IF NEW."rowJSON"->>'vatRateGUID' IS NOT NULL AND (TG_OP = 'INSERT' OR NEW."rowJSON"->>'vatRateGUID' IS DISTINCT FROM OLD."rowJSON"->>'vatRateGUID') THEN
+    SELECT * INTO v_rate FROM public.vat_rate_lookup(NEW."rowJSON"->>'vatRateGUID');
+    IF v_rate.o_percent IS NULL THEN
+      RAISE EXCEPTION 'purchase order: the VAT rate does not exist' USING ERRCODE = '23514';
+    END IF;
+    NEW."vatRatioOrdered" := v_rate.o_percent;
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('vatTablePercent', v_rate.o_percent, 'vatRecoverablePercent', v_rate.o_recoverable);
+  END IF;
+  -- the sums (documentation/VENDOR_INVOICE_DOC.html sections 8, 9): price -> contract sums -> budget / accounting sums, or a typed accounting sum -> the price / the VAT %
+  SELECT * INTO v_calc FROM public.vat_line_calc(NEW."qtyOrdered", NEW."priceOrdered", NEW."vatRatioOrdered", NEW."rowJSON", false, TG_OP = 'UPDATE', v_o_qty, v_o_price, v_o_vat, v_o_before, v_o_vatacc,
+                                                  NEW."sumForAccountingBeforeVAT", NEW."sumForAccountingVAT", 'purchase order');
+  NEW."priceOrdered" := v_calc.o_price;
+  NEW."vatRatioOrdered" := v_calc.o_vat;
+  IF v_calc.o_vat_custom THEN NEW."rowJSON" := NEW."rowJSON" - 'vatRateGUID' - 'vatTablePercent'; END IF;
+  NEW."sumForContract" := v_calc.o_contract;
+  NEW."vatForContract" := v_calc.o_vat_contract;
+  NEW."sumForBudget" := v_calc.o_budget;
+  NEW."vatForBudget" := v_calc.o_vat_budget;
+  NEW."vatInCostForBudget" := v_calc.o_in_cost_budget;
+  NEW."sumForAccountingBeforeVAT" := v_calc.o_acc_before;
+  NEW."sumForAccountingVAT" := v_calc.o_acc_vat;
+  NEW."sumForAccounting" := v_calc.o_acc_total;           -- on a LINE: the total with VAT (the register gets the two parts)
+  NEW."vatForAccounting" := v_calc.o_acc_vat;
+  NEW."vatInCostForAccounting" := v_calc.o_in_cost_acc;
   RETURN NEW;
 END;
 $$;
@@ -7754,13 +7919,13 @@ BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
          "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
-         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting", "vatForBudget", "vatInCostForBudget", "vatInCostForAccounting")
   SELECT 'ordered', COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz, h."created_at"),
          ((COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
          h."rowGUID", 'purchaseOrderHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
          l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
          NULLIF(h."rowJSON"->>'purchaseOrderPartner', ''), NULLIF(h."rowJSON"->>'purchaseOrderContract', ''), h."rowOwnerGUID",
-         COALESCE(l."qtyOrdered", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+         COALESCE(l."qtyOrdered", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccountingBeforeVAT", 0), COALESCE(l."sumForAccountingVAT", 0), COALESCE(l."vatForBudget", 0), COALESCE(l."vatInCostForBudget", 0), COALESCE(l."vatInCostForAccounting", 0)
     FROM public.purchase_order_header h
     JOIN public.purchase_order_lines l ON l."rowHeaderGUID" = h."rowGUID"
     JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
@@ -8731,7 +8896,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.monitor01_fresh_rows(p_tasks uuid[])
 RETURNS TABLE ("rowOwnerGUID" uuid, "genusGUID" text, "resourceRoleGUID" text, "measureUnit" text, "periodMonth" date,
                "rowProjectGUID" uuid, "rowOrganizationGUID" text, "rowOwnerUserGUID" uuid, "projectName" text, "taskName" text, "resourceRoleName" text,
-               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
+               "qtyPlanned" numeric, "qtyContracted" numeric, "sumForBudget" numeric, "qtyUsed" numeric, "qtyVendorInvoiced" numeric, "sumVendorInvoiced" numeric, "qtyOrdered" numeric, "qtyReceived" numeric, "qtyCustomerInvoiced" numeric, "sumCustomerInvoiced" numeric, "vatBudget" numeric, "vatInCostBudget" numeric, "vatVendorInvoiced" numeric, "vatInCostVendorInvoiced" numeric, "vatCustomerInvoiced" numeric, "lineCount" integer, "hasStalePlan" boolean)
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   WITH ids AS (        -- origin task, the task whose movements count for it (itself: every genus; a subproject task: the aggregated genera)
     SELECT x AS origin, x AS src, NULL::text AS genus FROM unnest(p_tasks) AS x
@@ -8742,7 +8907,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   t AS (
     SELECT i.origin AS task, f."genusGUID" AS genus, f."resourceRoleGUID" AS role, f."measureUnit" AS unit, f."rowTurnoverMonth" AS month,
            sum(f."qtyPlan") AS "qtyPlan", sum(f."qtyPlanContracted") AS "qtyPlanContracted", sum(f."sumForBudgetPlan") AS "sumForBudgetPlan",
-           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."sumForBudgetInvoiced") AS "sumVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."qtySold") AS "qtyCustomerInvoiced", sum(f."sumForBudgetSold") AS "sumCustomerInvoiced", sum(f."lineCount")::integer AS "lineCount"
+           sum(f."qtyUsed") AS "qtyUsed", sum(f."qtyInvoiced") AS "qtyVendorInvoiced", sum(f."sumForBudgetInvoiced") AS "sumVendorInvoiced", sum(f."qtyOrdered") AS "qtyOrdered", sum(f."qtyReceived") AS "qtyReceived", sum(f."qtySold") AS "qtyCustomerInvoiced", sum(f."sumForBudgetSold") AS "sumCustomerInvoiced", sum(f."vatForBudgetPlan") AS "vatBudget", sum(f."vatInCostForBudgetPlan") AS "vatInCostBudget", sum(f."vatForBudgetInvoiced") AS "vatVendorInvoiced", sum(f."vatInCostForBudgetInvoiced") AS "vatInCostVendorInvoiced", sum(f."vatForBudgetSold") AS "vatCustomerInvoiced", sum(f."lineCount")::integer AS "lineCount"
       FROM ids i JOIN ft f ON f."rowOwnerGUID" = i.src AND (i.genus IS NULL OR f."genusGUID" = i.genus)
      GROUP BY 1, 2, 3, 4, 5
   ),
@@ -8758,7 +8923,7 @@ LANGUAGE sql STABLE SET search_path = public, extensions AS $$
   SELECT t.task, t.genus, t.role, t.unit, t.month,
          p."rowGUID", p."rowParentGUID", p."rowOwnerGUID",
          COALESCE(p."rowJSON"->>'name', p."rowJSON"->>'title', ''), COALESCE(tk."rowJSON"->>'taskDescription', ''), COALESCE(r."rowJSON"->>'title', ''),
-         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."sumVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."qtyCustomerInvoiced", t."sumCustomerInvoiced", t."lineCount", COALESCE(st.stale, false)
+         t."qtyPlan", t."qtyPlanContracted", t."sumForBudgetPlan", t."qtyUsed", t."qtyVendorInvoiced", t."sumVendorInvoiced", t."qtyOrdered", t."qtyReceived", t."qtyCustomerInvoiced", t."sumCustomerInvoiced", t."vatBudget", t."vatInCostBudget", t."vatVendorInvoiced", t."vatInCostVendorInvoiced", t."vatCustomerInvoiced", t."lineCount", COALESCE(st.stale, false)
     FROM t
     JOIN public.project_task_table tk ON tk."rowGUID" = t.task
     JOIN public.project_table p ON p."rowGUID" = tk."projectGUID"
@@ -8811,9 +8976,11 @@ GRANT EXECUTE ON FUNCTION public.product_receipt_state(uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.product_receipt_lines_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
-  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+  v_rate record; v_calc record; v_o_qty numeric; v_o_price numeric; v_o_vat numeric; v_o_before numeric; v_o_vatacc numeric;
 BEGIN
+  IF COALESCE(current_setting('app.vat_backfill', true), '') = 'on' THEN RETURN NEW; END IF;      -- the one-time backfill of start2 sets the columns itself
   IF TG_OP = 'UPDATE' THEN
+    v_o_qty := OLD."qtyReceived"; v_o_price := OLD."priceReceived"; v_o_vat := OLD."vatRatioReceived"; v_o_before := OLD."sumForAccountingBeforeVAT"; v_o_vatacc := OLD."sumForAccountingVAT";
     -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
     IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
       RAISE EXCEPTION 'product receipt: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
@@ -8824,24 +8991,36 @@ BEGIN
     IF COALESCE(current_setting('app.product_receipt_line_move', true), '') <> 'on' AND (
        NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
        OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
-       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR ((NEW."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) IS DISTINCT FROM (OLD."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
        OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
       RAISE EXCEPTION 'product receipt: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
   END IF;
-  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
-  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
-  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
-  NEW."sumForContract" := round(NEW."qtyReceived" * NEW."priceReceived", 2);
-  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioReceived" / 100, 2);
-  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
-  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
-                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
-                             ELSE round(NEW."qtyReceived" * v_unit_budget, 2) END;
-  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
-                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
-                                 ELSE round(NEW."qtyReceived" * v_unit_accounting, 2) END;
-  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioReceived" / 100, 2) END;
+  -- the VAT rate chosen from valueAddedTaxTable (rowJSON.vatRateGUID): its percent and its recoverable share go into the line
+  IF NEW."rowJSON"->>'vatRateGUID' IS NOT NULL AND (TG_OP = 'INSERT' OR NEW."rowJSON"->>'vatRateGUID' IS DISTINCT FROM OLD."rowJSON"->>'vatRateGUID') THEN
+    SELECT * INTO v_rate FROM public.vat_rate_lookup(NEW."rowJSON"->>'vatRateGUID');
+    IF v_rate.o_percent IS NULL THEN
+      RAISE EXCEPTION 'product receipt: the VAT rate does not exist' USING ERRCODE = '23514';
+    END IF;
+    NEW."vatRatioReceived" := v_rate.o_percent;
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('vatTablePercent', v_rate.o_percent, 'vatRecoverablePercent', v_rate.o_recoverable);
+  END IF;
+  -- the sums (documentation/VENDOR_INVOICE_DOC.html sections 8, 9): price -> contract sums -> budget / accounting sums, or a typed accounting sum -> the price / the VAT %
+  SELECT * INTO v_calc FROM public.vat_line_calc(NEW."qtyReceived", NEW."priceReceived", NEW."vatRatioReceived", NEW."rowJSON", false, TG_OP = 'UPDATE', v_o_qty, v_o_price, v_o_vat, v_o_before, v_o_vatacc,
+                                                  NEW."sumForAccountingBeforeVAT", NEW."sumForAccountingVAT", 'product receipt');
+  NEW."priceReceived" := v_calc.o_price;
+  NEW."vatRatioReceived" := v_calc.o_vat;
+  IF v_calc.o_vat_custom THEN NEW."rowJSON" := NEW."rowJSON" - 'vatRateGUID' - 'vatTablePercent'; END IF;
+  NEW."sumForContract" := v_calc.o_contract;
+  NEW."vatForContract" := v_calc.o_vat_contract;
+  NEW."sumForBudget" := v_calc.o_budget;
+  NEW."vatForBudget" := v_calc.o_vat_budget;
+  NEW."vatInCostForBudget" := v_calc.o_in_cost_budget;
+  NEW."sumForAccountingBeforeVAT" := v_calc.o_acc_before;
+  NEW."sumForAccountingVAT" := v_calc.o_acc_vat;
+  NEW."sumForAccounting" := v_calc.o_acc_total;           -- on a LINE: the total with VAT (the register gets the two parts)
+  NEW."vatForAccounting" := v_calc.o_acc_vat;
+  NEW."vatInCostForAccounting" := v_calc.o_in_cost_acc;
   RETURN NEW;
 END;
 $$;
@@ -8967,13 +9146,13 @@ BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
          "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
-         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting", "vatForBudget", "vatInCostForBudget", "vatInCostForAccounting")
   SELECT 'received', COALESCE(NULLIF(h."rowJSON"->>'productReceiptDateTime', '')::timestamptz, h."created_at"),
          ((COALESCE(NULLIF(h."rowJSON"->>'productReceiptDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
          h."rowGUID", 'productReceiptHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
          l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
          NULLIF(h."rowJSON"->>'productReceiptPartner', ''), NULLIF(h."rowJSON"->>'productReceiptContract', ''), h."rowOwnerGUID",
-         COALESCE(l."qtyReceived", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+         COALESCE(l."qtyReceived", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccountingBeforeVAT", 0), COALESCE(l."sumForAccountingVAT", 0), COALESCE(l."vatForBudget", 0), COALESCE(l."vatInCostForBudget", 0), COALESCE(l."vatInCostForAccounting", 0)
     FROM public.product_receipt_header h
     JOIN public.product_receipt_lines l ON l."rowHeaderGUID" = h."rowGUID"
     JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
@@ -9422,9 +9601,11 @@ GRANT EXECUTE ON FUNCTION public.customer_invoice_state(uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.customer_invoice_lines_before_write() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
-  v_plan_price numeric; v_unit_budget numeric; v_unit_accounting numeric;
+  v_rate record; v_calc record; v_o_qty numeric; v_o_price numeric; v_o_vat numeric; v_o_before numeric; v_o_vatacc numeric;
 BEGIN
+  IF COALESCE(current_setting('app.vat_backfill', true), '') = 'on' THEN RETURN NEW; END IF;      -- the one-time backfill of start2 sets the columns itself
   IF TG_OP = 'UPDATE' THEN
+    v_o_qty := OLD."qtyInvoiced"; v_o_price := OLD."priceInvoiced"; v_o_vat := OLD."vatRatioInvoiced"; v_o_before := OLD."sumForAccountingBeforeVAT"; v_o_vatacc := OLD."sumForAccountingVAT";
     -- the identity of a line is frozen: only the quantity, the price, the VAT % and the order change (an independent line also its role, resource, unit).
     -- customer_invoice_set_line_task (a MULTI PROJECT invoice) moves a line to another task / task line: it opens the gate for its own statement only
     IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
@@ -9433,24 +9614,36 @@ BEGIN
     IF COALESCE(current_setting('app.customer_invoice_line_move', true), '') <> 'on' AND (
        NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID"
        OR NEW."genusGUID" IS DISTINCT FROM OLD."genusGUID"
-       OR (NEW."rowJSON" IS DISTINCT FROM OLD."rowJSON" AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
+       OR ((NEW."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) IS DISTINCT FROM (OLD."rowJSON" - '{vatRateGUID,vatTablePercent,vatRecoverablePercent}'::text[]) AND OLD."taskLineGUID" IS NOT NULL)     -- a line that came from a task line is described by it; an INDEPENDENT line (no task line) is described here
        OR (NEW."taskLineGUID" IS DISTINCT FROM OLD."taskLineGUID" AND NEW."taskLineGUID" IS NOT NULL)) THEN
       RAISE EXCEPTION 'customer invoice: only the quantity, the price and the VAT %% of a line can be changed' USING ERRCODE = '23514';
     END IF;
   END IF;
-  v_plan_price := CASE WHEN jsonb_typeof(NEW."rowJSON"->'priceTaskLine') = 'number' THEN (NEW."rowJSON"->>'priceTaskLine')::numeric END;
-  v_unit_budget := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForBudget') = 'number' THEN (NEW."rowJSON"->>'unitSumForBudget')::numeric END;
-  v_unit_accounting := CASE WHEN jsonb_typeof(NEW."rowJSON"->'unitSumForAccounting') = 'number' THEN (NEW."rowJSON"->>'unitSumForAccounting')::numeric END;
-  NEW."sumForContract" := round(NEW."qtyInvoiced" * NEW."priceInvoiced", 2);
-  NEW."vatForContract" := round(NEW."sumForContract" * NEW."vatRatioInvoiced" / 100, 2);
-  -- the amount in the budget / accounting currency: the contract sum at the rate of the plan of the line (its unit sum / its price); without a plan price: quantity x unit sum
-  NEW."sumForBudget" := CASE WHEN v_unit_budget IS NULL THEN NULL
-                             WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_budget / v_plan_price, 2)
-                             ELSE round(NEW."qtyInvoiced" * v_unit_budget, 2) END;
-  NEW."sumForAccounting" := CASE WHEN v_unit_accounting IS NULL THEN NULL
-                                 WHEN v_plan_price IS NOT NULL AND v_plan_price > 0 THEN round(NEW."sumForContract" * v_unit_accounting / v_plan_price, 2)
-                                 ELSE round(NEW."qtyInvoiced" * v_unit_accounting, 2) END;
-  NEW."vatForAccounting" := CASE WHEN NEW."sumForAccounting" IS NULL THEN NULL ELSE round(NEW."sumForAccounting" * NEW."vatRatioInvoiced" / 100, 2) END;
+  -- the VAT rate chosen from valueAddedTaxTable (rowJSON.vatRateGUID): its percent and its recoverable share go into the line
+  IF NEW."rowJSON"->>'vatRateGUID' IS NOT NULL AND (TG_OP = 'INSERT' OR NEW."rowJSON"->>'vatRateGUID' IS DISTINCT FROM OLD."rowJSON"->>'vatRateGUID') THEN
+    SELECT * INTO v_rate FROM public.vat_rate_lookup(NEW."rowJSON"->>'vatRateGUID');
+    IF v_rate.o_percent IS NULL THEN
+      RAISE EXCEPTION 'customer invoice: the VAT rate does not exist' USING ERRCODE = '23514';
+    END IF;
+    NEW."vatRatioInvoiced" := v_rate.o_percent;
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('vatTablePercent', v_rate.o_percent, 'vatRecoverablePercent', v_rate.o_recoverable);
+  END IF;
+  -- the sums (documentation/VENDOR_INVOICE_DOC.html sections 8, 9): price -> contract sums -> budget / accounting sums, or a typed accounting sum -> the price / the VAT %
+  SELECT * INTO v_calc FROM public.vat_line_calc(NEW."qtyInvoiced", NEW."priceInvoiced", NEW."vatRatioInvoiced", NEW."rowJSON", true, TG_OP = 'UPDATE', v_o_qty, v_o_price, v_o_vat, v_o_before, v_o_vatacc,
+                                                  NEW."sumForAccountingBeforeVAT", NEW."sumForAccountingVAT", 'customer invoice');
+  NEW."priceInvoiced" := v_calc.o_price;
+  NEW."vatRatioInvoiced" := v_calc.o_vat;
+  IF v_calc.o_vat_custom THEN NEW."rowJSON" := NEW."rowJSON" - 'vatRateGUID' - 'vatTablePercent'; END IF;
+  NEW."sumForContract" := v_calc.o_contract;
+  NEW."vatForContract" := v_calc.o_vat_contract;
+  NEW."sumForBudget" := v_calc.o_budget;
+  NEW."vatForBudget" := v_calc.o_vat_budget;
+  NEW."vatInCostForBudget" := v_calc.o_in_cost_budget;
+  NEW."sumForAccountingBeforeVAT" := v_calc.o_acc_before;
+  NEW."sumForAccountingVAT" := v_calc.o_acc_vat;
+  NEW."sumForAccounting" := v_calc.o_acc_total;           -- on a LINE: the total with VAT (the register gets the two parts)
+  NEW."vatForAccounting" := v_calc.o_acc_vat;
+  NEW."vatInCostForAccounting" := v_calc.o_in_cost_acc;
   RETURN NEW;
 END;
 $$;
@@ -9577,13 +9770,13 @@ BEGIN
   DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
   INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
          "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "legalEntityGUID",
-         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting")
+         "qtyProjectStatus", "sumForBudget", "sumForContract", "vatForContract", "sumForAccounting", "vatForAccounting", "vatForBudget", "vatInCostForBudget", "vatInCostForAccounting")
   SELECT 'sold', COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz, h."created_at"),
          ((COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
          h."rowGUID", 'customerInvoiceHeader', l."taskLineGUID", l."rowProjectGUID", l."rowOwnerGUID", p."rowOwnerGUID",
          l."genusGUID", COALESCE(l."rowJSON"->>'resourceRoleItem', ''), COALESCE(l."rowJSON"->>'measureUnitTaskLine', ''), NULLIF(l."rowJSON"->>'businessUnitTaskLine', ''),
          NULLIF(h."rowJSON"->>'customerInvoicePartner', ''), NULLIF(h."rowJSON"->>'customerInvoiceContract', ''), h."rowOwnerGUID",
-         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccounting", 0), COALESCE(l."vatForAccounting", 0)
+         COALESCE(l."qtyInvoiced", 0), COALESCE(l."sumForBudget", 0), COALESCE(l."sumForContract", 0), COALESCE(l."vatForContract", 0), COALESCE(l."sumForAccountingBeforeVAT", 0), COALESCE(l."sumForAccountingVAT", 0), COALESCE(l."vatForBudget", 0), COALESCE(l."vatInCostForBudget", 0), COALESCE(l."vatInCostForAccounting", 0)
     FROM public.customer_invoice_header h
     JOIN public.customer_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
     JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
@@ -10173,6 +10366,55 @@ END $$;
 -- Check:
 --   SELECT * FROM public.kit8_budget_item_key_matrix();                                                         -- 14 rows
 --   SELECT "rowGUID", "rowJSON"->>'budgetItemGenericKey', "rowJSON"->>'direction' FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' ORDER BY "orderInList";
+
+-- ===============================================================================================
+-- VAT basis backfill (documentation/VENDOR_INVOICE_DOC.html section 15): rows made before the columns existed. Idempotent: an old row is recognized by its empty new column.
+-- The line trigger is switched off for these statements (app.vat_backfill), the values are set here.
+-- ===============================================================================================
+DO $$
+DECLARE
+  t text;
+BEGIN
+  PERFORM set_config('app.vat_backfill', 'on', true);
+  -- the four document lines: the old sumForAccounting (net) -> sumForAccountingBeforeVAT, the old vatForAccounting -> sumForAccountingVAT, sumForAccounting = the total; the budget VAT by the ratio of the contract VAT
+  -- (every existing rate is fully recoverable, so nothing is cost: vatInCost = 0)
+  FOREACH t IN ARRAY ARRAY['vendor_invoice_lines', 'purchase_order_lines', 'product_receipt_lines', 'customer_invoice_lines'] LOOP
+    EXECUTE format($f$UPDATE public.%I SET
+        "sumForAccountingBeforeVAT" = "sumForAccounting",
+        "sumForAccountingVAT"       = CASE WHEN "sumForAccounting" IS NULL THEN NULL ELSE COALESCE("vatForAccounting", 0) END,
+        "sumForAccounting"          = CASE WHEN "sumForAccounting" IS NULL THEN NULL ELSE "sumForAccounting" + COALESCE("vatForAccounting", 0) END,
+        "vatForBudget"              = CASE WHEN "sumForBudget" IS NULL THEN NULL WHEN COALESCE("sumForContract", 0) > 0 THEN round("sumForBudget" * COALESCE("vatForContract", 0) / "sumForContract", 2) ELSE 0 END,
+        "vatInCostForBudget"        = CASE WHEN "sumForBudget" IS NULL THEN NULL ELSE 0 END,
+        "vatInCostForAccounting"    = CASE WHEN "sumForAccounting" IS NULL THEN NULL ELSE 0 END
+      WHERE "sumForAccountingBeforeVAT" IS NULL AND "sumForAccountingVAT" IS NULL AND "vatForBudget" IS NULL
+        AND ("sumForAccounting" IS NOT NULL OR "sumForBudget" IS NOT NULL)$f$, t);
+  END LOOP;
+END $$;
+
+-- the register movements of posted documents: the budget VAT by the ratio of their own contract VAT (the accounting columns already hold net + VAT)
+UPDATE public.project_status_movements s
+   SET "vatForBudget" = CASE WHEN s."sumForContract" > 0 THEN round(s."sumForBudget" * s."vatForContract" / s."sumForContract", 2) ELSE 0 END
+ WHERE s."rowMovementKind" IN ('ordered', 'received', 'invoiced', 'sold') AND s."vatForBudget" = 0 AND s."vatForContract" <> 0;
+
+-- the plan: the VAT of the budget sum of the task line (taskLineFx: sumVATForBudget) spread like the budget sum of each movement (a posted plan is exact again at its next Post)
+UPDATE public.task_line_plan_movements m
+   SET "vatForBudget" = round(m."sumForBudget" * (l."rowJSON"->>'sumVATForBudget')::numeric / NULLIF((l."rowJSON"->>'sumForBudget')::numeric, 0), 2),
+       "vatInCostForBudget" = 0
+  FROM public.task_line_table l
+ WHERE l."rowGUID" = m."rowParentGUID" AND m."vatForBudget" IS NULL AND m."sumForBudget" IS NOT NULL
+   AND jsonb_typeof(l."rowJSON"->'sumVATForBudget') = 'number' AND jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number';
+
+-- the worker writes the new numbers into the register, the turnover, monitor01_view and the cost totals: queue what has VAT
+INSERT INTO public.monitor01_dirty ("rowOwnerGUID", "reason")
+SELECT DISTINCT x."rowOwnerGUID", 'install' FROM (
+  SELECT m."rowOwnerGUID" FROM public.task_line_plan_movements m WHERE COALESCE(m."vatForBudget", 0) <> 0
+  UNION SELECT s."rowOwnerGUID" FROM public.project_status_movements s WHERE s."rowMovementKind" IN ('invoiced', 'sold') AND s."vatForBudget" <> 0) x
+ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+-- the cost totals gained the "with VAT" pair: rebuild the projects that have a cost total
+INSERT INTO public.project_cost_dirty ("rowProjectGUID")
+SELECT DISTINCT c."rowProjectGUID" FROM public.project_task_cost_total c WHERE c."costTotalForBudget" <> 0 AND c."costTotalForBudgetWithVAT" = 0
+ON CONFLICT ("rowProjectGUID") DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';
 

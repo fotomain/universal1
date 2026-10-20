@@ -52,7 +52,7 @@ describe('the names the app calls exist in the code file', () => {
   it('the redux entities point at the two tables; only qty / price / VAT % of a line are saved columns', () => {
     const meta = customerInvoiceSystemMetaData();
     expect(Object.values(meta).map((m: any) => m.tableName)).toEqual([CUSTOMER_INVOICE_HEADER_TABLE, CUSTOMER_INVOICE_LINES_TABLE]);
-    expect((meta.customerInvoiceLinesReusable as any).rootColumns).toEqual(['qtyInvoiced', 'priceInvoiced', 'vatRatioInvoiced']);
+    expect((meta.customerInvoiceLinesReusable as any).rootColumns).toEqual(['qtyInvoiced', 'priceInvoiced', 'vatRatioInvoiced', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT']);
   });
 });
 
@@ -85,7 +85,7 @@ describe('the Monitor01 pipeline carries the group Customer Invoice (Qty, Sum)',
     expect(code).toContain(`FILTER (WHERE s."rowMovementKind" = 'sold')`);
     expect(code).toContain(`OR s."rowMovementKind" = 'sold')`);
     expect(code).toContain('sum(f."qtySold") AS "qtyCustomerInvoiced", sum(f."sumForBudgetSold") AS "sumCustomerInvoiced"');
-    expect(code).toContain('"qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "lineCount", "hasStalePlan")');
+    expect(code).toContain('"qtyReceived", "qtyCustomerInvoiced", "sumCustomerInvoiced", "vatBudget", "vatInCostBudget", "vatVendorInvoiced", "vatInCostVendorInvoiced", "vatCustomerInvoiced", "lineCount", "hasStalePlan")');
     expect(code).toContain('"qtySold" = EXCLUDED."qtySold", "sumForBudgetSold" = EXCLUDED."sumForBudgetSold"');
   });
   it('the drill-down measure customerInvoiced lists the sold movements with the number of the invoice', () => {

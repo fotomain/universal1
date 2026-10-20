@@ -1,6 +1,6 @@
 // The pure part of Monitor01: keys, realtime patching, filters, tabs, totals, the table items, colours, the drill-down filters (kit8/pm/reports/monitor01).
 import {
-  EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
+  EMPTY_MONITOR01_FILTERS, Monitor01Row, applyMonitor01VatBasis, applyMonitor01Events, buildMonitor01Items, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows, monitor01MonthKey, monitor01NodeKeys, monitor01ProjectKey, monitor01RoleKey, drillOperands, filterMonitor01Rows, formatMonitor01Number,
   MONITOR01_HEAD, MONITOR01_MEASURES, MONITOR01_MEASURE_FIELD, MONITOR01_MEASURE_GROUP, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, MONITOR01_CUSTOMER_INVOICE_HEAD, MONITOR01_TABS, monitor01GenusTitle, monitor01DateErrors, monitor01FiltersActive, monitor01Key, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, parseMonitor01Row, rowsOfTab, sortMonitor01Rows, totalsByUnit,
 } from '../../../../kit8/pm/reports/monitor01/monitor01Model';
 import { cellTone, toneBackground } from '../../../../kit8/pm/reports/monitor01/monitor01Colors';
@@ -416,5 +416,35 @@ describe('the stamp (the safety net under Realtime)', () => {
     expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: Date.parse('2026-10-14T10:00:01Z') }, local)).toBe(true);
     expect(monitor01StampDiffers({ count: 0, maxUpdatedAt: null }, { count: 0, maxUpdatedAt: null })).toBe(false);
     expect(monitor01StampDiffers({ count: 2, maxUpdatedAt: null }, { count: 2, maxUpdatedAt: local.maxUpdatedAt })).toBe(false);     // nothing to compare by time
+  });
+});
+
+describe('the VAT basis of the three money columns (documentation/VENDOR_INVOICE_DOC.html section 13)', () => {
+  const vatRows = (): Monitor01Row[] => [
+    row({ sumForBudget: '100', vatBudget: '21', vatInCostBudget: '0', sumVendorInvoiced: '50', vatVendorInvoiced: '10.5', vatInCostVendorInvoiced: '10.5', sumCustomerInvoiced: '200', vatCustomerInvoiced: '42' }),
+  ];
+  it('the rows carry the VAT parts (missing = 0)', () => {
+    const r = vatRows()[0];
+    expect([r.vatBudget, r.vatInCostBudget, r.vatVendorInvoiced, r.vatInCostVendorInvoiced, r.vatCustomerInvoiced]).toEqual([21, 0, 10.5, 10.5, 42]);
+    expect(row().vatBudget).toBe(0);
+  });
+  it('Net: the rows as they are', () => {
+    const rows = vatRows();
+    expect(applyMonitor01VatBasis(rows, 'net')).toBe(rows);
+  });
+  it('Cost: net + the VAT that is cost; a customer invoice\'s VAT is never cost', () => {
+    const r = applyMonitor01VatBasis(vatRows(), 'cost')[0];
+    expect([r.sumForBudget, r.sumVendorInvoiced, r.sumCustomerInvoiced]).toEqual([100, 60.5, 200]);
+  });
+  it('With VAT: net + all the VAT', () => {
+    const r = applyMonitor01VatBasis(vatRows(), 'gross')[0];
+    expect([r.sumForBudget, r.sumVendorInvoiced, r.sumCustomerInvoiced]).toEqual([121, 60.5, 242]);
+  });
+  it('everything downstream works on the shown amounts: the totals row follows the basis', () => {
+    expect(monitor01Totals(applyMonitor01VatBasis(vatRows(), 'gross')).sumForBudget).toBe(121);
+    expect(monitor01Totals(applyMonitor01VatBasis(vatRows(), 'cost')).sumForBudget).toBe(100);
+  });
+  it('the quantities are not touched by the basis', () => {
+    expect(applyMonitor01VatBasis(vatRows(), 'gross')[0].qtyPlanned).toBe(vatRows()[0].qtyPlanned);
   });
 });

@@ -35,3 +35,6 @@ The LAST 1st level group **Customer Invoice** with the 2nd level columns **Qty**
 ## Tests
 * SQL on Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 74` (49 checks: customers of the Revenue lines, create, sums, post + register, Monitor01 turnover / view / fresh rows / verify / drill-down, unpost, delete, list, the project switch).
 * Jest: `__tests__/documents/customer/invoice` (model, hooks, columns, choose window, form, list, settings, SQL mirror), `__tests__/pm/reports/monitor01`, `__tests__/pm/ui/taskRelatedMenu.test.tsx`, `taskEditWindow.test.tsx`.
+
+## VAT columns (2026-10-20)
+The customer invoice lines have the same VAT rate select and accounting columns as the vendor invoice (`kit8/documents/vat/README.md`, `documentation/VENDOR_INVOICE_DOC.html`). The VAT of a customer invoice is never cost (it is collected for the tax authority).

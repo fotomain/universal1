@@ -7,6 +7,7 @@
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
 //            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`; a right click / long press opens the Task menu, `onTaskMenu`
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
+import { VAT_BASIS_DEFAULT, VAT_BASIS_SHORT, VatBasis } from '../../vat/vatBasis';
 import React, { memo, useCallback, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { pmT } from '../../i18n/pmT';
@@ -33,6 +34,8 @@ export interface Monitor01TableProps {
   onTaskOpen?: (row: Monitor01Row) => void;
   /** a right click (web) / long press (touch) on the Task name of a row: the Task menu at the window point */
   onTaskMenu?: (row: Monitor01Row, x: number, y: number) => void;
+  /** the VAT basis of the three money columns (their header tips say it); the rows already carry the amounts of that basis (applyMonitor01VatBasis) */
+  vatBasis?: VatBasis;
   testID?: string;
 }
 
@@ -69,8 +72,8 @@ const GROUP_START_COLUMNS: Col['id'][] = GROUPS.slice(1).map((g) => (COLS.find((
 const startsGroup = (id: Col['id']) => GROUP_START_COLUMNS.includes(id);
 const colWidth = (c: Col) => (isMoney(c.id) ? W.budget : W.num);
 /** a cell of the header with the tip = its title (the bubble is drawn by PMTooltipLayer of the screen) */
-function HeadCell({ title, width, testID, textTestID, borderColor, center, textStyle }: { title: string; width: number; testID?: string; textTestID?: string; borderColor?: string; center?: boolean; textStyle: any }) {
-  const tip = usePMTip(title);
+function HeadCell({ title, width, testID, textTestID, borderColor, center, textStyle, tipText }: { title: string; width: number; testID?: string; textTestID?: string; borderColor?: string; center?: boolean; textStyle: any; tipText?: string }) {
+  const tip = usePMTip(tipText ?? title);
   return (
     <Pressable
       {...tip}
@@ -113,7 +116,7 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
   );
 });
 
-function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, onTaskMenu, testID = 'monitor01-table' }: Monitor01TableProps) {
+function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, onTaskMenu, vatBasis = VAT_BASIS_DEFAULT, testID = 'monitor01-table' }: Monitor01TableProps) {
   const lastPress = useRef<{ key: string; at: number } | null>(null);
   const pressTask = useCallback((key: string, row: Monitor01Row) => {
     const now = Date.now();
@@ -198,8 +201,8 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
   // the tip of a header cell = its title (also when the column is too narrow for it)
-  const head = (w: number, title: string, id?: string, groupBorder?: boolean) => (
-    <HeadCell key={id ?? title} title={pmT(title)} width={w} textTestID={id} borderColor={groupBorder ? colors.text : undefined} textStyle={text({ fontWeight: '700', textAlign: 'center' })} />
+  const head = (w: number, title: string, id?: string, groupBorder?: boolean, tipText?: string) => (
+    <HeadCell key={id ?? title} title={pmT(title)} tipText={tipText} width={w} textTestID={id} borderColor={groupBorder ? colors.text : undefined} textStyle={text({ fontWeight: '700', textAlign: 'center' })} />
   );
 
   // the TotalsRow: one line per unit (quantities are never added across units), the money in the same line; several units add one line with the money of all of them
@@ -221,7 +224,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
           {head(W.month, MONITOR01_HEAD.month, `${testID}-head-month`)}
           {head(W.task, MONITOR01_HEAD.task, `${testID}-head-task`)}
           {head(W.unit, MONITOR01_HEAD.unit, `${testID}-head-unit`)}
-          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, startsGroup(c.id)))}
+          {COLS.map((c) => head(colWidth(c), colTitle(c), `${testID}-head-${c.id}`, startsGroup(c.id), isMoney(c.id) ? `${pmT(colTitle(c))} - ${pmT(VAT_BASIS_SHORT[vatBasis])}` : undefined))}
         </View>
         <FlatList
           ref={listRef}

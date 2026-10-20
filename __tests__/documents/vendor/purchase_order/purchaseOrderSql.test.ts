@@ -51,7 +51,7 @@ describe('the names the app calls', () => {
     const m = purchaseOrderSystemMetaData();
     expect(Object.values(m).map((e: any) => e.tableName)).toEqual([PURCHASE_ORDER_HEADER_TABLE, PURCHASE_ORDER_LINES_TABLE]);
     const lines = Object.values(m)[1] as any;
-    expect(lines.rootColumns).toEqual(['qtyOrdered', 'priceOrdered', 'vatRatioOrdered']);
+    expect(lines.rootColumns).toEqual(['qtyOrdered', 'priceOrdered', 'vatRatioOrdered', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT']);
     for (const col of lines.rootColumns) expect(p).toContain(`"${col}"`);
     expect(() => (Object.values(m)[0] as any).prepareCreateApi()).toThrow('create_purchase_orders');
     expect(() => lines.prepareCreateApi()).toThrow('task lines');

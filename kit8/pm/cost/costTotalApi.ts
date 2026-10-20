@@ -5,7 +5,7 @@ import { COST_PAGE_SIZE, COST_TOTAL_TABLE, CostTotalRow, CostUpdateAnswer, RPC_U
 export async function readProjectCostRows(client: any, projectGUID: string): Promise<CostTotalRow[]> {
   const out: CostTotalRow[] = [];
   for (let from = 0; ; from += COST_PAGE_SIZE) {
-    const { data, error } = await client.from(COST_TOTAL_TABLE).select('rowOwnerGUID,costOwnForBudget,costTotalForBudget').eq('rowProjectGUID', projectGUID).order('rowOwnerGUID').range(from, from + COST_PAGE_SIZE - 1);
+    const { data, error } = await client.from(COST_TOTAL_TABLE).select('rowOwnerGUID,costOwnForBudget,costTotalForBudget,costOwnForBudgetWithVAT,costTotalForBudgetWithVAT').eq('rowProjectGUID', projectGUID).order('rowOwnerGUID').range(from, from + COST_PAGE_SIZE - 1);
     if (error) throw new Error(error.message || String(error));
     const page = (data || []) as any[];
     for (const raw of page) out.push(parseCostRow(raw));

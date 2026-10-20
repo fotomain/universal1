@@ -71,7 +71,7 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
   });
   it('has the same seed-free rule as before: the only INSERTs are the backfills of data that already exists', () => {
     const targets = codeStatements.filter((s) => kind(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
   });
   it('a unique index / NOT NULL that needs the data fix right before it stays here, after the fix', () => {
     const fix = codeSql.indexOf('UPDATE public."organizationTable" o');

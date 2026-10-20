@@ -165,7 +165,7 @@ describe('the SQL of PART 32', () => {
     expect(tablesSql).not.toContain('budgetItemTable_key_chk');
   });
 
-  it('start3: the seed rows: 3 activities, 14 keys, 32 possible budget items - every field of the tree', () => {
+  it('start3: the seed rows: 3 activities, 14 keys, 36 possible budget items - every field of the tree', () => {
     const rowsOf = (table: string) => Array.from(t3.matchAll(new RegExp(`INSERT INTO public\\."${table}"[\\s\\S]*?ON CONFLICT`, 'g'))).map((m) => m[0]);
     const tuples = (block: string) => Array.from(block.matchAll(/^  \('([^']+)', '([^']+)', '([^']+)', (\d+), '(\{.*\})'::jsonb\)/gm)).map((m) => ({ guid: m[1], owner: m[2], parent: m[3], json: JSON.parse(m[5].replace(/''/g, "'")) }));
     const activities = tuples(rowsOf('managementActivityGenusTable')[0]);
@@ -184,8 +184,8 @@ describe('the SQL of PART 32', () => {
       expect(String(k.json.d365foName)).not.toBe('');
       expect(String(k.json.sapName)).not.toBe('');
     }
-    expect(items).toHaveLength(32);
-    expect(new Set(items.map((i) => i.guid)).size).toBe(32);
+    expect(items).toHaveLength(36);
+    expect(new Set(items.map((i) => i.guid)).size).toBe(36);
     for (const i of items) {
       expect(i.owner).toBe('budgetItemCatalog');
       expect(['costsBudgetFolder', 'revenuesBudgetFolder', 'paymentsBudgetFolder']).toContain(i.parent);
@@ -197,16 +197,16 @@ describe('the SQL of PART 32', () => {
       expect(i.parent).toBe(i.json.managementGenusItem.startsWith('revenue') ? 'revenuesBudgetFolder' : i.json.managementGenusItem.endsWith('PaymentGenus') ? 'paymentsBudgetFolder' : 'costsBudgetFolder');
     }
     expect(items.filter((i) => i.json.isPolicyItem).map((i) => i.json.title).sort()).toEqual(['Dividends paid', 'Dividends received', 'Interest paid', 'Interest received']);
-    // per activity: 14 operating, 11 investing, 7 financing
+    // per activity: 18 operating (incl. the customer receipts and the vendor payments), 11 investing, 7 financing
     const per = (a: string) => items.filter((i) => budgetItemActivityOf(i.json) === a).length;
-    expect([per('operatingActivity'), per('investingActivity'), per('financingActivity')]).toEqual([14, 11, 7]);
+    expect([per('operatingActivity'), per('investingActivity'), per('financingActivity')]).toEqual([18, 11, 7]);
   });
 
   it('start5 has the same rows as start3 (upserts), start3 only inserts what is missing', () => {
     const codes = (src: string) => Array.from(src.matchAll(/^  \('([^']+)', '(?:budgetItemCatalog|budgetItemGenericKeyCatalog|managementActivityGenusCatalog)'/gm)).map((m) => m[1]).sort();
     const s5 = start5.slice(start5.indexOf('Activity genus, budget item keys'));
     expect(codes(s5)).toEqual(codes(t3));
-    expect(codes(t3)).toHaveLength(49);          // 3 activities + 14 keys + 32 items = the 49 rows of the tree
+    expect(codes(t3)).toHaveLength(53);          // 3 activities + 14 keys + 36 items = the 53 rows of the tree
     expect(t3).toMatch(/ON CONFLICT \("rowGUID"\) DO NOTHING/);
     expect(t3).not.toMatch(/DO UPDATE/);
     expect(s5).toMatch(/DO UPDATE SET/);

@@ -5,6 +5,7 @@
 //     collapsible (the set of collapsed nodes lives on the screen), the TotalsRow at the bottom
 //   * the filter of the Sum explorer for a cell, a subtotal and a total
 // The numbers come ready from the database (rest to contract and on-hand are generated columns): nothing is calculated here except sums of rows.
+import { amountOfVatBasis, VatBasis } from '../../vat/vatBasis';
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
 import { parseDayInput } from '../../../documents/fact/input/factInputModel';
 
@@ -35,6 +36,9 @@ export interface Monitor01Row {
   qtyCustomerInvoiced: number;
   /** the money of the POSTED customer invoices (Σ sumForBudget of the 'sold' movements; the column Sum under Customer Invoice) */
   sumCustomerInvoiced: number;
+  /** VAT basis (documentation/VENDOR_INVOICE_DOC.html section 13): the three money fields above are NET; these are the VAT and the part of it that is cost (a customer invoice's VAT is never cost).
+   *  The screen shows the money of the basis the user picked (applyMonitor01VatBasis). Missing = 0. */
+  vatBudget?: number; vatInCostBudget?: number; vatVendorInvoiced?: number; vatInCostVendorInvoiced?: number; vatCustomerInvoiced?: number;
   /** the quantity of the POSTED purchase orders (the column Ordered, the first of the Fact group; SQL PART 28: 'ordered' movements) */
   qtyOrdered: number;
   qtyUsed: number;
@@ -103,6 +107,11 @@ export function parseMonitor01Row(raw: any): Monitor01Row {
     sumVendorInvoiced: num(raw.sumVendorInvoiced),
     qtyCustomerInvoiced: num(raw.qtyCustomerInvoiced),
     sumCustomerInvoiced: num(raw.sumCustomerInvoiced),
+    vatBudget: num(raw.vatBudget),
+    vatInCostBudget: num(raw.vatInCostBudget),
+    vatVendorInvoiced: num(raw.vatVendorInvoiced),
+    vatInCostVendorInvoiced: num(raw.vatInCostVendorInvoiced),
+    vatCustomerInvoiced: num(raw.vatCustomerInvoiced),
     qtyOrdered: num(raw.qtyOrdered),
     qtyUsed: num(raw.qtyUsed),
     qtyOnHand: raw.qtyOnHand == null ? num(raw.qtyReceived) - num(raw.qtyUsed) : num(raw.qtyOnHand),
@@ -110,6 +119,20 @@ export function parseMonitor01Row(raw: any): Monitor01Row {
     hasStalePlan: !!raw.hasStalePlan,
     updated_at: raw.updated_at,
   };
+}
+
+/**
+ * The rows on a VAT basis: the three money fields (sumForBudget, sumVendorInvoiced, sumCustomerInvoiced) become net + the VAT that is cost (basis 'cost'), net ('net') or net + all VAT ('gross');
+ * everything below (the tree, the subtotals, the totals row) keeps working on those fields. A customer invoice's VAT is never cost, so on 'cost' its amount stays net.
+ */
+export function applyMonitor01VatBasis(rows: Monitor01Row[], basis: VatBasis): Monitor01Row[] {
+  if (basis === 'net') return rows;
+  return rows.map((r) => ({
+    ...r,
+    sumForBudget: amountOfVatBasis(r.sumForBudget, r.vatBudget, r.vatInCostBudget, basis),
+    sumVendorInvoiced: amountOfVatBasis(r.sumVendorInvoiced, r.vatVendorInvoiced, r.vatInCostVendorInvoiced, basis),
+    sumCustomerInvoiced: amountOfVatBasis(r.sumCustomerInvoiced, r.vatCustomerInvoiced, 0, basis),
+  }));
 }
 
 export interface Monitor01Event { eventType: 'INSERT' | 'UPDATE' | 'DELETE'; new?: any; old?: any }

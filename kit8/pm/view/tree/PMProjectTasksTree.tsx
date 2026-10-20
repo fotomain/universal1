@@ -223,8 +223,9 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const kanbanCol = layout.byKey.kanban;
   const kanbanProgressCol = layout.byKey.kanbanStageProgressPercent;
   const costCol = layout.byKey.costTotalForBudget;
+  const costVatCol = layout.byKey.costTotalForBudgetWithVAT;
   // costTotalForBudget of every task and stage (kit8/pm/cost): read while the Cost column is shown, then kept current by Realtime
-  const { totals: costTotals } = useProjectCostTotals(selectedProjectGUID, !!costCol);
+  const { totals: costTotals, totalsWithVat: costTotalsWithVat } = useProjectCostTotals(selectedProjectGUID, !!costCol || !!costVatCol);
   const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
   const planDay = usePMStore((s) => s.planDay);
   const planHour = usePMStore((s) => s.planHour);
@@ -342,6 +343,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       const durationText = r ? (r.isMilestone ? '◆' : formatPlanDuration(r.durationDays, { planDay, planHour, planMinute, planSecond })) : '';
       const prog = r ? `${Math.round(r.progress)}%` : '';
       const costText = costCol ? formatCost(costTotals.get(guid)) : '';
+      const costVatText = costVatCol ? formatCost(costTotalsWithVat.get(guid)) : '';
 
       const dStart = r ? new Date(r.startMs) : null;
       const dFinish = r ? new Date(finishInstant) : null;
@@ -430,6 +432,8 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         progX: progCol ? progCol.x + progCol.w - 8 - measureSmall(prog) : 0,
         cost: costText,
         costX: costCol ? costCol.x + costCol.w - 8 - (summary ? measureSmallBold : measureSmall)(costText) : 0,
+        costVat: costVatText,
+        costVatX: costVatCol ? costVatCol.x + costVatCol.w - 8 - (summary ? measureSmallBold : measureSmall)(costVatText) : 0,
         kanban,
         kanbanProg,
         kanbanProgX,
@@ -440,7 +444,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costTotals, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond, subMarks]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costVatCol, costTotals, costTotalsWithVat, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond, subMarks]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -1383,6 +1387,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
                           {daysCol && <SkText x={r.daysX} y={base} text={r.days} font={fonts.small} color={palette.textMuted} />}
                           {progCol && <SkText x={r.progX} y={base} text={r.prog} font={fonts.small} color={palette.textMuted} />}
                           {costCol && <SkText x={r.costX} y={base} text={r.cost} font={r.summary ? fonts.smallBold : fonts.small} color={r.summary ? palette.text : palette.textMuted} />}
+                          {costVatCol && <SkText x={r.costVatX} y={base} text={r.costVat} font={r.summary ? fonts.smallBold : fonts.small} color={r.summary ? palette.text : palette.textMuted} />}
                           {r.kanban && (
                             <>
                               <RoundedRect

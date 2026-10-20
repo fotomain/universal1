@@ -14,6 +14,7 @@ import { pmT } from '../../../pm/i18n/pmT';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
 import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
 import { CUSTOMER_INVOICE_ALL_TAB, CUSTOMER_INVOICE_LINES_TABLE } from './customerInvoiceModel';
+import { accountingColumns, vatRateColumn } from '../../vat/documentVatColumns';
 import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
 
 export interface CustomerInvoiceColumnsContext {
@@ -54,11 +55,10 @@ export function buildCustomerInvoiceColumns({ data, tab, editable, independent =
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, ...describe } as VisualColumn,
     { key: 'qty', title: pmT('Qty'), type: 'number', target: 'qtyInvoiced', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(CUSTOMER_INVOICE_LINES_TABLE, 'qtyInvoiced') } as VisualColumn,
     { key: 'price', title: pmT('Price'), type: 'number', target: 'priceInvoiced', width: 120, min: 0, max: 1000000000, total: false, stepper: false, editable, ...pmNumberColumn(CUSTOMER_INVOICE_LINES_TABLE, 'priceInvoiced') } as VisualColumn,
-    { key: 'vat', title: pmT('VAT %'), type: 'number', target: 'vatRatioInvoiced', width: 100, min: 0, max: 100, total: false, stepper: false, editable, ...pmNumberColumn(CUSTOMER_INVOICE_LINES_TABLE, 'vatRatioInvoiced') } as VisualColumn,
+    vatRateColumn({ data, editable, ratioKey: 'vatRatioInvoiced' }),
     root('sumForContract', 'Sum before VAT', 150),
     root('vatForContract', 'VAT', 120),
     { key: 'sumWithVAT', title: pmT('Sum with VAT'), type: 'number', width: 150, editable: false, stepper: false, fromStored: (_s: any, row: ReusableTableRow) => Math.round((num(row.sumForContract) + num(row.vatForContract)) * 100) / 100 } as VisualColumn,
-    root('sumForBudget', 'Sum for budget', 140),
-    root('sumForAccounting', 'Sum for accounting', 150),
+    ...accountingColumns({ editable, tableName: CUSTOMER_INVOICE_LINES_TABLE }),
   ];
 }

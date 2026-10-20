@@ -10,10 +10,12 @@
 //   isPolicyItem = IAS 7 lets the company choose the activity (interest, dividends). SQL PART 32 defaults an old item to operatingActivity.<genus>.
 //   rowJSON.managementGenusItem is OBLIGATORY on an item = the rowGUID of a LEVEL 2 row of managementGenusTable (timeGenus, materialGenus, ...):
 //   the genus the item belongs to (a Time task line offers the items of timeGenus only). Folders have no genus.
+//   The tree has a SECOND level made of the activity (operating / investing / financing) under every folder - virtual nodes, see budgetItemNodes (nothing is stored).
 //   SQL: kit8/sql/init/create_budget_item_table.sql · Screen: PMBudgetItemCRUD · route BUDGET_ITEM_ROUTES.list
 import type { FolderTreeNode } from '../../../ui/components/tree/folderTreeModel';
 import type { DefRow, ProductTableDef } from '../../product/productModel';
 import { isManagementGenusFolder } from '../../management/genus/managementGenusModel';
+import { budgetItemActivitiesOfGenus, budgetItemActivityOf, budgetItemKeyDirection, budgetItemKeyOf } from './budgetItemKeyModel';
 
 export const BUDGET_ITEM_ROUTES = { list: '/catalog/budget/item/list' } as const;
 
@@ -66,14 +68,77 @@ export const budgetItemFolders = (rows: DefRow<any>[]) => (rows || []).filter(is
 /** the budget items (level 2) */
 export const budgetItems = (rows: DefRow<any>[]) => (rows || []).filter((r) => !isBudgetItemFolder(r));
 
-/** the FOLDERS as tree nodes (title, order); the items are the rows of the table */
-export function budgetItemNodes(rows: DefRow<any>[]): FolderTreeNode[] {
-  return budgetItemFolders(rows).map((r) => ({
-    id: r.rowGUID,
-    parentId: null,
-    title: String(r.rowJSON?.title ?? '').trim() || '(no title)',
-    order: Number(r.orderInList) || 0,
-  }));
+// ---- the second level of the tree: the ACTIVITY (operating / investing / financing) under every folder ---------------------------------------------------------------------------------
+// NOT rows of the table: a node of the tree made of the activity of the items (rowJSON.budgetItemGenericKey) - nothing is stored, nothing is migrated. Its id is '<folder>::<activity>'.
+// An item is shown under the node of its folder and its activity; a folder offers the activities its genus can have (the matrix of budgetItemKeyModel.ts): Costs and Revenues operating and
+// investing, Payments also financing. Picking a node filters the table (the folder node shows all its activities); "+" in a node makes an item with that activity; dragging items onto a node
+// changes their activity (and folder).
+export const BUDGET_ITEM_NODE_SEP = '::';
+export const budgetItemActivityNodeId = (folderGUID: string, activity: string): string => `${folderGUID}${BUDGET_ITEM_NODE_SEP}${activity}`;
+/** '<folder>::<activity>' -> { folder, activity }; null = not an activity node */
+export function budgetItemActivityNodeParts(id: unknown): { folder: string; activity: string } | null {
+  const s = typeof id === 'string' ? id : '';
+  const i = s.indexOf(BUDGET_ITEM_NODE_SEP);
+  return i <= 0 || i + BUDGET_ITEM_NODE_SEP.length >= s.length ? null : { folder: s.slice(0, i), activity: s.slice(i + BUDGET_ITEM_NODE_SEP.length) };
+}
+export const isBudgetItemActivityNode = (id: unknown): boolean => budgetItemActivityNodeParts(id) !== null;
+
+const ACTIVITY_FALLBACK_TITLE: Record<string, string> = { operatingActivity: 'Operating activity', investingActivity: 'Investing activity', financingActivity: 'Financing activity' };
+const activityTitle = (activityRows: DefRow<any>[] | undefined, activity: string): string =>
+  String((activityRows || []).find((r) => r.rowGUID === activity)?.rowJSON?.title ?? '').trim() || ACTIVITY_FALLBACK_TITLE[activity] || activity;
+
+/** the activities a folder offers: those the genus of its items can have, in the order of the cash flow statement; a folder without items offers all three */
+export function budgetItemActivitiesOfFolder(rows: DefRow<any>[], folderGUID: string): string[] {
+  const genera = new Set(budgetItems(rows).filter((r) => r.rowParentGUID === folderGUID).map((r) => String(r.rowJSON?.managementGenusItem ?? '')));
+  const found = new Set<string>();
+  for (const g of genera) for (const a of budgetItemActivitiesOfGenus(g)) found.add(a);
+  // an item with a key of another activity keeps its node (a wrong key is shown, not hidden)
+  for (const r of budgetItems(rows)) if (r.rowParentGUID === folderGUID) { const a = budgetItemActivityOf(r.rowJSON); if (a) found.add(a); }
+  const all = ['operatingActivity', 'investingActivity', 'financingActivity'];
+  const list = all.filter((a) => found.has(a));
+  return list.length ? list : all;
+}
+
+/** the tree nodes: the FOLDERS (level 1) and, under each, its ACTIVITIES (level 2); the items are the rows of the table */
+export function budgetItemNodes(rows: DefRow<any>[], activityRows?: DefRow<any>[]): FolderTreeNode[] {
+  const nodes: FolderTreeNode[] = [];
+  for (const r of budgetItemFolders(rows)) {
+    nodes.push({ id: r.rowGUID, parentId: null, title: String(r.rowJSON?.title ?? '').trim() || '(no title)', order: Number(r.orderInList) || 0 });
+    budgetItemActivitiesOfFolder(rows, r.rowGUID).forEach((a, i) => nodes.push({ id: budgetItemActivityNodeId(r.rowGUID, a), parentId: r.rowGUID, title: activityTitle(activityRows, a), order: (i + 1) * 1000 }));
+  }
+  return nodes;
+}
+
+/** the node an item is shown under: its folder + its activity (the folder alone when it has no valid activity) */
+export function budgetItemNodeOfRow(row: DefRow<any>, nodeIds: ReadonlySet<string>): string {
+  const folder = String(row.rowParentGUID ?? '');
+  const node = budgetItemActivityNodeId(folder, budgetItemActivityOf(row.rowJSON));
+  return nodeIds.has(node) ? node : folder;
+}
+
+/** what a NEW item gets when an activity node is picked: that folder, the activity, and a genus that can have it (the genus of the items already in the node, else of its folder, else the first that can) */
+export function budgetItemNewRowOfNode(rows: DefRow<any>[], genusOptions: { value: string }[], nodeId: string): { rowParentGUID: string; rowJSON: Record<string, any> } | null {
+  const parts = budgetItemActivityNodeParts(nodeId);
+  if (!parts) return null;
+  // the genus of the items already in that node, else of the items of the folder that can have the activity, else the first genus that can
+  const inFolder = budgetItems(rows).filter((r) => r.rowParentGUID === parts.folder && budgetItemActivitiesOfGenus(r.rowJSON?.managementGenusItem).includes(parts.activity));
+  const sibling = inFolder.find((r) => budgetItemActivityOf(r.rowJSON) === parts.activity) ?? inFolder[0];
+  const genus = sibling?.rowJSON?.managementGenusItem ?? genusOptions.find((g) => budgetItemActivitiesOfGenus(g.value).includes(parts.activity))?.value;
+  if (!genus) return null;
+  const key = budgetItemKeyOf(parts.activity, String(genus));
+  return { rowParentGUID: parts.folder, rowJSON: { managementGenusItem: genus, budgetItemGenericKey: key, direction: budgetItemKeyDirection(key) } };
+}
+
+/** an item dragged onto an activity node: the new folder and the new key (its direction follows the key unless the item is a correction); { error } when its genus cannot have that activity */
+export function budgetItemMoveToNode(row: DefRow<any>, nodeId: string): { columns: { rowParentGUID: string }; rowJSON: Record<string, any> } | { error: string } | null {
+  const parts = budgetItemActivityNodeParts(nodeId);
+  if (!parts) return null;
+  const genus = String(row.rowJSON?.managementGenusItem ?? '');
+  if (!budgetItemActivitiesOfGenus(genus).includes(parts.activity)) return { error: `"${String(row.rowJSON?.title ?? row.rowGUID)}" cannot be a ${parts.activity.replace(/Activity$/, '')} item (its management genus does not allow it)` };
+  const key = budgetItemKeyOf(parts.activity, genus);
+  const patch: Record<string, any> = { budgetItemGenericKey: key };
+  if (row.rowJSON?.isCorrection !== true) patch.direction = budgetItemKeyDirection(key);
+  return { columns: { rowParentGUID: parts.folder }, rowJSON: patch };
 }
 
 /** 'Costs › Time' */

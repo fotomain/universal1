@@ -35,3 +35,6 @@ Used / invoiced totals (the table and the delta take another column pair), a tex
 
 ## Tests
 `npm test -- __tests__/pm/cost` · Docker: `kit8/docker/test_fact_monitor01.sh 80` · speed: `kit8/docker/bench_project_cost.sh 10000` · the roll-up comparison behind the design: `kit8/docker/bench_project_cost_rollup.sql`.
+
+## VAT basis (2026-10-20)
+`costTotalForBudget` is on the **cost basis** (the plan net + the VAT that is cost; equal to the old value while all VAT is recoverable); the second column `costTotalForBudgetWithVAT` = net + all VAT, shown in the tree as "Cost with VAT" by the project setting `showTotalCostWithVATOnTheGanttChart` (off by default). Both are rolled up to the stages by the same step. SQL: PART 27; test: `kit8/docker/tests/75_vat_basis.sql` (section 10). Design: `documentation/VENDOR_INVOICE_DOC.html` section 17.

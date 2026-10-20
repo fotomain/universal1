@@ -16,7 +16,7 @@ export function purchaseOrderSystemMetaData(): Record<string, any> {
     [PURCHASE_ORDER_LINES_ENTITY]: {
       tableName: PURCHASE_ORDER_LINES_TABLE,
       itemLabel: 'Order line',
-      rootColumns: ['qtyOrdered', 'priceOrdered', 'vatRatioOrdered'],
+      rootColumns: ['qtyOrdered', 'priceOrdered', 'vatRatioOrdered', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT'],
       updateValidator: () => {},
       defaultData: {},
       prepareCreateApi: () => { throw new Error('the lines of a purchase order come from the task lines'); },

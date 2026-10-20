@@ -10,15 +10,16 @@ describe('the lines of a document', () => {
   const data = emptyTaskLineCatalogs();
   const cols = (tab: string, editable: boolean) => buildVendorInvoiceColumns({ data, tab, editable });
   it('the All tab has the Kind column; a genus tab does not', () => {
-    expect(cols('all', true).map((c) => c.key)).toEqual(['n', 'genus', 'role', 'resource', 'unit', 'qty', 'price', 'vat', 'sumForContract', 'vatForContract', 'sumWithVAT', 'sumForBudget', 'sumForAccounting']);
+    expect(cols('all', true).map((c) => c.key)).toEqual(['n', 'genus', 'role', 'resource', 'unit', 'qty', 'price', 'vat', 'sumForContract', 'vatForContract', 'sumWithVAT', 'sumForBudget', 'vatForBudget', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT', 'sumForAccounting']);
     expect(cols('timeGenus', true).map((c) => c.key)).not.toContain('genus');
   });
-  it('a DRAFT edits the quantity, the price and the VAT % (real columns); everything else is read only', () => {
+  it('a DRAFT edits the quantity, the price, the VAT rate (catalog) and the two accounting sums; the other sums are read only', () => {
     const c = cols('all', true);
-    expect(c.filter((x: any) => x.editable === true).map((x) => x.key)).toEqual(['qty', 'price', 'vat']);
+    expect(c.filter((x: any) => x.editable === true).map((x) => x.key)).toEqual(['qty', 'price', 'vat', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT']);
     expect(c.find((x) => x.key === 'qty')).toMatchObject({ target: 'qtyInvoiced', type: 'number' });
     expect(c.find((x) => x.key === 'price')).toMatchObject({ target: 'priceInvoiced' });
-    expect(c.find((x) => x.key === 'vat')).toMatchObject({ target: 'vatRatioInvoiced', max: 100 });
+    expect(c.find((x) => x.key === 'vat')).toMatchObject({ type: 'select', field: 'vatRateGUID', allowEmpty: false });
+    expect(c.find((x) => x.key === 'sumForAccountingBeforeVAT')).toMatchObject({ target: 'sumForAccountingBeforeVAT', type: 'number' });
   });
   it('a POSTED document edits nothing', () => {
     expect(cols('all', false).filter((x: any) => x.type !== 'rowNumber').every((x: any) => x.editable === false)).toBe(true);

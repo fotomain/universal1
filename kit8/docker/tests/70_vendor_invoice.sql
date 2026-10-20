@@ -84,7 +84,9 @@ SELECT tt.eq((SELECT count(*) FROM public.vendor_invoice_lines WHERE "rowHeaderG
 SELECT tt.eq((SELECT ("qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "sumForContract", "vatForContract")::text FROM public.vendor_invoice_lines WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'),
              '(10.00,5.0000,21.000,50.00,10.50)', 'a line: quantity 10 (all of the plan), price 5, VAT 21 % -> 50.00 + 10.50');
 SELECT tt.eq((SELECT ("sumForBudget", "sumForAccounting", "vatForAccounting")::text FROM public.vendor_invoice_lines WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'),
-             '(100.00,80.00,16.80)', 'the budget / accounting sums by the rate of the plan of the line');
+             '(100.00,96.80,16.80)', 'the budget (net) / accounting (the TOTAL with VAT) sums by the rate of the plan of the line');
+SELECT tt.eq((SELECT ("sumForAccountingBeforeVAT", "sumForAccountingVAT", "vatForBudget", "vatInCostForBudget", "vatInCostForAccounting")::text FROM public.vendor_invoice_lines WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'),
+             '(80.00,16.80,21.00,0.00,0.00)', 'VAT basis: accounting before VAT 80 + VAT 16.80, budget VAT 21, nothing of the VAT is cost (a recoverable rate)');
 -- nothing left to invoice: the second creation makes nothing
 SELECT public.create_vendor_invoices(:'t3', :'sel'::jsonb, 'le-2') AS again \gset
 SELECT tt.eq(jsonb_array_length(:'again'::jsonb->'documents'), 0, 'the quantity is already on the invoices: no new document');
@@ -106,7 +108,7 @@ UPDATE public.vendor_invoice_lines SET "qtyInvoiced" = 4, "priceInvoiced" = 2, "
 SELECT public.post_vendor_invoice(:'d1') AS r0 \gset
 SELECT tt.eq(:'r0'::jsonb->>'status', 'refused', 'Post is refused without the number and the date printed on the invoice');
 SELECT tt.eq((SELECT p->>'problem' FROM jsonb_array_elements(:'r0'::jsonb->'problems') p WHERE p->>'problem' = 'invoiceNumberMissing'), 'invoiceNumberMissing', '... the problem says which');
-SELECT public.vendor_invoice_set_header(:'d1', '{"vendorInvoiceNumber": " INV-77 ", "vendorInvoiceDateTime": "2026-10-20T00:00:00Z"}'::jsonb);
+SELECT public.vendor_invoice_set_header(:'d1', '{"vendorInvoiceNumber": " INV-77 ", "vendorInvoiceDateTime": "2026-09-15T00:00:00Z"}'::jsonb);
 SELECT tt.eq((SELECT "rowJSON"->>'vendorInvoiceNumber' FROM public.vendor_invoice_header WHERE "rowGUID" = :'d1'), 'INV-77', 'the number is trimmed and saved');
 SELECT tt.fails(format($q$SELECT public.vendor_invoice_set_header(%L, '{"vendorInvoiceDateTime": "not a date"}'::jsonb)$q$, :'d1'), 'invalid input syntax', 'an unreadable date is refused');
 SELECT tt.as_admin();
@@ -116,7 +118,7 @@ SELECT tt.eq(:'r1'::jsonb->>'status', 'posted', 'the invoice is posted');
 SELECT tt.eq((SELECT count(*) FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1' AND "rowMovementKind" = 'invoiced' AND "rowRegistratorType" = 'vendorInvoiceHeader'), 2::bigint, 'register: 2 invoiced movements, registrator = the document (same transaction)');
 SELECT tt.eq((SELECT ("partnerGUID", "contractGUID", "legalEntityGUID")::text FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1' LIMIT 1), '(vp-1,vc-1,le-2)', 'the vendor, the contract and the legal entity are dimensions of the movement');
 SELECT tt.eq((SELECT sum("qtyProjectStatus") || '/' || sum("sumForContract") || '/' || sum("vatForContract") FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1'), '8.00/32.00/3.20', 'qtyProjectStatus, sum and VAT of the movements = the lines (4 x 6 + 4 x 2; VAT 10 % of 24 + 10 % of 8)');
-SELECT tt.eq((SELECT "rowTurnoverDay" FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1' LIMIT 1), '2026-10-20'::date, 'the moment of the movement = the date of the invoice');
+SELECT tt.eq((SELECT "rowTurnoverDay" FROM public.project_status_movements WHERE "rowRegistratorGUID" = :'d1' LIMIT 1), '2026-09-15'::date, 'the moment of the movement = the date of the invoice');
 SELECT tt.eq(public.post_vendor_invoice(:'d1')->>'status', 'refused', 'a posted document cannot be posted again');
 SELECT tt.eq((SELECT count(*) FROM public.vendor_invoice_lines WHERE "rowHeaderGUID" = :'d1'), 2::bigint, 'the lines of a posted invoice are still readable');
 UPDATE public.vendor_invoice_lines SET "qtyInvoiced" = 1 WHERE "rowHeaderGUID" = :'d1';
@@ -149,7 +151,7 @@ SELECT tt.eq((public.vendor_invoice_list('{"partnerGUID": "vp-2"}')->>'totalCoun
 SELECT tt.eq((public.vendor_invoice_list('{"currency": "USD"}')->>'totalCount')::int, 1, 'filter: currency of the contract');
 SELECT tt.eq((public.vendor_invoice_list('{"status": "posted"}')->>'totalCount')::int, 1, 'filter: status');
 SELECT tt.eq((public.vendor_invoice_list('{"number": "inv-77"}')->>'totalCount')::int, 1, 'filter: number (contains, any case)');
-SELECT tt.eq((public.vendor_invoice_list('{"fromDay": "2026-10-20", "toDay": "2026-10-20"}')->>'totalCount')::int, 1, 'filter: the date of the invoice');
+SELECT tt.eq((public.vendor_invoice_list('{"fromDay": "2026-09-15", "toDay": "2026-09-15"}')->>'totalCount')::int, 1, 'filter: the date of the invoice');
 SELECT tt.eq((public.vendor_invoice_list('{"legalEntityGUID": "le-2"}')->>'totalCount')::int, 3, 'filter: legal entity');
 SELECT tt.eq((public.vendor_invoice_list('{"author": "anna"}')->>'totalCount')::int, 3, 'filter: author (contains)');
 SELECT tt.eq(jsonb_array_length(public.vendor_invoice_list('{}', 2, 0)->'rows'), 2, 'paging: 2 of 3');

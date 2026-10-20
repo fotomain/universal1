@@ -42,6 +42,7 @@ export interface PMProjectBudgetsValues extends Partial<TaskInputSwitches> {
   projectRevenueBudgetNeeded?: boolean;
   /** Project cost total (kit8/pm/cost): the tree column "Cost" (costTotalForBudget). Usable only while a cost budget is on (Time or Material or Expense); display only */
   showTotalCostOnTheGanttChart?: boolean;
+  showTotalCostWithVATOnTheGanttChart?: boolean;
   /** Fact input: true = a new fact document keeps the task line GUIDs, delete and update only (kit8/documents/fact/input) */
   factStrongInputByTaskLine?: boolean;
   calendarForTaskPlan?: string | null;
@@ -80,6 +81,7 @@ export const budgetsValuesOf = (j: PMProjectBudgetsValues | undefined | null): R
   exchangeRateTypeForBudget: j?.exchangeRateTypeForBudget || BUDGET_RATE_TYPE,
   projectRevenueBudgetNeeded: !!j?.projectRevenueBudgetNeeded,
   showTotalCostOnTheGanttChart: !!j?.showTotalCostOnTheGanttChart,
+  showTotalCostWithVATOnTheGanttChart: !!j?.showTotalCostWithVATOnTheGanttChart,
   factStrongInputByTaskLine: !!j?.factStrongInputByTaskLine,
   ...taskInputSwitchesOf(j),
   calendarForTaskPlan: j?.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN,
@@ -254,9 +256,17 @@ export default function PMProjectBudgetsTab({
             onValueChange={(v) => onChange({ showTotalCostOnTheGanttChart: v })}
             style={styles.switchRow}
           />
+          <SwitchApp
+            testID="pm-project-show-total-cost-with-vat"
+            label={pmT('Show the total cost with VAT as well (showTotalCostWithVATOnTheGanttChart)')}
+            value={!!values.showTotalCostWithVATOnTheGanttChart}
+            disabled={!costBudgetOn}
+            onValueChange={(v) => onChange({ showTotalCostWithVATOnTheGanttChart: v })}
+            style={styles.switchRow}
+          />
           <Text testID="pm-project-show-total-cost-hint" style={styles.hint}>
             {costBudgetOn
-              ? pmT('The Cost column shows the plan of Time + Material + Expense of every task and stage, in the budget currency.')
+              ? pmT('The Cost column shows the plan of Time + Material + Expense of every task and stage, in the budget currency, on the cost basis: net plus the VAT that is not recoverable (net while all VAT is recoverable). "Cost with VAT" adds all the VAT.')
               : pmT('Needs a cost budget: turn on the expense budget and one of Time, Material or Expense.')}
           </Text>
 

@@ -101,20 +101,24 @@ export default function ReusableTable(props: ReusableTableProps) {
   const treeIndex = useMemo(() => (showTree && foldersTree ? buildTreeIndex(foldersTree.nodes) : null), [showTree, foldersTree?.nodes]);
   /** the folder id a row is in (anything that is no folder of the tree = "no folder") */
   const folderField = foldersTree?.folderField ?? 'folderGUID';
+  const folderOfRowProp = foldersTree?.folderOfRow;
   const rowFolder = useCallback((row: ReusableTableRow): string => {
+    if (folderOfRowProp) return folderOfRowProp(row);
     const v = folderTarget === 'rowJSON' ? row.rowJSON?.[folderField] : (row as any)[folderTarget];
     return v == null || v === '' ? noFolderValue : String(v);
-  }, [folderTarget, folderField, noFolderValue]);
+  }, [folderTarget, folderField, noFolderValue, folderOfRowProp]);
   /** a new row is created in the picked folder */
   const folderNewRowDefaults = useMemo(() => {
     if (!showTree || treeHidden) return props.newRowDefaults;
     return () => {
       const base = typeof props.newRowDefaults === 'function' ? props.newRowDefaults() : props.newRowDefaults;
       if (folderSel === TREE_ALL_ID || folderSel === TREE_NONE_ID || !treeIndex?.idToIdx.has(folderSel)) return base || {};
+      const own = foldersTree?.newRowDefaultsOf?.(folderSel);
+      if (own) return { ...(base || {}), ...own, rowJSON: { ...(base?.rowJSON || {}), ...(own.rowJSON || {}) } };
       if (folderTarget === 'rowJSON') return { ...(base || {}), rowJSON: { ...(base?.rowJSON || {}), [folderField]: folderSel } };
       return { ...(base || {}), [folderTarget]: folderSel };
     };
-  }, [showTree, treeHidden, props.newRowDefaults, folderSel, treeIndex, folderTarget, folderField]);
+  }, [showTree, treeHidden, props.newRowDefaults, folderSel, treeIndex, folderTarget, folderField, foldersTree?.newRowDefaultsOf]);
   const crud = useReusableTableCrud(showTree ? { ...props, newRowDefaults: folderNewRowDefaults } : props);
   const { rows } = crud;
   const askBeforeDelete = useSelector((s: any) => s?.uxuiState?.askBeforeDeletePost ?? true);

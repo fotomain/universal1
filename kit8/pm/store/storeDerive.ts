@@ -1,7 +1,7 @@
 // Pure helpers of the PM store (no Zustand): derive() turns tasks + dependencies of the selected
 // project into tree + CPM schedule + visible row order; viewSettingsOf() mirrors the project's
 // rowJSON view settings into the store.
-import { costColumnShown, costCurrencyOf } from '../cost/costTotalModel';
+import { costColumnShown, costCurrencyOf, costWithVatColumnShown } from '../cost/costTotalModel';
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from '../view/project/scheduling';
 import { projectCustomColumnsOf } from '../view/tree/columns/customColumns';
 import { PMLinkLineForm, PMProjectRow, PMUxUiSettings, uxuiSettingsOf } from '../model/types';
@@ -95,6 +95,7 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     planMinute: !!project?.rowJSON?.planMinute,
     planSecond: !!project?.rowJSON?.planSecond,
     showCostColumn: costColumnShown(project?.rowJSON),
+    showCostWithVatColumn: costWithVatColumnShown(project?.rowJSON),
     costCurrency: costCurrencyOf(project?.rowJSON),
     planDateInputFormat: project?.rowJSON?.planDateInputFormat || 'YYYY-MM-DD',
   };

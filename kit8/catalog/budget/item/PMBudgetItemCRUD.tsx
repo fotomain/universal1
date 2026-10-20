@@ -3,6 +3,7 @@
 //   costsBudgetFolder     > timeBudgetItem, materialBudgetItem, expenseBudgetItem
 //   revenuesBudgetFolder  > revenueBudgetItem
 //   paymentsBudgetFolder  > inboundPaymentBudgetItem, outboundPaymentBudgetItem
+// The tree has a SECOND level under every folder: the ACTIVITY (Operating / Investing / Financing, IAS 7) of the items - virtual nodes made of the key of the items (budgetItemNodes).
 // Every item has an OBLIGATORY managementGenusItem = the rowGUID of a level 2 row of managementGenusTable (timeGenus, ...): the Genus column cannot be empty.
 // And an OBLIGATORY key = activity x genus (rowJSON.budgetItemGenericKey, the Activity column: only the activities the genus can have) and a Direction (inbound | outbound, default =
 // the direction of the key; a Correction may reverse it). The text columns Web + IFRS, D365 FO and SAP name the item in IFRS (IAS 7), Dynamics 365 FO and SAP (documentation/ACTIVITY_GENUS.html).
@@ -20,7 +21,7 @@ import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusab
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
 import { BUDGET_ITEM_DIRECTIONS, budgetItemActivityOptions, budgetItemDefaultKey, budgetItemDirectionError, budgetItemKeyDirection, budgetItemKeyError, budgetItemKeyPatch, budgetItemsWithoutKey } from './budgetItemKeyModel';
-import { BUDGET_ITEM_TABLE, budgetItemFolders, budgetItemGenusError, budgetItemGenusOptions, budgetItemPath, budgetItems, budgetItemsWithoutGenus, isBudgetItemFolder } from './budgetItemModel';
+import { BUDGET_ITEM_TABLE, budgetItemNewRowOfNode, budgetItemFolders, budgetItemGenusError, budgetItemGenusOptions, budgetItemPath, budgetItems, budgetItemsWithoutGenus, isBudgetItemFolder } from './budgetItemModel';
 import { useBudgetItemData } from './useBudgetItemData';
 import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { useBudgetItemTree } from './useBudgetItemTree';
@@ -36,13 +37,14 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
   const [noCrud, setNoCrud] = useState(noCrudProp);
   const [folder, setFolder] = useState<string>(TREE_ALL_ID);
   const { rows, genusRows, activityRows, loaded, error, reload } = useBudgetItemData(true);
-  const { foldersTree } = useBudgetItemTree(rows, !noCrud, reload);
   const def = BUDGET_ITEM_TABLE;
   const businessUnitColumn = useBusinessUnitColumn();
 
   const folders = useMemo(() => budgetItemFolders(rows), [rows]);
   const items = useMemo(() => budgetItems(rows), [rows]);
   const genusOptions = useMemo(() => budgetItemGenusOptions(genusRows), [genusRows]);
+  // the tree: the folders (level 1) and the activity of the items under each (level 2)
+  const { foldersTree } = useBudgetItemTree(rows, !noCrud, reload, activityRows, genusOptions);
   const withoutGenus = useMemo(() => budgetItemsWithoutGenus(rows, genusRows), [rows, genusRows]);
   const withoutKey = useMemo(() => budgetItemsWithoutKey(items), [items]);
   // the table lists the items only; the folders are the tree
@@ -50,12 +52,15 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
   // a new item goes into the picked folder (or the first one) - a row without folder would be a folder - and gets a genus (obligatory): the genus of
   // the items already in that folder, else the first genus
   const newRowDefaults = useMemo(() => () => {
+    // an activity node picked: that folder, that activity (the table also does this through the tree; this keeps "+" right when the tree is hidden)
+    const node = budgetItemNewRowOfNode(rows, genusOptions, folder);
+    if (node) return { rowOwnerGUID: def.catalogOwner as string, ...node };
     const parent = folders.some((f) => f.rowGUID === folder) ? folder : folders[0]?.rowGUID;
     const sibling = items.find((r) => r.rowParentGUID === parent && r.rowJSON?.managementGenusItem);
     const managementGenusItem = sibling?.rowJSON?.managementGenusItem ?? genusOptions[0]?.value ?? null;
     const budgetItemGenericKey = budgetItemDefaultKey(managementGenusItem);
     return { rowOwnerGUID: def.catalogOwner as string, rowParentGUID: parent, rowJSON: { managementGenusItem, budgetItemGenericKey, direction: budgetItemKeyDirection(budgetItemGenericKey) } };
-  }, [def.catalogOwner, folders, items, folder, genusOptions]);
+  }, [def.catalogOwner, folders, items, folder, genusOptions, rows]);
 
   const columns = useMemo<VisualColumn[]>(() => {
     const folderOptions = folders.map((f) => ({ value: f.rowGUID, label: budgetItemPath(rows, f.rowGUID) }));

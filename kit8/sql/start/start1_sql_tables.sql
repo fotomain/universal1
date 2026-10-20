@@ -1709,6 +1709,11 @@ CREATE TABLE IF NOT EXISTS public.task_line_plan_movements (
 -- sumForAccounting: the sum of the line in the ACCOUNTING currency of the project (task_line_table.rowJSON.sumForAccounting, taskLineFx.ts), distributed like sumForBudget; a database made before has the column added here
 ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);
 
+-- VAT basis: the VAT of the budget sum of the movement and the part of it that is cost (not recoverable), distributed like sumForBudget (create_task_line_plan)
+ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "vatForBudget"       NUMERIC(18,2);
+ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "vatInCostForBudget" NUMERIC(18,2);
+
+
 ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "planMovementStatus" BOOLEAN NOT NULL DEFAULT true;
 
 ALTER TABLE public.task_line_plan_movements ADD COLUMN IF NOT EXISTS "periodDay" DATE;
@@ -2166,6 +2171,14 @@ CREATE TABLE IF NOT EXISTS public.task_fact_usage_timeline (
 
 ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "sumForAccounting" NUMERIC(18,2);      -- a database made before has the column added here
 
+-- VAT basis: the VAT of a STRONG line (the VAT rate of its task line, copied into rowJSON when the line is made); a free line has none (NULL)
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "vatForContract"          NUMERIC(18,2);
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "vatForBudget"            NUMERIC(18,2);
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "vatForAccounting"        NUMERIC(18,2);
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "vatInCostForBudget"      NUMERIC(18,2);
+ALTER TABLE public.task_fact_usage_timeline ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"  NUMERIC(18,2);
+
+
 CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_header  ON public.task_fact_usage_timeline ("rowHeaderGUID", "genusGUID", "orderInList");
 
 CREATE INDEX IF NOT EXISTS idx_task_fact_usage_timeline_task    ON public.task_fact_usage_timeline ("rowOwnerGUID", "rowPeriodDatetime");
@@ -2233,6 +2246,16 @@ CREATE INDEX IF NOT EXISTS idx_monitor01_view_user    ON public.monitor01_view (
 
 -- (an installed monitor01_view gains the budget sum)
 ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "sumForBudget" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): the three money columns (Budget, Vendor Invoice Amount, Customer Invoice Amount) are NET; the screen adds the VAT or the part of it that is cost
+-- by the basis the user picks (Cost | Net | With VAT). A customer invoice's VAT is never cost, so it has no vatInCost column.
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "vatBudget"                NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "vatInCostBudget"          NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "vatVendorInvoiced"        NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "vatInCostVendorInvoiced"  NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.monitor01_view ADD COLUMN IF NOT EXISTS "vatCustomerInvoiced"      NUMERIC(18,2) NOT NULL DEFAULT 0;
+
 
 
 -- ---- project_status_month_turnover (the OLAP table; was task_line_fact_for_monitor01) + project_status_movements (the register it is made from) -----------------------------------------------
@@ -2315,6 +2338,10 @@ ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatFo
 
 ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "rowOwnerUserGUID" UUID;
 
+-- VAT basis: the VAT of the plan budget sum and the part of it that is cost (the project cost total reads them: Cost basis = sumForBudgetPlan + vatInCostForBudgetPlan, With VAT = + vatForBudgetPlan)
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatForBudgetPlan"       NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_status_month_turnover ADD COLUMN IF NOT EXISTS "vatInCostForBudgetPlan" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS idx_project_status_month_turnover_project ON public.project_status_month_turnover ("rowProjectGUID", "rowTurnoverMonth");
 
 
@@ -2350,6 +2377,13 @@ CREATE TABLE IF NOT EXISTS public.project_status_movements (
   PRIMARY KEY ("rowGUID"),
   CONSTRAINT project_status_movements_kind_chk CHECK ("rowMovementKind" IN ('plan', 'ordered', 'received', 'invoiced', 'used', 'sold'))
 );
+
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): sumForBudget / sumForAccounting stay NET; the VAT and the part of it that is cost travel with the movement, so a report can show the
+-- Cost / Net / With VAT basis (vat_basis_amount). A database made before gets the columns here, start2 backfills them.
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "vatForBudget"           NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "vatInCostForBudget"     NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "vatInCostForAccounting" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
 
 CREATE INDEX IF NOT EXISTS idx_project_status_movements_registrator ON public.project_status_movements ("rowRegistratorGUID");
 
@@ -2499,6 +2533,15 @@ CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_task ON public.vendor_invoic
 
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_lines_line ON public.vendor_invoice_lines ("taskLineGUID");
 
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): the accounting sum is kept as BeforeVAT + VAT (the user may type the first two; "sumForAccounting" of the LINE is the total with VAT),
+-- the budget VAT and the part of the VAT that is cost (not recoverable). A database made before gets the columns here; start2 fills them (backfill).
+ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccountingBeforeVAT" NUMERIC(18,2);
+ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccountingVAT"       NUMERIC(18,2);
+ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
+ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
+ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
+
 -- ===============================================================================================
 -- PART 27: create_project_cost_total.sql
 -- the cost total of every task and stage of the tree (documentation/UPDATE_PROJECT_COST.html): project_task_cost_total + the queue of the projects to rebuild
@@ -2519,6 +2562,11 @@ CREATE TABLE IF NOT EXISTS public.project_task_cost_total (
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_task_cost_total_project ON public.project_task_cost_total ("rowProjectGUID");
+
+-- VAT basis: costTotalForBudget / costOwnForBudget are on the COST basis (net + the part of the VAT that is cost); the "with VAT" pair is net + all VAT (shown by a project setting)
+ALTER TABLE public.project_task_cost_total ADD COLUMN IF NOT EXISTS "costOwnForBudgetWithVAT"   NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_task_cost_total ADD COLUMN IF NOT EXISTS "costTotalForBudgetWithVAT" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
 
 -- the projects to rebuild from scratch (a stage was moved or deleted, or a rebuild failed); one row per project. No access for users. attempts >= 5 = parked.
 CREATE UNLOGGED TABLE IF NOT EXISTS public.project_cost_dirty (
@@ -2604,6 +2652,15 @@ CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_header ON public.purchase_or
 CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_task ON public.purchase_order_lines ("rowOwnerGUID");
 
 CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_line ON public.purchase_order_lines ("taskLineGUID");
+
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): the accounting sum is kept as BeforeVAT + VAT (the user may type the first two; "sumForAccounting" of the LINE is the total with VAT),
+-- the budget VAT and the part of the VAT that is cost (not recoverable). A database made before gets the columns here; start2 fills them (backfill).
+ALTER TABLE public.purchase_order_lines ADD COLUMN IF NOT EXISTS "sumForAccountingBeforeVAT" NUMERIC(18,2);
+ALTER TABLE public.purchase_order_lines ADD COLUMN IF NOT EXISTS "sumForAccountingVAT"       NUMERIC(18,2);
+ALTER TABLE public.purchase_order_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
+ALTER TABLE public.purchase_order_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
+ALTER TABLE public.purchase_order_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
 
 -- ===============================================================================================
 -- PART 29: create_subprojects.sql
@@ -2705,6 +2762,15 @@ CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_task ON public.product_rece
 
 CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_line ON public.product_receipt_lines ("taskLineGUID");
 
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): the accounting sum is kept as BeforeVAT + VAT (the user may type the first two; "sumForAccounting" of the LINE is the total with VAT),
+-- the budget VAT and the part of the VAT that is cost (not recoverable). A database made before gets the columns here; start2 fills them (backfill).
+ALTER TABLE public.product_receipt_lines ADD COLUMN IF NOT EXISTS "sumForAccountingBeforeVAT" NUMERIC(18,2);
+ALTER TABLE public.product_receipt_lines ADD COLUMN IF NOT EXISTS "sumForAccountingVAT"       NUMERIC(18,2);
+ALTER TABLE public.product_receipt_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
+ALTER TABLE public.product_receipt_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
+ALTER TABLE public.product_receipt_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
+
 CREATE INDEX IF NOT EXISTS idx_product_receipt_lines_order_line ON public.product_receipt_lines ("purchaseOrderLineGUID");
 
 -- a vendor invoice line made from a product receipt line keeps its GUID in rowJSON.productReceiptLineGUID (what is already invoiced of a received line)
@@ -2786,6 +2852,15 @@ CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_header ON public.customer_
 CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_task ON public.customer_invoice_lines ("rowOwnerGUID");
 
 CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_line ON public.customer_invoice_lines ("taskLineGUID");
+
+-- VAT basis (documentation/VENDOR_INVOICE_DOC.html): the accounting sum is kept as BeforeVAT + VAT (the user may type the first two; "sumForAccounting" of the LINE is the total with VAT),
+-- the budget VAT and the part of the VAT that is cost (not recoverable). A database made before gets the columns here; start2 fills them (backfill).
+ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccountingBeforeVAT" NUMERIC(18,2);
+ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccountingVAT"       NUMERIC(18,2);
+ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
+ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
+ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
 
 
 -- ===============================================================================================

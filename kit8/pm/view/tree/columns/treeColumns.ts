@@ -48,6 +48,7 @@ export type PMBuiltinTreeColumnKey =
   | 'kanban'
   | 'kanbanStageProgressPercent'
   | 'costTotalForBudget'
+  | 'costTotalForBudgetWithVAT'
   | 'start'
   | 'days';
 /** Any tree column: built-in or custom ("cc_..."). */
@@ -83,6 +84,7 @@ export const PM_TREE_COLUMN_TITLES: Record<PMBuiltinTreeColumnKey, string> = {
   kanban: 'Kanban',
   kanbanStageProgressPercent: 'Kanban %',
   costTotalForBudget: 'Cost',
+  costTotalForBudgetWithVAT: 'Cost with VAT',
 };
 
 /** Default widths; the Task name column takes the rest of the pane until it is resized. */
@@ -103,6 +105,7 @@ export const PM_TREE_COLUMN_WIDTHS: Record<Exclude<PMBuiltinTreeColumnKey, 'name
   kanban: PM_TREE_COL_KANBAN,
   kanbanStageProgressPercent: PM_TREE_COL_KANBAN_PROGRESS,
   costTotalForBudget: PM_TREE_COL_COST,
+  costTotalForBudgetWithVAT: PM_TREE_COL_COST + 30,
 };
 
 /** The flexible Task name column never gets narrower than this: other built-in columns are hidden first. */
@@ -120,6 +123,7 @@ const HIDE_PRIORITY: readonly Exclude<PMBuiltinTreeColumnKey, 'name'>[] = [
   'kanbanStageProgressPercent',
   'kanban',
   'progress',
+  'costTotalForBudgetWithVAT',
   'costTotalForBudget',
   'planSecondFinish',
   'planSecondStart',
@@ -145,7 +149,8 @@ export const isBuiltinTreeColumnKey = (k: unknown): k is PMBuiltinTreeColumnKey 
     k === 'planMinuteFinish' ||
     k === 'planSecondStart' ||
     k === 'planSecondFinish' ||
-    k === 'costTotalForBudget');
+    k === 'costTotalForBudget' ||
+    k === 'costTotalForBudgetWithVAT');
 
 /**
  * Valid, complete, duplicate-free order: unknown keys dropped (also custom keys that are not in
@@ -258,6 +263,8 @@ export interface PMTreeColumnsLayoutOptions {
   planSecond?: boolean;
   /** When true (a cost budget is on and showTotalCostOnTheGanttChart is on), show the Cost column (costTotalForBudget, kit8/pm/cost); it is not in the default order: it is placed after "%" unless the user moved it */
   showCost?: boolean;
+  /** When true (a cost budget is on and showTotalCostWithVATOnTheGanttChart is on), show "Cost with VAT" (costTotalForBudgetWithVAT) right after the Cost column */
+  showCostWithVat?: boolean;
   /** the budget currency of the project, shown in the title of the Cost column */
   costCurrency?: string;
 }
@@ -308,6 +315,11 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
     const kanban = order.indexOf('kanban');
     order.splice(idx >= 0 ? idx + 1 : kanban >= 0 ? kanban : order.length, 0, 'costTotalForBudget');
   }
+  if (opts.showCostWithVat && !order.includes('costTotalForBudgetWithVAT')) {
+    const idx = order.indexOf('costTotalForBudget');
+    const prog = order.indexOf('progress');
+    order.splice(idx >= 0 ? idx + 1 : prog >= 0 ? prog + 1 : order.length, 0, 'costTotalForBudgetWithVAT');
+  }
 
   const saved = opts.widths ?? {};
   const widthOf = (k: PMTreeColumnKey): number => {
@@ -318,6 +330,7 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
   const visible = new Set<PMTreeColumnKey>(order);
   if (opts.showHierarchyNumbers === false) visible.delete('wbs');
   if (!opts.showCost) visible.delete('costTotalForBudget');
+  if (!opts.showCostWithVat) visible.delete('costTotalForBudgetWithVAT');
   if (!opts.planHour) {
     visible.delete('startHourStart');
     visible.delete('startHourFinish');
@@ -356,7 +369,7 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
     const w = key === 'name' ? nameW : widthOf(key);
     const custom = customByKey.get(key);
     const baseTitle = custom ? custom.name : PM_TREE_COLUMN_TITLES[key as PMBuiltinTreeColumnKey];
-    const col: PMTreeColumn = { key, title: key === 'costTotalForBudget' && opts.costCurrency ? `${baseTitle} (${opts.costCurrency})` : baseTitle, x, w };
+    const col: PMTreeColumn = { key, title: (key === 'costTotalForBudget' || key === 'costTotalForBudgetWithVAT') && opts.costCurrency ? `${baseTitle} (${opts.costCurrency})` : baseTitle, x, w };
     if (custom) col.customType = custom.type;
     columns.push(col);
     byKey[key] = col;

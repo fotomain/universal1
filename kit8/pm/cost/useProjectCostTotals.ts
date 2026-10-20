@@ -10,7 +10,10 @@ import { readProjectCostRows } from './costTotalApi';
 import { COST_EVENT_BATCH_MS, COST_TOTAL_TABLE, CostEvent, CostTotals, NO_COST_TOTALS, applyCostEvents, costTotalsOf, onCostTotalsStale } from './costTotalModel';
 
 export interface UseProjectCostTotals {
+  /** the COST basis total of every task and stage */
   totals: CostTotals;
+  /** net + all VAT (the column "Cost with VAT") */
+  totalsWithVat: CostTotals;
   isLoading: boolean;
   error: string | null;
   /** the channel is open: changes arrive */
@@ -24,12 +27,15 @@ export function useProjectCostTotals(projectGUID: string | null | undefined, ena
   const supabase: any = typedClient;
   const active = enabled && !!projectGUID;
   const [totals, setTotals] = useState<CostTotals>(NO_COST_TOTALS);
+  const [totalsWithVat, setTotalsWithVat] = useState<CostTotals>(NO_COST_TOTALS);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [nonce, setNonce] = useState(0);
   const ref = useRef(totals);
   ref.current = totals;
+  const refVat = useRef(totalsWithVat);
+  refVat.current = totalsWithVat;
   const pending = useRef<CostEvent[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,11 +43,11 @@ export function useProjectCostTotals(projectGUID: string | null | undefined, ena
 
   // first load, a reload on demand, and the end of a project / of the switch
   useEffect(() => {
-    if (!active) { setTotals(NO_COST_TOTALS); setLoading(false); setError(null); return undefined; }
+    if (!active) { setTotals(NO_COST_TOTALS); setTotalsWithVat(NO_COST_TOTALS); setLoading(false); setError(null); return undefined; }
     let cancelled = false;
     setLoading(true);
     readProjectCostRows(supabase, projectGUID as string)
-      .then((rows) => { if (cancelled) return; pending.current = []; setTotals(costTotalsOf(rows)); setError(null); })
+      .then((rows) => { if (cancelled) return; pending.current = []; setTotals(costTotalsOf(rows)); setTotalsWithVat(costTotalsOf(rows, 'totalWithVat')); setError(null); })
       .catch((e: any) => { if (!cancelled) setError(e?.message || String(e)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -65,6 +71,8 @@ export function useProjectCostTotals(projectGUID: string | null | undefined, ena
       if (!events.length || cancelled) return;
       const next = applyCostEvents(ref.current, events);
       if (next !== ref.current) setTotals(next);
+      const nextVat = applyCostEvents(refVat.current, events, 'totalWithVat');
+      if (nextVat !== refVat.current) setTotalsWithVat(nextVat);
     };
     const onChange = (payload: any) => {
       pending.current.push({ eventType: payload.eventType, new: payload.new, old: payload.old });
@@ -90,5 +98,5 @@ export function useProjectCostTotals(projectGUID: string | null | undefined, ena
     };
   }, [active, supabase, projectGUID, reload]);
 
-  return { totals, isLoading, error, live, reload };
+  return { totals, totalsWithVat, isLoading, error, live, reload };
 }

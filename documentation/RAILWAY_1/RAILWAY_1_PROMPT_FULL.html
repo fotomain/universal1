@@ -367,10 +367,10 @@ TASK OBJECTIVE:
 Generate complete, error-free, idempotent data preparation files to auto-fill "Railway #1" into the Universal1 database and deliver executive-grade reporting.
 
 FILES TO GENERATE:
-1. ./documentation/RAILWAY#1/RAILWAY#1_DATA.html (Interactive executive report in Tamagui light theme, with scroll-spy reactivation, Chart.js visualizations, sortable/filterable tables, and sample input/output data).
-2. ./documentation/RAILWAY#1/RAILWAY#1_DATA.sql (Production-grade, idempotent SQL migration creating catalogs, project, task, lines, plan, and 5-document lifecycle).
-3. ./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command (Executable shell script linking to Supabase CLI with automated verification queries and logging).
-4. ./documentation/RAILWAY#1/RAILWAY#1_PROMPT_FULL.html (Comprehensive engineering questionnaire and prompt design guidelines).
+1. ./documentation/RAILWAY_1/RAILWAY_1_DATA.html (Interactive executive report in Tamagui light theme, with scroll-spy reactivation, Chart.js visualizations, sortable/filterable tables, and sample input/output data).
+2. ./documentation/RAILWAY_1/RAILWAY_1_DATA.sql (Production-grade, idempotent SQL migration creating catalogs, project, task, lines, plan, and 5-document lifecycle).
+3. ./documentation/RAILWAY_1/run_2_sql.command (Executable shell script linking to Supabase CLI with automated verification queries and logging).
+4. ./documentation/RAILWAY_1/RAILWAY_1_PROMPT_FULL.html (Comprehensive engineering questionnaire and prompt design guidelines).
 
 SYSTEM ARCHITECTURE CONSTRAINTS:
 - Reference Schema: Use public tables defined in /Users/mgtimber/UNIVERSAL1/expo-app/kit8/sql/start/start1_sql_tables.sql.
@@ -519,7 +519,7 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
               <td><span class="pill wbs">SCRIPT</span></td>
               <td><b>How should the shell command script handle CLI prerequisites?</b></td>
               <td>Verify <code>supabase</code> binary exists, detect linked project ref from JSON, and provide dry-run flags.</td>
-              <td><code>RAILWAY#1_DATA_run.command</code> executes cleanly on macOS Finder double-click.</td>
+              <td><code>run_2_sql.command</code> executes cleanly on macOS Finder double-click.</td>
             </tr>
             <tr data-cat="ACTIVITY">
               <td><span class="pill act">ACTIVITY</span></td>

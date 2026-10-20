@@ -31,7 +31,7 @@ describe('what the user may edit', () => {
 
 describe('the columns', () => {
   it('# · Date · Role · Resource · Unit · Planned · Qty · Price · the three sums', () => {
-    expect(cols(header()).map((c: any) => c.key)).toEqual(['n', 'day', 'role', 'resource', 'unit', 'qtyForBudget', 'qty', 'price', 'sumForBudget', 'sumForContract', 'sumForAccounting']);
+    expect(cols(header()).map((c: any) => c.key)).toEqual(['n', 'day', 'role', 'resource', 'unit', 'qtyForBudget', 'qty', 'price', 'sumForBudget', 'sumForContract', 'sumForAccounting', 'vatForContract', 'vatForBudget', 'vatForAccounting']);
   });
   it('the date is a calendar cell stored in the ROOT column rowPeriodDatetime and shown as a day', () => {
     const day = by(cols(header()), 'day');
@@ -52,7 +52,7 @@ describe('the columns', () => {
     expect(cellPatch(c, 'qty', 7.5)).toEqual({ rowJSON: {}, columns: { qtyForContract: 7.5 } });
   });
   it('the sums are root columns, never editable, added up in the footer', () => {
-    for (const k of ['sumForBudget', 'sumForContract', 'sumForAccounting']) expect(by(cols(header()), k)).toMatchObject({ target: k, editable: false, total: true });
+    for (const k of ['sumForBudget', 'sumForContract', 'sumForAccounting', 'vatForContract', 'vatForBudget', 'vatForAccounting']) expect(by(cols(header()), k)).toMatchObject({ target: k, editable: false, total: true });
   });
   it('the description is in rowJSON: free = editable, strong = frozen, posted = frozen', () => {
     for (const k of ['role', 'resource', 'unit', 'price']) {

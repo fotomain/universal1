@@ -42,3 +42,6 @@ Routes: the form `app/pm/project/task/fact?taskGUID=…&taskLineGUID=…&genus=�
 ## Tests
 * SQL on a real Postgres 15: `cd kit8/docker && docker compose up -d && ./test_sql.sh && ./test_fact_monitor01.sh 50` (free / strong, posted = frozen, Post problems, Unpost, policies, sumForAccounting), `51` (the list RPC and its filters), `52` (sumForAccounting in the plan algorithms).
 * Jest: `__tests__/documents/fact/input` (model, columns, form, list, both data hooks, entry points, the setting) and `monitor01Sql.test.ts` (the SQL files carry the same parts).
+
+## VAT (2026-10-20)
+A STRONG fact line (it has the task line GUID) takes the VAT rate of its task line, frozen into the line with the price and the unit sums: `vatForContract`, `vatForBudget`, `vatForAccounting` (+ `vatInCostForBudget`, `vatInCostForAccounting`) are calculated by the trigger; the sums stay NET. A FREE line has no task line, so no VAT (empty). The lines table shows the three VAT columns. Test: `kit8/docker/tests/75_vat_basis.sql` (section 11).

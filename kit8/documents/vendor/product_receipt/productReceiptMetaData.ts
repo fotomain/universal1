@@ -16,7 +16,7 @@ export function productReceiptSystemMetaData(): Record<string, any> {
     [PRODUCT_RECEIPT_LINES_ENTITY]: {
       tableName: PRODUCT_RECEIPT_LINES_TABLE,
       itemLabel: 'Receipt line',
-      rootColumns: ['qtyReceived', 'priceReceived', 'vatRatioReceived'],
+      rootColumns: ['qtyReceived', 'priceReceived', 'vatRatioReceived', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT'],
       updateValidator: () => {},
       defaultData: {},
       prepareCreateApi: () => { throw new Error('the lines of a product receipt come from the lines of the purchase order'); },

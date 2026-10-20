@@ -138,6 +138,8 @@ export interface PMStoreState {
   planSecond: boolean;
   /** the Cost column of the tree is shown: a cost budget is on AND project.rowJSON.showTotalCostOnTheGanttChart (kit8/pm/cost) */
   showCostColumn: boolean;
+  /** the second column "Cost with VAT" (costTotalForBudgetWithVAT): a cost budget is on AND project.rowJSON.showTotalCostWithVATOnTheGanttChart */
+  showCostWithVatColumn: boolean;
   /** project.rowJSON.currencyForBudget - the currency in the title of the Cost column */
   costCurrency: string;
   /** project.rowJSON.planDateInputFormat - date format */

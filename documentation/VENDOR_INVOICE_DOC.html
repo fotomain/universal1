@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document lines and VAT basis - vendor invoice, customer invoice, purchase order, product receipt - design</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --purple:#7c3aed; --soft:#f1f5f9; --warn:#b45309; --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 var(--font); }
+  main { max-width:1000px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { margin:34px 0 8px; font-size:19px; border-bottom:1px solid var(--border); padding-bottom:4px; } h3 { margin:20px 0 6px; font-size:16px; }
+  .lead { color:var(--muted); margin:0 0 18px; }
+  code { font:13px var(--mono); background:var(--soft); padding:1px 6px; border-radius:6px; overflow-wrap:anywhere; }
+  pre { font:13px/1.5 var(--mono); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 14px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:10px 0; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; font-size:14px; } th { background:var(--soft); }
+  .note { background:#ede9fe; border-left:4px solid var(--purple); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  .warn { background:#fef3c7; border-left:4px solid var(--warn); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  @media (max-width:640px) { table { display:block; overflow-x:auto; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Document lines and the VAT basis</h1>
+<p class="lead">Vendor invoice, customer invoice, purchase order, product receipt - the input of a line, the three accounting columns, the VAT rate from the catalog, the recalculation in both directions, the register, Monitor01 and every future report (one VAT basis switch: Net / Cost / With VAT), fact input and the project cost total. FINAL version of 2026-10-20 (it replaces the first draft of the same day). Code: <code>kit8/documents/vendor/invoice</code>, <code>.../vendor/purchase_order</code>, <code>.../vendor/product_receipt</code>, <code>kit8/documents/customer/invoice</code>, <code>kit8/documents/fact/input</code>, <code>kit8/pm/reports/monitor01</code>, <code>kit8/pm/cost</code>.</p>
+
+<div class="warn"><b>Status: BUILT on 2026-10-20</b> (SQL PARTs 15, 24-31 of <code>start1_sql_tables.sql</code> / <code>start2_sql_code.sql</code>, the app, the tests). The section 1 describes the state BEFORE the change (read from the code on 2026-10-20); the sections 2-19 are the rules and what was built; the <b>section 20</b> lists where the built version differs from the first design, what was tested and what was not seen. The section 4 lists what this final version changes against the owner's earlier answers.</div>
+
+<h2>1. The present state (read from the code)</h2>
+<table>
+<tr><th>Thing</th><th>Today</th></tr>
+<tr><td>Input of a line</td><td>Only <code>qtyInvoiced</code>, <code>priceInvoiced</code> and <code>vatRatioInvoiced</code> (VAT % as a typed number 0..100) are editable, in a draft. <code>sumForContract</code>, <code>vatForContract</code>, <code>sumForBudget</code>, <code>sumForAccounting</code> are read only (<code>vendorInvoiceColumns.tsx</code>); <code>vatForAccounting</code> has no column in the grid.</td></tr>
+<tr><td>Calculation</td><td>The trigger <code>vendor_invoice_lines_before_write</code> (PART 26; copies in PARTs 28, 30, 31) recomputes EVERY sum on every insert / update: <code>sumForContract = qty x price</code>, <code>vatForContract = sumForContract x VAT % / 100</code>, <code>sumForBudget</code> / <code>sumForAccounting</code> = the contract sum at the rate of the plan of the line (unit sum / plan price), <code>vatForAccounting = sumForAccounting x VAT % / 100</code>.</td></tr>
+<tr><td>Meaning of the sums</td><td><code>sumForBudget</code> and <code>sumForAccounting</code> are BEFORE VAT. <code>vatForContract</code> and <code>vatForAccounting</code> are the VAT. There is no <code>vatForBudget</code>.</td></tr>
+<tr><td>Register</td><td>Posting writes the movements (kinds invoiced / ordered / received / sold) with <code>sumForBudget</code>, <code>sumForContract</code>, <code>vatForContract</code>, <code>sumForAccounting</code>, <code>vatForAccounting</code>; the turnover has <code>sumForBudget…</code>, <code>sumForAccounting…</code>, <code>vatForAccounting…</code> per kind.</td></tr>
+<tr><td>Monitor01</td><td>Three money columns, in the budget currency, before VAT: <b>Budget</b> (the plan <code>sumForBudget</code>), <b>Vendor Invoice → Amount</b> (<code>sumVendorInvoiced</code>), <b>Customer Invoice → Amount</b> (<code>sumCustomerInvoiced</code>). No accounting column. Used (fact) shows quantity only.</td></tr>
+<tr><td>Fact input</td><td>Lines have <code>sumForContract</code>, <code>sumForBudget</code>, <code>sumForAccounting</code> (unit sums of the task line x quantity). No VAT at all.</td></tr>
+<tr><td>Project cost total</td><td><code>costTotalForBudget</code> = the plan Time + Material + Expense in the budget currency, before VAT (PART 27).</td></tr>
+</table>
+
+<h2>2. What the owner asked (final list)</h2>
+<table>
+<tr><th>#</th><th>Request</th></tr>
+<tr><td>1</td><td>VAT % of a line is chosen from <code>valueAddedTaxTable</code>; the recalculation of the line is improved.</td></tr>
+<tr><td>2</td><td>Three columns on the line, the first two editable by hand (then the row recalculates the price): <code>sumForAccountingBeforeVAT</code> (first calculated from <code>sumForContract</code>), <code>sumForAccountingVAT</code> (first calculated from the VAT of the contract), <code>sumForAccounting = BeforeVAT + VAT</code>.</td></tr>
+<tr><td>3</td><td>Recalculation in both directions: contract price → contract sums → accounting sums, and accounting sums → contract sums → contract price.</td></tr>
+<tr><td>4</td><td>The same in the purchase order, the product receipt and the customer invoice.</td></tr>
+<tr><td>5</td><td><b>Follow the best practice of IFRS and GAAP, and let the user see the cost WITH VAT</b> - in Monitor01 and in every future report.</td></tr>
+<tr><td>6</td><td>Fact input calculates the VAT sums from the line GUID.</td></tr>
+<tr><td>7</td><td>Project cost total in two variants: without VAT and with VAT.</td></tr>
+<tr><td>8</td><td>This document describes the line input and everything above.</td></tr>
+</table>
+
+<h2>3. The principle: three bases, one switch</h2>
+<p>Standard accounting treats VAT by whether the entity can get it back:</p>
+<ul>
+<li><b>Recoverable (input) VAT is not a cost.</b> It is a receivable from the tax authority, so the cost of what was bought is the amount without it. IAS 2 (inventories) says the cost of purchase includes duties and taxes other than those the entity can recover from the tax authorities afterwards; IAS 16 (property, plant and equipment) likewise includes only non-refundable purchase taxes.</li>
+<li><b>Non-recoverable VAT is part of the cost</b> (not VAT-registered, exempt activity, non-deductible expenses, partly deductible VAT). The same standards put it into the cost of the item.</li>
+<li><b>VAT charged to a customer is not revenue.</b> It is an amount collected on behalf of the tax authority (IFRS 15.47). Revenue is without it, always; the VAT collected is never the project's cost.</li>
+<li>US GAAP has no VAT standard (VAT is not a US tax); the same principle is applied to sales / use tax and to foreign VAT: tax that cannot be recovered goes into the cost of the asset or inventory, a recoverable one is a receivable. This is practice by analogy.</li>
+</ul>
+<div class="note"><b>Sources and what was NOT checked.</b> The IAS 2 / IAS 16 wording was looked up on 2026-10-20 only in secondary sources (<a href="https://www.moore-global.com/services/ifrs/ias-2-inventories/">Moore Global summary of IAS 2</a>; the Australian GST interpretation <a href="https://aasb.gov.au/admin/file/content105/c9/INT1031_07-04.pdf">AASB INT 1031</a>; <a href="https://viewpoint.pwc.com/dt/us/en/pwc/accounting_guides/ifrs_and_us_gaap_sim/ifrs_and_us_gaap_sim_US/chapter_3_revenue_re_US/37_presentation_of_t_US.html">PwC on the presentation of taxes in revenue</a>; <a href="https://www.ifrs.org/content/dam/ifrs/meetings/2015/march/iasb/revenue-from-contracts-with-customers/ap7b-sales-tax-presentation-gross-versus-net.pdf">IASB paper on sales tax, gross vs net</a>). The paragraph numbers (IAS 2.11, IAS 16.16, IFRS 15.47) and the US GAAP position (ASC 330 / ASC 360) are NOT verified against the official texts: the owner's accountant should confirm them before the report is used for statutory purposes. The application is a project-management tool, not the ledger; this design only gives its reports the same basis the ledger would use.</div>
+
+<p>So a report can show an amount on three <b>VAT bases</b>:</p>
+<table>
+<tr><th>Basis</th><th>Name in the UI</th><th>Amount</th><th>Use</th></tr>
+<tr><td><code>cost</code> (DEFAULT)</td><td>Cost (net + non-recoverable VAT)</td><td>net + the part of VAT that is cost</td><td>the IFRS / GAAP cost; budget vs actual</td></tr>
+<tr><td><code>net</code></td><td>Net of VAT</td><td>net</td><td>the contract / invoice amount without tax</td></tr>
+<tr><td><code>gross</code></td><td>With VAT</td><td>net + all VAT</td><td>what is paid; cash planning; the owner's wish to see the VAT</td></tr>
+</table>
+<p>While every VAT rate of the catalog is 100 % recoverable (the default, and the case of every existing row) the basis <code>cost</code> equals <code>net</code>: <b>no number of any existing report changes</b> until somebody marks a rate as not recoverable or picks <i>With VAT</i>.</p>
+
+<h2>4. What this final version changes against the earlier answers</h2>
+<table>
+<tr><th>Earlier answer</th><th>Final</th><th>Why</th></tr>
+<tr><td>Monitor01: every sum and amount WITH VAT, always</td><td>Monitor01 has a <b>VAT basis switch</b>; default Cost; With VAT one click away; the choice is remembered</td><td>request 5: the standard basis by default, the VAT visible on demand</td></tr>
+<tr><td><code>sumForBudget</code> must also be with VAT</td><td><code>sumForBudget</code> keeps its meaning (net) everywhere; the VAT is a separate column <code>vatForBudget</code> (+ <code>vatInCostForBudget</code>); "with VAT" = their sum, computed by the basis</td><td>one meaning per column, no migration of old numbers, the three bases come from the same components; nothing that reads <code>sumForBudget</code> changes</td></tr>
+<tr><td>The register keeps only the amount with VAT; <code>vatForAccounting…</code> not needed</td><td>The register keeps the COMPONENTS: <code>sumForAccounting</code> (net), <code>vatForAccounting</code> (VAT), <code>vatInCostForAccounting</code>; the existing <code>vatForAccounting…</code> columns are used again</td><td>the basis cannot be switched later from one stored total</td></tr>
+<tr><td>At Post the line's <code>sumForAccounting</code> (total) goes into the register's <code>sumForAccounting</code></td><td>At Post: line <code>sumForAccountingBeforeVAT</code> → register <code>sumForAccounting</code>; line <code>sumForAccountingVAT</code> → register <code>vatForAccounting</code>. The LINE's <code>sumForAccounting</code> is the total (as asked) and is not copied</td><td>same reason; the total is always BeforeVAT + VAT, so nothing is lost</td></tr>
+<tr><td>Project cost total: <code>costTotalForBudget</code> unchanged (net), a second one with VAT</td><td><code>costTotalForBudget</code> = the <b>Cost basis</b> (net + non-recoverable VAT; equals the old net value while all rates are recoverable); <code>costTotalForBudgetWithVAT</code> = With VAT</td><td>the cost total is a cost: it must follow the cost basis</td></tr>
+<tr><td>Backfill of the plan; posted register rows stay net</td><td>The register rows of posted documents CAN be backfilled (the contract VAT is stored in them), so there is no "old net rows" caveat</td><td>section 15</td></tr>
+</table>
+
+<h2>5. Decisions (the owner can change them)</h2>
+<div class="note"><b>Components, not totals.</b> Every stored money amount is split into <i>net</i>, <i>VAT</i> and <i>VAT that is cost</i> (<code>vatInCost</code>). The three bases of section 3 are computed from these three numbers by ONE function, so a report never decides the VAT treatment itself.</div>
+<div class="note"><b>Recoverability lives on the VAT rate.</b> A row of <code>valueAddedTaxTable</code> gets <code>rowJSON.vatRecoverablePercent</code> (0..100, missing = 100). A rate that is partly or not deductible is a row of its own ("VAT 21 % - not deductible", 0 %). The percent is copied into the line when the rate is chosen and frozen with it, so a later edit of the catalog does not rewrite posted documents. A project / organization switch "all VAT is non-recoverable" (an organization that is not VAT-registered) is NOT in this round; such an organization uses 0 % rows.</div>
+<div class="note"><b>Customer invoice: the VAT is never cost.</b> <code>vatInCost</code> of a <code>sold</code> movement is always 0, so the basis Cost equals Net for the Customer Invoice amount (IFRS 15.47); only <i>With VAT</i> adds the tax.</div>
+<div class="note"><b>Currency.</b> The VAT of the budget / accounting currency is converted exactly as the net sum is today (the rate of the plan of the line), so net + VAT in a currency equals the converted gross.</div>
+<div class="note"><b>Nothing is dropped from a live database.</b> No column is removed; the old meaning of every existing column stays.</div>
+
+<h2>6. The stored components</h2>
+<table>
+<tr><th>Currency</th><th>Net</th><th>VAT</th><th>VAT that is cost</th></tr>
+<tr><td>Contract</td><td><code>sumForContract</code></td><td><code>vatForContract</code></td><td>- (the contract currency is not reported on the cost basis)</td></tr>
+<tr><td>Budget</td><td><code>sumForBudget</code></td><td><code>vatForBudget</code> (new)</td><td><code>vatInCostForBudget</code> (new)</td></tr>
+<tr><td>Accounting</td><td>line: <code>sumForAccountingBeforeVAT</code> (new) · register / plan: <code>sumForAccounting</code></td><td>line: <code>sumForAccountingVAT</code> (new) · register / plan: <code>vatForAccounting</code></td><td><code>vatInCostForAccounting</code> (new)</td></tr>
+</table>
+<p><b>As built:</b> the register (<code>project_status_movements</code>) carries all three parts for every kind (<code>vatForBudget</code>, <code>vatInCostForBudget</code>, <code>vatInCostForAccounting</code>; <code>vatForContract</code> and <code>vatForAccounting</code> were already there). The turnover (<code>project_status_month_turnover</code>) gets only the two PLAN columns <code>vatForBudgetPlan</code> and <code>vatInCostForBudgetPlan</code> (the project cost total reads them); <code>monitor01_view</code> gets <code>vatBudget</code>, <code>vatInCostBudget</code>, <code>vatVendorInvoiced</code>, <code>vatInCostVendorInvoiced</code>, <code>vatCustomerInvoiced</code> (section 13), made by <code>project_status_fresh_turnover</code> from the register. The plan timeline (<code>task_line_plan_timeline</code>) is NOT changed: no report reads VAT from it.</p>
+<div class="warn"><b>One word, two meanings - written down on purpose.</b> On a document LINE <code>sumForAccounting</code> is the total WITH VAT (the owner's request). In the register, the turnover and the plan <code>sumForAccounting</code> keeps its old meaning: net. The mapping is in section 11; the README of every document says it too.</div>
+
+<h2>7. The line, column by column (all four documents)</h2>
+<table>
+<tr><th>Column</th><th>Stored as</th><th>Input</th><th>Rule</th></tr>
+<tr><td>Qty</td><td><code>qtyInvoiced</code> (<code>qtyOrdered</code>, <code>qtyReceived</code>)</td><td>edit (draft)</td><td>as today</td></tr>
+<tr><td>Price</td><td><code>priceInvoiced</code> ...</td><td>edit (draft)</td><td>as today; also the RESULT of a manual accounting edit (section 9)</td></tr>
+<tr><td>VAT rate</td><td><code>vatRatioInvoiced</code> (percent) + <code>rowJSON.vatRateGUID</code>, <code>vatTablePercent</code>, <code>vatRecoverablePercent</code></td><td>select from <code>valueAddedTaxTable</code> (draft)</td><td>section 8</td></tr>
+<tr><td>Sum before VAT (contract)</td><td><code>sumForContract</code></td><td>read only</td><td><code>qty x price</code></td></tr>
+<tr><td>VAT (contract)</td><td><code>vatForContract</code></td><td>read only</td><td><code>sumForContract x VAT % / 100</code></td></tr>
+<tr><td>Sum with VAT (contract)</td><td>computed in the grid</td><td>read only</td><td>as today</td></tr>
+<tr><td><b>Sum for accounting before VAT</b></td><td><code>sumForAccountingBeforeVAT</code></td><td><b>edit (draft)</b></td><td>first calculated from <code>sumForContract</code></td></tr>
+<tr><td><b>VAT for accounting</b></td><td><code>sumForAccountingVAT</code></td><td><b>edit (draft)</b></td><td>first calculated from <code>vatForContract</code></td></tr>
+<tr><td><b>Sum for accounting</b></td><td><code>sumForAccounting</code> (total)</td><td>read only</td><td><code>BeforeVAT + VAT</code></td></tr>
+<tr><td>Sum for budget · VAT for budget</td><td><code>sumForBudget</code> (net) · <code>vatForBudget</code></td><td>read only</td><td>section 8</td></tr>
+</table>
+<p>The description of a line (role, resource, unit) is as before: read only for a line that came from a task line, free for an independent line. A posted document is frozen. The trigger of a line that came from a task line still forbids a change of its <code>rowJSON</code>, with ONE exception: the keys <code>vatRateGUID</code>, <code>vatTablePercent</code>, <code>vatRecoverablePercent</code>.</p>
+
+<h2>8. The calculation (direction price → sums) and the VAT rate</h2>
+<p>Let <code>r</code> be the rate of the plan of the line: <code>r = unitSumForAccounting / priceTaskLine</code> (accounting currency per unit of the contract currency); <code>rb = unitSumForBudget / priceTaskLine</code> for the budget currency. Both come from the task line, copied into <code>rowJSON</code> when the line was made. Let <code>k = vatRecoverablePercent / 100</code> (1 when missing).</p>
+<pre>sumForContract            = round(qty x price, 2)
+vatForContract            = round(sumForContract x VAT% / 100, 2)
+
+sumForAccountingBeforeVAT = round(sumForContract x r, 2)
+sumForAccountingVAT       = round(vatForContract x r, 2)
+sumForAccounting          = sumForAccountingBeforeVAT + sumForAccountingVAT        -- the total of the line
+
+sumForBudget              = round(sumForContract x rb, 2)                          -- net, as today
+vatForBudget              = round(vatForContract x rb, 2)
+
+vatInCostForBudget        = round(vatForBudget x (1 - k), 2)       -- 0 on a customer invoice
+vatInCostForAccounting    = round(sumForAccountingVAT x (1 - k), 2) -- 0 on a customer invoice</pre>
+<p>A line WITHOUT a plan price (an independent line, or a task line with no price) has no rate: the sums use the unit sums, as today (<code>round(qty x unitSum, 2)</code> for the net part, the VAT part from the VAT %). A line without a unit sum has NULL accounting / budget sums.</p>
+<ul>
+<li><b>The VAT select.</b> Source: <code>valueAddedTaxTable</code> (owner <code>valueAddedTaxCatalog</code>; <code>rowJSON.vatTableTitle</code>, <code>vatTablePercent</code>, <code>vatRecoverablePercent</code>), already loaded for the task lines (<code>taskLineCatalogs.ts</code>, key <code>valueAddedTax</code>). It replaces the number input of the VAT % column; it shows the title and the percent. A new line takes the VAT of the task line; an independent line takes the default of its product type / role if there is one, otherwise 0.</li>
+<li>A legacy line whose percent is not in the catalog shows its number and stays valid (recoverable 100 %). A percent computed from a manual VAT edit has no catalog row: <code>vatRateGUID</code> is removed and the select shows the number.</li>
+<li>The database check <code>0..100</code> of <code>vatRatioInvoiced</code> stays. The line trigger reads the catalog ONCE, when <code>rowJSON.vatRateGUID</code> is new or changed (<code>vat_rate_lookup</code>, SECURITY DEFINER): the percent and the recoverable share are copied into the line and frozen there, so a later edit of the catalog does not rewrite a document. A rate that does not exist is refused.</li>
+</ul>
+
+<h2>9. The manual edit and the calculation backwards</h2>
+<p>The trigger tells a manual edit from a recalculation by comparing the new row with the old one (UPDATE): the quantity, the price and the VAT % are the same, and one of the two editable accounting columns changed.</p>
+<table>
+<tr><th>The user changes</th><th>The row does</th></tr>
+<tr><td>Qty, price or VAT rate</td><td>Everything is calculated again (section 8). A manual accounting value typed before is DROPPED: the accounting sums are the formulas again (no stale manual number beside a changed price).</td></tr>
+<tr><td><code>sumForAccountingBeforeVAT</code></td><td><code>price = round(value / r / qty, 4)</code>, then the contract sums from the new price, the VAT part of the accounting from the contract VAT, the budget sums, <code>vatInCost…</code>. The typed value stays AS TYPED (it is not replaced by the rounded product of the new price). Qty = 0 or no rate <code>r</code>: the edit is refused with a clear message.</td></tr>
+<tr><td><code>sumForAccountingVAT</code></td><td>The price does NOT change (VAT is not part of it). The VAT % is computed: <code>VAT% = round(value / sumForAccountingBeforeVAT x 100, 3)</code> (not above 100); <code>vatForContract</code> and the budget VAT follow; <code>vatRateGUID</code> is removed and the recoverable percent stays as it was.</td></tr>
+<tr><td><code>sumForAccounting</code></td><td>Read only (the total).</td></tr>
+</table>
+<p>The two directions of the owner: <b>contract price → contract sums → accounting sums</b> (section 8) and <b>accounting sums → contract sums → contract price</b> (this section). A line with no rate (independent line) has the two accounting columns read only, because there is nothing to convert with.</p>
+
+<h2>10. The four documents</h2>
+<table>
+<tr><th>Document</th><th>Lines table / trigger</th><th>Register kind</th><th>Test</th></tr>
+<tr><td>Vendor invoice</td><td><code>vendor_invoice_lines</code> / <code>vendor_invoice_lines_before_write</code> (PART 26)</td><td>invoiced</td><td><code>tests/70</code></td></tr>
+<tr><td>Purchase order</td><td><code>purchase_order_lines</code> (PART 28)</td><td>ordered</td><td><code>tests/71</code>, <code>72</code></td></tr>
+<tr><td>Product receipt</td><td><code>product_receipt_lines</code> (PART 30)</td><td>received</td><td><code>tests/73</code></td></tr>
+<tr><td>Customer invoice</td><td><code>customer_invoice_lines</code> (PART 31)</td><td>sold (VAT never cost)</td><td><code>tests/74</code></td></tr>
+</table>
+<p>The four triggers are copies of one another; the new logic is one change in each, then the same columns in the four <code>…Columns.tsx</code> and a shared helper for the VAT select. A document made from another one (order → receipt → invoice) copies the VAT rate (with its recoverable percent) of the source line and the rate <code>r</code> as before; a manual accounting value of the source is NOT copied (the new line starts from its formulas).</p>
+
+<h2>11. The register and posting</h2>
+<table>
+<tr><th>Register column</th><th>Written at Post</th></tr>
+<tr><td><code>sumForContract</code>, <code>vatForContract</code></td><td>as today</td></tr>
+<tr><td><code>sumForBudget</code>, <code>vatForBudget</code>, <code>vatInCostForBudget</code></td><td>the three budget components of the line</td></tr>
+<tr><td><code>sumForAccounting</code></td><td>the line's <code>sumForAccountingBeforeVAT</code> (net)</td></tr>
+<tr><td><code>vatForAccounting</code>, <code>vatInCostForAccounting</code></td><td>the line's <code>sumForAccountingVAT</code> and <code>vatInCostForAccounting</code></td></tr>
+<tr><td>plan movements (<code>plan</code> kind)</td><td>section 12</td></tr>
+</table>
+
+<h2>12. The plan with VAT</h2>
+<p>Budget vs actual must be compared on one basis, so the PLAN carries the same components. <code>create_task_line_plan</code> (PARTs 15, 22) distributes the sums of the task line over the days; the task line keeps its net <code>sumForBudget</code>. <b>As built</b> the function takes the VAT of the budget sum from <code>sumVATForBudget</code> (the app already stores it on the task line, <code>taskLineFx.ts</code>; the Post may also state it) and writes per movement <code>vatForBudget</code> (distributed like <code>sumForBudget</code>, Correct033) and <code>vatInCostForBudget = vatForBudget x (1 - k)</code>. The task line stores only the VAT PERCENT, no rate GUID, so the recoverable share of a plan comes from <code>rowJSON.vatRecoverablePercentTaskLine</code> (missing = 100 %: the VAT of a plan is no cost until a task line says otherwise; no screen sets that key yet). <code>task_line_plan_timeline</code> is not changed.</p>
+
+<h2>13. Monitor01 - the VAT basis switch</h2>
+<table>
+<tr><th>Money column</th><th>Net</th><th>VAT</th><th>VAT in cost</th></tr>
+<tr><td>Budget (plan)</td><td><code>sumForBudget</code></td><td><code>vatBudget</code> (new)</td><td><code>vatInCostBudget</code> (new)</td></tr>
+<tr><td>Vendor Invoice → Amount</td><td><code>sumVendorInvoiced</code></td><td><code>vatVendorInvoiced</code> (new)</td><td><code>vatInCostVendorInvoiced</code> (new)</td></tr>
+<tr><td>Customer Invoice → Amount</td><td><code>sumCustomerInvoiced</code></td><td><code>vatCustomerInvoiced</code> (new)</td><td>always 0</td></tr>
+</table>
+<ul>
+<li><b>The switch</b> sits in the toolbar after "Collapse all" and the Projects | Subprojects | All radio: "VAT: Cost | Net | With VAT" (component <code>VatBasisSelect</code>, section 14). The default is Cost. The amount shown = <code>net + (cost ? vatInCost : gross ? vat : 0)</code>, computed on the client from the loaded rows (<code>applyMonitor01VatBasis</code>), so the change is instant and needs no new query. The group totals, the totals row and the subtotals follow the same basis. The choice is the one of <code>useVatBasis</code>, remembered in AsyncStorage on the device, the same for every report.</li>
+<li>The header tip of each of the three amount columns states the basis in force ("Budget - cost basis"), and the README of the report says it.</li>
+<li>The drill-down <code>monitor01_sum_sources</code> lists QUANTITIES only (no money), so it needs no basis. <code>monitor01_verify</code> compares the new columns too (they are part of <code>monitor01_fresh_rows</code>).</li>
+<li>The worker (<code>monitor01_apply</code>) sums the new turnover columns into the new view columns in the same step as the net ones; the structure of the screen and its Realtime do not change.</li>
+<li>Quantity columns are not affected by the basis.</li>
+</ul>
+
+<h2>14. Every future report: the VAT basis contract</h2>
+<p>A report that shows money MUST obey the following rules, so that no report invents its own VAT treatment:</p>
+<ol>
+<li>It stores or reads the three components (<i>net</i>, <i>VAT</i>, <i>VAT in cost</i>), never one pre-added total.</li>
+<li>It computes the shown amount only through the shared function: SQL <code>vat_basis_amount(net, vat, vat_in_cost, basis)</code> (IMMUTABLE, <code>basis</code> = 'cost' | 'net' | 'gross') and TypeScript <code>amountOfVatBasis(...)</code> in <code>kit8/pm/vat/vatBasis.ts</code>.</li>
+<li>It offers the same switch component <code>VatBasisSelect</code> (the three names of section 3, default Cost) and remembers the choice in the same place as Monitor01.</li>
+<li>Its header tips and README say which basis the amounts are on. Customer (revenue) amounts follow the rule of section 5: the Cost basis equals Net.</li>
+<li>A report that cannot show a basis (a quantity report) says nothing about it.</li>
+</ol>
+<p>When this is built, KNOW_HOW.md gets one line with these rules, so every new report starts from them.</p>
+
+<h2>15. Migration, the SQL files, tests</h2>
+<h3>Migration of data that exists</h3>
+<ul>
+<li><code>start1_sql_tables.sql</code>: the new columns, <code>ADD COLUMN IF NOT EXISTS</code> in the PART of each table: the four line tables (<code>sumForAccountingBeforeVAT</code>, <code>sumForAccountingVAT</code>, <code>vatForBudget</code>, <code>vatInCostForBudget</code>, <code>vatInCostForAccounting</code>), the register, the turnover, the plan timeline, <code>monitor01_view</code>, the fact VAT columns, <code>project_task_cost_total."costTotalForBudgetWithVAT"</code>.</li>
+<li><code>start2_sql_code.sql</code> (same PART numbers): the four triggers, <code>vat_basis_amount</code>, <code>create_task_line_plan</code>, the fact trigger, the register functions of the PARTs 24-31, the Monitor01 worker / sources / verify, the cost total functions, and a backfill of the rows that exist: lines: old <code>sumForAccounting</code> → <code>sumForAccountingBeforeVAT</code>, old <code>vatForAccounting</code> → <code>sumForAccountingVAT</code>, then <code>sumForAccounting</code> = their sum; <code>vatForBudget = round(sumForBudget x vatForContract / sumForContract, 2)</code> (where the contract sum is not 0), <code>vatInCost… = 0</code> (every existing rate is 100 % recoverable). Register movements of posted documents: <code>vatForBudget</code> by the same ratio from their own <code>vatForContract</code>; plan movements: from the VAT % of the task line. The posted documents are touched by statements that open the gate for their own UPDATE only. The backfill is idempotent: it recognizes an old row by the empty new column. After it, the Monitor01 worker is queued for the projects it touched.</li>
+<li><code>delete_sql_structure.sql</code>: the new columns go with their tables (no new table); <code>start3</code> / <code>start5</code> need no seed (a missing <code>vatRecoverablePercent</code> means 100).</li>
+<li>Existing numbers do not change: <code>sumForBudget</code> and the register's <code>sumForAccounting</code> keep their meaning, the basis Cost equals Net while every rate is recoverable.</li>
+</ul>
+<h3>Tests</h3>
+<ul>
+<li>Docker: <code>tests/70</code>-<code>74</code> (the three columns, the VAT select value with its recoverable percent, price → sums, accounting sums → price, VAT edit → %, a qty change drops the manual value, a line without a rate refuses the edit, posting writes the components, customer invoice: vatInCost = 0), <code>51</code> (fact VAT from the line GUID, a free line has none), <code>60</code> (Monitor01: the components of the three columns, drill-down equals the cell on each basis, <code>monitor01_verify</code>), <code>80</code> (cost total: Cost basis equals the old value for 100 % rates and includes the non-recoverable part otherwise; With VAT), <code>vat_basis_amount</code> unit cases, and <code>test_sql.sh</code> (install twice, delete, install again).</li>
+<li>Jest: the four <code>…Columns</code> tests (editable flags, VAT select, the three columns, totals), <code>vatBasis.ts</code>, <code>VatBasisSelect</code>, the Monitor01 table on each basis and its header tips, the fact columns, the cost column.</li>
+</ul>
+
+<h2>16. Fact input</h2>
+<ul>
+<li>A STRONG fact line has the <code>taskLineGUID</code> (the trigger insists), so its VAT rate is the one of that task line. At creation of the line the VAT % and the recoverable percent are copied into the line <code>rowJSON</code> with the price and the unit sums (the trigger already freezes <code>rowJSON</code>), so a later change of the task line's VAT does not change a fact that was entered.</li>
+<li>New columns of <code>task_fact_usage_timeline</code>: <code>vatForContract</code>, <code>vatForBudget</code>, <code>vatForAccounting</code>, <code>vatInCostForBudget</code>, <code>vatInCostForAccounting</code>; the existing three sums stay net. <b>As built</b> the lines table of the fact form shows the three VAT columns (read only; empty on a free line); the document list and its totals are not changed and there is no VAT switch on the fact screens yet (open point). A posted fact document registers the VAT parts with its 'used' movements.</li>
+<li>A FREE fact line has no task line (the trigger sets it NULL), so it has no VAT rate: its VAT columns stay empty. That is a limit of free input.</li>
+<li>Monitor01 shows the used QUANTITY only, so this part does not change it.</li>
+</ul>
+
+<h2>17. Project cost total - two columns</h2>
+<ul>
+<li><code>costTotalForBudget</code> = the plan Time + Material + Expense on the <b>Cost basis</b> (<code>sumForBudget + vatInCostForBudget</code> of the plan movements). While every rate is recoverable it equals the present value, so nothing changes today.</li>
+<li>New <code>costTotalForBudgetWithVAT</code> in <code>project_task_cost_total</code> (<code>sumForBudget + vatForBudget</code>), the same roll-up to the ancestors. Step 3 of <code>monitor01_apply</code> (<code>project_cost_apply</code>), <code>project_cost_rebuild</code> and <code>project_cost_verify</code> fill and check both.</li>
+<li>The tree gets one more column "Cost with VAT", shown by the project setting <code>showTotalCostWithVATOnTheGanttChart</code> (Project settings → Budgets, next to <code>showTotalCostOnTheGanttChart</code>), OFF by default; it stands right after the Cost column and is dropped first on a narrow pane. The title of both carries the budget currency. The tree is the one place that has two fixed columns instead of the switch, as agreed with the owner.</li>
+</ul>
+
+<h2>18. Open points (default in brackets)</h2>
+<ul>
+<li>The setting that shows the cost total with VAT is OFF by default.</li>
+<li>A manual accounting value is dropped when qty / price / VAT rate changes.</li>
+<li>Free fact lines have no VAT.</li>
+<li>No project / organization switch "all VAT is non-recoverable" in this round (0 % rows instead).</li>
+<li>The accountant confirms the standards references of section 3 before statutory use.</li>
+</ul>
+
+<h2>19. Not seen / not verified (see also section 20)</h2>
+<p>See the section 20.</p>
+
+<h2>20. As built, as tested</h2>
+<h3>Where it differs from the first design</h3>
+<table>
+<tr><th>Design</th><th>Built</th></tr>
+<tr><td>Turnover carries VAT for every kind</td><td>Only the plan VAT is in the turnover (the cost total needs it); the other kinds keep it in the register, <code>monitor01_view</code> is made from the register</td></tr>
+<tr><td>Drill-down shows money on the basis</td><td>The drill-down lists quantities only: nothing to change</td></tr>
+<tr><td>Plan VAT % and recoverable share of the task line's VAT RATE</td><td>The task line has no rate GUID: the plan uses <code>sumVATForBudget</code> of the line and <code>vatRecoverablePercentTaskLine</code> (missing = 100 %)</td></tr>
+<tr><td>VAT switch on the fact list</td><td>VAT columns on the fact lines table; no switch there yet</td></tr>
+<tr><td>The trigger does not read the catalog</td><td>It reads it once when the rate GUID changes (<code>vat_rate_lookup</code>)</td></tr>
+</table>
+<h3>Where the code is</h3>
+<table>
+<tr><th>Thing</th><th>File</th></tr>
+<tr><td>The VAT basis rule (TS) · the remembered choice · the radio</td><td><code>kit8/pm/vat/vatBasis.ts</code> · <code>useVatBasis.ts</code> · <code>VatBasisSelect.tsx</code> (README: <code>kit8/pm/vat/README.md</code>)</td></tr>
+<tr><td>The VAT rate select + the accounting columns of the four documents</td><td><code>kit8/documents/vat/documentVatColumns.tsx</code>, used by the four <code>…Columns.tsx</code>; <code>rootColumns</code> in the four <code>…MetaData.ts</code></td></tr>
+<tr><td>SQL: <code>vat_basis_amount</code>, <code>vat_rate_lookup</code>, <code>vat_line_calc</code> and the four triggers</td><td><code>start2_sql_code.sql</code> PART 26 (helpers) and PARTs 26, 28, 30, 31 (triggers); the backfill at the end of the file</td></tr>
+<tr><td>Monitor01</td><td><code>monitor01Model.ts</code> (<code>applyMonitor01VatBasis</code>), <code>Monitor01Dashboard.tsx</code>, <code>Monitor01Table.tsx</code>; SQL PART 25 <code>project_status_fresh_turnover</code>, <code>monitor01_fresh_rows</code> (PARTs 25 and 29), <code>monitor01_apply</code>, <code>monitor01_verify</code></td></tr>
+<tr><td>Cost total</td><td><code>kit8/pm/cost</code>, <code>treeColumns.ts</code>, <code>PMProjectTasksTree.tsx</code>, <code>PMProjectBudgetsTab.tsx</code>; SQL PART 27</td></tr>
+</table>
+<h3>Tested</h3>
+<ul>
+<li>Docker (Postgres 15): <code>./test_sql.sh</code> (install twice, delete, install again: ALL OK), <code>./test_fact_monitor01.sh</code> (every test of 5N-9N, the new <code>tests/75_vat_basis.sql</code> with 39 checks; <code>tests/52</code> has the plan VAT, <code>70</code>, <code>71</code> the new meaning of <code>sumForAccounting</code>, <code>74</code> the customer invoice).</li>
+<li>Jest: the new suites <code>__tests__/pm/vat</code>, <code>__tests__/documents/vat</code>, <code>__tests__/sql/vatBasisSql.test.ts</code> and the changed suites of the four documents, fact input, Monitor01, the cost total and the tree columns. The suites that failed before the change still fail (see KNOW_HOW section 5).</li>
+</ul>
+<h3>Not seen</h3>
+<ul>
+<li>The screens were not looked at in a browser or on a phone: the VAT select cell, the two typed accounting columns, the Monitor01 switch and the second tree column are proved by unit tests with the table mocked.</li>
+<li>The SQL was not run on the owner's Supabase. The one-time backfill of rows made before the change was proved only on an empty database and on test data made after the change; its statements (section 15) are simple UPDATEs guarded by "the new column is empty".</li>
+<li>RAILWAY_1 data (<code>documentation/RAILWAY_1</code>): every line carries the 0 % rate row <code>vat_0</code>; that script was changed but not run (it needs the owner's user and database).</li>
+</ul>
+</main>
+</body>
+</html>

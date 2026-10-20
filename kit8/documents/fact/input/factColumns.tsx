@@ -64,6 +64,10 @@ export function buildFactColumns({ data, genus, header }: FactColumnsContext): V
     root('sumForBudget', 'Sum for budget', 140),
     root('sumForContract', 'Sum for contract', 140),
     root('sumForAccounting', 'Sum for accounting', 150),
+    // the VAT of a STRONG line (the VAT rate of its task line, frozen into the line); a FREE line has no task line, so these stay empty (documentation/VENDOR_INVOICE_DOC.html section 16)
+    root('vatForContract', 'VAT for contract', 130),
+    root('vatForBudget', 'VAT for budget', 130),
+    root('vatForAccounting', 'VAT for accounting', 140),
   ];
 }
 

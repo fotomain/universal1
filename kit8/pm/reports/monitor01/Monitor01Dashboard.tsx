@@ -34,6 +34,8 @@ import { MONITOR01_PROJECT_KIND_DEFAULT, Monitor01ProjectKind } from '../../subp
 import { useMonitor01SubprojectKind } from '../../subproject/useMonitor01SubprojectKind';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
+import { useVatBasis } from '../../vat/useVatBasis';
+import VatBasisSelect from '../../vat/VatBasisSelect';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
 import { fetchMonitor01Sources, refreshMonitor01Now, Monitor01SourceRow } from './monitor01Api';
 import { dashboardLinkPath, openDashboardLink } from '../../view/project/dashboardDeepLink';
@@ -42,7 +44,7 @@ import { usePMStore } from '../../store/store_pm';
 import Monitor01TaskMenu, { Monitor01TaskMenuState } from './Monitor01TaskMenu';
 import {
   EMPTY_MONITOR01_FILTERS, MONITOR01_MEASURE_TITLE, filterMonitor01RowsByProjectKind, Monitor01Row, MONITOR01_TABS, Monitor01Filters, Monitor01Item, Monitor01Tab, buildMonitor01Items, dashboardLinkOfRow, drillFilterOfNode, drillFilterOfRow, drillFilterOfRows,
-  filterMonitor01Rows, monitor01NodeKeys, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, rowsOfTab,
+  applyMonitor01VatBasis, filterMonitor01Rows, monitor01NodeKeys, monitor01ProjectOptions, monitor01ResourceOptions, monitor01TaskOptions, monitor01Totals, monthLabel, rowsOfTab,
 } from './monitor01Model';
 import { buildMonitor01Sources } from './monitor01SumSources';
 import { useMonitor01Rows } from './useMonitor01Rows';
@@ -115,7 +117,10 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
     if (!autoRefresh) setSnapshot(data.rows);
   }, [data.changedAt, data.rows, refreshSince, autoRefresh]);
   const loadedRows = autoRefresh ? data.rows : (snapshot ?? data.rows);
-  const sourceRows = useMemo(() => filterMonitor01RowsByProjectKind(loadedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [loadedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
+  // the VAT basis (Cost | Net | With VAT, documentation/VENDOR_INVOICE_DOC.html section 13): the money of every row is the amount of that basis; everything below works on it unchanged
+  const [vatBasis, setVatBasis] = useVatBasis();
+  const kindRows = useMemo(() => filterMonitor01RowsByProjectKind(loadedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [loadedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
+  const sourceRows = useMemo(() => applyMonitor01VatBasis(kindRows, vatBasis), [kindRows, vatBasis]);
 
   // the unit titles (the measure unit catalog); until it arrives the key without "unit_" is shown
   const units: any[] = useSelector((s: any) => s?.[PRODUCT_TABLES.measureUnit.entity]?.entityDataFromServer) || [];
@@ -227,7 +232,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <IconApp name="monitoring" size={20} color={c.primary} />
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
-        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null} busy={refreshSince !== null} />
+        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={<>{subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null}<VatBasisSelect testID={`${testID}-vat-basis`} value={vatBasis} onChange={setVatBasis} /></>} busy={refreshSince !== null} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
@@ -261,7 +266,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} onTaskMenu={openTaskMenu} testID={`${testID}-table`} />
+        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} onTaskMenu={openTaskMenu} vatBasis={vatBasis} testID={`${testID}-table`} />
         {taskMenu && <Monitor01TaskMenu testID={`${testID}-task-menu`} menu={taskMenu} onClose={() => setTaskMenu(null)} />}
       </View>
 

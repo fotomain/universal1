@@ -1,5 +1,5 @@
 -- PART 32: the ACTIVITY GENUS (documentation/ACTIVITY_GENUS.html): the matrix activity x management genus (14 keys), the catalogs with every field of the tree stored (3 activities, 14 keys,
--- 32 budget items), the obligatory budgetItemGenericKey / direction of a budget item (default, checks, correction), read-only catalogs for the signed-in user
+-- 36 budget items), the obligatory budgetItemGenericKey / direction of a budget item (default, checks, correction), read-only catalogs for the signed-in user
 BEGIN;
 SELECT tt.as_admin();
 
@@ -23,15 +23,15 @@ SELECT tt.eq((SELECT count(*) FROM public."budgetItemGenericKeyTable" k JOIN pub
                ON m."key" = k."rowGUID" AND m."activityGenus" = k."rowJSON"->>'activityGenus' AND m."managementGenusItem" = k."rowJSON"->>'managementGenusItem' AND m."directionDefault" = k."rowJSON"->>'directionDefault'),
              14::bigint, 'the key rows are the matrix');
 SELECT tt.eq((SELECT count(*) FROM public."budgetItemGenericKeyTable" WHERE coalesce("rowJSON"->>'d365foName', '') <> '' AND coalesce("rowJSON"->>'sapName', '') <> ''), 14::bigint, 'every key has the D365 FO and SAP text of its genus row');
-SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' AND "rowJSON" ? 'webIfrsName'), 32::bigint, '32 possible budget items are stored');
+SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' AND "rowJSON" ? 'webIfrsName'), 36::bigint, '36 possible budget items are stored');
 SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' AND "rowJSON" ? 'webIfrsName'
-                AND coalesce("rowJSON"->>'webIfrsName', '') <> '' AND coalesce("rowJSON"->>'d365foName', '') <> '' AND coalesce("rowJSON"->>'sapName', '') <> '' AND "rowJSON" ? 'isPolicyItem'), 32::bigint,
+                AND coalesce("rowJSON"->>'webIfrsName', '') <> '' AND coalesce("rowJSON"->>'d365foName', '') <> '' AND coalesce("rowJSON"->>'sapName', '') <> '' AND "rowJSON" ? 'isPolicyItem'), 36::bigint,
              'every possible budget item has Web + IFRS, D365 FO, SAP and the policy flag');
 SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowJSON"->>'isPolicyItem' = 'true'), 4::bigint, 'four policy items (interest and dividends, received and paid)');
-SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty'), 38::bigint, '6 default items + 32 possible items');
+SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty'), 42::bigint, '6 default items + 36 possible items');
 SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" b WHERE b."rowParentGUID" <> 'empty'
                 AND public.kit8_budget_item_key_direction(b."rowJSON"->>'budgetItemGenericKey') = b."rowJSON"->>'direction'
-                AND split_part(b."rowJSON"->>'budgetItemGenericKey', '.', 2) = b."rowJSON"->>'managementGenusItem'), 38::bigint, 'every item: allowed key, genus of the key, default direction');
+                AND split_part(b."rowJSON"->>'budgetItemGenericKey', '.', 2) = b."rowJSON"->>'managementGenusItem'), 42::bigint, 'every item: allowed key, genus of the key, default direction');
 SELECT tt.eq((SELECT count(*) FROM public."budgetItemTable" WHERE "rowGUID" IN ('timeBudgetItem', 'materialBudgetItem', 'expenseBudgetItem', 'revenueBudgetItem', 'inboundPaymentBudgetItem', 'outboundPaymentBudgetItem')
                 AND "rowJSON"->>'budgetItemGenericKey' = 'operatingActivity.' || ("rowJSON"->>'managementGenusItem')), 6::bigint, 'the six default items are operating (old items stay what they were)');
 SELECT tt.eq((SELECT "rowJSON"->>'budgetItemGenericKey' FROM public."budgetItemTable" WHERE "rowGUID" = 'purchaseOfPpeBudgetItem'), 'investingActivity.materialGenus', 'purchase of PP&E is investing material');

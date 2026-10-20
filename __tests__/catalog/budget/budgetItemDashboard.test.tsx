@@ -196,7 +196,7 @@ describe('editing is on by default; the lock makes it read-only', () => {
     pickFolder('costsBudgetFolder');
     press(`${TREE}-new-sub`);
     expect(calls('create', BUDGET_ITEM_TABLE.entity)).toEqual([]);
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'snackbar', p: { message: 'A budget item is added in the table: pick the folder and press +' } });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'snackbar', p: { message: 'A budget item is added in the table: pick the folder or the activity and press +' } });
   });
 
   it('deleting a folder deletes its items', () => {
@@ -267,5 +267,49 @@ describe('the activity (key) and the direction of an item', () => {
     press(`${TABLE}-add`);
     expect(calls('create', BUDGET_ITEM_TABLE.entity)[0].rowJSON).toEqual(expect.objectContaining({
       managementGenusItem: 'inboundPaymentGenus', budgetItemGenericKey: 'operatingActivity.inboundPaymentGenus', direction: 'inbound' }));
+  });
+});
+
+describe('the second level of the tree: the activity of the items (operating / investing / financing)', () => {
+  const NODE = (f: string, a: string) => `${TREE}-row-${f}::${a}`;
+  // the material item is an INVESTING item (the purchase of an asset), the others operating
+  const rowsWithInvesting = () => keyedRows().map((r) => (r.rowGUID === 'materialBudgetItem' ? { ...r, rowJSON: { ...r.rowJSON, budgetItemGenericKey: 'investingActivity.materialGenus' } } : r));
+
+  it('every folder has the activities its genus can have: Costs and Revenues operating + investing, Payments also financing', () => {
+    mount({}, keyedRows());
+    for (const [f, a] of [['costsBudgetFolder', 'operatingActivity'], ['costsBudgetFolder', 'investingActivity'], ['revenuesBudgetFolder', 'operatingActivity'], ['revenuesBudgetFolder', 'investingActivity'],
+      ['paymentsBudgetFolder', 'operatingActivity'], ['paymentsBudgetFolder', 'investingActivity'], ['paymentsBudgetFolder', 'financingActivity']]) expect(q(NODE(f, a))).not.toBeNull();
+    expect(q(NODE('costsBudgetFolder', 'financingActivity'))).toBeNull();
+    expect(q(NODE('revenuesBudgetFolder', 'financingActivity'))).toBeNull();
+    expect(q(NODE('costsBudgetFolder', 'operatingActivity'))!.textContent).toMatch(/Operating activity/);
+  });
+  it('an item is counted under its folder AND its activity; the folder counts all its activities', () => {
+    mount({}, rowsWithInvesting());
+    expect(q(NODE('costsBudgetFolder', 'operatingActivity') + '-count')!.textContent).toBe('2');
+    expect(q(NODE('costsBudgetFolder', 'investingActivity') + '-count')!.textContent).toBe('1');
+    expect(q(`${TREE}-row-costsBudgetFolder-count`)!.textContent).toBe('3');
+  });
+  it('picking an activity shows only its items; picking the folder shows all of them', () => {
+    mount({}, rowsWithInvesting());
+    pickFolder('costsBudgetFolder::investingActivity');
+    expect(rowIds()).toEqual(['materialBudgetItem']);
+    pickFolder('costsBudgetFolder::operatingActivity');
+    expect(rowIds().sort()).toEqual(['expenseBudgetItem', 'timeBudgetItem']);
+    pickFolder('costsBudgetFolder');
+    expect(rowIds().sort()).toEqual(['expenseBudgetItem', 'materialBudgetItem', 'timeBudgetItem']);
+  });
+  it('"+" on an activity node makes an item of that folder with that activity (key and direction)', () => {
+    mount({}, keyedRows());
+    pickFolder('paymentsBudgetFolder::financingActivity');
+    press(`${TABLE}-add`);
+    const created = calls('create', BUDGET_ITEM_TABLE.entity)[0];
+    expect(created.rowParentGUID).toBe('paymentsBudgetFolder');
+    expect(created.rowJSON).toEqual(expect.objectContaining({ budgetItemGenericKey: 'financingActivity.inboundPaymentGenus', direction: 'inbound', managementGenusItem: 'inboundPaymentGenus' }));
+  });
+  it('an item whose key is missing stays under its folder (nothing is hidden)', () => {
+    mount();   // the seed rows have no key
+    expect(q(`${TREE}-row-costsBudgetFolder-count`)!.textContent).toBe('3');
+    pickFolder('costsBudgetFolder');
+    expect(rowIds().sort()).toEqual(['expenseBudgetItem', 'materialBudgetItem', 'timeBudgetItem']);
   });
 });

@@ -133,6 +133,8 @@ export interface PMRowJSON {
   projectExpenseBudgetNeeded?: boolean;
   /** Project cost total (kit8/pm/cost): show the tree column "Cost" (costTotalForBudget = Time + Material + Expense of the plan). Usable only while a cost budget is on (projectCostBudgetOn); display only - the server keeps the totals while a cost budget is on */
   showTotalCostOnTheGanttChart?: boolean;
+  /** the second tree column "Cost with VAT" (costTotalForBudgetWithVAT = net + all VAT; the column Cost is the cost basis). Usable only while a cost budget is on; off by default */
+  showTotalCostWithVATOnTheGanttChart?: boolean;
   /** Cost inputs (only while projectExpenseBudgetNeeded; kit8/pm/model/taskInputScope.ts): the Time tab of the task lines ("Time input needed"); default true */
   projectTimeCostsNeeded?: boolean;
   /** ... Time lines of a person; default true */

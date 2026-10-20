@@ -43,3 +43,29 @@ describe('the Cost column', () => {
     expect(withCost).toEqual(base);
   });
 });
+
+describe('the Cost with VAT column (costTotalForBudgetWithVAT, documentation/VENDOR_INVOICE_DOC.html section 17)', () => {
+  it('is a built-in key with a title and a width, not in the default order', () => {
+    expect(isBuiltinTreeColumnKey('costTotalForBudgetWithVAT')).toBe(true);
+    expect(PM_TREE_COLUMN_TITLES.costTotalForBudgetWithVAT).toBe('Cost with VAT');
+    expect(PM_TREE_COLUMN_WIDTHS.costTotalForBudgetWithVAT).toBeGreaterThan(60);
+    expect(PM_TREE_COLUMNS_DEFAULT_ORDER).not.toContain('costTotalForBudgetWithVAT');
+  });
+  it('is hidden by default and when showCostWithVat is false (even while the Cost column is shown)', () => {
+    expect(layoutTreeColumns(1200, undefined).byKey.costTotalForBudgetWithVAT).toBeUndefined();
+    expect(layoutTreeColumns(1400, undefined, { showCost: true }).byKey.costTotalForBudgetWithVAT).toBeUndefined();
+  });
+  it('stands right after the Cost column; alone it stands after "%"; the title carries the budget currency', () => {
+    const both = layoutTreeColumns(1600, undefined, { showCost: true, showCostWithVat: true, costCurrency: 'EUR' });
+    const keys = both.columns.map((c) => c.key);
+    expect(keys.indexOf('costTotalForBudgetWithVAT')).toBe(keys.indexOf('costTotalForBudget') + 1);
+    expect(both.byKey.costTotalForBudgetWithVAT!.title).toBe('Cost with VAT (EUR)');
+    const alone = layoutTreeColumns(1600, undefined, { showCostWithVat: true }).columns.map((c) => c.key);
+    expect(alone.indexOf('costTotalForBudgetWithVAT')).toBe(alone.indexOf('progress') + 1);
+  });
+  it('on a narrow pane it is the first of the two to go (the Task name keeps its width)', () => {
+    const narrow = layoutTreeColumns(520, undefined, { showCost: true, showCostWithVat: true });
+    expect(narrow.byKey.name!.w).toBeGreaterThanOrEqual(130);
+    if (narrow.byKey.costTotalForBudgetWithVAT) expect(narrow.byKey.costTotalForBudget).toBeDefined();     // never the VAT column without the Cost column
+  });
+});

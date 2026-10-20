@@ -9,7 +9,7 @@ export const RPC_UPDATE_PROJECT_COST_TOTAL = 'update_project_cost_total';
 export const COST_EVENT_BATCH_MS = 150;
 export const COST_PAGE_SIZE = 1000;
 
-type SwitchJson = (Parameters<typeof projectCostBudgetOn>[0] & { showTotalCostOnTheGanttChart?: unknown; currencyForBudget?: unknown }) | null | undefined;
+type SwitchJson = (Parameters<typeof projectCostBudgetOn>[0] & { showTotalCostOnTheGanttChart?: unknown; showTotalCostWithVATOnTheGanttChart?: unknown; currencyForBudget?: unknown }) | null | undefined;
 
 /** the switch showTotalCostOnTheGanttChart can be used only while a cost budget is on (Time or Material or Expense) */
 export const costSwitchUsable = (json: SwitchJson): boolean => projectCostBudgetOn(json);
@@ -17,24 +17,33 @@ export const costSwitchUsable = (json: SwitchJson): boolean => projectCostBudget
 /** the Cost column is shown: a cost budget is on AND the project switch is on (the stored value is kept when the budget is turned off) */
 export const costColumnShown = (json: SwitchJson): boolean => projectCostBudgetOn(json) && json?.showTotalCostOnTheGanttChart === true;
 
+/** the second column "Cost with VAT" (costTotalForBudgetWithVAT = net + all VAT) is shown: a cost budget is on AND showTotalCostWithVATOnTheGanttChart (off by default) */
+export const costWithVatColumnShown = (json: SwitchJson): boolean => projectCostBudgetOn(json) && json?.showTotalCostWithVATOnTheGanttChart === true;
+
 /** the budget currency of the project (ISO code) for the header of the column; '' when the project has none */
 export const costCurrencyOf = (json: SwitchJson): string => (typeof json?.currencyForBudget === 'string' ? json.currencyForBudget.toUpperCase() : '');
 
 /** a row of project_task_cost_total as the app keeps it (numeric columns arrive as strings) */
-export interface CostTotalRow { taskGUID: string; own: number; total: number }
+/** total = the COST basis (net + the VAT that is cost, documentation/VENDOR_INVOICE_DOC.html section 17), totalWithVat = net + all VAT */
+export interface CostTotalRow { taskGUID: string; own: number; total: number; ownWithVat: number; totalWithVat: number }
 
 export const parseCostRow = (raw: any): CostTotalRow => ({
   taskGUID: String(raw?.rowOwnerGUID ?? ''),
   own: Number(raw?.costOwnForBudget) || 0,
   total: Number(raw?.costTotalForBudget) || 0,
+  ownWithVat: Number(raw?.costOwnForBudgetWithVAT) || 0,
+  totalWithVat: Number(raw?.costTotalForBudgetWithVAT) || 0,
 });
+
+/** which total a map holds */
+export type CostBasisField = 'total' | 'totalWithVat';
 
 export type CostTotals = ReadonlyMap<string, number>;
 export const NO_COST_TOTALS: CostTotals = new Map();
 
-export function costTotalsOf(rows: readonly CostTotalRow[]): CostTotals {
+export function costTotalsOf(rows: readonly CostTotalRow[], field: CostBasisField = 'total'): CostTotals {
   const m = new Map<string, number>();
-  for (const r of rows) if (r.taskGUID && r.total !== 0) m.set(r.taskGUID, r.total);
+  for (const r of rows) if (r.taskGUID && r[field] !== 0) m.set(r.taskGUID, r[field]);
   return m;
 }
 
@@ -42,7 +51,7 @@ export function costTotalsOf(rows: readonly CostTotalRow[]): CostTotals {
 export interface CostEvent { eventType: 'INSERT' | 'UPDATE' | 'DELETE' | string; new?: any; old?: any }
 
 /** the events patched into the map by the key of the task; the SAME map when nothing changed */
-export function applyCostEvents(current: CostTotals, events: readonly CostEvent[]): CostTotals {
+export function applyCostEvents(current: CostTotals, events: readonly CostEvent[], field: CostBasisField = 'total'): CostTotals {
   let next: Map<string, number> | null = null;
   const write = () => (next ??= new Map(current));
   for (const e of events) {
@@ -52,8 +61,8 @@ export function applyCostEvents(current: CostTotals, events: readonly CostEvent[
     } else {
       const r = parseCostRow(e.new);
       if (!r.taskGUID) continue;
-      if (r.total === 0) { if ((next ?? current).has(r.taskGUID)) write().delete(r.taskGUID); continue; }
-      if ((next ?? current).get(r.taskGUID) !== r.total) write().set(r.taskGUID, r.total);
+      if (r[field] === 0) { if ((next ?? current).has(r.taskGUID)) write().delete(r.taskGUID); continue; }
+      if ((next ?? current).get(r.taskGUID) !== r[field]) write().set(r.taskGUID, r[field]);
     }
   }
   return next ?? current;

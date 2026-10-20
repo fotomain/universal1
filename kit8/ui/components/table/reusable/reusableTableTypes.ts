@@ -349,6 +349,13 @@ export interface ReusableTableFoldersTree {
   folderField?: string;
   /** stored when a row has no folder (default 'empty') */
   noFolderValue?: string;
+  /**
+   * the node of the tree a row is shown under, when it is NOT simply the value of its folder column (a node that is made of a property of the row, e.g. the activity of a budget item under its folder).
+   * Default: the folder column. Counts, the filter of a picked node and the drag onto a node all use it.
+   */
+  folderOfRow?: (row: ReusableTableRow) => string;
+  /** what a NEW row gets when this node is picked (merged over the defaults; `rowJSON` is merged too). null / undefined = the default: the node id goes into the folder column */
+  newRowDefaultsOf?: (folderId: string) => ({ rowJSON?: Record<string, any> } & Record<string, any>) | null | undefined;
   /** picking a folder also shows the rows of its subfolders (default true) */
   includeSubfolders?: boolean;
   /** the picked folder: FolderTreeReusable's TREE_ALL_ID (default) | TREE_NONE_ID | a folder id (controlled) */

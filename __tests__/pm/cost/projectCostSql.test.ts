@@ -3,7 +3,13 @@
 import { TASK_INPUT_DEFAULTS } from '../../../kit8/pm/model/taskInputScope';
 import { codeSql, readSql, tablesSql } from '../../sql/sqlFilesTestKit';
 
-const part27 = (src: string) => src.slice(src.search(/^-- PART 27: create_project_cost_total\.sql/m));
+// PART 27 only: from its banner to the banner of PART 28 (the later parts mention sumForBudgetInvoiced etc.)
+const part27 = (src: string) => {
+  const from = src.search(/^-- PART 27: create_project_cost_total\.sql/m);
+  const rest = src.slice(from);
+  const next = rest.search(/^-- PART 28: /m);
+  return next > 0 ? rest.slice(0, next) : rest;
+};
 const deleteSql = readSql('delete_sql_structure.sql');
 
 describe('project_cost_budget_on is the rule of projectCostBudgetOn', () => {
@@ -72,7 +78,8 @@ describe('the code of PART 27', () => {
     expect((p.match(/pg_advisory_xact_lock\(hashtext\('project_cost'\)/g) || []).length).toBeGreaterThanOrEqual(2);
   });
   it('the source is the plan of the turnover: Time + Material + Expense, not used / invoiced', () => {
-    expect(p).toContain('SUM(m."sumForBudgetPlan")');
+    expect(p).toContain('SUM(m."sumForBudgetPlan" + m."vatInCostForBudgetPlan")');      // the COST basis (net + the VAT that is cost)
+    expect(p).toContain('SUM(m."sumForBudgetPlan" + m."vatForBudgetPlan")');            // With VAT
     expect(p).not.toContain('sumForBudgetUsed');
     expect(p).not.toContain('sumForBudgetInvoiced');
   });

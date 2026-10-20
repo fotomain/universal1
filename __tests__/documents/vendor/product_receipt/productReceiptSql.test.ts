@@ -44,7 +44,7 @@ describe('the names the app calls exist in the code file', () => {
   it('the redux entities point at the two tables; only qty / price / VAT % of a line are saved columns', () => {
     const meta = productReceiptSystemMetaData();
     expect(Object.values(meta).map((m: any) => m.tableName)).toEqual([PRODUCT_RECEIPT_HEADER_TABLE, PRODUCT_RECEIPT_LINES_TABLE]);
-    expect((meta.productReceiptLinesReusable as any).rootColumns).toEqual(['qtyReceived', 'priceReceived', 'vatRatioReceived']);
+    expect((meta.productReceiptLinesReusable as any).rootColumns).toEqual(['qtyReceived', 'priceReceived', 'vatRatioReceived', 'sumForAccountingBeforeVAT', 'sumForAccountingVAT']);
     expect(() => (meta.productReceiptHeader as any).prepareCreateApi()).toThrow(/purchase order/);
   });
 });
