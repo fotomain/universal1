@@ -18,6 +18,8 @@ import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMe
 import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
 import {distributionSystemMetaData} from "../catalog/distribution/distributionMetaData";
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
+import {budgetItemKeySystemMetaData} from "../catalog/budget/item/budgetItemKeyMetaData";
+import {managementActivityGenusSystemMetaData} from "../catalog/management/activity_genus/managementActivityGenusMetaData";
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
@@ -106,6 +108,10 @@ const SystemMetaData:any = {
     // Budget item (kit8/catalog/budget/item): budgetItemTable, a tree (folders > items); rowJSON.managementGenusItem (obligatory) points at managementGenusTable.
     // Screen /budget/item/list, SQL kit8/sql/init/create_budget_item_table.sql
     ...budgetItemSystemMetaData(),
+    // Activity genus (kit8/catalog/management/activity_genus): managementActivityGenusTable, 3 rows (operating / investing / financing, linear) + budgetItemGenericKeyTable, the 14 allowed
+    // keys activity x management genus (read only); budgetItemTable.rowJSON.budgetItemGenericKey / direction point at them. Screen /catalog/management/activity_genus/list, SQL PART 32
+    ...managementActivityGenusSystemMetaData(),
+    ...budgetItemKeySystemMetaData(),
     // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.
     // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 19)
     ...budgetScenarioSystemMetaData(),

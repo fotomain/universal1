@@ -4,9 +4,11 @@
 //   revenuesBudgetFolder  > revenueBudgetItem
 //   paymentsBudgetFolder  > inboundPaymentBudgetItem, outboundPaymentBudgetItem
 // Every item has an OBLIGATORY managementGenusItem = the rowGUID of a level 2 row of managementGenusTable (timeGenus, ...): the Genus column cannot be empty.
+// And an OBLIGATORY key = activity x genus (rowJSON.budgetItemGenericKey, the Activity column: only the activities the genus can have) and a Direction (inbound | outbound, default =
+// the direction of the key; a Correction may reverse it). The text columns Web + IFRS, D365 FO and SAP name the item in IFRS (IAS 7), Dynamics 365 FO and SAP (documentation/ACTIVITY_GENUS.html).
 // `noCrud` (default FALSE: a budget item catalog is edited): true = read-only - no add / duplicate / delete / reorder, no row menu, no check boxes, cells not
 // editable, tree without CRUD and drag. The lock button in the header turns editing on / off.
-// Route: /budget/item/list · SQL: kit8/sql/init/create_budget_item_table.sql
+// Route: /budget/item/list · SQL: kit8/sql/start start1_sql_tables.sql + start2_sql_code.sql PARTs 8 and 32
 import React, { useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -17,6 +19,7 @@ import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
 import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
+import { BUDGET_ITEM_DIRECTIONS, budgetItemActivityOptions, budgetItemDefaultKey, budgetItemDirectionError, budgetItemKeyDirection, budgetItemKeyError, budgetItemKeyPatch, budgetItemsWithoutKey } from './budgetItemKeyModel';
 import { BUDGET_ITEM_TABLE, budgetItemFolders, budgetItemGenusError, budgetItemGenusOptions, budgetItemPath, budgetItems, budgetItemsWithoutGenus, isBudgetItemFolder } from './budgetItemModel';
 import { useBudgetItemData } from './useBudgetItemData';
 import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
@@ -32,7 +35,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
   const selectRowCheckBoxForm = usePMStore((s: any) => s.selectRowCheckBoxForm);
   const [noCrud, setNoCrud] = useState(noCrudProp);
   const [folder, setFolder] = useState<string>(TREE_ALL_ID);
-  const { rows, genusRows, loaded, error, reload } = useBudgetItemData(true);
+  const { rows, genusRows, activityRows, loaded, error, reload } = useBudgetItemData(true);
   const { foldersTree } = useBudgetItemTree(rows, !noCrud, reload);
   const def = BUDGET_ITEM_TABLE;
   const businessUnitColumn = useBusinessUnitColumn();
@@ -41,6 +44,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
   const items = useMemo(() => budgetItems(rows), [rows]);
   const genusOptions = useMemo(() => budgetItemGenusOptions(genusRows), [genusRows]);
   const withoutGenus = useMemo(() => budgetItemsWithoutGenus(rows, genusRows), [rows, genusRows]);
+  const withoutKey = useMemo(() => budgetItemsWithoutKey(items), [items]);
   // the table lists the items only; the folders are the tree
   const itemsOnly = useMemo(() => (row: ReusableTableRow) => !isBudgetItemFolder(row as any), []);
   // a new item goes into the picked folder (or the first one) - a row without folder would be a folder - and gets a genus (obligatory): the genus of
@@ -49,7 +53,8 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
     const parent = folders.some((f) => f.rowGUID === folder) ? folder : folders[0]?.rowGUID;
     const sibling = items.find((r) => r.rowParentGUID === parent && r.rowJSON?.managementGenusItem);
     const managementGenusItem = sibling?.rowJSON?.managementGenusItem ?? genusOptions[0]?.value ?? null;
-    return { rowOwnerGUID: def.catalogOwner as string, rowParentGUID: parent, rowJSON: { managementGenusItem } };
+    const budgetItemGenericKey = budgetItemDefaultKey(managementGenusItem);
+    return { rowOwnerGUID: def.catalogOwner as string, rowParentGUID: parent, rowJSON: { managementGenusItem, budgetItemGenericKey, direction: budgetItemKeyDirection(budgetItemGenericKey) } };
   }, [def.catalogOwner, folders, items, folder, genusOptions]);
 
   const columns = useMemo<VisualColumn[]>(() => {
@@ -60,13 +65,25 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
       { key: 'code', title: 'Code', type: 'custom', width: 200, editable: false, renderCell: (row) => <Text numberOfLines={1} testID={`budget-item-code-${row.rowGUID}`} style={{ color: c.text, opacity: 0.75, fontSize: 13 }}>{row.rowGUID}</Text>, searchText: (row) => row.rowGUID },
       { key: 'parent', title: 'Folder', type: 'select', target: 'rowParentGUID', width: 180, allowEmpty: false, placeholder: 'Choose folder…', options: folderOptions },
       { key: 'managementGenusItem', title: 'Management genus', type: 'select', width: 200, allowEmpty: false, placeholder: 'Choose genus…', options: genusOptions, validate: (value) => budgetItemGenusError(value, genusRows) },
+      // the activity = the key activity x genus (obligatory): only the activities the genus of the row can have
+      { key: 'budgetItemGenericKey', title: 'Activity', type: 'select', width: 140, allowEmpty: false, placeholder: 'Choose activity…',
+        options: (row) => budgetItemActivityOptions(row.rowJSON?.managementGenusItem, activityRows),
+        validate: (value, row) => budgetItemKeyError(value, row.rowJSON?.managementGenusItem) },
+      { key: 'direction', title: 'Direction', type: 'select', width: 120, allowEmpty: false, placeholder: 'Choose direction…', options: BUDGET_ITEM_DIRECTIONS,
+        validate: (value, row) => budgetItemDirectionError(value, row.rowJSON?.budgetItemGenericKey, row.rowJSON?.isCorrection) },
+      { key: 'isCorrection', title: 'Correction', type: 'boolean', width: 90 },
       // the default business unit of a line budgeted as this item (rowJSON.businessUnitAssigned)
       businessUnitColumn,
       { key: 'description', title: 'Description', type: 'text', width: 380 },
+      // how the item is named in IFRS (IAS 7), Dynamics 365 Finance and Operations and SAP
+      { key: 'webIfrsName', title: 'Web + IFRS', type: 'text', width: 320 },
+      { key: 'd365foName', title: 'D365 FO', type: 'text', width: 300 },
+      { key: 'sapName', title: 'SAP', type: 'text', width: 300 },
+      { key: 'isPolicyItem', title: 'Policy', type: 'boolean', width: 80 },
     ];
     // read-only: every cell shows, none is edited
     return noCrud ? cols.map((col) => ({ ...col, editable: false })) : cols;
-  }, [rows, folders, genusOptions, genusRows, noCrud, c.text, businessUnitColumn]);
+  }, [rows, folders, genusOptions, genusRows, activityRows, noCrud, c.text, businessUnitColumn]);
 
   return (
     <View testID="budget-item-dashboard" style={[styles.root, { backgroundColor: c.background }]}>
@@ -86,7 +103,16 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
           <IconApp name="database" size={18} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>
             {error ? `The budget items could not be read (${error}). ` : 'The budget item table is empty. '}
-            Run kit8/sql/init/create_budget_item_table.sql (after create_management_genus_table.sql) in the Supabase SQL editor and sign in.
+            Run start1_sql_tables.sql, start2_sql_code.sql and start3_sql_insert_missing.sql (kit8/sql/start) in the Supabase SQL editor and sign in.
+          </Text>
+        </View>
+      )}
+      {withoutKey.length > 0 && (
+        <View testID="budget-item-no-key" style={[styles.setup, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
+          <IconApp name="warning" size={18} color={c.error} />
+          <Text style={{ color: c.text, flex: 1 }}>
+            {withoutKey.length} budget item{withoutKey.length === 1 ? '' : 's'} without a valid activity or direction: {withoutKey.slice(0, 5).map((r) => r.rowJSON?.title || r.rowGUID).join(', ')}{withoutKey.length > 5 ? ' …' : ''}
+            {' '}(run start2_sql_code.sql, PART 32, to give old items the operating activity)
           </Text>
         </View>
       )}
@@ -110,6 +136,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
           defaultRowJSON={def.emptyRowJSON}
           rowFilter={itemsOnly}
           newRowDefaults={newRowDefaults}
+          computeRowJSON={budgetItemKeyPatch}
           crudPanelEnabled={!noCrud}
           selectionEnabled={!noCrud}
           contextMenuEnabled={!noCrud}

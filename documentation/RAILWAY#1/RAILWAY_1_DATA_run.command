@@ -216,6 +216,27 @@ run_verification() {
     WHERE \"rowProjectGUID\" = 'a1000000-0000-4000-8000-000000000001'::uuid
     UNION ALL
     SELECT 
+      '2b. Budget item: ' || (b.\"rowJSON\"->>'direction'),
+      b.\"rowGUID\",
+      b.\"rowJSON\"->>'budgetItemGenericKey',
+      b.\"rowJSON\"->>'title'
+    FROM public.\"budgetItemTable\" b
+    WHERE b.\"rowGUID\" IN ('bi-nec-turnkey-rev', 'bi-nec-rail-mat', 'bi-nec-tamper-exp', 'bi-nec-operator-lab')
+    UNION ALL
+    SELECT 
+      '2c. Cash flow: ' || activity,
+      activity,
+      direction || ' ' || to_char(total, 'FM999,999,999,990.00') || ' USD',
+      'budget of the task lines (activity genus, IAS 7)'
+    FROM (
+      SELECT split_part(b.\"rowJSON\"->>'budgetItemGenericKey', '.', 1) AS activity, b.\"rowJSON\"->>'direction' AS direction, sum((l.\"rowJSON\"->>'sumForBudget')::numeric) AS total
+      FROM public.task_line_table l
+      JOIN public.\"budgetItemTable\" b ON b.\"rowGUID\" = l.\"rowJSON\"->>'budgetItemTaskLine'
+      WHERE l.\"rowProjectGUID\" = 'a1000000-0000-4000-8000-000000000001'::uuid
+      GROUP BY 1, 2
+    ) cf
+    UNION ALL
+    SELECT 
       '3. Doc: ' || doc_type,
       guid::text,
       status || ' | ' || num,

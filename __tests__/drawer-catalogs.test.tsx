@@ -145,7 +145,7 @@ it('Budgets is a closed accordion with the catalogs a budget is built from (also
   expect(q('drawer-subitem-budgets-budgetitems')).toBeNull(); // closed
   press('drawer-item-budgets');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  const labels = ['Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles'];
+  const labels = ['Activity genus', 'Budget Items', 'Budget scenarios', 'Business units', 'Resource contract templates', 'Resource roles'];
   expect(subs).toHaveLength(labels.length);
   labels.forEach((label, i) => expect(subs[i]).toContain(label)); // in this order (the mocked icon adds its name to the text)
   expect(q('drawer-subitem-budgets-actuals')).toBeNull();
@@ -231,4 +231,13 @@ it('Record opens by itself while a record screen is shown', () => {
   mount('/media/record/video');
   expect(q('drawer-subitem-record-video')).not.toBeNull();
   expect(q('drawer-subitem-play-video')).toBeNull();
+});
+
+it('Catalogs has the read-only Activity genus screen (the first row, by name) and it navigates', () => {
+  mount('/home');
+  press('drawer-item-catalogs');
+  const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
+  expect(subs[0]).toContain('Activity genus');
+  press('drawer-subitem-activitygenus');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/management/activity_genus/list');
 });

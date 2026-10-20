@@ -36,6 +36,7 @@
 --   29. create_subprojects.sql - SUBPROJECTS: a task stands for another project (project_subproject_link + subproject_* functions + triggers), the origin task follows the dates and can aggregate the plan / fact of the subproject in Monitor01
 --   30. create_product_receipt.sql - the PRODUCT RECEIPT document (made from a posted purchase order) + its 'received' movements in the project status register + the column Received of Monitor01; Create based on: purchase order -> product receipt -> vendor invoice
 --   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + its 'sold' movements in the project status register + the group Customer Invoice of Monitor01
+--   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
 -- ===============================================================================================
 
 DO $$
@@ -10022,6 +10023,156 @@ BEGIN
   END LOOP;
 END
 $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 32: create_activity_genus.sql
+-- the ACTIVITY GENUS + the allowed keys activity x management genus + the obligatory budgetItemGenericKey / direction of a budget item. The matrix (14 allowed cells) is the function
+-- kit8_budget_item_key_matrix(); the trigger on budgetItemTable defaults, checks and keeps key, genus and direction together. App: kit8/catalog/management/activity_genus, kit8/catalog/budget/item.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."managementActivityGenusTable"') IS NULL OR to_regclass('public."budgetItemGenericKeyTable"') IS NULL OR to_regclass('public."budgetItemTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 32 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('managementActivityGenusTable');
+
+SELECT public.kit8_setup_def_table('budgetItemGenericKeyTable');
+
+-- security: signed-in users only READ the two catalogs (the activities and the keys are constants of the app; the seed rows come from start3_sql_insert_missing.sql)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['managementActivityGenusTable', 'budgetItemGenericKeyTable'] LOOP
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('GRANT SELECT ON public.%I TO authenticated', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  END LOOP;
+END $$;
+
+-- the matrix: activity x management genus (level 2 of managementGenusTable), only the allowed cells, with the default direction of the genus.
+-- Financing has only the two payments genus; every other activity has all six. The key text is '<activity>.<genus>'.
+CREATE OR REPLACE FUNCTION public.kit8_budget_item_key_matrix()
+RETURNS TABLE ("key" text, "activityGenus" text, "managementGenusItem" text, "directionDefault" text)
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT v.a || '.' || v.g, v.a, v.g, v.d
+    FROM (VALUES
+      ('operatingActivity', 'timeGenus', 'outbound'),
+      ('operatingActivity', 'materialGenus', 'outbound'),
+      ('operatingActivity', 'expenseGenus', 'outbound'),
+      ('operatingActivity', 'revenueGenus', 'inbound'),
+      ('operatingActivity', 'inboundPaymentGenus', 'inbound'),
+      ('operatingActivity', 'outboundPaymentGenus', 'outbound'),
+      ('investingActivity', 'timeGenus', 'outbound'),
+      ('investingActivity', 'materialGenus', 'outbound'),
+      ('investingActivity', 'expenseGenus', 'outbound'),
+      ('investingActivity', 'revenueGenus', 'inbound'),
+      ('investingActivity', 'inboundPaymentGenus', 'inbound'),
+      ('investingActivity', 'outboundPaymentGenus', 'outbound'),
+      ('financingActivity', 'inboundPaymentGenus', 'inbound'),
+      ('financingActivity', 'outboundPaymentGenus', 'outbound')
+    ) AS v(a, g, d)
+$$;
+
+-- the default direction of a key; NULL = not an allowed key
+CREATE OR REPLACE FUNCTION public.kit8_budget_item_key_direction(p_key text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT m."directionDefault" FROM public.kit8_budget_item_key_matrix() m WHERE m."key" = p_key
+$$;
+
+-- a budget item (not a folder) has a key (activity.genus) and a direction. A missing key becomes operatingActivity.<genus> and a missing direction the default of the key - so an old
+-- budget item stays what it was (everything was operating). The key must be an allowed one and its genus must be the genus of the item; the direction must be the default of the key
+-- unless the item is marked rowJSON.isCorrection = true (a credit note, a refund goes the other way). Runs after trg_budgetItemTable_genus (alphabetical), which has checked the genus.
+CREATE OR REPLACE FUNCTION public.kit8_budget_item_check_key() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_genus   text := NEW."rowJSON"->>'managementGenusItem';
+  v_key     text := coalesce(NEW."rowJSON"->>'budgetItemGenericKey', '');
+  v_default text;
+  v_dir     text;
+BEGIN
+  IF NEW."rowParentGUID" = 'empty' THEN
+    RETURN NEW;
+  END IF;
+  IF v_key IN ('', 'empty') THEN
+    v_key := 'operatingActivity.' || v_genus;
+    NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{budgetItemGenericKey}', to_jsonb(v_key));
+  END IF;
+  v_default := public.kit8_budget_item_key_direction(v_key);
+  IF v_default IS NULL THEN
+    RAISE EXCEPTION 'budgetItemTable %: budgetItemGenericKey "%" is not an allowed activity x genus key', NEW."rowGUID", v_key;
+  END IF;
+  IF split_part(v_key, '.', 2) <> v_genus THEN
+    RAISE EXCEPTION 'budgetItemTable %: budgetItemGenericKey "%" is not a key of the management genus "%"', NEW."rowGUID", v_key, v_genus;
+  END IF;
+  v_dir := coalesce(NEW."rowJSON"->>'direction', '');
+  IF v_dir IN ('', 'empty') THEN
+    v_dir := v_default;
+    NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{direction}', to_jsonb(v_dir));
+  END IF;
+  IF v_dir NOT IN ('inbound', 'outbound') THEN
+    RAISE EXCEPTION 'budgetItemTable %: direction "%" must be inbound or outbound', NEW."rowGUID", v_dir;
+  END IF;
+  IF v_dir <> v_default AND coalesce(NEW."rowJSON"->>'isCorrection', 'false') <> 'true' THEN
+    RAISE EXCEPTION 'budgetItemTable %: direction "%" differs from the direction "%" of the key "%" (only a correction, rowJSON.isCorrection, goes the other way)', NEW."rowGUID", v_dir, v_default, v_key;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS "trg_budgetItemTable_key" ON public."budgetItemTable";
+
+CREATE TRIGGER "trg_budgetItemTable_key" BEFORE INSERT OR UPDATE ON public."budgetItemTable"
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_budget_item_check_key();
+
+-- backfill of a database that already has budget items: the (no-op) UPDATE runs the trigger, which gives every item without a key operatingActivity.<genus> and the default direction
+UPDATE public."budgetItemTable"
+   SET "rowJSON" = "rowJSON"
+ WHERE "rowParentGUID" <> 'empty'
+   AND (coalesce("rowJSON"->>'budgetItemGenericKey', '') IN ('', 'empty') OR coalesce("rowJSON"->>'direction', '') IN ('', 'empty'));
+
+-- obligatory on an item, AFTER the backfill (a folder = rowParentGUID 'empty' has neither)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'budgetItemTable_key_chk' AND conrelid = 'public."budgetItemTable"'::regclass) THEN
+    ALTER TABLE public."budgetItemTable"
+      ADD CONSTRAINT "budgetItemTable_key_chk"
+      CHECK ("rowParentGUID" = 'empty'
+             OR (coalesce("rowJSON"->>'budgetItemGenericKey', '') NOT IN ('', 'empty') AND coalesce("rowJSON"->>'direction', '') IN ('inbound', 'outbound')));
+  END IF;
+END $$;
+
+-- realtime: the two catalogs in the supabase_realtime publication
+DO $$
+DECLARE
+  v_all boolean;
+  t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+    RETURN;
+  END IF;
+  IF v_all THEN
+    RETURN;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['managementActivityGenusTable', 'budgetItemGenericKeyTable'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- (the seed rows of this part are in start3_sql_insert_missing.sql, PART 32)
+-- Check:
+--   SELECT * FROM public.kit8_budget_item_key_matrix();                                                         -- 14 rows
+--   SELECT "rowGUID", "rowJSON"->>'budgetItemGenericKey', "rowJSON"->>'direction' FROM public."budgetItemTable" WHERE "rowParentGUID" <> 'empty' ORDER BY "orderInList";
 
 NOTIFY pgrst, 'reload schema';
 

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W1 activity genus - budget item key</title>
+<style>
+  /* Light business theme, same family as BUSINESS_UNIT_CFR_STRUCTURE.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --blue: #2563eb; --blue-soft: #dbeafe;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1240px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 10px; border-radius: 999px; vertical-align: middle; white-space: nowrap; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.old { background: var(--bg-subtle); color: var(--muted); }
+  .pill.pol { background: var(--amber-soft); color: var(--amber); }
+  .pill.in { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.out { background: var(--rose-soft); color: var(--rose); }
+  .pill.op { background: var(--blue-soft); color: var(--blue); }
+  .pill.iv { background: var(--purple-soft); color: var(--purple); }
+  .pill.fi { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); position: sticky; top: 0; }
+  td.c, th.c { text-align: center; }
+  ul.tight { margin: 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+  .ok { color: var(--emerald); font-weight: 700; } .no { color: var(--muted); }
+  .pol-c { color: var(--amber); font-weight: 700; }
+  /* the budget item tree table */
+  table.bt td.t { white-space: nowrap; }
+  tr.a td { background: var(--bg-subtle); font-weight: 700; }
+  tr.g td { background: #fbfdff; font-weight: 600; }
+  tr.i td { font-weight: 400; }
+  .ind1 { padding-left: 28px !important; } .ind2 { padding-left: 54px !important; }
+  .tw { display: inline-block; width: 16px; color: var(--muted); }
+  .v { border-bottom: 2px solid var(--emerald); }          /* term confirmed by a web source */
+  .ref { font: 12px var(--mono); color: var(--purple); }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+  .filters button { font: 600 13px var(--font); border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 5px 14px; cursor: pointer; color: var(--text-2); }
+  .filters button.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+  /* ER diagram */
+  .viewport { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+  svg text { font-family: var(--font); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); margin: 10px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  ol.lv { margin: 0; padding-left: 20px; } ol.lv li { margin: 5px 0; }
+</style></head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">W1 activity genus</div>
+  <nav><ul>
+    <li><a href="#why">Idea</a></li>
+    <li><a href="#genus">All genuses</a></li>
+    <li><a href="#matrix">Matrix</a></li>
+    <li><a href="#er">ER waterfall</a></li>
+    <li><a href="#tree">Budget item tree</a></li>
+    <li><a href="#rules">Rules</a></li>
+    <li><a href="#src">Sources</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<h1>Activity genus and the budget item key</h1>
+<p class="lead">A <b>design proposal - nothing is built</b>. A budget item gets two new facts: the <b>activity</b> the money belongs to (operating, investing, financing - the three classes of the cash flow statement) and the <b>direction</b> (inbound / outbound). Together with the management genus they form the <code>budgetItemGenericKey</code>, so a budget can be compared with the cash flow statement.</p>
+
+<section id="why">
+  <h2>The idea in four lines</h2>
+  <div class="grid">
+    <div class="card"><span class="pill new">NEW</span> <b>managementActivityGenusTable</b><div class="small">a linear catalog, 3 rows, no folders: operating, investing, financing.</div></div>
+    <div class="card"><span class="pill new">NEW</span> <b>budgetItemGenericKey</b><div class="small">activity × management genus. Not a user catalog: a read-only list of the <b>14 allowed</b> cells of the 18 (see the matrix), each with a default direction.</div></div>
+    <div class="card"><span class="pill chg">CHANGED</span> <b>budgetItemTable</b><div class="small"><code>rowJSON</code> gets <code>budgetItemGenericKey</code> (obligatory) and <code>direction</code> (default from the key).</div></div>
+    <div class="card"><span class="pill old">UNCHANGED</span> <b>task_line_table</b><div class="small">still stores only <code>budgetItemTaskLine</code>; activity and direction are read through the budget item, never copied.</div></div>
+  </div>
+  <div class="note"><b>Change against the first answer in the chat.</b> I said that the payments genus belongs to financing only. That was too narrow: payments also occur in investing (loans granted, shares bought or sold, interest and dividends received) and in operating (income tax). The matrix below is the corrected one.</div>
+</section>
+
+<section id="genus">
+  <h2>All genuses</h2>
+  <p class="sub">The existing <code>managementGenusTable</code> (2 levels: 3 folders, 6 items - <code>kit8/catalog/management/genus</code>) and the new activity genus (1 level).</p>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0"><span class="pill old">EXISTING</span> managementGenusTable</h3>
+      <table>
+        <tr><th>Folder (level 1)</th><th>Genus (level 2) = rowGUID</th><th>Direction</th></tr>
+        <tr><td rowspan="3"><b>costsGenus</b></td><td><code>timeGenus</code></td><td><span class="pill out">outbound</span></td></tr>
+        <tr><td><code>materialGenus</code></td><td><span class="pill out">outbound</span></td></tr>
+        <tr><td><code>expenseGenus</code></td><td><span class="pill out">outbound</span></td></tr>
+        <tr><td><b>revenuesGenus</b></td><td><code>revenueGenus</code></td><td><span class="pill in">inbound</span></td></tr>
+        <tr><td rowspan="2"><b>paymentsGenus</b></td><td><code>inboundPaymentGenus</code></td><td><span class="pill in">inbound</span></td></tr>
+        <tr><td><code>outboundPaymentGenus</code></td><td><span class="pill out">outbound</span></td></tr>
+      </table>
+      <p class="small">Costs are always outbound, revenue always inbound, the payments genus already carries its direction. So the direction of a budget item is a <i>default</i> from the genus; it is free only for the cases in the rules (section 6).</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0"><span class="pill new">NEW</span> managementActivityGenusTable</h3>
+      <table>
+        <tr><th>rowGUID</th><th>Meaning (the class of cash flow)</th><th>IAS 7</th></tr>
+        <tr><td><code>operatingActivity</code></td><td>Core revenue generation and day-to-day OpEx. Also the default bucket: a cash flow that is not investing or financing is operating.</td><td class="ref">7.6, 7.14</td></tr>
+        <tr><td><code>investingActivity</code></td><td>Long-term assets, CapEx, acquisitions and disposals of assets and of investments that are not cash equivalents.</td><td class="ref">7.6, 7.16</td></tr>
+        <tr><td><code>financingActivity</code></td><td>Equity issues and buy-backs, loan drawdowns and repayments, lease principal, dividends.</td><td class="ref">7.6, 7.17</td></tr>
+      </table>
+      <p class="small">Shape: <code>rowGUID</code> = the code · <code>rowOwnerGUID</code> <code>managementActivityGenusCatalog</code> · <code>rowParentGUID</code> <code>'empty'</code> (linear, no folders) · <code>rowJSON</code> { title, description }. Code goes to <code>kit8/catalog/management/activity_genus</code> (the folder exists and is empty).</p>
+    </div>
+  </div>
+</section>
+
+<section id="matrix">
+  <h2>The matrix = budgetItemGenericKey</h2>
+  <p class="sub">Rows: activity. Columns: management genus (level 2). Only a ticked cell is a valid key; a key is written <code>operatingActivity.timeGenus</code>.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Activity \ Genus</th><th class="c">timeGenus</th><th class="c">materialGenus</th><th class="c">expenseGenus</th><th class="c">revenueGenus</th><th class="c">inboundPaymentGenus</th><th class="c">outboundPaymentGenus</th></tr>
+      <tr><td><span class="pill op">operatingActivity</span></td><td class="c ok">✓</td><td class="c ok">✓</td><td class="c ok">✓</td><td class="c ok">✓</td><td class="c ok">✓<div class="small">tax refund</div></td><td class="c ok">✓<div class="small">tax paid</div></td></tr>
+      <tr><td><span class="pill iv">investingActivity</span></td><td class="c ok">✓<div class="small">capitalised own labor</div></td><td class="c ok">✓<div class="small">CapEx</div></td><td class="c ok">✓<div class="small">capitalised costs</div></td><td class="c ok">✓<div class="small">disposal proceeds</div></td><td class="c ok">✓<div class="small">loan repaid to us, shares sold</div></td><td class="c ok">✓<div class="small">loan granted, shares bought</div></td></tr>
+      <tr><td><span class="pill fi">financingActivity</span></td><td class="c no">-</td><td class="c no">-</td><td class="c no">-</td><td class="c no">-</td><td class="c ok">✓<div class="small">equity issue, borrowing</div></td><td class="c ok">✓<div class="small">repayment, buy-back, lease, dividends</div></td></tr>
+    </table>
+    <p class="small">14 valid cells of 18. The 4 empty cells (financing × time / material / expense / revenue) stay out of the list: the SQL check refuses them.
+    <span class="pol-c">Policy items:</span> interest paid, interest received, dividends received and dividends paid may sit in two activities (IAS 7.33-34), so the budget item chooses; the key list only says which activities are allowed for it.</p>
+  </div>
+</section>
+
+<section id="er">
+  <h2>Budget item waterfall - ER data model</h2>
+  <p class="sub">Parents on top, children below (create order top → bottom, drop order bottom → top). Green = new, blue = changed, grey = exists.</p>
+  <div class="legend">
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#7c3aed" stroke-width="1.6"/><path d="M6,1 V13 M10,1 V13" stroke="#7c3aed"/><path d="M50,7 L62,1 M50,7 L62,7 M50,7 L62,13" stroke="#7c3aed" fill="none"/></svg>FK, required: one → many</span>
+    <span><svg width="64" height="14"><path d="M2,7 H62" stroke="#d97706" stroke-width="1.6" stroke-dasharray="4 3"/></svg>later (not in this round)</span>
+  </div>
+  <div class="viewport"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Activity genus and budget item ER model, waterfall layout"></svg></div>
+  <h3>Waterfall levels</h3>
+  <ol class="lv">
+    <li><b>Level 0 - catalogs:</b> <code>managementActivityGenusTable</code> (new), <code>managementGenusTable</code>. <code>resourceRoleTypeTable</code> already points at the genus.</li>
+    <li><b>Level 1 - key:</b> <code>budgetItemGenericKey</code>: FK to the activity and to a level 2 genus row; default direction.</li>
+    <li><b>Level 2 - budget item:</b> <code>budgetItemTable</code>: the key, the genus (kept, must equal the key's genus) and the direction.</li>
+    <li><b>Level 3 - plan:</b> <code>task_line_table</code> points at the budget item (<code>rowJSON.budgetItemTaskLine</code>). Reports (Monitor01) can group by activity and direction through the item - a later step.</li>
+  </ol>
+  <h3>SQL order</h3>
+  <p class="small">Tables → <code>start1_sql_tables.sql</code> (new PART: activity genus, key; new <code>budgetItemTable</code> constraints). Triggers / checks / seed rows of the 3 activities and the 14 keys → <code>start2_sql_code.sql</code> / <code>start3</code> (+ <code>start5</code>); backfill of old budget items from their genus; drops → <code>delete_sql_structure.sql</code>. Create: activity → key → budget item check. Drop: reverse.</p>
+</section>
+
+<section id="tree">
+  <h2>Tree of possible budget items</h2>
+  <p class="sub">Activity › genus › budget item. Columns: the plain name with the IAS 7 reference (<b>Web + IFRS</b>), the matching Microsoft <b>D365 FO</b> and <b>SAP</b> objects.</p>
+  <div class="note"><span class="v">Underlined</span> terms were confirmed by a web source (see Sources). All other D365 FO and SAP cells are <b>indicative</b>: from general product knowledge, not checked against your system or the vendor documentation. D365 FO has no standard activity classification that I could confirm (the cash flow statement is built with Financial reporting row definitions). Have a finance consultant check the two columns before they are used for a mapping.</div>
+  <div class="filters" id="filters"></div>
+  <div class="card scroll" style="padding:0">
+    <table class="bt" id="bt">
+      <thead><tr><th>Budget item</th><th>Key</th><th>Direction</th><th>Web + IFRS (IAS 7)</th><th>D365 FO</th><th>SAP</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="rules">
+  <h2>Rules for the first build</h2>
+  <ul class="tight">
+    <li><b>Key list:</b> 14 allowed keys, read-only (seed rows or a code constant). A budget item must have one; SQL check + trigger like the existing <code>budgetItemTable_genus_chk</code>: the key exists, and <code>key.managementGenusItem = rowJSON.managementGenusItem</code>.</li>
+    <li><b>Activity is chosen on the item, never derived from the genus</b> (the policy items - interest and dividends - differ from company to company). The list only offers the activities that are allowed for the item's genus.</li>
+    <li><b>Direction:</b> default from the genus (cost → outbound, revenue → inbound, payments as named). A budget item may differ only for investing items (purchase vs sale of an asset) and for corrections (credit note, refund); the check refuses revenue as outbound and cost as inbound unless the item is marked as a correction.</li>
+    <li><b>Old budget items:</b> backfill <code>operatingActivity.&lt;their genus&gt;</code> and the default direction, so old projects stay unchanged. The 9 default rows (3 folders + 6 items) get it from the seed.</li>
+    <li><b>Not copied to task lines:</b> activity and direction are read through <code>budgetItemTaskLine</code>.</li>
+    <li><b>Internal allocations</b> (equipment hours at the role rate) are costs of the project but not cash flows: the first build only labels them, the cash flow statement ignores them.</li>
+  </ul>
+  <h3>Open questions</h3>
+  <ul class="tight">
+    <li>Should Monitor01 get an Activity / Direction grouping (it needs the key in the register movements, or a join through the budget item)?</li>
+    <li>Do interest and dividends stay as four policy items, or one item each with a project / organization setting for the activity (IFRS 18 removes this option from 2027)?</li>
+    <li>Name of the new catalog: <code>managementActivityGenusTable</code> as asked, or a name that says "cash flow activity"?</li>
+  </ul>
+</section>
+
+<section id="src">
+  <h2>Sources</h2>
+  <p class="small">The three IAS 7 classes are from the standard itself. No academic paper about this exact matrix was found; the sources are standards and product documentation.</p>
+  <ul class="tight">
+    <li>IAS 7 summary (activity definitions, interest and dividends choice): <a href="https://www.iasplus.com/standard/ias07.htm">iasplus.com/standard/ias07.htm</a></li>
+    <li>IFRS Foundation, IAS 7 page (IFRS 18 amendments): <a href="https://www.ifrs.org/issued-standards/list-of-standards/ias-7-statement-of-cash-flows/">ifrs.org</a></li>
+    <li>IAS 7 full text (copy): <a href="https://moodle2.units.it/pluginfile.php/495939/mod_resource/content/1/IAS%207.pdf">moodle2.units.it IAS 7.pdf</a></li>
+    <li>US GAAP ASC 230, Deloitte: <a href="https://dart.deloitte.com/USDART/home/codification/presentation/asc230">dart.deloitte.com ASC 230</a> · KPMG: <a href="https://kpmg.com/us/en/frv/reference-library/2024/handbook-statement-cash-flows.html">handbook</a></li>
+    <li>D365 project category group types Fee / Hour / Expense / Item (archived AX 2012 page, check the current Learn page): <a href="https://technet.microsoft.com/en-us/library/aa571697.aspx">technet.microsoft.com/…/aa571697</a> · <a href="https://learn.microsoft.com/ar-sa/dynamics365/project-operations/project-accounting/configure-project-categories">Learn: configure project categories</a></li>
+    <li>D365 main account categories (secondary source, verify): <a href="https://open-exam-prep.com/study-guides/mb-310/ch02-chart-of-accounts/main-account-categories">open-exam-prep.com</a></li>
+    <li>SAP flow types and liquidity items: <a href="https://sapinsider.org/creating-a-real-time-cash-flow-report-using-sap-s-4hana-group-reporting/">SAPinsider: cash flow report in S/4HANA Group Reporting</a> · <a href="https://learning.sap.com/courses/financial-statement-reporting/creating-the-cash-flow-statement-indirect-method_bf92692d-7d4d-47d4-93a0-47641afc4485">SAP Learning: cash flow statement, indirect method</a></li>
+    <li>Not verified (textbook, no passage found): Anthony &amp; Govindarajan, <i>Management Control Systems</i> - responsibility centers against natural accounts.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+/* ---------- the data of the tree: one place to edit ---------- */
+/* [level, kind, key, label, dir, pol, ifrs, d365, sap]   [[x]] = term confirmed by a web source */
+var ACT = {
+  operatingActivity: { cls: 'op', title: 'Operating activity', ifrs: 'IAS 7.6, 7.14 - principal revenue-producing activities; the default bucket',
+    d365: 'Financial reporting row definition by [[main account category]] (to configure)', sap: '[[Liquidity item]] hierarchy (operating) · [[flow type]] on the G/L account' },
+  investingActivity: { cls: 'iv', title: 'Investing activity', ifrs: 'IAS 7.6, 7.16 - long-term assets and investments that are not cash equivalents',
+    d365: 'Fixed assets module + main accounts of type Asset', sap: 'Liquidity item (investing) · asset accounting (FI-AA)' },
+  financingActivity: { cls: 'fi', title: 'Financing activity', ifrs: 'IAS 7.6, 7.17 - equity and borrowings',
+    d365: 'Main accounts of type Liability / Equity · bank accounts', sap: 'Liquidity item (financing) · loans / equity G/L accounts' }
+};
+var GEN = {
+  timeGenus: { d365: '[[Project category]] type Hour', sap: 'CO activity type + primary cost element' },
+  materialGenus: { d365: '[[Project category]] type Item', sap: 'Material (MM) + primary cost element' },
+  expenseGenus: { d365: '[[Project category]] type Expense', sap: 'Primary cost element / G/L expense account' },
+  revenueGenus: { d365: '[[Project category]] type Fee · main account type Revenue', sap: 'Revenue G/L account (SD or PS billing)' },
+  inboundPaymentGenus: { d365: 'Customer payment journal · bank account', sap: 'Bank and clearing G/L accounts, [[flow type]] from debit / credit' },
+  outboundPaymentGenus: { d365: 'Vendor payment journal · bank account', sap: 'Bank and clearing G/L accounts, [[flow type]] from debit / credit' }
+};
+var ITEMS = {
+  operatingActivity: {
+    timeGenus: [
+      ['Employee wages and salaries', 'out', 0, '7.14(d) payments to and on behalf of employees', 'Hour category; payroll journal; main account type Expense', 'Payroll wage type → G/L account; activity type (CO) for internal time'],
+      ['External labor hours (contractors)', 'out', 0, '7.14(c) payments to suppliers for services', 'Hour category; vendor invoice with a procurement category', 'Service purchase order + service entry sheet; primary cost element'],
+      ['Equipment hours (internal rate)', 'out', 0, 'No cash flow of its own: internal allocation (the cash is in the purchase and depreciation lines)', 'Hour category on an equipment resource', 'Activity type, internal allocation (secondary cost element)']
+    ],
+    materialGenus: [
+      ['Raw materials and components', 'out', 0, '7.14(c) payments to suppliers for goods', 'Item category; purchase order → product receipt → vendor invoice', 'Purchase order → goods receipt → invoice verification; consumption on a primary cost element'],
+      ['Goods for resale', 'out', 0, '7.14(c) payments to suppliers for goods', 'Item category; released product', 'Trading goods material'],
+      ['Consumables and supplies', 'out', 0, '7.14(c) payments to suppliers for goods', 'Item category; procurement category', 'Consumable material or direct G/L posting']
+    ],
+    expenseGenus: [
+      ['Travel and subsistence', 'out', 0, '7.14(c)/(d) payments to suppliers and employees', 'Expense category; expense report', 'Travel management (FI-TV); travel cost element'],
+      ['Subcontracted services', 'out', 0, '7.14(c) payments to suppliers for services', 'Expense category; purchase order for services', 'Service purchase order; external services cost element'],
+      ['Utilities, short-term rent, insurance', 'out', 0, '7.14(c) payments to suppliers for services (lease principal is financing, 7.17(e))', 'Procurement category; vendor invoice', 'Vendor invoice to an expense G/L account']
+    ],
+    revenueGenus: [
+      ['Sale of goods', 'in', 0, '7.14(a) receipts from the sale of goods', 'Sales order / free text invoice; main account type Revenue', 'SD billing; revenue G/L account'],
+      ['Rendering of services (project billing)', 'in', 0, '7.14(a) receipts from rendering of services', 'Fee category; project invoice proposal', 'PS billing (milestone or resource-related)'],
+      ['Royalties, fees, commissions', 'in', 0, '7.14(b) receipts from royalties, fees, commissions', 'Free text invoice; revenue main account', 'SD billing or direct G/L posting']
+    ],
+    inboundPaymentGenus: [
+      ['Income tax refunded', 'in', 0, '7.14(f) refunds of income taxes', 'Tax settlement; bank receipt', 'Tax account; incoming payment']
+    ],
+    outboundPaymentGenus: [
+      ['Income tax paid', 'out', 0, '7.14(f) payments of income taxes', 'Tax settlement; vendor payment to the tax authority', 'Tax account; payment run']
+    ]
+  },
+  investingActivity: {
+    timeGenus: [
+      ['Capitalised own labor (self-constructed assets, development costs)', 'out', 0, '7.16(a) payments to acquire PP&E and intangibles, incl. capitalised development costs and self-constructed PP&E', 'Project of type Investment that creates a fixed asset', 'WBS element settled to an asset under construction (settlement profile)']
+    ],
+    materialGenus: [
+      ['Purchase of property, plant and equipment', 'out', 0, '7.16(a) payments to acquire PP&E', 'Fixed assets: acquisition from a purchase order / vendor invoice; asset group + book', 'FI-AA: asset class, external acquisition, asset under construction'],
+      ['Purchase of intangible assets (licences, software)', 'out', 0, '7.16(a) payments to acquire intangibles', 'Fixed assets: intangible asset group', 'FI-AA: intangible asset class']
+    ],
+    expenseGenus: [
+      ['Capitalised acquisition costs (installation, transport, legal)', 'out', 0, '7.16(a) part of the cost of the asset', 'Expense category posted to the fixed asset', 'Posted to the asset (acquisition cost) or settled from an investment order']
+    ],
+    revenueGenus: [
+      ['Proceeds from sale of PP&E and intangibles', 'in', 0, '7.16(b) receipts from sales of PP&E and intangibles (not IFRS 15 revenue)', 'Fixed asset disposal: sale', 'Asset retirement with revenue']
+    ],
+    inboundPaymentGenus: [
+      ['Sale of shares or debt instruments of other entities', 'in', 0, '7.16(d) receipts from sales of equity or debt instruments', 'Bank receipt to an asset main account', 'Securities / treasury transaction; investment G/L account'],
+      ['Repayments received on loans granted', 'in', 0, '7.16(f) receipts from repayment of advances and loans made to others', 'Customer or bank receipt on a loan receivable account', 'Loan receivable; incoming payment'],
+      ['Interest received', 'in', 1, '7.31, 7.33 policy: operating or investing (IFRS 18 removes the option)', 'Bank interest posting', 'Interest income; incoming payment'],
+      ['Dividends received', 'in', 1, '7.31, 7.33 policy: operating or investing (IFRS 18 removes the option)', 'Bank receipt; dividend income account', 'Dividend income; incoming payment']
+    ],
+    outboundPaymentGenus: [
+      ['Acquisition of shares or debt instruments of other entities', 'out', 0, '7.16(c) payments to acquire equity or debt instruments', 'Vendor / bank payment to an asset main account', 'Securities / treasury transaction; investment G/L account'],
+      ['Loans and advances granted to other parties', 'out', 0, '7.16(e) advances and loans made to other parties', 'Vendor payment to a loan receivable account', 'Loan receivable; outgoing payment']
+    ]
+  },
+  financingActivity: {
+    inboundPaymentGenus: [
+      ['Proceeds from issuing shares or equity instruments', 'in', 0, '7.17(a) proceeds from issuing shares', 'Bank receipt to an Equity main account', 'Equity G/L account; incoming payment'],
+      ['Proceeds from borrowings (loans, bonds, notes)', 'in', 0, '7.17(c) proceeds from issuing debentures, loans, notes, bonds, mortgages', 'Bank receipt to a Liability main account', 'Loan (treasury or G/L liability account); liquidity item inflow']
+    ],
+    outboundPaymentGenus: [
+      ['Repurchase or redemption of own shares', 'out', 0, '7.17(b) payments to owners to acquire or redeem the entity\'s shares', 'Vendor / bank payment from an Equity main account', 'Equity G/L account; outgoing payment'],
+      ['Repayment of borrowings', 'out', 0, '7.17(d) repayments of amounts borrowed', 'Bank payment to a Liability main account', 'Loan repayment; outgoing payment'],
+      ['Lease liability: principal repaid', 'out', 0, '7.17(e) payments by a lessee to reduce the lease liability', 'Lease liability main account', 'Lease accounting (RE-FX / lease accounting); outgoing payment'],
+      ['Interest paid', 'out', 1, '7.31, 7.33 policy: operating or financing (IFRS 18 removes the option)', 'Interest expense; vendor / bank payment', 'Interest expense; outgoing payment'],
+      ['Dividends paid', 'out', 1, '7.34 policy: financing or operating', 'Bank payment from retained earnings', 'Dividend payable; outgoing payment']
+    ]
+  }
+};
+var ORDER = ['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus', 'inboundPaymentGenus', 'outboundPaymentGenus'];
+
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function mark(s) { return esc(s).replace(/\[\[(.+?)\]\]/g, '<span class="v">$1</span>'); }
+function dirPill(d) { return d === 'in' ? '<span class="pill in">inbound</span>' : '<span class="pill out">outbound</span>'; }
+
+/* ---------- the tree table ---------- */
+(function () {
+  var body = document.querySelector('#bt tbody');
+  var rows = [];
+  Object.keys(ACT).forEach(function (a) {
+    var A = ACT[a], html = '';
+    html += '<tr class="a" data-act="' + a + '"><td class="t"><span class="tw">▾</span><span class="pill ' + A.cls + '">' + a + '</span> ' + esc(A.title) + '</td><td></td><td></td><td>' + mark(A.ifrs) + '</td><td>' + mark(A.d365) + '</td><td>' + mark(A.sap) + '</td></tr>';
+    ORDER.forEach(function (g) {
+      var list = (ITEMS[a] || {})[g];
+      if (!list) return;
+      html += '<tr class="g" data-act="' + a + '"><td class="t ind1"><span class="tw">▾</span><code>' + g + '</code></td><td></td><td></td><td></td><td>' + mark(GEN[g].d365) + '</td><td>' + mark(GEN[g].sap) + '</td></tr>';
+      list.forEach(function (it) {
+        html += '<tr class="i" data-act="' + a + '"><td class="ind2">' + esc(it[0]) + (it[2] ? ' <span class="pill pol">policy</span>' : '') + '</td>' +
+          '<td><code>' + a + '.' + g + '</code></td><td>' + dirPill(it[1]) + '</td><td>' + mark(it[3]) + '</td><td>' + mark(it[4]) + '</td><td>' + mark(it[5]) + '</td></tr>';
+      });
+    });
+    rows.push(html);
+  });
+  body.innerHTML = rows.join('');
+
+  var f = document.getElementById('filters');
+  var cur = 'all';
+  function show() {
+    Array.prototype.forEach.call(body.rows, function (r) { r.style.display = (cur === 'all' || r.getAttribute('data-act') === cur) ? '' : 'none'; });
+    Array.prototype.forEach.call(f.children, function (b) { b.className = b.getAttribute('data-f') === cur ? 'on' : ''; });
+  }
+  ['all'].concat(Object.keys(ACT)).forEach(function (k) {
+    var b = document.createElement('button');
+    b.textContent = k === 'all' ? 'All activities' : k; b.setAttribute('data-f', k);
+    b.onclick = function () { cur = k; show(); };
+    f.appendChild(b);
+  });
+  show();
+})();
+
+/* ---------- the ER waterfall ---------- */
+(function () {
+  var svg = document.getElementById('er-svg');
+  var NS = 'http://www.w3.org/2000/svg';
+  var HEAD = 30, ROW = 21, PAD = 10;
+  var COL = { new: ['#d1fae5', '#059669'], chg: ['#dbeafe', '#2563eb'], old: ['#f1f5f9', '#64748b'] };
+  var ents = {
+    activity: { x: 40, w: 340, row: 0, kind: 'new', name: 'managementActivityGenusTable', tag: 'NEW', fields: [
+      ['PK', 'rowGUID', 'TEXT = code (operatingActivity ...)'], ['', 'rowOwnerGUID', "'managementActivityGenusCatalog'"], ['', 'rowParentGUID', "'empty' (linear)"], ['', 'orderInList', 'NUMERIC'], ['', 'rowJSON', '{ title, description }']] },
+    genus: { x: 470, w: 340, row: 0, kind: 'old', name: 'managementGenusTable', tag: 'EXISTING', fields: [
+      ['PK', 'rowGUID', 'TEXT = code (timeGenus ...)'], ['', 'rowOwnerGUID', "'managementGenusCatalog'"], ['', 'rowParentGUID', "folder | 'empty'"], ['', 'orderInList', 'NUMERIC'], ['', 'rowJSON', '{ title, description }']] },
+    role: { x: 870, w: 370, row: 0, kind: 'old', name: 'resourceRoleTypeTable', tag: 'EXISTING', fields: [
+      ['PK', 'rowGUID', 'TEXT'], ['FK', 'rowJSON.managementGenus', '→ managementGenusTable'], ['', 'rowJSON', '{ title, ... }']] },
+    key: { x: 200, w: 420, row: 1, kind: 'new', name: 'budgetItemGenericKey', tag: 'NEW (constant list)', fields: [
+      ['PK', 'rowGUID', "TEXT 'operatingActivity.timeGenus'"], ['FK', 'activityGenus', '→ managementActivityGenusTable'], ['FK', 'managementGenusItem', '→ managementGenusTable (level 2)'], ['', 'directionDefault', "'inbound' | 'outbound'"], ['', '', '14 allowed rows, read-only']] },
+    item: { x: 300, w: 500, row: 2, kind: 'chg', name: 'budgetItemTable', tag: 'CHANGED', fields: [
+      ['PK', 'rowGUID', 'TEXT = code'], ['', 'rowParentGUID', "folder | 'empty'"], ['FK', 'rowJSON.managementGenusItem', '→ managementGenusTable (exists)'], ['FK', '+ rowJSON.budgetItemGenericKey', '→ budgetItemGenericKey, obligatory'], ['', '+ rowJSON.direction', "'inbound' | 'outbound'"], ['', '', 'check: key.genus = managementGenusItem']] },
+    line: { x: 300, w: 500, row: 3, kind: 'old', name: 'task_line_table', tag: 'UNCHANGED', fields: [
+      ['PK', 'rowGUID', 'UUID'], ['FK', 'rowOwnerGUID', '→ project_task_table'], ['FK', 'rowJSON.budgetItemTaskLine', '→ budgetItemTable'], ['', 'rowJSON.taskManagementGenusLine', 'genus of the line']] },
+    mon: { x: 860, w: 340, row: 3, kind: 'old', later: true, name: 'monitor01_view (later)', tag: 'LATER', fields: [
+      ['', '', 'group by activity / direction'], ['', '', 'through the budget item of the line']] }
+  };
+  function el(n, a, p) { var e = document.createElementNS(NS, n); for (var k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; }
+  function txt(t, x, y, a, p) { var e = el('text', a, p); e.setAttribute('x', x); e.setAttribute('y', y); e.textContent = t; return e; }
+  Object.keys(ents).forEach(function (k) { var e = ents[k]; e.h = HEAD + e.fields.length * ROW + PAD; });
+  var rowH = [0, 0, 0, 0];
+  Object.keys(ents).forEach(function (k) { rowH[ents[k].row] = Math.max(rowH[ents[k].row], ents[k].h); });
+  var GAP = 70, y = 30, rowY = [];
+  for (var r = 0; r < 4; r++) { rowY[r] = y; y += rowH[r] + GAP; }
+  var W = 1260, H = y - GAP + 30;
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', W); svg.setAttribute('height', H);
+  Object.keys(ents).forEach(function (k) { ents[k].y = rowY[ents[k].row]; });
+  var lv = ['L0 catalogs', 'L1 key', 'L2 budget item', 'L3 plan'];
+  for (var i = 0; i < 4; i++) txt(lv[i], 4, rowY[i] - 8, { 'font-size': 11, fill: '#94a3b8', 'font-weight': 700 });
+
+  /* edges first (under the boxes): vertical, parent above child */
+  function vedge(x, p, c, label, dashed) {
+    var y1 = ents[p].y + ents[p].h, y2 = ents[c].y;
+    var col = dashed ? '#d97706' : '#7c3aed';
+    var a = { stroke: col, 'stroke-width': 1.6, fill: 'none' }; if (dashed) a['stroke-dasharray'] = '4 3';
+    el('path', Object.assign({ d: 'M' + x + ',' + y1 + ' V' + y2 }, a));
+    el('path', { d: 'M' + (x - 4) + ',' + (y1 + 8) + ' H' + (x + 4), stroke: col, 'stroke-width': 1.6 });
+    el('path', { d: 'M' + x + ',' + (y2 - 10) + ' L' + (x - 6) + ',' + y2 + ' M' + x + ',' + (y2 - 10) + ' L' + (x + 6) + ',' + y2 + ' M' + x + ',' + (y2 - 10) + ' V' + y2, stroke: col, 'stroke-width': 1.6, fill: 'none' });
+    if (label) txt(label, x + 8, (y1 + y2) / 2 + 4, { 'font-size': 11.5, fill: col, 'font-weight': 600 });
+  }
+  vedge(300, 'activity', 'key', 'activityGenus');
+  vedge(480, 'genus', 'key', 'managementGenusItem');
+  vedge(400, 'key', 'item', 'budgetItemGenericKey');
+  vedge(650, 'genus', 'item', 'managementGenusItem (kept)');
+  vedge(500, 'item', 'line', 'budgetItemTaskLine');
+  /* role -> genus (horizontal) */
+  var ry = ents.genus.y + 52;
+  el('path', { d: 'M870,' + ry + ' H810', stroke: '#7c3aed', 'stroke-width': 1.6, fill: 'none' });
+  el('path', { d: 'M820,' + (ry - 6) + ' L810,' + ry + ' L820,' + (ry + 6) + ' M820,' + ry + ' H810', stroke: '#7c3aed', 'stroke-width': 1.6, fill: 'none' });
+  txt('managementGenus', 818, ry - 8, { 'font-size': 11.5, fill: '#7c3aed', 'font-weight': 600 });
+  /* line -> monitor (dashed) */
+  var my = ents.line.y + 52;
+  el('path', { d: 'M800,' + my + ' H860', stroke: '#d97706', 'stroke-width': 1.6, 'stroke-dasharray': '4 3', fill: 'none' });
+
+  Object.keys(ents).forEach(function (k) {
+    var e = ents[k], c = COL[e.kind];
+    var g = el('g', {});
+    el('rect', { x: e.x, y: e.y, width: e.w, height: e.h, rx: 10, fill: '#fff', stroke: c[1], 'stroke-width': 1.6, 'stroke-dasharray': e.later ? '5 4' : '0' }, g);
+    el('path', { d: 'M' + e.x + ',' + (e.y + HEAD) + ' V' + (e.y + 10) + ' Q' + e.x + ',' + e.y + ' ' + (e.x + 10) + ',' + e.y + ' H' + (e.x + e.w - 10) + ' Q' + (e.x + e.w) + ',' + e.y + ' ' + (e.x + e.w) + ',' + (e.y + 10) + ' V' + (e.y + HEAD) + ' Z', fill: c[0] }, g);
+    txt(e.name, e.x + 10, e.y + 20, { 'font-size': 13.5, 'font-weight': 700, fill: '#0f172a' }, g);
+    txt(e.tag, e.x + e.w - 10, e.y + 20, { 'font-size': 10.5, 'font-weight': 700, fill: c[1], 'text-anchor': 'end' }, g);
+    e.fields.forEach(function (f, i) {
+      var fy = e.y + HEAD + 16 + i * ROW;
+      if (f[0]) txt(f[0], e.x + 10, fy, { 'font-size': 10.5, 'font-weight': 700, fill: f[0] === 'PK' ? '#d97706' : '#7c3aed' }, g);
+      txt(f[1], e.x + 34, fy, { 'font-size': 12, fill: f[1].charAt(0) === '+' ? '#2563eb' : '#0f172a', 'font-weight': f[1].charAt(0) === '+' ? 700 : 400, 'font-family': 'ui-monospace, Menlo, monospace' }, g);
+      txt(f[2], e.x + e.w - 10, fy, { 'font-size': 11, fill: '#64748b', 'text-anchor': 'end' }, g);
+    });
+  });
+})();
+</script>
+</body>
+</html>

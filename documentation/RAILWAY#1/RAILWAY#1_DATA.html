@@ -273,6 +273,9 @@
     .pill.expense  { background: var(--amber-soft); color: var(--amber); }
     .pill.time     { background: var(--emerald-soft); color: var(--emerald); }
     .pill.posted   { background: var(--emerald-soft); color: var(--emerald); }
+    .pill.in       { background: var(--emerald-soft); color: var(--emerald); }
+    .pill.out      { background: var(--rose-soft); color: var(--rose); }
+    .pill.op       { background: var(--blue-soft); color: var(--blue); }
 
     /* Tables with Filter & Sort UI */
     .table-container {
@@ -451,6 +454,7 @@
           <li><a href="#tasklines">Task Lines & Genera</a></li>
           <li><a href="#market">Market Prices</a></li>
           <li><a href="#lifecycle">Full Lifecycle Docs</a></li>
+          <li><a href="#cashflow">Cash Flow (IAS 7)</a></li>
           <li><a href="#charts">Visualizations</a></li>
           <li><a href="#inputdata">Input Data</a></li>
           <li><a href="#outputdata">Output Data</a></li>
@@ -470,7 +474,7 @@
       </p>
 
       <div class="good">
-        <b>100% Full Project Amounts Verified:</b> Exactly <b>1 single task</b> created, containing <b>1 line for each management genus</b> (Revenue, Material, Expense, Time). <b>1 document of each type</b> has been created and posted across the task lifecycle (Purchase Order, Product Receipt, Fact Input, Vendor Invoice, Customer Invoice), where <b>each document contains 100% of the full project quantities and amounts</b>!
+        <b>100% Full Project Amounts Verified:</b> Exactly <b>1 single task</b> created, containing <b>1 line for each management genus</b> (Revenue, Material, Expense, Time). <b>Every budget item has an activity key + direction (activity genus, IAS 7)</b>: all four lines are <span class="pill op">operatingActivity</span> - a pure operating project. <b>1 document of each type</b> has been created and posted across the task lifecycle (Purchase Order, Product Receipt, Fact Input, Vendor Invoice, Customer Invoice), where <b>each document contains 100% of the full project quantities and amounts</b>!
       </div>
 
       <!-- Key Project Metrics -->
@@ -534,6 +538,8 @@
               <th class="num" onclick="sortTable('linesTable', 5)">Unit Price ($)</th>
               <th class="num" onclick="sortTable('linesTable', 6)">Total Budget ($)</th>
               <th onclick="sortTable('linesTable', 7)">Contract / Partner</th>
+              <th onclick="sortTable('linesTable', 8)">Activity (key)</th>
+              <th onclick="sortTable('linesTable', 9)">Direction</th>
             </tr>
           </thead>
           <tbody>
@@ -546,6 +552,8 @@
               <td class="num">$1,200,000.00</td>
               <td class="num"><b>$270,000,000.00</b></td>
               <td>Amtrak (CT-AMTRK-NEC-2026)</td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.revenueGenus</code></td>
+              <td><span class="pill in">inbound</span></td>
             </tr>
             <tr data-genus="materialGenus">
               <td><span class="pill material">materialGenus</span></td>
@@ -556,6 +564,8 @@
               <td class="num">$1,850.00</td>
               <td class="num"><b>$54,945,000.00</b></td>
               <td>Eastern Rail (CT-SUPP-136RE-2026)</td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.materialGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
             </tr>
             <tr data-genus="expenseGenus">
               <td><span class="pill expense">expenseGenus</span></td>
@@ -566,6 +576,8 @@
               <td class="num">$650.00</td>
               <td class="num"><b>$4,387,500.00</b></td>
               <td>Plasser American (CT-LEASE-TAMPER-2026)</td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.expenseGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
             </tr>
             <tr data-genus="timeGenus">
               <td><span class="pill time">timeGenus</span></td>
@@ -576,6 +588,8 @@
               <td class="num">$95.00</td>
               <td class="num"><b>$641,250.00</b></td>
               <td>Direct Employee (EMP-RIMM-001)</td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.timeGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
             </tr>
           </tbody>
         </table>
@@ -692,8 +706,8 @@
               <td><code>PO-NYWAS-00001</code></td>
               <td>2026-01-05</td>
               <td>Eastern Rail Supply Corp.</td>
-              <td>Full Project Scope: 29,700 sticks rail + 6,750 tamper hrs</td>
-              <td class="num"><b>$59,332,500.00</b></td>
+              <td>Full Project Scope: 29,700 sticks rail + 6,750 tamper hrs + 6,750 operator hrs</td>
+              <td class="num"><b>$59,973,750.00</b></td>
               <td><span class="pill posted">Posted (Full)</span></td>
               <td><code>ordered</code></td>
             </tr>
@@ -702,8 +716,8 @@
               <td><code>PR-NYWAS-00001</code></td>
               <td>2026-06-15</td>
               <td>Eastern Rail Supply Corp.</td>
-              <td>Full Project Delivery: 29,700 sticks rail + 6,750 tamper hrs</td>
-              <td class="num"><b>$59,332,500.00</b></td>
+              <td>Full Project Delivery: 29,700 sticks rail + 6,750 tamper hrs + 6,750 operator hrs</td>
+              <td class="num"><b>$59,973,750.00</b></td>
               <td><span class="pill posted">Posted (Full)</span></td>
               <td><code>received</code></td>
             </tr>
@@ -722,8 +736,8 @@
               <td><code>VI-SUPP-98421</code></td>
               <td>2026-07-01</td>
               <td>Eastern Rail Supply Corp.</td>
-              <td>Full Project Billing: 29,700 sticks rail + 6,750 tamper hrs</td>
-              <td class="num"><b>$59,332,500.00</b></td>
+              <td>Full Project Billing: 29,700 sticks rail + 6,750 tamper hrs + 6,750 operator hrs</td>
+              <td class="num"><b>$59,973,750.00</b></td>
               <td><span class="pill posted">Posted (Full)</span></td>
               <td><code>invoiced</code></td>
             </tr>
@@ -743,8 +757,103 @@
     </section>
 
     <!-- Section 5: Visualizations -->
+    <section id="cashflow">
+      <h2>4. Cash Flow by Activity (IAS 7) - the budget items of the lines</h2>
+      <p class="sub">
+        The activity genus (<code>documentation/ACTIVITY_GENUS.html</code>): every budget item of a line has a <b>key</b> <code>activity.genus</code> and a <b>direction</b>. The names in IFRS, D365 FO and SAP are
+        stored on the budget item (<code>webIfrsName</code>, <code>d365foName</code>, <code>sapName</code>) - indicative texts, to be checked by a finance consultant before they are used for a mapping.
+      </p>
+
+      <div class="grid-4">
+        <div class="metric-card">
+          <div class="metric-title">Operating inbound</div>
+          <div class="metric-value">$270.00M</div>
+          <div class="metric-caption">IAS 7.14(a) - turnkey billing to Amtrak</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Operating outbound</div>
+          <div class="metric-value">$59.97M</div>
+          <div class="metric-caption">IAS 7.14(c) rail + hire, 7.14(d) operator</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Net operating (budget)</div>
+          <div class="metric-value">$210.03M</div>
+          <div class="metric-caption">$210,026,250.00 = inbound - outbound</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Investing / Financing</div>
+          <div class="metric-value">$0.00</div>
+          <div class="metric-caption">no CapEx, no loan lines</div>
+        </div>
+      </div>
+
+      <div class="table-container" style="margin-top:16px">
+        <table id="cashflowTable">
+          <thead>
+            <tr>
+              <th>Budget item (code)</th>
+              <th>Key</th>
+              <th>Direction</th>
+              <th class="num">Budget ($)</th>
+              <th>Web + IFRS (IAS 7)</th>
+              <th>D365 FO</th>
+              <th>SAP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>High-Speed Track Turnkey Construction Revenue</b><br><code>bi-nec-turnkey-rev</code></td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.revenueGenus</code></td>
+              <td><span class="pill in">inbound</span></td>
+              <td class="num"><b>$270,000,000.00</b></td>
+              <td>7.14(a) receipts from rendering of services: turnkey track construction, progress billing to Amtrak</td>
+              <td>Fee category; project invoice proposal (progress billing)</td>
+              <td>PS billing: milestone or resource-related billing; revenue G/L account</td>
+            </tr>
+            <tr>
+              <td><b>Track Steel Rails &amp; Permanent Way Material</b><br><code>bi-nec-rail-mat</code></td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.materialGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
+              <td class="num"><b>$54,945,000.00</b></td>
+              <td>7.14(c) payments to suppliers for goods: 136 RE rail sticks (a cost of the contract, not a PP&amp;E purchase of the contractor)</td>
+              <td>Item category; purchase order → product receipt → vendor invoice</td>
+              <td>Purchase order → goods receipt → invoice verification; consumption on a primary cost element</td>
+            </tr>
+            <tr>
+              <td><b>Specialized Heavy Railway Machinery Hire &amp; Tamping</b><br><code>bi-nec-tamper-exp</code></td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.expenseGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
+              <td class="num"><b>$4,387,500.00</b></td>
+              <td>7.14(c) payments to suppliers for services: short-term plant hire of the tamper (a lease over 12 months would put the principal into financing, 7.17(e))</td>
+              <td>Expense category; purchase order for plant hire</td>
+              <td>Service purchase order; external services cost element</td>
+            </tr>
+            <tr>
+              <td><b>Specialized Railway Equipment Operators Labor</b><br><code>bi-nec-operator-lab</code></td>
+              <td><span class="pill op">operating</span> <code>operatingActivity.timeGenus</code></td>
+              <td><span class="pill out">outbound</span></td>
+              <td class="num"><b>$641,250.00</b></td>
+              <td>7.14(d) payments to and on behalf of employees: RMM operator, loaded rate $95 per hour</td>
+              <td>Hour category; payroll journal; main account type Expense</td>
+              <td>Payroll wage type → G/L account; CO activity type</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <b>Why a pure operating project.</b> The tamper is <b>hired</b> (short-term plant hire = operating). If the contractor <b>bought</b> it, the budget item would be
+        <code>investingActivity.materialGenus</code> (IAS 7.16(a), CapEx); if it were <b>leased for more than 12 months</b>, the lease principal would be financing
+        (<code>financingActivity.outboundPaymentGenus</code>, IAS 7.17(e)). The key of a budget item is chosen on the item in <b>Budget Items</b>; the Activity column offers only the activities its genus can have.
+      </div>
+
+      <div class="card" style="margin-top:16px; height: 320px;">
+        <canvas id="cashflowChart"></canvas>
+      </div>
+    </section>
+
     <section id="charts">
-      <h2>4. Visualizations & Business Analytics</h2>
+      <h2>5. Visualizations & Business Analytics</h2>
       <p class="sub">High-definition graphical breakdown of Railway #1 financial allocations and full lifecycle status.</p>
 
       <div class="grid-2">
@@ -766,7 +875,7 @@
 
     <!-- Section 6: Sample Input Data -->
     <section id="inputdata">
-      <h2>5. Sample of Input Data</h2>
+      <h2>6. Sample of Input Data</h2>
       <p class="sub">Exact structural JSON data payload matching Universal1 database import standards.</p>
       
       <pre><code>{
@@ -827,7 +936,7 @@
 
     <!-- Section 7: Sample Output Data -->
     <section id="outputdata">
-      <h2>6. Sample of Output Data (Monitor01 Reporting Row - Full Project Amounts)</h2>
+      <h2>7. Sample of Output Data (Monitor01 Reporting Row - Full Project Amounts)</h2>
       <p class="sub">Consolidated ledger view from <code>public.monitor01_view</code> reflecting 100% project completion across all document stages.</p>
       
       <div class="table-container">
@@ -892,15 +1001,24 @@
 
     <!-- Section 8: Verification & Execution Protocol -->
     <section id="verification">
-      <h2>7. Verification & Automation Execution Protocol</h2>
+      <h2>8. Verification & Automation Execution Protocol</h2>
       <p class="sub">Step-by-step verification instructions to run the loader script locally or in production.</p>
 
       <div class="card">
+        <h3>Prerequisite: the activity genus (PART 32)</h3>
+        <p>The budget items of the project carry the key and the direction of the activity genus, so the database needs
+        <code>start1_sql_tables.sql</code>, <code>start2_sql_code.sql</code> and <code>start3_sql_insert_missing.sql</code> (<code>kit8/sql/start</code>) first. The seed stops with a message when PART 32 is missing,
+        and checks at the end that the 4 lines point at budget items with a key and a direction and that the net operating budget is $210,026,250.00.</p>
+      </div>
+
+      <div class="card" style="margin-top:16px">
         <h3>Command Line Automation</h3>
         <p>To populate your database automatically with full project amounts, execute the provided double-clickable command script:</p>
         <pre><code>./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command</code></pre>
         <p>Or execute the SQL file directly via the Supabase CLI:</p>
         <pre><code>supabase db query --linked -f ./documentation/RAILWAY#1/RAILWAY#1_DATA.sql</code></pre>
+        <p>Verification only (project, task lines with key and direction, the 5 documents, the cash flow by activity and direction):</p>
+        <pre><code>./documentation/RAILWAY#1/RAILWAY#1_DATA_run.command --verify</code></pre>
       </div>
     </section>
   </main>
@@ -1017,6 +1135,30 @@
         }
       });
 
+      // Operating cash flow of the budget (activity genus): inbound vs the three outbound items and the net
+      const ctxCash = document.getElementById('cashflowChart').getContext('2d');
+      new Chart(ctxCash, {
+        type: 'bar',
+        data: {
+          labels: ['Inbound: Turnkey revenue', 'Outbound: Rail material', 'Outbound: Tamper hire', 'Outbound: Operator labor', 'Net operating'],
+          datasets: [{
+            label: 'Operating activity, budget ($ Millions)',
+            data: [270.00, -54.945, -4.3875, -0.64125, 210.02625],
+            backgroundColor: ['#059669', '#e11d48', '#e11d48', '#e11d48', '#2563eb'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true } },
+          scales: {
+            y: { ticks: { callback: value => '$' + value + 'M', font: { family: 'Inter', size: 11 } }, grid: { color: '#f1f5f9' } },
+            x: { ticks: { font: { family: 'Inter', size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+
       // Lifecycle Transactional Bar Chart (100% Full Project Amounts)
       const ctxLifecycle = document.getElementById('lifecycleChart').getContext('2d');
       new Chart(ctxLifecycle, {
@@ -1025,7 +1167,7 @@
           labels: ['Total Budget Cost', 'PO Ordered (100%)', 'PR Received (100%)', 'Fact Used (100%)', 'VI Invoiced (100%)', 'CI Sold (100%)'],
           datasets: [{
             label: 'Transaction Sum ($ Millions)',
-            data: [59.97, 59.33, 59.33, 59.97, 59.33, 270.00],
+            data: [59.97, 59.97, 59.97, 59.97, 59.97, 270.00],
             backgroundColor: ['#6366f1', '#7c3aed', '#0891b2', '#059669', '#d97706', '#2563eb'],
             borderRadius: 6
           }]

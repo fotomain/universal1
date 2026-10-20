@@ -37,6 +37,7 @@
 --   29. create_subprojects.sql - SUBPROJECTS: project_subproject_link (the index of the tasks that stand for another project); the settings are keys of project_table.rowJSON
 --   30. create_product_receipt.sql - the PRODUCT RECEIPT document (the purchase order logic, made from a purchase order) + its 'received' movements in the project status register + the column Received of Monitor01
 --   31. create_customer_invoice.sql - the CUSTOMER INVOICE document (the vendor invoice logic, made from the Revenue lines) + the numbers of its 'sold' movements + the group Customer Invoice of Monitor01
+--   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2786,6 +2787,46 @@ CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_task ON public.customer_in
 
 CREATE INDEX IF NOT EXISTS idx_customer_invoice_lines_line ON public.customer_invoice_lines ("taskLineGUID");
 
+
+-- ===============================================================================================
+-- PART 32: create_activity_genus.sql
+-- the ACTIVITY GENUS (operating / investing / financing, linear) and the allowed keys activity x management genus of the budget items; the budget item itself keeps its
+-- budgetItemGenericKey / direction in rowJSON (no new column)
+-- ===============================================================================================
+
+-- managementActivityGenusTable: the three activities of the cash flow statement (IAS 7), ONE level (no folders).
+-- rowGUID = the code (operatingActivity ...) - rowOwnerGUID 'managementActivityGenusCatalog' - rowParentGUID 'empty' - rowJSON { title, description, webIfrsName, d365foName, sapName }
+CREATE TABLE IF NOT EXISTS public."managementActivityGenusTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'managementActivityGenusCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_managementActivityGenusTable_owner_order" ON public."managementActivityGenusTable" ("rowOwnerGUID", "orderInList");
+
+-- budgetItemGenericKeyTable: the allowed keys = activity x management genus (the rows of the matrix), with the D365 FO / SAP text of the genus row of the tree.
+-- rowGUID = 'operatingActivity.timeGenus' - rowOwnerGUID 'budgetItemGenericKeyCatalog' - rowParentGUID 'empty' - rowJSON { title, activityGenus, managementGenusItem, directionDefault, d365foName, sapName }
+-- The RULE (which cells are allowed, the default direction) is the function kit8_budget_item_key_matrix() of start2_sql_code.sql; this table carries the texts for the screens.
+CREATE TABLE IF NOT EXISTS public."budgetItemGenericKeyTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'budgetItemGenericKeyCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_budgetItemGenericKeyTable_owner_order" ON public."budgetItemGenericKeyTable" ("rowOwnerGUID", "orderInList");
+
+-- the activity key of a budget item (the filter of the screens)
+CREATE INDEX IF NOT EXISTS "idx_budgetItemTable_key" ON public."budgetItemTable" ((("rowJSON"->>'budgetItemGenericKey')));
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

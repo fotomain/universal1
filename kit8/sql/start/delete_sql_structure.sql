@@ -675,6 +675,23 @@ BEGIN
 END $$;
 
 DROP FUNCTION IF EXISTS public.kit8_budget_item_check_genus();
+-- the activity genus (the structure file, its part 32): its two catalogs, then the functions of the budget item key (the trigger went with budgetItemTable)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['managementActivityGenusTable', 'budgetItemGenericKeyTable'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t)
+       AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', t);
+    END IF;
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', t);
+  END LOOP;
+END $$;
+
+DROP FUNCTION IF EXISTS public.kit8_budget_item_check_key();
+DROP FUNCTION IF EXISTS public.kit8_budget_item_key_direction(text);
+DROP FUNCTION IF EXISTS public.kit8_budget_item_key_matrix();
 
 NOTIFY pgrst, 'reload schema';
 

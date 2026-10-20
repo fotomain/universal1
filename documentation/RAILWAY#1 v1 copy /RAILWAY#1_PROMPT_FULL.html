@@ -10,9 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Chart.js for High-Definition Visualizations -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
   <style>
     /* -------------------------------------------------------------
        TAMAGUI LIGHT THEME TOKENS & CSS VARIABLES
@@ -358,7 +355,7 @@
       </p>
 
       <div class="prompt-box">
-        <h3>📋 The Improved Master Prompt (Copy & Paste Ready)</h3>
+        <h3>📋 The Improved Master Prompt (With Full Project Amounts Requirement)</h3>
         <p style="font-size:14px; color:var(--text-2); margin-bottom:14px;">
           Use the following structured prompt to instruct an AI assistant to prepare complete, bug-free, idempotent data files for any large-scale infrastructure railway project:
         </p>
@@ -378,16 +375,17 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
 - Reference Schema: Use public tables defined in /Users/mgtimber/UNIVERSAL1/expo-app/kit8/sql/start/start1_sql_tables.sql.
 - Single Task Constraint: Author exactly 1 construction task under the project.
 - Management Genus Constraint: The task MUST contain exactly 1 finance line for each active leaf management genus:
-  1) revenueGenus  : Deliverable (Railroad Segment No. 1 - 225 miles @ actual market contract price).
-  2) materialGenus : Permanent Way Material (136 RE carbon steel rail - 80-ft sticks, calculate exact stick count for 225 miles of dual rails @ $1,600-$2,200/stick).
-  3) expenseGenus  : Machinery Hire (Plasser 09-3X / Dynacat Continuous-Action Tamper - 6,750 operating hours @ market equipment wet rate).
-  4) timeGenus     : Equipment Labor (Machine (RMM) Operator John Rimm - 6,750 shift hours @ prevailing wage union scale).
-- Full 5-Document Task Lifecycle: Author and post all 5 documents in sequence with register movements:
-  1) Purchase Order (purchase_order_header / lines) -> writes 'ordered' movements via project_status_register_order.
-  2) Product Receipt (product_receipt_header / lines) -> writes 'received' movements via project_status_register_receipt.
-  3) Fact Input (task_fact_header / usage_timeline) -> writes 'used' movements via project_status_register_fact.
-  4) Vendor Invoice (vendor_invoice_header / lines) -> writes 'invoiced' movements via project_status_register_invoice.
-  5) Customer Invoice (customer_invoice_header / lines) -> writes 'sold' movements via project_status_register_customer_invoice.
+  1) revenueGenus  : Deliverable (Railroad Segment No. 1 - 225 miles @ actual market contract price: $1,200,000/mi = $270,000,000.00).
+  2) materialGenus : Permanent Way Material (136 RE carbon steel rail - 80-ft sticks, calculate exact stick count for 225 miles of dual rails: 29,700 sticks @ $1,850/stick = $54,945,000.00).
+  3) expenseGenus  : Machinery Hire (Plasser 09-3X / Dynacat Continuous-Action Tamper - 6,750 operating hours @ $650/hr = $4,387,500.00).
+  4) timeGenus     : Equipment Labor (Machine (RMM) Operator John Rimm - 6,750 shift hours @ $95/hr = $641,250.00).
+- Full Project Amounts Across 1 Document of Each Type:
+  Each of the 5 documents across the project task lifecycle must be created and posted with 100% FULL PROJECT AMOUNTS:
+  1) Purchase Order (PO-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs = $59,332,500.00 (posted via project_status_register_order).
+  2) Product Receipt (PR-NYWAS-00001) -> 29,700 rail sticks + 6,750 tamper hrs = $59,332,500.00 (posted via project_status_register_receipt).
+  3) Fact Input (FI-NYWAS-00001) -> 225 mi rev + 29.7k sticks mat + 6.75k h exp + 6.75k h time = $329,973,750.00 (posted via project_status_register_fact).
+  4) Vendor Invoice (VI-SUPP-98421) -> 29,700 rail sticks + 6,750 tamper hrs = $59,332,500.00 (posted via project_status_register_invoice).
+  5) Customer Invoice (CI-AMTRK-2026-001) -> 225 miles turnkey deliverable = $270,000,000.00 (posted via project_status_register_customer_invoice).
 - Reporting Integration: Trigger Monitor01 process batch and project_cost_rebuild to ensure zero discrepancies in Monitor01 and tree cost columns.
 - Market Price Realism: Justify all unit prices against North American Class 1 freight and Northeast Corridor high-speed rail standards.</code></pre>
       </div>
@@ -413,7 +411,7 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
               <option value="GENUS">Management Genus Alignment</option>
               <option value="MATH">Material Math & Sizing</option>
               <option value="MARKET">Market Pricing Benchmarking</option>
-              <option value="DOCS">Document Lifecycle & Registers</option>
+              <option value="DOCS">Document Lifecycle & Full Amounts</option>
               <option value="LEDGER">Financial Rollup & Reporting</option>
               <option value="SCRIPT">Automation & Scripting</option>
             </select>
@@ -481,9 +479,9 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
             </tr>
             <tr data-cat="DOCS">
               <td><span class="pill lifecycle">DOCS</span></td>
-              <td><b>What is the required order of document creation and posting?</b></td>
-              <td>Purchase Order (ordered) ➔ Product Receipt (received) ➔ Fact Input (used) ➔ Vendor Invoice (invoiced) ➔ Customer Invoice (sold).</td>
-              <td>All 5 documents have <code>documentStatus = 'posted'</code> and linked register rows.</td>
+              <td><b>How do we guarantee that each document contains 100% full project amounts?</b></td>
+              <td>Set quantities in PO, PR, VI to 29,700 sticks and 6,750 hrs; in Fact Input to 225 mi, 29.7k sticks, 6.75k tamper hrs, 6.75k operator hrs; in CI to 225 mi.</td>
+              <td>Every document total equals the full project contract/budget scope without partial balances remaining.</td>
             </tr>
             <tr data-cat="DOCS">
               <td><span class="pill lifecycle">DOCS</span></td>
@@ -493,9 +491,9 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
             </tr>
             <tr data-cat="LEDGER">
               <td><span class="pill ledger">LEDGER</span></td>
-              <td><b>How does Monitor01 reflect the 5 posted lifecycle documents?</b></td>
-              <td>Ordered (PO), Received (PR), Used (Fact), Invoiced (VI), and Customer Invoiced (CI) columns are populated.</td>
-              <td><code>monitor01_view</code> displays non-zero figures across all report groups.</td>
+              <td><b>How does Monitor01 reflect the 5 posted lifecycle documents with full amounts?</b></td>
+              <td>Ordered (PO), Received (PR), Used (Fact), Invoiced (VI), and Customer Invoiced (CI) columns match 100% of the plan.</td>
+              <td><code>monitor01_view</code> displays complete, equal figures across all operational and invoice report columns.</td>
             </tr>
             <tr data-cat="LEDGER">
               <td><span class="pill ledger">LEDGER</span></td>
@@ -540,8 +538,8 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
           <path d="M 400 60 L 450 60" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
 
           <rect x="450" y="20" width="190" height="80" rx="10" fill="#cffafe" stroke="#0891b2" stroke-width="2"/>
-          <text x="545" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#0891b2">3. 5-DOC LIFECYCLE</text>
-          <text x="545" y="74" text-anchor="middle" font-size="11" fill="#475569">PO ➔ PR ➔ FI ➔ VI ➔ CI</text>
+          <text x="545" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#0891b2">3. FULL 5-DOC LIFECYCLE</text>
+          <text x="545" y="74" text-anchor="middle" font-size="11" fill="#475569">100% Full Project Amounts</text>
 
           <path d="M 640 60 L 690 60" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
 
@@ -569,9 +567,9 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
           </p>
         </div>
         <div class="card">
-          <h3>✅ Dynamic User & Organization Resolution</h3>
+          <h3>✅ Full Project Amount Consistency</h3>
           <p style="font-size:14px; color:var(--text-2);">
-            Never hardcode static user UUIDs without falling back to <code>public.app_user_guid()</code> and existing session identifiers. Dynamic context checking allows scripts to run flawlessly under Supabase Dashboard SQL Editor, local CLI, and automated CI/CD runners alike.
+            When the business requirement dictates full project amounts, ensure that quantities match across Purchase Order, Product Receipt, Fact Input, Vendor Invoice, and Customer Invoice without partial balances left unaccounted for in the project ledger.
           </p>
         </div>
       </div>
@@ -588,7 +586,7 @@ SYSTEM ARCHITECTURE CONSTRAINTS:
           <li>Confirm that 136 RE rail sticks equal 29,700 sticks (2 rails × 225 miles × 5,280 ft ÷ 80 ft).</li>
           <li>Verify unit price is within $1,600 – $2,200 (selected: $1,850.00/stick).</li>
           <li>Confirm equipment has 6,750 hours and operator John Rimm has 6,750 hours.</li>
-          <li>Ensure all 5 documents (PO, PR, Fact, VI, CI) are posted and register movements written.</li>
+          <li><b>Ensure all 5 documents (PO, PR, Fact, VI, CI) contain 100% full project amounts.</b></li>
           <li>Run <code>public.monitor01_process_batch()</code> and <code>public.project_cost_rebuild()</code>.</li>
         </ol>
       </div>

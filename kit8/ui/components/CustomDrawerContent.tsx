@@ -85,6 +85,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       // sorted by name
       children: [
+        // activity genus (operating / investing / financing) + the allowed budget item keys activity x genus: read-only tables
+        { id: 'activitygenus', label: 'Activity genus', icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
         { id: 'budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
         // the scenarios a project budgets in (Plan | Fact): a plain table
@@ -154,6 +156,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       icon: 'account_balance_wallet',
       route: '',
       children: [
+        { id: 'budgets-activitygenus', label: 'Activity genus', icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
         { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
         { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
         { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },

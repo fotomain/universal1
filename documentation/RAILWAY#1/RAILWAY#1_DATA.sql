@@ -11,11 +11,20 @@
 --   4. timeGenus     : Machine (RMM) Operator: John Rimm (6,750 hours @ $95.00 / hour = $641,250.00)
 --
 -- Full 5-Document Project Lifecycle (1 document of each type, ALL WITH FULL PROJECT AMOUNTS):
---   1. Purchase Order   : PO-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours = $59,332,500.00)
---   2. Product Receipt  : PR-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours = $59,332,500.00)
+--   1. Purchase Order   : PO-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
+--   2. Product Receipt  : PR-NYWAS-00001 (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
 --   3. Fact Input       : FI-NYWAS-00001 (FULL: 29,700 sticks + 6,750 tamper hrs + 6,750 operator hrs + 225 mi deliverable = $329,973,750.00)
---   4. Vendor Invoice   : VI-SUPP-98421  (FULL: 29,700 sticks rail + 6,750 tamper hours = $59,332,500.00)
+--   4. Vendor Invoice   : VI-SUPP-98421  (FULL: 29,700 sticks rail + 6,750 tamper hours + 6,750 operator hours = $59,973,750.00)
 --   5. Customer Invoice : CI-AMTRK-2026-001 (FULL: 225 miles turnkey deliverable = $270,000,000.00)
+--
+-- Activity genus (PART 32 of start1_sql_tables.sql + start2_sql_code.sql, documentation/ACTIVITY_GENUS.html): every budget item of the project carries its KEY (activity.genus),
+-- its DIRECTION (inbound | outbound) and its names in IFRS (IAS 7), D365 FO and SAP. Railway #1 is a pure OPERATING-activity project:
+--   operatingActivity.revenueGenus  inbound   $270,000,000.00   (IAS 7.14(a))
+--   operatingActivity.materialGenus outbound   $54,945,000.00   (IAS 7.14(c))
+--   operatingActivity.expenseGenus  outbound    $4,387,500.00   (IAS 7.14(c))   short-term plant hire: operating (a lease > 12 months would be financing, IAS 7.17(e))
+--   operatingActivity.timeGenus     outbound      $641,250.00   (IAS 7.14(d))
+--   net operating cash flow budget  $210,026,250.00; investing and financing: none (the tamper is hired, not bought; no loan lines)
+-- The script stops with a message when PART 32 is not installed (run start1 + start2 + start3 first).
 --
 -- Safe, idempotent script. Can be executed multiple times.
 -- ===============================================================================================
@@ -101,6 +110,13 @@ DECLARE
   v_json_exp            jsonb;
   v_json_time           jsonb;
 BEGIN
+  -- ---------------------------------------------------------------------------------------------
+  -- 0a. PREREQUISITE: the activity genus (PART 32)
+  -- ---------------------------------------------------------------------------------------------
+  IF to_regclass('public."budgetItemGenericKeyTable"') IS NULL OR to_regprocedure('public.kit8_budget_item_key_direction(text)') IS NULL THEN
+    RAISE EXCEPTION 'Railway #1: the activity genus (PART 32) is not installed - run start1_sql_tables.sql, start2_sql_code.sql and start3_sql_insert_missing.sql (kit8/sql/start) first';
+  END IF;
+
   -- ---------------------------------------------------------------------------------------------
   -- 0. RESOLVE CONTEXT: Current App User & Organization
   -- ---------------------------------------------------------------------------------------------
@@ -300,23 +316,47 @@ BEGIN
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowOwnerGUID" = EXCLUDED."rowOwnerGUID";
 
-  -- Budget Items
+  -- Budget Items (each with its KEY activity.genus, its DIRECTION and the names in IFRS / D365 FO / SAP; the trigger of PART 32 checks key, genus and direction)
   INSERT INTO public."budgetItemTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
     ('bi-nec-turnkey-rev', 'budgetItemCatalog', 'revenuesBudgetFolder', 1024, jsonb_build_object(
       'title', 'High-Speed Track Turnkey Construction Revenue',
-      'managementGenusItem', 'revenueGenus'
+      'managementGenusItem', 'revenueGenus',
+      'budgetItemGenericKey', 'operatingActivity.revenueGenus',
+      'direction', 'inbound',
+      'isPolicyItem', false,
+      'webIfrsName', '7.14(a) receipts from rendering of services: turnkey track construction, progress billing to Amtrak',
+      'd365foName', 'Fee category; project invoice proposal (progress billing)',
+      'sapName', 'PS billing: milestone or resource-related billing; revenue G/L account'
     )),
     ('bi-nec-rail-mat', 'budgetItemCatalog', 'costsBudgetFolder', 2048, jsonb_build_object(
       'title', 'Track Steel Rails & Permanent Way Material',
-      'managementGenusItem', 'materialGenus'
+      'managementGenusItem', 'materialGenus',
+      'budgetItemGenericKey', 'operatingActivity.materialGenus',
+      'direction', 'outbound',
+      'isPolicyItem', false,
+      'webIfrsName', '7.14(c) payments to suppliers for goods: 136 RE rail sticks (a cost of the contract, not a PP&E purchase of the contractor)',
+      'd365foName', 'Item category; purchase order → product receipt → vendor invoice',
+      'sapName', 'Purchase order → goods receipt → invoice verification; consumption on a primary cost element'
     )),
     ('bi-nec-tamper-exp', 'budgetItemCatalog', 'costsBudgetFolder', 3072, jsonb_build_object(
       'title', 'Specialized Heavy Railway Machinery Hire & Tamping',
-      'managementGenusItem', 'expenseGenus'
+      'managementGenusItem', 'expenseGenus',
+      'budgetItemGenericKey', 'operatingActivity.expenseGenus',
+      'direction', 'outbound',
+      'isPolicyItem', false,
+      'webIfrsName', '7.14(c) payments to suppliers for services: short-term plant hire of the tamper (a lease over 12 months would put the principal into financing, 7.17(e))',
+      'd365foName', 'Expense category; purchase order for plant hire',
+      'sapName', 'Service purchase order; external services cost element'
     )),
     ('bi-nec-operator-lab', 'budgetItemCatalog', 'costsBudgetFolder', 4096, jsonb_build_object(
       'title', 'Specialized Railway Equipment Operators Labor',
-      'managementGenusItem', 'timeGenus'
+      'managementGenusItem', 'timeGenus',
+      'budgetItemGenericKey', 'operatingActivity.timeGenus',
+      'direction', 'outbound',
+      'isPolicyItem', false,
+      'webIfrsName', '7.14(d) payments to and on behalf of employees: RMM operator, loaded rate $95 per hour',
+      'd365foName', 'Hour category; payroll journal; main account type Expense',
+      'sapName', 'Payroll wage type → G/L account; CO activity type'
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowParentGUID" = EXCLUDED."rowParentGUID";
 
@@ -330,7 +370,7 @@ BEGIN
   DELETE FROM public.project_status_movements WHERE "rowProjectGUID" = v_project;
   DELETE FROM public.task_fact_usage_timeline WHERE "rowProjectGUID" = v_project;
   DELETE FROM public.task_line_plan_movements WHERE "rowProjectGUID" = v_project;
-  DELETE FROM public.task_line_plan WHERE "rowProjectGUID" = v_project;
+  DELETE FROM public.task_line_plan_timeline WHERE "rowProjectGUID" = v_project;
 
   DELETE FROM public.customer_invoice_lines WHERE "rowHeaderGUID" = v_ci_header OR "rowProjectGUID" = v_project;
   DELETE FROM public.vendor_invoice_lines WHERE "rowHeaderGUID" = v_vi_header OR "rowProjectGUID" = v_project;
@@ -689,7 +729,7 @@ BEGIN
   PERFORM public.project_status_register_plan(ARRAY[v_task]);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 6. LIFECYCLE DOCUMENT 1: PURCHASE ORDER (FULL PROJECT AMOUNT: $59,332,500.00)
+  -- 6. LIFECYCLE DOCUMENT 1: PURCHASE ORDER (FULL PROJECT AMOUNT: $59,973,750.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.purchase_order_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -733,7 +773,7 @@ BEGIN
   PERFORM public.project_status_register_order(v_po_header);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 7. LIFECYCLE DOCUMENT 2: PRODUCT RECEIPT (FULL PROJECT AMOUNT: $59,332,500.00)
+  -- 7. LIFECYCLE DOCUMENT 2: PRODUCT RECEIPT (FULL PROJECT AMOUNT: $59,973,750.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.product_receipt_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -823,7 +863,7 @@ BEGIN
   PERFORM public.project_status_register_fact(v_fact_header);
 
   -- ---------------------------------------------------------------------------------------------
-  -- 9. LIFECYCLE DOCUMENT 4: VENDOR INVOICE (FULL PROJECT AMOUNT: $59,332,500.00)
+  -- 9. LIFECYCLE DOCUMENT 4: VENDOR INVOICE (FULL PROJECT AMOUNT: $59,973,750.00)
   -- ---------------------------------------------------------------------------------------------
   INSERT INTO public.vendor_invoice_header (
     "rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON", "created_at", "updated_at"
@@ -925,9 +965,21 @@ BEGIN
     RAISE EXCEPTION 'Railway #1: vendor / customer invoice lines have NULL sumForBudget';
   END IF;
 
+  -- guard (activity genus): the 4 lines point at budget items that have a key and a direction; the budget cash flow by activity and direction is the one of the design
+  IF (SELECT count(*) FROM public.task_line_table l JOIN public."budgetItemTable" b ON b."rowGUID" = l."rowJSON"->>'budgetItemTaskLine'
+       WHERE l."rowOwnerGUID" = v_task AND coalesce(b."rowJSON"->>'budgetItemGenericKey', '') <> '' AND b."rowJSON"->>'direction' IN ('inbound', 'outbound')) <> 4 THEN
+    RAISE EXCEPTION 'Railway #1: the 4 task lines need 4 budget items with a budgetItemGenericKey and a direction';
+  END IF;
+  IF (SELECT coalesce(sum(CASE WHEN b."rowJSON"->>'direction' = 'inbound' THEN 1 ELSE -1 END * (l."rowJSON"->>'sumForBudget')::numeric), 0)
+        FROM public.task_line_table l JOIN public."budgetItemTable" b ON b."rowGUID" = l."rowJSON"->>'budgetItemTaskLine'
+       WHERE l."rowOwnerGUID" = v_task AND split_part(b."rowJSON"->>'budgetItemGenericKey', '.', 1) = 'operatingActivity') <> (c_miles_sum - c_budget_cost_total) THEN
+    RAISE EXCEPTION 'Railway #1: the net operating cash flow budget is not % (inbound - outbound of the operating budget items)', (c_miles_sum - c_budget_cost_total);
+  END IF;
+
   RAISE NOTICE 'Universal1 Railway #1 Seed Successfully Landed with FULL PROJECT AMOUNTS across all documents!';
   RAISE NOTICE 'Project GUID: %', v_project;
   RAISE NOTICE 'Task GUID: %', v_task;
+  RAISE NOTICE 'Net operating cash flow budget (inbound - outbound of the operating budget items): %', (c_miles_sum - c_budget_cost_total);
   RAISE NOTICE 'Full Amounts: PO=%, PR=%, Fact=%, VI=%, CI=%',
     c_vendor_total_sum, c_vendor_total_sum, (c_miles_sum + c_budget_cost_total), c_vendor_total_sum, c_miles_sum;
 END $$;

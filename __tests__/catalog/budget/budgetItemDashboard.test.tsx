@@ -92,6 +92,7 @@ jest.mock('../../../kit8/ui/components/common/SelectorFromApp', () => {
 import PMBudgetItemCRUD from '../../../kit8/catalog/budget/item/PMBudgetItemCRUD';
 import { BUDGET_ITEM_TABLE } from '../../../kit8/catalog/budget/item/budgetItemModel';
 import { MANAGEMENT_GENUS_TABLE } from '../../../kit8/catalog/management/genus/managementGenusModel';
+import { MANAGEMENT_ACTIVITY_GENUS_TABLE } from '../../../kit8/catalog/management/activity_genus/managementActivityGenusModel';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
@@ -105,12 +106,23 @@ const TREE = `${TABLE}-folders`;
 const rowIds = () => qa(`${TABLE}-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${TABLE}-row-`, '')).filter((x) => !x.includes('-'));
 const pickFolder = (id: string) => act(() => { (q(`${TREE}-row-${id}`)!.querySelector('[role="button"]') as HTMLElement).click(); });
 
+/** a text cell is an input: its value; any other cell: its text */
+const textOf = (id: string) => { const el = q(id)!; const input = el.matches('input,textarea') ? el : el.querySelector('input,textarea'); return input ? (input as HTMLInputElement).value : el.textContent; };
+const activityRows = () => ['operatingActivity', 'investingActivity', 'financingActivity'].map((g, i) => ({
+  rowGUID: g, rowOwnerGUID: 'managementActivityGenusCatalog', rowParentGUID: 'empty', orderInList: (i + 1) * 1000, rowJSON: { title: `${g.replace('Activity', '')[0].toUpperCase()}${g.replace('Activity', '').slice(1)} activity` },
+}));
+/** the seed rows with the key and the direction the trigger of PART 32 gives them (the operating key of the genus, the default direction) */
+const keyedRows = (rows: any[] = budgetSeedRows()) => rows.map((r) => (r.rowParentGUID === 'empty' ? r : {
+  ...r, rowJSON: { ...r.rowJSON, budgetItemGenericKey: `operatingActivity.${r.rowJSON.managementGenusItem}`, direction: /^(revenue|inboundPayment)/.test(r.rowJSON.managementGenusItem) ? 'inbound' : 'outbound' },
+}));
+
 function mount(props: { noCrud?: boolean } = {}, rows: any[] = budgetSeedRows(), genus: any[] = genusRows()) {
   mockParams = {};
   mockState = {
     uxuiState: { askBeforeDeletePost: true },
     [BUDGET_ITEM_TABLE.entity]: { entityDataFromServer: rows, readSuccessful: 1 },
     [MANAGEMENT_GENUS_TABLE.entity]: { entityDataFromServer: genus, readSuccessful: 1 },
+    [MANAGEMENT_ACTIVITY_GENUS_TABLE.entity]: { entityDataFromServer: activityRows(), readSuccessful: 1 },
   };
   const el = document.createElement('div');
   document.body.appendChild(el);
@@ -210,5 +222,50 @@ describe('editing is on by default; the lock makes it read-only', () => {
 
 it('no rows: the setup hint names the SQL file', () => {
   mount({}, []);
-  expect(q('budget-item-setup')!.textContent).toContain('create_budget_item_table.sql');
+  expect(q('budget-item-setup')!.textContent).toContain('start2_sql_code.sql');
+});
+
+describe('the activity (key) and the direction of an item', () => {
+  it('the Activity and the Direction of an item are shown; the columns of the tree are there (Web + IFRS, D365 FO, SAP)', () => {
+    const rows = keyedRows();
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.budgetItemGenericKey = 'investingActivity.timeGenus';
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.webIfrsName = '7.16(a) payments to acquire PP&E';
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.d365foName = 'Project of type Investment';
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.sapName = 'WBS settled to an asset under construction';
+    mount({}, rows);
+    expect(q(`${TABLE}-cell-timeBudgetItem-budgetItemGenericKey`)!.textContent).toContain('Investing');
+    expect(q(`${TABLE}-cell-materialBudgetItem-budgetItemGenericKey`)!.textContent).toContain('Operating');
+    expect(q(`${TABLE}-cell-timeBudgetItem-direction`)!.textContent).toContain('Outbound');
+    expect(q(`${TABLE}-cell-revenueBudgetItem-direction`)!.textContent).toContain('Inbound');
+    expect(textOf(`${TABLE}-cell-timeBudgetItem-webIfrsName`)).toContain('7.16(a)');
+    expect(textOf(`${TABLE}-cell-timeBudgetItem-d365foName`)).toContain('Investment');
+    expect(textOf(`${TABLE}-cell-timeBudgetItem-sapName`)).toContain('asset under construction');
+    expect(q('budget-item-no-key')).toBeNull();
+  });
+
+  it('an item without a valid key or direction is reported (a database that did not run start2_sql_code.sql PART 32)', () => {
+    mount();                                                       // the plain seed rows have neither
+    expect(q('budget-item-no-key')!.textContent).toContain('6 budget items without a valid activity or direction');
+    expect(q('budget-item-no-key')!.textContent).toContain('PART 32');
+  });
+
+  it('a reversed direction without the Correction mark is reported, with it it is not', () => {
+    const rows = keyedRows();
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.direction = 'inbound';
+    mount({}, rows);
+    expect(q('budget-item-no-key')!.textContent).toContain('1 budget item without a valid activity or direction');
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    rows.find((r) => r.rowGUID === 'timeBudgetItem').rowJSON.isCorrection = true;
+    mount({}, rows);
+    expect(q('budget-item-no-key')).toBeNull();
+  });
+
+  it('"+" creates an item with the operating key of its genus and the default direction', () => {
+    mount({}, keyedRows());
+    pickFolder('paymentsBudgetFolder');
+    press(`${TABLE}-add`);
+    expect(calls('create', BUDGET_ITEM_TABLE.entity)[0].rowJSON).toEqual(expect.objectContaining({
+      managementGenusItem: 'inboundPaymentGenus', budgetItemGenericKey: 'operatingActivity.inboundPaymentGenus', direction: 'inbound' }));
+  });
 });
