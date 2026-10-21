@@ -22,6 +22,7 @@
          font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
   h1 { font-size: 26px; margin: 0 0 4px; }
+  h3 { font-size: 16px; margin: 22px 0 8px; }
   h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   p { margin: 8px 0; }
   .sub { color: var(--muted); margin-bottom: 20px; }
@@ -292,6 +293,149 @@
     <li><b>5 Navigation</b> – after 4.3 and 4.4.</li>
     <li><b>6 Quality</b> – tests are written together with each package; the acceptance review is last.</li>
   </ol>
+</div>
+
+<h2>12. Implementation status (2026-10-21, app: UNIVERSAL1 expo-app)</h2>
+<div class="callout"><b>Built and tested.</b> SQL: <code>start1_sql_tables.sql</code> + <code>start2_sql_code.sql</code> <b>PART 36</b>, undo in <code>delete_sql_structure.sql</code> PART 1a-0000. App: <code>kit8/documents/timesheet</code> (README there). Docker test <code>kit8/docker/tests/93_timesheet.sql</code> (109 checks); Jest <code>__tests__/documents/timesheet</code>. Real Supabase and a browser were not available: the screens are tested with Jest (fakes for the data and the table), not seen.</div>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Status</th><th>Where</th></tr>
+  <tr><td class="id">2</td><td>Done</td><td>The three tables, the triggers (period rules, work center rule, task / role / budget item / business unit rules, day sum ≤ 24, totals), RLS (read by the organization, RPC writes), realtime, <code>person_ensure_user</code> called by <code>organization_ensure_user</code>, the settings reader (Person → Organization → default), <code>timesheet_create_my_work_center</code>, the RPCs, <code>post_timesheet</code> / <code>unpost_timesheet</code>, <code>create_timesheet_from_task</code>, <code>timesheet_list</code>; <code>monitor01_sum_sources('used')</code> lists the entered hours</td></tr>
+  <tr><td class="id">3</td><td>Done</td><td>Model, API, hooks, redux entity of the list</td></tr>
+  <tr><td class="id">4</td><td>Done, see the differences</td><td>Header, Lines (day columns), Form, List, the period selector (the Monitor01 window is reused, not moved), Task menu items, button Create work center</td></tr>
+  <tr><td class="id">5</td><td>Done</td><td>Routes <code>app/pm/timesheet/form</code>, <code>app/pm/timesheet/list</code>; Drawer → Documents → Time sheets</td></tr>
+  <tr><td class="id">6</td><td>Done</td><td>Jest, Docker, README, <code>KNOW_HOW.md</code></td></tr>
+  <tr><td class="id">3.4</td><td>Done</td><td><code>TabTimesheet</code> in Person edit (section Time sheet) and Organization edit (tab Time sheet); <code>normalizePerson</code> / <code>normalizeOrganization</code> keep the keys</td></tr>
+</table>
+</div>
+
+<h2>13. Differences from the plan (read this)</h2>
+<div class="callout warn">
+  <ol>
+    <li><b>The cost of an hour</b> was first read from the Time line of the task only; the contract / role-rate cost with exchange rates is now in SQL - <b>built, see section 15</b>.</li>
+    <li><b>The lines are a purpose-made grid, not a ReusableTable</b> (every write is an RPC and the columns come from the dates). No sticky left columns: one horizontal scroll. The list is a ReusableTable.</li>
+    <li><b>No realtime for the lines and cells</b> (the form reads them again after each write); the list has realtime through the header entity.</li>
+    <li><b>The 24 hours</b> are checked in the cell (client first, then the database trigger, over the lines of ONE sheet) and, over all the POSTED sheets of the work center, at Post. Two draft sheets of one work center can therefore each hold 24 hours on a day until the second is posted.</li>
+    <li><b>VAT</b> is not carried by the movements (0), as the cost basis of Monitor01 shows net + VAT that is cost.</li>
+    <li><b>Person edit</b> has the switches as a section of the form (not a tab): the form has no tabs. <b>Organization edit</b> has a tab.</li>
+  </ol>
+</div>
+
+<h2>14. Design: the cost of an hour in SQL (planned 2026-10-21 – no code yet)</h2>
+<p class="sub">Goal: a time sheet line whose task has <b>no Time line</b> of that role can be posted, with the same money rules the plan uses. Today (section 13, point 1) Post copies the unit sums of the task’s Time line, or refuses with <code>noRate</code>.</p>
+
+<h3>14.1 How the client costs an hour now (what has to be repeated in SQL)</h3>
+<div class="tbl">
+<table>
+  <tr><th>Step</th><th>Rule in the client</th><th>Where</th></tr>
+  <tr><td class="id">1</td><td><b>Price of one hour, Person:</b> the chosen contract of the person: <code>contractSumBeforeVAT</code> ÷ the working hours of <code>contractPaymentsPeriod</code> (Day 8 · Week 40 · Month 168 · Quarter 504 · Year 2016 · OneTime = no hourly price). In the currency of the contract (<code>contractCurrency</code>).</td><td><code>taskLineContractCost.ts</code></td></tr>
+  <tr><td class="id">2</td><td><b>Price of one hour, Equipment / Partner, or a Person without a usable contract:</b> the <b>rate of the role</b>: <code>rolePriceTable</code> row of the role, first fitting <b>price list</b> (order of the price list catalog; <code>appliesTo</code> empty or contains <code>resourceRoleType</code>), the unit of the role type (<code>baseUnit</code>, else any unit), the row of the chosen variant, else the “all variants” row, the latest <code>validFrom</code> ≤ the day. A role rate has <b>no currency of its own</b>: it is in the project’s contract currency (<code>currencyForContract</code>, else accounting, else budget).</td><td><code>taskLineCatalogs.ts</code> (<code>suggestForLine</code>), <code>resourceRoleCatalogTools.ts</code> (<code>currentRate</code>)</td></tr>
+  <tr><td class="id">3</td><td><b>Sum in the line’s currency</b> = round(qty × price, 2); VAT = round(sum × vat% ÷ 100, 2).</td><td><code>taskLineMoney.ts</code></td></tr>
+  <tr><td class="id">4</td><td><b>Exchange rates</b> into the project’s <code>currencyForAccounting</code> (rate type <code>exchangeRateTypeForAccounting</code>, default <code>Default</code>) and <code>currencyForBudget</code> (type default <code>Budget</code>): pair rate = ratio(to) ÷ ratio(from) through the base currency; the ratio on a day = the row with the latest <code>startingDate</code> ≤ day, of that type; no row = no sum (never another type); rounding to the <code>decimalDigits</code> of the target currency. Rows quoted against another base are re-based. The <b>base currency</b> comes from <code>.env</code> (<code>EXPO_PUBLIC_CURRENCY_RATES_BASE</code>, default EUR).</td><td><code>currencyConvert.ts</code>, <code>taskLineFx.ts</code></td></tr>
+  <tr><td class="id">5</td><td><b>Which day for the rates:</b> the date of the line’s contract (signed, else start; strict), else the task start if it has every rate, else today; saved as a snapshot with the line.</td><td><code>taskLineFx.ts</code></td></tr>
+</table>
+</div>
+
+<h3>14.2 Proposal</h3>
+<div class="card">
+  <ol>
+    <li><b>Order of the sources at Post</b> (per line): <b>(a)</b> the task’s Time line for this work center and role – as now, it gives exactly the plan’s numbers and its snapshot; <b>(b)</b> a Person work center: the contract of its person in force on the day, else the role rate; <b>(c)</b> an Equipment / Partner work center: the role rate. Nothing found = a named problem (14.5), Post refuses.</li>
+    <li><b>The line keeps the price, the money is made per entered cell.</b> The line stores <i>one hour</i> as: source (<code>taskLine</code> | <code>contract</code> | <code>role</code>), price, currency, contract GUID (new columns on <code>project_timesheet_lines</code>, <code>ADD COLUMN IF NOT EXISTS</code> in PART 36; the three <code>unitSum…</code> columns stay for source (a)). For (b) and (c) the exchange rate depends on the <b>day</b>, so the movement of each entered cell is: round(hours × price, 2) in the line’s currency, then converted with the rate of <i>that</i> day into the accounting and the budget currency – the plan’s arithmetic (round, then convert, then round to the decimals of the target).</li>
+    <li><b>The day of the rate = the day worked</b> (recommended: it is a fact, not a plan). Alternative: the plan’s rule (contract date, else task start). The two give different numbers only when the rates move; decision 1 in 14.6.</li>
+    <li><b>Contract in force on the day:</b> <code>contractTable</code> rows with <code>rowOwnerGUID</code> = the base person, <code>rowParentGUID</code> = <code>person</code>, status <code>active</code>, <code>contractStartDate</code> ≤ day and (no <code>contractFinishDate</code> or ≥ day); the latest start wins; a contract whose period has no hourly price (OneTime, no sum) is skipped and the role rate is tried. The contract GUID goes into the movement (<code>contractGUID</code>), as the plan does.</li>
+    <li><b>New SQL functions</b> (PART 36, <code>start2_sql_code.sql</code>), small and each tested alone: <code>fx_base_currency()</code> · <code>fx_ratio_on_day(currency, rate_type, day)</code> and <code>fx_pair_rate(from, to, rate_type, day)</code> (including the re-basing of rows with another <code>rateBase</code>) · <code>fx_convert(amount, from, to, rate_type, day)</code> (rounds to <code>decimalDigits</code>) · <code>contract_hour_price(contract_json)</code> (the table of working hours) · <code>person_contract_on_day(person, day)</code> · <code>role_hour_rate(role, day)</code> (price list, unit, variant, validFrom) · <code>timesheet_hour_price(work center, task, role, day)</code> → source, price, currency, contract. <code>post_timesheet</code> and <code>project_status_register_timesheet</code> call them; the screen shows the price of the first day as “Hour cost” through the same function.</li>
+    <li><b>The project’s currencies</b> are read from <code>project_table.rowJSON</code> (<code>currencyForAccounting</code>, <code>currencyForBudget</code>, <code>currencyForContract</code>, the two rate types). A target currency the project does not have gives 0 in that money column, as the plan (no conversion, no sum); no rate for a configured target = refusal.</li>
+    <li><b>Two implementations are a risk</b> (the TypeScript of the task lines and the SQL). Mitigation: <b>golden cases</b> – one table of inputs and expected numbers (contract per Month in USD, role rate with two validity dates, a missing rate type, a re-based ECB row, rounding at 0 and 3 decimals) checked by a Jest test against the TypeScript functions and by the Docker test against the SQL functions. A change of either side fails one of the two.</li>
+  </ol>
+</div>
+
+<h3>14.3 Work breakdown</h3>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Done when</th></tr>
+  <tr class="group"><td class="id">A</td><td colspan="2">Exchange rates in SQL</td></tr>
+  <tr><td class="id">A.1</td><td><code>fx_base_currency</code>, <code>fx_ratio_on_day</code>, <code>fx_pair_rate</code>, <code>fx_convert</code></td><td>Same results as <code>currencyConvert.ts</code> on the golden cases, including the re-based rows and “no rate = error text”</td></tr>
+  <tr><td class="id">A.2</td><td>The base currency in the database</td><td>Decision 3 in 14.6 made and built</td></tr>
+  <tr class="group"><td class="id">B</td><td colspan="2">Price of an hour</td></tr>
+  <tr><td class="id">B.1</td><td><code>contract_hour_price</code>, <code>person_contract_on_day</code></td><td>Same hour price as <code>contractUnitPrice</code>; the working-hours table is in one place in SQL and a test compares it with the TypeScript constants</td></tr>
+  <tr><td class="id">B.2</td><td><code>role_hour_rate</code></td><td>Same row as <code>currentRate</code> (price list, unit, variant, validity)</td></tr>
+  <tr><td class="id">B.3</td><td><code>timesheet_hour_price</code></td><td>Order (a) → (b) / (c) of 14.2; returns source, price, currency, contract</td></tr>
+  <tr class="group"><td class="id">C</td><td colspan="2">Time sheet</td></tr>
+  <tr><td class="id">C.1</td><td>Columns of the line (source, price, currency, contract); the line trigger fills them; the work center change and the role change clear them</td><td>Docker test: every source; the line shows its price</td></tr>
+  <tr><td class="id">C.2</td><td><code>post_timesheet</code>: the problems <code>noContractRate</code> · <code>noRoleRate</code> · <code>noExchangeRate</code> (with the currency and the day) replace the general <code>noRate</code></td><td>Each is refused with the line and the day; the answer text names the missing piece</td></tr>
+  <tr><td class="id">C.3</td><td><code>project_status_register_timesheet</code>: the money per entered cell with the rate of its day; <code>contractGUID</code> in the movement</td><td>Movements equal hours × price converted; Monitor01 “Used” shows the money</td></tr>
+  <tr class="group"><td class="id">D</td><td colspan="2">Tests and documents</td></tr>
+  <tr><td class="id">D.1</td><td>Golden cases (Jest) + Docker test <code>94_timesheet_cost.sql</code></td><td>Both pass; <code>test_sql.sh</code> still passes (install twice, delete, reinstall)</td></tr>
+  <tr><td class="id">D.2</td><td>README, <code>KNOW_HOW.md</code> (the pitfall about the cost of an hour is replaced), this document sections 12–13</td><td>Written in the same round</td></tr>
+</table>
+</div>
+<p>Order: A → B → C → D. A and B do not depend on each other. Size: about the amount of PART 35 (work center) – the functions are short; most of the work is the golden cases and the tests of the missing-rate paths.</p>
+
+<h3>14.4 What does not change</h3>
+<div class="card">
+  <ul>
+    <li>The hour cells, the 24 hours, the input order, the switches, Create based on / Go to – nothing of the screens changes except that the “Hour cost” column shows the price of the new sources and the refusal texts become more exact.</li>
+    <li>A line that finds a matching Time line keeps today’s behaviour (source (a)); the sheets already posted are not recalculated (Unpost → Post recalculates).</li>
+    <li>The plan, the task line screens and their TypeScript are not touched.</li>
+  </ul>
+</div>
+
+<h3>14.5 Problems Post will name</h3>
+<div class="tbl">
+<table>
+  <tr><th>Problem</th><th>When</th></tr>
+  <tr><td><code>noContractRate</code></td><td>Person work center: no contract in force on the day with an hourly price <i>and</i> no role rate</td></tr>
+  <tr><td><code>noRoleRate</code></td><td>Equipment / Partner work center (or a Person without a usable contract): the role has no rate on the day in any fitting price list</td></tr>
+  <tr><td><code>noExchangeRate</code></td><td>The price currency differs from a configured target currency and there is no rate of the needed type on or before the day (“No Budget exchange rate of USD on or before 2026-10-05”)</td></tr>
+  <tr><td><code>noRate</code></td><td>kept only for a role that has no price in any source (a catalog problem)</td></tr>
+</table>
+</div>
+
+<h3>14.6 Decisions needed before building</h3>
+<div class="callout warn">
+  <ol>
+    <li><b>Day of the exchange rate.</b> Recommended: the <b>day worked</b>. Alternative: the plan’s rule (contract date, else task start, else today), which makes the fact comparable with the plan to the cent.</li>
+    <li><b>Keep source (a)</b> (the task’s Time line first)? Recommended yes: for a planned task the sheet then costs exactly what the plan says. Without it a planned task is costed by the contract / rate of the day instead.</li>
+    <li><b>Base currency of the rate book.</b> It is a client setting today (<code>.env</code>). Recommended: a key <code>baseCurrency</code> in <code>organizationTable.rowJSON</code> (default EUR) read by <code>fx_base_currency()</code>, and the client keeps its <code>.env</code> (a note in the README that they must agree). Alternative: a constant EUR in SQL.</li>
+    <li><b>Currency of a role rate</b> = the project’s contract currency (as the client). Confirm.</li>
+    <li><b>VAT.</b> Recommended: still not carried (0). Carrying it needs the recoverable share of a Time cost, which the plan takes from the role / contract VAT; it can be added as a second step.</li>
+    <li><b>Several contracts in force on one day:</b> the latest <code>contractStartDate</code> wins (recommended); alternatively Post refuses and asks to fix the contracts.</li>
+  </ol>
+</div>
+
+<h2>15. Implementation status of section 14 and later requests (2026-10-21)</h2>
+<div class="callout"><b>Built and tested.</b> Docker <code>tests/94_timesheet_cost.sql</code> (67 checks, with the golden cases), <code>tests/93_timesheet.sql</code> (125 checks), the whole SQL suite; Jest <code>timesheetCostGolden.test.ts</code> and the other suites of <code>__tests__/documents/timesheet</code>. The decisions of 14.6 were all accepted as recommended. Real Supabase and a browser were not available.</div>
+<div class="tbl">
+<table>
+  <tr><th>WBS (14.3)</th><th>Status</th><th>Where</th></tr>
+  <tr><td class="id">A.1</td><td>Done</td><td><code>fx_base_currency</code>, <code>fx_ratio_on_day</code> (incl. re-based rows), <code>fx_pair_rate</code>, <code>fx_miss_text</code>, <code>fx_convert</code> in PART 36 of <code>start2_sql_code.sql</code></td></tr>
+  <tr><td class="id">A.2</td><td>Done</td><td>Key <code>baseCurrency</code> in <code>organizationTable.rowJSON</code> (default EUR); input in Organization edit → Time sheet; kept by <code>normalizeOrganization</code></td></tr>
+  <tr><td class="id">B.1 / B.2 / B.3</td><td>Done</td><td><code>contract_hour_price</code>, <code>person_contract_on_day</code>, <code>role_hour_rate</code>, <code>timesheet_hour_price</code></td></tr>
+  <tr><td class="id">C.1</td><td>Done</td><td>Line columns <code>rateSource</code>, <code>unitPrice</code>, <code>unitPriceCurrency</code>, <code>unitPriceContract</code> (<code>start1_sql_tables.sql</code>); the column “Hour cost” shows the price with its currency</td></tr>
+  <tr><td class="id">C.2</td><td>Done</td><td>Problems <code>noContractRate</code>, <code>noRoleRate</code>, <code>noExchangeRate</code> (+ <code>detail</code>) per line and day; <code>noRate</code> is no longer sent</td></tr>
+  <tr><td class="id">C.3</td><td>Done</td><td><code>timesheet_cell_money</code> used by Post and by <code>project_status_register_timesheet</code> (money per cell with the rate of its day, contract GUID in the movement)</td></tr>
+  <tr><td class="id">D.1 / D.2</td><td>Done</td><td>Golden cases in both tests; README, <code>KNOW_HOW.md</code></td></tr>
+</table>
+</div>
+<div class="callout warn">
+  <b>Points to know.</b>
+  <ol>
+    <li>The price on a line (“Hour cost”) is the price of the <b>start date</b> of the sheet; Post prices each cell with its own day. The price of the contract is rounded to 2 decimals per hour, as the client does.</li>
+    <li>The SQL cannot read <code>.env</code>: the base currency of the rate book is the organization key (default EUR) and must equal <code>EXPO_PUBLIC_CURRENCY_RATES_BASE</code>.</li>
+    <li>Two implementations of one rule (the TypeScript of the task lines and the SQL) stay equal through the golden cases; a rate row quoted against another base is re-based in both. Two rows of one currency, day and type but different base cannot exist (the table key), so that tie is not tested.</li>
+    <li>VAT of the hour is still not carried.</li>
+  </ol>
+</div>
+
+<h2>16. Requests made while building (2026-10-21)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Request</th><th>What was done</th></tr>
+  <tr><td><b>Create based on from a LINE of the time table</b> → open the new sheet filled as far as that line allows</td><td>From the line menu of a Time line the new sheet gets the <b>work center the line books</b> (a work center line, or - an old person / equipment line - the work center whose base it is; used only when the user may pick it by the switch, else his own), and the line’s <b>role, budget item and business unit</b> (each only when it is possible for the task and the work center). The hours stay empty: they are facts, not the plan. From the Task menu nothing changes. <code>create_timesheet_from_task(task, task line)</code>; Docker test 93.</td></tr>
+  <tr><td><b>Header: centre vertically, one height</b></td><td>Every element of the header row (document, organization, work center select without a label above, Create work center button, dates, period selector, quick choices, hours) is one 44 px cell centred vertically.</td></tr>
+  <tr><td><b>Context menu for the lines</b></td><td>Right click (web), long press (phone) or the ⋮ button of a line: <b>Add line below / above</b>, <b>Duplicate (project and task)</b> (a copy of the role would break the unique key), <b>Move up / down</b>, <b>Make first / last</b>, <b>Copy GUID</b>, <b>Delete</b>; a posted sheet only Copy GUID. RPCs <code>timesheet_insert_line</code> and <code>timesheet_move_line</code>. While testing it appeared that two unfinished lines could not exist (one unique key for empty lines): the key is now a partial index for <b>complete</b> lines only (<code>idx_project_timesheet_lines_key2</code>).</td></tr>
+  <tr><td><b>Toolbar of every table of the Finances view</b> (<code>PMProjectTaskInputCRUD</code>): two icons after the Recalculate icon</td><td><b>Create based on</b> and <b>Go to</b> (on every genus tab, also without currency conversion): a menu under the icon with the items of the Task menu (Fact input, Vendor / Customer invoice, Purchase order, <b>Time sheet</b>, Subproject … / the document lists, <b>Time sheets</b>). With exactly one line checked the items are those of the LINE menu for that line (a Time line gives the filled time sheet of section 16, first request); otherwise they are those of the task.</td></tr>
+</table>
 </div>
 
 </main>

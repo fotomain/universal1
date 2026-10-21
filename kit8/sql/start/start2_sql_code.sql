@@ -40,6 +40,7 @@
 --   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 --   35. create_work_center.sql - WORK CENTER: workCenterTable (a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + work_center_copy_variant_settings + the kind 'workCenter' of a Time line (the capacity branches live in PARTs 21 / 23)
+--   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header / _lines / _lines_data_entered, Post writes the entered hours as 'used' movements; the Person of every user; the settings per Person
 -- ===============================================================================================
 
 DO $$
@@ -4221,6 +4222,10 @@ BEGIN
       UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'accepted', 'decidedAt', now()) WHERE "rowGUID" = v_inv;
     END IF;
   END IF;
+  -- (time sheet, PART 36) every user is a Person too (linked by e-mail); the function exists only once PART 36 is installed
+  IF to_regprocedure('public.person_ensure_user(text,text,text)') IS NOT NULL THEN
+    PERFORM public.person_ensure_user(v_email, COALESCE(NULLIF(p_first_name, ''), v_user."rowJSON"->>'firstName'), COALESCE(NULLIF(p_last_name, ''), v_user."rowJSON"->>'secondName'));
+  END IF;
   RETURN jsonb_build_object('userGUID', v_guid, 'organizationGUID', v_org,
                             'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
 END;
@@ -6232,6 +6237,7 @@ BEGIN
       INTO v_count, v_sum, v_rows;
   ELSIF p_measure IN ('fact', 'used') THEN
     WITH src AS (
+     SELECT * FROM (
       SELECT x."rowGUID"::text AS "rowGUID", 'taskFactUsageTimeline'::text AS "sourceName", x."periodDay" AS "day", x."rowOwnerGUID"::text AS "taskGUID", x."rowProjectGUID"::text AS "projectGUID",
              x."taskLineGUID"::text AS "lineGUID", x."rowHeaderGUID"::text AS "documentGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
              x."genusGUID", COALESCE(x."rowJSON"->>'resourceRoleItem', '') AS "roleGUID", COALESCE(x."rowJSON"->>'measureUnitTaskLine', '') AS "unit", x."qtyForContract" AS "qty"
@@ -6247,6 +6253,23 @@ BEGIN
          AND (NOT f ? 'month'       OR date_trunc('month', x."periodDay")::date = (f->>'month')::date)
          AND (NOT f ? 'fromMonth'   OR date_trunc('month', x."periodDay")::date >= (f->>'fromMonth')::date)
          AND (NOT f ? 'toMonth'     OR date_trunc('month', x."periodDay")::date <= (f->>'toMonth')::date)
+      UNION ALL
+      -- (time sheet, PART 36) the entered hours of the POSTED time sheets (one row = one cell of a line)
+      SELECT x."rowGUID"::text, 'projectTimesheetLinesDataEntered'::text, x."timesheetDay", l."timesheetLineTask"::text, l."timesheetLineProject"::text,
+             NULL::text, x."rowHeaderGUID"::text, h."rowJSON"->'documentHeader'->>'documentNumber', 'timeGenus'::text, COALESCE(l."timesheetLineRole", ''), 'unit_hour'::text, x."timesheetHours"
+        FROM public.project_timesheet_lines_data_entered x JOIN public.project_timesheet_lines l ON l."rowGUID" = x."rowLineGUID" JOIN public.project_timesheet_header h ON h."rowGUID" = x."rowHeaderGUID"
+       WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+         AND (NOT f ? 'projectGUID' OR l."timesheetLineProject" = (f->>'projectGUID')::uuid)
+         AND (NOT f ? 'taskGUID'    OR l."timesheetLineTask"   = (f->>'taskGUID')::uuid OR public.subproject_drill_match(f->>'taskGUID', l."timesheetLineTask", 'timeGenus'))
+         AND (NOT f ? 'taskGUIDs'   OR l."timesheetLineTask"::text IN (SELECT jsonb_array_elements_text(f->'taskGUIDs')))
+         AND (NOT f ? 'genusGUID'   OR f->>'genusGUID' = 'timeGenus')
+         AND (NOT f ? 'roleGUID'    OR COALESCE(l."timesheetLineRole", '') = f->>'roleGUID')
+         AND (NOT f ? 'roleGUIDs'   OR COALESCE(l."timesheetLineRole", '') IN (SELECT jsonb_array_elements_text(f->'roleGUIDs')))
+         AND (NOT f ? 'unit'        OR f->>'unit' = 'unit_hour')
+         AND (NOT f ? 'month'       OR date_trunc('month', x."timesheetDay")::date = (f->>'month')::date)
+         AND (NOT f ? 'fromMonth'   OR date_trunc('month', x."timesheetDay")::date >= (f->>'fromMonth')::date)
+         AND (NOT f ? 'toMonth'     OR date_trunc('month', x."timesheetDay")::date <= (f->>'toMonth')::date)
+     ) u
     ), pg AS (SELECT * FROM src ORDER BY "day" DESC, "rowGUID" LIMIT p_limit OFFSET p_offset),
        pgn AS (SELECT pg.*, t."rowJSON"->>'taskDescription' AS "taskName", r."rowJSON"->>'title' AS "roleName"
                  FROM pg LEFT JOIN public.project_task_table t ON t."rowGUID" = pg."taskGUID"::uuid
@@ -11128,6 +11151,1250 @@ END $$;
 
 
 NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 36: create_timesheet.sql
+-- the TIME SHEET document (documentation/TIME_SHEET_WBS.html): a work center reports its hours on projects / tasks for a period; Draft -> Post writes 'used' movements into the project status register (Monitor01 "Used").
+--   project_timesheet_header / project_timesheet_lines / project_timesheet_lines_data_entered (one row per ENTERED cell = the base of Post)
+-- Also here: the Person of every user (person_ensure_user, called by organization_ensure_user), the settings timesheetAllWorkCenterInputAvailable / timesheetOnlyCurrentMonthInputEnabled
+-- (Person -> Organization -> built-in default), "Create work center" for the Person of the user, "Create based on" a task.
+-- The app: kit8/documents/timesheet. Rows are written ONLY by the RPCs below (the client has SELECT and the delete of a draft).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_timesheet_header') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 36 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_header_touch ON public.project_timesheet_header;
+CREATE TRIGGER trg_project_timesheet_header_touch BEFORE UPDATE ON public.project_timesheet_header FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_lines_touch ON public.project_timesheet_lines;
+CREATE TRIGGER trg_project_timesheet_lines_touch BEFORE UPDATE ON public.project_timesheet_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_data_entered_touch ON public.project_timesheet_lines_data_entered;
+CREATE TRIGGER trg_project_timesheet_data_entered_touch BEFORE UPDATE ON public.project_timesheet_lines_data_entered FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- ---- the Person of a user: linked by e-mail (personTable.rowJSON.personEmail). Made at login when none exists; an existing one is never changed or duplicated -----------------------------
+CREATE OR REPLACE FUNCTION public.person_ensure_user(p_email text, p_first_name text DEFAULT NULL, p_last_name text DEFAULT NULL) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(btrim(COALESCE(p_email, '')));
+  v_guid  text;
+BEGIN
+  IF v_email = '' THEN RETURN NULL; END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('person_ensure_user:' || v_email));
+  SELECT p."rowGUID" INTO v_guid FROM public."personTable" p WHERE lower(btrim(COALESCE(p."rowJSON"->>'personEmail', ''))) = v_email ORDER BY p."created_at", p."rowGUID" LIMIT 1;
+  IF v_guid IS NOT NULL THEN RETURN v_guid; END IF;
+  INSERT INTO public."personTable" ("rowJSON")
+  VALUES (jsonb_build_object('personFirstName', COALESCE(NULLIF(btrim(p_first_name), ''), split_part(v_email, '@', 1)), 'personLastName', COALESCE(btrim(p_last_name), ''),
+                             'personEmail', v_email, 'isActive', true))
+  RETURNING "rowGUID" INTO v_guid;
+  RETURN v_guid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.person_ensure_user(text, text, text) FROM PUBLIC, anon, authenticated;
+
+
+-- the Person of the signed-in user (NULL = none / not signed in)
+CREATE OR REPLACE FUNCTION public.timesheet_user_person() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT p."rowGUID" FROM public."personTable" p
+   WHERE lower(btrim(COALESCE(p."rowJSON"->>'personEmail', ''))) = lower(COALESCE(auth.jwt()->>'email', '#')) ORDER BY p."created_at", p."rowGUID" LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_user_person() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_user_person() TO authenticated;
+
+-- a setting of the time sheet: the Person's own value, else the Organization's (NULL = neither stored: the caller takes the built-in default)
+CREATE OR REPLACE FUNCTION public.timesheet_setting(p_person text, p_key text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(
+    (SELECT NULLIF(p."rowJSON"->>p_key, '') FROM public."personTable" p WHERE p."rowGUID" = p_person),
+    (SELECT NULLIF(o."rowJSON"->>p_key, '') FROM public."organizationTable" o WHERE o."rowGUID" = public.organization_of_current_user()))
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_setting(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_setting(text, text) TO authenticated;
+
+-- timesheetAllWorkCenterInputAvailable: false unless stored true;  timesheetOnlyCurrentMonthInputEnabled: true unless stored false (opposite built-in defaults)
+CREATE OR REPLACE FUNCTION public.timesheet_all_work_centers() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(public.timesheet_setting(public.timesheet_user_person(), 'timesheetAllWorkCenterInputAvailable'), 'false') = 'true'
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_only_current_month() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(public.timesheet_setting(public.timesheet_user_person(), 'timesheetOnlyCurrentMonthInputEnabled'), 'true') <> 'false'
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_all_work_centers() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_only_current_month() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_all_work_centers() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_only_current_month() TO authenticated;
+
+-- the work center of kind Person whose base is the Person of the signed-in user (NULL = none)
+CREATE OR REPLACE FUNCTION public.timesheet_my_work_center() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT w."rowGUID" FROM public."workCenterTable" w
+   WHERE w."rowJSON"->>'workCenterKind' = 'person' AND w."rowJSON"->>'workCenterBase' = public.timesheet_user_person() LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_my_work_center() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_my_work_center() TO authenticated;
+
+-- may the signed-in user pick this work center? (switch off: only his own Person work center; on: any work center). A session without a user (the SQL editor) may pick any.
+CREATE OR REPLACE FUNCTION public.timesheet_work_center_allowed(p_wc text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN p_wc IS NULL THEN true
+              WHEN NOT EXISTS (SELECT 1 FROM public."workCenterTable" w WHERE w."rowGUID" = p_wc) THEN false
+              WHEN public.app_user_guid() IS NULL THEN true
+              WHEN public.timesheet_all_work_centers() THEN true
+              ELSE p_wc = public.timesheet_my_work_center() END
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_work_center_allowed(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_work_center_allowed(text) TO authenticated;
+
+
+-- may this SHEET have this work center? the user's rule (timesheet_work_center_allowed), or the sheet was made from a Time line that books it
+CREATE OR REPLACE FUNCTION public.timesheet_header_wc_allowed(p_wc text, p_json jsonb) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(public.timesheet_work_center_allowed(p_wc), false) OR COALESCE(p_wc IS NOT NULL AND p_json->'documentHeader'->>'workCenterFromLine' = p_wc, false)
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_header_wc_allowed(text, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_header_wc_allowed(text, jsonb) TO authenticated;
+
+-- "Create work center": the work center of the Person of the user. { status: created | exists | noPerson | needsBusinessUnit }
+CREATE OR REPLACE FUNCTION public.timesheet_create_my_work_center(p_business_unit text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_person text := public.timesheet_user_person();
+  v_unit text; v_n integer; v_wc text;
+BEGIN
+  IF public.app_user_guid() IS NULL THEN RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501'; END IF;
+  IF v_person IS NULL THEN RETURN jsonb_build_object('status', 'noPerson'); END IF;
+  v_wc := public.timesheet_my_work_center();
+  IF v_wc IS NOT NULL THEN RETURN jsonb_build_object('status', 'exists', 'workCenter', v_wc); END IF;
+  v_unit := NULLIF(btrim(COALESCE(p_business_unit, '')), '');
+  IF v_unit IS NULL THEN
+    SELECT NULLIF(p."rowJSON"->>'businessUnitAssigned', '') INTO v_unit FROM public."personTable" p WHERE p."rowGUID" = v_person;
+  END IF;
+  IF v_unit IS NULL THEN
+    SELECT count(*) INTO v_n FROM public."businessUnitTable";
+    IF v_n = 1 THEN SELECT b."rowGUID" INTO v_unit FROM public."businessUnitTable" b LIMIT 1; END IF;
+  END IF;
+  IF v_unit IS NULL OR NOT EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = v_unit) THEN
+    RETURN jsonb_build_object('status', 'needsBusinessUnit');
+  END IF;
+  INSERT INTO public."workCenterTable" ("rowParentGUID", "rowJSON")
+  VALUES (v_unit, jsonb_build_object('workCenterKind', 'person', 'workCenterBase', v_person, 'businessUnit', v_unit))
+  RETURNING "rowGUID" INTO v_wc;
+  RETURN jsonb_build_object('status', 'created', 'workCenter', v_wc);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_create_my_work_center(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_create_my_work_center(text) TO authenticated;
+
+
+-- ---- the state of a sheet for the policies: 'draft' | 'posted' (NULL = no such sheet in MY organization) ------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.timesheet_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted' ELSE 'draft' END
+    FROM public.project_timesheet_header h WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_state(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_state(uuid) TO authenticated;
+
+
+-- ---- what a task offers a work center -------------------------------------------------------------------------------------------------------------------------------------
+-- does a Time line (its rowJSON) book this work center? (the work center itself, or - an old line - its base person / equipment)
+CREATE OR REPLACE FUNCTION public.timesheet_line_books(p_json jsonb, p_wc text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT COALESCE((
+    SELECT CASE COALESCE(p_json->>'taskResourceKind', 'person')
+             WHEN 'workCenter' THEN p_json->>'taskResourceItem' = w."rowGUID"
+             WHEN 'person'     THEN w."rowJSON"->>'workCenterKind' = 'person'    AND p_json->>'taskResourceItem' = w."rowJSON"->>'workCenterBase'
+             WHEN 'equipment'  THEN w."rowJSON"->>'workCenterKind' = 'equipment' AND p_json->>'taskResourceItem' = w."rowJSON"->>'workCenterBase'
+             ELSE false END
+      FROM public."workCenterTable" w WHERE w."rowGUID" = p_wc), false)
+$$;
+
+-- the worker kind of a Time line for the rules: person | equipment (a work center follows its BASE: Person = person, Equipment and Partner = equipment)
+CREATE OR REPLACE FUNCTION public.timesheet_line_worker_kind(p_json jsonb) RETURNS text
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT CASE COALESCE(p_json->>'taskResourceKind', 'person')
+           WHEN 'equipment'  THEN 'equipment'
+           WHEN 'workCenter' THEN COALESCE((SELECT CASE WHEN w."rowJSON"->>'workCenterKind' = 'person' THEN 'person' ELSE 'equipment' END FROM public."workCenterTable" w WHERE w."rowGUID" = p_json->>'taskResourceItem'), 'equipment')
+           ELSE 'person' END
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_wc_worker_kind(p_wc text) RETURNS text
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT CASE WHEN w."rowJSON"->>'workCenterKind' = 'person' THEN 'person' ELSE 'equipment' END FROM public."workCenterTable" w WHERE w."rowGUID" = p_wc
+$$;
+
+-- the roles a line of this task may book for this work center: the Time roles of the task's Time lines that fit the worker kind; when the task has none, ALL Time roles of that kind
+CREATE OR REPLACE FUNCTION public.timesheet_possible_roles(p_task uuid, p_wc text) RETURNS SETOF text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := public.timesheet_wc_worker_kind(p_wc);
+  v_n integer;
+BEGIN
+  IF v_kind IS NULL THEN RETURN; END IF;
+  SELECT count(*) INTO v_n FROM public.task_line_table l
+    JOIN public."resourceRoleTable" r ON r."rowGUID" = l."rowJSON"->>'resourceRoleItem'
+    JOIN public."resourceRoleTypeTable" t ON t."rowGUID" = r."rowOwnerGUID"
+   WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND t."rowJSON"->>'managementGenus' = 'timeGenus' AND COALESCE(t."rowJSON"->>'resourceKind', 'person') = v_kind;
+  IF v_n > 0 THEN
+    RETURN QUERY SELECT DISTINCT r."rowGUID" FROM public.task_line_table l
+      JOIN public."resourceRoleTable" r ON r."rowGUID" = l."rowJSON"->>'resourceRoleItem'
+      JOIN public."resourceRoleTypeTable" t ON t."rowGUID" = r."rowOwnerGUID"
+     WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND t."rowJSON"->>'managementGenus' = 'timeGenus' AND COALESCE(t."rowJSON"->>'resourceKind', 'person') = v_kind;
+  ELSE
+    RETURN QUERY SELECT r."rowGUID" FROM public."resourceRoleTable" r JOIN public."resourceRoleTypeTable" t ON t."rowGUID" = r."rowOwnerGUID"
+     WHERE t."rowJSON"->>'managementGenus' = 'timeGenus' AND COALESCE(t."rowJSON"->>'resourceKind', 'person') = v_kind;
+  END IF;
+END;
+$$;
+
+-- the budget items for a role on a task: those of the task's Time lines with that role; none -> the Time budget items (level 2 items of the genus) the catalog has
+CREATE OR REPLACE FUNCTION public.timesheet_possible_budget_items(p_task uuid, p_role text) RETURNS SETOF text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_n integer;
+BEGIN
+  SELECT count(*) INTO v_n FROM public.task_line_table l
+   WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'resourceRoleItem' = p_role AND NULLIF(l."rowJSON"->>'budgetItemTaskLine', '') IS NOT NULL;
+  IF v_n > 0 THEN
+    RETURN QUERY SELECT DISTINCT l."rowJSON"->>'budgetItemTaskLine' FROM public.task_line_table l
+     WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'resourceRoleItem' = p_role AND NULLIF(l."rowJSON"->>'budgetItemTaskLine', '') IS NOT NULL;
+  ELSE
+    RETURN QUERY SELECT b."rowGUID" FROM public."budgetItemTable" b WHERE b."rowParentGUID" <> 'empty' AND b."rowJSON"->>'managementGenusItem' = 'timeGenus';
+  END IF;
+END;
+$$;
+
+-- the business units a line may choose: ONLY those of the task's Time lines that book this work center (none = the cell is closed and the unit of the work center counts)
+CREATE OR REPLACE FUNCTION public.timesheet_possible_business_units(p_task uuid, p_wc text) RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT DISTINCT l."rowJSON"->>'businessUnitTaskLine' FROM public.task_line_table l
+   WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND NULLIF(l."rowJSON"->>'businessUnitTaskLine', '') IS NOT NULL AND public.timesheet_line_books(l."rowJSON", p_wc)
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_possible_roles(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_possible_budget_items(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_possible_business_units(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_possible_roles(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_possible_budget_items(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_possible_business_units(uuid, text) TO authenticated;
+
+-- the cost of ONE hour: from the Time line of the task that books this work center with this role (the unit sums of the plan, in the three currencies of the line). A work center that is not
+-- a person may also take the rate of another equipment Time line with the same role (the rate is the role's). No such line = no rate (Post refuses). o_budget NULL = no rate.
+CREATE OR REPLACE FUNCTION public.timesheet_line_rate(p_wc text, p_task uuid, p_role text) RETURNS TABLE (o_budget numeric, o_contract numeric, o_accounting numeric)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := public.timesheet_wc_worker_kind(p_wc);
+  r record;
+  v_qty numeric;
+BEGIN
+  IF v_kind IS NULL OR p_task IS NULL OR p_role IS NULL THEN RETURN; END IF;
+  SELECT l."rowJSON" AS j INTO r FROM public.task_line_table l
+   WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'resourceRoleItem' = p_role
+     AND jsonb_typeof(l."rowJSON"->'qtyTaskLine') = 'number' AND (l."rowJSON"->>'qtyTaskLine')::numeric > 0 AND jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number'
+     AND (public.timesheet_line_books(l."rowJSON", p_wc) OR (v_kind = 'equipment' AND public.timesheet_line_worker_kind(l."rowJSON") = 'equipment'))
+   ORDER BY public.timesheet_line_books(l."rowJSON", p_wc) DESC, l."created_at", l."rowGUID" LIMIT 1;
+  IF NOT FOUND THEN RETURN; END IF;
+  v_qty := (r.j->>'qtyTaskLine')::numeric;
+  o_budget := (r.j->>'sumForBudget')::numeric / v_qty;
+  o_contract := CASE WHEN jsonb_typeof(r.j->'sumForContract') = 'number' THEN (r.j->>'sumForContract')::numeric / v_qty END;
+  o_accounting := CASE WHEN jsonb_typeof(r.j->'sumForAccounting') = 'number' THEN (r.j->>'sumForAccounting')::numeric / v_qty END;
+  RETURN NEXT;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_line_rate(text, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_line_rate(text, uuid, text) TO authenticated;
+
+
+-- ---- the cost of an hour in SQL (documentation/TIME_SHEET_WBS.html section 14) ---------------------------------------------------------------------------------------------------------
+-- A port of kit8/catalog/currency/exchange/currencyConvert.ts (exchange rates), kit8/pm/view/task/finances/taskLineContractCost.ts (the hour price of a contract) and currentRate (the rate of a role). The
+-- numbers must stay equal to the TypeScript: the golden cases are checked by __tests__/documents/timesheet/timesheetCostGolden.test.ts and by kit8/docker/tests/94_timesheet_cost.sql.
+
+-- the base currency of the rate book: organizationTable.rowJSON.baseCurrency, else EUR (the client reads EXPO_PUBLIC_CURRENCY_RATES_BASE: the two must agree)
+CREATE OR REPLACE FUNCTION public.fx_base_currency() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(NULLIF(upper(btrim((SELECT o."rowJSON"->>'baseCurrency' FROM public."organizationTable" o WHERE o."rowGUID" = public.organization_of_current_user()))), ''), 'EUR')
+$$;
+
+-- the ratio of ONE currency against the base on a day (units of the currency for 1 base): the row with the latest startingDate <= day, of that type; rows quoted against ANOTHER base are re-based
+-- (ratio_base(X) = ratio_other(X) / ratio_other(base); the other base itself = 1 / ratio_other(base)); a row quoted against the base wins over a re-based one of the same day. No row = no result.
+CREATE OR REPLACE FUNCTION public.fx_ratio_on_day(p_code text, p_type text, p_day date) RETURNS TABLE (o_ratio numeric, o_day date)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  c text := upper(btrim(COALESCE(p_code, '')));
+  t text := COALESCE(NULLIF(btrim(p_type), ''), 'Default');
+  b text := public.fx_base_currency();
+  v_guid text; v_base_guid text;
+  n_ratio numeric; n_day date;
+  d_ratio numeric; d_day date;
+  r text; rx record; rb record;
+BEGIN
+  IF c = '' THEN RETURN; END IF;
+  IF c = b THEN o_ratio := 1; o_day := p_day; RETURN NEXT; RETURN; END IF;
+  SELECT x."rowGUID" INTO v_guid FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = c;
+  IF v_guid IS NULL THEN RETURN; END IF;
+  SELECT x."rowGUID" INTO v_base_guid FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = b;
+  -- rows quoted against the base
+  SELECT (x."rowJSON"->>'currencyRatio')::numeric, (x."rowJSON"->>'startingDate')::date INTO n_ratio, n_day
+    FROM public."currencyExchangeRateTable" x
+   WHERE x."rowOwnerGUID" = v_guid AND COALESCE(NULLIF(x."rowJSON"->>'rateType', ''), 'Default') = t
+     AND COALESCE(NULLIF(upper(x."rowJSON"->>'rateBase'), ''), b) = b AND (x."rowJSON"->>'startingDate')::date <= p_day AND (x."rowJSON"->>'currencyRatio')::numeric > 0
+   ORDER BY (x."rowJSON"->>'startingDate')::date DESC LIMIT 1;
+  -- rows quoted against another base R (the first R that gives a result)
+  IF v_base_guid IS NOT NULL THEN
+    FOR r IN SELECT DISTINCT upper(x."rowJSON"->>'rateBase') FROM public."currencyExchangeRateTable" x
+              WHERE COALESCE(NULLIF(x."rowJSON"->>'rateType', ''), 'Default') = t AND NULLIF(x."rowJSON"->>'rateBase', '') IS NOT NULL AND upper(x."rowJSON"->>'rateBase') <> b ORDER BY 1 LOOP
+      SELECT (x."rowJSON"->>'currencyRatio')::numeric AS ratio, (x."rowJSON"->>'startingDate')::date AS day INTO rb
+        FROM public."currencyExchangeRateTable" x
+       WHERE x."rowOwnerGUID" = v_base_guid AND COALESCE(NULLIF(x."rowJSON"->>'rateType', ''), 'Default') = t AND upper(x."rowJSON"->>'rateBase') = r
+         AND (x."rowJSON"->>'startingDate')::date <= p_day AND (x."rowJSON"->>'currencyRatio')::numeric > 0
+       ORDER BY (x."rowJSON"->>'startingDate')::date DESC LIMIT 1;
+      IF rb.ratio IS NULL THEN CONTINUE; END IF;
+      IF c = r THEN
+        d_ratio := 1 / rb.ratio; d_day := rb.day; EXIT;
+      END IF;
+      SELECT (x."rowJSON"->>'currencyRatio')::numeric AS ratio, (x."rowJSON"->>'startingDate')::date AS day INTO rx
+        FROM public."currencyExchangeRateTable" x
+       WHERE x."rowOwnerGUID" = v_guid AND COALESCE(NULLIF(x."rowJSON"->>'rateType', ''), 'Default') = t AND upper(x."rowJSON"->>'rateBase') = r
+         AND (x."rowJSON"->>'startingDate')::date <= p_day AND (x."rowJSON"->>'currencyRatio')::numeric > 0
+       ORDER BY (x."rowJSON"->>'startingDate')::date DESC LIMIT 1;
+      IF rx.ratio IS NOT NULL THEN
+        d_ratio := rx.ratio / rb.ratio; d_day := GREATEST(rx.day, rb.day); EXIT;
+      END IF;
+    END LOOP;
+  END IF;
+  IF n_ratio IS NOT NULL AND (d_ratio IS NULL OR n_day >= d_day) THEN o_ratio := n_ratio; o_day := n_day; RETURN NEXT;
+  ELSIF d_ratio IS NOT NULL THEN o_ratio := d_ratio; o_day := d_day; RETURN NEXT;
+  END IF;
+END;
+$$;
+
+-- units of `to` for ONE unit of `from` on a day (same currency = 1); NULL = no rate / unknown currency (fx_miss_text says which)
+CREATE OR REPLACE FUNCTION public.fx_pair_rate(p_from text, p_to text, p_type text, p_day date) RETURNS numeric
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE f text := upper(btrim(COALESCE(p_from, ''))); t text := upper(btrim(COALESCE(p_to, ''))); a numeric; b numeric;
+BEGIN
+  IF f <> '' AND f = t THEN RETURN 1; END IF;
+  SELECT x.o_ratio INTO a FROM public.fx_ratio_on_day(f, p_type, p_day) x;
+  IF a IS NULL THEN RETURN NULL; END IF;
+  SELECT x.o_ratio INTO b FROM public.fx_ratio_on_day(t, p_type, p_day) x;
+  IF b IS NULL THEN RETURN NULL; END IF;
+  RETURN b / a;
+END;
+$$;
+
+-- the message of a miss, as kit8/catalog/currency/exchange/currencyConvert.ts rateMissMessage: 'No Budget exchange rate of USD on or before 2026-10-05' | 'Currency XXX is not in the currency catalog'
+CREATE OR REPLACE FUNCTION public.fx_miss_text(p_from text, p_to text, p_type text, p_day date) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE c text; t text := COALESCE(NULLIF(btrim(p_type), ''), 'Default'); b text := public.fx_base_currency();
+BEGIN
+  FOREACH c IN ARRAY ARRAY[upper(btrim(COALESCE(p_from, ''))), upper(btrim(COALESCE(p_to, '')))] LOOP
+    IF c = '' OR (c <> b AND NOT EXISTS (SELECT 1 FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = c)) THEN
+      RETURN 'Currency ' || COALESCE(NULLIF(c, ''), '?') || ' is not in the currency catalog';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.fx_ratio_on_day(c, t, p_day)) THEN
+      RETURN 'No ' || t || ' exchange rate of ' || c || ' on or before ' || p_day::text;
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+-- amount x the pair rate of the day, rounded to the decimals of the target currency (decimalDigits 0..6, else 2); NULL = no rate
+CREATE OR REPLACE FUNCTION public.fx_convert(p_amount numeric, p_from text, p_to text, p_type text, p_day date) RETURNS numeric
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_rate numeric; v_dec integer;
+BEGIN
+  v_rate := public.fx_pair_rate(p_from, p_to, p_type, p_day);
+  IF v_rate IS NULL THEN RETURN NULL; END IF;
+  SELECT CASE WHEN (x."rowJSON"->>'decimalDigits') ~ '^[0-6]$' THEN (x."rowJSON"->>'decimalDigits')::integer ELSE 2 END INTO v_dec
+    FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = upper(btrim(COALESCE(p_to, '')));
+  RETURN round(p_amount * v_rate, COALESCE(v_dec, 2));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fx_base_currency() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fx_ratio_on_day(text, text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fx_pair_rate(text, text, text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fx_miss_text(text, text, text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fx_convert(numeric, text, text, text, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fx_base_currency() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fx_ratio_on_day(text, text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fx_pair_rate(text, text, text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fx_miss_text(text, text, text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fx_convert(numeric, text, text, text, date) TO authenticated;
+
+
+-- the price of ONE hour from a contract's rowJSON: contractSumBeforeVAT / the working hours of contractPaymentsPeriod (Day 8 - Week 40 - Month 168 - Quarter 504 - Year 2016; OneTime = none), rounded to 2 decimals.
+-- NULL = the contract gives no hourly price. (taskLineContractCost.ts contractUnitPrice; the working hours are the same constants)
+CREATE OR REPLACE FUNCTION public.contract_hour_price(p_json jsonb) RETURNS numeric
+LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
+  SELECT CASE WHEN h IS NULL OR s IS NULL OR s <= 0 THEN NULL ELSE round(s / h, 2) END
+    FROM (SELECT CASE p_json->>'contractPaymentsPeriod' WHEN 'Day' THEN 8 WHEN 'Week' THEN 40 WHEN 'Month' THEN 168 WHEN 'Quarter' THEN 504 WHEN 'Year' THEN 2016 END::numeric AS h,
+                 CASE WHEN (p_json->>'contractSumBeforeVAT') ~ '^[0-9]+(\.[0-9]+)?$' THEN (p_json->>'contractSumBeforeVAT')::numeric END AS s) x
+$$;
+
+-- the contract of a PERSON in force on a day with an hourly price: status active, started, not finished; the latest start wins. (a contract with no hourly price - OneTime, no sum - is skipped)
+CREATE OR REPLACE FUNCTION public.person_contract_on_day(p_person text, p_day date) RETURNS TABLE (o_contract text, o_price numeric, o_currency text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT k."rowGUID", public.contract_hour_price(k."rowJSON"), NULLIF(upper(btrim(k."rowJSON"->>'contractCurrency')), '')
+    FROM public."contractTable" k
+   WHERE k."rowOwnerGUID" = p_person AND k."rowParentGUID" = 'person' AND COALESCE(NULLIF(k."rowJSON"->>'contractStatus', ''), 'active') = 'active'
+     AND (k."rowJSON"->>'contractStartDate') ~ '^\d{4}-\d{2}-\d{2}$' AND (k."rowJSON"->>'contractStartDate')::date <= p_day
+     AND (COALESCE(k."rowJSON"->>'contractFinishDate', '') = '' OR ((k."rowJSON"->>'contractFinishDate') ~ '^\d{4}-\d{2}-\d{2}$' AND (k."rowJSON"->>'contractFinishDate')::date >= p_day))
+     AND public.contract_hour_price(k."rowJSON") IS NOT NULL
+   ORDER BY (k."rowJSON"->>'contractStartDate')::date DESC, k."created_at" DESC, k."rowGUID" LIMIT 1
+$$;
+
+-- the rate of an hour of a ROLE on a day (currentRate): the FIRST price list that fits roles (price list order; appliesTo empty or with resourceRoleType), the rows of the role in the unit of its role type
+-- (else any unit), the "all variants" rows (a time sheet line has no variant), the latest validFrom <= day. NULL = no rate.
+CREATE OR REPLACE FUNCTION public.role_hour_rate(p_role text, p_day date) RETURNS numeric
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_pt text; v_unit text; v_price numeric;
+BEGIN
+  SELECT pt."rowGUID" INTO v_pt FROM public."priceTypeTable" pt
+   WHERE jsonb_typeof(pt."rowJSON"->'appliesTo') IS DISTINCT FROM 'array' OR pt."rowJSON"->'appliesTo' ? 'resourceRoleType'
+   ORDER BY pt."orderInList", pt."rowGUID" LIMIT 1;
+  IF v_pt IS NULL THEN RETURN NULL; END IF;
+  SELECT NULLIF(t."rowJSON"->>'baseUnit', '') INTO v_unit FROM public."resourceRoleTable" r JOIN public."resourceRoleTypeTable" t ON t."rowGUID" = r."rowOwnerGUID" WHERE r."rowGUID" = p_role;
+  SELECT CASE WHEN jsonb_typeof(x."rowJSON"->'price') = 'number' AND (x."rowJSON"->>'price')::numeric >= 0 THEN (x."rowJSON"->>'price')::numeric END INTO v_price
+    FROM public."rolePriceTable" x
+   WHERE x."rowOwnerGUID" = p_role AND x."rowJSON"->>'priceTypeGUID' = v_pt AND (x."rowParentGUID" = 'empty' OR COALESCE(x."rowParentGUID", '') = '')
+     AND NULLIF(x."rowJSON"->>'validFrom', '') IS NOT NULL AND (x."rowJSON"->>'validFrom') <= p_day::text AND v_unit IS NOT NULL AND x."rowJSON"->>'measureUnit' = v_unit
+   ORDER BY x."rowJSON"->>'validFrom' DESC, x."created_at", x."rowGUID" LIMIT 1;
+  IF v_price IS NOT NULL THEN RETURN v_price; END IF;
+  SELECT CASE WHEN jsonb_typeof(x."rowJSON"->'price') = 'number' AND (x."rowJSON"->>'price')::numeric >= 0 THEN (x."rowJSON"->>'price')::numeric END INTO v_price
+    FROM public."rolePriceTable" x
+   WHERE x."rowOwnerGUID" = p_role AND x."rowJSON"->>'priceTypeGUID' = v_pt AND (x."rowParentGUID" = 'empty' OR COALESCE(x."rowParentGUID", '') = '')
+     AND NULLIF(x."rowJSON"->>'validFrom', '') IS NOT NULL AND (x."rowJSON"->>'validFrom') <= p_day::text
+   ORDER BY x."rowJSON"->>'validFrom' DESC, x."created_at", x."rowGUID" LIMIT 1;
+  RETURN v_price;
+END;
+$$;
+
+-- the price of ONE hour of a work center on a day (not the task's Time line: timesheet_line_rate): a Person work center = the contract of its person in force on the day, else the role rate; Equipment /
+-- Partner = the role rate. The currency: the contract's, for a role rate the project's contract currency (currencyForContract, else accounting, else budget). o_problem: noContractRate | noRoleRate.
+CREATE OR REPLACE FUNCTION public.timesheet_hour_price(p_wc text, p_task uuid, p_role text, p_day date) RETURNS TABLE (o_source text, o_price numeric, o_currency text, o_contract text, o_problem text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  w record; k record; v_rate numeric; v_proj jsonb;
+BEGIN
+  SELECT x."rowJSON"->>'workCenterKind' AS kind, x."rowJSON"->>'workCenterBase' AS base INTO w FROM public."workCenterTable" x WHERE x."rowGUID" = p_wc;
+  IF NOT FOUND OR p_role IS NULL THEN RETURN; END IF;
+  SELECT p."rowJSON" INTO v_proj FROM public.project_task_table t JOIN public.project_table p ON p."rowGUID" = t."projectGUID" WHERE t."rowGUID" = p_task;
+  IF w.kind = 'person' THEN
+    SELECT * INTO k FROM public.person_contract_on_day(w.base, p_day);
+    IF k.o_price IS NOT NULL THEN
+      o_source := 'contract'; o_price := k.o_price; o_contract := k.o_contract;
+      o_currency := COALESCE(k.o_currency, upper(NULLIF(btrim(v_proj->>'currencyForContract'), '')), upper(NULLIF(btrim(v_proj->>'currencyForAccounting'), '')), upper(NULLIF(btrim(v_proj->>'currencyForBudget'), '')));
+      RETURN NEXT; RETURN;
+    END IF;
+  END IF;
+  v_rate := public.role_hour_rate(p_role, p_day);
+  IF v_rate IS NOT NULL THEN
+    o_source := 'role'; o_price := v_rate; o_contract := NULL;
+    o_currency := COALESCE(upper(NULLIF(btrim(v_proj->>'currencyForContract'), '')), upper(NULLIF(btrim(v_proj->>'currencyForAccounting'), '')), upper(NULLIF(btrim(v_proj->>'currencyForBudget'), '')));
+    RETURN NEXT; RETURN;
+  END IF;
+  o_problem := CASE WHEN w.kind = 'person' THEN 'noContractRate' ELSE 'noRoleRate' END;
+  RETURN NEXT;
+END;
+$$;
+
+-- the money of ONE entered cell (line x day x hours): the task's Time line numbers when the line has them (source taskLine: hours x the unit sums, no conversion), else hours x the hour price of THAT day (round to
+-- 2 decimals, as the plan) converted with the rate of that day into the accounting / budget currency of the project (a currency the project does not have = 0, as the plan). o_problem: noContractRate |
+-- noRoleRate | noExchangeRate (o_detail says which currency and day).
+CREATE OR REPLACE FUNCTION public.timesheet_cell_money(p_line uuid, p_day date, p_hours numeric) RETURNS TABLE (o_budget numeric, o_contract numeric, o_accounting numeric, o_contract_guid text, o_problem text, o_detail text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l record; hp record; v_proj jsonb; v_sum numeric; v numeric;
+  acc text; bud text; acc_t text; bud_t text;
+BEGIN
+  SELECT x."unitSumForBudget" AS ub, x."unitSumForContract" AS uc, x."unitSumForAccounting" AS ua, x."timesheetLineTask" AS task, x."timesheetLineRole" AS role, x."timesheetLineProject" AS project, h."timesheetWorkCenter" AS wc
+    INTO l FROM public.project_timesheet_lines x JOIN public.project_timesheet_header h ON h."rowGUID" = x."rowHeaderGUID" WHERE x."rowGUID" = p_line;
+  IF NOT FOUND THEN RETURN; END IF;
+  IF l.ub IS NOT NULL THEN
+    o_budget := round(p_hours * l.ub, 2); o_contract := round(p_hours * COALESCE(l.uc, 0), 2); o_accounting := round(p_hours * COALESCE(l.ua, 0), 2);
+    RETURN NEXT; RETURN;
+  END IF;
+  SELECT * INTO hp FROM public.timesheet_hour_price(l.wc, l.task, l.role, p_day);
+  IF hp.o_price IS NULL THEN o_problem := COALESCE(hp.o_problem, 'noRoleRate'); RETURN NEXT; RETURN; END IF;
+  SELECT p."rowJSON" INTO v_proj FROM public.project_table p WHERE p."rowGUID" = l.project;
+  acc := upper(NULLIF(btrim(v_proj->>'currencyForAccounting'), '')); bud := upper(NULLIF(btrim(v_proj->>'currencyForBudget'), ''));
+  acc_t := COALESCE(NULLIF(btrim(v_proj->>'exchangeRateTypeForAccounting'), ''), 'Default'); bud_t := COALESCE(NULLIF(btrim(v_proj->>'exchangeRateTypeForBudget'), ''), 'Budget');
+  v_sum := round(p_hours * hp.o_price, 2);
+  o_contract := v_sum; o_contract_guid := hp.o_contract;
+  IF hp.o_currency IS NULL AND (acc IS NOT NULL OR bud IS NOT NULL) THEN
+    o_problem := 'noExchangeRate'; o_detail := 'The currency of the price is unknown: pick a contract, or set the contract currency of the project'; RETURN NEXT; RETURN;
+  END IF;
+  IF acc IS NULL THEN o_accounting := 0;
+  ELSE
+    v := public.fx_convert(v_sum, hp.o_currency, acc, acc_t, p_day);
+    IF v IS NULL THEN o_problem := 'noExchangeRate'; o_detail := public.fx_miss_text(hp.o_currency, acc, acc_t, p_day); RETURN NEXT; RETURN; END IF;
+    o_accounting := v;
+  END IF;
+  IF bud IS NULL THEN o_budget := 0;
+  ELSE
+    v := public.fx_convert(v_sum, hp.o_currency, bud, bud_t, p_day);
+    IF v IS NULL THEN o_problem := 'noExchangeRate'; o_detail := public.fx_miss_text(hp.o_currency, bud, bud_t, p_day); RETURN NEXT; RETURN; END IF;
+    o_budget := v;
+  END IF;
+  RETURN NEXT;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.contract_hour_price(jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.person_contract_on_day(text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.role_hour_rate(text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_hour_price(text, uuid, text, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_cell_money(uuid, date, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.contract_hour_price(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.person_contract_on_day(text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.role_hour_rate(text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_hour_price(text, uuid, text, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_cell_money(uuid, date, numeric) TO authenticated;
+
+
+-- ---- the header: organization, number, work center rule, period rules -----------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_timesheet_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_today date := (NOW() AT TIME ZONE 'UTC')::date;
+  v_month date;
+  v_dates_changed boolean := true;
+  v_wc_changed boolean := true;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW."rowOrganizationGUID" := public.organization_of_current_user();
+    IF NEW."rowOrganizationGUID" IS NULL THEN RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501'; END IF;
+    NEW."rowOwnerUserGUID" := public.app_user_guid();
+    NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{documentHeader}',
+      COALESCE(NEW."rowJSON"->'documentHeader', '{}'::jsonb) || jsonb_build_object('documentNumber', 'TS-' || lpad(nextval('public.project_timesheet_document_seq')::text, 5, '0'), 'documentStatus', 'draft'));
+  ELSE
+    NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
+    NEW."rowOwnerUserGUID" := OLD."rowOwnerUserGUID";
+    v_dates_changed := NEW."startDate" IS DISTINCT FROM OLD."startDate" OR NEW."finishDate" IS DISTINCT FROM OLD."finishDate";
+    v_wc_changed := NEW."timesheetWorkCenter" IS DISTINCT FROM OLD."timesheetWorkCenter";
+    -- the number never changes
+    NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{documentHeader,documentNumber}', COALESCE(OLD."rowJSON"->'documentHeader'->'documentNumber', 'null'::jsonb), true);
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND (v_dates_changed OR v_wc_changed) THEN
+      RAISE EXCEPTION 'the work center and the period of a POSTED time sheet cannot be changed: unpost it first' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  -- a sheet made by "Create based on" from a Time line keeps THAT line's work center even when it is not the user's own (the line was chosen by the user): remembered in documentHeader.workCenterFromLine
+  IF TG_OP = 'INSERT' AND NEW."timesheetWorkCenter" IS NOT NULL AND NEW."timesheetWorkCenter" = NULLIF(current_setting('app.timesheet_wc_from_line', true), '') THEN
+    NEW."rowJSON" := jsonb_set(NEW."rowJSON", '{documentHeader,workCenterFromLine}', to_jsonb(NEW."timesheetWorkCenter"));
+  END IF;
+  IF v_wc_changed AND NEW."timesheetWorkCenter" IS NOT NULL AND NOT public.timesheet_header_wc_allowed(NEW."timesheetWorkCenter", NEW."rowJSON") THEN
+    RAISE EXCEPTION 'time sheet: this work center is not allowed for you (your own Person work center only, unless timesheetAllWorkCenterInputAvailable is on)' USING ERRCODE = '23514';
+  END IF;
+
+  IF v_dates_changed AND public.app_user_guid() IS NOT NULL THEN
+    IF public.timesheet_only_current_month() THEN
+      -- both dates in ONE month, and that month is today's (one day of tolerance for the time zone of the user)
+      IF date_trunc('month', NEW."startDate"::timestamp) <> date_trunc('month', NEW."finishDate"::timestamp)
+         OR date_trunc('month', NEW."startDate"::timestamp)::date NOT IN (date_trunc('month', (v_today - 1)::timestamp)::date, date_trunc('month', v_today::timestamp)::date, date_trunc('month', (v_today + 1)::timestamp)::date) THEN
+        RAISE EXCEPTION 'time sheet: the period must lie inside the current month (timesheetOnlyCurrentMonthInputEnabled is on)' USING ERRCODE = '23514';
+      END IF;
+    ELSIF NEW."finishDate" - NEW."startDate" + 1 > 62 THEN
+      RAISE EXCEPTION 'time sheet: a period is at most 62 days' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_header_before_write ON public.project_timesheet_header;
+CREATE TRIGGER trg_project_timesheet_header_before_write BEFORE INSERT OR UPDATE ON public.project_timesheet_header FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_header_before_write();
+
+-- after a change: days outside the new period go (the screen asked first); a new work center clears what depends on it (role, budget item, business unit, rate)
+CREATE OR REPLACE FUNCTION public.project_timesheet_header_after_update() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF NEW."startDate" IS DISTINCT FROM OLD."startDate" OR NEW."finishDate" IS DISTINCT FROM OLD."finishDate" THEN
+    DELETE FROM public.project_timesheet_lines_data_entered d WHERE d."rowHeaderGUID" = NEW."rowGUID" AND (d."timesheetDay" < NEW."startDate" OR d."timesheetDay" > NEW."finishDate");
+  END IF;
+  IF NEW."timesheetWorkCenter" IS DISTINCT FROM OLD."timesheetWorkCenter" THEN
+    -- (what comes from the base Time line of the sheet line stays: it is the line's own data)
+    UPDATE public.project_timesheet_lines l
+       SET "timesheetLineRole" = CASE WHEN b."rowJSON"->>'resourceRoleItem' = l."timesheetLineRole" THEN l."timesheetLineRole" END,
+           "timesheetLineBudgetItem" = CASE WHEN b."rowJSON"->>'budgetItemTaskLine' = l."timesheetLineBudgetItem" THEN l."timesheetLineBudgetItem" END,
+           "timesheetLineBusinessUnit" = CASE WHEN b."rowJSON"->>'businessUnitTaskLine' = l."timesheetLineBusinessUnit" THEN l."timesheetLineBusinessUnit" END
+      FROM (SELECT x."rowGUID" AS lg, t."rowJSON" FROM public.project_timesheet_lines x LEFT JOIN public.task_line_table t ON t."rowGUID" = x."timesheetBaseTaskLine" WHERE x."rowHeaderGUID" = NEW."rowGUID") b
+     WHERE l."rowGUID" = b.lg;
+  ELSIF NEW."startDate" IS DISTINCT FROM OLD."startDate" THEN
+    -- the price shown on a line is the price of the start date: read it again
+    PERFORM set_config('app.timesheet_refresh_rate', 'on', true);
+    UPDATE public.project_timesheet_lines l SET "orderInList" = l."orderInList" WHERE l."rowHeaderGUID" = NEW."rowGUID";
+    PERFORM set_config('app.timesheet_refresh_rate', 'off', true);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_header_after_update ON public.project_timesheet_header;
+CREATE TRIGGER trg_project_timesheet_header_after_update AFTER UPDATE ON public.project_timesheet_header FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_header_after_update();
+
+
+-- ---- a line: project / task / role / budget item / business unit rules, the cost of an hour --------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_timesheet_lines_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+  t record;
+  v_identity_changed boolean;
+  v_rate record;
+  v_hp record;
+  v_base jsonb; v_bq numeric;
+BEGIN
+  SELECT x."rowOrganizationGUID", x."timesheetWorkCenter", x."startDate", COALESCE(x."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS st INTO h FROM public.project_timesheet_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet: the sheet does not exist' USING ERRCODE = '23503'; END IF;
+  IF h.st = 'posted' THEN RAISE EXCEPTION 'a POSTED time sheet is read only: unpost it first' USING ERRCODE = '23514'; END IF;
+
+  v_identity_changed := TG_OP = 'INSERT' OR COALESCE(current_setting('app.timesheet_refresh_rate', true), '') = 'on'
+    OR NEW."timesheetLineProject" IS DISTINCT FROM OLD."timesheetLineProject" OR NEW."timesheetLineTask" IS DISTINCT FROM OLD."timesheetLineTask"
+    OR NEW."timesheetLineRole" IS DISTINCT FROM OLD."timesheetLineRole" OR NEW."timesheetLineBudgetItem" IS DISTINCT FROM OLD."timesheetLineBudgetItem"
+    OR NEW."timesheetLineBusinessUnit" IS DISTINCT FROM OLD."timesheetLineBusinessUnit";
+  IF NOT v_identity_changed THEN RETURN NEW; END IF;
+
+  IF NEW."timesheetLineProject" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = NEW."timesheetLineProject" AND p."rowParentGUID" = h."rowOrganizationGUID") THEN
+    RAISE EXCEPTION 'time sheet: the project is not a project of your organization' USING ERRCODE = '42501';
+  END IF;
+  IF NEW."timesheetLineTask" IS NOT NULL THEN
+    IF NEW."timesheetLineProject" IS NULL THEN RAISE EXCEPTION 'time sheet: choose the project before the task' USING ERRCODE = '23514'; END IF;
+    SELECT x."projectGUID", COALESCE(x."rowJSON"->>'rowKind', 'task') AS kind INTO t FROM public.project_task_table x WHERE x."rowGUID" = NEW."timesheetLineTask";
+    IF NOT FOUND OR t."projectGUID" IS DISTINCT FROM NEW."timesheetLineProject" THEN
+      RAISE EXCEPTION 'time sheet: the task is not a task of the project of the line' USING ERRCODE = '23514';
+    END IF;
+    IF t.kind <> 'task' THEN
+      RAISE EXCEPTION 'time sheet: only a normal task can be chosen (not a stage, not a milestone)' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  -- the Time line of the task this sheet line was made from ("Create based on" from a line = the BASE of the sheet line): its role, budget item and business unit are taken as they are
+  v_base := NULL;
+  IF NEW."timesheetBaseTaskLine" IS NOT NULL THEN
+    SELECT tl."rowJSON" INTO v_base FROM public.task_line_table tl WHERE tl."rowGUID" = NEW."timesheetBaseTaskLine" AND tl."rowOwnerGUID" = NEW."timesheetLineTask" AND tl."rowParentGUID" = 'timeGenus';
+    IF v_base IS NULL THEN NEW."timesheetBaseTaskLine" := NULL; END IF;
+  END IF;
+  IF NEW."timesheetLineRole" IS NOT NULL AND NOT (v_base IS NOT NULL AND NEW."timesheetLineRole" = v_base->>'resourceRoleItem') THEN
+    IF NEW."timesheetLineTask" IS NULL THEN RAISE EXCEPTION 'time sheet: choose the task before the role' USING ERRCODE = '23514'; END IF;
+    IF h."timesheetWorkCenter" IS NULL THEN RAISE EXCEPTION 'time sheet: choose the work center before the role' USING ERRCODE = '23514'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.timesheet_possible_roles(NEW."timesheetLineTask", h."timesheetWorkCenter") r(x) WHERE r.x = NEW."timesheetLineRole") THEN
+      RAISE EXCEPTION 'time sheet: the role is not possible for this task and work center' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF NEW."timesheetLineBudgetItem" IS NOT NULL AND NOT (v_base IS NOT NULL AND NEW."timesheetLineBudgetItem" = v_base->>'budgetItemTaskLine') THEN
+    IF NEW."timesheetLineRole" IS NULL THEN RAISE EXCEPTION 'time sheet: choose the role before the budget item' USING ERRCODE = '23514'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.timesheet_possible_budget_items(NEW."timesheetLineTask", NEW."timesheetLineRole") r(x) WHERE r.x = NEW."timesheetLineBudgetItem") THEN
+      RAISE EXCEPTION 'time sheet: the budget item is not possible for this task and role' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF NEW."timesheetLineBusinessUnit" IS NOT NULL AND NOT (v_base IS NOT NULL AND NEW."timesheetLineBusinessUnit" = v_base->>'businessUnitTaskLine') THEN
+    IF NEW."timesheetLineTask" IS NULL OR h."timesheetWorkCenter" IS NULL
+       OR NOT EXISTS (SELECT 1 FROM public.timesheet_possible_business_units(NEW."timesheetLineTask", h."timesheetWorkCenter") r(x) WHERE r.x = NEW."timesheetLineBusinessUnit") THEN
+      RAISE EXCEPTION 'time sheet: the business unit can only be one of the task lines that book this work center' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  -- the cost of one hour: (a) the Time line of the task (its unit sums, no conversion); else (b) / (c) the contract of the person or the rate of the role - shown here for the START date of the sheet; Post prices
+  -- every entered cell with the price and the exchange rate of ITS day (timesheet_cell_money)
+  NEW."unitSumForBudget" := NULL; NEW."unitSumForContract" := NULL; NEW."unitSumForAccounting" := NULL;
+  NEW."rateSource" := NULL; NEW."unitPrice" := NULL; NEW."unitPriceCurrency" := NULL; NEW."unitPriceContract" := NULL;
+  -- (a0) the base Time line itself, when the role is still its role: its unit sums are the cost of the hour
+  IF v_base IS NOT NULL AND NEW."timesheetLineRole" = v_base->>'resourceRoleItem' AND jsonb_typeof(v_base->'qtyTaskLine') = 'number' AND (v_base->>'qtyTaskLine')::numeric > 0 AND jsonb_typeof(v_base->'sumForBudget') = 'number' THEN
+    v_bq := (v_base->>'qtyTaskLine')::numeric;
+    NEW."unitSumForBudget" := (v_base->>'sumForBudget')::numeric / v_bq;
+    NEW."unitSumForContract" := CASE WHEN jsonb_typeof(v_base->'sumForContract') = 'number' THEN (v_base->>'sumForContract')::numeric / v_bq END;
+    NEW."unitSumForAccounting" := CASE WHEN jsonb_typeof(v_base->'sumForAccounting') = 'number' THEN (v_base->>'sumForAccounting')::numeric / v_bq END;
+    NEW."rateSource" := 'taskLine';
+  ELSIF NEW."timesheetLineTask" IS NOT NULL AND NEW."timesheetLineRole" IS NOT NULL AND h."timesheetWorkCenter" IS NOT NULL THEN
+    SELECT * INTO v_rate FROM public.timesheet_line_rate(h."timesheetWorkCenter", NEW."timesheetLineTask", NEW."timesheetLineRole");
+    IF v_rate.o_budget IS NOT NULL THEN
+      NEW."unitSumForBudget" := v_rate.o_budget; NEW."unitSumForContract" := v_rate.o_contract; NEW."unitSumForAccounting" := v_rate.o_accounting;
+      NEW."rateSource" := 'taskLine';
+    ELSE
+      SELECT * INTO v_hp FROM public.timesheet_hour_price(h."timesheetWorkCenter", NEW."timesheetLineTask", NEW."timesheetLineRole", h."startDate");
+      IF v_hp.o_price IS NOT NULL THEN
+        NEW."rateSource" := v_hp.o_source; NEW."unitPrice" := v_hp.o_price; NEW."unitPriceCurrency" := v_hp.o_currency; NEW."unitPriceContract" := v_hp.o_contract;
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_lines_before_write ON public.project_timesheet_lines;
+CREATE TRIGGER trg_project_timesheet_lines_before_write BEFORE INSERT OR UPDATE ON public.project_timesheet_lines FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_lines_before_write();
+
+
+-- ---- the entered hours: inside the period, above 0 up to 24, the day of a sheet never above 24 hours; the total of the line follows ------------------------------------------------
+CREATE OR REPLACE FUNCTION public.project_timesheet_data_entered_before_write() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+  v_line uuid;
+  v_others numeric;
+BEGIN
+  SELECT l."rowHeaderGUID" INTO v_line FROM public.project_timesheet_lines l WHERE l."rowGUID" = NEW."rowLineGUID";
+  IF v_line IS NULL THEN RAISE EXCEPTION 'time sheet: the line does not exist' USING ERRCODE = '23503'; END IF;
+  NEW."rowHeaderGUID" := v_line;
+  SELECT x."startDate", x."finishDate", COALESCE(x."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS st INTO h FROM public.project_timesheet_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
+  IF h.st = 'posted' THEN RAISE EXCEPTION 'a POSTED time sheet is read only: unpost it first' USING ERRCODE = '23514'; END IF;
+  IF NEW."timesheetDay" < h."startDate" OR NEW."timesheetDay" > h."finishDate" THEN
+    RAISE EXCEPTION 'time sheet: the day % is outside the period of the sheet', NEW."timesheetDay" USING ERRCODE = '23514';
+  END IF;
+  SELECT COALESCE(sum(d."timesheetHours"), 0) INTO v_others FROM public.project_timesheet_lines_data_entered d
+   WHERE d."rowHeaderGUID" = NEW."rowHeaderGUID" AND d."timesheetDay" = NEW."timesheetDay" AND d."rowGUID" <> NEW."rowGUID";
+  IF v_others + NEW."timesheetHours" > 24 THEN
+    RAISE EXCEPTION 'time sheet: more than 24 hours on %', NEW."timesheetDay" USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_data_entered_before_write ON public.project_timesheet_lines_data_entered;
+CREATE TRIGGER trg_project_timesheet_data_entered_before_write BEFORE INSERT OR UPDATE ON public.project_timesheet_lines_data_entered FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_data_entered_before_write();
+
+-- a posted sheet's hours cannot be deleted (a draft's can: clearing a cell)
+CREATE OR REPLACE FUNCTION public.project_timesheet_data_entered_before_delete() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.project_timesheet_header x WHERE x."rowGUID" = OLD."rowHeaderGUID" AND COALESCE(x."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted')
+     AND EXISTS (SELECT 1 FROM public.project_timesheet_lines l WHERE l."rowGUID" = OLD."rowLineGUID") THEN       -- (the delete of the whole sheet cascades after its lines are gone)
+    RAISE EXCEPTION 'a POSTED time sheet is read only: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_data_entered_before_delete ON public.project_timesheet_lines_data_entered;
+CREATE TRIGGER trg_project_timesheet_data_entered_before_delete BEFORE DELETE ON public.project_timesheet_lines_data_entered FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_data_entered_before_delete();
+
+CREATE OR REPLACE FUNCTION public.project_timesheet_data_entered_total() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE v_line uuid := COALESCE(NEW."rowLineGUID", OLD."rowLineGUID");
+BEGIN
+  UPDATE public.project_timesheet_lines l
+     SET "timesheetLineHours" = (SELECT COALESCE(sum(d."timesheetHours"), 0) FROM public.project_timesheet_lines_data_entered d WHERE d."rowLineGUID" = v_line)
+   WHERE l."rowGUID" = v_line;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_timesheet_data_entered_total ON public.project_timesheet_lines_data_entered;
+CREATE TRIGGER trg_project_timesheet_data_entered_total AFTER INSERT OR UPDATE OR DELETE ON public.project_timesheet_lines_data_entered FOR EACH ROW EXECUTE FUNCTION public.project_timesheet_data_entered_total();
+
+
+-- ---- policies: read by the organization; the RPCs write; a DRAFT can be deleted directly -------------------------------------------------------------------------------------------
+ALTER TABLE public.project_timesheet_header REPLICA IDENTITY FULL;
+ALTER TABLE public.project_timesheet_header ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_timesheet_header FROM anon, authenticated;
+GRANT SELECT, DELETE ON public.project_timesheet_header TO authenticated;
+
+DROP POLICY IF EXISTS project_timesheet_header_select ON public.project_timesheet_header;
+CREATE POLICY project_timesheet_header_select ON public.project_timesheet_header FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+DROP POLICY IF EXISTS project_timesheet_header_delete ON public.project_timesheet_header;
+CREATE POLICY project_timesheet_header_delete ON public.project_timesheet_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user() AND COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft');
+
+ALTER TABLE public.project_timesheet_lines REPLICA IDENTITY FULL;
+ALTER TABLE public.project_timesheet_lines ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_timesheet_lines FROM anon, authenticated;
+GRANT SELECT ON public.project_timesheet_lines TO authenticated;
+
+DROP POLICY IF EXISTS project_timesheet_lines_select ON public.project_timesheet_lines;
+CREATE POLICY project_timesheet_lines_select ON public.project_timesheet_lines FOR SELECT TO authenticated USING (public.timesheet_state("rowHeaderGUID") IS NOT NULL);
+
+ALTER TABLE public.project_timesheet_lines_data_entered REPLICA IDENTITY FULL;
+ALTER TABLE public.project_timesheet_lines_data_entered ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_timesheet_lines_data_entered FROM anon, authenticated;
+GRANT SELECT ON public.project_timesheet_lines_data_entered TO authenticated;
+
+DROP POLICY IF EXISTS project_timesheet_data_entered_select ON public.project_timesheet_lines_data_entered;
+CREATE POLICY project_timesheet_data_entered_select ON public.project_timesheet_lines_data_entered FOR SELECT TO authenticated USING (public.timesheet_state("rowHeaderGUID") IS NOT NULL);
+
+DO $$
+DECLARE
+  v_all boolean; t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['project_timesheet_header', 'project_timesheet_lines', 'project_timesheet_lines_data_entered'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ---- the RPCs (the only writers) -------------------------------------------------------------------------------------------------------------------------------------------
+-- the sheet of MY organization (and a draft when asked); an error for anything else
+CREATE OR REPLACE FUNCTION public.timesheet_guard(p_header uuid, p_need_draft boolean) RETURNS public.project_timesheet_header
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE h public.project_timesheet_header;
+BEGIN
+  IF public.app_user_guid() IS NULL THEN RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO h FROM public.project_timesheet_header x WHERE x."rowGUID" = p_header AND x."rowOrganizationGUID" = public.organization_of_current_user() FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet % does not exist', p_header USING ERRCODE = '23503'; END IF;
+  IF p_need_draft AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a POSTED time sheet is read only: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  RETURN h;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_guard(uuid, boolean) FROM PUBLIC, anon, authenticated;
+
+-- a new draft: p_work_center NULL = my own Person work center (may be none); the period defaults to the current month
+CREATE OR REPLACE FUNCTION public.timesheet_create(p_work_center text DEFAULT NULL, p_start date DEFAULT NULL, p_finish date DEFAULT NULL) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_today date := (NOW() AT TIME ZONE 'UTC')::date;
+  v_start date := COALESCE(p_start, date_trunc('month', v_today::timestamp)::date);
+  v_finish date := COALESCE(p_finish, (date_trunc('month', COALESCE(p_start, v_today)::timestamp) + INTERVAL '1 month' - INTERVAL '1 day')::date);
+  v_wc text := COALESCE(p_work_center, public.timesheet_my_work_center());
+  v_id uuid;
+BEGIN
+  IF public.app_user_guid() IS NULL THEN RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501'; END IF;
+  INSERT INTO public.project_timesheet_header ("timesheetWorkCenter", "startDate", "finishDate") VALUES (v_wc, v_start, v_finish) RETURNING "rowGUID" INTO v_id;
+  RETURN v_id;
+END;
+$$;
+
+-- the work center and the period of a DRAFT: p_patch { timesheetWorkCenter, startDate, finishDate } (a key that is present is written, null clears the work center)
+CREATE OR REPLACE FUNCTION public.timesheet_set_header(p_header uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE h public.project_timesheet_header;
+BEGIN
+  h := public.timesheet_guard(p_header, true);
+  UPDATE public.project_timesheet_header x
+     SET "timesheetWorkCenter" = CASE WHEN p_patch ? 'timesheetWorkCenter' THEN NULLIF(p_patch->>'timesheetWorkCenter', '') ELSE x."timesheetWorkCenter" END,
+         "startDate"  = CASE WHEN p_patch ? 'startDate'  THEN (p_patch->>'startDate')::date  ELSE x."startDate" END,
+         "finishDate" = CASE WHEN p_patch ? 'finishDate' THEN (p_patch->>'finishDate')::date ELSE x."finishDate" END
+   WHERE x."rowGUID" = p_header;
+END;
+$$;
+
+-- a line: p_patch { timesheetLineProject, timesheetLineTask, timesheetLineRole, timesheetLineBudgetItem, timesheetLineBusinessUnit }. What depends on a changed value is cleared (project -> task -> role -> budget item).
+CREATE OR REPLACE FUNCTION public.timesheet_line_patch(p_old public.project_timesheet_lines, p_patch jsonb) RETURNS public.project_timesheet_lines
+LANGUAGE plpgsql STABLE AS $$
+DECLARE n public.project_timesheet_lines := p_old;
+BEGIN
+  IF p_patch ? 'timesheetLineProject' THEN n."timesheetLineProject" := NULLIF(p_patch->>'timesheetLineProject', '')::uuid; END IF;
+  IF p_patch ? 'timesheetLineTask'    THEN n."timesheetLineTask"    := NULLIF(p_patch->>'timesheetLineTask', '')::uuid; END IF;
+  IF p_patch ? 'timesheetLineRole'    THEN n."timesheetLineRole"    := NULLIF(p_patch->>'timesheetLineRole', ''); END IF;
+  IF p_patch ? 'timesheetLineBudgetItem'  THEN n."timesheetLineBudgetItem"  := NULLIF(p_patch->>'timesheetLineBudgetItem', ''); END IF;
+  IF p_patch ? 'timesheetLineBusinessUnit' THEN n."timesheetLineBusinessUnit" := NULLIF(p_patch->>'timesheetLineBusinessUnit', ''); END IF;
+  IF p_patch ? 'timesheetBaseTaskLine'     THEN n."timesheetBaseTaskLine"     := NULLIF(p_patch->>'timesheetBaseTaskLine', '')::uuid; END IF;
+  IF n."timesheetLineProject" IS DISTINCT FROM p_old."timesheetLineProject" AND NOT p_patch ? 'timesheetLineTask' THEN n."timesheetLineTask" := NULL; END IF;
+  IF n."timesheetLineTask" IS DISTINCT FROM p_old."timesheetLineTask" THEN
+    IF NOT p_patch ? 'timesheetBaseTaskLine' THEN n."timesheetBaseTaskLine" := NULL; END IF;      -- another task: the Time line the sheet line was made from is not its base any more
+    IF NOT p_patch ? 'timesheetLineRole' THEN n."timesheetLineRole" := NULL; END IF;
+    IF NOT p_patch ? 'timesheetLineBusinessUnit' THEN n."timesheetLineBusinessUnit" := NULL; END IF;
+  END IF;
+  IF n."timesheetLineRole" IS DISTINCT FROM p_old."timesheetLineRole" AND NOT p_patch ? 'timesheetLineBudgetItem' THEN n."timesheetLineBudgetItem" := NULL; END IF;
+  RETURN n;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_add_line(p_header uuid, p_patch jsonb DEFAULT '{}'::jsonb) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h public.project_timesheet_header;
+  n public.project_timesheet_lines;
+  v_id uuid;
+BEGIN
+  h := public.timesheet_guard(p_header, true);
+  n."rowHeaderGUID" := p_header;
+  n := public.timesheet_line_patch(n, COALESCE(p_patch, '{}'::jsonb));
+  INSERT INTO public.project_timesheet_lines ("rowHeaderGUID", "timesheetLineProject", "timesheetLineTask", "timesheetLineRole", "timesheetLineBudgetItem", "timesheetLineBusinessUnit", "timesheetBaseTaskLine", "orderInList")
+  VALUES (p_header, n."timesheetLineProject", n."timesheetLineTask", n."timesheetLineRole", n."timesheetLineBudgetItem", n."timesheetLineBusinessUnit", n."timesheetBaseTaskLine",
+          COALESCE((SELECT max(l."orderInList") FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = p_header), 0) + 1)
+  RETURNING "rowGUID" INTO v_id;
+  RETURN v_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_set_line(p_line uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l public.project_timesheet_lines;
+  n public.project_timesheet_lines;
+BEGIN
+  SELECT * INTO l FROM public.project_timesheet_lines x WHERE x."rowGUID" = p_line;
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet line % does not exist', p_line USING ERRCODE = '23503'; END IF;
+  PERFORM public.timesheet_guard(l."rowHeaderGUID", true);
+  n := public.timesheet_line_patch(l, p_patch);
+  UPDATE public.project_timesheet_lines x
+     SET "timesheetLineProject" = n."timesheetLineProject", "timesheetLineTask" = n."timesheetLineTask", "timesheetLineRole" = n."timesheetLineRole",
+         "timesheetLineBudgetItem" = n."timesheetLineBudgetItem", "timesheetLineBusinessUnit" = n."timesheetLineBusinessUnit", "timesheetBaseTaskLine" = n."timesheetBaseTaskLine"
+   WHERE x."rowGUID" = p_line;
+END;
+$$;
+
+-- a line ABOVE / BELOW another (the context menu of a line): p_patch as timesheet_add_line (the "Duplicate" of the menu passes the project and the task: a second line with the same role / budget item / business unit
+-- would break the unique key); the new line gets an orderInList between its neighbours
+CREATE OR REPLACE FUNCTION public.timesheet_insert_line(p_header uuid, p_ref uuid, p_before boolean, p_patch jsonb DEFAULT '{}'::jsonb) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_ref numeric; v_other numeric; v_new numeric; v_id uuid;
+BEGIN
+  PERFORM public.timesheet_guard(p_header, true);
+  SELECT l."orderInList" INTO v_ref FROM public.project_timesheet_lines l WHERE l."rowGUID" = p_ref AND l."rowHeaderGUID" = p_header;
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet line % does not exist', p_ref USING ERRCODE = '23503'; END IF;
+  IF p_before THEN
+    SELECT max(l."orderInList") INTO v_other FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = p_header AND l."orderInList" < v_ref;
+    v_new := (COALESCE(v_other, v_ref - 2) + v_ref) / 2;
+  ELSE
+    SELECT min(l."orderInList") INTO v_other FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = p_header AND l."orderInList" > v_ref;
+    v_new := (v_ref + COALESCE(v_other, v_ref + 2)) / 2;
+  END IF;
+  v_id := public.timesheet_add_line(p_header, p_patch);
+  UPDATE public.project_timesheet_lines SET "orderInList" = v_new WHERE "rowGUID" = v_id;
+  RETURN v_id;
+END;
+$$;
+
+-- move a line: 'up' | 'down' (swap with its neighbour) | 'first' | 'last'
+CREATE OR REPLACE FUNCTION public.timesheet_move_line(p_line uuid, p_where text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l public.project_timesheet_lines; n record;
+BEGIN
+  SELECT * INTO l FROM public.project_timesheet_lines x WHERE x."rowGUID" = p_line;
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet line % does not exist', p_line USING ERRCODE = '23503'; END IF;
+  PERFORM public.timesheet_guard(l."rowHeaderGUID", true);
+  IF p_where = 'first' THEN
+    UPDATE public.project_timesheet_lines x SET "orderInList" = (SELECT COALESCE(min(y."orderInList"), 0) - 1 FROM public.project_timesheet_lines y WHERE y."rowHeaderGUID" = l."rowHeaderGUID") WHERE x."rowGUID" = p_line;
+  ELSIF p_where = 'last' THEN
+    UPDATE public.project_timesheet_lines x SET "orderInList" = (SELECT COALESCE(max(y."orderInList"), 0) + 1 FROM public.project_timesheet_lines y WHERE y."rowHeaderGUID" = l."rowHeaderGUID") WHERE x."rowGUID" = p_line;
+  ELSIF p_where IN ('up', 'down') THEN
+    IF p_where = 'up' THEN
+      SELECT y."rowGUID", y."orderInList" INTO n FROM public.project_timesheet_lines y WHERE y."rowHeaderGUID" = l."rowHeaderGUID" AND (y."orderInList", y."rowGUID"::text) < (l."orderInList", l."rowGUID"::text) ORDER BY y."orderInList" DESC, y."rowGUID" DESC LIMIT 1;
+    ELSE
+      SELECT y."rowGUID", y."orderInList" INTO n FROM public.project_timesheet_lines y WHERE y."rowHeaderGUID" = l."rowHeaderGUID" AND (y."orderInList", y."rowGUID"::text) > (l."orderInList", l."rowGUID"::text) ORDER BY y."orderInList", y."rowGUID" LIMIT 1;
+    END IF;
+    IF n."rowGUID" IS NULL THEN RETURN; END IF;
+    IF n."orderInList" = l."orderInList" THEN
+      -- equal numbers cannot be swapped: the neighbour goes the other way
+      UPDATE public.project_timesheet_lines x SET "orderInList" = x."orderInList" + CASE WHEN p_where = 'up' THEN -0.5 ELSE 0.5 END WHERE x."rowGUID" = p_line;
+    ELSE
+      UPDATE public.project_timesheet_lines x SET "orderInList" = n."orderInList" WHERE x."rowGUID" = p_line;
+      UPDATE public.project_timesheet_lines x SET "orderInList" = l."orderInList" WHERE x."rowGUID" = n."rowGUID";
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'time sheet: unknown move %', p_where USING ERRCODE = '22023';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_delete_line(p_line uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE l public.project_timesheet_lines;
+BEGIN
+  SELECT * INTO l FROM public.project_timesheet_lines x WHERE x."rowGUID" = p_line;
+  IF NOT FOUND THEN RETURN; END IF;
+  PERFORM public.timesheet_guard(l."rowHeaderGUID", true);
+  DELETE FROM public.project_timesheet_lines x WHERE x."rowGUID" = p_line;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.timesheet_delete(p_header uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.timesheet_guard(p_header, true);
+  DELETE FROM public.project_timesheet_header x WHERE x."rowGUID" = p_header;
+END;
+$$;
+
+-- one CELL: hours above 0 are saved (a row of project_timesheet_lines_data_entered), empty / 0 removes the row
+CREATE OR REPLACE FUNCTION public.timesheet_set_hours(p_line uuid, p_day date, p_hours numeric) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE l public.project_timesheet_lines;
+BEGIN
+  SELECT * INTO l FROM public.project_timesheet_lines x WHERE x."rowGUID" = p_line;
+  IF NOT FOUND THEN RAISE EXCEPTION 'time sheet line % does not exist', p_line USING ERRCODE = '23503'; END IF;
+  PERFORM public.timesheet_guard(l."rowHeaderGUID", true);
+  IF p_hours IS NULL OR p_hours <= 0 THEN
+    DELETE FROM public.project_timesheet_lines_data_entered d WHERE d."rowLineGUID" = p_line AND d."timesheetDay" = p_day;
+  ELSE
+    INSERT INTO public.project_timesheet_lines_data_entered ("rowHeaderGUID", "rowLineGUID", "timesheetDay", "timesheetHours") VALUES (l."rowHeaderGUID", p_line, p_day, round(p_hours, 2))
+    ON CONFLICT ("rowLineGUID", "timesheetDay") DO UPDATE SET "timesheetHours" = EXCLUDED."timesheetHours";
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_create(text, date, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_set_header(uuid, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_add_line(uuid, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_set_line(uuid, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_insert_line(uuid, uuid, boolean, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_move_line(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_delete_line(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_delete(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.timesheet_set_hours(uuid, date, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_create(text, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_set_header(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_add_line(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_set_line(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_insert_line(uuid, uuid, boolean, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_move_line(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_delete_line(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_delete(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.timesheet_set_hours(uuid, date, numeric) TO authenticated;
+
+
+-- "Create based on this -> Time sheet": ALWAYS a new draft for the current month with ONE line (the project and the task). From the LINE menu of a Time line (p_task_line) the sheet is filled as far as the
+-- line allows: the WORK CENTER the line books (a work center line; an old person / equipment line = the work center whose base it is) - ALWAYS, also when it is not the user's own; the role, the budget item and the
+-- business unit of the line. Without a line the role / budget item / business unit are filled where there is exactly one choice. The hours stay EMPTY (they are facts).
+-- Answer { status: created, documentGUID, workCenter } | { status: skipped, skipped: [{ reason }] }
+CREATE OR REPLACE FUNCTION public.create_timesheet_from_task(p_task uuid, p_task_line uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  t record; v_org text := public.organization_of_current_user();
+  v_wc text := public.timesheet_my_work_center();
+  v_line_wc text; v_has_line boolean := false;
+  v_doc uuid; v_patch jsonb; l record;
+  v_roles text[]; v_items text[]; v_units text[];
+BEGIN
+  IF public.app_user_guid() IS NULL THEN RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501'; END IF;
+  SELECT x."projectGUID", COALESCE(x."rowJSON"->>'rowKind', 'task') AS kind INTO t FROM public.project_task_table x
+    JOIN public.project_table p ON p."rowGUID" = x."projectGUID" AND p."rowParentGUID" = v_org WHERE x."rowGUID" = p_task;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'skipped', 'skipped', jsonb_build_array(jsonb_build_object('reason', 'taskNotFound'))); END IF;
+  IF t.kind <> 'task' THEN RETURN jsonb_build_object('status', 'skipped', 'skipped', jsonb_build_array(jsonb_build_object('reason', 'taskNotNormal'))); END IF;
+  -- the Time line the menu was opened on
+  IF p_task_line IS NOT NULL THEN
+    SELECT tl."rowJSON" AS j INTO l FROM public.task_line_table tl WHERE tl."rowGUID" = p_task_line AND tl."rowOwnerGUID" = p_task AND tl."rowParentGUID" = 'timeGenus';
+    IF FOUND THEN
+      v_has_line := true;
+      -- the work center the line books: itself, or (an old line) the work center whose base is its person / equipment
+      v_line_wc := CASE COALESCE(l.j->>'taskResourceKind', 'person')
+        WHEN 'workCenter' THEN NULLIF(l.j->>'taskResourceItem', '')
+        ELSE (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterKind' = COALESCE(NULLIF(l.j->>'taskResourceKind', ''), 'person') AND w."rowJSON"->>'workCenterBase' = l.j->>'taskResourceItem' LIMIT 1)
+      END;
+      IF v_line_wc IS NOT NULL THEN v_wc := v_line_wc; END IF;
+    END IF;
+  END IF;
+  -- the work center of the chosen line is kept even when it is not the user's own (the sheet remembers it: timesheet_header_wc_allowed)
+  PERFORM set_config('app.timesheet_wc_from_line', COALESCE(v_line_wc, ''), true);
+  v_doc := public.timesheet_create(v_wc, NULL, NULL);
+  PERFORM set_config('app.timesheet_wc_from_line', '', true);
+  v_patch := jsonb_build_object('timesheetLineProject', t."projectGUID", 'timesheetLineTask', p_task);
+  -- from a Time line: the line is the BASE of the sheet line - its role, budget item and business unit are taken AS THEY ARE (also without a work center, also when they are not "possible" for the work center)
+  IF v_has_line THEN
+    v_patch := v_patch || jsonb_build_object('timesheetBaseTaskLine', p_task_line)
+      || CASE WHEN NULLIF(l.j->>'resourceRoleItem', '') IS NOT NULL THEN jsonb_build_object('timesheetLineRole', l.j->>'resourceRoleItem') ELSE '{}'::jsonb END
+      || CASE WHEN NULLIF(l.j->>'budgetItemTaskLine', '') IS NOT NULL THEN jsonb_build_object('timesheetLineBudgetItem', l.j->>'budgetItemTaskLine') ELSE '{}'::jsonb END
+      || CASE WHEN NULLIF(l.j->>'businessUnitTaskLine', '') IS NOT NULL THEN jsonb_build_object('timesheetLineBusinessUnit', l.j->>'businessUnitTaskLine') ELSE '{}'::jsonb END;
+  END IF;
+  IF v_wc IS NOT NULL AND NOT v_has_line THEN
+    SELECT array_agg(x) INTO v_roles FROM public.timesheet_possible_roles(p_task, v_wc) x;
+    IF v_has_line THEN
+      NULL;      -- the role, budget item and business unit of the line are set below, as they are
+    ELSIF cardinality(COALESCE(v_roles, ARRAY[]::text[])) = 1 THEN
+      v_patch := v_patch || jsonb_build_object('timesheetLineRole', v_roles[1]);
+    END IF;
+    IF v_patch ? 'timesheetLineRole' AND NOT v_patch ? 'timesheetLineBudgetItem' THEN
+      SELECT array_agg(x) INTO v_items FROM public.timesheet_possible_budget_items(p_task, v_patch->>'timesheetLineRole') x;
+      IF cardinality(COALESCE(v_items, ARRAY[]::text[])) = 1 THEN v_patch := v_patch || jsonb_build_object('timesheetLineBudgetItem', v_items[1]); END IF;
+    END IF;
+    IF NOT v_patch ? 'timesheetLineBusinessUnit' THEN
+      SELECT array_agg(x) INTO v_units FROM public.timesheet_possible_business_units(p_task, v_wc) x;
+      IF cardinality(COALESCE(v_units, ARRAY[]::text[])) = 1 THEN v_patch := v_patch || jsonb_build_object('timesheetLineBusinessUnit', v_units[1]); END IF;
+    END IF;
+  END IF;
+  PERFORM public.timesheet_add_line(v_doc, v_patch);
+  RETURN jsonb_build_object('status', 'created', 'documentGUID', v_doc, 'workCenter', v_wc);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_timesheet_from_task(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_timesheet_from_task(uuid, uuid) TO authenticated;
+
+
+-- the list of the sheets of my organization. p_filter { timesheetWorkCenter, taskGUID, status, startFrom, finishTo }
+CREATE OR REPLACE FUNCTION public.timesheet_list(p_filter jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE f jsonb := COALESCE(p_filter, '{}'::jsonb); v jsonb;
+BEGIN
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r."created_at" DESC, r."rowGUID"), '[]'::jsonb) INTO v FROM (
+    SELECT h."rowGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber", COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           h."timesheetWorkCenter", public.work_center_title_of(h."timesheetWorkCenter") AS "workCenterTitle", h."startDate", h."finishDate",
+           (SELECT count(*) FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "lines",
+           (SELECT COALESCE(sum(d."timesheetHours"), 0) FROM public.project_timesheet_lines_data_entered d WHERE d."rowHeaderGUID" = h."rowGUID") AS "hours",
+           h."rowOwnerUserGUID", h."created_at"
+      FROM public.project_timesheet_header h
+     WHERE h."rowOrganizationGUID" = public.organization_of_current_user()
+       AND (NOT f ? 'timesheetWorkCenter' OR h."timesheetWorkCenter" = f->>'timesheetWorkCenter')
+       AND (NOT f ? 'status' OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'startFrom' OR h."finishDate" >= (f->>'startFrom')::date)
+       AND (NOT f ? 'finishTo' OR h."startDate" <= (f->>'finishTo')::date)
+       AND (NOT f ? 'taskGUID' OR EXISTS (SELECT 1 FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = h."rowGUID" AND l."timesheetLineTask" = (f->>'taskGUID')::uuid))
+     ORDER BY h."created_at" DESC LIMIT 500) r;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.timesheet_list(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.timesheet_list(jsonb) TO authenticated;
+
+
+-- ---- the register: a POSTED sheet = one 'used' movement for every ENTERED row (line x day) of project_timesheet_lines_data_entered; registrator = the sheet (type timesheetHeader) ----------------------
+CREATE OR REPLACE FUNCTION public.project_status_register_timesheet(p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer := 0;
+BEGIN
+  DELETE FROM public.project_status_movements s WHERE s."rowRegistratorGUID" = p_header;
+  -- the money of every entered cell comes from timesheet_cell_money: the Time line of the task, else the contract / role rate of THAT day converted with the exchange rate of that day
+  INSERT INTO public.project_status_movements ("rowMovementKind", "rowTurnoverMoment", "rowTurnoverDay", "rowRegistratorGUID", "rowRegistratorType", "rowProjectTaskLineGUID", "rowProjectGUID", "rowOwnerGUID", "rowOwnerUserGUID",
+         "genusGUID", "resourceRoleGUID", "measureUnit", "businessUnitGUID", "partnerGUID", "contractGUID", "qtyProjectStatus", "sumForBudget", "sumForContract", "sumForAccounting", "rowJSON")
+  SELECT 'used', ((d."timesheetDay" + TIME '12:00') AT TIME ZONE 'UTC'), d."timesheetDay", h."rowGUID", 'timesheetHeader', NULL, l."timesheetLineProject", l."timesheetLineTask", p."rowOwnerGUID",
+         'timeGenus', COALESCE(l."timesheetLineRole", ''), 'unit_hour', COALESCE(l."timesheetLineBusinessUnit", NULLIF(w."rowJSON"->>'businessUnit', '')),
+         CASE WHEN w."rowJSON"->>'workCenterKind' = 'partner' THEN w."rowJSON"->>'workCenterBase' END, m.o_contract_guid,
+         d."timesheetHours", COALESCE(m.o_budget, 0), COALESCE(m.o_contract, 0), COALESCE(m.o_accounting, 0),
+         -- ownCost (PART 33): the hours of a Person / Equipment work center are never invoiced; a Partner work center is a vendor (its hours are invoiced)
+         jsonb_build_object('ownCost', w."rowJSON"->>'workCenterKind' <> 'partner', 'timesheetWorkCenter', h."timesheetWorkCenter", 'budgetItemGUID', l."timesheetLineBudgetItem")
+    FROM public.project_timesheet_header h
+    JOIN public.project_timesheet_lines_data_entered d ON d."rowHeaderGUID" = h."rowGUID"
+    JOIN public.project_timesheet_lines l ON l."rowGUID" = d."rowLineGUID"
+    JOIN public.project_table p ON p."rowGUID" = l."timesheetLineProject"
+    JOIN public."workCenterTable" w ON w."rowGUID" = h."timesheetWorkCenter"
+    CROSS JOIN LATERAL public.timesheet_cell_money(l."rowGUID", d."timesheetDay", d."timesheetHours") m
+   WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted';
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_status_register_timesheet(uuid) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- Post: checks the whole sheet; a refusal is an ANSWER { status: refused, lines, problems: [{ lineGUID, day, problem }] } (nothing is written). Posted = the movements are in the register ------------------------
+CREATE OR REPLACE FUNCTION public.post_timesheet(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h public.project_timesheet_header;
+  v_problems jsonb := '[]'::jsonb;
+  v_rows integer; v_lines integer; r record; c record; v_prob text; v_detail text;
+BEGIN
+  h := public.timesheet_guard(p_header, false);
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  -- the cost of an hour is read again now (the Time line of the task may have changed since the line was filled)
+  BEGIN
+    PERFORM set_config('app.timesheet_refresh_rate', 'on', true);
+    UPDATE public.project_timesheet_lines l SET "orderInList" = l."orderInList" WHERE l."rowHeaderGUID" = p_header;
+  EXCEPTION WHEN check_violation THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'lineNoLongerValid', 'detail', SQLERRM);      -- e.g. the task lines changed: a role that was possible is not any more
+  END;
+  PERFORM set_config('app.timesheet_refresh_rate', 'off', true);
+
+  SELECT count(*) INTO v_rows FROM public.project_timesheet_lines_data_entered d WHERE d."rowHeaderGUID" = p_header;
+  SELECT count(*) INTO v_lines FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = p_header;
+  IF h."timesheetWorkCenter" IS NULL THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'workCenterMissing');
+  ELSIF NOT public.timesheet_header_wc_allowed(h."timesheetWorkCenter", h."rowJSON") THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'workCenterNotAllowed');
+  END IF;
+  IF v_rows = 0 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'noHoursEntered');
+  END IF;
+  -- a line with hours needs project, task (a normal task), role and budget item; and a rate
+  FOR r IN
+    SELECT l."rowGUID", l."timesheetLineProject" AS pr, l."timesheetLineTask" AS tk, l."timesheetLineRole" AS ro, l."timesheetLineBudgetItem" AS bi, l."unitSumForBudget" AS ub,
+           COALESCE(t."rowJSON"->>'rowKind', 'task') AS kind
+      FROM public.project_timesheet_lines l LEFT JOIN public.project_task_table t ON t."rowGUID" = l."timesheetLineTask"
+     WHERE l."rowHeaderGUID" = p_header AND EXISTS (SELECT 1 FROM public.project_timesheet_lines_data_entered d WHERE d."rowLineGUID" = l."rowGUID")
+  LOOP
+    IF r.pr IS NULL OR r.tk IS NULL THEN
+      v_problems := v_problems || jsonb_build_object('lineGUID', r."rowGUID", 'problem', 'projectOrTaskMissing');
+    ELSIF r.kind <> 'task' THEN
+      v_problems := v_problems || jsonb_build_object('lineGUID', r."rowGUID", 'problem', 'taskNotNormal');
+    ELSIF r.ro IS NULL THEN
+      v_problems := v_problems || jsonb_build_object('lineGUID', r."rowGUID", 'problem', 'roleMissing');
+    ELSIF r.bi IS NULL THEN
+      v_problems := v_problems || jsonb_build_object('lineGUID', r."rowGUID", 'problem', 'budgetItemMissing');
+    ELSE
+      -- the price of every entered cell: the Time line of the task, else the contract / role rate of THAT day and the exchange rate of that day; what is missing is named per line and day
+      FOR c IN SELECT d."timesheetDay" AS day, d."timesheetHours" AS hours FROM public.project_timesheet_lines_data_entered d WHERE d."rowLineGUID" = r."rowGUID" ORDER BY d."timesheetDay" LOOP
+        SELECT m.o_problem, m.o_detail INTO v_prob, v_detail FROM public.timesheet_cell_money(r."rowGUID", c.day, c.hours) m;
+        IF v_prob IS NOT NULL THEN
+          v_problems := v_problems || jsonb_build_object('lineGUID', r."rowGUID", 'day', c.day, 'problem', v_prob, 'detail', v_detail);
+        END IF;
+      END LOOP;
+    END IF;
+  END LOOP;
+  -- a day after tomorrow is not a fact (one day of tolerance for the time zone)
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', d."rowLineGUID", 'day', d."timesheetDay", 'problem', 'dateInTheFuture') ORDER BY d."timesheetDay"), '[]'::jsonb) INTO v_problems
+    FROM public.project_timesheet_lines_data_entered d WHERE d."rowHeaderGUID" = p_header AND d."timesheetDay" > ((NOW() AT TIME ZONE 'UTC')::date + 1);
+  -- never more than 24 hours a day for a work center: this sheet + the other POSTED sheets of the same work center
+  IF h."timesheetWorkCenter" IS NOT NULL THEN
+    SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', NULL, 'day', x.day, 'problem', 'dayOver24', 'hours', x.total, 'otherSheet', x.other) ORDER BY x.day), '[]'::jsonb) INTO v_problems FROM (
+      SELECT d."timesheetDay" AS day, sum(d."timesheetHours") + COALESCE(max(o.hours), 0) AS total, max(o.num) AS other
+        FROM public.project_timesheet_lines_data_entered d
+        LEFT JOIN LATERAL (
+          SELECT sum(e."timesheetHours") AS hours, string_agg(DISTINCT oh."rowJSON"->'documentHeader'->>'documentNumber', ', ') AS num
+            FROM public.project_timesheet_header oh JOIN public.project_timesheet_lines_data_entered e ON e."rowHeaderGUID" = oh."rowGUID" AND e."timesheetDay" = d."timesheetDay"
+           WHERE oh."timesheetWorkCenter" = h."timesheetWorkCenter" AND oh."rowGUID" <> p_header AND COALESCE(oh."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted') o ON true
+       WHERE d."rowHeaderGUID" = p_header
+       GROUP BY d."timesheetDay" HAVING sum(d."timesheetHours") + COALESCE(max(o.hours), 0) > 24) x;
+  END IF;
+
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+  UPDATE public.project_timesheet_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_register_timesheet(p_header);       -- the project status register (PART 25): the entered hours become 'used' movements in this transaction
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'rows', v_rows, 'problems', '[]'::jsonb);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.unpost_timesheet(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE h public.project_timesheet_header;
+BEGIN
+  h := public.timesheet_guard(p_header, false);
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  UPDATE public.project_timesheet_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', (("rowJSON"->'documentHeader') - 'postedAt' - 'postedBy') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  PERFORM public.project_status_unregister(p_header);
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_timesheet(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.unpost_timesheet(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.post_timesheet(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.unpost_timesheet(uuid) TO authenticated;
+
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

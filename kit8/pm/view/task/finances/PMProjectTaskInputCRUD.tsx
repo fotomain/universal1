@@ -25,6 +25,7 @@ import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
+import PMContextMenu from '../../../inner/menu/PMContextMenu';
 import { PM_WIDE_ACTION_HEIGHT, PM_WIDE_ACTION_WIDTH } from '../../../model/constants';
 import { todayISO } from '../../../../catalog/currency/exchange/currencyExchangeModel';
 import { formatDateISO } from '../../project/scheduling';
@@ -90,6 +91,15 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const picker = usePMPicker();
   // line mode: the table's check boxes choose the line for the button "Select this line" (the row menu item does the same for one row)
   const [checkedLines, setCheckedLines] = useState<string[]>([]);
+  // the toolbar icons "Create based on" / "Go to" (after Recalculate): a menu under the icon with the items of useTaskRelatedMenu - for the ONE checked line when exactly one is checked, else for the task
+  const [toolbarMenu, setToolbarMenu] = useState<{ kind: 'create' | 'goto'; x: number; y: number } | null>(null);
+  const createAnchor = useRef<View>(null);
+  const gotoAnchor = useRef<View>(null);
+  const openToolbarMenu = (kind: 'create' | 'goto') => {
+    const ref = kind === 'create' ? createAnchor : gotoAnchor;
+    if (ref.current && (ref.current as any).measureInWindow) (ref.current as any).measureInWindow((x: number, y: number, _w: number, h: number) => setToolbarMenu({ kind, x, y: y + h + 4 }));
+    else setToolbarMenu({ kind, x: 120, y: 120 });
+  };
   const pickLine = picker?.mode === 'line' ? (row: ReusableTableRow) => picker.onPick(pickedLine(projectGUID, taskGUID, row.rowGUID, String(row.rowParentGUID ?? ''))) : undefined;
   const { start: startVendorInvoice, busy: vendorInvoiceBusy } = useStartVendorInvoice();
   const { start: startPurchaseOrder, busy: purchaseOrderBusy } = useStartPurchaseOrder();
@@ -293,8 +303,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           ...relatedMenu({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus, idPrefix: `${testID}-line-${row.rowGUID}`, close, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(row.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(row.rowGUID) }),
           ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
         ]}
-        onSelectionChange={pickLine ? setCheckedLines : undefined}
-        toolbarExtra={fxOn || pickLine ? (
+        onSelectionChange={setCheckedLines}
+        toolbarExtra={(
           <>
             {/* picker (a line is wanted): the button says what it does; one line must be checked (or marked) - the same size as "Select this task" */}
             {pickLine ? (
@@ -314,10 +324,26 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
               />
             ) : null}
             {fxOn ? <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} /> : null}
+            {/* "Create based on" and "Go to": the same items as the Task menu (Fact input, Vendor / Customer invoice, Purchase order, Time sheet, Subproject ... / the document lists), for the checked line or the task */}
+            <View ref={createAnchor} collapsable={false}>
+              <PMIconButton tipScope="app" testID={`${testID}-create-based-on`} icon="add_circle" title={checkedLines.length === 1 ? pmT('Create based on the checked line') : pmT('Create based on this task')} color={c.text} onPress={() => openToolbarMenu('create')} />
+            </View>
+            <View ref={gotoAnchor} collapsable={false}>
+              <PMIconButton tipScope="app" testID={`${testID}-goto`} icon="arrow_forward" title={checkedLines.length === 1 ? pmT('Go to (documents of the checked line)') : pmT('Go to (documents of this task)')} color={c.text} onPress={() => openToolbarMenu('goto')} />
+            </View>
           </>
-        ) : undefined}
+        )}
         realtime
       />
+      {toolbarMenu && (() => {
+        const line = checkedLines.length === 1 ? taskLines.find((l) => l.rowGUID === checkedLines[0]) : undefined;
+        const items = relatedMenu({
+          taskGUID, projectGUID, ...(line ? { taskLineGUID: line.rowGUID, genus: def.genus, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(line.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(line.rowGUID) } : {}),
+          idPrefix: `${testID}-toolbar`, close: () => setToolbarMenu(null),
+        });
+        const shown = items.find((it) => it.testID.endsWith(toolbarMenu.kind === 'create' ? '-create' : '-goto'))?.submenu ?? [];
+        return shown.length ? <PMContextMenu testID={`${testID}-toolbar-menu`} x={toolbarMenu.x} y={toolbarMenu.y} caption={line ? pmT('Line') : pmT('Task')} items={shown} onClose={() => setToolbarMenu(null)} /> : null;
+      })()}
       <VendorInvoiceScopeModal
         testID={`${testID}-vendor-scope`}
         visible={!!vendorInvoiceLine}

@@ -41,6 +41,7 @@
 --   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 --   35. create_work_center.sql - workCenterTable (a work center = a Person, Equipment or Partner as a resource with its own calendar and variant; folders = business units) + the kind 'workCenter' of a Time line
+--   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header + project_timesheet_lines + project_timesheet_lines_data_entered (the entered hours = the base of Post)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3037,6 +3038,93 @@ BEGIN
       AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
   END IF;
 END $$;
+
+
+-- ===============================================================================================
+-- PART 36: create_timesheet.sql
+-- the TIME SHEET document (documentation/TIME_SHEET_WBS.html): a work center reports its hours on projects and tasks for a period. Three tables:
+--   project_timesheet_header              one sheet: organization, work center, startDate .. finishDate, number / status in rowJSON.documentHeader
+--   project_timesheet_lines               a line = project + task (+ role, budget item, business unit) and the cost of ONE hour (frozen at Post time from the Time line of the task)
+--   project_timesheet_lines_data_entered  one row per ENTERED cell (line x day); an empty cell has no row. THE BASE OF POST (it becomes the 'used' movements of the register)
+-- ===============================================================================================
+
+CREATE SEQUENCE IF NOT EXISTS public.project_timesheet_document_seq;
+
+
+CREATE TABLE IF NOT EXISTS public.project_timesheet_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowOwnerUserGUID"    UUID,                                   -- the author (userTable.rowGUID)
+  "timesheetWorkCenter" TEXT        REFERENCES public."workCenterTable"("rowGUID") ON DELETE RESTRICT,     -- empty only while the user has no work center yet (Post needs it)
+  "startDate"           DATE        NOT NULL,
+  "finishDate"          DATE        NOT NULL,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT project_timesheet_header_dates_chk CHECK ("finishDate" >= "startDate"),
+  CONSTRAINT project_timesheet_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_timesheet_header_org ON public.project_timesheet_header ("rowOrganizationGUID", "created_at");
+
+CREATE INDEX IF NOT EXISTS idx_project_timesheet_header_wc ON public.project_timesheet_header ("timesheetWorkCenter", "startDate", "finishDate");
+
+
+CREATE TABLE IF NOT EXISTS public.project_timesheet_lines (
+  "rowGUID"                   UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID"             UUID          NOT NULL REFERENCES public.project_timesheet_header("rowGUID") ON DELETE CASCADE,
+  "timesheetLineProject"      UUID          REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "timesheetLineTask"         UUID          REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "timesheetLineRole"         TEXT,                                   -- resourceRoleTable.rowGUID
+  "timesheetLineBudgetItem"   TEXT,                                   -- budgetItemTable.rowGUID
+  "timesheetLineBusinessUnit" TEXT,                                   -- businessUnitTable.rowGUID
+  "orderInList"               NUMERIC       NOT NULL DEFAULT 0,
+  "timesheetLineHours"        NUMERIC(18,2) NOT NULL DEFAULT 0,       -- the total of the entered hours (kept by a trigger)
+  "unitSumForBudget"          NUMERIC(18,6),                          -- the cost of ONE hour (budget / contract / accounting money), copied from the Time line of the task; NULL = no rate
+  "unitSumForContract"        NUMERIC(18,6),
+  "unitSumForAccounting"      NUMERIC(18,6),
+  "rowJSON"                   JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"                TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"                TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+-- the price of ONE hour as shown on the line (documentation/TIME_SHEET_WBS.html section 14): where it comes from (taskLine = the unit sums above | contract | role), the price, its currency and the contract.
+-- It is the price of the START date of the sheet; Post prices every entered cell with the price and the exchange rate of ITS day.
+-- the Time line of the task this sheet line was made from ("Create based on" from a line): its role / budget item / business unit / cost of an hour are taken as they are
+ALTER TABLE public.project_timesheet_lines ADD COLUMN IF NOT EXISTS "timesheetBaseTaskLine" UUID REFERENCES public.task_line_table("rowGUID") ON DELETE SET NULL;
+ALTER TABLE public.project_timesheet_lines ADD COLUMN IF NOT EXISTS "rateSource"        TEXT;
+ALTER TABLE public.project_timesheet_lines ADD COLUMN IF NOT EXISTS "unitPrice"         NUMERIC(18,6);
+ALTER TABLE public.project_timesheet_lines ADD COLUMN IF NOT EXISTS "unitPriceCurrency" TEXT;
+ALTER TABLE public.project_timesheet_lines ADD COLUMN IF NOT EXISTS "unitPriceContract" TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_project_timesheet_lines_header ON public.project_timesheet_lines ("rowHeaderGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_project_timesheet_lines_task ON public.project_timesheet_lines ("timesheetLineTask");
+
+-- one COMPLETE line (project + task + role chosen) = one project + task + role + budget item + business unit in a sheet (the same task with two roles = two lines); any number of unfinished lines
+DROP INDEX IF EXISTS public.idx_project_timesheet_lines_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_timesheet_lines_key2 ON public.project_timesheet_lines
+  ("rowHeaderGUID", (COALESCE("timesheetLineProject"::text, '')), (COALESCE("timesheetLineTask"::text, '')), (COALESCE("timesheetLineRole", '')), (COALESCE("timesheetLineBudgetItem", '')), (COALESCE("timesheetLineBusinessUnit", '')))
+  WHERE "timesheetLineTask" IS NOT NULL AND "timesheetLineRole" IS NOT NULL;
+
+
+CREATE TABLE IF NOT EXISTS public.project_timesheet_lines_data_entered (
+  "rowGUID"       UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID" UUID          NOT NULL REFERENCES public.project_timesheet_header("rowGUID") ON DELETE CASCADE,
+  "rowLineGUID"   UUID          NOT NULL REFERENCES public.project_timesheet_lines("rowGUID") ON DELETE CASCADE,
+  "timesheetDay"  DATE          NOT NULL,
+  "timesheetHours" NUMERIC(6,2) NOT NULL,
+  "created_at"    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT project_timesheet_data_entered_hours_chk CHECK ("timesheetHours" > 0 AND "timesheetHours" <= 24)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_timesheet_data_entered_cell ON public.project_timesheet_lines_data_entered ("rowLineGUID", "timesheetDay");
+
+CREATE INDEX IF NOT EXISTS idx_project_timesheet_data_entered_day ON public.project_timesheet_lines_data_entered ("rowHeaderGUID", "timesheetDay");
 
 
 -- ===============================================================================================

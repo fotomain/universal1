@@ -1,8 +1,8 @@
 // useTaskRelatedMenu - the two submenus of the Task context menu (PMTaskRowMenu) and of the line context menu of the Task Edit (Finances) table (PMProjectTaskInputCRUD), placed BEFORE "Delete":
-//   "Create based on this"   Fact input · Vendor Invoice · Purchase Order · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
+//   "Create based on this"   Fact input · Vendor Invoice · Purchase Order · Time sheet (always a NEW draft of the user's work center for the current month, a line for the task) · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
 //                            to the task and opens its board in a new browser window - kit8/pm/subproject/useCreateSubproject)
 //   "Go to"                  Timeline data (the BUDGETS view of the dashboard - the posted days, on its Timeline tab - in a NEW browser window, filtered for the task line when the menu is a line menu:
-//                            /pm/project/dashboard?view=budgets&tab=TabPlanTimeline&lineGUID) · Vendor invoices · Customer invoices (switch on) · Purchase orders · Product receipts · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,
+//                            /pm/project/dashboard?view=budgets&tab=TabPlanTimeline&lineGUID) · Vendor invoices · Customer invoices (switch on) · Purchase orders · Product receipts · Time sheets · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,
 //                            /pm/fact/list?…, kit8/documents/taskScope) · Subproject (only a task that stands for a project: its board in a new browser window)
 // `build(ctx)` returns the two items (a stage has no lines / facts / documents: nothing). The store is read through selectors (the menu is built when it opens).
 import { useCallback } from 'react';
@@ -16,8 +16,9 @@ import { useStartPurchaseOrder } from '../../../documents/vendor/purchase_order/
 import { useStartCustomerInvoice } from '../../../documents/customer/invoice/useCustomerInvoice';
 import { customerInvoiceEnabledOf } from '../project/settings/PMProjectCustomerTab';
 import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGenusModel';
-import { CUSTOMER_INVOICE_LIST_ROUTE, FACT_LIST_ROUTE, PRODUCT_RECEIPT_LIST_ROUTE, PURCHASE_ORDER_LIST_ROUTE, VENDOR_INVOICE_LIST_ROUTE } from '../../../documents/taskScope/taskScopeModel';
+import { CUSTOMER_INVOICE_LIST_ROUTE, FACT_LIST_ROUTE, PRODUCT_RECEIPT_LIST_ROUTE, PURCHASE_ORDER_LIST_ROUTE, TIMESHEET_LIST_ROUTE, VENDOR_INVOICE_LIST_ROUTE } from '../../../documents/taskScope/taskScopeModel';
 import { openTaskScopedList } from '../../../documents/taskScope/openTaskScopedList';
+import { useCreateTimesheetFromTask } from '../../../documents/timesheet/useTimesheet';
 import { createSubprojectBlock, subprojectGUIDOfTask } from '../../subproject/createSubprojectModel';
 import { useCreateSubproject } from '../../subproject/useCreateSubproject';
 import { BUDGETS_TIMELINE_TAB, openDashboardLink, openProjectBoard } from '../project/dashboardDeepLink';
@@ -52,6 +53,7 @@ export function useTaskRelatedMenu() {
   const { start: startPurchaseOrder } = useStartPurchaseOrder();
   const { start: startCustomerInvoice } = useStartCustomerInvoice();
   const { create: createSubproject } = useCreateSubproject();
+  const { create: createTimesheet } = useCreateTimesheetFromTask();
   const tasksById = usePMStore((s) => s.tasksById);
   const projectsById = usePMStore((s) => s.projectsById);
   const schedule = usePMStore((s) => s.schedule);
@@ -75,6 +77,8 @@ export function useTaskRelatedMenu() {
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-create-vendor-invoice`, label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => (ctx.onVendorInvoice ? ctx.onVendorInvoice() : void startVendorInvoice({ taskGUID, projectGUID }))) }]),
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-create-purchase-order`, label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => (ctx.onPurchaseOrder ? ctx.onPurchaseOrder() : void startPurchaseOrder({ taskGUID, projectGUID }))) }]),
       ...(customerOn ? [{ testID: `${idPrefix}-create-customer-invoice`, label: 'Customer Invoice', icon: 'payments', onPress: run(() => (ctx.onCustomerInvoice ? ctx.onCustomerInvoice() : void startCustomerInvoice({ taskGUID, projectGUID, ...(taskLineGUID ? { lineGUIDs: [taskLineGUID] } : {}) }))) }] : []),
+      // Time sheet: a NEW draft of the user's work center for the current month with a line for this task (a normal task only; the line menu of a Time line brings its role / budget item / business unit)
+      ...((task.rowJSON as any)?.rowKind !== 'milestone' && (!taskLineGUID || genus === MANAGEMENT_GENUS.time) ? [{ testID: `${idPrefix}-create-timesheet`, label: 'Time sheet', icon: 'schedule', onPress: run(() => { void createTimesheet(taskGUID, taskLineGUID ?? null); }) }] : []),
       ...(canCreateSub ? [{
         testID: `${idPrefix}-create-subproject`, label: 'Subproject', icon: 'account_tree',
         disabled: createSubprojectBlock(project?.rowJSON, task.rowJSON) === 'alreadySubproject',
@@ -89,11 +93,12 @@ export function useTaskRelatedMenu() {
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-goto-purchase-orders`, label: 'Purchase orders', icon: 'shopping_cart', onPress: run(() => openTaskScopedList(PURCHASE_ORDER_LIST_ROUTE, scope, router)) }]),
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-goto-product-receipts`, label: 'Product receipts', icon: 'move_to_inbox', onPress: run(() => openTaskScopedList(PRODUCT_RECEIPT_LIST_ROUTE, scope, router)) }]),
       { testID: `${idPrefix}-goto-fact-input`, label: 'Fact input', icon: 'fact_check', onPress: run(() => openTaskScopedList(FACT_LIST_ROUTE, scope, router)) },
+      { testID: `${idPrefix}-goto-timesheets`, label: 'Time sheets', icon: 'schedule', onPress: run(() => openTaskScopedList(TIMESHEET_LIST_ROUTE, { taskGUID, taskLineGUID: '' }, router)) },
       ...(subGUID ? [{ testID: `${idPrefix}-goto-subproject`, label: 'Subproject', icon: 'account_tree', onPress: run(() => openProjectBoard(subGUID, router)) }] : []),
     ];
     return [
       { testID: `${idPrefix}-create`, label: 'Create based on this', icon: 'add_circle', onPress: () => {}, submenu: create },
       { testID: `${idPrefix}-goto`, label: 'Go to', icon: 'arrow_forward', onPress: () => {}, submenu: goTo },
     ];
-  }, [router, openFactInput, startVendorInvoice, startPurchaseOrder, startCustomerInvoice, createSubproject, tasksById, projectsById, schedule]);
+  }, [router, openFactInput, startVendorInvoice, startPurchaseOrder, startCustomerInvoice, createSubproject, createTimesheet, tasksById, projectsById, schedule]);
 }

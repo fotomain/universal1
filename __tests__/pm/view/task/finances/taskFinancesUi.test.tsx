@@ -53,6 +53,11 @@ jest.mock('../../../../../kit8/pm/view/project/pick/pmPickerContext', () => ({ .
 // "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: documents/vendor/invoice/useVendorInvoice.test.tsx)
 const mockStartVendorInvoice = jest.fn();
 jest.mock('../../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
+// "Customer Invoice" / "Time sheet" of the Task menu items (useTaskRelatedMenu): their hooks need the Supabase provider
+const mockStartCustomerInvoice = jest.fn();
+jest.mock('../../../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockStartCustomerInvoice, busy: false }) }));
+const mockCreateTimesheet = jest.fn(async () => ({ status: 'created', documentGUID: 'ts-1', skipped: [] }));
+jest.mock('../../../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockCreateTimesheet as any)(...a), busy: false, error: null }) }));
 const mockStartPurchaseOrder = jest.fn();
 jest.mock('../../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockStartPurchaseOrder, busy: false }) }));
 const mockPick: Record<string, string> = {};
@@ -807,6 +812,39 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     press(`${T}-vendor-scope-task`);
     press(`${T}-vendor-scope-create`);
     expect(mockStartVendorInvoice).toHaveBeenCalledWith({ taskGUID: 't1', projectGUID: 'p1', lineGUIDs: undefined });
+  });
+
+  // the menu opens when the icon has measured its place on the screen (asynchronous)
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 80)); });
+  it('the bar has the icons "Create based on" and "Go to" on every tab (also without currency conversion): a menu with the items of the Task menu, for the TASK', async () => {
+    mount({ lines: [line('a1', 'timeGenus', 1)] });
+    expect(q(`${T}-create-based-on`)).not.toBeNull();
+    expect(q(`${T}-goto`)).not.toBeNull();
+    expect(q(`${T}-recalc-all`)).toBeNull();                                         // no currency conversion here: the Recalculate icon is not there, these two are
+    press(`${T}-create-based-on`);
+    await settle();
+    expect(q(`${T}-toolbar-menu`)).not.toBeNull();
+    expect(q(`${T}-toolbar-create-fact`)).not.toBeNull();
+    expect(q(`${T}-toolbar-create-timesheet`)).not.toBeNull();
+    expect(q(`${T}-toolbar-goto-timesheets`)).toBeNull();                            // the other menu's items are not in this one
+    press(`${T}-toolbar-create-timesheet`);
+    expect(mockCreateTimesheet).toHaveBeenCalledWith('t1', null);
+    expect(q(`${T}-toolbar-menu`)).toBeNull();                                       // an item closes the menu
+  });
+  it('"Go to" opens the lists of the task (Time sheets ...)', async () => {
+    mount({ lines: [line('a1', 'timeGenus', 1)] });
+    press(`${T}-goto`);
+    await settle();
+    expect(q(`${T}-toolbar-goto-vendor-invoices`)).not.toBeNull();
+    press(`${T}-toolbar-goto-timesheets`);
+    expect(mockRouterPush).toHaveBeenLastCalledWith({ pathname: '/pm/timesheet/list', params: { taskGUID: 't1' } });
+  });
+  it('the two icons come after the Recalculate icon', () => {
+    mockBook = book();
+    mount({ lines: [fxLine()], project, startMs: START });
+    const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => String(e.getAttribute('data-testid')));
+    expect(ids.indexOf(`${T}-create-based-on`)).toBeGreaterThan(ids.indexOf(`${T}-recalc-all`));
+    expect(ids.indexOf(`${T}-goto`)).toBe(ids.indexOf(`${T}-create-based-on`) + 1 + ids.slice(ids.indexOf(`${T}-create-based-on`) + 1).findIndex((i) => i === `${T}-goto`));
   });
 
   it('Recalculate all (bar): every line of the tab; nothing to do = nothing written', () => {

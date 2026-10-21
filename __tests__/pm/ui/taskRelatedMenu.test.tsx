@@ -10,6 +10,7 @@ const mockInvoice = jest.fn();
 const mockOrder = jest.fn();
 const mockCustomer = jest.fn();
 const mockCreateSub = jest.fn(async () => 'sub-1');
+const mockTimesheet = jest.fn(async () => ({ status: 'created', documentGUID: 'ts-1', skipped: [] }));
 const mockOpenBoard = jest.fn();
 const mockOpenDashboard = jest.fn();
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
@@ -18,6 +19,7 @@ jest.mock('../../../kit8/documents/fact/input/useOpenFactInput', () => ({ useOpe
 jest.mock('../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockInvoice, busy: false }) }));
 jest.mock('../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockCustomer, busy: false }) }));
 jest.mock('../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockOrder, busy: false }) }));
+jest.mock('../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockTimesheet as any)(...a), busy: false, error: null }) }));
 jest.mock('../../../kit8/pm/subproject/useCreateSubproject', () => ({ useCreateSubproject: () => ({ create: (...a: any[]) => (mockCreateSub as any)(...a), busy: false }) }));
 jest.mock('../../../kit8/pm/view/project/dashboardDeepLink', () => ({ ...jest.requireActual('../../../kit8/pm/view/project/dashboardDeepLink'), openProjectBoard: (...a: any[]) => mockOpenBoard(...a), openDashboardLink: (...a: any[]) => mockOpenDashboard(...a) }));
 
@@ -105,6 +107,34 @@ describe('Create based on this', () => {
     press('pm-row-menu-create');
     expect(q('pm-row-menu-create-subproject')).toBeNull();
     expect(q('pm-row-menu-create-fact')).not.toBeNull();
+  });
+});
+
+describe('Time sheet', () => {
+  it('Create based on this → Time sheet makes a NEW draft for the TASK (always new); Go to → Time sheets opens the list of the task in a new window', () => {
+    const t = open('Task 111');
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-timesheet')).not.toBeNull();
+    press('pm-row-menu-create-timesheet');
+    expect(mockTimesheet).toHaveBeenCalledWith(t.rowGUID, null);
+    expect(usePMStore.getState().rowMenu).toBeNull();
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-create');
+    press('pm-row-menu-create-timesheet');
+    expect(mockTimesheet).toHaveBeenCalledTimes(2);                                 // never reused: every press asks for a new draft
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-goto');
+    press('pm-row-menu-goto-timesheets');
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/timesheet/list', params: { taskGUID: t.rowGUID } });
+  });
+  it('the Time sheet item comes after Purchase Order; a milestone has no time sheet', () => {
+    open('Task 111');
+    press('pm-row-menu-create');
+    expectInOrder(['pm-row-menu-create-purchase-order', 'pm-row-menu-create-timesheet']);
+  });
+  it('a stage has no submenus at all', () => {
+    open('Stage 1');
+    expect(q('pm-row-menu-create-timesheet')).toBeNull();
   });
 });
 

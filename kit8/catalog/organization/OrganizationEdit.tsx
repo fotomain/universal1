@@ -27,15 +27,17 @@ import { organizationOwnerOf } from './ensureUserOrganization';
 import { CAPACITY_MODES, CapacityMode, DEFAULT_CAPACITY_MODE, capacityModeOf } from '../../pm/view/task/plan/busyControl';
 import { pmT } from '../../pm/i18n/pmT';
 import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
+import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } from '../../documents/timesheet/TabTimesheet';
 
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
 
-type OrgTab = 'main' | 'projects';
+type OrgTab = 'main' | 'projects' | 'timesheet';
 type ProjectsTab = 'settings';
 const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
   { id: 'main', label: 'Main', icon: 'info' },
   { id: 'projects', label: 'Projects', icon: 'view_timeline' },
+  { id: 'timesheet', label: 'Time sheet', icon: 'schedule' },
 ];
 const PROJECTS_TABS: { id: ProjectsTab; label: string }[] = [{ id: 'settings', label: 'Settings' }];
 
@@ -57,6 +59,10 @@ type Form = {
   resourceCapacityStrongMode: CapacityMode;
   /** organizationTable.rowJSON.defaultProjectSettings: kept as stored, edited by Projects -> Settings */
   defaultProjectSettings?: Record<string, any>;
+  /** the time sheet defaults of every user (TabTimesheet): only the keys that are stored */
+  timesheet: TimesheetStoredSettings;
+  /** the base currency of the exchange rates the database converts with (the cost of a time sheet hour); '' = EUR */
+  baseCurrency: string;
 };
 
 const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form => {
@@ -79,6 +85,8 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     bankIban: leg.bankIban || '',
     resourceCapacityStrongMode: capacityModeOf(v) ?? DEFAULT_CAPACITY_MODE,
     defaultProjectSettings: v.defaultProjectSettings,
+    timesheet: storedTimesheetSettings(v as Record<string, any>),
+    baseCurrency: v.baseCurrency || '',
   };
 };
 
@@ -95,6 +103,8 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     notes: f.notes,
     resourceCapacityStrongMode: f.resourceCapacityStrongMode,
     defaultProjectSettings: f.defaultProjectSettings,
+    ...f.timesheet,
+    baseCurrency: f.baseCurrency,
     legalData: {
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
@@ -291,6 +301,19 @@ export default function OrganizationEdit() {
               />
             </Suspense>
           )}
+        </View>
+      )}
+
+      {/* Time sheet: the default switches of every user (a person may set his own: Person edit) */}
+      {topTab === 'timesheet' && (
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-timesheet-tab-content">
+          <TabTimesheet testID="organization-timesheet-settings" values={form.timesheet} disabled={!canEdit} onChange={(next) => update('timesheet', next)} />
+          {/* the base of the exchange rate book (the cost of an hour is converted in the database): the currency the rates are quoted against */}
+          <TextInputApp
+            testID="organization-baseCurrency" label={pmT('Base currency of the exchange rates')} value={form.baseCurrency} maxLength={3} autoCapitalize="characters" placeholder="EUR" disabled={!canEdit}
+            helperText={pmT('The currency the exchange rates are quoted against (EUR unless you changed EXPO_PUBLIC_CURRENCY_RATES_BASE). Empty = EUR.')}
+            onChangeText={(t: string) => update('baseCurrency', t.toUpperCase())}
+          />
         </View>
       )}
 

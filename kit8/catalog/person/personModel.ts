@@ -39,6 +39,9 @@ export interface PersonRowJSON {
   employeeData?: EmployeeData;
   /** managementCalendarTable.rowGUID of a RESOURCE calendar: its hours are the capacity of the person (empty = the Standard work week; the calendar of a contract in force wins) */
   resourceCalendar?: string | null;
+  /** time sheet switches of THIS person (kit8/documents/timesheet/TabTimesheet); a missing key follows the Organization, then the built-in default */
+  timesheetAllWorkCenterInputAvailable?: boolean;
+  timesheetOnlyCurrentMonthInputEnabled?: boolean;
 }
 
 export interface PersonRow {
@@ -117,6 +120,9 @@ export function normalizePerson(v: Partial<PersonRowJSON>): PersonRowJSON {
     personType: v.personType || null,
     employeeData,
     ...(v.resourceCalendar ? { resourceCalendar: String(v.resourceCalendar) } : {}),
+    // the time sheet switches of this person: only a stored boolean is kept (a missing key follows the Organization)
+    ...(typeof v.timesheetAllWorkCenterInputAvailable === 'boolean' ? { timesheetAllWorkCenterInputAvailable: v.timesheetAllWorkCenterInputAvailable } : {}),
+    ...(typeof v.timesheetOnlyCurrentMonthInputEnabled === 'boolean' ? { timesheetOnlyCurrentMonthInputEnabled: v.timesheetOnlyCurrentMonthInputEnabled } : {}),
   };
 }
 

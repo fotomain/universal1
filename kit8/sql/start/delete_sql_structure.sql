@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000. delete_timesheet.sql - PART 36: drops the time sheet tables (data included), their triggers, the timesheet_* functions, person_ensure_user and the 'used' movements of the time sheets (runs very first: it is the newest)
 --  1a-000. delete_work_center.sql - PART 35: drops workCenterTable (with the variants the work centers own), its triggers and the work_center_* functions (runs very first: it is the newest)
 --  1a-00. delete_roi.sql - PARTs 33 + 34: drops the ROI tables (the task months, the project months, the HISTORY with its rows), the views, the trigger on project_table and the roi_* functions (runs very first)
 --  1a-0. delete_subprojects.sql - PART 29: drops project_subproject_link, its triggers and the subproject_* functions (runs very first)
@@ -29,6 +30,72 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-0000: delete_timesheet.sql  (PART 36 of the structure file: the TIME SHEET - runs before everything else, it is the newest)
+-- Drops the three time sheet tables WITH their rows (the sheets of ALL users), their triggers, the timesheet_* functions and person_ensure_user (the Persons already made stay: they are catalog rows).
+-- The 'used' movements the posted sheets wrote into project_status_movements are deleted here too (their tasks are queued for Monitor01 by the delete trigger).
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public.project_status_movements') IS NOT NULL THEN
+    DELETE FROM public.project_status_movements s WHERE s."rowRegistratorType" = 'timesheetHeader';
+  END IF;
+END $$;
+DROP FUNCTION IF EXISTS public.timesheet_cell_money(uuid, date, numeric);
+DROP FUNCTION IF EXISTS public.timesheet_hour_price(text, uuid, text, date);
+DROP FUNCTION IF EXISTS public.role_hour_rate(text, date);
+DROP FUNCTION IF EXISTS public.person_contract_on_day(text, date);
+DROP FUNCTION IF EXISTS public.contract_hour_price(jsonb);
+DROP FUNCTION IF EXISTS public.fx_convert(numeric, text, text, text, date);
+DROP FUNCTION IF EXISTS public.fx_miss_text(text, text, text, date);
+DROP FUNCTION IF EXISTS public.fx_pair_rate(text, text, text, date);
+DROP FUNCTION IF EXISTS public.fx_ratio_on_day(text, text, date);
+DROP FUNCTION IF EXISTS public.fx_base_currency();
+DROP FUNCTION IF EXISTS public.post_timesheet(uuid);
+DROP FUNCTION IF EXISTS public.unpost_timesheet(uuid);
+DROP FUNCTION IF EXISTS public.project_status_register_timesheet(uuid);
+DROP FUNCTION IF EXISTS public.create_timesheet_from_task(uuid, uuid);
+DROP FUNCTION IF EXISTS public.timesheet_list(jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_set_hours(uuid, date, numeric);
+DROP FUNCTION IF EXISTS public.timesheet_delete(uuid);
+DROP FUNCTION IF EXISTS public.timesheet_move_line(uuid, text);
+DROP FUNCTION IF EXISTS public.timesheet_insert_line(uuid, uuid, boolean, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_delete_line(uuid);
+DROP FUNCTION IF EXISTS public.timesheet_set_line(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_add_line(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_line_patch(public.project_timesheet_lines, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_create(text, date, date);
+DROP FUNCTION IF EXISTS public.timesheet_guard(uuid, boolean);
+DROP TABLE IF EXISTS public.project_timesheet_lines_data_entered CASCADE;
+DROP TABLE IF EXISTS public.project_timesheet_lines CASCADE;
+DROP TABLE IF EXISTS public.project_timesheet_header CASCADE;
+DROP SEQUENCE IF EXISTS public.project_timesheet_document_seq;
+DROP FUNCTION IF EXISTS public.project_timesheet_data_entered_total();
+DROP FUNCTION IF EXISTS public.project_timesheet_data_entered_before_delete();
+DROP FUNCTION IF EXISTS public.project_timesheet_data_entered_before_write();
+DROP FUNCTION IF EXISTS public.project_timesheet_lines_before_write();
+DROP FUNCTION IF EXISTS public.project_timesheet_header_after_update();
+DROP FUNCTION IF EXISTS public.project_timesheet_header_before_write();
+DROP FUNCTION IF EXISTS public.timesheet_line_rate(text, uuid, text);
+DROP FUNCTION IF EXISTS public.timesheet_possible_business_units(uuid, text);
+DROP FUNCTION IF EXISTS public.timesheet_possible_budget_items(uuid, text);
+DROP FUNCTION IF EXISTS public.timesheet_possible_roles(uuid, text);
+DROP FUNCTION IF EXISTS public.timesheet_wc_worker_kind(text);
+DROP FUNCTION IF EXISTS public.timesheet_line_worker_kind(jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_line_books(jsonb, text);
+DROP FUNCTION IF EXISTS public.timesheet_state(uuid);
+DROP FUNCTION IF EXISTS public.timesheet_create_my_work_center(text);
+DROP FUNCTION IF EXISTS public.timesheet_header_wc_allowed(text, jsonb);
+DROP FUNCTION IF EXISTS public.timesheet_work_center_allowed(text);
+DROP FUNCTION IF EXISTS public.timesheet_my_work_center();
+DROP FUNCTION IF EXISTS public.timesheet_only_current_month();
+DROP FUNCTION IF EXISTS public.timesheet_all_work_centers();
+DROP FUNCTION IF EXISTS public.timesheet_setting(text, text);
+DROP FUNCTION IF EXISTS public.timesheet_user_person();
+DROP FUNCTION IF EXISTS public.person_ensure_user(text, text, text);
 
 
 -- =====================================================================================

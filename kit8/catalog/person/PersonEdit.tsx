@@ -12,6 +12,8 @@ import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
+import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } from '../../documents/timesheet/TabTimesheet';
+import { useOrganizationTimesheetDefaults } from '../../documents/timesheet/useOrganizationTimesheetDefaults';
 import { ContractList } from '../contract';
 import { CONTRACT_ENTITY, ContractRow } from '../contract/contractModel';
 import {
@@ -44,6 +46,8 @@ type Form = {
   department: string;
   personalCode: string;
   bankIban: string;
+  /** the time sheet switches of this person (TabTimesheet): only the keys that are stored */
+  timesheet: TimesheetStoredSettings;
 };
 
 const toForm = (j?: Partial<PersonRowJSON>): Form => {
@@ -64,6 +68,7 @@ const toForm = (j?: Partial<PersonRowJSON>): Form => {
     department: emp.department || '',
     personalCode: emp.personalCode || '',
     bankIban: emp.bankIban || '',
+    timesheet: storedTimesheetSettings(v as Record<string, any>),
   };
 };
 
@@ -78,6 +83,7 @@ const fromForm = (f: Form): PersonRowJSON =>
     personIsEmployee: f.personIsEmployee,
     personType: f.personType,
     resourceCalendar: f.resourceCalendar || null,
+    ...f.timesheet,
     employeeData: {
       employeeNumber: f.employeeNumber,
       position: f.position,
@@ -97,6 +103,7 @@ export default function PersonEdit() {
   const rowGUID = typeof params.rowGUID === 'string' && params.rowGUID ? params.rowGUID : null;
 
   const status = useRealtimeEntity(PERSON_ENTITY, { readParams: PERSON_READ_PARAMS });
+  const orgDefaults = useOrganizationTimesheetDefaults();
   const actions = SystemMetaData[PERSON_ENTITY]?.actions;
   const rows: PersonRow[] = useSelector((s: any) => s?.[PERSON_ENTITY]?.entityDataFromServer) || [];
   const loaded = useSelector((s: any) => s?.[PERSON_ENTITY]?.readSuccessful === 1);
@@ -304,6 +311,12 @@ export default function PersonEdit() {
           {input('bankIban', 'Bank IBAN', { autoCapitalize: 'characters' })}
         </View>
       )}
+
+      {/* Time sheet switches of this person (the default of a user is in the Organization) */}
+      <View style={[styles.subSection, { borderColor: `${c.text}30` }]} testID="person-edit-timesheet">
+        <Text style={[styles.subSectionTitle, { color: c.text }]}>Time sheet</Text>
+        <TabTimesheet testID="person-edit-timesheet-tab" values={form.timesheet} inherited={orgDefaults ?? {}} onChange={(next) => set('timesheet', next)} />
+      </View>
 
       {/* Contracts Sub-section */}
       <ContractList ownerGUID={rowGUID || ''} partyType="person" defaultCurrency="EUR" disabled={!rowGUID} />
