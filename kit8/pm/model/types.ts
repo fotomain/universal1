@@ -137,12 +137,12 @@ export interface PMRowJSON {
   showTotalCostWithVATOnTheGanttChart?: boolean;
   /** Cost inputs (only while projectExpenseBudgetNeeded; kit8/pm/model/taskInputScope.ts): the Time tab of the task lines ("Time input needed"); default true */
   projectTimeCostsNeeded?: boolean;
-  /** ... Time lines of a person; default true */
+  /** ... Time lines of a work center of a person; default true */
   projectTimeOfPersonNeeded?: boolean;
-  /** ... Time lines of an equipment (with Person: the menu "Resource: Person | Equipment"); default false */
+  /** ... Time lines of a work center of an equipment; default false */
   projectTimeOfEquipmentNeeded?: boolean;
-  /** ... Time lines of a work center (kit8/catalog/work_center; a third entry of the menu "Resource"); default false */
-  projectTimeOfWorkCenterNeeded?: boolean;
+  /** ... Time lines of a work center of a partner (kit8/catalog/work_center; a supplier); default false */
+  projectTimeOfPartnerNeeded?: boolean;
   /** ... the Material tab; default true */
   projectMaterialCostsNeeded?: boolean;
   /** ... the Expenses tab; default true */

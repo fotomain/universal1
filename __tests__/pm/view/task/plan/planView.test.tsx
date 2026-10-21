@@ -127,7 +127,7 @@ describe('PMProjectTaskTimelinePlanCRUD', () => {
   const planRow = (id: string, line: string, i: number, c: number, q: number, b: number, k: number | null) =>
     ({ rowGUID: id, rowOwnerGUID: 't1', rowParentGUID: line, orderInList: i, rowPeriodDatetime: `2026-10-${12 + i}T00:00:00+00:00`, rowCoefficient: c, qtyTaskLine: q, sumForBudget: b, sumForContract: k, rowJSON: { budgetItemTaskLine: 'timeBudgetItem', taskManagementGenusLine: 'timeGenus' } });
   const lineRow = (guid: string, genus: string, json: Record<string, any>) => ({ rowGUID: guid, rowOwnerGUID: 't1', rowParentGUID: genus, orderInList: 1, rowJSON: { budgetItemTaskLine: 'timeBudgetItem', taskIsPosted: true, baseOfDistribution: 1, qtyTaskLine: 10, sumForBudget: 100, sumForContract: 100, ...json } });
-  function mount(opts: { stage?: boolean; lines?: any[]; plan?: any[] } = {}) {
+  function mount(opts: { stage?: boolean; lines?: any[]; plan?: any[]; lineGUID?: string; initialTab?: string; onClearLine?: () => void } = {}) {
     const { byName } = seedStore();
     const task = byName('Task 111');
     // the test kit's useSelector reads this
@@ -137,7 +137,7 @@ describe('PMProjectTaskTimelinePlanCRUD', () => {
     };
     act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, t1: { rowGUID: 't1', rowJSON: { rowKind: opts.stage ? 'stage' : 'task', name: 'T' } } }, schedule: { ...s.schedule, t1: { isSummary: !!opts.stage } }, tree: { ...s.tree, childrenById: { ...s.tree.childrenById, t1: opts.stage ? ['c'] : [] } } })));
     void task;
-    return renderUI(<PMProjectTaskTimelinePlanCRUD projectGUID="p" taskGUID="t1" testID="tp" />);
+    return renderUI(<PMProjectTaskTimelinePlanCRUD projectGUID="p" taskGUID="t1" testID="tp" lineGUID={opts.lineGUID} initialTab={opts.initialTab} onClearLine={opts.onClearLine} />);
   }
 
   it('ONE read-only table for all the lines of the task: no CRUD panel, no row menu, no check boxes, no reorder', () => {
@@ -262,6 +262,68 @@ describe('PMProjectTaskTimelinePlanCRUD', () => {
     press('tp-tab-TabPlanAll');
     expect(q('tp-timeline')).toBeNull();
     expect(q('tp-summary-l1')).not.toBeNull();
+  });
+
+  describe('ONE task line (the link "Go to > Timeline data" of a line)', () => {
+    const lines = () => [lineRow('l1', 'timeGenus', { qtyTaskLine: 10 }), lineRow('l2', 'materialGenus', { qtyTaskLine: 5 })];
+    const plan = () => [planRow('a', 'l1', 1, 1, 10, 100, 100), planRow('b', 'l2', 2, 1, 5, 50, 50), planRow('c', 'l2', 3, 1, 5, 25, 25)];
+    const lastTable = () => mockTable.mock.calls.at(-1)![0];
+
+    it('without a line: all the lines, no chip, the All tab', () => {
+      mount({ lines: lines(), plan: plan() });
+      expect(q('tp-line-filter')).toBeNull();
+      expect(q('tp-summary-l1')).not.toBeNull();
+      expect(q('tp-summary-l2')).not.toBeNull();
+      expect(lastTable().rowFilter({ rowParentGUID: 'l1' })).toBe(true);
+      expect(lastTable().rowFilter({ rowParentGUID: 'l2' })).toBe(true);
+    });
+    it('with a line: the table, the summary and the tab counts show that line only; a chip says which', () => {
+      mount({ lines: lines(), plan: plan(), lineGUID: 'l2', onClearLine: jest.fn() });
+      expect(q('tp-line-filter')).not.toBeNull();
+      expect(textOf('tp-line-filter-label')).toContain('Task line');
+      expect(q('tp-summary-l1')).toBeNull();
+      expect(q('tp-summary-l2')).not.toBeNull();
+      expect(lastTable().rowFilter({ rowParentGUID: 'l1' })).toBe(false);
+      expect(lastTable().rowFilter({ rowParentGUID: 'l2' })).toBe(true);
+      expect(textOf('tp-tab-TabPlanAll-count')).toBe('1');
+      expect(q('tp-tab-TabPlanTime-count')).toBeNull();               // the line is a Material line: the Time tab counts nothing
+      expect(textOf('tp-tab-TabPlanMaterial-count')).toBe('1');
+    });
+    it('the tab filter and the line filter work together', () => {
+      mount({ lines: lines(), plan: plan(), lineGUID: 'l1' });
+      press('tp-tab-TabPlanMaterial');
+      expect(lastTable().rowFilter({ rowParentGUID: 'l1' })).toBe(false);   // l1 is a Time line
+      press('tp-tab-TabPlanTime');
+      expect(lastTable().rowFilter({ rowParentGUID: 'l1' })).toBe(true);
+      expect(lastTable().rowFilter({ rowParentGUID: 'l2' })).toBe(false);
+    });
+    it('opens on the tab of the link: the Timeline shows the days of THAT line only', () => {
+      mount({ lines: lines(), plan: plan(), lineGUID: 'l2', initialTab: 'TabPlanTimeline' });
+      expect(q('tp-timeline')).not.toBeNull();
+      expect(q('tp-summary-l2')).toBeNull();                          // the Timeline tab has no line summaries
+      expect(textOf('tp-timeline')).toContain('75');                  // 50 + 25: the running total of l2; the 100 of l1 is not in it
+      expect(textOf('tp-timeline')).not.toContain('175');
+    });
+    it('an unknown tab is the All tab', () => {
+      mount({ lines: lines(), plan: plan(), initialTab: 'TabNope' });
+      expect(q('tp-timeline')).toBeNull();
+      expect(q('tp-summary-l1')).not.toBeNull();
+    });
+    it('the x of the chip asks to show all the lines; no x without a handler', () => {
+      const clear = jest.fn();
+      mount({ lines: lines(), plan: plan(), lineGUID: 'l1', onClearLine: clear });
+      press('tp-line-filter-clear');
+      expect(clear).toHaveBeenCalledTimes(1);
+      cleanupUI();
+      mount({ lines: lines(), plan: plan(), lineGUID: 'l1' });
+      expect(q('tp-line-filter')).not.toBeNull();
+      expect(q('tp-line-filter-clear')).toBeNull();
+    });
+    it('a line that is not in the task is named by its GUID and shows nothing', () => {
+      mount({ lines: lines(), plan: plan(), lineGUID: 'gone' });
+      expect(textOf('tp-line-filter-label')).toContain('gone');
+      expect(lastTable().rowFilter({ rowParentGUID: 'l1' })).toBe(false);
+    });
   });
 });
 

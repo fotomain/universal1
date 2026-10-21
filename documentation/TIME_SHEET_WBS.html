@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Sheet WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Time Sheet – Work Breakdown Structure</h1>
+<p class="sub">Scope: a new document <code>PMTimesheet</code> (“doc1”) in which a work center reports its time on projects and tasks for a period. Planning document – no implementation. Status: 2026-10-21, fifth version – the answers of the owner to the first four rounds are in, no open point is left; everything marked <span class="tag">proposal</span> is my reading and is not yet confirmed.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>The user opens a <b>time sheet</b> for one <b>work center</b> (a Person, an Equipment or a Partner, see <code>WORK_CENTER_WBS.html</code>) and one <b>period</b> (start date – finish date). The lines of the sheet say on which <b>project</b> and which <b>task</b> of that project the time was spent, the <b>role</b> of the work done, and the sheet has <b>one column for every day of the period</b> (both dates included) in which the hours are typed. A <b>posted</b> sheet writes the hours into the project status register (“Used” of Monitor01). The document has the same structure as the other documents of the app: Form, List, Header, Lines, and a header table and a lines table in the database.</p>
+</div>
+<div class="callout"><b>Not part of this round:</b> approval workflow, import of hours, a check against the capacity of the work center calendar (only the 24 hours a day are checked). No code is written in this step – this document is the plan.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Source statement</th></tr>
+  <tr><td class="id">R1</td><td>The document is called <code>PMTimesheet</code> and has the four screens <b>Form</b>, <b>List</b>, <b>Header</b>, <b>Lines</b>.</td><td>“doc1=PMTimesheet needed”; “doc1+DocumentForm / List / Header / Lines”</td></tr>
+  <tr><td class="id">R2</td><td>Three tables exist: <code>project_timesheet_header</code>, <code>project_timesheet_lines</code> and <code>project_timesheet_lines_data_entered</code> (the entered hours, the base of Post).</td><td>“project_timesheet_header, project_timesheet_lines”; answer “like project_timesheet_lines_data_entered needed - it will be post base”</td></tr>
+  <tr><td class="id">R3</td><td>Header field <b>organization</b> is shown and <b>disabled</b> (the user cannot change it).</td><td>“organization - disabled”</td></tr>
+  <tr><td class="id">R4</td><td>Header field <code>timesheetWorkCenter</code>: the user selects it from a list.</td><td>“timesheetWorkCenter: user can select from list”</td></tr>
+  <tr><td class="id">R5</td><td>Header fields <code>startDate</code> and <code>finishDate</code>, with a <b>period selector</b> that fills both.</td><td>“startDate, finishDate + period selector”</td></tr>
+  <tr><td class="id">R6</td><td>Lines column <code>timesheetLineProject</code>: selectable.</td><td>“timesheetLineProject selectable”</td></tr>
+  <tr><td class="id">R7</td><td>Lines column <code>timesheetLineTask</code>: selectable. Only <b>normal tasks</b> (not stages, not milestones).</td><td>“timesheetLineTask selectable”; answer 4</td></tr>
+  <tr><td class="id">R8</td><td>The lines have <b>one column for every day</b> from <code>startDate</code> to <code>finishDate</code>, both included; the user types the hours in them.</td><td>answer “Hours”</td></tr>
+  <tr><td class="id">R9</td><td>The sheet is <b>posted</b>: Post writes the hours into the project status register (kind <code>used</code>), Unpost takes them back – like the fact input.</td><td>answer “Posting: yes”</td></tr>
+  <tr><td class="id">R10</td><td>Switch <code>timesheetAllWorkCenterInputAvailable</code> (tab <b>TabTimesheet</b>, <b>false</b> by default). Off: the user can select only his own <b>Person</b> work center. On: all work centers can be selected. The switch is kept <b>per Person</b>; its default for a user comes from the <b>Organization</b>.</td><td>answers “Which work centers” 1, 2; answer “Where the switches live”</td></tr>
+  <tr><td class="id">R11</td><td>Switch <code>timesheetOnlyCurrentMonthInputEnabled</code> (tab <b>TabTimesheet</b>, <b>true</b> by default, per Person, default from the Organization). On: the period must lie inside <b>today’s</b> month. Off: any period, at most 62 days.</td><td>answers “Period choices”, “Days limit”, “Current month”</td></tr>
+  <tr><td class="id">R12</td><td>Two sheets of the same work center may overlap in period. The hours of a work center on one day are <b>never more than 24</b>, over all sheets.</td><td>answer 6; answer “Over 24 hours”</td></tr>
+  <tr><td class="id">R13</td><td>A task needs <b>no</b> plan Time line that books the work center.</td><td>answer 3</td></tr>
+  <tr><td class="id">R14</td><td>After login a <b>Person</b> is made for the user when no Person with the e-mail of the user exists. That Person is “the user” for the work center rule.</td><td>answer “No user-to-person link”</td></tr>
+  <tr><td class="id">R15</td><td>The <b>Task menu</b> gets <b>Create based on this → Time sheet</b> (always a new sheet) and <b>Go to → Time sheets</b>.</td><td>answers “Missing role” 1; “Create based on” 1, 2</td></tr>
+  <tr><td class="id">R16</td><td>The lines get <b>selectable columns</b> Role and Budget item, enabled after the task is selected and checked, and Business unit, selectable only from the task lines that book the work center.</td><td>answers “Missing role” 2; “Columns after the task” 1</td></tr>
+  <tr><td class="id">R17</td><td>The same day reported in a fact input and in a time sheet is counted twice – accepted.</td><td>answer “Double counting”</td></tr>
+  <tr><td class="id">R18</td><td>A user whose Person has no work center can make it with the button <b>Create work center</b> on the work center field.</td><td>answer “Person made, work center not”</td></tr>
+  <tr><td class="id">R19</td><td>No permissions for the switches now (a PM role comes later); the 24 hours count posted sheets plus the one being posted.</td><td>answers “Who may change”, “The 24 hours”</td></tr>
+  <tr><td class="id">R20</td><td>Input order of a line: Project → Task → Role (and the columns after it). The hour cells are <b>empty at the start</b>; only entered hours are saved and posted.</td><td>answers “Many roles” 1; “No rate” 1</td></tr>
+</table>
+</div>
+
+<h2>3. The document in the app’s terms</h2>
+<div class="tbl">
+<table>
+  <tr><th>Part</th><th>File (proposal)</th><th>What it is</th></tr>
+  <tr><td>Form</td><td><code>PMTimesheetDocumentForm.tsx</code></td><td>One document: bar with the document commands, the Header above, the Lines below. Same pattern as <code>PMProductReceiptDocumentForm</code>.</td></tr>
+  <tr><td>List</td><td><code>PMTimesheetDocumentList.tsx</code></td><td>All time sheets of the organization with quick filters (work center, period, status) and a row that opens the Form. New drawer item under <b>Documents</b>, sorted by name.</td></tr>
+  <tr><td>Header</td><td><code>PMTimesheetDocumentHeader.tsx</code></td><td>The fields of section 4.</td></tr>
+  <tr><td>Lines</td><td><code>PMTimesheetDocumentLines.tsx</code></td><td>The lines table (<code>ReusableTable</code>) with the columns of section 5.</td></tr>
+  <tr><td>Create based on / Go to</td><td><code>useCreateTimesheetFromTask.ts</code>, <code>useOpenTimesheetList.ts</code>, entries in <code>kit8/pm/view/task/useTaskRelatedMenu.ts</code></td><td>The items <b>Time sheet</b> in the Task menu submenu “Create based on this” and <b>Time sheets</b> in “Go to” (section 5c).</td></tr>
+  <tr><td>Person of the user</td><td><code>person_ensure_user</code> (SQL), <code>kit8/auth/userTableLogin.ts</code></td><td>Makes the Person at login (section 4a).</td></tr>
+  <tr><td>Settings</td><td><code>TabTimesheet.tsx</code> + <code>timesheetSettings.ts</code></td><td>The tab with the two switches of section 5a, in the Person card and in Organization edit.</td></tr>
+  <tr><td>Folder</td><td><code>kit8/documents/timesheet</code> (confirmed)</td><td>Model, API, redux meta data, hooks, columns, README and the tests in <code>__tests__/documents/timesheet</code>, as the other documents. File names with the prefix <code>PM</code> (confirmed).</td></tr>
+  <tr><td>Tables</td><td><code>project_timesheet_header</code>, <code>project_timesheet_lines</code>, <code>project_timesheet_lines_data_entered</code></td><td>New SQL PART 36 (tables in <code>start1_sql_tables.sql</code>, functions / RLS / grants in <code>start2_sql_code.sql</code>, drop in <code>delete_sql_structure.sql</code>).</td></tr>
+</table>
+</div>
+
+<h2>4. Header fields</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Field</th><th>Behaviour</th></tr>
+  <tr><td class="id">1</td><td><code>organization</code></td><td><b>Disabled.</b> Filled by the system with the organization of the user (<code>userTable.rowJSON.userOrganization</code>) when the document is made; the field only shows it. The row belongs to that organization and the access rule follows it.</td></tr>
+  <tr><td class="id">2</td><td><code>timesheetWorkCenter</code></td><td>The user <b>selects from a list</b> of work centers (<code>workCenterTable</code>) of the organization, grouped by business-unit folder like the work center catalog, with the kind. <b>Switch off (default):</b> the list holds ONE entry – the work center of kind <b>Person</b> whose base person is the Person of the signed-in user (section 4a). <b>Switch on:</b> all work centers of the organization (Person, Equipment, Partner); the work center of the user is the default. The rule is checked again by the database when the sheet is saved. The work center of a sheet with posted hours cannot be changed (Unpost first). If the user has a Person but no work center, the field shows a button <b>Create work center</b> (section 4a).</td></tr>
+  <tr><td class="id">3</td><td><code>startDate</code></td><td>A date (<code>DateInputApp</code>: also accepts typed 8 digits). On or before <code>finishDate</code>. With <code>timesheetOnlyCurrentMonthInputEnabled</code> on it must lie in <b>today’s month</b>.</td></tr>
+  <tr><td class="id">4</td><td><code>finishDate</code></td><td>On or after <code>startDate</code>. With the switch on it must lie in today’s month (at most 31 day columns). With the switch off any period is allowed, <b>at most 62 days</b>.</td></tr>
+  <tr><td class="id">5</td><td>Period selector</td><td>A button next to the two dates; it opens a window and, when applied, writes <b>both</b> dates at once. <span class="tag">proposal</span> Reuse the month-range window of Monitor01 (<code>SelectPeriodModal</code>, <code>SelectPeriodButton</code>) with the quick choices <i>this week · previous week · this month · previous month</i>. With the switch on the window offers only today’s month (quick choices that leave it are hidden). A typed date outside the rule is refused with a message.</td></tr>
+  <tr><td class="id">6</td><td>Document number, status</td><td>Number <code>TS-00001</code> style (sequence), status <b>draft / posted</b>, who posted and when – read only, as in the fact input.</td></tr>
+</table>
+</div>
+
+<h2>4a. The Person of the user</h2>
+<div class="card">
+  <p>A user is linked to a Person <b>by e-mail</b>: the Person (<code>personTable</code>) whose <code>personEmail</code> equals the e-mail of the user (case does not matter).</p>
+  <ul>
+    <li><b>After login</b> a Person is made when no Person with that e-mail exists in the organization of the user: <code>personEmail</code> = the e-mail, the name from the profile of the user (else the part of the e-mail before the @). A Person that already exists is never changed or duplicated. <span class="tag">proposal</span> Like the organization: a SQL function (<code>person_ensure_user</code>) called in the same transaction as <code>organization_ensure_user</code> in <code>kit8/auth/userTableLogin.ts</code>, safe to call again at every login (idempotent).</li>
+    <li>This Person is “the user” in section 4 (work center list), in section 5a (the settings of the Person) and in “Create based on”.</li>
+    <li>Old users get their Person at their next login; nothing is migrated in advance.</li>
+    <li><b>Create work center:</b> a Person is not yet a work center (work centers are made by hand, see WORK_CENTER_WBS). When the Person of the user has no work center, the work center field of the sheet shows the button <b>Create work center</b>. One click makes a work center of kind Person with the Person of the user as its base, in the business-unit folder of the organization’s default (or the folder the user picks in a small window if there is no single default), no variant, no calendar (= the Standard work week); the field is then filled with it. The button makes only the work center of the user’s own Person, never another one, and it is shown only while the user has none (one catalog item = one work center). The rest of the work center catalog stays hand-made.</li>
+  </ul>
+</div>
+
+<h2>5. Lines</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Column</th><th>Behaviour</th></tr>
+  <tr><td class="id">1</td><td><code>timesheetLineProject</code></td><td><b>Selectable.</b> The projects of the organization of the user (RLS). A <code>ReusableTable</code> column with a select; “Fill all lines” in the column header menu works as in the other documents.</td></tr>
+  <tr><td class="id">2</td><td><code>timesheetLineTask</code></td><td><b>Selectable.</b> The <b>normal tasks</b> (type task – no stages, no milestones) of the project of the same line. Disabled with no project. Changing the project clears the task (and the columns that depend on it) after a confirmation. The task needs no Time line in the plan (R13).</td></tr>
+  <tr><td class="id">3</td><td><code>timesheetLineRole</code></td><td><b>Selectable, enabled only after the task is selected.</b> A person has no list of roles in this app: a role fits by its <b>kind</b> (the role type says person or equipment) and by the genus Time. So the roles offered are: the Time roles of the <b>task’s Time lines</b> that fit the kind of the work center (Person work center: person roles; Equipment and Partner work centers: equipment roles); when the task has no such Time line, <b>all Time roles of that kind</b> of the catalog. A role that is not in that list is refused when it is chosen and again at Post (“checked”). Changing the task clears the role.</td></tr>
+  <tr><td class="id">3a</td><td><code>timesheetLineBudgetItem</code></td><td><b>Selectable, enabled after the role.</b> The budget items of the task’s Time lines with that role (filled by itself when there is exactly one); when there is none, the Time budget items that the project allows for input. Checked like the role.</td></tr>
+  <tr><td class="id">3b</td><td><code>timesheetLineBusinessUnit</code></td><td><b>Selectable only when the task has Time lines that book this work center</b> (“origin task lines where the work center is assigned”): the options are the business units of exactly those lines. Otherwise the cell is disabled and shows the business unit of the work center, which is used. One option = filled by itself.</td></tr>
+  <tr><td class="id">3c</td><td>Input order</td><td>The columns are filled left to right: <b>Project → Task → Role</b> → Budget item → Business unit → hours. Task is enabled after Project, Role after Task (it offers the roles of section 5, column 3, <b>all roles of the kind when the task has no Time line</b>; the select has a search, no other limit), the rest after Role. The hour cells are enabled after the Role.</td></tr>
+  <tr><td class="id">4</td><td>Day columns</td><td>After the role columns there is <b>one column for every day</b> from <code>startDate</code> to <code>finishDate</code>, both included (7 days = 7 columns, at most 62). The title is the date with the weekday; weekends and the non-working days of the calendar of the work center are shaded (<span class="tag">proposal</span>, shading only). A cell takes hours: a number above 0 up to 24, decimals allowed (<code>PMNumberInputApp</code>). <b>Every hour cell is empty at the start</b> – a new line, a new day column and a new sheet have no hours and no zeros. Empty = nothing entered; a typed 0 or a cleared cell is the same as empty (the entered row is removed). Only entered hours are saved in <code>project_timesheet_lines_data_entered</code> and posted. The sum of one day over all lines of the sheet may not exceed 24 (the cell is refused with a message). The project, task and role columns stay fixed on the left while the day columns scroll sideways.</td></tr>
+  <tr><td class="id">5</td><td>Total column, totals row</td><td>A <b>Total</b> column (hours of the line) and a footer row with the hours of every day and the grand total. Calculated, never typed.</td></tr>
+  <tr><td class="id">6</td><td>Add / delete a line</td><td>The <b>+</b> of the table adds an empty line; a line can be deleted while the sheet is a draft. The same project + task + role + budget item + business unit twice in a sheet is refused (the same task with two roles is two lines).</td></tr>
+  <tr><td class="id">7</td><td>Change of the period</td><td>Moving the dates makes day columns appear or disappear. Days that disappear and hold hours are dropped only after a confirmation that names the hours. A posted sheet cannot change its dates.</td></tr>
+</table>
+</div>
+
+<h2>5a. Settings – TabTimesheet</h2>
+<div class="tbl">
+<table>
+  <tr><th>Key</th><th>Built-in default</th><th>Meaning</th></tr>
+  <tr><td><code>timesheetAllWorkCenterInputAvailable</code></td><td><b>false</b></td><td>Off: the user can select only his own Person work center. On: every work center of the organization can be selected.</td></tr>
+  <tr><td><code>timesheetOnlyCurrentMonthInputEnabled</code></td><td><b>true</b></td><td>On: <code>startDate</code> and <code>finishDate</code> must lie in today’s month. Off: a free period of at most 62 days.</td></tr>
+</table>
+</div>
+<div class="card">
+  <p><b>Per Person, default from the Organization.</b> The value that counts is the one of the <b>Person of the signed-in user</b> (section 4a), not of the work center chosen in the sheet. The value is read in this order: (1) <code>rowJSON</code> of the Person, if the key is stored there; (2) <code>rowJSON</code> of the Organization (the default for all users, edited in Organization edit); (3) the built-in default above. A new Person (also the one made at login) stores nothing, so it follows the Organization until someone changes it. A change of the Organization default reaches every Person that has no value of its own. No new column and no SQL for the storage; flat keys in the two <code>rowJSON</code>. <b>No permission rule for now:</b> every user can edit the tab of his own Person (and the organization default is edited in Organization edit); a PM role that restricts this comes later.</p>
+  <p>The tab <b>TabTimesheet</b> is in the <b>Person card</b> (edit) and in <b>Organization edit</b>; in the Person card the tab shows the inherited value and a button “Use the organization value” that removes the key of the Person. The database reads the three levels when it checks a sheet (functions in the style of <code>vendor_project_setting_on</code>; the first default is false, the second true – opposite defaults, see the pitfalls of <code>KNOW_HOW.md</code>).</p>
+</div>
+
+<h2>5b. Post and Unpost</h2>
+<div class="tbl">
+<table>
+  <tr><th>Step</th><th>Rule</th></tr>
+  <tr><td>Post</td><td>The RPC checks the whole sheet and answers with data <code>{ status, lines, problems[] }</code>, never an exception (as the fact input). Checks: the sheet has at least one entered row; every line with hours has a project, a normal task of that project and a <b>role possible for that task</b> (5, column 3); the work center is allowed for the user (switch); the dates obey the switch; no hours on a day after tomorrow (<span class="tag">proposal</span>, the rule of the fact input); the project of every line belongs to the organization; <b>no day of the work center would exceed 24 hours</b> over this sheet and all other posted sheets of the same work center – otherwise Post is refused and names the day and the other sheet.</td></tr>
+  <tr><td>What is written</td><td>The base of Post is the table <b><code>project_timesheet_lines_data_entered</code></b>: Post reads exactly its rows for the sheet (empty cells have no row, so nothing is posted for them). In the SAME transaction one <code>used</code> movement of the genus Time in <code>project_status_movements</code> for every entered row (line × day): project, task, <b>work center</b>, <b>role</b> and budget item of the line, unit hour, date = the day, quantity = the entered hours, registrator type <code>timesheetHeader</code>. The rate comes from the role as in the plan: Person work center – the contract of its person; Equipment / Partner – the rate of the role. The business unit is the one of the line (3b: from the task lines that book the work center, else that of the work center). Without a contract / role rate for a day Post is refused and names the line and the day. Monitor01 sums the movements by task × genus × role × unit × month into <b>Used</b>; the task is queued in <code>monitor01_dirty</code>.</td></tr>
+  <tr><td>Posted sheet</td><td>Read only (RLS and trigger): no header change, no line change, no delete.</td></tr>
+  <tr><td>Unpost</td><td>Takes the movements back (same transaction) and makes the sheet a draft again.</td></tr>
+  <tr><td>Overlap</td><td>Two sheets of the same work center may overlap in period (R12); their hours on one day add up and stay within 24.</td></tr>
+  <tr><td>Fact input</td><td>The fact input and the time sheet are independent. A day reported in both is counted twice; that is accepted (R17). Monitor01 shows the source document of every movement (column “Document”).</td></tr>
+</table>
+</div>
+
+<h2>5c. Create based on / Go to → Time sheet</h2>
+<div class="card">
+  <ul>
+    <li><b>Where:</b> the Task menu (task tree and Gantt chart) and the line menu of the Finances table. Submenu <b>Create based on this</b>: next to Fact input · Vendor Invoice · Purchase Order · Subproject the item <b>Time sheet</b>. Submenu <b>Go to</b>: next to Vendor invoices · Purchase orders · Fact input the item <b>Time sheets</b>. Both only for a normal task.</li>
+    <li><b>Create based on → Time sheet</b> <b>always makes a NEW draft</b> (an open draft is not reused): work center = the user’s own, period = today’s month (first day – last day), one line with the project and the task. Role and budget item are filled when there is exactly one choice; from the line menu of a Time line, the role, budget item and business unit of that line. It opens in a new browser tab on the web, like the other documents. If the user has no work center, the sheet opens with the field empty and the button <b>Create work center</b>. Done by an RPC (<code>create_timesheet_from_task</code>) in the style of <code>create_product_receipt_from_order</code>; the answer is data (<code>skipped: [{ reason }]</code> when it cannot be made).</li>
+    <li><b>Go to → Time sheets</b> opens the list <code>/pm/timesheet/list?taskGUID=…</code> in a NEW browser window, with a chip “Task: …” and an x that clears it (the common task scope of <code>kit8/documents/taskScope</code>); the list RPC gets the key <code>taskGUID</code> and returns the sheets that have a line of that task. From the line menu of the Finances table the same list opens for the task of the line.</li>
+  </ul>
+</div>
+
+<h2>6. Data model <span class="tag">proposal</span></h2>
+<div class="tbl">
+<table>
+  <tr><th>Table</th><th>Columns</th><th>Notes</th></tr>
+  <tr><td><code>project_timesheet_header</code></td><td>id (UUID), organization, <code>timesheetWorkCenter</code> (FK to <code>workCenterTable.rowGUID</code>), <code>startDate</code>, <code>finishDate</code>, document number, status (draft / posted), posted at / by, owner (the user), <code>created_at</code> / <code>updated_at</code>, <code>rowJSON</code> (further keys)</td><td>CHECK <code>finishDate &gt;= startDate</code>. Sequence for the numbers (<code>TS-00001</code>). RLS by the organization (like the vendor invoice). No unique key on work center + period (R12).</td></tr>
+  <tr><td><code>project_timesheet_lines</code></td><td>id (UUID), header id (FK, ON DELETE CASCADE), line number, <code>timesheetLineProject</code> (FK to the project), <code>timesheetLineTask</code> (FK to the project task), <code>timesheetLineRole</code>, <code>timesheetLineBudgetItem</code>, <code>timesheetLineBusinessUnit</code>, total hours (computed), <code>rowJSON</code>, <code>created_at</code> / <code>updated_at</code></td><td>Trigger: the task belongs to the project and is a normal task; role, budget item and business unit are possible for the task and the work center; unique (header, project, task, role, budget item, business unit). RLS through the header. A line holds <b>no hours</b>: they are in the table below.</td></tr>
+  <tr><td><code>project_timesheet_lines_data_entered</code></td><td>id (UUID), line id (FK, ON DELETE CASCADE), header id (FK, copied for the checks), <code>timesheetDay</code> (date), <code>timesheetHours</code> (numeric), <code>created_at</code> / <code>updated_at</code></td><td>One row = one ENTERED cell (line × day); an empty cell has no row. Unique (line, day). Trigger: the day lies inside the dates of the header; hours above 0 and up to 24; the sum of a day over the lines of the sheet ≤ 24 (and, at Post, over the posted sheets of the work center, section 5b); the total of the line is updated. Posted = read only. <b>This table is the base of Post</b> (and of the 24-hour check, which needs the work center and the day: index on header + day). RLS through the header.</td></tr>
+</table>
+</div>
+<div class="callout"><b>Hours as rows:</b> the entered hours are rows of <code>project_timesheet_lines_data_entered</code> (not a JSON object of the line). A cell is saved by an RPC <code>timesheet_set_hours(line, day, hours)</code>: a value above 0 inserts or updates the row, empty or 0 deletes it. A change of the dates asks first and then deletes the rows outside the new period.</div>
+<div class="callout"><b>Writing rule (as in the other documents):</b> the client reads the tables; the header and the lines are written by RPC functions (<code>SECURITY DEFINER</code>) which check the organization, the dates, the switches, the task-in-project rule and the roles. If the owner prefers the generic redux CRUD (optimistic) for this simple document, say so – it changes package 3.</div>
+
+<h2>7. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis</td></tr>
+  <tr><td class="id">1.1</td><td>Read the twin documents</td><td>List of what is copied from the fact input / product receipt (Form bar, Post answer as data, List with filters, drawer entry, route helpers, register writing, “Create based on”) and what is not (vendor, contract, VAT, money totals)</td><td>R1, R9, R15</td></tr>
+  <tr><td class="id">1.2</td><td>Possible roles of a task</td><td><b>Done in this round (code read):</b> a person / equipment has no list of roles; a role fits by its type kind and the genus Time (<code>roleFitsLine</code>, <code>roleResourceKind</code>); the rate: Person work center = the contract of its person, Equipment / Partner = the rate of the role (<code>lineWorkerKind</code>). The rule of section 5, column 3 is built on it</td><td>R16</td></tr>
+  <tr><td class="id">1.3</td><td>Close the open points of section 8</td><td>Done: no open point</td><td>all</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Database (SQL PART 36)</td></tr>
+  <tr><td class="id">2.1</td><td>Tables</td><td><code>project_timesheet_header</code>, <code>project_timesheet_lines</code> and <code>project_timesheet_lines_data_entered</code> in <code>start1_sql_tables.sql</code>: FKs, indexes (organization + dates, work center, header, project + task), number sequence</td><td>R2</td></tr>
+  <tr><td class="id">2.2</td><td>Rules and access</td><td>In <code>start2_sql_code.sql</code>: RLS by the organization, grants, CHECK on the dates, line trigger (task of the project, normal task, role / budget item possible, days inside the period, hours above 0 up to 24 in the entered rows, day sum ≤ 24, unique line, unique (line, day), total), posted = read only, realtime publication</td><td>R3, R5, R7, R8, R16</td></tr>
+  <tr><td class="id">2.3</td><td>Person of the user</td><td><code>person_ensure_user</code> (idempotent; no duplicate for the same e-mail), called by the login code next to <code>organization_ensure_user</code>; <code>timesheet_user_person</code> (the Person of the signed-in user)</td><td>R14</td></tr>
+  <tr><td class="id">2.4</td><td>Settings reader</td><td>Functions that read the switches in the order Person → Organization → built-in default; used by the header check (work center rule, month rule, 62 days)</td><td>R10, R11</td></tr>
+  <tr><td class="id">2.5</td><td>RPC functions</td><td>Create document, set header, add / update / delete line, <code>timesheet_set_hours</code> (one entered cell), delete draft, list of documents with the filters (key <code>taskGUID</code> for “Go to”), list of the possible roles / budget items / business units of a task for a work center, <code>create_timesheet_from_task</code>, <code>timesheet_create_my_work_center</code> (kind Person, base = the Person of the user; refused when one exists)</td><td>R1–R8, R15, R16, R18</td></tr>
+  <tr><td class="id">2.6</td><td>Post / Unpost</td><td><code>post_timesheet</code> / <code>unpost_timesheet</code>: checks of section 5b (incl. 24 hours over all sheets), <code>used</code> movements with role, budget item and rate in the same transaction, Monitor01 queue, answer <code>{ status, lines, problems[] }</code>; <code>monitor01_sum_sources('used')</code> learns the time sheet as a source</td><td>R9, R12</td></tr>
+  <tr><td class="id">2.7</td><td>Drop and tests</td><td>Part in <code>delete_sql_structure.sql</code>; Docker test <code>tests/NN_timesheet.sql</code>: Person made at login once, not twice; own-Person rule on / off and the three levels of the settings; current-month rule on / off and the 62 days; organization isolation; task of another project, stage, milestone refused; role not possible refused; day outside the period refused; day over 24 hours (one sheet and two overlapping sheets) refused; empty cells are not saved and not posted (0 and cleared = no row); Post reads exactly the entered rows → Used in Monitor01 with role and rate; Unpost; posted sheet frozen; Create based on; <code>test_sql.sh</code> still passes</td><td>R2–R17</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Model and data access (<code>kit8/documents/timesheet</code>)</td></tr>
+  <tr><td class="id">3.1</td><td>Model</td><td>Pure file: types, validation of the dates (both switches, 62 days), the list of days between two dates (both included), hours of a line / day / sheet, the 24-hour check, empty line, states and buttons (<code>Post</code> / <code>Posted</code>), list rows, routes</td><td>R1, R5, R8, R12</td></tr>
+  <tr><td class="id">3.2</td><td>API and hooks</td><td>RPC calls; document list hook; document hook (header, lines, commands incl. Post / Unpost); <code>useCreateTimesheetFromTask</code>; React Query + realtime as the other documents</td><td>R1, R9, R15</td></tr>
+  <tr><td class="id">3.3</td><td>Lists for the selects</td><td>Work centers allowed for the user; projects of the organization; normal tasks of one project; possible roles and budget items of a task for the work center</td><td>R4, R6, R7, R10, R16</td></tr>
+  <tr><td class="id">3.4</td><td>Settings</td><td><code>timesheetSettings.ts</code> (twin of the SQL reader, three levels) and <code>TabTimesheet.tsx</code> in the Person card and in Organization edit, no SQL for the storage</td><td>R10, R11</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Screens</td></tr>
+  <tr><td class="id">4.1</td><td><code>PMTimesheetDocumentHeader.tsx</code></td><td>Organization (disabled), work center select, start / finish dates, period selector button, number, status; dates validated by the switches</td><td>R3–R5, R10, R11</td></tr>
+  <tr><td class="id">4.2</td><td><code>PMTimesheetDocumentLines.tsx</code> + columns</td><td>Project, task, role, budget item and business unit selects (enabled after the task, as in section 5), <b>day columns built from the dates</b>, Total column, totals row, add / delete line, Fill all lines; asks before dropping days with hours</td><td>R6–R8, R16</td></tr>
+  <tr><td class="id">4.3</td><td><code>PMTimesheetDocumentForm.tsx</code></td><td>Tabs per open document, bar (Delete · Unpost · Close · <b>Post / Posted – the last, large button</b>), Header above Lines; a posted sheet is read only; the problems of Post in <code>ErrorModalWindow</code></td><td>R1, R9</td></tr>
+  <tr><td class="id">4.4</td><td><code>PMTimesheetDocumentList.tsx</code></td><td>List with filters (work center, period, status), totals of hours, a row opens the Form, “New time sheet” button</td><td>R1</td></tr>
+  <tr><td class="id">4.5</td><td>Period selector</td><td>The window of Monitor01 made reusable (moved to a shared place, not copied) plus the quick choices; limited to today’s month while the switch is on; Monitor01 keeps working unchanged</td><td>R5, R11</td></tr>
+  <tr><td class="id">4.6</td><td>Task menu</td><td>Items <b>Time sheet</b> in “Create based on this” and <b>Time sheets</b> in “Go to” (task menu and line menu of the Finances table), normal tasks only; chip with x on the list; READMEs of <code>taskScope</code> / task menu updated</td><td>R15</td></tr>
+  <tr><td class="id">4.7</td><td>Button “Create work center”</td><td>On the work center field while the user has none; makes the own Person work center and fills the field</td><td>R18</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Navigation</td></tr>
+  <tr><td class="id">5.1</td><td>Routes and drawer</td><td>List route and form route in <code>app/pm/…</code>; drawer item <b>Time sheets</b> in the group Documents (after Product receipts, sorted by name); texts through <code>pmT</code></td><td>R1</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">6.1</td><td>Jest tests</td><td>Model (days between dates, switches, 62 days, 24 hours), SQL text mirror, header, lines (task depends on project, role depends on task, day columns follow the dates), settings tab and its three levels, Create based on, form, list – in <code>__tests__/documents/timesheet</code></td><td>R1–R17</td></tr>
+  <tr><td class="id">6.2</td><td>README and KNOW_HOW</td><td>README of the folder; a row in the feature index of <code>KNOW_HOW.md</code>; the folder list (section 1.1); the Task menu line; the switches with opposite defaults in the pitfalls</td><td>R1</td></tr>
+  <tr><td class="id">6.3</td><td>Acceptance review</td><td>Walkthrough against section 10</td><td>R1–R17</td></tr>
+</table>
+</div>
+
+<h2>8. Open points</h2>
+<div class="card">
+  <p><b>None.</b> The three last points are answered: all roles of the kind with a search when the task has no Time line (input order Project → Task → Role); Post refused without a rate, naming the line and the day; the budget item of a task with no Time line from the project’s allowed Time budget items, Post refused if there is none. Anything that comes up while building is written here and asked before it is decided.</p>
+</div>
+
+<h2>9. Decisions</h2>
+<div class="card">
+  <table>
+    <tr><th>Topic</th><th>Decision</th></tr>
+    <tr><td>Document</td><td><code>PMTimesheet</code>: Form, List, Header, Lines; tables <code>project_timesheet_header</code> and <code>project_timesheet_lines</code>; folder <code>kit8/documents/timesheet</code>, file names with the prefix <code>PM</code>.</td></tr>
+    <tr><td>Organization</td><td>Shown, disabled; set by the system from the user.</td></tr>
+    <tr><td>User and Person</td><td>Linked by e-mail. After login a Person is made when none with that e-mail exists.</td></tr>
+    <tr><td>Work center</td><td>Selected from a list. Switch <code>timesheetAllWorkCenterInputAvailable</code> = false (default): only the user’s own Person work center. = true: all work centers.</td></tr>
+    <tr><td>Period</td><td><code>startDate</code> + <code>finishDate</code> + a period selector. Switch <code>timesheetOnlyCurrentMonthInputEnabled</code> = true (default): inside <b>today’s</b> month; false: free, at most 62 days.</td></tr>
+    <tr><td>Settings</td><td>Per Person (tab TabTimesheet); the default for a user is in the Organization; built-in defaults false / true.</td></tr>
+    <tr><td>Hours</td><td>One column per day, both dates included; never more than 24 hours a day.</td></tr>
+    <tr><td>Lines</td><td><code>timesheetLineProject</code>, <code>timesheetLineTask</code> (normal tasks only, no plan Time line needed), then selectable Role, Budget item and Business unit enabled after the task is chosen and checked.</td></tr>
+    <tr><td>Create based on / Go to</td><td>Task menu → Create based on this → Time sheet (always a new draft) and Go to → Time sheets (list of the task, new window, chip with x).</td></tr>
+    <tr><td>Work center of a new user</td><td>Button “Create work center” on the field makes the work center of the user’s own Person.</td></tr>
+    <tr><td>Permissions</td><td>None now; a PM role comes later.</td></tr>
+    <tr><td>Roles</td><td>Not assigned to persons; a role fits by kind and genus Time. Options: Time lines of the task first, else all roles of the kind.</td></tr>
+    <tr><td>Business unit</td><td>Selectable column, only from the task lines that book the work center; else the unit of the work center.</td></tr>
+    <tr><td>24 hours</td><td>Counted over posted sheets plus the one being posted.</td></tr>
+    <tr><td>Posting</td><td>Yes: Draft → Post writes the <code>used</code> movements (with role and rate) into the register (Monitor01 “Used”); Unpost takes them back.</td></tr>
+    <tr><td>Overlap</td><td>Sheets of the same work center may overlap in period, within 24 hours a day.</td></tr>
+    <tr><td>Fact input</td><td>Double counting with the fact input is possible and accepted.</td></tr>
+    <tr><td>Hour cells</td><td>Empty at the start; only entered hours are saved in <code>project_timesheet_lines_data_entered</code> (one row per entered line × day) and posted.</td></tr>
+    <tr><td>Input order</td><td>Project → Task → Role → Budget item → Business unit → hours.</td></tr>
+    <tr><td>No rate / no budget item</td><td>Post is refused and names the line and the day; the budget item comes from the Time budget items the project allows when the task has no Time line.</td></tr>
+  </table>
+</div>
+
+<h2>10. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>After login a user has a Person with his e-mail; a second login makes no second Person; an existing Person with that e-mail is used and not changed.</li>
+    <li>A user can create a time sheet; the organization is shown, cannot be edited and is the organization of the user.</li>
+    <li>With <code>timesheetAllWorkCenterInputAvailable</code> off (default) the work center list holds only the user’s own Person work center, and the database refuses another one; with it on, all work centers of the organization are offered and none of another organization.</li>
+    <li>The switches are read Person → Organization → built-in default; a change of the Organization default reaches a Person without a value of its own and not a Person with one.</li>
+    <li>With <code>timesheetOnlyCurrentMonthInputEnabled</code> on (default) a period outside today’s month is refused; with it off a period up to 62 days is accepted and a longer one refused. A finish date before the start date is refused.</li>
+    <li>The lines table has exactly one day column for every day from start to finish, both included; moving a date adds or removes columns, and removing days that hold hours asks first.</li>
+    <li>A line can pick a project; the task list shows only the normal tasks of that project; the role and budget item columns are disabled until a task is chosen and then offer only roles / budget items possible for the task; changing the project or the task clears what depends on it; the same project + task + role + budget item twice is refused.</li>
+    <li>Every hour cell is empty at the start; only entered hours are saved (<code>project_timesheet_lines_data_entered</code>) and posted; typing 0 or clearing a cell removes the row. Hours are above 0 up to 24; the sum of one day over the lines of a sheet, and over all posted sheets of the work center, is never above 24; the Total column and the totals row are right.</li>
+    <li>Post writes one <code>used</code> movement for every entered row (line × day), with the role and rate; the Used column of Monitor01 shows them; Unpost removes them; a posted sheet cannot be edited or deleted.</li>
+    <li>Two sheets of the same work center with overlapping periods can be saved and posted while no day goes over 24 hours.</li>
+    <li>Task menu → Create based on this → Time sheet always makes a NEW draft sheet of the user’s work center for today’s month with the project and task in a line, also when a draft already exists.</li>
+    <li>Task menu → Go to → Time sheets opens a new window with the sheets that have a line of that task and a chip with an x.</li>
+    <li>A user whose Person has no work center sees the button “Create work center”; it makes the work center of his own Person and fills the field; with a work center already there the button is not shown and the database refuses a second one.</li>
+    <li>The business unit cell is selectable only when the task has Time lines that book the work center, and then offers only their units; otherwise it shows the unit of the work center.</li>
+    <li>A user of another organization cannot read or change the sheet (Docker test).</li>
+    <li>Install twice, delete and install again pass in <code>test_sql.sh</code>; the Jest tests of the new folder pass; no existing suite gets a new failure.</li>
+  </ul>
+</div>
+
+<h2>11. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Analysis</b> – 1.2 (possible roles) decides 2.2, 2.5, 2.6 and 3.3.</li>
+    <li><b>2 Database</b> – 2.3 (Person) and 2.4 (settings) first, they are needed by the work center rule; then 2.1, 2.2, 2.5; 2.6 (Post) needs the register of PART 25.</li>
+    <li><b>3 Model and data access</b> – then <b>4.1, 4.2</b> in parallel; <b>4.5</b> (period selector) and <b>3.4</b> (settings tab) do not need the sheet tables.</li>
+    <li><b>4.3 Form</b>, <b>4.4 List</b> and <b>4.6 Task menu</b> – after 4.1 and 4.2.</li>
+    <li><b>5 Navigation</b> – after 4.3 and 4.4.</li>
+    <li><b>6 Quality</b> – tests are written together with each package; the acceptance review is last.</li>
+  </ol>
+</div>
+
+</main>
+</body>
+</html>

@@ -509,11 +509,11 @@ describe('a work center on a Time line', () => {
   });
 
   describe('the columns of the Time table', () => {
-    const cols = (timeKinds: any[]) => buildTaskLineColumns({ data: wcData(), genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds });
+    const cols = (timeKinds: any[], workCenters = true) => buildTaskLineColumns({ data: wcData(), genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds, workCenters });
     const get = (list: any[], key: string): any => list.find((c) => c.key === key);
 
     it('the menu is Resource: Person | Equipment | Partner; ONE column "Person / Equipment / Partner" picks the work centers of that kind', () => {
-      const list = cols(['person', 'equipment', 'workCenter']);
+      const list = cols(['person', 'equipment', 'partner']);
       const menu = get(list, 'resourceKind');
       expect(menu).toMatchObject({ type: 'select', field: 'taskWorkCenterKind', allowEmpty: false });
       expect(menu.options.map((o: any) => o.value)).toEqual(['person', 'equipment', 'partner']);
@@ -526,7 +526,7 @@ describe('a work center on a Time line', () => {
     });
 
     it('the menu shows the kind of the line: the chosen work center kind, the kind of the work center it books, a legacy line its own kind', () => {
-      const menu = get(cols(['person', 'workCenter']), 'resourceKind');
+      const menu = get(cols(['person', 'equipment', 'partner']), 'resourceKind');
       const shown = (json: any) => menu.fromStored(json.taskWorkCenterKind, { rowJSON: json });
       expect(shown({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'partner' })).toBe('partner');
       expect(shown({ taskResourceKind: 'workCenter', taskResourceItem: 'wc_cat' })).toBe('equipment');
@@ -537,7 +537,7 @@ describe('a work center on a Time line', () => {
     });
 
     it('the column picks WORK CENTERS for a work center line, and still the person / equipment catalog for a line that holds one directly (made before work centers)', () => {
-      const resource = get(cols(['person', 'workCenter']), 'resource');
+      const resource = get(cols(['person', 'equipment', 'partner']), 'resource');
       expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' } })).toBe('workCenterReusable');
       expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'person', taskResourceItem: 'p_anna' } })).toBe('personReusable');
       expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' } })).toBe('equipmentReusable');
@@ -546,7 +546,7 @@ describe('a work center on a Time line', () => {
 
     it('only the work centers of the kind of the menu are offered, active ones (the one already on the line stays)', () => {
       const d = wcData();
-      const resource = get(cols(['person', 'workCenter']), 'resource');
+      const resource = get(cols(['person', 'equipment', 'partner']), 'resource');
       const row = (kind: string, item?: string) => ({ rowJSON: { taskResourceKind: 'workCenter', taskWorkCenterKind: kind, ...(item ? { taskResourceItem: item } : {}) } });
       const offered = (kind: string, item?: string) => d.workCenter.filter((w) => resource.filterItem(w, row(kind, item))).map((w) => w.rowGUID);
       expect(offered('person')).toEqual(['wc_anna']);                    // wc_off is a person work center but not active
@@ -556,23 +556,35 @@ describe('a work center on a Time line', () => {
     });
 
     it('without work centers the menu, the title and the list are as before', () => {
-      const list = cols(['person', 'equipment']);
+      const list = cols(['person', 'equipment'], false);
       expect(get(list, 'resource').title).toBe('Person / Equipment');
       expect(get(list, 'resourceKind')).toMatchObject({ field: 'taskResourceKind' });
       expect(get(list, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment']);
       expect(get(list, 'resourceKind').fromStored).toBeUndefined();
     });
 
-    it('work centers alone still have the menu (Person | Equipment | Partner), the resource column and the variant', () => {
-      const list = cols(['workCenter']);
-      expect(get(list, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment', 'partner']);
-      expect(get(list, 'resource').title).toBe('Person / Equipment / Partner');
-      expect(get(list, 'contract').dependsOn).toBe('resource');
+    it('the kinds switched on name the column; ONE kind = no menu, the column is named after it', () => {
+      const two = cols(['person', 'equipment']);
+      expect(get(two, 'resource').title).toBe('Person / Equipment');
+      expect(get(two, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment']);
+      const one = cols(['partner']);
+      expect(get(one, 'resourceKind')).toBeUndefined();
+      expect(get(one, 'resource').title).toBe('Partner');
+      expect(get(one, 'resource').catalogEntityName).toBe('workCenterReusable');
+      expect(get(one, 'resourceVariant').title).toBe('Variant');
+      expect(get(one, 'contract').dependsOn).toBe('resource');
+    });
+
+    it('only the person kind in work center mode: the work centers of persons, not the old Person column', () => {
+      const list = cols(['person']);
+      expect(get(list, 'person')).toBeUndefined();
+      expect(get(list, 'resource')).toMatchObject({ title: 'Person', catalogEntityName: 'workCenterReusable' });
+      expect(get(cols(['person'], false), 'person')).toMatchObject({ catalogEntityName: 'personReusable' });   // a project made before: as it was
     });
 
     it('the contract of a work center line is one of ITS person (the base): other contracts are not offered', () => {
       const d = wcData();
-      const contract = get(cols(['person', 'workCenter']), 'contract');
+      const contract = get(cols(['person', 'equipment', 'partner']), 'contract');
       expect(contract).toMatchObject({ dependsOn: 'resource', dependsOnScopesCatalog: false });
       expect(contract.filterItem(d.contract[0], { rowJSON: line('workCenter', 'wc_anna') })).toBe(true);
       expect(contract.filterItem(d.contract[1], { rowJSON: line('workCenter', 'wc_anna') })).toBe(false);
@@ -582,7 +594,7 @@ describe('a work center on a Time line', () => {
 
     it('the role picker follows the base of the work center', () => {
       const d = wcData();
-      const role = get(cols(['person', 'workCenter']), 'role');
+      const role = get(cols(['person', 'equipment', 'partner']), 'role');
       expect(role.filterItem(d.resourceRole[0], { rowJSON: line('workCenter', 'wc_anna') })).toBe(true);
       expect(role.filterItem(d.resourceRole[1], { rowJSON: line('workCenter', 'wc_anna') })).toBe(false);
       expect(role.filterItem(d.resourceRole[1], { rowJSON: line('workCenter', 'wc_cat') })).toBe(true);

@@ -84,3 +84,10 @@ organization** (they share their resources: `project_table.rowParentGUID`). **Da
 
 Tests: `__tests__/pm/view/task/plan/{busyControl,runTaskPostBusy,busyConflictsWindow,timeGenusSql}.test.*` · SQL on a real Postgres 15: `kit8/docker/test_time_genus.sh` (behaviour, tests/*.sql) and
 `test_time_genus_race.sh` (two sessions at once).
+
+## One task line - "Go to > Timeline data"
+
+The menu **Go to > Timeline data** (task menu and the line menu of the Finances table, `useTaskRelatedMenu`) opens the dashboard in a NEW browser window on the **Budgets** view of the task, on the **Timeline** tab:
+`/pm/project/dashboard?projectGUID&taskGUID&view=budgets&tab=TabPlanTimeline&lineGUID=<task line GUID>` (`dashboardDeepLink.ts`, applied by `useDashboardDeepLink`; the view is not saved). With a `lineGUID`
+**every tab** (the days table, the summary per line, the tab counts, the Timeline) shows that line only; the chip "Task line: ..." above the tabs has an x that shows all the lines again. The task menu has no line:
+the whole task. The request lives in `store.placeRequest` (`lineGUID`, `tab`) and ends when another task is selected. Tests: `__tests__/pm/view/project/dashboardDeepLink.test.tsx`, `planView.test.tsx`, `taskRelatedMenu.test.tsx`.

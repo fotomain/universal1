@@ -4,7 +4,7 @@
 //   Time:                      # · Role · Role attributes · Person · Person variant (his own variants, taskLinePersonMatch.ts) · Contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
 //     with equipment (the project's input switches, kit8/pm/model/taskInputScope.ts): person only = as above | equipment only = Equipment · Equipment variant (no Contract) |
 //     both = # · Resource (the menu Person | Equipment) · Role · Role attributes · Person / Equipment (ONE column, the catalog follows the Resource of the row) · Variant · Contract
-//     with work centers (project switch projectTimeOfWorkCenterNeeded): the menu is Resource: Person | Equipment | Partner (taskWorkCenterKind) and the ONE column "Person / Equipment / Partner" picks the
+//     with work centers (`workCenters`: the project's master switch on): the menu is Resource: the kinds switched on of Person | Equipment | Partner (taskWorkCenterKind; one kind = no menu) and the ONE column "Person / Equipment / Partner" picks the
 //     WORK CENTERS (kit8/catalog/work_center) of that kind; a line made before (a person / equipment held directly) still shows its person / equipment. A work center follows its base: a Person work
 //     center has the contract of its person, a variant of its own (Copy Variant settings).
 //   Material / Expense / Revenue: # · Role · Role attributes · [Item number] · [Search name] · Product · Attributes · Contract template · Partner · Partner contract · Qty · Unit · Price · VAT % · Sum · VAT · Currency
@@ -62,20 +62,24 @@ export interface TaskLineColumnsContext {
   fx?: LineFxContext | null;
   /** show the Errors column (default true): the table passes false while no line of the tab has an error */
   showErrors?: boolean;
-  /** Time: the resource kinds the table offers (taskInputScope.ts `timeKindsOffered`); two = the menu "Resource: Person | Equipment". Default: a person only (as before equipment) */
+  /** Time: the kinds the table offers (taskInputScope.ts `timeKindsOffered`); two or more = the menu "Resource". Default: a person only (as before equipment) */
   timeKinds?: TimeResourceKind[];
+  /** Time: the lines book WORK CENTERS (the project's master switch on, or the task already has such a line): the kinds are the kinds of work center and the column lists them. Default false = a person / equipment of the catalog */
+  workCenters?: boolean;
   /** the optional product fields (Item number, Search name) of THIS project (productFieldsOfProject): columns / details / search of the product window. Default: none */
   productFields?: ProductFields;
 }
 
-export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true, timeKinds = ['person'], productFields = NO_PRODUCT_FIELDS }: TaskLineColumnsContext): VisualColumn[] {
+export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, errorColor, fxProject, fx, showErrors = true, timeKinds = ['person'], workCenters = false, productFields = NO_PRODUCT_FIELDS }: TaskLineColumnsContext): VisualColumn[] {
   const unitOptions = data.measureUnit.map((u) => ({ value: u.rowGUID, label: rowTitle(u) || u.rowGUID }));
   const worker = genus.resource !== 'product';
   const kinds = worker && timeKinds.length ? timeKinds : ['person' as const];
   /** the project books WORK CENTERS: the menu is Person | Equipment | Partner = the kind of the work centers offered */
-  const withWorkCenters = worker && kinds.includes('workCenter');
+  const withWorkCenters = worker && workCenters;
   /** the menu "Resource: Person | Equipment" is there only while both kinds are offered (with work centers always) */
-  const hasMenu = worker && (kinds.length > 1 || withWorkCenters);
+  const hasMenu = worker && kinds.length > 1;
+  /** ONE resource column with the common keys (resource / resourceVariant): several kinds, or work centers */
+  const generic = hasMenu || withWorkCenters;
   /** the tree of the business units (the window that chooses the unit of a line) */
   const unitNodes = businessUnitNodes(data.businessUnit);
   /** the items of THIS genus (a Time line offers the Time items); a folder is no choice */
@@ -172,7 +176,7 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
     ...(hasMenu ? [(withWorkCenters ? {
       // Person | Equipment | Partner: the kind of the work centers the resource column offers; a line that holds a person / equipment directly shows its own kind
       key: 'resourceKind', title: pmT('Resource'), type: 'select', field: 'taskWorkCenterKind', width: 130, allowEmpty: false, placeholder: pmT('Person'),
-      options: WORK_CENTER_KINDS.map((k) => ({ value: k.value, label: pmT(k.label) })),
+      options: WORK_CENTER_KINDS.filter((k) => kinds.includes(k.value)).map((k) => ({ value: k.value, label: pmT(k.label) })),
       fromStored: (_stored: any, row: any) => lineMenuKind(data, row.rowJSON || {}),
     } : {
       key: 'resourceKind', title: pmT('Resource'), type: 'select', field: 'taskResourceKind', width: 130, allowEmpty: false, placeholder: pmT('Person'),
@@ -195,9 +199,18 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
     const equipmentOnly = kinds.length === 1 && kinds[0] === 'equipment';
     /** an inactive equipment / work center is not offered; the one already on the line stays */
     const eqActive = (r: any, row: any) => r?.rowJSON?.isActive !== false || r?.rowGUID === row?.rowJSON?.taskResourceItem;
-    const resourceKey = hasMenu ? 'resource' : equipmentOnly ? 'equipment' : 'person';
+    const resourceKey = generic ? 'resource' : equipmentOnly ? 'equipment' : 'person';
     cols.push(
-      (personOnly ? {
+      (withWorkCenters ? {
+        // WORK CENTERS: ONE column named after the kinds offered ("Person / Equipment / Partner"); it lists the work centers of the kind of the menu; a line that holds a person / equipment directly (made
+        // before work centers) still picks from its own catalog (ReusableTable catalogEntityNameOf)
+        key: 'resource', title: kinds.map((k) => pmT(RESOURCE_WORDS[k].title)).join(' / '), type: 'catalog', field: 'taskResourceItem', width: 300,
+        catalogEntityName: WORK_CENTER_ENTITY, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, WORK_CENTER_ENTITY],
+        catalogEntityNameOf: (row) => (row.rowJSON?.taskResourceKind === 'person' || row.rowJSON?.taskResourceKind === 'equipment' ? resourceEntityOfKind(row.rowJSON.taskResourceKind) : WORK_CENTER_ENTITY),
+        titleExtractor: resourceTitleOfRow, placeholder: pmT('Select resource…'),
+        filterItem: (r, row) => (r?.rowOwnerGUID === WORK_CENTER_CATALOG_OWNER ? r.rowJSON?.workCenterKind === lineMenuKind(data, row.rowJSON || {}) && eqActive(r, row)
+          : r?.rowOwnerGUID === EQUIPMENT_CATALOG_OWNER ? eqActive(r, row) : true),
+      } : personOnly ? {
         key: 'person', title: pmT('Person'), type: 'catalog', field: 'taskResourceItem', width: 220,
         catalogEntityName: PERSON_ENTITY, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, titleExtractor: personFullName, placeholder: pmT('Select person…'),
       } : equipmentOnly ? {
@@ -205,15 +218,6 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
         catalogEntityName: EQUIPMENT_ENTITY, catalogRowOwnerGUID: EQUIPMENT_CATALOG_OWNER, titleExtractor: resourceTitleOfRow, placeholder: pmT('Select equipment…'),
         // an inactive equipment is not offered (the one already on the line stays)
         filterItem: eqActive,
-      } : withWorkCenters ? {
-        // WORK CENTERS: ONE column "Person / Equipment / Partner"; it lists the work centers of the kind of the menu; a line that holds a person / equipment directly (made before work centers) still picks from
-        // its own catalog (ReusableTable catalogEntityNameOf)
-        key: 'resource', title: `${pmT('Person')} / ${pmT('Equipment')} / ${pmT('Partner')}`, type: 'catalog', field: 'taskResourceItem', width: 300,
-        catalogEntityName: WORK_CENTER_ENTITY, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, WORK_CENTER_ENTITY],
-        catalogEntityNameOf: (row) => (row.rowJSON?.taskResourceKind === 'person' || row.rowJSON?.taskResourceKind === 'equipment' ? resourceEntityOfKind(row.rowJSON.taskResourceKind) : WORK_CENTER_ENTITY),
-        titleExtractor: resourceTitleOfRow, placeholder: pmT('Select resource…'),
-        filterItem: (r, row) => (r?.rowOwnerGUID === WORK_CENTER_CATALOG_OWNER ? r.rowJSON?.workCenterKind === lineMenuKind(data, row.rowJSON || {}) && eqActive(r, row)
-          : r?.rowOwnerGUID === EQUIPMENT_CATALOG_OWNER ? eqActive(r, row) : true),
       } : {
         // BOTH kinds: ONE column, the catalog follows the Resource of the row (ReusableTable catalogEntityNameOf); a row without a kind is a person's
         key: 'resource', title: `${pmT('Person')} / ${pmT('Equipment')}`, type: 'catalog', field: 'taskResourceItem', width: 240,
@@ -224,8 +228,8 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
       }) as VisualColumn,
       {
         // the VARIANT of the person / equipment the line books (Senior, English / Heavy, With operator): its own variants, separate from the variants of the role; empty = automatic
-        key: hasMenu ? 'resourceVariant' : equipmentOnly ? 'equipmentVariant' : 'personVariant', field: 'taskResourceAttributesKey', width: 200, type: 'select',
-        title: hasMenu ? pmT('Variant') : pmT(equipmentOnly ? RESOURCE_WORDS.equipment.variant : RESOURCE_WORDS.person.variant),
+        key: generic ? 'resourceVariant' : equipmentOnly ? 'equipmentVariant' : 'personVariant', field: 'taskResourceAttributesKey', width: 200, type: 'select',
+        title: generic ? pmT('Variant') : pmT(equipmentOnly ? RESOURCE_WORDS.equipment.variant : RESOURCE_WORDS.person.variant),
         options: (row) => personVariantOptions(data, row.rowJSON || {}), placeholder: pmT('Automatic'),
       } as VisualColumn,
       // the contract of a PERSON (an equipment has none: its hour is costed by the rate of the role)

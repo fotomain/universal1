@@ -16,7 +16,7 @@ describe('project_cost_budget_on is the rule of projectCostBudgetOn', () => {
   const flags = [...part27(codeSql).matchAll(/project_cost_flag\(p_json, '(\w+)', (true|false)\)/g)].map((m) => [m[1], m[2] === 'true'] as const);
   it('reads the master and the four inputs, with the DEFAULTS of TASK_INPUT_DEFAULTS (a switch never saved reads as its default)', () => {
     const byKey = new Map(flags);
-    for (const k of ['projectExpenseBudgetNeeded', 'projectTimeCostsNeeded', 'projectTimeOfPersonNeeded', 'projectTimeOfEquipmentNeeded', 'projectTimeOfWorkCenterNeeded', 'projectMaterialCostsNeeded', 'projectExpenseCostsNeeded'] as const) {
+    for (const k of ['projectExpenseBudgetNeeded', 'projectTimeCostsNeeded', 'projectTimeOfPersonNeeded', 'projectTimeOfEquipmentNeeded', 'projectTimeOfPartnerNeeded', 'projectMaterialCostsNeeded', 'projectExpenseCostsNeeded'] as const) {
       expect(byKey.has(k)).toBe(true);
       expect(byKey.get(k)).toBe(TASK_INPUT_DEFAULTS[k]);
     }

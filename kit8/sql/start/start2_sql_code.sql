@@ -7456,13 +7456,13 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- is a cost budget on? Same as projectCostBudgetOn() of kit8/pm/model/taskInputScope.ts: the master projectExpenseBudgetNeeded (default off) AND
--- (Time [projectTimeCostsNeeded, default on, with person (default on) or equipment (default off) or work center (default off)] OR Material (default on) OR Expense (default on))
+-- (Time [projectTimeCostsNeeded, default on, with person (default on) or equipment (default off) or partner (default off)] OR Material (default on) OR Expense (default on))
 CREATE OR REPLACE FUNCTION public.project_cost_budget_on(p_json jsonb) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT public.project_cost_flag(p_json, 'projectExpenseBudgetNeeded', false)
      AND ( (public.project_cost_flag(p_json, 'projectTimeCostsNeeded', true)
             AND (public.project_cost_flag(p_json, 'projectTimeOfPersonNeeded', true) OR public.project_cost_flag(p_json, 'projectTimeOfEquipmentNeeded', false)
-                 OR public.project_cost_flag(p_json, 'projectTimeOfWorkCenterNeeded', false)))
+                 OR public.project_cost_flag(p_json, 'projectTimeOfPartnerNeeded', false)))
         OR public.project_cost_flag(p_json, 'projectMaterialCostsNeeded', true)
         OR public.project_cost_flag(p_json, 'projectExpenseCostsNeeded', true) )
 $$;

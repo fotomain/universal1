@@ -378,7 +378,7 @@ export default function PMRecentProjectsToolbar({
             projectTimeCostsNeeded: json.projectTimeCostsNeeded ?? d.projectTimeCostsNeeded,
             projectTimeOfPersonNeeded: json.projectTimeOfPersonNeeded ?? d.projectTimeOfPersonNeeded,
             projectTimeOfEquipmentNeeded: json.projectTimeOfEquipmentNeeded ?? d.projectTimeOfEquipmentNeeded,
-            projectTimeOfWorkCenterNeeded: json.projectTimeOfWorkCenterNeeded ?? d.projectTimeOfWorkCenterNeeded,
+            projectTimeOfPartnerNeeded: json.projectTimeOfPartnerNeeded ?? d.projectTimeOfPartnerNeeded,
             projectMaterialCostsNeeded: json.projectMaterialCostsNeeded ?? d.projectMaterialCostsNeeded,
             projectExpenseCostsNeeded: json.projectExpenseCostsNeeded ?? d.projectExpenseCostsNeeded,
             calendarForTaskPlan: json.calendarForTaskPlan ?? d.calendarForTaskPlan,

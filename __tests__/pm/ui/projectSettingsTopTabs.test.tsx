@@ -11,6 +11,7 @@ import {
   qa,
   renderUI,
   seedStore,
+  textOf,
   toggleSwitch,
   typeInto,
 } from './pmUiTestKit';
@@ -323,21 +324,28 @@ describe('Project settings window TopTabs', () => {
     toggleSwitch('pm-project-expense-budget-needed');
     expect(subIds()).toEqual(['TabBudgetsMain', 'TabForTime', 'TabForMaterial', 'TabForExpense', 'TabBusinessUnits']);
 
-    // TabForTime: Time + its two kinds
+    // TabForTime: Time + the three kinds of work center (person, equipment, partner)
     press('pm-project-budgets-subtab-TabForTime');
     expect(q('pm-project-budgets-main-content')).toBeNull();
     expect(q('pm-project-time-costs-needed')).not.toBeNull();
     expect(q('pm-project-time-of-person-needed')).not.toBeNull();
     expect(q('pm-project-time-of-equipment-needed')).not.toBeNull();
+    expect(q('pm-project-time-of-partner-needed')).not.toBeNull();
     expect(q('pm-project-material-costs-needed')).toBeNull();
     expect(q('pm-project-expense-costs-needed')).toBeNull();
 
-    // Time off hides its two kinds; their values are kept
+    // Time off: the three kinds stay visible but cannot be edited; their values are kept
+    const enabled = (id: string) => { const el = q(id) as HTMLElement; const input = (el.tagName === 'INPUT' ? el : el.querySelector('input')) as HTMLInputElement; return !input.disabled; };
     toggleSwitch('pm-project-time-of-equipment-needed');
+    expect(enabled('pm-project-time-of-equipment-needed')).toBe(true);
     toggleSwitch('pm-project-time-costs-needed');
-    expect(q('pm-project-time-input-switches')).toBeNull();
+    expect(q('pm-project-time-input-switches')).not.toBeNull();
+    for (const id of ['pm-project-time-of-person-needed', 'pm-project-time-of-equipment-needed', 'pm-project-time-of-partner-needed']) expect(enabled(id)).toBe(false);
+    expect(textOf('pm-project-time-input-hint')).toContain('Time input is off');
     toggleSwitch('pm-project-time-costs-needed');
-    expect(q('pm-project-time-of-person-needed')).not.toBeNull();
+    for (const id of ['pm-project-time-of-person-needed', 'pm-project-time-of-equipment-needed', 'pm-project-time-of-partner-needed']) expect(enabled(id)).toBe(true);
+    expect(textOf('pm-project-time-input-hint')).toContain('work center');
+    toggleSwitch('pm-project-time-of-partner-needed');
 
     // TabForMaterial / TabForExpense: one switch each
     press('pm-project-budgets-subtab-TabForMaterial');
@@ -359,6 +367,7 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectTimeCostsNeeded).toBe(true);
     expect(patchRowJSON.projectTimeOfPersonNeeded).toBe(true);
     expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(true);
+    expect(patchRowJSON.projectTimeOfPartnerNeeded).toBe(true);
     expect(patchRowJSON.projectMaterialCostsNeeded).toBe(false);
     expect(patchRowJSON.projectExpenseCostsNeeded).toBe(true);
   });
@@ -370,9 +379,10 @@ describe('Project settings window TopTabs', () => {
     press('pm-project-tab-TabBudgets');
     toggleSwitch('pm-project-expense-budget-needed');
     press('pm-project-budgets-subtab-TabForTime');
-    // Person is the only kind: turning it off turns Time off
+    // Person is the only kind: turning it off turns Time off (the kinds stay visible, now disabled)
     toggleSwitch('pm-project-time-of-person-needed');
-    expect(q('pm-project-time-input-switches')).toBeNull();
+    expect(q('pm-project-time-input-switches')).not.toBeNull();
+    expect(((q('pm-project-time-of-person-needed') as HTMLElement).querySelector('input') ?? q('pm-project-time-of-person-needed')) as HTMLInputElement).toHaveProperty('disabled', true);
     // Time on again with no kind chosen: Person is turned on
     toggleSwitch('pm-project-time-costs-needed');
     expect(q('pm-project-time-of-person-needed')).not.toBeNull();
@@ -381,6 +391,7 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectTimeCostsNeeded).toBe(true);
     expect(patchRowJSON.projectTimeOfPersonNeeded).toBe(true);
     expect(patchRowJSON.projectTimeOfEquipmentNeeded).toBe(false);
+    expect(patchRowJSON.projectTimeOfPartnerNeeded).toBe(false);
   });
 
   it('Budgets tab: the exchange RATE TYPES of the accounting and the budget currency (D365 style): Default / Budget by default, saved to rowJSON', () => {

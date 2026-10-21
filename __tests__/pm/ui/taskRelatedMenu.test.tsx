@@ -2,7 +2,7 @@
 // The submenus "Create based on this" (Fact input · Vendor Invoice · Subproject) and "Go to" (Vendor invoices · Purchase orders · Product receipts · Fact input · Subproject) of the Task context menu (PMTaskRowMenu),
 // built by useTaskRelatedMenu (the line menu of the Finances table has its tests in view/task/finances/taskFinancesUi.test.tsx).
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore } from './pmUiTestKit';
+import { cleanupUI, expectInOrder, fakeCrud, press, q, renderUI, seedStore, textOf } from './pmUiTestKit';
 
 const mockPush = jest.fn();
 const mockFact = jest.fn();
@@ -11,6 +11,7 @@ const mockOrder = jest.fn();
 const mockCustomer = jest.fn();
 const mockCreateSub = jest.fn(async () => 'sub-1');
 const mockOpenBoard = jest.fn();
+const mockOpenDashboard = jest.fn();
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('../../../kit8/documents/fact/input/useOpenFactInput', () => ({ useOpenFactInput: () => mockFact }));
@@ -18,7 +19,7 @@ jest.mock('../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ us
 jest.mock('../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockCustomer, busy: false }) }));
 jest.mock('../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockOrder, busy: false }) }));
 jest.mock('../../../kit8/pm/subproject/useCreateSubproject', () => ({ useCreateSubproject: () => ({ create: (...a: any[]) => (mockCreateSub as any)(...a), busy: false }) }));
-jest.mock('../../../kit8/pm/view/project/dashboardDeepLink', () => ({ ...jest.requireActual('../../../kit8/pm/view/project/dashboardDeepLink'), openProjectBoard: (...a: any[]) => mockOpenBoard(...a) }));
+jest.mock('../../../kit8/pm/view/project/dashboardDeepLink', () => ({ ...jest.requireActual('../../../kit8/pm/view/project/dashboardDeepLink'), openProjectBoard: (...a: any[]) => mockOpenBoard(...a), openDashboardLink: (...a: any[]) => mockOpenDashboard(...a) }));
 
 const PMTaskRowMenu = require('../../../kit8/pm/view/task/PMTaskRowMenu').default;
 const { usePMStore } = require('../../../kit8/pm/store/store_pm');
@@ -126,6 +127,17 @@ describe('Go to', () => {
     press('pm-row-menu-goto-fact-input');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/fact/list', params: { taskGUID: t.rowGUID } });
   });
+  it('Timeline data is FIRST: the Budgets view of the dashboard on its Timeline tab, in a new window, for the TASK (no line filter from the task menu)', () => {
+    const t = open('Task 111');
+    press('pm-row-menu-goto');
+    const go = ids().filter((i) => /^pm-row-menu-goto-/.test(i));
+    expect(go[0]).toBe('pm-row-menu-goto-timeline');
+    expect(textOf('pm-row-menu-goto-timeline')).toContain('Timeline data');
+    press('pm-row-menu-goto-timeline');
+    expect(mockOpenDashboard).toHaveBeenCalledTimes(1);
+    expect(mockOpenDashboard.mock.calls[0][0]).toEqual({ projectGUID: t.projectGUID, taskGUID: t.rowGUID, view: 'budgets', tab: 'TabPlanTimeline' });
+    expect(mockPush).not.toHaveBeenCalled();
+  });
   it('Subproject only for a task that stands for a project; it opens that board', () => {
     open('Task 111');
     press('pm-row-menu-goto');
@@ -200,6 +212,21 @@ describe('Customer invoice in the line menu of the Finances table', () => {
     expect(mat.create).toContain('m-create-vendor-invoice');
     expect(mat.create).not.toContain('m-create-customer-invoice');
     expect(mat.goto).not.toContain('m-goto-customer-invoices');
+  });
+  it('the LINE menu has Timeline data too: the Budgets view filtered by the task line GUID (a Material line, a Deliverable line - it has no vendor items but this one)', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    renderUI(<Probe />);
+    const close = jest.fn();
+    for (const [line, genus, noVendor] of [['l-time', 'timeGenus', false], ['l-mat', 'materialGenus', false], ['l-rev', 'revenueGenus', true]] as const) {
+      mockOpenDashboard.mockClear();
+      const [, goto] = build({ idPrefix: 'm', close, taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: line, genus, noVendor });
+      const item = goto.submenu.find((i: any) => i.testID === 'm-goto-timeline');
+      expect(item).toMatchObject({ label: 'Timeline data', icon: 'timeline' });
+      item.onPress();
+      expect(close).toHaveBeenCalled();
+      expect(mockOpenDashboard.mock.calls[0][0]).toEqual({ projectGUID: t.projectGUID, taskGUID: t.rowGUID, view: 'budgets', tab: 'TabPlanTimeline', lineGUID: line });
+    }
   });
   it('the item of a Revenue line creates the invoice of THAT line (lineGUIDs), or asks first when the menu gives onCustomerInvoice', () => {
     const { byName } = seedStore();

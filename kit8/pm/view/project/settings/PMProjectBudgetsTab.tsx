@@ -1,6 +1,6 @@
 // PMProjectBudgetsTab - "Budgets" tab of the Project settings window (TabBudgets, after TabMain): currencies + what the task edit screens
 // (the Finances view / the task page) offer to enter. It has its own SubTabs (BUDGETS_SUBTABS):
-//   TabBudgetsMain (currencies, rate types, task plan calendar, the two "Budget needed" switches) | TabForTime (Time input: person / equipment) |
+//   TabBudgetsMain (currencies, rate types, task plan calendar, the two "Budget needed" switches) | TabForTime (Time input: the kinds of work center) |
 //   TabForMaterial (Material input) | TabForExpense (Expense input) | TabBusinessUnits (the four centers).
 //   The three TabFor* are offered only while projectExpenseBudgetNeeded is on (as the input switches always were).
 //   project_table.rowJSON:
@@ -9,7 +9,7 @@
 //     exchangeRateTypeForAccounting / exchangeRateTypeForBudget = the exchange RATE TYPE (Default | Budget, as D365 FO) used to convert the sums of the
 //       task lines into the accounting / the budget currency (task lines, kit8/pm/view/task/finances/taskLineFx.ts)
 //     projectRevenueBudgetNeeded / projectExpenseBudgetNeeded = "Budgets" checkboxes; while projectExpenseBudgetNeeded is on the INPUT switches appear
-//       (kit8/pm/model/taskInputScope.ts): projectTimeCostsNeeded > projectTimeOfPersonNeeded / projectTimeOfEquipmentNeeded / projectTimeOfWorkCenterNeeded, projectMaterialCostsNeeded,
+//       (kit8/pm/model/taskInputScope.ts): projectTimeCostsNeeded > projectTimeOfPersonNeeded / projectTimeOfEquipmentNeeded / projectTimeOfPartnerNeeded (the kinds of work center a Time line may pick), projectMaterialCostsNeeded,
 //       projectExpenseCostsNeeded - they decide which tabs of the task lines are offered and whether a Time line may be an equipment
 //     calendarForTaskPlan = the management calendar (managementCalendarTable) whose excluded days divide the timeline of a task plan (Post of the task
 //       lines, kit8/pm/view/task/plan); default workingDaysCalendar (Mon-Fri, no holidays)
@@ -292,31 +292,38 @@ export default function PMProjectBudgetsTab({
             onValueChange={(v) => setInput({ projectTimeCostsNeeded: v })}
             style={styles.switchRow}
           />
-          {inputs.projectTimeCostsNeeded && (
-            <View testID="pm-project-time-input-switches" style={styles.level1}>
-              <SwitchApp
-                testID="pm-project-time-of-person-needed"
-                label={pmT('Time of person input needed (projectTimeOfPersonNeeded)')}
-                value={inputs.projectTimeOfPersonNeeded}
-                onValueChange={(v) => setInput({ projectTimeOfPersonNeeded: v })}
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-time-of-equipment-needed"
-                label={pmT('Time of equipment input needed (projectTimeOfEquipmentNeeded)')}
-                value={inputs.projectTimeOfEquipmentNeeded}
-                onValueChange={(v) => setInput({ projectTimeOfEquipmentNeeded: v })}
-                style={styles.switchRow}
-              />
-              <SwitchApp
-                testID="pm-project-time-of-work-center-needed"
-                label={pmT('Time of work center input needed (projectTimeOfWorkCenterNeeded)')}
-                value={inputs.projectTimeOfWorkCenterNeeded}
-                onValueChange={(v) => setInput({ projectTimeOfWorkCenterNeeded: v })}
-                style={styles.switchRow}
-              />
-            </View>
-          )}
+          {/* the kinds of WORK CENTER a Time line may pick: always shown, editable only while Time input is needed (a switch keeps its value while it is off) */}
+          <View testID="pm-project-time-input-switches" style={styles.level1}>
+            <SwitchApp
+              testID="pm-project-time-of-person-needed"
+              label={pmT('Time of person input needed (projectTimeOfPersonNeeded)')}
+              value={inputs.projectTimeOfPersonNeeded}
+              disabled={!inputs.projectTimeCostsNeeded}
+              onValueChange={(v) => setInput({ projectTimeOfPersonNeeded: v })}
+              style={styles.switchRow}
+            />
+            <SwitchApp
+              testID="pm-project-time-of-equipment-needed"
+              label={pmT('Time of equipment input needed (projectTimeOfEquipmentNeeded)')}
+              value={inputs.projectTimeOfEquipmentNeeded}
+              disabled={!inputs.projectTimeCostsNeeded}
+              onValueChange={(v) => setInput({ projectTimeOfEquipmentNeeded: v })}
+              style={styles.switchRow}
+            />
+            <SwitchApp
+              testID="pm-project-time-of-partner-needed"
+              label={pmT('Time of partner input needed (projectTimeOfPartnerNeeded)')}
+              value={inputs.projectTimeOfPartnerNeeded}
+              disabled={!inputs.projectTimeCostsNeeded}
+              onValueChange={(v) => setInput({ projectTimeOfPartnerNeeded: v })}
+              style={styles.switchRow}
+            />
+            <Text testID="pm-project-time-input-hint" style={styles.hint}>
+              {inputs.projectTimeCostsNeeded
+                ? pmT('A Time line picks a work center of the kinds switched on here (Catalogs > Work centers).')
+                : pmT('Time input is off: the Time tab of the task lines is not shown. Turn it on to choose the kinds of work center.')}
+            </Text>
+          </View>
         </View>
       )}
 

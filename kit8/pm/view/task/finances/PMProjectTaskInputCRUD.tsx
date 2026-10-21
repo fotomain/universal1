@@ -34,6 +34,7 @@ import type { ReusableTableRow, ReusableTableRowEditKind } from '../../../../ui/
 import { usePMStore } from '../../../store/store_pm';
 import { financesPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { tabVisible, taskInputScopeOf, timeKindsOffered } from '../../../model/taskInputScope';
+import { lineMenuKind } from './taskLineResource';
 import { pmT } from '../../../i18n/pmT';
 import { DISTRIBUTION } from '../../../../catalog/distribution/distributionModel';
 import { emptyTaskLine, TASK_LINE_ENTITY, TASK_LINE_GENUS, taskLineGenusDef, taskLineGenusOf } from './taskLineModel';
@@ -120,9 +121,14 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   // the tab picked by the user (or by the place of the last edit) may have been switched off meanwhile: the first offered tab is shown instead
   const genus = visibleGenus.some((g) => g.genus === pickedGenus) ? pickedGenus : (visibleGenus[0]?.genus ?? pickedGenus);
   const def = taskLineGenusDef(genus) ?? TASK_LINE_GENUS[0];
-  const timeKinds = useMemo(
-    () => timeKindsOffered(scope, taskLines.filter((l) => l.rowParentGUID === MANAGEMENT_GENUS.time).map((l) => l.rowJSON?.taskResourceKind)),
+  // the Time lines book WORK CENTERS (master on, or the task already has such a line); a project made before keeps a person / equipment of the catalog
+  const timeWorkCenters = useMemo(
+    () => scope.workCenters || taskLines.some((l) => l.rowParentGUID === MANAGEMENT_GENUS.time && l.rowJSON?.taskResourceKind === 'workCenter'),
     [scope, taskLines],
+  );
+  const timeKinds = useMemo(
+    () => timeKindsOffered(scope, taskLines.filter((l) => l.rowParentGUID === MANAGEMENT_GENUS.time).map((l) => lineMenuKind(data, l.rowJSON || {}))),
+    [scope, taskLines, data],
   );
   /** a kind besides the person is offered (equipment, work center): the line says its kind itself (a project without it keeps lines without a kind = person) */
   const equipmentOffered = timeKinds.some((k) => k !== 'person');
@@ -149,16 +155,16 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
     [taskLines, def, data, fx],
   );
   const columns = useMemo(
-    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds, productFields }),
-    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds, productFields],
+    () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds, workCenters: timeWorkCenters, productFields }),
+    [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds, timeWorkCenters, productFields],
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === def.genus, [def.genus]);
   // taskManagementGenusLine = the genus of the tab: the contract templates the line can pick depend on it
   // a new Time line of a project that offers equipment says its kind: a person (the menu's first choice) - or an equipment when that is the only kind offered
   const newTimeKind = def.resource !== 'product' && equipmentOffered ? (timeKinds.includes('person') ? 'person' : timeKinds[0]) : undefined;
-  /** the project books work centers: a new Time line is a work center line, the menu starts on Person (the work centers of a person) */
-  const newOnWorkCenters = def.resource !== 'product' && scope.time.workCenter;
-  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(newOnWorkCenters ? { taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' } : newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind, newOnWorkCenters]);
+  /** the project books work centers: a new Time line is a work center line, the menu starts on the first kind switched on (Person, else Equipment, else Partner) */
+  const newOnWorkCenters = def.resource !== 'product' && scope.workCenters;
+  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(newOnWorkCenters ? { taskResourceKind: 'workCenter', taskWorkCenterKind: timeKinds[0] } : newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind, newOnWorkCenters, timeKinds]);
   const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx, projectJSON), [data, def, fx, projectJSON]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */

@@ -1,7 +1,8 @@
 // useTaskRelatedMenu - the two submenus of the Task context menu (PMTaskRowMenu) and of the line context menu of the Task Edit (Finances) table (PMProjectTaskInputCRUD), placed BEFORE "Delete":
 //   "Create based on this"   Fact input · Vendor Invoice · Purchase Order · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
 //                            to the task and opens its board in a new browser window - kit8/pm/subproject/useCreateSubproject)
-//   "Go to"                  Vendor invoices · Customer invoices (switch on) · Purchase orders · Product receipts · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,
+//   "Go to"                  Timeline data (the BUDGETS view of the dashboard - the posted days, on its Timeline tab - in a NEW browser window, filtered for the task line when the menu is a line menu:
+//                            /pm/project/dashboard?view=budgets&tab=TabPlanTimeline&lineGUID) · Vendor invoices · Customer invoices (switch on) · Purchase orders · Product receipts · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,
 //                            /pm/fact/list?…, kit8/documents/taskScope) · Subproject (only a task that stands for a project: its board in a new browser window)
 // `build(ctx)` returns the two items (a stage has no lines / facts / documents: nothing). The store is read through selectors (the menu is built when it opens).
 import { useCallback } from 'react';
@@ -19,7 +20,7 @@ import { CUSTOMER_INVOICE_LIST_ROUTE, FACT_LIST_ROUTE, PRODUCT_RECEIPT_LIST_ROUT
 import { openTaskScopedList } from '../../../documents/taskScope/openTaskScopedList';
 import { createSubprojectBlock, subprojectGUIDOfTask } from '../../subproject/createSubprojectModel';
 import { useCreateSubproject } from '../../subproject/useCreateSubproject';
-import { openProjectBoard } from '../project/dashboardDeepLink';
+import { BUDGETS_TIMELINE_TAB, openDashboardLink, openProjectBoard } from '../project/dashboardDeepLink';
 import { subprojectsEnabledOf } from '../../subproject/subprojectModel';
 
 export interface TaskRelatedMenuCtx {
@@ -81,6 +82,8 @@ export function useTaskRelatedMenu() {
       }] : []),
     ];
     const goTo: PMMenuItemProps[] = [
+      // the Budgets view of the dashboard in a new window: the posted days of the task, of THIS line when the menu is a line menu (a chip says so and clears it)
+      { testID: `${idPrefix}-goto-timeline`, label: 'Timeline data', icon: 'timeline', onPress: run(() => openDashboardLink({ projectGUID, taskGUID, view: 'budgets', tab: BUDGETS_TIMELINE_TAB, ...(taskLineGUID ? { lineGUID: taskLineGUID } : {}) }, router)) },
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-goto-vendor-invoices`, label: 'Vendor invoices', icon: 'receipt_long', onPress: run(() => openTaskScopedList(VENDOR_INVOICE_LIST_ROUTE, scope, router)) }]),
       ...(customerOn ? [{ testID: `${idPrefix}-goto-customer-invoices`, label: 'Customer invoices', icon: 'payments', onPress: run(() => openTaskScopedList(CUSTOMER_INVOICE_LIST_ROUTE, scope, router)) }] : []),
       ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-goto-purchase-orders`, label: 'Purchase orders', icon: 'shopping_cart', onPress: run(() => openTaskScopedList(PURCHASE_ORDER_LIST_ROUTE, scope, router)) }]),

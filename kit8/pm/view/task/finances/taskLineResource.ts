@@ -78,10 +78,12 @@ export function resourceRowsOf(d: TaskLineCatalogData, kind: TaskLineResourceKin
 export const RESOURCE_TYPE_FIELD: Record<'person' | 'equipment', string> = { person: 'personType', equipment: 'equipmentType' };
 
 /** words for the messages and the labels of the columns */
-export const RESOURCE_WORDS: Record<'person' | 'equipment' | 'workCenter', { title: string; lower: string; variant: string }> = {
+export const RESOURCE_WORDS: Record<'person' | 'equipment' | 'workCenter' | 'partner', { title: string; lower: string; variant: string }> = {
   person: { title: 'Person', lower: 'person', variant: 'Person variant' },
   equipment: { title: 'Equipment', lower: 'equipment', variant: 'Equipment variant' },
   workCenter: { title: 'Work center', lower: 'work center', variant: 'Work center variant' },
+  /** the Partner entry of the menu: the kind of a work center (a supplier) */
+  partner: { title: 'Partner', lower: 'partner', variant: 'Partner variant' },
 };
 
 /** person.rowJSON -> "first name + last name" */

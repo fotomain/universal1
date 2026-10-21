@@ -3,7 +3,7 @@
 //
 //   toolbar   <task name> ........ [Gantt | Kanban | Network | Versions | Finances | Plan]
 //   body      PMProjectTaskTimelinePlanCRUD (read-only - nothing is edited here; Post is on the Finances tab)
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
@@ -24,6 +24,17 @@ export interface PMTaskLinePlanViewProps {
 export default function PMTaskLinePlanView({ projectGUID, width, height, palette, crud }: PMTaskLinePlanViewProps) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
   const task = usePMStore((s) => (s.selectedGUID ? s.tasksById[s.selectedGUID] : undefined));
+  // a deep link (dashboardDeepLink.ts, view=budgets: "Go to > Timeline data" of a task line) for THIS task: the tab to open on and the ONE line to show; it ends when another task is selected
+  const placeRequest = usePMStore((s) => s.placeRequest);
+  const requested = !!placeRequest && placeRequest.taskGUID === selectedGUID;
+  useEffect(() => {
+    if (placeRequest && selectedGUID && selectedGUID !== placeRequest.taskGUID) usePMStore.getState().setPlaceRequest(null);
+  }, [placeRequest, selectedGUID]);
+  /** the x of the line chip: all the lines of the task again (the tab stays) */
+  const clearLine = useCallback(() => {
+    const r = usePMStore.getState().placeRequest;
+    if (r) usePMStore.getState().setPlaceRequest({ taskGUID: r.taskGUID, ...(r.genus ? { genus: r.genus } : {}), ...(r.tab ? { tab: r.tab } : {}) });
+  }, []);
 
   return (
     <View style={{ width, height, backgroundColor: palette.background }} testID="pm-plan-view">
@@ -44,7 +55,15 @@ export default function PMTaskLinePlanView({ projectGUID, width, height, palette
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <PMProjectTaskTimelinePlanCRUD key={selectedGUID} projectGUID={projectGUID} taskGUID={selectedGUID} testID="pm-plan" />
+          <PMProjectTaskTimelinePlanCRUD
+            key={requested ? `${selectedGUID}:${placeRequest!.lineGUID ?? ''}:${placeRequest!.tab ?? ''}` : selectedGUID}
+            projectGUID={projectGUID}
+            taskGUID={selectedGUID}
+            lineGUID={requested ? placeRequest!.lineGUID : undefined}
+            initialTab={requested ? placeRequest!.tab : undefined}
+            onClearLine={clearLine}
+            testID="pm-plan"
+          />
         </ScrollView>
       )}
     </View>

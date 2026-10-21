@@ -93,8 +93,8 @@ describe('the kind workCenter of a Time line and its capacity (PARTs 17, 21, 22,
     expect(codeSql).toContain(`ELSIF p_kind = 'workCenter' THEN`);
     expect(codeSql).toContain(`FROM public."workCenterTable" x WHERE p_kind = 'workCenter' AND x."rowGUID" = p_guid`);
   });
-  it('the cost budget gate knows the switch projectTimeOfWorkCenterNeeded (default off)', () => {
-    expect(codeSql).toContain(`project_cost_flag(p_json, 'projectTimeOfWorkCenterNeeded', false)`);
+  it('the cost budget gate knows the switch projectTimeOfPartnerNeeded (default off)', () => {
+    expect(codeSql).toContain(`project_cost_flag(p_json, 'projectTimeOfPartnerNeeded', false)`);
   });
 });
 

@@ -9,11 +9,14 @@ const mockParams: Record<string, any> = {};
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }), useGlobalSearchParams: () => mockParams }));
 const mockLines = jest.fn((_p: any) => null);
+const mockPlan = jest.fn((_p: any) => null);
+jest.mock('../../../../kit8/pm/view/task/plan/PMProjectTaskTimelinePlanCRUD', () => ({ __esModule: true, default: (props: any) => { mockPlan(props); return null; } }));
 jest.mock('../../../../kit8/pm/view/task/finances/PMProjectTaskInputCRUD', () => ({ __esModule: true, default: (props: any) => { mockLines(props); return null; } }));
 
 import React from 'react';
-import { DASHBOARD_ROUTE, dashboardLinkPath, openDashboardLink, parseDashboardLink } from '../../../../kit8/pm/view/project/dashboardDeepLink';
+import { BUDGETS_TIMELINE_TAB, DASHBOARD_ROUTE, dashboardLinkPath, openDashboardLink, parseDashboardLink } from '../../../../kit8/pm/view/project/dashboardDeepLink';
 import PMTaskEditView from '../../../../kit8/pm/view/task/finances/PMTaskEditView';
+import PMTaskLinePlanView from '../../../../kit8/pm/view/task/plan/PMTaskLinePlanView';
 import SumExplorerListReusable from '../../../../kit8/ui/components/common/SumExplorerListReusable';
 import { buildMonitor01Sources } from '../../../../kit8/pm/reports/monitor01/monitor01SumSources';
 import { makePMPalette } from '../../../../kit8/pm/view/theme';
@@ -61,6 +64,36 @@ describe('the link (pure)', () => {
   });
 });
 
+describe('the Budgets link: view=budgets&tab=…&lineGUID=… (menu "Go to > Timeline data")', () => {
+  it('the tab of the link is a real tab of the Budgets view', () => {
+    const { PLAN_BUDGET_TABS } = jest.requireActual('../../../../kit8/pm/view/task/plan/PMProjectTaskTimelinePlanCRUD');   // the component itself is a double in this file
+    expect(PLAN_BUDGET_TABS.map((t: any) => t.id)).toContain(BUDGETS_TIMELINE_TAB);
+  });
+  it('path: the Budgets view, the Timeline tab and the line; a Finances link has no tab', () => {
+    expect(dashboardLinkPath({ projectGUID: P, taskGUID: T, view: 'budgets', tab: BUDGETS_TIMELINE_TAB, lineGUID: 'l1' })).toBe(`${DASHBOARD_ROUTE}?projectGUID=${P}&taskGUID=${T}&view=budgets&tab=TabPlanTimeline&lineGUID=l1`);
+    expect(dashboardLinkPath({ projectGUID: P, taskGUID: T, view: 'budgets' })).toBe(`${DASHBOARD_ROUTE}?projectGUID=${P}&taskGUID=${T}&view=budgets`);
+    expect(dashboardLinkPath({ projectGUID: P, taskGUID: T, tab: 'TabPlanTimeline' })).toBe(`${DASHBOARD_ROUTE}?projectGUID=${P}&taskGUID=${T}&view=finances`);
+  });
+  it('parse: view=budgets + tab + line; anything else stays a Finances link (no view key, as before)', () => {
+    expect(parseDashboardLink({ projectGUID: P, taskGUID: T, view: 'budgets', tab: 'TabPlanTimeline', lineGUID: 'l1' })).toMatchObject({ view: 'budgets', tab: 'TabPlanTimeline', lineGUID: 'l1' });
+    const fin = parseDashboardLink({ projectGUID: P, taskGUID: T, view: 'finances', tab: 'TabPlanTimeline' })!;
+    expect(fin.view).toBeUndefined();
+    expect(fin.tab).toBeUndefined();
+    expect(parseDashboardLink({ projectGUID: P, taskGUID: T, view: 'budgets', lineGUID: 'l1' })!.key).not.toBe(parseDashboardLink({ projectGUID: P, taskGUID: T, lineGUID: 'l1' })!.key);
+  });
+  it('web: a NEW browser tab; native: the router with the same view, tab and line', () => {
+    const link = { projectGUID: P, taskGUID: T, view: 'budgets' as const, tab: BUDGETS_TIMELINE_TAB, lineGUID: 'l1' };
+    const router = { push: jest.fn() };
+    const open = jest.spyOn(window, 'open').mockReturnValue({} as any);
+    openDashboardLink(link, router);
+    expect(open).toHaveBeenCalledWith(`${DASHBOARD_ROUTE}?projectGUID=${P}&taskGUID=${T}&view=budgets&tab=TabPlanTimeline&lineGUID=l1`, '_blank');
+    open.mockReturnValue(null);
+    openDashboardLink(link, router);
+    expect(router.push).toHaveBeenCalledWith({ pathname: DASHBOARD_ROUTE, params: { projectGUID: P, taskGUID: T, view: 'budgets', tab: 'TabPlanTimeline', lineGUID: 'l1' } });
+    open.mockRestore();
+  });
+});
+
 function Probe() { useDashboardDeepLink('u1', true); return null; }
 
 describe('useDashboardDeepLink (the dashboard applies the link once)', () => {
@@ -87,6 +120,50 @@ describe('useDashboardDeepLink (the dashboard applies the link once)', () => {
     renderUI(<Probe />);
     expect(usePMStore.getState().ganttVsNetworkView).toBe('showGanttChart');
     expect(usePMStore.getState().placeRequest).toBeNull();
+  });
+});
+
+describe('useDashboardDeepLink: view=budgets opens the Budgets view (not Finances) with the tab and the line', () => {
+  it('the main view becomes Budgets and the place request carries the tab and the line', () => {
+    const { byName, demo } = seedStore();
+    const projectGUID: string = demo.projects[0].rowGUID;
+    const task = byName('Task 111');
+    Object.assign(mockParams, { projectGUID, taskGUID: task.rowGUID, view: 'budgets', tab: 'TabPlanTimeline', lineGUID: 'line-9' });
+    act(() => usePMStore.setState({ selectedProjectGUID: projectGUID, loadedProjectGUID: projectGUID, keepWorkspaceMode: true, userSettingsTableMissing: false, ganttVsNetworkView: 'showGanttChart', focusRequest: null, placeRequest: null } as any));
+    renderUI(<Probe />);
+    const s = usePMStore.getState();
+    expect(s.ganttVsNetworkView).toBe('showPlanView');
+    expect(s.placeRequest).toMatchObject({ taskGUID: task.rowGUID, lineGUID: 'line-9', tab: 'TabPlanTimeline' });
+    expect(s.focusRequest?.guid).toBe(task.rowGUID);
+  });
+});
+
+describe('the Budgets view shows ONE task line when the link says so', () => {
+  const view = () => <PMTaskLinePlanView projectGUID="p" width={800} height={600} palette={palette} crud={fakeCrud()} />;
+  it('the line and the tab of the request go to the table; the chip\'s x shows all the lines again (the tab stays); another task ends the request', () => {
+    const { byName } = seedStore();
+    const a = byName('Task 111');
+    const b = byName('Task 112');
+    act(() => usePMStore.setState({ selectedGUID: a.rowGUID }));
+    act(() => usePMStore.getState().setPlaceRequest({ taskGUID: a.rowGUID, lineGUID: 'l5', tab: 'TabPlanTimeline' }));
+    const { rerender } = renderUI(view());
+    expect(mockPlan.mock.calls.at(-1)![0]).toMatchObject({ taskGUID: a.rowGUID, lineGUID: 'l5', initialTab: 'TabPlanTimeline' });
+    act(() => mockPlan.mock.calls.at(-1)![0].onClearLine());
+    expect(mockPlan.mock.calls.at(-1)![0].lineGUID).toBeUndefined();
+    expect(mockPlan.mock.calls.at(-1)![0].initialTab).toBe('TabPlanTimeline');
+    act(() => usePMStore.getState().setPlaceRequest({ taskGUID: a.rowGUID, lineGUID: 'l5', tab: 'TabPlanTimeline' }));
+    act(() => usePMStore.setState({ selectedGUID: b.rowGUID }));
+    rerender(view());
+    expect(usePMStore.getState().placeRequest).toBeNull();
+    expect(mockPlan.mock.calls.at(-1)![0]).toMatchObject({ taskGUID: b.rowGUID });
+    expect(mockPlan.mock.calls.at(-1)![0].lineGUID).toBeUndefined();
+  });
+  it('without a request the view is as before: all the lines, the default tab', () => {
+    const { byName } = seedStore();
+    act(() => usePMStore.setState({ selectedGUID: byName('Task 111').rowGUID, placeRequest: null }));
+    renderUI(view());
+    expect(mockPlan.mock.calls.at(-1)![0].lineGUID).toBeUndefined();
+    expect(mockPlan.mock.calls.at(-1)![0].initialTab).toBeUndefined();
   });
 });
 

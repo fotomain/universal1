@@ -11,7 +11,7 @@ describe('taskInputSwitchesOf: a switch that was never saved reads as its defaul
     expect(taskInputSwitchesOf({})).toEqual(TASK_INPUT_DEFAULTS);
     expect(TASK_INPUT_DEFAULTS).toMatchObject({
       projectExpenseBudgetNeeded: false, projectTimeCostsNeeded: true, projectTimeOfPersonNeeded: true,
-      projectTimeOfEquipmentNeeded: false, projectTimeOfWorkCenterNeeded: false, projectMaterialCostsNeeded: true, projectExpenseCostsNeeded: true,
+      projectTimeOfEquipmentNeeded: false, projectTimeOfPartnerNeeded: false, projectMaterialCostsNeeded: true, projectExpenseCostsNeeded: true,
     });
   });
   it('saved values win; a value that is not a boolean is ignored', () => {
@@ -24,48 +24,58 @@ describe('taskInputSwitchesOf: a switch that was never saved reads as its defaul
 
 describe('taskInputScopeOf', () => {
   it('master off = legacy: person Time lines, Material, Expenses, Revenues - whatever the other switches say', () => {
-    const legacy = { time: { person: true, equipment: false, workCenter: false }, material: true, expense: true, revenue: true, configured: false };
+    const legacy = { time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: false, workCenters: false };
     expect(taskInputScopeOf(undefined)).toEqual(legacy);
     expect(taskInputScopeOf({ projectExpenseBudgetNeeded: false, projectTimeCostsNeeded: false, projectTimeOfEquipmentNeeded: true, projectMaterialCostsNeeded: false })).toEqual(legacy);
   });
   it('master on, defaults = the same as before (nothing is lost by switching it on)', () => {
-    expect(taskInputScopeOf(on())).toEqual({ time: { person: true, equipment: false, workCenter: false }, material: true, expense: true, revenue: true, configured: true });
+    expect(taskInputScopeOf(on())).toEqual({ time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: true, workCenters: true });
   });
   it('person only / equipment only / both', () => {
-    expect(taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: true })).time).toEqual({ person: true, equipment: true, workCenter: false });
-    expect(taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true })).time).toEqual({ person: false, equipment: true, workCenter: false });
-    expect(taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: false })).time).toEqual({ person: true, equipment: false, workCenter: false });
+    expect(taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: true })).time).toEqual({ person: true, equipment: true, partner: false });
+    expect(taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true })).time).toEqual({ person: false, equipment: true, partner: false });
+    expect(taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: false })).time).toEqual({ person: true, equipment: false, partner: false });
   });
   it('Time off hides both kinds (their values are kept); Material / Expense follow their switch', () => {
     const s = taskInputScopeOf(on({ projectTimeCostsNeeded: false, projectTimeOfEquipmentNeeded: true, projectMaterialCostsNeeded: false }));
-    expect(s.time).toEqual({ person: false, equipment: false, workCenter: false });
+    expect(s.time).toEqual({ person: false, equipment: false, partner: false });
     expect(s.material).toBe(false);
     expect(s.expense).toBe(true);
     expect(s.revenue).toBe(true);
   });
 });
 
-describe('work center (projectTimeOfWorkCenterNeeded, default off)', () => {
-  it('is its own kind of Time line: on with Time, off under a Time that is off, never in the legacy scope', () => {
-    expect(taskInputScopeOf(on({ projectTimeOfWorkCenterNeeded: true })).time).toEqual({ person: true, equipment: false, workCenter: true });
-    expect(taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfWorkCenterNeeded: true })).time).toEqual({ person: false, equipment: false, workCenter: true });
-    expect(taskInputScopeOf(on({ projectTimeCostsNeeded: false, projectTimeOfWorkCenterNeeded: true })).time.workCenter).toBe(false);
-    expect(taskInputScopeOf({ projectTimeOfWorkCenterNeeded: true }).time.workCenter).toBe(false);
+describe('the three kinds of work center (person, equipment, partner)', () => {
+  it('Time on = the Time lines book WORK CENTERS: the kinds switched on are offered; Time off = none', () => {
+    expect(taskInputScopeOf(on({ projectTimeOfPartnerNeeded: true })).time).toEqual({ person: true, equipment: false, partner: true });
+    expect(taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfPartnerNeeded: true })).time).toEqual({ person: false, equipment: false, partner: true });
+    expect(taskInputScopeOf(on({ projectTimeCostsNeeded: false, projectTimeOfPartnerNeeded: true })).time).toEqual({ person: false, equipment: false, partner: false });
+    expect(taskInputScopeOf(on()).workCenters).toBe(true);
   });
-  it('a work center alone is a kind: the Time tab and the cost budget stay on', () => {
-    const only = taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfWorkCenterNeeded: true }));
+  it('a project made before (master off) books a person of the catalog: no work centers, and the Partner switch is ignored', () => {
+    const legacy = taskInputScopeOf({ projectTimeOfPartnerNeeded: true });
+    expect(legacy.workCenters).toBe(false);
+    expect(legacy.time).toEqual({ person: true, equipment: false, partner: false });
+  });
+  it('Partner alone is a kind: the Time tab and the cost budget stay on', () => {
+    const only = taskInputScopeOf(on({ projectTimeOfPersonNeeded: false, projectTimeOfPartnerNeeded: true }));
     expect(genusInScope(only, 'timeGenus')).toBe(true);
-    expect(timeKindsOffered(only, [])).toEqual(['workCenter']);
+    expect(timeKindsOffered(only, [])).toEqual(['partner']);
   });
-  it('the menu "Resource" lists person, equipment, work center in this order; a kind that has lines is still offered', () => {
-    const all = taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: true, projectTimeOfWorkCenterNeeded: true }));
-    expect(timeKindsOffered(all, [])).toEqual(['person', 'equipment', 'workCenter']);
-    expect(timeKindsOffered(taskInputScopeOf(on()), ['workCenter'])).toEqual(['person', 'workCenter']);
+  it('the menu "Resource" lists person, equipment, partner in this order; a kind that has lines is still offered', () => {
+    const all = taskInputScopeOf(on({ projectTimeOfEquipmentNeeded: true, projectTimeOfPartnerNeeded: true }));
+    expect(timeKindsOffered(all, [])).toEqual(['person', 'equipment', 'partner']);
+    expect(timeKindsOffered(taskInputScopeOf(on()), ['partner'])).toEqual(['person', 'partner']);
   });
-  it('Time needs a kind: the work center counts as one', () => {
-    const base = taskInputSwitchesOf(on({ projectTimeOfWorkCenterNeeded: true }));
-    expect(applyTaskInputPatch(base, { projectTimeOfPersonNeeded: false })).toMatchObject({ projectTimeCostsNeeded: true, projectTimeOfWorkCenterNeeded: true });
-    const none = applyTaskInputPatch(applyTaskInputPatch(base, { projectTimeOfPersonNeeded: false }), { projectTimeOfWorkCenterNeeded: false });
+  it('Time off and no lines: the Time tab is not shown; Time lines keep it visible (a switch never hides data)', () => {
+    const off = taskInputScopeOf(on({ projectTimeCostsNeeded: false }));
+    expect(tabVisible(off, 'timeGenus', 0)).toBe(false);
+    expect(tabVisible(off, 'timeGenus', 2)).toBe(true);
+  });
+  it('Time needs a kind: the partner counts as one', () => {
+    const base = taskInputSwitchesOf(on({ projectTimeOfPartnerNeeded: true }));
+    expect(applyTaskInputPatch(base, { projectTimeOfPersonNeeded: false })).toMatchObject({ projectTimeCostsNeeded: true, projectTimeOfPartnerNeeded: true });
+    const none = applyTaskInputPatch(applyTaskInputPatch(base, { projectTimeOfPersonNeeded: false }), { projectTimeOfPartnerNeeded: false });
     expect(none.projectTimeCostsNeeded).toBe(false);
   });
 });

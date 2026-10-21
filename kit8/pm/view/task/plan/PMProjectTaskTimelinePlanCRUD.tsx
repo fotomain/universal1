@@ -4,6 +4,8 @@
 // against the totals of the line (a ✓ when they are equal: the Correct033 rule leaves nothing lost by the rounding).
 // A line changed after posting (taskIsPosted false) is dimmed with "changed after posting - press Post" (the Post button is on the Finances tab).
 // Shown by the Plan view of the dashboard (PMTaskLinePlanView) and the route /pm/project/task/plan.
+// `lineGUID` = ONE task line: every tab (the days table, the summary, the Timeline) shows that line only, with a chip above the tabs that clears it (the link "Go to > Timeline data" of a line);
+// `initialTab` = the tab it opens on.
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { shallowEqual, useSelector } from 'react-redux';
@@ -35,6 +37,12 @@ export type PlanBudgetTabId = (typeof PLAN_BUDGET_TABS)[number]['id'];
 export interface PMProjectTaskTimelinePlanCRUDProps {
   projectGUID: string;
   taskGUID: string;
+  /** show the posted days of this task line only (task_line_table.rowGUID); empty = all the lines of the task */
+  lineGUID?: string | null;
+  /** the tab to open on (a PLAN_BUDGET_TABS id); default TabPlanAll */
+  initialTab?: string | null;
+  /** the x of the line chip: show all the lines again */
+  onClearLine?: () => void;
   testID?: string;
 }
 
@@ -43,19 +51,19 @@ const NO_ROWS: TaskLinePlanRow[] = [];
 /** one task can have thousands of days (lines × days): the page of the read (the server may cap it lower) */
 const READ_PARAMS = { paginationSize: 5000 };
 
-export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUID, taskGUID, testID = 'task-plan' }: PMProjectTaskTimelinePlanCRUDProps) {
+export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUID, taskGUID, lineGUID, initialTab, onClearLine, testID = 'task-plan' }: PMProjectTaskTimelinePlanCRUDProps) {
   const { themeColors: c } = useDesignSystem();
   const task = usePMStore((s) => s.tasksById[taskGUID]);
   const isStage = usePMStore((s) => !!s.schedule[taskGUID]?.isSummary || (s.tree.childrenById[taskGUID]?.length ?? 0) > 0 || s.tasksById[taskGUID]?.rowJSON?.rowKind === 'stage');
   const selectRowCheckBoxForm = usePMStore((s) => s.selectRowCheckBoxForm);
   const data = useTaskLineCatalogs(true);
-  const [activeTab, setActiveTab] = useState<PlanBudgetTabId>('TabPlanAll');
+  const [activeTab, setActiveTab] = useState<PlanBudgetTabId>(() => PLAN_BUDGET_TABS.find((t) => t.id === initialTab)?.id ?? 'TabPlanAll');
   const activeTabDef = useMemo(() => PLAN_BUDGET_TABS.find((t) => t.id === activeTab), [activeTab]);
 
   const lines: TaskLineRow[] = useSelector((s: any) => s?.[TASK_LINE_ENTITY]?.entityDataFromServer, shallowEqual) ?? NO_LINES;
-  const taskLines = useMemo(() => (Array.isArray(lines) ? lines.filter((l) => l.rowOwnerGUID === taskGUID) : NO_LINES), [lines, taskGUID]);
+  const taskLines = useMemo(() => (Array.isArray(lines) ? lines.filter((l) => l.rowOwnerGUID === taskGUID && (!lineGUID || l.rowGUID === lineGUID)) : NO_LINES), [lines, taskGUID, lineGUID]);
   const planRows: TaskLinePlanRow[] = useSelector((s: any) => s?.[TASK_LINE_PLAN_ENTITY]?.entityDataFromServer, shallowEqual) ?? NO_ROWS;
-  const taskPlanRows = useMemo(() => (Array.isArray(planRows) ? planRows.filter((r) => r.rowOwnerGUID === taskGUID) : NO_ROWS), [planRows, taskGUID]);
+  const taskPlanRows = useMemo(() => (Array.isArray(planRows) ? planRows.filter((r) => r.rowOwnerGUID === taskGUID && (!lineGUID || r.rowParentGUID === lineGUID)) : NO_ROWS), [planRows, taskGUID, lineGUID]);
   const linesById = useMemo(() => new Map(taskLines.map((l) => [l.rowGUID, l])), [taskLines]);
   const summaries = useMemo(() => {
     const rank = (g: string) => { const i = TASK_LINE_GENUS.findIndex((x) => x.genus === g); return i < 0 ? TASK_LINE_GENUS.length : i; };
@@ -77,11 +85,12 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
   const columns = useMemo(() => buildPlanColumns({ data, linesById, textColor: c.text, mutedColor: c.text + '99' }), [data, linesById, c.text]);
   const rowFilter = useCallback(
     (row: ReusableTableRow) => {
+      if (lineGUID && row.rowParentGUID !== lineGUID) return false;
       if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return true;
       const line = linesById.get(row.rowParentGUID ?? '');
       return line?.rowParentGUID === activeTabDef.genus;
     },
-    [activeTabDef, linesById],
+    [activeTabDef, linesById, lineGUID],
   );
 
   if (!task) return null;
@@ -96,6 +105,22 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
 
   return (
     <View testID={testID} style={styles.root}>
+      {/* one task line only (the link "Go to > Timeline data" of a line): the chip says which and clears it */}
+      {!!lineGUID && (
+        <View testID={`${testID}-line-filter`} style={styles.chipRow}>
+          <View style={[styles.chip, { borderColor: c.primary, backgroundColor: `${c.primary}18` }]}>
+            <IconApp name="filter_alt" size={16} color={c.primary} />
+            <Text testID={`${testID}-line-filter-label`} numberOfLines={1} style={{ color: c.text, fontSize: 12, fontWeight: '600', flexShrink: 1 }}>
+              {`${pmT('Task line')}: ${planLineLabel(data, linesById.get(lineGUID)) || lineGUID}`}
+            </Text>
+            {!!onClearLine && (
+              <Pressable testID={`${testID}-line-filter-clear`} accessibilityRole="button" accessibilityLabel={pmT('Show all')} onPress={onClearLine} hitSlop={8} style={styles.chipX}>
+                <IconApp name="close" size={16} color={c.text} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
       {/* Budgets sub-tabs: TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll, TabPlanTimeline */}
       <View style={[styles.tabs, { borderBottomColor: c.border }]} testID={`${testID}-tabs`}>
         {PLAN_BUDGET_TABS.map((tab) => {
@@ -188,6 +213,9 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: 2, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#ffffff', fontSize: 11, fontWeight: '800', lineHeight: 14 },
   hidden: { display: 'none' },
+  chipRow: { flexDirection: 'row' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10, paddingRight: 4, paddingVertical: 4, borderWidth: 1, borderRadius: 16, maxWidth: '100%' },
+  chipX: { padding: 2 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 12 },
   summary: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 10, gap: 6 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
