@@ -36,6 +36,7 @@ export interface ProjectReport {
   equipment: ReportAmounts;
   /** Time lines of a person (a part of `totals`) */
   persons: ReportAmounts;
+  workCenters: ReportAmounts;
   /** by management genus (Time · Material · Expense | Revenue), in the order of REPORT_GENUS */
   byGenus: ReportRow[];
   /** by budget item (a line without one: key 'none'), biggest total first */
@@ -51,6 +52,7 @@ export function buildProjectReport(lines: TaskLineRow[], page: ReportPage, accou
   let totals = emptyAmounts();
   let equipment = emptyAmounts();
   let persons = emptyAmounts();
+  let workCenters = emptyAmounts();
   const byGenus = new Map<string, ReportAmounts>(genus.map((g) => [g, emptyAmounts()]));
   const byItem = new Map<string, ReportAmounts>();
   const byTask = new Map<string, ReportAmounts>();
@@ -63,6 +65,7 @@ export function buildProjectReport(lines: TaskLineRow[], page: ReportPage, accou
     byTask.set(l.rowOwnerGUID, add(byTask.get(l.rowOwnerGUID) ?? emptyAmounts(), sum, vat));
     if (l.rowParentGUID === MANAGEMENT_GENUS.time) {
       if (l.rowJSON?.taskResourceKind === 'equipment') equipment = add(equipment, sum, vat);
+      else if (l.rowJSON?.taskResourceKind === 'workCenter') workCenters = add(workCenters, sum, vat);
       else persons = add(persons, sum, vat);
     }
   }
@@ -73,6 +76,7 @@ export function buildProjectReport(lines: TaskLineRow[], page: ReportPage, accou
     totals: rounded(totals),
     equipment: rounded(equipment),
     persons: rounded(persons),
+    workCenters: rounded(workCenters),
     byGenus: genus.map((g) => ({ key: g, genus: g, ...rounded(byGenus.get(g) ?? emptyAmounts()) })),
     byBudgetItem: sorted(byItem, (key) => ({ budgetItem: key })),
     byTask: sorted(byTask, () => ({})),

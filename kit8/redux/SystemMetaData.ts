@@ -32,6 +32,7 @@ import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaD
 import {taskFactUsageTimelineSystemMetaData} from "../documents/fact/input/factMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {equipmentSystemMetaData} from "../catalog/equipment/equipmentMetaData";
+import {workCenterSystemMetaData} from "../catalog/work_center/workCenterMetaData";
 import {businessUnitSystemMetaData} from "../catalog/business_unit/businessUnitMetaData";
 import {templateResourceContractSystemMetaData} from "../catalog/management/templateresourcecontract/templateResourceContractMetaData";
 
@@ -135,6 +136,7 @@ const SystemMetaData:any = {
     // Equipment (kit8/catalog/equipment): equipmentTable + equipmentTypeTable - the machines a Time line of a task can book (task_line_table.rowJSON.taskResourceKind = 'equipment').
     // Screen /catalog/equipment/dashboard, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 17)
     ...equipmentSystemMetaData(),
+    ...workCenterSystemMetaData(),
     // Business units (kit8/catalog/business_unit): businessUnitTable (a tree of any depth, selectFromTree) + cfrTypeTable (the enumeration of the Centers of Financial Responsibility, read only).
     // Screen /catalog/business/unit, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 18)
     ...businessUnitSystemMetaData(),

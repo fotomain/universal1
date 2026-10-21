@@ -21,6 +21,14 @@ describe('Costs', () => {
     expect(r.equipment).toMatchObject({ count: 1, sum: 300 });
     expect(r.persons).toMatchObject({ count: 2, sum: 110 });
   });
+  it('the Time lines of a work center are their own part (not the persons\'): Time of work centers', () => {
+    const withWc = buildProjectReport([...lines, line('l7', 't3', 'timeGenus', { taskResourceKind: 'workCenter', sumForContract: 40, sumVATForContract: 8 })] as any, 'costs');
+    expect(withWc.workCenters).toMatchObject({ count: 1, sum: 40 });
+    expect(withWc.persons).toMatchObject({ count: 2, sum: 110 });
+    expect(withWc.equipment).toMatchObject({ count: 1, sum: 300 });
+    expect(withWc.totals.sum).toBe(500.5);
+    expect(r.workCenters).toMatchObject({ count: 0, sum: 0 });
+  });
   it('by genus, in the order of the page', () => {
     expect(r.byGenus.map((g) => [g.key, g.count, g.sum])).toEqual([['timeGenus', 3, 410], ['materialGenus', 1, 50.5], ['expenseGenus', 1, 0]]);
   });

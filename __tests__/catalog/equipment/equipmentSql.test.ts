@@ -96,9 +96,9 @@ describe('descriptors and the role type', () => {
 });
 
 describe('the Time line', () => {
-  it('task_line_table.rowJSON.taskResourceKind: person | equipment, an equipment on the Time genus only; no kind = person', () => {
+  it('task_line_table.rowJSON.taskResourceKind: person | equipment | workCenter (PART 35), an equipment on the Time genus only; no kind = person', () => {
     expect(part).toContain('task_line_resource_kind_chk');
-    expect(part).toContain("COALESCE(\"rowJSON\"->>'taskResourceKind', 'person') IN ('person', 'equipment')");
+    expect(part).toContain("COALESCE(\"rowJSON\"->>'taskResourceKind', 'person') IN ('person', 'equipment', 'workCenter')");
     expect(part).toContain("\"rowParentGUID\" = 'timeGenus'");
   });
   it('the posted days copy the kind of the line (a report needs no join)', () => {

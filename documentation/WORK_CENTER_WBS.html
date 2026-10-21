@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work Center WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Work Center – Work Breakdown Structure</h1>
+<p class="sub">Scope: introduce <code>workCenter</code> as the generic resource behind “Person / Equipment”, while Person and Equipment keep working as today. Planning document – no implementation.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>A single <b>work center</b> concept that can be entered in the <b>“Person / Equipment”</b> field of the task time table, and that covers three kinds of resources: <b>Person</b>, <b>Equipment</b> and <b>Partner</b> (a supplier). Work centers are organized in folders that represent business units, carry a base and variant configuration, and have their own calendar, like a person already has.</p>
+</div>
+<div class="callout"><b>Hard constraint:</b> existing Person and Equipment behaviour continues unchanged. A work center must work in the time table <i>in addition to</i> the current Person / Equipment logic, not instead of it.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Source statement</th></tr>
+  <tr><td class="id">R1</td><td>Person and Equipment continue to work as they do today.</td><td>“Person and Equipment continue their work.”</td></tr>
+  <tr><td class="id">R2</td><td>A catalog and a <code>workCenterTable</code> exist to hold work centers.</td><td>“catalog + workCenterTable needed”</td></tr>
+  <tr><td class="id">R3</td><td>Folders = <code>businessUnit</code>. A folder becomes visible only after a work center has been entered into it.</td><td>“Folders become visible after the workCenter entered.”</td></tr>
+  <tr><td class="id">R4</td><td><code>workCenter</code> is selectable in the “Person / Equipment” field of the task time table, alongside the current Person / Equipment logic.</td><td>“it must work in the ‘Person / Equipment’ field…”</td></tr>
+  <tr><td class="id">R5</td><td><code>workCenterKind</code> is required and must have a type: Person, Equipment or Partner. Partner is allowed only when the party has <code>isSupplier</code> set.</td><td>“must have workCenterKind must have type”; “Partner isSupplier”</td></tr>
+  <tr><td class="id">R6</td><td><code>workCenterBase</code> is a select whose options depend on <code>workCenterKind</code>. Its value is a catalog item (Person catalog item, Equipment catalog item or Partner catalog item, matching the kind), A work center must use one, and a catalog item can be the base of only one work center.</td><td>“select dependent of workCenterKind”; “one of the Person catalog item, Equipment catalog item, Partner catalog item must be used in one workCenter item as workCenterBase data”</td></tr>
+  <tr><td class="id">R7</td><td><code>workCenterBaseVariant</code> is a select whose options depend on <code>workCenterKind</code>.</td><td>“select dependent of workCenterKind”</td></tr>
+  <tr><td class="id">R8</td><td><code>workCenterVariant</code> has a <b>Copy Variant settings</b> button that auto-creates the variant and copies data from the selected <code>workCenterBaseVariant</code>. The copy is one-time; there is no link back afterwards.</td><td>“Copy Variant settings - button needed”</td></tr>
+  <tr><td class="id">R9</td><td><code>workCenterCalendar</code> uses the full person calendar model, for every work center, including Equipment.</td><td>“workCenterCalendar - like for person”; “workCenter must have a full person calendar model. Equipment must have a full person calendar model also.”</td></tr>
+  <tr><td class="id">R10</td><td><code>workCenter.rowJSON.businessUnit</code> exists and holds the folder’s business unit. Business units come from an existing catalog.</td><td>“workCenter.rowJSON.businessUnit - needed”; “from an existing catalog”</td></tr>
+</table>
+</div>
+
+<h2>3. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and data model</td></tr>
+  <tr><td class="id">1.1</td><td>Inventory current Person / Equipment logic in the time table</td><td>Written list of every place the “Person / Equipment” field, person calendar and variants are read or written</td><td>R1, R4</td></tr>
+  <tr><td class="id">1.2</td><td>Define the work center entity and relations</td><td>Field list for <code>workCenter</code>, <code>workCenterBase</code>, <code>workCenterBaseVariant</code>, <code>workCenterVariant</code>, <code>workCenterCalendar</code>; relation diagram</td><td>R2, R5–R9</td></tr>
+  <tr><td class="id">1.3</td><td>Define <code>rowJSON</code> contract</td><td>Documented keys for <code>workCenter.rowJSON</code>, with <code>businessUnit</code> mandatory</td><td>R10</td></tr>
+  <tr><td class="id">1.4</td><td>Define kind rules</td><td>Rule table: which catalog items (Person, Equipment, Partner) and base variants are valid per kind; Partner allowed only when <code>isSupplier</code> is set</td><td>R5–R7</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Catalog and work center table</td></tr>
+  <tr><td class="id">2.1</td><td>Catalog entries for work center kinds and types</td><td>Catalog lists the kind types Person, Equipment and Partner; Person, Equipment and Partner catalog items are available as <code>workCenterBase</code> values</td><td>R2, R5</td></tr>
+  <tr><td class="id">2.2</td><td><code>workCenterTable</code> storage</td><td>Table holds work centers with kind, optional type, base, base variant, variant, calendar link and <code>rowJSON</code></td><td>R2, R10</td></tr>
+  <tr><td class="id">2.3</td><td>Work center create / edit / deactivate form</td><td>A user can enter a work center; required fields validated (kind with type, one base catalog item not yet used by another work center); <code>businessUnit</code> must be chosen from the existing business unit catalog</td><td>R2, R5, R10</td></tr>
+  <tr><td class="id">2.4</td><td>Partner validation</td><td>Kind “Partner” can be saved only when the base catalog item has <code>isSupplier</code> set. The check applies at save time only; removing the flag later changes nothing for existing work centers</td><td>R5</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Folders = business units</td></tr>
+  <tr><td class="id">3.1</td><td>Folder tree built from <code>businessUnit</code></td><td>Each distinct business unit is a folder; work centers listed inside</td><td>R3</td></tr>
+  <tr><td class="id">3.2</td><td>Lazy folder visibility</td><td>A folder is hidden until it has at least one work center; it appears when the first one is saved, and is hidden again when the last one is removed</td><td>R3</td></tr>
+  <tr><td class="id">3.3</td><td>Keep folder and <code>rowJSON.businessUnit</code> in sync</td><td>Moving a work center to another folder updates <code>rowJSON.businessUnit</code>, and the reverse</td><td>R3, R10</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Kind-dependent selects</td></tr>
+  <tr><td class="id">4.1</td><td><code>workCenterBase</code> select filtered by kind</td><td>Only bases valid for the chosen kind are offered</td><td>R6</td></tr>
+  <tr><td class="id">4.2</td><td><code>workCenterBaseVariant</code> select filtered by kind</td><td>Only base variants valid for the chosen kind are offered</td><td>R7</td></tr>
+  <tr><td class="id">4.3</td><td>Reset behaviour on kind change</td><td>Changing the kind clears base and base variant if they are no longer valid, with a confirmation</td><td>R6, R7</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Variants and “Copy Variant settings”</td></tr>
+  <tr><td class="id">5.1</td><td><code>workCenterVariant</code> editor</td><td>A work center can hold its own variant with editable settings</td><td>R8</td></tr>
+  <tr><td class="id">5.2</td><td>“Copy Variant settings” button</td><td>With a base variant selected, one click creates the <code>workCenterVariant</code> and copies the settings from it</td><td>R8</td></tr>
+  <tr><td class="id">5.3</td><td>Copy rules</td><td>The copy is a one-time snapshot: later changes to the base variant do not propagate. If a work center variant already exists, the user is asked to confirm, and the existing variant is overwritten only after confirmation</td><td>R8</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Calendar</td></tr>
+  <tr><td class="id">6.1</td><td>Analyse the person calendar</td><td>List of person calendar features to be reused (working time, absences, holidays, capacity)</td><td>R9</td></tr>
+  <tr><td class="id">6.2</td><td><code>workCenterCalendar</code> functionality</td><td>Each work center has a calendar with the same features as a person calendar</td><td>R9</td></tr>
+  <tr><td class="id">6.3</td><td>Calendar for every kind</td><td>Equipment work centers (and every other work center) get the full person calendar model, not a reduced one</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Time table integration</td></tr>
+  <tr><td class="id">7.1</td><td>Extend the “Person / Equipment” field</td><td>The field offers work centers in addition to existing persons and equipment, clearly distinguished (kind label or grouping)</td><td>R4</td></tr>
+  <tr><td class="id">7.2</td><td>Selection resolves calendar and variant</td><td>Choosing a work center in the time table uses its calendar and variant the way a person does today</td><td>R4, R9</td></tr>
+  <tr><td class="id">7.3</td><td>Existing entries unchanged</td><td>All time table rows saved before this change load and behave identically</td><td>R1</td></tr>
+
+  <tr class="group"><td class="id">8</td><td colspan="3">Migration and compatibility</td></tr>
+  <tr><td class="id">8.1</td><td>Define link between existing Person / Equipment and work centers</td><td>Existing Person, Equipment and Partner catalog items are used as <code>workCenterBase</code>, one catalog item per work center at most. Work centers are created by hand only</td><td>R1, R6</td></tr>
+  <tr><td class="id">8.2</td><td>Confirm no data migration</td><td>Existing catalog items and time table rows are left untouched; no work centers are created automatically</td><td>R1</td></tr>
+
+  <tr class="group"><td class="id">9</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">9.1</td><td>Test plan</td><td>Cases for each requirement, plus regression cases for current Person / Equipment behaviour</td><td>R1–R10</td></tr>
+  <tr><td class="id">9.2</td><td>Acceptance review</td><td>Walkthrough against section 5 acceptance criteria, signed off</td><td>R1–R10</td></tr>
+  <tr><td class="id">9.3</td><td>User documentation</td><td>Short guide: entering a work center, folders, copying variant settings, calendar</td><td>R2–R9</td></tr>
+</table>
+</div>
+
+<h2>4. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Analysis and data model</b> – blocks everything else.</li>
+    <li><b>2 Catalog and table</b> and <b>8.1 compatibility decision</b> – can run in parallel after 1.</li>
+    <li><b>3 Folders</b> and <b>4 Kind-dependent selects</b> – need 2.</li>
+    <li><b>5 Variants</b> – needs 4.2 (base variant selection).</li>
+    <li><b>6 Calendar</b> – needs 2; independent of 3–5.</li>
+    <li><b>7 Time table integration</b> – needs 2, 5 and 6.</li>
+    <li><b>9 Quality and rollout</b> – last; test cases can be drafted from step 1 onward.</li>
+  </ol>
+</div>
+
+<h2>5. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>An existing Person or Equipment entry in the time table works exactly as before.</li>
+    <li>A new work center of each kind (Person, Equipment, Partner) can be entered, and can be selected in the “Person / Equipment” field.</li>
+    <li>A Partner work center cannot be saved unless <code>isSupplier</code> is set.</li>
+    <li>Every work center has a kind with a type and exactly one base catalog item of the matching kind, and no catalog item is the base of two work centers.</li>
+    <li>No work centers appear automatically for existing Person or Equipment items; they are created by hand.</li>
+    <li>Removing <code>isSupplier</code> from a partner later does not change its existing work centers.</li>
+    <li>A business unit folder is not visible until a work center exists in it, is hidden again when the last one is removed, and every work center has <code>rowJSON.businessUnit</code> set from the business unit catalog.</li>
+    <li>Base and base variant choices change when the kind changes, and never show options of another kind.</li>
+    <li>“Copy Variant settings” creates a work center variant populated from the selected base variant; changing the base variant afterwards leaves the work center variant untouched, and an existing variant is overwritten only after the user confirms.</li>
+    <li>Every work center, including Equipment, has the full person calendar model.</li>
+  </ul>
+</div>
+
+<h2>6. Decisions</h2>
+<div class="card">
+  <table>
+    <tr><th>Topic</th><th>Decision</th></tr>
+    <tr><td>Kind and type</td><td>A work center must have <code>workCenterKind</code>, and it must have a type: Person, Equipment or Partner. No separate optional sub-type.</td></tr>
+    <tr><td>Partner</td><td>Allowed only when <code>isSupplier</code> is set.</td></tr>
+    <tr><td>Base</td><td>A work center uses one Person, Equipment or Partner catalog item as its <code>workCenterBase</code> data; a catalog item backs only one work center.</td></tr>
+    <tr><td>Creation</td><td>Work centers are created by hand. Existing Person and Equipment items are not migrated.</td></tr>
+    <tr><td>Folders</td><td>Hidden again when the last work center is removed.</td></tr>
+    <tr><td>Copy Variant settings</td><td>One-time copy, no link afterwards. An existing variant is overwritten only after the user confirms.</td></tr>
+    <tr><td><code>isSupplier</code> later removed</td><td>Nothing happens to existing work centers.</td></tr>
+    <tr><td>Calendar</td><td>Full person calendar model for every work center, including Equipment.</td></tr>
+    <tr><td>Business units</td><td>Chosen from an existing catalog.</td></tr>
+  </table>
+</div>
+
+<h2>7. Assumption to confirm</h2>
+<div class="callout warn">
+  <p>The <code>isSupplier</code> flag is assumed to be stored on the Partner catalog item. Correct this if it lives elsewhere.</p>
+</div>
+
+
+<h2>8. Implementation status (2026-10-21, app: UNIVERSAL1 expo-app)</h2>
+<div class="callout"><b>Built and tested.</b> SQL: <code>start1_sql_tables.sql</code> + <code>start2_sql_code.sql</code> <b>PART 35</b>, undo in <code>delete_sql_structure.sql</code> PART 1a-000. App: <code>kit8/catalog/work_center</code> (README there). Docker test <code>kit8/docker/tests/35_work_center.sql</code> (68 checks) and the whole SQL suite (21 files) pass; install twice, delete and reinstall pass. Real Supabase and a browser were not available: the screens are tested with Jest, not seen.</div>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Status</th><th>Where</th></tr>
+  <tr><td class="id">1</td><td>Done</td><td>Data model: <code>workCenterTable</code>; <code>rowJSON</code>: <code>workCenterKind</code>, <code>workCenterBase</code>, <code>workCenterBaseVariant</code>, <code>workCenterVariant</code>, <code>resourceCalendar</code> (= workCenterCalendar), <code>businessUnit</code></td></tr>
+  <tr><td class="id">2</td><td>Done</td><td>Catalog = the Person / Equipment / Partner catalogs (existing) as <code>workCenterBase</code>; table, New work center window, kind rules, <code>partnerIsSupplier</code> check at save, one catalog item = one work center</td></tr>
+  <tr><td class="id">3</td><td>Done</td><td>Folders = business units (existing catalog), shown only while they hold a work center, hidden again with the last one; <code>businessUnit</code> and the folder kept equal by a trigger</td></tr>
+  <tr><td class="id">4</td><td>Done</td><td>Base and base variant selects depend on the kind (and the base) of the row; the kind itself is chosen when the work center is made</td></tr>
+  <tr><td class="id">5</td><td>Done</td><td>Copy Variant settings: one-time copy of the base variant (variant row + values) owned by the work center; asks before it overwrites</td></tr>
+  <tr><td class="id">6</td><td>Done</td><td>Calendar: the full resource calendar model for the kind <code>workCenter</code> (busy check, lock, own copy, Fill). The capacity of a work center is its calendar, else the Standard work week</td></tr>
+  <tr><td class="id">7</td><td>Done</td><td>Time table: the menu Resource is Person | Equipment | Partner (the kind of the work centers, <code>taskWorkCenterKind</code>), the ONE column "Person / Equipment / Partner" lists the work centers of that kind, project switch <code>projectTimeOfWorkCenterNeeded</code> (default off); lines made before keep their person / equipment</td></tr>
+  <tr><td class="id">8</td><td>Done</td><td>No migration: work centers are made by hand; legacy lines have no kind = person</td></tr>
+  <tr><td class="id">9</td><td>Done, except what is under "Open points"</td><td>Jest (model, SQL text, screen, window, Time line, scope), Docker SQL tests, README, KNOW_HOW</td></tr>
+</table>
+</div>
+
+<h2>9. Decisions taken while building</h2>
+<div class="card">
+  <ul>
+    <li><b>The line books the work center.</b> A Time line has <code>taskResourceKind = 'workCenter'</code> and <code>taskResourceItem</code> = the work center (not its person), so the work center's own calendar is the capacity. The rules of the person / equipment still decide through the <b>base</b>: a Person work center books a person's roles and is costed by the contract of its person; an Equipment and a Partner work center book an equipment's roles and are costed by the rate of the role.</li>
+    <li><b>Variants:</b> the line books the work center's own variant (the copy); the property values (what the role requires) are the base's.</li>
+    <li><b>Partner = supplier:</b> a Partner work center is the vendor of its lines (vendor invoice candidates, ROI "has a vendor"); an Equipment work center has the main vendor of its equipment; a Person work center none.</li>
+    <li><b>Business unit:</b> it is also the default business unit of the lines that book the work center.</li>
+    <li><b>Supplier flag:</b> it is the existing field <code>partnerIsSupplier</code> of the Partner catalog item (the assumption of section 7 holds).</li>
+    <li><b>Reports:</b> the Costs page shows "Time of work centers" next to persons and equipment.</li>
+  </ul>
+</div>
+
+<h2>10. Open points</h2>
+<div class="callout warn">
+  <ol>
+    <li><b>Contract calendar priority:</b> a person's calendar of the contract in force wins over his own calendar. A work center has no contract, so its capacity is its calendar, else the Standard work week. If a Person work center must also follow the contract calendars of its person, the contract lock needs extending to work centers. Confirm.</li>
+    <li><b>Double booking:</b> a person who has a work center can still be booked directly on an old line; the busy check treats the person and the work center as two resources and does not add their hours. Confirm whether direct booking of such a person should be refused or warned.</li>
+    <li><b>Changing the kind</b> of a work center is not offered in the table (delete and make a new one while no Time line books it).</li>
+  </ol>
+</div>
+</main>
+</body>
+</html>

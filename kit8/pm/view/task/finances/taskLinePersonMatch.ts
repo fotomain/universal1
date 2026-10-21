@@ -5,6 +5,9 @@
 // DESCRIPTOR (descriptorGenus + descriptorValue are shared), never on the plan line: Seniority = Senior is one pair on both sides although the plan lines
 // (dp18 of the Data analyst set, dp_emp_v1 of the Employee set) belong to different sets.
 //
+//   A WORK CENTER line (taskResourceKind = 'workCenter', kit8/catalog/work_center): the variants are the work center's OWN (variantTable, owner = the work center, a copy of a variant of its base,
+//   made by Copy Variant settings), the property values are those of its BASE person / equipment, so the same functions serve it: the variants are looked up by taskResourceItem, the properties
+//   by lineBaseItem.
 //   Variant   the role asks for a variant (resourceRoleAttributeSetKey "Senior, English"); the person has variants (Senior·English, Middle·Latvian).
 //             He covers the role when ONE of his variants has every pair the role asks for (it may have more).
 //   Property  every property value of the ROLE is a requirement (Min. experience 5, Certification PMP). The person answers it with the descriptor
@@ -16,7 +19,7 @@ import type { DefRow } from '../../../../catalog/product/productModel';
 import { isSet, rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
 import type { TaskLineCatalogData } from './taskLineCatalogs';
 import type { TaskLineGenusDef, TaskLineResourceKind, TaskLineRowJSON } from './taskLineModel';
-import { isWorkerKind, lineResourceKind, resourceRowsOf, RESOURCE_TYPE_FIELD, RESOURCE_WORDS } from './taskLineResource';
+import { isWorkerKind, lineBaseItem, lineResourceKind, lineWorkerKind, resourceRowsOf, RESOURCE_TYPE_FIELD, RESOURCE_WORDS } from './taskLineResource';
 
 /** one descriptor = one value: Seniority = Senior (genus and value GUIDs) */
 export interface GenusPair { genus: string; value: string }
@@ -168,7 +171,9 @@ export function personMatchProblems(d: TaskLineCatalogData, genus: TaskLineGenus
       out.push(variants.length ? `The ${word} has no variant that covers the role: needs ${label}` : `The ${word} has no variants: the role needs ${label}`);
     }
   }
-  for (const m of unmetRequirements(d, json.resourceRoleItem, json.taskResourceItem, kind)) out.push(m);
+  // the properties are the BASE's (a work center has none of its own): the person / equipment it stands for
+  const worker = lineWorkerKind(d, genus, json);
+  if (worker === 'person' || worker === 'equipment') for (const m of unmetRequirements(d, json.resourceRoleItem, lineBaseItem(d, genus, json), worker)) out.push(m);
   return out;
 }
 

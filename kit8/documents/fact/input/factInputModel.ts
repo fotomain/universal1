@@ -69,7 +69,7 @@ export interface FactHeaderRow {
 export interface FactLineJSON {
   resourceRoleItem?: string;
   taskResourceItem?: string;
-  taskResourceKind?: 'person' | 'equipment';
+  taskResourceKind?: 'person' | 'equipment' | 'workCenter';
   measureUnitTaskLine?: string;
   budgetItemTaskLine?: string;
   taskLinePartnerItem?: string;

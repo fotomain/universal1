@@ -26,6 +26,11 @@ describe('parseBusy', () => {
     expect(c).toMatchObject({ resourceKind: 'person', resourceTitle: 'Boris M', day: '2026-10-14', capacityHours: 8, bookedHere: 4, bookedOthers: 8, overHours: 4, notFilled: false, lines: ['l-5'] });
     expect(c.others).toEqual([{ projectGUID: 'prj-1', taskGUID: 't-3', hours: 8, managerEmail: 'petra@acme.test' }]);
   });
+  it('keeps the kind: person | equipment | workCenter (an unknown or missing kind is a person)', () => {
+    expect(parseBusy([{ ...raw, resourceKind: 'workCenter' }])[0].resourceKind).toBe('workCenter');
+    expect(parseBusy([{ ...raw, resourceKind: 'equipment' }])[0].resourceKind).toBe('equipment');
+    expect(parseBusy([{ ...raw, resourceKind: 'room' }])[0].resourceKind).toBe('person');
+  });
   it('anything that is not a list is no conflict; a null capacity is "not filled"', () => {
     expect(parseBusy(undefined)).toEqual([]);
     expect(parseBusy('x')).toEqual([]);

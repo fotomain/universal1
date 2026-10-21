@@ -508,6 +508,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
               <Drawer.Screen name="catalog/budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
               <Drawer.Screen name="catalog/legal/entity/index" options={{ title: 'Legal entities', drawerLabel: 'Legal entities' }} />
+              <Drawer.Screen name="catalog/work/center/index" options={{ title: 'Work centers', drawerLabel: 'Work centers' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
               <Drawer.Screen name="catalog/equipment/dashboard/index" options={{ title: 'Equipment (properties and variants)', drawerLabel: 'Equipment (properties and variants)' }} />

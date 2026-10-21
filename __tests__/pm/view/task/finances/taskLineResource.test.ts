@@ -7,7 +7,8 @@ jest.mock('../../../../../kit8/catalog/select/from_tree/SelectCatalogItemFromTre
 jest.mock('../../../../../kit8/catalog/select/with_folders/SelectCatalogItemWithFolders', () => ({ __esModule: true, default: () => null }));
 
 import {
-  anyResourceTitle, isWorkerKind, lineResourceKind, lineResourceTitle, resourceBelongsToOtherKind, resourceRowTitle, resourceTitleOfRow, roleResourceKind,
+  anyResourceTitle, isWorkerKind, lineBaseItem, lineResourceKind, lineResourceTitle, lineWorkCenter, lineWorkerKind, resourceBelongsToOtherKind, resourceEntityOfKind, resourceRowTitle, resourceTitleOfRow,
+  lineMenuKind, roleResourceKind, workCenterBaseTitle,
 } from '../../../../../kit8/pm/view/task/finances/taskLineResource';
 import { emptyTaskLineCatalogs, lineProblems, roleFitsLine, suggestForLine, TaskLineCatalogData } from '../../../../../kit8/pm/view/task/finances/taskLineCatalogs';
 import { computeTaskLineRowJSON } from '../../../../../kit8/pm/view/task/finances/taskLineCompute';
@@ -87,12 +88,13 @@ describe('the kind of a line', () => {
     expect(lineResourceKind(MATERIAL, { taskResourceKind: 'equipment' })).toBe('product');
     expect(lineResourceKind(TIME, undefined)).toBe('person');
   });
-  it('the genus defs: Time can book a person or an equipment, the others a product', () => {
+  it('the genus defs: Time can book a person, an equipment or a work center, the others a product', () => {
     expect(TASK_LINE_GENUS.map((g) => [g.genus, g.resources])).toEqual([
-      ['timeGenus', ['person', 'equipment']], ['materialGenus', ['product']], ['expenseGenus', ['product']], ['revenueGenus', ['product']],
+      ['timeGenus', ['person', 'equipment', 'workCenter']], ['materialGenus', ['product']], ['expenseGenus', ['product']], ['revenueGenus', ['product']],
     ]);
     expect(isWorkerKind('person')).toBe(true);
     expect(isWorkerKind('equipment')).toBe(true);
+    expect(isWorkerKind('workCenter')).toBe(true);
     expect(isWorkerKind('product')).toBe(false);
   });
   it('a new line has no kind (null = person)', () => {
@@ -325,5 +327,265 @@ describe('Item number / Search name columns of the Material table (project setti
     expect(item.searchText({ rowJSON: { taskResourceItem: 'p1' } })).toBe('100-0245');
     expect(name.searchText({ rowJSON: { taskResourceItem: 'p1' } })).toBe('screw');
     expect(item.searchText({ rowJSON: { taskResourceItem: 'none' } })).toBe('');
+  });
+});
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------
+// A WORK CENTER on a Time line (kit8/catalog/work_center): taskResourceKind = 'workCenter', taskResourceItem = the work center. It stands for ONE person / equipment / partner (its base) and follows
+// the rules of that base: the roles of the kind, the contract of the person, the property values of the base; the variants are the work center's OWN.
+describe('a work center on a Time line', () => {
+  const wcRow = (guid: string, json: any) => row(guid, 'workCenterCatalog', 'bu_it', { workCenterTitle: guid, isActive: true, ...json });
+  /** the fixture of the equipment test + work centers of a person (with a contract), a big and a small equipment, a supplier partner */
+  function wcData(): TaskLineCatalogData {
+    const d = data();
+    d.person = [...d.person, row('p_boris', 'personCatalog', 'empty', { personFirstName: 'Boris', personLastName: 'M', personType: 'personTypeEmployee' })];
+    d.partner = [row('pa_acme', 'partnerCatalog', 'empty', { partnerTitle: 'Acme Logistics', partnerIsSupplier: true })];
+    d.workCenter = [
+      wcRow('wc_anna', { workCenterTitle: 'Anna line', workCenterKind: 'person', workCenterBase: 'p_anna', businessUnit: 'bu_it' }),
+      wcRow('wc_cat', { workCenterTitle: 'CAT line', workCenterKind: 'equipment', workCenterBase: 'eq_cat' }),
+      wcRow('wc_small', { workCenterTitle: 'Mini line', workCenterKind: 'equipment', workCenterBase: 'eq_small' }),
+      wcRow('wc_acme', { workCenterTitle: 'Acme line', workCenterKind: 'partner', workCenterBase: 'pa_acme' }),
+      wcRow('wc_off', { workCenterTitle: 'Closed line', workCenterKind: 'person', workCenterBase: 'p_boris', isActive: false }),
+    ];
+    d.contract = [row('c_anna', 'p_anna', 'person', { contractSumBeforeVAT: 3360, contractPaymentsPeriod: 'Month', contractCurrency: 'EUR' }), row('c_boris', 'p_boris', 'person', { contractSumBeforeVAT: 1680, contractPaymentsPeriod: 'Month' })];
+    // the work center's OWN variants (owner = the work center), copies of the base variants
+    d.variant = [...d.variant, row('wc_cat_v1', 'wc_cat', 'empty', { title: 'Heavy, With operator', descriptorKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op', isActive: true }, 1)];
+    return d;
+  }
+  const line = (kind: string, item: string | null, extra: any = {}) => ({ ...emptyTaskLine(), taskResourceKind: kind as any, taskResourceItem: item, ...extra });
+
+  it('the line says it; the work center is found in the catalog', () => {
+    const d = wcData();
+    expect(lineResourceKind(TIME, { taskResourceKind: 'workCenter' })).toBe('workCenter');
+    expect(lineResourceKind(MATERIAL, { taskResourceKind: 'workCenter' })).toBe('product');
+    expect(lineWorkCenter(d, TIME, line('workCenter', 'wc_anna'))?.rowGUID).toBe('wc_anna');
+    expect(lineWorkCenter(d, TIME, line('workCenter', 'nope'))).toBeNull();
+    expect(lineWorkCenter(d, TIME, line('person', 'wc_anna'))).toBeNull();
+    expect(resourceEntityOfKind('workCenter')).toBe('workCenterReusable');
+    expect(resourceEntityOfKind('equipment')).toBe('equipmentReusable');
+    expect(resourceEntityOfKind(undefined)).toBe('personReusable');
+  });
+
+  it('the worker follows the BASE: a Person work center is a person, an Equipment and a Partner work center an equipment (no contract)', () => {
+    const d = wcData();
+    expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_anna'))).toBe('person');
+    expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_cat'))).toBe('equipment');
+    expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_acme'))).toBe('equipment');
+    expect(lineWorkerKind(d, TIME, line('workCenter', null))).toBe('equipment');
+    expect(lineWorkerKind(d, TIME, line('person', 'p_anna'))).toBe('person');
+    expect(lineWorkerKind(d, TIME, line('equipment', 'eq_cat'))).toBe('equipment');
+    expect(lineWorkerKind(d, MATERIAL, line('workCenter', 'wc_anna'))).toBe('product');
+  });
+
+  it('the base item of a line: the person / equipment / partner a work center stands for; the item itself otherwise', () => {
+    const d = wcData();
+    expect(lineBaseItem(d, TIME, line('workCenter', 'wc_anna'))).toBe('p_anna');
+    expect(lineBaseItem(d, TIME, line('workCenter', 'wc_acme'))).toBe('pa_acme');
+    expect(lineBaseItem(d, TIME, line('person', 'p_anna'))).toBe('p_anna');
+    expect(lineBaseItem(d, TIME, line('workCenter', 'nope'))).toBeNull();
+    expect(lineBaseItem(d, TIME, line('person', null))).toBeNull();
+  });
+
+  it('titles: the work center by its title; any GUID of a line row finds a work center; the base name', () => {
+    const d = wcData();
+    expect(lineResourceTitle(d, TIME, line('workCenter', 'wc_anna'))).toBe('Anna line');
+    expect(anyResourceTitle(d, 'wc_cat')).toBe('CAT line');
+    expect(anyResourceTitle(d, 'p_anna')).toBe('Anna Berg');
+    expect(resourceRowTitle('workCenter', d.workCenter[0])).toBe('Anna line');
+    expect(resourceTitleOfRow(d.workCenter[1])).toBe('CAT line');
+    expect(workCenterBaseTitle(d, d.workCenter[0])).toBe('Anna Berg');
+    expect(workCenterBaseTitle(d, d.workCenter[1])).toBe('Excavator CAT 320');
+    expect(workCenterBaseTitle(d, d.workCenter[3])).toBe('Acme Logistics');
+  });
+
+  it('the roles that fit: a Person work center books a person role, an Equipment / Partner work center an equipment role', () => {
+    const d = wcData();
+    const [da, exc] = d.resourceRole;
+    expect(roleFitsLine(d, TIME, line('workCenter', 'wc_anna'), da)).toBe(true);
+    expect(roleFitsLine(d, TIME, line('workCenter', 'wc_anna'), exc)).toBe(false);
+    expect(roleFitsLine(d, TIME, line('workCenter', 'wc_cat'), exc)).toBe(true);
+    expect(roleFitsLine(d, TIME, line('workCenter', 'wc_cat'), da)).toBe(false);
+    expect(roleFitsLine(d, TIME, line('workCenter', 'wc_acme'), exc)).toBe(true);
+  });
+
+  it('problems: a work center that is gone or not active, a role of the wrong kind', () => {
+    const d = wcData();
+    expect(lineProblems(d, TIME, line('workCenter', 'nope'))).toContain('The work center does not exist any more');
+    expect(lineProblems(d, TIME, line('workCenter', 'wc_off'))).toContain('The work center is not active');
+    expect(lineProblems(d, TIME, line('workCenter', 'wc_anna', { resourceRoleItem: 'role_exc' }))).toContain('The role is not a person role');
+    expect(lineProblems(d, TIME, line('workCenter', 'wc_cat', { resourceRoleItem: 'role_da' }))).toContain('The role is not an equipment role');
+    expect(lineProblems(d, TIME, line('workCenter', 'wc_cat', { resourceRoleItem: 'role_exc' })).filter((m) => /work center|role is not/.test(m))).toEqual([]);
+  });
+
+  it('the price: a Person work center is costed by the contract of its person, an Equipment work center by the rate of the role', () => {
+    const d = wcData();
+    const person = suggestForLine(d, TIME, line('workCenter', 'wc_anna', { resourceRoleItem: 'role_da', taskResourceContract: 'c_anna' }));
+    expect(person).toMatchObject({ price: 20, priceSource: 'contract' });            // 3360 per Month = 20 per hour
+    const equipment = suggestForLine(d, TIME, line('workCenter', 'wc_cat', { resourceRoleItem: 'role_exc', taskResourceContract: 'c_anna' }));
+    expect(equipment).toMatchObject({ price: 95, priceSource: 'role' });              // an equipment has no contract
+  });
+
+  it('match: the variants are the WORK CENTER\'s own, the property values the base\'s', () => {
+    const d = wcData();
+    const json = line('workCenter', 'wc_cat', { resourceRoleItem: 'role_exc', resourceRoleAttributeSetKey: 'dp_r_cls=dv_heavy|dp_r_hire=dv_op' });
+    expect(resourceVariants(d, 'wc_cat').map((v) => v.title)).toEqual(['Heavy, With operator']);
+    expect(personVariantOptions(d, json).map((o) => o.value)).toEqual(['dp_h_cls=dv_heavy|dp_h_hire=dv_op']);
+    expect(effectivePersonVariant(d, json)?.title).toBe('Heavy, With operator');
+    expect(personMatchProblems(d, TIME, json)).toEqual([]);                             // the variant covers the role, the base has 110 kW of 100
+    // the small excavator's work center has no variant of its own yet: the base variant does not count until Copy Variant settings
+    const small = line('workCenter', 'wc_small', { resourceRoleItem: 'role_exc', resourceRoleAttributeSetKey: 'dp_r_cls=dv_heavy|dp_r_hire=dv_op' });
+    const problems = personMatchProblems(d, TIME, small);
+    expect(problems.join(' ')).toContain('The work center has no variants: the role needs');
+    expect(problems.join(' ')).toContain('needs at least 100, has 60 kW');           // the property is the base's: Mini excavator 60 kW
+  });
+
+  it('a Partner work center: no property or variant to match (a partner has none)', () => {
+    const d = wcData();
+    const json = line('workCenter', 'wc_acme', { resourceRoleItem: 'role_exc' });
+    expect(personMatchProblems(d, TIME, json)).toEqual([]);
+    expect(taskLineErrors(d, TIME, json)).toEqual([]);
+  });
+
+  it('changing the work center clears what depended on its kind (compute)', () => {
+    const d = wcData();
+    // a person role and the contract of Anna on a line that now books an equipment work center: both go
+    const toEquipment = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_cat', { resourceRoleItem: 'role_da', taskResourceContract: 'c_anna' }));
+    expect(toEquipment).toMatchObject({ resourceRoleItem: null, taskResourceContract: null });
+    // a Person work center keeps a person role and the contract of ITS person ...
+    const keep = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_anna', { resourceRoleItem: 'role_da', taskResourceContract: 'c_anna' }));
+    expect(keep.resourceRoleItem).toBeUndefined();
+    expect(keep.taskResourceContract).toBeUndefined();
+    expect(keep.priceTaskLine).toBe(20);
+    // ... but not the contract of another person (a work center of Boris was replaced by the one of Anna)
+    const other = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_anna', { resourceRoleItem: 'role_da', taskResourceContract: 'c_boris' }));
+    expect(other.taskResourceContract).toBeNull();
+  });
+
+  it('the menu of work center kinds (taskWorkCenterKind) makes the line a work center line and clears a person / equipment it held directly', () => {
+    const d = wcData();
+    const legacy = computeTaskLineRowJSON(d, TIME, line('person', 'p_anna', { taskWorkCenterKind: 'person', taskResourceContract: 'c_anna', taskResourceAttributesKey: 'x' }));
+    expect(legacy).toMatchObject({ taskResourceKind: 'workCenter', taskResourceItem: null, taskResourceAttributesKey: null, taskResourceContract: null });
+    // a new line: the menu alone
+    expect(computeTaskLineRowJSON(d, TIME, line('person', null, { taskWorkCenterKind: 'partner' })).taskResourceKind).toBe('workCenter');
+    // a line without the menu is not touched
+    expect(computeTaskLineRowJSON(d, TIME, line('person', 'p_anna')).taskResourceKind).toBeUndefined();
+  });
+
+  it('changing the menu to another kind clears the work center of the old kind; choosing a work center makes the menu follow it', () => {
+    const d = wcData();
+    const changed = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_anna', { taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_da', taskResourceContract: 'c_anna' }));
+    expect(changed).toMatchObject({ taskResourceItem: null, taskResourceContract: null });
+    const chosen = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_acme', { taskWorkCenterKind: 'partner' }));
+    expect(chosen.taskResourceItem).toBeUndefined();
+    const followed = computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_cat'));
+    expect(followed.taskWorkCenterKind).toBe('equipment');
+    expect(computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_anna', { taskWorkCenterKind: 'person' })).taskWorkCenterKind).toBeUndefined();
+  });
+
+  it('lineMenuKind: the menu of the line', () => {
+    const d = wcData();
+    expect(lineMenuKind(d, { taskResourceKind: 'workCenter', taskWorkCenterKind: 'equipment' })).toBe('equipment');
+    expect(lineMenuKind(d, { taskResourceKind: 'workCenter', taskResourceItem: 'wc_acme' })).toBe('partner');
+    expect(lineMenuKind(d, { taskResourceKind: 'equipment' })).toBe('equipment');
+    expect(lineMenuKind(d, {})).toBe('person');
+    expect(lineMenuKind(d, undefined)).toBe('person');
+  });
+
+  it('a person GUID on a work center line (and the other way round) is the other kind: the resource, its variant and contract go', () => {
+    const d = wcData();
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'p_anna')).toBe(true);
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'wc_anna')).toBe(false);
+    expect(resourceBelongsToOtherKind(d, 'person', 'wc_anna')).toBe(true);
+    expect(resourceBelongsToOtherKind(d, 'equipment', 'wc_cat')).toBe(true);
+    expect(resourceBelongsToOtherKind(d, 'person', 'p_anna')).toBe(false);
+    expect(computeTaskLineRowJSON(d, TIME, line('workCenter', 'p_anna', { taskResourceAttributesKey: 'x', taskResourceContract: 'c_anna' }))).toMatchObject({ taskResourceItem: null, taskResourceAttributesKey: null, taskResourceContract: null });
+  });
+
+  it('a variant of the line must be one of the work center: another key clears it', () => {
+    const d = wcData();
+    expect(computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_cat', { taskResourceAttributesKey: 'dp_h_cls=dv_light|dp_h_hire=dv_dry' })).taskResourceAttributesKey).toBeNull();
+    expect(computeTaskLineRowJSON(d, TIME, line('workCenter', 'wc_cat', { taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' })).taskResourceAttributesKey).toBeUndefined();
+  });
+
+  describe('the columns of the Time table', () => {
+    const cols = (timeKinds: any[]) => buildTaskLineColumns({ data: wcData(), genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds });
+    const get = (list: any[], key: string): any => list.find((c) => c.key === key);
+
+    it('the menu is Resource: Person | Equipment | Partner; ONE column "Person / Equipment / Partner" picks the work centers of that kind', () => {
+      const list = cols(['person', 'equipment', 'workCenter']);
+      const menu = get(list, 'resourceKind');
+      expect(menu).toMatchObject({ type: 'select', field: 'taskWorkCenterKind', allowEmpty: false });
+      expect(menu.options.map((o: any) => o.value)).toEqual(['person', 'equipment', 'partner']);
+      expect(menu.options.map((o: any) => o.label)).toEqual(['Person', 'Equipment', 'Partner']);
+      const resource = get(list, 'resource');
+      expect(resource.title).toBe('Person / Equipment / Partner');
+      expect(resource).toMatchObject({ type: 'catalog', field: 'taskResourceItem', catalogEntityName: 'workCenterReusable', catalogEntityNames: ['personReusable', 'equipmentReusable', 'workCenterReusable'] });
+      expect(resource.titleExtractor(wcData().workCenter[0])).toBe('Anna line');
+      expect(get(list, 'resourceVariant').title).toBe('Variant');
+    });
+
+    it('the menu shows the kind of the line: the chosen work center kind, the kind of the work center it books, a legacy line its own kind', () => {
+      const menu = get(cols(['person', 'workCenter']), 'resourceKind');
+      const shown = (json: any) => menu.fromStored(json.taskWorkCenterKind, { rowJSON: json });
+      expect(shown({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'partner' })).toBe('partner');
+      expect(shown({ taskResourceKind: 'workCenter', taskResourceItem: 'wc_cat' })).toBe('equipment');
+      expect(shown({ taskResourceKind: 'workCenter', taskResourceItem: 'wc_acme' })).toBe('partner');
+      expect(shown({ taskResourceKind: 'workCenter' })).toBe('person');
+      expect(shown({ taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' })).toBe('equipment');
+      expect(shown({})).toBe('person');
+    });
+
+    it('the column picks WORK CENTERS for a work center line, and still the person / equipment catalog for a line that holds one directly (made before work centers)', () => {
+      const resource = get(cols(['person', 'workCenter']), 'resource');
+      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' } })).toBe('workCenterReusable');
+      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'person', taskResourceItem: 'p_anna' } })).toBe('personReusable');
+      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' } })).toBe('equipmentReusable');
+      expect(resource.catalogEntityNameOf({ rowJSON: {} })).toBe('workCenterReusable');           // a new line
+    });
+
+    it('only the work centers of the kind of the menu are offered, active ones (the one already on the line stays)', () => {
+      const d = wcData();
+      const resource = get(cols(['person', 'workCenter']), 'resource');
+      const row = (kind: string, item?: string) => ({ rowJSON: { taskResourceKind: 'workCenter', taskWorkCenterKind: kind, ...(item ? { taskResourceItem: item } : {}) } });
+      const offered = (kind: string, item?: string) => d.workCenter.filter((w) => resource.filterItem(w, row(kind, item))).map((w) => w.rowGUID);
+      expect(offered('person')).toEqual(['wc_anna']);                    // wc_off is a person work center but not active
+      expect(offered('equipment')).toEqual(['wc_cat', 'wc_small']);
+      expect(offered('partner')).toEqual(['wc_acme']);
+      expect(offered('person', 'wc_off')).toEqual(['wc_anna', 'wc_off']);
+    });
+
+    it('without work centers the menu, the title and the list are as before', () => {
+      const list = cols(['person', 'equipment']);
+      expect(get(list, 'resource').title).toBe('Person / Equipment');
+      expect(get(list, 'resourceKind')).toMatchObject({ field: 'taskResourceKind' });
+      expect(get(list, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment']);
+      expect(get(list, 'resourceKind').fromStored).toBeUndefined();
+    });
+
+    it('work centers alone still have the menu (Person | Equipment | Partner), the resource column and the variant', () => {
+      const list = cols(['workCenter']);
+      expect(get(list, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment', 'partner']);
+      expect(get(list, 'resource').title).toBe('Person / Equipment / Partner');
+      expect(get(list, 'contract').dependsOn).toBe('resource');
+    });
+
+    it('the contract of a work center line is one of ITS person (the base): other contracts are not offered', () => {
+      const d = wcData();
+      const contract = get(cols(['person', 'workCenter']), 'contract');
+      expect(contract).toMatchObject({ dependsOn: 'resource', dependsOnScopesCatalog: false });
+      expect(contract.filterItem(d.contract[0], { rowJSON: line('workCenter', 'wc_anna') })).toBe(true);
+      expect(contract.filterItem(d.contract[1], { rowJSON: line('workCenter', 'wc_anna') })).toBe(false);
+      // a person line: the person himself
+      expect(contract.filterItem(d.contract[1], { rowJSON: line('person', 'p_boris') })).toBe(true);
+    });
+
+    it('the role picker follows the base of the work center', () => {
+      const d = wcData();
+      const role = get(cols(['person', 'workCenter']), 'role');
+      expect(role.filterItem(d.resourceRole[0], { rowJSON: line('workCenter', 'wc_anna') })).toBe(true);
+      expect(role.filterItem(d.resourceRole[1], { rowJSON: line('workCenter', 'wc_anna') })).toBe(false);
+      expect(role.filterItem(d.resourceRole[1], { rowJSON: line('workCenter', 'wc_cat') })).toBe(true);
+    });
   });
 });

@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000. delete_work_center.sql - PART 35: drops workCenterTable (with the variants the work centers own), its triggers and the work_center_* functions (runs very first: it is the newest)
 --  1a-00. delete_roi.sql - PARTs 33 + 34: drops the ROI tables (the task months, the project months, the HISTORY with its rows), the views, the trigger on project_table and the roi_* functions (runs very first)
 --  1a-0. delete_subprojects.sql - PART 29: drops project_subproject_link, its triggers and the subproject_* functions (runs very first)
 --   1a. delete_fact_input_and_monitor01.sql - PARTs 24-28: drops the fact documents, Monitor01 (view, queue, log, fact sums), the project cost total, the pg_cron jobs, the triggers on the other tables, the functions (runs first: it is the newest part)
@@ -28,6 +29,28 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-000: delete_work_center.sql  (PART 35 of the structure file: WORK CENTER - runs before everything else, it is the newest)
+-- Drops workCenterTable (all work centers) with the variants and variant values the work centers own (copies of base variants), its triggers and the work_center_* functions. The capacity branches
+-- for the kind 'workCenter' inside the organization_* functions go with PARTs 21-23, the taskResourceKind check with PART 17; Time lines that book a work center go with their task lines.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public."workCenterTable"') IS NOT NULL THEN
+    DELETE FROM public."variantValueTable" x WHERE x."rowOwnerGUID" IN (SELECT v."rowGUID" FROM public."variantTable" v WHERE v."rowOwnerGUID" IN (SELECT w."rowGUID" FROM public."workCenterTable" w));
+    DELETE FROM public."variantTable" v WHERE v."rowOwnerGUID" IN (SELECT w."rowGUID" FROM public."workCenterTable" w);
+    DROP TRIGGER IF EXISTS trg_workCenterTable_check ON public."workCenterTable";
+    DROP TRIGGER IF EXISTS trg_workCenterTable_delete ON public."workCenterTable";
+  END IF;
+END $$;
+DROP TABLE IF EXISTS public."workCenterTable" CASCADE;
+DROP FUNCTION IF EXISTS public.work_center_copy_variant_settings(text, boolean);
+DROP FUNCTION IF EXISTS public.work_center_delete_guard();
+DROP FUNCTION IF EXISTS public.work_center_check();
+DROP FUNCTION IF EXISTS public.work_center_title_of(text);
+DROP FUNCTION IF EXISTS public.work_center_base_title(text, text);
 
 
 -- =====================================================================================

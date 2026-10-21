@@ -122,6 +122,29 @@ describe('ReusableTable column header context menu', () => {
     expect(fillItem?.textContent).toContain('Fill all lines');
   });
 
+  it('has "Copy header name" for EVERY column, also the row number and a column that is not editable: it puts the title on the clipboard', () => {
+    const Clipboard = require('expo-clipboard');
+    mount({ visualColumns: [...columns, { key: 'sum', title: 'Sum total', type: 'number', editable: false }] });
+    const open = (key: string) => act(() => { q(`${T}-header-${key}`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
+    for (const [key, title] of [['title', 'Title'], ['category', 'Category'], ['sum', 'Sum total'], ['n', '#']] as const) {
+      open(key);
+      const item = q(`${T}-header-menu-copy-name`);
+      expect(item).not.toBeNull();
+      expect(item!.textContent).toContain('Copy header name');
+      Clipboard.setStringAsync.mockClear();
+      press(`${T}-header-menu-copy-name`);
+      expect(Clipboard.setStringAsync).toHaveBeenCalledWith(title);
+      expect(q(`${T}-header-context-menu`)).toBeNull();                 // the menu closes
+    }
+  });
+
+  it('"Copy header name" comes first, "Fill all lines" stays (disabled for # and read-only columns)', () => {
+    mount();
+    act(() => { q(`${T}-header-n`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
+    const ids = Array.from(document.querySelectorAll(`[data-testid^="${T}-header-menu-"]`)).map((e) => e.getAttribute('data-testid')).filter((id) => /-(copy-name|fill-all)$/.test(String(id)));
+    expect(ids).toEqual([`${T}-header-menu-copy-name`, `${T}-header-menu-fill-all`]);
+  });
+
   it('opens fill modal on pressing "Fill all lines", and fills all lines with entered value', () => {
     mount();
     const headerCell = q(`${T}-header-title`);

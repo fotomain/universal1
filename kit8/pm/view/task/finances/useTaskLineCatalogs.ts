@@ -11,6 +11,8 @@ import { DISTRIBUTION_TABLE } from '../../../../catalog/distribution/distributio
 import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../catalog/person/personModel';
 import { EQUIPMENT_ENTITY } from '../../../../catalog/equipment/equipmentModel';
+import { WORK_CENTER_ENTITY } from '../../../../catalog/work_center/workCenterModel';
+import { PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
 import { BUSINESS_UNIT_TABLE } from '../../../../catalog/business_unit/businessUnitModel';
 import { CFR_TYPE_TABLE } from '../../../../catalog/business_unit/cfrTypeModel';
@@ -32,6 +34,8 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   propertyValue: PRODUCT_TABLES.propertyValue.entity,
   person: PERSON_ENTITY,
   equipment: EQUIPMENT_ENTITY,
+  workCenter: WORK_CENTER_ENTITY,
+  partner: PARTNER_ENTITY,
   resourceContractTemplate: TEMPLATE_RESOURCE_CONTRACT_ENTITY,
   valueAddedTax: PRODUCT_TABLES.valueAddedTax.entity,
   measureUnit: PRODUCT_TABLES.measureUnit.entity,

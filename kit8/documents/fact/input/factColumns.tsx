@@ -4,6 +4,7 @@
 // Planned = qtyForBudget (the quantity of the task line, frozen), the three sums are root columns computed by the database (qty x price); Role / Resource / Unit / Price are the description
 // of the line in rowJSON - typed in the FREE input, frozen in the STRONG input (the database refuses a change). A posted document shows everything and edits nothing.
 import { EQUIPMENT_ENTITY } from '../../../catalog/equipment/equipmentModel';
+import { WORK_CENTER_ENTITY } from '../../../catalog/work_center/workCenterModel';
 import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../catalog/person/personModel';
 import { PRODUCT_TABLES } from '../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../catalog/resourcerole/resourceRoleModel';
@@ -13,7 +14,7 @@ import type { VisualColumn } from '../../../ui/components/table/reusable/reusabl
 import { pmT } from '../../../pm/i18n/pmT';
 import { genusOfRole } from '../../../pm/view/task/finances/taskLineCatalogs';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
-import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
+import { resourceEntityOfKind, resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
 import { FACT_NEW_ROW_KEYS, FACT_USAGE_TIMELINE_TABLE, FactHeaderView, canEditLines, dayOfPeriod } from './factInputModel';
 import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
 
@@ -48,9 +49,9 @@ export function buildFactColumns({ data, genus, header }: FactColumnsContext): V
     } as VisualColumn,
     isTime
       ? {
-          key: 'resource', title: `${pmT('Person')} / ${pmT('Equipment')}`, type: 'catalog', field: 'taskResourceItem', width: 240, editable: description,
-          catalogEntityName: PERSON_ENTITY, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY],
-          catalogEntityNameOf: (row) => (row.rowJSON?.taskResourceKind === 'equipment' ? EQUIPMENT_ENTITY : PERSON_ENTITY),
+          key: 'resource', title: `${pmT('Person')} / ${pmT('Equipment')} / ${pmT('Partner')}`, type: 'catalog', field: 'taskResourceItem', width: 240, editable: description,
+          catalogEntityName: PERSON_ENTITY, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, WORK_CENTER_ENTITY],
+          catalogEntityNameOf: (row) => resourceEntityOfKind(row.rowJSON?.taskResourceKind),
           titleExtractor: resourceTitleOfRow, placeholder: pmT('Select resource…'),
         } as VisualColumn
       : {

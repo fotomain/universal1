@@ -16,7 +16,7 @@ import { DEFAULT_RATE_TYPE, BUDGET_RATE_TYPE } from '../../../../catalog/currenc
 import { convertWith, isMiss, pairRate, rateMissMessage, RateBook, RateMiss } from '../../../../catalog/currency/exchange/currencyConvert';
 import { lineContractCurrency, TaskLineCatalogData } from './taskLineCatalogs';
 import { lineNumber } from './taskLineMoney';
-import { lineResourceKind } from './taskLineResource';
+import { lineWorkerKind } from './taskLineResource';
 import type { LineFxRate, LineFxSnapshot, TaskLineGenusDef, TaskLineRowJSON } from './taskLineModel';
 
 export interface LineFxProject {
@@ -56,7 +56,7 @@ const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2
 
 /** the contract of the line: the contract of the person (Time; an equipment has none) or the contract with the partner (the others) */
 function lineContract(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>) {
-  const kind = lineResourceKind(genus, json);
+  const kind = lineWorkerKind(d, genus, json);
   const guid = kind === 'person' ? json.taskResourceContract : kind === 'equipment' ? null : json.taskLinePartnerContract;
   return guid ? d.contract.find((c) => c.rowGUID === guid) : undefined;
 }

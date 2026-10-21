@@ -12,10 +12,11 @@ export const taskLineTable = 'task_line_table';
 export const TASK_LINE_ENTITY = 'taskLineReusable';
 
 /**
- * who the resource of a line is: a person (personTable) or an equipment (equipmentTable) on a Time line, a product (productTable) on the others.
+ * who the resource of a line is: a person (personTable), an equipment (equipmentTable) or a work center (workCenterTable) on a Time line, a product (productTable) on the others.
  * The kind of a Time line is the line's own `taskResourceKind` (empty = person, every line made before equipment); see taskLineResource.ts.
+ * A work center stands for ONE person / equipment / partner (its base): the line books the work center, the rules of the person / equipment (role kind, contract, variants) follow the base.
  */
-export type TaskLineResourceKind = 'person' | 'equipment' | 'product';
+export type TaskLineResourceKind = 'person' | 'equipment' | 'workCenter' | 'product';
 
 export interface TaskLineGenusDef {
   /** managementGenusTable.rowGUID (a leaf genus) = task_line_table.rowParentGUID */
@@ -32,7 +33,7 @@ export interface TaskLineGenusDef {
 
 /** the genus tabs, in this order (payments are no task lines) */
 export const TASK_LINE_GENUS: TaskLineGenusDef[] = [
-  { genus: MANAGEMENT_GENUS.time, title: 'Time', icon: 'schedule', resource: 'person', resources: ['person', 'equipment'], hasPartner: false },
+  { genus: MANAGEMENT_GENUS.time, title: 'Time', icon: 'schedule', resource: 'person', resources: ['person', 'equipment', 'workCenter'], hasPartner: false },
   { genus: MANAGEMENT_GENUS.material, title: 'Material', icon: 'inventory_2', resource: 'product', resources: ['product'], hasPartner: true },
   { genus: MANAGEMENT_GENUS.expense, title: 'Expenses', icon: 'receipt_long', resource: 'product', resources: ['product'], hasPartner: true },
   { genus: MANAGEMENT_GENUS.revenue, title: 'Deliverable', icon: 'payments', resource: 'product', resources: ['product'], hasPartner: true },
@@ -52,12 +53,17 @@ export interface TaskLineRowJSON {
   resourceRoleItem: string | null;
   /** descriptorKey of the variant the role needs (variantTable.rowJSON.descriptorKey of the role's variants) */
   resourceRoleAttributeSetKey: string | null;
-  /** Time: 'person' | 'equipment' = which catalog taskResourceItem belongs to; empty = person (every Time line made before equipment). Not used by the other genus. */
-  taskResourceKind: 'person' | 'equipment' | null;
-  /** personTable.rowGUID | equipmentTable.rowGUID (Time, by taskResourceKind) | productTable.rowGUID */
+  /** Time: 'person' | 'equipment' | 'workCenter' = which catalog taskResourceItem belongs to; empty = person (every Time line made before equipment). Not used by the other genus. */
+  taskResourceKind: 'person' | 'equipment' | 'workCenter' | null;
+  /**
+   * Time, a line that books WORK CENTERS: the menu "Resource: Person | Equipment | Partner" = the kind of the work centers the resource column offers (the kind of the work center chosen, once there is one).
+   * Setting it makes the line a work center line (taskResourceKind = 'workCenter'); empty on a line that holds a person / equipment directly (every line made before work centers).
+   */
+  taskWorkCenterKind?: 'person' | 'equipment' | 'partner' | null;
+  /** personTable.rowGUID | equipmentTable.rowGUID | workCenterTable.rowGUID (Time, by taskResourceKind) | productTable.rowGUID */
   taskResourceItem: string | null;
   /**
-   * Time: the descriptorKey of the VARIANT OF THE PERSON / EQUIPMENT the line books (variantTable, owner = person / equipment: "Senior, English",
+   * Time: the descriptorKey of the VARIANT OF THE PERSON / EQUIPMENT / WORK CENTER the line books (variantTable, owner = person / equipment / work center: "Senior, English",
    * "Heavy, With operator"); empty = automatic, the variant that covers what the role requires | others: descriptorKey of the product variant
    */
   taskResourceAttributesKey: string | null;

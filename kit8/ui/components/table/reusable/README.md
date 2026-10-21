@@ -59,6 +59,7 @@ SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalo
 `returnTo` = this screen + `focusRowGUID`, so the app's Back button returns to the same row - kit8/lib/returnToRoute.ts) ·
 `integer` / `number` (− / + buttons by default; `stepper: false`, `step`) · `text` · `custom`.
 
+Column header: right-click / long-press = **Copy header name** (every column) · **Fill all lines**.
 Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate, move up / down / first / last, copy GUID,
 archive, delete (+ Undo snackbar). Web: drag the ⠿ handle to reorder (orderInList). iOS / Android: reorder from the menu.
 

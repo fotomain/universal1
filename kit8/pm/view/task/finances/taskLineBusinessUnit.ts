@@ -32,6 +32,8 @@ export interface BusinessUnitLists {
   resourceRole: DefRow<any>[];
   person: DefRow<any>[];
   equipment: DefRow<any>[];
+  /** workCenterTable (optional: a work center line takes the business unit of its work center) */
+  workCenter?: DefRow<any>[];
   product: DefRow<any>[];
   contract: DefRow<any>[];
 }
@@ -44,7 +46,8 @@ export interface ProjectCenters {
   projectInvestmentCenter?: string | null;
 }
 
-const unitOf = (r: DefRow<any> | undefined | null): string | null => (isSet(r?.rowJSON?.businessUnitAssigned) ? String(r!.rowJSON.businessUnitAssigned) : null);
+/** the default unit a catalog row names: businessUnitAssigned; a WORK CENTER is in a business unit (its folder), which is the default unit of the lines that book it */
+const unitOf = (r: DefRow<any> | undefined | null): string | null => (isSet(r?.rowJSON?.businessUnitAssigned) ? String(r!.rowJSON.businessUnitAssigned) : isSet(r?.rowJSON?.workCenterKind) && isSet(r?.rowJSON?.businessUnit) ? String(r!.rowJSON.businessUnit) : null);
 
 /** 'cost' | 'revenue' of a genus (a level 2 row of managementGenusTable: its folder is costsGenus / revenuesGenus); null = payments / unknown */
 export function kindOfGenus(genusRows: DefRow<any>[], genus: string | null | undefined): BudgetKind | null {
@@ -68,7 +71,7 @@ export function lineBudgetKind(d: Pick<BusinessUnitLists, 'budgetItem' | 'manage
 /** the sources of the line in priority order (after the line itself): [source, unit] */
 export function businessUnitCandidates(d: BusinessUnitLists, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON>, kind: BudgetKind | null, project?: ProjectCenters | null): [BusinessUnitSource, string | null][] {
   const resKind = lineResourceKind(genus, json);
-  const resRows = resKind === 'person' ? d.person : resKind === 'equipment' ? d.equipment : d.product;
+  const resRows = resKind === 'person' ? d.person : resKind === 'equipment' ? d.equipment : resKind === 'workCenter' ? (d.workCenter || []) : d.product;
   const resource = isSet(json.taskResourceItem) ? (resRows || []).find((r) => r.rowGUID === json.taskResourceItem) : undefined;
   const role = isSet(json.resourceRoleItem) ? (d.resourceRole || []).find((r) => r.rowGUID === json.resourceRoleItem) : undefined;
   const item = isSet(json.budgetItemTaskLine) ? (d.budgetItem || []).find((r) => r.rowGUID === json.budgetItemTaskLine) : undefined;

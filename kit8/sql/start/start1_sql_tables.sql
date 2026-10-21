@@ -40,6 +40,7 @@
 --   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
 --   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
+--   35. create_work_center.sql - workCenterTable (a work center = a Person, Equipment or Partner as a resource with its own calendar and variant; folders = business units) + the kind 'workCenter' of a Time line
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -1918,7 +1919,7 @@ DO $$
 BEGIN
   IF to_regclass('public.task_line_table') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_line_resource_kind_chk' AND conrelid = 'public.task_line_table'::regclass) THEN
     ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_resource_kind_chk CHECK (
-      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment')
+      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment', 'workCenter')
       AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
   END IF;
 END $$;
@@ -2996,6 +2997,46 @@ CREATE TABLE IF NOT EXISTS public.project_status_roi_history (
   "updated_at"               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowProjectGUID", "rowSnapshotDay")
 );
+
+
+-- ===============================================================================================
+-- PART 35: create_work_center.sql
+-- workCenterTable (a work center = a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + the kind 'workCenter' of a Time line
+-- ===============================================================================================
+
+-- A work center is a catalog row in a folder of the business unit tree (rowParentGUID = the business unit = rowJSON.businessUnit).
+--   rowJSON { workCenterTitle, workCenterKind ('person' | 'equipment' | 'partner'), workCenterBase (the rowGUID of a personTable / equipmentTable / partnerTable row, by the kind),
+--             workCenterBaseVariant (the descriptorKey of a variant of the BASE), workCenterVariant (the descriptorKey of the work center's OWN variant: a variantTable row owned by the
+--             work center, made by "Copy Variant settings"), resourceCalendar (= the workCenterCalendar: a RESOURCE calendar), businessUnit, isActive }
+-- One catalog item is the base of ONE work center at most (the unique index). Work centers are created by hand, nothing is migrated.
+CREATE TABLE IF NOT EXISTS public."workCenterTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'workCenterCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT work_center_kind_chk CHECK ("rowJSON"->>'workCenterKind' IN ('person', 'equipment', 'partner'))
+);
+
+CREATE INDEX IF NOT EXISTS "idx_workCenterTable_parent" ON public."workCenterTable" ("rowParentGUID", "orderInList");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_workCenterTable_base" ON public."workCenterTable" (("rowJSON"->>'workCenterKind'), ("rowJSON"->>'workCenterBase'));
+
+-- the Time line may book a work center (taskResourceKind = 'workCenter', taskResourceItem = workCenterTable.rowGUID): the check made in PART 17 learns the new kind on a database that already has it
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_line_resource_kind_chk' AND conrelid = 'public.task_line_table'::regclass
+                  AND pg_get_constraintdef(oid) NOT LIKE '%workCenter%') THEN
+    ALTER TABLE public.task_line_table DROP CONSTRAINT task_line_resource_kind_chk;
+    ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_resource_kind_chk CHECK (
+      COALESCE("rowJSON"->>'taskResourceKind', 'person') IN ('person', 'equipment', 'workCenter')
+      AND (COALESCE("rowJSON"->>'taskResourceKind', 'person') = 'person' OR "rowParentGUID" = 'timeGenus'));
+  END IF;
+END $$;
 
 
 -- ===============================================================================================

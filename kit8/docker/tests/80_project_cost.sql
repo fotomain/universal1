@@ -53,6 +53,7 @@ SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": true,
 SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": true, "projectTimeCostsNeeded": true, "projectMaterialCostsNeeded": false, "projectExpenseCostsNeeded": false}'::jsonb), true, 'gate: Time only (person is on by default) = on');
 SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": true, "projectTimeCostsNeeded": true, "projectTimeOfPersonNeeded": false, "projectTimeOfEquipmentNeeded": false, "projectMaterialCostsNeeded": false, "projectExpenseCostsNeeded": false}'::jsonb), false, 'gate: Time with neither person nor equipment is not a Time budget');
 SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": true, "projectTimeCostsNeeded": true, "projectTimeOfPersonNeeded": false, "projectTimeOfEquipmentNeeded": true, "projectMaterialCostsNeeded": false, "projectExpenseCostsNeeded": false}'::jsonb), true, 'gate: Time of equipment only = on');
+SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": true, "projectTimeCostsNeeded": true, "projectTimeOfPersonNeeded": false, "projectTimeOfEquipmentNeeded": false, "projectTimeOfWorkCenterNeeded": true, "projectMaterialCostsNeeded": false, "projectExpenseCostsNeeded": false}'::jsonb), true, 'gate: Time of work center only = on');
 SELECT tt.eq(public.project_cost_budget_on('{"projectExpenseBudgetNeeded": "true"}'::jsonb), false, 'gate: a string is not a boolean (the app reads only booleans)');
 
 -- the project and its tree:   P ── S1 ── S11 ── T1, T2

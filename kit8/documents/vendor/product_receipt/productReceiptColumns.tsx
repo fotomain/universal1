@@ -5,6 +5,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { EQUIPMENT_ENTITY } from '../../../catalog/equipment/equipmentModel';
+import { WORK_CENTER_ENTITY } from '../../../catalog/work_center/workCenterModel';
 import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../catalog/person/personModel';
 import { PRODUCT_TABLES } from '../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../catalog/resourcerole/resourceRoleModel';
@@ -13,7 +14,7 @@ import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGe
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { pmT } from '../../../pm/i18n/pmT';
 import type { TaskLineCatalogData } from '../../../pm/view/task/finances/taskLineCatalogs';
-import { resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
+import { resourceEntityOfKind, resourceTitleOfRow } from '../../../pm/view/task/finances/taskLineResource';
 import { PRODUCT_RECEIPT_ALL_TAB, PRODUCT_RECEIPT_LINES_TABLE } from './productReceiptModel';
 import { accountingColumns, vatRateColumn } from '../../vat/documentVatColumns';
 import { pmNumberColumn } from '../../../pm/components/pmNumberColumn';
@@ -75,8 +76,8 @@ export function buildProductReceiptColumns({ data, tab, editable, independent = 
     {
       // Time: person / equipment · Material: the product · Expense: nothing
       key: 'resource', title: pmT('Resource'), type: 'catalog', field: 'taskResourceItem', width: 230, ...describe,
-      catalogEntityName: PRODUCT_TABLES.product.entity, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, PRODUCT_TABLES.product.entity],
-      catalogEntityNameOf: (row: ReusableTableRow) => (row.genusGUID === MANAGEMENT_GENUS.time ? (row.rowJSON?.taskResourceKind === 'equipment' ? EQUIPMENT_ENTITY : PERSON_ENTITY) : PRODUCT_TABLES.product.entity),
+      catalogEntityName: PRODUCT_TABLES.product.entity, catalogRowOwnerGUID: PERSON_CATALOG_OWNER, catalogEntityNames: [PERSON_ENTITY, EQUIPMENT_ENTITY, WORK_CENTER_ENTITY, PRODUCT_TABLES.product.entity],
+      catalogEntityNameOf: (row: ReusableTableRow) => (row.genusGUID === MANAGEMENT_GENUS.time ? resourceEntityOfKind(row.rowJSON?.taskResourceKind) : PRODUCT_TABLES.product.entity),
       titleExtractor: resourceTitleOfRow, placeholder: '',
     } as VisualColumn,
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 100, options: unitOptions, allowEmpty: true, ...describe } as VisualColumn,

@@ -9,7 +9,7 @@
 //     exchangeRateTypeForAccounting / exchangeRateTypeForBudget = the exchange RATE TYPE (Default | Budget, as D365 FO) used to convert the sums of the
 //       task lines into the accounting / the budget currency (task lines, kit8/pm/view/task/finances/taskLineFx.ts)
 //     projectRevenueBudgetNeeded / projectExpenseBudgetNeeded = "Budgets" checkboxes; while projectExpenseBudgetNeeded is on the INPUT switches appear
-//       (kit8/pm/model/taskInputScope.ts): projectTimeCostsNeeded > projectTimeOfPersonNeeded / projectTimeOfEquipmentNeeded, projectMaterialCostsNeeded,
+//       (kit8/pm/model/taskInputScope.ts): projectTimeCostsNeeded > projectTimeOfPersonNeeded / projectTimeOfEquipmentNeeded / projectTimeOfWorkCenterNeeded, projectMaterialCostsNeeded,
 //       projectExpenseCostsNeeded - they decide which tabs of the task lines are offered and whether a Time line may be an equipment
 //     calendarForTaskPlan = the management calendar (managementCalendarTable) whose excluded days divide the timeline of a task plan (Post of the task
 //       lines, kit8/pm/view/task/plan); default workingDaysCalendar (Mon-Fri, no holidays)
@@ -306,6 +306,13 @@ export default function PMProjectBudgetsTab({
                 label={pmT('Time of equipment input needed (projectTimeOfEquipmentNeeded)')}
                 value={inputs.projectTimeOfEquipmentNeeded}
                 onValueChange={(v) => setInput({ projectTimeOfEquipmentNeeded: v })}
+                style={styles.switchRow}
+              />
+              <SwitchApp
+                testID="pm-project-time-of-work-center-needed"
+                label={pmT('Time of work center input needed (projectTimeOfWorkCenterNeeded)')}
+                value={inputs.projectTimeOfWorkCenterNeeded}
+                onValueChange={(v) => setInput({ projectTimeOfWorkCenterNeeded: v })}
                 style={styles.switchRow}
               />
             </View>

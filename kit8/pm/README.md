@@ -375,6 +375,7 @@ three `TabFor*` SubTabs appear with the input switches (pure rules: `model/taskI
 | `projectTimeCostsNeeded` | Time input needed | the Time tab (default on) |
 | `projectTimeOfPersonNeeded` | Time of person input needed | Time lines of a person (default on) |
 | `projectTimeOfEquipmentNeeded` | Time of equipment input needed | Time lines of an equipment (default **off**); with Person: the menu "Resource: Person \| Equipment" |
+| `projectTimeOfWorkCenterNeeded` | Time of work center input needed | Time lines of a work center (`kit8/catalog/work_center`, default **off**); the menu "Resource" gets a third entry **Work center** |
 | `projectMaterialCostsNeeded` | Material input needed | the Material tab (default on) |
 | `projectExpenseCostsNeeded` | Expense input needed | the Expenses tab (default on) |
 

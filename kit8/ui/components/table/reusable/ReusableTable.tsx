@@ -627,6 +627,17 @@ export default function ReusableTable(props: ReusableTableProps) {
           onClose={() => setHeaderContextMenu(null)}
           items={[
             {
+              // EVERY column (also # and the read-only ones): the title of the header on the clipboard
+              testID: `${testID}-header-menu-copy-name`,
+              label: 'Copy header name',
+              icon: 'content_copy',
+              onPress: () => {
+                const title = headerContextMenu.col.title;
+                setHeaderContextMenu(null);
+                Clipboard.setStringAsync(title).catch(() => {});
+              },
+            },
+            {
               testID: `${testID}-header-menu-fill-all`,
               label: 'Fill all lines',
               icon: 'format_color_fill',

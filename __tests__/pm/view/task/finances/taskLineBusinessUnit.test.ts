@@ -133,3 +133,20 @@ describe('the problem of a unit on a line, and the Post check', () => {
     expect(run().postedLines.sort()).toEqual(['bad', 'none', 'ok']);
   });
 });
+
+describe('a work center line (kit8/catalog/work_center)', () => {
+  const wc = (guid: string, json: Record<string, any>): any => ({ rowGUID: guid, rowOwnerGUID: 'workCenterCatalog', rowParentGUID: json.businessUnit ?? 'empty', orderInList: 0, rowJSON: { workCenterKind: 'person', ...json } });
+  const line = (guid: string) => ({ taskResourceKind: 'workCenter' as const, taskResourceItem: guid, resourceRoleItem: null, budgetItemTaskLine: null });
+  it('the business unit of the work center (its folder) is the unit of the lines that book it - the "resource" source', () => {
+    const d = lists({ workCenter: [wc('wc1', { businessUnit: 'bu_cto' })] });
+    expect(resolveLineBusinessUnit(d, time, line('wc1'), project)).toEqual({ unit: 'bu_cto', source: 'resource' });
+  });
+  it('a work center that has no unit, or is not in the catalog, leaves the next source (the project) to decide', () => {
+    expect(resolveLineBusinessUnit(lists({ workCenter: [wc('wc1', {})] }), time, line('wc1'), project).source).toBe('project');
+    expect(resolveLineBusinessUnit(lists(), time, line('nope'), project).source).toBe('project');
+  });
+  it('a person keeps businessUnitAssigned: it wins over the folder fields of a row that is not a work center', () => {
+    const d = lists({ person: [withUnit('p1', 'bu_cto')] });
+    expect(resolveLineBusinessUnit(d, time, { taskResourceKind: 'person' as const, taskResourceItem: 'p1' }, project)).toEqual({ unit: 'bu_cto', source: 'resource' });
+  });
+});

@@ -13,6 +13,7 @@ export const GATE_CASES: [string, Record<string, unknown>, boolean][] = [
   ['Time only (person on by default)', { projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false }, true],
   ['Time with neither person nor equipment', { projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: false, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false }, false],
   ['Time of equipment only', { projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false }, true],
+  ['Time of work center only', { projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: false, projectTimeOfWorkCenterNeeded: true, projectMaterialCostsNeeded: false, projectExpenseCostsNeeded: false }, true],
   ['a string is not a boolean', { projectExpenseBudgetNeeded: 'true' }, false],
 ];
 

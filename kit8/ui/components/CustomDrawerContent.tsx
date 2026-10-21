@@ -120,6 +120,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
         { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
         { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
+        // a Person, an Equipment or a Partner (supplier) as a resource with its own calendar and variant, in folders = business units; a Time line of a task can book it
+        { id: 'workcenters', label: 'Work centers', icon: 'precision_manufacturing', route: 'catalog/work/center' },
         { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
       ],
     },

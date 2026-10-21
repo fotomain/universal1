@@ -142,6 +142,7 @@ export default function PMProjectReportsView({ projectGUID, width, height, palet
                 ...(page === 'costs' ? [
                   { id: 'persons', label: pmT('Time of persons'), value: formatMoney(report.persons.sum) },
                   { id: 'equipment', label: pmT('Time of equipment'), value: formatMoney(report.equipment.sum) },
+                  { id: 'workCenters', label: pmT('Time of work centers'), value: formatMoney(report.workCenters.sum) },
                 ] : []),
               ].map((c) => (
                 <View key={c.id} testID={`pm-report-card-${c.id}`} style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}>

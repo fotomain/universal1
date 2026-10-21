@@ -39,6 +39,7 @@
 --   32. create_activity_genus.sql - the ACTIVITY GENUS (operating / investing / financing, a linear catalog) + the allowed keys activity x management genus (budgetItemGenericKeyTable) + budgetItemTable.rowJSON budgetItemGenericKey / direction (obligatory, backfilled)
 --   33. create_roi.sql - ROI (documentation/ROI_DOC.html): the additive ROI money per task x month (project_status_roi_task_month) and per project x month (project_status_month_totals)
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
+--   35. create_work_center.sql - WORK CENTER: workCenterTable (a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + work_center_copy_variant_settings + the kind 'workCenter' of a Time line (the capacity branches live in PARTs 21 / 23)
 -- ===============================================================================================
 
 DO $$
@@ -4447,7 +4448,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'contractTable', 'templateResourceContractTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'workCenterTable', 'contractTable', 'templateResourceContractTable'] LOOP
     IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
       EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_calendar', t);
       EXECUTE format('CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF "rowJSON" ON public.%I FOR EACH ROW EXECUTE FUNCTION public.organization_resource_calendar_check()',
@@ -4467,7 +4468,7 @@ BEGIN
   IF OLD."rowGUID" = 'standardWorkWeekCalendar' THEN
     RAISE EXCEPTION 'managementCalendarTable: the standard work week is the calendar of every resource that has none - it cannot be deleted';
   END IF;
-  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'contractTable', 'templateResourceContractTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'workCenterTable', 'contractTable', 'templateResourceContractTable'] LOOP
     IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
       EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I WHERE "rowJSON" @> %L::jsonb)', t, jsonb_build_object('resourceCalendar', OLD."rowGUID")::text) INTO v_used;
       IF v_used THEN
@@ -4504,12 +4505,15 @@ DECLARE
   v_alt      text;
   v_src      text;
 BEGIN
-  IF p_kind NOT IN ('person', 'equipment') THEN
-    RAISE EXCEPTION 'organization_resource_capacity_info: unknown resource kind "%" (person | equipment)', p_kind;
+  IF p_kind NOT IN ('person', 'equipment', 'workCenter') THEN
+    RAISE EXCEPTION 'organization_resource_capacity_info: unknown resource kind "%" (person | equipment | workCenter)', p_kind;
   END IF;
   IF p_kind = 'person' THEN
     v_contract := public.organization_contract_calendar(p_resource, p_day);      -- PART 23: the contract in force, latest start wins
     SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."personTable" x WHERE x."rowGUID" = p_resource;
+  ELSIF p_kind = 'workCenter' THEN
+    -- PART 35: a work center is its own capacity unit: its calendar, else the Standard work week (it has no contract of its own)
+    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."workCenterTable" x WHERE x."rowGUID" = p_resource;
   ELSE
     SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."equipmentTable" x WHERE x."rowGUID" = p_resource;
   END IF;
@@ -4733,6 +4737,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   UNION
   SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') FROM public."equipmentTable" x WHERE p_kind = 'equipment' AND x."rowGUID" = p_guid
   UNION
+  SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') FROM public."workCenterTable" x WHERE p_kind = 'workCenter' AND x."rowGUID" = p_guid
+  UNION
   SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') FROM public."contractTable" c WHERE p_kind = 'person' AND c."rowOwnerGUID" = p_guid AND c."rowParentGUID" = 'person'
 $$;
 
@@ -4747,6 +4753,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT COALESCE(
     CASE WHEN p_kind = 'equipment'
          THEN (SELECT NULLIF(e."rowJSON"->>'equipmentTitle', '') FROM public."equipmentTable" e WHERE e."rowGUID" = p_guid)
+         WHEN p_kind = 'workCenter'
+         THEN (SELECT NULLIF(w."rowJSON"->>'workCenterTitle', '') FROM public."workCenterTable" w WHERE w."rowGUID" = p_guid)
          ELSE (SELECT NULLIF(btrim(COALESCE(x."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(x."rowJSON"->>'personLastName', '')), '') FROM public."personTable" x WHERE x."rowGUID" = p_guid)
     END, p_guid)
 $$;
@@ -4958,7 +4966,7 @@ CREATE TRIGGER trg_management_calendar_day_lock AFTER UPDATE OR DELETE ON public
 CREATE OR REPLACE FUNCTION public.organization_resource_pointer_lock() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
-  v_kind text := CASE TG_TABLE_NAME WHEN 'equipmentTable' THEN 'equipment' ELSE 'person' END;
+  v_kind text := CASE TG_TABLE_NAME WHEN 'equipmentTable' THEN 'equipment' WHEN 'workCenterTable' THEN 'workCenter' ELSE 'person' END;
   v_old_cal text := NULLIF(OLD."rowJSON"->>'resourceCalendar', '');
   v_new_cal text := NULLIF(NEW."rowJSON"->>'resourceCalendar', '');
   v_day  date;
@@ -4983,7 +4991,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['personTable', 'equipmentTable', 'workCenterTable'] LOOP
     IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
       EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', 'trg_' || t || '_resource_pointer_lock', t);
       EXECUTE format('CREATE TRIGGER %I AFTER UPDATE OF "rowJSON" ON public.%I FOR EACH ROW EXECUTE FUNCTION public.organization_resource_pointer_lock()',
@@ -6857,7 +6865,8 @@ GRANT EXECUTE ON FUNCTION public.vendor_project_setting(uuid, text) TO authentic
 
 -- ---- vendor_invoice_candidates(task, lines): the vendors (and their contracts) of the task lines ---------------------------------------------------------------------------
 -- A line's vendor: the partner of the contract selected on the line (Time: taskResourceContract, Material / Expense: taskLinePartnerContract); else the partner of the line (taskLinePartnerItem);
--- else the MAIN VENDOR of its resource (equipment of a Time line, product of a Material line) with the main vendor contract. A line without a vendor is counted in "skipped" and listed in "skippedLineGUIDs"
+-- else the MAIN VENDOR of its resource (equipment of a Time line, product of a Material line) with the main vendor contract; a WORK CENTER (PART 35): a Partner work center IS the supplier (its partner), an
+-- Equipment work center has the main vendor of its equipment, a Person work center none. A line without a vendor is counted in "skipped" and listed in "skippedLineGUIDs"
 -- (create_vendor_invoices makes ONE draft without a vendor of them: the vendor is chosen in the form).
 CREATE OR REPLACE FUNCTION public.vendor_invoice_candidates(p_task uuid, p_lines uuid[] DEFAULT NULL) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -6881,11 +6890,17 @@ BEGIN
      WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus') AND (p_lines IS NULL OR l."rowGUID" = ANY (p_lines))
   ), mv AS (
     SELECT ln.*, k."rowGUID" AS k_guid, k."rowOwnerGUID" AS k_partner,
-           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorGUID' WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorGUID' END, '') AS mv_vendor,
-           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorContractGUID' WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorContractGUID' END, '') AS mv_contract
+           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorGUID'
+                       WHEN ln.genus = 'timeGenus' AND ln.kind = 'workCenter' THEN CASE wc."rowJSON"->>'workCenterKind' WHEN 'partner' THEN wc."rowJSON"->>'workCenterBase' WHEN 'equipment' THEN we."rowJSON"->>'mainVendorGUID' END
+                       WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorGUID' END, '') AS mv_vendor,
+           NULLIF(CASE WHEN ln.genus = 'timeGenus' AND ln.kind = 'equipment' THEN e."rowJSON"->>'mainVendorContractGUID'
+                       WHEN ln.genus = 'timeGenus' AND ln.kind = 'workCenter' THEN CASE WHEN wc."rowJSON"->>'workCenterKind' = 'equipment' THEN we."rowJSON"->>'mainVendorContractGUID' END
+                       WHEN ln.genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorContractGUID' END, '') AS mv_contract
       FROM ln
       LEFT JOIN public."contractTable" k ON k."rowGUID" = ln.line_contract AND k."rowParentGUID" = 'partner'
       LEFT JOIN public."equipmentTable" e ON ln.genus = 'timeGenus' AND ln.kind = 'equipment' AND e."rowGUID" = ln.res
+      LEFT JOIN public."workCenterTable" wc ON ln.genus = 'timeGenus' AND ln.kind = 'workCenter' AND wc."rowGUID" = ln.res
+      LEFT JOIN public."equipmentTable" we ON wc."rowJSON"->>'workCenterKind' = 'equipment' AND we."rowGUID" = wc."rowJSON"->>'workCenterBase'
       LEFT JOIN public."productTable" pr ON ln.genus = 'materialGenus' AND pr."rowGUID" = ln.res
   ), res AS (
     SELECT mv.line,
@@ -7441,12 +7456,13 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- is a cost budget on? Same as projectCostBudgetOn() of kit8/pm/model/taskInputScope.ts: the master projectExpenseBudgetNeeded (default off) AND
--- (Time [projectTimeCostsNeeded, default on, with person (default on) or equipment (default off)] OR Material (default on) OR Expense (default on))
+-- (Time [projectTimeCostsNeeded, default on, with person (default on) or equipment (default off) or work center (default off)] OR Material (default on) OR Expense (default on))
 CREATE OR REPLACE FUNCTION public.project_cost_budget_on(p_json jsonb) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT public.project_cost_flag(p_json, 'projectExpenseBudgetNeeded', false)
      AND ( (public.project_cost_flag(p_json, 'projectTimeCostsNeeded', true)
-            AND (public.project_cost_flag(p_json, 'projectTimeOfPersonNeeded', true) OR public.project_cost_flag(p_json, 'projectTimeOfEquipmentNeeded', false)))
+            AND (public.project_cost_flag(p_json, 'projectTimeOfPersonNeeded', true) OR public.project_cost_flag(p_json, 'projectTimeOfEquipmentNeeded', false)
+                 OR public.project_cost_flag(p_json, 'projectTimeOfWorkCenterNeeded', false)))
         OR public.project_cost_flag(p_json, 'projectMaterialCostsNeeded', true)
         OR public.project_cost_flag(p_json, 'projectExpenseCostsNeeded', true) )
 $$;
@@ -10473,7 +10489,7 @@ GRANT EXECUTE ON FUNCTION public.roi_include_vat(uuid, text) TO authenticated;
 
 
 -- ---- cost that is never invoiced: does a line have a vendor? (the rule of vendor_invoice_candidates, read from the JSON a fact line copies from its task line: the partner of the line's contract, else the
--- partner of the line, else the main vendor of the equipment / product). A line WITHOUT a vendor (own staff, own equipment, own material, a line typed by hand) can only be a fact input: its cost is "not invoiced"
+-- partner of the line, else the main vendor of the equipment / product; a work center (PART 35): a Partner work center is its own vendor, an Equipment work center has the main vendor of its equipment). A line WITHOUT a vendor (own staff, own equipment, own material, a line typed by hand) can only be a fact input: its cost is "not invoiced"
 -- and counts for ROI4. A cost line WITH a vendor counts when the vendor invoice is posted.
 CREATE OR REPLACE FUNCTION public.pm_line_has_vendor(p_genus text, p_json jsonb) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -10481,11 +10497,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
     SELECT (CASE WHEN k."rowGUID" IS NOT NULL THEN k."rowOwnerGUID"
                  ELSE COALESCE(NULLIF(p_json->>'taskLinePartnerItem', ''),
                                NULLIF(CASE WHEN p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'equipment' THEN e."rowJSON"->>'mainVendorGUID'
+                                           WHEN p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'workCenter' THEN CASE wc."rowJSON"->>'workCenterKind' WHEN 'partner' THEN wc."rowJSON"->>'workCenterBase' WHEN 'equipment' THEN we."rowJSON"->>'mainVendorGUID' END
                                            WHEN p_genus = 'materialGenus' THEN pr."rowJSON"->>'mainVendorGUID' END, ''))
             END) IS NOT NULL
       FROM (SELECT 1) one
       LEFT JOIN public."contractTable" k ON k."rowGUID" = NULLIF(CASE WHEN p_genus = 'timeGenus' THEN p_json->>'taskResourceContract' ELSE p_json->>'taskLinePartnerContract' END, '') AND k."rowParentGUID" = 'partner'
       LEFT JOIN public."equipmentTable" e ON p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'equipment' AND e."rowGUID" = NULLIF(p_json->>'taskResourceItem', '')
+      LEFT JOIN public."workCenterTable" wc ON p_genus = 'timeGenus' AND p_json->>'taskResourceKind' = 'workCenter' AND wc."rowGUID" = NULLIF(p_json->>'taskResourceItem', '')
+      LEFT JOIN public."equipmentTable" we ON wc."rowJSON"->>'workCenterKind' = 'equipment' AND we."rowGUID" = wc."rowJSON"->>'workCenterBase'
       LEFT JOIN public."productTable" pr ON p_genus = 'materialGenus' AND pr."rowGUID" = NULLIF(p_json->>'taskResourceItem', '')), false)
 $$;
 
@@ -10879,6 +10898,234 @@ SELECT DISTINCT x."rowOwnerGUID", 'install' FROM (
   UNION SELECT s."rowOwnerGUID" FROM public.project_status_movements s) x
 WHERE NOT EXISTS (SELECT 1 FROM public.project_status_roi_task_month r WHERE r."rowOwnerGUID" = x."rowOwnerGUID")
 ON CONFLICT ("rowOwnerGUID") DO NOTHING;
+
+-- ===============================================================================================
+-- PART 35: create_work_center.sql
+-- WORK CENTER: workCenterTable (a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + work_center_copy_variant_settings + the kind 'workCenter' of a Time line
+-- ===============================================================================================
+
+-- =====================================================================================
+-- UNIVERSAL1 - WORK CENTER: create_work_center.sql (run AFTER parts 1-34; IDEMPOTENT + NON-DESTRUCTIVE. Remove again with PART 1a-000 of delete_sql_structure.sql.)
+-- Design: documentation/WORK_CENTER_WBS.html.
+--
+-- A work center is what a Time line books in the field "Person / Equipment" next to a person and an equipment (the line says taskResourceKind = 'workCenter',
+-- taskResourceItem = the work center). It stands for ONE catalog item (workCenterBase): a person, an equipment or - when the partner has partnerIsSupplier - a partner.
+--   * the folder = the business unit (rowParentGUID = rowJSON.businessUnit, from the existing businessUnitTable); the app shows a folder only while it holds a work center
+--   * workCenterBase is used by ONE work center at most; work centers are made by hand (nothing is migrated from the persons / equipment)
+--   * the calendar = rowJSON.resourceCalendar, the same key and the same machinery as a person (hours per day, week modes, vacation / sick leave, Fill, own copy, busy check, calendar lock);
+--     the capacity of a work center is ITS calendar, else the Standard work week (the contract calendar priority is the person's contract, a work center has none: PART 21)
+--   * workCenterVariant = a variantTable row (+ its variantValueTable rows) owned by the work center, made by work_center_copy_variant_settings from the base variant (a one-time copy)
+--   * partnerIsSupplier is checked when a work center is saved with that base; a partner that loses the flag later changes nothing
+-- =====================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."workCenterTable"') IS NULL OR to_regclass('public."businessUnitTable"') IS NULL OR to_regclass('public."variantTable"') IS NULL THEN
+    RAISE EXCEPTION 'Run the parts above first (workCenterTable, businessUnitTable, variantTable)';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('workCenterTable');
+
+-- access: signed-in users (as equipmentTable)
+DO $$
+DECLARE
+  t text := 'workCenterTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+END $$;
+
+-- the title a work center gets when none is typed: the name of its base
+CREATE OR REPLACE FUNCTION public.work_center_base_title(p_kind text, p_base text) RETURNS text
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT COALESCE(
+    CASE p_kind
+      WHEN 'person' THEN (SELECT NULLIF(btrim(COALESCE(x."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(x."rowJSON"->>'personLastName', '')), '') FROM public."personTable" x WHERE x."rowGUID" = p_base)
+      WHEN 'equipment' THEN (SELECT COALESCE(NULLIF(e."rowJSON"->>'equipmentTitle', ''), NULLIF(btrim(COALESCE(e."rowJSON"->>'equipmentManufacturer', '') || ' ' || COALESCE(e."rowJSON"->>'equipmentModel', '')), ''))
+                               FROM public."equipmentTable" e WHERE e."rowGUID" = p_base)
+      WHEN 'partner' THEN (SELECT NULLIF(x."rowJSON"->>'partnerTitle', '') FROM public."partnerTable" x WHERE x."rowGUID" = p_base)
+    END, p_base)
+$$;
+
+-- the rules of a work center, on every insert and update
+CREATE OR REPLACE FUNCTION public.work_center_check() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_kind    text := NEW."rowJSON"->>'workCenterKind';
+  v_base    text := NULLIF(NEW."rowJSON"->>'workCenterBase', '');
+  v_unit    text := NULLIF(NEW."rowJSON"->>'businessUnit', '');
+  v_bvar    text := NULLIF(NEW."rowJSON"->>'workCenterBaseVariant', '');
+  v_var     text := NULLIF(NEW."rowJSON"->>'workCenterVariant', '');
+  v_old     jsonb;                                  -- the row before an UPDATE (NULL for an INSERT: OLD is not read there)
+  v_old_parent text;
+  v_changed boolean := true;                        -- the kind or the base is new
+  v_ok      boolean;
+  v_other   text;
+BEGIN
+  IF v_kind IS NULL OR v_kind NOT IN ('person', 'equipment', 'partner') THEN
+    RAISE EXCEPTION 'workCenterTable: workCenterKind is required (person | equipment | partner)';
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    v_old := OLD."rowJSON";
+    v_old_parent := OLD."rowParentGUID";
+    v_changed := v_old->>'workCenterKind' IS DISTINCT FROM v_kind OR NULLIF(v_old->>'workCenterBase', '') IS DISTINCT FROM v_base;
+  END IF;
+
+  -- the folder = the business unit: a move to another folder changes the unit, a changed unit moves the work center
+  IF v_old IS NOT NULL AND NEW."rowParentGUID" IS DISTINCT FROM v_old_parent AND NEW."rowParentGUID" <> 'empty'
+     AND v_unit IS NOT DISTINCT FROM NULLIF(v_old->>'businessUnit', '') THEN
+    v_unit := NEW."rowParentGUID";
+  ELSIF v_unit IS NULL AND NEW."rowParentGUID" <> 'empty' THEN
+    v_unit := NEW."rowParentGUID";
+  END IF;
+  IF v_unit IS NULL THEN
+    RAISE EXCEPTION 'workCenterTable: businessUnit is required (the folder of the work center, a row of businessUnitTable)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = v_unit) THEN
+    RAISE EXCEPTION 'workCenterTable: businessUnit "%" is not a business unit', v_unit;
+  END IF;
+  NEW."rowParentGUID" := v_unit;
+
+  -- the base: a catalog item of the kind, used by this work center only
+  IF v_base IS NULL THEN
+    RAISE EXCEPTION 'workCenterTable: workCenterBase is required (a % catalog item)', v_kind;
+  END IF;
+  IF v_changed THEN
+    v_ok := CASE v_kind WHEN 'person'    THEN EXISTS (SELECT 1 FROM public."personTable"    x WHERE x."rowGUID" = v_base)
+                        WHEN 'equipment' THEN EXISTS (SELECT 1 FROM public."equipmentTable" x WHERE x."rowGUID" = v_base)
+                        ELSE                  EXISTS (SELECT 1 FROM public."partnerTable"   x WHERE x."rowGUID" = v_base) END;
+    IF NOT v_ok THEN
+      RAISE EXCEPTION 'workCenterTable: workCenterBase "%" is not a % catalog item', v_base, v_kind;
+    END IF;
+    -- a Partner work center: the partner must be a supplier (checked when the work center is saved with that base; a flag removed later changes nothing)
+    IF v_kind = 'partner' AND NOT EXISTS (SELECT 1 FROM public."partnerTable" x WHERE x."rowGUID" = v_base AND x."rowJSON"->>'partnerIsSupplier' = 'true') THEN
+      RAISE EXCEPTION 'workCenterTable: a Partner work center needs a partner with partnerIsSupplier (partner "%" is not a supplier)', v_base;
+    END IF;
+    SELECT w."rowGUID" INTO v_other FROM public."workCenterTable" w
+     WHERE w."rowJSON"->>'workCenterKind' = v_kind AND w."rowJSON"->>'workCenterBase' = v_base AND w."rowGUID" <> NEW."rowGUID" LIMIT 1;
+    IF v_other IS NOT NULL THEN
+      RAISE EXCEPTION 'workCenterTable: this % catalog item is already the base of the work center "%"', v_kind, public.work_center_title_of(v_other);
+    END IF;
+  END IF;
+
+  -- the variants: the base variant is a variant of the BASE, the work center variant one of the work center itself
+  IF v_bvar IS NOT NULL AND (v_changed OR v_bvar IS DISTINCT FROM NULLIF(v_old->>'workCenterBaseVariant', ''))
+     AND NOT EXISTS (SELECT 1 FROM public."variantTable" v WHERE v."rowOwnerGUID" = v_base AND v."rowJSON"->>'descriptorKey' = v_bvar) THEN
+    RAISE EXCEPTION 'workCenterTable: workCenterBaseVariant "%" is not a variant of the base', v_bvar;
+  END IF;
+  IF v_var IS NOT NULL AND v_old IS NOT NULL AND v_var IS DISTINCT FROM NULLIF(v_old->>'workCenterVariant', '')
+     AND NOT EXISTS (SELECT 1 FROM public."variantTable" v WHERE v."rowOwnerGUID" = NEW."rowGUID" AND v."rowJSON"->>'descriptorKey' = v_var) THEN
+    RAISE EXCEPTION 'workCenterTable: workCenterVariant "%" is not a variant of the work center (use Copy Variant settings)', v_var;
+  END IF;
+
+  NEW."rowOwnerGUID" := 'workCenterCatalog';
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('businessUnit', v_unit, 'isActive', COALESCE((NEW."rowJSON"->>'isActive')::boolean, true));
+  IF COALESCE(btrim(NEW."rowJSON"->>'workCenterTitle'), '') = '' THEN
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('workCenterTitle', public.work_center_base_title(v_kind, v_base));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- the title of a work center row, for a message
+CREATE OR REPLACE FUNCTION public.work_center_title_of(p_row text) RETURNS text
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT NULLIF(w."rowJSON"->>'workCenterTitle', '') FROM public."workCenterTable" w WHERE w."rowGUID" = p_row), p_row)
+$$;
+
+DROP TRIGGER IF EXISTS trg_workCenterTable_check ON public."workCenterTable";
+
+CREATE TRIGGER trg_workCenterTable_check BEFORE INSERT OR UPDATE ON public."workCenterTable"
+  FOR EACH ROW EXECUTE FUNCTION public.work_center_check();
+
+
+-- a work center that a Time line books is not deleted (deactivate it: isActive false); with it go its own variants
+CREATE OR REPLACE FUNCTION public.work_center_delete_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.task_line_table l WHERE l."rowJSON"->>'taskResourceKind' = 'workCenter' AND l."rowJSON"->>'taskResourceItem' = OLD."rowGUID") THEN
+    RAISE EXCEPTION 'workCenterTable: work center "%" is booked by a Time line - deactivate it instead (isActive false)', public.work_center_title_of(OLD."rowGUID");
+  END IF;
+  DELETE FROM public."variantValueTable" x WHERE x."rowOwnerGUID" IN (SELECT v."rowGUID" FROM public."variantTable" v WHERE v."rowOwnerGUID" = OLD."rowGUID");
+  DELETE FROM public."variantTable" v WHERE v."rowOwnerGUID" = OLD."rowGUID";
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_workCenterTable_delete ON public."workCenterTable";
+
+CREATE TRIGGER trg_workCenterTable_delete BEFORE DELETE ON public."workCenterTable"
+  FOR EACH ROW EXECUTE FUNCTION public.work_center_delete_guard();
+
+
+-- "Copy Variant settings": the work center gets ITS OWN variant = a one-time copy of the base variant it has chosen (workCenterBaseVariant): the variantTable row and its variantValueTable rows,
+-- owned by the work center, and workCenterVariant points at it. A work center has one variant of its own: when it has one already the copy is refused unless p_overwrite is true (the screen asks the user first).
+-- Later changes of the base variant do not reach the copy. Returns the rowGUID of the new variant.
+CREATE OR REPLACE FUNCTION public.work_center_copy_variant_settings(p_work_center text, p_overwrite boolean DEFAULT false) RETURNS text
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  w     record;
+  v_key text;
+  v_src record;
+  v_new text := gen_random_uuid()::text;
+BEGIN
+  SELECT * INTO w FROM public."workCenterTable" t WHERE t."rowGUID" = p_work_center;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'work_center_copy_variant_settings: work center "%" does not exist', p_work_center;
+  END IF;
+  v_key := NULLIF(w."rowJSON"->>'workCenterBaseVariant', '');
+  IF v_key IS NULL THEN
+    RAISE EXCEPTION 'work_center_copy_variant_settings: choose the base variant (workCenterBaseVariant) first';
+  END IF;
+  SELECT v.* INTO v_src FROM public."variantTable" v WHERE v."rowOwnerGUID" = w."rowJSON"->>'workCenterBase' AND v."rowJSON"->>'descriptorKey' = v_key;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'work_center_copy_variant_settings: the base has no variant "%"', v_key;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public."variantTable" v WHERE v."rowOwnerGUID" = p_work_center) THEN
+    IF NOT COALESCE(p_overwrite, false) THEN
+      RAISE EXCEPTION 'work_center_copy_variant_settings: the work center has a variant already - confirm to overwrite it';
+    END IF;
+    DELETE FROM public."variantValueTable" x WHERE x."rowOwnerGUID" IN (SELECT v."rowGUID" FROM public."variantTable" v WHERE v."rowOwnerGUID" = p_work_center);
+    DELETE FROM public."variantTable" v WHERE v."rowOwnerGUID" = p_work_center;
+  END IF;
+  INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+  VALUES (v_new, p_work_center, v_src."rowParentGUID", v_src."rowJSON" || jsonb_build_object('copiedFromVariant', v_src."rowGUID"), v_src."orderInList");
+  INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+  SELECT gen_random_uuid()::text, v_new, x."rowParentGUID", x."rowJSON", x."orderInList" FROM public."variantValueTable" x WHERE x."rowOwnerGUID" = v_src."rowGUID";
+  UPDATE public."workCenterTable" t SET "rowJSON" = t."rowJSON" || jsonb_build_object('workCenterVariant', v_key) WHERE t."rowGUID" = p_work_center;
+  RETURN v_new;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.work_center_copy_variant_settings(text, boolean) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.work_center_copy_variant_settings(text, boolean) TO authenticated;
+
+
+-- ---- realtime ------------------------------------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'workCenterTable') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public."workCenterTable";
+    END IF;
+  END IF;
+END $$;
+
 
 NOTIFY pgrst, 'reload schema';
 

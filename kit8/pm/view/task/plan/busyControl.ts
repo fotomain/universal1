@@ -28,7 +28,7 @@ export interface BusyOtherBooking {
 }
 
 export interface ResourceBusyConflict {
-  resourceKind: 'person' | 'equipment';
+  resourceKind: 'person' | 'equipment' | 'workCenter';
   resourceGUID: string;
   resourceTitle: string;
   /** YYYY-MM-DD */
@@ -53,7 +53,7 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' 
 export function parseBusy(raw: unknown): ResourceBusyConflict[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((c) => c && typeof c === 'object').map((c: any) => ({
-    resourceKind: c.resourceKind === 'equipment' ? 'equipment' : 'person',
+    resourceKind: c.resourceKind === 'equipment' ? 'equipment' : c.resourceKind === 'workCenter' ? 'workCenter' : 'person',
     resourceGUID: str(c.resourceGUID),
     resourceTitle: str(c.resourceTitle) || str(c.resourceGUID),
     day: str(c.day).slice(0, 10),
