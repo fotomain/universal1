@@ -54,6 +54,8 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
    * The label (floating or above the field, as the design system does it) and the placeholder work as in the outlined look.
    */
   mode?: 'outlined' | 'flat';
+  /** exact height of the whole input in px (Paper: incl. the room of the floating label, as DateInputApp.inputHeight); lets a row of inputs, selects and buttons share one box height. Other design systems ignore it. */
+  inputHeight?: number;
 }
 
 export const TextInputApp: React.FC<TextInputAppProps> = ({
@@ -84,6 +86,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   leftIcons,
   unstyled,
   mode = 'outlined',
+  inputHeight,
   ...props
 }) => {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
@@ -201,7 +204,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             outlineColor={themeColors.border}
             activeOutlineColor={themeColors.primary}
             {...(flat ? { underlineColor: 'transparent', activeUnderlineColor: 'transparent' } : null)}
-            style={{ backgroundColor: flat ? 'transparent' : themeColors.surface }}
+            style={{ backgroundColor: flat ? 'transparent' : themeColors.surface, ...(inputHeight ? { height: inputHeight } : null) }}
             {...(props as any)}
           />
           {(hasError || helperText) && (

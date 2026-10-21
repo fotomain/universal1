@@ -5,7 +5,7 @@ import React from 'react';
 import { pmT } from '../../pm/i18n/pmT';
 import PMTreePostStatusIcon from '../../pm/view/tree/columns/PMTreePostStatusIcon';
 import type { ReusableTableRow, VisualColumn } from '../../ui/components/table/reusable/reusableTableTypes';
-import type { TimesheetListRow } from './timesheetModel';
+import { formatDateTime, type TimesheetListRow } from './timesheetModel';
 
 export type TimesheetListInfo = (row: ReusableTableRow) => TimesheetListRow | undefined;
 
@@ -27,5 +27,6 @@ export function timesheetListColumns(info: TimesheetListInfo): VisualColumn[] {
     { key: 'hours', title: pmT('Hours'), type: 'number', width: 100, editable: false, stepper: false, total: true, fromStored: (_s: any, row: ReusableTableRow) => info(row)?.hours ?? 0 } as VisualColumn,
     { key: 'lines', title: pmT('Lines'), type: 'integer', width: 80, editable: false, stepper: false, total: false, fromStored: (_s: any, row: ReusableTableRow) => info(row)?.lineCount ?? 0 } as VisualColumn,
     text('status', 'Status', 100, (r) => pmT(r.documentStatus === 'posted' ? 'Posted' : 'Draft')),
+    text('postedAt', 'Posting date and time', 170, (r) => formatDateTime(r.postedAt)),
   ];
 }

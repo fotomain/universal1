@@ -44,7 +44,7 @@ export interface PMTimesheetDocumentLinesProps {
 }
 
 const ROW_H = 44;
-const W = { n: 34, project: 180, task: 200, role: 170, budget: 160, unit: 150, rate: 112, day: 66, total: 74, action: 40 } as const;
+const W = { n: 34, project: 180, task: 200, role: 170, budget: 160, unit: 150, rate: 112, day: 66, total: 84, action: 40 } as const;
 const FIELD_H = 36;
 
 /** the selects of ONE line: each loads its options when the one before it is chosen */
@@ -111,7 +111,7 @@ export default function PMTimesheetDocumentLines({ header, lines, entered, optio
     return <Text testID={`${testID}-lines-empty`} style={{ color: c.text, padding: 12 }}>{loading ? pmT('Loading…') : pmT('The time sheet was not found.')}</Text>;
   }
   const shade = `${c.text}0d`;
-  const tableWidth = W.n + W.project + W.task + W.role + W.budget + W.unit + W.rate + days.length * W.day + W.total + W.action;
+  const tableWidth = W.n + W.project + W.task + W.role + W.budget + W.unit + W.rate + W.total + days.length * W.day + W.total + W.action;
 
   const commit = (line: TimesheetLine, day: string, hours: number | null) => {
     const problem = timesheetHoursProblem(entered, line.rowGUID, day, hours, header);
@@ -164,12 +164,13 @@ export default function PMTimesheetDocumentLines({ header, lines, entered, optio
             {[[W.project, 'Project'], [W.task, 'Task'], [W.role, 'Role'], [W.budget, 'Budget item'], [W.unit, 'Business unit'], [W.rate, 'Hour cost']].map(([w, t]) => (
               <View key={String(t)} style={[styles.cell, { width: w as number }]}><Text numberOfLines={1} style={[styles.head, { color: c.text }]}>{pmT(String(t))}</Text></View>
             ))}
+            <View style={[styles.cell, { width: W.total }]}><Text numberOfLines={1} style={[styles.head, { color: c.text, textAlign: 'right' }]}>{pmT('Total hours')}</Text></View>
             {days.map((d) => (
               <View key={d} testID={`${testID}-day-${d}`} style={[styles.cell, { width: W.day, backgroundColor: isWeekend(d) ? shade : undefined }]}>
                 <Text numberOfLines={1} style={[styles.head, { color: c.text, textAlign: 'center' }]}>{dayColumnTitle(d)}</Text>
               </View>
             ))}
-            <View style={[styles.cell, { width: W.total }]}><Text style={[styles.head, { color: c.text, textAlign: 'right' }]}>{pmT('Total')}</Text></View>
+            <View style={[styles.cell, { width: W.total }]}><Text numberOfLines={1} style={[styles.head, { color: c.text, textAlign: 'right' }]}>{pmT('Total hours')}</Text></View>
             <View style={{ width: W.action }} />
           </View>
 
@@ -194,6 +195,7 @@ export default function PMTimesheetDocumentLines({ header, lines, entered, optio
                     {hourCostText(line).missing ? pmT('no rate') : hourCostText(line).text}
                   </Text>
                 </View>
+                <View style={[styles.cell, { width: W.total }]}><Text testID={`${lt}-total-first`} style={{ color: c.text, fontWeight: '700', fontSize: 12, textAlign: 'right' }}>{hoursOfLine(entered, line.rowGUID)}</Text></View>
                 {days.map((d) => {
                   const v = cells.get(cellKey(line.rowGUID, d));
                   return (
@@ -220,6 +222,7 @@ export default function PMTimesheetDocumentLines({ header, lines, entered, optio
             <View style={[styles.cell, { width: W.n + W.project + W.task + W.role + W.budget + W.unit + W.rate }]}>
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 12, textAlign: 'right' }}>{pmT('Hours per day')}</Text>
             </View>
+            <View style={[styles.cell, { width: W.total }]}><Text testID={`${testID}-grand-total-first`} style={{ color: c.text, fontWeight: '700', fontSize: 12, textAlign: 'right' }}>{hoursOfSheet(entered)}</Text></View>
             {days.map((d) => (
               <View key={d} style={[styles.cell, { width: W.day, backgroundColor: isWeekend(d) ? shade : undefined }]}>
                 <Text testID={`${testID}-day-total-${d}`} style={{ color: c.text, fontSize: 12, textAlign: 'center' }}>{hoursOfDay(entered, d) || ''}</Text>

@@ -12241,6 +12241,7 @@ DECLARE f jsonb := COALESCE(p_filter, '{}'::jsonb); v jsonb;
 BEGIN
   SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r."created_at" DESC, r."rowGUID"), '[]'::jsonb) INTO v FROM (
     SELECT h."rowGUID", h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber", COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           NULLIF(h."rowJSON"->'documentHeader'->>'postedAt', '') AS "postedAt",
            h."timesheetWorkCenter", public.work_center_title_of(h."timesheetWorkCenter") AS "workCenterTitle", h."startDate", h."finishDate",
            (SELECT count(*) FROM public.project_timesheet_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "lines",
            (SELECT COALESCE(sum(d."timesheetHours"), 0) FROM public.project_timesheet_lines_data_entered d WHERE d."rowHeaderGUID" = h."rowGUID") AS "hours",

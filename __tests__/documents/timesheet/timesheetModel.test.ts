@@ -3,7 +3,7 @@
 import {
   EMPTY_TIMESHEET_FILTER, TIMESHEET_ALL_WORK_CENTERS_KEY, TIMESHEET_ONLY_CURRENT_MONTH_KEY, TimesheetEntered, addDays, canDeleteTimesheet, canEditTimesheet, canPostTimesheet, canUnpostTimesheet, cellKey, createSkippedText,
   currentMonthPeriod, dayColumnTitle, dayCount, daysBetween, enteredMap, enteredOutside, headerOfRow, hoursOfDay, hoursOfLine, hoursOfSheet, isDay, isWeekend, lineEnabled, lineOfRow, listRowOf, monthEnd, monthStart,
-  parseCreateAnswer, parseListAnswer, parseMyWorkCenterAnswer, parsePostAnswer, rowTitleOf, timesheetFilterActive, timesheetFilterToRpc, timesheetHoursProblem, timesheetPeriodProblem, timesheetPath, timesheetListPath,
+  formatDateTime, parseCreateAnswer, parseListAnswer, parseMyWorkCenterAnswer, parsePostAnswer, rowTitleOf, timesheetFilterActive, timesheetFilterToRpc, timesheetHoursProblem, timesheetPeriodProblem, timesheetPath, timesheetListPath,
   timesheetProblemLine, timesheetProblemText, timesheetSettingOf, lineMenuAvailability, hourCostText, timesheetSettingsOf, todayDay,
 } from '../../../kit8/documents/timesheet/timesheetModel';
 
@@ -162,6 +162,8 @@ describe('rows and answers', () => {
     expect(listRowOf({ rowGUID: 'h1', documentNumber: 'TS-1', documentStatus: 'draft', workCenterTitle: 'Anna K', startDate: '2026-10-01', finishDate: '2026-10-31', lines: 2, hours: '8.00' }))
       .toMatchObject({ documentGUID: 'h1', workCenterTitle: 'Anna K', lineCount: 2, hours: 8 });
     expect(parseListAnswer(null)).toEqual([]);
+    expect(listRowOf({ rowGUID: 'h2', postedAt: '2026-10-14T09:30:00.000Z' }).postedAt).toBe('2026-10-14T09:30:00.000Z');
+    expect(listRowOf({ rowGUID: 'h3' }).postedAt).toBe('');
   });
   it('parsePostAnswer keeps the problems with their line and day', () => {
     const a = parsePostAnswer({ status: 'refused', lines: 2, problems: [{ lineGUID: 'l1', problem: 'noRate', day: '2026-10-05' }, { lineGUID: null, problem: 'dayOver24', day: '2026-10-06', hours: 30, otherSheet: 'TS-00001' }] });
@@ -236,5 +238,15 @@ describe('the cost of an hour on a line and the problems of the price', () => {
     expect(timesheetProblemLine({ lineGUID: 'l1', problem: 'noExchangeRate', day: '2026-10-05', detail: 'No Default exchange rate of ZZZ on or before 2026-10-05' }))
       .toBe('The price cannot be converted: an exchange rate is missing. · 2026-10-05 · No Default exchange rate of ZZZ on or before 2026-10-05');
     expect(timesheetProblemLine({ lineGUID: 'l1', problem: 'noRoleRate', day: '2026-10-05' })).toBe('There is no rate for the hour: the role has no rate on this day. · 2026-10-05');
+  });
+});
+
+describe('formatDateTime (the posting date and time column)', () => {
+  it('YYYY-MM-DD HH:MM in the time zone of the user; nothing for an empty or wrong value', () => {
+    const d = new Date(2026, 9, 14, 9, 5, 30);
+    expect(formatDateTime(d.toISOString())).toBe('2026-10-14 09:05');
+    expect(formatDateTime('')).toBe('');
+    expect(formatDateTime(null)).toBe('');
+    expect(formatDateTime('not a date')).toBe('');
   });
 });

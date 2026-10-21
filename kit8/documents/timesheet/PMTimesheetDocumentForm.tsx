@@ -7,7 +7,8 @@
 // A change of the period or of the work center that would drop entered hours / clear roles asks first.
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { showSnackbar } from '../../redux/uxuiSlice';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import ButtonApp from '../../ui/components/common/ButtonApp';
 import IconApp from '../../ui/components/common/IconApp';
@@ -34,6 +35,7 @@ type Pending = { kind: 'period'; startDate: string; finishDate: string; dropped:
 export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID = 'timesheet' }: PMTimesheetDocumentFormProps) {
   const { themeColors: c } = useDesignSystem();
   const doc = useTimesheetDocument(documentGUID);
+  const dispatch = useDispatch();
   const header = doc.header;
   const options = useTimesheetOptions(header?.workCenter ?? '', true);
   const my = useMyWorkCenter(true);
@@ -100,10 +102,13 @@ export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID 
   const doPost = async () => {
     const a = await doc.post();
     setProblems(a && a.status !== 'posted' ? a.problems : []);
+    // the snack bar tells that the sheet is posted (the movements are in the register: Monitor01 Used)
+    if (a?.status === 'posted') dispatch(showSnackbar({ message: pmT('Time sheet {{n}} posted: {{h}} hours, {{c}} cells', { n: header?.documentNumber ?? '', h: hours, c: doc.entered.length }), isError: false, duration: 4000 }));
   };
   const doUnpost = async () => {
     const a = await doc.unpost();
     setProblems(a && a.status !== 'draft' ? a.problems : []);
+    if (a?.status === 'draft') dispatch(showSnackbar({ message: pmT('Time sheet {{n}} unposted: it is a draft again', { n: header?.documentNumber ?? '' }), isError: false, duration: 3000 }));
   };
   const doDelete = async () => { if (await doc.remove()) onClose?.(); };
 

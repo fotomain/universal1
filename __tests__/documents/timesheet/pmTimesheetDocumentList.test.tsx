@@ -31,11 +31,11 @@ const PMTimesheetDocumentList = require('../../../kit8/documents/timesheet/PMTim
 import { TimesheetListRow } from '../../../kit8/documents/timesheet/timesheetModel';
 import { timesheetListColumns } from '../../../kit8/documents/timesheet/timesheetListColumns';
 
-const row = (guid: string, over: Partial<TimesheetListRow> = {}): TimesheetListRow => ({ documentGUID: guid, documentNumber: `TS-${guid}`, documentStatus: 'draft', workCenter: 'wc1', workCenterTitle: 'Anna K', startDate: '2026-10-01', finishDate: '2026-10-31', lineCount: 2, hours: 12.5, ...over });
+const row = (guid: string, over: Partial<TimesheetListRow> = {}): TimesheetListRow => ({ documentGUID: guid, documentNumber: `TS-${guid}`, documentStatus: 'draft', workCenter: 'wc1', workCenterTitle: 'Anna K', startDate: '2026-10-01', finishDate: '2026-10-31', lineCount: 2, hours: 12.5, postedAt: '', ...over });
 const flush = () => act(async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 200)); });
 const lastTable = () => mockTable.mock.calls.at(-1)![0];
 beforeEach(() => {
-  Object.assign(mockList, { rows: [row('d1'), row('d2', { documentStatus: 'posted', hours: 8 })], isLoading: false, error: null, refetch: jest.fn() });
+  Object.assign(mockList, { rows: [row('d1'), row('d2', { documentStatus: 'posted', hours: 8, postedAt: '2026-10-14T09:30:00Z' })], isLoading: false, error: null, refetch: jest.fn() });
   Object.keys(mockNew).forEach((k) => delete mockNew[k]);
   Object.assign(mockNew, { make: jest.fn(async () => 'dNew'), busy: false, error: null });
   (globalThis as any).__pmTestReduxState = {};
@@ -52,13 +52,15 @@ describe('the table', () => {
     const byGuid = new Map(mockList.rows.map((r: TimesheetListRow) => [r.documentGUID, r]));
     const cols = timesheetListColumns((r) => byGuid.get(r.rowGUID) as any);
     const get = (key: string, guid: string) => (cols.find((c: any) => c.key === key) as any).fromStored(null, { rowGUID: guid });
-    expect(cols.map((c: any) => c.key)).toEqual(['n', 'posted', 'document', 'workCenter', 'startDate', 'finishDate', 'hours', 'lines', 'status']);
+    expect(cols.map((c: any) => c.key)).toEqual(['n', 'posted', 'document', 'workCenter', 'startDate', 'finishDate', 'hours', 'lines', 'status', 'postedAt']);
     expect(get('document', 'd1')).toBe('TS-d1');
     expect(get('workCenter', 'd1')).toBe('Anna K');
     expect(get('hours', 'd1')).toBe(12.5);
     expect(get('lines', 'd1')).toBe(2);
     expect(get('status', 'd1')).toBe('Draft');
     expect(get('status', 'd2')).toBe('Posted');
+    expect(get('postedAt', 'd1')).toBe('');
+    expect(get('postedAt', 'd2')).toMatch(/^2026-10-1[45] \d\d:\d\d$/);
     expect(get('document', 'nope')).toBe('');
     // the Posted column: a green check only for a posted sheet
     const posted: any = cols.find((c: any) => c.key === 'posted');

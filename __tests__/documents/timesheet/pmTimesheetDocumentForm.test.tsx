@@ -35,6 +35,8 @@ jest.doMock('../../../kit8/ui/components/common/TextInputApp', () => {
   const TextInputApp = ({ testID, value, disabled, onChangeText, label }: any) => R.createElement(TextInput, { testID, value, editable: !disabled, onChangeText, accessibilityLabel: label });
   return { __esModule: true, default: TextInputApp, TextInputApp };
 });
+const mockDispatch = jest.fn();
+jest.doMock('react-redux', () => ({ ...jest.requireActual('react-redux'), useDispatch: () => mockDispatch, useSelector: (fn: any) => fn({ uxuiState: {}, ...((globalThis as any).__pmTestReduxState || {}) }) }));
 const PMTimesheetDocumentForm = require('../../../kit8/documents/timesheet/PMTimesheetDocumentForm').default;
 import { TimesheetHeader, TimesheetLine } from '../../../kit8/documents/timesheet/timesheetModel';
 
@@ -108,6 +110,32 @@ describe('the bar', () => {
     press(`${T}-unpost`);
     await flush();
     expect(mockDoc.unpost).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the snack bar', () => {
+  const lastSnack = () => mockDispatch.mock.calls.map((c) => c[0]).filter((a: any) => a?.payload?.message).at(-1);
+  it('after a successful Post: "Time sheet TS-00001 posted: 8 hours, 1 cells" (not an error)', async () => {
+    setDoc(header());
+    show();
+    press(`${T}-post`);
+    await flush();
+    expect(lastSnack().payload).toMatchObject({ message: 'Time sheet TS-00001 posted: 8 hours, 1 cells', isError: false });
+  });
+  it('a refused Post shows the problems, no snack bar', async () => {
+    mockDispatch.mockClear();
+    setDoc(header(), { post: jest.fn(async () => ({ status: 'refused', lines: 1, problems: [{ lineGUID: 'l1', problem: 'roleMissing' }] })) });
+    show();
+    press(`${T}-post`);
+    await flush();
+    expect(lastSnack()).toBeUndefined();
+  });
+  it('after Unpost: the sheet is a draft again', async () => {
+    setDoc(header({ status: 'posted' }));
+    show();
+    press(`${T}-unpost`);
+    await flush();
+    expect(lastSnack().payload.message).toBe('Time sheet TS-00001 unposted: it is a draft again');
   });
 });
 

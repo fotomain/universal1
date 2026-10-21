@@ -317,6 +317,7 @@ SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.eq(public.create_timesheet_from_task(:'tstage')->'skipped'->0->>'reason', 'taskNotNormal', 'a stage: skipped');
 SELECT tt.eq(public.create_timesheet_from_task(:'tmarko')->'skipped'->0->>'reason', 'taskNotFound', 'a task of another organization: skipped');
 SELECT tt.eq(jsonb_array_length(public.timesheet_list(jsonb_build_object('taskGUID', :'t3'))), 9, 'the list filtered by the task: the sheets that have a line of it');
+SELECT tt.eq((SELECT count(*) FROM jsonb_array_elements(public.timesheet_list(jsonb_build_object('status', 'draft'))) r WHERE r->>'postedAt' IS NOT NULL), 0::bigint, 'the list: a draft has no posting date and time');
 SELECT tt.eq(jsonb_array_length(public.timesheet_list(jsonb_build_object('taskGUID', :'tstage'))), 0, '... another task: none');
 SELECT tt.eq(public.timesheet_list(jsonb_build_object('timesheetWorkCenter', :'wc_anna', 'status', 'draft'))->0->>'documentStatus', 'draft', 'the list filters by work center and status');
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');

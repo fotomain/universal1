@@ -46,8 +46,14 @@ export interface PMTimesheetDocumentHeaderProps {
 }
 
 const FIELD = { marginBottom: 0 };
-/** every element of the row is ONE height and centered vertically */
-const ROW_H = 44;
+/**
+ * ONE box height for every element of the row (the visible border of an input, a select, a button, a chip): 42 px, and ALL of them stand on the SAME bottom line (the row is aligned to the bottom), so their top and
+ * bottom borders are on the same two lines. Paper draws an outlined input in a box that is LABEL_ROOM px taller than its outline (the floating label sits on the top border), so an input there gets
+ * BOX_H + LABEL_ROOM as its height; the other design systems get BOX_H.
+ */
+const BOX_H = 42;
+const BUTTON_H = BOX_H;
+const LABEL_ROOM = 12;
 /** the quick choices: this / previous week (Monday - Sunday) and month */
 export function quickPeriods(now: Date = new Date()): { id: string; label: string; startDate: string; finishDate: string }[] {
   const today = todayDay(now);
@@ -63,49 +69,53 @@ export function quickPeriods(now: Date = new Date()): { id: string; label: strin
 }
 
 export default function PMTimesheetDocumentHeader(p: PMTimesheetDocumentHeaderProps) {
-  const { themeColors: c } = useDesignSystem();
+  const { themeColors: c, activeSystem } = useDesignSystem();
   const testID = p.testID ?? 'timesheet';
+  const inputH = activeSystem === 'paper' ? BOX_H + LABEL_ROOM : BOX_H;
+  const slotH = Math.max(inputH, BOX_H);
   // with the month switch on a quick choice that leaves today's month is not offered
   const quick = quickPeriods().filter((q) => !p.onlyCurrentMonth || timesheetPeriodProblem(q.startDate, q.finishDate, true) === null);
   return (
     <View testID={`${testID}-form`} style={styles.form}>
-      <View style={[styles.cell, { width: 130 }]}>
-        <TextInputApp testID={`${testID}-field-number`} label={pmT('Document')} value={p.header.documentNumber} compact disabled hideClearIcon style={FIELD} />
+      <View style={[styles.cell, { width: 130, height: slotH }]}>
+        <TextInputApp testID={`${testID}-field-number`} label={pmT('Document')} value={p.header.documentNumber} compact disabled hideClearIcon inputHeight={inputH} style={FIELD} />
       </View>
-      <View style={[styles.cell, { width: 220 }]}>
+      <View style={[styles.cell, { width: 220, height: slotH }]}>
         {/* the organization of the user: shown, never edited */}
-        <TextInputApp testID={`${testID}-field-organization`} label={pmT('Organization')} value={p.organizationTitle} compact disabled hideClearIcon style={FIELD} />
+        <TextInputApp testID={`${testID}-field-organization`} label={pmT('Organization')} value={p.organizationTitle} compact disabled hideClearIcon inputHeight={inputH} style={FIELD} />
       </View>
-      <View style={[styles.cell, { width: 260 }]}>
+      <View style={[styles.cell, { width: 260, height: slotH }]}>
         <SelectItemFromListApp
           testID={`${testID}-field-workCenter`} items={p.workCenters} value={p.header.workCenter} onSelect={(v) => { if (v) p.onWorkCenter(v); }} disabled={!p.edit}
-          placeholder={pmT('Work center')} searchPlaceholder={pmT('Work center')} fieldHeight={42} fieldRadius={4}
+          placeholder={pmT('Work center')} searchPlaceholder={pmT('Work center')} fieldHeight={BOX_H} fieldRadius={4}
         />
       </View>
       {p.canCreateWorkCenter && p.edit && (
         // the Person of the user has no work center yet: one click makes it
-        <View style={styles.cell}>
-          <ButtonApp testID={`${testID}-create-work-center`} title={pmT('Create work center')} icon="add_circle" variant="outlined" size="medium" style={{ marginVertical: 0, height: 42 }} disabled={p.creatingWorkCenter} onPress={p.onCreateWorkCenter} />
+        <View style={[styles.cell, { height: slotH }]}>
+          <ButtonApp testID={`${testID}-create-work-center`} title={pmT('Create work center')} icon="add_circle" variant="outlined" size="medium" style={{ marginVertical: 0, height: BUTTON_H }} disabled={p.creatingWorkCenter} onPress={p.onCreateWorkCenter} />
         </View>
       )}
-      <View style={[styles.cell, { width: 200 }]}>
-        <DateInputApp testID={`${testID}-field-startDate`} label={pmT('Start date')} value={p.startText} compact disabled={!p.edit} error={p.startError} style={FIELD} onChangeText={p.onStartText} />
+      <View style={[styles.cell, { width: 200, height: slotH }]}>
+        <DateInputApp testID={`${testID}-field-startDate`} label={pmT('Start date')} value={p.startText} compact disabled={!p.edit} error={p.startError} inputHeight={inputH} style={FIELD} onChangeText={p.onStartText} />
       </View>
-      <View style={[styles.cell, { width: 200 }]}>
-        <DateInputApp testID={`${testID}-field-finishDate`} label={pmT('Finish date')} value={p.finishText} compact disabled={!p.edit} error={p.finishError} style={FIELD} onChangeText={p.onFinishText} />
+      <View style={[styles.cell, { width: 200, height: slotH }]}>
+        <DateInputApp testID={`${testID}-field-finishDate`} label={pmT('Finish date')} value={p.finishText} compact disabled={!p.edit} error={p.finishError} inputHeight={inputH} style={FIELD} onChangeText={p.onFinishText} />
       </View>
       {p.edit && (
-        <View style={[styles.period, { height: ROW_H }]}>
+        <View style={[styles.period, { height: slotH }]}>
           {/* the period selector writes BOTH dates (a range of months) */}
-          <SelectPeriodButton testID={`${testID}-period`} value={{ startDate: p.header.startDate, finishDate: p.header.finishDate }} onApply={p.onPeriod} color={c.primary} />
+          <View style={styles.periodIcon}>
+            <SelectPeriodButton testID={`${testID}-period`} value={{ startDate: p.header.startDate, finishDate: p.header.finishDate }} onApply={p.onPeriod} color={c.primary} />
+          </View>
           {quick.map((q) => (
             <Pressable key={q.id} testID={`${testID}-quick-${q.id}`} accessibilityRole="button" onPress={() => p.onPeriod({ startDate: q.startDate, finishDate: q.finishDate })} style={[styles.chip, { borderColor: c.border }]}>
-              <Text style={{ color: c.text, fontSize: 12 }}>{pmT(q.label)}</Text>
+              <Text style={{ color: c.text, fontSize: 13 }}>{pmT(q.label)}</Text>
             </Pressable>
           ))}
         </View>
       )}
-      <View testID={`${testID}-totals`} style={[styles.totals, { height: ROW_H }]}>
+      <View testID={`${testID}-totals`} style={[styles.totals, { height: slotH }]}>
         <Text style={{ color: c.text, fontWeight: '700', fontSize: 12 }}>{pmT('Hours')} {p.hours} · {p.lineCount} {pmT('lines')}</Text>
       </View>
       {!!p.periodMessage && <Text testID={`${testID}-period-message`} style={{ color: c.error, fontSize: 12, width: '100%' }}>{p.periodMessage}</Text>}
@@ -114,9 +124,12 @@ export default function PMTimesheetDocumentHeader(p: PMTimesheetDocumentHeaderPr
 }
 
 const styles = StyleSheet.create({
-  form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
-  cell: { height: ROW_H, justifyContent: 'center' },
-  period: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  chip: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4 },
-  totals: { flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: 8 },
+  // every slot stands on the same bottom line: the boxes inside have the same height, so their top borders meet too
+  form: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
+  cell: { justifyContent: 'flex-end' },
+  period: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 6 },
+  // the icon button of the period selector: a box of the button height, the icon centered in it
+  periodIcon: { width: BOX_H, height: BOX_H, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: BUTTON_H, borderWidth: 1, borderRadius: BUTTON_H / 2, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  totals: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginLeft: 8, paddingBottom: (BOX_H - 14) / 2 },
 });

@@ -108,6 +108,14 @@ describe('the totals', () => {
     expect(textOf(`${T}-day-total-2026-10-06`)).toBe('10');
     expect(textOf(`${T}-day-total-2026-10-08`)).toBe('');
     expect(textOf(`${T}-grand-total`)).toBe('14.5');
+    // the same totals ALSO right after "Hour cost" (before the day columns)
+    expect(textOf(`${T}-line-l1-total-first`)).toBe('12.5');
+    expect(textOf(`${T}-line-l2-total-first`)).toBe('2');
+    expect(textOf(`${T}-grand-total-first`)).toBe('14.5');
+    const header = textOf(`${T}-header-row`);
+    expect(header.indexOf('Hour cost')).toBeLessThan(header.indexOf('Total hours'));
+    expect(header.indexOf('Total hours')).toBeLessThan(header.indexOf('Mon 05'));
+    expect(header.split('Total hours')).toHaveLength(3);          // the column header is there twice: after Hour cost and at the end of the line
   });
 });
 
