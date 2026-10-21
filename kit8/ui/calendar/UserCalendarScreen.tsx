@@ -16,6 +16,7 @@ import { useDispatch } from 'react-redux';
 import { ModalWindowListToSelect } from '../components/common';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { showSnackbar } from '../../redux/uxuiSlice';
+import { openProjectTaskInDashboard } from './projectTaskLink';
 import {
   addDays,
   calendarCodeOfKind,
@@ -26,6 +27,7 @@ import {
   isGoogleCalendarConfigured,
   MONTH_NAMES,
   MONTH_SHORT,
+  MoveDelta,
   newEventJSON,
   startOfDay,
   UserCalendarEventRow,
@@ -39,6 +41,7 @@ import {
 import { CalButton, CalChip, CalIconButton, useIsWide } from './calendarUi';
 import ReminderSettingsWindow from '../reminder/ReminderSettingsWindow';
 import { startOfWeek, UserCalendarAgendaView, UserCalendarMonthView, UserCalendarTimeGridView } from './UserCalendarViews';
+import { createDoubleTap } from './doubleTap';
 import { useUserCalendarActions } from './useUserCalendarActions';
 import { useUserCalendarUiStore } from './userCalendarUiStore';
 
@@ -171,7 +174,23 @@ export default function UserCalendarScreen() {
     setAnchor(startOfDay(day));
     setModeState('day');
   }, []);
-  const onOpen = useCallback((occurrence: UserCalendarOccurrence) => openView({ occurrence }), [openView]);
+  // a tap shows the quick view; on a project task a double click / double touch goes to the task in the dashboard
+  const tapRef = useRef<ReturnType<typeof createDoubleTap<UserCalendarOccurrence>> | null>(null);
+  tapRef.current ||= createDoubleTap<UserCalendarOccurrence>(
+    (occurrence) => openView({ occurrence }),
+    (occurrence) => openProjectTaskInDashboard(occurrence.row.rowJSON, router),
+    (a, b) => a.row.rowGUID === b.row.rowGUID
+  );
+  useEffect(() => () => tapRef.current?.cancel(), []);
+  const onOpen = useCallback(
+    (occurrence: UserCalendarOccurrence) => {
+      const j = occurrence.row.rowJSON;
+      if (j.kind === 'projectTask' && j.projectGUID && j.projectTaskGUID) tapRef.current?.tap(occurrence);
+      else openView({ occurrence });
+    },
+    [openView]
+  );
+  const onMove = useCallback((occurrence: UserCalendarOccurrence, d: MoveDelta) => void actions.move(occurrence, d), [actions]);
   const onToggleDone = useCallback((row: UserCalendarEventRow) => void actions.setDone(row, !row.rowJSON.done), [actions]);
   const syncGoogle = useCallback(() => void actions.syncGoogle(false), [actions]);
 
@@ -212,7 +231,7 @@ export default function UserCalendarScreen() {
     );
   }
 
-  const viewProps = { occurrences, color: c, colorOf, onOpen, onNewAt, onShowDay, onToggleDone };
+  const viewProps = { occurrences, color: c, colorOf, onOpen, onNewAt, onShowDay, onToggleDone, onMove };
   const error = (eventsQuery.error || calendarsQuery.error) as Error | null;
 
   return (

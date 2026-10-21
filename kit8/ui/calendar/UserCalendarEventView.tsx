@@ -10,6 +10,7 @@ import IconApp from '../components/common/IconApp';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { colorOfEvent, eventWhenText, notificationLabel, recurrenceLabel, USER_CALENDAR_KIND_LABELS } from './data';
 import { CalButton, CalIconButton, CalWindow } from './calendarUi';
+import { openProjectTaskInDashboard } from './projectTaskLink';
 import { useUserCalendarActions } from './useUserCalendarActions';
 import { useUserCalendarUiStore } from './userCalendarUiStore';
 
@@ -31,11 +32,12 @@ export default function UserCalendarEventView() {
   const guests = j.guests || [];
   const link = j.intent?.intentURL || '';
 
-  const edit = () => openEditor({ row, draft: j });
+  // a project task is edited in the project dashboard (task + tab + line, Edit view), not in a calendar form
   const openProjectTask = () => {
     close();
-    router.push({ pathname: '/pm/project/task', params: { taskGUID: j.projectTaskGUID || '', projectGUID: j.projectGUID || '' } } as any);
+    openProjectTaskInDashboard(j, router);
   };
+  const edit = () => (isProjectTask && j.projectGUID && j.projectTaskGUID ? openProjectTask() : openEditor({ row, draft: j }));
   const onDelete = () => {
     if (j.recurrence) return setMenu('delete');
     close();

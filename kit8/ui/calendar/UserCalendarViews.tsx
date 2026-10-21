@@ -2,21 +2,24 @@
 // Plain React Native views (the same code on web, Android and iOS, portrait and landscape).
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import IconApp from '../components/common/IconApp';
 import {
   addDays,
   DAY_MS,
   dayKey,
+  isMovableRow,
   MONTH_NAMES,
   startOfDay,
   timeText,
+  MoveDelta,
   UserCalendarEventRow,
   UserCalendarOccurrence,
   WEEKDAY_NAMES,
   WEEKDAY_SHORT,
 } from './data';
 import type { CalendarColors } from './calendarUi';
+import { DragItem, DragSpec, monthDelta, timeGridDelta } from './calendarDrag';
 
 export interface UserCalendarViewProps {
   occurrences: UserCalendarOccurrence[];
@@ -27,6 +30,8 @@ export interface UserCalendarViewProps {
   onNewAt: (start: Date, allDay: boolean) => void;
   onShowDay: (day: Date) => void;
   onToggleDone: (row: UserCalendarEventRow) => void;
+  /** an entry typed in by the user was dropped on another day / time (drag and drop) */
+  onMove?: (occurrence: UserCalendarOccurrence, delta: MoveDelta) => void;
 }
 
 /** Monday-first weeks. */
@@ -51,22 +56,29 @@ function byDay(occurrences: UserCalendarOccurrence[]): Record<string, UserCalend
 }
 
 /** One line of an entry (month cells, all-day band). */
-function Chip({ o, p, compact }: { o: UserCalendarOccurrence; p: UserCalendarViewProps; compact?: boolean }) {
+function Chip({ o, p, compact, drag }: { o: UserCalendarOccurrence; p: UserCalendarViewProps; compact?: boolean; drag?: DragSpec }) {
   const bg = p.colorOf(o.row);
   const solid = o.allDay || o.row.rowJSON.kind === 'birthday';
-  return (
-    <Pressable
-      testID={`user-calendar-chip-${o.key}`}
-      accessibilityRole="button"
-      accessibilityLabel={o.row.rowJSON.title}
-      onPress={() => p.onOpen(o)}
-      style={[styles.chip, { backgroundColor: solid ? bg : 'transparent', opacity: isDone(o) ? 0.55 : 1 }]}
-    >
+  const style = [styles.chip, { backgroundColor: solid ? bg : 'transparent', opacity: isDone(o) ? 0.55 : 1 }];
+  const content = (
+    <>
       {!solid && <View style={[styles.chipDot, { backgroundColor: bg }]} />}
       <Text numberOfLines={1} style={{ flex: 1, fontSize: compact ? 10.5 : 11.5, color: solid ? '#fff' : p.color.text, textDecorationLine: isDone(o) ? 'line-through' : 'none' }}>
         {!solid && !compact ? `${timeText(o.startMs)} ` : ''}
         {o.row.rowJSON.title || '(No title)'}
       </Text>
+    </>
+  );
+  if (drag && p.onMove && isMovableRow(o.row)) {
+    return (
+      <DragItem testID={`user-calendar-chip-${o.key}`} label={o.row.rowJSON.title} style={style} spec={drag} onTap={() => p.onOpen(o)} onDrop={(d) => p.onMove?.(o, d)}>
+        {content}
+      </DragItem>
+    );
+  }
+  return (
+    <Pressable testID={`user-calendar-chip-${o.key}`} accessibilityRole="button" accessibilityLabel={o.row.rowJSON.title} onPress={() => p.onOpen(o)} style={style}>
+      {content}
     </Pressable>
   );
 }
@@ -76,6 +88,8 @@ function Chip({ o, p, compact }: { o: UserCalendarOccurrence; p: UserCalendarVie
 // ---------------------------------------------------------------------------------------------
 export function UserCalendarMonthView({ anchor, ...p }: UserCalendarViewProps & { anchor: Date }) {
   const [rowH, setRowH] = useState(90);
+  const [cellW, setCellW] = useState(60);
+  const [dropKey, setDropKey] = useState<string | null>(null);
   const first = startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
   const map = useMemo(() => byDay(p.occurrences), [p.occurrences]);
   const today = dayKey(new Date());
@@ -89,25 +103,29 @@ export function UserCalendarMonthView({ anchor, ...p }: UserCalendarViewProps & 
         ))}
       </View>
       {[0, 1, 2, 3, 4, 5].map((w) => (
-        <View key={w} style={{ flex: 1, flexDirection: 'row' }} onLayout={w === 0 ? (e) => setRowH(e.nativeEvent.layout.height) : undefined}>
+        <View key={w} style={{ flex: 1, flexDirection: 'row' }} onLayout={w === 0 ? (e) => (setRowH(e.nativeEvent.layout.height), setCellW(e.nativeEvent.layout.width / 7)) : undefined}>
           {[0, 1, 2, 3, 4, 5, 6].map((i) => {
             const day = addDays(first, w * 7 + i);
             const key = dayKey(day);
             const list = map[key] || [];
             const shown = list.length > lines ? list.slice(0, Math.max(0, lines - 1)) : list;
             const other = day.getMonth() !== anchor.getMonth();
+            const drag: DragSpec = {
+              delta: (dx, dy) => monthDelta(dx, dy, cellW, rowH),
+              hover: (d) => setDropKey(d ? dayKey(addDays(day, d.dayDelta)) : null),
+            };
             return (
               <Pressable
                 key={key}
                 testID={`user-calendar-month-day-${key}`}
                 accessibilityLabel={`${day.getDate()} ${MONTH_NAMES[day.getMonth()]}, ${list.length} entries`}
                 onPress={() => p.onNewAt(day, true)}
-                style={[styles.monthCell, { borderColor: c.border, backgroundColor: other ? `${c.border}33` : 'transparent' }]}
+                style={[styles.monthCell, { borderColor: c.border, backgroundColor: dropKey === key ? `${c.primary}33` : other ? `${c.border}33` : 'transparent' }]}
               >
                 <Pressable onPress={() => p.onShowDay(day)} hitSlop={4} style={[styles.dayNumber, key === today ? { backgroundColor: c.primary } : null]}>
                   <Text style={{ fontSize: 12, fontWeight: key === today ? '800' : '500', color: key === today ? '#fff' : c.text, opacity: other ? 0.5 : 1 }}>{day.getDate()}</Text>
                 </Pressable>
-                {shown.map((o) => <Chip key={o.key + key} o={o} p={p} compact />)}
+                {shown.map((o) => <Chip key={o.key + key} o={o} p={p} compact drag={drag} />)}
                 {list.length > shown.length && (
                   <Pressable onPress={() => p.onShowDay(day)} testID={`user-calendar-month-more-${key}`}>
                     <Text style={{ fontSize: 10.5, color: c.text, opacity: 0.7, paddingHorizontal: 4 }}>+{list.length - shown.length} more</Text>
@@ -160,6 +178,8 @@ export function UserCalendarTimeGridView({ days, ...p }: UserCalendarViewProps &
   const map = useMemo(() => byDay(p.occurrences), [p.occurrences]);
   const scrollRef = useRef<ScrollView>(null);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [colW, setColW] = useState(100);
+  const [dropKey, setDropKey] = useState<string | null>(null);
   const today = dayKey(nowMs);
   const firstKey = dayKey(days[0]);
   useEffect(() => {
@@ -176,15 +196,19 @@ export function UserCalendarTimeGridView({ days, ...p }: UserCalendarViewProps &
   const maxAllDay = Math.min(3, Math.max(0, ...days.map((d) => (map[dayKey(d)] || []).filter((o) => o.allDay).length)));
 
   return (
-    <View style={{ flex: 1 }} testID="user-calendar-timegrid">
+    <View style={{ flex: 1 }} testID="user-calendar-timegrid" onLayout={(e) => setColW(Math.max(1, (e.nativeEvent.layout.width - GUTTER) / days.length))}>
       {/* ---- day headers + all-day band ---- */}
       <View style={{ flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.border }}>
         <View style={{ width: GUTTER }} />
         {days.map((day) => {
           const key = dayKey(day);
           const allDay = (map[key] || []).filter((o) => o.allDay);
+          const bandDrag: DragSpec = {
+            delta: (dx) => monthDelta(dx, 0, colW, 0),
+            hover: (d) => setDropKey(d ? dayKey(addDays(day, d.dayDelta)) : null),
+          };
           return (
-            <View key={key} style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
+            <View key={key} style={{ flex: 1, minWidth: 0, paddingBottom: 2, backgroundColor: dropKey === key ? `${c.primary}33` : 'transparent' }}>
               <Pressable onPress={() => p.onShowDay(day)} style={{ alignItems: 'center', paddingVertical: 4 }} testID={`user-calendar-timegrid-head-${key}`}>
                 <Text style={{ fontSize: 11, color: key === today ? c.primary : c.text, opacity: key === today ? 1 : 0.7 }}>{days.length === 1 ? WEEKDAY_NAMES[day.getDay()] : WEEKDAY_SHORT[day.getDay()]}</Text>
                 <View style={[styles.headNumber, key === today ? { backgroundColor: c.primary } : null]}>
@@ -192,7 +216,7 @@ export function UserCalendarTimeGridView({ days, ...p }: UserCalendarViewProps &
                 </View>
               </Pressable>
               <Pressable onPress={() => p.onNewAt(day, true)} style={{ minHeight: maxAllDay * 19 + 4 }} accessibilityLabel="New all-day entry">
-                {allDay.slice(0, 3).map((o) => <Chip key={o.key + key} o={o} p={p} compact={days.length > 1} />)}
+                {allDay.slice(0, 3).map((o) => <Chip key={o.key + key} o={o} p={p} compact={days.length > 1} drag={bandDrag} />)}
                 {allDay.length > 3 && <Text style={{ fontSize: 10.5, color: c.text, opacity: 0.7, paddingHorizontal: 4 }}>+{allDay.length - 3} more</Text>}
               </Pressable>
             </View>
@@ -229,20 +253,36 @@ export function UserCalendarTimeGridView({ days, ...p }: UserCalendarViewProps &
                 const top = ((s - dayStart) / 3600000) * HOUR_H;
                 const height = Math.max(18, ((e - s) / 3600000) * HOUR_H - 2);
                 const bg = p.colorOf(o.row);
-                return (
-                  <Pressable
-                    key={o.key}
-                    testID={`user-calendar-block-${o.key}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={o.row.rowJSON.title}
-                    onPress={() => p.onOpen(o)}
-                    style={[styles.block, { top, height, left: `${(col / cols) * 100}%`, width: `${100 / cols}%`, backgroundColor: bg, opacity: isDone(o) ? 0.55 : 1 }]}
-                  >
+                const blockStyle: ViewStyle[] = [styles.block, { top, height, left: `${(col / cols) * 100}%`, width: `${100 / cols}%`, backgroundColor: bg, opacity: isDone(o) ? 0.55 : 1 }];
+                const blockDrag: DragSpec = {
+                  delta: (dx, dy) => {
+                    const d = timeGridDelta(dx, dy, colW, HOUR_H);
+                    // an entry that starts on this day stays inside the day
+                    if (o.startMs >= dayStart && !o.allDay) {
+                      const startMin = (o.startMs - dayStart) / 60000;
+                      d.minuteDelta = Math.max(-startMin, Math.min(24 * 60 - 15 - startMin, d.minuteDelta));
+                    }
+                    d.dayDelta = Math.max(-days.indexOf(day), Math.min(days.length - 1 - days.indexOf(day), d.dayDelta));
+                    return d;
+                  },
+                  offset: (d) => ({ x: d.dayDelta * colW, y: (d.minuteDelta / 60) * HOUR_H }),
+                };
+                const content = (
+                  <>
                     <Text numberOfLines={height > 34 ? 2 : 1} style={{ color: '#fff', fontSize: 11.5, fontWeight: '600', textDecorationLine: isDone(o) ? 'line-through' : 'none' }}>
                       {isTaskLike(o) ? '✓ ' : ''}
                       {o.row.rowJSON.title || '(No title)'}
                     </Text>
                     {height > 34 && <Text numberOfLines={1} style={{ color: '#fff', fontSize: 10, opacity: 0.9 }}>{timeText(o.startMs)}{o.row.rowJSON.kind === 'task' ? '' : ` – ${timeText(o.endMs)}`}</Text>}
+                  </>
+                );
+                return p.onMove && isMovableRow(o.row) ? (
+                  <DragItem key={o.key} testID={`user-calendar-block-${o.key}`} label={o.row.rowJSON.title} style={blockStyle} spec={blockDrag} onTap={() => p.onOpen(o)} onDrop={(d) => p.onMove?.(o, d)}>
+                    {content}
+                  </DragItem>
+                ) : (
+                  <Pressable key={o.key} testID={`user-calendar-block-${o.key}`} accessibilityRole="button" accessibilityLabel={o.row.rowJSON.title} onPress={() => p.onOpen(o)} style={blockStyle}>
+                    {content}
                   </Pressable>
                 );
               })}

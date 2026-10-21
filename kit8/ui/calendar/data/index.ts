@@ -2,6 +2,7 @@
 // Screens: kit8/ui/calendar · route: /user/calendar · SQL: kit8/sql/init/create_user_calendar_tables.sql
 export * from './userCalendarModel';
 export * from './userCalendarRecurrence';
+export * from './userCalendarMove';
 export * from './userCalendarApi';
 export * from './userCalendarQueries';
 export * from './userCalendarReminders';

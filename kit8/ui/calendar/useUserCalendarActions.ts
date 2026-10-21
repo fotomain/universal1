@@ -12,10 +12,14 @@ import {
   getGoogleCalendarToken,
   googleSyncResultText,
   isInvitationEmailConfigured,
+  isMovableRow,
+  moveEventJSON,
+  MoveDelta,
   sendEventInvitations,
   syncUserCalendarWithGoogle,
   UserCalendarEventJSON,
   UserCalendarEventRow,
+  UserCalendarOccurrence,
   userCalendarKeys,
   UserCalendarRow,
   useUserCalendarApi,
@@ -153,7 +157,22 @@ export function useUserCalendarActions() {
     [save]
   );
 
+  /**
+   * Drag and drop: an entry typed in by the user moves to another day / time. One occurrence of a repeating entry
+   * leaves the series (that day is skipped) and becomes a plain entry at the new place.
+   */
+  const move = useCallback(
+    async (o: UserCalendarOccurrence, delta: MoveDelta) => {
+      const row = o.row;
+      if (!isMovableRow(row) || (!delta.dayDelta && !delta.minuteDelta)) return null;
+      if (!row.rowJSON.recurrence) return save(moveEventJSON(row.rowJSON, o, delta), row);
+      await remove(row, o.startMs);
+      return save(moveEventJSON(row.rowJSON, o, delta, true), undefined);
+    },
+    [remove, save]
+  );
+
   const setDone = useCallback((row: UserCalendarEventRow, done: boolean) => save({ ...row.rowJSON, done }, row), [save]);
 
-  return { ownerGUID, save, remove, duplicate, setDone, invite, syncGoogle };
+  return { ownerGUID, save, remove, move, duplicate, setDone, invite, syncGoogle };
 }

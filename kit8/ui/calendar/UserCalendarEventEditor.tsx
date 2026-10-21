@@ -10,6 +10,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { openProjectTaskInDashboard } from './projectTaskLink';
 import { ModalWindowListToSelect, SelectDateApp, SwitchApp } from '../components/common';
 import IconApp from '../components/common/IconApp';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
@@ -181,7 +182,7 @@ export default function UserCalendarEventEditor() {
     if (!existing) return;
     if (id === 'openTask') {
       close();
-      router.push({ pathname: '/pm/project/task', params: { taskGUID: draft.projectTaskGUID || '', projectGUID: draft.projectGUID || '' } } as any);
+      openProjectTaskInDashboard(draft, router);
     } else if (id === 'duplicate') {
       close();
       await actions.duplicate(existing);

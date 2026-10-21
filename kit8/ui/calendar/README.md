@@ -27,3 +27,10 @@ Route `/user/calendar` (app bar button before the three dots menu, drawer item "
 - Google sync: "Connect Google Calendar" in the calendar tool bar, then the same button synchronises both ways
   with the primary Google calendar (3 months back, 12 months ahead). The token lasts about an hour.
   Project task copies are not pushed to Google unless `includeProjectTasks` is passed to `syncUserCalendarWithGoogle`.
+- Drag and drop: an entry typed in by the user (kind event | task) is dragged to another day / time - mouse on web, long press
+  then drag on a phone. Week / Day: days + time (15 min steps); Month and the all-day band: days. A repeating entry moves
+  ONE occurrence (that day is skipped, the moved copy is a plain entry). Project tasks and birthdays cannot be moved.
+  Code: `calendarDrag.tsx` (gesture + `DragItem`), `data/userCalendarMove.ts` (new dates), `useUserCalendarActions().move`.
+- Project tasks: a tap = quick view (shown after 380 ms so a double tap can win); a double click / double touch and the
+  edit icon of the quick view open `/pm/project/dashboard` at the task (Finances = Edit view) - `projectTaskLink.ts`,
+  deep link: `kit8/pm/view/project/dashboardDeepLink.ts`. Tests: `__tests__/ui/calendar`.
