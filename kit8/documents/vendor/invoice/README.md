@@ -13,6 +13,8 @@ Source: the Google Doc "W1 Vendor Invoice"; analysis, decisions and what was bui
 
 **Task menus**: the submenus "Create based on this" and "Go to" (before Delete) of the Task menu and of the line menu of the Finances table; "Go to → Vendor invoices" opens `/pm/vendor-invoice/list?taskGUID=…[&taskLineGUID=…]` - the list shows a chip (Task: …, x clears it) and `vendor_invoice_list` takes the keys `taskGUID` / `taskLineGUID`. See `kit8/documents/taskScope/README.md`.
 
+**Create based on → Payment fact** (a POSTED invoice): the button "Create based on" in the bar of the form (before Close) and the row menu of the list make ONE draft payment fact (OUTBOUND, to the vendor, what is still open on each line) and open it in a new window - `kit8/documents/payment/fact` (`PaymentFactBasedOn`, SQL `create_payment_fact_from_vendor_invoice`).
+
 ## Where a line's vendor comes from (`vendor_invoice_candidates`)
 1. the partner of the contract selected on the line (Time `taskResourceContract`, Material / Expense `taskLinePartnerContract`);
 2. else the partner of the line (`taskLinePartnerItem`) - and the main vendor contract when it is the main vendor;

@@ -8,7 +8,7 @@ fake.client = { rpc: jest.fn(async (name: string, args: any) => { fake.calls.pus
 jest.doMock('../../../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: fake.client }) }));
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), canGoBack: () => false, navigate: jest.fn() }) }));
-const { usePaymentFactList, usePaymentFactDocuments, usePlanCandidates, useTaskPaymentPaid, useStartPaymentFact, useOpenPaymentFact, useRefreshCashLedger } = require('../../../../kit8/documents/payment/fact/usePaymentFact');
+const { usePaymentFactList, usePaymentFactDocuments, usePlanCandidates, useTaskPaymentPaid, useStartPaymentFact, useOpenPaymentFact, useRefreshCashLedger, useCreatePaymentFactFromInvoice } = require('../../../../kit8/documents/payment/fact/usePaymentFact');
 import { EMPTY_PAYMENT_FACT_FILTER } from '../../../../kit8/documents/payment/fact/paymentFactModel';
 
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve(); await new Promise((r) => setTimeout(r, 0)); }); };
@@ -206,4 +206,39 @@ it('useRefreshCashLedger: the RPC answers { changed, queue }', async () => {
   await act(async () => { r = await latest.refresh(); });
   expect(r).toEqual({ changed: 2, queue: 0 });
   expect(latest.busy).toBe(false);
+});
+
+describe('useCreatePaymentFactFromInvoice - "Create based on → Payment fact" of an invoice', () => {
+  const mount = () => { function Probe() { latest = useCreatePaymentFactFromInvoice(); return null; } renderUI(<Probe />); };
+  it('the invoice goes to the vendor / customer RPC; the form opens on the new document with its task', async () => {
+    fake.rpc.create_payment_fact_from_vendor_invoice = { data: { documents: [{ documentGUID: 'n1', lineCount: 2, taskGUID: 't1' }], skipped: [] }, error: null };
+    mount();
+    let a: any;
+    await act(async () => { a = await latest.create('vendor', 'vi1'); });
+    expect(callsOf('create_payment_fact_from_vendor_invoice')[0].args).toEqual({ p_invoice: 'vi1' });
+    expect(a.documents[0].documentGUID).toBe('n1');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/pm/project/task/payment-fact', params: { taskGUID: 't1', documentGUID: 'n1' } });
+    fake.rpc.create_payment_fact_from_customer_invoice = { data: { documents: [{ documentGUID: 'n2', lineCount: 1, taskGUID: null }], skipped: [] }, error: null };
+    await act(async () => { await latest.create('customer', 'ci1'); });
+    expect(callsOf('create_payment_fact_from_customer_invoice')[0].args).toEqual({ p_invoice: 'ci1' });
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/project/task/payment-fact', params: { documentGUID: 'n2' } });
+  });
+  it('nothing left to pay: no document, nothing opens, the answer says why; a failure is a message and null; no invoice = nothing is asked', async () => {
+    fake.rpc.create_payment_fact_from_vendor_invoice = { data: { documents: [], skipped: [{ reason: 'nothingToPay' }] }, error: null };
+    mount();
+    let a: any;
+    await act(async () => { a = await latest.create('vendor', 'vi1'); });
+    expect(a.documents).toEqual([]);
+    expect(a.skipped).toEqual([{ reason: 'nothingToPay' }]);
+    expect(mockPush).not.toHaveBeenCalled();
+    fake.rpc.create_payment_fact_from_vendor_invoice = { data: null, error: { message: 'post the vendor invoice first' } };
+    await act(async () => { a = await latest.create('vendor', 'vi1'); });
+    expect(a).toBeNull();
+    expect(latest.error).toBe('post the vendor invoice first');
+    expect(latest.busy).toBe(false);
+    fake.calls = [];
+    await act(async () => { a = await latest.create('vendor', ''); });
+    expect(a).toBeNull();
+    expect(fake.calls).toHaveLength(0);
+  });
 });

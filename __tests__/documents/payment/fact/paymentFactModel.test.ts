@@ -3,7 +3,8 @@ import {
   EMPTY_PAYMENT_FACT_FILTER, PAYMENT_FACT_DIRECTIONS, PaymentFactHeaderView, PlanCandidate, bankAmountDifference, candidatesOfSamePayee, candidatesOpenTotal, canChangePayee, canDeletePaymentFact, canEditPaymentFact,
   canGetFromPlan, canPostPaymentFact, canUnpostPaymentFact, documentsOfRoute, headerOfListRow, lineDiffersFromPlan, lineIsTyped, paymentFactDateErrors, paymentFactDocumentPath, paymentFactFilterActive, paymentFactFilterToRpc,
   paymentFactFolderNodes, paymentFactGenusOf, paymentFactLineErrors, paymentFactLinesOf, paymentFactMissing, paymentFactProblemText, paymentFactRouteParams, paymentFactTotals, parseAddFromPlanAnswer, parseCandidates,
-  parseListAnswer, parsePlanPaid, parsePostAnswer, skipReasonText, formatMoney, PAYMENT_FACT_ROUTE, isPaymentFactDirection,
+  parseListAnswer, parsePlanPaid, parsePostAnswer, skipReasonText, formatMoney, PAYMENT_FACT_ROUTE, isPaymentFactDirection, canCreatePaymentFactFromInvoice, parseCreateFromInvoiceAnswer, createFromInvoiceSkippedText,
+  paymentFactBasedOnSubtitle, PAYMENT_FACT_BASED_ON_ITEM,
 } from '../../../../kit8/documents/payment/fact/paymentFactModel';
 
 const header = (over: Partial<PaymentFactHeaderView> = {}): PaymentFactHeaderView => ({
@@ -173,5 +174,25 @@ describe('folders, routes', () => {
     expect(documentsOfRoute('d9', 'd1')).toEqual(['d9', 'd1']);
     expect(documentsOfRoute(null, null)).toEqual([]);
     expect(paymentFactDocumentPath('a b')).toBe('/pm/project/task/payment-fact?documentGUID=a%20b');
+  });
+});
+
+describe('"Create based on → Payment fact" of an invoice', () => {
+  it('only a POSTED invoice is paid', () => {
+    expect(canCreatePaymentFactFromInvoice({ status: 'posted' })).toBe(true);
+    expect(canCreatePaymentFactFromInvoice({ status: 'draft' })).toBe(false);
+    expect(canCreatePaymentFactFromInvoice(null)).toBe(false);
+  });
+  it('the answer: the documents made (with their task) and why none was made', () => {
+    expect(parseCreateFromInvoiceAnswer({ documents: [{ documentGUID: 'n1', lineCount: '2', taskGUID: 't1' }], skipped: [] })).toEqual({ documents: [{ documentGUID: 'n1', lineCount: 2, taskGUID: 't1' }], skipped: [] });
+    expect(parseCreateFromInvoiceAnswer({ documents: [], skipped: [{ reason: 'nothingToPay' }] }).skipped).toEqual([{ reason: 'nothingToPay' }]);
+    expect(parseCreateFromInvoiceAnswer(null)).toEqual({ documents: [], skipped: [] });
+    expect(createFromInvoiceSkippedText('nothingToPay')).toContain('Nothing is left to pay');
+    expect(createFromInvoiceSkippedText('other')).toBe('other');
+  });
+  it('the item of the menu says the direction', () => {
+    expect(PAYMENT_FACT_BASED_ON_ITEM).toMatchObject({ id: 'paymentFact', title: 'Payment fact' });
+    expect(paymentFactBasedOnSubtitle('vendor')).toContain('outbound');
+    expect(paymentFactBasedOnSubtitle('customer')).toContain('inbound');
   });
 });

@@ -131,6 +131,18 @@ describe('the bar', () => {
   });
 });
 
+describe('Create based on → Payment fact (a POSTED invoice)', () => {
+  it('a posted invoice has the button before Close, a draft has none', () => {
+    setDoc([header('d1', { status: 'posted' })]);
+    renderUI(<CustomerInvoiceDocumentForm documents={['d1']} onClose={jest.fn()} />);
+    expectInOrder(['customer-invoice-unpost', 'customer-invoice-create-based-on', 'customer-invoice-close', 'customer-invoice-posted']);
+    cleanupUI();
+    setDoc([header('d1')]);
+    renderUI(<CustomerInvoiceDocumentForm documents={['d1']} onClose={jest.fn()} />);
+    expect(q('customer-invoice-create-based-on')).toBeNull();
+  });
+});
+
 describe('a tab for each document (one customer + one contract each)', () => {
   it('one document: no strip; several: a tab each, with the customer, the contract, the number', () => {
     setDoc([header('d1')]);

@@ -115,6 +115,18 @@ describe('the table (ReusableTable with a folders tree)', () => {
   });
 });
 
+describe('the row menu: Create based on → Payment fact (a POSTED invoice)', () => {
+  it('a posted document gets "Create based on → Payment fact" in front of the task items; a draft does not', () => {
+    renderUI(<VendorInvoiceDocumentList />);
+    const menu = lastTable().extraMenuItems;
+    const close = jest.fn();
+    const posted = menu({ rowGUID: 'd2' }, close);
+    expect(posted[0]).toMatchObject({ testID: 'vendor-list-menu-create-d2', label: 'Create based on' });
+    expect(posted[0].submenu[0]).toMatchObject({ testID: 'vendor-list-menu-create-payment-fact-d2', label: 'Payment fact' });
+    expect(menu({ rowGUID: 'd1' }, close).some((i: any) => i.label === 'Create based on')).toBe(false);
+  });
+});
+
 describe('the totals PER CURRENCY', () => {
   it('one line for each currency (never added together) and the number of documents', () => {
     renderUI(<VendorInvoiceDocumentList />);

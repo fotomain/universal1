@@ -1,9 +1,9 @@
 // paymentFactApi - the calls of the payment fact. Every function takes the Supabase client (useSupabase().supabase), so a test passes a fake one.
 // The header is written ONLY by these RPCs; the sum / contract / budget item / business unit of a line of a draft are written by the ReusableTable through the redux entity (paymentFactMetaData.ts).
 import {
-  AddFromPlanAnswer, PaymentFactListAnswer, PaymentFactListFilter, PaymentFactPostAnswer, PlanCandidate, PlanPaid, RPC_CASH_LEDGER_REFRESH, RPC_PAYMENT_FACT_ADD_FROM_PLAN, RPC_PAYMENT_FACT_ADD_LINE, RPC_PAYMENT_FACT_CANDIDATES,
+  AddFromPlanAnswer, CreateFromInvoiceAnswer, PaymentFactInvoiceKind, PaymentFactListAnswer, PaymentFactListFilter, PaymentFactPostAnswer, PlanCandidate, PlanPaid, RPC_CASH_LEDGER_REFRESH, RPC_PF_FROM_CUSTOMER_INVOICE, RPC_PF_FROM_VENDOR_INVOICE, RPC_PAYMENT_FACT_ADD_FROM_PLAN, RPC_PAYMENT_FACT_ADD_LINE, RPC_PAYMENT_FACT_CANDIDATES,
   RPC_PAYMENT_FACT_CREATE, RPC_PAYMENT_FACT_DELETE, RPC_PAYMENT_FACT_LIST, RPC_PAYMENT_FACT_POST, RPC_PAYMENT_FACT_SET_HEADER, RPC_PAYMENT_FACT_SET_LINE_TASK, RPC_PAYMENT_FACT_UNPOST, RPC_TASK_PAYMENT_PAID,
-  paymentFactFilterToRpc, parseAddFromPlanAnswer, parseCandidates, parseListAnswer, parsePlanPaid, parsePostAnswer, PaymentFactDirection,
+  paymentFactFilterToRpc, parseAddFromPlanAnswer, parseCandidates, parseCreateFromInvoiceAnswer, parseListAnswer, parsePlanPaid, parsePostAnswer, PaymentFactDirection,
 } from './paymentFactModel';
 
 type Client = any;
@@ -98,4 +98,11 @@ export async function refreshCashLedger(client: Client): Promise<{ changed: numb
   const { data, error } = await client.rpc(RPC_CASH_LEDGER_REFRESH);
   if (error) fail(error);
   return { changed: Number(data?.changed) || 0, queue: Number(data?.queue) || 0 };
+}
+
+/** "Create based on → Payment fact": ONE draft payment fact that pays what is still open on a POSTED vendor / customer invoice */
+export async function createPaymentFactFromInvoice(client: Client, kind: PaymentFactInvoiceKind, invoiceGUID: string): Promise<CreateFromInvoiceAnswer> {
+  const { data, error } = await client.rpc(kind === 'customer' ? RPC_PF_FROM_CUSTOMER_INVOICE : RPC_PF_FROM_VENDOR_INVOICE, { p_invoice: invoiceGUID });
+  if (error) fail(error);
+  return parseCreateFromInvoiceAnswer(data);
 }

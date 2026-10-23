@@ -8,6 +8,7 @@ Source: the Google Doc "W1 FACT Payments" (owner answers of 2026-10-23); analysi
 |---|---|
 | context menu **Create based on this → Payment fact** (Task menu and the toolbar icons of the Finances view; not in the menu of one line) | makes a NEW draft for the task (`useStartPaymentFact`) and opens the form (a new browser tab on the web); **Go to → Payment facts** = the list filtered for the task |
 | task window → **Fact** → 2nd level tab **Payments** (`kit8/pm/view/task/edit/TabPaymentFact`) | sub-tabs **Outbound · Inbound**: the list of the task, one direction each; the `+` makes a draft for the task and the direction |
+| **Create based on → Payment fact** in the bar of a POSTED **vendor invoice** / **customer invoice** (`PaymentFactBasedOn`) and in the row menu of their lists | makes ONE draft that pays what is still open on the invoice and opens it in a new window: payee + contract of the invoice, direction Outbound (vendor) / Inbound (customer), one line per invoice line (sum + VAT − what posted facts paid), the project, task and business unit of the line, the budget item the contract names (else the standard "Payments to vendors" / "Receipts from customers"); the bank number, the date and the money account are filled in by the accountant. RPCs `create_payment_fact_from_vendor_invoice / _customer_invoice` (`payment_fact_from_invoice`); nothing left to pay = a snackbar, no document |
 | Drawer → **Documents → Payment facts** · `/pm/payment-fact/list` | the list (folders **money account → payee**, quick filters of every non-number column, totals per currency of the accounts) |
 | `/pm/project/task/payment-fact?documentGUID=…[&documents=…]` | the form: a tab per document (a browser tab each on the web); bar **Get from plan · Delete · Unpost · Close · Post** (large, last) |
 | Drawer → **Catalogs → Money accounts** | the catalog (`kit8/catalog/money_account`): bank accounts and cash desks, their rests |
@@ -35,10 +36,11 @@ Source: the Google Doc "W1 FACT Payments" (owner answers of 2026-10-23); analysi
 | `usePaymentFactPlaces.ts` | the project / task names of the lines |
 | `paymentFactColumns.tsx` · `paymentFactListColumns.tsx` | the columns of the two tables |
 | `PMPaymentFactDocumentForm / Header / Lines / List / GetFromPlan.tsx` | the screens |
+| `PaymentFactBasedOn.tsx` | the button + window "Create based on → Payment fact" of an invoice form and `usePaymentFactBasedOnRowMenu` (the row menu of the invoice lists); the hook is `useCreatePaymentFactFromInvoice` |
 
 ## Tests
-* SQL on a real Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 96` (144 checks: money account guards, get from plan, guards of a line, sums and the typed amount, Post, rests, back-dated Post, the rate changes, RLS, unpost); speed: `./bench_cash_ledger.sh 10000`.
-* Jest: `__tests__/documents/payment/fact` (model, api, hooks, columns, form, list, get from plan, SQL mirror), `__tests__/catalog/money_account`, `__tests__/pm/view/task/payments/paymentPlanPaid.test.tsx`.
+* SQL on a real Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 96` (166 checks: money account guards, get from plan, guards of a line, sums and the typed amount, Post, rests, back-dated Post, the rate changes, RLS, unpost); speed: `./bench_cash_ledger.sh 10000`.
+* Jest: `__tests__/documents/payment/fact` (model, api, hooks, columns, form, list, get from plan, create based on, SQL mirror), `__tests__/catalog/money_account`, `__tests__/pm/view/task/payments/paymentPlanPaid.test.tsx`.
 
 ## Known limits
 * A typed amount of the account is recognised by its difference from the stored one: edit a line twice before the first save came back and the older amount may be taken for a typed one (clear the cell: it is converted again).

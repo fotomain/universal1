@@ -758,6 +758,25 @@
 
     <!-- Section 5: Visualizations -->
     <section id="cashflow">
+      <h2>3b. Money Accounts &amp; Payment Facts (PART 38)</h2>
+      <div class="note">
+        <b>Three money accounts</b> of <i>Northeast Corridor Rail Infrastructure LLC</i> (catalog <i>Catalogs → Money accounts</i>, folder = the legal entity), each with currency, opening date and opening balance:
+        <table>
+          <tr><th>GUID</th><th>Account</th><th>Kind</th><th>Currency</th><th>Opening 2026-01-01</th></tr>
+          <tr><td><code>ma-nec-usd-operating</code></td><td>NEC Operating Account (Bank of America)</td><td>bank</td><td>USD</td><td>25,000,000.00</td></tr>
+          <tr><td><code>ma-nec-eur-reserve</code></td><td>NEC Euro Reserve Account (Deutsche Bank)</td><td>bank</td><td>EUR</td><td>2,000,000.00</td></tr>
+          <tr><td><code>ma-nec-petty-cash</code></td><td>NEC Site Petty Cash</td><td>cash</td><td>USD</td><td>10,000.00</td></tr>
+        </table>
+        <br><b>Two payment facts</b>, each made with <b>Create based on → Payment fact</b> of its posted invoice and then posted (the invoices, the accounts and the facts are all in USD: no exchange rate is needed):
+        <table>
+          <tr><th>Bank transaction</th><th>Date</th><th>Direction</th><th>Invoice</th><th>Payee</th><th>Budget item</th><th>Amount (USD)</th></tr>
+          <tr><td><code>BANK-NEC-2026-1205-001</code></td><td>2026-12-05</td><td>inbound</td><td><code>CI-AMTRK-2026-001</code></td><td>Amtrak</td><td>Receipts from customers</td><td>270,000,000.00</td></tr>
+          <tr><td><code>BANK-NEC-2026-1210-001</code></td><td>2026-12-10</td><td>outbound</td><td><code>VI-SUPP-98421</code></td><td>Eastern Rail &amp; Track Supply Corp.</td><td>Payments to vendors</td><td>59,530,100.00</td></tr>
+        </table>
+        <br>The rest of <code>ma-nec-usd-operating</code> after both: 25,000,000.00 + 270,000,000.00 − 59,530,100.00 = <b>235,469,900.00 USD</b> (2026-12-05: 295,000,000.00; 2026-12-10: 235,469,900.00). The contracts carry the payment keys
+        (<code>paymentBudgetItemOutbound / Inbound</code>, <code>paymentTimelineShiftDays</code> 30 / 15), so a payment fact takes its budget item from its contract. The script skips this part with a NOTICE while PART 38 is not installed.
+      </div>
+
       <h2>4. Cash Flow by Activity (IAS 7) - the budget items of the lines</h2>
       <p class="sub">
         The activity genus (<code>documentation/ACTIVITY_GENUS.html</code>): every budget item of a line has a <b>key</b> <code>activity.genus</code> and a <b>direction</b>. The names in IFRS, D365 FO and SAP are
@@ -847,7 +866,7 @@
         (<code>financingActivity.outboundPaymentGenus</code>, IAS 7.17(e)). The key of a budget item is chosen on the item in <b>Budget Items</b>; the Activity column offers only the activities its genus can have.
         <br><br><b>Standard items.</b> The four lines use the <b>standard budget items</b> of the tree of possible budget items (<code>documentation/ACTIVITY_GENUS.html</code>, seeded by <code>start4_sql_insert_missing.sql</code>), not items of their own.
         The operators are invoiced by a vendor, so their labor is <i>External labor hours (contractors)</i> (7.14(c)). The cash settlement of the two invoices has items of its own in the payments folder:
-        <code>vendorPaymentsBudgetItem</code> (Payments to vendors, outbound) and <code>customerReceiptsBudgetItem</code> (Receipts from customers, inbound); this data posts no payment.
+        <code>vendorPaymentsBudgetItem</code> (Payments to vendors, outbound) and <code>customerReceiptsBudgetItem</code> (Receipts from customers, inbound); the two payment facts of section 3b settle the two invoices with them.
       </div>
 
       <div class="card" style="margin-top:16px; height: 320px;">
@@ -1020,7 +1039,7 @@
         <pre><code>./documentation/RAILWAY_1/run_2_sql.command</code></pre>
         <p>Or execute the SQL file directly via the Supabase CLI:</p>
         <pre><code>supabase db query --linked -f ./documentation/RAILWAY_1/RAILWAY_1_DATA.sql</code></pre>
-        <p>Verification only (project, task lines with key and direction, the 5 documents, the cash flow by activity and direction):</p>
+        <p>Verification only (project, task lines with key and direction, the 5 documents, the money accounts and the 2 payment facts, the cash flow by activity and direction):</p>
         <pre><code>./documentation/RAILWAY_1/run_2_sql.command --verify</code></pre>
       </div>
     </section>

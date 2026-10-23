@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
+import { usePaymentFactBasedOnRowMenu } from '../../payment/fact/PaymentFactBasedOn';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -87,7 +88,10 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list', task
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
   const resolveTask = useCallback((row: { rowGUID: string }) => ({ taskGUID: byGuid.get(row.rowGUID)?.taskGUID, projectGUID: byGuid.get(row.rowGUID)?.projectGUID }), [byGuid]);
-  const rowMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
+  const taskMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
+  // "Create based on → Payment fact" of a POSTED invoice (the draft opens in a new browser window)
+  const basedOn = usePaymentFactBasedOnRowMenu('vendor', testID);
+  const rowMenu = useCallback((row: { rowGUID: string }, close: () => void) => [...basedOn(row.rowGUID, byGuid.get(row.rowGUID)?.documentStatus, close), ...taskMenu(row as any, close)], [basedOn, taskMenu, byGuid]);
   // the tree: legal entity → vendor, of the documents that exist
   const nodes = useMemo(() => vendorInvoiceFolderNodes(list.answer.rows), [list.answer.rows]);
   const foldersTree = useMemo(() => ({ nodes, folderTarget: 'rowJSON' as const, folderField: 'vendorInvoiceFolder', noFolderValue: '', onRowsDrop: () => {} }), [nodes]);

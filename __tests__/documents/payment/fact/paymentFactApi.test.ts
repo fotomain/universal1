@@ -1,7 +1,7 @@
 // paymentFactApi - the RPC calls: the names, the parameters, the typed answers and the messages of a failure. The Supabase client is a fake.
 import {
   addFromPlan, addPaymentFactLine, createPaymentFact, deletePaymentFact, fetchPaymentFactList, fetchPlanCandidates, fetchTaskPaymentPaid, postPaymentFact, refreshCashLedger, setPaymentFactHeader, setPaymentFactLineTask,
-  unpostPaymentFact,
+  unpostPaymentFact, createPaymentFactFromInvoice,
 } from '../../../../kit8/documents/payment/fact/paymentFactApi';
 import { EMPTY_PAYMENT_FACT_FILTER } from '../../../../kit8/documents/payment/fact/paymentFactModel';
 
@@ -84,4 +84,17 @@ it('a failure of the database is an Error with its message - every call', async 
   await expect(deletePaymentFact(f.client, 'd')).rejects.toThrow('boom delete_payment_fact');
   await expect(fetchTaskPaymentPaid(f.client, 't')).rejects.toThrow('boom task_payment_paid');
   await expect(refreshCashLedger(f.client)).rejects.toThrow('boom cash_ledger_refresh_now');
+});
+
+it('createPaymentFactFromInvoice: the vendor / customer RPC with the invoice; the answer is typed; a failure is an Error', async () => {
+  const f = fake({
+    create_payment_fact_from_vendor_invoice: { data: { documents: [{ documentGUID: 'n1', lineCount: 2, taskGUID: 't1' }], skipped: [] }, error: null },
+    create_payment_fact_from_customer_invoice: { data: { documents: [], skipped: [{ reason: 'nothingToPay' }] }, error: null },
+  });
+  expect(await createPaymentFactFromInvoice(f.client, 'vendor', 'vi1')).toEqual({ documents: [{ documentGUID: 'n1', lineCount: 2, taskGUID: 't1' }], skipped: [] });
+  expect(f.calls[0]).toEqual({ name: 'create_payment_fact_from_vendor_invoice', args: { p_invoice: 'vi1' } });
+  expect((await createPaymentFactFromInvoice(f.client, 'customer', 'ci1')).skipped).toEqual([{ reason: 'nothingToPay' }]);
+  expect(f.calls[1]).toEqual({ name: 'create_payment_fact_from_customer_invoice', args: { p_invoice: 'ci1' } });
+  const bad = fake({ create_payment_fact_from_vendor_invoice: { data: null, error: { message: 'post the vendor invoice first: a payment fact pays a posted invoice' } } });
+  await expect(createPaymentFactFromInvoice(bad.client, 'vendor', 'vi1')).rejects.toThrow('post the vendor invoice first');
 });

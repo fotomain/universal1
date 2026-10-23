@@ -17,6 +17,17 @@
 --   4. Vendor Invoice   : VI-SUPP-98421  (FULL: 29,700 sticks rail + 6,750 tamper hours + 2,080 operator hours = $59,530,100.00)
 --   5. Customer Invoice : CI-AMTRK-2026-001 (FULL: 225 miles turnkey deliverable = $270,000,000.00)
 --
+-- Money and payments (PART 38 of start1_sql_tables.sql + start2_sql_code.sql, documentation/PAYMENTS_FACT_WBS.html):
+--   3 money accounts of the legal entity (the catalog "Money accounts"), each with its currency, opening date and opening balance:
+--     ma-nec-usd-operating  bank  USD  opening 2026-01-01   25,000,000.00   the account the project's money moves on
+--     ma-nec-eur-reserve    bank  EUR  opening 2026-01-01    2,000,000.00   a euro reserve account (no payment of this project)
+--     ma-nec-petty-cash     cash  USD  opening 2026-01-01       10,000.00   the site cash desk (no payment of this project)
+--   2 PAYMENT FACTS, each made with "Create based on -> Payment fact" of its POSTED invoice (create_payment_fact_from_vendor_invoice / _customer_invoice) and posted:
+--     receipt  BANK-NEC-2026-1205-001  2026-12-05  INBOUND   CI-AMTRK-2026-001  $270,000,000.00 from Amtrak               (budget item: Receipts from customers)
+--     payment  BANK-NEC-2026-1210-001  2026-12-10  OUTBOUND  VI-SUPP-98421       $59,530,100.00 to Eastern Rail & Track   (budget item: Payments to vendors)
+--   the rest of ma-nec-usd-operating after both: 25,000,000.00 + 270,000,000.00 - 59,530,100.00 = 235,469,900.00 USD (the invoices, the money accounts and the payment facts all in USD: no exchange rate is needed)
+--   the contracts carry the payment keys of W1 PLAN PAYMENTS (paymentBudgetItemOutbound / Inbound, paymentTimelineShiftDays): the payment fact takes the budget item from its contract.
+--
 -- Activity genus (PART 32 of start1_sql_tables.sql + start2_sql_code.sql, documentation/ACTIVITY_GENUS.html): every budget item of the project carries its KEY (activity.genus),
 -- its DIRECTION (inbound | outbound) and its names in IFRS (IAS 7), D365 FO and SAP. Railway #1 is a pure OPERATING-activity project:
 --   operatingActivity.revenueGenus  inbound   $270,000,000.00   (IAS 7.14(a))
@@ -25,6 +36,8 @@
 --   operatingActivity.timeGenus     outbound      $197,600.00   (IAS 7.14(c))   operators invoiced by a vendor (external labor)
 --   net operating cash flow budget  $210,469,900.00; investing and financing: none (the tamper is hired, not bought; no loan lines)
 -- The script stops with a message when PART 32 is not installed (run start1 + start2 + start4 first).
+--
+-- The payment part (money accounts, payment facts) is skipped with a NOTICE while PART 38 is not installed (an older database): run start1 + start2 and this file again.
 --
 -- Safe, idempotent script. Can be executed multiple times.
 -- ===============================================================================================
@@ -107,6 +120,10 @@ DECLARE
   -- rowJSON.unitSumForBudget / unitSumForAccounting (+ priceTaskLine); without them the sums are NULL
   -- and Monitor01 shows empty Vendor Invoice / Customer Invoice Amounts. resourceRoleItem +
   -- measureUnitTaskLine put the document movements on the same Monitor01 row as the plan.
+  v_pf_row              record;
+  v_pf_receipt          uuid;
+  v_pf_payment          uuid;
+  v_pf_answer           jsonb;
   v_json_rev            jsonb;
   v_json_mat            jsonb;
   v_json_exp            jsonb;
@@ -176,6 +193,27 @@ BEGIN
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";
 
+  -- Money accounts (PART 38): the folder is the legal entity; the currency, the opening date and the opening balance cannot change once an account has posted payments (the payment facts of an earlier run
+  -- are unposted and deleted below, before this is written again)
+  IF to_regclass('public."moneyAccountTable"') IS NOT NULL THEN
+    INSERT INTO public."moneyAccountTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+      ('ma-nec-usd-operating', 'moneyAccountCatalog', 'le-nec-infra', 1024, jsonb_build_object(
+        'moneyAccountTitle', 'NEC Operating Account (USD)', 'moneyAccountKind', 'bank', 'moneyAccountCurrency', 'USD',
+        'moneyAccountNumber', 'US64 BOFA 0260 0959 3100 0048 1175', 'moneyAccountBank', 'Bank of America, N.A. - Philadelphia',
+        'moneyAccountOpeningDate', '2026-01-01', 'moneyAccountOpeningBalance', 25000000.00, 'isActive', true)),
+      ('ma-nec-eur-reserve', 'moneyAccountCatalog', 'le-nec-infra', 2048, jsonb_build_object(
+        'moneyAccountTitle', 'NEC Euro Reserve Account (EUR)', 'moneyAccountKind', 'bank', 'moneyAccountCurrency', 'EUR',
+        'moneyAccountNumber', 'DE89 3704 0044 0532 0130 00', 'moneyAccountBank', 'Deutsche Bank AG - Frankfurt',
+        'moneyAccountOpeningDate', '2026-01-01', 'moneyAccountOpeningBalance', 2000000.00, 'isActive', true)),
+      ('ma-nec-petty-cash', 'moneyAccountCatalog', 'le-nec-infra', 3072, jsonb_build_object(
+        'moneyAccountTitle', 'NEC Site Petty Cash (USD)', 'moneyAccountKind', 'cash', 'moneyAccountCurrency', 'USD',
+        'moneyAccountNumber', 'CASH-NEC-SITE-01', 'moneyAccountBank', 'Site office, Newark NJ',
+        'moneyAccountOpeningDate', '2026-01-01', 'moneyAccountOpeningBalance', 10000.00, 'isActive', true))
+    ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "rowParentGUID" = EXCLUDED."rowParentGUID";
+  ELSE
+    RAISE NOTICE 'Railway #1: PART 38 (money accounts, payment facts) is not installed - no money account and no payment fact is made (run start1_sql_tables.sql + start2_sql_code.sql, then this file again)';
+  END IF;
+
   -- Partners (Customer & Vendors)
   INSERT INTO public."partnerTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
     ('ptn-amtrak', 'partnerCatalog', 'empty', 1024, jsonb_build_object(
@@ -209,7 +247,9 @@ BEGIN
       'contractTitle', 'Contract for Construction Works on the NY-WAS Section of the Northeast Corridor',
       'contractCurrency', 'USD',
       'contractSumBeforeVAT', c_miles_sum,
-      'legalEntityGUID', 'le-nec-infra'
+      'legalEntityGUID', 'le-nec-infra',
+      'paymentBudgetItemInbound', 'customerReceiptsBudgetItem',
+      'paymentTimelineShiftDays', 15
     )),
     ('ct-eastern-rail-01', 'ptn-eastern-rail', 'partner', 2048, jsonb_build_object(
       'contractPartyType', 'partner',
@@ -217,7 +257,9 @@ BEGIN
       'contractTitle', 'Master Supply Agreement - 136 RE Carbon Steel Rail 80ft Sticks',
       'contractCurrency', 'USD',
       'contractSumBeforeVAT', c_rail_sum,
-      'legalEntityGUID', 'le-nec-infra'
+      'legalEntityGUID', 'le-nec-infra',
+      'paymentBudgetItemOutbound', 'vendorPaymentsBudgetItem',
+      'paymentTimelineShiftDays', 30
     )),
     ('ct-plasser-tamper-01', 'ptn-plasser-usa', 'partner', 3072, jsonb_build_object(
       'contractPartyType', 'partner',
@@ -225,7 +267,9 @@ BEGIN
       'contractTitle', 'Master Plant & Heavy RMM Tamper Lease Agreement (Plasser 09-3X)',
       'contractCurrency', 'USD',
       'contractSumBeforeVAT', c_tamper_sum,
-      'legalEntityGUID', 'le-nec-infra'
+      'legalEntityGUID', 'le-nec-infra',
+      'paymentBudgetItemOutbound', 'vendorPaymentsBudgetItem',
+      'paymentTimelineShiftDays', 30
     )),
     ('ct-plasser-operator-01', 'ptn-plasser-usa', 'partner', 4096, jsonb_build_object(
       'contractPartyType', 'partner',
@@ -233,7 +277,9 @@ BEGIN
       'contractTitle', 'Master Agreement - Specialized Heavy Railway Machinery (RMM) Lead Operator Services',
       'contractCurrency', 'USD',
       'contractSumBeforeVAT', c_operator_sum,
-      'legalEntityGUID', 'le-nec-infra'
+      'legalEntityGUID', 'le-nec-infra',
+      'paymentBudgetItemOutbound', 'vendorPaymentsBudgetItem',
+      'paymentTimelineShiftDays', 30
     ))
   ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";
 
@@ -324,7 +370,7 @@ BEGIN
   --   material rawMaterialsBudgetItem            Raw materials and components               operatingActivity.materialGenus  outbound  IAS 7.14(c)
   --   expense  subcontractedServicesBudgetItem   Subcontracted services (the tamper hire)   operatingActivity.expenseGenus   outbound  IAS 7.14(c)
   --   time     externalLaborBudgetItem           External labor hours (contractors)         operatingActivity.timeGenus      outbound  IAS 7.14(c)  (the operators are invoiced by a vendor)
-  -- The settlement of the two invoices would use vendorPaymentsBudgetItem / customerReceiptsBudgetItem (operating payment items): this data posts no payment.
+  -- The settlement of the two invoices uses vendorPaymentsBudgetItem / customerReceiptsBudgetItem (operating payment items): section 10b makes the two payment facts of them.
   IF (SELECT count(*) FROM public."budgetItemTable" WHERE "rowGUID" IN ('serviceRevenueBudgetItem', 'rawMaterialsBudgetItem', 'subcontractedServicesBudgetItem', 'externalLaborBudgetItem')) <> 4 THEN
     RAISE EXCEPTION 'Railway #1: the standard budget items are missing - run start4_sql_insert_missing.sql (PART 32) first';
   END IF;
@@ -336,6 +382,17 @@ BEGIN
   UPDATE public.project_table SET "rowOwnerGUID" = v_owner WHERE "rowGUID" = v_project;
 
   -- Clean up prior seed runs so script can be safely re-executed unlimited times
+  -- the payment facts of an earlier run (PART 38): the posted ones are unposted (their cash ledger rows and rests go), then every one is deleted
+  IF to_regclass('public.project_payment_fact_header') IS NOT NULL THEN
+    FOR v_pf_row IN
+      SELECT h."rowGUID" AS guid FROM public.project_payment_fact_header h
+       WHERE h."rowJSON"->>'paymentFactInvoiceHeader' IN (v_vi_header::text, v_ci_header::text)
+          OR EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID" AND l."rowProjectGUID" = v_project)
+    LOOP
+      PERFORM public.unpost_payment_fact(v_pf_row.guid);
+      DELETE FROM public.project_payment_fact_header WHERE "rowGUID" = v_pf_row.guid;
+    END LOOP;
+  END IF;
   DELETE FROM public.project_status_movements WHERE "rowProjectGUID" = v_project;
   DELETE FROM public.task_fact_usage_timeline WHERE "rowProjectGUID" = v_project;
   DELETE FROM public.task_line_plan_movements WHERE "rowProjectGUID" = v_project;
@@ -946,6 +1003,34 @@ BEGIN
   PERFORM public.project_status_register_customer_invoice(v_ci_header);
 
   -- ---------------------------------------------------------------------------------------------
+  -- 10b. PAYMENT FACTS (PART 38): "Create based on -> Payment fact" of the two POSTED invoices, then the bank number, the date and the money account, then Post
+  --      the customer pays $270,000,000.00 on 2026-12-05 (INBOUND, Receipts from customers), the vendor is paid $59,530,100.00 on 2026-12-10 (OUTBOUND, Payments to vendors), both on the operating account
+  -- ---------------------------------------------------------------------------------------------
+  IF to_regclass('public."moneyAccountTable"') IS NOT NULL AND to_regprocedure('public.create_payment_fact_from_customer_invoice(uuid)') IS NOT NULL THEN
+    v_pf_answer := public.create_payment_fact_from_customer_invoice(v_ci_header);
+    v_pf_receipt := (v_pf_answer->'documents'->0->>'documentGUID')::uuid;
+    IF v_pf_receipt IS NULL THEN RAISE EXCEPTION 'Railway #1: no payment fact was made of the customer invoice: %', v_pf_answer; END IF;
+    PERFORM public.payment_fact_set_header(v_pf_receipt, jsonb_build_object('paymentFactNumber', 'BANK-NEC-2026-1205-001', 'paymentFactDate', '2026-12-05', 'moneyAccountFact', 'ma-nec-usd-operating'));
+    v_pf_answer := public.post_payment_fact(v_pf_receipt);
+    IF v_pf_answer->>'status' <> 'posted' THEN RAISE EXCEPTION 'Railway #1: the customer receipt was not posted: %', v_pf_answer; END IF;
+
+    v_pf_answer := public.create_payment_fact_from_vendor_invoice(v_vi_header);
+    v_pf_payment := (v_pf_answer->'documents'->0->>'documentGUID')::uuid;
+    IF v_pf_payment IS NULL THEN RAISE EXCEPTION 'Railway #1: no payment fact was made of the vendor invoice: %', v_pf_answer; END IF;
+    PERFORM public.payment_fact_set_header(v_pf_payment, jsonb_build_object('paymentFactNumber', 'BANK-NEC-2026-1210-001', 'paymentFactDate', '2026-12-10', 'moneyAccountFact', 'ma-nec-usd-operating'));
+    v_pf_answer := public.post_payment_fact(v_pf_payment);
+    IF v_pf_answer->>'status' <> 'posted' THEN RAISE EXCEPTION 'Railway #1: the vendor payment was not posted: %', v_pf_answer; END IF;
+
+    -- guard: the cash ledger holds exactly the two payments and the rest of the operating account is the one of the design
+    IF (SELECT coalesce(sum(m."sumForContract"), 0) FROM public.cash_account_ledger_movements m WHERE m."rowProjectGUID" = v_project AND m."paymentDirection" = 'inbound') <> c_miles_sum
+       OR (SELECT coalesce(sum(-m."sumForContract"), 0) FROM public.cash_account_ledger_movements m WHERE m."rowProjectGUID" = v_project AND m."paymentDirection" = 'outbound') <> c_vendor_total_sum
+       OR (SELECT r."rest" FROM public.cash_account_ledger_rests r WHERE r."moneyAccount" = 'ma-nec-usd-operating' AND r."sumKind" = 'account' AND r."currency" = 'USD' ORDER BY r."periodDay" DESC LIMIT 1)
+          <> 25000000.00 + c_miles_sum - c_vendor_total_sum THEN
+      RAISE EXCEPTION 'Railway #1: the cash ledger is not what the design says (receipt %, payment %, rest %)', c_miles_sum, c_vendor_total_sum, (25000000.00 + c_miles_sum - c_vendor_total_sum);
+    END IF;
+  END IF;
+
+  -- ---------------------------------------------------------------------------------------------
   -- 11. FINANCIAL ROLLUP & MONITOR01 REPORT SYNC
   -- ---------------------------------------------------------------------------------------------
   PERFORM public.project_cost_rebuild(v_project);
@@ -984,6 +1069,7 @@ BEGIN
   RAISE NOTICE 'Project GUID: %', v_project;
   RAISE NOTICE 'Task GUID: %', v_task;
   RAISE NOTICE 'Net operating cash flow budget (inbound - outbound of the operating budget items): %', (c_miles_sum - c_budget_cost_total);
+  RAISE NOTICE 'Payment facts: receipt % (inbound %), payment % (outbound %); rest of ma-nec-usd-operating %', v_pf_receipt, c_miles_sum, v_pf_payment, c_vendor_total_sum, (25000000.00 + c_miles_sum - c_vendor_total_sum);
   RAISE NOTICE 'Full Amounts: PO=%, PR=%, Fact=%, VI=%, CI=%',
     c_vendor_total_sum, c_vendor_total_sum, (c_miles_sum + c_budget_cost_total), c_vendor_total_sum, c_miles_sum;
 END $$;

@@ -27,6 +27,8 @@ export const RPC_PAYMENT_FACT_UNPOST = 'unpost_payment_fact';
 export const RPC_PAYMENT_FACT_DELETE = 'delete_payment_fact';
 export const RPC_PAYMENT_FACT_LIST = 'payment_fact_list';
 export const RPC_TASK_PAYMENT_PAID = 'task_payment_paid';
+export const RPC_PF_FROM_VENDOR_INVOICE = 'create_payment_fact_from_vendor_invoice';
+export const RPC_PF_FROM_CUSTOMER_INVOICE = 'create_payment_fact_from_customer_invoice';
 export const RPC_CASH_LEDGER_REFRESH = 'cash_ledger_refresh_now';
 
 /** the screens: the form (app/pm/project/task/payment-fact), the list (hamburger menu → Documents → Payment facts) */
@@ -362,3 +364,25 @@ export function documentsOfRoute(documentGUID: string | null | undefined, docume
 }
 /** the path of ONE document for a browser tab of its own (web): the same form route with that single document */
 export const paymentFactDocumentPath = (documentGUID: string): string => `${PAYMENT_FACT_ROUTE}?documentGUID=${encodeURIComponent(documentGUID)}`;
+
+// ---- "Create based on → Payment fact" of a vendor / customer invoice ------------------------------------------------------------------------------------------------------------------------------
+export type PaymentFactInvoiceKind = 'vendor' | 'customer';
+/** only a POSTED invoice is paid */
+export const canCreatePaymentFactFromInvoice = (h: { status: string } | null | undefined): boolean => !!h && h.status === 'posted';
+export interface CreatedFromInvoice { documentGUID: string; lineCount: number; taskGUID: string | null }
+export interface CreateFromInvoiceAnswer { documents: CreatedFromInvoice[]; skipped: { reason: string }[] }
+export function parseCreateFromInvoiceAnswer(data: any): CreateFromInvoiceAnswer {
+  const d = data && typeof data === 'object' ? data : {};
+  return {
+    documents: (Array.isArray(d.documents) ? d.documents : []).map((x: any) => ({ documentGUID: String(x.documentGUID), lineCount: Number(x.lineCount) || 0, taskGUID: x.taskGUID ? String(x.taskGUID) : null })),
+    skipped: (Array.isArray(d.skipped) ? d.skipped : []).map((x: any) => ({ reason: String(x.reason ?? '') })),
+  };
+}
+export function createFromInvoiceSkippedText(reason: string): string {
+  return reason === 'nothingToPay' ? 'Nothing is left to pay: every line of the invoice is paid by a posted payment fact.' : reason;
+}
+/** the item of the menu "Create based on" of an invoice */
+export const PAYMENT_FACT_BASED_ON_ITEM = { id: 'paymentFact', title: 'Payment fact', icon: 'account_balance' } as const;
+export const paymentFactBasedOnSubtitle = (kind: PaymentFactInvoiceKind): string => (kind === 'customer'
+  ? 'One draft bank transaction (inbound) that receives what the customer still owes on this invoice'
+  : 'One draft bank transaction (outbound) that pays what is still open on this invoice');

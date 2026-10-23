@@ -2,14 +2,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDispatch } from 'react-redux';
+import { showSnackbar } from '../../../redux/uxuiSlice';
+import { pmT } from '../../../pm/i18n/pmT';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../../providers/WithSupabase';
 import {
-  addFromPlan, addPaymentFactLine, createPaymentFact, deletePaymentFact, fetchPaymentFactList, fetchPlanCandidates, fetchTaskPaymentPaid, postPaymentFact, refreshCashLedger, setPaymentFactHeader, setPaymentFactLineTask,
+  addFromPlan, addPaymentFactLine, createPaymentFact, createPaymentFactFromInvoice, deletePaymentFact, fetchPaymentFactList, fetchPlanCandidates, fetchTaskPaymentPaid, postPaymentFact, refreshCashLedger, setPaymentFactHeader, setPaymentFactLineTask,
   unpostPaymentFact, PaymentFactHeaderPatch,
 } from './paymentFactApi';
 import {
-  AddFromPlanAnswer, OpenPaymentFactParams, PAYMENT_FACT_ROUTE, PaymentFactDirection, PaymentFactHeaderView, PaymentFactListAnswer, PaymentFactListFilter, PaymentFactPostAnswer, PlanCandidate, PlanPaid,
+  AddFromPlanAnswer, CreateFromInvoiceAnswer, OpenPaymentFactParams, PaymentFactInvoiceKind, createFromInvoiceSkippedText, PAYMENT_FACT_ROUTE, PaymentFactDirection, PaymentFactHeaderView, PaymentFactListAnswer, PaymentFactListFilter, PaymentFactPostAnswer, PlanCandidate, PlanPaid,
   headerOfListRow, paymentFactFilterToRpc, paymentFactRouteParams,
 } from './paymentFactModel';
 import { openBlankWindow, paymentFactLink, sendWindowTo, showPaymentFact } from './paymentFactNavigation';
@@ -165,4 +168,50 @@ export function useStartPaymentFact() {
     }
   }, [supabase, router, qc]);
   return { start, busy, error, isWeb: Platform.OS === 'web' };
+}
+
+/**
+ * "Create based on → Payment fact" of a POSTED vendor / customer invoice (the invoice's form bar and the row menu of its list): makes ONE draft of what is still open on the invoice and opens it (a NEW browser tab
+ * on the web, opened inside the click and pointed at the page when the document exists). A refusal (not posted, nothing left to pay, another organization) is a snackbar; the answer is returned too.
+ *   const toPayment = useCreatePaymentFactFromInvoice();   toPayment.create('vendor', invoiceGUID);
+ */
+export function useCreatePaymentFactFromInvoice() {
+  const { supabase } = useSupabase();
+  const router = useRouter();
+  const qc = useQueryClient();
+  const dispatch = useDispatch();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const create = useCallback(async (kind: PaymentFactInvoiceKind, invoiceGUID: string): Promise<CreateFromInvoiceAnswer | null> => {
+    if (!invoiceGUID) return null;
+    const target = openBlankWindow();
+    const closeTarget = () => { try { target?.close(); } catch { /* nothing to close */ } };
+    setBusy(true);
+    setError(null);
+    try {
+      const answer = await createPaymentFactFromInvoice(supabase, kind, invoiceGUID);
+      void qc.invalidateQueries({ queryKey: ['pm', 'paymentFactList'] });
+      void qc.invalidateQueries({ queryKey: ['pm', 'paymentFactDocuments'] });
+      const first = answer.documents[0];
+      if (first) {
+        const params = { taskGUID: first.taskGUID, documentGUID: first.documentGUID };
+        const link = paymentFactLink(PAYMENT_FACT_ROUTE, paymentFactRouteParams(params));
+        if (!(target && sendWindowTo(target, link))) router.push({ pathname: PAYMENT_FACT_ROUTE, params: paymentFactRouteParams(params) } as any);
+      } else {
+        closeTarget();
+        dispatch(showSnackbar({ message: answer.skipped.map((x) => pmT(createFromInvoiceSkippedText(x.reason))).join(' · ') || pmT('No payment fact was made'), isError: true }));
+      }
+      return answer;
+    } catch (e: any) {
+      closeTarget();
+      const message = e?.message || String(e);
+      setError(message);
+      dispatch(showSnackbar({ message, isError: true }));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, router, qc, dispatch]);
+  return { create, busy, error, clearError: () => setError(null) };
 }

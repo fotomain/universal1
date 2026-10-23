@@ -14,6 +14,8 @@ The customer invoice is the **twin of the vendor invoice** (`kit8/documents/vend
 | `/pm/project/task/customer-invoice` · `CustomerInvoiceDocumentForm` | the form: a tab for each document; bar Delete · Unpost · Close · **Post**; tabs All · Deliverable |
 | `/pm/project/task/customer-invoice/new` · `CustomerInvoiceChoose` | the customers of the lines, a check box each → Create |
 
+**Create based on → Payment fact** (a POSTED invoice): the button "Create based on" in the bar of the form (before Close) and the row menu of the list make ONE draft payment fact (INBOUND, from the customer, what is still open on each line) and open it in a new window - `kit8/documents/payment/fact` (`PaymentFactBasedOn`, SQL `create_payment_fact_from_customer_invoice`).
+
 ## Where a line's customer comes from (`customer_invoice_candidates`)
 1. the partner of the contract selected on the line (`taskLinePartnerContract`);
 2. else the partner of the line (`taskLinePartnerItem`);

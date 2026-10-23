@@ -334,6 +334,14 @@ cash_account_ledger_dirty               (PART 38)  the queue: (moneyAccount, fro
   </ul>
 </div>
 
+<h2>15. Addendum 2026-10-23: payment fact from an invoice, sample data</h2>
+<div class="card">
+  <ul>
+    <li><b>Create based on → Payment fact</b> on a <b>POSTED vendor invoice</b> and on a <b>POSTED customer invoice</b> (the bar of the form before Close, the row menu of the list; <code>PaymentFactBasedOn</code>). SQL: <code>create_payment_fact_from_vendor_invoice / _customer_invoice</code> (PART 38, <code>payment_fact_from_invoice</code>): ONE draft, the payee and the contract of the invoice, <b>Outbound</b> for a vendor invoice and <b>Inbound</b> for a customer invoice, one line per invoice line with <code>sum + VAT − what POSTED payment facts already paid of that line</code>, the project, task and business unit of the line, the budget item the contract names (<code>paymentBudgetItemOutbound / Inbound</code>), else the standard <code>vendorPaymentsBudgetItem</code> / <code>customerReceiptsBudgetItem</code>. The line remembers its invoice line (<code>paymentFactInvoiceLine</code>), the header its invoice. Nothing left to pay = no document (a snackbar). A draft invoice, an invoice of another organization, an invoice without a vendor / customer are refused.</li>
+    <li><b>Sample data</b> <code>documentation/RAILWAY_1/RAILWAY_1_DATA.sql</code>: three money accounts (USD operating bank 25 000 000, EUR reserve bank 2 000 000, USD petty cash 10 000, all with the opening date 2026-01-01) and the two payment facts made of its two invoices and posted: the Amtrak receipt <b>$270 000 000</b> (2026-12-05) and the Eastern Rail payment <b>$59 530 100</b> (2026-12-10); the rest of the operating account 235 469 900 USD. The invoices, accounts and facts are all in USD, so no exchange rate is needed. The payment part is skipped with a NOTICE while PART 38 is not installed. Note: the existing vendor invoice has the lines of two vendors (rail; tamper and operator of Plasser) under ONE vendor and contract (Eastern Rail), so the fact pays all of it to Eastern Rail like the invoice says.</li>
+  </ul>
+</div>
+
 </main>
 </body>
 </html>

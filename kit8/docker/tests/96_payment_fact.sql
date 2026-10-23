@@ -311,6 +311,71 @@ SELECT tt.eq(public.unpost_payment_fact(:'du')->>'status', 'draft', '... and the
 SELECT tt.eq((SELECT count(*) FROM public.cash_account_ledger_movements) + (SELECT count(*) FROM public.cash_account_ledger_rests), 0::bigint, 'no movement and no rest is left');
 SELECT tt.as_admin();
 SELECT tt.eq((SELECT count(*) FROM public.cash_ledger_verify((SELECT "rowOrganizationGUID" FROM public.project_payment_fact_header WHERE "rowGUID" = :'da'), 'ma-eur')), 0::bigint, 'verify: empty');
+-- 13. "Create based on -> Payment fact" of a POSTED vendor / customer invoice --------------------------------------------------------------------------------------------------------------
+-- (the invoices are written straight into their tables, as the user anna: the header trigger takes her organization)
+SELECT tt.as_admin();
+SELECT set_config('request.jwt.claims', jsonb_build_object('email', 'anna@acme.test', 'sub', '11111111-1111-1111-1111-111111111111')::text, true);
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+INSERT INTO public.vendor_invoice_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON") VALUES
+  ('eeeeeeee-0000-0000-0000-000000000001', 'le1', 'x', jsonb_build_object('vendorInvoicePartner', 'pt1', 'vendorInvoiceContract', 'c1', 'vendorInvoiceCurrency', 'EUR', 'vendorInvoiceNumber', 'VI-1', 'documentHeader', jsonb_build_object('documentNumber', 'VI-1', 'documentStatus', 'draft'))),
+  ('eeeeeeee-0000-0000-0000-000000000002', 'le1', 'x', jsonb_build_object('vendorInvoicePartner', 'pt1', 'vendorInvoiceContract', 'c2', 'vendorInvoiceCurrency', 'EUR', 'vendorInvoiceNumber', 'VI-2', 'documentHeader', jsonb_build_object('documentNumber', 'VI-2', 'documentStatus', 'posted')));
+INSERT INTO public.vendor_invoice_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON") VALUES
+  ('eeeeeeee-1000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-000000000001', :'p1', :'t3', 'materialGenus', 1, 2, 100, 10, '{}'),
+  ('eeeeeeee-1000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001', :'p1', :'t4', 'expenseGenus', 2, 1, 50, 10, '{"businessUnitTaskLine":"bu1"}'),
+  ('eeeeeeee-1000-0000-0000-000000000003', 'eeeeeeee-0000-0000-0000-000000000002', :'p1', :'t3', 'materialGenus', 1, 1, 40, 0, '{}');
+INSERT INTO public.customer_invoice_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON") VALUES
+  ('eeeeeeee-0000-0000-0000-0000000000c1', 'le1', 'x', jsonb_build_object('customerInvoicePartner', 'pt3', 'customerInvoiceContract', 'c4', 'customerInvoiceCurrency', 'EUR', 'customerInvoiceNumber', 'CI-1', 'documentHeader', jsonb_build_object('documentNumber', 'CI-1', 'documentStatus', 'posted')));
+INSERT INTO public.customer_invoice_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "genusGUID", "orderInList", "qtyInvoiced", "priceInvoiced", "vatRatioInvoiced", "rowJSON") VALUES
+  ('eeeeeeee-1000-0000-0000-0000000000c1', 'eeeeeeee-0000-0000-0000-0000000000c1', :'p1', :'t3', 'revenueGenus', 1, 4, 100, 0, '{}');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+
+SELECT tt.fails($f$SELECT public.create_payment_fact_from_vendor_invoice('eeeeeeee-0000-0000-0000-000000000001')$f$, 'post the vendor invoice first', 'a DRAFT invoice cannot be paid');
+SELECT tt.fails($f$SELECT public.create_payment_fact_from_vendor_invoice(gen_random_uuid())$f$, 'does not exist', 'an invoice that does not exist');
+SELECT tt.fails($f$SELECT public.payment_fact_from_invoice('vendor', gen_random_uuid())$f$, 'permission denied', 'the internal function is not callable by the client (only the two create_payment_fact_from_… RPCs are)');
+SELECT tt.as_admin();
+UPDATE public.vendor_invoice_header SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader,documentStatus}', '"posted"') WHERE "rowGUID" = 'eeeeeeee-0000-0000-0000-000000000001';
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.create_payment_fact_from_vendor_invoice('eeeeeeee-0000-0000-0000-000000000001') AS r \gset
+SELECT tt.eq(jsonb_array_length(:'r'::jsonb->'documents'), 1, 'a posted vendor invoice makes ONE draft payment fact');
+SELECT (:'r'::jsonb->'documents'->0->>'documentGUID')::uuid AS dvi \gset
+SELECT tt.eq(:'r'::jsonb->'documents'->0->>'lineCount', '2', '... with one line per invoice line');
+SELECT tt.eq((SELECT "rowJSON"->>'paymentFactPartner' || ':' || ("rowJSON"->>'paymentFactDirection') || ':' || ("rowJSON"->>'paymentFactInvoiceKind') FROM public.project_payment_fact_header WHERE "rowGUID" = :'dvi'), 'pt1:outbound:vendor', '... of the vendor of the invoice, OUTBOUND, and it remembers the invoice');
+SELECT tt.eq((SELECT string_agg((l."rowJSON"->>'sumForContract') || '/' || (l."rowJSON"->>'paymentFactContract') || '/' || (l."rowJSON"->>'paymentFactCurrency'), ',' ORDER BY l."orderInList") FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = :'dvi'), '220.00/c1/EUR,55.00/c1/EUR', '... the sum of a line + its VAT, the contract and the currency of the invoice');
+SELECT tt.eq((SELECT string_agg(DISTINCT l."rowJSON"->>'paymentFactBudgetItem', ',') FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = :'dvi'), :'bi_out', '... the budget item the CONTRACT names (paymentBudgetItemOutbound)');
+SELECT tt.eq((SELECT string_agg(l."rowOwnerGUID"::text || ':' || COALESCE(l."rowJSON"->>'paymentFactBusinessUnit', '-'), ',' ORDER BY l."orderInList") FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = :'dvi'), :'t3' || ':-,' || :'t4' || ':bu1', '... the task and the business unit of each invoice line');
+SELECT tt.eq((SELECT "rowJSON"->>'paymentFactTask' FROM public.project_payment_fact_header WHERE "rowGUID" = :'dvi'), :'t3', '... made for the task of the first line');
+SELECT tt.eq(public.payment_fact_invoice_open('vendor', 'eeeeeeee-1000-0000-0000-000000000001'), 220.00::numeric, 'nothing is paid yet: the whole line is open (a draft payment does not count)');
+-- pay the first line only in part and post
+UPDATE public.project_payment_fact_lines SET "rowJSON" = "rowJSON" || '{"sumForContract":100}' WHERE "rowHeaderGUID" = :'dvi' AND "orderInList" = 1;
+DELETE FROM public.project_payment_fact_lines WHERE "rowHeaderGUID" = :'dvi' AND "orderInList" = 2;
+SELECT public.payment_fact_set_header(:'dvi', '{"paymentFactNumber":"BANK-VI","paymentFactDate":"2030-01-08","moneyAccountFact":"ma-eur"}');
+SELECT tt.eq(public.post_payment_fact(:'dvi')->>'status', 'posted', 'the payment fact made from the invoice is posted');
+SELECT tt.eq(public.payment_fact_invoice_open('vendor', 'eeeeeeee-1000-0000-0000-000000000001'), 120.00::numeric, 'the line of the invoice has 120 left to pay');
+SELECT public.create_payment_fact_from_vendor_invoice('eeeeeeee-0000-0000-0000-000000000001') AS r2 \gset
+SELECT tt.eq((SELECT string_agg(l."rowJSON"->>'sumForContract', ',' ORDER BY l."orderInList") FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = (:'r2'::jsonb->'documents'->0->>'documentGUID')::uuid), '120.00,55.00', 'a second payment fact takes what is left: 120 and the unpaid line 55');
+-- the contract without a payment budget item takes the standard "Payments to vendors"
+SELECT public.create_payment_fact_from_vendor_invoice('eeeeeeee-0000-0000-0000-000000000002') AS r3 \gset
+SELECT tt.eq((SELECT l."rowJSON"->>'paymentFactBudgetItem' FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = (:'r3'::jsonb->'documents'->0->>'documentGUID')::uuid), 'vendorPaymentsBudgetItem', 'a contract without a payment budget item: the standard item "Payments to vendors"');
+-- a customer invoice comes IN
+SELECT public.create_payment_fact_from_customer_invoice('eeeeeeee-0000-0000-0000-0000000000c1') AS r4 \gset
+SELECT (:'r4'::jsonb->'documents'->0->>'documentGUID')::uuid AS dci \gset
+SELECT tt.eq((SELECT "rowJSON"->>'paymentFactPartner' || ':' || ("rowJSON"->>'paymentFactDirection') || ':' || ("rowJSON"->>'paymentFactInvoiceKind') FROM public.project_payment_fact_header WHERE "rowGUID" = :'dci'), 'pt3:inbound:customer', 'a posted customer invoice makes an INBOUND payment fact of its customer');
+SELECT tt.eq((SELECT (l."rowJSON"->>'sumForContract') || '/' || (l."rowJSON"->>'paymentFactBudgetItem') FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = :'dci'), '400.00/' || :'bi_in', '... 4 x 100 with the inbound budget item of the contract');
+SELECT public.payment_fact_set_header(:'dci', '{"paymentFactNumber":"BANK-CI","paymentFactDate":"2030-01-09","moneyAccountFact":"ma-eur"}');
+SELECT tt.eq(public.post_payment_fact(:'dci')->>'status', 'posted', 'the customer receipt is posted: the account gets +400');
+SELECT tt.eq((SELECT sum("sumForContract") FROM public.cash_account_ledger_movements WHERE "rowHeaderGUID" = :'dci'), 400.00::numeric, '... a positive movement');
+SELECT tt.eq(public.create_payment_fact_from_customer_invoice('eeeeeeee-0000-0000-0000-0000000000c1')->'skipped'->0->>'reason', 'nothingToPay', 'a customer invoice that is paid in full has nothing to pay: no document is made');
+SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.fails($f$SELECT public.create_payment_fact_from_vendor_invoice('eeeeeeee-0000-0000-0000-000000000001')$f$, 'does not exist', 'another organization cannot make a payment fact of my invoice');
+SELECT tt.as_admin();
+
+-- clean up: the documents made here leave no trace for the next sections
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT public.unpost_payment_fact(:'dvi');
+SELECT public.unpost_payment_fact(:'dci');
+DELETE FROM public.project_payment_fact_header WHERE "rowJSON"->>'paymentFactInvoiceKind' IS NOT NULL;
+SELECT tt.eq((SELECT count(*) FROM public.cash_account_ledger_movements) + (SELECT count(*) FROM public.cash_account_ledger_rests), 0::bigint, 'no movement and no rest is left after the invoices');
+SELECT tt.as_admin();
 DELETE FROM public.project_task_table WHERE "rowGUID" = :'t3';
 SELECT tt.eq((SELECT count(*) FROM public.project_payment_fact_lines), 0::bigint, 'deleting the task deletes the lines of the draft documents');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');

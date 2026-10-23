@@ -13794,6 +13794,106 @@ DROP TRIGGER IF EXISTS trg_cash_ledger_rate ON public."currencyExchangeRateTable
 CREATE TRIGGER trg_cash_ledger_rate AFTER INSERT OR UPDATE OR DELETE ON public."currencyExchangeRateTable" FOR EACH ROW EXECUTE FUNCTION public.cash_ledger_rate_trigger();
 
 
+-- ---- "Create based on → Payment fact" of a POSTED vendor / customer invoice ---------------------------------------------------------------------------------------------------------------------
+-- payment_fact_invoice_open(kind, invoice line): what is still to pay of an invoice line (sum + VAT of the line - the lines of POSTED payment facts made from it). kind = 'vendor' | 'customer'
+CREATE OR REPLACE FUNCTION public.payment_fact_invoice_open(p_kind text, p_line uuid) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(CASE WHEN p_kind = 'customer' THEN (SELECT COALESCE(c."sumForContract", 0) + COALESCE(c."vatForContract", 0) FROM public.customer_invoice_lines c WHERE c."rowGUID" = p_line)
+                       ELSE (SELECT COALESCE(v."sumForContract", 0) + COALESCE(v."vatForContract", 0) FROM public.vendor_invoice_lines v WHERE v."rowGUID" = p_line) END, 0)
+         - COALESCE((SELECT sum((l."rowJSON"->>'sumForContract')::numeric) FROM public.project_payment_fact_lines l
+                       JOIN public.project_payment_fact_header h ON h."rowGUID" = l."rowHeaderGUID"
+                      WHERE l."rowJSON"->>'paymentFactInvoiceLine' = p_line::text AND l."rowJSON"->>'paymentFactInvoiceKind' = p_kind AND jsonb_typeof(l."rowJSON"->'sumForContract') = 'number'
+                        AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'), 0)
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_invoice_open(text, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_invoice_open(text, uuid) TO authenticated;
+
+-- payment_fact_from_invoice(kind, invoice): ONE draft payment fact that pays a POSTED invoice: the payee and the contract of the invoice, the direction (a vendor invoice is paid OUTBOUND, a customer invoice comes in INBOUND),
+-- one line per invoice line with what is still to pay (the sum of the line + its VAT, in the currency of the invoice), the project, task and business unit of the invoice line, the budget item of the payments genus (the one
+-- the contract names, else the standard "Payments to vendors" / "Receipts from customers"). The number and the date of the bank transaction and the money account are for the accountant to fill in (the only active
+-- money account is preset). Answer { documents: [ { documentGUID, lineCount } ], skipped: [ { reason } ] }; skipped reasons: nothingToPay.
+CREATE OR REPLACE FUNCTION public.payment_fact_from_invoice(p_kind text, p_invoice uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; ln record; v_header uuid; v_n integer := 0; v_open numeric; v_contract text; v_partner text; v_cur text; v_dir text; v_item text; v_json jsonb; v_order numeric := 0; v_first_task uuid; v_kcur text;
+  v_vendor boolean := p_kind <> 'customer';
+BEGIN
+  IF p_kind NOT IN ('vendor', 'customer') THEN
+    RAISE EXCEPTION 'unknown invoice kind %', p_kind USING ERRCODE = '22023';
+  END IF;
+  IF v_vendor THEN
+    SELECT x."rowOrganizationGUID" AS org, x."rowJSON" AS j INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_invoice;
+  ELSE
+    SELECT x."rowOrganizationGUID" AS org, x."rowJSON" AS j INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_invoice;
+  END IF;
+  IF NOT FOUND OR h.org IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION '% invoice % does not exist', p_kind, p_invoice USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h.j->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RAISE EXCEPTION 'post the % invoice first: a payment fact pays a posted invoice', p_kind USING ERRCODE = '23514';
+  END IF;
+  v_partner := NULLIF(CASE WHEN v_vendor THEN h.j->>'vendorInvoicePartner' ELSE h.j->>'customerInvoicePartner' END, '');
+  v_contract := NULLIF(CASE WHEN v_vendor THEN h.j->>'vendorInvoiceContract' ELSE h.j->>'customerInvoiceContract' END, '');
+  v_cur := upper(NULLIF(CASE WHEN v_vendor THEN h.j->>'vendorInvoiceCurrency' ELSE h.j->>'customerInvoiceCurrency' END, ''));
+  v_dir := CASE WHEN v_vendor THEN 'outbound' ELSE 'inbound' END;
+  IF v_partner IS NULL THEN
+    RAISE EXCEPTION 'the % invoice has no %: choose it on the invoice first', p_kind, CASE WHEN v_vendor THEN 'vendor' ELSE 'customer' END USING ERRCODE = '23514';
+  END IF;
+  -- the budget item of the payment: the contract's, else the standard one of the direction
+  SELECT CASE WHEN v_vendor THEN NULLIF(k."rowJSON"->>'paymentBudgetItemOutbound', '') ELSE NULLIF(k."rowJSON"->>'paymentBudgetItemInbound', '') END, NULLIF(upper(k."rowJSON"->>'contractCurrency'), '') INTO v_item, v_kcur
+    FROM public."contractTable" k WHERE k."rowGUID" = v_contract;
+  v_cur := COALESCE(v_cur, v_kcur);
+  IF v_item IS NULL THEN
+    SELECT b."rowGUID" INTO v_item FROM public."budgetItemTable" b WHERE b."rowGUID" = CASE WHEN v_vendor THEN 'vendorPaymentsBudgetItem' ELSE 'customerReceiptsBudgetItem' END;
+  END IF;
+
+  FOR ln IN
+    SELECT l."rowGUID" AS id, l."rowProjectGUID" AS project, l."rowOwnerGUID" AS task, l."orderInList" AS ord, NULLIF(l."rowJSON"->>'businessUnitTaskLine', '') AS unit
+      FROM public.vendor_invoice_lines l WHERE v_vendor AND l."rowHeaderGUID" = p_invoice
+    UNION ALL
+    SELECT l."rowGUID", l."rowProjectGUID", l."rowOwnerGUID", l."orderInList", NULLIF(l."rowJSON"->>'businessUnitTaskLine', '')
+      FROM public.customer_invoice_lines l WHERE NOT v_vendor AND l."rowHeaderGUID" = p_invoice
+     ORDER BY 4, 1
+  LOOP
+    IF NOT public.pm_owns_project(ln.project) THEN
+      RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+    END IF;
+    v_open := public.payment_fact_invoice_open(p_kind, ln.id);
+    IF v_open IS NULL OR v_open <= 0 THEN CONTINUE; END IF;
+    IF v_header IS NULL THEN
+      v_first_task := ln.task;
+      v_header := public.payment_fact_create(ln.task, v_dir, NULL);
+      UPDATE public.project_payment_fact_header SET "rowJSON" = "rowJSON" || jsonb_strip_nulls(jsonb_build_object(
+        'paymentFactPartner', v_partner, 'paymentFactInvoiceKind', p_kind, 'paymentFactInvoiceHeader', p_invoice)) WHERE "rowGUID" = v_header;
+    END IF;
+    v_order := v_order + 1;
+    v_json := jsonb_strip_nulls(jsonb_build_object('paymentFactContract', v_contract, 'paymentFactBudgetItem', v_item, 'paymentFactBusinessUnit', ln.unit, 'paymentFactCurrency', v_cur, 'sumForContract', v_open,
+                                                   'paymentFactInvoiceKind', p_kind, 'paymentFactInvoiceHeader', p_invoice, 'paymentFactInvoiceLine', ln.id, 'paymentFactPlanSum', v_open));
+    INSERT INTO public.project_payment_fact_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "paymentPlanLineGUID", "orderInList", "rowJSON") VALUES (v_header, ln.project, ln.task, NULL, v_order, v_json);
+    v_n := v_n + 1;
+  END LOOP;
+  IF v_header IS NULL THEN
+    RETURN jsonb_build_object('documents', '[]'::jsonb, 'skipped', jsonb_build_array(jsonb_build_object('reason', 'nothingToPay')));
+  END IF;
+  RETURN jsonb_build_object('documents', jsonb_build_array(jsonb_build_object('documentGUID', v_header, 'lineCount', v_n, 'taskGUID', v_first_task)), 'skipped', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_from_invoice(text, uuid) FROM PUBLIC, anon;
+
+CREATE OR REPLACE FUNCTION public.create_payment_fact_from_vendor_invoice(p_invoice uuid) RETURNS jsonb
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$ SELECT public.payment_fact_from_invoice('vendor', p_invoice) $$;
+
+CREATE OR REPLACE FUNCTION public.create_payment_fact_from_customer_invoice(p_invoice uuid) RETURNS jsonb
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$ SELECT public.payment_fact_from_invoice('customer', p_invoice) $$;
+
+REVOKE ALL ON FUNCTION public.create_payment_fact_from_vendor_invoice(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.create_payment_fact_from_customer_invoice(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_payment_fact_from_vendor_invoice(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_payment_fact_from_customer_invoice(uuid) TO authenticated;
+
+
 -- ===============================================================================================
 -- END of start2_sql_code.sql
 -- ===============================================================================================

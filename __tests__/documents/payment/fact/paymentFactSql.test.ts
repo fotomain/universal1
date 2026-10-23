@@ -5,7 +5,7 @@ import * as path from 'path';
 import {
   CASH_LEDGER_MOVEMENTS_TABLE, PAYMENT_FACT_HEADER_TABLE, PAYMENT_FACT_LINES_TABLE, RPC_CASH_LEDGER_REFRESH, RPC_PAYMENT_FACT_ADD_FROM_PLAN, RPC_PAYMENT_FACT_ADD_LINE, RPC_PAYMENT_FACT_CANDIDATES,
   RPC_PAYMENT_FACT_CREATE, RPC_PAYMENT_FACT_DELETE, RPC_PAYMENT_FACT_LIST, RPC_PAYMENT_FACT_POST, RPC_PAYMENT_FACT_SET_HEADER, RPC_PAYMENT_FACT_SET_LINE_TASK, RPC_PAYMENT_FACT_UNPOST, RPC_TASK_PAYMENT_PAID,
-  paymentFactProblemText, skipReasonText,
+  paymentFactProblemText, skipReasonText, RPC_PF_FROM_CUSTOMER_INVOICE, RPC_PF_FROM_VENDOR_INVOICE,
 } from '../../../../kit8/documents/payment/fact/paymentFactModel';
 import { paymentFactSystemMetaData } from '../../../../kit8/documents/payment/fact/paymentFactMetaData';
 import { MONEY_ACCOUNT_TABLE } from '../../../../kit8/catalog/money_account/moneyAccountModel';
@@ -61,13 +61,23 @@ describe('the delete file and the cron file', () => {
 
 describe('the names the app calls exist in the code file', () => {
   it.each([RPC_PAYMENT_FACT_CREATE, RPC_PAYMENT_FACT_SET_HEADER, RPC_PAYMENT_FACT_ADD_FROM_PLAN, RPC_PAYMENT_FACT_ADD_LINE, RPC_PAYMENT_FACT_SET_LINE_TASK, RPC_PAYMENT_FACT_CANDIDATES, RPC_PAYMENT_FACT_POST,
-    RPC_PAYMENT_FACT_UNPOST, RPC_PAYMENT_FACT_DELETE, RPC_PAYMENT_FACT_LIST, RPC_TASK_PAYMENT_PAID, RPC_CASH_LEDGER_REFRESH])('function %s is granted to the signed-in user', (name) => {
+    RPC_PAYMENT_FACT_UNPOST, RPC_PAYMENT_FACT_DELETE, RPC_PAYMENT_FACT_LIST, RPC_TASK_PAYMENT_PAID, RPC_CASH_LEDGER_REFRESH, RPC_PF_FROM_VENDOR_INVOICE, RPC_PF_FROM_CUSTOMER_INVOICE])('function %s is granted to the signed-in user', (name) => {
     expect(one(code)).toContain(`CREATE OR REPLACE FUNCTION public.${name}(`);
     expect(one(code)).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${name}\\(`));
   });
   it('the redux entities point at the two tables', () => {
     const meta = paymentFactSystemMetaData();
     expect(Object.values(meta).map((m: any) => m.tableName)).toEqual([PAYMENT_FACT_HEADER_TABLE, PAYMENT_FACT_LINES_TABLE]);
+  });
+  it('"Create based on → Payment fact": a vendor invoice is paid OUTBOUND, a customer invoice comes in INBOUND; the internal function is not granted to the client', () => {
+    const c = one(code);
+    expect(c).toContain("v_dir := CASE WHEN v_vendor THEN 'outbound' ELSE 'inbound' END;");
+    expect(c).toContain("RAISE EXCEPTION 'post the % invoice first: a payment fact pays a posted invoice'");
+    expect(c).toContain("'vendorPaymentsBudgetItem' ELSE 'customerReceiptsBudgetItem'");
+    expect(c).toContain("REVOKE ALL ON FUNCTION public.payment_fact_from_invoice(text, uuid) FROM PUBLIC, anon;");
+    expect(c).not.toContain('GRANT EXECUTE ON FUNCTION public.payment_fact_from_invoice');
+    expect(c).toContain("SELECT public.payment_fact_from_invoice('vendor', p_invoice)");
+    expect(c).toContain("SELECT public.payment_fact_from_invoice('customer', p_invoice)");
   });
   it('the worker, the recalculation and the rebuild of the rests are NOT callable by the client', () => {
     for (const f of ['cash_ledger_recalc', 'cash_ledger_process_dirty', 'cash_ledger_rebuild_rests', 'cash_ledger_rests_calc', 'cash_ledger_fresh', 'cash_ledger_verify', 'cash_ledger_rebuild']) {
