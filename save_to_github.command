@@ -1,4 +1,4 @@
-#!/bin/zsh
+®#!/bin/zsh
 # =========================================================================
 # UNIVERSAL1 Expo App — Save to Branch of universal1: expo-YYYY-MM-DD-HH-MM
 # Target Remote : https://github.com/fotomain/universal1.git

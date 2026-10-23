@@ -41,6 +41,7 @@
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 --   35. create_work_center.sql - WORK CENTER: workCenterTable (a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + work_center_copy_variant_settings + the kind 'workCenter' of a Time line (the capacity branches live in PARTs 21 / 23)
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header / _lines / _lines_data_entered, Post writes the entered hours as 'used' movements; the Person of every user; the settings per Person
+--   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 -- ===============================================================================================
 
 DO $$
@@ -12396,6 +12397,249 @@ REVOKE ALL ON FUNCTION public.unpost_timesheet(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.post_timesheet(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.unpost_timesheet(uuid) TO authenticated;
 
+
+-- ===============================================================================================
+-- PART 37: create_payment_plan.sql
+-- the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments, optimistic CRUD of the app) + task_payment_plan_movements (the POSTED payments).
+-- Rules in this file: the project of a payment is the project of its task; the budget item is an item of the PAYMENTS genus of the direction; ANY change of a posted payment makes it unposted again
+-- (paymentIsPosted = false, its movement is deleted); only post_task_payment_plan sets it true and writes the movements (one transaction); a change of the task dates unposts the payments of the task.
+-- The three sums are all WITH VAT. The app: kit8/pm/view/task/payments.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.task_payment_plan_lines') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 37 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_task_payment_plan_lines_touch ON public.task_payment_plan_lines;
+CREATE TRIGGER trg_task_payment_plan_lines_touch BEFORE UPDATE ON public.task_payment_plan_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_task_payment_plan_movements_touch ON public.task_payment_plan_movements;
+CREATE TRIGGER trg_task_payment_plan_movements_touch BEFORE UPDATE ON public.task_payment_plan_movements FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- the project switch "payment plan after the task finish date" (project settings, tab Payments): TRUE unless it is stored false
+CREATE OR REPLACE FUNCTION public.payment_plan_after_finish_on(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT p."rowJSON"->>'paymentPlanAfterTaskFinishEnabled' IS DISTINCT FROM 'false' FROM public.project_table p WHERE p."rowGUID" = p_project), true);
+$$;
+
+
+-- before every write: the project of the task, the budget item of the payments genus, and the unpost of a changed payment
+CREATE OR REPLACE FUNCTION public.task_payment_plan_before_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+  v_item    text;
+  v_genus   text;
+  v_post    boolean := COALESCE(current_setting('app.payment_plan_post', true), '') = 'on';
+BEGIN
+  IF TG_OP = 'INSERT' OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" THEN
+    SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = NEW."rowOwnerGUID";
+    IF v_project IS NULL THEN
+      RAISE EXCEPTION 'task % does not exist', NEW."rowOwnerGUID" USING ERRCODE = '23503';
+    END IF;
+    NEW."rowProjectGUID" := v_project;
+  END IF;
+
+  -- the budget item of a payment is an item of the payment genus of its direction (checked when it, or the direction, is written)
+  v_item := NULLIF(NEW."rowJSON"->>'paymentPlanBudgetItem', '');
+  IF v_item IS NOT NULL AND (TG_OP = 'INSERT' OR v_item IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentPlanBudgetItem', '') OR NEW."rowParentGUID" IS DISTINCT FROM OLD."rowParentGUID") THEN
+    SELECT b."rowJSON"->>'managementGenusItem' INTO v_genus FROM public."budgetItemTable" b WHERE b."rowGUID" = v_item;
+    IF v_genus IS DISTINCT FROM (CASE WHEN NEW."rowParentGUID" = 'inbound' THEN 'inboundPaymentGenus' ELSE 'outboundPaymentGenus' END) THEN
+      RAISE EXCEPTION 'payment plan: the budget item must be an item of the % payment genus', NEW."rowParentGUID" USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF NOT v_post THEN
+    IF TG_OP = 'INSERT' THEN
+      NEW."rowJSON" := NEW."rowJSON" || '{"paymentIsPosted": false}'::jsonb;
+    ELSIF (OLD."rowJSON" - 'paymentIsPosted') IS DISTINCT FROM (NEW."rowJSON" - 'paymentIsPosted')
+          OR NEW."rowParentGUID" IS DISTINCT FROM OLD."rowParentGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" THEN
+      NEW."rowJSON" := NEW."rowJSON" || '{"paymentIsPosted": false}'::jsonb;
+      DELETE FROM public.task_payment_plan_movements m WHERE m."rowParentGUID" = NEW."rowGUID";
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_task_payment_plan_before_write ON public.task_payment_plan_lines;
+CREATE TRIGGER trg_task_payment_plan_before_write BEFORE INSERT OR UPDATE ON public.task_payment_plan_lines
+  FOR EACH ROW EXECUTE FUNCTION public.task_payment_plan_before_write();
+
+
+-- realtime needs the whole old row on DELETE
+ALTER TABLE public.task_payment_plan_lines REPLICA IDENTITY FULL;
+
+-- access: the owner of the project only. The payments are written by the app (optimistic CRUD); the movements only by post_task_payment_plan (no write privilege for the client)
+ALTER TABLE public.task_payment_plan_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_payment_plan_movements ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.task_payment_plan_lines FROM anon, authenticated;
+REVOKE ALL ON public.task_payment_plan_movements FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.task_payment_plan_lines TO authenticated;
+GRANT SELECT ON public.task_payment_plan_movements TO authenticated;
+
+DROP POLICY IF EXISTS task_payment_plan_select ON public.task_payment_plan_lines;
+DROP POLICY IF EXISTS task_payment_plan_insert ON public.task_payment_plan_lines;
+DROP POLICY IF EXISTS task_payment_plan_update ON public.task_payment_plan_lines;
+DROP POLICY IF EXISTS task_payment_plan_delete ON public.task_payment_plan_lines;
+DROP POLICY IF EXISTS task_payment_plan_movements_select ON public.task_payment_plan_movements;
+
+CREATE POLICY task_payment_plan_select ON public.task_payment_plan_lines FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+CREATE POLICY task_payment_plan_insert ON public.task_payment_plan_lines FOR INSERT TO authenticated
+  WITH CHECK (public.pm_owns_project("rowProjectGUID"));
+CREATE POLICY task_payment_plan_update ON public.task_payment_plan_lines FOR UPDATE TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID")) WITH CHECK (public.pm_owns_project("rowProjectGUID"));
+CREATE POLICY task_payment_plan_delete ON public.task_payment_plan_lines FOR DELETE TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+CREATE POLICY task_payment_plan_movements_select ON public.task_payment_plan_movements FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+-- realtime: other browsers / devices see the payments at once
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables
+                                   WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'task_payment_plan_lines') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.task_payment_plan_lines;
+  END IF;
+END $$;
+
+
+-- -------------------------------------------------------------------------------------
+-- post_task_payment_plan(task, first day of the task, last day of the task): Post of the payments of ONE task. The days come from the scheduler of the app (its time zone), as for
+-- create_task_line_plan. ALL OR NOTHING: when any payment is incomplete the answer is { status: 'refused', problems: [ { lineGUID, problem } ] } and nothing is written. Otherwise the movements of
+-- the task are replaced (one row per payment, the three sums WITH VAT) and every payment gets paymentIsPosted = true, in this transaction.
+--   problems: budgetItemMissing · budgetItemNotPayment · payeeMissing · contractMissing · currencyMissing · sumMissing · dateMissing · dateBeforeTaskStart · dateAfterTaskEnd
+--             (only while the project switch is off) · sumForAccountingMissing · sumForBudgetMissing (only while the project has that currency)
+-- -------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.post_task_payment_plan(p_task uuid, p_task_start date, p_task_end date) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project  uuid;
+  v_json     jsonb;
+  v_after    boolean;
+  v_acc      text;
+  v_bud      text;
+  v_count    integer;
+  v_problems jsonb;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task FOR UPDATE;
+  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'post_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
+  END IF;
+  SELECT count(*) INTO v_count FROM public.task_payment_plan_lines l WHERE l."rowOwnerGUID" = p_task;
+  IF v_count = 0 THEN
+    RETURN jsonb_build_object('status', 'nothing', 'lines', 0, 'problems', '[]'::jsonb);
+  END IF;
+  SELECT p."rowJSON" INTO v_json FROM public.project_table p WHERE p."rowGUID" = v_project;
+  v_after := public.payment_plan_after_finish_on(v_project);
+  v_acc := NULLIF(upper(btrim(COALESCE(v_json->>'currencyForAccounting', ''))), '');
+  v_bud := NULLIF(upper(btrim(COALESCE(v_json->>'currencyForBudget', ''))), '');
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('lineGUID', x.id, 'problem', x.problem) ORDER BY x.ord, x.id, x.problem), '[]'::jsonb) INTO v_problems
+    FROM (
+      SELECT l."rowGUID" AS id, l."orderInList" AS ord, pr.problem
+        FROM public.task_payment_plan_lines l
+        CROSS JOIN LATERAL (VALUES
+          ('budgetItemMissing', COALESCE(l."rowJSON"->>'paymentPlanBudgetItem', '') = ''),
+          ('budgetItemNotPayment', COALESCE(l."rowJSON"->>'paymentPlanBudgetItem', '') <> '' AND NOT EXISTS (
+              SELECT 1 FROM public."budgetItemTable" b WHERE b."rowGUID" = l."rowJSON"->>'paymentPlanBudgetItem'
+                 AND b."rowJSON"->>'managementGenusItem' = CASE WHEN l."rowParentGUID" = 'inbound' THEN 'inboundPaymentGenus' ELSE 'outboundPaymentGenus' END)),
+          ('payeeMissing', COALESCE(l."rowJSON"->>'paymentPlanPartner', '') = '' AND COALESCE(l."rowJSON"->>'paymentPlanPerson', '') = ''),
+          ('contractMissing', COALESCE(l."rowJSON"->>'paymentPlanContract', '') = ''),
+          ('currencyMissing', COALESCE(l."rowJSON"->>'paymentPlanCurrency', '') = ''),
+          ('sumMissing', jsonb_typeof(l."rowJSON"->'sumForContract') IS DISTINCT FROM 'number' OR COALESCE((l."rowJSON"->>'sumForContract')::numeric, 0) <= 0),
+          ('dateMissing', COALESCE(l."rowJSON"->>'paymentPlannedTransactionDate', '') = ''),
+          ('dateBeforeTaskStart', p_task_start IS NOT NULL AND COALESCE(l."rowJSON"->>'paymentPlannedTransactionDate', '') <> ''
+              AND (l."rowJSON"->>'paymentPlannedTransactionDate')::date < p_task_start),
+          ('dateAfterTaskEnd', NOT v_after AND p_task_end IS NOT NULL AND COALESCE(l."rowJSON"->>'paymentPlannedTransactionDate', '') <> ''
+              AND (l."rowJSON"->>'paymentPlannedTransactionDate')::date > p_task_end),
+          ('sumForAccountingMissing', v_acc IS NOT NULL AND jsonb_typeof(l."rowJSON"->'sumForAccounting') IS DISTINCT FROM 'number'),
+          ('sumForBudgetMissing', v_bud IS NOT NULL AND jsonb_typeof(l."rowJSON"->'sumForBudget') IS DISTINCT FROM 'number')
+        ) AS pr(problem, bad)
+       WHERE l."rowOwnerGUID" = p_task AND pr.bad
+    ) x;
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_count, 'problems', v_problems);
+  END IF;
+
+  PERFORM set_config('app.payment_plan_post', 'on', true);
+  DELETE FROM public.task_payment_plan_movements m WHERE m."rowOwnerGUID" = p_task;
+  INSERT INTO public.task_payment_plan_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "periodDay", "paymentDirection", "budgetItem", "businessUnit", "partner", "person", "contract", "currency",
+                                                  "sumForContract", "sumForAccounting", "sumForBudget")
+  SELECT l."rowProjectGUID", l."rowOwnerGUID", l."rowGUID", (l."rowJSON"->>'paymentPlannedTransactionDate')::date, l."rowParentGUID",
+         l."rowJSON"->>'paymentPlanBudgetItem', NULLIF(l."rowJSON"->>'paymentPlanBusinessUnit', ''), NULLIF(l."rowJSON"->>'paymentPlanPartner', ''), NULLIF(l."rowJSON"->>'paymentPlanPerson', ''),
+         l."rowJSON"->>'paymentPlanContract', upper(l."rowJSON"->>'paymentPlanCurrency'),
+         round((l."rowJSON"->>'sumForContract')::numeric, 2),
+         CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' THEN round((l."rowJSON"->>'sumForAccounting')::numeric, 2) END,
+         CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' THEN round((l."rowJSON"->>'sumForBudget')::numeric, 2) END
+    FROM public.task_payment_plan_lines l WHERE l."rowOwnerGUID" = p_task;
+  UPDATE public.task_payment_plan_lines l SET "rowJSON" = l."rowJSON" || '{"paymentIsPosted": true, "paymentEverPosted": true}'::jsonb WHERE l."rowOwnerGUID" = p_task;
+  PERFORM set_config('app.payment_plan_post', 'off', true);
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_count, 'problems', '[]'::jsonb);
+END;
+$$;
+
+-- unpost_task_payment_plan(task): the payments of the task are drafts again, their movements are deleted (a change of a payment does the same for that one payment)
+CREATE OR REPLACE FUNCTION public.unpost_task_payment_plan(p_task uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+  v_count   integer;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task FOR UPDATE;
+  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'unpost_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
+  END IF;
+  PERFORM set_config('app.payment_plan_post', 'on', true);
+  DELETE FROM public.task_payment_plan_movements m WHERE m."rowOwnerGUID" = p_task;
+  UPDATE public.task_payment_plan_lines l SET "rowJSON" = l."rowJSON" || '{"paymentIsPosted": false}'::jsonb
+   WHERE l."rowOwnerGUID" = p_task AND l."rowJSON" @> '{"paymentIsPosted": true}'::jsonb;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  PERFORM set_config('app.payment_plan_post', 'off', true);
+  RETURN jsonb_build_object('status', 'draft', 'lines', v_count);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_task_payment_plan(uuid, date, date) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.unpost_task_payment_plan(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.payment_plan_after_finish_on(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.post_task_payment_plan(uuid, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.unpost_task_payment_plan(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.payment_plan_after_finish_on(uuid) TO authenticated;
+
+
+-- The start or the finish DAY of a task changed (the scheduler writes rowJSON.startAt and rowDuration): its posted payments need a new Post (the dates of the payments that follow the task are moved by the app).
+CREATE OR REPLACE FUNCTION public.task_payment_plan_unpost_on_dates() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF (NEW."rowDuration")::date IS DISTINCT FROM (OLD."rowDuration")::date
+     OR NULLIF(NEW."rowJSON"->>'startAt', '')::timestamptz::date IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'startAt', '')::timestamptz::date THEN
+    IF EXISTS (SELECT 1 FROM public.task_payment_plan_lines l WHERE l."rowOwnerGUID" = NEW."rowGUID" AND l."rowJSON" @> '{"paymentIsPosted": true}'::jsonb) THEN
+      PERFORM set_config('app.payment_plan_post', 'on', true);
+      DELETE FROM public.task_payment_plan_movements m WHERE m."rowOwnerGUID" = NEW."rowGUID";
+      UPDATE public.task_payment_plan_lines l SET "rowJSON" = l."rowJSON" || '{"paymentIsPosted": false}'::jsonb
+       WHERE l."rowOwnerGUID" = NEW."rowGUID" AND l."rowJSON" @> '{"paymentIsPosted": true}'::jsonb;
+      PERFORM set_config('app.payment_plan_post', 'off', true);
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_task_payment_plan_unpost_on_dates ON public.project_task_table;
+CREATE TRIGGER trg_task_payment_plan_unpost_on_dates
+  AFTER UPDATE OF "rowJSON", "rowDuration" ON public.project_task_table
+  FOR EACH ROW EXECUTE FUNCTION public.task_payment_plan_unpost_on_dates();
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

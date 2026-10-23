@@ -27,12 +27,16 @@ export interface LegalData {
 
 export interface SupplierData {
   paymentTermsDays?: number;
+  /** payment plan (optional, >= 0): days after the start / end of a task a payment TO this supplier is planned - the project manager's forecast value, not the legal term; empty = not set */
+  paymentTimelineShiftDays?: number;
   defaultCurrency?: string;
   notes?: string;
 }
 
 export interface CustomerData {
   paymentTermsDays?: number;
+  /** payment plan (optional, >= 0): days after the start / end of a task a payment FROM this customer is planned - the project manager's forecast value; empty = not set */
+  paymentTimelineShiftDays?: number;
   creditLimit?: number;
   defaultCurrency?: string;
   discountPercent?: number;
@@ -126,6 +130,16 @@ export const emptyPartner = (): PartnerRowJSON => ({
   },
 });
 
+/** the optional shift of the payment plan: a number >= 0 is kept (0 is a value), anything else is not written - so a save clears it */
+const optionalShift = (v: unknown): { paymentTimelineShiftDays?: number } =>
+  v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? {} : { paymentTimelineShiftDays: Math.round(Number(v)) };
+
+/** the shift of the payment terms of a partner for a direction (Outbound: the supplier data, Inbound: the customer data); null = not set */
+export function partnerPaymentShift(json: Partial<PartnerRowJSON> | null | undefined, direction: 'outbound' | 'inbound'): number | null {
+  const v = (direction === 'inbound' ? json?.customerData : json?.supplierData)?.paymentTimelineShiftDays;
+  return v === null || v === undefined || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v));
+}
+
 /** Form values -> stored shape. */
 export function normalizePartner(v: Partial<PartnerRowJSON>): PartnerRowJSON {
   const title = String(v.partnerTitle ?? '').trim();
@@ -146,6 +160,7 @@ export function normalizePartner(v: Partial<PartnerRowJSON>): PartnerRowJSON {
     paymentTermsDays: Number.isFinite(Number(rawSupp.paymentTermsDays)) ? Math.max(0, Math.round(Number(rawSupp.paymentTermsDays))) : 14,
     defaultCurrency: String(rawSupp.defaultCurrency ?? 'EUR').trim().toUpperCase(),
     notes: String(rawSupp.notes ?? '').trim(),
+    ...optionalShift(rawSupp.paymentTimelineShiftDays),
   };
 
   const customerData: CustomerData = {
@@ -153,6 +168,7 @@ export function normalizePartner(v: Partial<PartnerRowJSON>): PartnerRowJSON {
     creditLimit: Number.isFinite(Number(rawCust.creditLimit)) ? Math.max(0, Number(rawCust.creditLimit)) : 0,
     defaultCurrency: String(rawCust.defaultCurrency ?? 'EUR').trim().toUpperCase(),
     discountPercent: Number.isFinite(Number(rawCust.discountPercent)) ? Math.min(100, Math.max(0, Number(rawCust.discountPercent))) : 0,
+    ...optionalShift(rawCust.paymentTimelineShiftDays),
   };
 
   return {

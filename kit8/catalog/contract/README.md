@@ -35,3 +35,9 @@ Follows `kit8/sql/defTable.md`:
 * `ContractList`: Embedded realtime list scoped to `{ rowOwnerGUID: ownerGUID }`.
 * `ContractCard`: Visual summary card with status badge, dates, period amounts.
 * `ContractEdit`: Modal dialog for creating and updating contract records with live totals calculation.
+
+
+## Payment plan keys (optional, `contractPaymentModel.ts`)
+For the payment plan of a task (`kit8/pm/view/task/payments`), on the contract of a **partner** and of a **person**; kept by `normalizeContract`, a key that is empty is not written:
+- `paymentTimelineShiftDays` - days after the start / end of a task this contract pays (>= 0; 0 is a value): the default shift of a payment of this contract.
+- `paymentBudgetItemOutbound` / `paymentBudgetItemInbound` - the budget item of the **payments genus** of a payment TO / FROM the payee. A person is only paid (outbound); a partner by its role flags (`supplierRole` -> outbound, `customerRole` -> inbound; no flag = both). The payment takes the item from its contract and the user can change it on the payment line.

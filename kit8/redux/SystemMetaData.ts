@@ -30,6 +30,7 @@ import {timesheetSystemMetaData} from "../documents/timesheet/timesheetMetaData"
 import {managementCalendarSystemMetaData} from "../catalog/management/calendar/managementCalendarMetaData";
 import {taskLineSystemMetaData} from "../pm/view/task/finances/taskLineMetaData";
 import {taskLinePlanSystemMetaData} from "../pm/view/task/plan/taskLinePlanMetaData";
+import {taskPaymentPlanSystemMetaData} from "../pm/view/task/payments/paymentPlanMetaData";
 import {taskFactUsageTimelineSystemMetaData} from "../documents/fact/input/factMetaData";
 import {personTypeSystemMetaData} from "../catalog/person/personTypeMetaData";
 import {equipmentSystemMetaData} from "../catalog/equipment/equipmentMetaData";
@@ -130,6 +131,8 @@ const SystemMetaData:any = {
     ...taskLineSystemMetaData(),
     // Task line plan (kit8/pm/view/task/plan): task_line_plan, the posted days of the task lines (read-only; written by create_task_line_plan).
     ...taskLinePlanSystemMetaData(),
+    // Payment plan (kit8/pm/view/task/payments): task_payment_plan_lines - the planned payments of a task, rowOwnerGUID = task, rowParentGUID = 'outbound' | 'inbound'. SQL PART 37, documentation/PAYMENTS_PLAN_WBS.html
+    ...taskPaymentPlanSystemMetaData(),
     // Fact lines (kit8/documents/fact/input): task_fact_usage_timeline, the lines of a fact input document (documentation/FACT_INPUT.html); the table of the form edits rowPeriodDatetime / qtyForContract (rootColumns).
     ...taskFactUsageTimelineSystemMetaData(),
     // Person types (kit8/catalog/person/personTypeModel.ts): personTypeTable - Employee / Contractor; a person's rowJSON.personType points at it.

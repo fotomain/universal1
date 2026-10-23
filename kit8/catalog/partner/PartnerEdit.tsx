@@ -42,10 +42,13 @@ type Form = {
   bankIban: string;
   // Supplier
   supplierPaymentTermsDays: string;
+  /** payment plan (optional, '' = not set): the manager's forecast shift in days; not the legal term */
+  supplierPaymentTimelineShiftDays: string;
   supplierDefaultCurrency: string;
   supplierNotes: string;
   // Customer
   customerPaymentTermsDays: string;
+  customerPaymentTimelineShiftDays: string;
   customerCreditLimit: string;
   customerDefaultCurrency: string;
   customerDiscountPercent: string;
@@ -72,9 +75,11 @@ const toForm = (j?: Partial<PartnerRowJSON>): Form => {
     country: leg.country || '',
     bankIban: leg.bankIban || '',
     supplierPaymentTermsDays: String(sup.paymentTermsDays ?? 14),
+    supplierPaymentTimelineShiftDays: sup.paymentTimelineShiftDays === undefined || sup.paymentTimelineShiftDays === null ? '' : String(sup.paymentTimelineShiftDays),
     supplierDefaultCurrency: sup.defaultCurrency || 'EUR',
     supplierNotes: sup.notes || '',
     customerPaymentTermsDays: String(cus.paymentTermsDays ?? 30),
+    customerPaymentTimelineShiftDays: cus.paymentTimelineShiftDays === undefined || cus.paymentTimelineShiftDays === null ? '' : String(cus.paymentTimelineShiftDays),
     customerCreditLimit: String(cus.creditLimit ?? 0),
     customerDefaultCurrency: cus.defaultCurrency || 'EUR',
     customerDiscountPercent: String(cus.discountPercent ?? 0),
@@ -100,11 +105,13 @@ const fromForm = (f: Form): PartnerRowJSON =>
     },
     supplierData: {
       paymentTermsDays: Number(f.supplierPaymentTermsDays || 14),
+      paymentTimelineShiftDays: f.supplierPaymentTimelineShiftDays.trim() === '' ? undefined : Number(f.supplierPaymentTimelineShiftDays),
       defaultCurrency: f.supplierDefaultCurrency,
       notes: f.supplierNotes,
     },
     customerData: {
       paymentTermsDays: Number(f.customerPaymentTermsDays || 30),
+      paymentTimelineShiftDays: f.customerPaymentTimelineShiftDays.trim() === '' ? undefined : Number(f.customerPaymentTimelineShiftDays),
       creditLimit: Number(f.customerCreditLimit || 0),
       defaultCurrency: f.customerDefaultCurrency,
       discountPercent: Number(f.customerDiscountPercent || 0),
@@ -374,6 +381,8 @@ export default function PartnerEdit() {
             <View style={{ flex: 1 }}>{input('supplierPaymentTermsDays', 'Payment Terms (Days)', { keyboardType: 'numeric' })}</View>
             <View style={{ flex: 1 }}>{input('supplierDefaultCurrency', 'Currency', { autoCapitalize: 'characters', maxLength: 3 })}</View>
           </View>
+          {/* the payment plan of a task: days after the start / end of the task a payment to this supplier is planned (optional; the contract wins) */}
+          {input('supplierPaymentTimelineShiftDays', 'Payment timeline shift (days) - for the payment forecast', { keyboardType: 'numeric', placeholder: 'not set' })}
           {input('supplierNotes', 'Supplier Notes', { multiline: true, numberOfLines: 2 })}
         </View>
       )}
@@ -390,6 +399,7 @@ export default function PartnerEdit() {
             <View style={{ flex: 1 }}>{input('customerDefaultCurrency', 'Currency', { autoCapitalize: 'characters', maxLength: 3 })}</View>
             <View style={{ flex: 1 }}>{input('customerDiscountPercent', 'Discount %', { keyboardType: 'numeric' })}</View>
           </View>
+          {input('customerPaymentTimelineShiftDays', 'Payment timeline shift (days) - for the payment forecast', { keyboardType: 'numeric', placeholder: 'not set' })}
         </View>
       )}
 

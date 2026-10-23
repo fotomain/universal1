@@ -42,6 +42,7 @@
 --   34. create_roi_history.sql - the ROI history: project_status_roi_history (append-only, behind the project switch roiHistoryFunctionalityEnabled)
 --   35. create_work_center.sql - workCenterTable (a work center = a Person, Equipment or Partner as a resource with its own calendar and variant; folders = business units) + the kind 'workCenter' of a Time line
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header + project_timesheet_lines + project_timesheet_lines_data_entered (the entered hours = the base of Post)
+--   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3126,6 +3127,77 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_project_timesheet_data_entered_cell ON pub
 
 CREATE INDEX IF NOT EXISTS idx_project_timesheet_data_entered_day ON public.project_timesheet_lines_data_entered ("rowHeaderGUID", "timesheetDay");
 
+
+-- ===============================================================================================
+-- PART 37: create_payment_plan.sql
+-- the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): when the money of the task moves. Two tables:
+--   task_payment_plan_lines      one row = one planned payment of a task. rowOwnerGUID = the task (cascade), rowParentGUID = the direction ('outbound' | 'inbound' = the sub-tab), rowJSON = the payment:
+--                                paymentPlanBudgetItem (a budget item of the payments genus, direction as the row) · paymentPlanBusinessUnit · paymentPlanPartner | paymentPlanPerson (the payee, one of them)
+--                                · paymentPlanContract · paymentPlanCurrency · paymentPlanTimelineAnchor ('taskStart' | 'taskEnd') · paymentPlanTimelineShiftDays (>= 0) · paymentPlannedTransactionDate
+--                                · paymentPlanDateSource ('shift' | 'date') · sumForContract / sumForAccounting / sumForBudget (all WITH VAT) · paymentPlanSource · paymentIsPosted
+--   task_payment_plan_movements  the POSTED payments, one row per payment, written ONLY by post_task_payment_plan (the cash flow report of a later round reads it)
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.task_payment_plan_lines (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"   UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID"  TEXT        NOT NULL,
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_payment_plan_direction_chk CHECK ("rowParentGUID" IN ('inbound', 'outbound')),
+  CONSTRAINT task_payment_plan_direction_json_chk CHECK (COALESCE("rowJSON"->>'paymentPlanPaymentDirection', "rowParentGUID") = "rowParentGUID"),
+  -- the shift: empty or a number >= 0 (CASE: the cast only runs on a number)
+  CONSTRAINT task_payment_plan_shift_chk CHECK (CASE
+    WHEN jsonb_typeof("rowJSON"->'paymentPlanTimelineShiftDays') = 'number' THEN ("rowJSON"->>'paymentPlanTimelineShiftDays')::numeric >= 0
+    ELSE "rowJSON"->'paymentPlanTimelineShiftDays' IS NULL OR jsonb_typeof("rowJSON"->'paymentPlanTimelineShiftDays') = 'null' END),
+  CONSTRAINT task_payment_plan_sum_chk CHECK (CASE
+    WHEN jsonb_typeof("rowJSON"->'sumForContract') = 'number' THEN ("rowJSON"->>'sumForContract')::numeric >= 0
+    ELSE "rowJSON"->'sumForContract' IS NULL OR jsonb_typeof("rowJSON"->'sumForContract') = 'null' END),
+  CONSTRAINT task_payment_plan_anchor_chk CHECK (COALESCE("rowJSON"->>'paymentPlanTimelineAnchor', '') IN ('', 'taskStart', 'taskEnd')),
+  CONSTRAINT task_payment_plan_date_chk CHECK (COALESCE("rowJSON"->>'paymentPlannedTransactionDate', '') ~ '^(\d{4}-\d{2}-\d{2})?$'),
+  CONSTRAINT task_payment_plan_currency_chk CHECK (COALESCE("rowJSON"->>'paymentPlanCurrency', '') ~ '^([A-Za-z]{3})?$'),
+  -- the payee is a partner OR a person (a person is paid, never invoiced: Outbound only)
+  CONSTRAINT task_payment_plan_payee_chk CHECK (NOT (COALESCE("rowJSON"->>'paymentPlanPartner', '') <> '' AND COALESCE("rowJSON"->>'paymentPlanPerson', '') <> '')),
+  CONSTRAINT task_payment_plan_person_dir_chk CHECK ("rowParentGUID" = 'outbound' OR COALESCE("rowJSON"->>'paymentPlanPerson', '') = '')
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_payment_plan_task_dir ON public.task_payment_plan_lines ("rowOwnerGUID", "rowParentGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_task_payment_plan_project ON public.task_payment_plan_lines ("rowProjectGUID");
+
+CREATE INDEX IF NOT EXISTS idx_task_payment_plan_rowJSON ON public.task_payment_plan_lines USING GIN ("rowJSON" jsonb_path_ops);
+
+
+CREATE TABLE IF NOT EXISTS public.task_payment_plan_movements (
+  "rowGUID"          UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"   UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"     UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID"    UUID          NOT NULL REFERENCES public.task_payment_plan_lines("rowGUID") ON DELETE CASCADE,
+  "periodDay"        DATE          NOT NULL,                      -- paymentPlannedTransactionDate
+  "paymentDirection" TEXT          NOT NULL,
+  "budgetItem"       TEXT,
+  "businessUnit"     TEXT,
+  "partner"          TEXT,
+  "person"           TEXT,
+  "contract"         TEXT,
+  "currency"         TEXT,
+  "sumForContract"   NUMERIC(18,2) NOT NULL,                      -- all three sums WITH VAT (cash)
+  "sumForAccounting" NUMERIC(18,2),
+  "sumForBudget"     NUMERIC(18,2),
+  "created_at"       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_payment_plan_movements_direction_chk CHECK ("paymentDirection" IN ('inbound', 'outbound')),
+  CONSTRAINT task_payment_plan_movements_line_uq UNIQUE ("rowParentGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_payment_plan_movements_task ON public.task_payment_plan_movements ("rowOwnerGUID", "periodDay");
+
+CREATE INDEX IF NOT EXISTS idx_task_payment_plan_movements_project ON public.task_payment_plan_movements ("rowProjectGUID", "periodDay");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

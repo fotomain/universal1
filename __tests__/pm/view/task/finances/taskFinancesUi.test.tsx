@@ -256,7 +256,8 @@ describe('tabs and tables', () => {
   it('the read is by task only, never by genus: every tab is made of the same rows (all-rows mode on the genus)', () => {
     mount();
     const reads = () => mockActions.readData.mock.calls.map((c) => c[0]).filter((p) => p?.match);
-    expect(reads()).toEqual([expect.objectContaining({ match: { rowOwnerGUID: 't1' } })]);
+    // two reads, both by task only: the lines of the task and (the tab Payments, kit8/pm/view/task/payments) the payments of the task - the test double answers every entity with the same actions
+    expect(reads()).toEqual([expect.objectContaining({ match: { rowOwnerGUID: 't1' } }), expect.objectContaining({ match: { rowOwnerGUID: 't1' } })]);
     press(`${T}-tab-materialGenus`);
     press(`${T}-tab-timeGenus`);
     for (const p of reads()) expect(p.match).toEqual({ rowOwnerGUID: 't1' });

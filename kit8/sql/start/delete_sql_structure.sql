@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000. delete_payment_plan.sql - PART 37: drops the payment plan tables (the planned payments and the posted movements, data included), the trigger on project_task_table and the payment plan functions (runs very first: it is the newest)
 --  1a-0000. delete_timesheet.sql - PART 36: drops the time sheet tables (data included), their triggers, the timesheet_* functions, person_ensure_user and the 'used' movements of the time sheets (runs very first: it is the newest)
 --  1a-000. delete_work_center.sql - PART 35: drops workCenterTable (with the variants the work centers own), its triggers and the work_center_* functions (runs very first: it is the newest)
 --  1a-00. delete_roi.sql - PARTs 33 + 34: drops the ROI tables (the task months, the project months, the HISTORY with its rows), the views, the trigger on project_table and the roi_* functions (runs very first)
@@ -29,6 +30,21 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-00000: delete_payment_plan.sql  (PART 37 of the structure file: the PAYMENT PLAN of a task - runs before everything else, it is the newest)
+-- Drops the two payment plan tables WITH their rows (the payments of ALL users), the trigger on project_task_table and the payment plan functions.
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_task_payment_plan_unpost_on_dates ON public.project_task_table;
+DROP FUNCTION IF EXISTS public.task_payment_plan_unpost_on_dates();
+DROP FUNCTION IF EXISTS public.post_task_payment_plan(uuid, date, date);
+DROP FUNCTION IF EXISTS public.unpost_task_payment_plan(uuid);
+DROP TABLE IF EXISTS public.task_payment_plan_movements CASCADE;
+DROP TABLE IF EXISTS public.task_payment_plan_lines CASCADE;
+DROP FUNCTION IF EXISTS public.task_payment_plan_before_write();
+DROP FUNCTION IF EXISTS public.payment_plan_after_finish_on(uuid);
 
 
 

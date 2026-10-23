@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payments Plan WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; overflow-x: auto; font-size: 13px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Payments Plan – Work Breakdown Structure</h1>
+<p class="sub">W1 PLAN PAYMENTS. Scope: a new first-level tab <code>TabPayments</code> in the Finances view of a task (<code>PMProjectTaskInputCRUD</code>) where the project manager plans the <b>payments</b> (money out / money in) of the task for his forecast: table <code>task_payment_plan_lines</code>, a <b>Post</b> step, and an empty <b>Cash flow</b> sub-tab kept for a later report. <b>Built 2026-10-23</b> (section 10). Sources: the Google Doc “W1 PLAN PAYMENTS” and the owner’s answers of 2026-10-21 and 2026-10-23 (section 8). Version 4.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>Today a task plans its <b>costs and revenue</b> (Time, Material, Expenses, Deliverable lines → posted plan days → Monitor01). That is the amount and the day of the <i>work</i>, not the day the <b>money moves</b>. W1 adds the second view: for the same task the project manager plans <b>when and how much is paid out (Outbound) or received (Inbound)</b>, to whom (a partner or a person + a contract), under which budget item and business unit, in which currency, with the three sums <code>sumForContract</code> · <code>sumForAccounting</code> · <code>sumForBudget</code>.</p>
+  <p>The payment day is a positive <b>shift in days after the start or after the end of the task</b> (a select field on the payment says which). The shift is taken from the contract, else from the partner’s payment terms – both optional, the manager may overwrite it – or the date is typed by hand; the two are always kept consistent. The <b>budget item</b> of a payment is taken from the <b>contract</b> (a new input on partner and person contracts) and <b>can be edited on the payment line</b>. Buttons <b>fill / refresh</b> propose the payments from the task’s Time, Material, Expense (Outbound) and Deliverable (Inbound) lines. <b>Post</b> turns the payments into posted rows that a later cash-flow report will read.</p>
+</div>
+<div class="callout"><b>Hard constraint (as for every feature of this app):</b> nothing existing changes. A project that never opens <code>TabPayments</code> works exactly as before; the Time / Material / Expenses / Deliverable tabs, the posted plan days, Post of the task lines, the register and Monitor01 are not touched. The payment plan is a <i>separate table</i> with its own Post that nothing else reads in W1.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Source</th></tr>
+  <tr><td class="id">R1</td><td>A first-level tab <code>TabPayments</code> in <code>PMProjectTaskInputCRUD</code> with <b>three sub-tabs: Outbound · Inbound · Cash flow</b>. Outbound and Inbound show <code>task_payment_plan_lines</code> by direction; <b>Cash flow is empty</b> – the place of a later report.</td><td>doc “TabPayments 1st level needed with 2 subtabs”; owner: “3 sub tabs: Outbound, Inbound, Cash flow – empty for report”</td></tr>
+  <tr><td class="id">R2</td><td>Every payment keeps its fields in <code>rowJSON</code>: <code>paymentPlanBudgetItem</code>, <code>paymentPlanBusinessUnit</code>, <code>paymentPlanPartner</code> (or <code>paymentPlanPerson</code>), <code>paymentPlanContract</code>, <code>paymentPlanCurrency</code>.</td><td>the bullet list under “rowJSON:”; person added by the owner’s “Person contract”</td></tr>
+  <tr><td class="id">R3</td><td>The <b>contract</b> gets <code>paymentTimelineShiftDays</code>; the <b>partner’s payment terms</b> get the same key (optional). Business need: the project manager sets it for his forecast.</td><td>doc “paymentPlanContract – paymentTimelineShiftDays needed”; owner: “partner’s payment terms must contain paymentTimelineShiftDays – not obligatory”</td></tr>
+  <tr><td class="id">R4</td><td><code>paymentPlanPaymentDirection</code> = Inbound | Outbound (= the sub-tab).</td><td>doc</td></tr>
+  <tr><td class="id">R5</td><td><code>paymentPlanTimelineShiftDays</code>: number input, <b>positive only</b> (<code>PMNumberInputApp</code>).</td><td>doc</td></tr>
+  <tr><td class="id">R6</td><td><code>paymentPlannedTransactionDate</code>: manual date input.</td><td>doc</td></tr>
+  <tr><td class="id">R7</td><td>Shift and date are recalculated both ways. The shift is connected to the <b>start or the end of the task</b>: a <b>select field</b> <code>paymentPlanTimelineAnchor</code> (Task start | Task end) on every payment; default Task start.</td><td>doc “recalculation needed”; owner: “Shift must be connected to the start or to the end of task – select option field needed”</td></tr>
+  <tr><td class="id">R8</td><td>The date may lie after the task finish date; a project setting says whether that is allowed, <b>true by default</b>. The setting lives on its own tab <b>Payments</b> of the project settings.</td><td>doc; owner: “Payments must be separated top at the project settings”</td></tr>
+  <tr><td class="id">R9</td><td>The three sums <code>sumForContract</code>, <code>sumForAccounting</code>, <code>sumForBudget</code>. <b>All amounts include VAT.</b> The exchange rate is taken for <code>paymentPlannedTransactionDate</code>.</td><td>doc; owner: “amounts include VAT”, “paymentPlannedTransactionDate”</td></tr>
+  <tr><td class="id">R10</td><td>Fill buttons that depend on the direction: Outbound – fill / refresh from <b>Time</b>, <b>Material</b>, <b>Expense</b> lines; Inbound – from <b>Deliverable</b> lines. <b>Time lines of persons are included.</b> One payment per group.</td><td>doc; owner: “add them also”, “Q2 yes”</td></tr>
+  <tr><td class="id">R11</td><td><b>Post is needed</b>: the payments of a task are posted by a Post button (state Post · Posted · Post needed); any change makes a payment unposted again.</td><td>owner: “Post needed”</td></tr>
+  <tr><td class="id">R12</td><td>The <b>contract has a budget item input</b>, on <b>partner contracts and on person contracts</b>: <b>two items</b> <code>paymentBudgetItemOutbound</code> / <code>paymentBudgetItemInbound</code> (A1: a contract with both roles has one per direction). A new payment takes the one of its direction from its contract.</td><td>owner: “Partner contract must have budget item input. Person contract must have budget item input.”</td></tr>
+  <tr><td class="id">R13</td><td>The <b>budget item on the payment line is editable</b>: the user can change the value taken from the contract.</td><td>owner: “payment line must editable budget item”</td></tr>
+  <tr><td class="id">–</td><td><s>Header total check</s> – dropped: <code>paymentPlanHeaderTotal</code>, the plan group and the check “table total = header total” are <b>not built</b>.</td><td>owner: “no total check needed”</td></tr>
+</table>
+</div>
+
+<h2>3. What already exists (checked in the code, 2026-10-23)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Topic</th><th>Fact</th><th>Use for W1</th></tr>
+  <tr><td>Genus and budget items</td><td><code>MANAGEMENT_GENUS.inboundPayment / outboundPayment</code> are seeded; the budget-item key matrix has the cells activity (operating, investing, financing) × payment genus (<code>budgetItemKeyModel.ts</code>); every budget item has a <code>direction</code> inbound | outbound. <code>taskLineModel.ts</code> says “payments are no task lines”.</td><td>The payment plan is not a fifth task-line genus; it is its own table. <b>The budget item of a payment is an item of the payments genus</b> (Outbound sub-tab: outbound items, Inbound: inbound items) – the contract’s <code>paymentBudgetItem</code> and the payment line’s <code>paymentPlanBudgetItem</code> are chosen from those.</td></tr>
+  <tr><td>Tabs</td><td><code>PMProjectTaskInputCRUD</code>: a <code>ScrollableTabBar</code> of the genus tabs (<code>visibleGenus</code>) over one <code>ReusableTable</code> on the redux entity <code>task_line_table</code> (optimistic CRUD, <code>rowFilter</code> by genus, Errors column, count badge + sum, <code>postDataNeeded</code> / <code>postState</code> / <code>onPost</code>).</td><td><code>TabPayments</code> is the fifth tab; the tab bar and the totals must accept a tab that is not a genus. The Post button of the table is reused.</td></tr>
+  <tr><td>Post of the task lines</td><td><code>useTaskPost</code> / <code>runTaskPost</code> → RPC <code>create_task_line_plan</code> (one transaction); <code>taskIsPosted</code> goes false on ANY change (<code>taskLineCompute.ts</code>), only the RPC sets it true; no budget item → <code>ErrorModalWindow</code>.</td><td>The payment Post copies this pattern with its own RPC and flag <code>paymentIsPosted</code>.</td></tr>
+  <tr><td>Sums</td><td>A task line has <code>sumForContract</code> (contract currency) and the snapshot <code>sumForAccounting</code> / <code>sumForBudget</code> made with exchange rates (<code>taskLineFx.ts</code>, <code>currencyConvert.ts</code>; project currencies <code>currencyForContract / Accounting / Budget</code>).</td><td>Same conversion code; the rate day is <code>paymentPlannedTransactionDate</code>.</td></tr>
+  <tr><td>VAT</td><td>On a task line <code>sumForBudget</code> is NET everywhere (KNOW_HOW section 7); the VAT basis switch (<code>kit8/pm/vat</code>) belongs to the money reports.</td><td><b>Pitfall for W1:</b> in the payment plan the three sums are WITH VAT (cash). The names stay as in the doc; README and KNOW_HOW say it; the VAT basis switch does not apply to this table.</td></tr>
+  <tr><td>Contract</td><td><code>ContractRowJSON</code> (<code>contractModel.ts</code>, rebuilt by <code>normalizeContract</code>): party person | partner (<code>contractPartyType</code>; <code>rowOwnerGUID</code> = the person or partner), roles <code>supplierRole</code> / <code>customerRole</code>, currency, <code>businessUnitAssigned</code>. No payment fields yet.</td><td>Two new optional keys, no SQL: <code>paymentTimelineShiftDays</code> and <code>paymentBudgetItem</code>. Add both to <code>normalizeContract</code> or the form drops them on save.</td></tr>
+  <tr><td>Partner payment terms</td><td><code>PartnerRowJSON.supplierData.paymentTermsDays</code> and <code>customerData.paymentTermsDays</code> (legal terms, e.g. 14 / 30), rebuilt by <code>normalizePartner</code>.</td><td>New optional key <code>paymentTimelineShiftDays</code> NEXT TO them in <code>supplierData</code> and <code>customerData</code>: the manager’s forecast value is not the legal term. Add it to <code>normalizePartner</code> and the partner card.</td></tr>
+  <tr><td>Contracts and partners on a line</td><td>A task line has <code>taskResourceContract</code> (person), <code>taskLinePartnerItem</code> + <code>taskLinePartnerContract</code> (Material / Expense / Deliverable); a Partner work center is the vendor of its lines.</td><td>Fill reads the payee and the contract from the source line; the budget item then comes from that contract.</td></tr>
+  <tr><td>One column, two catalogs</td><td><code>ReusableTable</code> supports a row-aware catalog column (<code>catalogEntityNameOf(row)</code> + <code>catalogEntityNames</code>), used for “person OR equipment”.</td><td>The column <b>Payee</b>: a partner or (Outbound only) a person.</td></tr>
+  <tr><td>Inputs</td><td><code>PMNumberInputApp</code> (<code>positiveOnly</code> default true) via <code>pmNumberColumn(table, field)</code>; <code>DateInputApp</code> (8 digits); <code>SelectItemFromListApp</code>.</td><td>Exactly the components R5 / R6 / R7 ask for.</td></tr>
+  <tr><td>Dates of the task</td><td><code>schedule[taskGUID].startMs / finishMs</code> in <code>usePMStore</code>.</td><td>Anchors and the “after the finish date” check read them.</td></tr>
+  <tr><td>Project settings</td><td>Tabs: Budgets, Customer, Vendor, Product, ROI, Subprojects (+ Organization defaults); a switch that is true by default is read as <code>!== false</code> (<code>customerInvoiceFunctionalityEnabled</code>).</td><td>A new tab <b>Payments</b> (own file <code>PMProjectPaymentsTab.tsx</code>), same pattern as <code>PMProjectCustomerTab.tsx</code>.</td></tr>
+  <tr><td>SQL</td><td>PARTs 1..36 exist. A PM table has <code>rowProjectGUID</code>, <code>rowOwnerGUID</code> = the task, UUID ids, RLS by <code>pm_owns_project</code>, a touch trigger (<code>trg_task_line_touch</code>), realtime, a delete part.</td><td>Next number: <b>PART 37</b> (start1 + start2 + delete file); Docker test <code>tests/95</code>.</td></tr>
+</table>
+</div>
+
+<h2>4. Proposed data model (to confirm)</h2>
+<p>One table, every domain field in <code>rowJSON</code>, one row = one <b>payment</b>. No plan group and no header total (dropped by the owner).</p>
+<pre>task_payment_plan_lines                (PART 37)
+  rowGUID          uuid  PK
+  rowProjectGUID   uuid  -> project_table       (RLS: pm_owns_project)
+  rowOwnerGUID     uuid  -> project_task_table  (ON DELETE CASCADE)   the task
+  rowParentGUID    text  'inbound' | 'outbound'                       the direction (like the genus of a task line) = the sub-tab
+  orderInList, created_at, updated_at
+  rowJSON {
+    paymentPlanPaymentDirection     'inbound' | 'outbound'           (= rowParentGUID, kept equal)
+    paymentPlanBudgetItem           budgetItemTable.rowGUID          (payments genus, direction as above; default = paymentBudgetItem of the contract; EDITABLE)
+    paymentPlanBudgetItemSource     'contract' | 'line'              (taken from the contract / chosen by the user; while 'contract' it follows a change of the contract)
+    paymentPlanBusinessUnit         businessUnitTable.rowGUID        (default: the unit of the source line, else businessUnitAssigned of the contract)
+    paymentPlanPartner              partnerTable.rowGUID             (the payee when it is a partner)
+    paymentPlanPerson               personTable.rowGUID              (the payee when it is a person; Outbound only; exactly one of partner / person)
+    paymentPlanContract             contractTable.rowGUID            (of that partner / person)
+    paymentPlanCurrency             ISO code (default: currency of the contract, else of the project)
+    paymentPlanTimelineAnchor       'taskStart' | 'taskEnd'          (what the shift is counted from; default 'taskStart')
+    paymentPlanTimelineShiftDays    number >= 0                      (default chain: contract -> partner terms -> 0)
+    paymentPlannedTransactionDate   'YYYY-MM-DD'                     (typed, or anchor date + shift)
+    paymentPlanDateSource           'shift' | 'date'                 (which of the two the user typed last)
+    sumForContract                  number, WITH VAT, typed, in paymentPlanCurrency
+    sumForAccounting, sumForBudget  numbers, WITH VAT, snapshot made with the rate of paymentPlannedTransactionDate (fxSnapshot, like a task line)
+    paymentPlanSource               null (hand made) | { genus, taskLineGUIDs[] }   (what a fill button made; what refresh replaces)
+    paymentIsPosted                 boolean; any change sets false, only the Post RPC sets true
+  }
+
+task_payment_plan_movements            (PART 37)   the POSTED payments: one row per payment, written by post_task_payment_plan
+  rowGUID, rowProjectGUID, rowOwnerGUID (task), rowParentGUID (the payment line, cascade)
+  periodDay (= planned date), direction, budgetItem, businessUnit, partner, person, contract, currency,
+  sumForContract, sumForAccounting, sumForBudget (WITH VAT)
+
+contractTable.rowJSON.paymentTimelineShiftDays                       number >= 0, optional   (new key, no SQL; partner AND person contracts)
+contractTable.rowJSON.paymentBudgetItemOutbound                      budgetItemTable.rowGUID of the OUTBOUND payments genus, optional   (new key, no SQL; partner AND person contracts)
+contractTable.rowJSON.paymentBudgetItemInbound                       budgetItemTable.rowGUID of the INBOUND payments genus, optional    (new key, no SQL; a person has none)
+partnerTable.rowJSON.supplierData.paymentTimelineShiftDays           number >= 0, optional   (new key, no SQL)
+partnerTable.rowJSON.customerData.paymentTimelineShiftDays           number >= 0, optional   (new key, no SQL)
+project_table.rowJSON.paymentPlanAfterTaskFinishEnabled              boolean, missing = true   (tab "Payments" of the project settings)</pre>
+
+<h3>Rules</h3>
+<ul>
+  <li><b>Date.</b> Date = (start or end of the task, by <code>paymentPlanTimelineAnchor</code>) + shift days. Typing the date sets the shift = date − anchor date. The date can never be before the task start; with the project switch OFF it can also not be after the task end – so with the anchor Task end and the switch off only shift 0 is possible. A typed date before the chosen anchor (shift would be negative) is an error that says “choose the anchor Task start”.</li>
+  <li><b>Shift default.</b> Contract value → else the partner’s value (supplier data for Outbound, customer data for Inbound; a person has none) → else 0. “Not set” is not 0: only a missing value falls to the next step.</li>
+  <li><b>Budget item.</b> A new payment takes <code>paymentBudgetItem</code> of its contract, <b>when its direction equals the sub-tab</b> (a contract with both roles can have an item of one direction only); otherwise it is empty and the Errors column asks for one. The user can change it in the cell (R13): the choice lists the payments-genus items of the direction of the sub-tab. A line the user edited (<code>paymentPlanBudgetItemSource = 'line'</code>) keeps its item when the contract changes; a refresh by a fill button never overwrites it.</li>
+  <li><b>Contract form.</b> The input “Payment budget item” (and the shift) is on partner contracts and on person contracts: for a person contract the list is outbound items; for a partner contract the outbound items when it has the supplier role, the inbound items when it has the customer role (both roles: both lists).</li>
+  <li><b>Payee.</b> Outbound: a supplier partner or a person. Inbound: a customer partner. A person Time line pays the person: <code>paymentPlanPerson</code> and the person’s contract.</li>
+  <li><b>Rate day.</b> The planned transaction date; without a rate on that day the latest earlier rate of the book, as the existing code does; no rate at all = the cell stays empty and the Errors column says why.</li>
+  <li><b>Post.</b> Needs per payment: budget item (payments genus, direction right), payee, contract, currency, date (rules above), sum, the three sums converted.</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Confirm the three assumptions of section 7</td><td>Answers written into section 8</td><td>R8, R12</td></tr>
+  <tr><td class="id">1.2</td><td>Inventory the places that read the tab bar, the task lines of a task, the contract and partner JSON</td><td>List: <code>PMProjectTaskInputCRUD</code>, <code>PMTaskEditView</code> (task window), picker mode, copy of a project / task / version / template, subprojects, <code>normalizeContract</code>, <code>normalizePartner</code>, the contract and partner edit forms, the project settings window and the Organization defaults</td><td>R1, R3, R8, R12</td></tr>
+  <tr><td class="id">1.3</td><td>Check the payments budget items are seeded (3 activities × inbound / outbound)</td><td>List of the items the contract and the payment can pick; a missing cell is added to the seeds (start4 + start5) in the build round</td><td>R12, R13</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">SQL – PART 37 “payment plan” (start1 tables, start2 code, delete file)</td></tr>
+  <tr><td class="id">2.1</td><td>Tables <code>task_payment_plan_lines</code> and <code>task_payment_plan_movements</code></td><td>Columns of section 4, FK to project and task (cascade), index by task + direction, GIN on <code>rowJSON</code></td><td>R1, R2, R11</td></tr>
+  <tr><td class="id">2.2</td><td>RLS, grants, realtime, touch trigger</td><td>Only the owner of the project reads / writes (as <code>task_line_table</code>); the lines table is in the realtime publication; the movements are read only for the client</td><td>R1</td></tr>
+  <tr><td class="id">2.3</td><td>RPC <code>post_task_payment_plan(task)</code> (+ <code>unpost</code>)</td><td>One transaction: checks every payment (section 4, Post), replaces the movements of the task, sets <code>paymentIsPosted = true</code>. A refused check returns the lines and reasons for the <code>ErrorModalWindow</code></td><td>R7–R9, R11</td></tr>
+  <tr><td class="id">2.4</td><td>Unpost on change / delete</td><td>Trigger: an UPDATE of a posted line (other than the Post RPC) or its DELETE removes its movement and sets <code>paymentIsPosted = false</code> (the pattern of the unpost trigger of PART 15)</td><td>R11</td></tr>
+  <tr><td class="id">2.5</td><td>Guards that must hold even if the client is wrong</td><td>direction = <code>rowParentGUID</code>; shift ≥ 0; anchor in (taskStart, taskEnd); exactly one of partner / person; ISO currency; the budget item is of the payments genus with the right direction</td><td>R4, R5, R7, R13</td></tr>
+  <tr><td class="id">2.6</td><td>Undo in <code>delete_sql_structure.sql</code></td><td>New numbered part drops both tables and the functions</td><td>R1</td></tr>
+  <tr><td class="id">2.7</td><td>Docker test <code>tests/95_payment_plan.sql</code></td><td>Create / cascade with the task / RLS (a foreign user sees nothing) / guards / Post twice = same rows / change after Post = unposted; <code>test_sql.sh</code> still passes twice</td><td>R1–R13</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Model and rules (pure TypeScript, unit tested, folder <code>kit8/pm/view/task/payments</code>)</td></tr>
+  <tr><td class="id">3.1</td><td>Row model <code>paymentPlanModel.ts</code></td><td>Types, defaults, the empty payment, the three sub-tab definitions, the anchor options</td><td>R1, R2, R4, R7</td></tr>
+  <tr><td class="id">3.2</td><td>Date ⇄ shift rule <code>paymentPlanDates.ts</code></td><td><code>dateFromShift(taskStart, taskEnd, anchor, shift)</code>, <code>shiftFromDate(…)</code>, the checks (before the start = error; after the end with the switch off = error; typed date before the chosen anchor = error), the effect of a task date change (shift-source payments follow their anchor; date-source payments keep the date and get a new shift, ⚠ if negative)</td><td>R5–R8</td></tr>
+  <tr><td class="id">3.3</td><td>Money rule <code>paymentPlanMoney.ts</code></td><td>Snapshot sums through the existing fx code, rate day = planned date; no VAT split, the amounts are gross</td><td>R9</td></tr>
+  <tr><td class="id">3.4</td><td>Defaults <code>paymentPlanDefaults.ts</code></td><td>Contract → currency, shift (chain contract → partner → 0) and budget item (direction must match); the contract lists by payee; the business unit rule; the budget item source flag</td><td>R2, R3, R12, R13</td></tr>
+  <tr><td class="id">3.5</td><td>Fill rules <code>paymentPlanFill.ts</code></td><td>From the lines of one genus: group by (payee × contract × currency × business unit), one payment per group with the sum of the group (with VAT), anchor Task start; persons included; idempotent refresh that keeps hand edits (dates typed, budget item chosen)</td><td>R10, R13</td></tr>
+  <tr><td class="id">3.6</td><td>Post state <code>paymentPlanPost.ts</code> + <code>usePaymentPlanPost</code></td><td>The state Post · Posted · Post needed from the payments of the task; calls the RPC; shows the refusal list</td><td>R11</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Contract, partner and project settings (no SQL)</td></tr>
+  <tr><td class="id">4.1</td><td>Contract: <code>paymentTimelineShiftDays</code> and <code>paymentBudgetItem</code></td><td>Keys in <code>ContractRowJSON</code> and <code>normalizeContract</code>; an optional <code>PMNumberInputApp</code> and a budget item select (payments genus, list by party type and role, section 4) in <code>ContractEdit</code>, for partner AND person contracts; README of <code>kit8/catalog/contract</code></td><td>R3, R12</td></tr>
+  <tr><td class="id">4.2</td><td>Partner: <code>paymentTimelineShiftDays</code> in the payment terms</td><td>Optional key in <code>SupplierData</code> and <code>CustomerData</code> and in <code>normalizePartner</code>, a field next to “Payment terms (days)” in the partner card with the tip “for the project manager’s forecast”, README of <code>kit8/catalog/partner</code></td><td>R3</td></tr>
+  <tr><td class="id">4.3</td><td>New tab <b>Payments</b> of the project settings</td><td><code>PMProjectPaymentsTab.tsx</code> with the switch “Payment plan after the task finish date” (<code>paymentPlanAfterTaskFinishEnabled</code>, true by default, read as <code>!== false</code>); the same tab in the Organization defaults (<code>defaultProjectSettings</code>), no SQL; the tab is its own tab, not a section of Budgets</td><td>R8</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Redux entity and the tab</td></tr>
+  <tr><td class="id">5.1</td><td>Redux entity <code>task_payment_plan_lines</code> in <code>SystemMetaData.ts</code></td><td>Table name, <code>rootColumns</code> whitelist, realtime; optimistic CRUD like the task lines</td><td>R1</td></tr>
+  <tr><td class="id">5.2</td><td>The tab <code>TabPayments</code> in <code>PMProjectTaskInputCRUD</code></td><td>Fifth tab after the genus tabs, icon + count + sum like the others, the same <code>ScrollableTabBar</code>; a stage shows the existing “A stage has no lines” note; the tab bar and the totals accept a tab that is not a genus</td><td>R1</td></tr>
+  <tr><td class="id">5.3</td><td>Three sub-tabs (<code>ScrollableTabBar</code>)</td><td><b>Outbound</b> and <b>Inbound</b> filter the table by <code>rowParentGUID</code>; <b>Cash flow</b> shows an empty placeholder (title and a note “report – later”, no table, no query)</td><td>R1, R4</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">The table of payments (<code>ReusableTable</code>)</td></tr>
+  <tr><td class="id">6.1</td><td>Columns</td><td>Errors · Payee (partner or person) · Contract · Budget item · Business unit · Currency · Anchor · Shift days · Planned date · Sum for contract · Sum for accounting · Sum for budget; money through <code>pmNumberColumn</code>, date through <code>DateInputApp</code>, the anchor a select (Task start | Task end), header texts say “with VAT”</td><td>R2, R5–R7, R9</td></tr>
+  <tr><td class="id">6.2</td><td>Selects that depend on each other</td><td>Payee by the sub-tab (Outbound: supplier partners and persons through the row-aware catalog column; Inbound: customer partners); contract by the payee; choosing the contract fills currency, shift and budget item; <b>the budget item cell is always editable</b> (list: payments-genus items of the direction); business unit by the kind of the budget item</td><td>R2, R12, R13</td></tr>
+  <tr><td class="id">6.3</td><td>Shift ⇄ date recalculation in <code>computeRowJSON</code></td><td>Typing the shift, the date or the anchor recalculates the other and sets <code>paymentPlanDateSource</code>; ⚠ in Errors by the rules of section 4; every change sets <code>paymentIsPosted = false</code></td><td>R5–R8, R11</td></tr>
+  <tr><td class="id">6.4</td><td>Sums and fx</td><td><code>sumForContract</code> typed; the other two by the snapshot of the planned date; the “Recalculate” icon works for this table too</td><td>R9</td></tr>
+  <tr><td class="id">6.5</td><td>Post button</td><td><code>postDataNeeded</code> + <code>postState</code> + <code>onPost</code> of the table, on the Outbound and Inbound sub-tabs; a refusal opens <code>ErrorModalWindow</code></td><td>R11</td></tr>
+  <tr><td class="id">6.6</td><td>Column header menu, Fill all lines, “Create based on / Go to” toolbar icons</td><td>Header menu and Fill all lines work out of the box (<code>ReusableTable</code>), so the whole column of budget items or anchors can be filled in one step; the toolbar icons are not shown on this table (checked in 1.2)</td><td>R2, R13</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Fill / refresh buttons</td></tr>
+  <tr><td class="id">7.1</td><td>Outbound sub-tab: three buttons</td><td>“Fill / refresh from Time lines”, “… from Material lines”, “… from Expense lines”; Time includes the lines of persons (payee = the person, contract = the person’s contract), equipment and Partner work centers</td><td>R10</td></tr>
+  <tr><td class="id">7.2</td><td>Inbound sub-tab: one button</td><td>“Fill / refresh from Deliverable lines”</td><td>R10</td></tr>
+  <tr><td class="id">7.3</td><td>Refresh semantics</td><td>Only the payments with a <code>paymentPlanSource</code> of that genus are replaced; hand made payments, typed dates, a chosen anchor and a budget item chosen on the line are kept; a confirmation says how many rows change; a changed payment is unposted</td><td>R10, R13</td></tr>
+  <tr><td class="id">7.4</td><td>Texts</td><td><code>pmT('… {{n}} …')</code> placeholders, tips on every button</td><td>R10</td></tr>
+
+  <tr class="group"><td class="id">8</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">8.1</td><td>Jest tests</td><td>Model, dates (both anchors, switch on / off), money, fill, defaults, contract and partner keys, settings tab, tab with its three sub-tabs, editable budget item, Post state (<code>__tests__/pm/payments</code>); existing suites of the finances tab stay as they are (compare the FAIL lines with the baseline)</td><td>R1–R13</td></tr>
+  <tr><td class="id">8.2</td><td>README + KNOW_HOW</td><td>README in the new folder; one row in the feature index; PART 37 in the PART list; the pitfall “payment sums are with VAT”</td><td>R9</td></tr>
+  <tr><td class="id">8.3</td><td>Acceptance walkthrough</td><td>Section 6 criteria checked in the running app (web)</td><td>R1–R13</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence, dependencies and acceptance criteria</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Decisions</b> – 1.3 (seeds) is checked first. 2, 3.1, 3.3 and 4 can start at once.</li>
+    <li><b>2 SQL</b> and <b>3 pure rules</b> – independent of each other; both before 5 and 6.</li>
+    <li><b>4 Contract / partner keys and the Payments settings tab</b> – before 3.4 / 6.3 (they read them).</li>
+    <li><b>5 Redux entity and tab</b>, then <b>6 table</b>, then <b>7 fill buttons</b>.</li>
+    <li><b>8 Quality</b> – tests are written with each step, as always.</li>
+  </ol>
+</div>
+<div class="card">
+  <h3>Acceptance criteria</h3>
+  <ul>
+    <li>The task Finances view has the tab <b>Payments</b> with three sub-tabs <b>Outbound · Inbound · Cash flow</b>; Cash flow is empty (a placeholder, no data read). A stage shows the usual note. A project that never uses the tab shows no change anywhere else.</li>
+    <li>The project settings have a separate tab <b>Payments</b> with the switch (true by default); the Organization defaults have it too.</li>
+    <li>The contract form of a partner contract and of a person contract has the optional inputs “Payment budget item” and “Payment timeline shift (days)”; the partner card has the optional shift in its supplier and customer payment terms; none of them is lost when the form is saved.</li>
+    <li>A payment can be added on Outbound and on Inbound; payee, contract, budget item, business unit and currency are chosen as in 6.2 and saved in <code>rowJSON</code> of <code>task_payment_plan_lines</code>. There is no header total and no total check.</li>
+    <li>A new payment takes the budget item of its contract when the direction fits. <b>The user can change the budget item on the payment line</b> (any payments-genus item of the direction); the changed item stays when the contract is changed or the payment is refreshed by a fill button.</li>
+    <li>The payment has the select <b>Anchor: Task start | Task end</b> (default Task start). Typing the shift days (≥ 0 only; a negative value is refused by the number input) fills the planned date = anchor date + shift; typing the date fills the shift; changing the anchor recalculates the date (shift-source) or the shift (date-source). A date before the task start is an error; with the switch off a date after the task end is an error; with it on (default) it is allowed.</li>
+    <li>A new payment takes the shift of its contract; without one the shift of the partner’s payment terms (supplier data for Outbound, customer data for Inbound); without both 0. The manager can overwrite it.</li>
+    <li>When the task start or end moves, payments with a shift follow it; payments with a typed date keep the date and show the new shift (⚠ if negative).</li>
+    <li>The three sums include VAT; <code>sumForAccounting</code> / <code>sumForBudget</code> are calculated from <code>sumForContract</code> with the rate of the planned date; without a rate the cell is empty and the line says why.</li>
+    <li>The fill buttons create one payment per group for the genus of the button, only on the matching sub-tab, including persons’ Time lines; pressing one twice gives the same rows; hand made payments and hand edits are not touched.</li>
+    <li>The Post button shows Post needed after any change and Posted after Post; Post writes one movement per payment in one transaction, twice gives the same rows; an incomplete payment refuses the Post with a list; changing or deleting a posted payment unposts it.</li>
+    <li>Deleting the task deletes its payments and movements; another user cannot read them.</li>
+    <li><code>test_sql.sh</code> passes (install twice, delete, install); the new Docker test and the new Jest tests pass; no new FAIL against the Jest baseline.</li>
+  </ul>
+</div>
+
+<h2>7. Assumptions (A1 changed by the owner, A2 and A3 accepted as proposed, 2026-10-23)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Assumption</th><th>If wrong</th></tr>
+  <tr><td class="id">A1</td><td><s>A contract with BOTH roles has ONE <code>paymentBudgetItem</code>.</s> <b>Changed by the owner (2026-10-23): TWO budget items</b> <code>paymentBudgetItemOutbound</code> / <code>paymentBudgetItemInbound</code>; the contract form shows the one(s) of its role (a person: outbound only). Built so.</td><td>—</td></tr>
+  <tr><td class="id">A2</td><td>The anchor (Task start | Task end) is set on the payment only; the contract and the partner do not carry a default anchor. A new payment and every fill start with Task start.</td><td>An optional anchor key next to the shift on contract and partner.</td></tr>
+  <tr><td class="id">A3</td><td>The tab <b>Payments</b> of the project settings stands right after <b>Budgets</b> (the tab it is related to) and has the same place in the Organization defaults. “Separated top” is read as “its own top-level tab”.</td><td>Move it (one line in the tab list); if “top” meant the FIRST tab, it goes first.</td></tr>
+</table>
+</div>
+
+<h2>8. Decisions (owner)</h2>
+<div class="card">
+  <table>
+    <tr><th>Topic</th><th>Decision</th></tr>
+    <tr><td>Sub-tabs (2026-10-21)</td><td><b>Three</b>: Outbound, Inbound, Cash flow. Cash flow is <b>empty</b>, kept for a report.</td></tr>
+    <tr><td>Header total (2026-10-21)</td><td><b>Not needed</b>: no <code>paymentPlanHeaderTotal</code>, no plan group, no total check.</td></tr>
+    <tr><td>Anchor of the shift (2026-10-21, 10-23)</td><td>Task start; 10-23: the shift is connected to the <b>start or the end</b> of the task – a <b>select field</b> on the payment.</td></tr>
+    <tr><td>Time lines of persons</td><td><b>Included</b> in “fill from Time lines”.</td></tr>
+    <tr><td>Partner payment terms</td><td>Must <b>contain <code>paymentTimelineShiftDays</code></b>, not obligatory. Business need: the project manager sets the value for his forecast.</td></tr>
+    <tr><td>Budget item (2026-10-23)</td><td><b>Partner contract and person contract have a budget item input</b> (<code>paymentBudgetItem</code>); the payment takes it from the contract and <b>the payment line can edit it</b>.</td></tr>
+    <tr><td>Fill result (Q2, 2026-10-23)</td><td>One payment per group, with the sum of the group, dated by the shift.</td></tr>
+    <tr><td>Task date change (Q3, 2026-10-23)</td><td>Yes: shift payments follow the task, date payments keep the date and get a new shift.</td></tr>
+    <tr><td>Project settings (Q4, 2026-10-23)</td><td>Payments are <b>separated</b>: their own tab <b>Payments</b> in the project settings.</td></tr>
+    <tr><td>A1 (2026-10-23)</td><td><b>Two budget items</b> on a contract: <code>paymentBudgetItemOutbound</code> and <code>paymentBudgetItemInbound</code>.</td></tr>
+    <tr><td>A2, A3 (2026-10-23)</td><td>As proposed: the anchor only on the payment; the tab <b>Payments</b> right after <b>Budgets</b> (project settings and Organization defaults).</td></tr>
+    <tr><td>Day of the exchange rate</td><td><code>paymentPlannedTransactionDate</code>.</td></tr>
+    <tr><td>VAT</td><td>The amounts <b>include VAT</b>.</td></tr>
+    <tr><td>Post</td><td><b>Needed</b> (R11).</td></tr>
+  </table>
+</div>
+
+<h2>9. Out of scope for W1</h2>
+<div class="card">
+  <ul>
+    <li>The Cash flow <b>report</b> itself (the sub-tab is only a placeholder); the register / Monitor01 / ROI reading the posted payments.</li>
+    <li>Actual payments (bank, payment documents), matching of payments to invoices.</li>
+    <li>Project actions “Post unposted tasks / Repost all” for payments (the Post of W1 is per task, on the tab).</li>
+    <li>Copy of payments with a project / task / version / template (checked in 1.2; built only if the copy of task lines already exists there).</li>
+    <li>VAT split of a payment, interest, discounts for early payment.</li>
+  </ul>
+</div>
+
+
+<h2>10. Implementation status (2026-10-23, app: UNIVERSAL1 expo-app)</h2>
+<div class="callout"><b>Built and tested.</b> SQL: <code>start1_sql_tables.sql</code> + <code>start2_sql_code.sql</code> <b>PART 37</b>, undo in <code>delete_sql_structure.sql</code> part <code>1a-00000</code>. App: <code>kit8/pm/view/task/payments</code> (README there), the contract keys <code>kit8/catalog/contract/contractPaymentModel.ts</code>, the partner key <code>partnerPaymentShift</code>, <code>PMProjectPaymentsTab</code>. Docker test <code>tests/95_payment_plan.sql</code> (53 checks), Jest <code>__tests__/pm/view/task/payments</code> (114 tests). Not checked: the running app on the owner’s Supabase and browsers.</div>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Status</th><th>Where</th></tr>
+  <tr><td class="id">1</td><td>Done</td><td>Decisions in section 8; the payments budget items are seeded (<code>start4</code> PART 32: customer receipts, vendor payments ...)</td></tr>
+  <tr><td class="id">2</td><td>Done</td><td>PART 37: both tables, RLS (the client only READS the movements), realtime, <code>post_task_payment_plan</code> / <code>unpost_task_payment_plan</code> (all or nothing, 11 problem keys), triggers (project of the task, budget item of the payments genus, unpost of a changed payment, unpost when the task dates change), delete part</td></tr>
+  <tr><td class="id">3</td><td>Done</td><td><code>paymentPlanModel / Dates / Money / Compute / Fill.ts</code> – pure, unit tested</td></tr>
+  <tr><td class="id">4</td><td>Done</td><td>Contract form: shift + the budget item(s) of its role (partner and person); partner card: shift next to the payment terms (supplier and customer); project settings tab <b>Payments</b> + Organization defaults tab</td></tr>
+  <tr><td class="id">5</td><td>Done</td><td>Redux entity <code>taskPaymentPlanReusable</code>; tab <code>TabPayments</code> in <code>PMProjectTaskInputCRUD</code> (hidden in picker mode); sub-tabs Outbound · Inbound · Cash flow (empty)</td></tr>
+  <tr><td class="id">6</td><td>Done</td><td>Columns, the budget item cell is always editable, shift <-> date in <code>computeRowJSON</code>, sums by the rate of the planned date, Recalculate icon, Post button, Errors column</td></tr>
+  <tr><td class="id">7</td><td>Done</td><td>Fill / refresh buttons (Outbound: Time, Material, Expense; Inbound: Deliverable), confirmation before a refresh changes or removes</td></tr>
+  <tr><td class="id">8</td><td>Done</td><td>Tests, READMEs (payments, contract, partner), KNOW_HOW (row, PART 37, pitfall)</td></tr>
+</table>
+</div>
+
+<h2>11. Decisions taken while building</h2>
+<div class="card">
+  <ul>
+    <li><b>Which of shift / date was typed</b> is found by comparing the row with <code>paymentPlanDateSnapshot</code> (the table gives <code>computeRowJSON</code> only the new row). A typed date before the chosen anchor leaves the shift empty and the line says “choose the anchor Task start”.</li>
+    <li><b>The budget item follows the contract</b> while it is empty or still the item the app took last time (<code>paymentPlanBudgetItemAuto</code>); anything else is the user’s choice and stays (also at a refresh of a fill). An item the catalog does not know as a payment item of the direction is not taken from the contract.</li>
+    <li><b>The payee</b> is two columns (Supplier / Customer, and Person on Outbound); both set = the one that was not the payee before is the new choice. A contract chosen first gives its payee.</li>
+    <li><b>Post</b> checks everything, also the converted sums while the project has an accounting / budget currency; the days of the task come from the scheduler of the app (its time zone). <code>paymentEverPosted</code> makes “Post needed” (not “Post”) of a payment that was posted once.</li>
+    <li><b>A refresh</b> matches groups to made payments by the lines they share, so a payment whose payee or contract the user changed keeps living; a made payment with no group any more is removed after a confirmation.</li>
+    <li><b>The task moves:</b> the screen (while the task is open) brings every payment in line (<code>usePaymentPlanFollowsTask</code>); the database unposts the payments of a task whose start or end day changed.</li>
+  </ul>
+</div>
+
+<h2>12. Open points</h2>
+<div class="card">
+  <ul>
+    <li>The Cash flow report (the sub-tab is empty) and anything that reads <code>task_payment_plan_movements</code>.</li>
+    <li>Project actions “Post unposted tasks / Repost all” do not post payments (the Post of W1 is per task, on the tab).</li>
+    <li>Copy of payments with a project / task / version / template was not built (does the copy of task lines carry them? checked in the next round).</li>
+  </ul>
+</div>
+
+</main>
+</body>
+</html>

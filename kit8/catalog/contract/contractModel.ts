@@ -3,6 +3,8 @@
 //   rowGUID · rowOwnerGUID (personGUID or partnerGUID) · rowParentGUID ('person' or 'partner') ·
 //   orderInList -(days since 1970-01-01) · rowJSON = ContractRowJSON · created_at / updated_at
 
+import { normalizeContractPayment } from './contractPaymentModel';
+
 /** Supabase table name (SQL: contractTable). */
 export const contractsTable = 'contractTable';
 /** SystemMetaData / redux entity key (reusableCrudSlice + reusableRootSaga). */
@@ -74,6 +76,12 @@ export interface ContractRowJSON {
   businessUnitAssigned?: string | null;
   /** legalEntityTable.rowGUID: OUR company the contract is made by (kit8/catalog/legal_entity); OPTIONAL - empty = not set, a contract without one works as before */
   legalEntityGUID?: string | null;
+  /** payment plan (contractPaymentModel.ts, all optional): the default shift of a payment in days after the start / end of a task (>= 0) */
+  paymentTimelineShiftDays?: number;
+  /** payment plan: budgetItemTable.rowGUID of the OUTBOUND payments genus (a payment TO this payee) */
+  paymentBudgetItemOutbound?: string;
+  /** payment plan: budgetItemTable.rowGUID of the INBOUND payments genus (a payment FROM this payee) */
+  paymentBudgetItemInbound?: string;
 }
 
 export interface ContractRow {
@@ -173,6 +181,8 @@ export function normalizeContract(v: Partial<ContractRowJSON>, decimalDigits = 2
     ...(v.legalEntityGUID ? { legalEntityGUID: String(v.legalEntityGUID) } : {}),
     // only the contract of a person has a calendar (the capacity of a person); a key that is empty is not written, so a save clears it
     ...(partyType === 'person' && v.resourceCalendar ? { resourceCalendar: String(v.resourceCalendar) } : {}),
+    // the payment plan keys (contractPaymentModel.ts): empty = not written
+    ...normalizeContractPayment(v, { contractPartyType: partyType, supplierRole: Boolean(v.supplierRole), customerRole: Boolean(v.customerRole) }),
   };
 }
 

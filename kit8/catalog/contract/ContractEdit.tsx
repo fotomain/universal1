@@ -10,6 +10,8 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { ButtonPrimaryApp, ButtonTextApp, TextInputApp } from '../../ui/components/common';
 import SwitchApp from '../../ui/components/common/SwitchApp';
 import SelectElementFromCatalog from '../inner/select_element/SelectElementFromCatalog';
+import { BUDGET_ITEM_TABLE, isBudgetItemFolder } from '../budget/item/budgetItemModel';
+import { contractPaymentDirections, isContractPaymentBudgetItem } from './contractPaymentModel';
 import { LEGAL_ENTITY_TABLE, legalEntityTitle } from '../legal_entity/legalEntityModel';
 import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY } from '../currency/currencyModel';
 import { SystemMetaData } from '../../redux/SystemMetaData';
@@ -58,6 +60,10 @@ type Form = {
   legalEntityGUID: string;
   /** managementCalendarTable.rowGUID ('' = none; a contract of a person only) */
   resourceCalendar: string;
+  /** payment plan (optional, contractPaymentModel.ts): the shift in days ('' = not set) and the budget items of the payments genus ('' = none) */
+  paymentTimelineShiftDays: string;
+  paymentBudgetItemOutbound: string;
+  paymentBudgetItemInbound: string;
 };
 
 const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'partner', defaultCurrency = 'EUR'): Form => {
@@ -82,6 +88,9 @@ const toForm = (row?: ContractRow | null, partyType: 'person' | 'partner' = 'par
     businessUnitAssigned: j.businessUnitAssigned ?? '',
     legalEntityGUID: j.legalEntityGUID ?? '',
     resourceCalendar: j.resourceCalendar ?? '',
+    paymentTimelineShiftDays: j.paymentTimelineShiftDays === undefined || j.paymentTimelineShiftDays === null ? '' : String(j.paymentTimelineShiftDays),
+    paymentBudgetItemOutbound: j.paymentBudgetItemOutbound ?? '',
+    paymentBudgetItemInbound: j.paymentBudgetItemInbound ?? '',
   };
 };
 
@@ -122,6 +131,8 @@ export default function ContractEdit({
   };
 
   const isPerson = partyType === 'person';
+  // a person is paid (outbound); a partner by its role flags (none = both)
+  const paymentDirections = contractPaymentDirections({ contractPartyType: partyType, supplierRole: form.supplierRole, customerRole: form.customerRole });
   const numericSum = Number(form.contractSumBeforeVAT || 0);
   const numericVatRate = isPerson ? 0 : Number(form.contractVATRate || 0);
   const { contractVAT, contractTotal } = calculateContractAmounts(numericSum, numericVatRate);
@@ -146,6 +157,9 @@ export default function ContractEdit({
       businessUnitAssigned: form.businessUnitAssigned || null,
       legalEntityGUID: form.legalEntityGUID || null,
       resourceCalendar: form.resourceCalendar || null,
+      paymentTimelineShiftDays: form.paymentTimelineShiftDays.trim() === '' ? undefined : Number(form.paymentTimelineShiftDays),
+      paymentBudgetItemOutbound: form.paymentBudgetItemOutbound || undefined,
+      paymentBudgetItemInbound: form.paymentBudgetItemInbound || undefined,
     };
 
     const normalized = normalizeContract(raw);
@@ -357,6 +371,32 @@ export default function ContractEdit({
                 resourceTitle={form.contractNumber ? `Contract ${form.contractNumber}` : undefined}
                 value={form.resourceCalendar || null}
                 onChange={(guid) => set('resourceCalendar', guid ?? '')}
+              />
+            )}
+
+            {/* the payment plan of a task (documentation/PAYMENTS_PLAN_WBS.html), all optional: the shift in days after the start / end of a task and the budget item of a payment under this contract */}
+            <Text style={{ color: c.text, fontSize: 13, fontWeight: '700', marginTop: 8 }}>Payment plan (optional)</Text>
+            {input('paymentTimelineShiftDays', 'Payment timeline shift (days after the start / end of a task)', { keyboardType: 'numeric', placeholder: 'not set' })}
+            {paymentDirections.includes('outbound') && (
+              <SelectElementFromCatalog
+                testID="contract-edit-paymentBudgetItemOutbound"
+                entityName={BUDGET_ITEM_TABLE.entity}
+                label="Payment budget item (outbound: we pay)"
+                placeholder="Select budget item…"
+                filterItem={(r) => !isBudgetItemFolder(r) && isContractPaymentBudgetItem('outbound', r)}
+                value={form.paymentBudgetItemOutbound || null}
+                onChange={(guid) => set('paymentBudgetItemOutbound', guid ?? '')}
+              />
+            )}
+            {paymentDirections.includes('inbound') && (
+              <SelectElementFromCatalog
+                testID="contract-edit-paymentBudgetItemInbound"
+                entityName={BUDGET_ITEM_TABLE.entity}
+                label="Payment budget item (inbound: we are paid)"
+                placeholder="Select budget item…"
+                filterItem={(r) => !isBudgetItemFolder(r) && isContractPaymentBudgetItem('inbound', r)}
+                value={form.paymentBudgetItemInbound || null}
+                onChange={(guid) => set('paymentBudgetItemInbound', guid ?? '')}
               />
             )}
 

@@ -24,3 +24,7 @@ React: `export const partnersTable = "partnerTable"` (`partnerModel.ts`), redux 
 * **Shared Legal Data**: Reg No, VAT No, and IBAN are shared between supplier/customer roles.
 * **Embedded Contracts**: Automatically displays contracts associated with this partner.
 * **Deletion Protection**: A partner with associated contracts cannot be hard deleted — users are prompted to set `isActive = false` instead.
+
+
+## Payment terms: `paymentTimelineShiftDays` (optional)
+Next to `paymentTermsDays` in `supplierData` and `customerData`: the days after the start / end of a task a payment to this supplier (from this customer) is planned - the project manager's value for his forecast, not the legal term. Empty = not set (0 is a value). The contract of the payment wins; this is the second step of the default (contract -> partner -> 0). See `kit8/pm/view/task/payments/README.md`.

@@ -62,6 +62,9 @@ import { useStartPurchaseOrder } from '../../../../documents/vendor/purchase_ord
 import PurchaseOrderScopeModal from '../../../../documents/vendor/purchase_order/PurchaseOrderScopeModal';
 import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase_order/purchaseOrderModel';
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
+import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
+import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
+import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
 
 export interface PMProjectTaskInputCRUDProps {
   projectGUID: string;
@@ -143,6 +146,11 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   /** a kind besides the person is offered (equipment, work center): the line says its kind itself (a project without it keeps lines without a kind = person) */
   const equipmentOffered = timeKinds.some((k) => k !== 'person');
   const totals = useMemo(() => taskLineTotals(taskLines), [taskLines]);
+  // the fifth tab "Payments" (kit8/pm/view/task/payments, documentation/PAYMENTS_PLAN_WBS.html): the planned payments of the task; not offered while the screen is a picker (a line is wanted)
+  const payments = useTaskPaymentPlanRows(taskGUID, !picker);
+  const paymentEnv = usePaymentPlanEnvironment(projectGUID, taskGUID, payments);
+  usePaymentPlanFollowsTask(projectGUID, taskGUID, payments, paymentEnv);
+  const paymentsActive = !picker && pickedGenus === PAYMENT_TAB_ID;
   // Post: the whole task; the state of the button (Post · Posted · Post needed) comes from the lines of ALL tabs
   const { state: postState, post } = useTaskPost({ projectGUID, taskGUID, lines: taskLines, distributions: data.distribution });
 
@@ -232,7 +240,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
     <View testID={testID} style={styles.root}>
       <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {visibleGenus.map((g) => {
-          const active = g.genus === genus;
+          const active = !paymentsActive && g.genus === genus;
           const t = totals.find((x) => x.genus === g.genus);
           return (
             <Pressable
@@ -259,82 +267,103 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
             </Pressable>
           );
         })}
+        {!picker ? (
+          <Pressable
+            accessibilityRole="tab"
+            aria-selected={paymentsActive}
+            testID={`${testID}-tab-${PAYMENT_TAB_ID}`}
+            onPress={() => setGenus(PAYMENT_TAB_ID)}
+            style={[styles.tab, { borderBottomColor: paymentsActive ? c.primary : 'transparent' }]}
+          >
+            <IconApp name="account_balance_wallet" size={16} color={paymentsActive ? c.primary : c.text} />
+            <Text style={{ color: paymentsActive ? c.primary : c.text, fontWeight: paymentsActive ? '700' : '500', fontSize: 13 }}>{pmT('Payments')}</Text>
+            {payments.length > 0 && (
+              <View testID={`${testID}-tab-${PAYMENT_TAB_ID}-count`} style={[styles.badge, { backgroundColor: c.primary }]}>
+                <Text style={styles.badgeText}>{payments.length > 99 ? '99+' : String(payments.length)}</Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollableTabBar>
 
-      <ReusableTable
-        key={def.genus}
-        testID={`${testID}-table`}
-        entityName={TASK_LINE_ENTITY}
-        crudListTitle={pmT(def.title)}
-        itemLabel="Line"
-        listOwnerGUID={taskGUID}
-        // all-rows mode on the parent: the read is by task only (never by genus), the table of the tab filters its genus - the tab counts above
-        // are made of the same rows
-        listParentGUID={REUSABLE_TABLE_ALL}
-        rowFilter={rowFilter}
-        newRowDefaults={newRowDefaults}
-        computeRowJSON={computeRowJSON}
-        visualColumns={columns}
-        defaultRowJSON={emptyTaskLine}
-        selectRowCheckBoxForm={selectRowCheckBoxForm}
-        dragAndDropColumns
-        resizeColumnWidth
-        focusRowGUID={focusLine}
-        postDataNeeded
-        postState={postState}
-        onPost={post}
-        postButtonColor={postButtonColor}
-        duplicateOverrides={DUPLICATE_UNPOSTED}
-        onRowEdit={onRowEdit}
-        emptyText={pmT('No lines yet. Press "+ Add".')}
-        // right button on a line: "Facts input" (kit8/documents/fact/input, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
-        onRowOpen={pickLine}
-        openLabel={pickLine ? pmT('Select this line') : undefined}
-        extraMenuItems={(row, close) => [
-          ...(pickLine ? [{ testID: `${testID}-pick-${row.rowGUID}`, label: pmT('Select this line'), icon: 'task_alt', onPress: () => { close(); pickLine(row); } }] : []),
-          { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
-          // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/documents/vendor/invoice)
-          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); setVendorInvoiceLine(row.rowGUID); } }] : []),
-          // right after "Vendor Invoice": the same question, then the PURCHASE ORDER (kit8/documents/vendor/purchase_order)
-          ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-purchase-order-${row.rowGUID}`, label: pmT('Purchase Order'), icon: 'shopping_cart', onPress: () => { close(); setPurchaseOrderLine(row.rowGUID); } }] : []),
-          // the GUID of the line (task_line_table) on the clipboard: to paste into a multi project vendor invoice / purchase order line
-          { testID: `${testID}-copy-guid-${row.rowGUID}`, label: pmT('Copy line GUID'), icon: 'fingerprint', onPress: () => { close(); void copyLineGUID(row.rowGUID, dispatch); } },
-          // the submenus "Create based on this" and "Go to" for THIS line (the lists open filtered for the task line) - useTaskRelatedMenu
-          ...relatedMenu({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus, idPrefix: `${testID}-line-${row.rowGUID}`, close, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(row.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(row.rowGUID) }),
-          ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
-        ]}
-        onSelectionChange={setCheckedLines}
-        toolbarExtra={(
-          <>
-            {/* picker (a line is wanted): the button says what it does; one line must be checked (or marked) - the same size as "Select this task" */}
-            {pickLine ? (
-              <PMDialogButton
-                testID={`${testID}-pick-checked`}
-                kind="primary"
-                icon="task_alt"
-                title={pmT('Select this line')}
-                width={PM_WIDE_ACTION_WIDTH}
-                height={PM_WIDE_ACTION_HEIGHT}
-                disabled={!(checkedLines.length === 1 || (checkedLines.length === 0 && focusLine))}
-                onPress={() => {
-                  const guid = checkedLines.length === 1 ? checkedLines[0] : focusLine;
-                  const row = taskLines.find((l) => l.rowGUID === guid);
-                  if (row) pickLine(row as any);
-                }}
-              />
-            ) : null}
-            {fxOn ? <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} /> : null}
-            {/* "Create based on" and "Go to": the same items as the Task menu (Fact input, Vendor / Customer invoice, Purchase order, Time sheet, Subproject ... / the document lists), for the checked line or the task */}
-            <View ref={createAnchor} collapsable={false}>
-              <PMIconButton tipScope="app" testID={`${testID}-create-based-on`} icon="add_circle" title={checkedLines.length === 1 ? pmT('Create based on the checked line') : pmT('Create based on this task')} color={c.text} onPress={() => openToolbarMenu('create')} />
-            </View>
-            <View ref={gotoAnchor} collapsable={false}>
-              <PMIconButton tipScope="app" testID={`${testID}-goto`} icon="arrow_forward" title={checkedLines.length === 1 ? pmT('Go to (documents of the checked line)') : pmT('Go to (documents of this task)')} color={c.text} onPress={() => openToolbarMenu('goto')} />
-            </View>
-          </>
-        )}
-        realtime
-      />
+      {paymentsActive ? (
+        <PMTaskPaymentPlan projectGUID={projectGUID} taskGUID={taskGUID} data={data} taskLines={taskLines} payments={payments} testID={`${testID}-payments`} />
+      ) : (
+        <ReusableTable
+          key={def.genus}
+          testID={`${testID}-table`}
+          entityName={TASK_LINE_ENTITY}
+          crudListTitle={pmT(def.title)}
+          itemLabel="Line"
+          listOwnerGUID={taskGUID}
+          // all-rows mode on the parent: the read is by task only (never by genus), the table of the tab filters its genus - the tab counts above
+          // are made of the same rows
+          listParentGUID={REUSABLE_TABLE_ALL}
+          rowFilter={rowFilter}
+          newRowDefaults={newRowDefaults}
+          computeRowJSON={computeRowJSON}
+          visualColumns={columns}
+          defaultRowJSON={emptyTaskLine}
+          selectRowCheckBoxForm={selectRowCheckBoxForm}
+          dragAndDropColumns
+          resizeColumnWidth
+          focusRowGUID={focusLine}
+          postDataNeeded
+          postState={postState}
+          onPost={post}
+          postButtonColor={postButtonColor}
+          duplicateOverrides={DUPLICATE_UNPOSTED}
+          onRowEdit={onRowEdit}
+          emptyText={pmT('No lines yet. Press "+ Add".')}
+          // right button on a line: "Facts input" (kit8/documents/fact/input, documentation/FACT_INPUT.html) opens the fact document of the task on the tab of this line
+          onRowOpen={pickLine}
+          openLabel={pickLine ? pmT('Select this line') : undefined}
+          extraMenuItems={(row, close) => [
+            ...(pickLine ? [{ testID: `${testID}-pick-${row.rowGUID}`, label: pmT('Select this line'), icon: 'task_alt', onPress: () => { close(); pickLine(row); } }] : []),
+            { testID: `${testID}-facts-${row.rowGUID}`, label: pmT('Facts input'), icon: 'fact_check', onPress: () => { close(); openFactInput({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus }); } },
+            // right after "Facts input" (a revenue line has no vendor): asks "this line / all the lines of the task", then creates the vendor invoice (kit8/documents/vendor/invoice)
+            ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-vendor-invoice-${row.rowGUID}`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { close(); setVendorInvoiceLine(row.rowGUID); } }] : []),
+            // right after "Vendor Invoice": the same question, then the PURCHASE ORDER (kit8/documents/vendor/purchase_order)
+            ...(def.genus !== 'revenueGenus' ? [{ testID: `${testID}-purchase-order-${row.rowGUID}`, label: pmT('Purchase Order'), icon: 'shopping_cart', onPress: () => { close(); setPurchaseOrderLine(row.rowGUID); } }] : []),
+            // the GUID of the line (task_line_table) on the clipboard: to paste into a multi project vendor invoice / purchase order line
+            { testID: `${testID}-copy-guid-${row.rowGUID}`, label: pmT('Copy line GUID'), icon: 'fingerprint', onPress: () => { close(); void copyLineGUID(row.rowGUID, dispatch); } },
+            // the submenus "Create based on this" and "Go to" for THIS line (the lists open filtered for the task line) - useTaskRelatedMenu
+            ...relatedMenu({ taskGUID, projectGUID, taskLineGUID: row.rowGUID, genus: def.genus, idPrefix: `${testID}-line-${row.rowGUID}`, close, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(row.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(row.rowGUID) }),
+            ...(fxOn ? [{ testID: `${testID}-recalc-${row.rowGUID}`, label: pmT('Recalculate currency sums'), icon: 'currency_exchange', onPress: () => { close(); recalcRow(row); } }] : []),
+          ]}
+          onSelectionChange={setCheckedLines}
+          toolbarExtra={(
+            <>
+              {/* picker (a line is wanted): the button says what it does; one line must be checked (or marked) - the same size as "Select this task" */}
+              {pickLine ? (
+                <PMDialogButton
+                  testID={`${testID}-pick-checked`}
+                  kind="primary"
+                  icon="task_alt"
+                  title={pmT('Select this line')}
+                  width={PM_WIDE_ACTION_WIDTH}
+                  height={PM_WIDE_ACTION_HEIGHT}
+                  disabled={!(checkedLines.length === 1 || (checkedLines.length === 0 && focusLine))}
+                  onPress={() => {
+                    const guid = checkedLines.length === 1 ? checkedLines[0] : focusLine;
+                    const row = taskLines.find((l) => l.rowGUID === guid);
+                    if (row) pickLine(row as any);
+                  }}
+                />
+              ) : null}
+              {fxOn ? <PMIconButton tipScope="app" testID={`${testID}-recalc-all`} icon="currency_exchange" title={pmT('Recalculate the sums in the accounting / budget currency of every line of this tab with the rates now')} color={c.text} onPress={recalcAll} /> : null}
+              {/* "Create based on" and "Go to": the same items as the Task menu (Fact input, Vendor / Customer invoice, Purchase order, Time sheet, Subproject ... / the document lists), for the checked line or the task */}
+              <View ref={createAnchor} collapsable={false}>
+                <PMIconButton tipScope="app" testID={`${testID}-create-based-on`} icon="add_circle" title={checkedLines.length === 1 ? pmT('Create based on the checked line') : pmT('Create based on this task')} color={c.text} onPress={() => openToolbarMenu('create')} />
+              </View>
+              <View ref={gotoAnchor} collapsable={false}>
+                <PMIconButton tipScope="app" testID={`${testID}-goto`} icon="arrow_forward" title={checkedLines.length === 1 ? pmT('Go to (documents of the checked line)') : pmT('Go to (documents of this task)')} color={c.text} onPress={() => openToolbarMenu('goto')} />
+              </View>
+            </>
+          )}
+          realtime
+        />
+      )}
       {toolbarMenu && (() => {
         const line = checkedLines.length === 1 ? taskLines.find((l) => l.rowGUID === checkedLines[0]) : undefined;
         const items = relatedMenu({

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payments Fact WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; overflow-x: auto; font-size: 13px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Payments Fact – Work Breakdown Structure</h1>
+<p class="sub">W1 FACT Payments. Scope: ONE <b>bank transaction input</b> – the document <code>PMPaymentFact</code> (Form · List · Header · Lines) with the tables <code>project_payment_fact_header</code> / <code>project_payment_fact_lines</code>, the lines taken <b>from the posted payment plan</b> (W1 PLAN PAYMENTS), and the register <code>cash_account_ledger_movements</code> with the <b>rests</b> of a money account that are recalculated when an exchange rate changes. <b>Analysis only – no code is written in this round</b> (the owner’s instruction “no code”). Sources: the Google Doc “W1 FACT Payments” (read 2026-10-23, no comments in it) and the code as it stands on 2026-10-23. Version 1 – waits for the answers of section 8.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>W1 PLAN PAYMENTS (built, PART 37) answers “<i>when do we expect the money to move</i>”. W1 FACT answers “<i>when did it really move</i>”. The business need is <b>one bank transaction input</b>: the accountant enters ONE bank statement line (one money account, one payee, one direction, one date) and states what it paid – and one payment can pay <b>several contracts of the same partner, under several budget items</b> (and, because the plan lines carry them, several tasks / business units). Everything that describes a line (task, contract, budget item, business unit, currency, sums) is <b>taken from the posted payment plan</b> (“GET FROM PLAN”) and may be corrected.</p>
+  <p>A <b>posted</b> payment fact writes one row per line into the register <code>cash_account_ledger_movements</code>. From these rows the <b>rest</b> (balance) of every money account on every day is derived. Because the rest in the accounting and budget currency depends on the exchange rate of the day, a change of an exchange rate makes the rests <b>recalculate from date to date</b> (the owner’s “!!!!!!” note).</p>
+</div>
+<div class="callout"><b>Hard constraint (as for every feature of this app):</b> nothing existing changes. A project that never enters a payment fact behaves exactly as before; the payment plan, the posted plan payments, the task lines, the register <code>project_status_movements</code>, Monitor01/02/03 and the documents (fact input, invoices, receipts, time sheet) are not touched. The payment fact reads the posted plan; nothing existing reads the payment fact in W1 (a Cash flow report that compares plan and fact is a later round).</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Source (the Google Doc)</th></tr>
+  <tr><td class="id">R1</td><td>A new document <code>PMPaymentFact</code> with the four screens <code>DocumentForm.tsx</code>, <code>DocumentList.tsx</code>, <code>DocumentHeader.tsx</code>, <code>DocumentLines.tsx</code> (prefix <code>PMPaymentFact…</code>, folder of section 4).</td><td>“doc1=PMPaymentFact needed”, “doc1+DocumentForm / List / Header / Lines”</td></tr>
+  <tr><td class="id">R2</td><td>A place for it in the task: the path “PMProjectTaskInputCRUD – Edit – Fact – Payments”, a <b>level that has 2 sub-tabs</b>. Read as: the <b>Fact</b> tab of the task window gets a new 2nd-level tab <b>Payments</b> (<code>TabPaymentFact</code>, next to Fact input · Product receipt · Vendor invoice · Customer invoice) with the sub-tabs <b>Outbound · Inbound</b> (assumption A1).</td><td>“PMProjectTaskInputCRUD -Edit-Fact-Payments- 1st level needed with 2 subtabs”</td></tr>
+  <tr><td class="id">R3</td><td>Table <code>project_payment_fact_header</code> with the fields <code>moneyAccountFact</code> (the money account), <code>paymentFactPartner</code> (the payee), <code>paymentFactDirection</code> (inbound | outbound). <b>GET FROM PLAN</b>: the header fields can be filled from a payment of the plan.</td><td>header block</td></tr>
+  <tr><td class="id">R4</td><td><b>RULE: 1 payment → N partner contracts possible, N budget items, and all other plan-line attributes.</b> So the lines of one payment fact may differ in contract, budget item, business unit, task, currency.</td><td>“RULE: 1 payment -> N Partner contracts possible + N budget items + all other plan line attributes”</td></tr>
+  <tr><td class="id">R5</td><td>Table <code>project_payment_fact_lines</code>: the structure is <b>GET FROM PLAN</b> – the line carries the same attributes as a payment of <code>task_payment_plan_lines</code> (payee, contract, budget item, business unit, currency, the three sums WITH VAT).</td><td>“project_payment_fact_lines structure: GET FROM PLAN”</td></tr>
+  <tr><td class="id">R6</td><td>Register <code>cash_account_ledger_movements</code> with <code>moneyAccount</code>, <code>sumForBudget</code>, <code>sumForContract</code>, <code>sumForAccounting</code>. <b>It must work based on posted lines</b> (Draft → Post writes it, Unpost removes it).</td><td>“cash_account_ledger_movements needed. It must work based on posted lines”</td></tr>
+  <tr><td class="id">R7</td><td><b>Recalculate the rests from date to date if the ratio (exchange rate) changed.</b></td><td>“!!!!!! Recalculate the rests from date to date if ratio changed”</td></tr>
+</table>
+</div>
+
+<h2>3. What already exists (checked in the code, 2026-10-23)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Topic</th><th>Fact</th><th>Use for W1 FACT</th></tr>
+  <tr><td>Payment plan (PART 37)</td><td><code>task_payment_plan_lines</code> (rowJSON: <code>paymentPlanBudgetItem</code>, <code>…BusinessUnit</code>, <code>…Partner</code> | <code>…Person</code>, <code>…Contract</code>, <code>…Currency</code>, planned date, <code>sumForContract / sumForAccounting / sumForBudget</code> WITH VAT) and the POSTED copy <code>task_payment_plan_movements</code> (one row per payment: <code>periodDay</code>, <code>paymentDirection</code>, <code>budgetItem</code>, <code>businessUnit</code>, <code>partner</code>, <code>person</code>, <code>contract</code>, <code>currency</code>, the three sums). The client may only READ the movements; <code>post_task_payment_plan</code> writes them.</td><td>The source of “GET FROM PLAN”: the <b>posted</b> plan payments (the movements) are offered; the plan lines are their parent (<code>rowParentGUID</code>), the task is <code>rowOwnerGUID</code>.</td></tr>
+  <tr><td>Money account</td><td><b>Does not exist.</b> A search of <code>kit8</code>, <code>app</code>, <code>documentation</code> and the SQL for money / bank / cash account finds nothing. The only “account” concepts are the accounting <i>currency</i> of a project and the budget item.</td><td>A new catalog <b>Money account</b> is part of the work (WBS 2); <code>moneyAccountFact</code> points to it.</td></tr>
+  <tr><td>Document pattern</td><td>Vendor invoice / purchase order / product receipt / time sheet: header table + lines table, status <code>draft | posted</code> in <code>rowJSON.documentHeader</code>, written ONLY by <code>SECURITY DEFINER</code> RPCs (the client has SELECT and delete of a draft), RLS by the organization (<code>rowOrganizationGUID</code>), Post in one transaction, the answer <code>{ status, lines, problems[] }</code> for the <code>ErrorModalWindow</code>, list RPC with the task keys <code>taskGUID / taskLineGUID</code>, a form with a tab per document.</td><td>The same pattern for the payment fact (copy the structure, not the code).</td></tr>
+  <tr><td>Task window</td><td><code>TabTaskEditFact</code> has the 2nd-level tabs <code>TabFactInput · TabProductReceipt · TabVendorInvoice · TabCustomerInvoice</code> (the last only while its project switch is on); each lists the documents of the task through <code>kit8/documents/taskScope</code>; <code>useTaskDocumentCounts</code> gives the count in the tip.</td><td><code>TabPaymentFact</code> becomes the fifth 2nd-level tab (R2).</td></tr>
+  <tr><td>Task menus</td><td>“Create based on this” and “Go to” (<code>useTaskRelatedMenu.ts</code>; routes with <code>taskGUID</code> / <code>taskLineGUID</code> and a chip).</td><td>New items “Create based on this → Payment fact” and “Go to → Payment facts”.</td></tr>
+  <tr><td>Exchange rates</td><td>Catalog <code>currencyExchangeRateTable</code>: <code>rowOwnerGUID</code> = the currency, <code>rowParentGUID</code> = the date, <code>rowJSON</code> <code>currencyRatio</code>, <code>startingDate</code>, <code>rateType</code> (Default, Budget, …), <code>rateBase</code>. A rate is valid from its <code>startingDate</code> until the next row of the same currency / type / base. SQL: <code>fx_base_currency</code>, <code>fx_ratio_on_day</code> (also re-bases rows quoted against another base), <code>fx_pair_rate</code>, <code>fx_convert</code>, <code>fx_miss_text</code>; TypeScript twin <code>currencyConvert.ts</code>.</td><td>The snapshot of the sums of a line uses the same functions with the day of the transaction. The rate-change trigger (R7) is placed on this table.</td></tr>
+  <tr><td>Project currencies</td><td>A project has <code>currencyForContract / Accounting / Budget</code> and the rate types <code>accountingRateType / budgetRateType</code> (as used by <code>paymentPlanMoney.ts</code>).</td><td>Each line takes the currencies and rate types of ITS project.</td></tr>
+  <tr><td>Queue + worker</td><td>Monitor01: queue <code>monitor01_dirty</code>, worker <code>monitor01_process_dirty</code> (pg_cron 2 s, <code>start3_sql_pg_cron.sql</code>), safety net on the screen, <code>…_verify</code> function, bench script. The pitfall list says a trigger must not re-queue its own rewrite.</td><td>The recalculation of the rests (R7) follows this pattern.</td></tr>
+  <tr><td>Locks</td><td>The calendar lock (PART 23) and its race test <code>test_time_genus_race.sh</code>; the pitfall about <code>AS MATERIALIZED</code> (Supabase <code>authenticated</code> statement limit 8 s).</td><td>Two Posts into the same money account at the same time must not corrupt the rests: a per-account lock (section 4, rules).</td></tr>
+  <tr><td>SQL numbering</td><td>PARTs 1..37 exist (start1 + start2 + delete file); Docker tests 93, 94, 95 are the latest; <code>test_fact_monitor01.sh</code> runs the tests 5N–9N.</td><td>Next: <b>PART 38</b> “payment fact”, Docker test <code>tests/96_payment_fact.sql</code>.</td></tr>
+  <tr><td>Name clash</td><td>“Fact input” (PART 24, <code>task_fact_header</code>) is the fact of <i>used quantities</i>. The folder <code>kit8/documents/fact/input</code> is therefore NOT the place of the payment fact.</td><td>Folder <code>kit8/documents/payment/fact</code> (section 4); texts say “Payment fact”, never only “Fact”.</td></tr>
+</table>
+</div>
+
+<h2>4. Proposed data model (to confirm)</h2>
+<p>Names follow the Google Doc where it gives one; the rest follows the document pattern of the app.</p>
+<pre>moneyAccountTable                       NEW catalog (generic table, kit8_setup_def_table), folders = legal entity
+  rowJSON { moneyAccountName, moneyAccountKind 'bank' | 'cash', moneyAccountCurrency (ISO),
+            moneyAccountLegalEntity, moneyAccountNumber (IBAN / cash desk no.), moneyAccountBank (text),
+            moneyAccountActive, moneyAccountOpeningDate, moneyAccountOpeningBalance (in its currency) }
+
+project_payment_fact_header             (PART 38)  ONE bank transaction
+  rowGUID              uuid PK
+  rowOrganizationGUID  text  RLS scope (as vendor_invoice_header)
+  rowJSON {
+    documentHeader.documentStatus     'draft' | 'posted'
+    paymentFactNumber                 the reference of the bank statement line (obligatory for Post)
+    paymentFactDate                   the transaction (value) date = the day of the exchange rate (obligatory)
+    moneyAccountFact                  moneyAccountTable.rowGUID                                         (R3)
+    paymentFactPartner                partnerTable.rowGUID   | paymentFactPerson  personTable.rowGUID   (R3; exactly one - a person only Outbound, as in the plan)
+    paymentFactDirection              'inbound' | 'outbound'                                            (R3; = the sub-tab)
+    paymentFactBankAmount             optional control sum in the currency of the account (question Q4)
+  }
+
+project_payment_fact_lines              (PART 38)  N lines per header                                      (R4, R5)
+  rowGUID, rowHeaderGUID (cascade), orderInList
+  rowProjectGUID   uuid -> project_table       (RLS: pm_owns_project at Post)
+  rowOwnerGUID     uuid -> project_task_table  the task
+  paymentPlanLineGUID uuid -> task_payment_plan_lines  ON DELETE SET NULL   (the payment it fulfils; null = an independent line)
+  rowJSON {
+    paymentFactBudgetItem      payments genus, direction = the header's          (copied from the plan, EDITABLE)
+    paymentFactBusinessUnit
+    paymentFactContract        contract of the header's payee                   (N contracts per header = the RULE)
+    paymentFactCurrency        ISO = the currency of the contract (copied from the plan)
+    sumForContract             WITH VAT, in paymentFactCurrency, typed           (default = what is still open of the plan payment)
+    sumForAccounting, sumForBudget   WITH VAT, snapshot at the rate of paymentFactDate (fxSnapshot, as the plan)
+    paymentFactPlanSnapshot    what was taken from the plan (for "changed against the plan")
+  }
+
+cash_account_ledger_movements           (PART 38)  the POSTED lines, one row per posted line, written ONLY by post_payment_fact
+  rowGUID, rowHeaderGUID, rowLineGUID (UNIQUE), rowProjectGUID, rowOwnerGUID (task)
+  moneyAccount     text      moneyAccountTable.rowGUID                                        (R6)
+  periodDay        date      = paymentFactDate
+  paymentDirection 'inbound' | 'outbound'
+  partner, person, contract, budgetItem, businessUnit
+  currencyForContract / currencyForAccounting / currencyForBudget   ISO codes of the three sums
+  sumForContract, sumForAccounting, sumForBudget   numeric(18,2), SIGNED (inbound +, outbound -), WITH VAT   (R6)
+  (sumForMoneyAccount + moneyAccountCurrency)       see question Q1
+  fxSnapshot jsonb, recalculatedAt                  the rates used and the time of the last recalculation (R7)
+
+cash_account_ledger_rests               (PART 38)  the REST of an account, rebuilt by the worker, never typed
+  moneyAccount, currency (ISO), sumKind 'contract' | 'accounting' | 'budget' | 'account',
+  periodDay (a day that has movements), turnover (the day's sum), rest (closing rest after that day)
+  -- the rest on any day = the row with the latest periodDay &lt;= that day (the opening balance of the account is row zero)
+
+cash_account_ledger_dirty               (PART 38)  the queue: (moneyAccount, fromDay) - "recompute from this day"
+  filled by the Post / Unpost RPCs and by the statement trigger on currencyExchangeRateTable</pre>
+
+<h3>Rules</h3>
+<ul>
+  <li><b>Header ⇄ lines.</b> The payee and the direction are on the header; every line’s contract must belong to that payee, every line’s budget item must be of the payments genus with the direction of the header, a person is only paid (Outbound). A draft may change them (the lines that no longer fit are listed, not silently changed); a posted fact is read only (Unpost first).</li>
+  <li><b>GET FROM PLAN, header.</b> Choosing a posted plan payment fills <code>paymentFactPartner | Person</code> and <code>paymentFactDirection</code> (and, when the money account is empty, nothing else – the account is the accountant’s own information).</li>
+  <li><b>GET FROM PLAN, lines.</b> A button on the lines opens a list of the <b>posted</b> plan payments of the header’s payee and direction (RPC <code>payment_fact_plan_candidates</code>); each shows task, contract, budget item, planned date and the <b>open amount</b> = plan sum − the lines of posted payment facts that point to it. A check box each → <b>Add</b> (RPC <code>payment_fact_add_from_plan</code>) makes one line per payment with the attributes copied (R5) and <code>sumForContract</code> = the open amount. A plan payment can be taken again for the rest while something is open; paying more than open is a warning, not an error (the fact may differ from the plan).</li>
+  <li><b>Sums.</b> <code>sumForContract</code> is typed and WITH VAT (cash). <code>sumForAccounting</code> / <code>sumForBudget</code> are calculated from it with the rate of <code>paymentFactDate</code> (the same rule as the plan: <code>fx_convert</code>, latest earlier rate, no rate = empty cell + the Errors column says why; Post is refused). The VAT-basis switch does not apply (same pitfall as the plan).</li>
+  <li><b>Post</b> (one transaction, all or nothing, answer <code>{ status, lines, problems[] }</code>): needs number, date, money account, payee, direction, ≥ 1 line, every line complete (task, contract, budget item, currency, sum &gt; 0, the converted sums), the user owns every project of the lines. It writes one movement per line, queues <code>(moneyAccount, paymentFactDate)</code>, and <b>takes the per-account lock</b> (<code>pg_advisory_xact_lock</code> on the account) so that two Posts into one account do not interleave. <b>Unpost</b> deletes the movements and queues the same day. A draft can be deleted; a posted fact cannot.</li>
+  <li><b>Rests (R6).</b> The worker adds, per account, currency and sum kind, the daily turnover of the posted movements and the running rest: the rest after day D = the opening balance + the sum of all turnovers up to D. Only the days from the queue’s <code>fromDay</code> onward are rewritten (the rest of an earlier day cannot change). Posting or unposting with an old date therefore re-rolls the rests from that date to today.</li>
+  <li><b>Rate change (R7) – “recalculate the rests from date to date”.</b> A statement trigger on <code>currencyExchangeRateTable</code> (insert / update / delete of a row, also a change of <code>startingDate</code>, <code>rateType</code>, <code>rateBase</code>) records the span of days the rate rules: <code>from</code> = its <code>startingDate</code> (old and new, the smaller), <code>to</code> = the <code>startingDate</code> of the next row of the same currency / type / base (open end = today). For every posted movement whose day is in the span and whose conversion goes through that currency (a row quoted against another base: every movement of the span, because the cross rate changes) the worker <b>recalculates <code>sumForAccounting</code> / <code>sumForBudget</code></b> from <code>sumForContract</code>, stores the new <code>fxSnapshot</code> and <code>recalculatedAt</code>, and then <b>rebuilds the rests from the first changed day to today</b> for the affected accounts. <code>sumForContract</code> (what the bank moved) never changes. Without a rate for a day the old value stays and the movement is listed by <code>cash_ledger_verify</code>.</li>
+  <li><b>Verify.</b> <code>cash_ledger_verify(account)</code> recomputes everything from the movements and compares it with the stored rests / sums (maintenance function without an owner filter, like <code>roi_verify</code>); <code>cash_ledger_rebuild</code> rebuilds the rests from the movements (they are the only table that can always be rebuilt).</li>
+  <li><b>Who reads what.</b> The client reads the movements and rests of the accounts of its organization (RLS by <code>rowOrganizationGUID</code> of the account); it never writes them.</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Get the answers to the questions of section 8 (Q1–Q8) and the three assumptions of section 7</td><td>Answers written into section 9 (decisions)</td><td>R2–R7</td></tr>
+  <tr><td class="id">1.2</td><td>Inventory the places that read the fact tabs, the task menus and the Drawer</td><td>List: <code>TabTaskEditFact</code>, <code>useTaskDocumentCounts</code>, <code>useTaskRelatedMenu</code>, <code>app/_layout.tsx</code> + <code>CustomDrawerContent</code> (Documents group), <code>taskScope</code>, <code>SystemMetaData</code></td><td>R1, R2</td></tr>
+  <tr><td class="id">1.3</td><td>Check the seeds: payments-genus budget items of both directions exist (PART 32); no seed is needed for the money account catalog</td><td>A missing cell is added to start4 + start5 in the build round</td><td>R5</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Catalog “Money account” (<code>kit8/catalog/money_account</code>, no new PART: the table belongs to PART 38)</td></tr>
+  <tr><td class="id">2.1</td><td>Table <code>moneyAccountTable</code> + model + redux entity + CRUD screen + README</td><td>Fields of section 4, folders by legal entity, route <code>app/catalog/money/account</code>, Drawer: Catalogs → Money accounts</td><td>R3</td></tr>
+  <tr><td class="id">2.2</td><td>Guards</td><td>currency is an ISO code known to <code>currencyTable</code>; the currency of an account that has movements cannot change (SQL trigger); an account that has movements cannot be deleted (<code>delete_guard</code>, as <code>work_center_delete_guard</code>)</td><td>R3, R6</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">SQL – PART 38 “payment fact” (start1 tables, start2 code, delete file; same PART number and title in both)</td></tr>
+  <tr><td class="id">3.1</td><td>Tables <code>project_payment_fact_header</code>, <code>project_payment_fact_lines</code>, <code>cash_account_ledger_movements</code>, <code>cash_account_ledger_rests</code>, <code>cash_account_ledger_dirty</code></td><td>Columns of section 4; FKs (lines → header cascade, → project, → task cascade, → plan line SET NULL; movements → line); CHECKs (direction, status, sum &gt; 0 on a line, one of partner / person, a person only Outbound); indexes by account + day, by task, by plan line, GIN on <code>rowJSON</code>; no function call in a table definition (KNOW_HOW 2.2)</td><td>R3–R6</td></tr>
+  <tr><td class="id">3.2</td><td>RLS, grants, realtime, touch triggers</td><td>Header and lines: SELECT + delete of a draft by organization; movements and rests: SELECT only; header and lines in the realtime publication</td><td>R1, R6</td></tr>
+  <tr><td class="id">3.3</td><td>RPCs for the draft: <code>payment_fact_create</code>, <code>payment_fact_set_header</code>, <code>payment_fact_add_from_plan</code>, <code>payment_fact_add_line</code>, <code>payment_fact_set_line</code>, <code>payment_fact_delete</code>, <code>payment_fact_list</code> (keys <code>taskGUID</code>, <code>taskLineGUID</code>, direction), <code>payment_fact_plan_candidates</code></td><td>All <code>SECURITY DEFINER</code>; the line trigger computes the converted sums (the pattern of the invoice line trigger) and freezes the line to the editable keys; the open amount of a plan payment is one function used by the candidates and by the guard</td><td>R3–R5</td></tr>
+  <tr><td class="id">3.4</td><td>RPCs <code>post_payment_fact</code> / <code>unpost_payment_fact</code></td><td>Section 4, Post: checks, movements, queue, per-account lock; answer <code>{ status, lines, problems[] }</code> (problem keys as the plan Post: missing number / date / account / payee / budget item / contract / currency / sum / rate, foreign project, wrong direction)</td><td>R6</td></tr>
+  <tr><td class="id">3.5</td><td>Worker: <code>cash_ledger_apply</code> / <code>cash_ledger_process_dirty</code> (+ <code>cash_ledger_recalc(account, from, to)</code>, <code>cash_ledger_rebuild</code>, <code>cash_ledger_verify</code>)</td><td>Turnover + running rest from the queue’s day; re-sum of the rate-driven sums; idempotent (twice = same rows); does not re-queue its own rewrite (KNOW_HOW pitfall); an advisory lock per account; the pattern of <code>monitor01_apply</code></td><td>R6, R7</td></tr>
+  <tr><td class="id">3.6</td><td>Rate-change trigger on <code>currencyExchangeRateTable</code> (statement trigger with transition tables – no column list, KNOW_HOW pitfall)</td><td>Computes the span (section 4) for old and new rows and writes the queue; a rate row in the future changes nothing now; a rate of a currency no movement uses changes nothing</td><td>R7</td></tr>
+  <tr><td class="id">3.7</td><td>pg_cron schedule in <code>start3_sql_pg_cron.sql</code></td><td>Job <code>cash_ledger_tick</code> (a few seconds) next to the Monitor01 jobs; without the schema <code>cron</code> a NOTICE only; the screen button “Refresh rests” calls the worker (as <code>monitor01_refresh_now</code>) so the app also works without pg_cron</td><td>R6, R7</td></tr>
+  <tr><td class="id">3.8</td><td>Undo in <code>delete_sql_structure.sql</code></td><td>New numbered part drops the five tables, the catalog, the functions and the trigger on the rate table (numbering test: no <code>-- PART n:</code> pattern in a comment)</td><td>R1</td></tr>
+  <tr><td class="id">3.9</td><td>Docker tests <code>tests/96_payment_fact.sql</code> (+ a race test of two Posts into one account)</td><td>See section 6, SQL checks; <code>test_sql.sh</code> still passes (install twice, tables alone, code refuses an empty db, delete leaves nothing); <code>test_fact_monitor01.sh 96</code>; a bench for 10 000 movements and a rate change over a year</td><td>R3–R7</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Model and rules (pure TypeScript, unit tested, folder <code>kit8/documents/payment/fact</code>)</td></tr>
+  <tr><td class="id">4.1</td><td><code>paymentFactModel.ts</code></td><td>Types, statuses, constants, the buttons by state (Delete · Unpost · Close · Post / Posted), the sub-tab definitions, routes, totals per currency</td><td>R1, R2</td></tr>
+  <tr><td class="id">4.2</td><td><code>paymentFactMoney.ts</code></td><td>The twin of the line trigger: snapshot sums through the existing fx code (<code>currencyConvert.ts</code>), rate day = the date of the header; the open amount of a plan payment</td><td>R5</td></tr>
+  <tr><td class="id">4.3</td><td><code>paymentFactApi.ts</code> + <code>usePaymentFact.ts</code></td><td>RPC calls (the Supabase client is passed in), the hooks (documents, list, candidates, create, post, open in a new browser tab as the invoices do)</td><td>R1–R6</td></tr>
+  <tr><td class="id">4.4</td><td><code>paymentFactMetaData.ts</code></td><td>Redux entities of the header and the lines (read / realtime / delete; <code>rootColumns</code> = the editable real columns), registered in <code>SystemMetaData.ts</code></td><td>R1</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">The screens (doc1 of the Google Doc)</td></tr>
+  <tr><td class="id">5.1</td><td><code>PMPaymentFactDocumentHeader.tsx</code></td><td>Number · Date (<code>DateInputApp</code>) · Money account · Payee (partner or person) · Direction · optional bank amount; the contract / payee fields save at once like the vendor invoice header; the button <b>Get from plan</b>; the fields are read only after Post</td><td>R3</td></tr>
+  <tr><td class="id">5.2</td><td><code>PMPaymentFactDocumentLines.tsx</code></td><td>A <code>ReusableTable</code> on the lines (optimistic CRUD): Errors · Project · Task · Contract · Budget item · Business unit · Currency · Sum for contract · Sum for accounting · Sum for budget (all “with VAT”, money by <code>pmNumberColumn</code>); the budget item and contract cells editable on a draft; toolbar: <b>Get from plan</b>, <b>+</b> (independent line, question Q5), Recalculate icon; “Fill all lines” works out of the box</td><td>R4, R5</td></tr>
+  <tr><td class="id">5.3</td><td><code>PMPaymentFactDocumentForm.tsx</code></td><td>A tab per document (and a browser tab on web), bar Delete · Unpost · Close · Post / Posted (large, last), header, lines; <code>ErrorModalWindow</code> for a refused Post; routes <code>app/pm/project/task/payment-fact</code> and <code>app/pm/payment-fact/list</code></td><td>R1</td></tr>
+  <tr><td class="id">5.4</td><td><code>PMPaymentFactDocumentList.tsx</code></td><td>A <code>ReusableTable</code> with folders <b>money account → payee</b>, quick filters (one row, Clear icon in each field), totals per currency, the task chip of <code>taskScope</code>; Drawer → Documents → <b>Payment facts</b></td><td>R1</td></tr>
+  <tr><td class="id">5.5</td><td><code>TabPaymentFact</code> in the task window (R2)</td><td>2nd-level tab <b>Payments</b> in <code>TabTaskEditFact</code> (icon, count in the tip) with the two sub-tabs <b>Outbound</b> and <b>Inbound</b> (a <code>ScrollableTabBar</code>); each shows the payment facts of the task by direction (the list of 5.4 in the scope of the task); a click opens the document; a project that has no payment fact shows the empty list</td><td>R2</td></tr>
+  <tr><td class="id">5.6</td><td>Task menu items</td><td>“Create based on this → Payment fact” (the task’s open plan payments of one payee become the lines of a new draft – the payee is chosen when there is more than one) and “Go to → Payment facts”; the same in the Finances line menu of a Payments plan row</td><td>R2, R4</td></tr>
+  <tr><td class="id">5.7</td><td>Money-account rests screen</td><td>Per account: the rest by day / month in the currencies of the account (read of <code>cash_account_ledger_rests</code>), a refresh button, the date of the last recalculation; placed in the catalog screen of the account (Tab “Rests”) – a report of its own is out of scope</td><td>R6, R7</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">6.1</td><td>Jest tests</td><td><code>__tests__/documents/payment/fact</code> (model, money, api, hooks, header, lines, form, list, the tab with its two sub-tabs, the SQL mirror reading the .sql files), <code>__tests__/catalog/money_account</code>; compare the FAIL lines with the baseline (KNOW_HOW section 5)</td><td>R1–R7</td></tr>
+  <tr><td class="id">6.2</td><td>README + KNOW_HOW</td><td>README in the new folders; one row in the feature index; PART 38 in the PART list; the pitfalls that this work finds</td><td>R1–R7</td></tr>
+  <tr><td class="id">6.3</td><td>Acceptance walkthrough</td><td>Section 6 criteria in the running app (web) – the owner’s Supabase and browsers cannot be seen from the build session</td><td>R1–R7</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence, dependencies and acceptance criteria</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Decisions</b> – Q1 (account currency) and Q2 (header scope) change the tables, so they are answered before 3.</li>
+    <li><b>2 Money account catalog</b> and <b>3.1–3.2 tables</b> first; <b>3.3–3.4</b> then; <b>3.5–3.7</b> (rests, rate trigger, cron) after the movements exist. <b>4</b> (pure rules) is independent of 3 and can start at once.</li>
+    <li><b>5 Screens</b> after 3.3 + 4; the tab (5.5) and menu items (5.6) last.</li>
+    <li><b>6 Quality</b> – tests are written with each step, as always.</li>
+  </ol>
+</div>
+<div class="card">
+  <h3>Acceptance criteria</h3>
+  <ul>
+    <li>The task window → Fact has the 2nd-level tab <b>Payments</b> with the sub-tabs <b>Outbound · Inbound</b> listing the payment facts of the task; Drawer → Documents has <b>Payment facts</b>; Catalogs has <b>Money accounts</b>. A project that never uses them shows no change anywhere else.</li>
+    <li>A payment fact is ONE bank transaction: header with money account, payee (partner or person), direction, number, date. <b>Get from plan</b> fills the payee and direction from a posted plan payment, and adds lines from the posted plan payments of that payee and direction.</li>
+    <li><b>The RULE:</b> one fact can hold lines with different contracts of the payee, different budget items, business units, tasks and projects; a line of another payee’s contract, or a budget item of the wrong direction, is refused.</li>
+    <li>Only <b>posted</b> plan payments are offered; each shows its open amount; taking a payment twice offers only what is still open; paying more is a warning.</li>
+    <li>The budget item and the contract of a line can be edited on a draft; the sums are WITH VAT; <code>sumForAccounting</code> / <code>sumForBudget</code> follow the rate of the date of the header (no rate = the cell is empty and says why, Post refused).</li>
+    <li>Post writes one signed movement per line into <code>cash_account_ledger_movements</code> in one transaction; Post twice (Unpost between) gives the same rows; an incomplete document refuses Post with a list; Unpost removes the movements; a posted fact cannot be changed or deleted; the draft can.</li>
+    <li>The rest of an account on a day = the opening balance + all movements up to that day; posting or unposting with an old date corrects the rests from that date; two simultaneous Posts into one account give the same rests as the same Posts one after the other.</li>
+    <li><b>Rate change:</b> adding / changing / deleting an exchange rate row recalculates <code>sumForAccounting</code> / <code>sumForBudget</code> of the posted movements in the span the rate rules, and the rests of the affected accounts from the first changed day to today; <code>sumForContract</code> does not change; a rate that no movement uses changes nothing; <code>cash_ledger_verify</code> reports no difference afterwards.</li>
+    <li>Another organization cannot read the documents, the movements or the rests; the client cannot write the movements or the rests.</li>
+    <li><code>test_sql.sh</code> passes (install twice, delete, install); the new Docker test and the new Jest tests pass; no new FAIL against the Jest baseline.</li>
+  </ul>
+</div>
+<h3>SQL checks the Docker test will make (tests/96)</h3>
+<ul>
+  <li>create / header guards (payee xor person, person only Outbound, direction, status) / RLS of two organizations;</li>
+  <li>plan candidates: only posted plan payments, open amount after a partial fact, after Unpost, after the plan payment is unposted;</li>
+  <li>one fact with 3 lines (2 contracts, 2 budget items, 2 tasks) posts, writes 3 movements with the right signs; wrong payee’s contract refused;</li>
+  <li>rests: opening balance, two days, a back-dated Post, an Unpost, a second account untouched; the rest equals <code>cash_ledger_verify</code>;</li>
+  <li>rate change: a new row, a changed ratio, a deleted row, a moved <code>startingDate</code>, a cross-base row; only the span is recalculated; rests equal the verify; twice = same rows;</li>
+  <li>currency of an account with movements cannot change; account with movements cannot be deleted; the task’s delete cascades lines (and refuses a posted fact – see Q6).</li>
+</ul>
+
+<h2>7. Assumptions (proposed – tell me if one is wrong)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Assumption</th><th>If wrong</th></tr>
+  <tr><td class="id">A1</td><td>The path “PMProjectTaskInputCRUD – Edit – Fact – Payments, 1st level needed with 2 subtabs” means: in the <b>task window</b> (the “Edit” window of a task) the <b>Fact</b> tab gets a new tab <b>Payments</b> with two sub-tabs <b>Outbound · Inbound</b> (not three like the plan: no Cash flow sub-tab).</td><td>If it means a 1st-level tab inside the Finances view next to <code>TabPayments</code>, or the two sub-tabs are something else (e.g. Documents · Rests), only 5.5 changes.</td></tr>
+  <tr><td class="id">A2</td><td>The document lives in <code>kit8/documents/payment/fact</code>, the money account catalog in <code>kit8/catalog/money_account</code>; the owner’s “./Documents/” is our <code>documentation/</code> (as for the plan), so this file is <code>documentation/PAYMENTS_FACT_WBS.html</code>.</td><td>Move the folder; nothing else changes.</td></tr>
+  <tr><td class="id">A3</td><td>A payment fact needs the plan only for convenience: the lines can also be typed without a plan payment (Q5 decides how far).</td><td>If a line MUST come from a plan payment, the + button disappears.</td></tr>
+  <tr><td class="id">A4</td><td>The payment fact is a <b>cash</b> document only: it does not write the project status register (<code>project_status_movements</code>), Monitor01 or ROI – the cost is booked by the invoices and the fact input, not by the payment.</td><td>If a payment should also count somewhere (e.g. “paid” in Monitor01), a later round adds a register kind.</td></tr>
+</table>
+</div>
+
+<h2>8. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Recommendation</th></tr>
+  <tr><td class="id">Q1</td><td><b>What is the money account balance in?</b> The register of the Google Doc has three sums (budget, contract, accounting). A bank account has its OWN currency (e.g. EUR) and the bank statement shows the balance in it – which may be none of the three (a USD contract paid from a EUR account, project currencies PLN / GBP). A fourth amount is needed to reproduce the bank’s balance.</td><td>Add <code>sumForMoneyAccount</code> (+ <code>moneyAccountCurrency</code>) to the line and the movement: typed on the line (the bank’s real debit) or converted at the rate of the date when left empty. The rests are kept per account currency (the real balance) and per the three sums. Without it the rest can only be shown when the account currency equals the contract currency.</td></tr>
+  <tr><td class="id">Q2</td><td><b>Scope of the header: one project or the whole organization?</b> The table name says <code>project_payment_fact_header</code>, but “1 payment → N contracts / N budget items” pays one partner for several tasks – and the plan lines already belong to different projects.</td><td>Organization scope (like the vendor invoice header), every line carries its own project and task; Post needs the ownership of every project. The task tab shows the facts that have a line on the task.</td></tr>
+  <tr><td class="id">Q3</td><td><b>Opening balance and period close.</b> Does the rest start from an opening balance entered on the money account (a date + an amount), and must the days before it be locked?</td><td>Yes: opening date + balance on the account; a Post before the opening date is refused. No period close in W1.</td></tr>
+  <tr><td class="id">Q4</td><td><b>Control total.</b> Should the header have the amount of the bank transaction and Post refuse when the lines (in the account currency) do not add up to it? The plan owner decided “no total check”.</td><td>Optional field <code>paymentFactBankAmount</code>, a warning (not a refusal) when it differs; or drop it as in the plan. Your call.</td></tr>
+  <tr><td class="id">Q5</td><td><b>Lines without a plan payment.</b> May the accountant add a line that comes from no plan payment (an unplanned payment)? It still needs a project and a task.</td><td>Yes, with a <b>+</b> button (like <code>independentInvoiceInputAvailable</code>); the plan reference is empty. A project switch is not needed in W1.</td></tr>
+  <tr><td class="id">Q6</td><td><b>Delete of a task / plan payment with posted facts.</b> A posted fact points to a plan payment and a task.</td><td>The plan payment may be unposted or deleted (the reference becomes empty, the fact stays); a task with a posted payment fact cannot be deleted until the fact is unposted.</td></tr>
+  <tr><td class="id">Q7</td><td><b>Rate change and the document lines.</b> The rate recalculation changes the converted sums in the register. Should the lines of the posted document change too (so list and register agree), or stay “as posted” (history of what the accountant saw)?</td><td>Register only; the document keeps the snapshot with its <code>fxSnapshot</code>; the document shows a small “recalculated on …” note when the register differs. All the other documents of the app are frozen at Post, so this is the one deliberate exception, and only in the register.</td></tr>
+  <tr><td class="id">Q8</td><td><b>Does the plan show “paid”?</b> A read-only column “Paid / Open” on the payment plan table, from the posted facts.</td><td>Later round (the Cash flow report): W1 FACT only exposes the open amount in the candidate list. Touching the plan table now would change an existing screen.</td></tr>
+</table>
+</div>
+
+<h2>9. Decisions (owner)</h2>
+<div class="card">
+  <p>None yet – this is version 1. The owner’s answers to Q1–Q8 and A1–A4 are written here, then the build round starts.</p>
+</div>
+
+<h2>10. Out of scope for W1 FACT</h2>
+<div class="card">
+  <ul>
+    <li>Import of bank statements (MT940 / CAMT / CSV), automatic matching of a bank line to a plan payment or an invoice, payment of an invoice (closing a vendor / customer invoice by a payment).</li>
+    <li>Bank reconciliation, transfers between two money accounts, bank fees and interest, cash desk documents.</li>
+    <li>The Cash flow report (plan vs fact, the empty sub-tab of the plan) and any reading of the register by Monitor01 / ROI.</li>
+    <li>Foreign-exchange gain / loss accounting (realized / unrealized), a ledger of accounts (debit / credit).</li>
+    <li>VAT split of a payment (the sums are gross, as in the plan).</li>
+    <li>Copy of payment facts with a project / task / version / template.</li>
+  </ul>
+</div>
+
+<h2>11. Risks</h2>
+<div class="card">
+  <ul>
+    <li><b>Recalculation cost.</b> A rate row quoted against another base touches every movement in its span; the worker runs in batches and has a bench (3.9). Supabase’s 8 s limit for <code>authenticated</code> applies to the RPCs, not to the cron worker, but the manual “Refresh rests” button calls it – keep the call bounded (the pitfall of <code>AS MATERIALIZED</code>).</li>
+    <li><b>Mixed currencies in one rest.</b> Lines of different projects have different accounting / budget currencies; the rests are therefore kept per currency code (section 4) – without Q1 a single “balance” of an account does not exist for the three sums.</li>
+    <li><b>Back-dated Post.</b> A Post 2 years back re-rolls 2 years of rests; the queue stores the first day only, so many back-dated Posts cost one pass.</li>
+    <li><b>Two implementations of one rule.</b> The converted sums exist in SQL and in TypeScript (as in the time sheet): the golden cases test (section 6.1) keeps them equal.</li>
+    <li><b>The owner’s Supabase</b> is not visible from the build session: the SQL is proven on Docker Postgres 15 only; pg_cron of the real Supabase is checked there.</li>
+  </ul>
+</div>
+
+</main>
+</body>
+</html>
