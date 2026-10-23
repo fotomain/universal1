@@ -101,22 +101,25 @@ it('the order of the menu: Catalogs, Documents, Project Dashboard, Reports, Budg
   expect(ids).not.toContain('drawer-item-raci');
 });
 
-it('Documents (right after Catalogs) is a closed accordion: Fact input, Product receipts, Purchase orders, Time sheets, Vendor invoices and Customer invoices', () => {
+it('Documents (right after Catalogs) is a closed accordion: Fact input, Payment facts, Product receipts, Purchase orders, Time sheets, Vendor invoices and Customer invoices', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
   expect(ids.indexOf('drawer-item-documents')).toBe(ids.indexOf('drawer-item-catalogs') + 1);
   expect(q('drawer-subitem-documents-factinput')).toBeNull(); // closed
   press('drawer-item-documents');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.textContent);
-  expect(subs).toHaveLength(6);
+  expect(subs).toHaveLength(7);
   expect(subs[0]).toContain('Fact input');
-  expect(subs[1]).toContain('Product receipts');
-  expect(subs[2]).toContain('Purchase orders');
-  expect(subs[3]).toContain('Time sheets');
-  expect(subs[4]).toContain('Vendor invoices');
-  expect(subs[5]).toContain('Customer invoices');
+  expect(subs[1]).toContain('Payment facts');
+  expect(subs[2]).toContain('Product receipts');
+  expect(subs[3]).toContain('Purchase orders');
+  expect(subs[4]).toContain('Time sheets');
+  expect(subs[5]).toContain('Vendor invoices');
+  expect(subs[6]).toContain('Customer invoices');
   press('drawer-subitem-documents-factinput');
   expect(mockNavigate).toHaveBeenCalledWith('/pm/fact/list');
+  press('drawer-subitem-documents-paymentfacts');
+  expect(mockNavigate).toHaveBeenCalledWith('/pm/payment-fact/list');
   press('drawer-subitem-documents-productreceipts');
   expect(mockNavigate).toHaveBeenCalledWith('/pm/product-receipt/list');
   press('drawer-subitem-documents-purchaseorders');
@@ -133,6 +136,15 @@ it('Documents opens by itself on the fact input list and on the vendor invoice l
   act(() => root?.unmount()); document.body.innerHTML = '';
   mount('/pm/vendor-invoice/list');
   expect(q('drawer-subitem-documents-vendorinvoices')).not.toBeNull();
+});
+
+it('Money accounts is a catalog (Catalogs > Money accounts, next to the Legal entities it is filed under) and opens its page', () => {
+  mount('/home');
+  expect(q('drawer-subitem-moneyaccounts')).toBeNull(); // closed
+  press('drawer-item-catalogs');
+  expect(q('drawer-subitem-moneyaccounts')!.textContent).toContain('Money accounts');
+  press('drawer-subitem-moneyaccounts');
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });
 
 it('Reports (after Project Dashboard) is a closed accordion with Monitor01, which opens the separate screen', () => {

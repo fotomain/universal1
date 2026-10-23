@@ -18,6 +18,9 @@ jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('../../../kit8/documents/fact/input/useOpenFactInput', () => ({ useOpenFactInput: () => mockFact }));
 jest.mock('../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockInvoice, busy: false }) }));
 jest.mock('../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockCustomer, busy: false }) }));
+// "Payment fact" of the Task menu (useTaskRelatedMenu): its hook needs the Supabase / react-query providers (own tests: documents/payment/fact/usePaymentFact.test.tsx)
+const mockStartPaymentFact = jest.fn();
+jest.mock('../../../kit8/documents/payment/fact/usePaymentFact', () => ({ useStartPaymentFact: () => ({ start: mockStartPaymentFact, busy: false, error: null }) }));
 jest.mock('../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockOrder, busy: false }) }));
 jest.mock('../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockTimesheet as any)(...a), busy: false, error: null }) }));
 jest.mock('../../../kit8/pm/subproject/useCreateSubproject', () => ({ useCreateSubproject: () => ({ create: (...a: any[]) => (mockCreateSub as any)(...a), busy: false }) }));
@@ -219,6 +222,46 @@ describe('Customer invoice (project switch customerInvoiceFunctionalityEnabled, 
     open('Task 111', { project: { customerInvoiceFunctionalityEnabled: false } });
     press('pm-row-menu-goto');
     expect(q('pm-row-menu-goto-customer-invoices')).toBeNull();
+  });
+});
+
+describe('Payment fact (a bank transaction that pays the task)', () => {
+  it('Create based on this → Payment fact makes a draft for the TASK; Go to → Payment facts opens the list of the task', () => {
+    const t = open('Task 111');
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-payment-fact')).not.toBeNull();
+    press('pm-row-menu-create-payment-fact');
+    expect(mockStartPaymentFact).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID });
+    expect(usePMStore.getState().rowMenu).toBeNull();
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-goto');
+    expect(q('pm-row-menu-goto-payment-facts')).not.toBeNull();
+    press('pm-row-menu-goto-payment-facts');
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/payment-fact/list', params: { taskGUID: t.rowGUID } });
+  });
+  it('the items come after Purchase Order and before Customer Invoice (Create), and after Customer invoices (Go to)', () => {
+    open('Task 111');
+    press('pm-row-menu-create');
+    const create = ids().filter((i) => /^pm-row-menu-create-/.test(i));
+    expect(create.indexOf('pm-row-menu-create-payment-fact')).toBeGreaterThan(create.indexOf('pm-row-menu-create-purchase-order'));
+    expect(create.indexOf('pm-row-menu-create-payment-fact')).toBeLessThan(create.indexOf('pm-row-menu-create-customer-invoice'));
+  });
+});
+
+describe('Payment fact in the line menu of the Finances table', () => {
+  const { useTaskRelatedMenu } = require('../../../kit8/pm/view/task/useTaskRelatedMenu');
+  let build: any;
+  function Probe() { build = useTaskRelatedMenu(); return null; }
+  it('the TASK menu (and the toolbar icons) offers Payment fact; the menu of one LINE does not (the payments are not task lines); Go to → Payment facts is in both', () => {
+    const { byName } = seedStore();
+    const t = byName('Task 111');
+    renderUI(<Probe />);
+    const task = build({ idPrefix: 'm', close: jest.fn(), taskGUID: t.rowGUID, projectGUID: t.projectGUID });
+    expect(task[0].submenu.map((i: any) => i.testID)).toContain('m-create-payment-fact');
+    expect(task[1].submenu.map((i: any) => i.testID)).toContain('m-goto-payment-facts');
+    const line = build({ idPrefix: 'm', close: jest.fn(), taskGUID: t.rowGUID, projectGUID: t.projectGUID, taskLineGUID: 'l-time', genus: 'timeGenus' });
+    expect(line[0].submenu.map((i: any) => i.testID)).not.toContain('m-create-payment-fact');
+    expect(line[1].submenu.map((i: any) => i.testID)).toContain('m-goto-payment-facts');
   });
 });
 

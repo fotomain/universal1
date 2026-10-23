@@ -2,8 +2,9 @@
 //   useTaskPaymentPlanRows        the payments of ONE task from redux (read + Realtime; the tab bar needs the count while another tab is open)
 //   usePaymentPlanEnvironment     what the rules need: the first / last day of the task, the project switch, the exchange rates, the currencies
 //   usePaymentPlanFollowsTask     the task moved: a payment dated by its shift moves with it, a payment with a typed date keeps the date and gets a new shift (paymentPlanDates.ts)
+//   usePaymentPlanPaid            what the posted payment facts have paid of each posted payment (the columns Paid / Open; read again when the payments are posted)
 //   usePaymentPlanPost            the Post button: the RPC post_task_payment_plan, ALL or NOTHING, a refusal opens a window with the list
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../../redux/reusable/useRealtimeEntity';
@@ -15,7 +16,7 @@ import { taskDaysOf } from '../plan/runTaskPost';
 import { fxEnabled, fxProjectOf, type LineFxProject } from '../finances/taskLineFx';
 import { useLineRateBook } from '../finances/useLineRateBook';
 import type { TaskLineCatalogData } from '../finances/taskLineCatalogs';
-import { PAYMENT_POST_PROBLEM_TEXT, postTaskPaymentPlan, type PaymentPostProblemKey } from './paymentPlanApi';
+import { fetchPlanPaid, PAYMENT_POST_PROBLEM_TEXT, postTaskPaymentPlan, type PaymentPaid, type PaymentPostProblemKey } from './paymentPlanApi';
 import { computePaymentFx, type PaymentFxContext } from './paymentPlanMoney';
 import { recomputePaymentDates, type PaymentTaskDays } from './paymentPlanDates';
 import { paymentPostState, TASK_PAYMENT_PLAN_ENTITY, type TaskPaymentPlanRow } from './paymentPlanModel';
@@ -123,3 +124,27 @@ export function usePaymentPlanPost(taskGUID: string, rows: TaskPaymentPlanRow[],
 }
 
 export type { TaskLineCatalogData };
+
+const NO_PAID = new Map<string, PaymentPaid>();
+
+/**
+ * What the posted payment facts have paid of each posted payment of the task: a map plan payment GUID -> { planSum, paid, open }. Read when the tab opens and again whenever the posting of the payments
+ * changes (`signature`); a failure leaves the map empty (the columns Paid / Open then show nothing). The payments that have no posted payment fact are in the map with paid 0.
+ */
+export function usePaymentPlanPaid(taskGUID: string, signature: string, enabled = true): Map<string, PaymentPaid> {
+  const [paid, setPaid] = useState<Map<string, PaymentPaid>>(NO_PAID);
+  useEffect(() => {
+    if (!enabled || !taskGUID) { setPaid(NO_PAID); return undefined; }
+    let alive = true;
+    (async () => {
+      try {
+        const rows = await fetchPlanPaid(taskGUID);
+        if (alive) setPaid(new Map(rows.map((r) => [r.planLineGUID, r])));
+      } catch {
+        if (alive) setPaid(NO_PAID);
+      }
+    })();
+    return () => { alive = false; };
+  }, [taskGUID, signature, enabled]);
+  return paid;
+}

@@ -25,6 +25,7 @@ jest.mock('../../../kit8/documents/fact/input/PMFactInputDocumentList', () => ({
 jest.mock('../../../kit8/documents/vendor/product_receipt/PMProductReceiptDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-receipt-list" data-task={p.taskGUID} /> }));
 jest.mock('../../../kit8/documents/vendor/invoice/VendorInvoiceDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-invoice-list" data-task={p.taskGUID} /> }));
 jest.mock('../../../kit8/documents/customer/invoice/CustomerInvoiceDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid="stub-customer-list" data-task={p.taskGUID} /> }));
+jest.mock('../../../kit8/documents/payment/fact/PMPaymentFactDocumentList', () => ({ __esModule: true, default: (p: any) => <div data-testid={`stub-payment-fact-list-${p.direction}`} data-task={p.taskGUID} /> }));
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), navigate: mockNavigate, replace: jest.fn(), back: jest.fn() }), useNavigation: () => ({ setOptions: jest.fn() }) }));
 
 const PMTaskEditWindow = require('../../../kit8/pm/view/task/edit/PMTaskEditWindow').default;
@@ -117,11 +118,11 @@ describe('PMTaskEditWindow', () => {
     expect(q('stub-fact-list')).not.toBeNull(); // kept
   });
 
-  it('TabTaskEditFact: 2nd level tabs TabFactInput · TabProductReceipt · TabVendorInvoice · TabCustomerInvoice, each list of THIS task, created on its first visit and kept', () => {
+  it('TabTaskEditFact: 2nd level tabs TabFactInput · TabProductReceipt · TabVendorInvoice · TabCustomerInvoice · TabPaymentFact, each list of THIS task, created on its first visit and kept', () => {
     const t = openWindow('Task 111');
     press('pm-task-edit-window-TabTaskEditFact');
     const ids = Array.from(document.querySelectorAll('[data-testid^="pm-task-edit-fact-Tab"]')).map((e) => e.getAttribute('data-testid'));
-    expect(ids).toEqual(['pm-task-edit-fact-TabFactInput', 'pm-task-edit-fact-TabProductReceipt', 'pm-task-edit-fact-TabVendorInvoice', 'pm-task-edit-fact-TabCustomerInvoice']);
+    expect(ids).toEqual(['pm-task-edit-fact-TabFactInput', 'pm-task-edit-fact-TabProductReceipt', 'pm-task-edit-fact-TabVendorInvoice', 'pm-task-edit-fact-TabCustomerInvoice', 'pm-task-edit-fact-TabPaymentFact']);
     // only the first tab is built; the other lists are not read before the user opens them
     expect(q('stub-fact-list')).not.toBeNull();
     expect(q('stub-receipt-list')).toBeNull();
@@ -141,6 +142,16 @@ describe('PMTaskEditWindow', () => {
     expect(q('stub-customer-list')!.getAttribute('data-task')).toBe(t.rowGUID);
     expect(hidden('pm-task-edit-fact-content-TabCustomerInvoice')).toBe(false);
     expect(q('pm-task-edit-tab-customer-invoice')!.contains(q('stub-customer-list'))).toBe(true);
+    // the Payments tab (payment facts = bank transactions): sub-tabs Outbound · Inbound, each created on its first visit, one direction each
+    expect(q('stub-payment-fact-list-outbound')).toBeNull();
+    press('pm-task-edit-fact-TabPaymentFact');
+    expect(q('stub-payment-fact-list-outbound')!.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(q('stub-payment-fact-list-inbound')).toBeNull();
+    press('pm-task-edit-payment-fact-tab-inbound');
+    expect(q('stub-payment-fact-list-inbound')!.getAttribute('data-task')).toBe(t.rowGUID);
+    expect(hidden('pm-task-edit-payment-fact-content-outbound')).toBe(true);
+    expect(hidden('pm-task-edit-payment-fact-content-inbound')).toBe(false);
+    expect(q('pm-task-edit-tab-payment-fact')!.contains(q('stub-payment-fact-list-outbound'))).toBe(true);
     press('pm-task-edit-fact-TabFactInput');
     expect(q('stub-receipt-list')).not.toBeNull(); // kept
     expect(q('stub-invoice-list')).not.toBeNull();

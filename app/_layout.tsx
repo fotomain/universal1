@@ -508,6 +508,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/budget/item/list/index" options={{ title: 'Budget Items', drawerLabel: 'Budget Items' }} />
               <Drawer.Screen name="catalog/budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
               <Drawer.Screen name="catalog/legal/entity/index" options={{ title: 'Legal entities', drawerLabel: 'Legal entities' }} />
+              <Drawer.Screen name="catalog/money/account/index" options={{ title: 'Money accounts', drawerLabel: 'Money accounts' }} />
               <Drawer.Screen name="catalog/work/center/index" options={{ title: 'Work centers', drawerLabel: 'Work centers' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
               <Drawer.Screen name="catalog/person/dashboard/index" options={{ title: 'Persons (properties and variants)', drawerLabel: 'Persons (properties and variants)' }} />
@@ -531,6 +532,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/task/customer-invoice/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Customer invoice' }} />
               <Drawer.Screen name="pm/project/task/customer-invoice/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Customer Invoice' }} />
               <Drawer.Screen name="pm/customer-invoice/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Customer invoices' }} />
+              <Drawer.Screen name="pm/project/task/payment-fact/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Payment fact' }} />
+              <Drawer.Screen name="pm/payment-fact/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Payment facts' }} />
               <Drawer.Screen name="pm/project/task/purchase-order/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase order' }} />
               <Drawer.Screen name="pm/project/task/purchase-order/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase Order' }} />
               <Drawer.Screen name="pm/purchase-order/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Purchase orders' }} />

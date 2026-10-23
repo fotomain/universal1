@@ -3,6 +3,7 @@
 //   TabProductReceipt  the product receipts (TabProductReceipt.tsx)
 //   TabVendorInvoice   the vendor invoices (TabVendorInvoice.tsx)
 //   TabCustomerInvoice the customer invoices (TabCustomerInvoice.tsx; only while the project switch customerInvoiceFunctionalityEnabled is on)
+//   TabPaymentFact     the payment facts = bank transactions that pay the task (TabPaymentFact.tsx; sub-tabs Outbound · Inbound)
 // A list is created when its tab is first opened (it reads the database) and kept after that.
 // Every 2nd level tab has a TIP with the number of documents of the task ("Vendor invoice - 3 documents"; useTaskDocumentCounts: read when the tab opens and after each change of tab).
 import React, { useState } from 'react';
@@ -15,17 +16,19 @@ import TabFactInput from './TabFactInput';
 import TabProductReceipt from './TabProductReceipt';
 import TabVendorInvoice from './TabVendorInvoice';
 import TabCustomerInvoice from './TabCustomerInvoice';
+import TabPaymentFact from './TabPaymentFact';
 import { usePMStore } from '../../../store/store_pm';
 import { usePMTip } from '../../../inner/tooltip/PMTooltip';
 import { documentCountText, useTaskDocumentCounts } from './useTaskDocumentCounts';
 import { customerInvoiceEnabledOf } from '../../project/settings/PMProjectCustomerTab';
 
-export type TaskEditFactTab = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice' | 'TabCustomerInvoice';
+export type TaskEditFactTab = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice' | 'TabCustomerInvoice' | 'TabPaymentFact';
 export const TASK_EDIT_FACT_TABS: { id: TaskEditFactTab; label: string; icon: string }[] = [
   { id: 'TabFactInput', label: 'Fact input', icon: 'fact_check' },
   { id: 'TabProductReceipt', label: 'Product receipt', icon: 'move_to_inbox' },
   { id: 'TabVendorInvoice', label: 'Vendor invoice', icon: 'receipt_long' },
   { id: 'TabCustomerInvoice', label: 'Customer invoice', icon: 'payments' },
+  { id: 'TabPaymentFact', label: 'Payments', icon: 'account_balance' },
 ];
 
 /** one 2nd level tab: the tip = its name + the number of documents of the task */
@@ -84,6 +87,9 @@ export default function TabTaskEditFact({ projectGUID, taskGUID }: { projectGUID
           {visited.TabCustomerInvoice ? <TabCustomerInvoice taskGUID={taskGUID} /> : null}
         </View>
       ) : null}
+      <View style={show('TabPaymentFact')} testID="pm-task-edit-fact-content-TabPaymentFact">
+        {visited.TabPaymentFact ? <TabPaymentFact taskGUID={taskGUID} /> : null}
+      </View>
     </View>
   );
 }

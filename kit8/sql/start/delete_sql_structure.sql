@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000000. delete_payment_fact.sql - PART 38: drops the payment fact tables (documents, lines, the cash ledger movements, rests and queue, money accounts - data included), the trigger on currencyExchangeRateTable, the cash_ledger_* / payment_fact_* functions and the pg_cron job (runs very first: it is the newest)
 --  1a-00000. delete_payment_plan.sql - PART 37: drops the payment plan tables (the planned payments and the posted movements, data included), the trigger on project_task_table and the payment plan functions (runs very first: it is the newest)
 --  1a-0000. delete_timesheet.sql - PART 36: drops the time sheet tables (data included), their triggers, the timesheet_* functions, person_ensure_user and the 'used' movements of the time sheets (runs very first: it is the newest)
 --  1a-000. delete_work_center.sql - PART 35: drops workCenterTable (with the variants the work centers own), its triggers and the work_center_* functions (runs very first: it is the newest)
@@ -30,6 +31,58 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-000000: delete_payment_fact.sql  (PART 38 of the structure file: the PAYMENT FACT - runs before everything else, it is the newest)
+-- Drops the payment fact tables WITH their rows (the documents, the cash ledger movements / rests / queue of ALL users and the money account catalog), the trigger on currencyExchangeRateTable, the functions and the cron job.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NOT NULL THEN
+    BEGIN PERFORM cron.unschedule('cash_ledger_tick'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  END IF;
+END $$;
+DROP TRIGGER IF EXISTS trg_cash_ledger_rate ON public."currencyExchangeRateTable";
+DROP TABLE IF EXISTS public.cash_account_ledger_dirty CASCADE;
+DROP TABLE IF EXISTS public.cash_account_ledger_rests CASCADE;
+DROP TABLE IF EXISTS public.cash_account_ledger_movements CASCADE;
+DROP TABLE IF EXISTS public.project_payment_fact_lines CASCADE;
+DROP TABLE IF EXISTS public.project_payment_fact_header CASCADE;
+DROP TABLE IF EXISTS public."moneyAccountTable" CASCADE;
+DROP SEQUENCE IF EXISTS public.payment_fact_document_seq;
+DROP FUNCTION IF EXISTS public.cash_ledger_rate_trigger();
+DROP FUNCTION IF EXISTS public.cash_ledger_queue_rate(text, text, text, date, date);
+DROP FUNCTION IF EXISTS public.cash_ledger_rebuild(text, text);
+DROP FUNCTION IF EXISTS public.cash_ledger_verify(text, text);
+DROP FUNCTION IF EXISTS public.cash_ledger_queue_length();
+DROP FUNCTION IF EXISTS public.cash_ledger_refresh_now();
+DROP FUNCTION IF EXISTS public.cash_ledger_process_dirty(integer);
+DROP FUNCTION IF EXISTS public.cash_ledger_recalc(date, date, text);
+DROP FUNCTION IF EXISTS public.cash_ledger_fresh(date, date, text);
+DROP FUNCTION IF EXISTS public.cash_ledger_rebuild_rests(text, text, date);
+DROP FUNCTION IF EXISTS public.cash_ledger_rests_calc(text, text, date);
+DROP FUNCTION IF EXISTS public.task_payment_paid(uuid);
+DROP FUNCTION IF EXISTS public.payment_fact_list(jsonb, integer, integer);
+DROP FUNCTION IF EXISTS public.delete_payment_fact(uuid);
+DROP FUNCTION IF EXISTS public.unpost_payment_fact(uuid);
+DROP FUNCTION IF EXISTS public.post_payment_fact(uuid);
+DROP FUNCTION IF EXISTS public.payment_fact_set_line_task(uuid, uuid);
+DROP FUNCTION IF EXISTS public.payment_fact_add_line(uuid, uuid);
+DROP FUNCTION IF EXISTS public.payment_fact_set_header(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.payment_fact_create(uuid, text, uuid[]);
+DROP FUNCTION IF EXISTS public.payment_fact_add_from_plan(uuid, uuid[]);
+DROP FUNCTION IF EXISTS public.payment_fact_plan_candidates(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.payment_fact_plan_open(uuid, uuid);
+DROP FUNCTION IF EXISTS public.payment_fact_header_after_write();
+DROP FUNCTION IF EXISTS public.payment_fact_header_before_write();
+DROP FUNCTION IF EXISTS public.payment_fact_lines_delete_guard();
+DROP FUNCTION IF EXISTS public.payment_fact_lines_before_write();
+DROP FUNCTION IF EXISTS public.cash_fx_round(numeric, numeric, text);
+DROP FUNCTION IF EXISTS public.payment_fact_state(uuid);
+DROP FUNCTION IF EXISTS public.money_account_delete_guard();
+DROP FUNCTION IF EXISTS public.money_account_check();
 
 
 

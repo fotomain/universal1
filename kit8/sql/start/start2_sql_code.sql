@@ -42,6 +42,7 @@
 --   35. create_work_center.sql - WORK CENTER: workCenterTable (a Person, Equipment or Partner as a bookable resource with its own calendar and variant; folders = business units) + work_center_copy_variant_settings + the kind 'workCenter' of a Time line (the capacity branches live in PARTs 21 / 23)
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header / _lines / _lines_data_entered, Post writes the entered hours as 'used' movements; the Person of every user; the settings per Person
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
+--   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction, the lines from the posted plan), Post writes cash_account_ledger_movements; the rests of a money account are rebuilt and recalculated when an exchange rate changes
 -- ===============================================================================================
 
 DO $$
@@ -12640,6 +12641,1158 @@ DROP TRIGGER IF EXISTS trg_task_payment_plan_unpost_on_dates ON public.project_t
 CREATE TRIGGER trg_task_payment_plan_unpost_on_dates
   AFTER UPDATE OF "rowJSON", "rowDuration" ON public.project_task_table
   FOR EACH ROW EXECUTE FUNCTION public.task_payment_plan_unpost_on_dates();
+
+-- ===============================================================================================
+-- PART 38: create_payment_fact.sql
+-- the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): ONE bank transaction = project_payment_fact_header + project_payment_fact_lines. The lines come from the POSTED payment plan (PART 37, "get from plan")
+-- and may be edited; Draft -> Post writes cash_account_ledger_movements (one SIGNED row per line: inbound +, outbound -), Unpost deletes them. From the movements the database builds the REST of every
+-- money account per day (cash_account_ledger_rests, never typed). When an exchange rate changes (trigger on currencyExchangeRateTable -> queue -> worker) the converted sums of the movements of the days
+-- that rate rules are recalculated and the rests are rebuilt from the first changed day. What the bank moved (sumForContract, a typed sumForMoneyAccount) never changes.
+-- The four sums are all WITH VAT (cash). sumForMoneyAccount = the amount in the currency of the money account (the real bank amount): typed on the line, else converted at the rate of the date.
+-- The app: kit8/documents/payment/fact, kit8/catalog/money_account.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_payment_fact_header') IS NULL OR to_regclass('public."moneyAccountTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 38 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_payment_fact_header_touch ON public.project_payment_fact_header;
+CREATE TRIGGER trg_payment_fact_header_touch BEFORE UPDATE ON public.project_payment_fact_header FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_payment_fact_lines_touch ON public.project_payment_fact_lines;
+CREATE TRIGGER trg_payment_fact_lines_touch BEFORE UPDATE ON public.project_payment_fact_lines FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_cash_ledger_movements_touch ON public.cash_account_ledger_movements;
+CREATE TRIGGER trg_cash_ledger_movements_touch BEFORE UPDATE ON public.cash_account_ledger_movements FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+
+-- ---- the catalog of the money accounts ---------------------------------------------------------------------------------------------------------------------------------------------
+SELECT public.kit8_setup_def_table('moneyAccountTable');
+
+DO $$
+DECLARE
+  t text := 'moneyAccountTable';
+BEGIN
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (true) WITH CHECK (true)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (true)', t || '_delete', t);
+END $$;
+
+-- the folder is a legal entity or 'empty'; the currency, the opening date and the opening balance of an account that has movements cannot change (the rests were built on them)
+CREATE OR REPLACE FUNCTION public.money_account_check() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF NEW."rowParentGUID" <> 'empty' AND NOT EXISTS (SELECT 1 FROM public."legalEntityTable" le WHERE le."rowGUID" = NEW."rowParentGUID") THEN
+    RAISE EXCEPTION 'moneyAccountTable: the folder "%" is not a legal entity', NEW."rowParentGUID" USING ERRCODE = '23514';
+  END IF;
+  IF jsonb_typeof(NEW."rowJSON"->'moneyAccountOpeningBalance') IS NOT NULL AND jsonb_typeof(NEW."rowJSON"->'moneyAccountOpeningBalance') NOT IN ('number', 'null') THEN
+    RAISE EXCEPTION 'moneyAccountTable: moneyAccountOpeningBalance must be a number' USING ERRCODE = '23514';
+  END IF;
+  IF TG_OP = 'UPDATE' AND EXISTS (SELECT 1 FROM public.cash_account_ledger_movements m WHERE m."moneyAccount" = NEW."rowGUID") THEN
+    IF upper(COALESCE(NEW."rowJSON"->>'moneyAccountCurrency', '')) IS DISTINCT FROM upper(COALESCE(OLD."rowJSON"->>'moneyAccountCurrency', ''))
+       OR COALESCE(NEW."rowJSON"->>'moneyAccountOpeningDate', '') IS DISTINCT FROM COALESCE(OLD."rowJSON"->>'moneyAccountOpeningDate', '')
+       OR COALESCE((NEW."rowJSON"->>'moneyAccountOpeningBalance')::numeric, 0) IS DISTINCT FROM COALESCE((OLD."rowJSON"->>'moneyAccountOpeningBalance')::numeric, 0) THEN
+      RAISE EXCEPTION 'moneyAccountTable: the account has posted payments - its currency, opening date and opening balance cannot change' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_moneyAccountTable_check ON public."moneyAccountTable";
+CREATE TRIGGER trg_moneyAccountTable_check BEFORE INSERT OR UPDATE ON public."moneyAccountTable" FOR EACH ROW EXECUTE FUNCTION public.money_account_check();
+
+-- an account that a payment fact uses is not deleted (set it inactive: isActive false)
+CREATE OR REPLACE FUNCTION public.money_account_delete_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_title text := COALESCE(OLD."rowJSON"->>'moneyAccountTitle', OLD."rowGUID");
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.project_payment_fact_header h WHERE h."rowJSON"->>'moneyAccountFact' = OLD."rowGUID") THEN
+    RAISE EXCEPTION 'moneyAccountTable: the money account "%" is used by a payment fact - deactivate it instead (isActive false)', v_title USING ERRCODE = '23503';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_moneyAccountTable_delete ON public."moneyAccountTable";
+CREATE TRIGGER trg_moneyAccountTable_delete BEFORE DELETE ON public."moneyAccountTable" FOR EACH ROW EXECUTE FUNCTION public.money_account_delete_guard();
+
+
+-- ---- the state of a document for the policies: 'draft' | 'posted' (NULL = no such document in MY organization) -----------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_state(p_header uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN 'posted' ELSE 'draft' END
+    FROM public.project_payment_fact_header h
+   WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_state(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_state(uuid) TO authenticated;
+
+
+-- the decimals of a currency (decimalDigits 0..6, else 2) and amount x rate rounded to them: the SAME rounding as fx_convert, so the rows the recalculation writes equal the ones a line gets
+CREATE OR REPLACE FUNCTION public.cash_fx_round(p_amount numeric, p_rate numeric, p_to text) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT round(p_amount * p_rate, COALESCE((SELECT CASE WHEN (x."rowJSON"->>'decimalDigits') ~ '^[0-6]$' THEN (x."rowJSON"->>'decimalDigits')::integer ELSE 2 END
+                                              FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = upper(btrim(COALESCE(p_to, '')))), 2));
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_fx_round(numeric, numeric, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cash_fx_round(numeric, numeric, text) TO authenticated;
+
+
+-- ---- one line: project of the task, the rules of the contract / budget item / plan payment, and the converted sums ---------------------------------------------------------------------
+-- The sums are WITH VAT. sumForAccounting / sumForBudget = sumForContract at the rate of the DATE OF THE HEADER (the rate types of the project); sumForMoneyAccount = the amount in the currency of the money
+-- account: typed (moneyAccountSumSource 'typed' - a value that differs from the stored one) or converted (the accounting rate type of the project). A rate that is missing leaves the sum empty and
+-- paymentFactFxProblem says why (Post refuses).
+CREATE OR REPLACE FUNCTION public.payment_fact_lines_before_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; pj jsonb; plan record; k record;
+  v_move boolean := COALESCE(current_setting('app.payment_fact_line_move', true), '') = 'on';
+  v_project uuid; v_json jsonb := NEW."rowJSON"; v_item text; v_genus text; v_contract text; v_cur text; v_day date;
+  v_sum numeric; v_acc text; v_bud text; v_macc text; v_acc_t text; v_bud_t text;
+  v_new_acc numeric; v_new_bud numeric; v_new_macc numeric; v_problem text; v_src text; v_typed numeric; v_old_typed numeric; v_rate numeric; v_hdir text; v_hitem text;
+BEGIN
+  SELECT x."rowJSON" AS j INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = NEW."rowHeaderGUID";
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'payment fact % does not exist', NEW."rowHeaderGUID" USING ERRCODE = '23503';
+  END IF;
+  v_hdir := COALESCE(NULLIF(h.j->>'paymentFactDirection', ''), 'without a direction');
+  v_hitem := COALESCE(NULLIF(h.j->>'paymentFactDirection', ''), 'outbound');
+  IF COALESCE(h.j->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted payment fact cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW."rowHeaderGUID" IS DISTINCT FROM OLD."rowHeaderGUID" THEN
+      RAISE EXCEPTION 'payment fact: a line stays in its document' USING ERRCODE = '23514';
+    END IF;
+    IF NEW."paymentPlanLineGUID" IS DISTINCT FROM OLD."paymentPlanLineGUID" AND NOT v_move THEN
+      RAISE EXCEPTION 'payment fact: the payment of the plan a line fulfils cannot be changed' USING ERRCODE = '23514';
+    END IF;
+    IF NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" AND NOT v_move THEN
+      RAISE EXCEPTION 'payment fact: the task of a line cannot be changed here' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  -- the project is the project of the task
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = NEW."rowOwnerGUID";
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', NEW."rowOwnerGUID" USING ERRCODE = '23503';
+  END IF;
+  NEW."rowProjectGUID" := v_project;
+
+  v_contract := NULLIF(v_json->>'paymentFactContract', '');
+  v_item := NULLIF(v_json->>'paymentFactBudgetItem', '');
+  v_cur := NULLIF(upper(btrim(COALESCE(v_json->>'paymentFactCurrency', ''))), '');
+
+  -- the plan payment: the same task, the same direction, the same currency
+  IF NEW."paymentPlanLineGUID" IS NOT NULL AND (TG_OP = 'INSERT' OR NEW."paymentPlanLineGUID" IS DISTINCT FROM OLD."paymentPlanLineGUID" OR v_cur IS DISTINCT FROM NULLIF(upper(btrim(COALESCE(OLD."rowJSON"->>'paymentFactCurrency', ''))), '')) THEN
+    SELECT l."rowOwnerGUID" AS task, l."rowParentGUID" AS dir, upper(NULLIF(l."rowJSON"->>'paymentPlanCurrency', '')) AS cur INTO plan FROM public.task_payment_plan_lines l WHERE l."rowGUID" = NEW."paymentPlanLineGUID";
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'payment fact: the payment of the plan does not exist' USING ERRCODE = '23503';
+    END IF;
+    IF plan.task IS DISTINCT FROM NEW."rowOwnerGUID" THEN
+      RAISE EXCEPTION 'payment fact: the line is not of the task of the payment of the plan' USING ERRCODE = '23514';
+    END IF;
+    IF plan.dir IS DISTINCT FROM NULLIF(h.j->>'paymentFactDirection', '') THEN
+      RAISE EXCEPTION 'payment fact: the payment of the plan is %, the document is %', plan.dir, v_hdir USING ERRCODE = '23514';
+    END IF;
+    IF v_cur IS NOT NULL AND plan.cur IS NOT NULL AND v_cur IS DISTINCT FROM plan.cur THEN
+      RAISE EXCEPTION 'payment fact: a line of a payment of the plan keeps its currency (%)', plan.cur USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  -- the contract belongs to the payee of the document
+  IF v_contract IS NOT NULL AND (TG_OP = 'INSERT' OR v_contract IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactContract', '')) THEN
+    SELECT c."rowParentGUID" AS party, c."rowOwnerGUID" AS owner, upper(NULLIF(c."rowJSON"->>'contractCurrency', '')) AS cur, NULLIF(c."rowJSON"->>'businessUnitAssigned', '') AS unit,
+           NULLIF(c."rowJSON"->>'paymentBudgetItemOutbound', '') AS item_out, NULLIF(c."rowJSON"->>'paymentBudgetItemInbound', '') AS item_in INTO k
+      FROM public."contractTable" c WHERE c."rowGUID" = v_contract;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'payment fact: the contract % does not exist', v_contract USING ERRCODE = '23503';
+    END IF;
+    IF NOT ((k.party = 'partner' AND k.owner IS NOT DISTINCT FROM NULLIF(h.j->>'paymentFactPartner', ''))
+         OR (k.party = 'person' AND k.owner IS NOT DISTINCT FROM NULLIF(h.j->>'paymentFactPerson', ''))) THEN
+      RAISE EXCEPTION 'payment fact: the contract is not a contract of the payee of the document' USING ERRCODE = '23514';
+    END IF;
+    -- what the contract gives and the line has not: currency, business unit, budget item
+    IF v_cur IS NULL AND k.cur IS NOT NULL THEN v_cur := k.cur; END IF;
+    IF NULLIF(v_json->>'paymentFactBusinessUnit', '') IS NULL AND k.unit IS NOT NULL THEN v_json := v_json || jsonb_build_object('paymentFactBusinessUnit', k.unit); END IF;
+    IF v_item IS NULL THEN
+      v_item := CASE WHEN h.j->>'paymentFactDirection' = 'inbound' THEN k.item_in ELSE k.item_out END;
+    END IF;
+  END IF;
+
+  -- the budget item is an item of the payments genus of the direction of the document
+  IF v_item IS NOT NULL AND (TG_OP = 'INSERT' OR v_item IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactBudgetItem', '')) THEN
+    SELECT b."rowJSON"->>'managementGenusItem' INTO v_genus FROM public."budgetItemTable" b WHERE b."rowGUID" = v_item;
+    IF v_genus IS DISTINCT FROM (CASE WHEN h.j->>'paymentFactDirection' = 'inbound' THEN 'inboundPaymentGenus' ELSE 'outboundPaymentGenus' END) THEN
+      RAISE EXCEPTION 'payment fact: the budget item must be an item of the % payment genus', v_hitem USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  -- the sums
+  v_day := NULLIF(h.j->>'paymentFactDate', '')::date;
+  v_sum := CASE WHEN jsonb_typeof(v_json->'sumForContract') = 'number' THEN (v_json->>'sumForContract')::numeric END;
+  SELECT p."rowJSON" INTO pj FROM public.project_table p WHERE p."rowGUID" = v_project;
+  v_acc := upper(NULLIF(btrim(COALESCE(pj->>'currencyForAccounting', '')), ''));
+  v_bud := upper(NULLIF(btrim(COALESCE(pj->>'currencyForBudget', '')), ''));
+  v_acc_t := COALESCE(NULLIF(btrim(pj->>'exchangeRateTypeForAccounting'), ''), 'Default');
+  v_bud_t := COALESCE(NULLIF(btrim(pj->>'exchangeRateTypeForBudget'), ''), 'Budget');
+  v_macc := upper(NULLIF(btrim(COALESCE((SELECT a."rowJSON"->>'moneyAccountCurrency' FROM public."moneyAccountTable" a WHERE a."rowGUID" = h.j->>'moneyAccountFact'), '')), ''));
+  v_old_typed := CASE WHEN TG_OP = 'UPDATE' AND jsonb_typeof(OLD."rowJSON"->'sumForMoneyAccount') = 'number' THEN (OLD."rowJSON"->>'sumForMoneyAccount')::numeric END;
+  v_typed := CASE WHEN jsonb_typeof(v_json->'sumForMoneyAccount') = 'number' THEN (v_json->>'sumForMoneyAccount')::numeric END;
+  -- the bank amount: a value the user typed (it differs from the stored one) or kept from before ('typed'); empty = converted
+  v_src := CASE WHEN v_typed IS NULL THEN 'auto'
+                WHEN TG_OP = 'INSERT' THEN 'typed'
+                WHEN v_typed IS DISTINCT FROM v_old_typed THEN 'typed'
+                ELSE COALESCE(NULLIF(OLD."rowJSON"->>'moneyAccountSumSource', ''), 'auto') END;
+  IF v_src = 'typed' AND v_typed < 0 THEN
+    RAISE EXCEPTION 'payment fact: the amount of the money account is not negative (the direction gives the sign)' USING ERRCODE = '23514';
+  END IF;
+  IF v_sum IS NULL OR v_day IS NULL OR v_cur IS NULL THEN
+    v_new_acc := NULL; v_new_bud := NULL; v_new_macc := CASE WHEN v_src = 'typed' THEN v_typed END;
+  ELSE
+    IF v_acc IS NOT NULL THEN
+      v_new_acc := public.fx_convert(v_sum, v_cur, v_acc, v_acc_t, v_day);
+      IF v_new_acc IS NULL THEN v_problem := public.fx_miss_text(v_cur, v_acc, v_acc_t, v_day); END IF;
+    END IF;
+    IF v_bud IS NOT NULL THEN
+      v_new_bud := public.fx_convert(v_sum, v_cur, v_bud, v_bud_t, v_day);
+      IF v_new_bud IS NULL AND v_problem IS NULL THEN v_problem := public.fx_miss_text(v_cur, v_bud, v_bud_t, v_day); END IF;
+    END IF;
+    IF v_src = 'typed' THEN
+      v_new_macc := v_typed;
+    ELSIF v_macc IS NOT NULL THEN
+      v_new_macc := public.fx_convert(v_sum, v_cur, v_macc, v_acc_t, v_day);
+      IF v_new_macc IS NULL AND v_problem IS NULL THEN v_problem := public.fx_miss_text(v_cur, v_macc, v_acc_t, v_day); END IF;
+    END IF;
+  END IF;
+  NEW."rowJSON" := v_json || jsonb_build_object(
+    'paymentFactCurrency', v_cur, 'paymentFactBudgetItem', v_item,
+    'sumForAccounting', v_new_acc, 'sumForBudget', v_new_bud, 'sumForMoneyAccount', v_new_macc,
+    'moneyAccountSumSource', v_src, 'paymentFactFxProblem', v_problem);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_payment_fact_lines_before_write ON public.project_payment_fact_lines;
+CREATE TRIGGER trg_payment_fact_lines_before_write BEFORE INSERT OR UPDATE ON public.project_payment_fact_lines FOR EACH ROW EXECUTE FUNCTION public.payment_fact_lines_before_write();
+
+-- a line of a POSTED document is not deleted (a project or a task with posted payments cannot be deleted: unpost the document first); the document itself is deleted only as a draft
+CREATE OR REPLACE FUNCTION public.payment_fact_lines_delete_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.project_payment_fact_header h WHERE h."rowGUID" = OLD."rowHeaderGUID" AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted') THEN
+    RAISE EXCEPTION 'payment fact: a posted payment fact uses this task or project - unpost it first' USING ERRCODE = '23503';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_payment_fact_lines_delete_guard ON public.project_payment_fact_lines;
+CREATE TRIGGER trg_payment_fact_lines_delete_guard BEFORE DELETE ON public.project_payment_fact_lines FOR EACH ROW EXECUTE FUNCTION public.payment_fact_lines_delete_guard();
+
+
+-- ---- the header: the organization of the writer, the folder and the currency are derived; payee and direction are stable while the document has lines --------------------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_header_before_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_post boolean := COALESCE(current_setting('app.payment_fact_post', true), '') = 'on';
+  v_acct text := NULLIF(NEW."rowJSON"->>'moneyAccountFact', '');
+  v_partner text := NULLIF(NEW."rowJSON"->>'paymentFactPartner', '');
+  v_person text := NULLIF(NEW."rowJSON"->>'paymentFactPerson', '');
+  v_payee text;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW."rowOrganizationGUID" := COALESCE(public.organization_of_current_user(), NULLIF(NEW."rowOrganizationGUID", 'x'));
+    IF NEW."rowOrganizationGUID" IS NULL THEN
+      RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    NEW."rowOrganizationGUID" := OLD."rowOrganizationGUID";
+    IF COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND NOT v_post AND OLD."rowJSON" IS DISTINCT FROM NEW."rowJSON" THEN
+      RAISE EXCEPTION 'a posted payment fact cannot be changed: unpost it first' USING ERRCODE = '23514';
+    END IF;
+    IF (v_partner IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactPartner', '') OR v_person IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactPerson', '')
+        OR NULLIF(NEW."rowJSON"->>'paymentFactDirection', '') IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactDirection', ''))
+       AND EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = NEW."rowGUID") THEN
+      RAISE EXCEPTION 'payment fact: delete the lines before you change the payee or the direction' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF v_acct IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."moneyAccountTable" a WHERE a."rowGUID" = v_acct) THEN
+    RAISE EXCEPTION 'payment fact: the money account % does not exist', v_acct USING ERRCODE = '23503';
+  END IF;
+  IF v_partner IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."partnerTable" p WHERE p."rowGUID" = v_partner) THEN
+    RAISE EXCEPTION 'payment fact: the payee % is not a partner', v_partner USING ERRCODE = '23503';
+  END IF;
+  IF v_person IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public."personTable" p WHERE p."rowGUID" = v_person) THEN
+    RAISE EXCEPTION 'payment fact: the payee % is not a person', v_person USING ERRCODE = '23503';
+  END IF;
+  v_payee := COALESCE(v_partner, v_person, 'empty');
+  NEW."rowJSON" := jsonb_set(jsonb_set(NEW."rowJSON", '{paymentFactFolder}', to_jsonb(COALESCE(v_acct, 'empty') || ':' || v_payee)),
+                             '{paymentFactCurrency}', to_jsonb(COALESCE((SELECT upper(NULLIF(a."rowJSON"->>'moneyAccountCurrency', '')) FROM public."moneyAccountTable" a WHERE a."rowGUID" = v_acct), '')));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_payment_fact_header_before_write ON public.project_payment_fact_header;
+CREATE TRIGGER trg_payment_fact_header_before_write BEFORE INSERT OR UPDATE ON public.project_payment_fact_header FOR EACH ROW EXECUTE FUNCTION public.payment_fact_header_before_write();
+
+-- a new date or a new money account of a DRAFT: the lines are written again so their trigger converts the sums (rate of the date, currency of the account)
+CREATE OR REPLACE FUNCTION public.payment_fact_header_after_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft'
+     AND (NULLIF(NEW."rowJSON"->>'paymentFactDate', '') IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'paymentFactDate', '')
+          OR NULLIF(NEW."rowJSON"->>'moneyAccountFact', '') IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'moneyAccountFact', '')) THEN
+    UPDATE public.project_payment_fact_lines l SET "rowJSON" = l."rowJSON" WHERE l."rowHeaderGUID" = NEW."rowGUID";
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_payment_fact_header_after_write ON public.project_payment_fact_header;
+CREATE TRIGGER trg_payment_fact_header_after_write AFTER UPDATE ON public.project_payment_fact_header FOR EACH ROW EXECUTE FUNCTION public.payment_fact_header_after_write();
+
+
+-- ---- access: the header is read by the organization and written ONLY by the RPCs (a draft can also be deleted directly); the lines are read by the organization, edited (the app's table) and deleted by the
+-- owner of their project while the document is a draft; the movements and the rests are only READ ----------------------------------------------------------------------------------------------------
+ALTER TABLE public.project_payment_fact_header REPLICA IDENTITY FULL;
+ALTER TABLE public.project_payment_fact_header ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_payment_fact_header FROM anon, authenticated;
+GRANT SELECT, DELETE ON public.project_payment_fact_header TO authenticated;
+DROP POLICY IF EXISTS payment_fact_header_select ON public.project_payment_fact_header;
+CREATE POLICY payment_fact_header_select ON public.project_payment_fact_header FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+DROP POLICY IF EXISTS payment_fact_header_delete ON public.project_payment_fact_header;
+CREATE POLICY payment_fact_header_delete ON public.project_payment_fact_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user() AND COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'draft');
+
+ALTER TABLE public.project_payment_fact_lines REPLICA IDENTITY FULL;
+ALTER TABLE public.project_payment_fact_lines ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_payment_fact_lines FROM anon, authenticated;
+GRANT SELECT, UPDATE, DELETE ON public.project_payment_fact_lines TO authenticated;
+DROP POLICY IF EXISTS payment_fact_lines_select ON public.project_payment_fact_lines;
+CREATE POLICY payment_fact_lines_select ON public.project_payment_fact_lines FOR SELECT TO authenticated USING (public.payment_fact_state("rowHeaderGUID") IS NOT NULL);
+DROP POLICY IF EXISTS payment_fact_lines_update ON public.project_payment_fact_lines;
+CREATE POLICY payment_fact_lines_update ON public.project_payment_fact_lines FOR UPDATE TO authenticated
+  USING (public.payment_fact_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"))
+  WITH CHECK (public.payment_fact_state("rowHeaderGUID") = 'draft');
+DROP POLICY IF EXISTS payment_fact_lines_delete ON public.project_payment_fact_lines;
+CREATE POLICY payment_fact_lines_delete ON public.project_payment_fact_lines FOR DELETE TO authenticated
+  USING (public.payment_fact_state("rowHeaderGUID") = 'draft' AND public.pm_owns_project("rowProjectGUID"));
+
+ALTER TABLE public.cash_account_ledger_movements ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cash_account_ledger_movements FROM anon, authenticated;
+GRANT SELECT ON public.cash_account_ledger_movements TO authenticated;
+DROP POLICY IF EXISTS cash_ledger_movements_select ON public.cash_account_ledger_movements;
+CREATE POLICY cash_ledger_movements_select ON public.cash_account_ledger_movements FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+ALTER TABLE public.cash_account_ledger_rests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cash_account_ledger_rests FROM anon, authenticated;
+GRANT SELECT ON public.cash_account_ledger_rests TO authenticated;
+DROP POLICY IF EXISTS cash_ledger_rests_select ON public.cash_account_ledger_rests;
+CREATE POLICY cash_ledger_rests_select ON public.cash_account_ledger_rests FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+-- the queue is the database's own business: no policy, no grant
+ALTER TABLE public.cash_account_ledger_dirty ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cash_account_ledger_dirty FROM anon, authenticated;
+
+-- realtime: the documents, their lines and the money accounts
+DO $$
+DECLARE
+  v_all boolean; t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['project_payment_fact_header', 'project_payment_fact_lines', 'moneyAccountTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ---- what of a posted plan payment is still open (the plan sum - the posted facts, minus the lines of the given draft) ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_plan_open(p_plan uuid, p_header uuid DEFAULT NULL) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT (SELECT m."sumForContract" FROM public.task_payment_plan_movements m WHERE m."rowParentGUID" = p_plan)
+         - COALESCE((SELECT sum((l."rowJSON"->>'sumForContract')::numeric) FROM public.project_payment_fact_lines l
+                       JOIN public.project_payment_fact_header h ON h."rowGUID" = l."rowHeaderGUID"
+                      WHERE l."paymentPlanLineGUID" = p_plan AND jsonb_typeof(l."rowJSON"->'sumForContract') = 'number'
+                        AND (COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' OR h."rowGUID" = p_header)), 0)
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_plan_open(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_plan_open(uuid, uuid) TO authenticated;
+
+
+-- ---- payment_fact_plan_candidates(header, filter): the POSTED plan payments of the projects I own that still have something open, for "Get from plan" ---------------------------------------------------
+-- header given and with a payee / direction: only the payments of that payee and direction. filter keys (used for what the header has not): direction, partnerGUID, personGUID, taskGUID.
+CREATE OR REPLACE FUNCTION public.payment_fact_plan_candidates(p_header uuid DEFAULT NULL, p_filter jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb); hj jsonb := '{}'::jsonb; v_dir text; v_partner text; v_person text;
+BEGIN
+  IF p_header IS NOT NULL THEN
+    SELECT h."rowJSON" INTO hj FROM public.project_payment_fact_header h WHERE h."rowGUID" = p_header AND h."rowOrganizationGUID" = public.organization_of_current_user();
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+    END IF;
+  END IF;
+  v_dir := COALESCE(NULLIF(hj->>'paymentFactDirection', ''), NULLIF(f->>'direction', ''));
+  v_partner := COALESCE(NULLIF(hj->>'paymentFactPartner', ''), NULLIF(f->>'partnerGUID', ''));
+  v_person := COALESCE(NULLIF(hj->>'paymentFactPerson', ''), NULLIF(f->>'personGUID', ''));
+  RETURN jsonb_build_object('rows', COALESCE((
+    SELECT jsonb_agg(to_jsonb(x) ORDER BY x."plannedDay", x."planLineGUID")
+      FROM (
+        SELECT l."rowGUID" AS "planLineGUID", m."rowOwnerGUID" AS "taskGUID", COALESCE(t."rowJSON"->>'taskDescription', '') AS "taskTitle", m."rowProjectGUID" AS "projectGUID",
+               COALESCE(pr."rowJSON"->>'name', pr."rowJSON"->>'title', '') AS "projectName", m."paymentDirection" AS "direction", m."partner" AS "partnerGUID", m."person" AS "personGUID",
+               COALESCE(NULLIF(pt."rowJSON"->>'partnerTitle', ''), NULLIF(btrim(COALESCE(pe."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(pe."rowJSON"->>'personLastName', '')), ''), '') AS "payeeTitle",
+               m."contract" AS "contractGUID",
+               COALESCE(NULLIF(btrim(concat_ws(' · ', ck."rowJSON"->>'contractNumber', ck."rowJSON"->>'contractTitle')), ''), '') AS "contractInfo",
+               m."budgetItem" AS "budgetItem", m."businessUnit" AS "businessUnit", m."currency" AS "currency", m."periodDay"::text AS "plannedDay",
+               m."sumForContract" AS "planSum", m."sumForContract" - public.payment_fact_plan_open(l."rowGUID", NULL) AS "paid", public.payment_fact_plan_open(l."rowGUID", p_header) AS "open"
+          FROM public.task_payment_plan_movements m
+          JOIN public.task_payment_plan_lines l ON l."rowGUID" = m."rowParentGUID"
+          JOIN public.project_task_table t ON t."rowGUID" = m."rowOwnerGUID"
+          JOIN public.project_table pr ON pr."rowGUID" = m."rowProjectGUID"
+          LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = m."partner"
+          LEFT JOIN public."personTable" pe ON pe."rowGUID" = m."person"
+          LEFT JOIN public."contractTable" ck ON ck."rowGUID" = m."contract"
+         WHERE public.pm_owns_project(m."rowProjectGUID")
+           AND (v_dir IS NULL OR m."paymentDirection" = v_dir)
+           AND (v_partner IS NULL OR m."partner" = v_partner)
+           AND (v_person IS NULL OR m."person" = v_person)
+           AND (NOT f ? 'taskGUID' OR m."rowOwnerGUID"::text = f->>'taskGUID')
+           AND public.payment_fact_plan_open(l."rowGUID", p_header) > 0
+      ) x), '[]'::jsonb));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_plan_candidates(uuid, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_plan_candidates(uuid, jsonb) TO authenticated;
+
+
+-- ---- payment_fact_add_from_plan(header, plan payments): "Get from plan" - one line per POSTED plan payment, the attributes copied, the sum = what is still open ------------------------------
+-- A header that has no payee yet (and no lines) takes the payee and the direction of the first payment. Answer { added, skipped: [ { planLineGUID, reason } ] }; reasons: planPaymentNotPosted · notYourProject ·
+-- wrongDirection · wrongPayee · nothingOpen.
+CREATE OR REPLACE FUNCTION public.payment_fact_add_from_plan(p_header uuid, p_plan_lines uuid[]) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; r record; v_open numeric; v_added integer := 0; v_skipped jsonb := '[]'::jsonb; v_order numeric;
+  v_dir text; v_partner text; v_person text; v_first boolean := true;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted payment fact cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  v_dir := NULLIF(h."rowJSON"->>'paymentFactDirection', '');
+  v_partner := NULLIF(h."rowJSON"->>'paymentFactPartner', '');
+  v_person := NULLIF(h."rowJSON"->>'paymentFactPerson', '');
+  SELECT COALESCE(max(l."orderInList"), 0) INTO v_order FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header;
+  FOR r IN
+    SELECT u.plan, u.ord, m."rowGUID" AS movement, m."rowProjectGUID" AS project, m."rowOwnerGUID" AS task, m."paymentDirection" AS dir, m."partner", m."person", m."contract", m."budgetItem" AS budget_item, m."businessUnit" AS business_unit, m."currency", m."sumForContract" AS plan_sum
+      FROM unnest(p_plan_lines) WITH ORDINALITY AS u(plan, ord)
+      LEFT JOIN public.task_payment_plan_movements m ON m."rowParentGUID" = u.plan
+     ORDER BY u.ord
+  LOOP
+    IF r.movement IS NULL THEN
+      v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'planPaymentNotPosted'); CONTINUE;
+    END IF;
+    IF NOT public.pm_owns_project(r.project) THEN
+      v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'notYourProject'); CONTINUE;
+    END IF;
+    -- an empty document takes the payee (and a missing direction) of the first payment it gets
+    IF v_first AND v_partner IS NULL AND v_person IS NULL AND (v_dir IS NULL OR v_dir = r.dir) AND NOT EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header) THEN
+      v_dir := r.dir; v_partner := r.partner; v_person := r.person;
+      UPDATE public.project_payment_fact_header SET "rowJSON" = ("rowJSON" - 'paymentFactPartner' - 'paymentFactPerson') || jsonb_strip_nulls(jsonb_build_object('paymentFactDirection', v_dir, 'paymentFactPartner', v_partner, 'paymentFactPerson', v_person)) WHERE "rowGUID" = p_header;
+    END IF;
+    v_first := false;
+    IF r.dir IS DISTINCT FROM v_dir THEN
+      v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'wrongDirection'); CONTINUE;
+    END IF;
+    IF (v_partner IS NOT NULL AND r.partner IS DISTINCT FROM v_partner) OR (v_person IS NOT NULL AND r.person IS DISTINCT FROM v_person) OR (v_partner IS NULL AND v_person IS NULL) THEN
+      v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'wrongPayee'); CONTINUE;
+    END IF;
+    v_open := public.payment_fact_plan_open(r.plan, p_header);
+    IF v_open IS NULL OR v_open <= 0 THEN
+      v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'nothingOpen'); CONTINUE;
+    END IF;
+    v_order := v_order + 1;
+    INSERT INTO public.project_payment_fact_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "paymentPlanLineGUID", "orderInList", "rowJSON")
+    VALUES (p_header, r.project, r.task, r.plan, v_order,
+            jsonb_strip_nulls(jsonb_build_object('paymentFactBudgetItem', r.budget_item, 'paymentFactBusinessUnit', r.business_unit, 'paymentFactContract', r.contract, 'paymentFactCurrency', r.currency,
+                                                 'sumForContract', v_open, 'paymentFactPlanSum', r.plan_sum)));
+    v_added := v_added + 1;
+  END LOOP;
+  RETURN jsonb_build_object('added', v_added, 'skipped', v_skipped);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_add_from_plan(uuid, uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_add_from_plan(uuid, uuid[]) TO authenticated;
+
+
+-- ---- payment_fact_create(task, direction, plan payments): a new DRAFT (the number PF-00001, today's date, the only active money account when there is just one), optionally with lines from the plan -----
+CREATE OR REPLACE FUNCTION public.payment_fact_create(p_task uuid DEFAULT NULL, p_direction text DEFAULT NULL, p_plan_lines uuid[] DEFAULT NULL) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_current_user(); v_header uuid := gen_random_uuid(); v_project uuid; v_acct text; v_n integer; v_dir text := NULLIF(p_direction, '');
+BEGIN
+  IF v_org IS NULL THEN
+    RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+  END IF;
+  IF v_dir IS NOT NULL AND v_dir NOT IN ('inbound', 'outbound') THEN
+    RAISE EXCEPTION 'unknown direction %', v_dir USING ERRCODE = '22023';
+  END IF;
+  IF p_task IS NOT NULL THEN
+    SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+    IF v_project IS NULL THEN
+      RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+    END IF;
+    IF NOT public.pm_owns_project(v_project) THEN
+      RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  SELECT count(*), min(a."rowGUID") INTO v_n, v_acct FROM public."moneyAccountTable" a WHERE COALESCE(a."rowJSON"->>'isActive', 'true') <> 'false';
+  INSERT INTO public.project_payment_fact_header ("rowGUID", "rowOrganizationGUID", "rowJSON")
+  VALUES (v_header, v_org, jsonb_strip_nulls(jsonb_build_object(
+            'documentHeader', jsonb_build_object('activeUser', public.app_user_guid(), 'documentNumber', 'PF-' || lpad(nextval('public.payment_fact_document_seq')::text, 5, '0'),
+                                                  'documentStatus', 'draft', 'created_at', to_jsonb(clock_timestamp())),
+            'paymentFactNumber', '', 'paymentFactDate', to_char((NOW() AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD'),
+            'moneyAccountFact', CASE WHEN v_n = 1 THEN v_acct END, 'paymentFactDirection', v_dir, 'paymentFactTask', p_task)));
+  IF p_plan_lines IS NOT NULL AND array_length(p_plan_lines, 1) > 0 THEN
+    PERFORM public.payment_fact_add_from_plan(v_header, p_plan_lines);
+  END IF;
+  RETURN v_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_create(uuid, text, uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_create(uuid, text, uuid[]) TO authenticated;
+
+
+-- ---- the header of a DRAFT: number of the bank transaction, date, money account, payee (partner OR person), direction, the control amount, the task it is made for -----------------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_set_header(p_header uuid, p_patch jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_json jsonb; v_day text;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted payment fact cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  v_json := h."rowJSON";
+  IF p_patch ? 'paymentFactNumber' THEN
+    v_json := jsonb_set(v_json, '{paymentFactNumber}', to_jsonb(btrim(COALESCE(p_patch->>'paymentFactNumber', ''))));
+  END IF;
+  IF p_patch ? 'paymentFactDate' THEN
+    v_day := NULLIF(btrim(COALESCE(p_patch->>'paymentFactDate', '')), '');
+    IF v_day IS NULL THEN
+      v_json := v_json - 'paymentFactDate';
+    ELSE
+      IF v_day !~ '^\d{4}-\d{2}-\d{2}$' THEN
+        RAISE EXCEPTION 'the date must be YYYY-MM-DD' USING ERRCODE = '22007';
+      END IF;
+      v_json := jsonb_set(v_json, '{paymentFactDate}', to_jsonb(v_day::date::text));
+    END IF;
+  END IF;
+  IF p_patch ? 'moneyAccountFact' THEN
+    IF NULLIF(p_patch->>'moneyAccountFact', '') IS NULL THEN v_json := v_json - 'moneyAccountFact';
+    ELSE v_json := jsonb_set(v_json, '{moneyAccountFact}', to_jsonb(p_patch->>'moneyAccountFact')); END IF;
+  END IF;
+  IF p_patch ? 'paymentFactDirection' THEN
+    IF NULLIF(p_patch->>'paymentFactDirection', '') IS NULL THEN v_json := v_json - 'paymentFactDirection';
+    ELSIF p_patch->>'paymentFactDirection' NOT IN ('inbound', 'outbound') THEN
+      RAISE EXCEPTION 'unknown direction %', p_patch->>'paymentFactDirection' USING ERRCODE = '22023';
+    ELSE v_json := jsonb_set(v_json, '{paymentFactDirection}', to_jsonb(p_patch->>'paymentFactDirection')); END IF;
+  END IF;
+  -- the payee is a partner OR a person: choosing one drops the other
+  IF p_patch ? 'paymentFactPartner' THEN
+    v_json := v_json - 'paymentFactPartner';
+    IF NULLIF(p_patch->>'paymentFactPartner', '') IS NOT NULL THEN
+      v_json := jsonb_set(v_json - 'paymentFactPerson', '{paymentFactPartner}', to_jsonb(p_patch->>'paymentFactPartner'));
+    END IF;
+  END IF;
+  IF p_patch ? 'paymentFactPerson' THEN
+    v_json := v_json - 'paymentFactPerson';
+    IF NULLIF(p_patch->>'paymentFactPerson', '') IS NOT NULL THEN
+      v_json := jsonb_set(v_json - 'paymentFactPartner', '{paymentFactPerson}', to_jsonb(p_patch->>'paymentFactPerson'));
+    END IF;
+  END IF;
+  IF p_patch ? 'paymentFactBankAmount' THEN
+    IF jsonb_typeof(p_patch->'paymentFactBankAmount') = 'number' THEN
+      IF (p_patch->>'paymentFactBankAmount')::numeric < 0 THEN
+        RAISE EXCEPTION 'the amount of the bank transaction is not negative (the direction gives the sign)' USING ERRCODE = '23514';
+      END IF;
+      v_json := jsonb_set(v_json, '{paymentFactBankAmount}', p_patch->'paymentFactBankAmount');
+    ELSE
+      v_json := v_json - 'paymentFactBankAmount';
+    END IF;
+  END IF;
+  IF p_patch ? 'paymentFactTask' THEN
+    IF NULLIF(p_patch->>'paymentFactTask', '') IS NULL THEN v_json := v_json - 'paymentFactTask';
+    ELSE v_json := jsonb_set(v_json, '{paymentFactTask}', to_jsonb(p_patch->>'paymentFactTask')); END IF;
+  END IF;
+  UPDATE public.project_payment_fact_header SET "rowJSON" = v_json WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_set_header(uuid, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_set_header(uuid, jsonb) TO authenticated;
+
+
+-- ---- payment_fact_add_line(header, task): ONE line that comes from no plan payment (an unplanned payment) of a DRAFT; the task is the given one, else the task of the document -------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_add_line(p_header uuid, p_task uuid DEFAULT NULL) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_task uuid; v_project uuid; v_line uuid := gen_random_uuid();
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted payment fact cannot be changed: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  SELECT t."rowGUID", t."projectGUID" INTO v_task, v_project FROM public.project_task_table t
+   WHERE t."rowGUID"::text = COALESCE(p_task::text, NULLIF(h."rowJSON"->>'paymentFactTask', ''),
+           (SELECT l."rowOwnerGUID"::text FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header ORDER BY l."orderInList", l."created_at" LIMIT 1));
+  IF v_task IS NULL THEN
+    RAISE EXCEPTION 'the task of this payment fact is not known: choose a task' USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  INSERT INTO public.project_payment_fact_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "paymentPlanLineGUID", "orderInList", "rowJSON")
+  VALUES (v_line, p_header, v_project, v_task, NULL, COALESCE((SELECT max(l."orderInList") FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header), 0) + 1, '{}'::jsonb);
+  RETURN v_line;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_add_line(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_add_line(uuid, uuid) TO authenticated;
+
+
+-- ---- payment_fact_set_line_task(line, task): the task (and so the project) of ONE independent line of a DRAFT -----------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.payment_fact_set_line_task(p_line uuid, p_task uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  l record; v_project uuid;
+BEGIN
+  SELECT x."rowGUID", x."rowHeaderGUID", x."paymentPlanLineGUID" INTO l FROM public.project_payment_fact_lines x WHERE x."rowGUID" = p_line FOR UPDATE;
+  IF NOT FOUND OR public.payment_fact_state(l."rowHeaderGUID") IS DISTINCT FROM 'draft' THEN
+    RAISE EXCEPTION 'payment fact line % does not exist or its document is posted', p_line USING ERRCODE = '23503';
+  END IF;
+  IF l."paymentPlanLineGUID" IS NOT NULL THEN
+    RAISE EXCEPTION 'payment fact: a line of a payment of the plan stays with the task of that payment' USING ERRCODE = '23514';
+  END IF;
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL THEN
+    RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
+  END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  PERFORM set_config('app.payment_fact_line_move', 'on', true);
+  UPDATE public.project_payment_fact_lines SET "rowOwnerGUID" = p_task WHERE "rowGUID" = p_line;
+  PERFORM set_config('app.payment_fact_line_move', 'off', true);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_set_line_task(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_set_line_task(uuid, uuid) TO authenticated;
+
+
+-- ---- the rests of a money account ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- cash_ledger_rests_calc(org, account, from): the rest rows of the days >= from, worked out from the movements: per sum kind and currency the turnover of the day and the running rest (the rest of the last
+-- day before `from`, else the opening balance of the account for the kind 'account', else 0). Used to REBUILD the rests and to VERIFY them.
+CREATE OR REPLACE FUNCTION public.cash_ledger_rests_calc(p_org text, p_account text, p_from date)
+RETURNS TABLE (o_kind text, o_currency text, o_day date, o_turnover numeric, o_rest numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH mv AS (
+    SELECT 'contract'::text AS k, m."currencyForContract" AS c, m."periodDay" AS d, m."sumForContract" AS s FROM public.cash_account_ledger_movements m
+     WHERE m."rowOrganizationGUID" = p_org AND m."moneyAccount" = p_account AND m."periodDay" >= p_from AND m."currencyForContract" IS NOT NULL
+    UNION ALL
+    SELECT 'accounting', m."currencyForAccounting", m."periodDay", m."sumForAccounting" FROM public.cash_account_ledger_movements m
+     WHERE m."rowOrganizationGUID" = p_org AND m."moneyAccount" = p_account AND m."periodDay" >= p_from AND m."currencyForAccounting" IS NOT NULL AND m."sumForAccounting" IS NOT NULL
+    UNION ALL
+    SELECT 'budget', m."currencyForBudget", m."periodDay", m."sumForBudget" FROM public.cash_account_ledger_movements m
+     WHERE m."rowOrganizationGUID" = p_org AND m."moneyAccount" = p_account AND m."periodDay" >= p_from AND m."currencyForBudget" IS NOT NULL AND m."sumForBudget" IS NOT NULL
+    UNION ALL
+    SELECT 'account', m."currencyForMoneyAccount", m."periodDay", m."sumForMoneyAccount" FROM public.cash_account_ledger_movements m
+     WHERE m."rowOrganizationGUID" = p_org AND m."moneyAccount" = p_account AND m."periodDay" >= p_from AND m."currencyForMoneyAccount" IS NOT NULL AND m."sumForMoneyAccount" IS NOT NULL
+  ), day AS (
+    SELECT k, c, d, sum(s) AS t FROM mv GROUP BY k, c, d
+  ), base AS (
+    SELECT DISTINCT ON (r."sumKind", r."currency") r."sumKind" AS k, r."currency" AS c, r."rest" AS rest
+      FROM public.cash_account_ledger_rests r
+     WHERE r."rowOrganizationGUID" = p_org AND r."moneyAccount" = p_account AND r."periodDay" < p_from
+     ORDER BY r."sumKind", r."currency", r."periodDay" DESC
+  ), opening AS (
+    SELECT 'account'::text AS k, upper(NULLIF(a."rowJSON"->>'moneyAccountCurrency', '')) AS c,
+           CASE WHEN jsonb_typeof(a."rowJSON"->'moneyAccountOpeningBalance') = 'number' THEN (a."rowJSON"->>'moneyAccountOpeningBalance')::numeric ELSE 0 END AS bal
+      FROM public."moneyAccountTable" a WHERE a."rowGUID" = p_account
+  )
+  SELECT day.k, day.c, day.d, day.t,
+         COALESCE(base.rest, opening.bal, 0) + sum(day.t) OVER (PARTITION BY day.k, day.c ORDER BY day.d)
+    FROM day
+    LEFT JOIN base ON base.k = day.k AND base.c = day.c
+    LEFT JOIN opening ON opening.k = day.k AND opening.c = day.c
+   ORDER BY day.k, day.c, day.d
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_rests_calc(text, text, date) FROM PUBLIC, anon, authenticated;
+
+-- rebuild the rests of ONE account from a day on (under the lock of the account: two Posts into one account do not interleave). Returns the number of rest rows written
+CREATE OR REPLACE FUNCTION public.cash_ledger_rebuild_rests(p_org text, p_account text, p_from date) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v integer;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('cash_ledger:' || p_org || ':' || p_account, 0));
+  DELETE FROM public.cash_account_ledger_rests r WHERE r."rowOrganizationGUID" = p_org AND r."moneyAccount" = p_account AND r."periodDay" >= p_from;
+  INSERT INTO public.cash_account_ledger_rests ("rowOrganizationGUID", "moneyAccount", "sumKind", "currency", "periodDay", "turnover", "rest")
+  SELECT p_org, p_account, c.o_kind, c.o_currency, c.o_day, c.o_turnover, c.o_rest FROM public.cash_ledger_rests_calc(p_org, p_account, p_from) c;
+  GET DIAGNOSTICS v = ROW_COUNT;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_rebuild_rests(text, text, date) FROM PUBLIC, anon, authenticated;
+
+
+-- ---- Post / Unpost / Delete ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- problems: documentHasNoLines · paymentFactNumberMissing · paymentFactDateMissing · moneyAccountMissing · accountCurrencyMissing · dateBeforeOpening · payeeMissing · directionMissing  (the document)
+--           budgetItemMissing · budgetItemNotPayment · contractMissing · currencyMissing · sumMissing · notYourProject · sumForAccountingMissing · sumForBudgetMissing · sumForMoneyAccountMissing  (a line)
+CREATE OR REPLACE FUNCTION public.post_payment_fact(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; a record; v_problems jsonb := '[]'::jsonb; v_lines integer; v_day date; v_sign integer; v_acct text; v_dir text;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
+  END IF;
+  v_acct := NULLIF(h."rowJSON"->>'moneyAccountFact', '');
+  v_dir := NULLIF(h."rowJSON"->>'paymentFactDirection', '');
+  v_day := NULLIF(h."rowJSON"->>'paymentFactDate', '')::date;
+  SELECT * INTO a FROM public."moneyAccountTable" x WHERE x."rowGUID" = v_acct;
+  SELECT count(*) INTO v_lines FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header;
+  IF v_lines = 0 THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'documentHasNoLines'); END IF;
+  IF NULLIF(btrim(COALESCE(h."rowJSON"->>'paymentFactNumber', '')), '') IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'paymentFactNumberMissing'); END IF;
+  IF v_day IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'paymentFactDateMissing'); END IF;
+  IF v_acct IS NULL OR a."rowGUID" IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'moneyAccountMissing');
+  ELSE
+    IF NULLIF(btrim(COALESCE(a."rowJSON"->>'moneyAccountCurrency', '')), '') IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'accountCurrencyMissing'); END IF;
+    IF v_day IS NOT NULL AND NULLIF(a."rowJSON"->>'moneyAccountOpeningDate', '') IS NOT NULL AND v_day < (a."rowJSON"->>'moneyAccountOpeningDate')::date THEN
+      v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'dateBeforeOpening');
+    END IF;
+  END IF;
+  IF NULLIF(h."rowJSON"->>'paymentFactPartner', '') IS NULL AND NULLIF(h."rowJSON"->>'paymentFactPerson', '') IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'payeeMissing'); END IF;
+  IF v_dir IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'directionMissing'); END IF;
+
+  SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', x.id, 'problem', x.problem) ORDER BY x.ord, x.id, x.problem), '[]'::jsonb) INTO v_problems
+    FROM (
+      SELECT l."rowGUID" AS id, l."orderInList" AS ord, pr.problem
+        FROM public.project_payment_fact_lines l
+        JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+        CROSS JOIN LATERAL (VALUES
+          ('budgetItemMissing', COALESCE(l."rowJSON"->>'paymentFactBudgetItem', '') = ''),
+          ('budgetItemNotPayment', COALESCE(l."rowJSON"->>'paymentFactBudgetItem', '') <> '' AND NOT EXISTS (
+              SELECT 1 FROM public."budgetItemTable" b WHERE b."rowGUID" = l."rowJSON"->>'paymentFactBudgetItem'
+                 AND b."rowJSON"->>'managementGenusItem' = CASE WHEN v_dir = 'inbound' THEN 'inboundPaymentGenus' ELSE 'outboundPaymentGenus' END)),
+          ('contractMissing', COALESCE(l."rowJSON"->>'paymentFactContract', '') = ''),
+          ('currencyMissing', COALESCE(l."rowJSON"->>'paymentFactCurrency', '') = ''),
+          ('sumMissing', jsonb_typeof(l."rowJSON"->'sumForContract') IS DISTINCT FROM 'number' OR COALESCE((l."rowJSON"->>'sumForContract')::numeric, 0) <= 0),
+          ('notYourProject', NOT public.pm_owns_project(l."rowProjectGUID")),
+          ('sumForAccountingMissing', COALESCE(p."rowJSON"->>'currencyForAccounting', '') <> '' AND jsonb_typeof(l."rowJSON"->'sumForAccounting') IS DISTINCT FROM 'number'),
+          ('sumForBudgetMissing', COALESCE(p."rowJSON"->>'currencyForBudget', '') <> '' AND jsonb_typeof(l."rowJSON"->'sumForBudget') IS DISTINCT FROM 'number'),
+          ('sumForMoneyAccountMissing', jsonb_typeof(l."rowJSON"->'sumForMoneyAccount') IS DISTINCT FROM 'number')
+        ) AS pr(problem, bad)
+       WHERE l."rowHeaderGUID" = p_header AND pr.bad
+    ) x;
+  IF jsonb_array_length(v_problems) > 0 THEN
+    RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('cash_ledger:' || h."rowOrganizationGUID" || ':' || v_acct, 0));
+  v_sign := CASE WHEN v_dir = 'inbound' THEN 1 ELSE -1 END;
+  PERFORM set_config('app.payment_fact_post', 'on', true);
+  UPDATE public.project_payment_fact_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'posted', 'postedAt', to_jsonb(NOW()), 'postedBy', public.app_user_guid()))
+   WHERE "rowGUID" = p_header;
+  PERFORM set_config('app.payment_fact_post', 'off', true);
+  DELETE FROM public.cash_account_ledger_movements m WHERE m."rowHeaderGUID" = p_header;
+  INSERT INTO public.cash_account_ledger_movements ("rowOrganizationGUID", "rowHeaderGUID", "rowLineGUID", "rowProjectGUID", "rowOwnerGUID", "moneyAccount", "periodDay", "paymentDirection", "partner", "person", "contract",
+         "budgetItem", "businessUnit", "planLineGUID", "currencyForContract", "currencyForAccounting", "currencyForBudget", "currencyForMoneyAccount",
+         "sumForContract", "sumForAccounting", "sumForBudget", "sumForMoneyAccount", "moneyAccountSumSource")
+  SELECT h."rowOrganizationGUID", p_header, l."rowGUID", l."rowProjectGUID", l."rowOwnerGUID", v_acct, v_day, v_dir, NULLIF(h."rowJSON"->>'paymentFactPartner', ''), NULLIF(h."rowJSON"->>'paymentFactPerson', ''),
+         l."rowJSON"->>'paymentFactContract', l."rowJSON"->>'paymentFactBudgetItem', NULLIF(l."rowJSON"->>'paymentFactBusinessUnit', ''), l."paymentPlanLineGUID",
+         upper(l."rowJSON"->>'paymentFactCurrency'), upper(NULLIF(btrim(COALESCE(p."rowJSON"->>'currencyForAccounting', '')), '')), upper(NULLIF(btrim(COALESCE(p."rowJSON"->>'currencyForBudget', '')), '')),
+         upper(NULLIF(btrim(a."rowJSON"->>'moneyAccountCurrency'), '')),
+         v_sign * round((l."rowJSON"->>'sumForContract')::numeric, 2),
+         CASE WHEN jsonb_typeof(l."rowJSON"->'sumForAccounting') = 'number' THEN v_sign * round((l."rowJSON"->>'sumForAccounting')::numeric, 2) END,
+         CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' THEN v_sign * round((l."rowJSON"->>'sumForBudget')::numeric, 2) END,
+         v_sign * round((l."rowJSON"->>'sumForMoneyAccount')::numeric, 2), COALESCE(NULLIF(l."rowJSON"->>'moneyAccountSumSource', ''), 'auto')
+    FROM public.project_payment_fact_lines l
+    JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+   WHERE l."rowHeaderGUID" = p_header;
+  PERFORM public.cash_ledger_rebuild_rests(h."rowOrganizationGUID", v_acct, v_day);
+  RETURN jsonb_build_object('status', 'posted', 'lines', v_lines, 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.post_payment_fact(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.post_payment_fact(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.unpost_payment_fact(p_header uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record; v_acct text; v_from date;
+BEGIN
+  SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
+    RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+    RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
+  END IF;
+  v_acct := h."rowJSON"->>'moneyAccountFact';
+  v_from := NULLIF(h."rowJSON"->>'paymentFactDate', '')::date;
+  PERFORM pg_advisory_xact_lock(hashtextextended('cash_ledger:' || h."rowOrganizationGUID" || ':' || v_acct, 0));
+  DELETE FROM public.cash_account_ledger_movements m WHERE m."rowHeaderGUID" = p_header;
+  PERFORM set_config('app.payment_fact_post', 'on', true);
+  UPDATE public.project_payment_fact_header
+     SET "rowJSON" = jsonb_set("rowJSON", '{documentHeader}', ("rowJSON"->'documentHeader') || jsonb_build_object('documentStatus', 'draft', 'unpostedAt', to_jsonb(NOW())))
+   WHERE "rowGUID" = p_header;
+  PERFORM set_config('app.payment_fact_post', 'off', true);
+  PERFORM public.cash_ledger_rebuild_rests(h."rowOrganizationGUID", v_acct, v_from);
+  RETURN jsonb_build_object('status', 'draft', 'problems', '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.unpost_payment_fact(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.unpost_payment_fact(uuid) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.delete_payment_fact(p_header uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  h record;
+BEGIN
+  SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
+  END IF;
+  IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
+    RAISE EXCEPTION 'a posted payment fact cannot be deleted: unpost it first' USING ERRCODE = '23514';
+  END IF;
+  DELETE FROM public.project_payment_fact_header WHERE "rowGUID" = p_header;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_payment_fact(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_payment_fact(uuid) TO authenticated;
+
+
+-- ---- payment_fact_list(filter, limit, offset): the documents with the amount of the money account (the real bank amount) and the totals PER CURRENCY (currencies are never added) -------------------------
+-- filter keys: documentGUIDs (an array), moneyAccountGUID, legalEntityGUID, partnerGUID, personGUID, direction, status, currency (of the account), number (contains), fromDay / toDay (the date), author (contains),
+--   taskGUID (the document has a line of that task; a document without lines: the task it was made for) · taskLineGUID is not used: planLineGUID (the document has a line that fulfils that plan payment) · projectGUID
+CREATE OR REPLACE FUNCTION public.payment_fact_list(p_filter jsonb DEFAULT '{}'::jsonb, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0) RETURNS jsonb
+LANGUAGE plpgsql STABLE SET search_path = public, extensions AS $$
+DECLARE
+  f jsonb := COALESCE(p_filter, '{}'::jsonb);
+  v_result jsonb;
+BEGIN
+  WITH docs AS (
+    SELECT h."rowGUID" AS "documentGUID",
+           h."rowJSON"->'documentHeader'->>'documentNumber' AS "documentNumber",
+           COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') AS "documentStatus",
+           COALESCE(h."rowJSON"->>'paymentFactNumber', '') AS "paymentFactNumber",
+           NULLIF(h."rowJSON"->>'paymentFactDate', '') AS "paymentFactDay",
+           NULLIF(h."rowJSON"->>'moneyAccountFact', '') AS "moneyAccountGUID",
+           COALESCE(a."rowJSON"->>'moneyAccountTitle', '') AS "moneyAccountTitle",
+           COALESCE(NULLIF(a."rowParentGUID", 'empty'), '') AS "legalEntityGUID", COALESCE(le."rowJSON"->>'title', le."rowJSON"->>'legalName', '') AS "legalEntityTitle",
+           COALESCE(h."rowJSON"->>'paymentFactCurrency', '') AS "currency",
+           NULLIF(h."rowJSON"->>'paymentFactPartner', '') AS "partnerGUID", NULLIF(h."rowJSON"->>'paymentFactPerson', '') AS "personGUID",
+           COALESCE(NULLIF(pt."rowJSON"->>'partnerTitle', ''), NULLIF(btrim(COALESCE(pe."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(pe."rowJSON"->>'personLastName', '')), ''), '') AS "payeeTitle",
+           COALESCE(h."rowJSON"->>'paymentFactDirection', '') AS "direction",
+           h."rowJSON"->>'paymentFactFolder' AS "folder",
+           CASE WHEN jsonb_typeof(h."rowJSON"->'paymentFactBankAmount') = 'number' THEN (h."rowJSON"->>'paymentFactBankAmount')::numeric END AS "bankAmount",
+           COALESCE(NULLIF(h."rowJSON"->>'paymentFactTask', ''), (SELECT l."rowOwnerGUID"::text FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1)) AS "taskGUID",
+           (SELECT l."rowProjectGUID"::text FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1) AS "projectGUID",
+           (SELECT count(DISTINCT l."rowProjectGUID") FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "projectCount",
+           h."rowJSON"->'documentHeader'->>'activeUser' AS "authorGUID",
+           COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') AS "authorName",
+           h."created_at" AS "sortAt",
+           (SELECT count(*) FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID")::integer AS "lineCount",
+           (SELECT COALESCE(sum(CASE WHEN jsonb_typeof(l."rowJSON"->'sumForMoneyAccount') = 'number' THEN (l."rowJSON"->>'sumForMoneyAccount')::numeric END), 0) FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID") AS "sumForMoneyAccount"
+      FROM public.project_payment_fact_header h
+      LEFT JOIN public."moneyAccountTable" a ON a."rowGUID" = h."rowJSON"->>'moneyAccountFact'
+      LEFT JOIN public."legalEntityTable" le ON le."rowGUID" = a."rowParentGUID"
+      LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = h."rowJSON"->>'paymentFactPartner'
+      LEFT JOIN public."personTable" pe ON pe."rowGUID" = h."rowJSON"->>'paymentFactPerson'
+      LEFT JOIN public."userTable" u ON u."rowGUID" = h."rowJSON"->'documentHeader'->>'activeUser'
+     WHERE (NOT f ? 'documentGUIDs'   OR h."rowGUID"::text IN (SELECT jsonb_array_elements_text(f->'documentGUIDs')))
+       AND (NOT f ? 'moneyAccountGUID' OR h."rowJSON"->>'moneyAccountFact' = f->>'moneyAccountGUID')
+       AND (NOT f ? 'legalEntityGUID' OR a."rowParentGUID" = f->>'legalEntityGUID')
+       AND (NOT f ? 'partnerGUID'     OR h."rowJSON"->>'paymentFactPartner' = f->>'partnerGUID')
+       AND (NOT f ? 'personGUID'      OR h."rowJSON"->>'paymentFactPerson' = f->>'personGUID')
+       AND (NOT f ? 'direction'       OR COALESCE(h."rowJSON"->>'paymentFactDirection', '') = f->>'direction')
+       AND (NOT f ? 'currency'        OR COALESCE(h."rowJSON"->>'paymentFactCurrency', '') = f->>'currency')
+       AND (NOT f ? 'status'          OR COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = f->>'status')
+       AND (NOT f ? 'projectGUID'     OR EXISTS (SELECT 1 FROM public.project_payment_fact_lines pl WHERE pl."rowHeaderGUID" = h."rowGUID" AND pl."rowProjectGUID"::text = f->>'projectGUID'))
+       AND (NOT f ? 'taskGUID'        OR EXISTS (SELECT 1 FROM public.project_payment_fact_lines tl WHERE tl."rowHeaderGUID" = h."rowGUID" AND tl."rowOwnerGUID"::text = f->>'taskGUID')
+            OR (h."rowJSON"->>'paymentFactTask' = f->>'taskGUID' AND NOT EXISTS (SELECT 1 FROM public.project_payment_fact_lines nl WHERE nl."rowHeaderGUID" = h."rowGUID")))
+       AND (NOT f ? 'planLineGUID'    OR EXISTS (SELECT 1 FROM public.project_payment_fact_lines ll WHERE ll."rowHeaderGUID" = h."rowGUID" AND ll."paymentPlanLineGUID"::text = f->>'planLineGUID'))
+       AND (NOT f ? 'number'          OR NULLIF(btrim(f->>'number'), '') IS NULL OR concat_ws(' ', h."rowJSON"->>'paymentFactNumber', h."rowJSON"->'documentHeader'->>'documentNumber') ILIKE '%' || btrim(f->>'number') || '%')
+       AND (NOT f ? 'fromDay'         OR NULLIF(h."rowJSON"->>'paymentFactDate', '')::date >= (f->>'fromDay')::date)
+       AND (NOT f ? 'toDay'           OR NULLIF(h."rowJSON"->>'paymentFactDate', '')::date <= (f->>'toDay')::date)
+       AND (NOT f ? 'author'          OR NULLIF(btrim(f->>'author'), '') IS NULL
+            OR concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName', u."rowJSON"->>'userEmail', h."rowJSON"->'documentHeader'->>'activeUser') ILIKE '%' || btrim(f->>'author') || '%')
+  ), page AS (SELECT * FROM docs ORDER BY "sortAt" DESC, "documentGUID" LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0))
+  SELECT jsonb_build_object(
+           'totalCount', (SELECT count(*) FROM docs),
+           'totalsByCurrency', COALESCE((SELECT jsonb_agg(jsonb_build_object('currency', d.cur, 'count', d.n, 'sumForMoneyAccount', d.s) ORDER BY d.cur)
+                                           FROM (SELECT "currency" AS cur, count(*) AS n, sum("sumForMoneyAccount") AS s FROM docs GROUP BY "currency") d), '[]'::jsonb),
+           'rows', COALESCE((SELECT jsonb_agg(to_jsonb(page) - 'sortAt' ORDER BY page."sortAt" DESC, page."documentGUID") FROM page), '[]'::jsonb))
+    INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.payment_fact_list(jsonb, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.payment_fact_list(jsonb, integer, integer) TO authenticated;
+
+
+-- ---- task_payment_paid(task): per posted plan payment of the task what the POSTED payment facts have paid and what is still open (the columns "Paid" / "Open" of the payment plan) -------------------------
+CREATE OR REPLACE FUNCTION public.task_payment_paid(p_task uuid) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+BEGIN
+  SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
+  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'task_payment_paid: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
+  END IF;
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('planLineGUID', m."rowParentGUID", 'planSum', m."sumForContract", 'paid', m."sumForContract" - public.payment_fact_plan_open(m."rowParentGUID", NULL),
+                                        'open', public.payment_fact_plan_open(m."rowParentGUID", NULL)) ORDER BY m."periodDay", m."rowGUID")
+      FROM public.task_payment_plan_movements m WHERE m."rowOwnerGUID" = p_task), '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_payment_paid(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_payment_paid(uuid) TO authenticated;
+
+
+-- ---- the exchange rate changed: recalculate the converted sums of the movements and the rests from date to date -------------------------------------------------------------------------------------
+-- cash_ledger_fresh(from, to, currency): for the movements of the days [from, to) (to NULL = open) that involve the currency (NULL = every movement) the amounts converted with the rates of TODAY's rate book
+-- (the project's rate types, the day of the movement). A sum whose rate is missing keeps the stored value. What the bank moved (sumForContract, a typed sumForMoneyAccount) is never converted.
+CREATE OR REPLACE FUNCTION public.cash_ledger_fresh(p_from date, p_to date, p_currency text)
+RETURNS TABLE (o_guid uuid, o_org text, o_account text, o_day date, o_accounting numeric, o_budget numeric, o_account_sum numeric, o_snapshot jsonb)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH cand AS (
+    SELECT m."rowGUID" AS g, m."rowOrganizationGUID" AS org, m."moneyAccount" AS acc, m."periodDay" AS d, m."sumForContract" AS sc, m."currencyForContract" AS cc, m."currencyForAccounting" AS ca,
+           m."currencyForBudget" AS cb, m."currencyForMoneyAccount" AS cm, m."moneyAccountSumSource" AS src, m."sumForAccounting" AS oa, m."sumForBudget" AS ob, m."sumForMoneyAccount" AS om,
+           COALESCE(NULLIF(btrim(p."rowJSON"->>'exchangeRateTypeForAccounting'), ''), 'Default') AS rt_a, COALESCE(NULLIF(btrim(p."rowJSON"->>'exchangeRateTypeForBudget'), ''), 'Budget') AS rt_b
+      FROM public.cash_account_ledger_movements m
+      LEFT JOIN public.project_table p ON p."rowGUID" = m."rowProjectGUID"
+     WHERE m."periodDay" >= p_from AND (p_to IS NULL OR m."periodDay" < p_to)
+       AND (p_currency IS NULL OR p_currency IN (m."currencyForContract", m."currencyForAccounting", m."currencyForBudget", m."currencyForMoneyAccount"))
+  ), pairs AS (
+    SELECT DISTINCT cc AS f, ca AS t, rt_a AS ty, d FROM cand WHERE ca IS NOT NULL
+    UNION SELECT DISTINCT cc, cb, rt_b, d FROM cand WHERE cb IS NOT NULL
+    UNION SELECT DISTINCT cc, cm, rt_a, d FROM cand WHERE cm IS NOT NULL AND src = 'auto'
+  ), rates AS (
+    SELECT f, t, ty, d, public.fx_pair_rate(f, t, ty, d) AS r FROM pairs
+  )
+  SELECT cand.g, cand.org, cand.acc, cand.d,
+         COALESCE(CASE WHEN cand.ca IS NOT NULL THEN public.cash_fx_round(cand.sc, ra.r, cand.ca) END, cand.oa),
+         COALESCE(CASE WHEN cand.cb IS NOT NULL THEN public.cash_fx_round(cand.sc, rb.r, cand.cb) END, cand.ob),
+         CASE WHEN cand.src = 'auto' THEN COALESCE(CASE WHEN cand.cm IS NOT NULL THEN public.cash_fx_round(cand.sc, rm.r, cand.cm) END, cand.om) ELSE cand.om END,
+         jsonb_strip_nulls(jsonb_build_object('day', cand.d, 'accounting', ra.r, 'budget', rb.r, 'account', CASE WHEN cand.src = 'auto' THEN rm.r END))
+    FROM cand
+    LEFT JOIN rates ra ON ra.f = cand.cc AND ra.t = cand.ca AND ra.ty = cand.rt_a AND ra.d = cand.d
+    LEFT JOIN rates rb ON rb.f = cand.cc AND rb.t = cand.cb AND rb.ty = cand.rt_b AND rb.d = cand.d
+    LEFT JOIN rates rm ON rm.f = cand.cc AND rm.t = cand.cm AND rm.ty = cand.rt_a AND rm.d = cand.d
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_fresh(date, date, text) FROM PUBLIC, anon, authenticated;
+
+-- recalculate: writes the converted sums that differ, then rebuilds the rests of every touched account from its first changed day. Returns the number of movements changed
+CREATE OR REPLACE FUNCTION public.cash_ledger_recalc(p_from date, p_to date, p_currency text DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record; n integer := 0;
+BEGIN
+  FOR r IN
+    WITH upd AS (
+      UPDATE public.cash_account_ledger_movements m
+         SET "sumForAccounting" = f.o_accounting, "sumForBudget" = f.o_budget, "sumForMoneyAccount" = f.o_account_sum, "fxSnapshot" = f.o_snapshot, "recalculatedAt" = NOW()
+        FROM public.cash_ledger_fresh(p_from, p_to, p_currency) f
+       WHERE m."rowGUID" = f.o_guid
+         AND (m."sumForAccounting" IS DISTINCT FROM f.o_accounting OR m."sumForBudget" IS DISTINCT FROM f.o_budget OR m."sumForMoneyAccount" IS DISTINCT FROM f.o_account_sum)
+      RETURNING m."rowOrganizationGUID" AS org, m."moneyAccount" AS acc, m."periodDay" AS d)
+    SELECT org, acc, min(d) AS d, count(*)::integer AS n FROM upd GROUP BY org, acc
+  LOOP
+    PERFORM public.cash_ledger_rebuild_rests(r.org, r.acc, r.d);
+    n := n + r.n;
+  END LOOP;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_recalc(date, date, text) FROM PUBLIC, anon, authenticated;
+
+-- the worker: takes the queue of the rate changes (oldest first, up to p_batch rows), recalculates, empties them. Called by pg_cron (start3) and by cash_ledger_refresh_now. Returns the movements changed
+CREATE OR REPLACE FUNCTION public.cash_ledger_process_dirty(p_batch integer DEFAULT 200) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record; n integer := 0;
+BEGIN
+  FOR r IN SELECT d."rowGUID", d."fromDay", d."toDay", d."currency" FROM public.cash_account_ledger_dirty d ORDER BY d."created_at", d."rowGUID" LIMIT GREATEST(p_batch, 1) FOR UPDATE SKIP LOCKED LOOP
+    n := n + public.cash_ledger_recalc(r."fromDay", r."toDay", r."currency");
+    DELETE FROM public.cash_account_ledger_dirty WHERE "rowGUID" = r."rowGUID";
+  END LOOP;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_process_dirty(integer) FROM PUBLIC, anon, authenticated;
+
+-- the button "Refresh rests" of the app (the app also works without pg_cron): process the queue now. Answer { changed, queue }
+CREATE OR REPLACE FUNCTION public.cash_ledger_refresh_now() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE n integer;
+BEGIN
+  IF public.organization_of_current_user() IS NULL THEN
+    RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501';
+  END IF;
+  n := public.cash_ledger_process_dirty(500);
+  RETURN jsonb_build_object('changed', n, 'queue', (SELECT count(*) FROM public.cash_account_ledger_dirty));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_refresh_now() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cash_ledger_refresh_now() TO authenticated;
+
+-- the queue length for the screen (is a recalculation waiting?)
+CREATE OR REPLACE FUNCTION public.cash_ledger_queue_length() RETURNS integer
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT count(*)::integer FROM public.cash_account_ledger_dirty
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_queue_length() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cash_ledger_queue_length() TO authenticated;
+
+
+-- verify (a maintenance function without an owner filter, like roi_verify; empty = the stored rests and sums equal what the movements and the rate book give):
+--   issue 'rest' (a stored rest differs from the rests worked out from the movements), 'rate' (a movement's converted sum is not the one of today's rates: a recalculation is waiting or failed)
+CREATE OR REPLACE FUNCTION public.cash_ledger_verify(p_org text, p_account text)
+RETURNS TABLE (o_issue text, o_detail text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  RETURN QUERY
+  WITH want AS (SELECT c.o_kind AS k, c.o_currency AS c, c.o_day AS d, c.o_turnover AS t, c.o_rest AS r FROM public.cash_ledger_rests_calc(p_org, p_account, DATE '0001-01-01') c),
+       have AS (SELECT s."sumKind" AS k, s."currency" AS c, s."periodDay" AS d, s."turnover" AS t, s."rest" AS r FROM public.cash_account_ledger_rests s WHERE s."rowOrganizationGUID" = p_org AND s."moneyAccount" = p_account)
+  SELECT 'rest'::text, format('%s %s %s: stored %s, expected %s', COALESCE(want.k, have.k), COALESCE(want.c, have.c), COALESCE(want.d, have.d), have.r, want.r)
+    FROM want FULL JOIN have ON have.k = want.k AND have.c = want.c AND have.d = want.d
+   WHERE want.k IS NULL OR have.k IS NULL OR have.r IS DISTINCT FROM want.r OR have.t IS DISTINCT FROM want.t;
+  RETURN QUERY
+  SELECT 'rate'::text, format('movement %s on %s: stored %s/%s/%s, today %s/%s/%s', f.o_guid, f.o_day, m."sumForAccounting", m."sumForBudget", m."sumForMoneyAccount", f.o_accounting, f.o_budget, f.o_account_sum)
+    FROM public.cash_ledger_fresh(DATE '0001-01-01', NULL, NULL) f
+    JOIN public.cash_account_ledger_movements m ON m."rowGUID" = f.o_guid
+   WHERE f.o_org = p_org AND f.o_account = p_account
+     AND (m."sumForAccounting" IS DISTINCT FROM f.o_accounting OR m."sumForBudget" IS DISTINCT FROM f.o_budget OR m."sumForMoneyAccount" IS DISTINCT FROM f.o_account_sum);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_verify(text, text) FROM PUBLIC, anon, authenticated;
+
+-- the whole rests of an account worked out again from its movements (the rests are the only table that can always be rebuilt)
+CREATE OR REPLACE FUNCTION public.cash_ledger_rebuild(p_org text, p_account text) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.cash_ledger_rebuild_rests(p_org, p_account, DATE '0001-01-01')
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_rebuild(text, text) FROM PUBLIC, anon, authenticated;
+
+
+-- the trigger on the exchange rates: the rate of (currency, type, base) rules from its startingDate until the next row of the same currency / type / base; a change (insert, update, delete, a moved date)
+-- queues [from, next row) for the movements of that currency (a row quoted against ANOTHER base changes the cross rates of every currency: the queue entry has no currency). It does nothing while no payment
+-- fact was ever posted (the seed of the rates costs nothing)
+CREATE OR REPLACE FUNCTION public.cash_ledger_queue_rate(p_owner text, p_type text, p_base text, p_day1 date, p_day2 date) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_code text; v_from date := least(p_day1, p_day2); v_anchor date := greatest(p_day1, p_day2); v_next date; v_cur text;
+BEGIN
+  SELECT upper(x."rowJSON"->>'currencyCode') INTO v_code FROM public."currencyTable" x WHERE x."rowGUID" = p_owner;
+  SELECT min((x."rowJSON"->>'startingDate')::date) INTO v_next FROM public."currencyExchangeRateTable" x
+   WHERE x."rowOwnerGUID" = p_owner AND COALESCE(NULLIF(x."rowJSON"->>'rateType', ''), 'Default') = COALESCE(NULLIF(p_type, ''), 'Default')
+     AND COALESCE(upper(NULLIF(x."rowJSON"->>'rateBase', '')), '') = COALESCE(upper(NULLIF(p_base, '')), '') AND (x."rowJSON"->>'startingDate')::date > v_anchor;
+  v_cur := CASE WHEN NULLIF(p_base, '') IS NOT NULL AND upper(p_base) <> public.fx_base_currency() THEN NULL ELSE v_code END;
+  INSERT INTO public.cash_account_ledger_dirty ("fromDay", "toDay", "currency") VALUES (v_from, v_next, v_cur);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cash_ledger_queue_rate(text, text, text, date, date) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.cash_ledger_rate_trigger() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  d_new date; d_old date;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.cash_account_ledger_movements LIMIT 1) THEN
+    RETURN NULL;
+  END IF;
+  IF TG_OP <> 'DELETE' THEN d_new := NULLIF(NEW."rowJSON"->>'startingDate', '')::date; END IF;
+  IF TG_OP <> 'INSERT' THEN d_old := NULLIF(OLD."rowJSON"->>'startingDate', '')::date; END IF;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM public.cash_ledger_queue_rate(NEW."rowOwnerGUID", NEW."rowJSON"->>'rateType', NEW."rowJSON"->>'rateBase', d_new, d_new);
+  ELSIF TG_OP = 'DELETE' THEN
+    PERFORM public.cash_ledger_queue_rate(OLD."rowOwnerGUID", OLD."rowJSON"->>'rateType', OLD."rowJSON"->>'rateBase', d_old, d_old);
+  ELSIF OLD."rowOwnerGUID" IS DISTINCT FROM NEW."rowOwnerGUID" OR COALESCE(OLD."rowJSON"->>'rateType', '') IS DISTINCT FROM COALESCE(NEW."rowJSON"->>'rateType', '')
+        OR COALESCE(OLD."rowJSON"->>'rateBase', '') IS DISTINCT FROM COALESCE(NEW."rowJSON"->>'rateBase', '') THEN
+    PERFORM public.cash_ledger_queue_rate(OLD."rowOwnerGUID", OLD."rowJSON"->>'rateType', OLD."rowJSON"->>'rateBase', d_old, d_old);
+    PERFORM public.cash_ledger_queue_rate(NEW."rowOwnerGUID", NEW."rowJSON"->>'rateType', NEW."rowJSON"->>'rateBase', d_new, d_new);
+  ELSIF OLD."rowJSON"->'currencyRatio' IS DISTINCT FROM NEW."rowJSON"->'currencyRatio' OR d_old IS DISTINCT FROM d_new THEN
+    PERFORM public.cash_ledger_queue_rate(NEW."rowOwnerGUID", NEW."rowJSON"->>'rateType', NEW."rowJSON"->>'rateBase', d_old, d_new);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_cash_ledger_rate ON public."currencyExchangeRateTable";
+CREATE TRIGGER trg_cash_ledger_rate AFTER INSERT OR UPDATE OR DELETE ON public."currencyExchangeRateTable" FOR EACH ROW EXECUTE FUNCTION public.cash_ledger_rate_trigger();
+
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

@@ -43,6 +43,7 @@
 --   35. create_work_center.sql - workCenterTable (a work center = a Person, Equipment or Partner as a resource with its own calendar and variant; folders = business units) + the kind 'workCenter' of a Time line
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header + project_timesheet_lines + project_timesheet_lines_data_entered (the entered hours = the base of Post)
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
+--   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction) + cash_account_ledger_movements / _rests / _dirty (the register of the money accounts)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3198,6 +3199,147 @@ CREATE TABLE IF NOT EXISTS public.task_payment_plan_movements (
 CREATE INDEX IF NOT EXISTS idx_task_payment_plan_movements_task ON public.task_payment_plan_movements ("rowOwnerGUID", "periodDay");
 
 CREATE INDEX IF NOT EXISTS idx_task_payment_plan_movements_project ON public.task_payment_plan_movements ("rowProjectGUID", "periodDay");
+
+-- ===============================================================================================
+-- PART 38: create_payment_fact.sql
+-- the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): ONE bank transaction = project_payment_fact_header + project_payment_fact_lines (the lines come from the POSTED payment plan, PART 37),
+-- Draft -> Post writes cash_account_ledger_movements (one signed row per line); cash_account_ledger_rests = the REST of a money account per day (rebuilt, never typed), recalculated when an exchange rate changes.
+--   moneyAccountTable             the catalog of the money accounts (bank / cash). rowParentGUID = the folder = the GUID of a legal entity or 'empty'
+--                                 rowJSON { moneyAccountTitle, moneyAccountKind 'bank' | 'cash', moneyAccountCurrency (ISO), moneyAccountNumber, moneyAccountBank, moneyAccountOpeningDate, moneyAccountOpeningBalance, isActive }
+--   project_payment_fact_header   rowJSON { documentHeader { activeUser · created_at · documentNumber PF-00001 · documentStatus draft | posted · postedAt · postedBy · unpostedAt },
+--                                 paymentFactNumber · paymentFactDate (YYYY-MM-DD) · moneyAccountFact · paymentFactPartner | paymentFactPerson · paymentFactDirection · paymentFactBankAmount (optional) ·
+--                                 paymentFactTask (the task it was made from) · paymentFactFolder / paymentFactCurrency (derived) }
+--   project_payment_fact_lines    one line = one planned-payment-like row: project · task · paymentPlanLineGUID (the payment it fulfils, or NULL) · rowJSON { paymentFactBudgetItem · paymentFactBusinessUnit ·
+--                                 paymentFactContract · paymentFactCurrency · sumForContract / sumForAccounting / sumForBudget / sumForMoneyAccount (all WITH VAT) · moneyAccountSumSource 'auto' | 'typed' }
+-- ===============================================================================================
+
+CREATE SEQUENCE IF NOT EXISTS public.payment_fact_document_seq;
+
+CREATE TABLE IF NOT EXISTS public."moneyAccountTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'moneyAccountCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT money_account_kind_chk CHECK (COALESCE("rowJSON"->>'moneyAccountKind', 'bank') IN ('bank', 'cash')),
+  CONSTRAINT money_account_currency_chk CHECK (COALESCE("rowJSON"->>'moneyAccountCurrency', '') ~ '^([A-Za-z]{3})?$'),
+  CONSTRAINT money_account_opening_date_chk CHECK (COALESCE("rowJSON"->>'moneyAccountOpeningDate', '') ~ '^(\d{4}-\d{2}-\d{2})?$')
+);
+
+CREATE INDEX IF NOT EXISTS "idx_moneyAccountTable_parent" ON public."moneyAccountTable" ("rowParentGUID", "orderInList");
+
+CREATE TABLE IF NOT EXISTS public.project_payment_fact_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT payment_fact_header_status_chk CHECK (COALESCE("rowJSON"->'documentHeader'->>'documentStatus', 'draft') IN ('draft', 'posted')),
+  CONSTRAINT payment_fact_header_direction_chk CHECK (COALESCE("rowJSON"->>'paymentFactDirection', '') IN ('', 'inbound', 'outbound')),
+  CONSTRAINT payment_fact_header_date_chk CHECK (COALESCE("rowJSON"->>'paymentFactDate', '') ~ '^(\d{4}-\d{2}-\d{2})?$'),
+  -- the payee is a partner OR a person (a person is paid, never invoiced: Outbound only)
+  CONSTRAINT payment_fact_header_payee_chk CHECK (NOT (COALESCE("rowJSON"->>'paymentFactPartner', '') <> '' AND COALESCE("rowJSON"->>'paymentFactPerson', '') <> '')),
+  CONSTRAINT payment_fact_header_person_dir_chk CHECK (COALESCE("rowJSON"->>'paymentFactPerson', '') = '' OR COALESCE("rowJSON"->>'paymentFactDirection', 'outbound') = 'outbound')
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_header_org ON public.project_payment_fact_header ("rowOrganizationGUID", "created_at");
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_header_account ON public.project_payment_fact_header ((("rowJSON"->>'moneyAccountFact')));
+
+CREATE TABLE IF NOT EXISTS public.project_payment_fact_lines (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowHeaderGUID"       UUID        NOT NULL REFERENCES public.project_payment_fact_header("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"      UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"        UUID        NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "paymentPlanLineGUID" UUID        REFERENCES public.task_payment_plan_lines("rowGUID") ON DELETE SET NULL,
+  "orderInList"         NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT payment_fact_lines_sum_chk CHECK (CASE
+    WHEN jsonb_typeof("rowJSON"->'sumForContract') = 'number' THEN ("rowJSON"->>'sumForContract')::numeric >= 0
+    ELSE "rowJSON"->'sumForContract' IS NULL OR jsonb_typeof("rowJSON"->'sumForContract') = 'null' END),
+  CONSTRAINT payment_fact_lines_currency_chk CHECK (COALESCE("rowJSON"->>'paymentFactCurrency', '') ~ '^([A-Za-z]{3})?$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_lines_header ON public.project_payment_fact_lines ("rowHeaderGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_lines_task ON public.project_payment_fact_lines ("rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_lines_project ON public.project_payment_fact_lines ("rowProjectGUID");
+
+CREATE INDEX IF NOT EXISTS idx_payment_fact_lines_plan ON public.project_payment_fact_lines ("paymentPlanLineGUID");
+
+-- the register: one SIGNED row (inbound +, outbound -) per POSTED line, written ONLY by post_payment_fact; the sums are WITH VAT
+CREATE TABLE IF NOT EXISTS public.cash_account_ledger_movements (
+  "rowGUID"                UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID"    TEXT          NOT NULL,
+  "rowHeaderGUID"          UUID          NOT NULL REFERENCES public.project_payment_fact_header("rowGUID") ON DELETE CASCADE,
+  "rowLineGUID"            UUID          NOT NULL REFERENCES public.project_payment_fact_lines("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"         UUID          NOT NULL,
+  "rowOwnerGUID"           UUID          NOT NULL,
+  "moneyAccount"           TEXT          NOT NULL REFERENCES public."moneyAccountTable"("rowGUID") ON DELETE RESTRICT,
+  "periodDay"              DATE          NOT NULL,
+  "paymentDirection"       TEXT          NOT NULL,
+  "partner"                TEXT,
+  "person"                 TEXT,
+  "contract"               TEXT,
+  "budgetItem"             TEXT,
+  "businessUnit"           TEXT,
+  "planLineGUID"           UUID,
+  "currencyForContract"    TEXT,
+  "currencyForAccounting"  TEXT,
+  "currencyForBudget"      TEXT,
+  "currencyForMoneyAccount" TEXT,
+  "sumForContract"         NUMERIC(18,2) NOT NULL,
+  "sumForAccounting"       NUMERIC(18,2),
+  "sumForBudget"           NUMERIC(18,2),
+  "sumForMoneyAccount"     NUMERIC(18,2),
+  "moneyAccountSumSource"  TEXT          NOT NULL DEFAULT 'auto',
+  "fxSnapshot"             JSONB         NOT NULL DEFAULT '{}'::jsonb,
+  "recalculatedAt"         TIMESTAMPTZ,
+  "created_at"             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT cash_ledger_direction_chk CHECK ("paymentDirection" IN ('inbound', 'outbound')),
+  CONSTRAINT cash_ledger_source_chk CHECK ("moneyAccountSumSource" IN ('auto', 'typed')),
+  CONSTRAINT cash_ledger_line_uq UNIQUE ("rowLineGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_account_day ON public.cash_account_ledger_movements ("rowOrganizationGUID", "moneyAccount", "periodDay");
+
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_header ON public.cash_account_ledger_movements ("rowHeaderGUID");
+
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_plan ON public.cash_account_ledger_movements ("planLineGUID");
+
+-- the REST of an account at the end of a day that has movements (per sum kind and currency); the rest on any day = the row with the latest periodDay <= that day. Rebuilt by the database, never typed
+CREATE TABLE IF NOT EXISTS public.cash_account_ledger_rests (
+  "rowOrganizationGUID" TEXT          NOT NULL,
+  "moneyAccount"        TEXT          NOT NULL,
+  "sumKind"             TEXT          NOT NULL,
+  "currency"            TEXT          NOT NULL,
+  "periodDay"           DATE          NOT NULL,
+  "turnover"            NUMERIC(18,2) NOT NULL,
+  "rest"                NUMERIC(18,2) NOT NULL,
+  "updated_at"          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOrganizationGUID", "moneyAccount", "sumKind", "currency", "periodDay"),
+  CONSTRAINT cash_ledger_rests_kind_chk CHECK ("sumKind" IN ('contract', 'accounting', 'budget', 'account'))
+);
+
+-- the queue of the exchange rate changes: "recompute the movements of these days (of this currency, NULL = every currency)"; filled by the trigger on currencyExchangeRateTable, emptied by the worker
+CREATE TABLE IF NOT EXISTS public.cash_account_ledger_dirty (
+  "rowGUID"    UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "fromDay"    DATE        NOT NULL,
+  "toDay"      DATE,
+  "currency"   TEXT,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

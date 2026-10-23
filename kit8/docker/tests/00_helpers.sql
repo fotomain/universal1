@@ -60,3 +60,10 @@ BEGIN
   END LOOP;
   RETURN public.create_task_line_plan(jsonb_build_object('taskGUID', p_task, 'timeZone', 'Europe/Riga', 'lines', v_lines));
 END $$;
+
+-- the number of rows a DML statement touched (an RLS policy filters silently: UPDATE / DELETE of a row you may not touch is 0 rows, not an error)
+CREATE OR REPLACE FUNCTION tt.rows_of(p_sql text) RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE n bigint;
+BEGIN
+  EXECUTE p_sql; GET DIAGNOSTICS n = ROW_COUNT; RETURN n;
+END $$;

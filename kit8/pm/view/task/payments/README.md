@@ -7,6 +7,8 @@ SQL: **PART 37** (`start1_sql_tables.sql` tables, `start2_sql_code.sql` code, `d
 The fifth tab **Payments** (`TabPayments`) of the Finances view of a task (`PMProjectTaskInputCRUD`, after Time / Material / Expenses / Deliverable; not shown while the screen is a picker). Its content is `PMTaskPaymentPlan`:
 three sub-tabs **Outbound · Inbound · Cash flow**. Outbound / Inbound = the table of the payments of that direction; **Cash flow is EMPTY** (a note; the report of the POSTED payments comes later and reads `task_payment_plan_movements`).
 
+**Paid / Open** (`documentation/PAYMENTS_FACT_WBS.html`, answer Q8): while a payment is posted the table has two read only columns at its end, **Paid (with VAT)** and **Open (with VAT)** = what the POSTED payment facts (`kit8/documents/payment/fact`) have paid of that posted payment, in its currency (`usePaymentPlanPaid` → RPC `task_payment_paid`, read when the tab opens and again when the posting of the payments changes; an overpaid payment shows a negative Open in the error colour). A payment that is not posted has neither. The columns are in `paymentPlanColumns.tsx` (`paid`), test `__tests__/pm/view/task/payments/paymentPlanPaid.test.tsx`.
+
 ## The data
 `task_payment_plan_lines`: one row = one planned payment. `rowOwnerGUID` = the task, `rowParentGUID` = `'outbound' | 'inbound'`, `rowJSON` = `TaskPaymentPlanRowJSON` (`paymentPlanModel.ts`).
 

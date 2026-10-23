@@ -22,6 +22,8 @@ import {budgetItemKeySystemMetaData} from "../catalog/budget/item/budgetItemKeyM
 import {managementActivityGenusSystemMetaData} from "../catalog/management/activity_genus/managementActivityGenusMetaData";
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
+import {moneyAccountSystemMetaData} from "../catalog/money_account/moneyAccountMetaData";
+import {paymentFactSystemMetaData} from "../documents/payment/fact/paymentFactMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
 import {customerInvoiceSystemMetaData} from "../documents/customer/invoice/customerInvoiceMetaData";
 import {purchaseOrderSystemMetaData} from "../documents/vendor/purchase_order/purchaseOrderMetaData";
@@ -119,6 +121,9 @@ const SystemMetaData:any = {
     // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 19)
     ...budgetScenarioSystemMetaData(),
     ...legalEntitySystemMetaData(),
+    // Money accounts (kit8/catalog/money_account) and the payment fact (kit8/documents/payment/fact): ONE bank transaction. SQL PART 38, documentation/PAYMENTS_FACT_WBS.html
+    ...moneyAccountSystemMetaData(),
+    ...paymentFactSystemMetaData(),
     ...vendorInvoiceSystemMetaData(),
     ...customerInvoiceSystemMetaData(),
     ...purchaseOrderSystemMetaData(),

@@ -103,6 +103,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         // the companies the vendor invoices are issued to (folders = countries)
         { id: 'legalentities', label: 'Legal entities', icon: 'domain', route: 'catalog/legal/entity' },
         // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
+        // the bank accounts and cash desks the payment facts move money on (folders = legal entities), with their rests
+        { id: 'moneyaccounts', label: 'Money accounts', icon: 'account_balance', route: 'catalog/money/account' },
         { id: 'managementcalendars', label: 'Management calendars', icon: 'calendar_month', route: 'catalog/management/calendar/list' },
         // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
         { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
@@ -133,6 +135,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       route: '',
       children: [
         { id: 'documents-factinput', label: 'Fact input', icon: 'fact_check', route: 'pm/fact/list' },
+        // ONE bank transaction: the payments of the plan that were really paid (folders money account → payee)
+        { id: 'documents-paymentfacts', label: 'Payment facts', icon: 'account_balance', route: 'pm/payment-fact/list' },
         { id: 'documents-productreceipts', label: 'Product receipts', icon: 'move_to_inbox', route: 'pm/product-receipt/list' },
         { id: 'documents-purchaseorders', label: 'Purchase orders', icon: 'shopping_cart', route: 'pm/purchase-order/list' },
         { id: 'documents-timesheets', label: 'Time sheets', icon: 'schedule', route: 'pm/timesheet/list' },

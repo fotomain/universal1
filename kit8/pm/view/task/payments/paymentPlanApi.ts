@@ -45,3 +45,13 @@ export async function unpostTaskPaymentPlan(taskGUID: string): Promise<void> {
   const { error } = await supabase.rpc(rpcUnpostTaskPaymentPlan, { p_task: taskGUID });
   if (error) throw new Error(error.message || String(error));
 }
+
+/** What the POSTED payment facts (kit8/documents/payment/fact) have paid of each POSTED payment of the task: [{ planLineGUID, planSum, paid, open }] in the currency of the payment (PART 38, task_payment_paid) */
+export interface PaymentPaid { planLineGUID: string; planSum: number; paid: number; open: number }
+export async function fetchPlanPaid(taskGUID: string): Promise<PaymentPaid[]> {
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('task_payment_paid', { p_task: taskGUID });
+  if (error) throw new Error(error.message || String(error));
+  const num = (v: unknown): number => { const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0; };
+  return (Array.isArray(data) ? data : []).map((r: any) => ({ planLineGUID: String(r.planLineGUID), planSum: num(r.planSum), paid: num(r.paid), open: num(r.open) }));
+}

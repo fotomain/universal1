@@ -7,13 +7,15 @@ import { RPC_FACT_LIST } from '../../../../documents/fact/input/factInputModel';
 import { RPC_VENDOR_LIST } from '../../../../documents/vendor/invoice/vendorInvoiceModel';
 import { RPC_PR_LIST } from '../../../../documents/vendor/product_receipt/productReceiptModel';
 import { RPC_CUSTOMER_LIST } from '../../../../documents/customer/invoice/customerInvoiceModel';
+import { RPC_PAYMENT_FACT_LIST } from '../../../../documents/payment/fact/paymentFactModel';
 
-export type TaskDocumentKind = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice' | 'TabCustomerInvoice';
+export type TaskDocumentKind = 'TabFactInput' | 'TabProductReceipt' | 'TabVendorInvoice' | 'TabCustomerInvoice' | 'TabPaymentFact';
 export const TASK_DOCUMENT_RPC: Record<TaskDocumentKind, string> = {
   TabFactInput: RPC_FACT_LIST,
   TabProductReceipt: RPC_PR_LIST,
   TabVendorInvoice: RPC_VENDOR_LIST,
   TabCustomerInvoice: RPC_CUSTOMER_LIST,
+  TabPaymentFact: RPC_PAYMENT_FACT_LIST,
 };
 export type TaskDocumentCounts = Partial<Record<TaskDocumentKind, number | null>>;
 

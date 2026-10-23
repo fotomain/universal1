@@ -56,6 +56,9 @@ jest.mock('../../../../../kit8/documents/vendor/invoice/useVendorInvoice', () =>
 // "Customer Invoice" / "Time sheet" of the Task menu items (useTaskRelatedMenu): their hooks need the Supabase provider
 const mockStartCustomerInvoice = jest.fn();
 jest.mock('../../../../../kit8/documents/customer/invoice/useCustomerInvoice', () => ({ useStartCustomerInvoice: () => ({ start: mockStartCustomerInvoice, busy: false }) }));
+// "Payment fact" of the Task menu (useTaskRelatedMenu): its hook needs the Supabase / react-query providers (own tests: documents/payment/fact/usePaymentFact.test.tsx)
+const mockStartPaymentFact = jest.fn();
+jest.mock('../../../../../kit8/documents/payment/fact/usePaymentFact', () => ({ useStartPaymentFact: () => ({ start: mockStartPaymentFact, busy: false, error: null }) }));
 const mockCreateTimesheet = jest.fn(async () => ({ status: 'created', documentGUID: 'ts-1', skipped: [] }));
 jest.mock('../../../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockCreateTimesheet as any)(...a), busy: false, error: null }) }));
 const mockStartPurchaseOrder = jest.fn();

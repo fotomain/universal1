@@ -29,9 +29,13 @@ j=$(jobs)
 echo "$j" | grep -qx "monitor01_tick 2 seconds true" && ok "job monitor01_tick = 2 seconds, active" || bad "monitor01_tick: [$j]"
 echo "$j" | grep -q "^monitor01_housekeeping 17 3 \* \* \* true" && ok "job monitor01_housekeeping = daily, active" || bad "monitor01_housekeeping: [$j]"
 
+cj() { psqlc -At -c "select jobname||' '||schedule||' '||active from cron.job where jobname = 'cash_ledger_tick'"; }
+[ "$(cj)" = "cash_ledger_tick 10 seconds true" ] && ok "job cash_ledger_tick = 10 seconds, active (PART 38: the exchange rate changes of the cash ledger)" || bad "cash_ledger_tick: [$(cj)]"
+
 echo "== a second install changes nothing"
 install
 [ "$(jobs | wc -l | tr -d ' ')" = "2" ] && ok "still 2 jobs" || bad "jobs after the 2nd install: $(jobs | wc -l)"
+[ "$(psqlc -At -c "select count(*) from cron.job where jobname = 'cash_ledger_tick'")" = "1" ] && ok "still 1 cash ledger job" || bad "cash ledger jobs after the 2nd install"
 
 echo "== the scheduler drains the queue (nobody calls the procedure)"
 psqlc -c "delete from public.monitor01_dirty" >/dev/null
@@ -50,14 +54,18 @@ runs=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j
 failed=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='monitor01_tick' and d.status='failed'")
 [ "$runs" -ge 3 ] && ok "monitor01_tick ran $runs times, succeeded" || bad "monitor01_tick succeeded only $runs times"
 [ "$failed" = "0" ] && ok "no failed run" || bad "$failed failed runs: $(psqlc -At -c "select return_message from cron.job_run_details d join cron.job j using (jobid) where j.jobname='monitor01_tick' and d.status='failed' limit 1")"
+sleep 11    # cash_ledger_tick runs every 10 seconds
+cruns=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='cash_ledger_tick' and d.status='succeeded'")
+cfailed=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='cash_ledger_tick' and d.status='failed'")
+[ "$cruns" -ge 1 ] && [ "$cfailed" = "0" ] && ok "cash_ledger_tick ran $cruns times, succeeded, no failed run" || bad "cash_ledger_tick: $cruns succeeded, $cfailed failed"
 log=$(psqlc -At -c "select count(*) from public.monitor01_refresh_log")
 [ "$log" -ge 1 ] && ok "monitor01_refresh_log has $log batch rows" || bad "monitor01_refresh_log is empty"
 
 echo "== delete_sql_structure.sql unschedules the jobs"
 psqlc -f /sql/delete_sql_structure.sql >/dev/null
-[ "$(psqlc -At -c "select count(*) from cron.job where jobname like 'monitor01%'")" = "0" ] && ok "no monitor01 job left" || bad "jobs left after the delete"
+[ "$(psqlc -At -c "select count(*) from cron.job where jobname like 'monitor01%' or jobname = 'cash_ledger_tick'")" = "0" ] && ok "no monitor01 / cash ledger job left" || bad "jobs left after the delete"
 echo "== install again"
 install
-[ "$(jobs | wc -l | tr -d ' ')" = "2" ] && ok "2 jobs again" || bad "jobs after reinstall: $(jobs | wc -l)"
+[ "$(jobs | wc -l | tr -d ' ')" = "2" ] && [ "$(cj)" != "" ] && ok "2 + 1 jobs again" || bad "jobs after reinstall: $(jobs | wc -l)"
 
 [ "$fail" = "0" ] && echo "== cron test OK" || { echo "== cron test FAILED"; exit 1; }

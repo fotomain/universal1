@@ -47,7 +47,7 @@
 <main>
 
 <h1>Payments Fact – Work Breakdown Structure</h1>
-<p class="sub">W1 FACT Payments. Scope: ONE <b>bank transaction input</b> – the document <code>PMPaymentFact</code> (Form · List · Header · Lines) with the tables <code>project_payment_fact_header</code> / <code>project_payment_fact_lines</code>, the lines taken <b>from the posted payment plan</b> (W1 PLAN PAYMENTS), and the register <code>cash_account_ledger_movements</code> with the <b>rests</b> of a money account that are recalculated when an exchange rate changes. <b>Analysis only – no code is written in this round</b> (the owner’s instruction “no code”). Sources: the Google Doc “W1 FACT Payments” (read 2026-10-23, no comments in it) and the code as it stands on 2026-10-23. Version 1 – waits for the answers of section 8.</p>
+<p class="sub">W1 FACT Payments. Scope: ONE <b>bank transaction input</b> – the document <code>PMPaymentFact</code> (Form · List · Header · Lines) with the tables <code>project_payment_fact_header</code> / <code>project_payment_fact_lines</code>, the lines taken <b>from the posted payment plan</b> (W1 PLAN PAYMENTS), and the register <code>cash_account_ledger_movements</code> with the <b>rests</b> of a money account that are recalculated when an exchange rate changes. <b>Version 1 (2026-10-23) was analysis only</b> (the owner’s instruction “no code”); <b>version 2 (2026-10-23) is built</b> after the owner’s answers (section 9, status in section 12). Sources: the Google Doc “W1 FACT Payments” (read 2026-10-23, no comments in it) and the code as it stands on 2026-10-23. Version 2.</p>
 
 <h2>1. Goal</h2>
 <div class="card">
@@ -262,9 +262,16 @@ cash_account_ledger_dirty               (PART 38)  the queue: (moneyAccount, fro
 </table>
 </div>
 
-<h2>9. Decisions (owner)</h2>
+<h2>9. Decisions (owner, 2026-10-23)</h2>
 <div class="card">
-  <p>None yet – this is version 1. The owner’s answers to Q1–Q8 and A1–A4 are written here, then the build round starts.</p>
+  <table>
+    <tr><th>Question</th><th>Decision</th></tr>
+    <tr><td>Q1 – the balance of the account</td><td><b>Yes, add the fourth sum</b>: <code>sumForMoneyAccount</code> (+ the currency of the account) on the line and on the movement – typed (the real bank amount) or converted at the rate of the date. The rests are kept per sum kind and currency.</td></tr>
+    <tr><td>Q2 – scope of the header</td><td><b>The project must be in the lines; many projects of one organization are enabled.</b> The header is organization scope; every line carries its own project and task.</td></tr>
+    <tr><td>Q3 – opening balance</td><td><b>Yes</b>: opening date + opening balance on the money account; a Post before the opening date is refused.</td></tr>
+    <tr><td>Q8 – “paid” on the plan</td><td><b>Yes</b>: read only columns <b>Paid / Open</b> on the payment plan table.</td></tr>
+    <tr><td>Q4, Q5, Q6, Q7, A1–A4</td><td><b>Not answered – my recommendations were taken</b> (the owner said “check and start”): Q4 optional control amount, a warning and no refusal; Q5 unplanned lines allowed (<code>+</code>, on a task); Q6 a task / project with a posted fact is not deleted, a deleted plan payment leaves the fact (the reference becomes empty); Q7 the rate change touches the register only; A1 the tab Payments in the task window → Fact with sub-tabs Outbound · Inbound; A2 the folders of section 4; A3 a line may be typed without a plan payment; A4 the payment fact is a cash document (no register kind, no Monitor01).</td></tr>
+  </table>
 </div>
 
 <h2>10. Out of scope for W1 FACT</h2>
@@ -287,6 +294,43 @@ cash_account_ledger_dirty               (PART 38)  the queue: (moneyAccount, fro
     <li><b>Back-dated Post.</b> A Post 2 years back re-rolls 2 years of rests; the queue stores the first day only, so many back-dated Posts cost one pass.</li>
     <li><b>Two implementations of one rule.</b> The converted sums exist in SQL and in TypeScript (as in the time sheet): the golden cases test (section 6.1) keeps them equal.</li>
     <li><b>The owner’s Supabase</b> is not visible from the build session: the SQL is proven on Docker Postgres 15 only; pg_cron of the real Supabase is checked there.</li>
+  </ul>
+</div>
+
+<h2>12. Implementation status (2026-10-23, app: UNIVERSAL1 expo-app)</h2>
+<div class="callout"><b>Built and tested.</b> SQL: <code>start1_sql_tables.sql</code> + <code>start2_sql_code.sql</code> <b>PART 38</b>, the cron job in <code>start3_sql_pg_cron.sql</code>, undo in <code>delete_sql_structure.sql</code> part <code>1a-000000</code>. App: <code>kit8/documents/payment/fact</code>, <code>kit8/catalog/money_account</code> (READMEs there), <code>TabPaymentFact</code>, the Task menu items, the columns Paid / Open of the plan. Docker test <code>tests/96_payment_fact.sql</code> (144 checks), <code>test_sql.sh</code> and all the older SQL tests pass, bench <code>bench_cash_ledger.sh</code>; Jest: <code>__tests__/documents/payment/fact</code>, <code>__tests__/catalog/money_account</code>, <code>paymentPlanPaid.test.tsx</code>. Not checked: the running app on the owner’s Supabase and browsers, the real pg_cron on Supabase.</div>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Status</th><th>Where</th></tr>
+  <tr><td class="id">1</td><td>Done</td><td>Decisions in section 9; the payments budget items are seeded (PART 32).</td></tr>
+  <tr><td class="id">2</td><td>Done</td><td>Catalog <code>moneyAccountTable</code> (folders = legal entities), screen + rests panel, route <code>/catalog/money/account</code>, Drawer → Catalogs → Money accounts.</td></tr>
+  <tr><td class="id">3</td><td>Done</td><td>PART 38: the five tables + the catalog, the line trigger (project of the task, contract of the payee, budget item of the payments genus, plan payment, the converted sums, the typed amount), the header trigger, the guards, RLS, realtime, the RPCs (create · set_header · add_from_plan · add_line · set_line_task · plan_candidates · post · unpost · delete · list · task_payment_paid), the rests (<code>cash_ledger_rests_calc / rebuild_rests</code>), the recalculation (<code>cash_ledger_fresh / recalc / process_dirty / refresh_now / verify / rebuild</code>), the trigger on <code>currencyExchangeRateTable</code>, the cron job <code>cash_ledger_tick</code>, the delete part.</td></tr>
+  <tr><td class="id">4</td><td>Done (changed)</td><td><code>paymentFactModel / Api / MetaData / Navigation</code>, <code>usePaymentFact</code>, <code>usePaymentFactPlaces</code>. <b>No <code>paymentFactMoney.ts</code></b>: the converted sums are made by the database (the line trigger) and arrive by realtime – there is no second implementation to keep equal.</td></tr>
+  <tr><td class="id">5</td><td>Done</td><td><code>PMPaymentFactDocumentForm / Header / Lines / List / GetFromPlan</code>, the routes <code>app/pm/project/task/payment-fact</code> and <code>app/pm/payment-fact/list</code>, Drawer → Documents → Payment facts, <code>TabPaymentFact</code> (Fact → Payments, sub-tabs Outbound · Inbound), the Task menu items “Payment fact” / “Payment facts”.</td></tr>
+  <tr><td class="id">5.7</td><td>Done</td><td>The rests are shown under the table of the money accounts (<code>MoneyAccountRests</code>: now per kind and currency, the days, “Refresh rests”).</td></tr>
+  <tr><td class="id">Q8</td><td>Done</td><td>Columns Paid / Open on the payment plan (<code>usePaymentPlanPaid</code> → <code>task_payment_paid</code>).</td></tr>
+  <tr><td class="id">6</td><td>Done</td><td>Tests, READMEs, KNOW_HOW (folders, PART 38, cron, Drawer, feature row, pitfalls).</td></tr>
+</table>
+</div>
+
+<h2>13. Decisions taken while building</h2>
+<div class="card">
+  <ul>
+    <li><b>Rest model.</b> One row per day that has movements, per sum kind (<code>account · contract · accounting · budget</code>) and currency code, key (organization, account, kind, currency, day); the rest = the opening balance (kind <code>account</code> only) + the running sum of the daily turnovers. Post and Unpost rebuild the rests of that ONE account from the date of the document in the same transaction (under an advisory lock of the account); only the rate changes go through the queue.</li>
+    <li><b>The span of a rate.</b> A rate row rules [its date, the next row of the same currency / type / base). The trigger queues the span of the old and the new date (a moved date, a changed ratio, a deleted row); a row quoted against another base queues every currency (the cross rates change). The seed of the ECB rates costs nothing: the trigger returns at once while no payment fact was ever posted.</li>
+    <li><b>What is recalculated.</b> <code>sumForAccounting</code>, <code>sumForBudget</code> and (only when not typed) <code>sumForMoneyAccount</code> of the movements, at the rate types of the line’s project (<code>exchangeRateTypeForAccounting</code> default Default, <code>…Budget</code> default Budget); a sum whose rate is missing keeps its value (<code>cash_ledger_verify</code> lists the differences). A typed amount and <code>sumForContract</code> never change.</li>
+    <li><b>The line trigger converts, the client does not.</b> The cells that are not editable (accounting, budget, source) arrive by realtime; a line of a plan payment keeps the currency of the payment (the open amount is computed in it).</li>
+    <li><b>Get from plan.</b> Only POSTED plan payments of projects the user owns; the open amount subtracts the posted facts and the lines of THIS draft; a payment whose payee differs from the document’s is skipped with a reason. An empty document takes the payee (and a missing direction) of the first payment.</li>
+    <li><b>Speed (10 000 movements, 1 000 days):</b> all the rests 70 ms, the rests from day 500 50 ms, a rate change that rules 9 400 movements 2.5 s, verify 2.4 s – under the 8 s limit of an <code>authenticated</code> call (the button “Refresh rests”).</li>
+  </ul>
+</div>
+
+<h2>14. Open points</h2>
+<div class="card">
+  <ul>
+    <li>A typed amount of the account is recognised by its difference from the stored one (the client sends the whole <code>rowJSON</code>): two quick edits of one line before the first save came back can take the older amount for a typed one (clear the cell to convert again).</li>
+    <li>The pg_cron worker converts with the base currency <code>EUR</code> unless the calling user’s organization says otherwise (<code>fx_base_currency</code>); an organization with another base currency recalculates with the button of the app. Not exercised on the owner’s Supabase.</li>
+    <li>The Cash flow report (plan vs fact), a project action that posts payment facts, bank statement import, transfers between accounts and FX gain / loss are not built (section 10).</li>
   </ul>
 </div>
 

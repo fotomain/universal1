@@ -24,7 +24,7 @@ import { computePaymentPlanRowJSON, type PaymentComputeContext } from './payment
 import { recalculatePaymentFx } from './paymentPlanMoney';
 import { fillDirectionOf, PAYMENT_FILL_GENUS, paymentFillSummary, planPaymentFill, type PaymentFillPlan } from './paymentPlanFill';
 import { emptyPaymentPlanLine, PAYMENT_SUB_TABS, TASK_PAYMENT_PLAN_ENTITY, type PaymentDirection, type PaymentSubTab, type TaskPaymentPlanRow, type TaskPaymentPlanRowJSON } from './paymentPlanModel';
-import { usePaymentPlanEnvironment, usePaymentPlanPost } from './usePaymentPlan';
+import { usePaymentPlanEnvironment, usePaymentPlanPaid, usePaymentPlanPost } from './usePaymentPlan';
 
 export interface PMTaskPaymentPlanProps {
   projectGUID: string;
@@ -47,6 +47,8 @@ export default function PMTaskPaymentPlan({ projectGUID, taskGUID, data, taskLin
   const postButtonColor = usePMStore((s) => s.postButtonBackgroundColor);
   const env = usePaymentPlanEnvironment(projectGUID, taskGUID, payments);
   const { state: postState, post } = usePaymentPlanPost(taskGUID, payments, env.days);
+  // what the posted payment facts have paid of each posted payment (the columns Paid / Open); read again when the posting of the payments changes
+  const paid = usePaymentPlanPaid(taskGUID, `${postState}|${payments.filter((p) => p.rowJSON?.paymentIsPosted).length}`);
   const [pendingFill, setPendingFill] = useState<{ genus: string; plan: PaymentFillPlan } | null>(null);
 
   const direction: PaymentDirection | null = sub === 'cashFlow' ? null : sub;
@@ -60,9 +62,9 @@ export default function PMTaskPaymentPlan({ projectGUID, taskGUID, data, taskLin
   const columns = useMemo(
     () => (direction ? buildPaymentColumns({
       data, direction, days: env.days, afterFinishOn: env.afterFinishOn, fx: env.fx, fxProject: env.fxOn ? env.fxProject : null, projectCurrency: env.projectCurrency,
-      textColor: c.text, errorColor: c.error, showErrors: hasErrors,
+      textColor: c.text, errorColor: c.error, showErrors: hasErrors, paid,
     }) : []),
-    [data, direction, env, c.text, c.error, hasErrors],
+    [data, direction, env, c.text, c.error, hasErrors, paid],
   );
   const rowFilter = useCallback((row: ReusableTableRow) => row.rowParentGUID === direction, [direction]);
   const computeRowJSON = useCallback((json: Record<string, any>) => (direction ? computePaymentPlanRowJSON(ctxOf(direction), json) : {}), [direction, ctxOf]);

@@ -24,6 +24,7 @@ import { paymentPlanProblems, type PaymentCatalogs } from './paymentPlanCompute'
 import type { PaymentTaskDays } from './paymentPlanDates';
 import type { PaymentFxContext } from './paymentPlanMoney';
 import { isPaymentBudgetItemOf, PAYMENT_ANCHORS, taskPaymentPlanTable, type PaymentDirection } from './paymentPlanModel';
+import type { PaymentPaid } from './paymentPlanApi';
 
 export interface PaymentColumnsContext {
   data: TaskLineCatalogData;
@@ -39,6 +40,8 @@ export interface PaymentColumnsContext {
   errorColor: string;
   /** show the Errors column (default true): the table passes false while no payment of the tab has an error */
   showErrors?: boolean;
+  /** what the POSTED payment facts have paid of each posted payment (documentation/PAYMENTS_FACT_WBS.html): the read only columns Paid / Open are added while there is any posted payment */
+  paid?: Map<string, PaymentPaid>;
 }
 
 /** every problem of a payment (the Errors column and the search) */
@@ -46,7 +49,7 @@ export const paymentErrors = (ctx: Pick<PaymentColumnsContext, 'direction' | 'da
   paymentPlanProblems({ data: ctx.data, direction: ctx.direction, days: ctx.days, fx: ctx.fx, projectCurrency: ctx.projectCurrency, afterFinishOn: ctx.afterFinishOn }, rowJSON).map((m) => pmT(m));
 
 export function buildPaymentColumns(ctx: PaymentColumnsContext): VisualColumn[] {
-  const { data, direction, textColor, errorColor, fxProject, showErrors = true } = ctx;
+  const { data, direction, textColor, errorColor, fxProject, showErrors = true, paid } = ctx;
   const outbound = direction === 'outbound';
   const unitNodes = businessUnitNodes(data.businessUnit);
   const paymentItem = (item: any) => !isBudgetItemFolder(item) && isPaymentBudgetItemOf(direction, item);
@@ -162,6 +165,20 @@ export function buildPaymentColumns(ctx: PaymentColumnsContext): VisualColumn[] 
       key: 'fxRate', title: pmT('Exchange rate'), type: 'custom', width: 300, editable: false,
       renderCell: (row) => <Text numberOfLines={1} testID={`payment-plan-fx-${row.rowGUID}`} style={{ color: textColor, opacity: 0.75, fontSize: 12 }}>{paymentFxText(row.rowJSON?.paymentPlanFxSnapshot)}</Text>,
       searchText: (row) => paymentFxText(row.rowJSON?.paymentPlanFxSnapshot),
+    } as VisualColumn);
+  }
+  // Paid / Open: what the posted payment facts have paid of a POSTED payment, in its currency (read only; empty for a payment that is not posted)
+  if (paid && paid.size > 0) {
+    const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    cols.push({
+      key: 'paid', title: pmT('Paid (with VAT)'), type: 'custom', width: 140, editable: false,
+      renderCell: (row) => { const p = paid.get(String(row.rowGUID)); return <Text numberOfLines={1} testID={`payment-plan-paid-${row.rowGUID}`} style={{ color: textColor, fontSize: 13 }}>{p ? money(p.paid) : ''}</Text>; },
+      searchText: (row) => { const p = paid.get(String(row.rowGUID)); return p ? String(p.paid) : ''; },
+    } as VisualColumn);
+    cols.push({
+      key: 'open', title: pmT('Open (with VAT)'), type: 'custom', width: 140, editable: false,
+      renderCell: (row) => { const p = paid.get(String(row.rowGUID)); return <Text numberOfLines={1} testID={`payment-plan-open-${row.rowGUID}`} style={{ color: p && p.open < 0 ? errorColor : textColor, fontSize: 13 }}>{p ? money(p.open) : ''}</Text>; },
+      searchText: (row) => { const p = paid.get(String(row.rowGUID)); return p ? String(p.open) : ''; },
     } as VisualColumn);
   }
   return cols;
