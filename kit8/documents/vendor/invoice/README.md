@@ -72,3 +72,6 @@ A vendor invoice can also be made from a POSTED product receipt (`kit8/documents
 
 ## VAT columns (2026-10-20)
 The VAT rate of a line is chosen from `valueAddedTaxTable`; the line has **Accounting before VAT** and **VAT for accounting** (typed by the user in a draft: the price / the VAT % are calculated back) and **Sum for accounting (with VAT)**; `sumForBudget` stays NET beside `vatForBudget`. Posting writes the net sums and the VAT parts into the register. See `kit8/documents/vat/README.md` and `documentation/VENDOR_INVOICE_DOC.html`. Test: `kit8/docker/tests/75_vat_basis.sql`.
+
+## Credit notes (PART 39)
+A line may have **one negative factor**: a negative quantity (a return) or a negative price (a discount / correction); both negative is refused (`..._invoice_lines_qty_chk`). The sums, the VAT and the register follow (the invoiced quantity / sum go down). Post still refuses a quantity of 0. A credit note is never offered to a payment (its open amount is negative). In the **partner balance** a vendor credit note writes `+`, a customer credit note `-` (the debt shrinks); it lands in the Minus column of Monitor07. The quantity and price columns accept a minus sign (`pmNumberColumn(..., false)`).

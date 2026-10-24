@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000000. delete_partner_balance.sql - PART 39: drops partner_balance_movements and partner_balance_ledger (data included), the triggers on the invoices and the cash ledger, the partner_balance_* functions and business_unit_root (runs very first: it is the newest)
 --  1a-000000. delete_payment_fact.sql - PART 38: drops the payment fact tables (documents, lines, the cash ledger movements, rests and queue, money accounts - data included), the trigger on currencyExchangeRateTable, the cash_ledger_* / payment_fact_* functions and the pg_cron job (runs very first: it is the newest)
 --  1a-00000. delete_payment_plan.sql - PART 37: drops the payment plan tables (the planned payments and the posted movements, data included), the trigger on project_task_table and the payment plan functions (runs very first: it is the newest)
 --  1a-0000. delete_timesheet.sql - PART 36: drops the time sheet tables (data included), their triggers, the timesheet_* functions, person_ensure_user and the 'used' movements of the time sheets (runs very first: it is the newest)
@@ -32,6 +33,34 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-0000000: delete_partner_balance.sql  (PART 39 of the structure file: the PARTNER BALANCE - runs before everything else, it is the newest)
+-- Drops the register and the totals WITH their rows (of ALL users), the triggers on the two invoice headers and on the cash ledger movements, and the functions.
+-- The CHECK of the invoice lines (a credit note = one negative factor) stays: it is part of the invoice tables, which the later parts drop.
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_vendor_invoice_partner_balance ON public.vendor_invoice_header;
+DROP TRIGGER IF EXISTS trg_customer_invoice_partner_balance ON public.customer_invoice_header;
+DROP TRIGGER IF EXISTS trg_cash_ledger_partner_balance_insert ON public.cash_account_ledger_movements;
+DROP TRIGGER IF EXISTS trg_cash_ledger_partner_balance_delete ON public.cash_account_ledger_movements;
+DROP TABLE IF EXISTS public.partner_balance_ledger CASCADE;
+DROP TABLE IF EXISTS public.partner_balance_movements CASCADE;
+DROP FUNCTION IF EXISTS public.partner_balance_report(text, date, date, jsonb, jsonb, text);
+DROP FUNCTION IF EXISTS public.partner_balance_filter_items(text, uuid, text);
+DROP FUNCTION IF EXISTS public.partner_balance_movements_list(text, text, text, uuid, uuid, date, date);
+DROP FUNCTION IF EXISTS public.partner_balance_verify(text);
+DROP FUNCTION IF EXISTS public.partner_balance_rebuild(text);
+DROP FUNCTION IF EXISTS public.partner_balance_register_missing();
+DROP FUNCTION IF EXISTS public.partner_balance_cash_deleted();
+DROP FUNCTION IF EXISTS public.partner_balance_cash_inserted();
+DROP FUNCTION IF EXISTS public.partner_balance_invoice_status();
+DROP FUNCTION IF EXISTS public.partner_balance_insert_payments(uuid[]);
+DROP FUNCTION IF EXISTS public.partner_balance_insert_invoice(text, uuid);
+DROP FUNCTION IF EXISTS public.partner_balance_movements_no_update();
+DROP FUNCTION IF EXISTS public.partner_balance_ledger_after_delete();
+DROP FUNCTION IF EXISTS public.partner_balance_ledger_after_insert();
+DROP FUNCTION IF EXISTS public.business_unit_root(text);
 
 
 -- =====================================================================================

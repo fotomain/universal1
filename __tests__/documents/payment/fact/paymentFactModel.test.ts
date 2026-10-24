@@ -56,7 +56,8 @@ describe('the answers of the database', () => {
     expect(a.totalCount).toBe(2);
     expect(a.totalsByCurrency).toEqual([{ currency: 'EUR', count: 2, sumForMoneyAccount: 300.46 }]);
     expect(a.rows[0]).toMatchObject({ documentGUID: 'd1', sumForMoneyAccount: 300.46, direction: 'outbound', bankAmount: null, lineCount: 2 });
-    expect(a.rows[1]).toMatchObject({ direction: '', bankAmount: 5 });
+    expect(a.rows[1]).toMatchObject({ direction: '', bankAmount: 5, balanceRole: '' });
+    expect(parseListAnswer({ rows: [listRow({ balanceRole: 'vendor' }), listRow({ documentGUID: 'd3', balanceRole: 'boss' })] }).rows.map((r) => r.balanceRole)).toEqual(['vendor', '']);
     expect(parseListAnswer(undefined)).toEqual({ totalCount: 0, totalsByCurrency: [], rows: [] });
   });
 });

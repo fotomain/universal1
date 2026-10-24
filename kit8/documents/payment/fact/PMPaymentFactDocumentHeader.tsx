@@ -14,7 +14,7 @@ import { PERSON_CATALOG_OWNER, PERSON_ENTITY } from '../../../catalog/person/per
 import { MONEY_ACCOUNT_CATALOG_OWNER, MONEY_ACCOUNT_ENTITY, moneyAccountLabel } from '../../../catalog/money_account/moneyAccountModel';
 import { personFullName } from '../../../pm/view/task/finances/taskLineResource';
 import { pmT } from '../../../pm/i18n/pmT';
-import { PAYMENT_FACT_DIRECTIONS, PaymentFactHeaderView, PaymentFactLineTotals, bankAmountDifference, canChangePayee, formatMoney } from './paymentFactModel';
+import { PAYMENT_FACT_BALANCE_ROLES, PAYMENT_FACT_DIRECTIONS, PaymentFactBalanceRole, PaymentFactHeaderView, PaymentFactLineTotals, bankAmountDifference, canChangePayee, formatMoney } from './paymentFactModel';
 import type { UsePaymentFactDocuments } from './usePaymentFact';
 
 export interface PMPaymentFactDocumentHeaderProps {
@@ -93,6 +93,12 @@ export default function PMPaymentFactDocumentHeader({ header, edit, lineCount, n
           )}
         </>
       )}
+      <View style={{ width: 170 }}>
+        <SelectItemFromListApp
+          testID={`${testID}-field-balanceRole`} items={PAYMENT_FACT_BALANCE_ROLES.map((r) => ({ value: r.value || 'direction', label: pmT(r.label) }))} value={header.balanceRole || 'direction'} disabled={!edit}
+          onSelect={(v) => { void setHeader(header.guid, { paymentFactBalanceRole: (v === 'direction' ? '' : v) as PaymentFactBalanceRole | '' }); }} placeholder={pmT('Settles in the balance of')} searchPlaceholder={pmT('Settles in the balance of')} fieldHeight={42} fieldRadius={4}
+        />
+      </View>
       <View style={{ width: 170 }}>
         <TextInputApp testID={`${testID}-field-bankAmount`} label={pmT('Bank amount (check)')} value={bankAmount} compact disabled={!edit} style={FIELD} keyboardType="numeric" onChangeText={onBankAmount} />
       </View>

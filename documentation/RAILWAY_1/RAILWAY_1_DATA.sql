@@ -383,6 +383,9 @@ BEGIN
 
   -- Clean up prior seed runs so script can be safely re-executed unlimited times
   -- the payment facts of an earlier run (PART 38): the posted ones are unposted (their cash ledger rows and rests go), then every one is deleted
+  IF to_regclass('public.partner_balance_movements') IS NOT NULL THEN
+    DELETE FROM public.partner_balance_movements WHERE "projectGUID" = v_project;          -- PART 39: the rows of the old invoices (the payments take theirs with them at Unpost)
+  END IF;
   IF to_regclass('public.project_payment_fact_header') IS NOT NULL THEN
     FOR v_pf_row IN
       SELECT h."rowGUID" AS guid FROM public.project_payment_fact_header h
@@ -1027,6 +1030,21 @@ BEGIN
        OR (SELECT r."rest" FROM public.cash_account_ledger_rests r WHERE r."moneyAccount" = 'ma-nec-usd-operating' AND r."sumKind" = 'account' AND r."currency" = 'USD' ORDER BY r."periodDay" DESC LIMIT 1)
           <> 25000000.00 + c_miles_sum - c_vendor_total_sum THEN
       RAISE EXCEPTION 'Railway #1: the cash ledger is not what the design says (receipt %, payment %, rest %)', c_miles_sum, c_vendor_total_sum, (25000000.00 + c_miles_sum - c_vendor_total_sum);
+    END IF;
+  END IF;
+
+  -- ---------------------------------------------------------------------------------------------
+  -- 10c. PARTNER BALANCE (PART 39, Monitor07): the two invoices above were written as POSTED (no Post call), so their rows are made now (the backfill); the two payments made theirs at Post.
+  --      Each contract is paid in full: the balance of the customer contract and of the vendor contract is 0 (Monitor07 shows the invoice in Plus and the payment in Minus).
+  -- ---------------------------------------------------------------------------------------------
+  IF to_regprocedure('public.partner_balance_register_missing()') IS NOT NULL THEN
+    PERFORM public.partner_balance_register_missing();
+    IF to_regclass('public."moneyAccountTable"') IS NOT NULL AND v_pf_receipt IS NOT NULL AND v_pf_payment IS NOT NULL THEN
+      IF (SELECT count(*) FROM public.partner_balance_movements m WHERE m."projectGUID" = v_project) <> 2 * ((SELECT count(*) FROM public.customer_invoice_lines WHERE "rowHeaderGUID" = v_ci_header) + (SELECT count(*) FROM public.vendor_invoice_lines WHERE "rowHeaderGUID" = v_vi_header))
+         OR (SELECT coalesce(sum(m."sumForContract"), 0) FROM public.partner_balance_movements m WHERE m."projectGUID" = v_project AND m."balanceRole" = 'customer') <> 0
+         OR (SELECT coalesce(sum(m."sumForContract"), 0) FROM public.partner_balance_movements m WHERE m."projectGUID" = v_project AND m."balanceRole" = 'vendor') <> 0 THEN
+        RAISE EXCEPTION 'Railway #1: the partner balance is not what the design says (every contract is paid in full: customer 0, vendor 0)';
+      END IF;
     END IF;
   END IF;
 

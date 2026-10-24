@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { cleanupUI, q, renderUI, toggleSwitch } from '../../../ui/pmUiTestKit';
-import PMProjectPaymentsTab, { paymentPlanAfterTaskFinishOf, paymentsValuesOf } from '../../../../../kit8/pm/view/project/settings/PMProjectPaymentsTab';
+import PMProjectPaymentsTab, { paymentDifferentRootsOf, paymentPlanAfterTaskFinishOf, paymentsValuesOf } from '../../../../../kit8/pm/view/project/settings/PMProjectPaymentsTab';
 import { defaultProjectSettingsOf, newProjectPatchFrom } from '../../../../../kit8/catalog/organization/defaultProjectSettings';
 
 afterEach(cleanupUI);
@@ -12,8 +12,8 @@ const checked = (id: string) => (q(id)!.querySelector('input') as HTMLInputEleme
 const readSrc = (rel: string) => fs.readFileSync(path.join(__dirname, '../../../../..', rel), 'utf8');
 
 it('TRUE by default: a missing key (or anything but a stored false) is true', () => {
-  expect(paymentsValuesOf(null)).toEqual({ paymentPlanAfterTaskFinishEnabled: true });
-  expect(paymentsValuesOf({})).toEqual({ paymentPlanAfterTaskFinishEnabled: true });
+  expect(paymentsValuesOf(null)).toEqual({ paymentPlanAfterTaskFinishEnabled: true, paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled: true });
+  expect(paymentsValuesOf({})).toEqual({ paymentPlanAfterTaskFinishEnabled: true, paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled: true });
   expect(paymentsValuesOf({ paymentPlanAfterTaskFinishEnabled: 'no' as any }).paymentPlanAfterTaskFinishEnabled).toBe(true);
   expect(paymentPlanAfterTaskFinishOf({ paymentPlanAfterTaskFinishEnabled: false })).toBe(false);
 });
@@ -25,6 +25,17 @@ it('the switch is on for a project without the key and saves only its own key', 
   expect(checked('pm-project-payment-plan-after-finish')).toBe(true);
   toggleSwitch('pm-project-payment-plan-after-finish');
   expect(onChange).toHaveBeenLastCalledWith({ paymentPlanAfterTaskFinishEnabled: false });
+});
+
+it('paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled: TRUE by default, saves only its own key (PART 39)', () => {
+  expect(paymentDifferentRootsOf(null)).toBe(true);
+  expect(paymentDifferentRootsOf({})).toBe(true);
+  expect(paymentDifferentRootsOf({ paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled: false })).toBe(false);
+  const onChange = jest.fn();
+  renderUI(<PMProjectPaymentsTab values={{}} onChange={onChange} />);
+  expect(checked('pm-project-payment-different-roots')).toBe(true);
+  toggleSwitch('pm-project-payment-different-roots');
+  expect(onChange).toHaveBeenLastCalledWith({ paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled: false });
 });
 
 it('shows the saved value', () => {

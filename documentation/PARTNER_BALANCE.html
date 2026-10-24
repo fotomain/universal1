@@ -48,7 +48,7 @@
 <main>
 
 <h1>Partner Balance – Work Breakdown Structure</h1>
-<p class="sub">W1 PARTNER BALANCE. Scope: the register <code>partner_balance_movements</code>, the totals <code>partner_balance_ledger</code> and the two reports <code>Monitor07CustomerBalance</code> / <code>Monitor07VendorBalance</code> (what a customer owes us, what we owe a vendor). <b>Analysis only – no code.</b> Status 2026-10-23: waiting for the answers of section 11. The owner’s “./documents/” is our <code>documentation/</code> (as for the plan and the fact of payments).</p>
+<p class="sub">W1 PARTNER BALANCE. Scope: the register <code>partner_balance_movements</code>, the totals <code>partner_balance_ledger</code> and the two reports <code>Monitor07CustomerBalance</code> / <code>Monitor07VendorBalance</code> (what a customer owes us, what we owe a vendor). <b>v2, 2026-10-24: BUILT</b> – decisions in section 12, what was built in section 15. The owner’s “./documents/” is our <code>documentation/</code> (as for the plan and the fact of payments).</p>
 
 <h2>1. Goal</h2>
 <div class="card">
@@ -66,7 +66,7 @@
   <tr><td class="id">R3</td><td>Totals <code>partner_balance_ledger</code> (“totals for now”): the same keys without the registrator, with the three sums.</td><td>“partner_balance_ledger - totals for now - structure”</td></tr>
   <tr><td class="id">R4</td><td>Vendor invoice and customer invoice <b>may have negative amounts</b> (credit notes, corrections).</td><td>“Vendor invoice and Customer Invoice may have negative amounts.”</td></tr>
   <tr><td class="id">R5</td><td>Two new reports <code>Monitor07CustomerBalance</code> and <code>Monitor07VendorBalance</code>, with <b>maximum reusable code</b> for the data and the interface.</td><td>“New reports needed … Make maximum reusable code for reports data and interface.”</td></tr>
-  <tr><td class="id">R6</td><td>Both reports: <code>dateFrom</code>, <code>dateTo</code>; filters <code>projectFilter</code>, <code>taskFilter</code> (depends on the project), <code>partnerFilter</code>, <code>partnerContractFilter</code>, <code>sumFromFilter</code> / <code>sumToFilter</code> (borders included).</td><td>“Both reports: must have dateFrom, dateTo. filters: …”</td></tr>
+  <tr><td class="id">R6</td><td>Both reports: <code>dateFrom</code>, <code>dateTo</code>; filters <code>projectFilter</code>, <code>taskFilter</code> (depends on the project), <code>partnerFilter</code>, <code>partnerContractFilter</code>, <code>sumBiggerThan</code> / <code>sumSmallerThan</code> (borders included; the owner’s names, v2).</td><td>“Both reports: must have dateFrom, dateTo. filters: …”</td></tr>
   <tr><td class="id">R7</td><td>Both reports: flags <code>showSumForContract</code>, <code>showSumForAccounting</code>, <code>showSumForBudget</code>; for every shown sum the columns <b>Begin · Plus · Minus · End</b> (<code>sumForContractBegin / Plus / Minus / End</code>) and “+ other types of sums”.</td><td>“flags … must show columns …”</td></tr>
   <tr><td class="id">R8</td><td>“Improve logic and tables – add if needed.” Section 4 lists what I found and propose to change.</td><td>“Improve logic and tables-add if needed.”</td></tr>
 </table>
@@ -107,7 +107,7 @@
 </table>
 </div>
 
-<h2>5. Proposed data model (to confirm)</h2>
+<h2>5. Data model</h2>
 <p>Names follow the Google Doc where it gives one; the rest follows the register pattern of the app (<code>cash_account_ledger_movements</code>, <code>project_status_movements</code>). Both tables belong to <b>PART 39</b> (start1: tables; start2: functions, RLS, grants, realtime; delete file).</p>
 <pre>partner_balance_movements          the register – one SIGNED row per posted source line, written ONLY by the Post functions
   rowGUID                       uuid PK
@@ -131,7 +131,7 @@
   sumForContract                numeric(18,2) NOT NULL   SIGNED, WITH VAT (F3)
   sumForAccounting              numeric(18,2) NOT NULL DEFAULT 0
   sumForBudget                  numeric(18,2) NOT NULL DEFAULT 0
-  created_at / updated_at       timestamptz
+  created_at                    timestamptz
   indexes: (org, balanceRole, balancePartner, balancePartnerContract, periodDay) – the report;  (registratorGUID) – Unpost;  (projectGUID, task) – the filters
 
 partner_balance_ledger             totals for now – kept by the database in the Post transaction, never typed
@@ -208,7 +208,7 @@ partner_balance_ledger             totals for now – kept by the database in th
   <tr><td><code>taskFilter</code></td><td>Disabled until a project is chosen; lists the tasks that have register rows in that project; changing the project clears it.</td></tr>
   <tr><td><code>partnerFilter</code></td><td>Select from the partners that have rows of this role.</td></tr>
   <tr><td><code>partnerContractFilter</code></td><td>Disabled until a partner is chosen; lists the contracts of that partner that have rows (and “no contract”).</td></tr>
-  <tr><td><code>sumFromFilter</code>, <code>sumToFilter</code></td><td>Borders INCLUDED. Applied to the <b>End</b> balance of the report row in the contract currency, in the displayed sign (Q8). Either may be empty.</td></tr>
+  <tr><td><code>sumBiggerThan</code>, <code>sumSmallerThan</code> <span class="tag">v2 names</span></td><td>Borders INCLUDED. Find the sums in the interval: applied to the <b>End</b> balance of the partner + contract row, in the displayed sign, in the first shown sum kind (contract by default). Either may be empty; the borders are included (decision Q8).</td></tr>
   <tr><td><code>legalEntityFilter</code> <span class="tag">proposed</span></td><td>F10. Shown only when the organization has more than one legal entity with rows.</td></tr>
   <tr><td><code>showSumForContract</code> (default ON), <code>showSumForAccounting</code>, <code>showSumForBudget</code> (default OFF)</td><td>Each flag adds its 4 columns. All three off is refused (the last one stays on). The choice is remembered per user and per report (AsyncStorage).</td></tr>
 </table>
@@ -321,7 +321,19 @@ partner_balance_ledger             totals for now – kept by the database in th
 </table>
 </div>
 
-<h2>12. Out of scope for W1 PARTNER BALANCE</h2>
+<h2>12. Decisions (owner, 2026-10-24)</h2>
+<div class="card">
+  <table>
+    <tr><th>Question</th><th>Decision</th></tr>
+    <tr><td>Q6 – contract of an invoice</td><td><b>The contract is obligatory at the moment of payment.</b> An invoice may still be posted without a contract (the balance row has an empty contract and the currency of the project), but a payment needs the contract of the invoice: a payment made from an invoice without a contract is refused (“unpost the invoice, choose its contract and post it again”), and a payment line always needs its contract at Post.</td></tr>
+    <tr><td>Q7 – organization of a payment</td><td><b>A payment has ONE organization in the header and many lines</b> (the header was organization scope already; the legal entity of the balance row is the folder of the money account, one per payment). New <b>project setting</b> <code>paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled</code> (Project settings → Payments, <b>TRUE by default</b>, also in the Organization defaults): when a project of the lines has it OFF, Post refuses a payment fact whose lines carry business units of different first level roots of the business unit tree (<code>businessUnitsOfDifferentRoots</code>). Reading: the rule is checked on the whole payment as soon as ONE of its projects forbids it; lines without a business unit do not count.</td></tr>
+    <tr><td>Q8 – sums in an interval</td><td><b>Yes: <code>sumBiggerThan</code> / <code>sumSmallerThan</code></b> (borders included), judge the End balance of the partner + contract.</td></tr>
+    <tr><td>New: sorting</td><td><b>Sort by</b> <code>sumForBudgetEnd</code> | partner name | partner contract <code>finishDate</code> (<code>contractFinishDate</code>), ascending / descending. A partner is placed by its own value (name; the sum over its contracts; its earliest finish date when ascending, latest when descending); its contracts follow inside it by the same key; a contract without a finish date comes last. Default: partner name, ascending (the budget sum starts descending).</td></tr>
+    <tr><td>Q1–Q5, Q9, A1–A5</td><td><b>Not answered – my recommendations were taken</b> (the owner said “do it”): Q1 vendor report displayed turned round; Q2 credit notes = one negative factor per invoice line; Q3 payments to persons not in the balance; Q4 refund types and the header field <code>paymentFactBalanceRole</code>; Q5 accounting / budget sums as posted; Q9 backfill at the end of start2. The legal entity (Q7 of the first round) is in the key and in an optional filter.</td></tr>
+  </table>
+</div>
+
+<h2>13. Out of scope for W1 PARTNER BALANCE</h2>
 <div class="card">
   <ul>
     <li>Open items / aging (which payment closes which invoice), reminders and dunning, payment terms vs due date.</li>
@@ -333,7 +345,7 @@ partner_balance_ledger             totals for now – kept by the database in th
   </ul>
 </div>
 
-<h2>13. Risks</h2>
+<h2>14. Risks</h2>
 <div class="card">
   <ul>
     <li><b>1. Credit notes touch five existing places</b> (the invoice constraints, the VAT calculation, the status register, Monitor01 / ROI, the payment from an invoice). That is the largest and the only risky part; it is therefore its own work package and its own answer (Q2). The balance does not depend on it.</li>
@@ -345,9 +357,19 @@ partner_balance_ledger             totals for now – kept by the database in th
   </ul>
 </div>
 
-<h2>14. Status</h2>
+<h2>15. Status – what was built (2026-10-24)</h2>
 <div class="card">
-  <p><b>2026-10-23: analysis only, nothing is built, no SQL or app file changed</b> (as asked: “no code”). Next step: your answers to Q1–Q9 (or “take your recommendations”), then the build in the order of section 9. The update paragraph of the build round will be: start1 → start2 (PART 39), no start3, no seeds, no <code>.env</code> change.</p>
+  <p><b>Built as designed, with these differences from sections 5–8:</b></p>
+  <ul>
+    <li>The register has only <code>created_at</code> (a row is never updated: a BEFORE UPDATE trigger refuses it); the ledger key has the legal entity, the role, the partner, the contract, the project, the task and the three currencies (no plan line); <code>movementCount</code> keeps a key alive until its last row goes.</li>
+    <li>The rows are made by <b>triggers</b>, not by edits of the six Post / Unpost functions: the status change of the two invoice headers, and the insert / delete of <code>cash_account_ledger_movements</code> (the payment row is the cash row turned round, so it copies the sums the cash ledger converted at Post). The ledger is kept by two <b>statement</b> triggers with transition tables (ordered by key, so two Posts cannot deadlock). A script that writes a POSTED invoice straight into its table must call <code>partner_balance_register_missing()</code> (the Railway #1 data does).</li>
+    <li>Credit notes: the CHECK of both invoice lines tables is “not both factors negative” (new database and upgrade); the quantity / price columns accept a minus sign. Purchase order and product receipt are unchanged.</li>
+    <li>Payment fact changed in place: <code>post_payment_fact</code> (the roots rule), <code>payment_fact_set_header</code> / <code>payment_fact_list</code> (the balance role), <code>payment_fact_from_invoice</code> (the contract). The header of the form has the select “Settles in the balance of”.</li>
+    <li>Reports: one screen with a role (<code>PartnerBalanceDashboard</code>), the common layer in <code>kit8/pm/reports/common</code> (Monitor01–03 not changed). Routes <code>app/pm/reports/monitor07/customer|vendor</code>, Drawer → Reports. The tasks of a contract are read when it is opened; the sum filters and the sort run in the database.</li>
+    <li>Not built (as in section 13): open items / aging, opening balances, FX revaluation, a net position report, a balance of persons.</li>
+  </ul>
+  <p><b>Proven:</b> Docker Postgres 15 – <code>tests/97_partner_balance.sql</code> (121 checks: signs, roles, credit notes, refunds, persons, the totals after Post / Unpost / backfill / rebuild / verify, the report with period, filters, sums bigger / smaller than (borders), the three sorts, the task group, hide settled, mixed currencies, the roots rule, RLS and grants), the other suites and <code>test_sql.sh</code> (install twice, delete leaves nothing) stay green; Jest – model, api, dashboard, SQL mirror, shared hook (about 100 tests); <code>bench_partner_balance.sh 100000</code>: the report of the whole book 1.4–2.2 s (limit of Supabase for <code>authenticated</code>: 8 s), a Post of 200 lines 38 ms, an Unpost 14 ms, verify 0.3 s. The Railway #1 data runs twice on Docker; its two contracts show balance 0. <b>Not run</b> against the owner’s Supabase or in a browser / on a device.</p>
+  <p><b>Update:</b> start1 → start2 (PART 39; the credit-note CHECK and the backfill are inside), no start3, no seeds, no <code>.env</code> change.</p>
 </div>
 
 </main>

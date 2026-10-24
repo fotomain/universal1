@@ -162,6 +162,8 @@ export interface PMRowJSON {
   customerInvoiceFunctionalityEnabled?: boolean;
   /** Project settings -> Payments: may the planned date of a payment lie after the end of its task? true unless stored false (kit8/pm/view/task/payments) */
   paymentPlanAfterTaskFinishEnabled?: boolean;
+  /** Project settings -> Payments: may ONE payment fact carry business units of different first level roots? true unless stored false (Post refuses otherwise: businessUnitsOfDifferentRoots) */
+  paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled?: boolean;
   /** Product fields (kit8/catalog/product/productFieldsModel.ts; Project settings -> Product): ALL OFF while never saved. Enabled = the Product has ItemNumber / SearchName (list, card, search); VisibleInProjects = the product windows of the project show it too */
   itemNumberFunctionalityEnabled?: boolean;
   itemNumberFunctionalityVisibleInProjects?: boolean;

@@ -544,6 +544,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="pm/reports/monitor02/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor02' }} />
               <Drawer.Screen name="pm/reports/monitor03/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor03' }} />
+              <Drawer.Screen name="pm/reports/monitor07/customer/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Customer balance' }} />
+              <Drawer.Screen name="pm/reports/monitor07/vendor/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Vendor balance' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
               <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />

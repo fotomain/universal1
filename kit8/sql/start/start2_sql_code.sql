@@ -43,6 +43,7 @@
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header / _lines / _lines_data_entered, Post writes the entered hours as 'used' movements; the Person of every user; the settings per Person
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 --   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction, the lines from the posted plan), Post writes cash_account_ledger_movements; the rests of a money account are rebuilt and recalculated when an exchange rate changes
+--   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (one signed row per posted invoice / payment line, written by triggers in the Post transaction) + partner_balance_ledger (the totals for now); the reports partner_balance_report / _filter_items / _movements_list; credit notes (the CHECK of the invoice lines is in PART 26 / 31 of start1)
 -- ===============================================================================================
 
 DO $$
@@ -13240,6 +13241,13 @@ BEGIN
       v_json := jsonb_set(v_json - 'paymentFactPartner', '{paymentFactPerson}', to_jsonb(p_patch->>'paymentFactPerson'));
     END IF;
   END IF;
+  -- the role the payment settles in the partner balance (PART 39): customer | vendor; empty = by the invoice it pays, else by the direction (a refund is the other role)
+  IF p_patch ? 'paymentFactBalanceRole' THEN
+    IF NULLIF(p_patch->>'paymentFactBalanceRole', '') IS NULL THEN v_json := v_json - 'paymentFactBalanceRole';
+    ELSIF p_patch->>'paymentFactBalanceRole' NOT IN ('customer', 'vendor') THEN
+      RAISE EXCEPTION 'unknown balance role %', p_patch->>'paymentFactBalanceRole' USING ERRCODE = '22023';
+    ELSE v_json := jsonb_set(v_json, '{paymentFactBalanceRole}', to_jsonb(p_patch->>'paymentFactBalanceRole')); END IF;
+  END IF;
   IF p_patch ? 'paymentFactBankAmount' THEN
     IF jsonb_typeof(p_patch->'paymentFactBankAmount') = 'number' THEN
       IF (p_patch->>'paymentFactBankAmount')::numeric < 0 THEN
@@ -13382,7 +13390,7 @@ REVOKE ALL ON FUNCTION public.cash_ledger_rebuild_rests(text, text, date) FROM P
 
 
 -- ---- Post / Unpost / Delete ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- problems: documentHasNoLines · paymentFactNumberMissing · paymentFactDateMissing · moneyAccountMissing · accountCurrencyMissing · dateBeforeOpening · payeeMissing · directionMissing  (the document)
+-- problems: documentHasNoLines · paymentFactNumberMissing · paymentFactDateMissing · moneyAccountMissing · accountCurrencyMissing · dateBeforeOpening · payeeMissing · directionMissing · businessUnitsOfDifferentRoots  (the document)
 --           budgetItemMissing · budgetItemNotPayment · contractMissing · currencyMissing · sumMissing · notYourProject · sumForAccountingMissing · sumForBudgetMissing · sumForMoneyAccountMissing  (a line)
 CREATE OR REPLACE FUNCTION public.post_payment_fact(p_header uuid) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -13413,6 +13421,12 @@ BEGIN
   END IF;
   IF NULLIF(h."rowJSON"->>'paymentFactPartner', '') IS NULL AND NULLIF(h."rowJSON"->>'paymentFactPerson', '') IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'payeeMissing'); END IF;
   IF v_dir IS NULL THEN v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'directionMissing'); END IF;
+  -- a project can forbid ONE payment to carry business units of different first level roots (project setting paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled, TRUE unless stored false)
+  IF EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.vendor_project_setting(l."rowProjectGUID", 'paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled'))
+     AND (SELECT count(DISTINCT COALESCE(public.business_unit_root(l."rowJSON"->>'paymentFactBusinessUnit'), l."rowJSON"->>'paymentFactBusinessUnit'))
+            FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header AND COALESCE(l."rowJSON"->>'paymentFactBusinessUnit', '') <> '') > 1 THEN
+    v_problems := v_problems || jsonb_build_object('lineGUID', NULL, 'problem', 'businessUnitsOfDifferentRoots');
+  END IF;
 
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', x.id, 'problem', x.problem) ORDER BY x.ord, x.id, x.problem), '[]'::jsonb) INTO v_problems
     FROM (
@@ -13544,6 +13558,7 @@ BEGIN
            NULLIF(h."rowJSON"->>'paymentFactPartner', '') AS "partnerGUID", NULLIF(h."rowJSON"->>'paymentFactPerson', '') AS "personGUID",
            COALESCE(NULLIF(pt."rowJSON"->>'partnerTitle', ''), NULLIF(btrim(COALESCE(pe."rowJSON"->>'personFirstName', '') || ' ' || COALESCE(pe."rowJSON"->>'personLastName', '')), ''), '') AS "payeeTitle",
            COALESCE(h."rowJSON"->>'paymentFactDirection', '') AS "direction",
+           COALESCE(h."rowJSON"->>'paymentFactBalanceRole', '') AS "balanceRole",
            h."rowJSON"->>'paymentFactFolder' AS "folder",
            CASE WHEN jsonb_typeof(h."rowJSON"->'paymentFactBankAmount') = 'number' THEN (h."rowJSON"->>'paymentFactBankAmount')::numeric END AS "bankAmount",
            COALESCE(NULLIF(h."rowJSON"->>'paymentFactTask', ''), (SELECT l."rowOwnerGUID"::text FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = h."rowGUID" ORDER BY l."orderInList", l."created_at" LIMIT 1)) AS "taskGUID",
@@ -13840,6 +13855,9 @@ BEGIN
   IF v_partner IS NULL THEN
     RAISE EXCEPTION 'the % invoice has no %: choose it on the invoice first', p_kind, CASE WHEN v_vendor THEN 'vendor' ELSE 'customer' END USING ERRCODE = '23514';
   END IF;
+  IF v_contract IS NULL THEN
+    RAISE EXCEPTION 'the % invoice has no contract: a payment needs one - unpost the invoice, choose its contract and post it again', p_kind USING ERRCODE = '23514';
+  END IF;
   -- the budget item of the payment: the contract's, else the standard one of the direction
   SELECT CASE WHEN v_vendor THEN NULLIF(k."rowJSON"->>'paymentBudgetItemOutbound', '') ELSE NULLIF(k."rowJSON"->>'paymentBudgetItemInbound', '') END, NULLIF(upper(k."rowJSON"->>'contractCurrency'), '') INTO v_item, v_kcur
     FROM public."contractTable" k WHERE k."rowGUID" = v_contract;
@@ -13893,6 +13911,515 @@ REVOKE ALL ON FUNCTION public.create_payment_fact_from_customer_invoice(uuid) FR
 GRANT EXECUTE ON FUNCTION public.create_payment_fact_from_vendor_invoice(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_payment_fact_from_customer_invoice(uuid) TO authenticated;
 
+
+-- ===============================================================================================
+-- PART 39: create_partner_balance.sql
+-- the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements = the register (one SIGNED row per posted invoice line / payment line; positive = the partner owes us),
+-- partner_balance_ledger = the totals for now. Nobody writes them by hand and no worker is needed: the rows are made by triggers IN the transaction of the Post -
+--   * vendor_invoice_header / customer_invoice_header: the status goes to 'posted' -> the rows of the invoice (vendorInvoice: -, customerInvoice: +); the status leaves 'posted' -> they go;
+--   * cash_account_ledger_movements (PART 38, one row per posted payment line): inserted -> the payment rows (outbound +, inbound -, a payment to a PERSON makes none); deleted -> they go;
+--   * the statement triggers on the movements keep the ledger (add on insert, subtract on delete).
+-- The sums are WITH VAT: invoice contract = sumForContract + vatForContract, accounting = sumForAccounting (the total of the line), budget = sumForBudget + vatForBudget.
+-- A rate change does NOT touch the rows (the sums stay as posted). A credit note (a negative invoice line, see the CHECK of PART 26 / 31) flips the sign by itself.
+-- Reports: partner_balance_report / _filter_items / _movements_list. Maintenance: partner_balance_register_missing (the backfill at the end), _rebuild, _verify.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.partner_balance_movements') IS NULL OR to_regclass('public.partner_balance_ledger') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 39 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+-- the first level root of a business unit: the unit itself when it has no parent (the roots of the tree have the parent 'empty'), else the root above it. NULL when the unit does not exist
+CREATE OR REPLACE FUNCTION public.business_unit_root(p_unit text) RETURNS text
+LANGUAGE sql STABLE AS $$
+  WITH RECURSIVE up AS (
+    SELECT b."rowGUID", b."rowParentGUID", 0 AS depth FROM public."businessUnitTable" b WHERE b."rowGUID" = p_unit
+    UNION ALL
+    SELECT b."rowGUID", b."rowParentGUID", up.depth + 1 FROM public."businessUnitTable" b JOIN up ON b."rowGUID" = up."rowParentGUID" WHERE up.depth < 200
+  )
+  SELECT u."rowGUID" FROM up u WHERE NOT EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = u."rowParentGUID") ORDER BY u.depth DESC LIMIT 1;
+$$;
+
+-- ---- the ledger (statement triggers: one upsert per statement, in key order, so two Posts cannot deadlock on the same rows) ----------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.partner_balance_ledger_after_insert() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public.partner_balance_ledger AS g ("rowOrganizationGUID", "balanceLegalEntity", "balanceRole", "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID",
+         "currencyForContract", "currencyForAccounting", "currencyForBudget", "sumForContract", "sumForAccounting", "sumForBudget", "movementCount")
+  SELECT n."rowOrganizationGUID", n."balanceLegalEntity", n."balanceRole", n."balancePartner", n."balancePartnerContract", n."projectGUID", COALESCE(n."projectPaymentPlanTaskGUID", '00000000-0000-0000-0000-000000000000'::uuid),
+         n."currencyForContract", n."currencyForAccounting", n."currencyForBudget", sum(n."sumForContract"), sum(n."sumForAccounting"), sum(n."sumForBudget"), count(*)::integer
+    FROM newrows n
+   GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+   ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+  ON CONFLICT ("rowOrganizationGUID", "balanceLegalEntity", "balanceRole", "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID", "currencyForContract", "currencyForAccounting", "currencyForBudget")
+  DO UPDATE SET "sumForContract" = g."sumForContract" + EXCLUDED."sumForContract", "sumForAccounting" = g."sumForAccounting" + EXCLUDED."sumForAccounting",
+                "sumForBudget" = g."sumForBudget" + EXCLUDED."sumForBudget", "movementCount" = g."movementCount" + EXCLUDED."movementCount", "updated_at" = NOW();
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.partner_balance_ledger_after_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  -- 1. lock the affected ledger rows in key order (two Unposts at once cannot deadlock)
+  PERFORM 1 FROM public.partner_balance_ledger g
+    JOIN (SELECT o."rowOrganizationGUID" AS org, o."balanceLegalEntity" AS le, o."balanceRole" AS rl, o."balancePartner" AS pa, o."balancePartnerContract" AS co, o."projectGUID" AS pr,
+                 COALESCE(o."projectPaymentPlanTaskGUID", '00000000-0000-0000-0000-000000000000'::uuid) AS tk, o."currencyForContract" AS cc, o."currencyForAccounting" AS ca, o."currencyForBudget" AS cb
+            FROM oldrows o GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10) a
+      ON g."rowOrganizationGUID" = a.org AND g."balanceLegalEntity" = a.le AND g."balanceRole" = a.rl AND g."balancePartner" = a.pa AND g."balancePartnerContract" = a.co AND g."projectGUID" = a.pr
+     AND g."projectPaymentPlanTaskGUID" = a.tk AND g."currencyForContract" = a.cc AND g."currencyForAccounting" = a.ca AND g."currencyForBudget" = a.cb
+   ORDER BY g."rowOrganizationGUID", g."balanceLegalEntity", g."balanceRole", g."balancePartner", g."balancePartnerContract", g."projectGUID", g."projectPaymentPlanTaskGUID", g."currencyForContract", g."currencyForAccounting", g."currencyForBudget"
+     FOR UPDATE OF g;
+  -- 2. subtract
+  UPDATE public.partner_balance_ledger g
+     SET "sumForContract" = g."sumForContract" - a.sc, "sumForAccounting" = g."sumForAccounting" - a.sa, "sumForBudget" = g."sumForBudget" - a.sb, "movementCount" = g."movementCount" - a.n, "updated_at" = NOW()
+    FROM (SELECT o."rowOrganizationGUID" AS org, o."balanceLegalEntity" AS le, o."balanceRole" AS rl, o."balancePartner" AS pa, o."balancePartnerContract" AS co, o."projectGUID" AS pr,
+                 COALESCE(o."projectPaymentPlanTaskGUID", '00000000-0000-0000-0000-000000000000'::uuid) AS tk, o."currencyForContract" AS cc, o."currencyForAccounting" AS ca, o."currencyForBudget" AS cb,
+                 sum(o."sumForContract") AS sc, sum(o."sumForAccounting") AS sa, sum(o."sumForBudget") AS sb, count(*)::integer AS n
+            FROM oldrows o GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10) a
+   WHERE g."rowOrganizationGUID" = a.org AND g."balanceLegalEntity" = a.le AND g."balanceRole" = a.rl AND g."balancePartner" = a.pa AND g."balancePartnerContract" = a.co AND g."projectGUID" = a.pr
+     AND g."projectPaymentPlanTaskGUID" = a.tk AND g."currencyForContract" = a.cc AND g."currencyForAccounting" = a.ca AND g."currencyForBudget" = a.cb;
+  -- 3. a key without movements goes
+  DELETE FROM public.partner_balance_ledger g USING
+         (SELECT DISTINCT o."rowOrganizationGUID" AS org, o."balanceLegalEntity" AS le, o."balanceRole" AS rl, o."balancePartner" AS pa, o."balancePartnerContract" AS co, o."projectGUID" AS pr,
+                 COALESCE(o."projectPaymentPlanTaskGUID", '00000000-0000-0000-0000-000000000000'::uuid) AS tk, o."currencyForContract" AS cc, o."currencyForAccounting" AS ca, o."currencyForBudget" AS cb
+            FROM oldrows o) a
+   WHERE g."movementCount" <= 0 AND g."rowOrganizationGUID" = a.org AND g."balanceLegalEntity" = a.le AND g."balanceRole" = a.rl AND g."balancePartner" = a.pa AND g."balancePartnerContract" = a.co AND g."projectGUID" = a.pr
+     AND g."projectPaymentPlanTaskGUID" = a.tk AND g."currencyForContract" = a.cc AND g."currencyForAccounting" = a.ca AND g."currencyForBudget" = a.cb;
+  RETURN NULL;
+END;
+$$;
+
+-- a register row is never changed: it is deleted and written again
+CREATE OR REPLACE FUNCTION public.partner_balance_movements_no_update() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'partner_balance_movements: a row is never changed (it is written by the Post of a document and deleted by its Unpost)' USING ERRCODE = '23514';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_partner_balance_ledger_insert ON public.partner_balance_movements;
+CREATE TRIGGER trg_partner_balance_ledger_insert AFTER INSERT ON public.partner_balance_movements REFERENCING NEW TABLE AS newrows FOR EACH STATEMENT EXECUTE FUNCTION public.partner_balance_ledger_after_insert();
+
+DROP TRIGGER IF EXISTS trg_partner_balance_ledger_delete ON public.partner_balance_movements;
+CREATE TRIGGER trg_partner_balance_ledger_delete AFTER DELETE ON public.partner_balance_movements REFERENCING OLD TABLE AS oldrows FOR EACH STATEMENT EXECUTE FUNCTION public.partner_balance_ledger_after_delete();
+
+DROP TRIGGER IF EXISTS trg_partner_balance_no_update ON public.partner_balance_movements;
+CREATE TRIGGER trg_partner_balance_no_update BEFORE UPDATE ON public.partner_balance_movements FOR EACH ROW EXECUTE FUNCTION public.partner_balance_movements_no_update();
+
+-- ---- the writers --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the rows of ONE posted invoice (p_kind 'vendor' | 'customer'): vendor = the vendor's account is credited (-), customer = debited (+). A credit note (a negative amount) flips the sign by itself.
+-- The contract currency: the invoice's (the contract's), else the project's currencyForContract. The accounting / budget currencies are the project's; without a currency the sum is 0.
+CREATE OR REPLACE FUNCTION public.partner_balance_insert_invoice(p_kind text, p_header uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE n integer := 0;
+BEGIN
+  IF p_kind NOT IN ('vendor', 'customer') THEN
+    RAISE EXCEPTION 'partner_balance: unknown invoice kind %', p_kind USING ERRCODE = '22023';
+  END IF;
+  IF p_kind = 'vendor' THEN
+    INSERT INTO public.partner_balance_movements ("rowOrganizationGUID", "registratorGUID", "registratorKind", "registratorLineGUID", "partnerBalanceOperationType", "balanceRole", "periodDay", "balanceLegalEntity",
+           "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID", "projectPaymentPlanLineGUID", "currencyForContract", "currencyForAccounting", "currencyForBudget",
+           "sumForContract", "sumForAccounting", "sumForBudget")
+    SELECT h."rowOrganizationGUID", h."rowGUID", 'vendorInvoice', l."rowGUID", 'vendorCredit', 'vendor',
+           ((COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
+           COALESCE(h."rowOwnerGUID", ''), h."rowJSON"->>'vendorInvoicePartner', COALESCE(h."rowJSON"->>'vendorInvoiceContract', ''), l."rowProjectGUID", l."rowOwnerGUID", NULL,
+           COALESCE(NULLIF(upper(btrim(h."rowJSON"->>'vendorInvoiceCurrency')), ''), NULLIF(upper(btrim(p."rowJSON"->>'currencyForContract')), ''), ''),
+           COALESCE(NULLIF(upper(btrim(p."rowJSON"->>'currencyForAccounting')), ''), ''), COALESCE(NULLIF(upper(btrim(p."rowJSON"->>'currencyForBudget')), ''), ''),
+           -round(COALESCE(l."sumForContract", 0) + COALESCE(l."vatForContract", 0), 2),
+           CASE WHEN COALESCE(NULLIF(btrim(p."rowJSON"->>'currencyForAccounting'), ''), '') = '' THEN 0 ELSE -round(COALESCE(l."sumForAccounting", 0), 2) END,
+           CASE WHEN COALESCE(NULLIF(btrim(p."rowJSON"->>'currencyForBudget'), ''), '') = '' THEN 0 ELSE -round(COALESCE(l."sumForBudget", 0) + COALESCE(l."vatForBudget", 0), 2) END
+      FROM public.vendor_invoice_header h
+      JOIN public.vendor_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
+      JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+     WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND NULLIF(h."rowJSON"->>'vendorInvoicePartner', '') IS NOT NULL
+    ON CONFLICT ON CONSTRAINT partner_balance_movements_line_uq DO NOTHING;
+  ELSE
+    INSERT INTO public.partner_balance_movements ("rowOrganizationGUID", "registratorGUID", "registratorKind", "registratorLineGUID", "partnerBalanceOperationType", "balanceRole", "periodDay", "balanceLegalEntity",
+           "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID", "projectPaymentPlanLineGUID", "currencyForContract", "currencyForAccounting", "currencyForBudget",
+           "sumForContract", "sumForAccounting", "sumForBudget")
+    SELECT h."rowOrganizationGUID", h."rowGUID", 'customerInvoice', l."rowGUID", 'customerDebit', 'customer',
+           ((COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceDateTime', '')::timestamptz, h."created_at") + INTERVAL '12 hours') AT TIME ZONE 'UTC')::date,
+           COALESCE(h."rowOwnerGUID", ''), h."rowJSON"->>'customerInvoicePartner', COALESCE(h."rowJSON"->>'customerInvoiceContract', ''), l."rowProjectGUID", l."rowOwnerGUID", NULL,
+           COALESCE(NULLIF(upper(btrim(h."rowJSON"->>'customerInvoiceCurrency')), ''), NULLIF(upper(btrim(p."rowJSON"->>'currencyForContract')), ''), ''),
+           COALESCE(NULLIF(upper(btrim(p."rowJSON"->>'currencyForAccounting')), ''), ''), COALESCE(NULLIF(upper(btrim(p."rowJSON"->>'currencyForBudget')), ''), ''),
+           round(COALESCE(l."sumForContract", 0) + COALESCE(l."vatForContract", 0), 2),
+           CASE WHEN COALESCE(NULLIF(btrim(p."rowJSON"->>'currencyForAccounting'), ''), '') = '' THEN 0 ELSE round(COALESCE(l."sumForAccounting", 0), 2) END,
+           CASE WHEN COALESCE(NULLIF(btrim(p."rowJSON"->>'currencyForBudget'), ''), '') = '' THEN 0 ELSE round(COALESCE(l."sumForBudget", 0) + COALESCE(l."vatForBudget", 0), 2) END
+      FROM public.customer_invoice_header h
+      JOIN public.customer_invoice_lines l ON l."rowHeaderGUID" = h."rowGUID"
+      JOIN public.project_table p ON p."rowGUID" = l."rowProjectGUID"
+     WHERE h."rowGUID" = p_header AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND NULLIF(h."rowJSON"->>'customerInvoicePartner', '') IS NOT NULL
+    ON CONFLICT ON CONSTRAINT partner_balance_movements_line_uq DO NOTHING;
+  END IF;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_insert_invoice(text, uuid) FROM PUBLIC, anon, authenticated;
+
+-- the rows of the payments: for the given payment lines (p_lines NULL = every posted payment line that has no row yet). The payment row is the cash movement turned round: the cash sign is the
+-- opposite of the balance sign (inbound cash + = the partner owes us LESS). The role: the explicit field of the header (paymentFactBalanceRole), else the invoice the line pays, else the direction
+-- (outbound -> vendor, inbound -> customer). A payment to a PERSON has no partner: no row. The legal entity is the folder of the money account when that is a legal entity.
+CREATE OR REPLACE FUNCTION public.partner_balance_insert_payments(p_lines uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE n integer := 0;
+BEGIN
+  INSERT INTO public.partner_balance_movements ("rowOrganizationGUID", "registratorGUID", "registratorKind", "registratorLineGUID", "partnerBalanceOperationType", "balanceRole", "periodDay", "balanceLegalEntity",
+         "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID", "projectPaymentPlanLineGUID", "currencyForContract", "currencyForAccounting", "currencyForBudget",
+         "sumForContract", "sumForAccounting", "sumForBudget")
+  SELECT m."rowOrganizationGUID", m."rowHeaderGUID", 'paymentFact', m."rowLineGUID",
+         CASE r.role WHEN 'customer' THEN CASE m."paymentDirection" WHEN 'inbound' THEN 'customerPayment' ELSE 'customerRefund' END
+                     ELSE CASE m."paymentDirection" WHEN 'outbound' THEN 'paymentToVendor' ELSE 'vendorRefund' END END,
+         r.role, m."periodDay",
+         COALESCE((SELECT le."rowGUID" FROM public."legalEntityTable" le WHERE le."rowGUID" = a."rowParentGUID"), ''),
+         m."partner", COALESCE(m."contract", ''), m."rowProjectGUID", m."rowOwnerGUID", m."planLineGUID",
+         COALESCE(m."currencyForContract", ''), COALESCE(m."currencyForAccounting", ''), COALESCE(m."currencyForBudget", ''),
+         -m."sumForContract", -COALESCE(m."sumForAccounting", 0), -COALESCE(m."sumForBudget", 0)
+    FROM public.cash_account_ledger_movements m
+    JOIN public.project_payment_fact_header h ON h."rowGUID" = m."rowHeaderGUID"
+    LEFT JOIN public.project_payment_fact_lines l ON l."rowGUID" = m."rowLineGUID"
+    LEFT JOIN public."moneyAccountTable" a ON a."rowGUID" = m."moneyAccount"
+    CROSS JOIN LATERAL (SELECT COALESCE(NULLIF(h."rowJSON"->>'paymentFactBalanceRole', ''),
+                                        CASE l."rowJSON"->>'paymentFactInvoiceKind' WHEN 'customer' THEN 'customer' WHEN 'vendor' THEN 'vendor' END,
+                                        CASE m."paymentDirection" WHEN 'inbound' THEN 'customer' ELSE 'vendor' END) AS role) r
+   WHERE m."partner" IS NOT NULL
+     AND ((p_lines IS NULL AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements x WHERE x."registratorKind" = 'paymentFact' AND x."registratorLineGUID" = m."rowLineGUID"))
+          OR m."rowLineGUID" = ANY (p_lines))
+  ON CONFLICT ON CONSTRAINT partner_balance_movements_line_uq DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_insert_payments(uuid[]) FROM PUBLIC, anon, authenticated;
+
+-- ---- the triggers that call the writers ---------------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.partner_balance_invoice_status() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := CASE WHEN TG_TABLE_NAME = 'vendor_invoice_header' THEN 'vendor' ELSE 'customer' END;
+  v_new text := COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft');
+  v_old text := COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft');
+BEGIN
+  IF v_new = 'posted' AND v_old <> 'posted' THEN
+    PERFORM public.partner_balance_insert_invoice(v_kind, NEW."rowGUID");
+  ELSIF v_old = 'posted' AND v_new <> 'posted' THEN
+    DELETE FROM public.partner_balance_movements m WHERE m."registratorGUID" = NEW."rowGUID" AND m."registratorKind" = v_kind || 'Invoice';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_vendor_invoice_partner_balance ON public.vendor_invoice_header;
+CREATE TRIGGER trg_vendor_invoice_partner_balance AFTER UPDATE ON public.vendor_invoice_header FOR EACH ROW
+  WHEN (COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') IS DISTINCT FROM COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft'))
+  EXECUTE FUNCTION public.partner_balance_invoice_status();
+
+DROP TRIGGER IF EXISTS trg_customer_invoice_partner_balance ON public.customer_invoice_header;
+CREATE TRIGGER trg_customer_invoice_partner_balance AFTER UPDATE ON public.customer_invoice_header FOR EACH ROW
+  WHEN (COALESCE(OLD."rowJSON"->'documentHeader'->>'documentStatus', 'draft') IS DISTINCT FROM COALESCE(NEW."rowJSON"->'documentHeader'->>'documentStatus', 'draft'))
+  EXECUTE FUNCTION public.partner_balance_invoice_status();
+
+CREATE OR REPLACE FUNCTION public.partner_balance_cash_inserted() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.partner_balance_insert_payments((SELECT array_agg(n."rowLineGUID") FROM newrows n));
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.partner_balance_cash_deleted() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  DELETE FROM public.partner_balance_movements m WHERE m."registratorKind" = 'paymentFact' AND m."registratorLineGUID" IN (SELECT o."rowLineGUID" FROM oldrows o);
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_cash_ledger_partner_balance_insert ON public.cash_account_ledger_movements;
+CREATE TRIGGER trg_cash_ledger_partner_balance_insert AFTER INSERT ON public.cash_account_ledger_movements REFERENCING NEW TABLE AS newrows FOR EACH STATEMENT EXECUTE FUNCTION public.partner_balance_cash_inserted();
+
+DROP TRIGGER IF EXISTS trg_cash_ledger_partner_balance_delete ON public.cash_account_ledger_movements;
+CREATE TRIGGER trg_cash_ledger_partner_balance_delete AFTER DELETE ON public.cash_account_ledger_movements REFERENCING OLD TABLE AS oldrows FOR EACH STATEMENT EXECUTE FUNCTION public.partner_balance_cash_deleted();
+
+-- ---- access: read by the organization, written only by the triggers above --------------------------------------------------------------------------------------------------------------------------
+ALTER TABLE public.partner_balance_movements ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.partner_balance_movements FROM anon, authenticated;
+GRANT SELECT ON public.partner_balance_movements TO authenticated;
+DROP POLICY IF EXISTS partner_balance_movements_select ON public.partner_balance_movements;
+CREATE POLICY partner_balance_movements_select ON public.partner_balance_movements FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+ALTER TABLE public.partner_balance_ledger REPLICA IDENTITY FULL;
+ALTER TABLE public.partner_balance_ledger ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.partner_balance_ledger FROM anon, authenticated;
+GRANT SELECT ON public.partner_balance_ledger TO authenticated;
+DROP POLICY IF EXISTS partner_balance_ledger_select ON public.partner_balance_ledger;
+CREATE POLICY partner_balance_ledger_select ON public.partner_balance_ledger FOR SELECT TO authenticated USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+-- realtime: the open report listens to the ledger (a Post in another window changes it)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime' AND NOT puballtables)
+     AND NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'partner_balance_ledger') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.partner_balance_ledger;
+  END IF;
+END $$;
+
+-- ---- maintenance: backfill, rebuild, verify ------------------------------------------------------------------------------------------------------------------------------------------------------
+-- writes the rows of every POSTED document that has none yet (the backfill at the end of this part: an existing database). Idempotent. Answer: the number of rows written
+CREATE OR REPLACE FUNCTION public.partner_balance_register_missing() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE r record; n integer := 0;
+BEGIN
+  FOR r IN SELECT h."rowGUID" FROM public.vendor_invoice_header h
+            WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+              AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements m WHERE m."registratorGUID" = h."rowGUID") LOOP
+    n := n + public.partner_balance_insert_invoice('vendor', r."rowGUID");
+  END LOOP;
+  FOR r IN SELECT h."rowGUID" FROM public.customer_invoice_header h
+            WHERE COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted'
+              AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements m WHERE m."registratorGUID" = h."rowGUID") LOOP
+    n := n + public.partner_balance_insert_invoice('customer', r."rowGUID");
+  END LOOP;
+  n := n + public.partner_balance_insert_payments(NULL);
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_register_missing() FROM PUBLIC, anon, authenticated;
+
+-- deletes the rows (of one organization, NULL = all) and writes them again from the posted documents. The ledger follows by itself
+CREATE OR REPLACE FUNCTION public.partner_balance_rebuild(p_org text DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  DELETE FROM public.partner_balance_movements m WHERE p_org IS NULL OR m."rowOrganizationGUID" = p_org;
+  RETURN public.partner_balance_register_missing();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_rebuild(text) FROM PUBLIC, anon, authenticated;
+
+-- the differences: the ledger against the sum of the register (per key), and posted documents that have no rows (invoices with a partner; payments to a partner). No rows = all right
+CREATE OR REPLACE FUNCTION public.partner_balance_verify(p_org text DEFAULT NULL)
+RETURNS TABLE (o_what text, o_key text, o_expected numeric, o_actual numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH rg AS (
+    SELECT m."rowOrganizationGUID" AS org, m."balanceLegalEntity" AS le, m."balanceRole" AS rl, m."balancePartner" AS pa, m."balancePartnerContract" AS co, m."projectGUID" AS pr,
+           COALESCE(m."projectPaymentPlanTaskGUID", '00000000-0000-0000-0000-000000000000'::uuid) AS tk, m."currencyForContract" AS cc, m."currencyForAccounting" AS ca, m."currencyForBudget" AS cb,
+           sum(m."sumForContract") AS sc, sum(m."sumForAccounting") AS sa, sum(m."sumForBudget") AS sb, count(*) AS n
+      FROM public.partner_balance_movements m WHERE p_org IS NULL OR m."rowOrganizationGUID" = p_org GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+  ), led AS (
+    SELECT g."rowOrganizationGUID" AS org, g."balanceLegalEntity" AS le, g."balanceRole" AS rl, g."balancePartner" AS pa, g."balancePartnerContract" AS co, g."projectGUID" AS pr,
+           g."projectPaymentPlanTaskGUID" AS tk, g."currencyForContract" AS cc, g."currencyForAccounting" AS ca, g."currencyForBudget" AS cb,
+           g."sumForContract" AS sc, g."sumForAccounting" AS sa, g."sumForBudget" AS sb, g."movementCount"::bigint AS n
+      FROM public.partner_balance_ledger g WHERE p_org IS NULL OR g."rowOrganizationGUID" = p_org
+  ), k AS (
+    SELECT COALESCE(r.org, l.org) AS org, COALESCE(r.rl, l.rl) AS rl, COALESCE(r.pa, l.pa) AS pa, COALESCE(r.co, l.co) AS co, COALESCE(r.pr, l.pr) AS pr, COALESCE(r.tk, l.tk) AS tk,
+           COALESCE(r.sc, 0) AS esc, COALESCE(l.sc, 0) AS asc_, COALESCE(r.sa, 0) AS esa, COALESCE(l.sa, 0) AS asa, COALESCE(r.sb, 0) AS esb, COALESCE(l.sb, 0) AS asb, COALESCE(r.n, 0) AS en, COALESCE(l.n, 0) AS an
+      FROM rg r FULL JOIN led l USING (org, le, rl, pa, co, pr, tk, cc, ca, cb)
+  )
+  SELECT 'ledger sumForContract', concat_ws('|', rl, pa, co, pr, tk), esc, asc_ FROM k WHERE esc <> asc_
+  UNION ALL SELECT 'ledger sumForAccounting', concat_ws('|', rl, pa, co, pr, tk), esa, asa FROM k WHERE esa <> asa
+  UNION ALL SELECT 'ledger sumForBudget', concat_ws('|', rl, pa, co, pr, tk), esb, asb FROM k WHERE esb <> asb
+  UNION ALL SELECT 'ledger movementCount', concat_ws('|', rl, pa, co, pr, tk), en, an FROM k WHERE en <> an
+  UNION ALL SELECT 'vendor invoice without rows', h."rowGUID"::text, 1, 0 FROM public.vendor_invoice_header h
+     WHERE (p_org IS NULL OR h."rowOrganizationGUID" = p_org) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND NULLIF(h."rowJSON"->>'vendorInvoicePartner', '') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID")
+       AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements m WHERE m."registratorGUID" = h."rowGUID")
+  UNION ALL SELECT 'customer invoice without rows', h."rowGUID"::text, 1, 0 FROM public.customer_invoice_header h
+     WHERE (p_org IS NULL OR h."rowOrganizationGUID" = p_org) AND COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' AND NULLIF(h."rowJSON"->>'customerInvoicePartner', '') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = h."rowGUID")
+       AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements m WHERE m."registratorGUID" = h."rowGUID")
+  UNION ALL SELECT 'payment line without a row', c."rowLineGUID"::text, 1, 0 FROM public.cash_account_ledger_movements c
+     WHERE (p_org IS NULL OR c."rowOrganizationGUID" = p_org) AND c."partner" IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.partner_balance_movements m WHERE m."registratorKind" = 'paymentFact' AND m."registratorLineGUID" = c."rowLineGUID")
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_verify(text) FROM PUBLIC, anon, authenticated;
+
+-- ---- the reports -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- partner_balance_report(role, dateFrom, dateTo, filters, sort, group): the rows of Monitor07CustomerBalance / Monitor07VendorBalance. role 'customer' | 'vendor'. The numbers are in the DISPLAY sign:
+-- customer = the ledger sign (positive = the customer owes us), vendor = turned round (positive = we owe the vendor), so Begin + Plus - Minus = End reads the same in both. Plus = the rows of the period
+-- that raise the displayed balance, Minus = (the absolute sum of) those that lower it; a credit note therefore lands in Minus. Begin = the rows before dateFrom (NULL = from the start; 0), End = up to dateTo (NULL = all).
+--   p_filters { projectFilter, taskFilter, partnerFilter, partnerContractFilter ('none' = the rows without a contract), legalEntityFilter, sumBiggerThan, sumSmallerThan (borders INCLUDED; on the End balance of
+--               the partner + contract in the contract currency, or in the kind named by sumKind: contract | accounting | budget), hideSettled (true: drop a contract whose Begin, Plus, Minus and End are all 0) }
+--   p_sort    { sortBy: partnerName | sumForBudgetEnd | contractFinishDate, sortDir: asc | desc }   (a partner is placed by its own value: the name, the sum over its contracts, its earliest (asc) / latest (desc)
+--             contract finish date; its contracts follow inside it by the same key; no date = last)
+--   p_group   'contract' (a row per partner + contract + currencies) | 'task' (the drill-down: p_filters must name the partner and the contract; a row per project + task)
+-- Answer: a jsonb array. Every row: partner, partnerTitle, contract, contractTitle, contractFinishDate, currencyForContract / Accounting / Budget, (task group: project, projectTitle, task, taskTitle) and for each sum kind
+-- sumForContract / sumForAccounting / sumForBudget the four numbers ...Begin, ...Plus, ...Minus, ...End.
+CREATE OR REPLACE FUNCTION public.partner_balance_report(p_role text, p_from date, p_to date, p_filters jsonb DEFAULT '{}'::jsonb, p_sort jsonb DEFAULT '{}'::jsonb, p_group text DEFAULT 'contract')
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_current_user();
+  v_sign numeric := CASE WHEN p_role = 'vendor' THEN -1 ELSE 1 END;
+  f jsonb := COALESCE(p_filters, '{}'::jsonb);
+  v_project uuid := NULLIF(f->>'projectFilter', '')::uuid;
+  v_task uuid := NULLIF(f->>'taskFilter', '')::uuid;
+  v_partner text := NULLIF(f->>'partnerFilter', '');
+  v_contract text := CASE WHEN f->>'partnerContractFilter' = 'none' THEN '' ELSE NULLIF(f->>'partnerContractFilter', '') END;
+  v_le text := NULLIF(f->>'legalEntityFilter', '');
+  v_big numeric := CASE WHEN jsonb_typeof(f->'sumBiggerThan') = 'number' THEN (f->>'sumBiggerThan')::numeric END;
+  v_small numeric := CASE WHEN jsonb_typeof(f->'sumSmallerThan') = 'number' THEN (f->>'sumSmallerThan')::numeric END;
+  v_kind text := COALESCE(NULLIF(f->>'sumKind', ''), 'contract');
+  v_hide boolean := COALESCE(f->>'hideSettled', 'false') = 'true';
+  v_sort text := COALESCE(NULLIF(p_sort->>'sortBy', ''), 'partnerName');
+  v_asc boolean := COALESCE(NULLIF(p_sort->>'sortDir', ''), CASE WHEN COALESCE(NULLIF(p_sort->>'sortBy', ''), 'partnerName') = 'sumForBudgetEnd' THEN 'desc' ELSE 'asc' END) <> 'desc';
+  v_mult numeric;
+  v_task_group boolean := p_group = 'task';
+  v_out jsonb;
+BEGIN
+  IF p_role NOT IN ('customer', 'vendor') THEN RAISE EXCEPTION 'partner_balance_report: the role is customer or vendor' USING ERRCODE = '22023'; END IF;
+  IF p_group NOT IN ('contract', 'task') THEN RAISE EXCEPTION 'partner_balance_report: the group is contract or task' USING ERRCODE = '22023'; END IF;
+  IF v_sort NOT IN ('partnerName', 'sumForBudgetEnd', 'contractFinishDate') THEN RAISE EXCEPTION 'partner_balance_report: unknown sortBy %', v_sort USING ERRCODE = '22023'; END IF;
+  IF v_kind NOT IN ('contract', 'accounting', 'budget') THEN RAISE EXCEPTION 'partner_balance_report: unknown sumKind %', v_kind USING ERRCODE = '22023'; END IF;
+  IF v_org IS NULL THEN RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501'; END IF;
+  IF p_from IS NOT NULL AND p_to IS NOT NULL AND p_from > p_to THEN RAISE EXCEPTION 'partner_balance_report: dateFrom is after dateTo' USING ERRCODE = '22023'; END IF;
+  IF v_task_group AND (v_partner IS NULL OR v_contract IS NULL AND f->>'partnerContractFilter' IS NULL) THEN RAISE EXCEPTION 'partner_balance_report: the task group needs the partner and the contract' USING ERRCODE = '22023'; END IF;
+  v_mult := CASE WHEN v_asc THEN 1 ELSE -1 END;
+
+  WITH m AS MATERIALIZED (
+    SELECT x.* FROM public.partner_balance_movements x
+     WHERE x."rowOrganizationGUID" = v_org AND x."balanceRole" = p_role AND (p_to IS NULL OR x."periodDay" <= p_to)
+       AND (v_project IS NULL OR x."projectGUID" = v_project) AND (v_task IS NULL OR x."projectPaymentPlanTaskGUID" = v_task)
+       AND (v_partner IS NULL OR x."balancePartner" = v_partner) AND (v_contract IS NULL AND f->>'partnerContractFilter' IS NULL OR x."balancePartnerContract" = v_contract)
+       AND (v_le IS NULL OR x."balanceLegalEntity" = v_le)
+  ), leaf AS (
+    SELECT m."balancePartner" AS pa, m."balancePartnerContract" AS co, m."currencyForContract" AS cc, m."currencyForAccounting" AS ca, m."currencyForBudget" AS cb,
+           CASE WHEN v_task_group THEN m."projectGUID" END AS pr, CASE WHEN v_task_group THEN m."projectPaymentPlanTaskGUID" END AS tk,
+           coalesce(sum(m."sumForContract" * v_sign) FILTER (WHERE p_from IS NOT NULL AND m."periodDay" < p_from), 0) AS c_begin,
+           coalesce(sum(m."sumForContract" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForContract" * v_sign > 0), 0) AS c_plus,
+           coalesce(-sum(m."sumForContract" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForContract" * v_sign < 0), 0) AS c_minus,
+           coalesce(sum(m."sumForContract" * v_sign), 0) AS c_end,
+           coalesce(sum(m."sumForAccounting" * v_sign) FILTER (WHERE p_from IS NOT NULL AND m."periodDay" < p_from), 0) AS a_begin,
+           coalesce(sum(m."sumForAccounting" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForAccounting" * v_sign > 0), 0) AS a_plus,
+           coalesce(-sum(m."sumForAccounting" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForAccounting" * v_sign < 0), 0) AS a_minus,
+           coalesce(sum(m."sumForAccounting" * v_sign), 0) AS a_end,
+           coalesce(sum(m."sumForBudget" * v_sign) FILTER (WHERE p_from IS NOT NULL AND m."periodDay" < p_from), 0) AS b_begin,
+           coalesce(sum(m."sumForBudget" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForBudget" * v_sign > 0), 0) AS b_plus,
+           coalesce(-sum(m."sumForBudget" * v_sign) FILTER (WHERE (p_from IS NULL OR m."periodDay" >= p_from) AND m."sumForBudget" * v_sign < 0), 0) AS b_minus,
+           coalesce(sum(m."sumForBudget" * v_sign), 0) AS b_end
+      FROM m GROUP BY 1, 2, 3, 4, 5, 6, 7
+  ), titled AS (
+    SELECT l.*, COALESCE(NULLIF(btrim(pt."rowJSON"->>'partnerTitle'), ''), l.pa) AS pa_title,
+           COALESCE(NULLIF(btrim(k."rowJSON"->>'contractNumber'), ''), NULLIF(btrim(k."rowJSON"->>'contractTitle'), ''), CASE WHEN l.co = '' THEN '' ELSE l.co END) AS co_title,
+           CASE WHEN k."rowJSON"->>'contractFinishDate' ~ '^\d{4}-\d{2}-\d{2}$' THEN (k."rowJSON"->>'contractFinishDate')::date END AS co_finish,
+           sum(CASE v_kind WHEN 'contract' THEN l.c_end WHEN 'accounting' THEN l.a_end ELSE l.b_end END) OVER (PARTITION BY l.pa, l.co) AS co_kind_end,
+           sum(l.b_end) OVER (PARTITION BY l.pa, l.co) AS co_budget_end,
+           sum(l.b_end) OVER (PARTITION BY l.pa) AS pa_budget_end,
+           sum(abs(l.c_begin) + abs(l.c_plus) + abs(l.c_minus) + abs(l.c_end) + abs(l.a_begin) + abs(l.a_plus) + abs(l.a_minus) + abs(l.a_end) + abs(l.b_begin) + abs(l.b_plus) + abs(l.b_minus) + abs(l.b_end)) OVER (PARTITION BY l.pa, l.co) AS co_activity
+      FROM leaf l
+      LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = l.pa
+      LEFT JOIN public."contractTable" k ON k."rowGUID" = l.co AND l.co <> ''
+  ), pa_fin AS (
+    SELECT t.pa, min(t.co_finish) AS fin_min, max(t.co_finish) AS fin_max FROM titled t GROUP BY t.pa
+  ), shown AS (
+    SELECT t.*, pf.fin_min, pf.fin_max
+      FROM titled t JOIN pa_fin pf ON pf.pa = t.pa
+     WHERE (v_task_group OR ((v_big IS NULL OR t.co_kind_end >= v_big) AND (v_small IS NULL OR t.co_kind_end <= v_small)))
+       AND (v_task_group OR NOT v_hide OR t.co_activity <> 0)
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'partner', s.pa, 'partnerTitle', s.pa_title, 'contract', s.co, 'contractTitle', s.co_title, 'contractFinishDate', s.co_finish,
+           'currencyForContract', s.cc, 'currencyForAccounting', s.ca, 'currencyForBudget', s.cb,
+           'project', s.pr, 'projectTitle', (SELECT COALESCE(NULLIF(btrim(pj."rowJSON"->>'name'), ''), pj."rowGUID"::text) FROM public.project_table pj WHERE pj."rowGUID" = s.pr),
+           'task', s.tk, 'taskTitle', (SELECT COALESCE(NULLIF(btrim(tt."rowJSON"->>'taskDescription'), ''), tt."rowGUID"::text) FROM public.project_task_table tt WHERE tt."rowGUID" = s.tk),
+           'sumForContractBegin', round(s.c_begin, 2), 'sumForContractPlus', round(s.c_plus, 2), 'sumForContractMinus', round(s.c_minus, 2), 'sumForContractEnd', round(s.c_end, 2),
+           'sumForAccountingBegin', round(s.a_begin, 2), 'sumForAccountingPlus', round(s.a_plus, 2), 'sumForAccountingMinus', round(s.a_minus, 2), 'sumForAccountingEnd', round(s.a_end, 2),
+           'sumForBudgetBegin', round(s.b_begin, 2), 'sumForBudgetPlus', round(s.b_plus, 2), 'sumForBudgetMinus', round(s.b_minus, 2), 'sumForBudgetEnd', round(s.b_end, 2))
+         ORDER BY
+           (CASE WHEN v_sort = 'sumForBudgetEnd' THEN s.pa_budget_end * v_mult END) NULLS LAST,
+           (CASE WHEN v_sort = 'contractFinishDate' THEN (CASE WHEN v_asc THEN s.fin_min ELSE s.fin_max END - DATE '1970-01-01') * v_mult END) NULLS LAST,
+           (CASE WHEN v_sort = 'partnerName' AND v_asc THEN lower(s.pa_title) END) ASC NULLS LAST,
+           (CASE WHEN v_sort = 'partnerName' AND NOT v_asc THEN lower(s.pa_title) END) DESC NULLS LAST,
+           lower(s.pa_title), s.pa,
+           (CASE WHEN v_sort = 'sumForBudgetEnd' THEN s.co_budget_end * v_mult END) NULLS LAST,
+           (CASE WHEN v_sort = 'contractFinishDate' THEN (s.co_finish - DATE '1970-01-01') * v_mult END) NULLS LAST,
+           (CASE WHEN v_sort = 'partnerName' AND v_asc THEN lower(s.co_title) END) ASC NULLS LAST,
+           (CASE WHEN v_sort = 'partnerName' AND NOT v_asc THEN lower(s.co_title) END) DESC NULLS LAST,
+           lower(s.co_title), s.co, s.cc, s.ca, s.cb, s.pr, s.tk), '[]'::jsonb)
+    INTO v_out FROM shown s;
+  RETURN v_out;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_report(text, date, date, jsonb, jsonb, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.partner_balance_report(text, date, date, jsonb, jsonb, text) TO authenticated;
+
+-- the lists of the filters: only what has rows of this role. p_project narrows the tasks, p_partner narrows the contracts. Answer { projects, tasks, partners, contracts, legalEntities }, each [{ id, title }]
+CREATE OR REPLACE FUNCTION public.partner_balance_filter_items(p_role text, p_project uuid DEFAULT NULL, p_partner text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_org text := public.organization_of_current_user();
+BEGIN
+  IF p_role NOT IN ('customer', 'vendor') THEN RAISE EXCEPTION 'partner_balance_filter_items: the role is customer or vendor' USING ERRCODE = '22023'; END IF;
+  IF v_org IS NULL THEN RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501'; END IF;
+  RETURN jsonb_build_object(
+    'projects', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', p."rowGUID", 'title', COALESCE(NULLIF(btrim(p."rowJSON"->>'name'), ''), p."rowGUID"::text)) ORDER BY lower(p."rowJSON"->>'name'), p."rowGUID")
+                            FROM public.project_table p WHERE p."rowGUID" IN (SELECT DISTINCT m."projectGUID" FROM public.partner_balance_movements m WHERE m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role)), '[]'::jsonb),
+    'tasks', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', t."rowGUID", 'title', COALESCE(NULLIF(btrim(t."rowJSON"->>'taskDescription'), ''), t."rowGUID"::text)) ORDER BY lower(t."rowJSON"->>'taskDescription'), t."rowGUID")
+                         FROM public.project_task_table t WHERE p_project IS NOT NULL AND t."projectGUID" = p_project
+                          AND t."rowGUID" IN (SELECT DISTINCT m."projectPaymentPlanTaskGUID" FROM public.partner_balance_movements m WHERE m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role AND m."projectGUID" = p_project)), '[]'::jsonb),
+    'partners', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', x.pa, 'title', COALESCE(NULLIF(btrim(pt."rowJSON"->>'partnerTitle'), ''), x.pa)) ORDER BY lower(COALESCE(pt."rowJSON"->>'partnerTitle', x.pa)), x.pa)
+                           FROM (SELECT DISTINCT m."balancePartner" AS pa FROM public.partner_balance_movements m WHERE m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role) x
+                           LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = x.pa), '[]'::jsonb),
+    'contracts', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', CASE WHEN x.co = '' THEN 'none' ELSE x.co END,
+                                                               'title', CASE WHEN x.co = '' THEN '(no contract)' ELSE COALESCE(NULLIF(btrim(k."rowJSON"->>'contractNumber'), ''), NULLIF(btrim(k."rowJSON"->>'contractTitle'), ''), x.co) END)
+                                             ORDER BY x.co)
+                            FROM (SELECT DISTINCT m."balancePartnerContract" AS co FROM public.partner_balance_movements m
+                                   WHERE p_partner IS NOT NULL AND m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role AND m."balancePartner" = p_partner) x
+                            LEFT JOIN public."contractTable" k ON k."rowGUID" = x.co AND x.co <> ''), '[]'::jsonb),
+    'legalEntities', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', x.le, 'title', COALESCE(NULLIF(btrim(le."rowJSON"->>'title'), ''), x.le)) ORDER BY x.le)
+                                FROM (SELECT DISTINCT m."balanceLegalEntity" AS le FROM public.partner_balance_movements m WHERE m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role AND m."balanceLegalEntity" <> '') x
+                                LEFT JOIN public."legalEntityTable" le ON le."rowGUID" = x.le), '[]'::jsonb));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_filter_items(text, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.partner_balance_filter_items(text, uuid, text) TO authenticated;
+
+-- the drill-down of a sum: the register rows behind a report row (display sign, newest first, at most 500). p_contract 'none' = the rows without a contract; NULL = any.
+-- Answer [ { id, periodDay, operationType, registratorKind, registratorGUID, documentNumber, project, projectTitle, task, taskTitle, currencyForContract, sumForContract, sumForAccounting, sumForBudget } ]
+CREATE OR REPLACE FUNCTION public.partner_balance_movements_list(p_role text, p_partner text, p_contract text DEFAULT NULL, p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL, p_from date DEFAULT NULL, p_to date DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_current_user();
+  v_sign numeric := CASE WHEN p_role = 'vendor' THEN -1 ELSE 1 END;
+BEGIN
+  IF p_role NOT IN ('customer', 'vendor') THEN RAISE EXCEPTION 'partner_balance_movements_list: the role is customer or vendor' USING ERRCODE = '22023'; END IF;
+  IF v_org IS NULL THEN RAISE EXCEPTION 'the user has no organization' USING ERRCODE = '42501'; END IF;
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+             'id', q."rowGUID", 'periodDay', q."periodDay", 'operationType', q."partnerBalanceOperationType", 'registratorKind', q."registratorKind", 'registratorGUID', q."registratorGUID",
+             'documentNumber', q.doc_number, 'project', q."projectGUID", 'projectTitle', q.project_title, 'task', q."projectPaymentPlanTaskGUID", 'taskTitle', q.task_title,
+             'currencyForContract', q."currencyForContract", 'sumForContract', q."sumForContract" * v_sign, 'sumForAccounting', q."sumForAccounting" * v_sign, 'sumForBudget', q."sumForBudget" * v_sign)
+           ORDER BY q."periodDay" DESC, q."created_at" DESC, q."rowGUID")
+      FROM (
+        SELECT m.*, COALESCE(NULLIF(btrim(pj."rowJSON"->>'name'), ''), m."projectGUID"::text) AS project_title, tk."rowJSON"->>'taskDescription' AS task_title,
+               CASE m."registratorKind" WHEN 'vendorInvoice' THEN (SELECT h."rowJSON"->>'vendorInvoiceNumber' FROM public.vendor_invoice_header h WHERE h."rowGUID" = m."registratorGUID")
+                                        WHEN 'customerInvoice' THEN (SELECT h."rowJSON"->>'customerInvoiceNumber' FROM public.customer_invoice_header h WHERE h."rowGUID" = m."registratorGUID")
+                                        ELSE (SELECT h."rowJSON"->>'paymentFactNumber' FROM public.project_payment_fact_header h WHERE h."rowGUID" = m."registratorGUID") END AS doc_number
+          FROM public.partner_balance_movements m
+          LEFT JOIN public.project_table pj ON pj."rowGUID" = m."projectGUID"
+          LEFT JOIN public.project_task_table tk ON tk."rowGUID" = m."projectPaymentPlanTaskGUID"
+         WHERE m."rowOrganizationGUID" = v_org AND m."balanceRole" = p_role AND m."balancePartner" = p_partner
+           AND (p_contract IS NULL OR m."balancePartnerContract" = CASE WHEN p_contract = 'none' THEN '' ELSE p_contract END)
+           AND (p_project IS NULL OR m."projectGUID" = p_project) AND (p_task IS NULL OR m."projectPaymentPlanTaskGUID" = p_task)
+           AND (p_from IS NULL OR m."periodDay" >= p_from) AND (p_to IS NULL OR m."periodDay" <= p_to)
+         ORDER BY m."periodDay" DESC, m."created_at" DESC LIMIT 500
+      ) q), '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.partner_balance_movements_list(text, text, text, uuid, uuid, date, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.partner_balance_movements_list(text, text, text, uuid, uuid, date, date) TO authenticated;
+
+-- ---- the backfill: the posted documents that exist now get their rows (idempotent; a database that has none does nothing) -----------------------------------------------------------------------------
+SELECT public.partner_balance_register_missing();
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

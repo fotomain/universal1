@@ -1,6 +1,7 @@
 // The columns of the lines table and of the list table of the customer invoice.
 // the cell of the place columns (multi project) pulls the design system in: its render is tested with the form
 jest.mock('../../../../kit8/documents/vendor/lineplace/LinePlaceCell', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../../../kit8/pm/components/PMNumberInputApp', () => ({ __esModule: true, default: () => null }));
 import { buildCustomerInvoiceColumns } from '../../../../kit8/documents/customer/invoice/customerInvoiceColumns';
 import { customerInvoiceListColumns } from '../../../../kit8/documents/customer/invoice/customerInvoiceListColumns';
 import { emptyTaskLineCatalogs } from '../../../../kit8/pm/view/task/finances/taskLineCatalogs';
@@ -20,6 +21,13 @@ describe('the lines of a document', () => {
     expect(c.find((x) => x.key === 'price')).toMatchObject({ target: 'priceInvoiced' });
     expect(c.find((x) => x.key === 'vat')).toMatchObject({ type: 'select', field: 'vatRateGUID', allowEmpty: false });
     expect(c.find((x) => x.key === 'sumForAccountingBeforeVAT')).toMatchObject({ target: 'sumForAccountingBeforeVAT', type: 'number' });
+  });
+  it('credit notes (PART 39): the quantity and the price accept a minus sign (ONE of them negative; the database refuses both)', () => {
+    for (const key of ['qty', 'price']) {
+      const col = cols('all', true).find((x) => x.key === key) as any;
+      expect(col.min).toBeLessThan(0);
+      expect(col.renderNumber({ value: -1, onCommit: jest.fn() }).props.positiveOnly).toBe(false);
+    }
   });
   it('a POSTED document edits nothing', () => {
     expect(cols('all', false).filter((x: any) => x.type !== 'rowNumber').every((x: any) => x.editable === false)).toBe(true);

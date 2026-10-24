@@ -42,6 +42,14 @@ export const PAYMENT_FACT_DIRECTIONS: { value: PaymentFactDirection; label: stri
   { value: 'inbound', label: 'Inbound', icon: 'south_west' },
 ];
 export const isPaymentFactDirection = (v: unknown): v is PaymentFactDirection => v === 'outbound' || v === 'inbound';
+/** the role a payment settles in the partner balance (documentation/PARTNER_BALANCE.html F9): a refund is the other role than the direction says. Empty = by the invoice the line pays, else by the direction */
+export type PaymentFactBalanceRole = 'customer' | 'vendor';
+export const PAYMENT_FACT_BALANCE_ROLES: { value: PaymentFactBalanceRole | ''; label: string }[] = [
+  { value: '', label: 'By direction' },
+  { value: 'customer', label: 'Customer' },
+  { value: 'vendor', label: 'Vendor' },
+];
+export const isPaymentFactBalanceRole = (v: unknown): v is PaymentFactBalanceRole => v === 'customer' || v === 'vendor';
 /** the budget items a direction can pick = the items of its payments genus */
 export const paymentFactGenusOf = (d: PaymentFactDirection): string => (d === 'inbound' ? MANAGEMENT_GENUS.inboundPayment : MANAGEMENT_GENUS.outboundPayment);
 
@@ -162,6 +170,8 @@ export interface PaymentFactListRow {
   personGUID: string;
   payeeTitle: string;
   direction: PaymentFactDirection | '';
+  /** the role the payment settles in the partner balance (PART 39): '' = by the invoice it pays, else by the direction */
+  balanceRole: PaymentFactBalanceRole | '';
   folder: string;
   bankAmount: number | null;
   taskGUID: string;
@@ -181,7 +191,7 @@ export function parseListAnswer(data: any): PaymentFactListAnswer {
     paymentFactNumber: String(r.paymentFactNumber ?? ''), paymentFactDay: r.paymentFactDay ?? null,
     moneyAccountGUID: String(r.moneyAccountGUID ?? ''), moneyAccountTitle: String(r.moneyAccountTitle ?? ''), legalEntityGUID: String(r.legalEntityGUID ?? ''), legalEntityTitle: String(r.legalEntityTitle ?? ''),
     currency: String(r.currency ?? ''), partnerGUID: String(r.partnerGUID ?? ''), personGUID: String(r.personGUID ?? ''), payeeTitle: String(r.payeeTitle ?? ''),
-    direction: isPaymentFactDirection(r.direction) ? r.direction : '', folder: String(r.folder ?? ''), bankAmount: r.bankAmount === null || r.bankAmount === undefined ? null : money(r.bankAmount),
+    direction: isPaymentFactDirection(r.direction) ? r.direction : '', balanceRole: isPaymentFactBalanceRole(r.balanceRole) ? r.balanceRole : '', folder: String(r.folder ?? ''), bankAmount: r.bankAmount === null || r.bankAmount === undefined ? null : money(r.bankAmount),
     taskGUID: String(r.taskGUID ?? ''), projectGUID: String(r.projectGUID ?? ''), projectCount: Number(r.projectCount) || 0,
     authorGUID: String(r.authorGUID ?? ''), authorName: String(r.authorName ?? ''), lineCount: Number(r.lineCount) || 0, sumForMoneyAccount: money(r.sumForMoneyAccount),
   }));
@@ -240,6 +250,7 @@ export interface PaymentFactHeaderView {
   personGUID: string;
   payeeTitle: string;
   direction: PaymentFactDirection | '';
+  balanceRole: PaymentFactBalanceRole | '';
   bankAmount: number | null;
   taskGUID: string;
   projectGUID: string;
@@ -250,7 +261,7 @@ export function headerOfListRow(r: PaymentFactListRow): PaymentFactHeaderView {
   return {
     guid: r.documentGUID, number: r.documentNumber, status: r.documentStatus, paymentFactNumber: r.paymentFactNumber, day: r.paymentFactDay ?? '', moneyAccountGUID: r.moneyAccountGUID,
     moneyAccountTitle: r.moneyAccountTitle, legalEntityTitle: r.legalEntityTitle, currency: r.currency, partnerGUID: r.partnerGUID, personGUID: r.personGUID, payeeTitle: r.payeeTitle, direction: r.direction,
-    bankAmount: r.bankAmount, taskGUID: r.taskGUID, projectGUID: r.projectGUID, projectCount: r.projectCount, authorName: r.authorName,
+    balanceRole: r.balanceRole, bankAmount: r.bankAmount, taskGUID: r.taskGUID, projectGUID: r.projectGUID, projectCount: r.projectCount, authorName: r.authorName,
   };
 }
 export const canEditPaymentFact = (h: PaymentFactHeaderView): boolean => h.status === 'draft';

@@ -42,6 +42,11 @@ Source: the Google Doc "W1 FACT Payments" (owner answers of 2026-10-23); analysi
 * SQL on a real Postgres 15: `cd kit8/docker && ./test_fact_monitor01.sh 96` (166 checks: money account guards, get from plan, guards of a line, sums and the typed amount, Post, rests, back-dated Post, the rate changes, RLS, unpost); speed: `./bench_cash_ledger.sh 10000`.
 * Jest: `__tests__/documents/payment/fact` (model, api, hooks, columns, form, list, get from plan, create based on, SQL mirror), `__tests__/catalog/money_account`, `__tests__/pm/view/task/payments/paymentPlanPaid.test.tsx`.
 
+## Partner balance (PART 39)
+* A posted payment line also writes a row of the **partner balance** (`kit8/pm/reports/partner_balance`): outbound +, inbound - (the cash movement turned round), a payment to a **person** none. The header field **Settles in the balance of** (`paymentFactBalanceRole`: By direction | Customer | Vendor) is for a refund (we pay a customer back = Customer; a vendor pays us back = Vendor); a payment made from an invoice takes the role of that invoice.
+* A payment made from an invoice needs the **contract** of the invoice (unpost the invoice, choose the contract, post it again); every payment line needs its contract at Post anyway.
+* Project setting **paymentContainBusinessUnitesFromTheDifferent1stLevelRootsEnabled** (Project settings -> Payments, TRUE unless stored false): when a project of the lines has it OFF, Post refuses a document whose business units belong to different first level roots of the business unit tree (`businessUnitsOfDifferentRoots`).
+
 ## Known limits
 * A typed amount of the account is recognised by its difference from the stored one: edit a line twice before the first save came back and the older amount may be taken for a typed one (clear the cell: it is converted again).
 * The rest of an account in the contract / accounting / budget currency is kept per currency code; only the kind `account` is the real bank balance.

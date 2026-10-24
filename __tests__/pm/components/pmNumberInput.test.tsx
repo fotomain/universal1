@@ -103,7 +103,7 @@ describe('the lines of the tasks and of the documents use it', () => {
     'documents/customer/invoice/customerInvoiceColumns.tsx',
   ];
   it.each(files)('%s: every editable number column (qty, price, VAT %) has pmNumberColumn', (file) => {
-    const lines = fs.readFileSync(path.join(root0, file), 'utf8').split('\n').filter((l) => /type: 'number'/.test(l) && /min: 0/.test(l));
+    const lines = fs.readFileSync(path.join(root0, file), 'utf8').split('\n').filter((l) => /type: 'number'/.test(l) && /min: -?\d/.test(l));
     expect(lines.length).toBeGreaterThanOrEqual(2);
     for (const l of lines) expect(l).toContain('pmNumberColumn(');
   });

@@ -34,6 +34,8 @@ export interface PaymentFactHeaderPatch {
   paymentFactPerson?: string | null;
   paymentFactBankAmount?: number | null;
   paymentFactTask?: string | null;
+  /** 'customer' | 'vendor' | '' (by direction): the role the payment settles in the partner balance */
+  paymentFactBalanceRole?: 'customer' | 'vendor' | '' | null;
 }
 /** the number, date, money account, payee (partner OR person) and direction of a DRAFT */
 export async function setPaymentFactHeader(client: Client, headerGUID: string, patch: PaymentFactHeaderPatch): Promise<void> {

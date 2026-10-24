@@ -98,7 +98,8 @@ SELECT tt.eq((SELECT ("sumForContract", "vatForContract")::text FROM public.vend
 UPDATE public.vendor_invoice_lines SET "priceInvoiced" = 6, "vatRatioInvoiced" = 10 WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001';
 SELECT tt.eq((SELECT ("sumForContract", "vatForContract", "sumForBudget")::text FROM public.vendor_invoice_lines WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'), '(24.00,2.40,48.00)', 'a price of the vendor different from the plan: contract sum 24, VAT 10 %, budget sum 48 = 24 x (plan 10 per unit / plan price 5)');
 SELECT tt.fails($q$UPDATE public.vendor_invoice_lines SET "genusGUID" = 'timeGenus' WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'$q$, 'only the quantity', 'the identity of a line is frozen');
-SELECT tt.fails($q$UPDATE public.vendor_invoice_lines SET "qtyInvoiced" = -1 WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'$q$, 'vendor_invoice_lines_qty_chk', 'a negative quantity is refused');
+-- credit notes (PART 39): ONE negative factor is allowed (tests/97), both negative is refused
+SELECT tt.fails($q$UPDATE public.vendor_invoice_lines SET "qtyInvoiced" = -1, "priceInvoiced" = -6 WHERE "taskLineGUID" = 'cccccccc-0000-0000-0000-000000000001'$q$, 'vendor_invoice_lines_qty_chk', 'a negative quantity AND a negative price are refused');
 SELECT tt.fails($q$INSERT INTO public.vendor_invoice_header ("rowOwnerGUID", "rowOrganizationGUID", "rowJSON") VALUES ('le-1', 'x', '{}')$q$, 'permission denied', 'a user cannot write a header (only the RPCs)');
 SELECT tt.fails($q$INSERT INTO public.vendor_invoice_lines ("rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "genusGUID") SELECT "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "genusGUID" FROM public.vendor_invoice_lines LIMIT 1$q$, 'permission denied', 'a user cannot insert a line (the lines come from the task lines)');
 -- the second line of S-1 is made as small as the example below

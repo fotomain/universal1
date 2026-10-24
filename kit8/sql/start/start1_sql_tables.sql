@@ -44,6 +44,7 @@
 --   36. create_timesheet.sql - the TIME SHEET document (documentation/TIME_SHEET_WBS.html): project_timesheet_header + project_timesheet_lines + project_timesheet_lines_data_entered (the entered hours = the base of Post)
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 --   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction) + cash_account_ledger_movements / _rests / _dirty (the register of the money accounts)
+--   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (the register of the invoices and payments of the partners) + partner_balance_ledger (the totals for now)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -2529,7 +2530,7 @@ CREATE TABLE IF NOT EXISTS public.vendor_invoice_lines (
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
-  CONSTRAINT vendor_invoice_lines_qty_chk CHECK ("qtyInvoiced" >= 0 AND "priceInvoiced" >= 0 AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100),
+  CONSTRAINT vendor_invoice_lines_qty_chk CHECK (NOT ("qtyInvoiced" < 0 AND "priceInvoiced" < 0) AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100),
   CONSTRAINT vendor_invoice_lines_genus_chk CHECK ("genusGUID" IN ('timeGenus', 'materialGenus', 'expenseGenus'))
 );
 
@@ -2546,6 +2547,11 @@ ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccounti
 ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
 ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
 ALTER TABLE public.vendor_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
+-- credit notes (PART 39, documentation/PARTNER_BALANCE.html F1): a line may have ONE negative factor - a negative quantity (a return) or a negative price (a discount / correction); both negative is refused.
+-- A database made before gets the new check here (drop + add: the old one refused every negative number).
+ALTER TABLE public.vendor_invoice_lines DROP CONSTRAINT IF EXISTS vendor_invoice_lines_qty_chk;
+ALTER TABLE public.vendor_invoice_lines ADD CONSTRAINT vendor_invoice_lines_qty_chk CHECK (NOT ("qtyInvoiced" < 0 AND "priceInvoiced" < 0) AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100);
 
 
 -- ===============================================================================================
@@ -2849,7 +2855,7 @@ CREATE TABLE IF NOT EXISTS public.customer_invoice_lines (
   "created_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updated_at"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
-  CONSTRAINT customer_invoice_lines_qty_chk CHECK ("qtyInvoiced" >= 0 AND "priceInvoiced" >= 0 AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100),
+  CONSTRAINT customer_invoice_lines_qty_chk CHECK (NOT ("qtyInvoiced" < 0 AND "priceInvoiced" < 0) AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100),
   CONSTRAINT customer_invoice_lines_genus_chk CHECK ("genusGUID" = 'revenueGenus')
 );
 
@@ -2866,6 +2872,11 @@ ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "sumForAccoun
 ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatForBudget"              NUMERIC(18,2);
 ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForBudget"        NUMERIC(18,2);
 ALTER TABLE public.customer_invoice_lines ADD COLUMN IF NOT EXISTS "vatInCostForAccounting"    NUMERIC(18,2);
+
+-- credit notes (PART 39, documentation/PARTNER_BALANCE.html F1): a line may have ONE negative factor - a negative quantity (a return) or a negative price (a discount / correction); both negative is refused.
+-- A database made before gets the new check here (drop + add: the old one refused every negative number).
+ALTER TABLE public.customer_invoice_lines DROP CONSTRAINT IF EXISTS customer_invoice_lines_qty_chk;
+ALTER TABLE public.customer_invoice_lines ADD CONSTRAINT customer_invoice_lines_qty_chk CHECK (NOT ("qtyInvoiced" < 0 AND "priceInvoiced" < 0) AND "vatRatioInvoiced" >= 0 AND "vatRatioInvoiced" <= 100);
 
 
 
@@ -3340,6 +3351,76 @@ CREATE TABLE IF NOT EXISTS public.cash_account_ledger_dirty (
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID")
 );
+
+-- ===============================================================================================
+-- PART 39: create_partner_balance.sql
+-- the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): what a customer owes us and what we owe a vendor, per partner and contract.
+--   partner_balance_movements  the register: one SIGNED row per posted invoice line and per posted payment line (positive = the partner owes us). Written ONLY by the database (triggers of start2).
+--   partner_balance_ledger     the totals for now: the movements added up per key (kept by statement triggers, can always be rebuilt)
+-- The sums are WITH VAT (as a payment); the contract sum is the truth, the accounting / budget sums are the sums as posted.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.partner_balance_movements (
+  "rowGUID"                     UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID"         TEXT          NOT NULL,
+  "registratorGUID"             UUID          NOT NULL,
+  "registratorKind"             TEXT          NOT NULL,
+  "registratorLineGUID"         UUID          NOT NULL,
+  "partnerBalanceOperationType" TEXT          NOT NULL,
+  "balanceRole"                 TEXT          NOT NULL,
+  "periodDay"                   DATE          NOT NULL,
+  "balanceLegalEntity"          TEXT          NOT NULL DEFAULT '',
+  "balancePartner"              TEXT          NOT NULL,
+  "balancePartnerContract"      TEXT          NOT NULL DEFAULT '',
+  "projectGUID"                 UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "projectPaymentPlanTaskGUID"  UUID          REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "projectPaymentPlanLineGUID"  UUID,
+  "currencyForContract"         TEXT          NOT NULL DEFAULT '',
+  "currencyForAccounting"       TEXT          NOT NULL DEFAULT '',
+  "currencyForBudget"           TEXT          NOT NULL DEFAULT '',
+  "sumForContract"              NUMERIC(18,2) NOT NULL,
+  "sumForAccounting"            NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForBudget"                NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "created_at"                  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT partner_balance_movements_line_uq UNIQUE ("registratorKind", "registratorLineGUID"),
+  CONSTRAINT partner_balance_movements_kind_chk CHECK ("registratorKind" IN ('vendorInvoice', 'customerInvoice', 'paymentFact')),
+  CONSTRAINT partner_balance_movements_role_chk CHECK ("balanceRole" IN ('customer', 'vendor')),
+  CONSTRAINT partner_balance_movements_type_chk CHECK (
+    ("partnerBalanceOperationType" IN ('customerDebit', 'customerPayment', 'customerRefund') AND "balanceRole" = 'customer')
+    OR ("partnerBalanceOperationType" IN ('vendorCredit', 'paymentToVendor', 'vendorRefund') AND "balanceRole" = 'vendor')),
+  CONSTRAINT partner_balance_movements_currency_chk CHECK ("currencyForContract" ~ '^([A-Z]{3})?$' AND "currencyForAccounting" ~ '^([A-Z]{3})?$' AND "currencyForBudget" ~ '^([A-Z]{3})?$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_partner_balance_movements_report ON public.partner_balance_movements ("rowOrganizationGUID", "balanceRole", "balancePartner", "balancePartnerContract", "periodDay");
+
+CREATE INDEX IF NOT EXISTS idx_partner_balance_movements_registrator ON public.partner_balance_movements ("registratorGUID");
+
+CREATE INDEX IF NOT EXISTS idx_partner_balance_movements_task ON public.partner_balance_movements ("projectGUID", "projectPaymentPlanTaskGUID");
+
+-- the totals: every part of the key is NOT NULL ('' = empty, the nil uuid = no task). Written ONLY by the statement triggers on the movements
+CREATE TABLE IF NOT EXISTS public.partner_balance_ledger (
+  "rowOrganizationGUID"        TEXT          NOT NULL,
+  "balanceLegalEntity"         TEXT          NOT NULL DEFAULT '',
+  "balanceRole"                TEXT          NOT NULL,
+  "balancePartner"             TEXT          NOT NULL,
+  "balancePartnerContract"     TEXT          NOT NULL DEFAULT '',
+  "projectGUID"                UUID          NOT NULL,
+  "projectPaymentPlanTaskGUID" UUID          NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+  "currencyForContract"        TEXT          NOT NULL DEFAULT '',
+  "currencyForAccounting"      TEXT          NOT NULL DEFAULT '',
+  "currencyForBudget"          TEXT          NOT NULL DEFAULT '',
+  "sumForContract"             NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForAccounting"           NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "sumForBudget"               NUMERIC(18,2) NOT NULL DEFAULT 0,
+  "movementCount"              INTEGER       NOT NULL DEFAULT 0,
+  "updated_at"                 TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowOrganizationGUID", "balanceLegalEntity", "balanceRole", "balancePartner", "balancePartnerContract", "projectGUID", "projectPaymentPlanTaskGUID",
+                "currencyForContract", "currencyForAccounting", "currencyForBudget"),
+  CONSTRAINT partner_balance_ledger_role_chk CHECK ("balanceRole" IN ('customer', 'vendor'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_partner_balance_ledger_partner ON public.partner_balance_ledger ("rowOrganizationGUID", "balanceRole", "balancePartner");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

@@ -192,6 +192,20 @@ describe('the header', () => {
     renderUI(<PMPaymentFactDocumentForm documents={['d1']} />);
     expect(mockSelects[`${T}-field-person`]).toBeUndefined();
   });
+  it('the balance role (PART 39): "By direction" until chosen; Customer / Vendor are saved at once; a posted document cannot change it', () => {
+    setDoc([header('d1')]);
+    renderUI(<PMPaymentFactDocumentForm documents={['d1']} />);
+    expect(mockDirection[`${T}-field-balanceRole`]).toMatchObject({ value: 'direction', disabled: false });
+    expect(mockDirection[`${T}-field-balanceRole`].items.map((i: any) => i.value)).toEqual(['direction', 'customer', 'vendor']);
+    act(() => mockDirection[`${T}-field-balanceRole`].onSelect('customer'));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { paymentFactBalanceRole: 'customer' });
+    act(() => mockDirection[`${T}-field-balanceRole`].onSelect('direction'));
+    expect(mockDoc.setHeader).toHaveBeenLastCalledWith('d1', { paymentFactBalanceRole: '' });
+    cleanupUI();
+    setDoc([header('d1', { status: 'posted', balanceRole: 'vendor', paymentFactNumber: 'B', day: '2030-01-05' })]);
+    renderUI(<PMPaymentFactDocumentForm documents={['d1']} />);
+    expect(mockDirection[`${T}-field-balanceRole`]).toMatchObject({ value: 'vendor', disabled: true });
+  });
   it('with lines the payee and the direction are fixed (a text, a disabled select); a posted document is read only', () => {
     setDoc([header('d1')]);
     renderUI(<PMPaymentFactDocumentForm documents={['d1']} />);

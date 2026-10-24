@@ -17,7 +17,7 @@ const code = read('start2_sql_code.sql');
 const del = read('delete_sql_structure.sql');
 const cron = read('start3_sql_pg_cron.sql');
 const MARK = '-- PART 38: create_payment_fact.sql';
-const one = (src: string) => { const i = src.indexOf(MARK); return i < 0 ? '' : src.slice(i, src.indexOf('-- END of start', i)); };
+const one = (src: string) => { const i = src.indexOf(MARK); if (i < 0) return ''; const next = src.indexOf('\n-- PART 39:', i); return src.slice(i, next > 0 ? next : src.indexOf('-- END of start', i)); };
 
 describe('the part is in both files: the tables in start1_sql_tables.sql, the code in start2_sql_code.sql', () => {
   it('PART 38 exists in both, after PART 37; the tables file has the tables and no code, the code file has the code and no table', () => {

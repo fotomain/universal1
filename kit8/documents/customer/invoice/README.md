@@ -40,3 +40,6 @@ The LAST 1st level group **Customer Invoice** with the 2nd level columns **Qty**
 
 ## VAT columns (2026-10-20)
 The customer invoice lines have the same VAT rate select and accounting columns as the vendor invoice (`kit8/documents/vat/README.md`, `documentation/VENDOR_INVOICE_DOC.html`). The VAT of a customer invoice is never cost (it is collected for the tax authority).
+
+## Credit notes (PART 39)
+A line may have **one negative factor**: a negative quantity (a return) or a negative price (a discount / correction); both negative is refused (`..._invoice_lines_qty_chk`). The sums, the VAT and the register follow (the invoiced quantity / sum go down). Post still refuses a quantity of 0. A credit note is never offered to a payment (its open amount is negative). In the **partner balance** a vendor credit note writes `+`, a customer credit note `-` (the debt shrinks); it lands in the Minus column of Monitor07. The quantity and price columns accept a minus sign (`pmNumberColumn(..., false)`).
