@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partner Balance WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; overflow-x: auto; font-size: 13px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Partner Balance – Work Breakdown Structure</h1>
+<p class="sub">W1 PARTNER BALANCE. Scope: the register <code>partner_balance_movements</code>, the totals <code>partner_balance_ledger</code> and the two reports <code>Monitor07CustomerBalance</code> / <code>Monitor07VendorBalance</code> (what a customer owes us, what we owe a vendor). <b>Analysis only – no code.</b> Status 2026-10-23: waiting for the answers of section 11. The owner’s “./documents/” is our <code>documentation/</code> (as for the plan and the fact of payments).</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>Today the app knows three kinds of facts about a partner: the <b>vendor invoice</b> (we got a bill), the <b>customer invoice</b> (we sent a bill) and the <b>payment fact</b> (money moved in the bank, PART 38). Nobody adds them up. The business need is: <i>“the movements and the rests of amounts from the partner relationships”</i> – for every partner and contract: how much was invoiced, how much was paid, how much is still owed, on any date.</p>
+  <p>The answer is a <b>register</b> (every posted invoice line and every posted payment line writes one signed row, in the same transaction as the Post), the <b>totals for now</b> (the ledger, one row per balance key, kept by the database) and <b>two reports</b> with the period begin, plus, minus and end for every kind of sum.</p>
+</div>
+<div class="callout"><b>Hard constraint (as for every feature of this app):</b> nothing existing changes. A project that never posts an invoice or a payment behaves exactly as before. The only change to existing behaviour is the one the Google Doc asks for itself – <i>negative amounts on the invoices</i> (section 4, finding F1) – and it needs the owner’s answer Q2 first.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Source (the Google Doc)</th></tr>
+  <tr><td class="id">R1</td><td>Register <code>partner_balance_movements</code>: one signed row per posted source line. Signs: vendor invoice <b>−</b>, outbound payment <b>+</b>, customer invoice <b>+</b>, inbound payment <b>−</b>.</td><td>“partner_balance_movements: sign - Vendor invoice amount … sign - inbound payment”</td></tr>
+  <tr><td class="id">R2</td><td>Structure of the register: <code>registratorGUID</code>, registrator kind, <code>partnerBalanceOperationType</code> (<code>customerDebit</code> · <code>customerPayment</code> · <code>vendorCredit</code> (“???vendorKredit”) · <code>paymentToVendor</code>), <code>projectPaymentPlanTaskGUID</code> and <code>projectPaymentPlanLineGUID</code> (may be empty), <code>balancePartner</code>, <code>balancePartnerContract</code>, <code>sumForContract</code>, <code>sumForAccounting</code>, <code>sumForBudget</code>.</td><td>“partner_balance_movements structure”</td></tr>
+  <tr><td class="id">R3</td><td>Totals <code>partner_balance_ledger</code> (“totals for now”): the same keys without the registrator, with the three sums.</td><td>“partner_balance_ledger - totals for now - structure”</td></tr>
+  <tr><td class="id">R4</td><td>Vendor invoice and customer invoice <b>may have negative amounts</b> (credit notes, corrections).</td><td>“Vendor invoice and Customer Invoice may have negative amounts.”</td></tr>
+  <tr><td class="id">R5</td><td>Two new reports <code>Monitor07CustomerBalance</code> and <code>Monitor07VendorBalance</code>, with <b>maximum reusable code</b> for the data and the interface.</td><td>“New reports needed … Make maximum reusable code for reports data and interface.”</td></tr>
+  <tr><td class="id">R6</td><td>Both reports: <code>dateFrom</code>, <code>dateTo</code>; filters <code>projectFilter</code>, <code>taskFilter</code> (depends on the project), <code>partnerFilter</code>, <code>partnerContractFilter</code>, <code>sumFromFilter</code> / <code>sumToFilter</code> (borders included).</td><td>“Both reports: must have dateFrom, dateTo. filters: …”</td></tr>
+  <tr><td class="id">R7</td><td>Both reports: flags <code>showSumForContract</code>, <code>showSumForAccounting</code>, <code>showSumForBudget</code>; for every shown sum the columns <b>Begin · Plus · Minus · End</b> (<code>sumForContractBegin / Plus / Minus / End</code>) and “+ other types of sums”.</td><td>“flags … must show columns …”</td></tr>
+  <tr><td class="id">R8</td><td>“Improve logic and tables – add if needed.” Section 4 lists what I found and propose to change.</td><td>“Improve logic and tables-add if needed.”</td></tr>
+</table>
+</div>
+
+<h2>3. What already exists (checked in the code, 2026-10-23)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Topic</th><th>Fact</th><th>Use for the balance</th></tr>
+  <tr><td>Vendor invoice (PART 26)</td><td>Header <code>vendor_invoice_header</code>: <code>rowOwnerGUID</code> = legal entity, <code>rowJSON</code> <code>vendorInvoicePartner</code> (obligatory at Post), <code>vendorInvoiceContract</code> (<b>optional</b>), <code>vendorInvoiceDateTime</code>, <code>vendorInvoiceCurrency</code> (the contract’s, <code>''</code> without contract). Lines carry project, task, <code>sumForContract</code> (<b>net</b>) + <code>vatForContract</code>, <code>sumForAccounting</code> (the <b>total with VAT</b>), <code>sumForBudget</code> (<b>net</b>) + <code>vatForBudget</code>. Post = <code>post_vendor_invoice</code> → <code>project_status_register_invoice</code> in the same transaction.</td><td>Source of the <code>vendorCredit</code> rows. A new <code>PERFORM</code> next to the register call.</td></tr>
+  <tr><td>Customer invoice (PART 31)</td><td>The twin: <code>customerInvoicePartner / Contract / DateTime / Currency</code>, same line columns, <code>post_customer_invoice</code>.</td><td>Source of the <code>customerDebit</code> rows.</td></tr>
+  <tr><td>Payment fact (PART 38)</td><td>Header: <code>paymentFactPartner</code> <i>or</i> <code>paymentFactPerson</code>, <code>paymentFactDirection</code>, <code>paymentFactDate</code>, <code>moneyAccountFact</code>. Lines: project, task, optional plan payment (<code>paymentPlanLineGUID</code>), <code>paymentFactContract</code> (obligatory), <code>paymentFactCurrency</code> (= the contract’s), the three sums <b>WITH VAT</b>. Post writes the signed <code>cash_account_ledger_movements</code> (outbound −, inbound +: the <b>cash</b> sign, the opposite of the partner sign).</td><td>Source of the <code>paymentToVendor</code> / <code>customerPayment</code> rows; the numbers are already in the right shape (contract, WITH VAT).</td></tr>
+  <tr><td>Payment of an invoice</td><td><code>create_payment_fact_from_vendor_invoice / _customer_invoice</code> and <code>payment_fact_invoice_open</code> (open per invoice line = line sum + VAT − posted facts). A fact line keeps <code>paymentFactInvoiceKind / Header / Line</code>.</td><td>Tells the <b>role</b> (customer | vendor) of a payment that came from an invoice. The open amount per invoice line stays as it is.</td></tr>
+  <tr><td>Money account</td><td><code>moneyAccountTable</code>, folders = legal entities.</td><td>The legal entity of a payment.</td></tr>
+  <tr><td>Project status register</td><td><code>project_status_movements</code> already carries <code>partnerGUID</code>, <code>contractGUID</code>, <code>legalEntityGUID</code> for the <code>invoiced</code> / <code>sold</code> kinds, but it is per task line, rebuilt by the worker and meant for projects.</td><td><b>Not</b> used as the source: the balance reads the document lines directly, in the Post transaction (own register, as the spec asks).</td></tr>
+  <tr><td>Reports</td><td><code>kit8/pm/reports/monitor01</code>, <code>monitor02</code>, <code>monitor03</code> (+ <code>roi</code>): each has its own filter bar, table, data hook and Realtime. Parts that can be shared already exist: <code>SelectPeriodButton</code>, <code>DateInputApp</code>, <code>SelectItemFromListApp clearable</code>, <code>parseDayInput</code>, <code>SumExplorerListReusable</code> (the “source window” of a sum), the live / age badge.</td><td>Basis of the common report layer (section 7.1). Monitor04–06 do not exist: the owner’s name <code>Monitor07…</code> is used as written.</td></tr>
+  <tr><td>SQL numbering</td><td>PARTs 1..38 exist (start1 + start2 + delete file). Docker tests 93–96 are the latest, <code>test_fact_monitor01.sh</code> runs 5N–9N.</td><td>Next: <b>PART 39</b> “partner balance”, test <code>tests/97_partner_balance.sql</code>.</td></tr>
+  <tr><td>Workers</td><td>Monitor01 and the cash ledger need a worker (pg_cron) because a rate can change later.</td><td>The balance needs <b>no worker</b>: it is written in the Post transaction. No change of <code>start3_sql_pg_cron.sql</code>.</td></tr>
+</table>
+</div>
+
+<h2>4. Findings – where the Google Doc needs a decision or an improvement</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Finding</th><th>Proposal</th></tr>
+  <tr><td class="id">F1</td><td><b>Negative invoices are refused today.</b> <code>vendor_invoice_lines_qty_chk</code> and <code>customer_invoice_lines_qty_chk</code> require <code>qtyInvoiced &gt;= 0 AND priceInvoiced &gt;= 0</code>; the line triggers and the register (<code>qtyProjectStatus</code>, Monitor01 Vendor Invoice, ROI4) were written for positive numbers; <code>payment_fact_invoice_open</code> and the payment “from invoice” skip a line whose open amount is <code>&lt;= 0</code>.</td><td>R4 is a change of the two invoice documents, not only of the balance. Proposal in Q2: allow ONE negative factor per line (a negative quantity = a return; a negative price = a discount / correction; both negative = refused), keep <code>quantityIsZero</code> at Post, and test the register, Monitor01, ROI and the VAT calculation with a credit note. Without R4 the balance itself works; with R4 a credit note simply writes the opposite sign.</td></tr>
+  <tr><td class="id">F2</td><td><b>The sign is a property of the number, not of a list of cases.</b> With “signed amount = document sign × amount” a credit note (negative amount) flips by itself: a vendor credit note writes <code>+</code>, a customer credit note <code>−</code>. No fifth operation type is needed for it.</td><td>Store the <b>signed</b> sums in the register (as <code>cash_account_ledger_movements</code> does); the operation type says WHY the row exists, the sign says WHICH WAY.</td></tr>
+  <tr><td class="id">F3</td><td><b>The three sums are gross (WITH VAT) in the balance.</b> A payment is gross (PART 38), the amount owed is gross. On the invoice line <code>sumForContract</code> and <code>sumForBudget</code> are NET and <code>sumForAccounting</code> is the TOTAL with VAT (pitfall in KNOW_HOW section 7).</td><td>Invoice rows: contract = <code>sumForContract + vatForContract</code>, accounting = <code>sumForAccounting</code> (already the total), budget = <code>sumForBudget + vatForBudget</code>. The VAT-basis switch (Cost | Net | With VAT) does <b>not</b> apply to this report; the header says “amounts with VAT”.</td></tr>
+  <tr><td class="id">F4</td><td><b>The ledger key must let invoices and payments net against each other.</b> The Google Doc puts <code>projectPaymentPlanLineGUID</code> into the ledger. Only a payment knows its plan payment; an invoice never does. A ledger keyed by the plan line would put the invoice and its payment into different rows and no row would ever reach zero.</td><td>The ledger key is <i>legal entity · role · partner · contract · project · task · currencies</i> (project and task exist on every source line). The plan payment stays a column of the <b>register</b> (drill-down “which plan payment was this”). The “may be empty” of the Google Doc is kept for the task and the plan line: empty only for rows that have none (a later “opening balance” document, section 12).</td></tr>
+  <tr><td class="id">F5</td><td><b>Exchange rate difference.</b> A contract in USD, an accounting currency EUR: the invoice is converted at the rate of its day, the payment at the rate of ITS day. When the contract balance is 0 the accounting balance is usually NOT 0 – the difference is the realized FX gain / loss.</td><td>The balance in the <b>contract currency is the truth</b> (what is owed). The accounting and budget sums are historical sums “as posted”; the report says so in the column tip. Revaluation and FX gain / loss accounting stay out of scope (as in PART 38).</td></tr>
+  <tr><td class="id">F6</td><td><b>Mixed currencies.</b> Contract sums of two contracts in different currencies must never be added; accounting and budget sums follow the currency of each PROJECT.</td><td>A sum is added only within one currency. Every report row has its currency; a group row shows a sum only when all its children share the currency, otherwise “mixed”; the footer is one line per currency (the rule of the cash rests).</td></tr>
+  <tr><td class="id">F7</td><td><b>The contract of an invoice is optional.</b> <code>post_vendor_invoice</code> does not require it; then <code>vendorInvoiceCurrency = ''</code> and no payment can match the invoice by contract.</td><td>Key <code>balancePartnerContract = ''</code> (no contract) and the currency falls back to the project’s <code>currencyForContract</code> (as the Time sheet cost does for a role rate). Q6 asks whether Post should require a contract instead.</td></tr>
+  <tr><td class="id">F8</td><td><b>A payment to a person has no counterpart.</b> A payment fact may pay a person (salary); persons are never invoiced, a balance would only grow.</td><td>Persons are not in the balance (Q3). The cash ledger still has them.</td></tr>
+  <tr><td class="id">F9</td><td><b>A partner can be a customer AND a vendor</b>, even under the same contract; and a refund goes the “wrong” way (we pay a customer back, a vendor pays us back). The operation types of the Google Doc follow the direction only.</td><td>Add the column <code>balanceRole</code> (<code>customer</code> | <code>vendor</code>) – the filter of the two reports – and two more operation types, <code>customerRefund</code> (outbound, +) and <code>vendorRefund</code> (inbound, −). The role of a payment: from the invoice it pays, else the direction (outbound → vendor, inbound → customer), else the new optional field <code>paymentFactBalanceRole</code> of the payment fact header (Q4).</td></tr>
+  <tr><td class="id">F10</td><td><b>Legal entity.</b> We have several legal entities; “what Acme owes the German GmbH” is not “what Acme owes the Polish sp. z o.o.”. The Google Doc has no legal entity.</td><td>Add <code>balanceLegalEntity</code> to the register and the key (invoice: header <code>rowOwnerGUID</code>; payment: the folder of its money account) and an optional filter <code>legalEntityFilter</code> (Q7).</td></tr>
+  <tr><td class="id">F11</td><td><b>Names in the Google Doc</b> that I corrected (tell me if you want them as typed): <code>registratokKind</code> → <code>registratorKind</code>; <code>partnerBalaceOperationType</code> → <code>partnerBalanceOperationType</code>; <code>???vendorKredit</code> → <code>vendorCredit</code> (mirror of <code>customerDebit</code>: the vendor’s account is credited by his invoice); <code>partnerContractFiler</code> → <code>partnerContractFilter</code>; <code>showSumFoAccounting</code> → <code>showSumForAccounting</code>.</td><td>Note: “credit” here is the accounting word, not “credit note”. Credit notes are the NEGATIVE <code>vendorCredit</code> rows.</td></tr>
+  <tr><td class="id">F12</td><td><b>An advance payment</b> (no invoice yet) is a normal row: a payment with no invoice makes the balance go the other way (we paid 100, nothing invoiced: +100 on the vendor).</td><td>No special handling; the report shows it. Matching a payment to an invoice (open items) is out of scope; <code>payment_fact_invoice_open</code> already answers it per invoice line.</td></tr>
+</table>
+</div>
+
+<h2>5. Proposed data model (to confirm)</h2>
+<p>Names follow the Google Doc where it gives one; the rest follows the register pattern of the app (<code>cash_account_ledger_movements</code>, <code>project_status_movements</code>). Both tables belong to <b>PART 39</b> (start1: tables; start2: functions, RLS, grants, realtime; delete file).</p>
+<pre>partner_balance_movements          the register – one SIGNED row per posted source line, written ONLY by the Post functions
+  rowGUID                       uuid PK
+  rowOrganizationGUID           text            RLS scope (as the invoice headers)
+  registratorGUID               uuid            the header of the document (invoice or payment fact)       (R2)
+  registratorKind               text            'vendorInvoice' | 'customerInvoice' | 'paymentFact'         (R2, the typo corrected)
+  registratorLineGUID           uuid            the line of the document;  UNIQUE (registratorKind, registratorLineGUID)
+  partnerBalanceOperationType   text            customerDebit | customerPayment | customerRefund | vendorCredit | paymentToVendor | vendorRefund
+  balanceRole                   text            'customer' | 'vendor'   (derived from the type; stored for the index and the filter)
+  periodDay                     date            invoice: the day of vendorInvoiceDateTime / customerInvoiceDateTime (same +12 h rule as the status register);
+                                                payment: paymentFactDate
+  balanceLegalEntity            text            invoice: header rowOwnerGUID;  payment: the folder of the money account
+  balancePartner                text NOT NULL   partnerTable.rowGUID
+  balancePartnerContract        text NOT NULL DEFAULT ''   contractTable.rowGUID, '' = no contract (F7)
+  projectGUID                   uuid NOT NULL   the project of the line
+  projectPaymentPlanTaskGUID    uuid NULL       the task of the line (name of the Google Doc; may be empty, F4)
+  projectPaymentPlanLineGUID    uuid NULL       only a payment that came from the plan; empty for an invoice and for an unplanned payment
+  currencyForContract           text NOT NULL   the contract's currency (F7: else the project's currencyForContract)
+  currencyForAccounting         text NOT NULL DEFAULT ''   the project's;  '' = the project has none, the sum is 0
+  currencyForBudget             text NOT NULL DEFAULT ''
+  sumForContract                numeric(18,2) NOT NULL   SIGNED, WITH VAT (F3)
+  sumForAccounting              numeric(18,2) NOT NULL DEFAULT 0
+  sumForBudget                  numeric(18,2) NOT NULL DEFAULT 0
+  created_at / updated_at       timestamptz
+  indexes: (org, balanceRole, balancePartner, balancePartnerContract, periodDay) – the report;  (registratorGUID) – Unpost;  (projectGUID, task) – the filters
+
+partner_balance_ledger             totals for now – kept by the database in the Post transaction, never typed
+  key (primary key, every part NOT NULL, '' = empty):
+    rowOrganizationGUID, balanceLegalEntity, balanceRole, balancePartner, balancePartnerContract,
+    projectGUID, projectPaymentPlanTaskGUID, currencyForContract, currencyForAccounting, currencyForBudget
+  sumForContract, sumForAccounting, sumForBudget      numeric(18,2)   Σ signed movements
+  movementCount integer, lastPeriodDay date, updated_at</pre>
+
+<h3>Signs and operation types</h3>
+<div class="tbl">
+<table>
+  <tr><th>Source</th><th>Condition</th><th>Operation type</th><th>Role</th><th class="num">Sign × amount</th><th>Reading</th></tr>
+  <tr><td>Customer invoice line</td><td>amount &gt; 0</td><td><code>customerDebit</code></td><td>customer</td><td class="num">+</td><td>the customer owes us more</td></tr>
+  <tr><td>Inbound payment</td><td>role customer</td><td><code>customerPayment</code></td><td>customer</td><td class="num">−</td><td>the customer paid</td></tr>
+  <tr><td>Outbound payment</td><td>role customer (refund)</td><td><code>customerRefund</code></td><td>customer</td><td class="num">+</td><td>we gave money back</td></tr>
+  <tr><td>Vendor invoice line</td><td>amount &gt; 0</td><td><code>vendorCredit</code></td><td>vendor</td><td class="num">−</td><td>we owe the vendor more</td></tr>
+  <tr><td>Outbound payment</td><td>role vendor</td><td><code>paymentToVendor</code></td><td>vendor</td><td class="num">+</td><td>we paid</td></tr>
+  <tr><td>Inbound payment</td><td>role vendor (refund)</td><td><code>vendorRefund</code></td><td>vendor</td><td class="num">−</td><td>the vendor gave money back</td></tr>
+  <tr><td>Either invoice</td><td>amount &lt; 0 (credit note)</td><td>same type as above</td><td>same</td><td class="num">opposite</td><td>the debt shrinks (F2)</td></tr>
+</table>
+</div>
+<p><b>Convention:</b> the stored balance is positive when the <b>partner owes us</b> and negative when <b>we owe the partner</b>. Example for a vendor and one contract in EUR: invoice 1 000 → −1 000; payment 400 → +400; balance −600 (“we owe 600”); credit note 100 → +100; balance −500. Customer: invoice 1 000 → +1 000; payment 1 000 → −1 000; balance 0.</p>
+
+<h3>Rules</h3>
+<ul>
+  <li>Written <b>only</b> by the SECURITY DEFINER Post / Unpost functions (<code>post_vendor_invoice</code>, <code>post_customer_invoice</code>, <code>post_payment_fact</code> and their Unposts) in the <b>same transaction</b> – one <code>PERFORM</code> each, next to the existing register calls. The client has SELECT only (RLS by organization, as the invoice headers). Realtime on the ledger.</li>
+  <li><b>Post</b>: delete the rows of the registrator (idempotent), insert the new ones, add them to the ledger (<code>INSERT … ON CONFLICT DO UPDATE SET sum = sum + EXCLUDED.sum</code>). <b>Unpost</b>: read the rows, subtract them from the ledger, delete them. Rows are processed in key order, so two parallel Posts cannot deadlock on the same ledger rows; a ledger row that reaches zero movements is deleted.</li>
+  <li>Posted documents are frozen (their lines cannot change), so a row is never updated. The sums are <b>as posted</b> (section 11, Q5 for a rate change).</li>
+  <li>A posted payment to a <b>person</b> writes no row (F8). A payment with no contract cannot be posted (<code>contractMissing</code>), so the key is always complete.</li>
+  <li>An existing database is <b>backfilled</b> once at the end of start2 (all POSTED invoices and payment facts), guarded and idempotent like the other backfills; <code>partner_balance_verify(org)</code> rebuilds the totals from the register and the register from the posted documents and lists the differences (the pattern of <code>monitor01_verify</code> / <code>roi_verify</code>).</li>
+  <li>The register is the only truth; the ledger is a copy that can always be rebuilt (<code>partner_balance_rebuild</code>).</li>
+</ul>
+
+<h2>6. How a source line becomes a row</h2>
+<div class="tbl">
+<table>
+  <tr><th>Column</th><th>Vendor / customer invoice line</th><th>Payment fact line</th></tr>
+  <tr><td><code>periodDay</code></td><td>day of the invoice date</td><td><code>paymentFactDate</code></td></tr>
+  <tr><td><code>balanceLegalEntity</code></td><td>header <code>rowOwnerGUID</code></td><td><code>rowParentGUID</code> of the money account</td></tr>
+  <tr><td><code>balancePartner</code></td><td><code>vendorInvoicePartner</code> / <code>customerInvoicePartner</code></td><td><code>paymentFactPartner</code></td></tr>
+  <tr><td><code>balancePartnerContract</code></td><td>the header contract, else <code>''</code></td><td><code>paymentFactContract</code> of the line</td></tr>
+  <tr><td><code>projectGUID</code> / task</td><td><code>rowProjectGUID</code> / <code>rowOwnerGUID</code> of the line</td><td>the same columns of the line</td></tr>
+  <tr><td><code>projectPaymentPlanLineGUID</code></td><td>empty</td><td><code>paymentPlanLineGUID</code> (may be empty)</td></tr>
+  <tr><td><code>currencyForContract</code></td><td>header currency; else the project’s <code>currencyForContract</code></td><td><code>paymentFactCurrency</code></td></tr>
+  <tr><td><code>sumForContract</code></td><td>sign × (<code>sumForContract + vatForContract</code>)</td><td>sign × <code>sumForContract</code></td></tr>
+  <tr><td><code>sumForAccounting</code></td><td>sign × <code>sumForAccounting</code> (total)</td><td>sign × the stored <code>sumForAccounting</code> of the movement</td></tr>
+  <tr><td><code>sumForBudget</code></td><td>sign × (<code>sumForBudget + vatForBudget</code>)</td><td>sign × the stored <code>sumForBudget</code></td></tr>
+</table>
+</div>
+
+<h2>7. The two reports</h2>
+<h3>7.1 Common layer – “maximum reusable code”</h3>
+<p>The two reports differ in ONE parameter (<code>balanceRole</code> and the label of the sign). Everything else is shared, and the shared part is written so that the existing Monitor01–03 can adopt it later; <b>they are not refactored in this round</b> (nothing existing changes).</p>
+<div class="tbl">
+<table>
+  <tr><th>Layer</th><th>Shared module (proposed place)</th><th>What it is</th></tr>
+  <tr><td>Data</td><td><code>kit8/pm/reports/common/useReportData.ts</code></td><td>One hook: an RPC call with a filters object, debounce, the age of the data, Realtime on a table with a coalesced re-read, the badge state (Live / Offline / Auto refresh is off). Monitor02 and Monitor03 have the same loop written twice.</td></tr>
+  <tr><td>Filters</td><td><code>…/common/ReportFilterBar.tsx</code> + <code>reportFilterModel.ts</code></td><td>The bar is built from a list of <b>descriptors</b> (<code>date</code>, <code>select</code> with <code>dependsOn</code> (task depends on project, contract depends on partner), <code>amountRange</code>, <code>flags</code>): one horizontal scrolling row, Clear inside the field, 150 ms debounce, date errors by <code>parseDayInput</code>.</td></tr>
+  <tr><td>Period</td><td><code>…/common/reportPeriod.ts</code></td><td><code>dateFrom</code> ≤ <code>dateTo</code>, both included, 8-digit input; reuses <code>SelectPeriodButton</code> where a month range is wanted.</td></tr>
+  <tr><td>Table</td><td><code>…/common/ReportTable.tsx</code></td><td>Grouped tree rows (expand / collapse), column groups with a header tip, footer per currency, number formatting, red / green sign colour, double click on a row = open the source. Columns are described by data (a <b>sum-kind registry</b>, below), not by JSX.</td></tr>
+  <tr><td>Drill-down</td><td>reuse <code>SumExplorerListReusable</code></td><td>Click on a sum cell → the list of register rows behind it (date · document · type · amount); press on a row opens the invoice / payment fact form.</td></tr>
+  <tr><td>Balance report</td><td><code>kit8/pm/reports/partner_balance/</code></td><td><code>partnerBalanceModel.ts</code> (sum-kind registry, filter model, tree builder, currency rule F6), <code>partnerBalanceApi.ts</code>, <code>PartnerBalanceDashboard.tsx</code>(role). Two thin routes: <code>app/pm/reports/monitor07/customer</code> and <code>…/vendor</code>; Drawer → Reports → <b>Monitor07 Customer balance</b>, <b>Monitor07 Vendor balance</b>; the screen names <code>Monitor07CustomerBalance</code> / <code>Monitor07VendorBalance</code> are exported from the folder’s <code>index.ts</code>.</td></tr>
+</table>
+</div>
+<p><b>Sum-kind registry</b> (“+ other types of sums”): one array <code>{ kind: 'contract' | 'accounting' | 'budget', flag: 'showSumForContract', column: 'sumForContract', currencyColumn, title }</code>. The flags, the 4 × N columns (<code>…Begin · …Plus · …Minus · …End</code>), the SQL aggregation and the footer are all generated from it – a fourth kind (for example the VAT part, or the money account sum if a later report needs it) is one more entry plus one column in the two tables.</p>
+
+<h3>7.2 Filters and flags</h3>
+<div class="tbl">
+<table>
+  <tr><th>Name</th><th>Rule</th></tr>
+  <tr><td><code>dateFrom</code>, <code>dateTo</code></td><td>Obligatory; both days included. Default: the first day of the current month … today. <code>dateFrom &gt; dateTo</code> is a red field and no query.</td></tr>
+  <tr><td><code>projectFilter</code></td><td>Select (clearable) from the projects the user can see in the organization. Empty = all.</td></tr>
+  <tr><td><code>taskFilter</code></td><td>Disabled until a project is chosen; lists the tasks that have register rows in that project; changing the project clears it.</td></tr>
+  <tr><td><code>partnerFilter</code></td><td>Select from the partners that have rows of this role.</td></tr>
+  <tr><td><code>partnerContractFilter</code></td><td>Disabled until a partner is chosen; lists the contracts of that partner that have rows (and “no contract”).</td></tr>
+  <tr><td><code>sumFromFilter</code>, <code>sumToFilter</code></td><td>Borders INCLUDED. Applied to the <b>End</b> balance of the report row in the contract currency, in the displayed sign (Q8). Either may be empty.</td></tr>
+  <tr><td><code>legalEntityFilter</code> <span class="tag">proposed</span></td><td>F10. Shown only when the organization has more than one legal entity with rows.</td></tr>
+  <tr><td><code>showSumForContract</code> (default ON), <code>showSumForAccounting</code>, <code>showSumForBudget</code> (default OFF)</td><td>Each flag adds its 4 columns. All three off is refused (the last one stays on). The choice is remembered per user and per report (AsyncStorage).</td></tr>
+</table>
+</div>
+
+<h3>7.3 Columns and the arithmetic</h3>
+<ul>
+  <li>Tree: <b>Partner → Contract → Project → Task</b> (the ledger key). The server returns the leaves grouped to the level the screen needs (partner × contract at first; project and task are fetched on expand), so a big organization does not send 100 000 rows.</li>
+  <li>For every shown sum kind: <b>Begin</b> = Σ of the rows with <code>periodDay &lt; dateFrom</code>; <b>Plus</b> = Σ of the rows in [<code>dateFrom</code>, <code>dateTo</code>] that increase the displayed balance; <b>Minus</b> = the absolute Σ of those that decrease it; <b>End</b> = Begin + Plus − Minus (= Σ of the rows with <code>periodDay ≤ dateTo</code>). A credit note therefore lands in Minus (or Plus for the opposite sign) – the identity always holds and <code>partner_balance_verify</code> checks it.</li>
+  <li>Sign shown (Q1): the <b>Customer</b> report shows the ledger sign (positive = the customer owes us). The <b>Vendor</b> report shows the sign <b>flipped</b> (positive = we owe the vendor) so that “Begin + invoices − payments = End” reads naturally in both; a single constant per report (<code>displaySign</code>) does it, the data is never flipped. A header line states the convention.</li>
+  <li>Currency rule F6; the accounting and budget columns carry the currency code in the cell tip. A zero-balance row is hidden by a switch “Hide settled” (default ON for End = 0 and Plus = Minus = 0).</li>
+  <li>When <code>dateTo</code> is today or later and <code>dateFrom</code> is empty-equivalent, the End column may be read from <code>partner_balance_ledger</code> (fast path); in all other cases from the register.</li>
+</ul>
+<h3>7.4 Reading the data (SQL, names proposed)</h3>
+<p><code>partner_balance_report(p_role, p_from, p_to, p_filters jsonb, p_level text, p_parent jsonb)</code> – one RPC for both reports, organization of the caller, returns the rows with the three sum kinds in one go; <code>partner_balance_movements_list(p_role, p_key jsonb, p_from, p_to, p_kind)</code> for the drill-down; <code>partner_balance_filter_items(p_role, p_filters jsonb)</code> for the dependent selects. All STABLE, SECURITY DEFINER, <code>AS MATERIALIZED</code> where a CTE is used twice (pitfall of the busy check); the Supabase limit for <code>authenticated</code> is 8 s.</p>
+
+<h2>8. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Answers to Q1–Q9 (section 11)</td><td>Written into a new section “Decisions” (after the questions)</td><td>R4, R8</td></tr>
+  <tr><td class="id">1.2</td><td>Check what the register does when a task with a posted invoice line is deleted (lines cascade with the task)</td><td>The balance rows follow the same rule (risk 2)</td><td>R1</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Negative invoices (only when Q2 = yes)</td></tr>
+  <tr><td class="id">2.1</td><td>Relax the quantity / price CHECKs of <code>vendor_invoice_lines</code> and <code>customer_invoice_lines</code> (start1, inside PARTs 26 and 31); keep the VAT range check</td><td>One negative factor allowed, both negative refused; an existing database is upgraded (drop + add of the constraint)</td><td>R4</td></tr>
+  <tr><td class="id">2.2</td><td>Check <code>vat_line_calc</code>, the line triggers, <code>project_status_register_invoice</code> / <code>…_customer_invoice</code>, <code>payment_fact_invoice_open</code>, <code>create_payment_fact_from_*</code> with a negative line</td><td>Fixes in place; the VAT of a credit note is the negative VAT; a negative open amount is never offered to a payment</td><td>R4</td></tr>
+  <tr><td class="id">2.3</td><td>Invoice form / table: the number inputs accept a minus (<code>PMNumberInputApp positiveOnly={false}</code> on those two columns only)</td><td>A credit note can be typed; the other documents keep <code>positiveOnly</code></td><td>R4</td></tr>
+  <tr><td class="id">2.4</td><td>Docker tests of Monitor01 / ROI / invoice with a credit note</td><td>Invoiced quantity and sum go down; ROI4 and the cost total stay right</td><td>R4</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">SQL – PART 39 “partner balance” (start1 tables, start2 code, delete file; same PART number and title)</td></tr>
+  <tr><td class="id">3.1</td><td>Tables <code>partner_balance_movements</code>, <code>partner_balance_ledger</code>, indexes, CHECKs (type, role, kinds, currency format, type ↔ role)</td><td>Section 5; <code>CREATE TABLE IF NOT EXISTS</code>, no function call in a table definition</td><td>R1–R3</td></tr>
+  <tr><td class="id">3.2</td><td>RLS (SELECT by organization), grants, realtime publication of the ledger, touch triggers</td><td>The client cannot insert / update / delete either table</td><td>R1–R3</td></tr>
+  <tr><td class="id">3.3</td><td>Writers: <code>partner_balance_register(kind, header)</code> and <code>partner_balance_unregister(header)</code>; the ledger upsert / subtract in key order</td><td>The three Post and three Unpost functions call them (changed in place, one line each); a refused Post writes nothing</td><td>R1, R2</td></tr>
+  <tr><td class="id">3.4</td><td>Role of a payment (invoice → direction → <code>paymentFactBalanceRole</code>) and the persons rule</td><td>Table of section 4 F8, F9 proven by tests</td><td>R2</td></tr>
+  <tr><td class="id">3.5</td><td>Backfill of existing posted documents; <code>partner_balance_rebuild</code>, <code>partner_balance_verify</code></td><td>Idempotent; run twice = no change; verify returns 0 differences</td><td>R1–R3</td></tr>
+  <tr><td class="id">3.6</td><td>Report RPCs of section 7.4</td><td>Begin + Plus − Minus = End on every row; the mixed-currency rule; the filters; the 8 s limit with the bench data</td><td>R5–R7</td></tr>
+  <tr><td class="id">3.7</td><td>Delete guards: a partner / contract / legal entity with balance rows cannot be deleted (<code>ON DELETE RESTRICT</code> or a guard trigger, as <code>work_center_delete_guard</code>); the drop of both tables in <code>delete_sql_structure.sql</code> (numbered part 39)</td><td><code>test_sql.sh</code>: delete leaves nothing</td><td>R1–R3</td></tr>
+  <tr><td class="id">3.8</td><td>Optional field <code>paymentFactBalanceRole</code> in <code>payment_fact_set_header</code> (Q4)</td><td>Header keys are whitelisted: <code>normalize…</code> of the payment fact header keeps the new key</td><td>R2</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Common report layer (section 7.1)</td></tr>
+  <tr><td class="id">4.1</td><td><code>kit8/pm/reports/common</code>: <code>useReportData</code>, <code>ReportFilterBar</code> + descriptors, <code>reportPeriod</code>, <code>ReportTable</code>, README</td><td>Written test-first; no change to Monitor01–03</td><td>R5</td></tr>
+  <tr><td class="id">4.2</td><td>Sum-kind registry and the currency rule in <code>partnerBalanceModel.ts</code></td><td>Golden cases in Jest (same numbers as the SQL test)</td><td>R5, R7</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">The two reports</td></tr>
+  <tr><td class="id">5.1</td><td><code>PartnerBalanceDashboard</code> (role), the two routes, the Drawer entries (Reports group, after Monitor03), <code>app/_layout.tsx</code> + <code>CustomDrawerContent.tsx</code></td><td>Both open, share one code path, differ only in role and sign label</td><td>R5</td></tr>
+  <tr><td class="id">5.2</td><td>Filters (R6) with the dependent selects; flags (R7); “Hide settled”; remembered choices</td><td>All inputs of 7.2</td><td>R6, R7</td></tr>
+  <tr><td class="id">5.3</td><td>Drill-down: a click on a sum cell lists the register rows; a press opens the document</td><td>Invoice form / payment fact form open in their own screen</td><td>R5</td></tr>
+  <tr><td class="id">5.4</td><td>Realtime on the ledger + the age / Live badge; “Refresh” button</td><td>A Post in another window changes the open report</td><td>R5</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Tests, documentation, hand-over</td></tr>
+  <tr><td class="id">6.1</td><td>Docker <code>tests/97_partner_balance.sql</code> (one transaction, rolled back) + <code>bench_partner_balance.sh</code> (100 000 rows); added to <code>test_fact_monitor01.sh</code> (97) and <code>test_sql.sh</code></td><td>Section 9 SQL checks; “-&gt; N checks passed”</td><td>All</td></tr>
+  <tr><td class="id">6.2</td><td>Jest: model (registry, tree, currency rule, sign), filters (dependency), table, dashboard, the SQL files (PART 39 in both files, the drop part), the Drawer; a test of the invoice credit-note input (2.3)</td><td>No new failure against the baseline of KNOW_HOW section 5</td><td>All</td></tr>
+  <tr><td class="id">6.3</td><td>READMEs: <code>kit8/pm/reports/common</code>, <code>kit8/pm/reports/partner_balance</code>; KNOW_HOW (feature index row, pitfalls); sample data: the two Railway #1 invoices and their payment facts already exist (<code>documentation/RAILWAY_1/RAILWAY_1_DATA.sql</code>) – extend with a credit note and a refund</td><td>The owner can open both reports on Railway #1 and see the numbers of its payment facts</td><td>All</td></tr>
+</table>
+</div>
+
+<h2>9. Sequence, dependencies and acceptance criteria</h2>
+<div class="card">
+  <p><b>Order:</b> 1 → (2, only with Q2) → 3 → 4 → 5 → 6. The SQL (3) can be proven on Docker before any screen; 4 can start in parallel with 3 because it does not need the tables.</p>
+  <h3>Acceptance criteria</h3>
+  <ul>
+    <li>A posted vendor invoice of 1 000 + 20 % VAT on contract C (EUR) shows −1 200 in the vendor report; a posted payment fact of 500 on C shows +500; the End balance is −700 (the vendor report displays 700 “we owe”).</li>
+    <li>Unposting either document restores the previous balance exactly; Post twice writes the rows once.</li>
+    <li>A customer invoice and its inbound payment in USD (project in EUR) net to 0 in the contract currency; the accounting End shows the FX difference and the tip says so.</li>
+    <li>A credit note (Q2) flips the sign; a refund (Q4) goes the other way; a partner who is customer and vendor appears in both reports with separate numbers.</li>
+    <li>A payment to a person changes no balance.</li>
+    <li>Two contracts in two currencies under one partner show two currency footers and “mixed” on the partner row for the contract sum.</li>
+    <li>Begin + Plus − Minus = End on every row, for any <code>dateFrom</code> / <code>dateTo</code>; <code>partner_balance_verify</code> = 0 differences after a random sequence of Posts / Unposts.</li>
+    <li>A user of another organization sees nothing; the client cannot write either table.</li>
+    <li>With 100 000 register rows the partner × contract level answers in under 2 s; a leaf expand in under 1 s.</li>
+  </ul>
+  <h3>SQL checks the Docker test will make (tests/97)</h3>
+  <ul>
+    <li>Types and signs of the six operation types; the role of a payment from an invoice / direction / header field; a person writes nothing.</li>
+    <li>The ledger equals the Σ of the register after Post, Unpost, re-Post, backfill and rebuild; a zero ledger row disappears.</li>
+    <li>The report identity Begin + Plus − Minus = End; the date borders are included; the filters (project → task, partner → contract, sum range with included borders, legal entity).</li>
+    <li>Gross sums (F3) against hand-calculated numbers; a no-contract invoice (F7); a negative line (F1/F2).</li>
+    <li>RLS: another organization, no INSERT / UPDATE / DELETE by <code>authenticated</code> (counted with <code>tt.rows_of</code>, RLS filters silently); delete guards; <code>delete_sql_structure.sql</code> leaves nothing.</li>
+    <li>Race: two sessions Post two documents of the same key at once (the order of the upsert prevents a deadlock).</li>
+  </ul>
+</div>
+
+<h2>10. Assumptions (proposed – tell me if one is wrong)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Assumption</th><th>If wrong</th></tr>
+  <tr><td class="id">A1</td><td>The balance is per <b>partner and contract</b> (and legal entity), not per invoice. Which payment closes which invoice is not tracked (open items stay on the invoice lines through <code>payment_fact_invoice_open</code>).</td><td>An open-items report (aging) is a later, separate round.</td></tr>
+  <tr><td class="id">A2</td><td>Persons are not partners of the balance (F8).</td><td>One more key column <code>balancePerson</code> and a third report.</td></tr>
+  <tr><td class="id">A3</td><td>The register is written in the Post transaction – no worker, no pg_cron, no change of <code>start3</code>.</td><td>If a posting must be very fast on huge documents, the ledger part can move to a queue; measured first.</td></tr>
+  <tr><td class="id">A4</td><td>The route and the Drawer group: <code>app/pm/reports/monitor07/…</code>, Reports group after Monitor03. Monitor04–06 are not built; the name <code>Monitor07</code> is the owner’s.</td><td>Rename of two routes and two titles.</td></tr>
+  <tr><td class="id">A5</td><td>The currency of an account’s legal entity is not needed; the report shows the contract currency per row.</td><td>A report currency conversion (all in one currency) is a later switch.</td></tr>
+</table>
+</div>
+
+<h2>11. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Recommendation</th></tr>
+  <tr><td class="id">Q1</td><td><b>Sign in the vendor report.</b> The Google Doc gives the vendor invoice a minus. Show the vendor report as stored (negative = we owe) or flipped (positive = we owe)?</td><td>Store as in the Google Doc; <b>display flipped in the vendor report</b> (one constant), so Begin + invoices − payments = End reads naturally in both reports. The header states the convention.</td></tr>
+  <tr><td class="id">Q2</td><td><b>Negative invoices (R4) – how.</b> Today a quantity or a price below 0 is refused (F1). Allow it for the two invoices?</td><td>Yes: ONE negative factor per line (negative quantity = return, negative price = discount); both negative refused; Post still refuses a zero quantity; a negative open amount is not offered to a payment. Needs the work package 2 and tests of Monitor01 / ROI.</td></tr>
+  <tr><td class="id">Q3</td><td><b>Payments to a person</b> (salary, per diem): in the balance?</td><td>No (A2). They stay in the cash ledger.</td></tr>
+  <tr><td class="id">Q4</td><td><b>Refunds and the role of a payment.</b> Add the types <code>customerRefund</code> / <code>vendorRefund</code> and the optional header field <code>paymentFactBalanceRole</code> (default by direction; set automatically when the fact comes from an invoice)?</td><td>Yes. Without it a refund would be booked as a payment of the wrong role.</td></tr>
+  <tr><td class="id">Q5</td><td><b>Exchange rate change.</b> The cash ledger recalculates the converted sums of a payment when a rate changes (PART 38). Should the accounting / budget sums of the balance rows follow, or stay as posted?</td><td><b>As posted</b> (the same decision as for the document lines, PART 38 Q7): a balance in the accounting currency is a history; the contract currency is exact. Following the cash ledger is possible later through the same queue.</td></tr>
+  <tr><td class="id">Q6</td><td><b>Invoice without a contract</b> (F7). Allow (key <code>''</code>, currency of the project) or require a contract at Post?</td><td>Allow – requiring it changes existing behaviour. The report shows “(no contract)”.</td></tr>
+  <tr><td class="id">Q7</td><td><b>Legal entity</b> (F10): a column of the key and a filter?</td><td>Yes; the filter appears only when there are rows of more than one legal entity.</td></tr>
+  <tr><td class="id">Q8</td><td><b>What do <code>sumFromFilter</code> / <code>sumToFilter</code> filter?</b></td><td>The End balance of the row in the contract currency, in the displayed sign (e.g. “vendors we owe from 1 000”). A filter on the movements is not meant.</td></tr>
+  <tr><td class="id">Q9</td><td><b>Backfill.</b> Fill the balance from the posted invoices and payment facts that exist now (the Railway #1 data and your own)?</td><td>Yes, once, at the end of start2 (idempotent), with <code>partner_balance_verify</code> to check it.</td></tr>
+</table>
+</div>
+
+<h2>12. Out of scope for W1 PARTNER BALANCE</h2>
+<div class="card">
+  <ul>
+    <li>Open items / aging (which payment closes which invoice), reminders and dunning, payment terms vs due date.</li>
+    <li>Opening balances of partners migrated from another system (the “may be empty” keys are ready for such a document).</li>
+    <li>FX revaluation and realized / unrealized exchange gain / loss; a report in one common currency.</li>
+    <li>A third report “Partner net position” (a partner who is customer and vendor, net) and a balance of persons.</li>
+    <li>Changing Monitor01–03 to the common report layer; a partner card with its balance (the ledger is ready to feed it).</li>
+    <li>Bank statement import and automatic matching; a general ledger of accounts (debit / credit).</li>
+  </ul>
+</div>
+
+<h2>13. Risks</h2>
+<div class="card">
+  <ul>
+    <li><b>1. Credit notes touch five existing places</b> (the invoice constraints, the VAT calculation, the status register, Monitor01 / ROI, the payment from an invoice). That is the largest and the only risky part; it is therefore its own work package and its own answer (Q2). The balance does not depend on it.</li>
+    <li><b>2. A deleted task.</b> The invoice lines go with the task (cascade). The register must follow the same rule as the status register; checked in 1.2, otherwise a balance would keep a row whose document line is gone. A posted payment fact already blocks the delete (<code>payment_fact_lines_delete_guard</code>).</li>
+    <li><b>3. Hot ledger rows.</b> A partner with thousands of lines posted in parallel updates the same few ledger rows. The writers lock in key order; the bench has a two-session test. If it hurts, the ledger moves to a statement-level trigger with a transition table (one update per statement).</li>
+    <li><b>4. Report speed.</b> Begin / Plus / Minus come from the register by date. If 100 000 rows are too slow for the 8 s limit, a monthly rests table (the idea of the cash rests) is added – decided by the bench, not before.</li>
+    <li><b>5. Two readings of “sum”.</b> The invoice line sums are NET (budget, contract) or TOTAL (accounting); the payment sums are gross. The mapping table in section 6 and the golden cases in Jest + SQL keep it (the same lesson as the time sheet cost: two implementations of one rule).</li>
+    <li><b>6. The owner’s Supabase</b> cannot be seen from the build session: the SQL is proven on Docker Postgres 15 only.</li>
+  </ul>
+</div>
+
+<h2>14. Status</h2>
+<div class="card">
+  <p><b>2026-10-23: analysis only, nothing is built, no SQL or app file changed</b> (as asked: “no code”). Next step: your answers to Q1–Q9 (or “take your recommendations”), then the build in the order of section 9. The update paragraph of the build round will be: start1 → start2 (PART 39), no start3, no seeds, no <code>.env</code> change.</p>
+</div>
+
+</main>
+</body>
+</html>
