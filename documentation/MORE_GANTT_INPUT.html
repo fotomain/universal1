@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>More Gantt Input – gaps against MS Project</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+    --miss: #b42318; --miss-bg: #fde8e6; --part: #8a5a00; --part-bg: #fff1cc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+      --miss: #ff8f85; --miss-bg: #3d1f1c; --part: #ffd266; --part-bg: #3a3014;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; position: sticky; top: 0; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 48px; }
+  td.item { font-weight: 600; width: 22%; }
+  td.ms { width: 46%; }
+  td.app { width: 28%; color: var(--muted); }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 0 8px; border-radius: 999px; margin-right: 4px; }
+  .tag.miss { background: var(--miss-bg); color: var(--miss); }
+  .tag.part { background: var(--part-bg); color: var(--part); }
+  .nowrap { white-space: nowrap; }
+  @media (max-width: 760px) { td.item, td.ms, td.app { width: auto; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>More Gantt Input – what MS Project has and Universal 1 does not</h1>
+<p class="sub">Gap analysis of the Gantt chart / task table input of the app (<code>kit8/pm</code>) against Microsoft Project (desktop, 2016–2021 / Project Plan 3 and 5). Analysis only – nothing is implemented.</p>
+
+<h2>1. How to read this</h2>
+<div class="card">
+  <p>Every row is a MS Project function that the app does <b>not</b> have, or has only in part. The column <b>How it works in MS Project</b> is the short description. The extra last column says what the app has instead, so a <span class="tag part">Partial</span> row is clear; <span class="tag miss">Missing</span> means nothing similar was found.</p>
+  <p><b>Basis:</b> the code and the READMEs of <code>kit8/pm</code> (scheduler <code>view/project/scheduling.ts</code>, tree, Gantt canvas, task window, dependencies, versions, exports) were read and searched by keyword on 2026-10-26. The running app was not opened, so a function that exists only as a hidden setting could have been missed.</p>
+</div>
+
+<h2>2. What the app already does (so it is not in the table)</h2>
+<div class="card">
+  <ul>
+    <li><b>Schedule:</b> automatic CPM (forward + backward pass), the four link types FS / SS / FF / SF with lag and lead in working days, links to stages, “start no earlier than”, Mon–Fri or 7-day week, critical path (colored), cycle detection, stage roll-up of start / finish / progress.</li>
+    <li><b>Outline:</b> stages / tasks / milestones, WBS number (1.1.1), indent / outdent, drag and drop of rows, expand / collapse all, duplicate, delete with Undo / Redo (100 steps).</li>
+    <li><b>Gantt:</b> drag a bar (move), drag the ends (resize), drag the progress knob, drag a link from a bar end, Day / Week / Month / Year zoom, pinch / Ctrl+wheel zoom, fit to screen, custom period, Today line, weekend shading, arrow shape, task color, progress % on bars, project progress line, hover or right-click commands.</li>
+    <li><b>Table:</b> reorder / resize columns, per-column filter and sort (many operators), custom columns (text, date, boolean, integer, float), header colors, inline edit of Start / Finish / Duration / %.</li>
+    <li><b>Other views:</b> Kanban, Network diagram (PDM) and network schedule (AOA), Versions (up to 4 saved versions drawn under the bars), subprojects, templates.</li>
+    <li><b>Exchange:</b> JSON import / export, PDF of the screen, MS Project XML export.</li>
+    <li><b>Money and resources</b> (richer than MS Project, on the Finances side): Time / Material / Expense / Revenue lines, work centers with calendars, busy check at Post, budgets, fact documents.</li>
+  </ul>
+</div>
+
+<h2>3. The gaps</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Functionality</th><th>How it works in MS Project</th><th>In Universal 1 today</th></tr>
+
+  <tr class="group"><td class="id">A</td><td colspan="3">Scheduling engine and task settings</td></tr>
+  <tr><td class="id">A1</td><td class="item">Manually scheduled tasks (Task Mode)</td><td class="ms">Each task is Auto Scheduled (the engine sets the dates from links, constraints and calendar) or Manually Scheduled (the user types any start, finish or duration, even text or blank; the engine never moves it and only flags a conflict with its links). A summary task can be manual too, with dates independent of its children.</td><td class="app"><span class="tag miss">Missing</span> Every task is auto-scheduled; the only manual input is “start no earlier than”.</td></tr>
+  <tr><td class="id">A2</td><td class="item">Calculation mode Automatic / Manual (F9)</td><td class="ms">Project &gt; Calculation Options: switch off automatic recalculation to edit many tasks, then press <i>Calculate Project</i>.</td><td class="app"><span class="tag miss">Missing</span> Always recalculated at once.</td></tr>
+  <tr><td class="id">A3</td><td class="item">The 8 constraint types</td><td class="ms">Task Information &gt; Advanced: As Soon As Possible, As Late As Possible, Must Start On, Must Finish On, Start No Earlier / No Later Than, Finish No Earlier / No Later Than, each with a date. A constraint that conflicts with a link shows a warning icon; “Tasks will always honor their constraint dates” decides who wins.</td><td class="app"><span class="tag part">Partial</span> Only <i>Start no earlier than</i> (empty = ASAP). No ALAP, no Must, no “No later than”, no Finish-based constraint, no conflict warning.</td></tr>
+  <tr><td class="id">A4</td><td class="item">Schedule from Project Finish Date (ALAP project)</td><td class="ms">Project Information &gt; Schedule From: tasks are placed backward from a fixed finish date; new tasks default to ALAP.</td><td class="app"><span class="tag miss">Missing</span> Forward scheduling from the project start only (the backward pass only computes float).</td></tr>
+  <tr><td class="id">A5</td><td class="item">Deadline date</td><td class="ms">A date that does not move the task. A green arrow shows on the chart; if the finish is later than the deadline a “missed deadline” indicator appears in the indicators column.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+  <tr><td class="id">A6</td><td class="item">Task types and Effort-driven</td><td class="ms">Fixed Units, Fixed Work or Fixed Duration decide which of Work, Units and Duration changes when another is edited (Work = Duration × Units). “Effort driven” spreads the same work over added resources and shortens the task.</td><td class="app"><span class="tag miss">Missing</span> Duration is typed; the work of a Time line is a quantity on the Finances side and does not move the bar.</td></tr>
+  <tr><td class="id">A7</td><td class="item">Work, Units, Peak units, Work contours</td><td class="ms">Columns Work and Units per assignment; contour (flat, back-loaded, front-loaded, double peak, bell, turtle, manual) shapes how work is spread over time.</td><td class="app"><span class="tag miss">Missing</span> (the plan of a line is spread by the app’s own calendar rules, no contour choice).</td></tr>
+  <tr><td class="id">A8</td><td class="item">Duration units and elapsed time</td><td class="ms">Duration is typed as 3d, 2w, 1mo, 4h, 30m; <i>elapsed</i> units (3ed, 2ewk) count 24-hour calendar time and ignore calendars (curing concrete, shipping).</td><td class="app"><span class="tag part">Partial</span> Working days; hour / minute / second only as optional start and finish fields. No weeks / months, no elapsed duration.</td></tr>
+  <tr><td class="id">A9</td><td class="item">Estimated duration (“?”)</td><td class="ms">A trailing “?” marks a duration as tentative; the chart and column show it as an estimate.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+  <tr><td class="id">A10</td><td class="item">Task calendar</td><td class="ms">A base calendar can be set per task (for example a 24/7 night shift task) and “Scheduling ignores resource calendars” can be ticked.</td><td class="app"><span class="tag miss">Missing</span> One project-wide week.</td></tr>
+  <tr><td class="id">A11</td><td class="item">Calendar exceptions, work weeks, shifts</td><td class="ms">Change Working Time: holidays and days off, different working hours for a date range, several work weeks, daily shifts; the Gantt shades non-working time and tasks skip it.</td><td class="app"><span class="tag part">Partial</span> Mon–Fri / 7-day switch drives the schedule and the shading. The calendar catalog with excluded days is used for the line plan at Post, not for the bars.</td></tr>
+  <tr><td class="id">A12</td><td class="item">Split task</td><td class="ms">Split Task tool cuts a bar into segments with a gap (drag a segment to move it); the remaining work is split around the interruption and a split-in-progress option controls updates.</td><td class="app"><span class="tag miss">Missing</span> One continuous bar per task.</td></tr>
+  <tr><td class="id">A13</td><td class="item">Recurring tasks</td><td class="ms">Insert &gt; Recurring Task: daily / weekly / monthly / yearly pattern with a date range or number of occurrences creates a summary task with all occurrences.</td><td class="app"><span class="tag miss">Missing</span> (the user calendar has repeating events, the project plan does not).</td></tr>
+  <tr><td class="id">A14</td><td class="item">Inactive tasks</td><td class="ms">Task &gt; Inactivate: the task stays visible (gray, struck through) but is removed from the schedule, resources and cost; reversible – used for what-if.</td><td class="app"><span class="tag miss">Missing</span> Only delete.</td></tr>
+  <tr><td class="id">A15</td><td class="item">Task priority (0–1000)</td><td class="ms">Priority field used by resource leveling and as a sort / group key.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+  <tr><td class="id">A16</td><td class="item">Resource leveling</td><td class="ms">Resource &gt; Level: the engine delays or splits tasks to remove over-allocation, by priority, with a leveling delay column and options (within slack only, level by day / week).</td><td class="app"><span class="tag miss">Missing</span> The busy check at Post only reports or blocks a conflict (<code>capacityModeBlock</code>); nothing is moved.</td></tr>
+  <tr><td class="id">A17</td><td class="item">Schedule options (File &gt; Options &gt; Schedule)</td><td class="ms">Default task mode and type, auto-link inserted or moved tasks, default start / end time, hours per day / week, days per month, “new tasks are effort driven”, multiple critical paths, critical = slack ≤ N days.</td><td class="app"><span class="tag part">Partial</span> Project settings hold the week type and planning units; no engine options.</td></tr>
+
+  <tr class="group"><td class="id">B</td><td colspan="3">Links (dependencies)</td></tr>
+  <tr><td class="id">B1</td><td class="item">Predecessors / Successors column</td><td class="ms">Type the links in the cell: <code>5FS+2d, 7SS-1w, 9</code> (row ID, type, lag with unit). Also a Successors column; the Task Dependency dialog edits one link.</td><td class="app"><span class="tag miss">Missing</span> Links are made by dragging the end knob, “Link to…”, or the arrow editor (one link at a time).</td></tr>
+  <tr><td class="id">B2</td><td class="item">Link / Unlink selected tasks</td><td class="ms">Select several tasks (Ctrl / Shift click) and press Link Tasks (Ctrl+F2): they become a finish-to-start chain in one step; Unlink Tasks (Ctrl+Shift+F2) removes the links of the selection.</td><td class="app"><span class="tag miss">Missing</span> The check boxes of the tree only delete in bulk.</td></tr>
+  <tr><td class="id">B3</td><td class="item">Auto-link on insert / delete / move</td><td class="ms">Inserting a task between two linked tasks re-links the chain through it; deleting or cutting a task reconnects its predecessor to its successor (option “Autolink inserted or moved tasks”).</td><td class="app"><span class="tag miss">Missing</span> Deleting a task deletes its dependencies.</td></tr>
+  <tr><td class="id">B4</td><td class="item">Lag as a percentage and elapsed lag</td><td class="ms">Lag may be <code>+50%</code> of the predecessor’s duration, or elapsed (<code>+2ed</code>).</td><td class="app"><span class="tag part">Partial</span> Lag / lead in working days only (a number).</td></tr>
+  <tr><td class="id">B5</td><td class="item">Cross-project links and master projects</td><td class="ms">A task can depend on a task in another file; a ghost (external) task is shown and updated; Insert Project builds a master project with a shared resource pool.</td><td class="app"><span class="tag part">Partial</span> Subprojects (a task stands for a project, dates follow it). A dependency belongs to one project; no link to a task of another project.</td></tr>
+  <tr><td class="id">B6</td><td class="item">Task Inspector / Task Drivers</td><td class="ms">A pane that explains why a task starts on its date: the driving predecessor, the constraint, the calendar, the resource; offers fixes (for example remove the constraint).</td><td class="app"><span class="tag miss">Missing</span> Hover highlights the links of a task, but there is no explanation and no “driving” predecessor.</td></tr>
+  <tr><td class="id">B7</td><td class="item">Task Path highlight</td><td class="ms">Format &gt; Task Path colors the Predecessors, Driving Predecessors, Successors and Driven Successors of the selected task on the chart.</td><td class="app"><span class="tag part">Partial</span> Links of the hovered / selected task are drawn in an active color; no four path modes.</td></tr>
+
+  <tr class="group"><td class="id">C</td><td colspan="3">Tracking and baselines</td></tr>
+  <tr><td class="id">C1</td><td class="item">Set Baseline (up to 11) and variance</td><td class="ms">Project &gt; Set Baseline saves start, finish, duration, work and cost of the whole project or the selected tasks into Baseline or Baseline1–10. Columns Start / Finish / Duration / Cost Variance compare to the current plan.</td><td class="app"><span class="tag part">Partial</span> Project versions (full copies, up to 4 drawn under the bars, difference counts on the version card). No per-task baseline, no “selected tasks only”, no variance columns.</td></tr>
+  <tr><td class="id">C2</td><td class="item">Tracking Gantt / baseline bars</td><td class="ms">Tracking Gantt view and Bar Styles draw the gray baseline bar under each task bar, with slippage visible at a glance.</td><td class="app"><span class="tag part">Partial</span> Version bars (see C1), read-only, no hover details.</td></tr>
+  <tr><td class="id">C3</td><td class="item">Actual start / actual finish / actual duration / remaining duration</td><td class="ms">Separate fields next to the planned ones. Entering a % complete sets the actual start; the Update Tasks dialog edits actual dates and remaining duration; remaining work reschedules from the status date.</td><td class="app"><span class="tag miss">Missing</span> Only the % complete. Fact input records actual quantities and money, not task dates.</td></tr>
+  <tr><td class="id">C4</td><td class="item">% Work Complete and Physical % Complete</td><td class="ms">Three progress measures: % Complete (duration), % Work Complete (work), Physical % Complete (manual, used for earned value).</td><td class="app"><span class="tag miss">Missing</span> One duration-weighted % (plus the Kanban %).</td></tr>
+  <tr><td class="id">C5</td><td class="item">Status date, Update Project, Reschedule Work</td><td class="ms">Project Information &gt; Status Date; Update Project marks work complete through that date or moves uncompleted work after it.</td><td class="app"><span class="tag miss">Missing</span> The Today line is the current date only.</td></tr>
+  <tr><td class="id">C6</td><td class="item">Quick progress buttons</td><td class="ms">Task &gt; 0 / 25 / 50 / 75 / 100% Complete, Mark on Track, Respect Links.</td><td class="app"><span class="tag miss">Missing</span> % is typed or dragged.</td></tr>
+  <tr><td class="id">C7</td><td class="item">Progress lines (zig-zag)</td><td class="ms">Gridlines &gt; Progress Lines draws a line through the bars at the status date; peaks left of it mean behind schedule, right of it ahead.</td><td class="app"><span class="tag miss">Missing</span> The app’s “progress line” is the filled part of the bar and the project line in the header – a different thing.</td></tr>
+  <tr><td class="id">C8</td><td class="item">Earned value (EVM)</td><td class="ms">BCWS, BCWP, ACWP, SV, CV, EAC, VAC, CPI, SPI per task and project, from baseline cost, status date and % complete or physical %.</td><td class="app"><span class="tag miss">Missing</span> Monitor01 / ROI compare plan, ordered, used and invoiced money, but no EVM indices.</td></tr>
+  <tr><td class="id">C9</td><td class="item">Slack and float columns</td><td class="ms">Columns Total Slack, Free Slack, Early Start / Finish, Late Start / Finish, Critical (Yes / No); slack drawn as a thin bar after the task; critical = slack ≤ N days; one critical path per subproject.</td><td class="app"><span class="tag part">Partial</span> Total float is computed and the critical path is colored; ES / LS / float are shown only in the Network view. Critical threshold fixed at 0; no columns, no slack bar, no free slack in the table.</td></tr>
+
+  <tr class="group"><td class="id">D</td><td colspan="3">Resources on the Gantt</td></tr>
+  <tr><td class="id">D1</td><td class="item">Assign Resources dialog and Resource Names column</td><td class="ms">Select tasks, pick resources, set Units % and press Assign; the names (with %) show in a column and can be printed on the bars.</td><td class="app"><span class="tag part">Partial</span> A resource is a Time line (work center) on the Finances tab of a task. Not visible in the Gantt table or on the bars, no bulk assign.</td></tr>
+  <tr><td class="id">D2</td><td class="item">Over-allocation indicators and Resource Graph</td><td class="ms">A red person icon in the indicators column, red resources in the sheet, and a graph of load against max units per period.</td><td class="app"><span class="tag part">Partial</span> Busy check and conflict window at Post; no marks in the chart.</td></tr>
+  <tr><td class="id">D3</td><td class="item">Task Usage / Resource Usage views</td><td class="ms">Grid with a time-phased column (Work, Cost, Actual Work…) per task or per resource by day / week / month; cells can be edited.</td><td class="app"><span class="tag part">Partial</span> Monitor01 (per month) and the line timeline of a task; not a Gantt-side time-phased grid and not editable per period.</td></tr>
+  <tr><td class="id">D4</td><td class="item">Team Planner</td><td class="ms">Swim lanes per resource; drag a task bar to another lane to reassign; unassigned tasks in a pane.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+
+  <tr class="group"><td class="id">E</td><td colspan="3">Chart appearance</td></tr>
+  <tr><td class="id">E1</td><td class="item">Timescale dialog</td><td class="ms">Up to three tiers (top / middle / bottom) with unit (years … minutes), count, label format, alignment, tick lines, fiscal year start, non-working time shown behind / in front, scale size %.</td><td class="app"><span class="tag part">Partial</span> Day / Week / Month / Year buttons and free zoom; two automatic tiers, no choice of units or labels.</td></tr>
+  <tr><td class="id">E2</td><td class="item">Bar Styles (shape, pattern, color per kind)</td><td class="ms">Format &gt; Bar Styles: one line per kind (normal, critical, summary, milestone, split, progress, baseline, slack, deadline, external…) with start / middle / end shapes, pattern and color; rules can use any filter (“show tasks with priority &gt; 500 as red”).</td><td class="app"><span class="tag part">Partial</span> A color per task, a color for the critical path, fixed shapes.</td></tr>
+  <tr><td class="id">E3</td><td class="item">Text on and around the bars</td><td class="ms">Bar Styles &gt; Text: any field (Resource Names, Start, % Complete, custom) at left, right, top, bottom or inside.</td><td class="app"><span class="tag part">Partial</span> Task name (inside or right) and an optional %.</td></tr>
+  <tr><td class="id">E4</td><td class="item">Gridlines</td><td class="ms">Format &gt; Gridlines: line style and interval for the current date, status date, project start / finish, sheet rows, Gantt rows, major / minor columns, page breaks.</td><td class="app"><span class="tag part">Partial</span> Today line and weekend shading only.</td></tr>
+  <tr><td class="id">E5</td><td class="item">Layout options</td><td class="ms">Bar height, round bars to whole days, show bars in summary rows, date format on bars, link style.</td><td class="app"><span class="tag part">Partial</span> Arrow shape only; fixed row and bar height.</td></tr>
+  <tr><td class="id">E6</td><td class="item">Rollup bars on summary tasks</td><td class="ms">“Roll up Gantt bar to summary” / “Always roll up”: the bars and milestones of subtasks are repeated on the summary bar so a collapsed stage still shows its detail.</td><td class="app"><span class="tag miss">Missing</span> A collapsed stage shows only its summary bar.</td></tr>
+  <tr><td class="id">E7</td><td class="item">Project Summary Task (row 0)</td><td class="ms">Option “Show project summary task” adds a top row with the dates, duration, % and cost of the whole project.</td><td class="app"><span class="tag part">Partial</span> The project name chip with progress above the tree; no top row in the table or bar on the chart.</td></tr>
+  <tr><td class="id">E8</td><td class="item">Show outline level n</td><td class="ms">Show &gt; Outline Level 1…9, All Subtasks, Hide Subtasks, with outline symbols.</td><td class="app"><span class="tag part">Partial</span> A chevron per stage and Expand all / Collapse all.</td></tr>
+  <tr><td class="id">E9</td><td class="item">Timeline view</td><td class="ms">A strip above the Gantt with chosen tasks and milestones on one line; Add to Timeline, copy to PowerPoint / e-mail.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+  <tr><td class="id">E10</td><td class="item">Details pane / Task Form under the Gantt</td><td class="ms">View &gt; Details: a second pane (Task Form, Resource Form, Task Details) shows the selected task while the Gantt stays above.</td><td class="app"><span class="tag part">Partial</span> The task window or the Finances view; not shown together with the Gantt.</td></tr>
+  <tr><td class="id">E11</td><td class="item">Indicators column</td><td class="ms">Icons per row: note, constraint, deadline missed, over-allocated, completed ✓, calendar, hyperlink, with a tip on hover.</td><td class="app"><span class="tag part">Partial</span> Only the posted-status check.</td></tr>
+  <tr><td class="id">E12</td><td class="item">Text styles and cell formatting</td><td class="ms">Format &gt; Text Styles per kind (font, size, color, background of critical or summary rows), cell background, Format Painter.</td><td class="app"><span class="tag part">Partial</span> Header colors only.</td></tr>
+  <tr><td class="id">E13</td><td class="item">Scroll to Task / zoom to selection</td><td class="ms">Task &gt; Scroll to Task moves the chart to the selected bar; Zoom to Selected Tasks and Entire Project fit the scale to them.</td><td class="app"><span class="tag part">Partial</span> Selection scrolls the row into view and Fit / custom period / Today exist; no horizontal jump to the selected bar, no zoom to the selection.</td></tr>
+
+  <tr class="group"><td class="id">F</td><td colspan="3">Table editing and selection</td></tr>
+  <tr><td class="id">F1</td><td class="item">Copy / cut / paste of cells and rows</td><td class="ms">Ctrl+C / X / V on a cell, a range or whole rows (with their links, optionally); pasting from Excel into the sheet creates tasks; Paste Special; Copy Picture to Office.</td><td class="app"><span class="tag miss">Missing</span> Duplicate row, Copy task info (text).</td></tr>
+  <tr><td class="id">F2</td><td class="item">Fill down / fill handle</td><td class="ms">Ctrl+D fills the selected range from the first cell; drag the small square at the corner to copy or extend a series.</td><td class="app"><span class="tag miss">Missing</span> (Fill all lines exists on the Finances tables, not in the Gantt table.)</td></tr>
+  <tr><td class="id">F3</td><td class="item">Range selection and multi-task edit</td><td class="ms">Shift / Ctrl click rows or cells; Task Information on several tasks sets a constraint, calendar, mode or priority for all at once.</td><td class="app"><span class="tag part">Partial</span> Row check boxes for bulk delete; edits are one task at a time.</td></tr>
+  <tr><td class="id">F4</td><td class="item">Insert / hide any field as a column</td><td class="ms">Right-click &gt; Insert Column offers every task field (hundreds, grouped); Hide Column; Field Settings (title, alignment, width, wrap).</td><td class="app"><span class="tag part">Partial</span> Reorder, resize, color, and add custom columns; no list of standard fields to show or hide, no alignment.</td></tr>
+  <tr><td class="id">F5</td><td class="item">Custom fields: formula, lookup, indicators, rollup</td><td class="ms">Custom Fields dialog: calculated fields (formula), value lists, graphical indicators by rule, rollup of a field up the outline, 10 fields per type (Text1–30, Date, Number, Flag, Cost, Duration, Outline Code).</td><td class="app"><span class="tag part">Partial</span> Custom columns of five types with plain values and no formula, list, indicator or rollup.</td></tr>
+  <tr><td class="id">F6</td><td class="item">Custom WBS code</td><td class="ms">Project &gt; WBS &gt; Define Code: a mask such as <code>A.01.001</code> with letters, numbers and separators; codes are kept when rows move if edited by hand.</td><td class="app"><span class="tag part">Partial</span> The number 1.1.1 is computed from the position and is read-only.</td></tr>
+  <tr><td class="id">F7</td><td class="item">Find, Replace, Go To</td><td class="ms">Ctrl+F finds text in any field; Replace; Ctrl+G jumps to a task ID or a date.</td><td class="app"><span class="tag part">Partial</span> Column filters (contains, begins with…) hide rows; no find-next, no replace, no go to ID / date.</td></tr>
+  <tr><td class="id">F8</td><td class="item">Group by</td><td class="ms">Project &gt; Group by: groups the table by a field (priority, % complete bands, critical, custom field) with group summary rows; saved and reusable.</td><td class="app"><span class="tag miss">Missing</span></td></tr>
+  <tr><td class="id">F9</td><td class="item">Highlight filter</td><td class="ms">Project &gt; Highlight: all tasks stay visible and matching rows are shown with a colored background (for example critical, late, due this week).</td><td class="app"><span class="tag part">Partial</span> Filters hide non-matching rows (parents stay muted as context); no highlight mode.</td></tr>
+  <tr><td class="id">F10</td><td class="item">Named filters, tables and views</td><td class="ms">Saved Filters (Critical, Milestones, Late Tasks…), Tables (Entry, Schedule, Tracking, Cost, Variance) and Views as reusable sets of columns + filter + group + bar styles; switch from a menu.</td><td class="app"><span class="tag part">Partial</span> The last filter, sort and column set are saved per project and user; nothing is named or switchable.</td></tr>
+  <tr><td class="id">F11</td><td class="item">Keyboard outline commands</td><td class="ms">Alt+Shift+←/→ indent and outdent, Alt+Shift+↑/↓ move, Alt+Shift+= / – expand and collapse a stage, Ctrl+Shift+F2 / Ctrl+F2 link and unlink, F5 Go To.</td><td class="app"><span class="tag part">Partial</span> Arrows, Tab / Shift+Tab, Alt+↑/↓, Enter / F2, Del, Ctrl+Z; no per-stage expand key, no link keys.</td></tr>
+
+  <tr class="group"><td class="id">G</td><td colspan="3">Task information, notes and documents</td></tr>
+  <tr><td class="id">G1</td><td class="item">Task Information dialog tabs</td><td class="ms">General, Predecessors, Resources, Advanced (constraint, deadline, type, calendar, WBS, earned value method, mark as milestone), Notes, Custom Fields – one place for all of a task’s scheduling inputs.</td><td class="app"><span class="tag part">Partial</span> The task window has name, kind, duration, %, start, finish, notes, color; no advanced scheduling tab.</td></tr>
+  <tr><td class="id">G2</td><td class="item">Mark a task as milestone</td><td class="ms">A check box makes any task a milestone (a diamond at its finish) without changing its duration; a zero-duration task is a milestone automatically.</td><td class="app"><span class="tag part">Partial</span> A milestone is a row kind with 0 days.</td></tr>
+  <tr><td class="id">G3</td><td class="item">Hyperlinks and attached objects</td><td class="ms">Insert &gt; Hyperlink / Object attaches a file, a page or a task in another file; an indicator and a Ctrl+click open it.</td><td class="app"><span class="tag miss">Missing</span> (a row can keep a shared “intent” link; no user link field).</td></tr>
+  <tr><td class="id">G4</td><td class="item">Rich-text notes</td><td class="ms">Notes with fonts, bullets, pasted images and embedded objects; a notes indicator in the row.</td><td class="app"><span class="tag part">Partial</span> Plain text notes, no indicator.</td></tr>
+
+  <tr class="group"><td class="id">H</td><td colspan="3">Print and exchange</td></tr>
+  <tr><td class="id">H1</td><td class="item">Print: page setup, preview, legend, page breaks</td><td class="ms">Page Setup (orientation, scaling, fit to N pages, header / footer, legend, view range by dates), Print Preview, manual page breaks, print selected columns.</td><td class="app"><span class="tag part">Partial</span> Export to PDF of the screen as drawn, with project name and dates; no pagination, header / footer, legend or date range.</td></tr>
+  <tr><td class="id">H2</td><td class="item">Import from MS Project and Excel</td><td class="ms">Open .mpp / .mpt or Project XML; Import Wizard maps Excel, CSV or database columns to task fields (with a saved map).</td><td class="app"><span class="tag part">Partial</span> Export to MS Project XML and JSON export / import. No import of .mpp, XML, Excel or CSV.</td></tr>
+  <tr><td class="id">H3</td><td class="item">Export to Excel / reports for the Gantt</td><td class="ms">Save As Excel workbook with a field map; Visual Reports (burndown, cash flow, baseline report) from the plan.</td><td class="app"><span class="tag miss">Missing</span> (the money reports are separate: Monitor01–03, 07).</td></tr>
+</table>
+</div>
+
+<h2>4. Suggested first picks</h2>
+<div class="callout">
+  <p>The gaps that cost users the most time in a plan editor, and that fit the existing engine (<code>scheduling.ts</code>, <code>rowJSON</code> keys, no new tables for most):</p>
+  <ol>
+    <li><b>B2 + B1</b> – Link / Unlink for the checked rows, then the Predecessors column. Cheapest way to build a plan fast.</li>
+    <li><b>F1 + F2</b> – copy / paste of rows and cells (also from Excel) and fill down.</li>
+    <li><b>A3 + A5 + E11</b> – the full constraint list, a deadline date, and the indicators column that shows them.</li>
+    <li><b>A11</b> – holidays / exceptions from the existing calendar catalog, used by the schedule and shaded on the chart.</li>
+    <li><b>C1 + C3 + C2</b> – per-task baseline, actual start / finish, variance columns on top of the existing versions.</li>
+    <li><b>A1</b> – manually scheduled tasks (a flag in <code>rowJSON</code>, skipped by the forward pass).</li>
+  </ol>
+  <p>Not suggested for an ERP-centred product unless asked: A6 / A7 (work-units-duration triangle – the money side already has its own quantity model), A16 (leveling), D4 (Team Planner), E9 (Timeline).</p>
+</div>
+
+<h2>5. Not verified</h2>
+<div class="callout warn">
+  <p>Each row marks “Missing” when no keyword, column, setting or menu item for it was found in <code>kit8/pm</code>, <code>app/pm</code> and the READMEs. The MS Project descriptions are from the product’s standard behavior; menu names follow the 2016–2021 desktop client and differ slightly in Project for the web.</p>
+</div>
+
+</main>
+</body>
+</html>

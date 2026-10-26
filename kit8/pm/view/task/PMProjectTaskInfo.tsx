@@ -51,6 +51,7 @@ const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Sta
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
 import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
+import { openFillFromTemplate, openSaveToTemplate, PMTaskTemplateWindows } from '../../tasktemplate';
 
 export default function PMProjectTaskInfo(props: { taskGUID: string; projectGUID?: string }) {
   const language = usePMLanguage();
@@ -113,6 +114,8 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
             { icon: 'fingerprint', label: 'Copy GUID', onPress: () => crud.copyTaskGUID(taskGUID) },
             { icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(taskGUID) },
             { icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(taskGUID) },
+            { icon: 'bookmark-plus-outline', label: 'Save to template', onPress: () => openSaveToTemplate(taskGUID) },
+            { icon: 'content-paste', label: 'Fill from template', onPress: () => openFillFromTemplate(taskGUID) },
             { icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(taskGUID) },
           ]
         : null,
@@ -442,6 +445,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
       <PMTaskEditOptions crud={crud} />
       <PMEditDependencyScreen crud={crud} />
       <PMApproveYesNoCancelModalWindow />
+      <PMTaskTemplateWindows ownerGUID={ownerGUID} projectGUID={projectGUID} />
       <PMTooltipLayer />
     </View>
   );

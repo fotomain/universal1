@@ -135,6 +135,11 @@ const resources = {
         playAudio: 'Play Audio',
         playVideo: 'Play Video',
       },
+      notFound: {
+        title: 'Page not found',
+        description: 'This screen does not exist.',
+        goHome: 'Go to Home',
+      },
       body: {
         aboutDescription: 'This is the about screen.',
         signUpDescription: 'Sign up screen.',

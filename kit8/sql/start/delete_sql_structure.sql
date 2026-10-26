@@ -5,6 +5,8 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000000000. delete_route_visits.sql - PART 41: drops app_route_visits_turnover (data included: the visits of ALL users) and the route_visit* functions (runs very first: it is the newest)
+--  1a-00000000. delete_task_template.sql - PART 40: drops the task template tables (data included: every template of every organization) and the task_template_* functions (runs very first: it is the newest)
 --  1a-0000000. delete_partner_balance.sql - PART 39: drops partner_balance_movements and partner_balance_ledger (data included), the triggers on the invoices and the cash ledger, the partner_balance_* functions and business_unit_root (runs very first: it is the newest)
 --  1a-000000. delete_payment_fact.sql - PART 38: drops the payment fact tables (documents, lines, the cash ledger movements, rests and queue, money accounts - data included), the trigger on currencyExchangeRateTable, the cash_ledger_* / payment_fact_* functions and the pg_cron job (runs very first: it is the newest)
 --  1a-00000. delete_payment_plan.sql - PART 37: drops the payment plan tables (the planned payments and the posted movements, data included), the trigger on project_task_table and the payment plan functions (runs very first: it is the newest)
@@ -32,6 +34,34 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-000000000: delete_route_visits.sql  (PART 41 of the structure file: the ROUTE VISITS - runs before everything else, it is the newest)
+-- Drops app_route_visits_turnover WITH its rows (the visits of ALL users) and the functions.
+-- =====================================================================================
+DROP TABLE IF EXISTS public.app_route_visits_turnover CASCADE;
+DROP FUNCTION IF EXISTS public.route_visit_register(text);
+DROP FUNCTION IF EXISTS public.route_visits_clear(text);
+DROP FUNCTION IF EXISTS public.route_visits_enabled();
+
+
+
+-- =====================================================================================
+-- PART 1a-00000000: delete_task_template.sql  (PART 40 of the structure file: the TASK TEMPLATES - runs before everything else, it is the newest)
+-- Drops the four tables WITH their rows (the templates of ALL organizations) and the functions. The tasks and lines that were filled from a template are normal project rows and stay.
+-- =====================================================================================
+DROP TABLE IF EXISTS public.task_template_line CASCADE;
+DROP TABLE IF EXISTS public.task_template_dependency CASCADE;
+DROP TABLE IF EXISTS public.task_template_task CASCADE;
+DROP TABLE IF EXISTS public.task_template_header CASCADE;
+DROP FUNCTION IF EXISTS public.task_template_save(uuid, text, text);
+DROP FUNCTION IF EXISTS public.task_template_fill(uuid, uuid, boolean);
+DROP FUNCTION IF EXISTS public.task_template_set_title(uuid, text, text);
+DROP FUNCTION IF EXISTS public.task_template_visible(uuid);
+DROP FUNCTION IF EXISTS public.task_template_clean_task(jsonb);
+DROP FUNCTION IF EXISTS public.task_template_clean_line(jsonb);
 
 
 

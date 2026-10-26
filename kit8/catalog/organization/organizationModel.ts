@@ -61,6 +61,8 @@ export interface OrganizationRowJSON {
   /** time sheet defaults of every user (Organization edit -> Time sheet): a Person may set his own (kit8/documents/timesheet/TabTimesheet). A missing key = the built-in default (false / true). */
   timesheetAllWorkCenterInputAvailable?: boolean;
   timesheetOnlyCurrentMonthInputEnabled?: boolean;
+  /** count the screens every user of the organization opens (kit8/catalog/user/visit, table app_route_visits_turnover). TRUE unless stored false. Organization edit -> System */
+  numberOfVisitsFunctionalityEnabled?: boolean;
   /** the base currency of the exchange rate book the database converts with (SQL fx_base_currency, default EUR): it must be the currency the rates are quoted against (EXPO_PUBLIC_CURRENCY_RATES_BASE of the app) */
   baseCurrency?: string;
 }
@@ -147,6 +149,8 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     // the time sheet defaults: only a stored boolean is kept
     ...(typeof raw.timesheetAllWorkCenterInputAvailable === 'boolean' ? { timesheetAllWorkCenterInputAvailable: raw.timesheetAllWorkCenterInputAvailable } : {}),
     ...(typeof raw.timesheetOnlyCurrentMonthInputEnabled === 'boolean' ? { timesheetOnlyCurrentMonthInputEnabled: raw.timesheetOnlyCurrentMonthInputEnabled } : {}),
+    // route visits: only a stored boolean is kept (a missing key reads as TRUE)
+    ...(typeof raw.numberOfVisitsFunctionalityEnabled === 'boolean' ? { numberOfVisitsFunctionalityEnabled: raw.numberOfVisitsFunctionalityEnabled } : {}),
     // a 3 letter currency code (upper case); anything else is dropped: the database then uses EUR
     ...(/^[A-Za-z]{3}$/.test(String(raw.baseCurrency ?? '').trim()) ? { baseCurrency: String(raw.baseCurrency).trim().toUpperCase() } : {}),
   };

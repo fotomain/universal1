@@ -45,6 +45,8 @@
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 --   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction) + cash_account_ledger_movements / _rests / _dirty (the register of the money accounts)
 --   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (the register of the invoices and payments of the partners) + partner_balance_ledger (the totals for now)
+--   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): task_template_header / _task / _dependency / _line (a task or a stage with everything inside it, saved for the whole organization)
+--   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover = one row per user and route with the number of visits (the app writes it through route_visit_register only while the Organization switch numberOfVisitsFunctionalityEnabled is on)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3421,6 +3423,97 @@ CREATE TABLE IF NOT EXISTS public.partner_balance_ledger (
 );
 
 CREATE INDEX IF NOT EXISTS idx_partner_balance_ledger_partner ON public.partner_balance_ledger ("rowOrganizationGUID", "balanceRole", "balancePartner");
+
+-- ===============================================================================================
+-- PART 40: create_task_template.sql
+-- TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): a task (or a stage with everything inside it) saved under a title, to fill another task from it later.
+-- The structure of the project versions (PM_VERSION_STRUCTURE.html), but for ONE task and VISIBLE TO EVERY USER OF THE ORGANIZATION:
+--   task_template_header      one row per template (title, description, counts, who made it, from which project); rowOrganizationGUID = the organization (RLS)
+--   task_template_task        the tasks of the template: the top row (rowParentGUID NULL) and everything inside it, with their OWN ids (not the ids of the project)
+--   task_template_dependency  the links between two tasks of the template
+--   task_template_line        the task lines (Time, Material, Expense, Revenue) of the tasks of the template
+-- Written ONLY by the RPCs of start2 (task_template_save / _fill / _set_title); a client reads them and deletes a header (its rows follow).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.task_template_header (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID" TEXT        NOT NULL,
+  "rowOwnerGUID"        UUID        NOT NULL,
+  "orderInList"         NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_template_header_title_chk CHECK (btrim(COALESCE("rowJSON"->>'templateTitle', '')) <> '')
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_template_header_org ON public.task_template_header ("rowOrganizationGUID", "created_at");
+
+CREATE TABLE IF NOT EXISTS public.task_template_task (
+  "rowTemplateGUID" UUID    NOT NULL REFERENCES public.task_template_header("rowGUID") ON DELETE CASCADE,
+  "rowGUID"         UUID    NOT NULL,
+  "rowParentGUID"   UUID,
+  "orderInList"     NUMERIC NOT NULL DEFAULT 0,
+  "rowJSON"         JSONB   NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY ("rowTemplateGUID", "rowGUID"),
+  CONSTRAINT task_template_task_parent_fk FOREIGN KEY ("rowTemplateGUID", "rowParentGUID") REFERENCES public.task_template_task("rowTemplateGUID", "rowGUID") ON DELETE CASCADE,
+  CONSTRAINT task_template_task_self_chk CHECK ("rowParentGUID" IS DISTINCT FROM "rowGUID")
+);
+
+-- exactly one top row per template
+CREATE UNIQUE INDEX IF NOT EXISTS uq_task_template_task_top ON public.task_template_task ("rowTemplateGUID") WHERE "rowParentGUID" IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_task_template_task_parent ON public.task_template_task ("rowTemplateGUID", "rowParentGUID", "orderInList");
+
+CREATE TABLE IF NOT EXISTS public.task_template_dependency (
+  "rowTemplateGUID"  UUID    NOT NULL,
+  "rowGUID"          UUID    NOT NULL,
+  "rowDependsOnGUID" UUID    NOT NULL,
+  "linkType"         TEXT    NOT NULL DEFAULT 'FS',
+  "lagDays"          NUMERIC NOT NULL DEFAULT 0,
+  "rowJSON"          JSONB   NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY ("rowTemplateGUID", "rowGUID", "rowDependsOnGUID"),
+  CONSTRAINT task_template_dependency_task_fk FOREIGN KEY ("rowTemplateGUID", "rowGUID") REFERENCES public.task_template_task("rowTemplateGUID", "rowGUID") ON DELETE CASCADE,
+  CONSTRAINT task_template_dependency_on_fk FOREIGN KEY ("rowTemplateGUID", "rowDependsOnGUID") REFERENCES public.task_template_task("rowTemplateGUID", "rowGUID") ON DELETE CASCADE,
+  CONSTRAINT task_template_dependency_self_chk CHECK ("rowGUID" <> "rowDependsOnGUID"),
+  CONSTRAINT task_template_dependency_type_chk CHECK ("linkType" IN ('FS', 'SS', 'FF', 'SF'))
+);
+
+CREATE TABLE IF NOT EXISTS public.task_template_line (
+  "rowTemplateGUID" UUID    NOT NULL,
+  "rowGUID"         UUID    NOT NULL,
+  "rowOwnerGUID"    UUID    NOT NULL,
+  "rowParentGUID"   TEXT    NOT NULL,
+  "orderInList"     NUMERIC NOT NULL DEFAULT 0,
+  "rowJSON"         JSONB   NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY ("rowTemplateGUID", "rowGUID"),
+  CONSTRAINT task_template_line_task_fk FOREIGN KEY ("rowTemplateGUID", "rowOwnerGUID") REFERENCES public.task_template_task("rowTemplateGUID", "rowGUID") ON DELETE CASCADE,
+  CONSTRAINT task_template_line_genus_chk CHECK ("rowParentGUID" <> '' AND "rowParentGUID" <> 'empty')
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_template_line_task ON public.task_template_line ("rowTemplateGUID", "rowOwnerGUID", "rowParentGUID", "orderInList");
+
+-- ===============================================================================================
+-- PART 41: create_route_visits.sql
+-- ROUTE VISITS (kit8/catalog/user/visit): how often a user opened each screen of the app. The generic table layout:
+--   app_route_visits_turnover   rowOwnerGUID = the GUID of the user · rowParentGUID = the route ('/catalog/money/account', a GUID in the path is written ':id')
+--                               · rowJSON { number_of_route_visits (integer), last_visit_at (timestamp text) } · ONE row per user and route
+-- Written ONLY by the RPC route_visit_register (start2); a user reads and deletes his own rows. Organization switch: organizationTable.rowJSON.numberOfVisitsFunctionalityEnabled (true by default).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.app_route_visits_turnover (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{"number_of_route_visits": 0}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT app_route_visits_count_chk CHECK (jsonb_typeof("rowJSON"->'number_of_route_visits') = 'number')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_app_route_visits_user_route ON public.app_route_visits_turnover ("rowOwnerGUID", "rowParentGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

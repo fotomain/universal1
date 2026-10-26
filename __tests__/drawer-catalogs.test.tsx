@@ -23,6 +23,13 @@ jest.mock('../kit8/ui/components/common/IconApp', () => {
 });
 jest.mock('../kit8/ui/components/LanguageSelectorComponent', () => ({ __esModule: true, default: () => null }));
 jest.mock('../kit8/ui/components/DarkThemeSwitchComponent', () => ({ __esModule: true, default: () => null }));
+// the Top 5 of the visited routes has its own test (__tests__/catalog/user/visit): here only that the pinned part hands it the menu's navigation
+const mockTopProps: any[] = [];
+jest.mock('../kit8/catalog/user/visit/RouteVisitsTop', () => {
+  const R = require('react');
+  const { Text } = require('react-native');
+  return { __esModule: true, default: (p: any) => { mockTopProps.push(p); return R.createElement(Text, { testID: 'route-visits-top-mock' }, 'top5'); } };
+});
 
 import CustomDrawerContent, { DRAWER_SUBITEM_HEIGHT } from '../kit8/ui/components/CustomDrawerContent';
 
@@ -256,4 +263,31 @@ it('Catalogs has the read-only Activity genus screen (the first row, by name) an
   expect(subs[0]).toContain('Activity genus');
   press('drawer-subitem-activitygenus');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/management/activity_genus/list');
+});
+
+it('System settings (the last group) has Routes visits, which opens /user/visits', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-systemsettings')).toBe(ids.indexOf('drawer-item-budgets') + 1);
+  expect(q('drawer-subitem-system-routevisits')).toBeNull(); // closed
+  press('drawer-item-systemsettings');
+  expect(q('drawer-subitem-system-routevisits')!.textContent).toContain('Routes visits');
+  press('drawer-subitem-system-routevisits');
+  expect(mockNavigate).toHaveBeenCalledWith('/user/visits');
+});
+
+it('System settings opens by itself on the Routes visits page', () => {
+  mount('/user/visits');
+  expect(q('drawer-subitem-system-routevisits')).not.toBeNull();
+});
+
+it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, settings, the Top 5 of the visited routes, the language and the theme; a Top 5 row navigates like a menu row', () => {
+  mockTopProps.length = 0;
+  mount('/home');
+  const pinned = q('hamburger-unmovable')!;
+  expect(pinned).not.toBeNull();
+  expect(pinned.querySelector('[data-testid="route-visits-top-mock"]')).not.toBeNull();
+  expect(mockTopProps.length).toBeGreaterThan(0);
+  act(() => mockTopProps[mockTopProps.length - 1].onSelectRoute('/catalog/money/account'));
+  expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });

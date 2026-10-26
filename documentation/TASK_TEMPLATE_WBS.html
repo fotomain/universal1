@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task templates - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li { margin: 4px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-2); margin-top: 8px; }
+  .sw { display: inline-block; width: 22px; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Task templates</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#wbs">WBS</a></li><li><a href="#tables">Tables</a></li><li><a href="#flow">Save / fill</a></li><li><a href="#access">Access</a></li>
+    <li><a href="#ui">UI</a></li><li><a href="#code">Code</a></li><li><a href="#big">Big templates</a></li><li><a href="#open">Decisions &amp; limits</a></li><li><a href="#install">Install</a></li>
+  </ul></nav>
+</div></header>
+<main>
+  <section id="goal">
+    <h1>Task templates</h1>
+    <p class="lead">A task - or a stage with everything inside it - is saved under a title and can fill another task later, in any project of the organization. The structure is the one of the project versions (<code>PM_VERSION_STRUCTURE.html</code>), but for ONE task and shared by every user of the ORGANIZATION.</p>
+    <p class="sub">SQL PART 40 (<code>start1_sql_tables.sql</code> tables, <code>start2_sql_code.sql</code> code) · module <code>kit8/pm/tasktemplate</code> · Docker test <code>tests/98_task_template.sql</code> · Jest <code>__tests__/pm/tasktemplate</code></p>
+    <div class="card">
+      <h3 style="margin-top:0">The request</h3>
+      <ol class="steps">
+        <li>The task three dots menu gets two items: <b>Save to template</b> and <b>Fill from template</b>.</li>
+        <li>Separate SQL tables, just like for the project versions (<code>version_</code> tables) - not the tables of the project templates.</li>
+        <li>The templates are available for all users of the one organization.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="wbs">
+    <h2>WBS</h2>
+    <p class="sub">Work packages, in the order they were built. All are done in this round.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Work package</th><th>Where</th><th>Test</th><th>State</th></tr>
+      <tr><td>T1</td><td>Four tables: header, tasks, dependencies, lines (own ids, no link to the project rows)</td><td><code>start1_sql_tables.sql</code> PART 40</td><td>Docker 98</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T2</td><td>RPC <code>task_template_save</code>: task + subtree + links inside it + task lines, one transaction</td><td><code>start2_sql_code.sql</code> PART 40</td><td>Docker 98</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T3</td><td>RPC <code>task_template_fill</code>: single | tree, add | replace, new ids, links and lines</td><td>same</td><td>Docker 98</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T4</td><td>Organization access (RLS), rename / delete rights, <code>task_template_set_title</code></td><td>same</td><td>Docker 98, Jest SQL</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T5</td><td>Drop of everything in <code>delete_sql_structure.sql</code> (part 1a-00000000)</td><td><code>delete_sql_structure.sql</code></td><td><code>test_sql.sh</code></td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T6</td><td>Client: types, API, store, commands, React Query list</td><td><code>kit8/pm/tasktemplate</code></td><td>Jest model + API</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T7</td><td>Windows: "Save to template" (title, description), "Fill from template" picker (search, replace, rename, delete)</td><td><code>view/PMTaskTemplateWindows.tsx</code></td><td>Jest UI</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T8</td><td>The two menu items in the task menu, the main FAB of the dashboard and the FAB of the task page</td><td><code>PMTaskRowMenu</code>, <code>PMProjectDashboard</code>, <code>PMProjectTaskInfo</code></td><td>Jest UI</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T9</td><td>README, KNOW_HOW, this page</td><td>-</td><td>-</td><td><span class="pill yes">done</span></td></tr>
+      <tr><td>T10</td><td>Big templates: save and fill measured with 2 000 and 10 000 rows; hot spots removed (see "Big templates"); limit of 5 000 rows</td><td>PART 40 + three triggers of PARTs 1 / 16</td><td>Docker 98, <code>bench_task_template.sh</code></td><td><span class="pill yes">done</span></td></tr>
+    </table></div>
+  </section>
+
+  <section id="tables">
+    <h2>Tables</h2>
+    <p class="sub">The names say what they hold; a template has its OWN ids, so the template stays whole when the task it was made from is deleted or moved.</p>
+    <div class="card scroll"><table>
+      <tr><th>Table</th><th>One row is</th><th>Key</th><th>Columns that matter</th></tr>
+      <tr><td><code>task_template_header</code></td><td>one template</td><td><span class="pill key">rowGUID</span></td><td><code>rowOrganizationGUID</code> (RLS), <code>rowOwnerGUID</code> (the creator), <code>orderInList</code> (1, 2, 3 in the organization), <code>rowJSON</code>: <code>templateTitle</code>, <code>templateDescription</code>, <code>templateKind</code> (task | stage | milestone), <code>templateRowCount</code>, <code>templateLineCount</code>, <code>templateSourceTaskName</code>, <code>templateSourceProjectGUID / Name</code>, <code>templateCreatedByEmail</code></td></tr>
+      <tr><td><code>task_template_task</code></td><td>a task / stage / milestone of the template</td><td><span class="pill key">(rowTemplateGUID, rowGUID)</span></td><td><code>rowParentGUID</code> (NULL = the ONE top row; a unique index guarantees one), <code>orderInList</code>, <code>rowJSON</code> (the task's rowJSON, cleaned)</td></tr>
+      <tr><td><code>task_template_dependency</code></td><td>a link between two tasks of the template</td><td><span class="pill key">(rowTemplateGUID, rowGUID, rowDependsOnGUID)</span></td><td><code>linkType</code> FS|SS|FF|SF, <code>lagDays</code>, <code>rowJSON</code></td></tr>
+      <tr><td><code>task_template_line</code></td><td>a task line (Time, Material, Expense, Revenue)</td><td><span class="pill key">(rowTemplateGUID, rowGUID)</span></td><td><code>rowOwnerGUID</code> = the task in the template, <code>rowParentGUID</code> = the genus, <code>orderInList</code>, <code>rowJSON</code> (cleaned)</td></tr>
+    </table></div>
+    <h3>Relations</h3>
+    <div class="card">
+      <p style="margin:0">All three child tables are tied to <code>task_template_header</code> (and the task rows to each other) by foreign keys with <code>ON DELETE CASCADE</code>: deleting a template deletes its tasks, links and lines. Rows that were filled from a template are normal project rows and stay.</p>
+    </div>
+    <h3>What is stored and what is not</h3>
+    <div class="card scroll"><table>
+      <tr><th>Thing</th><th>In a template</th><th>Why</th></tr>
+      <tr><td>Name, kind, duration, notes, colors, planning-unit fields of every task</td><td><span class="pill yes">yes</span></td><td>the content of the recipe</td></tr>
+      <tr><td>Links between two tasks that are both inside the saved row</td><td><span class="pill yes">yes</span></td><td>type and lag kept; a link to a task outside is dropped</td></tr>
+      <tr><td>Task lines with resource, role, contract, partner, qty, price, VAT, budget item, business unit</td><td><span class="pill yes">yes</span></td><td>catalog GUIDs are the same for the whole organization</td></tr>
+      <tr><td><code>startAt</code>, <code>manualStartAt</code>, <code>rowDuration</code>, <code>lastEditPlace</code>, <code>intent</code></td><td><span class="pill no">no</span></td><td>dates belong to one project; the scheduler writes them again after a fill</td></tr>
+      <tr><td>Custom column values, subproject flag and link</td><td><span class="pill no">no</span></td><td>defined per project / a project cannot be copied into a template</td></tr>
+      <tr><td>Posting state (<code>taskIsPosted</code>, <code>baseOfDistribution</code>), plan movements</td><td><span class="pill no">no</span></td><td>a copied line is UNPOSTED; Post it in the new project</td></tr>
+      <tr><td>Sums in the accounting / budget currency and the rate snapshot</td><td><span class="pill no">no</span></td><td>the target project has its own currencies: press <b>Recalculate</b> in the Finances table (the sum for the contract stays)</td></tr>
+      <tr><td>Fact input, invoices, orders, receipts, time sheets, payments, Kanban state, progress</td><td><span class="pill no">no</span></td><td>documents and history are not a recipe</td></tr>
+    </table></div>
+  </section>
+
+  <section id="flow">
+    <h2>Save and fill</h2>
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin-top:0"><span class="pill rpc">RPC</span> task_template_save(p_task, p_title, p_description)</h3>
+        <ol class="steps">
+          <li>The task must be in a project the user owns; the user must have an organization; the title must not be empty.</li>
+          <li>One advisory lock per organization; the number = highest of the organization + 1.</li>
+          <li>Copies the task and every row below it (tree path), with the parent as a GUID, the order, the cleaned rowJSON.</li>
+          <li>Copies the links whose both ends are inside; copies the lines of those tasks (cleaned).</li>
+          <li>Writes the counts into the header. Returns the template GUID.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0"><span class="pill rpc">RPC</span> task_template_fill(p_template, p_task, p_replace)</h3>
+        <ol class="steps">
+          <li>The target must be in a project the user owns; the template must be of the user's organization.</li>
+          <li>New ids are made from one run id and the id in the template (so links and lines map to the new rows without a temp table).</li>
+          <li><b>tree</b> (the top row is a stage, or has rows inside): the rows inside the top row are created inside the target, after its rows; the links and the lines go with them.</li>
+          <li><b>single</b> (one task): its data (not the name, not the kind) go into the target and its lines are added after the lines of the target.</li>
+          <li>Returns <code>{mode, tasks, lines, dependencies}</code>. Lines come unposted.</li>
+        </ol>
+      </div>
+    </div>
+    <h3>Which target takes which template</h3>
+    <div class="card scroll"><table>
+      <tr><th>Template</th><th>Target</th><th>Without "Replace what the row has now"</th><th>With "Replace"</th></tr>
+      <tr><td>tree</td><td>task / stage without lines</td><td>rows are added inside it</td><td>the rows inside it are deleted first</td></tr>
+      <tr><td>tree</td><td>task WITH lines</td><td>refused (a row with rows inside has no lines)</td><td>its lines are deleted, the rows are created</td></tr>
+      <tr><td>tree</td><td>milestone</td><td>refused</td><td>refused</td></tr>
+      <tr><td>single</td><td>task / milestone without rows inside</td><td>lines are added after its lines</td><td>its lines are deleted first</td></tr>
+      <tr><td>single</td><td>task WITH rows inside</td><td>refused (they cannot have lines of their own)</td><td>the rows inside are deleted, lines added</td></tr>
+      <tr><td>single</td><td>stage</td><td>refused (a stage has no lines)</td><td>refused</td></tr>
+    </table></div>
+    <p class="sub">"Replace" asks first (Yes / No) and uses the same delete as the Delete command of the task, so the database guards of posted documents still apply.</p>
+  </section>
+
+  <section id="access">
+    <h2>Access rules</h2>
+    <div class="card scroll"><table>
+      <tr><th>Who</th><th>Read</th><th>Save</th><th>Fill</th><th>Rename</th><th>Delete</th></tr>
+      <tr><td>the creator</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+      <tr><td>another user of the organization</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes (new template)</span></td><td><span class="pill yes">yes, into his own projects</span></td><td><span class="pill no">no</span></td><td><span class="pill no">no</span></td></tr>
+      <tr><td>the administrator of the organization (the creator of it)</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+      <tr><td>a user of another organization</td><td><span class="pill no">no</span></td><td colspan="4"><span class="pill no">nothing: the template does not exist for him</span></td></tr>
+    </table></div>
+    <p class="sub">The four tables are written ONLY by the RPCs (<code>SECURITY DEFINER</code>); the client has SELECT, and DELETE on the header (the creator or the administrator; the rows follow). Row level security: the header by <code>rowOrganizationGUID = organization_of_current_user()</code>, the three child tables by <code>task_template_visible(rowTemplateGUID)</code>. The tables are not in the realtime publication; the list is read again after every command.</p>
+  </section>
+
+  <section id="ui">
+    <h2>User interface</h2>
+    <div class="card scroll"><table>
+      <tr><th>Where</th><th>Control</th><th>What it does</th></tr>
+      <tr><td>Task context menu (right click on a tree row / Gantt bar, long press on touch), after Duplicate</td><td><b>Save to template</b></td><td>Opens the title window (the name of the task is the title, description optional), then <code>task_template_save</code></td></tr>
+      <tr><td>same, next item</td><td><b>Fill from template</b></td><td>Opens the picker of the templates of the organization</td></tr>
+      <tr><td>Main FAB of the dashboard (a task is selected) and the FAB of the task page</td><td>the same two items</td><td>the same windows</td></tr>
+      <tr><td>Picker</td><td>search · row · "Replace what the row has now" · Fill</td><td>one line per template: kind, rows, lines, project, day, creator. Your own templates have Rename and Delete (asks first)</td></tr>
+    </table></div>
+    <p class="sub">After a fill the project is read again (the scheduler writes the dates), the new lines come through Realtime; a snackbar says how many rows and lines were created and reminds of <b>Recalculate</b>.</p>
+  </section>
+
+  <section id="code">
+    <h2>Code map</h2>
+    <div class="card scroll"><table>
+      <tr><th>File</th><th>Content</th></tr>
+      <tr><td><code>kit8/pm/tasktemplate/model/taskTemplateTypes.ts</code></td><td>Table and RPC names, row types, title check, texts of the picker</td></tr>
+      <tr><td><code>kit8/pm/tasktemplate/api/taskTemplateApi.ts</code></td><td>Supabase reads, delete and the three RPCs; answers "missing" until the SQL has run</td></tr>
+      <tr><td><code>kit8/pm/tasktemplate/store/store_task_template.ts</code></td><td>Zustand: which window is open, for which task</td></tr>
+      <tr><td><code>kit8/pm/tasktemplate/crud/useTaskTemplates.ts</code></td><td><code>openSaveToTemplate</code> / <code>openFillFromTemplate</code> (plain functions for the menus), the list query, the commands</td></tr>
+      <tr><td><code>kit8/pm/tasktemplate/view/PMTaskTemplateWindows.tsx</code></td><td>The two windows; mounted once per screen</td></tr>
+      <tr><td><code>kit8/sql/start/start1_sql_tables.sql</code> · <code>start2_sql_code.sql</code> · <code>delete_sql_structure.sql</code></td><td>PART 40 (tables · functions, RLS) · its drop</td></tr>
+    </table></div>
+  </section>
+
+  <section id="big">
+    <h2>Big templates</h2>
+    <p class="sub">A request of the app may take 8 s (Supabase). Measured on the local Postgres 15 with <code>./bench_task_template.sh N</code> (a stage with N rows inside, 2 task lines a row, a link for every 2nd row; every step is its own transaction, the time includes the start of psql).</p>
+    <div class="card scroll"><table>
+      <tr><th>Step</th><th>2 000 rows</th><th>10 000 rows</th><th>Before the fixes (2 000 rows)</th></tr>
+      <tr><td>Save to template</td><td>1.2 s</td><td>1.5 s</td><td>0.8 s (10 000 rows: 15 s - the parent of a row was found by a join without an index)</td></tr>
+      <tr><td>Fill (tree)</td><td>1.9 s</td><td>5.1 s</td><td>19 s first time, never finished with Replace</td></tr>
+      <tr><td>Fill, again</td><td>2.0 s</td><td>6.0 s</td><td>-</td></tr>
+      <tr><td>Fill with Replace</td><td>3.2 s</td><td>12 s</td><td>did not finish (minutes)</td></tr>
+    </table></div>
+    <h3>What was slow and what was done</h3>
+    <div class="card scroll"><table>
+      <tr><th>Hot spot</th><th>Cause</th><th>Fix</th></tr>
+      <tr><td><code>pm_task_after_progress_change</code> (every inserted / deleted task)</td><td>recalculated the progress of the WHOLE project after every row, and the recalculation compared every row with every row (a CTE has no index)</td><td><code>pm_recalc_project_progress</code> uses the GiST index and the ancestor paths (n x depth, same result - tested); the fill switches the trigger off (<code>app.task_bulk</code>) and calculates ONCE at the end</td></tr>
+      <tr><td><code>user_calendar_project_task_sync</code></td><td>per row; with the stale statistics of an empty calendar table the planner scanned the whole table: 7 ms a task</td><td>off in bulk mode; the calendar rows of all new tasks are made by ONE statement, the rows of the deleted tasks are deleted by one statement</td></tr>
+      <tr><td><code>pm_task_dependency_after_delete</code> (Replace)</td><td>rebuilt the closure of the project for every deleted link</td><td>off in bulk mode; <code>pm_rebuild_dependency_closure</code> once after the delete</td></tr>
+      <tr><td><code>pm_task_dependency_before_insert</code></td><td>walks the graph for a cycle: 1.2 ms a link</td><td>skipped in bulk mode: the links are copies of a saved acyclic set between brand-new rows (the check of a single link a user draws is unchanged)</td></tr>
+      <tr><td>Save: parent of a row, lines, links</td><td>a join / an EXISTS per row that scanned the project (all task lines of the database)</td><td>parent from the path (the last label is the id), lines and links joined from the rows of the template through their keys; <code>ANALYZE</code> of the new rows when the template is big</td></tr>
+    </table></div>
+    <p class="sub">The remaining time of Replace is the foreign key checks of the 30 tables that point at a task (the same cost as the Delete command on 10 000 rows). Hence the limit: <b>a row with more than 5 000 rows inside is refused at Save</b> ("save its parts as separate templates"). The picker shows the counts so a big template is no surprise; the Fill button shows a spinner while the database works.</p>
+    <p class="sub">The same fixes make Duplicate of a big stage, an import and every other bulk write of tasks faster, because they were in the shared triggers.</p>
+  </section>
+
+  <section id="open">
+    <h2>Decisions and limits</h2>
+    <p class="sub">These were chosen without asking; each is one place to change if the owner wants it otherwise.</p>
+    <div class="card scroll"><table>
+      <tr><th>Question</th><th>Built as</th><th>To change</th></tr>
+      <tr><td>What does "Fill" do with the name of the target?</td><td>The target keeps its name and kind; a task template adds data + lines, a stage template creates the rows inside.</td><td><code>task_template_fill</code>, single branch</td></tr>
+      <tr><td>Who may rename / delete?</td><td>The creator and the administrator of the organization.</td><td>policy <code>task_template_header_delete</code>, <code>task_template_set_title</code></td></tr>
+      <tr><td>Sums in the project currencies</td><td>Not copied; the user presses Recalculate. (Copying them would show the sums of another project's currency.)</td><td>key list in <code>task_template_clean_line</code></td></tr>
+      <tr><td>Can a template be changed after it was saved?</td><td>Only its title and description (like a project version). A new state = a new template.</td><td>-</td></tr>
+      <tr><td>Delete of a creator's user</td><td>The templates stay (the organization owns them); only the e-mail text in the header remains.</td><td>-</td></tr>
+      <tr><td>Fill into a project of ANOTHER user</td><td>Not possible: the target project must be owned by the user who fills.</td><td><code>pm_owns_project</code> in <code>task_template_fill</code></td></tr>
+      <tr><td>Dependencies from / to rows outside the saved row, links of the stage itself</td><td>Not saved / not copied.</td><td>-</td></tr>
+      <tr><td>Undo of a fill</td><td>There is no Undo step (the rows are written by the database). Delete the rows, or use "Replace".</td><td>-</td></tr>
+    </table></div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <ol class="steps">
+      <li>Run <code>kit8/sql/start/start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> in the Supabase SQL editor (idempotent). <code>start3</code> and <code>start4</code> are not needed.</li>
+      <li>Until then the picker shows a hint and saving answers "missing"; the rest of the app works as before.</li>
+      <li>Check: <code>SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'task\_template\_%';</code> returns four rows.</li>
+      <li>Remove everything: <code>delete_sql_structure.sql</code> (part 1a-00000000 drops the templates of ALL organizations).</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

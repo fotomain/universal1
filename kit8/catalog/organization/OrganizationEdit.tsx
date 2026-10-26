@@ -32,12 +32,13 @@ import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } f
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
 
-type OrgTab = 'main' | 'projects' | 'timesheet';
+type OrgTab = 'main' | 'projects' | 'timesheet' | 'system';
 type ProjectsTab = 'settings';
 const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
   { id: 'main', label: 'Main', icon: 'info' },
   { id: 'projects', label: 'Projects', icon: 'view_timeline' },
   { id: 'timesheet', label: 'Time sheet', icon: 'schedule' },
+  { id: 'system', label: 'System', icon: 'settings_applications' },
 ];
 const PROJECTS_TABS: { id: ProjectsTab; label: string }[] = [{ id: 'settings', label: 'Settings' }];
 
@@ -61,6 +62,8 @@ type Form = {
   defaultProjectSettings?: Record<string, any>;
   /** the time sheet defaults of every user (TabTimesheet): only the keys that are stored */
   timesheet: TimesheetStoredSettings;
+  /** count the screens the users open (kit8/catalog/user/visit): true unless stored false */
+  numberOfVisitsFunctionalityEnabled: boolean;
   /** the base currency of the exchange rates the database converts with (the cost of a time sheet hour); '' = EUR */
   baseCurrency: string;
 };
@@ -86,6 +89,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     resourceCapacityStrongMode: capacityModeOf(v) ?? DEFAULT_CAPACITY_MODE,
     defaultProjectSettings: v.defaultProjectSettings,
     timesheet: storedTimesheetSettings(v as Record<string, any>),
+    numberOfVisitsFunctionalityEnabled: v.numberOfVisitsFunctionalityEnabled !== false,
     baseCurrency: v.baseCurrency || '',
   };
 };
@@ -104,6 +108,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     resourceCapacityStrongMode: f.resourceCapacityStrongMode,
     defaultProjectSettings: f.defaultProjectSettings,
     ...f.timesheet,
+    numberOfVisitsFunctionalityEnabled: f.numberOfVisitsFunctionalityEnabled,
     baseCurrency: f.baseCurrency,
     legalData: {
       registrationNo: f.registrationNo,
@@ -314,6 +319,22 @@ export default function OrganizationEdit() {
             helperText={pmT('The currency the exchange rates are quoted against (EUR unless you changed EXPO_PUBLIC_CURRENCY_RATES_BASE). Empty = EUR.')}
             onChangeText={(t: string) => update('baseCurrency', t.toUpperCase())}
           />
+        </View>
+      )}
+
+      {/* System: the switches of the app itself */}
+      {topTab === 'system' && (
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-system-tab-content">
+          <SwitchApp
+            testID="organization-switch-numberOfVisits"
+            label={pmT('Number of visits')}
+            value={form.numberOfVisitsFunctionalityEnabled}
+            onValueChange={(v) => update('numberOfVisitsFunctionalityEnabled', v)}
+            disabled={!canEdit}
+          />
+          <Text style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>
+            {pmT('On (default): the app counts how often each user opens each screen (System settings -> Routes visits) and the hamburger menu shows the 5 most visited. Off: nothing is counted.')}
+          </Text>
         </View>
       )}
 

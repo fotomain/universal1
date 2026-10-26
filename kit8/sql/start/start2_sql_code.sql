@@ -44,6 +44,8 @@
 --   37. create_payment_plan.sql - the PAYMENT PLAN of a task (documentation/PAYMENTS_PLAN_WBS.html): task_payment_plan_lines (the planned payments) + task_payment_plan_movements (the POSTED payments, written by post_task_payment_plan); all sums WITH VAT
 --   38. create_payment_fact.sql - the PAYMENT FACT (documentation/PAYMENTS_FACT_WBS.html): moneyAccountTable + project_payment_fact_header / _lines (ONE bank transaction, the lines from the posted plan), Post writes cash_account_ledger_movements; the rests of a money account are rebuilt and recalculated when an exchange rate changes
 --   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (one signed row per posted invoice / payment line, written by triggers in the Post transaction) + partner_balance_ledger (the totals for now); the reports partner_balance_report / _filter_items / _movements_list; credit notes (the CHECK of the invoice lines is in PART 26 / 31 of start1)
+--   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): the RPCs task_template_save / _fill / _set_title, the RLS (every user of the organization reads, the creator or the administrator deletes)
+--   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): the RPCs route_visit_register / route_visits_clear / route_visits_enabled, RLS (a user reads and deletes his own rows), realtime
 -- ===============================================================================================
 
 DO $$
@@ -504,7 +506,8 @@ BEGIN
   -- serialize DAG writes per project so two concurrent inserts cannot close a cycle
   PERFORM pg_advisory_xact_lock(hashtextextended(NEW."projectGUID"::text, 0));
 
-  IF public.pm_dependency_creates_cycle(NEW."rowDependsOnGUID", NEW."rowGUID") THEN
+  -- task_template_fill copies the links of a template (a saved, acyclic DAG) between BRAND NEW rows: nothing outside can close a cycle, and the walk costs 1 ms a link
+  IF current_setting('app.task_bulk', true) IS DISTINCT FROM 'on' AND public.pm_dependency_creates_cycle(NEW."rowDependsOnGUID", NEW."rowGUID") THEN
     RAISE EXCEPTION 'pm_gantt: dependency % -> % would create a cycle', NEW."rowDependsOnGUID", NEW."rowGUID"
       USING ERRCODE = 'check_violation';
   END IF;
@@ -578,6 +581,10 @@ $$;
 CREATE OR REPLACE FUNCTION public.pm_task_dependency_after_delete() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
+  -- a bulk writer (task_template_fill with Replace) rebuilds the closure ONCE after its delete
+  IF current_setting('app.task_bulk', true) = 'on' THEN
+    RETURN NULL;
+  END IF;
   -- skip when the whole project is being deleted (FK cascade already cleans up)
   IF EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = OLD."projectGUID") THEN
     PERFORM public.pm_rebuild_dependency_closure(OLD."projectGUID");
@@ -739,38 +746,37 @@ BEGIN
     RAISE EXCEPTION 'pm_gantt: project % is not yours', p_project USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  WITH rows AS (
-    SELECT "rowGUID", "treePath", "rowProgress", "rowJSON"
-      FROM public.project_task_table WHERE "projectGUID" = p_project
-  ), leaves AS (
-    SELECT r."rowGUID", r."treePath",
+  -- a leaf = a task / milestone with nothing inside it. The probes go to the table (its GiST index on treePath), not to a CTE of the project (a CTE has no index: n x n), and a summary
+  -- row takes its leaves through the ancestor paths of every leaf (n x depth): a project of 10 000 rows is a matter of milliseconds, not minutes (task templates fill thousands of rows)
+  WITH leaves AS (
+    SELECT r."treePath",
            GREATEST(CASE WHEN r."rowJSON"->>'durationDays' ~ '^-?[0-9]+(\.[0-9]+)?$'
                          THEN (r."rowJSON"->>'durationDays')::numeric ELSE 0 END, 1) AS w,
            LEAST(GREATEST(COALESCE(r."rowProgress", 0), 0), 100) AS p
-      FROM rows r
-     WHERE COALESCE(r."rowJSON"->>'rowKind', 'task') <> 'stage'
-       AND NOT EXISTS (SELECT 1 FROM rows c WHERE c."treePath" <@ r."treePath" AND c."rowGUID" <> r."rowGUID")
+      FROM public.project_task_table r
+     WHERE r."projectGUID" = p_project
+       AND COALESCE(r."rowJSON"->>'rowKind', 'task') <> 'stage'
+       AND NOT EXISTS (SELECT 1 FROM public.project_task_table c WHERE c."treePath" <@ r."treePath" AND c."rowGUID" <> r."rowGUID")
   ), summaries AS (
-    SELECT s."rowGUID", ROUND(SUM(l.w * l.p) / SUM(l.w), 1) AS prog
-      FROM rows s
-      JOIN leaves l ON l."treePath" <@ s."treePath" AND l."rowGUID" <> s."rowGUID"
-     GROUP BY s."rowGUID"
+    SELECT a."rowGUID", ROUND(SUM(l.w * l.p) / SUM(l.w), 1) AS prog
+      FROM leaves l
+      CROSS JOIN LATERAL generate_series(2, nlevel(l."treePath") - 1) AS k
+      JOIN public.project_task_table a ON a."treePath" = subpath(l."treePath", 0, k)
+     GROUP BY a."rowGUID"
   )
   UPDATE public.project_task_table t
      SET "rowProgress" = s.prog
     FROM summaries s
    WHERE t."rowGUID" = s."rowGUID" AND t."rowProgress" IS DISTINCT FROM s.prog;
 
-  WITH rows AS (
-    SELECT "rowGUID", "treePath", "rowProgress", "rowJSON"
-      FROM public.project_task_table WHERE "projectGUID" = p_project
-  ), leaves AS (
+  WITH leaves AS (
     SELECT GREATEST(CASE WHEN r."rowJSON"->>'durationDays' ~ '^-?[0-9]+(\.[0-9]+)?$'
                          THEN (r."rowJSON"->>'durationDays')::numeric ELSE 0 END, 1) AS w,
            LEAST(GREATEST(COALESCE(r."rowProgress", 0), 0), 100) AS p
-      FROM rows r
-     WHERE COALESCE(r."rowJSON"->>'rowKind', 'task') <> 'stage'
-       AND NOT EXISTS (SELECT 1 FROM rows c WHERE c."treePath" <@ r."treePath" AND c."rowGUID" <> r."rowGUID")
+      FROM public.project_task_table r
+     WHERE r."projectGUID" = p_project
+       AND COALESCE(r."rowJSON"->>'rowKind', 'task') <> 'stage'
+       AND NOT EXISTS (SELECT 1 FROM public.project_task_table c WHERE c."treePath" <@ r."treePath" AND c."rowGUID" <> r."rowGUID")
   )
   SELECT COALESCE(ROUND(SUM(w * p) / NULLIF(SUM(w), 0), 1), 0) INTO v_progress FROM leaves;
 
@@ -789,6 +795,10 @@ DECLARE
 BEGIN
   -- rows written by the recalc itself / by the subtree triggers run at depth > 1
   IF pg_trigger_depth() > 1 THEN
+    RETURN NULL;
+  END IF;
+  -- a bulk writer (task_template_fill) switches this off for its statements and recalculates ONCE at the end
+  IF current_setting('app.task_bulk', true) = 'on' THEN
     RETURN NULL;
   END IF;
   -- skip when the whole project is being deleted (FK cascade)
@@ -3543,6 +3553,10 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_json jsonb;
 BEGIN
+  -- a bulk writer (task_template_fill) makes the calendar rows of all its tasks in ONE statement at the end
+  IF current_setting('app.task_bulk', true) = 'on' THEN
+    RETURN NULL;
+  END IF;
   IF TG_OP = 'DELETE' THEN
     DELETE FROM public.user_calendar_event_table WHERE "rowJSON"->>'projectTaskGUID' = OLD."rowGUID"::text;
     RETURN OLD;
@@ -14420,6 +14434,451 @@ GRANT EXECUTE ON FUNCTION public.partner_balance_movements_list(text, text, text
 
 -- ---- the backfill: the posted documents that exist now get their rows (idempotent; a database that has none does nothing) -----------------------------------------------------------------------------
 SELECT public.partner_balance_register_missing();
+
+-- ===============================================================================================
+-- PART 40: create_task_template.sql
+-- TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): task_template_header / _task / _dependency / _line (start1) are written ONLY by these RPCs (one transaction each); a client reads them
+-- (RLS: every user of the ORGANIZATION of the template) and deletes a header (the creator or the administrator of the organization).
+--   task_template_save(task, title, description)   the task + everything inside it + its task lines + the links between those tasks  -> the template
+--   task_template_fill(template, task, replace)    copies the template into a task of a project the user owns (new ids everywhere)         -> {mode, tasks, lines, dependencies}
+--   task_template_set_title(template, title, description)
+-- Not copied: the plan movements and the posting state (a copied line is UNPOSTED), the dates of the scheduler, the sums in the accounting / budget currency (the project of the
+-- target has its own currencies: "Recalculate" of the Finances table makes them), the custom column values, the subproject flag, documents (fact, invoices, payments).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.task_template_header') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 40 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+
+-- the template belongs to the organization of the current user (RLS of the four tables; SECURITY DEFINER: reads the header whatever the caller sees)
+CREATE OR REPLACE FUNCTION public.task_template_visible(p_template uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.task_template_header h
+                  WHERE h."rowGUID" = p_template AND h."rowOrganizationGUID" = public.organization_of_current_user())
+$$;
+
+REVOKE ALL ON FUNCTION public.task_template_visible(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_template_visible(uuid) TO authenticated;
+
+-- the keys of a task / a line that belong to ONE project and are not copied (see the header of this part)
+CREATE OR REPLACE FUNCTION public.task_template_clean_task(p_json jsonb) RETURNS jsonb
+LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
+  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
+$$;
+
+CREATE OR REPLACE FUNCTION public.task_template_clean_line(p_json jsonb) RETURNS jsonb
+LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
+  SELECT (COALESCE(p_json, '{}'::jsonb) - 'baseOfDistribution' - 'sumForAccounting' - 'sumVATForAccounting' - 'sumForBudget' - 'sumVATForBudget' - 'fxSnapshotTaskLine')
+         || '{"taskIsPosted": false}'::jsonb
+$$;
+
+
+-- ---- save --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.task_template_save(p_task uuid, p_title text, p_description text DEFAULT NULL) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_src      public.project_task_table%ROWTYPE;
+  v_org      text := public.organization_of_current_user();
+  v_title    text := NULLIF(btrim(COALESCE(p_title, '')), '');
+  v_template uuid := gen_random_uuid();
+  v_rows     int;
+  v_lines    int;
+  v_no       numeric;
+  v_project  text;
+  v_max      constant int := 5000;
+BEGIN
+  SELECT * INTO v_src FROM public.project_task_table WHERE "rowGUID" = p_task;
+  IF NOT FOUND OR NOT public.pm_owns_project(v_src."projectGUID") THEN
+    RAISE EXCEPTION 'task_template: task not found' USING ERRCODE = '42501';
+  END IF;
+  IF v_org IS NULL THEN
+    RAISE EXCEPTION 'task_template: the user has no organization' USING ERRCODE = '42501';
+  END IF;
+  IF v_title IS NULL THEN
+    RAISE EXCEPTION 'task_template: the title of the template is empty' USING ERRCODE = '22023';
+  END IF;
+  -- a fill of 5 000 rows takes 3 s, of 10 000 rows 6 s (12 s with Replace): above the 8 s a request of the app may take
+  IF (SELECT count(*) FROM public.project_task_table t WHERE t."projectGUID" = v_src."projectGUID" AND t."treePath" <@ v_src."treePath") > v_max THEN
+    RAISE EXCEPTION 'task_template: the row has more than % rows inside it: save its parts as separate templates', v_max USING ERRCODE = '54000';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('task_template:' || v_org));
+  SELECT COALESCE(MAX("orderInList"), 0) + 1 INTO v_no FROM public.task_template_header WHERE "rowOrganizationGUID" = v_org;
+  SELECT NULLIF(btrim("rowJSON"->>'name'), '') INTO v_project FROM public.project_table WHERE "rowGUID" = v_src."projectGUID";
+
+  INSERT INTO public.task_template_header ("rowGUID", "rowOrganizationGUID", "rowOwnerGUID", "orderInList", "rowJSON")
+  VALUES (v_template, v_org, public.app_user_guid(), v_no, jsonb_build_object(
+            'templateTitle', v_title,
+            'templateDescription', COALESCE(btrim(p_description), ''),
+            'templateKind', COALESCE(NULLIF(v_src."rowJSON"->>'rowKind', ''), 'task'),
+            'templateSourceTaskName', v_src."rowJSON"->>'taskDescription',
+            'templateSourceProjectGUID', v_src."projectGUID",
+            'templateSourceProjectName', v_project,
+            'templateCreatedByEmail', lower(COALESCE(auth.jwt()->>'email', '')),
+            'templateRowCount', 0,
+            'templateLineCount', 0));
+
+  -- the task and everything inside it
+  INSERT INTO public.task_template_task ("rowTemplateGUID", "rowGUID", "rowParentGUID", "orderInList", "rowJSON")
+  -- the parent of a row = the row whose label is the second last label of the path (the label is the id with '-' as '_', pm_ltree_label): no join, so no n x n
+  SELECT v_template, t."rowGUID",
+         CASE WHEN t."rowGUID" = v_src."rowGUID" THEN NULL ELSE replace(subpath(t."treePath", nlevel(t."treePath") - 2, 1)::text, '_', '-')::uuid END,
+         CASE WHEN t."rowGUID" = v_src."rowGUID" THEN 0 ELSE t."orderInList" END,
+         public.task_template_clean_task(t."rowJSON")
+    FROM public.project_task_table t
+   WHERE t."projectGUID" = v_src."projectGUID" AND t."treePath" <@ v_src."treePath"
+   ORDER BY nlevel(t."treePath"), t."orderInList";
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  -- a big template: the planner knows nothing about rows written a moment ago (autovacuum comes minutes later) and would join them badly
+  IF v_rows > 500 THEN
+    ANALYZE public.task_template_task;
+  END IF;
+
+  -- both come from the rows of the template (their keys are indexed): scanning task_line_table / the links with an EXISTS per row was quadratic
+  INSERT INTO public.task_template_dependency ("rowTemplateGUID", "rowGUID", "rowDependsOnGUID", "linkType", "lagDays", "rowJSON")
+  SELECT v_template, d."rowGUID", d."rowDependsOnGUID", d."linkType", d."lagDays", d."rowJSON"
+    FROM public.task_template_task a
+    JOIN public.project_task_dependencies_table d ON d."rowGUID" = a."rowGUID"
+    JOIN public.task_template_task b ON b."rowTemplateGUID" = v_template AND b."rowGUID" = d."rowDependsOnGUID"
+   WHERE a."rowTemplateGUID" = v_template AND d."projectGUID" = v_src."projectGUID";
+
+  INSERT INTO public.task_template_line ("rowTemplateGUID", "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  SELECT v_template, l."rowGUID", l."rowOwnerGUID", l."rowParentGUID", l."orderInList", public.task_template_clean_line(l."rowJSON")
+    FROM public.task_template_task a
+    JOIN public.task_line_table l ON l."rowOwnerGUID" = a."rowGUID"
+   WHERE a."rowTemplateGUID" = v_template;
+  GET DIAGNOSTICS v_lines = ROW_COUNT;
+
+  UPDATE public.task_template_header
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('templateRowCount', v_rows, 'templateLineCount', v_lines)
+   WHERE "rowGUID" = v_template;
+
+  -- ... and the same for the first fill, which reads the three tables
+  IF v_rows + v_lines > 500 THEN
+    ANALYZE public.task_template_dependency;
+    ANALYZE public.task_template_line;
+  END IF;
+  RETURN v_template;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_template_save(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_template_save(uuid, text, text) TO authenticated;
+
+
+-- ---- fill --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- mode 'single' (the template is ONE task without rows inside): the data of the top row (not its name, not its kind) and its lines go into the target task
+-- mode 'tree'   (a stage, or a task with rows inside): the rows inside the top row are created inside the target (the target becomes a summary row); the top row itself is not copied
+-- p_replace false: what the target has stays (lines are added after its lines, rows after its rows); a target that cannot take the template (lines vs rows) is refused
+-- p_replace true : the lines (single) / the rows inside + the lines (tree) of the target are deleted first
+CREATE OR REPLACE FUNCTION public.task_template_fill(p_template uuid, p_task uuid, p_replace boolean DEFAULT false) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_target   public.project_task_table%ROWTYPE;
+  v_top      public.task_template_task%ROWTYPE;
+  v_run      text := gen_random_uuid()::text;
+  v_tree     boolean;
+  v_base     numeric;
+  v_tasks    int := 0;
+  v_lines    int := 0;
+  v_deps     int := 0;
+  v_kind     text;
+  v_has_rows boolean;
+  v_has_lines boolean;
+  v_old      uuid[];
+  v_new      uuid[];
+BEGIN
+  SELECT * INTO v_target FROM public.project_task_table WHERE "rowGUID" = p_task;
+  IF NOT FOUND OR NOT public.pm_owns_project(v_target."projectGUID") THEN
+    RAISE EXCEPTION 'task_template: task not found' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.task_template_visible(p_template) THEN
+    RAISE EXCEPTION 'task_template: template not found' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO v_top FROM public.task_template_task WHERE "rowTemplateGUID" = p_template AND "rowParentGUID" IS NULL;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'task_template: the template is empty' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('task_template_fill:' || v_target."projectGUID"::text));
+
+  v_kind := COALESCE(NULLIF(v_target."rowJSON"->>'rowKind', ''), 'task');
+  v_tree := COALESCE(v_top."rowJSON"->>'rowKind', 'task') = 'stage' OR EXISTS (SELECT 1 FROM public.task_template_task c WHERE c."rowTemplateGUID" = p_template AND c."rowParentGUID" = v_top."rowGUID");
+  v_has_rows := EXISTS (SELECT 1 FROM public.project_task_table c WHERE c."projectGUID" = v_target."projectGUID" AND c."treePath" <@ v_target."treePath" AND c."rowGUID" <> v_target."rowGUID");
+  v_has_lines := EXISTS (SELECT 1 FROM public.task_line_table l WHERE l."rowOwnerGUID" = v_target."rowGUID");
+
+  IF v_tree THEN
+    IF v_kind = 'milestone' THEN
+      RAISE EXCEPTION 'task_template: a milestone cannot have rows inside it' USING ERRCODE = '22023';
+    END IF;
+    IF v_has_lines AND NOT p_replace THEN
+      RAISE EXCEPTION 'task_template: the task has lines, a row with rows inside it has none: use "Replace what the row has now"' USING ERRCODE = '22023';
+    END IF;
+  ELSE
+    IF v_kind = 'stage' THEN
+      RAISE EXCEPTION 'task_template: a stage has no lines: fill a task with this template' USING ERRCODE = '22023';
+    END IF;
+    IF v_has_rows AND NOT p_replace THEN
+      RAISE EXCEPTION 'task_template: the row has rows inside it, they cannot have lines of their own: use "Replace what the row has now"' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  -- thousands of rows: the progress of the project is calculated ONCE at the end, not after every row (pm_task_after_progress_change looks at this switch)
+  PERFORM set_config('app.task_bulk', 'on', true);
+
+  IF p_replace THEN
+    SELECT COALESCE(array_agg(c."rowGUID"), ARRAY[]::uuid[]) INTO v_old
+      FROM public.project_task_table c
+     WHERE c."projectGUID" = v_target."projectGUID" AND c."treePath" <@ v_target."treePath" AND c."rowGUID" <> v_target."rowGUID";
+    DELETE FROM public.project_task_table c
+     WHERE c."projectGUID" = v_target."projectGUID" AND c."treePath" <@ v_target."treePath" AND c."rowGUID" <> v_target."rowGUID";
+    DELETE FROM public.user_calendar_event_table e WHERE e."rowJSON"->>'projectTaskGUID' IN (SELECT x::text FROM unnest(v_old) x);
+    DELETE FROM public.task_line_table l WHERE l."rowOwnerGUID" = v_target."rowGUID";
+    PERFORM public.pm_rebuild_dependency_closure(v_target."projectGUID");
+  END IF;
+
+  IF v_tree THEN
+    SELECT COALESCE(MAX(c."orderInList"), 0) INTO v_base
+      FROM public.project_task_table c
+     WHERE c."projectGUID" = v_target."projectGUID" AND nlevel(c."treePath") = nlevel(v_target."treePath") + 1 AND c."treePath" <@ v_target."treePath";
+
+    -- the rows inside the top row, parents before children; the ids are made from the run id and the id in the template
+    WITH RECURSIVE r AS (
+      SELECT t."rowGUID", t."orderInList", t."rowJSON", 1 AS depth,
+             v_target."treePath" || public.pm_ltree_label(md5(v_run || t."rowGUID"::text)::uuid) AS path,
+             row_number() OVER (ORDER BY t."orderInList", t."rowGUID") AS rn
+        FROM public.task_template_task t
+       WHERE t."rowTemplateGUID" = p_template AND t."rowParentGUID" = v_top."rowGUID"
+      UNION ALL
+      SELECT c."rowGUID", c."orderInList", c."rowJSON", r.depth + 1,
+             r.path || public.pm_ltree_label(md5(v_run || c."rowGUID"::text)::uuid), r.rn
+        FROM public.task_template_task c
+        JOIN r ON c."rowParentGUID" = r."rowGUID"
+       WHERE c."rowTemplateGUID" = p_template
+    )
+    INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowDuration", "rowProgress", "orderInList", "rowJSON")
+    SELECT md5(v_run || r."rowGUID"::text)::uuid, r.path, v_target."projectGUID", v_target."rowOwnerGUID", NULL, 0,
+           CASE WHEN r.depth = 1 THEN v_base + r.rn ELSE r."orderInList" END, r."rowJSON"
+      FROM r
+     ORDER BY r.depth, r."orderInList";
+    GET DIAGNOSTICS v_tasks = ROW_COUNT;
+
+    -- the calendar rows of the new tasks / milestones (the row trigger was off): one statement
+    SELECT COALESCE(array_agg(md5(v_run || t."rowGUID"::text)::uuid), ARRAY[]::uuid[]) INTO v_new
+      FROM public.task_template_task t WHERE t."rowTemplateGUID" = p_template AND t."rowGUID" <> v_top."rowGUID";
+    INSERT INTO public.user_calendar_event_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+    SELECT k."rowOwnerGUID", 'empty', EXTRACT(EPOCH FROM (x.j->>'startAt')::timestamptz) * 1000, x.j
+      FROM public.project_task_table k
+      CROSS JOIN LATERAL (SELECT public.user_calendar_project_task_json(k) AS j) x
+     WHERE k."rowGUID" = ANY(v_new) AND COALESCE(k."rowJSON"->>'rowKind', 'task') IN ('task', 'milestone')
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO public.project_task_dependencies_table ("rowGUID", "rowDependsOnGUID", "projectGUID", "rowOwnerGUID", "linkType", "lagDays", "rowJSON")
+    SELECT md5(v_run || d."rowGUID"::text)::uuid, md5(v_run || d."rowDependsOnGUID"::text)::uuid, v_target."projectGUID", v_target."rowOwnerGUID", d."linkType", d."lagDays", d."rowJSON"
+      FROM public.task_template_dependency d
+     WHERE d."rowTemplateGUID" = p_template AND d."rowGUID" <> v_top."rowGUID" AND d."rowDependsOnGUID" <> v_top."rowGUID";
+    GET DIAGNOSTICS v_deps = ROW_COUNT;
+
+    INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+    SELECT md5(v_run || l."rowGUID"::text)::uuid, md5(v_run || l."rowOwnerGUID"::text)::uuid, l."rowParentGUID", l."orderInList", l."rowJSON"
+      FROM public.task_template_line l
+     WHERE l."rowTemplateGUID" = p_template AND l."rowOwnerGUID" <> v_top."rowGUID";
+    GET DIAGNOSTICS v_lines = ROW_COUNT;
+  ELSE
+    -- the data of the top row go into the target (its name, its kind and its dates stay); a milestone keeps its zero duration
+    PERFORM set_config('app.task_bulk', 'off', true); -- ONE row: its triggers (calendar) run as usual
+    UPDATE public.project_task_table
+       SET "rowJSON" = "rowJSON" || (v_top."rowJSON" - 'taskDescription' - 'rowKind'
+                                     - CASE WHEN COALESCE(v_top."rowJSON"->>'rowKind', 'task') = v_kind THEN '' ELSE 'durationDays' END)
+     WHERE "rowGUID" = v_target."rowGUID";
+    PERFORM set_config('app.task_bulk', 'on', true);
+
+    INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+    SELECT md5(v_run || l."rowGUID"::text)::uuid, v_target."rowGUID", l."rowParentGUID",
+           COALESCE((SELECT MAX(x."orderInList") FROM public.task_line_table x WHERE x."rowOwnerGUID" = v_target."rowGUID" AND x."rowParentGUID" = l."rowParentGUID"), 0) + l."orderInList",
+           l."rowJSON"
+      FROM public.task_template_line l
+     WHERE l."rowTemplateGUID" = p_template AND l."rowOwnerGUID" = v_top."rowGUID";
+    GET DIAGNOSTICS v_lines = ROW_COUNT;
+  END IF;
+
+  PERFORM set_config('app.task_bulk', 'off', true);
+  PERFORM public.pm_recalc_project_progress(v_target."projectGUID");
+
+  RETURN jsonb_build_object('mode', CASE WHEN v_tree THEN 'tree' ELSE 'single' END, 'tasks', v_tasks, 'lines', v_lines, 'dependencies', v_deps);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_template_fill(uuid, uuid, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_template_fill(uuid, uuid, boolean) TO authenticated;
+
+
+-- ---- rename ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.task_template_set_title(p_template uuid, p_title text, p_description text DEFAULT NULL) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_title text := NULLIF(btrim(COALESCE(p_title, '')), '');
+  v_h     public.task_template_header%ROWTYPE;
+BEGIN
+  SELECT * INTO v_h FROM public.task_template_header WHERE "rowGUID" = p_template AND "rowOrganizationGUID" = public.organization_of_current_user();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'task_template: template not found' USING ERRCODE = '42501';
+  END IF;
+  IF v_h."rowOwnerGUID" <> public.app_user_guid() AND NOT public.organization_is_admin(v_h."rowOrganizationGUID") THEN
+    RAISE EXCEPTION 'task_template: only the creator of the template or the administrator of the organization can change it' USING ERRCODE = '42501';
+  END IF;
+  IF v_title IS NULL THEN
+    RAISE EXCEPTION 'task_template: the title of the template is empty' USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.task_template_header
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('templateTitle', v_title)
+                                || CASE WHEN p_description IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('templateDescription', btrim(p_description)) END
+   WHERE "rowGUID" = p_template;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_template_set_title(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.task_template_set_title(uuid, text, text) TO authenticated;
+
+
+-- ---- access: the organization reads; the writes are the RPCs; the creator / the administrator deletes a template -----------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_task_template_header_touch ON public.task_template_header;
+
+CREATE TRIGGER trg_task_template_header_touch BEFORE UPDATE ON public.task_template_header
+  FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
+
+ALTER TABLE public.task_template_header     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_template_task       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_template_dependency ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_template_line       ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.task_template_header, public.task_template_task, public.task_template_dependency, public.task_template_line FROM anon, authenticated;
+
+GRANT SELECT, DELETE ON public.task_template_header TO authenticated;
+GRANT SELECT ON public.task_template_task, public.task_template_dependency, public.task_template_line TO authenticated;
+
+DROP POLICY IF EXISTS task_template_header_select ON public.task_template_header;
+
+CREATE POLICY task_template_header_select ON public.task_template_header FOR SELECT TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user());
+
+DROP POLICY IF EXISTS task_template_header_delete ON public.task_template_header;
+
+CREATE POLICY task_template_header_delete ON public.task_template_header FOR DELETE TO authenticated
+  USING ("rowOrganizationGUID" = public.organization_of_current_user()
+         AND ("rowOwnerGUID" = public.app_user_guid() OR public.organization_is_admin("rowOrganizationGUID")));
+
+DROP POLICY IF EXISTS task_template_task_select ON public.task_template_task;
+
+CREATE POLICY task_template_task_select ON public.task_template_task FOR SELECT TO authenticated USING (public.task_template_visible("rowTemplateGUID"));
+
+DROP POLICY IF EXISTS task_template_dependency_select ON public.task_template_dependency;
+
+CREATE POLICY task_template_dependency_select ON public.task_template_dependency FOR SELECT TO authenticated USING (public.task_template_visible("rowTemplateGUID"));
+
+DROP POLICY IF EXISTS task_template_line_select ON public.task_template_line;
+
+CREATE POLICY task_template_line_select ON public.task_template_line FOR SELECT TO authenticated USING (public.task_template_visible("rowTemplateGUID"));
+
+-- ===============================================================================================
+-- PART 41: create_route_visits.sql
+-- ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover (start1) is written ONLY by route_visit_register; a user reads and deletes his OWN rows (RLS).
+--   route_visits_enabled()            the Organization switch numberOfVisitsFunctionalityEnabled (true unless it is stored false)
+--   route_visit_register(route)       +1 visit of the route for the current user (one row per user and route); nothing when the switch is off  -> the new count or NULL
+--   route_visits_clear(route)         deletes the rows of the current user (all, or only that route)                                           -> the number of rows deleted
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.app_route_visits_turnover') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 41 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('app_route_visits_turnover');
+
+GRANT SELECT, DELETE ON public.app_route_visits_turnover TO authenticated;
+
+DROP POLICY IF EXISTS app_route_visits_select ON public.app_route_visits_turnover;
+
+CREATE POLICY app_route_visits_select ON public.app_route_visits_turnover FOR SELECT TO authenticated
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()::text));
+
+DROP POLICY IF EXISTS app_route_visits_delete ON public.app_route_visits_turnover;
+
+CREATE POLICY app_route_visits_delete ON public.app_route_visits_turnover FOR DELETE TO authenticated
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()::text));
+
+-- the Organization switch of the current user (true by default: only a stored 'false' turns it off)
+CREATE OR REPLACE FUNCTION public.route_visits_enabled() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE((SELECT o."rowJSON"->>'numberOfVisitsFunctionalityEnabled'
+                     FROM public."organizationTable" o WHERE o."rowGUID" = public.organization_of_current_user()), 'true') <> 'false'
+$$;
+
+REVOKE ALL ON FUNCTION public.route_visits_enabled() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.route_visits_enabled() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.route_visit_register(p_route text) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user  text := public.app_user_guid()::text;
+  v_route text := left(btrim(COALESCE(p_route, '')), 300);
+  v_n     integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'route_visit_register: sign in first' USING ERRCODE = '28000'; END IF;
+  IF v_route = '' OR NOT public.route_visits_enabled() THEN RETURN NULL; END IF;
+  INSERT INTO public.app_route_visits_turnover AS t ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  VALUES (v_user, v_route, jsonb_build_object('number_of_route_visits', 1, 'last_visit_at', to_jsonb(now())))
+  ON CONFLICT ("rowOwnerGUID", "rowParentGUID") DO UPDATE
+    SET "rowJSON" = t."rowJSON" || jsonb_build_object(
+          'number_of_route_visits', COALESCE((t."rowJSON"->>'number_of_route_visits')::integer, 0) + 1,
+          'last_visit_at', to_jsonb(now()))
+  RETURNING (t."rowJSON"->>'number_of_route_visits')::integer INTO v_n;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.route_visit_register(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.route_visit_register(text) TO authenticated;
+
+-- "Clear": the rows of the current user (rowOwnerGUID = his GUID), all of them or only the route given
+CREATE OR REPLACE FUNCTION public.route_visits_clear(p_route text DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user text := public.app_user_guid()::text;
+  v_n    integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'route_visits_clear: sign in first' USING ERRCODE = '28000'; END IF;
+  DELETE FROM public.app_route_visits_turnover t
+   WHERE t."rowOwnerGUID" = v_user AND (NULLIF(btrim(COALESCE(p_route, '')), '') IS NULL OR t."rowParentGUID" = btrim(p_route));
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.route_visits_clear(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.route_visits_clear(text) TO authenticated;
+
+-- realtime: the Top 5 of the hamburger menu follows the visits
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'app_route_visits_turnover') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.app_route_visits_turnover;
+    END IF;
+  END IF;
+END $$;
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

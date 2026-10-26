@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schedule From Project Finish Date WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Schedule From Project Finish Date – Work Breakdown Structure</h1>
+<p class="sub">Scope: the MS Project setting <b>Project Information &gt; Schedule From: Project Start Date | Project Finish Date</b> for the Gantt chart of <code>kit8/pm</code>. Item A4 of <code>MORE_GANTT_INPUT.html</code>. Planning document – no implementation, nothing in the code was changed.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>A plan today is always built <b>forward</b> from the project start date: the finish is the result. Many real projects work the other way: the opening, the delivery, the audit date is fixed and the question is <i>“when must we start?”</i>.</p>
+  <p>In MS Project the planner chooses <b>Schedule From Project Finish Date</b>, types the finish date, and the engine plans <b>backward</b>: every task is placed as late as its successors allow (new tasks default to As Late As Possible), the <b>project start date becomes a result</b>, and a start that would already lie in the past is the early warning that the date is not reachable. This feature adds that mode. The project window already has a field “Project Finish Date (projectFinishDate)”; today it is only a note, the scheduler never reads it.</p>
+</div>
+<div class="callout"><b>Hard constraint:</b> a project that is scheduled from the start (the default, and every existing project) behaves exactly as today: same dates, same critical path, same write-back, and the existing Finish Date field keeps its present (inert) behavior.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Note</th></tr>
+  <tr><td class="id">R1</td><td>A project that was never switched is scheduled from the start, exactly as before.</td><td>Setting absent = start. No master switch is needed: the choice itself is the switch.</td></tr>
+  <tr><td class="id">R2</td><td>A project can be scheduled <b>from the finish date</b>: the typed Project Finish Date is fixed, the Project Start Date is calculated and read-only.</td><td>The finish is the <i>last day</i> of the project (inclusive), the same convention as the Finish field of a task.</td></tr>
+  <tr><td class="id">R3</td><td>In this mode a task without a constraint is placed <b>as late as possible</b>: its finish is the earliest limit given by the project finish and by its successors’ dates (FS / SS / FF / SF with lag and lead, in the project calendar).</td><td>The backward pass the scheduler already has is the mirror of the forward pass.</td></tr>
+  <tr><td class="id">R4</td><td>The calculated project start is stored in the project row (<code>projectStartAt</code>) so every other reader sees the real start.</td><td>Switching back to “from start” keeps it.</td></tr>
+  <tr><td class="id">R5</td><td>When the calculated start lies before today, the project shows a warning “To finish on … the project had to start on …”.</td><td>Warning only; nothing is moved.</td></tr>
+  <tr><td class="id">R6</td><td>Float and the critical path are computed in this mode too: the critical chain is the one that starts at the calculated start.</td><td>Needs the early dates next to the placed (late) dates.</td></tr>
+  <tr><td class="id">R7</td><td>Switching the mode (either way) shows a preview: how many tasks change their dates, and that the posted lines and payments of those tasks will need a new Post; it needs a Yes.</td><td>The write-back unposts a task whose start or finish <i>day</i> changed.</td></tr>
+  <tr><td class="id">R8</td><td>Rows whose dates are fixed – manually scheduled tasks and the origin task of a subproject – keep their dates and act as fixed points of the backward pass.</td><td>Sibling WBS documents.</td></tr>
+  <tr><td class="id">R9</td><td>Every reader of the project start and of the schedule honors the mode: versions, templates, network view, JSON / PDF / MS Project XML, the Gantt time line.</td><td>Section 3 lists them.</td></tr>
+  <tr><td class="id">R10</td><td>The Gantt chart marks the fixed finish date (a vertical line with the date) in this mode.</td><td>Next to the Today line.</td></tr>
+</table>
+</div>
+
+<h2>3. What already exists (checked in the code, 2026-10-26)</h2>
+<div class="card">
+  <ul>
+    <li><b>Scheduler</b> <code>view/project/scheduling.ts scheduleProject()</code>: forward pass from <code>projectStartMs</code> (<code>nextWorkDay</code> of the start); project finish = the largest <code>EF</code>; <b>backward pass</b> over the leaves in reverse topological order with <code>lf = projectFinishMs</code> as the initial bound, FS / SS / FF / SF limits of the successors, then <code>ls = subtractWorkDays(lf, d)</code>. Today these late dates are used only for <code>totalFloatDays</code> and <code>isCritical</code>. This is exactly the placement the new mode needs, with <code>projectFinishMs</code> fixed to the typed date instead of computed.</li>
+    <li><b>Start input:</b> <code>store/storeDerive.ts derive()</code> reads <code>project.rowJSON.projectStartAt</code> (else <code>created_at</code>, else today) and <code>skipWeekends</code>; <code>versionCompare.ts scheduleVersion()</code> does the same for a version.</li>
+    <li><b>Finish today:</b> the project window (<code>PMRecentProjectsToolbar</code>) has the editable field “Project Finish Date (projectFinishDate)” saved in <code>rowJSON.projectFinishDate</code>; for a new project it also sets <code>rowDuration</code>, which the write-back overwrites with the computed finish. The scheduler never reads it, so on existing projects it is a free-text memo that may be old or empty.</li>
+    <li><b>Write-back</b> <code>useScheduleWriteBack</code> → <code>pm_apply_schedule</code> stores <code>startAt</code> / <code>rowDuration</code> per task and the project <code>rowDuration</code> (finish) and progress; a changed day unposts posted task lines and payments (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>).</li>
+    <li><b>Readers of the project start / finish:</b> Gantt time line (<code>PMGanttSurface</code> range, <code>PMProjectGanttChart</code> project band and Fit), period window, network view (<code>useNetworkView</code>, <code>networkModel</code>), PDF header, MS Project XML (<code>msProjectXml.ts</code>), project cards / catalog (<code>ProjectCard</code>, <code>projectCatalogModel</code>), <code>createProject</code> (<code>projectApi.ts</code>), create-from-template (<code>templateApi.ts</code>: every date shifted by <code>target start − template start</code>), SQL <code>user_calendar_project_task_json</code> (fallback date).</li>
+    <li><b>Constraints today:</b> only <code>manualStartAt</code> = start no earlier than; a bar drag and the inline Start cell write it. In a backward-planned project that key would mean something else (section 4.4).</li>
+  </ul>
+</div>
+<div class="callout warn"><b>Build order:</b> the dragged-bar meaning, the “as late as possible” default of a task and the conflict markers need the constraint types of <code>MORE_GANTT_The8ConstraintTypes.html</code> (item A3: ALAP, Finish No Later Than, Must Finish On, the conflict flag, negative slack). This feature should be built <b>after</b> A3; without it the mode could be offered only as a read-only plan with no way to pin a task.</div>
+
+<h2>4. Proposed model and rules (to confirm)</h2>
+<h3>4.1 Keys</h3>
+<div class="tbl">
+<table>
+  <tr><th>Where</th><th>Key</th><th>Meaning</th></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>projectScheduleFrom</code></td><td><code>'start'</code> | <code>'finish'</code>; absent = start.</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>projectFinishDate</code> (existing)</td><td>The typed finish, <code>YYYY-MM-DD</code>, last day inclusive. Read by the scheduler only while <code>projectScheduleFrom = 'finish'</code>. A finish mode without a valid date is refused at save.</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>projectStartAt</code> / <code>projectStartDate</code> (existing)</td><td>From start: the typed start (input). From finish: the <b>calculated</b> start, written by the write-back (4.3); the window shows it read-only.</td></tr>
+  <tr><td><code>project_table</code></td><td><code>rowDuration</code> (existing)</td><td>Project finish (exclusive), written by the write-back as today; in finish mode it equals the typed date + 1 day.</td></tr>
+  <tr><td><code>PMScheduledRow</code> (client, not stored)</td><td><code>earlyStartMs</code>, <code>lateStartMs</code></td><td>Both start dates; <code>startMs</code> is the placed one (= early in start mode, = late in finish mode). Needed by float and by the network view (7.2).</td></tr>
+  <tr><td>Result of <code>scheduleProject</code></td><td><code>projectStartInPast</code></td><td>true when the calculated start &lt; today.</td></tr>
+</table>
+</div>
+<p>No new table and no SQL column. Under the proposal there is no SQL change at all (section 11).</p>
+
+<h3>4.2 The algorithm</h3>
+<ol>
+  <li><b>Fixed finish.</b> <code>F = nextBackWorkDay(projectFinishDate) + 1 day</code> (exclusive). A finish on a non-working day is moved to the previous working day, with a tip.</li>
+  <li><b>Backward placement (the new first pass).</b> Reverse topological order over the leaf graph. For each leaf: <code>lf = F</code>, then the minimum over its successors’ constraints using the successors’ <i>placed</i> dates: FS <code>lf ≤ shift(succ.ls, −lag)</code>, SS <code>ls ≤ shift(succ.ls, −lag)</code>, FF <code>lf ≤ shift(succ.lf, −lag)</code>, SF <code>ls ≤ shift(succ.lf, −lag)</code>; then <code>ls = subtractWorkDays(lf, d)</code>. These are the formulas of today’s backward pass; the code is moved to a shared function and used for both purposes. Milestones: <code>ls = lf</code>.</li>
+  <li><b>Constraints in the mirror.</b> Fixed rows (R8) take their own dates and bound their predecessors. A date constraint of A3 is applied as in its table (MSO / MFO fix the date; Finish No Later Than bounds <code>lf</code>; Start No Earlier Than bounds <code>ls ≥ D</code> and is a conflict when the links would need earlier).</li>
+  <li><b>Calculated start.</b> <code>S = min(ls)</code> over all leaves (the stages roll up as today). <code>projectStartInPast = S &lt; today</code>.</li>
+  <li><b>Early dates for float.</b> The existing forward pass runs from <code>S</code> (with the same constraints) to give <code>earlyStartMs</code> / <code>EF</code>; <code>totalFloatDays = work days between early and late start</code>; critical when it is 0. The longest chain starts exactly at <code>S</code>, so it is the critical path.</li>
+  <li><b>Output.</b> <code>startMs / finishMs</code> of a leaf = the late (placed) dates; <code>projectStartMs = S</code>, <code>projectFinishMs = F</code>; stage roll-up, progress and cycle handling unchanged.</li>
+</ol>
+<p>In start mode none of this runs: step 2 is the existing backward pass, used for float only, as today.</p>
+
+<h3>4.3 The stored start and the write-back</h3>
+<p>In finish mode the write-back, besides the task rows, writes the calculated start into the project row (<code>projectStartAt</code> and <code>projectStartDate</code>) with the normal project update (no new RPC; no loop, because in finish mode <code>derive()</code> does not read <code>projectStartAt</code>). From then on every reader that still looks at <code>projectStartAt</code> – cards, the calendar fallback, versions, exports, a switch back to start mode – sees the real start. When the calculated start changes by a day the project row is rewritten once.</p>
+
+<h3>4.4 What an edit means in each mode</h3>
+<div class="tbl">
+<table>
+  <tr><th>Action</th><th>From start (today)</th><th>From finish (new)</th></tr>
+  <tr><td>New task, no links</td><td>Starts at the project start</td><td>Ends on the project finish (as late as possible)</td></tr>
+  <tr><td>Duration of a task</td><td>Its finish and the successors move later</td><td>Its start and the predecessors move earlier; the calculated project start may move</td></tr>
+  <tr><td>Add a link</td><td>Successor may move later</td><td>Predecessor may move earlier</td></tr>
+  <tr><td>Drag a bar</td><td>Writes Start No Earlier Than (<code>manualStartAt</code>)</td><td>Writes <b>Finish No Later Than</b> at the dropped finish (the MS Project behavior; to be verified in MS Project) – A3</td></tr>
+  <tr><td>Type a Start in the tree</td><td>Start No Earlier Than</td><td>Start No Earlier Than (a lower bound, so it moves a task only when the date is later than where the links put it)</td></tr>
+  <tr><td>Change the Project Finish Date</td><td>Memo only</td><td>Every task without a fixed date moves with it</td></tr>
+  <tr><td>Change the Project Start Date</td><td>Whole plan moves</td><td>Field is read-only (calculated)</td></tr>
+</table>
+</div>
+
+<h3>4.5 Switching the mode</h3>
+<ul>
+  <li><b>Start → Finish:</b> the window proposes the finish date of the current plan (the last day, inclusive) so that, at the switch, the project length is unchanged; tasks then move to their <i>late</i> dates (into their free slack).</li>
+  <li><b>Finish → Start:</b> the start field takes the calculated start; tasks move to their <i>early</i> dates. The typed finish date stays in <code>projectFinishDate</code> as the memo it is today.</li>
+  <li><b>Preview (R7):</b> before Save, the app runs both schedules on the current data (a dry run, no write) and shows “N tasks change their dates; the posted lines and payments of M of them will need a new Post”. Cancel leaves everything as it was.</li>
+  <li>An existing <code>projectFinishDate</code> is <b>not</b> adopted silently: when the user selects “Finish date” the field is pre-filled with the plan’s finish, whatever the old memo says (decision Q3).</li>
+</ul>
+
+<h3>4.6 Display</h3>
+<ul>
+  <li><b>Project window</b> (<code>PMRecentProjectsToolbar</code>, Main tab): a <code>SegmentButtonsApp</code> “Schedule from: Start date | Finish date” above the two date fields; in finish mode the start field is read-only with the label “Project Start Date (calculated)”, in start mode the finish keeps today’s behavior.</li>
+  <li><b>Gantt:</b> a vertical line with the date at the fixed finish (light and dark palette), a header chip “Scheduled from finish · 2026-12-31”, and the orange warning of R5 when the start lies in the past (also in the project card).</li>
+  <li><b>Task window / task info:</b> the float text says “late start / early start” where it helps; no new fields.</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Owner answers to the questions of section 9</td><td>Q1–Q7 answered; sections 4 and 5 corrected</td><td>R1–R10</td></tr>
+  <tr><td class="id">1.2</td><td>Fix the build order</td><td>Decision: A3 (constraint types) first, then this; if the order changes, the dragged-bar rule of 4.4 and the packages 3.3 / 5.2 change</td><td>R3, R8</td></tr>
+  <tr><td class="id">1.3</td><td>Audit of the readers of the project start and finish</td><td>Grep of <code>projectStartAt</code>, <code>projectStartMs</code>, <code>projectFinishMs</code>, <code>projectFinishDate</code>, <code>rowDuration</code> of the project row at the start of the work; each reader marked “unchanged” or “needs the mode” (the list of section 3 is the first version)</td><td>R9</td></tr>
+  <tr><td class="id">1.4</td><td>Impact on existing plans</td><td>A script (not in the app) switches a copy of the demo and the Railway #1 project to finish mode and counts the tasks whose day changes and the tasks that hold posted lines; the numbers go into section 8 of this document</td><td>R7</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Model and pure helpers</td></tr>
+  <tr><td class="id">2.1</td><td>Types</td><td><code>projectScheduleFrom</code> in <code>PMRowJSON</code>; <code>earlyStartMs</code>, <code>lateStartMs</code> in <code>PMScheduledRow</code>; <code>projectStartInPast</code> in <code>PMScheduleResult</code> (<code>model/types.ts</code>, <code>scheduling.ts</code>)</td><td>R2, R6</td></tr>
+  <tr><td class="id">2.2</td><td><code>model/scheduleFrom.ts</code> (pure)</td><td><code>scheduleFromOf(projectJSON)</code> (absent = start), <code>projectFinishExclusiveOf(json, calendar)</code> (parse, snap back to a working day, +1 day), <code>validateFinish(json)</code>, <code>proposedFinishOf(schedule)</code>; tests</td><td>R1, R2</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Scheduler (<code>view/project/scheduling.ts</code>)</td></tr>
+  <tr><td class="id">3.1</td><td>Shared backward function</td><td>The body of the present backward pass moved into <code>backwardPlace(g, topo, finishMs, cal, fixed)</code>; start mode calls it for float exactly as before (the existing scheduler tests are the proof)</td><td>R1, R3</td></tr>
+  <tr><td class="id">3.2</td><td>Finish mode in <code>scheduleProject</code></td><td>Input <code>scheduleFrom</code> and <code>finishMs</code>; algorithm 4.2 steps 1–6; <code>projectStartMs</code> = calculated start; <code>projectStartInPast</code></td><td>R2, R3, R5, R6</td></tr>
+  <tr><td class="id">3.3</td><td>Fixed rows and constraints in the mirror</td><td>Manually scheduled rows and subproject origin rows (<code>taskIsSubproject</code> with <code>manualStartAt</code> = their date) as fixed points; the A3 constraint types applied as in 4.2 step 3; conflicts flagged with the A3 markers</td><td>R8</td></tr>
+  <tr><td class="id">3.4</td><td>Unit tests <code>__tests__/pm/view/project/scheduling.test.ts</code></td><td>Cases: a chain; two parallel branches (the shorter is late-placed with float); SS / FF / SF links with lag and lead; a Mon–Fri calendar and a finish on a Saturday; a milestone at the end; a stage roll-up; an empty project; cycles; a duration longer than the time to today (<code>projectStartInPast</code>); a fixed row; start-mode results identical to the saved snapshot</td><td>R1–R6, R8</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Store and write-back</td></tr>
+  <tr><td class="id">4.1</td><td><code>derive()</code></td><td><code>storeDerive.ts</code> passes <code>scheduleFrom</code> and the finish; in finish mode it does not use <code>projectStartAt</code> as the input</td><td>R2</td></tr>
+  <tr><td class="id">4.2</td><td>Write the calculated start</td><td><code>useScheduleWriteBack</code> updates <code>projectStartAt</code> / <code>projectStartDate</code> of the project row when they differ from the calculated start (finish mode only), through the normal project update; test that it does not loop and writes once per change</td><td>R4</td></tr>
+  <tr><td class="id">4.3</td><td>Interplay with “Calculation: Manual”</td><td>A mode switch always calculates and writes at once (see <code>MORE_GANTT_ProjectCalculationAutomaticOrManual.html</code>); the pending signature (section 4.2 of that document) includes <code>projectScheduleFrom</code> and the finish date</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Commands and edits</td></tr>
+  <tr><td class="id">5.1</td><td><code>setScheduleFrom(mode, finishDate?)</code></td><td>Dry run of both schedules (1.4’s counting code in the app), the preview of 4.5, then one project update with the new keys; undo is not offered (it changes the project, like the other project settings)</td><td>R7</td></tr>
+  <tr><td class="id">5.2</td><td>Bar drag and typed dates in finish mode</td><td><code>applyBarEdit</code> writes Finish No Later Than (A3); the inline Start cell keeps Start No Earlier Than; tests</td><td>R3</td></tr>
+  <tr><td class="id">5.3</td><td>New project, import</td><td>A new project is “from start”; JSON import keeps the file’s mode and finish date (<code>onImported</code> of the project window fills the segment)</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">User interface</td></tr>
+  <tr><td class="id">6.1</td><td>Project window</td><td>The segment of 4.6, the read-only calculated start, validation of the finish date, texts through <code>pmT</code> (placeholder <code>{{n}}</code>)</td><td>R2</td></tr>
+  <tr><td class="id">6.2</td><td>Preview window</td><td>“N tasks change their dates … posted lines of M tasks need a new Post” with Yes / Cancel (<code>ModalAskComponent</code>)</td><td>R7</td></tr>
+  <tr><td class="id">6.3</td><td>Gantt finish line and chip</td><td>Vertical line with the date, header chip, the past-start warning (also on the project card); palette in <code>view/theme.ts</code>; tips</td><td>R5, R10</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Other readers</td></tr>
+  <tr><td class="id">7.1</td><td>Project versions</td><td><code>scheduleVersion()</code> uses the version’s own mode and finish; the version row copies the keys already (whole <code>rowJSON</code>); <code>versionCompare</code> test</td><td>R9</td></tr>
+  <tr><td class="id">7.2</td><td>Network view</td><td><code>networkModel.ts</code> reads <code>earlyStartMs</code> for ES / EF and <code>lateStartMs</code> for LS / LF instead of assuming that the scheduled start is the early one; test in <code>networkModel.test.ts</code></td><td>R6, R9</td></tr>
+  <tr><td class="id">7.3</td><td>Create from a template</td><td><code>templateApi.ts</code>: a finish-mode template asks for a <b>finish date</b> and shifts every date by <code>target finish − template finish</code>; start-mode templates unchanged</td><td>R9</td></tr>
+  <tr><td class="id">7.4</td><td>MS Project XML export</td><td><code>msProjectXml.ts</code>: <code>ScheduleFromStart</code> = 0 and the finish date in the project header, tasks exported with their placed dates; the element order is checked against the schema reference named in the file header and the file is opened in MS Project once</td><td>R9</td></tr>
+  <tr><td class="id">7.5</td><td>PDF, cards, catalog, calendar fallback, subproject sync</td><td>Checked: they read <code>projectStartMs</code> / <code>projectStartAt</code>, which hold the calculated start; the subproject sync keeps writing the origin task, now treated as a fixed row (3.3). A test with a subproject in a finish-mode project</td><td>R8, R9</td></tr>
+
+  <tr class="group"><td class="id">8</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">8.1</td><td>Jest</td><td>Model (2.2), scheduler (3.4), store and write-back (4.x), commands (5.x), project window and Gantt line (<code>__tests__/pm/ui</code>), export; no new failure against the baseline of KNOW_HOW section 5</td><td>R1–R10</td></tr>
+  <tr><td class="id">8.2</td><td>Regression</td><td>With the setting never saved the demo and Railway #1 projects give the same dates and the same write-back calls as before</td><td>R1</td></tr>
+  <tr><td class="id">8.3</td><td>README and KNOW_HOW</td><td>Section “Schedule from the finish date” in <code>kit8/pm/README.md</code> (the algorithm, the stored start, the meaning of <code>projectFinishDate</code>); one row in the feature index of <code>KNOW_HOW.md</code></td><td>–</td></tr>
+  <tr><td class="id">8.4</td><td>Acceptance walkthrough in the browser</td><td>Section 7 of this document</td><td>R1–R10</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Decisions</b> – 1.2 (the order against A3) and 1.4 (the impact numbers) first.</li>
+    <li><b>2 Model</b> – blocks everything; pure, tested alone.</li>
+    <li><b>3 Scheduler with its tests</b> – needs 2; 3.1 is a pure refactor that must leave the existing tests green before any new code is added. 3.3 needs A3.</li>
+    <li><b>4 Store and write-back</b> – needs 3.</li>
+    <li><b>5 Commands</b> – need 3 and 4; 5.2 needs A3.</li>
+    <li><b>6 UI</b> – needs 5; 6.1 and 6.3 are independent of each other.</li>
+    <li><b>7 Other readers</b> – 7.1, 7.2, 7.5 after 3; 7.3 and 7.4 independent.</li>
+    <li><b>8 Quality</b> – last; the scheduler tests are drafted from step 2.</li>
+  </ol>
+  <p>Related: <i>The 8 Constraint Types</i> (build first), <i>Manually Scheduled Tasks</i> (fixed rows), <i>Calculation Automatic or Manual</i> (the switch calculates at once), <i>Deadline date</i> (A5, can mark the fixed finish).</p>
+</div>
+
+<h2>7. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>A project never switched shows the same dates, float, critical path and write-back as before; its Finish Date field still has no effect.</li>
+    <li>For a chain of three 5-day tasks and the finish 2026-12-31 (Mon–Fri), the last task ends on 31 Dec, the first starts 10 working days before the start of the second, and the project start is the first task’s start, shown read-only and stored in the project row.</li>
+    <li>A shorter parallel branch is placed late (its finish meets its successor) and shows its float; the longest chain is critical.</li>
+    <li>Changing the finish date moves every task that has no fixed date; changing a duration moves predecessors, not successors.</li>
+    <li>When the calculated start is before today the warning shows with both dates; nothing is moved.</li>
+    <li>A manually scheduled task and a subproject origin task stay on their dates and bound their predecessors.</li>
+    <li>Switching the mode shows the preview with the task counts and the Post warning, and does nothing on Cancel; switching back gives the early dates with the calculated start as the start date.</li>
+    <li>A version, a project from a template, the network view, the JSON / PDF export and the MS Project XML are correct for a finish-mode project.</li>
+  </ul>
+</div>
+
+<h2>8. Impact on existing plans (to be filled by work package 1.4)</h2>
+<div class="card">
+  <p>The number of tasks that change their dates when the demo and the Railway #1 projects are switched to finish mode, and how many of them hold posted lines. Until the script is run the document does not claim any number.</p>
+</div>
+
+<h2>9. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Proposal</th></tr>
+  <tr><td class="id">Q1</td><td>Build after the constraint types (A3) – accepted?</td><td>Yes (section 3, 1.2): finish mode without Finish No Later Than has no sensible drag.</td></tr>
+  <tr><td class="id">Q2</td><td>No master switch: the “Schedule from” segment itself is the switch, default Start?</td><td>Yes. It cannot change a project that is not switched.</td></tr>
+  <tr><td class="id">Q3</td><td>The old inert <code>projectFinishDate</code> memos: adopt as the finish when a user picks the mode, or pre-fill with the plan’s own finish?</td><td>Pre-fill with the plan’s finish; never adopt an old memo silently.</td></tr>
+  <tr><td class="id">Q4</td><td>Write the calculated start into <code>projectStartAt</code> (4.3) – accepted, or keep the typed start untouched and show the calculated one only on the screen?</td><td>Write it: cards, versions, exports and the calendar fallback then agree, and switching back keeps the dates.</td></tr>
+  <tr><td class="id">Q5</td><td>A bar drag in finish mode writes Finish No Later Than – confirm with the MS Project behavior you know?</td><td>Yes; I will verify in MS Project before the build (work package 3.3).</td></tr>
+  <tr><td class="id">Q6</td><td>The switch may unpost many posted lines and payments. Is the preview with a Yes enough, or must posted tasks keep their dates (treated as fixed rows)?</td><td>Preview with a Yes. Fixing posted tasks would make the plan unmovable.</td></tr>
+  <tr><td class="id">Q7</td><td>Create from a finish-mode template: ask for a finish date (7.3) – accepted?</td><td>Yes.</td></tr>
+</table>
+</div>
+
+<h2>10. Out of scope and risks</h2>
+<div class="card">
+  <ul>
+    <li><b>Out of scope:</b> the start / finish of a <i>single stage</i> as a driving date; “schedule from finish” for a subproject independently of its parent; the deadline date (A5); resource leveling; a project calendar with holidays (A11) – the backward pass uses the existing Mon–Fri / 7-day calendar.</li>
+  </ul>
+</div>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Risk</th><th>Handling</th></tr>
+  <tr><td class="id">Z1</td><td>Switching moves many tasks and unposts their lines and payments.</td><td>The preview (R7, 5.1 / 6.2) with the counts; 1.4 measures the size on real plans first.</td></tr>
+  <tr><td class="id">Z2</td><td>The refactor of the backward pass (3.1) changes the float of existing plans.</td><td>It is a move of code; the existing scheduler tests and the 8.2 regression run before any new behavior is added.</td></tr>
+  <tr><td class="id">Z3</td><td>Readers that assume “scheduled start = early start” (network view, texts “critical (0 d)”).</td><td>The two new fields (2.1) and the audit 1.3; 7.2 fixes the network view.</td></tr>
+  <tr><td class="id">Z4</td><td>The write of the calculated start loops (a project row change re-derives and writes again).</td><td>Finish mode ignores <code>projectStartAt</code> as an input, and the write happens only when the value differs (4.2 tests it).</td></tr>
+  <tr><td class="id">Z5</td><td>Old plans hold many Start No Earlier Than values from dragged bars; in finish mode each is a lower bound that may conflict.</td><td>They show the A3 conflict marker; the preview lists how many; Q5’s drag rule creates the mirror constraint from then on.</td></tr>
+  <tr><td class="id">Z6</td><td>The MS Project XML header element order is wrong, and MS Project refuses the file.</td><td>7.4 includes opening the file in MS Project; fallback: export the placed dates with <code>ScheduleFromStart = 1</code> and say so in the export window.</td></tr>
+</table>
+</div>
+
+<h2>11. Update steps when it is built (preview)</h2>
+<div class="card">
+  <ol>
+    <li>No SQL file has to be run: the mode is a key of the project <code>rowJSON</code> and the calculated start is written with the normal project update. If decision Q4 is changed to a new RPC argument, <code>start2_sql_code.sql</code> (<code>pm_apply_schedule</code>) will have to be run.</li>
+    <li>No <code>.env</code> change.</li>
+    <li>Reload the app; Project settings → Main → “Schedule from: Finish date”, type the finish date, read the preview and press Yes.</li>
+  </ol>
+</div>
+
+</main>
+</body>
+</html>

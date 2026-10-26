@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manually Scheduled Tasks WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Manually Scheduled Tasks – Work Breakdown Structure</h1>
+<p class="sub">Scope: add the MS Project <b>Task Mode</b> (Auto Scheduled | Manually Scheduled) to the Gantt chart of <code>kit8/pm</code>. Item A1 of <code>MORE_GANTT_INPUT.html</code>. Planning document – no implementation, nothing in the code was changed.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>Today every task is placed by the scheduler: its start is the latest of the project start, its “start no earlier than” date and what its predecessors force. A planner who knows better (“the crane arrives on 14 March, whatever the plan says”) can only type a <i>start no earlier than</i> date, and a predecessor that finishes late still pushes the task away.</p>
+  <p>A <b>manually scheduled task</b> has a start and a duration that the user types and that <b>no link, calendar or project start ever moves</b>. Links to and from it stay drawn and stay valid for the other tasks; when a predecessor would push the task later than the user placed it, the app only <b>warns</b>. This is how MS Project 2010+ plans early, rough or externally fixed work.</p>
+</div>
+<div class="callout"><b>Hard constraint:</b> a project that does not use the feature schedules exactly as today (same dates, same critical path, same write-back). Everything new is behind a project switch that is OFF while never saved, and the scheduler is unchanged for a task without the new keys.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Note</th></tr>
+  <tr><td class="id">R1</td><td>A project without the feature behaves exactly as before.</td><td>Master switch OFF by default; a task without the new keys is auto.</td></tr>
+  <tr><td class="id">R2</td><td>A task (task or milestone) has a mode: <b>Auto</b> (default) or <b>Manual</b>.</td><td>Stages (summary rows) and subproject tasks stay auto in this version.</td></tr>
+  <tr><td class="id">R3</td><td>A manual task keeps its typed start. Duration, calendar and links never move it; finish = start + duration in the project calendar.</td><td>The only thing that changes a manual start is the user.</td></tr>
+  <tr><td class="id">R4</td><td>Links of a manual task remain: its finish still drives its successors (FS / SS / FF / SF + lag), its predecessors no longer drive it.</td><td>Critical path, float and stage roll-up include it.</td></tr>
+  <tr><td class="id">R5</td><td>When a predecessor would place a manual task later than it is, the task shows a <b>conflict warning</b> (bar and tree). Nothing is moved.</td><td>Same idea as the MS Project “scheduling conflict” indicator.</td></tr>
+  <tr><td class="id">R6</td><td>The mode is switched in four places: a tree column (click), the row / bar menu, the task window, and the project setting “new tasks are manual”.</td><td>One command, one undo step.</td></tr>
+  <tr><td class="id">R7</td><td>A manual bar looks different from an auto bar (outline style + pin), and a drag of a manual bar writes the manual start, not a constraint.</td><td>Tooltips explain both.</td></tr>
+  <tr><td class="id">R8</td><td>Switching Auto → Manual keeps the dates the task has now. Switching Manual → Auto removes the manual start; the task returns to ASAP.</td><td>Confirm with the owner (Q3).</td></tr>
+  <tr><td class="id">R9</td><td>Every reader of the schedule honors the mode: the client scheduler, project versions, the network view, Post of task lines, the user calendar, templates, JSON and MS Project XML export.</td><td>Section 3 lists them with the place in the code.</td></tr>
+  <tr><td class="id">R10</td><td>Turning the project switch OFF makes every task auto again, without deleting the stored manual dates (turning it ON restores them).</td><td>Same “hidden is not deleted” rule as the cost input switches.</td></tr>
+</table>
+</div>
+
+<h2>3. What already exists (checked in the code, 2026-10-26)</h2>
+<div class="card">
+  <ul>
+    <li><b>Scheduler</b> <code>view/project/scheduling.ts</code> <code>scheduleProject()</code> – pure; forward pass: <code>es = projectStart</code>, then <code>max(es, manualStartAt)</code>, then every predecessor constraint (FS / SS / FF / SF + lag), then <code>nextWorkDay</code>; backward pass gives <code>totalFloatDays</code> and <code>isCritical</code>; stages roll up min start / max finish. Called by <code>store/storeDerive.ts derive()</code> and by <code>version/model/versionCompare.ts scheduleVersion()</code>.</li>
+    <li><b><code>rowJSON.manualStartAt</code></b> is today a <i>start no earlier than</i> constraint (ASAP when empty). It is written by the inline Start cell (<code>setStartConstraint</code>), the task window, <code>TaskDatesBar</code> / <code>taskDatesModel.ts</code>, a <b>bar drag</b> (<code>applyBarEdit</code> “move” and “resize-start”) and, for the origin task of a subproject, by SQL <code>subproject_sync_origin_task</code>. The MS Project XML export writes it as constraint type 4.</li>
+    <li><b>Write-back</b> <code>crud/queries.ts useScheduleWriteBack</code> → RPC <code>pm_apply_schedule</code> stores the computed <code>rowJSON.startAt</code> and <code>rowDuration</code> (finish) – so SQL, the user calendar and Monitor reports read real dates. Posted task lines and payments are unposted when the start or finish <i>day</i> changes (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>).</li>
+    <li><b>Task window</b> <code>PMTaskEditModal</code> (Start “no earlier than”, Finish, Duration, hour / minute / second fields), <b>tree</b> columns <code>taskStartDate</code> / <code>taskFinishDate</code> / <code>taskDuration</code>, <b>row menu</b> <code>PMTaskRowMenu</code>, <b>Task info</b> page (“start ≥ …” with a clear button), <code>taskShare.ts</code> text.</li>
+    <li><b>Copies of a plan:</b> project templates shift <code>startAt</code> / <code>manualStartAt</code> by the new project start (<code>crud/api/templateApi.ts</code>); task templates strip them (<code>task_template_clean_task</code>, test <code>98_task_template.sql</code>); project versions copy the whole <code>rowJSON</code>.</li>
+    <li><b>Subprojects:</b> the origin task follows the subproject dates and gets <code>taskIsSubproject</code>; <code>taskDatesReadOnlyReason()</code> already blocks date editing for it.</li>
+    <li><b>Settings pattern:</b> project switches live in <code>project_table.rowJSON</code> (<code>PMRowJSON</code> in <code>model/types.ts</code>), organization defaults in <code>rowJSON.defaultProjectSettings</code>; a switch that was never saved reads as its default.</li>
+  </ul>
+</div>
+<div class="callout warn"><b>Important:</b> because a bar drag already writes <code>manualStartAt</code>, an auto task that was dragged today is <i>pinned only from the left</i> – a late predecessor still pushes it. That stays as it is (it is the MS Project auto behavior too). The manual mode needs its <b>own key</b>; reusing <code>manualStartAt</code> would turn every dragged task into a manual one.</div>
+
+<h2>4. Proposed model and rules (to confirm)</h2>
+<h3>4.1 Keys</h3>
+<div class="tbl">
+<table>
+  <tr><th>Where</th><th>Key</th><th>Meaning</th></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>taskScheduleMode</code></td><td><code>'auto'</code> | <code>'manual'</code>; absent = auto.</td></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>taskManualStartAt</code></td><td>ISO timestamptz of the typed start (same format as <code>manualStartAt</code>, may carry hour / minute / second). Only read while the mode is manual. Absent on a manual task = the engine’s start at the moment of the switch is used and stored on the first save (so a manual task always has a start).</td></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>durationDays</code></td><td>Unchanged – the duration, working days of the project calendar.</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>manualSchedulingFunctionalityEnabled</code></td><td>Master switch, OFF while never saved (<code>=== true</code> in TS).</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>newTasksAreManuallyScheduled</code></td><td>Default mode of a new task; false while never saved; works only while the master switch is on.</td></tr>
+  <tr><td><code>PMScheduledRow</code> (client, not stored)</td><td><code>isManual</code>, <code>engineStartMs</code>, <code>linkConflict</code></td><td>Mode used for the row, where the links alone would start it, and <code>engineStartMs &gt; startMs</code> for a manual row.</td></tr>
+</table>
+</div>
+<p>No new table and no SQL column: the keys live in the existing JSONB, the write-back (<code>pm_apply_schedule</code>) already stores what the scheduler computes. SQL changes are limited to one function (task template cleaning, work package 9.5).</p>
+
+<h3>4.2 Scheduler rules (forward pass)</h3>
+<ol>
+  <li>A leaf row is <b>manual</b> when the master switch is on, <code>taskScheduleMode = 'manual'</code>, it is not a summary row and it is not a subproject task (<code>taskIsSubproject !== true</code>). Everything else is auto and takes the existing code path unchanged.</li>
+  <li>Manual: <code>es = taskManualStartAt</code> (the typed instant, not moved to the next work day and not limited by the project start); <code>ef = addWorkDays(es, duration)</code>. Predecessor links are <b>not</b> applied to <code>es</code>; they are evaluated once more only to fill <code>engineStartMs</code> and <code>linkConflict</code>.</li>
+  <li>Successors read the manual row’s <code>ES / EF</code> exactly like those of an auto row (the loop already reads the aggregate of the predecessor).</li>
+  <li>Backward pass: unchanged formula on the manual dates. A manual task that finishes later than its successors allow gets zero float and is critical (negative float is clamped to 0 as today).</li>
+  <li>Stage roll-up, project finish, project progress: unchanged – they read the rows. <code>projectStartMs</code> stays the project start; a manual task before it is allowed and widens the Gantt time line (see risk Z2).</li>
+  <li>Cycles: the topological sort and cycle detection still run on all links, a link into a manual task counts. (A manual task can still be part of a cycle error – the user fixes the link.)</li>
+</ol>
+
+<h3>4.3 What each action does</h3>
+<div class="tbl">
+<table>
+  <tr><th>Action</th><th>Auto task (as today)</th><th>Manual task (new)</th></tr>
+  <tr><td>Inline Start cell / task window Start</td><td>Sets <code>manualStartAt</code> = start no earlier than; empty = ASAP</td><td>Sets <code>taskManualStartAt</code>; empty is refused (a manual task keeps a start)</td></tr>
+  <tr><td>Inline Days / Duration</td><td>Sets <code>durationDays</code></td><td>Same; the finish moves, the start does not</td></tr>
+  <tr><td>Inline Finish / task window Finish</td><td>Computes <code>durationDays</code> from the start</td><td>Same</td></tr>
+  <tr><td>Drag the bar (move)</td><td>Writes <code>manualStartAt</code> (pinned from the left)</td><td>Writes <code>taskManualStartAt</code>; the bar stays where it is dropped, whatever the links say</td></tr>
+  <tr><td>Drag the right end / the left end</td><td>Duration (and <code>manualStartAt</code> for the left end)</td><td>Duration (and <code>taskManualStartAt</code> for the left end)</td></tr>
+  <tr><td>Predecessor finishes later</td><td>The task moves</td><td>Nothing moves; the conflict warning appears</td></tr>
+  <tr><td>Project start changes</td><td>Tasks move</td><td>Manual tasks stay</td></tr>
+  <tr><td>Switch to the other mode</td><td colspan="2">Auto → Manual: <code>taskScheduleMode = 'manual'</code>, <code>taskManualStartAt</code> = the current scheduled start. Manual → Auto: mode removed, <code>taskManualStartAt</code> removed, <code>manualStartAt</code> removed (ASAP) – decision Q3.</td></tr>
+  <tr><td>New task</td><td colspan="2">Mode from <code>newTasksAreManuallyScheduled</code> (default auto); a manual new task starts where the engine would place it.</td></tr>
+  <tr><td>Duplicate / copy of a stage</td><td colspan="2">The copy keeps the mode and the manual start (as it keeps <code>manualStartAt</code> today).</td></tr>
+  <tr><td>Indent / outdent / move row</td><td colspan="2">Mode kept. A task that becomes a parent (gets children) is a summary row and is scheduled as auto; the keys stay in its JSON and work again if it loses its children.</td></tr>
+</table>
+</div>
+
+<h3>4.4 Display</h3>
+<ul>
+  <li><b>Gantt bar:</b> manual = outlined bar with a lighter fill and square end brackets (the MS Project look), a small pin glyph at the start; auto bars unchanged. With <code>linkConflict</code> a warning triangle at the start and a tip “A predecessor ends after this task starts (links would start it on …)”. Critical-path color still applies to a critical manual bar.</li>
+  <li><b>Tree:</b> optional built-in column <code>taskMode</code> (title “Mode”, icon only, 36 px, hidden by default and offered only while the switch is on; click toggles; tip says what the click does). The Task name cell shows the warning icon on a conflict even when the column is hidden.</li>
+  <li><b>Tip / Task info page / share text:</b> “Manually scheduled: start 2026-03-14” instead of “start ≥ …”.</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Owner answers to the questions of section 8</td><td>Q1–Q8 answered; the section 4 rules corrected</td><td>R1–R10</td></tr>
+  <tr><td class="id">1.2</td><td>Final list of the readers of the schedule</td><td>Section 3 list re-checked with a grep of <code>manualStartAt</code>, <code>startAt</code>, <code>scheduleProject</code>, <code>schedule[</code> at the start of the work; nothing missed</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Model and pure helpers</td></tr>
+  <tr><td class="id">2.1</td><td>Types</td><td><code>PMRowJSON</code> / <code>PMTaskJSON</code> get <code>taskScheduleMode</code>, <code>taskManualStartAt</code>, <code>manualSchedulingFunctionalityEnabled</code>, <code>newTasksAreManuallyScheduled</code>; <code>PMScheduledRow</code> gets <code>isManual</code>, <code>engineStartMs</code>, <code>linkConflict</code>; types in <code>model/types.ts</code></td><td>R2, R5</td></tr>
+  <tr><td class="id">2.2</td><td><code>model/taskScheduleMode.ts</code> (pure)</td><td><code>manualSchedulingEnabledOf(projectJSON)</code>, <code>taskModeOf(taskJSON, enabled, isSummary)</code>, <code>taskModeReadOnlyReason(…)</code> (summary / subproject), <code>patchForMode(task, mode, currentStartMs)</code> (the rowJSON patch of a switch, section 4.3); tests next to <code>taskInputScope.test.ts</code></td><td>R2, R8</td></tr>
+  <tr><td class="id">2.3</td><td>Settings keys and organization defaults</td><td>Both project keys appear in <code>defaultProjectSettings</code> handling (Organization edit → Projects → Settings, “Save settings to organization”), read as <code>=== true</code></td><td>R1, R6</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Scheduler (<code>view/project/scheduling.ts</code>)</td></tr>
+  <tr><td class="id">3.1</td><td>Input flag</td><td><code>scheduleProject({ …, manualSchedulingEnabled })</code>; <code>storeDerive.derive()</code> passes the project switch, <code>scheduleVersion()</code> passes the version’s switch</td><td>R1, R9, R10</td></tr>
+  <tr><td class="id">3.2</td><td>Forward pass</td><td>Manual leaf: <code>es</code> = typed start, links skipped for <code>es</code>, <code>ef</code> by <code>addWorkDays</code>; auto path byte-for-byte as before</td><td>R3, R4</td></tr>
+  <tr><td class="id">3.3</td><td>Conflict detection</td><td>The old constraint loop is run for the manual row into a scratch value; <code>engineStartMs</code> and <code>linkConflict</code> set; stages roll up the flag as “a child has a conflict” (for the tree)</td><td>R5</td></tr>
+  <tr><td class="id">3.4</td><td>Backward pass, float, critical</td><td>Works on the manual dates; test: a manual task after a long chain is critical when it finishes later than its successor needs</td><td>R4</td></tr>
+  <tr><td class="id">3.5</td><td>Unit tests <code>__tests__/pm/view/project/scheduling.test.ts</code></td><td>Cases: manual ignores a late predecessor; manual before the project start; manual successor chain; conflict flag on / off; milestone manual; stage roll-up; subproject task stays auto; switch OFF = all auto; project without keys = old results (snapshot of an existing test plan)</td><td>R1–R5, R10</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Commands (<code>crud/task/useTaskCommands.ts</code>, <code>usePMCrud.ts</code>)</td></tr>
+  <tr><td class="id">4.1</td><td><code>setScheduleMode(guid, mode)</code></td><td>Uses <code>patchForMode</code>; one undo step “Mode of …”; refuses a summary / subproject task with the reason</td><td>R6, R8</td></tr>
+  <tr><td class="id">4.2</td><td>Mode-aware start and bar edits</td><td><code>setStartConstraint</code> and <code>applyBarEdit</code> write <code>taskManualStartAt</code> for a manual task and <code>manualStartAt</code> for an auto task</td><td>R3, R7</td></tr>
+  <tr><td class="id">4.3</td><td>Create, duplicate, move</td><td>New task takes the default mode; duplicate keeps keys; indent / outdent unchanged</td><td>R6</td></tr>
+  <tr><td class="id">4.4</td><td>Switch off with manual tasks</td><td>Turning <code>manualSchedulingFunctionalityEnabled</code> off asks first (“N tasks are manual and will be scheduled by their links; their dates are kept for later”); no data is deleted</td><td>R10</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Task tree</td></tr>
+  <tr><td class="id">5.1</td><td>Column <code>taskMode</code></td><td>Added to <code>PMBuiltinTreeColumnKey</code>, <code>PM_TREE_COLUMN_TITLES</code>, <code>PM_TREE_COLUMN_WIDTHS</code>, the narrow-pane hide order and <code>treeColumns.ts</code> normalizers; not in the default order; shown only while the switch is on</td><td>R6</td></tr>
+  <tr><td class="id">5.2</td><td>Cell and click</td><td>Pin / auto icon, click toggles (<code>setScheduleMode</code>), tip, disabled with a reason on a stage or subproject task; conflict icon in the Task name cell</td><td>R5, R6</td></tr>
+  <tr><td class="id">5.3</td><td>Inline Start / Finish / Days editors</td><td>Tip text of <code>EditTaskStartDate</code> says “Start (manual task)” for a manual row; empty value refused with a message</td><td>R3</td></tr>
+  <tr><td class="id">5.4</td><td>Filter and sort of the column</td><td>Boolean-like variants (Auto / Manual) in <code>treeColumnFilter.ts</code>; test next to the existing filter tests</td><td>R6</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Gantt chart (<code>view/gantt/PMProjectGanttChart.tsx</code>)</td></tr>
+  <tr><td class="id">6.1</td><td>Manual bar look</td><td>Outline + lighter fill + brackets + pin, in light and dark palettes (<code>view/theme.ts</code>), with the critical-path color kept</td><td>R7</td></tr>
+  <tr><td class="id">6.2</td><td>Conflict marker</td><td>Warning triangle and the tip text; also in the hover panel</td><td>R5</td></tr>
+  <tr><td class="id">6.3</td><td>Drag semantics</td><td>The chart already calls <code>applyBarEdit</code>; the ghost label shows “manual” while dragging a manual bar (the snapped date label is unchanged)</td><td>R7</td></tr>
+  <tr><td class="id">6.4</td><td>Menu entry</td><td>“Schedule manually” / “Schedule automatically” in <code>PMTaskRowMenu</code> (tree and bar), only while the switch is on</td><td>R6</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Task window, dates bar, task info</td></tr>
+  <tr><td class="id">7.1</td><td><code>PMTaskEditModal</code></td><td><code>SegmentButtonsApp</code> “Auto | Manual” above the dates; the Start label is “Start” for a manual task, “Start no earlier than” for an auto one; Save writes through <code>patchForMode</code></td><td>R6</td></tr>
+  <tr><td class="id">7.2</td><td><code>TaskDatesBar</code> / <code>taskDatesModel.ts</code></td><td>The patch of a typed start / finish / period uses the mode (4.3); the read-only reasons unchanged</td><td>R3</td></tr>
+  <tr><td class="id">7.3</td><td>Task info page and share text</td><td><code>PMProjectTaskInfo</code> and <code>taskShare.ts</code> show “Manually scheduled: start …”; the clear button removes the constraint only for an auto task</td><td>R6</td></tr>
+
+  <tr class="group"><td class="id">8</td><td colspan="3">Project settings</td></tr>
+  <tr><td class="id">8.1</td><td>Switches</td><td>Project settings → Main gets a “Scheduling” block: <b>Manually scheduled tasks</b> (master) and, under it, <b>New tasks are scheduled manually</b>; texts through <code>pmT</code> (placeholder <code>{{n}}</code>)</td><td>R1, R6</td></tr>
+  <tr><td class="id">8.2</td><td>Searchable setting</td><td>Entries in <code>view/gantt/settings/uxuiSettingsIndex.ts</code> so the settings search finds them</td><td>R6</td></tr>
+
+  <tr class="group"><td class="id">9</td><td colspan="3">Other readers of the schedule</td></tr>
+  <tr><td class="id">9.1</td><td>Project versions</td><td><code>scheduleVersion()</code> honors the mode of the version’s own rows and switch; <code>versionCompare</code> test with a manual task</td><td>R9</td></tr>
+  <tr><td class="id">9.2</td><td>Network view and float</td><td>Check <code>networkModel.ts</code> – it reads <code>store.schedule</code>; a manual task shows its dates; a conflict is drawn in the info card (text only)</td><td>R9</td></tr>
+  <tr><td class="id">9.3</td><td>Project templates and “create from template”</td><td><code>templateApi.ts</code> shifts <code>taskManualStartAt</code> with the other dates; the mode is copied</td><td>R9</td></tr>
+  <tr><td class="id">9.4</td><td>Subproject origin task</td><td>Scheduler ignores the mode when <code>taskIsSubproject === true</code>; the task window hides the segment for it (reason text from 2.2); no change to <code>subproject_sync_origin_task</code></td><td>R2, R9</td></tr>
+  <tr><td class="id">9.5</td><td>Task templates (SQL)</td><td><code>task_template_clean_task</code> in <code>start2_sql_code.sql</code> also removes <code>taskManualStartAt</code> (the mode is kept: a manual template task gets its start when it is placed); <code>tests/98_task_template.sql</code> extended; run with <code>test_fact_monitor01.sh 98</code> and <code>test_sql.sh</code></td><td>R9</td></tr>
+  <tr><td class="id">9.6</td><td>MS Project XML export</td><td><code>msProjectXml.ts</code>: a manual task is exported with <code>Manual = 1</code>, constraint type 0 and no constraint date; ManualStart / ManualFinish / ManualDuration. The element names and their order are taken from the schema reference linked in the file header and the file is opened in MS Project once; test in <code>msProjectXml.test.ts</code></td><td>R9</td></tr>
+  <tr><td class="id">9.7</td><td>JSON export / import, duplicate, calendar sync, Post</td><td>Checked, no change expected: the keys travel inside <code>rowJSON</code>; the user calendar and Post read <code>startAt</code> / <code>rowDuration</code> written by the write-back. A test exports and imports a project with a manual task</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">10</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">10.1</td><td>Jest</td><td>Scheduler (3.5), model (2.2), commands (4.x), tree column, task window segment, conflict marker (<code>__tests__/pm/ui</code>), export; no new failure compared with the baseline list of KNOW_HOW section 5</td><td>R1–R10</td></tr>
+  <tr><td class="id">10.2</td><td>Regression snapshot</td><td>The existing scheduler tests and the Railway #1 demo project give the same dates with the switch OFF and with it ON but no manual task</td><td>R1</td></tr>
+  <tr><td class="id">10.3</td><td>README and KNOW_HOW</td><td>Section “Manually scheduled tasks” in <code>kit8/pm/README.md</code>; one row in the feature index of <code>KNOW_HOW.md</code>; the note that <code>manualStartAt</code> = start no earlier than</td><td>–</td></tr>
+  <tr><td class="id">10.4</td><td>Acceptance walkthrough</td><td>Section 7 criteria, checked in the browser</td><td>R1–R10</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Decisions</b> – before code.</li>
+    <li><b>2 Model</b> – blocks everything.</li>
+    <li><b>3 Scheduler</b> (with its tests) – needs 2; the heart of the feature, can be finished and tested alone, no UI.</li>
+    <li><b>4 Commands</b> – needs 2 (and 3 for the checks).</li>
+    <li><b>5 Tree, 6 Gantt, 7 Task window, 8 Settings</b> – need 4; independent of each other, so they can go in parallel. 8 first if the UI is to be tried early (nothing is visible while the switch is off).</li>
+    <li><b>9 Other readers</b> – 9.1, 9.3, 9.4 after 3; 9.5 and 9.6 independent (9.5 is the only SQL).</li>
+    <li><b>10 Quality</b> – last; test cases are drafted from step 3 onward.</li>
+  </ol>
+</div>
+
+<h2>7. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>A project without the switch (or with it on and no manual task) shows the same dates, float and critical path as before, and writes nothing new.</li>
+    <li>A task switched to Manual keeps its dates; moving its predecessor later or changing the project start does not move it; its successors still follow its finish.</li>
+    <li>When the predecessor would start the manual task later than it is, the warning shows on the bar and in the tree and disappears when the user moves the task or the predecessor.</li>
+    <li>Dragging a manual bar leaves it where it was dropped; dragging an auto bar behaves as today.</li>
+    <li>Switching Manual → Auto returns the task to the engine’s position (after the confirm decision Q3); Undo restores the manual state in one step.</li>
+    <li>A stage and a subproject task cannot be made manual and say why.</li>
+    <li>Turning the switch OFF asks when manual tasks exist, makes every task auto, and turning it ON again restores the manual starts.</li>
+    <li>The posted task lines of a manual task are unposted only when its start or finish day changes (existing behavior of the write-back).</li>
+    <li>A version, a project created from a template, a JSON export / import and the MS Project XML keep the mode; the XML opens in MS Project with the task manually scheduled.</li>
+  </ul>
+</div>
+
+<h2>8. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Proposal</th></tr>
+  <tr><td class="id">Q1</td><td>Master switch per project, OFF by default (like ROI), or always on?</td><td>Per project, OFF by default; organization default through “Save settings to organization”.</td></tr>
+  <tr><td class="id">Q2</td><td>Should a new task be manual by default?</td><td>No – auto by default; setting “New tasks are scheduled manually” for those who want it (MS Project 2010+ defaults to manual; the app’s existing plans are all auto).</td></tr>
+  <tr><td class="id">Q3</td><td>Manual → Auto: forget the manual start (ASAP) or turn it into a <i>start no earlier than</i> constraint?</td><td>Forget it (ASAP): the user chose “let the plan decide”. A constraint would silently keep the task late.</td></tr>
+  <tr><td class="id">Q4</td><td>Manual <b>stages</b> (summary rows with their own dates)?</td><td>Not in this version. It needs a second set of dates on summaries and a decision about roll-up; plan it as a later package.</td></tr>
+  <tr><td class="id">Q5</td><td>Independent Finish and blank dates on a manual task (MS Project allows start, finish and duration to disagree, or to be text)?</td><td>No – start + duration, finish derived. A manual task always has a valid start.</td></tr>
+  <tr><td class="id">Q6</td><td>Link conflict: warn only, or also offer “Respect links” (move the task to where the links put it)?</td><td>Warn only in V1; “Respect links” is one command (<code>setScheduleMode auto</code> then manual again) and can come next.</td></tr>
+  <tr><td class="id">Q7</td><td>May a manual task start before the project start?</td><td>Yes (MS Project allows it); the Gantt time line is widened to it.</td></tr>
+  <tr><td class="id">Q8</td><td>Milestones: manual too?</td><td>Yes – a manual milestone is a fixed date (a delivery date, a gate).</td></tr>
+</table>
+</div>
+
+<h2>9. Out of scope</h2>
+<div class="card">
+  <ul>
+    <li>Manual summary tasks (Q4), blank or text dates, independent finish (Q5).</li>
+    <li>The other constraint types (Must Start On, Finish No Later Than …) and the deadline date – items A3 / A5 of <code>MORE_GANTT_INPUT.html</code>; the conflict marker built here is reused for them.</li>
+    <li>The indicators column of the table (E11) – the conflict icon sits in the Task name cell until then.</li>
+    <li>Resource and cost behavior: Time, Material and Expense lines follow the dates of the task as today.</li>
+  </ul>
+</div>
+
+<h2>10. Risks</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Risk</th><th>Handling</th></tr>
+  <tr><td class="id">Z1</td><td>Two keys with “manual start” in the name confuse the code and the users (<code>manualStartAt</code> = no earlier than, <code>taskManualStartAt</code> = fixed).</td><td>Comments on both keys in <code>types.ts</code>, the README paragraph (10.3), different tips in the UI; a grep-able test that both are never written together by one command.</td></tr>
+  <tr><td class="id">Z2</td><td>A manual task before the project start (or far after the finish) breaks the Gantt time-line range or the “Fit to screen” span.</td><td>Check how <code>PMGanttSurface</code> takes the range (<code>projectStartMs</code>, <code>projectFinishMs</code>, version overlays widen it) and widen it by the earliest manual start; test with a manual task one year earlier.</td></tr>
+  <tr><td class="id">Z3</td><td>Changing the schedule write-back changes <code>startAt</code> of many rows and unposts their lines and payments.</td><td>Not triggered by the feature itself: the write-back runs only when a computed day differs, and an auto task keeps its result. A test with the switch ON / OFF on a plan with posted lines checks that nothing is unposted.</td></tr>
+  <tr><td class="id">Z4</td><td>MS Project XML element order (schema) – a wrong order makes MS Project refuse the file.</td><td>9.6 includes opening the file in MS Project; fallback: export a manual task as an auto task with a constraint (type 4) and say so in the export window.</td></tr>
+  <tr><td class="id">Z5</td><td>The other ends read <code>startAt</code> from the write-back, which lags the client scheduler by a moment.</td><td>Unchanged behavior; a manual task is simply stable earlier because its dates do not depend on other rows.</td></tr>
+</table>
+</div>
+
+<h2>11. Update steps when it is built (preview)</h2>
+<div class="card">
+  <ol>
+    <li>Run <code>start2_sql_code.sql</code> in the Supabase SQL Editor (only the one function of 9.5 changes; no table, no seed, no pg_cron).</li>
+    <li>Restart Expo with a cleared cache; no <code>.env</code> change.</li>
+    <li>Project settings → Main → Scheduling → turn on “Manually scheduled tasks”; right-click a task → “Schedule manually”.</li>
+  </ol>
+</div>
+
+</main>
+</body>
+</html>

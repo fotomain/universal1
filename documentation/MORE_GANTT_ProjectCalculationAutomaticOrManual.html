@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Calculation Automatic or Manual WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Project Calculation: Automatic or Manual – Work Breakdown Structure</h1>
+<p class="sub">Scope: the MS Project command <b>Project &gt; Calculation Options &gt; Automatic | Manual</b> with <b>Calculate Project (F9)</b>, for the Gantt chart of <code>kit8/pm</code>. Item A2 of <code>MORE_GANTT_INPUT.html</code>. Planning document – no implementation, nothing in the code was changed.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>In MS Project, <b>Automatic</b> calculation reschedules the whole plan after every edit. In <b>Manual</b> mode the planner makes many edits (durations, links, new rows, moves) and the plan stays as it was until <b>Calculate Project</b> (F9) is pressed; a “Calculate” note in the status bar says that the numbers are old.</p>
+  <p>In the app every edit recalculates the plan at once and then writes the new dates to the database. For a big plan this has three costs that the user cannot avoid today: (1) bars of other tasks jump while a series of edits is half done; (2) every written start / finish <i>day</i> that changes <b>unposts</b> the posted task lines and payments of that task, and rewrites the user calendar, so a half-finished edit session can unpost work that the final plan would have left alone; (3) the CPU work of the client scheduler and of the write-back runs after each single edit.</p>
+  <p>This feature adds a per-project, per-user <b>calculation mode</b>. In Manual mode the plan is frozen on the screen and in the database until the user presses <b>Calculate</b>; the edits themselves are saved at once.</p>
+</div>
+<div class="callout"><b>Hard constraint:</b> Automatic is the default and behaves exactly as today. Nothing is frozen, no new banner or button is shown, and no stored data changes, until a user turns Manual on.</div>
+
+<h2>2. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Note</th></tr>
+  <tr><td class="id">R1</td><td>Automatic mode = today’s behavior, unchanged. It is the default.</td><td>A setting that was never saved reads as Automatic.</td></tr>
+  <tr><td class="id">R2</td><td>In Manual mode an edit is saved at once, but the schedule (dates of the other rows, critical path, stage roll-up, project finish) is not recalculated and not written to the database.</td><td>“Edit” = anything that is an input of the scheduler (section 4.2).</td></tr>
+  <tr><td class="id">R3</td><td>The task that was edited shows its own new start / finish / duration at once; nothing else moves.</td><td>Otherwise a typed value would appear to be ignored.</td></tr>
+  <tr><td class="id">R4</td><td>The screen says that the plan is not calculated: a count of pending edits, a marker on each pending row, and a <b>Calculate</b> button (web key F9).</td><td>Like the MS Project status bar note.</td></tr>
+  <tr><td class="id">R5</td><td><b>Calculate</b> recalculates the whole plan, writes it back at once (not after the 800 ms wait) and clears the pending state. One command, not an undo step.</td><td>The write-back is the same one that exists today.</td></tr>
+  <tr><td class="id">R6</td><td>Switching Manual → Automatic calculates first, then returns to the live behavior.</td><td>No pending edit is ever dropped.</td></tr>
+  <tr><td class="id">R7</td><td>Everything that reads the dates of the plan calculates first when edits are pending: Post / Repost / Post unposted tasks, Update project cost, Save / Restore version, exports, Create subproject.</td><td>Asks or calculates silently – decision Q4.</td></tr>
+  <tr><td class="id">R8</td><td>Edits that are not scheduler inputs stay live in Manual mode: names, notes, colors, custom columns, % complete, Kanban, filters, sort, expand / collapse, the Finances lines.</td><td>Stage % and project % come from the database values (R9).</td></tr>
+  <tr><td class="id">R9</td><td>A load or a project switch always calculates, so Manual mode never starts from a stale picture and nothing is remembered about “pending” between sessions.</td><td>Manual is a mode of the session, not stored dirt.</td></tr>
+  <tr><td class="id">R10</td><td>The mode is chosen in the Gantt bar / Actions menu and in the Gantt settings window; it is saved per project and user in <code>uxuiSettings</code> like the other view settings.</td><td>No SQL.</td></tr>
+</table>
+</div>
+
+<h2>3. What recalculates today (checked in the code, 2026-10-26)</h2>
+<div class="card">
+  <ol>
+    <li><b>Client – every change.</b> <code>store/store_pm.ts</code>: <code>hydrate()</code> (task / dependency data) and <code>setProjects()</code> (project row: start, calendar) call <code>store/storeDerive.ts derive()</code>, which builds the tree index, runs <code>scheduleProject()</code> (CPM forward + backward pass, stage roll-up), computes the project progress and the visible rows. A task mutation updates the query cache first (optimistic), so the whole chain runs on every edit.</li>
+    <li><b>Write-back – after 800 ms.</b> <code>crud/queries.ts useScheduleWriteBack</code>: subscribes to <code>store.schedule</code>; one timer of 800 ms; skipped while mutations are in flight; compares every task’s stored <code>rowJSON.startAt</code> / <code>rowDuration</code> / stage progress with the computed value and sends only the different rows to the RPC <code>pm_apply_schedule</code>, which also calls <code>pm_recalc_project_progress</code> and <code>subproject_propagate_dates</code> (the origin tasks of other projects follow).</li>
+    <li><b>Server reactions to the written dates.</b> <code>task_line_plan_unpost_on_dates</code> and <code>task_payment_plan_unpost_on_dates</code> (a changed start or finish <i>day</i> unposts the lines and payments of the task); the user calendar entry of the task is updated; <code>trg_project_task_zz_progress_*</code> recalculates the stage and project % on a leaf change (independent of the scheduler).</li>
+    <li><b>Already manual:</b> the cost totals after a Post are debounced (<code>cost/costRefreshScheduler.ts</code>, 500 ms); Post, Repost all, Update project cost, Refresh the project are buttons in the project <b>Actions</b> menu (<code>PMProjectActionsButton</code>). Post reads the task dates from <code>store.schedule</code> (<code>useTaskPost.ts</code>, <code>runTaskPost.ts</code>).</li>
+    <li><b>Realtime:</b> an edit in another browser invalidates the query (paused while one of our own mutations is in flight) and ends in <code>hydrate()</code> again.</li>
+  </ol>
+</div>
+<div class="callout warn"><b>Not measured yet:</b> how long <code>derive()</code> takes on a big plan. If it is a few milliseconds for several thousand tasks, the benefit of Manual mode is the protection against cascades (cost 2 above) and jumping bars, not speed. Work package 1.2 measures it before the design is fixed.</div>
+
+<h2>4. Proposed design (to confirm)</h2>
+<h3>4.1 The mode and the frozen plan</h3>
+<ul>
+  <li><b>Setting:</b> <code>uxuiSettings.projectCalculationMode</code> = <code>'automatic'</code> (default) | <code>'manual'</code>, saved per project and user in <code>project_user_settings_table</code>, read by <code>uxuiSettingsOf()</code>, mirrored in the store (<code>viewSettingsOf</code>).</li>
+  <li><b>Split of <code>derive()</code>:</b> <code>deriveTree()</code> (tree index, visible rows, filters, sort – cheap, always live) and <code>deriveSchedule()</code> (<code>scheduleProject</code>, project progress, project start / finish). In Automatic both run as today. In Manual <code>deriveSchedule()</code> runs only on a load, a project switch, a mode switch and <b>Calculate</b>; the result is the <b>frozen plan</b> kept in <code>store.schedule</code>.</li>
+  <li><b>Rows the frozen plan does not know</b> (a task created, or arriving from another browser, after the last calculation): a provisional row from the task’s own inputs (see 4.3); a deleted task simply leaves the plan; a moved task keeps its dates.</li>
+</ul>
+
+<h3>4.2 What is “pending”</h3>
+<p>Instead of marking pending inside every command (and missing the edits of other browsers), the store keeps the <b>input signature</b> of the last calculation: per task <code>durationDays</code>, <code>rowKind</code>, <code>manualStartAt</code>, (<code>taskScheduleMode</code> and <code>taskManualStartAt</code> when the Manually Scheduled Tasks feature exists), <code>treePath</code>, <code>orderInList</code>; the dependency list (<code>rowGUID</code>, <code>rowDependsOnGUID</code>, <code>linkType</code>, <code>lagDays</code>); the project <code>projectStartAt</code>, <code>skipWeekends</code>, planning units and calendar. After every <code>hydrate()</code> the new signature is compared with the saved one (O(n), much cheaper than CPM):</p>
+<ul>
+  <li>a changed task row → that row is <b>pending</b> (marker in the tree, tip in the bar);</li>
+  <li>an added / removed / changed dependency, a moved row, a changed project setting → <b>structural</b> pending (counted in the banner, no single row);</li>
+  <li>pending count = pending rows + structural changes; 0 = nothing to calculate, the banner disappears.</li>
+</ul>
+<p>Not part of the signature (stay live): name, notes, color, custom columns, <code>rowProgress</code>, Kanban state, Finances lines.</p>
+
+<h3>4.3 What the user sees in Manual mode</h3>
+<div class="tbl">
+<table>
+  <tr><th>Edit</th><th>Automatic (today)</th><th>Manual</th></tr>
+  <tr><td>Type a new duration of task A</td><td>A’s finish and all successors move; critical path changes</td><td>A shows its own new finish at once (provisional row: own start, own new duration); successors, stages, critical path and project finish stay; A gets the pending marker</td></tr>
+  <tr><td>Drag a bar</td><td>Task and successors move</td><td>The task shows the dropped position; nothing else moves</td></tr>
+  <tr><td>Add or delete a link</td><td>Successor moves at once</td><td>Arrow is drawn / removed; no date changes; structural pending +1</td></tr>
+  <tr><td>Add a task / indent / outdent / move a row</td><td>Everything re-flows</td><td>Row appears in the tree; a new task gets a provisional bar (project start or its own start constraint, its duration); a moved row keeps its dates; stages keep their old roll-up</td></tr>
+  <tr><td>Change project start / week type</td><td>Whole plan moves</td><td>Nothing moves until Calculate; structural pending +1</td></tr>
+  <tr><td>Type a % complete</td><td>Saved; stage % by the database trigger</td><td>Same; stage and project % are shown from the stored values (no client roll-up)</td></tr>
+  <tr><td>Press <b>Calculate</b> / F9 / switch to Automatic</td><td>–</td><td>Full CPM, immediate write-back, pending cleared, banner gone</td></tr>
+</table>
+</div>
+
+<h3>4.4 Screen elements</h3>
+<ul>
+  <li><b>Gantt bar:</b> a button <b>Calculate</b> (icon <code>calculate</code>, the same icon as “Update project cost”) shown only in Manual mode, with the pending count as a badge; tip “Calculate the project (F9)”. Web: key F9 on the dashboard. Disabled while a write-back is running.</li>
+  <li><b>Project bar / chip:</b> “Calculation: Manual” next to the project progress; in orange “Not calculated · N” while pending.</li>
+  <li><b>Actions menu</b> (<code>PMProjectActionsButton</code>): “Calculate project” and “Calculation: Automatic / Manual” toggle.</li>
+  <li><b>Gantt settings window</b> (<code>PMGanttUXUISettinsModalWindow</code>, tab Project): <code>SegmentButtonsApp</code> “Automatic | Manual”, searchable through <code>uxuiSettingsIndex.ts</code>.</li>
+  <li><b>Pending marker:</b> the changed cell value is drawn in the pending color and italic; the bar of the task has a dashed outline until the calculation.</li>
+</ul>
+
+<h3>4.5 Where a calculation is forced</h3>
+<p>These actions read dates that would be old, so with pending edits they call <b>Calculate</b> first (ask or silent: Q4): Post / Repost all / Post unposted tasks and the Post of one task (<code>useTaskPost</code>, <code>useProjectPostActions</code>), Update project cost, Save project version and Restore version, Export to JSON / PDF / MS Project XML, Create subproject, and the Network view when opened (it draws from <code>store.schedule</code>; it may instead show the frozen plan with the banner – Q5).</p>
+
+<h3>4.6 Not a shared lock</h3>
+<p>The mode is per user. If another user (or another browser of the same user) has the project open in Automatic mode, that client calculates and writes the dates, and the realtime refresh brings the new data to the Manual client. A refresh that arrives while edits are pending makes the Manual client calculate (decision Q6). So Manual mode protects a single editing session, not the database against other editors.</p>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Owner answers to the questions of section 8</td><td>Q1–Q7 answered; section 4 corrected</td><td>R1–R10</td></tr>
+  <tr><td class="id">1.2</td><td>Measure the cost of one calculation</td><td>A Jest benchmark (node, not in the normal run) of <code>derive()</code> and of the signature compare on 500 / 2 000 / 5 000 tasks with links; the result is written into section 3 and into Q1</td><td>R2</td></tr>
+  <tr><td class="id">1.3</td><td>List the readers of <code>store.schedule</code></td><td>Grep of <code>schedule[</code>, <code>s.schedule</code>, <code>scheduleProject</code> (tree, Gantt, network, versions, plan, Finances, subproject, exports); each reader marked “frozen is fine” or “needs a calculation first” (feeds 7.x)</td><td>R7</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Setting and store</td></tr>
+  <tr><td class="id">2.1</td><td>Setting <code>projectCalculationMode</code></td><td>Added to <code>PMUxUiSettings</code> with default and normalizer; read in <code>uxuiSettingsOf</code> and <code>viewSettingsOf</code>; saved by <code>useProjectViewSettings</code>; undefined = automatic</td><td>R1, R10</td></tr>
+  <tr><td class="id">2.2</td><td>Split <code>derive()</code></td><td><code>deriveTree()</code> and <code>deriveSchedule()</code> in <code>storeDerive.ts</code>; in Automatic the union equals today’s result (a test compares both on the existing scheduler fixtures)</td><td>R1, R2</td></tr>
+  <tr><td class="id">2.3</td><td>Store state</td><td><code>calculationMode</code>, <code>calcSignature</code>, <code>pendingGUIDs</code>, <code>pendingStructureCount</code>, action <code>calculateProject()</code>; <code>hydrate</code> / <code>setProjects</code> / <code>selectProject</code> follow R2 / R9</td><td>R2, R9</td></tr>
+  <tr><td class="id">2.4</td><td>Input signature (pure)</td><td><code>model/calcSignature.ts</code>: <code>signatureOf(tasks, deps, project)</code> and <code>pendingOf(prev, next)</code> with the keys of 4.2; unit tests (duration change, link added, row moved, name changed = not pending)</td><td>R2, R8</td></tr>
+  <tr><td class="id">2.5</td><td>Provisional rows</td><td><code>provisionalRowOf(task, project, frozenRow?)</code>: the task’s own dates from its own inputs (start constraint or the frozen start, its duration, the project calendar), no links; used for edited and new tasks only</td><td>R3</td></tr>
+  <tr><td class="id">2.6</td><td>Progress source in Manual</td><td>Stage and project % read from the stored <code>rowProgress</code> (database trigger) instead of <code>computeProjectProgress</code>; tested</td><td>R8</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Calculate and write-back</td></tr>
+  <tr><td class="id">3.1</td><td>Command <code>calculateProject()</code></td><td>Runs <code>deriveSchedule()</code> on the current data, stores the new signature, clears pending, then triggers the write-back at once</td><td>R5</td></tr>
+  <tr><td class="id">3.2</td><td><code>useScheduleWriteBack</code></td><td>In Manual mode the subscription does not start the 800 ms timer; <code>flush</code> is exposed and called by 3.1; Automatic path unchanged; no flush while <code>qc.isMutating()</code> (existing rule), the command waits for them</td><td>R2, R5</td></tr>
+  <tr><td class="id">3.3</td><td>Mode switch</td><td>Manual → Automatic calls 3.1 first; Automatic → Manual stores the current signature as “calculated”; busy and error cases (write-back fails: pending stays, error bar)</td><td>R6</td></tr>
+  <tr><td class="id">3.4</td><td>Realtime and other browsers</td><td>With pending edits a refresh calculates (Q6); without pending edits it only re-reads. A test with an in-memory client</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Gantt chart and tree display</td></tr>
+  <tr><td class="id">4.1</td><td>Calculate button, badge, F9</td><td>In the Gantt bar (Manual only); web key handler on the dashboard; disabled while busy; test</td><td>R4</td></tr>
+  <tr><td class="id">4.2</td><td>Banner / chip</td><td>“Calculation: Manual” and the orange “Not calculated · N” in the project bar</td><td>R4</td></tr>
+  <tr><td class="id">4.3</td><td>Pending markers</td><td>Tree cells of a pending row (italic, pending color) and a dashed bar outline; palette in light and dark (<code>view/theme.ts</code>); tip text on the bar</td><td>R3, R4</td></tr>
+  <tr><td class="id">4.4</td><td>Drag in Manual mode</td><td>The dropped bar shows its provisional position, successors stay (<code>applyBarEdit</code> unchanged, the store gives the provisional row)</td><td>R3</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Menus and settings</td></tr>
+  <tr><td class="id">5.1</td><td>Actions menu</td><td>“Calculate project” and the mode toggle in <code>PMProjectActionsButton</code></td><td>R10</td></tr>
+  <tr><td class="id">5.2</td><td>Settings window</td><td>Segment “Automatic | Manual” on the Project tab of <code>PMGanttUXUISettinsModalWindow</code>; entry in <code>uxuiSettingsIndex.ts</code>; texts through <code>pmT</code> (placeholder <code>{{n}}</code>)</td><td>R10</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Forced calculation points</td></tr>
+  <tr><td class="id">6.1</td><td>Helper <code>ensureCalculated()</code></td><td>One function that returns at once when nothing is pending, else (by Q4) asks “Calculate the project first?” or calculates; returns false when the user says No</td><td>R7</td></tr>
+  <tr><td class="id">6.2</td><td>Post family</td><td><code>useTaskPost</code>, <code>useProjectPostActions</code> (post unposted, repost all) call 6.1 before they read dates</td><td>R7</td></tr>
+  <tr><td class="id">6.3</td><td>Cost, versions, subproject</td><td>Update project cost, Save / Restore version, Create subproject call 6.1</td><td>R7</td></tr>
+  <tr><td class="id">6.4</td><td>Exports</td><td>JSON, PDF, MS Project XML call 6.1; the PDF header shows the dates of the calculated plan</td><td>R7</td></tr>
+  <tr><td class="id">6.5</td><td>Network view</td><td>Per Q5: calculate on open, or show the frozen plan with the banner</td><td>R7</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">7.1</td><td>Jest</td><td>Signature, provisional row, derive split, store (edit → pending → Calculate → clear), write-back gating, Post gating, banner and F9 (<code>__tests__/pm/ui</code>); no new failure against the baseline of KNOW_HOW section 5</td><td>R1–R10</td></tr>
+  <tr><td class="id">7.2</td><td>Regression</td><td>With the setting never saved, a recorded session on the demo and the Railway #1 project gives the same dates and the same write-back calls as before the change</td><td>R1</td></tr>
+  <tr><td class="id">7.3</td><td>README and KNOW_HOW</td><td>Section in <code>kit8/pm/README.md</code> (the three layers of 3, the mode, the signature, the forced points); one row in the feature index of <code>KNOW_HOW.md</code></td><td>–</td></tr>
+  <tr><td class="id">7.4</td><td>Acceptance walkthrough in the browser</td><td>Section 7 of this document</td><td>R1–R10</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Analysis</b> – 1.2 (measurement) first; if the numbers show the CPU is not the problem, the text of the Goal and the labels (“Calculate” vs “Apply changes”) are reviewed, the design stays.</li>
+    <li><b>2 Setting and store</b> – needs 1; 2.4 and 2.5 are pure and can be written and tested alone, before any UI.</li>
+    <li><b>3 Calculate and write-back</b> – needs 2.</li>
+    <li><b>4 Display</b> and <b>5 Menus</b> – need 3; independent of each other.</li>
+    <li><b>6 Forced points</b> – needs 3 (the helper) and can go in parallel with 4 and 5.</li>
+    <li><b>7 Quality</b> – last; tests are drafted from step 2 onward.</li>
+  </ol>
+  <p>The feature is independent of the Manually Scheduled Tasks feature (<code>MORE_GANTT_ManuallyScheduledTasks_WBS.html</code>), but the signature should include its two keys when both exist.</p>
+</div>
+
+<h2>7. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>With the mode never changed, nothing is different: same dates, same write-back calls, no new element on the screen.</li>
+    <li>In Manual mode, typing a duration on task A shows A’s new finish; its successors, the stage roll-up, the critical path and the project finish stay; the database dates (<code>startAt</code>, <code>rowDuration</code>) do not change and no posted line or payment is unposted.</li>
+    <li>The banner shows the number of pending edits; adding a link counts one; after <b>Calculate</b> (button or F9) all dates are the same as Automatic mode would have shown, the database has them, and the banner is gone.</li>
+    <li>Post, Update project cost, Save version and the exports never use old dates: with pending edits they calculate (or ask) first.</li>
+    <li>Switching to Automatic calculates first; a reload or project switch shows a calculated plan.</li>
+    <li>Stage and project % in Manual mode equal the database values and change when a leaf % is typed.</li>
+    <li>Names, notes, colors, custom columns, filters, sort, expand / collapse, Kanban and Finances work as before in both modes.</li>
+  </ul>
+</div>
+
+<h2>8. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Proposal</th></tr>
+  <tr><td class="id">Q1</td><td>What is the main reason: speed on big plans, or protection from the cascade (bars jumping, posted lines unposted while editing)?</td><td>The cascade. The benchmark 1.2 settles the speed question before the build starts.</td></tr>
+  <tr><td class="id">Q2</td><td>The mode per user and project (saved in <code>uxuiSettings</code>), or one switch for the whole project?</td><td>Per user and project: no SQL, no effect on others. See 4.6 for the consequence.</td></tr>
+  <tr><td class="id">Q3</td><td>Does Manual mode survive a reload (the mode yes, the pending state no)?</td><td>Yes: the mode is remembered, a load always calculates (R9).</td></tr>
+  <tr><td class="id">Q4</td><td>At a forced point (Post, exports …): ask “Calculate first?” or calculate silently?</td><td>Silently for Post and cost (the user asked for the real plan); ask for versions and exports (“The plan has N edits that are not calculated”).</td></tr>
+  <tr><td class="id">Q5</td><td>Network view while edits are pending: calculate on open, or show the frozen plan with the banner?</td><td>Show the frozen plan with the banner (the same rule as the Gantt).</td></tr>
+  <tr><td class="id">Q6</td><td>A realtime refresh arrives while edits are pending: calculate, or hold the refresh?</td><td>Calculate (a frozen plan on top of someone else’s changes is wrong); the banner then clears.</td></tr>
+  <tr><td class="id">Q7</td><td>Should % complete roll-up stay live in Manual mode (it does in the database)?</td><td>Yes, shown from the stored values; MS Project freezes it, but here the trigger is server-side and cheap.</td></tr>
+</table>
+</div>
+
+<h2>9. Out of scope</h2>
+<div class="card">
+  <ul>
+    <li>“Calculate Now” of only the active project (MS Project Shift+F9) – there is one project on the screen.</li>
+    <li>A project-wide lock that stops the write-back of other users (4.6).</li>
+    <li>Moving the scheduler to the server or to a worker thread.</li>
+    <li>Partial calculation of one branch (“calculate this stage”).</li>
+    <li>Money reports (Monitor01–03, 07): they have their own refresh and are not affected.</li>
+  </ul>
+</div>
+
+<h2>10. Risks</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Risk</th><th>Handling</th></tr>
+  <tr><td class="id">Z1</td><td>Many readers assume that every task has a row in <code>store.schedule</code> (bars, tree, Post, network).</td><td>1.3 lists them; provisional rows (2.5) guarantee a row for every task; tests for a new task and a task from another browser.</td></tr>
+  <tr><td class="id">Z2</td><td>The user forgets to press Calculate and works with old dates.</td><td>Orange banner with the count, marker on the rows, forced calculation at Post / exports (R7), and the calculation on every load (R9).</td></tr>
+  <tr><td class="id">Z3</td><td>The signature misses an input of the scheduler, so a real edit is not counted as pending (or a new feature adds an input later).</td><td>A test builds the signature from the same field list the scheduler reads; a comment in <code>scheduleProject</code> points to <code>calcSignature.ts</code>; the Manually Scheduled Tasks keys are added when they exist.</td></tr>
+  <tr><td class="id">Z4</td><td>A manual-mode client and an automatic client edit the same project (4.6).</td><td>Documented; Q6 rule; the automatic client’s write-back is the existing, correct behavior.</td></tr>
+  <tr><td class="id">Z5</td><td>The write-back fails or the app is closed between the edit and Calculate.</td><td>No data is lost: the edits are saved at once; only the derived dates are old, and the next load calculates and writes them.</td></tr>
+  <tr><td class="id">Z6</td><td>Splitting <code>derive()</code> changes the result of Automatic mode by mistake.</td><td>The comparison test in 2.2 and the regression 7.2.</td></tr>
+</table>
+</div>
+
+<h2>11. Update steps when it is built (preview)</h2>
+<div class="card">
+  <ol>
+    <li>No SQL file has to be run: the mode is a key of <code>uxuiSettings</code> in the existing JSONB; no table, no function, no seed, no pg_cron change.</li>
+    <li>No <code>.env</code> change.</li>
+    <li>Reload the app; Gantt settings → Project → “Calculation: Manual”, edit a duration, press <b>Calculate</b> (or F9).</li>
+  </ol>
+</div>
+
+</main>
+</body>
+</html>

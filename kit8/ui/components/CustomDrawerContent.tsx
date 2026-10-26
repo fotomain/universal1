@@ -4,12 +4,9 @@ import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from 'expo-router/drawer';
 import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
-import { selectIsLoggedIn } from '../../redux/activeUserSlice';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './common/IconApp';
-import LanguageSelectorComponent from './LanguageSelectorComponent';
-import DarkThemeSwitchComponent from './DarkThemeSwitchComponent';
+import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
 
 interface MenuItem {
   id: string;
@@ -31,7 +28,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const pathname = usePathname();
   const { t } = useTranslation();
   const { activeSystem, themeColors, isDark } = useDesignSystem();
-  const isLoggedIn = useSelector(selectIsLoggedIn);
 
   const navigateAndClose = (route: string) => {
     const fullRoute = route.startsWith('/') ? route : `/${route}`;
@@ -175,6 +171,15 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
       ],
     },
+
+    // system settings of the user: how often each screen was opened (kit8/catalog/user/visit)
+    {
+      id: 'systemsettings',
+      label: 'System settings',
+      icon: 'settings_applications',
+      route: '',
+      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }],
+    },
   ];
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----
@@ -232,14 +237,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     ) : (
       renderDrawerItem(item)
     );
-
-  const bottomNavItems: MenuItem[] = [
-    // signed out -> "Sign In"; signed in -> "User Profile"
-    isLoggedIn
-      ? { id: 'userprofile', label: t('menu.userProfile'), icon: 'account_circle', route: 'user/userprofile' }
-      : { id: 'signin', label: t('menu.signIn'), icon: 'login', route: 'user/signin' },
-    { id: 'settings', label: t('menu.settings'), icon: 'settings', route: 'settings' },
-  ];
 
   const renderDrawerItem = (item: MenuItem) => {
     // a group row is "active" (highlighted) only while closed and one of its pages is shown
@@ -415,14 +412,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         {mainNavItems.map(renderNavEntry)}
       </DrawerContentScrollView>
 
-      {/* Bottom section of the left menu */}
-      <View style={[styles.bottomMenuContainer, { borderTopWidth: 1, borderTopColor: themeColors.border }]}>
-        {bottomNavItems.map(renderDrawerItem)}
-        <View style={{ paddingHorizontal: 12, marginVertical: 6 }}>
-          <LanguageSelectorComponent onSelectLanguage={() => navigation.closeDrawer()} />
-        </View>
-        <DarkThemeSwitchComponent testID="darkModeSwitch1" />
-      </View>
+      {/* Pinned bottom section of the left menu: user profile, settings, language, theme */}
+      <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} />
     </View>
   );
 }
@@ -438,9 +429,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     borderRadius: 6,
     borderLeftWidth: 3,
-  },
-  bottomMenuContainer: {
-    paddingBottom: 12,
-    paddingTop: 8,
   },
 });

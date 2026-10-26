@@ -12,6 +12,7 @@ import { useStartVendorInvoice } from '../../../documents/vendor/invoice/useVend
 import { useStartPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 import { useTaskRelatedMenu } from './useTaskRelatedMenu';
+import { openFillFromTemplate, openSaveToTemplate } from '../../tasktemplate/crud/useTaskTemplates';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
@@ -37,6 +38,9 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     { testID: id('add-stage-below'), label: 'Add stage below', icon: 'create_new_folder', onPress: run(() => crud.createStageBelow(guid)) },
     { testID: id('add-stage-above'), label: 'Add stage above', icon: 'drive_folder_upload', onPress: run(() => crud.createStageAbove(guid)) },
     { testID: id('duplicate'), label: 'Duplicate', icon: 'control_point_duplicate', onPress: run(() => crud.duplicateTask(guid)) },
+    // task templates (kit8/pm/tasktemplate, documentation/TASK_TEMPLATE_WBS.html): the row + everything inside it for the whole organization / a template into this row
+    { testID: id('save-to-template'), label: 'Save to template', icon: 'library_add', onPress: run(() => openSaveToTemplate(guid)) },
+    { testID: id('fill-from-template'), label: 'Fill from template', icon: 'content_paste_go', onPress: run(() => openFillFromTemplate(guid)) },
     { testID: id('copy-info'), label: 'Copy task info', icon: 'content_copy', onPress: run(() => crud.copyTaskInfo(guid)) },
     { testID: id('copy-guid'), label: 'Copy GUID', icon: 'fingerprint', onPress: run(() => crud.copyTaskGUID(guid)) },
     { testID: id('share'), label: 'Share task', icon: 'share', onPress: run(() => crud.shareTask(guid)) },

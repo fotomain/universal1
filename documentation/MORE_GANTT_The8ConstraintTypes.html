@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The 8 Constraint Types WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>The 8 Constraint Types – Work Breakdown Structure</h1>
+<p class="sub">Scope: the MS Project <b>Task Information &gt; Advanced &gt; Constraint type</b> with its date, and the project option <b>“Tasks will always honor their constraint dates”</b>, for the Gantt chart of <code>kit8/pm</code>. Item A3 of <code>MORE_GANTT_INPUT.html</code>. Planning document – no implementation, nothing in the code was changed.</p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>MS Project gives every auto-scheduled task one of eight constraints. Together with the links they decide where the task goes, and when the two disagree a warning icon appears and the option “always honor constraint dates” decides who wins.</p>
+  <p>The app has exactly one of them: <i>Start no earlier than</i> (empty = As Soon As Possible), stored in <code>rowJSON.manualStartAt</code>. There is no As Late As Possible, no “Must …”, no “No later than”, no constraint on the finish, and a link that conflicts with the date is not reported. A planner cannot say “this must be finished on 30 June” or “schedule it as late as the successors allow”.</p>
+  <p>This feature adds the other seven types, the conflict warning, the negative slack that goes with it, and the project option that decides who wins.</p>
+</div>
+<div class="callout"><b>Hard constraint:</b> a project that never uses the new types schedules exactly as today. The existing <code>manualStartAt</code> keeps its meaning (Start No Earlier Than); the new UI is behind a project switch that is OFF while never saved.</div>
+
+<h2>2. The 8 types (MS Project behavior and the proposal for the app)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Type</th><th>How it works in MS Project</th><th>Flexibility</th><th>Forward pass (the date <b>D</b>, duration <b>d</b>)</th><th>Backward pass (late dates)</th></tr>
+  <tr><td class="id">1</td><td><b>As Soon As Possible</b> (ASAP)</td><td>Default. Starts as early as the links, the calendar and the project start allow. No date.</td><td>Flexible</td><td><code>es = max(projectStart, links)</code> – as today</td><td>none</td></tr>
+  <tr><td class="id">2</td><td><b>As Late As Possible</b> (ALAP)</td><td>Starts as late as it can without delaying its successors or the project finish. In a project scheduled from the start date it uses the <i>free</i> slack. No date.</td><td>Flexible</td><td>Placed in an extra pass after the others: <code>es = latestFinish − d</code>, where <code>latestFinish</code> = the earliest limit of its successors’ <i>scheduled</i> dates (or the project finish when it has none); reverse topological order, so a chain of ALAP tasks slides together. Never earlier than its ASAP position.</td><td>none</td></tr>
+  <tr><td class="id">3</td><td><b>Must Start On</b> (MSO)</td><td>Start fixed to <b>D</b>; links cannot move it (honor = on).</td><td>Inflexible</td><td><code>es = D</code> (then the calendar rule 4.3)</td><td><code>ls = D</code> → <code>lf = D + d</code></td></tr>
+  <tr><td class="id">4</td><td><b>Must Finish On</b> (MFO)</td><td>Finish fixed to <b>D</b>.</td><td>Inflexible</td><td><code>ef = D</code> → <code>es = D − d</code></td><td><code>lf = D</code></td></tr>
+  <tr><td class="id">5</td><td><b>Start No Earlier Than</b> (SNET)</td><td>Start on or after <b>D</b>; later is allowed.</td><td>Semi-flexible</td><td><code>es = max(links, D)</code> – <b>exists today</b> (<code>manualStartAt</code>)</td><td>none</td></tr>
+  <tr><td class="id">6</td><td><b>Start No Later Than</b> (SNLT)</td><td>Start on or before <b>D</b>; earlier is allowed.</td><td>Semi-flexible</td><td><code>es = links</code> (ASAP); if <code>es &gt; D</code> → conflict (4.2)</td><td><code>lf = min(lf, D + d)</code></td></tr>
+  <tr><td class="id">7</td><td><b>Finish No Earlier Than</b> (FNET)</td><td>Finish on or after <b>D</b>; later is allowed.</td><td>Semi-flexible</td><td><code>es = max(links, D − d)</code></td><td>none</td></tr>
+  <tr><td class="id">8</td><td><b>Finish No Later Than</b> (FNLT)</td><td>Finish on or before <b>D</b>; earlier is allowed.</td><td>Semi-flexible</td><td><code>es = links</code> (ASAP); if <code>ef &gt; D</code> → conflict (4.2)</td><td><code>lf = min(lf, D)</code></td></tr>
+</table>
+</div>
+<p>Dates: <b>D</b> of a start type is the first day of the task; <b>D</b> of a finish type is the <b>last day</b> of the task (inclusive), the same convention as the Finish field of the task window (the scheduler’s <code>finishMs</code> is exclusive: <code>ef = D + 1 day</code>). With hour / minute / second planning the date carries the time, as <code>manualStartAt</code> does today.</p>
+
+<h2>3. Requirements overview</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Note</th></tr>
+  <tr><td class="id">R1</td><td>A project that does not use the feature behaves exactly as before; the existing Start No Earlier Than is unchanged.</td><td>Switch OFF by default; legacy <code>manualStartAt</code> = SNET.</td></tr>
+  <tr><td class="id">R2</td><td>A task or milestone can have one of the eight types; ASAP and ALAP have no date, the six others have one.</td><td>Stages (summary rows) and subproject tasks have none in this version.</td></tr>
+  <tr><td class="id">R3</td><td>The scheduler places the task by the rules of section 2, in the project calendar.</td><td>Forward, backward and ALAP passes.</td></tr>
+  <tr><td class="id">R4</td><td>When a link and a constraint disagree, the task shows a <b>conflict warning</b> with the two dates in its tip.</td><td>Bar, Task name cell, Task information.</td></tr>
+  <tr><td class="id">R5</td><td>The project option “Tasks will always honor their constraint dates” (default <b>on</b>) decides who wins; section 4.2.</td><td>Per project.</td></tr>
+  <tr><td class="id">R6</td><td>A constraint that cannot be met with the option off gives <b>negative slack</b>; such a task is critical.</td><td>Needs a slack value that may be below 0 (4.4).</td></tr>
+  <tr><td class="id">R7</td><td>The type and date are edited in the task window, shown in two optional tree columns and on the bar, and a typed Start in the tree keeps meaning SNET.</td><td>Same two places as today, plus the new block.</td></tr>
+  <tr><td class="id">R8</td><td>Every reader of the schedule honors the constraints: project versions, network view, task and project templates, JSON and MS Project XML export.</td><td>Section 5 lists them.</td></tr>
+  <tr><td class="id">R9</td><td>Turning the switch OFF makes the scheduler ignore the new types (everything but SNET), without deleting them.</td><td>“Hidden is not deleted” (same rule as the cost input switches).</td></tr>
+</table>
+</div>
+
+<h2>4. Proposed model and rules (to confirm)</h2>
+<h3>4.1 Keys</h3>
+<div class="tbl">
+<table>
+  <tr><th>Where</th><th>Key</th><th>Meaning</th></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>taskConstraintType</code></td><td><code>'ASAP' | 'ALAP' | 'MSO' | 'MFO' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT'</code>; absent = derived from the legacy key (below).</td></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>taskConstraintDate</code></td><td>ISO timestamptz of <b>D</b>; absent for ASAP / ALAP.</td></tr>
+  <tr><td><code>project_task_table.rowJSON</code></td><td><code>manualStartAt</code> (existing)</td><td>Mirror of the SNET date. <code>constraintOf(task)</code>: <code>taskConstraintType</code> set → it and <code>taskConstraintDate</code>; else <code>manualStartAt</code> set → SNET; else ASAP. Saving SNET writes both keys; saving any other type removes <code>manualStartAt</code>. So the subproject sync, templates, the MS Project export and old clients keep working.</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>taskConstraintsFunctionalityEnabled</code></td><td>Master switch, OFF while never saved (<code>=== true</code>).</td></tr>
+  <tr><td><code>project_table.rowJSON</code></td><td><code>taskConstraintsAlwaysHonored</code></td><td>The MS Project option. <b>True</b> while never saved (the MS Project default); editable only while the master switch is on.</td></tr>
+  <tr><td><code>PMScheduledRow</code> (client, not stored)</td><td><code>constraintType</code>, <code>constraintConflict</code>, <code>engineStartMs</code>, <code>slackDays</code></td><td>Type used for the row; <code>'none' | 'constraintWins' | 'linkWins'</code>; where the links alone would start the task; slack that may be negative.</td></tr>
+</table>
+</div>
+<p>No new table and no SQL column. The only SQL change is the cleaning function of task templates (work package 7.4).</p>
+
+<h3>4.2 Who wins: the option “always honor constraint dates”</h3>
+<div class="tbl">
+<table>
+  <tr><th>Type</th><th>Option ON (default)</th><th>Option OFF</th></tr>
+  <tr><td>ASAP, ALAP, SNET, FNET</td><td colspan="2">The links can only move the task later, which these types allow: no conflict is possible (an ALAP task simply uses its free slack).</td></tr>
+  <tr><td>MSO, MFO</td><td>The constraint wins: the task sits on <b>D</b> even if a predecessor ends later. <code>constraintConflict = 'constraintWins'</code> when the links would have put it later; the link is drawn but is violated.</td><td>The links win: the task starts at <code>max(D, links)</code>; when the links are later than <b>D</b>, <code>constraintConflict = 'linkWins'</code> and the slack is negative.</td></tr>
+  <tr><td>SNLT, FNLT</td><td>The constraint wins: when the links would start (finish) the task later than <b>D</b>, it is placed at <b>D</b>; <code>'constraintWins'</code>.</td><td>The links win: ASAP position, <code>'linkWins'</code>, negative slack.</td></tr>
+</table>
+</div>
+<p>In both cases the task is critical when its slack is ≤ 0; successors always read the dates that were finally used.</p>
+
+<h3>4.3 Calendar and edge rules</h3>
+<ul>
+  <li>A start <b>D</b> on a non-working day (when the project skips weekends) is moved to the next working day for the placement; the tip says so. Same for the finish types (to the previous working day).</li>
+  <li>A <b>milestone</b> may have any type; its start and finish are the same day, so MSO = MFO there.</li>
+  <li><b>Dependencies on a stage</b> still expand to leaves (existing rule); a constraint on a leaf inside is respected.</li>
+  <li><b>Cycles:</b> unchanged; a constraint never repairs a cycle.</li>
+  <li><b>Project start:</b> a task may be constrained before it (as the SNET can be today only after it); the Gantt time line is widened (risk Z2).</li>
+  <li><b>Subproject tasks and Manually Scheduled tasks</b> ignore the constraint (their dates come from the subproject or from the user; see the two sibling WBS documents); the constraint block is hidden with a reason text.</li>
+</ul>
+
+<h3>4.4 Slack, critical path and the backward pass</h3>
+<p>Today <code>totalFloatDays</code> is clamped to ≥ 0 (<code>Math.max(0, …)</code> in <code>scheduling.ts</code>) and <code>isCritical</code> means float ≤ 0. Negative slack needs a value below zero, but the clamped field is read by <code>networkModel.ts</code> (<code>tfCal</code>), <code>taskShare.ts</code>, <code>PMProjectTaskInfo.tsx</code> and <code>PMTaskEditModal.tsx</code>. Proposal: keep <code>totalFloatDays</code> as it is and add <code>slackDays</code> (can be negative) for the new texts (“slack −3 d”); the critical flag uses it.</p>
+<p>The backward pass keeps its formula and takes the bounds of the table in section 2 as an extra <code>min</code> on the late finish. <b>ALAP</b> is not part of it: it is the extra forward-scheduled pass of section 2 (it uses the successors’ <i>scheduled</i> dates, so free slack, not total slack).</p>
+
+<h3>4.5 What each editing action does</h3>
+<div class="tbl">
+<table>
+  <tr><th>Action</th><th>Result</th></tr>
+  <tr><td>Task window: choose type, then date</td><td>Writes <code>taskConstraintType</code> + <code>taskConstraintDate</code> (and the <code>manualStartAt</code> mirror for SNET); ASAP / ALAP clear the date; one undo step.</td></tr>
+  <tr><td>Inline Start cell in the tree</td><td>As today: sets SNET with the typed date, empty = ASAP. On a task that has another type the cell asks “Replace the constraint <i>Must finish on …</i> by <i>Start no earlier than …</i>?” (Q3).</td></tr>
+  <tr><td>Drag a bar</td><td>As today it writes SNET. On an MSO task the date moves with the bar and stays MSO; on an MFO task the finish date moves and stays MFO; on ALAP / SNLT / FNET / FNLT it becomes SNET (the MS Project result of a drag).</td></tr>
+  <tr><td>Duration, links, indent, move</td><td>Unchanged; the constraint stays and is re-evaluated by the next calculation.</td></tr>
+  <tr><td>Duplicate task / stage</td><td>The copy keeps type and date (as it keeps <code>manualStartAt</code> today).</td></tr>
+  <tr><td>New project from a project template</td><td>The constraint dates are shifted with the new project start (as <code>manualStartAt</code> is); ASAP / ALAP are untouched.</td></tr>
+</table>
+</div>
+
+<h3>4.6 Display</h3>
+<ul>
+  <li><b>Task window</b> (<code>PMTaskEditModal</code>): a block “Constraint” with a list of the eight types (<code>SelectItemFromListApp</code>) and a date field (<code>DateInputApp</code>) that is hidden for ASAP / ALAP; today’s “Start no earlier than” field becomes this block while the switch is on.</li>
+  <li><b>Tree:</b> two optional columns <code>constraintType</code> (“Constraint”) and <code>constraintDate</code> (“Constraint date”), hidden by default, shown only while the switch is on; filter and sort like the other columns. A constraint icon and, on a conflict, a warning icon in the Task name cell (tips: “Must finish on 2026-06-30 · links would finish it on 2026-07-08”).</li>
+  <li><b>Gantt bar:</b> a small mark at the constrained end (lock for the Must types, left / right bracket for the No earlier / No later types, none for ASAP / ALAP and plain SNET), warning triangle on a conflict, critical color on negative slack.</li>
+  <li><b>Task info page, share text, hover tip:</b> “Constraint: Must finish on …” and the slack, instead of “start ≥ …”.</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>WBS</th><th>Work package</th><th>Deliverable / done when</th><th>Covers</th></tr>
+
+  <tr class="group"><td class="id">1</td><td colspan="3">Analysis and decisions</td></tr>
+  <tr><td class="id">1.1</td><td>Owner answers to the questions of section 9</td><td>Q1–Q8 answered; sections 2 and 4 corrected</td><td>R1–R9</td></tr>
+  <tr><td class="id">1.2</td><td>Audit of the slack and of the <code>manualStartAt</code> readers</td><td>Grep of <code>totalFloatDays</code>, <code>isCritical</code>, <code>manualStartAt</code> at the start of the work: each reader marked “unchanged”, “needs <code>constraintOf</code>” or “needs <code>slackDays</code>” (the first list: <code>scheduling.ts</code>, <code>networkModel.ts</code>, <code>taskShare.ts</code>, <code>PMProjectTaskInfo</code>, <code>PMTaskEditModal</code>, <code>useTaskCommands</code>, <code>taskDatesModel</code>, <code>templateApi</code>, <code>msProjectXml</code>, <code>createSubprojectModel</code>, SQL <code>subproject_sync_origin_task</code>)</td><td>R8</td></tr>
+
+  <tr class="group"><td class="id">2</td><td colspan="3">Model and pure helpers</td></tr>
+  <tr><td class="id">2.1</td><td>Types</td><td><code>PMConstraintType</code>, the two task keys, the two project keys in <code>model/types.ts</code>; <code>PMScheduledRow</code> gets <code>constraintType</code>, <code>constraintConflict</code>, <code>engineStartMs</code>, <code>slackDays</code></td><td>R2, R6</td></tr>
+  <tr><td class="id">2.2</td><td><code>model/taskConstraint.ts</code> (pure)</td><td><code>constraintOf(taskJSON, enabled)</code> (legacy rule of 4.1), <code>patchForConstraint(task, type, date)</code> (writes / clears the mirror), <code>constraintReadOnlyReason(task)</code> (stage, subproject, manual), <code>constraintLabel(type)</code>, <code>MSP_CONSTRAINT_TYPE</code> map (ASAP 0, ALAP 1, MSO 2, MFO 3, SNET 4, SNLT 5, FNET 6, FNLT 7); tests</td><td>R1, R2</td></tr>
+  <tr><td class="id">2.3</td><td>Settings keys and organization defaults</td><td>Both project keys handled in the organization’s <code>defaultProjectSettings</code> (Save settings to organization); read as <code>=== true</code> / default true</td><td>R1, R5</td></tr>
+
+  <tr class="group"><td class="id">3</td><td colspan="3">Scheduler (<code>view/project/scheduling.ts</code>)</td></tr>
+  <tr><td class="id">3.1</td><td>Inputs</td><td><code>scheduleProject({ …, constraintsEnabled, constraintsAlwaysHonored })</code>; <code>storeDerive.derive()</code> and <code>scheduleVersion()</code> pass the project’s values</td><td>R1, R8, R9</td></tr>
+  <tr><td class="id">3.2</td><td>Forward pass</td><td>The forward rules of section 2 and the option table of 4.2 inside the existing loop; the SNET branch is byte-for-byte the current code; calendar rules of 4.3</td><td>R3, R5</td></tr>
+  <tr><td class="id">3.3</td><td>Backward pass and slack</td><td>The late-finish bounds of section 2; <code>slackDays</code> may be negative; critical = slack ≤ 0; stage roll-up takes the minimum</td><td>R6</td></tr>
+  <tr><td class="id">3.4</td><td>ALAP pass</td><td>After the forward pass, in reverse topological order: <code>es = latestFinish − d</code> from the successors’ scheduled dates (project finish when none), never before the ASAP position; successors are not moved; test: a chain of two ALAP tasks, an ALAP task with no successor, an ALAP task before an MSO task</td><td>R3</td></tr>
+  <tr><td class="id">3.5</td><td>Conflict flag</td><td><code>constraintConflict</code> and <code>engineStartMs</code> filled by comparing the constrained result with the links-only result; stages roll up “a child has a conflict”</td><td>R4</td></tr>
+  <tr><td class="id">3.6</td><td>Unit tests <code>__tests__/pm/view/project/scheduling.test.ts</code></td><td>A table-driven test: 8 types × predecessor early / on time / late × option on / off, with the expected start, finish, conflict and slack; milestone; non-working-day <b>D</b>; subproject and manual task ignore the type; switch OFF = old results; project without keys = snapshot of an existing plan</td><td>R1–R6, R9</td></tr>
+
+  <tr class="group"><td class="id">4</td><td colspan="3">Commands (<code>crud/task/useTaskCommands.ts</code>)</td></tr>
+  <tr><td class="id">4.1</td><td><code>setConstraint(guid, type, date)</code></td><td>Uses <code>patchForConstraint</code>; one undo step “Constraint of …”; refuses a stage / subproject / manual task with the reason</td><td>R2, R7</td></tr>
+  <tr><td class="id">4.2</td><td>Inline Start cell and bar drag</td><td><code>setStartConstraint</code> keeps its SNET meaning and asks before it replaces another type; <code>applyBarEdit</code> follows the table of 4.5</td><td>R7</td></tr>
+  <tr><td class="id">4.3</td><td>Switch OFF</td><td>Turning the master switch off asks first (“N tasks have constraints other than Start No Earlier Than; they are ignored until you turn it on again”); nothing is deleted</td><td>R9</td></tr>
+
+  <tr class="group"><td class="id">5</td><td colspan="3">Task window, tree and chart</td></tr>
+  <tr><td class="id">5.1</td><td>Task window block</td><td>Type list + date field in <code>PMTaskEditModal</code>; labels and tips for the 8 types; validation (date required for the six dated types); <code>taskDatesModel.ts</code> keeps its Start / Finish patches consistent with the constraint</td><td>R7</td></tr>
+  <tr><td class="id">5.2</td><td>Tree columns</td><td><code>constraintType</code>, <code>constraintDate</code> in <code>treeColumns.ts</code> (key, title, width, hide order, normalizers, not in the default order); cells editable like the Start cell; filter variants (is one of the types)</td><td>R7</td></tr>
+  <tr><td class="id">5.3</td><td>Indicators</td><td>Constraint icon and conflict icon in the Task name cell; marks and warning triangle on the bar (light and dark palette in <code>view/theme.ts</code>); tip texts with the two dates</td><td>R4, R7</td></tr>
+  <tr><td class="id">5.4</td><td>Task info, share text, hover</td><td><code>PMProjectTaskInfo</code>, <code>taskShare.ts</code>, the bar hover tip: constraint text and slack (negative allowed)</td><td>R4, R6</td></tr>
+  <tr><td class="id">5.5</td><td>Row menu</td><td>Submenu “Constraint” in <code>PMTaskRowMenu</code> (tree and bar): ASAP, ALAP, and “Must start on this task’s start” / “Must finish on this task’s finish” as quick actions; “Other…” opens the task window on the block</td><td>R7</td></tr>
+
+  <tr class="group"><td class="id">6</td><td colspan="3">Project settings</td></tr>
+  <tr><td class="id">6.1</td><td>Switches</td><td>Project settings → Main → “Scheduling” block: <b>Task constraints</b> (master) and under it <b>Tasks will always honor their constraint dates</b> (the MS Project wording); texts through <code>pmT</code> (placeholder <code>{{n}}</code>)</td><td>R5</td></tr>
+  <tr><td class="id">6.2</td><td>Search entries</td><td><code>view/gantt/settings/uxuiSettingsIndex.ts</code> entries so the settings search finds both</td><td>R5</td></tr>
+
+  <tr class="group"><td class="id">7</td><td colspan="3">Other readers of the schedule</td></tr>
+  <tr><td class="id">7.1</td><td>Project versions</td><td><code>scheduleVersion()</code> uses the version’s own constraints and switches; a <code>versionCompare</code> test with an MSO task</td><td>R8</td></tr>
+  <tr><td class="id">7.2</td><td>Network view</td><td><code>networkModel.ts</code>: a task with negative slack is drawn critical; the info card shows the constraint and the slack</td><td>R6, R8</td></tr>
+  <tr><td class="id">7.3</td><td>Project templates</td><td><code>templateApi.ts</code> shifts <code>taskConstraintDate</code> with <code>manualStartAt</code> and <code>startAt</code></td><td>R8</td></tr>
+  <tr><td class="id">7.4</td><td>Task templates (SQL)</td><td><code>task_template_clean_task</code> in <code>start2_sql_code.sql</code> also removes <code>taskConstraintDate</code> (the type is kept; a dated type without date is read as ASAP); <code>tests/98_task_template.sql</code> extended; run <code>test_fact_monitor01.sh 98</code> and <code>test_sql.sh</code> before handing the SQL over</td><td>R8</td></tr>
+  <tr><td class="id">7.5</td><td>MS Project XML export</td><td><code>msProjectXml.ts</code>: <code>ConstraintType</code> and <code>ConstraintDate</code> for all eight types (today only 4); for a finish type the date is the finish at 17:00; test in <code>msProjectXml.test.ts</code>; the file is opened in MS Project once to check the dates</td><td>R8</td></tr>
+  <tr><td class="id">7.6</td><td>Subproject sync, JSON export / import, duplicate, calendar sync, Post</td><td>Checked, no change expected: <code>subproject_sync_origin_task</code> keeps writing <code>manualStartAt</code> for an origin task, which the scheduler ignores for the type (4.3); the keys travel in <code>rowJSON</code>; Post and the user calendar read the written dates. A test exports and imports a project with all eight types</td><td>R8</td></tr>
+
+  <tr class="group"><td class="id">8</td><td colspan="3">Quality and rollout</td></tr>
+  <tr><td class="id">8.1</td><td>Jest</td><td>Model (2.2), scheduler (3.6), commands (4.x), task window block, tree columns, indicators (<code>__tests__/pm/ui</code>), export; no new failure against the baseline of KNOW_HOW section 5</td><td>R1–R9</td></tr>
+  <tr><td class="id">8.2</td><td>Regression</td><td>With the switch OFF, and with it ON but no new type used, the demo and Railway #1 projects give the same dates and slack as before</td><td>R1</td></tr>
+  <tr><td class="id">8.3</td><td>README and KNOW_HOW</td><td>Section “Constraints” in <code>kit8/pm/README.md</code> (the table of section 2, the option table, the meaning of <code>manualStartAt</code>); one row in the feature index of <code>KNOW_HOW.md</code></td><td>–</td></tr>
+  <tr><td class="id">8.4</td><td>Acceptance walkthrough in the browser</td><td>Section 7 of this document</td><td>R1–R9</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence and dependencies</h2>
+<div class="card">
+  <ol>
+    <li><b>1 Decisions and audit</b> – before code.</li>
+    <li><b>2 Model</b> – blocks everything.</li>
+    <li><b>3 Scheduler with its tests</b> – needs 2; can be finished and proved alone, no UI. 3.4 (ALAP) is the hardest package and is tested on its own first.</li>
+    <li><b>4 Commands</b> – needs 2.</li>
+    <li><b>5 UI</b> and <b>6 Settings</b> – need 4; independent of each other. 6 first if the UI is to be tried early (nothing shows while the switch is off).</li>
+    <li><b>7 Other readers</b> – 7.1, 7.3 after 3; 7.4 and 7.5 independent (7.4 is the only SQL).</li>
+    <li><b>8 Quality</b> – last; the scheduler table test is drafted from step 2.</li>
+  </ol>
+  <p>Related, built separately: <i>Manually Scheduled Tasks</i> (<code>MORE_GANTT_ManuallyScheduledTasks_WBS.html</code>) ignores constraints; the <i>Deadline date</i> (A5 of <code>MORE_GANTT_INPUT.html</code>) can reuse the conflict marker and <code>slackDays</code> built here; the <i>indicators column</i> (E11) can later take over the icons of 5.3.</p>
+</div>
+
+<h2>7. Acceptance criteria</h2>
+<div class="card">
+  <ul>
+    <li>With the switch off, or on and no new type used, dates, slack and critical path are as before and nothing new is written.</li>
+    <li>Each of the eight types places a task as in section 2: ASAP at the earliest, ALAP at its free latest without moving a successor, MSO / MFO on the date, SNET / FNET not earlier, SNLT / FNLT not later when the links allow.</li>
+    <li>With the option ON an MSO task stays on its date although its predecessor ends later; the warning shows both dates; the predecessor’s link is drawn and still moves tasks that are not constrained.</li>
+    <li>With the option OFF the same plan starts the MSO task after its predecessor, the slack is negative, the task is critical and the warning says that the link won.</li>
+    <li>A typed Start in the tree still gives Start No Earlier Than; a dragged auto bar still gives it; an old project reads all its <code>manualStartAt</code> values as SNET without a migration.</li>
+    <li>A stage, a subproject task and a manually scheduled task cannot take a type and say why.</li>
+    <li>Turning the master switch off asks when other types exist and ignores them; turning it on restores them.</li>
+    <li>A version, a project from a template, a task template, a JSON export / import and the MS Project XML keep type and date (the template: shifted / cleaned as 7.3 / 7.4 say).</li>
+  </ul>
+</div>
+
+<h2>8. Out of scope</h2>
+<div class="card">
+  <ul>
+    <li>Constraints on <b>summary tasks</b> (MS Project applies them to the summary bar and warns about the children) – later, together with manual summary tasks.</li>
+    <li>The <b>deadline date</b> (A5): a marker that never moves a task.</li>
+    <li>Task calendars, resource leveling and the status date; they are other items of <code>MORE_GANTT_INPUT.html</code>.</li>
+    <li>The Planning-Wizard-style dialogs of MS Project that ask before a drag breaks a constraint (the warning icon replaces them).</li>
+    <li>Money plans: Time, Material and Expense lines follow the dates of the task as today.</li>
+  </ul>
+</div>
+
+<h2>9. Questions for the owner (the answers change the design)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Proposal</th></tr>
+  <tr><td class="id">Q1</td><td>Master switch per project, OFF by default, or always on?</td><td>Per project, OFF by default; organization default through “Save settings to organization”.</td></tr>
+  <tr><td class="id">Q2</td><td>Default of “always honor constraint dates”?</td><td>On (the MS Project default): a Must date is a promise that the plan keeps; off shows what the links would really do.</td></tr>
+  <tr><td class="id">Q3</td><td>A bar drag or a typed Start on a task with another type: replace it by SNET silently, ask, or keep the type?</td><td>Drag: MSO / MFO move their date, the others become SNET (section 4.5). Typed Start: ask before it replaces a type.</td></tr>
+  <tr><td class="id">Q4</td><td>Every dragged task already holds an SNET: show its constraint icon too?</td><td>No – the icon only for the other seven types and for conflicts; the Constraint columns still show SNET.</td></tr>
+  <tr><td class="id">Q5</td><td>Negative slack: a new field <code>slackDays</code> next to the clamped <code>totalFloatDays</code>, or let <code>totalFloatDays</code> go below zero?</td><td>New field; the existing readers (network view, share text) stay valid.</td></tr>
+  <tr><td class="id">Q6</td><td>ALAP = free slack (as in MS Project for a forward-scheduled project) – accepted?</td><td>Yes. Total-slack ALAP would delay successors’ early dates.</td></tr>
+  <tr><td class="id">Q7</td><td>A date on a non-working day: move to the next working day with a tip, or refuse the input?</td><td>Move and say so in the tip.</td></tr>
+  <tr><td class="id">Q8</td><td>The constraint block replaces the “Start no earlier than” field of the task window while the switch is on – ok, or a second field?</td><td>Replace; the Start cell of the tree keeps its shortcut meaning.</td></tr>
+</table>
+</div>
+
+<h2>10. Risks</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Risk</th><th>Handling</th></tr>
+  <tr><td class="id">Z1</td><td>The ALAP pass changes dates of tasks that today are at their earliest; successors could end up violated by a wrong limit.</td><td>3.4 uses the successors’ <i>scheduled</i> dates and never moves a successor; the table test has a chain case and a check that the project finish does not change.</td></tr>
+  <tr><td class="id">Z2</td><td>A date before the project start (or far after the finish) breaks the time-line range and “Fit to screen”.</td><td>Check how <code>PMGanttSurface</code> takes the range; widen it by the earliest / latest constraint date; test one year before the start.</td></tr>
+  <tr><td class="id">Z3</td><td>Two sources for SNET (<code>manualStartAt</code> and <code>taskConstraintType</code>) drift apart.</td><td>One writer (<code>patchForConstraint</code>), one reader (<code>constraintOf</code>), a test that no command writes <code>manualStartAt</code> alone while the switch is on.</td></tr>
+  <tr><td class="id">Z4</td><td>Negative slack reaches code that assumes ≥ 0 (<code>critical (0 d)</code> texts, network view).</td><td>The audit 1.2 and the separate field of Q5.</td></tr>
+  <tr><td class="id">Z5</td><td>A Must date makes the written dates differ from what the links give, so the plan is “wrong” by design after a late predecessor; Post unposts lines as the written day changes.</td><td>Only the existing unpost-on-date-change rule; the warning icon is the user’s signal; documented in the README (8.3).</td></tr>
+  <tr><td class="id">Z6</td><td>The MS Project export of finish constraints gives other dates than MS Project would compute (working hours 08:00–17:00 in the export calendar).</td><td>7.5 opens the file in MS Project once; the date of a finish type is exported at 17:00.</td></tr>
+</table>
+</div>
+
+<h2>11. Update steps when it is built (preview)</h2>
+<div class="card">
+  <ol>
+    <li>Run <code>start2_sql_code.sql</code> in the Supabase SQL Editor (only the cleaning function of task templates changes; no table, no seed, no pg_cron).</li>
+    <li>No <code>.env</code> change; restart Expo with a cleared cache.</li>
+    <li>Project settings → Main → Scheduling → turn on “Task constraints”; open a task → Constraint → “Must finish on” and a date.</li>
+  </ol>
+</div>
+
+</main>
+</body>
+</html>

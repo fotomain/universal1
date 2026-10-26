@@ -2,6 +2,7 @@
 // organization screens' realtime channel (useRealtimeEntity) is not touched. Used by the Project settings window:
 //   defaults  = organizationTable.rowJSON.defaultProjectSettings (null while never saved) - a NEW project starts from them
 //   saveDefaultProjectSettings(settings) - "Save settings to organization": merges them into the CURRENT rowJSON of the row (no other key is lost).
+//   numberOfVisitsEnabled = the Organization switch numberOfVisitsFunctionalityEnabled (true unless stored false): kit8/catalog/user/visit
 //   Only the administrator (the creator) can change an organization: the database policy refuses anybody else (no row comes back = "not allowed").
 // Without a Supabase provider or a signed-in user the hook is idle (screens and tests without them keep working).
 import { useCallback } from 'react';
@@ -10,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '../../providers/WithSupabase';
 import { selectUserOrganizationGUID } from '../../redux/activeUserSlice';
 import { organizationTable, type OrganizationRowJSON } from './organizationModel';
+import { numberOfVisitsEnabledOf } from '../user/visit/routeVisitModel';
 import {
   DEFAULT_PROJECT_SETTINGS_KEY,
   defaultProjectSettingsOf,
@@ -68,5 +70,7 @@ export function useMyOrganization() {
     [client, organizationGUID, qc, readRow],
   );
 
-  return { organizationGUID, defaults, loaded: query.isSuccess, saveDefaultProjectSettings };
+  const numberOfVisitsEnabled = numberOfVisitsEnabledOf(query.data?.rowJSON);
+
+  return { organizationGUID, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, saveDefaultProjectSettings };
 }
