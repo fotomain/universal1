@@ -185,9 +185,9 @@ describe('Project settings window TopTabs', () => {
     expect(q('pm-project-tab-TabBudgets')).not.toBeNull();
     expect(q('pm-project-tab-TabUXUI')).not.toBeNull();
     expect(q('pm-project-tab-TabPartners')).not.toBeNull();
-    // TabBudgets comes right after TabMain
+    // TabGantt comes right after TabMain, then TabBudgets
     const tabIds = Array.from(q('pm-project-settings-toptabs')!.querySelectorAll('[data-testid^="pm-project-tab-"]')).map((e: any) => e.getAttribute('data-testid'));
-    expect(tabIds.slice(0, 2)).toEqual(['pm-project-tab-TabMain', 'pm-project-tab-TabBudgets']);
+    expect(tabIds.slice(0, 3)).toEqual(['pm-project-tab-TabMain', 'pm-project-tab-TabGantt', 'pm-project-tab-TabBudgets']);
     expect(q('pm-project-tab-TabKanban')).not.toBeNull();
 
     // Default tab is TabMain

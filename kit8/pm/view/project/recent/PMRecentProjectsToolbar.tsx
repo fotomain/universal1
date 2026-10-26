@@ -770,10 +770,11 @@ export default function PMRecentProjectsToolbar({
                 </Pressable>
               </View>
 
-              {/* TopTabs Bar: TabMain, TabBudgets, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabROI, TabUXUI, TabGantt, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabGantt, TabBudgets, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabROI, TabUXUI, TabPartners, TabKanban */}
               <ScrollableTabBar testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
+                  { id: 'TabGantt' as const, label: 'Gantt', icon: 'view_timeline' },
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
                   { id: 'TabPayments' as const, label: 'Payments', icon: 'account_balance_wallet' },
                   { id: 'TabVendor' as const, label: 'Vendor', icon: 'receipt_long' },
@@ -782,7 +783,6 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabSubprojects' as const, label: 'Subprojects', icon: 'account_tree' },
                   { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
-                  { id: 'TabGantt' as const, label: 'Gantt', icon: 'view_timeline' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
                 ].map((tab) => {
@@ -936,7 +936,7 @@ export default function PMRecentProjectsToolbar({
                 )}
 
                 {activeTab === 'TabGantt' && (
-                  <PMProjectGanttTab values={{ ...(projectsById[draft?.rowGUID ?? ''] ? projectsById[draft!.rowGUID!].rowJSON : {}), ...(draft || {}) } as any} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                  <PMProjectGanttTab values={{ ...(projectsById[draft?.rowGUID ?? ''] ? projectsById[draft!.rowGUID!].rowJSON : {}), ...(draft || {}) } as any} onChange={(patch: any) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabROI' && (
